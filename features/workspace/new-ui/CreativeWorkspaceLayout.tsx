@@ -58,7 +58,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
     format: 'GLB',
     shapes: (job as any).result?.shapes || [],
     color: '#1C1C1C',
-    accentColor: '#F5A623',
+    accentColor: 'hsl(var(--primary))',
     isFavorite: false,
   }));
 
@@ -70,22 +70,24 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
     format: 'GLB',
     shapes: job.result?.shapes || [],
     color: '#1C1C1C',
-    accentColor: '#F5A623',
+    accentColor: 'hsl(var(--primary))',
     isFavorite: job.is_favorite || false,
   }));
 
   const [localDeletions, setLocalDeletions] = useState<Set<string>>(new Set());
 
-  const history = [...mappedRealHistory, ...backendMappedHistory].filter(
-    (item) => !localDeletions.has(item.id)
-  );
+  const history: HistoryItem[] | null = historyLoading
+    ? null
+    : [...mappedRealHistory, ...backendMappedHistory].filter(
+        (item) => !localDeletions.has(item.id)
+      );
 
   const [activeModel, setActiveModel] = useState<any>({
     name: 'Untitled Model',
     prompt: '',
     shapes: [],
     themeColor: '#1C1C1C',
-    accentColor: '#F5A623',
+    accentColor: 'hsl(var(--primary))',
     description: 'No model loaded.',
     promptDescription: '',
     complexity: 'N/A',
@@ -182,19 +184,19 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
   ].filter(item => item.visible);
 
   return (
-    <div className="flex flex-1 min-h-0 bg-[#09090B] text-white" id="creative-layout-container">
+    <div className="flex flex-1 min-h-0 bg-[hsl(var(--surface-0))] text-white" id="creative-layout-container">
       {/* Sidebar panel */}
-      <aside className="w-[220px] lg:w-[260px] bg-[#111116] border-r border-[#1E1E26] p-4 flex flex-col justify-between flex-shrink-0" id="creative-sidebar">
+      <aside className="w-[220px] lg:w-[260px] bg-[hsl(var(--surface-1))] border-r border-[hsl(var(--border))] p-4 flex flex-col justify-between flex-shrink-0" id="creative-sidebar">
         <div className="flex flex-col gap-5">
           {/* Brand header */}
           <div className="flex flex-col px-3" id="creative-logo-header">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Sparkles size={22} className="text-[#F5A623] stroke-[2.5]" />
+                <Sparkles size={22} className="text-[hsl(var(--primary))] stroke-[2.5]" />
                 <span className="text-lg font-black tracking-tight uppercase">AI 3D Studio</span>
               </div>
             </div>
-            <span className="text-[9px] font-bold font-mono text-[#52525B] tracking-widest uppercase mt-1 pl-0.5">
+            <span className="text-[9px] font-bold font-mono text-[hsl(var(--muted-foreground))] tracking-widest uppercase mt-1 pl-0.5">
               AI Creative Studio
             </span>
           </div>
@@ -210,12 +212,12 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
                   onClick={() => setActiveSidebarItem(item.label)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left border ${
                     isActive
-                      ? 'text-[#F5A623] bg-[#F5A623]/5 border-[#F5A623]/25 shadow-sm'
-                      : 'text-[#A1A1AA] hover:text-white hover:bg-white/[0.02] border-transparent'
+                      ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 border-[hsl(var(--primary))]/25 shadow-sm'
+                      : 'text-[hsl(var(--muted-foreground))] hover:text-white hover:bg-white/[0.02] border-transparent'
                   }`}
                   id={`sidebar-nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
                 >
-                  <Icon size={15} className={isActive ? 'text-[#F5A623]' : 'text-[#71717A]'} />
+                  <Icon size={15} className={isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'} />
                   <span>{item.label}</span>
                 </button>
               );
@@ -224,8 +226,8 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
         </div>
 
         {/* Footer controls */}
-        <div className="pt-4 border-t border-[#1E1E26] flex flex-col gap-2" id="creative-sidebar-footer">
-          <button className="flex items-center gap-3 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-[#71717A] hover:text-[#A1A1AA] transition-all text-left" id="help-docs-btn">
+        <div className="pt-4 border-t border-[hsl(var(--border))] flex flex-col gap-2" id="creative-sidebar-footer">
+          <button className="flex items-center gap-3 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--muted-foreground))] transition-all text-left" id="help-docs-btn">
             <HelpCircle size={14} />
             <span>Help & Docs</span>
           </button>
@@ -237,10 +239,10 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
       </aside>
 
       {/* Main viewport panels */}
-      <main className="flex-1 flex flex-col bg-[#09090C] overflow-hidden" id="creative-main-viewport">
+      <main className="flex-1 flex flex-col bg-[hsl(var(--surface-0))] overflow-hidden" id="creative-main-viewport">
         {activeSidebarItem === 'Workspace' && (
           <WorkspaceTab
-            history={history}
+            history={history ?? []}
             onLoadProject={loadHistoryItem}
             onNavigate={setActiveSidebarItem}
           />
@@ -280,7 +282,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
 
         {activeSidebarItem === 'My Assets' && (
           <MyAssetsTab
-            history={history}
+            history={history ?? []}
             onLoadProject={loadHistoryItem}
             onDeleteProject={deleteHistoryItem}
             onToggleFavorite={toggleFavoriteItem}
@@ -294,7 +296,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
 
         {activeSidebarItem === 'Favorites' && (
           <FavoritesTab
-            history={history}
+            history={history ?? []}
             onLoadProject={loadHistoryItem}
             onRemoveFavorite={toggleFavoriteItem}
             onDeleteProject={deleteHistoryItem}

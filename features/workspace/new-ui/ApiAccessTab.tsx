@@ -75,19 +75,19 @@ print(f"Model generated: {response.glb_url}")`,
       {/* Left Column: API key and Usage Statistics */}
       <div className="flex-1 flex flex-col gap-5 min-w-0" id="api-left-panel">
         {/* Secret Key Panel */}
-        <div className="bg-[#111116] border border-[#1E1E26] rounded-2xl p-5 flex flex-col gap-4" id="api-key-box">
+        <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-4" id="api-key-box">
           <div>
             <h2 className="text-sm font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
               <Key size={16} className="text-[#FF5A1F]" />
               Developer API Access Key
             </h2>
-            <p className="text-xs text-[#71717A] mt-1">
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
               Use this secret credential to authenticate your custom applications and pipelines with our 3D synthesis APIs.
             </p>
           </div>
 
           <div className="flex items-center gap-3 bg-[#18181F] border border-[#27272A] rounded-xl p-3" id="api-key-input-wrapper">
-            <span className="font-mono text-xs text-[#71717A] select-all flex-1 truncate">
+            <span className="font-mono text-xs text-[hsl(var(--muted-foreground))] select-all flex-1 truncate">
               {showKey ? apiKey : '•••••••••••••••••••••••••••••••••••••••••••••••••'}
             </span>
             <div className="flex gap-2" id="key-actions">
@@ -110,7 +110,7 @@ print(f"Model generated: {response.glb_url}")`,
           </div>
 
           <div className="flex justify-between items-center" id="api-key-footer">
-            <span className="text-[10px] text-[#71717A]">Created on Dec 15, 2025</span>
+            <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Created on Dec 15, 2025</span>
             <button
               onClick={handleRegenerate}
               className="text-xs font-bold text-[#FF5A1F] hover:underline"
@@ -122,14 +122,14 @@ print(f"Model generated: {response.glb_url}")`,
         </div>
 
         {/* API Usage & Analytics (Custom SVG Chart) */}
-        <div className="bg-[#111116] border border-[#1E1E26] rounded-2xl p-5 flex flex-col gap-4" id="api-analytics-box">
+        <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-4" id="api-analytics-box">
           <div className="flex justify-between items-center flex-wrap gap-2" id="analytics-header">
             <div>
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <Activity size={16} className="text-[#FF5A1F]" />
                 API Generation Volume
               </h3>
-              <p className="text-xs text-[#71717A] mt-0.5">Synthesized mesh API calls over the last 7 days</p>
+              <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">Synthesized mesh API calls over the last 7 days</p>
             </div>
 
             <div className="flex items-center gap-1.5 bg-[#18181F] border border-[#27272A] px-2.5 py-1 rounded-lg" id="analytics-active-calls">
@@ -175,7 +175,7 @@ print(f"Model generated: {response.glb_url}")`,
             </svg>
 
             {/* X Axis labels */}
-            <div className="flex justify-between items-center text-[9px] font-mono text-[#71717A] mt-2 border-t border-white/[0.03] pt-2" id="chart-x-axis">
+            <div className="flex justify-between items-center text-[9px] font-mono text-[hsl(var(--muted-foreground))] mt-2 border-t border-white/[0.03] pt-2" id="chart-x-axis">
               <span>Mon</span>
               <span>Tue</span>
               <span>Wed</span>
@@ -198,9 +198,9 @@ print(f"Model generated: {response.glb_url}")`,
           ].map((stat, i) => {
             const Icon = stat.icon;
             return (
-              <div key={i} className="bg-[#111116] border border-[#1E1E26] rounded-xl p-3.5 flex items-center justify-between" id={`api-metric-item-${i}`}>
+              <div key={i} className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-xl p-3.5 flex items-center justify-between" id={`api-metric-item-${i}`}>
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-[10px] text-[#71717A] font-semibold uppercase tracking-wider">{stat.label}</span>
+                  <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-semibold uppercase tracking-wider">{stat.label}</span>
                   <span className="text-sm font-mono font-bold text-white">{stat.value}</span>
                 </div>
                 <Icon size={16} className="text-[#FF5A1F]" />
@@ -210,7 +210,7 @@ print(f"Model generated: {response.glb_url}")`,
         </div>
 
         {/* Code snippet panel */}
-        <div className="bg-[#111116] border border-[#1E1E26] rounded-2xl p-5 flex flex-col gap-4 flex-1" id="api-playground">
+        <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-4 flex-1" id="api-playground">
           <div className="flex justify-between items-center" id="playground-header">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
               <Code size={14} className="text-[#FF5A1F]" />
@@ -225,7 +225,7 @@ print(f"Model generated: {response.glb_url}")`,
                   className={`px-2 py-1 rounded text-[9px] font-mono font-bold transition-all ${
                     activeCodeLang === lang
                       ? 'bg-[#FF5A1F] text-black'
-                      : 'text-[#A1A1AA] hover:text-white'
+                      : 'text-[hsl(var(--muted-foreground))] hover:text-white'
                   }`}
                   id={`code-lang-btn-${lang}`}
                 >
@@ -236,7 +236,7 @@ print(f"Model generated: {response.glb_url}")`,
           </div>
 
           <div className="flex-1 relative bg-[#18181F] border border-[#27272A] rounded-xl p-3 overflow-hidden flex flex-col justify-between" id="playground-code-window">
-            <pre className="text-[10px] font-mono text-[#A1A1AA] leading-relaxed whitespace-pre-wrap overflow-y-auto max-h-[220px]">
+            <pre className="text-[10px] font-mono text-[hsl(var(--muted-foreground))] leading-relaxed whitespace-pre-wrap overflow-y-auto max-h-[220px]">
               {codeSnippets[activeCodeLang]}
             </pre>
 
@@ -244,7 +244,7 @@ print(f"Model generated: {response.glb_url}")`,
               onClick={() => {
                 navigator.clipboard.writeText(codeSnippets[activeCodeLang]);
               }}
-              className="absolute top-2.5 right-2.5 p-1.5 rounded-lg bg-black/60 hover:bg-black border border-white/[0.04] text-xs text-[#71717A] hover:text-white transition-all flex items-center justify-center"
+              className="absolute top-2.5 right-2.5 p-1.5 rounded-lg bg-black/60 hover:bg-black border border-white/[0.04] text-xs text-[hsl(var(--muted-foreground))] hover:text-white transition-all flex items-center justify-center"
               title="Copy code snippet"
               id="copy-snippet-btn"
             >

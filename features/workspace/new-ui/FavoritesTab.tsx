@@ -31,7 +31,7 @@ export default function FavoritesTab({
           <Heart size={20} className="text-rose-500 fill-rose-500" />
           Your Favorite Creations
         </h2>
-        <p className="text-xs text-[#71717A] mt-1">
+        <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
           A filtered view of your highest rated 3D models. Click any model to load it inside the workspace render stage!
         </p>
       </div>
@@ -42,7 +42,7 @@ export default function FavoritesTab({
           <div
             key={item.id}
             onClick={() => onLoadProject(item)}
-            className="group bg-[#111116] border border-[#1E1E26] hover:border-rose-500/30 rounded-2xl p-3 flex flex-col gap-3 cursor-pointer transition-all hover:scale-[1.01]"
+            className="group bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] hover:border-rose-500/30 rounded-2xl p-3 flex flex-col gap-3 cursor-pointer transition-all hover:scale-[1.01]"
             id={`favorite-card-${item.id}`}
           >
             {/* Visual Box */}
@@ -63,7 +63,7 @@ export default function FavoritesTab({
                 </button>
                 <button
                   onClick={(e) => onDeleteProject(e, item.id)}
-                  className="p-2 rounded-lg bg-black/85 hover:bg-red-950 text-xs text-[#71717A] hover:text-red-400 transition-all"
+                  className="p-2 rounded-lg bg-black/85 hover:bg-red-950 text-xs text-[hsl(var(--muted-foreground))] hover:text-red-400 transition-all"
                   title="Delete creation"
                   id={`del-fav-btn-${item.id}`}
                 >
@@ -84,11 +84,11 @@ export default function FavoritesTab({
               <span className="text-xs font-bold text-white group-hover:text-[#FF5A1F] transition-colors truncate">
                 {item.name}
               </span>
-              <p className="text-[10px] text-[#71717A] line-clamp-1 truncate">
+              <p className="text-[10px] text-[hsl(var(--muted-foreground))] line-clamp-1 truncate">
                 {item.prompt}
               </p>
               
-              <div className="flex items-center justify-between text-[10px] text-[#71717A] font-mono mt-2 pt-2 border-t border-white/[0.03]">
+              <div className="flex items-center justify-between text-[10px] text-[hsl(var(--muted-foreground))] font-mono mt-2 pt-2 border-t border-white/[0.03]">
                 <span>🕒 {item.timestamp}</span>
                 <span className="text-rose-500 font-sans font-bold flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   Load <Play size={8} />
@@ -99,7 +99,7 @@ export default function FavoritesTab({
         ))}
 
         {favoriteItems.length === 0 && (
-          <div className="col-span-full bg-[#111116] border border-dashed border-[#1E1E26] rounded-2xl p-12 text-center flex flex-col items-center justify-center text-[#71717A]" id="favorites-empty-placeholder">
+          <div className="col-span-full bg-[hsl(var(--surface-1))] border border-dashed border-[hsl(var(--border))] rounded-2xl p-12 text-center flex flex-col items-center justify-center text-[hsl(var(--muted-foreground))]" id="favorites-empty-placeholder">
             <Heart size={40} className="text-[#27272A] mb-3" />
             <p className="text-xs font-semibold text-[#FAFAFA]">No favorites saved yet</p>
             <p className="text-[10px] mt-1">To add models here, click the heart icon on any generated item card in history grids.</p>

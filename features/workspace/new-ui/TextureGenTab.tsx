@@ -129,7 +129,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
               pollRef.current = null;
               setSuccessResult({
                 texturesDescription: `${resolution} textures baked for prompt: "${texturePrompt}"`,
-                accentColor: '#F5A623',
+                accentColor: 'hsl(var(--primary))',
                 mapsCount: '4 Map Channels Baked',
                 albedoStatus: '100% Painted (RGB)',
                 roughnessStatus: 'Roughness Map Applied',
@@ -166,33 +166,33 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
       
       {/* Left Input Configuration Panel */}
       <div className="w-full lg:w-[380px] flex flex-col gap-6 flex-shrink-0" id="texture-left-panel">
-        <div className="bg-[#111116] border border-[#1E1E26] rounded-2xl p-5 flex flex-col gap-5" id="texture-inputs-box">
+        <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-5" id="texture-inputs-box">
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Palette size={20} className="text-[#F5A623]" />
+              <Palette size={20} className="text-[hsl(var(--primary))]" />
               Material & PBR Painting
             </h2>
-            <p className="text-xs text-[#71717A] mt-1">
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
               Apply rich, text-described textures and physical surface settings to individual active model components.
             </p>
           </div>
 
           {/* Model Upload */}
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-semibold text-[#A1A1AA] uppercase tracking-wider">Target Model (Optional)</label>
+            <label className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Target Model (Optional)</label>
             {uploadedModelUrl ? (
               <div className="bg-[#18181F] border border-emerald-500/20 rounded-xl p-3 flex items-center gap-3">
                 <Palette size={16} className="text-emerald-500" />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-white truncate">{uploadedModelName}</p>
-                  <p className="text-[10px] text-[#71717A]">{((uploadedModel?.size ?? 0) / 1024).toFixed(1)} KB</p>
+                  <p className="text-[10px] text-[hsl(var(--muted-foreground))]">{((uploadedModel?.size ?? 0) / 1024).toFixed(1)} KB</p>
                 </div>
-                <button onClick={() => { setUploadedModel(null); setUploadedModelUrl(null); setUploadedModelName(''); }} className="text-[#71717A] hover:text-white">
+                <button onClick={() => { setUploadedModel(null); setUploadedModelUrl(null); setUploadedModelName(''); }} className="text-[hsl(var(--muted-foreground))] hover:text-white">
                   <X size={14} />
                 </button>
               </div>
             ) : (
-              <label className="flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-[#27272A] hover:border-[#F5A623]/50 cursor-pointer transition-colors text-[11px] text-[#71717A] hover:text-[#F5A623]">
+              <label className="flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-[#27272A] hover:border-[hsl(var(--primary))]/50 cursor-pointer transition-colors text-[11px] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))]">
                 <Upload size={14} />
                 <span>Upload GLB/GLTF to Texture</span>
                 <input type="file" accept=".glb,.gltf" onChange={handleModelUpload} className="hidden" />
@@ -202,41 +202,41 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
 
           {/* Model Description Input Prompt */}
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-semibold text-[#A1A1AA] uppercase tracking-wider">Material Prompt</label>
+            <label className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Material Prompt</label>
             <div className="relative">
               <textarea
                 value={texturePrompt}
                 onChange={(e) => setTexturePrompt(e.target.value)}
                 placeholder="Describe PBR materials, finishes, gloss levels, and weathering details..."
-                className="w-full bg-[#18181F] border border-[#27272A] rounded-xl p-3 text-xs text-white placeholder-[#52525B] min-h-[90px] max-h-[140px] focus:outline-none focus:border-[#F5A623] transition-all resize-y"
+                className="w-full bg-[#18181F] border border-[#27272A] rounded-xl p-3 text-xs text-white placeholder-[hsl(var(--muted-foreground))] min-h-[90px] max-h-[140px] focus:outline-none focus:border-[hsl(var(--primary))] transition-all resize-y"
                 id="texture-prompt-textarea"
               />
             </div>
             <div className="flex items-center justify-between">
               <button
                 onClick={handleRandomPrompt}
-                className="text-[11px] font-bold text-[#F5A623] hover:underline"
+                className="text-[11px] font-bold text-[hsl(var(--primary))] hover:underline"
                 id="random-texture-prompt-btn"
               >
                 🎲 Random Theme
               </button>
               <button
                 onClick={() => setTexturePrompt('')}
-                className="text-[11px] font-semibold text-[#71717A] hover:text-white transition-colors"
+                className="text-[11px] font-semibold text-[hsl(var(--muted-foreground))] hover:text-white transition-colors"
               >
                 Clear
               </button>
             </div>
           </div>
 
-          <div className="flex flex-col gap-4 border-t border-[#1E1E26] pt-4" id="texture-settings-form">
+          <div className="flex flex-col gap-4 border-t border-[hsl(var(--border))] pt-4" id="texture-settings-form">
             {/* Resolution selection */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] text-[#71717A] uppercase font-mono font-bold">Bake Resolution</label>
+              <label className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">Bake Resolution</label>
               <select
                 value={resolution}
                 onChange={(e) => setResolution(e.target.value)}
-                className="w-full bg-[#18181F] border border-[#27272A] rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-[#F5A623] cursor-pointer"
+                className="w-full bg-[#18181F] border border-[#27272A] rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer"
                 id="texture-res-select"
               >
                 <option value="4K PBR">4K Ultra Detail (High Fidelity)</option>
@@ -247,11 +247,11 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
 
             {/* Art style preset selection */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] text-[#71717A] uppercase font-mono font-bold">Art Preset Theme</label>
+              <label className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">Art Preset Theme</label>
               <select
                 value={themeStyle}
                 onChange={(e) => setThemeStyle(e.target.value)}
-                className="w-full bg-[#18181F] border border-[#27272A] rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-[#F5A623] cursor-pointer"
+                className="w-full bg-[#18181F] border border-[#27272A] rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer"
                 id="texture-style-select"
               >
                 <option value="anime">Anime / Cel-Shaded (Bold Outline, Vibrant Gloss)</option>
@@ -263,9 +263,9 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
 
             {/* Weathering Slider controller */}
             <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between items-center text-[10px] text-[#71717A] uppercase font-mono font-bold">
+              <div className="flex justify-between items-center text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
                 <span>Weathering & Wear</span>
-                <span className="text-[#F5A623]">{Math.round(weathering * 100)}%</span>
+                <span className="text-[hsl(var(--primary))]">{Math.round(weathering * 100)}%</span>
               </div>
               <input
                 type="range"
@@ -274,7 +274,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
                 step="0.1"
                 value={weathering}
                 onChange={(e) => setWeathering(parseFloat(e.target.value))}
-                className="w-full accent-[#F5A623] cursor-pointer"
+                className="w-full accent-[hsl(var(--primary))] cursor-pointer"
               />
             </div>
 
@@ -282,7 +282,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
             <button
               onClick={handleTextureGen}
               disabled={isProcessing || !texturePrompt}
-              className="w-full bg-[#F5A623] hover:brightness-110 active:scale-[0.98] disabled:opacity-50 text-black font-extrabold py-3 rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-[0_4px_15px_rgba(245,166,35,0.2)]"
+              className="w-full bg-[hsl(var(--primary))] hover:brightness-110 active:scale-[0.98] disabled:opacity-50 text-black font-extrabold py-3 rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-[0_4px_15px_rgba(245,166,35,0.2)]"
               id="trigger-texture-btn"
             >
               {isProcessing ? (
@@ -302,18 +302,18 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
       </div>
 
       {/* Right Result Visualizer Stage */}
-      <div className="flex-1 bg-[#111116] border border-[#1E1E26] rounded-2xl p-6 flex flex-col gap-6 relative overflow-hidden" id="texture-right-stage">
+      <div className="flex-1 bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-6 flex flex-col gap-6 relative overflow-hidden" id="texture-right-stage">
         
         {/* Background Anime Speed Lines/Aura overlay during baking */}
         {isProcessing && (
           <div className="absolute inset-0 bg-black/60 z-20 flex flex-col items-center justify-center text-center p-6 animate-speed-lines">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-[#F5A623] to-[#FF8A00] animate-energy-pulse flex items-center justify-center">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-[hsl(var(--primary))] to-[#FF8A00] animate-energy-pulse flex items-center justify-center">
               <Palette size={36} className="animate-bounce text-black" />
             </div>
-            <h3 className="text-lg font-black text-[#F5A623] uppercase tracking-widest mt-6 animate-pulse">
+            <h3 className="text-lg font-black text-[hsl(var(--primary))] uppercase tracking-widest mt-6 animate-pulse">
               Painting UV PBR Channels...
             </h3>
-            <p className="text-xs text-[#A1A1AA] mt-2 max-w-sm leading-relaxed font-mono">
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-2 max-w-sm leading-relaxed font-mono">
               {statusMessage}
             </p>
           </div>
@@ -322,10 +322,10 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
         <div className="flex-1 flex flex-col justify-between z-10">
           <div>
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Sliders size={16} className="text-[#F5A623]" />
+              <Sliders size={16} className="text-[hsl(var(--primary))]" />
               PBR Channel Diagnostics
             </h3>
-            <p className="text-xs text-[#71717A] mt-1">
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
               Inspect separate baked UV channel layouts. Generating textures applies real physical material values (Metalness, Roughness) instantly.
             </p>
           </div>
@@ -337,46 +337,46 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
                 <span className="text-sm font-bold text-white uppercase tracking-wider">Textures Successfully Baked!</span>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-[#111116] p-3 rounded-lg border border-[#27272A]">
-                  <p className="text-[10px] text-[#71717A] uppercase font-mono font-bold">Albedo Mapping</p>
-                  <p className="text-xs font-bold text-[#A1A1AA] mt-1">{successResult.albedoStatus}</p>
+                <div className="bg-[hsl(var(--surface-1))] p-3 rounded-lg border border-[#27272A]">
+                  <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">Albedo Mapping</p>
+                  <p className="text-xs font-bold text-[hsl(var(--muted-foreground))] mt-1">{successResult.albedoStatus}</p>
                 </div>
-                <div className="bg-[#111116] p-3 rounded-lg border border-[#27272A]">
-                  <p className="text-[10px] text-[#71717A] uppercase font-mono font-bold">Baked Maps</p>
-                  <p className="text-xs font-bold text-[#F5A623] mt-1">{successResult.mapsCount}</p>
+                <div className="bg-[hsl(var(--surface-1))] p-3 rounded-lg border border-[#27272A]">
+                  <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">Baked Maps</p>
+                  <p className="text-xs font-bold text-[hsl(var(--primary))] mt-1">{successResult.mapsCount}</p>
                 </div>
               </div>
-              <div className="bg-[#111116] p-4 rounded-lg border border-[#27272A] flex flex-col gap-2">
+              <div className="bg-[hsl(var(--surface-1))] p-4 rounded-lg border border-[#27272A] flex flex-col gap-2">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-[#A1A1AA]">Specular Roughness:</span>
+                  <span className="text-[hsl(var(--muted-foreground))]">Specular Roughness:</span>
                   <span className="font-semibold text-white">{successResult.roughnessStatus}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs border-t border-white/[0.03] pt-2">
-                  <span className="text-[#A1A1AA]">Metalness Channel:</span>
+                  <span className="text-[hsl(var(--muted-foreground))]">Metalness Channel:</span>
                   <span className="font-semibold text-white">{successResult.metalnessStatus}</span>
                 </div>
               </div>
-              <p className="text-xs text-[#71717A] leading-relaxed italic bg-black/45 p-3 rounded-lg border border-[#27272A]">
+              <p className="text-xs text-[hsl(var(--muted-foreground))] leading-relaxed italic bg-black/45 p-3 rounded-lg border border-[#27272A]">
                 💡 Baked PBR Materials: {successResult.texturesDescription}
               </p>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center text-center p-8 border border-dashed border-[#1E1E26] rounded-xl flex-1 my-6 bg-[#18181F]/40">
+            <div className="flex flex-col items-center justify-center text-center p-8 border border-dashed border-[hsl(var(--border))] rounded-xl flex-1 my-6 bg-[#18181F]/40">
               <ImageIcon size={36} className="text-[#27272A] mb-3" />
-              <h4 className="text-xs font-bold text-[#A1A1AA]">Awaiting Painting Pipeline Trigger</h4>
-              <p className="text-[11px] text-[#71717A] max-w-xs mt-1.5 leading-relaxed">
+              <h4 className="text-xs font-bold text-[hsl(var(--muted-foreground))]">Awaiting Painting Pipeline Trigger</h4>
+              <p className="text-[11px] text-[hsl(var(--muted-foreground))] max-w-xs mt-1.5 leading-relaxed">
                 Provide a prompt describing the material parameters on the left and click &quot;Bake Material &amp; Paint&quot; to trigger the painting server.
               </p>
             </div>
           )}
 
           {/* Quick Info Tip */}
-          <div className="bg-[#18181F] rounded-xl p-4 border border-[#F5A623]/10 flex items-start gap-3">
-            <Zap size={15} className="text-[#F5A623] flex-shrink-0 mt-0.5" />
+          <div className="bg-[#18181F] rounded-xl p-4 border border-[hsl(var(--primary))]/10 flex items-start gap-3">
+            <Zap size={15} className="text-[hsl(var(--primary))] flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <span className="text-[10px] font-bold text-[#F5A623] uppercase tracking-wider">Pro Painting Tip</span>
-              <p className="text-[10px] text-[#A1A1AA] mt-1 leading-relaxed">
-                Describe the surface reflectivity using direct physical vocabulary. For example, use words like <code className="bg-[#111116] text-[#E4E4E7] px-1 rounded font-mono">rough brushed aluminum</code> or <code className="bg-[#111116] text-[#E4E4E7] px-1 rounded font-mono">mirror-like chrome</code> to produce precise roughness and metalness mapping coefficients.
+              <span className="text-[10px] font-bold text-[hsl(var(--primary))] uppercase tracking-wider">Pro Painting Tip</span>
+              <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1 leading-relaxed">
+                Describe the surface reflectivity using direct physical vocabulary. For example, use words like <code className="bg-[hsl(var(--surface-1))] text-[#E4E4E7] px-1 rounded font-mono">rough brushed aluminum</code> or <code className="bg-[hsl(var(--surface-1))] text-[#E4E4E7] px-1 rounded font-mono">mirror-like chrome</code> to produce precise roughness and metalness mapping coefficients.
               </p>
             </div>
           </div>

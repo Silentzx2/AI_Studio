@@ -594,16 +594,16 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
       >
         {/* Main Config Card */}
         <div
-          className="bg-[#111116] border border-[#1E1E26] rounded-2xl p-5 flex flex-col gap-6"
+          className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-6"
           id="rigging-inputs-box"
         >
           {/* Header */}
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Activity size={20} className="text-[#F5A623]" />
+              <Activity size={20} className="text-[hsl(var(--primary))]" />
               3D Rigging & Animation
             </h2>
-            <p className="text-xs text-[#71717A] mt-1">
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
               Auto-rig your 3D models and preview animations
             </p>
           </div>
@@ -613,26 +613,26 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             className="bg-[#18181F] rounded-xl border border-[#27272A] p-4 flex flex-col gap-4"
             id="rigging-upload-area"
           >
-            <span className="text-[9px] font-bold text-[#F5A623] uppercase tracking-wider">
+            <span className="text-[9px] font-bold text-[hsl(var(--primary))] uppercase tracking-wider">
               Target Model
             </span>
 
             {uploadedModelUrl ? (
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded bg-gradient-to-tr from-[#F5A623]/20 to-transparent flex items-center justify-center border border-[#F5A623]/10">
-                  <Box size={18} className="text-[#F5A623]" />
+                <div className="w-10 h-10 rounded bg-gradient-to-tr from-[hsl(var(--primary))]/20 to-transparent flex items-center justify-center border border-[hsl(var(--primary))]/10">
+                  <Box size={18} className="text-[hsl(var(--primary))]" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-white truncate">
                     {uploadedModelName}
                   </p>
-                  <p className="text-[10px] text-[#71717A] truncate font-mono">
+                  <p className="text-[10px] text-[hsl(var(--muted-foreground))] truncate font-mono">
                     {formatFileSize(uploadedModelSize)}
                   </p>
                 </div>
                 <button
                   onClick={clearUploadedModel}
-                  className="text-[#71717A] hover:text-white transition-colors"
+                  className="text-[hsl(var(--muted-foreground))] hover:text-white transition-colors"
                   aria-label="Remove uploaded model"
                 >
                   <X size={14} />
@@ -640,14 +640,14 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded bg-gradient-to-tr from-[#F5A623]/20 to-transparent flex items-center justify-center border border-[#F5A623]/10">
-                  <Activity size={18} className="text-[#F5A623]" />
+                <div className="w-10 h-10 rounded bg-gradient-to-tr from-[hsl(var(--primary))]/20 to-transparent flex items-center justify-center border border-[hsl(var(--primary))]/10">
+                  <Activity size={18} className="text-[hsl(var(--primary))]" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-white truncate">
                     {activeModel.name}
                   </p>
-                  <p className="text-[10px] text-[#71717A] truncate font-mono">
+                  <p className="text-[10px] text-[hsl(var(--muted-foreground))] truncate font-mono">
                     {activeModel.complexity}
                   </p>
                 </div>
@@ -663,8 +663,8 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
               className={
                 'flex items-center justify-center gap-2 p-3 rounded-lg border border-dashed cursor-pointer transition-all text-[11px] ' +
                 (isDragOver
-                  ? 'border-[#F5A623] bg-[#F5A623]/5 text-[#F5A623]'
-                  : 'border-[#27272A] hover:border-[#F5A623]/50 text-[#71717A] hover:text-[#F5A623]')
+                  ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]'
+                  : 'border-[#27272A] hover:border-[hsl(var(--primary))]/50 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))]')
               }
             >
               <Upload size={14} />
@@ -685,7 +685,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             id="rigging-options-form"
           >
             <div className="flex items-center gap-2">
-              <Bone size={14} className="text-[#F5A623]" />
+              <Bone size={14} className="text-[hsl(var(--primary))]" />
               <span className="text-xs font-bold text-white">Rigging Options</span>
             </div>
 
@@ -693,7 +693,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             <div className="flex items-center justify-between">
               <div className="flex flex-col">
                 <span className="text-xs font-bold text-white">Auto Rig</span>
-                <span className="text-[9px] text-[#71717A] mt-1">
+                <span className="text-[9px] text-[hsl(var(--muted-foreground))] mt-1">
                   Automatically detect and generate skeleton
                 </span>
               </div>
@@ -701,20 +701,20 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                 type="checkbox"
                 checked={autoRig}
                 onChange={(e) => setAutoRig(e.target.checked)}
-                className="accent-[#F5A623] h-4 w-4 cursor-pointer"
+                className="accent-[hsl(var(--primary))] h-4 w-4 cursor-pointer"
               />
             </div>
 
             {/* Rig Type Selector */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] text-[#71717A] uppercase font-mono font-bold">
+              <label className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
                 Rig Type
               </label>
               <div className="relative">
                 <select
                   value={rigType}
                   onChange={(e) => setRigType(e.target.value)}
-                  className="w-full bg-[#18181F] border border-[#27272A] rounded-xl p-2.5 pr-8 text-xs text-white focus:outline-none focus:border-[#F5A623] cursor-pointer appearance-none"
+                  className="w-full bg-[#18181F] border border-[#27272A] rounded-xl p-2.5 pr-8 text-xs text-white focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none"
                   id="rig-type-select"
                 >
                   {RIG_TYPES.map((r) => (
@@ -725,29 +725,29 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                 </select>
                 <ChevronDown
                   size={14}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#71717A] pointer-events-none"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] pointer-events-none"
                 />
               </div>
             </div>
 
             {/* Joint Count Display */}
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-[#71717A] uppercase font-mono font-bold">
+              <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
                 Joint Count
               </span>
-              <span className="text-xs font-bold text-[#A1A1AA]">Auto-detect</span>
+              <span className="text-xs font-bold text-[hsl(var(--muted-foreground))]">Auto-detect</span>
             </div>
 
             {/* Bone Structure Selector */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] text-[#71717A] uppercase font-mono font-bold">
+              <label className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
                 Bone Structure
               </label>
               <div className="relative">
                 <select
                   value={boneStructure}
                   onChange={(e) => setBoneStructure(e.target.value)}
-                  className="w-full bg-[#18181F] border border-[#27272A] rounded-xl p-2.5 pr-8 text-xs text-white focus:outline-none focus:border-[#F5A623] cursor-pointer appearance-none"
+                  className="w-full bg-[#18181F] border border-[#27272A] rounded-xl p-2.5 pr-8 text-xs text-white focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none"
                   id="bone-structure-select"
                 >
                   {BONE_STRUCTURES.map((b) => (
@@ -758,19 +758,19 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                 </select>
                 <ChevronDown
                   size={14}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#71717A] pointer-events-none"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] pointer-events-none"
                 />
               </div>
             </div>
           </div>
 
           {/* Divider */}
-          <div className="border-t border-[#1E1E26]" />
+          <div className="border-t border-[hsl(var(--border))]" />
 
           {/* Animation Presets Section */}
           <div className="flex flex-col gap-4" id="animation-presets-section">
             <div className="flex items-center gap-2">
-              <Play size={14} className="text-[#F5A623]" />
+              <Play size={14} className="text-[hsl(var(--primary))]" />
               <span className="text-xs font-bold text-white">Animation Presets</span>
             </div>
 
@@ -785,21 +785,21 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                     className={
                       'flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all cursor-pointer ' +
                       (isSelected
-                        ? 'border-[#F5A623] bg-[#F5A623]/[0.06] shadow-[0_0_12px_rgba(245,166,35,0.1)]'
-                        : 'border-[#27272A] bg-[#18181F] hover:border-[#F5A623]/30 hover:bg-[#F5A623]/[0.03]')
+                        ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/[0.06] shadow-[0_0_12px_rgba(245,166,35,0.1)]'
+                        : 'border-[#27272A] bg-[#18181F] hover:border-[hsl(var(--primary))]/30 hover:bg-[hsl(var(--primary))]/[0.03]')
                     }
                   >
                     <PresetIcon
                       size={20}
-                      className={isSelected ? 'text-[#F5A623]' : 'text-[#71717A]'}
+                      className={isSelected ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}
                     />
                     <span className={
                       'text-[10px] font-bold ' +
-                      (isSelected ? 'text-[#F5A623]' : 'text-[#A1A1AA]')
+                      (isSelected ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]')
                     }>
                       {preset.label}
                     </span>
-                    <span className="text-[8px] text-[#52525B] leading-tight text-center">
+                    <span className="text-[8px] text-[hsl(var(--muted-foreground))] leading-tight text-center">
                       {preset.description}
                     </span>
                   </button>
@@ -809,12 +809,12 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
           </div>
 
           {/* Divider */}
-          <div className="border-t border-[#1E1E26]" />
+          <div className="border-t border-[hsl(var(--border))]" />
 
           {/* Animation Settings Section */}
           <div className="flex flex-col gap-4" id="animation-settings-section">
             <div className="flex items-center gap-2">
-              <Zap size={14} className="text-[#F5A623]" />
+              <Zap size={14} className="text-[hsl(var(--primary))]" />
               <span className="text-xs font-bold text-white">Animation Settings</span>
             </div>
 
@@ -822,7 +822,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             <div className="flex items-center justify-between">
               <div className="flex flex-col">
                 <span className="text-xs font-bold text-white">Loop</span>
-                <span className="text-[9px] text-[#71717A] mt-1">
+                <span className="text-[9px] text-[hsl(var(--muted-foreground))] mt-1">
                   Repeat animation continuously
                 </span>
               </div>
@@ -830,15 +830,15 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                 type="checkbox"
                 checked={loopAnimation}
                 onChange={(e) => setLoopAnimation(e.target.checked)}
-                className="accent-[#F5A623] h-4 w-4 cursor-pointer"
+                className="accent-[hsl(var(--primary))] h-4 w-4 cursor-pointer"
               />
             </div>
 
             {/* Speed Slider */}
             <div className="flex flex-col gap-2">
-              <div className="flex justify-between items-center text-[10px] text-[#71717A] uppercase font-mono font-bold">
+              <div className="flex justify-between items-center text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
                 <span>Speed</span>
-                <span className="text-[#F5A623] tabular-nums">{speed.toFixed(1)}x</span>
+                <span className="text-[hsl(var(--primary))] tabular-nums">{speed.toFixed(1)}x</span>
               </div>
               <input
                 type="range"
@@ -847,10 +847,10 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                 step={0.1}
                 value={speed}
                 onChange={(e) => setSpeed(parseFloat(e.target.value))}
-                className="w-full accent-[#F5A623] cursor-pointer"
+                className="w-full accent-[hsl(var(--primary))] cursor-pointer"
                 id="speed-slider"
               />
-              <div className="flex justify-between text-[9px] text-[#52525B] font-mono">
+              <div className="flex justify-between text-[9px] text-[hsl(var(--muted-foreground))] font-mono">
                 <span>0.5x</span>
                 <span>2.0x</span>
               </div>
@@ -858,14 +858,14 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
 
             {/* Blend Mode Selector */}
             <div className="flex flex-col gap-2">
-              <label className="text-[10px] text-[#71717A] uppercase font-mono font-bold">
+              <label className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
                 Blend Mode
               </label>
               <div className="relative">
                 <select
                   value={blendMode}
                   onChange={(e) => setBlendMode(e.target.value)}
-                  className="w-full bg-[#18181F] border border-[#27272A] rounded-xl p-2.5 pr-8 text-xs text-white focus:outline-none focus:border-[#F5A623] cursor-pointer appearance-none"
+                  className="w-full bg-[#18181F] border border-[#27272A] rounded-xl p-2.5 pr-8 text-xs text-white focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none"
                   id="blend-mode-select"
                 >
                   {BLEND_MODES.map((b) => (
@@ -876,22 +876,22 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                 </select>
                 <ChevronDown
                   size={14}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#71717A] pointer-events-none"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] pointer-events-none"
                 />
               </div>
             </div>
           </div>
 
           {/* Divider */}
-          <div className="border-t border-[#1E1E26]" />
+          <div className="border-t border-[hsl(var(--border))]" />
 
           {/* Credit Cost Badge */}
           <div className="flex items-center justify-between bg-[#18181F] border border-[#242430] rounded-lg px-3 py-2">
-            <span className="text-[10px] text-[#71717A] font-mono uppercase font-bold">
+            <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono uppercase font-bold">
               Estimated Cost
             </span>
-            <span className="text-xs font-bold text-[#F5A623] flex items-center gap-1">
-              <Sparkles size={12} className="text-[#F5A623]" />
+            <span className="text-xs font-bold text-[hsl(var(--primary))] flex items-center gap-1">
+              <Sparkles size={12} className="text-[hsl(var(--primary))]" />
               50 Credits
             </span>
           </div>
@@ -901,7 +901,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             <button
               onClick={handleApplyRigging}
               disabled={isRigging}
-              className="w-full bg-gradient-to-r from-[#F5A623] to-[#FF8A00] hover:brightness-110 active:scale-[0.98] text-black font-extrabold py-3.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-[0_4px_15px_rgba(245,166,35,0.2)] mt-4"
+              className="w-full bg-gradient-to-r from-[hsl(var(--primary))] to-[#FF8A00] hover:brightness-110 active:scale-[0.98] text-black font-extrabold py-3.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-[0_4px_15px_rgba(245,166,35,0.2)] mt-4"
               id="apply-rigging-btn"
             >
               {isRigging ? (
@@ -920,17 +920,17 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             <button
               onClick={handlePreviewAnimation}
               disabled={!riggingComplete || !selectedPreset}
-              className="w-full bg-[#18181F] border border-[#27272A] hover:border-[#F5A623]/50 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl py-3.5 text-xs font-bold text-white flex items-center justify-center gap-2 transition-all mt-4"
+              className="w-full bg-[#18181F] border border-[#27272A] hover:border-[hsl(var(--primary))]/50 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl py-3.5 text-xs font-bold text-white flex items-center justify-center gap-2 transition-all mt-4"
               id="preview-animation-btn"
             >
               {isPlaying ? (
                 <>
-                  <Pause size={14} className="text-[#F5A623]" />
+                  <Pause size={14} className="text-[hsl(var(--primary))]" />
                   Pause Animation
                 </>
               ) : (
                 <>
-                  <Play size={14} className="text-[#F5A623]" />
+                  <Play size={14} className="text-[hsl(var(--primary))]" />
                   Preview Animation
                 </>
               )}
@@ -950,8 +950,8 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
         </div>
 
         {/* Supported Formats Info */}
-        <div className="bg-[#111116] border border-[#1E1E26] rounded-2xl p-4 flex flex-col gap-3">
-          <span className="text-[10px] font-bold text-[#F5A623] uppercase tracking-wider">
+        <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-4 flex flex-col gap-3">
+          <span className="text-[10px] font-bold text-[hsl(var(--primary))] uppercase tracking-wider">
             Supported Model Formats
           </span>
           <div className="grid grid-cols-4 gap-2">
@@ -960,11 +960,11 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                 key={fmt.label}
                 className="flex flex-col items-center gap-1 p-2 rounded-lg bg-[#18181F] border border-[#27272A]"
               >
-                <Box size={16} className="text-[#71717A]" />
-                <span className="text-[10px] font-bold text-[#A1A1AA]">
+                <Box size={16} className="text-[hsl(var(--muted-foreground))]" />
+                <span className="text-[10px] font-bold text-[hsl(var(--muted-foreground))]">
                   {fmt.label}
                 </span>
-                <span className="text-[8px] text-[#52525B] text-center leading-tight">
+                <span className="text-[8px] text-[hsl(var(--muted-foreground))] text-center leading-tight">
                   {fmt.desc}
                 </span>
               </div>
@@ -975,28 +975,28 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
 
       {/* ==================== RIGHT PANEL ==================== */}
       <div
-        className="flex-1 bg-[#111116] border border-[#1E1E26] rounded-2xl p-6 flex flex-col gap-6 relative overflow-hidden"
+        className="flex-1 bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-6 flex flex-col gap-6 relative overflow-hidden"
         id="rigging-right-stage"
       >
         {/* Processing Overlay */}
         {isRigging && (
           <div className="absolute inset-0 bg-black/60 z-20 flex flex-col items-center justify-center text-center p-6 animate-speed-lines">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-[#F5A623] to-[#FF8A00] animate-energy-pulse flex items-center justify-center text-black font-extrabold text-xs">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-[hsl(var(--primary))] to-[#FF8A00] animate-energy-pulse flex items-center justify-center text-black font-extrabold text-xs">
               <Bone size={36} className="animate-spin text-black stroke-[3]" />
             </div>
-            <h3 className="text-lg font-black text-[#F5A623] uppercase tracking-widest mt-6 animate-pulse">
+            <h3 className="text-lg font-black text-[hsl(var(--primary))] uppercase tracking-widest mt-6 animate-pulse">
               Rigging Model...
             </h3>
-            <p className="text-xs text-[#A1A1AA] mt-2 max-w-sm leading-relaxed font-mono">
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-2 max-w-sm leading-relaxed font-mono">
               {statusMessage}
             </p>
             <div className="w-64 h-2 bg-[#18181F] rounded-full mt-4 overflow-hidden border border-[#27272A]">
               <div
-                className="h-full bg-gradient-to-r from-[#F5A623] to-[#FF8A00] rounded-full transition-all duration-500 ease-out"
+                className="h-full bg-gradient-to-r from-[hsl(var(--primary))] to-[#FF8A00] rounded-full transition-all duration-500 ease-out"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
-            <span className="text-[10px] text-[#71717A] font-mono mt-1.5 tabular-nums">
+            <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono mt-1.5 tabular-nums">
               {progressPercent}%
             </span>
           </div>
@@ -1006,10 +1006,10 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
           {/* Header */}
           <div>
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Eye size={16} className="text-[#F5A623]" />
+              <Eye size={16} className="text-[hsl(var(--primary))]" />
               Preview & Results
             </h3>
-            <p className="text-xs text-[#71717A] mt-1">
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
               {riggingComplete
                 ? 'Rigging applied. Select an animation preset and preview the result.'
                 : 'Upload a 3D model, configure rigging options, then click "Apply Rigging" to generate a skeleton.'}
@@ -1026,7 +1026,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             <div
               className="absolute inset-0"
               style={{
-                backgroundColor: '#09090C',
+                backgroundColor: 'hsl(var(--surface-0))',
                 backgroundImage:
                   'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)',
                 backgroundSize: '24px 24px',
@@ -1036,8 +1036,8 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
               {riggingComplete ? (
                 <>
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#F5A623]/20 to-transparent flex items-center justify-center border border-[#F5A623]/20 mb-3">
-                    <PersonStanding size={32} className="text-[#F5A623]" />
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[hsl(var(--primary))]/20 to-transparent flex items-center justify-center border border-[hsl(var(--primary))]/20 mb-3">
+                    <PersonStanding size={32} className="text-[hsl(var(--primary))]" />
                   </div>
                   <p className="text-xs font-bold text-white">
                     {uploadedModelName || activeModel.name}
@@ -1051,9 +1051,9 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                 <>
                   <Grid3X3
                     size={40}
-                    className={isRigging ? 'text-[#F5A623]/30 animate-pulse' : 'text-[#27272A] mb-2'}
+                    className={isRigging ? 'text-[hsl(var(--primary))]/30 animate-pulse' : 'text-[#27272A] mb-2'}
                   />
-                  <p className="text-[11px] text-[#52525B]">
+                  <p className="text-[11px] text-[hsl(var(--muted-foreground))]">
                     {isRigging ? 'Processing rigging...' : '3D Viewport'}
                   </p>
                 </>
@@ -1068,17 +1068,17 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
               id="animation-timeline"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-[#71717A] uppercase font-mono font-bold">
+                <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
                   Timeline
                 </span>
                 <div className="flex items-center gap-2">
                   {loopAnimation && (
-                    <span className="text-[9px] text-[#F5A623] font-mono uppercase font-bold flex items-center gap-1">
-                      <RotateCcw size={9} className="text-[#F5A623]" />
+                    <span className="text-[9px] text-[hsl(var(--primary))] font-mono uppercase font-bold flex items-center gap-1">
+                      <RotateCcw size={9} className="text-[hsl(var(--primary))]" />
                       Loop
                     </span>
                   )}
-                  <span className="text-[9px] text-[#52525B] font-mono">
+                  <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">
                     {currentPreset?.fps} FPS
                   </span>
                 </div>
@@ -1088,13 +1088,13 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
               <div className="flex items-center gap-4">
                 <button
                   onClick={handlePreviewAnimation}
-                  className="w-8 h-8 rounded-lg bg-[#F5A623]/10 border border-[#F5A623]/20 flex items-center justify-center hover:bg-[#F5A623]/20 transition-colors flex-shrink-0"
+                  className="w-8 h-8 rounded-lg bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/20 flex items-center justify-center hover:bg-[hsl(var(--primary))]/20 transition-colors flex-shrink-0"
                   aria-label={isPlaying ? 'Pause' : 'Play'}
                 >
                   {isPlaying ? (
-                    <Pause size={14} className="text-[#F5A623]" />
+                    <Pause size={14} className="text-[hsl(var(--primary))]" />
                   ) : (
-                    <Play size={14} className="text-[#F5A623] ml-0.5" />
+                    <Play size={14} className="text-[hsl(var(--primary))] ml-0.5" />
                   )}
                 </button>
 
@@ -1106,12 +1106,12 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                     step={0.1}
                     value={timelinePosition}
                     onChange={handleTimelineScrub}
-                    className="w-full accent-[#F5A623] cursor-pointer h-1.5"
+                    className="w-full accent-[hsl(var(--primary))] cursor-pointer h-1.5"
                     id="timeline-scrubber"
                   />
                 </div>
 
-                <div className="text-[10px] text-[#71717A] font-mono tabular-nums flex-shrink-0 whitespace-nowrap">
+                <div className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono tabular-nums flex-shrink-0 whitespace-nowrap">
                   {formatTime(currentTime)} / {formatTime(currentDuration)}
                 </div>
               </div>
@@ -1125,7 +1125,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
               className="bg-[#18181F] border border-[#242430] rounded-xl p-5 flex flex-col gap-4"
               id="rigging-status-card"
             >
-              <span className="text-[10px] text-[#71717A] uppercase font-mono font-bold">
+              <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
                 Rigging Status
               </span>
 
@@ -1137,13 +1137,13 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-[#71717A] font-mono">Bone Count</span>
-                      <span className="text-[10px] text-[#F5A623] font-bold tabular-nums">
+                      <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">Bone Count</span>
+                      <span className="text-[10px] text-[hsl(var(--primary))] font-bold tabular-nums">
                         {riggingResult.boneCount}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-[#71717A] font-mono">Weight Map</span>
+                      <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">Weight Map</span>
                       <span className={
                         'text-[10px] font-bold ' +
                         (riggingResult.rigWeightMap === 'Complete'
@@ -1157,8 +1157,8 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                     </div>
                   </div>
                   <div className="mt-1">
-                    <span className="text-[9px] text-[#52525B] font-mono uppercase">Joint Hierarchy</span>
-                    <p className="text-[9px] text-[#A1A1AA] mt-1 leading-relaxed">
+                    <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase">Joint Hierarchy</span>
+                    <p className="text-[9px] text-[hsl(var(--muted-foreground))] mt-1 leading-relaxed">
                       {riggingResult.jointHierarchy}
                     </p>
                   </div>
@@ -1166,11 +1166,11 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
               ) : (
                 <div className="flex flex-col items-center justify-center py-4 text-center">
                   <Bone size={24} className="text-[#27272A] mb-2" />
-                  <p className="text-[10px] text-[#52525B]">
+                  <p className="text-[10px] text-[hsl(var(--muted-foreground))]">
                     {isRigging ? 'Processing...' : 'Not yet rigged'}
                   </p>
                   {isRigging && (
-                    <p className="text-[9px] text-[#71717A] font-mono mt-1">
+                    <p className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono mt-1">
                       {progressPercent}%
                     </p>
                   )}
@@ -1183,7 +1183,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
               className="bg-[#18181F] border border-[#242430] rounded-xl p-5 flex flex-col gap-4"
               id="animation-preview-card"
             >
-              <span className="text-[10px] text-[#71717A] uppercase font-mono font-bold">
+              <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
                 Animation Preview
               </span>
 
@@ -1192,43 +1192,43 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                   <div className="flex items-center gap-2">
                     {(() => {
                       const IconComp = currentPreset.icon;
-                      return <IconComp size={14} className="text-[#F5A623]" />;
+                      return <IconComp size={14} className="text-[hsl(var(--primary))]" />;
                     })()}
                     <span className="text-xs font-bold text-white">
                       {currentPreset.label}
                     </span>
                   </div>
-                  <p className="text-[9px] text-[#71717A] leading-relaxed">
+                  <p className="text-[9px] text-[hsl(var(--muted-foreground))] leading-relaxed">
                     {currentPreset.description}
                   </p>
                   <div className="flex flex-col gap-1.5 mt-1">
                     <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-[#71717A] font-mono">FPS</span>
-                      <span className="text-[10px] text-[#A1A1AA] font-bold tabular-nums">
+                      <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">FPS</span>
+                      <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-bold tabular-nums">
                         {currentPreset.fps}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-[#71717A] font-mono">Duration</span>
-                      <span className="text-[10px] text-[#A1A1AA] font-bold tabular-nums">
+                      <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">Duration</span>
+                      <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-bold tabular-nums">
                         {currentPreset.duration.toFixed(1)}s
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-[#71717A] font-mono">Frames</span>
-                      <span className="text-[10px] text-[#A1A1AA] font-bold tabular-nums">
+                      <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">Frames</span>
+                      <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-bold tabular-nums">
                         {currentPreset.frameCount}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-[#71717A] font-mono">Blend</span>
-                      <span className="text-[10px] text-[#A1A1AA] font-bold">
+                      <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">Blend</span>
+                      <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-bold">
                         {blendMode}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-[#71717A] font-mono">Speed</span>
-                      <span className="text-[10px] text-[#F5A623] font-bold tabular-nums">
+                      <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">Speed</span>
+                      <span className="text-[10px] text-[hsl(var(--primary))] font-bold tabular-nums">
                         {speed.toFixed(1)}x
                       </span>
                     </div>
@@ -1237,7 +1237,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
               ) : (
                 <div className="flex flex-col items-center justify-center py-4 text-center">
                   <Play size={24} className="text-[#27272A] mb-2" />
-                  <p className="text-[10px] text-[#52525B]">
+                  <p className="text-[10px] text-[hsl(var(--muted-foreground))]">
                     Select a preset to preview
                   </p>
                 </div>
@@ -1246,13 +1246,13 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
           </div>
 
           {/* Bottom Info Notice */}
-          <div className="bg-[#18181F] rounded-xl p-4 border border-[#F5A623]/10 flex items-start gap-3 mt-auto">
-            <Info size={15} className="text-[#F5A623] flex-shrink-0 mt-0.5" />
+          <div className="bg-[#18181F] rounded-xl p-4 border border-[hsl(var(--primary))]/10 flex items-start gap-3 mt-auto">
+            <Info size={15} className="text-[hsl(var(--primary))] flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <span className="text-[10px] font-bold text-[#F5A623] uppercase tracking-wider">
+              <span className="text-[10px] font-bold text-[hsl(var(--primary))] uppercase tracking-wider">
                 Rigging & Animation Info
               </span>
-              <p className="text-[10px] text-[#A1A1AA] mt-1 leading-relaxed">
+              <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1 leading-relaxed">
                 Auto-rigging detects body segments and generates a bone skeleton
                 with proper weight maps.{' '}
                 <strong className="text-white">Full Body Rig</strong> includes all

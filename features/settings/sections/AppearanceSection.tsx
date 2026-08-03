@@ -32,7 +32,7 @@ const CARD_HOVER = ['lift', 'glow', 'border', 'tilt', 'none'] as const;
 const DROPDOWN = ['spring', 'fade', 'slide', 'scale', 'flip'] as const;
 const PROGRESS = ['default', 'shimmer', 'gradient', 'neon'] as const;
 
-function SectionHeader({ icon: Icon, title, desc }: { icon: React.ElementType; title: string; desc?: string }) {
+function SectionHeader({ icon: Icon, title, desc }: { icon: React.ComponentType<{ className?: string }>; title: string; desc?: string }) {
   return (
     <CardHeader className="pb-4">
       <CardTitle className="flex items-center gap-2 text-base">
@@ -393,7 +393,7 @@ export function AppearanceSection() {
                     style={{ width: '65%', background: cfg.animations.progressBar === 'default' || cfg.animations.progressBar === 'shimmer' ? `hsl(${previewHsl})` : undefined }} />
                 </div>
                 <div
-                  className={`rounded-xl border border-border p-3 flex items-center gap-3 ${cfg.cardHover ? (cfg.animations.cardHoverStyle === 'glow' ? 'card-hover-glow' : cfg.animations.cardHoverStyle === 'border' ? 'card-hover-border' : cfg.animations.cardHoverStyle === 'none' ? '' : 'card-hover-lift') : ''}`}>
+                  className={`rounded-xl border border-border p-3 flex items-center gap-3 ${cfg.animations.cardHover ? (cfg.animations.cardHoverStyle === 'glow' ? 'card-hover-glow' : cfg.animations.cardHoverStyle === 'border' ? 'card-hover-border' : cfg.animations.cardHoverStyle === 'none' ? '' : 'card-hover-lift') : ''}`}>
                   <span className="w-8 h-8 rounded-lg" style={{ background: `hsl(${previewHsl}/0.7)` }} />
                   <div className="text-sm font-medium">Hoverable Card</div>
                 </div>

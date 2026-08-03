@@ -105,13 +105,13 @@ export default function CommunityTab({ onCloneProject, onNavigate }: CommunityTa
   return (
     <div className="flex-1 p-6 flex flex-col gap-6 animate-fadeIn text-[#FAFAFA]" id="community-tab-panel">
       {/* Tab Header with Banner */}
-      <div className="flex justify-between items-center bg-[#111116] border border-[#1E1E26] rounded-2xl p-4 flex-wrap gap-4" id="community-header">
+      <div className="flex justify-between items-center bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-4 flex-wrap gap-4" id="community-header">
         <div id="community-title-meta">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <Globe size={20} className="text-[#FF5A1F]" />
             Trending Community Showcases
           </h2>
-          <p className="text-xs text-[#71717A] mt-1">
+          <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
             Discover and clone photorealistic, high-performance 3D models curated by outstanding global artists.
           </p>
         </div>
@@ -125,7 +125,7 @@ export default function CommunityTab({ onCloneProject, onNavigate }: CommunityTa
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 filter === f
                   ? 'bg-[#FF5A1F] text-black shadow-[0_2px_8px_rgba(255,90,31,0.2)]'
-                  : 'text-[#A1A1AA] hover:text-white'
+                  : 'text-[hsl(var(--muted-foreground))] hover:text-white'
               }`}
               id={`comm-filter-btn-${f}`}
             >
@@ -140,7 +140,7 @@ export default function CommunityTab({ onCloneProject, onNavigate }: CommunityTa
         {communityModels.map((item) => (
           <div
             key={item.id}
-            className="group bg-[#111116] border border-[#1E1E26] hover:border-[#FF5A1F]/30 rounded-2xl p-4 flex flex-col gap-4 relative transition-all hover:scale-[1.01]"
+            className="group bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] hover:border-[#FF5A1F]/30 rounded-2xl p-4 flex flex-col gap-4 relative transition-all hover:scale-[1.01]"
             id={`comm-card-${item.id}`}
           >
             {/* Model Preview Thumbnail */}
@@ -205,11 +205,11 @@ export default function CommunityTab({ onCloneProject, onNavigate }: CommunityTa
                 <span className="text-xs font-bold text-white group-hover:text-[#FF5A1F] transition-colors">
                   {item.name}
                 </span>
-                <span className="text-[9px] text-[#71717A] truncate">by @{item.creator}</span>
+                <span className="text-[9px] text-[hsl(var(--muted-foreground))] truncate">by @{item.creator}</span>
               </div>
 
               {/* Counters footer row */}
-              <div className="flex items-center justify-between text-[10px] text-[#71717A] font-mono border-t border-[#1E1E26] pt-3">
+              <div className="flex items-center justify-between text-[10px] text-[hsl(var(--muted-foreground))] font-mono border-t border-[hsl(var(--border))] pt-3">
                 <button
                   onClick={() => handleLike(item.id)}
                   className={`flex items-center gap-1 hover:text-white transition-colors ${

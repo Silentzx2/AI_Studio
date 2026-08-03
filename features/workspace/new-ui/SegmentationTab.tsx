@@ -54,7 +54,7 @@ interface SegmentedPart {
 }
 
 const PART_COLORS = [
-  '#F5A623', '#3B82F6', '#10B981', '#EF4444', '#8B5CF6',
+  'hsl(var(--primary))', '#3B82F6', '#10B981', '#EF4444', '#8B5CF6',
   '#EC4899', '#F97316', '#06B6D4', '#84CC16', '#E11D48',
   '#6366F1', '#14B8A6', '#F59E0B', '#6D28D9', '#059669',
   '#DC2626', '#7C3AED', '#2563EB', '#D946EF', '#0EA5E9',
@@ -479,16 +479,16 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
         id="segmentation-left-panel"
       >
         <div
-          className="bg-[#111116] border border-[#1E1E26] rounded-2xl p-5 flex flex-col gap-6"
+          className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-6"
           id="segmentation-inputs-box"
         >
           {/* Header */}
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Layers size={20} className="text-[#F5A623]" />
+              <Layers size={20} className="text-[hsl(var(--primary))]" />
               Part Segmentation
             </h2>
-            <p className="text-xs text-[#71717A] mt-1">
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
               Select a model from Assets on the right or upload your own for Part
               Segmentation.
             </p>
@@ -499,26 +499,26 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
             className="bg-[#18181F] rounded-xl border border-[#27272A] p-4 flex flex-col gap-4"
             id="segmentation-upload-area"
           >
-            <span className="text-[9px] font-bold text-[#F5A623] uppercase tracking-wider">
+            <span className="text-[9px] font-bold text-[hsl(var(--primary))] uppercase tracking-wider">
               Target Model
             </span>
 
             {uploadedModelUrl ? (
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded bg-gradient-to-tr from-[#F5A623]/20 to-transparent flex items-center justify-center border border-[#F5A623]/10">
-                  <Box size={18} className="text-[#F5A623]" />
+                <div className="w-10 h-10 rounded bg-gradient-to-tr from-[hsl(var(--primary))]/20 to-transparent flex items-center justify-center border border-[hsl(var(--primary))]/10">
+                  <Box size={18} className="text-[hsl(var(--primary))]" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-white truncate">
                     {uploadedModelName}
                   </p>
-                  <p className="text-[10px] text-[#71717A] truncate font-mono">
+                  <p className="text-[10px] text-[hsl(var(--muted-foreground))] truncate font-mono">
                     {formatFileSize(uploadedModelSize)}
                   </p>
                 </div>
                 <button
                   onClick={clearUploadedModel}
-                  className="text-[#71717A] hover:text-white transition-colors"
+                  className="text-[hsl(var(--muted-foreground))] hover:text-white transition-colors"
                   aria-label="Remove uploaded model"
                 >
                   <X size={14} />
@@ -526,14 +526,14 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded bg-gradient-to-tr from-[#F5A623]/20 to-transparent flex items-center justify-center border border-[#F5A623]/10">
-                  <Layers size={18} className="text-[#F5A623]" />
+                <div className="w-10 h-10 rounded bg-gradient-to-tr from-[hsl(var(--primary))]/20 to-transparent flex items-center justify-center border border-[hsl(var(--primary))]/10">
+                  <Layers size={18} className="text-[hsl(var(--primary))]" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-white truncate">
                     {activeModel.name}
                   </p>
-                  <p className="text-[10px] text-[#71717A] truncate font-mono">
+                  <p className="text-[10px] text-[hsl(var(--muted-foreground))] truncate font-mono">
                     {activeModel.complexity}
                   </p>
                 </div>
@@ -549,8 +549,8 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
               className={
                 'flex items-center justify-center gap-2 p-3 rounded-lg border border-dashed cursor-pointer transition-all text-[11px] ' +
                 (isDragOver
-                  ? 'border-[#F5A623] bg-[#F5A623]/5 text-[#F5A623]'
-                  : 'border-[#27272A] hover:border-[#F5A623]/50 text-[#71717A] hover:text-[#F5A623]')
+                  ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]'
+                  : 'border-[#27272A] hover:border-[hsl(var(--primary))]/50 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))]')
               }
             >
               <Upload size={14} />
@@ -572,14 +572,14 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
           >
             {/* Segmentation Method */}
             <div className="flex flex-col gap-2">
-              <label className="text-[10px] text-[#71717A] uppercase font-mono font-bold">
+              <label className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
                 Segmentation Method
               </label>
               <div className="relative">
                 <select
                   value={segmentMethod}
                   onChange={(e) => setSegmentMethod(e.target.value)}
-                  className="w-full bg-[#18181F] border border-[#27272A] rounded-xl p-2.5 pr-8 text-xs text-white focus:outline-none focus:border-[#F5A623] cursor-pointer appearance-none"
+                  className="w-full bg-[#18181F] border border-[#27272A] rounded-xl p-2.5 pr-8 text-xs text-white focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none"
                   id="segment-method-select"
                 >
                   {SEGMENTATION_METHODS.map((m) => (
@@ -590,12 +590,12 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
                 </select>
                 <ChevronDown
                   size={14}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#71717A] pointer-events-none"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] pointer-events-none"
                 />
               </div>
               <div className="flex items-start gap-2 mt-0.5">
-                <MethodIcon size={12} className="text-[#F5A623] mt-0.5 flex-shrink-0" />
-                <span className="text-[10px] text-[#71717A] leading-relaxed">
+                <MethodIcon size={12} className="text-[hsl(var(--primary))] mt-0.5 flex-shrink-0" />
+                <span className="text-[10px] text-[hsl(var(--muted-foreground))] leading-relaxed">
                   {currentMethod?.desc}
                 </span>
               </div>
@@ -603,9 +603,9 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
 
             {/* Max Parts Slider */}
             <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between items-center text-[10px] text-[#71717A] uppercase font-mono font-bold">
+              <div className="flex justify-between items-center text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
                 <span>Max Parts</span>
-                <span className="text-[#F5A623] tabular-nums">{maxParts}</span>
+                <span className="text-[hsl(var(--primary))] tabular-nums">{maxParts}</span>
               </div>
               <input
                 type="range"
@@ -614,10 +614,10 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
                 step={1}
                 value={maxParts}
                 onChange={(e) => setMaxParts(parseInt(e.target.value, 10))}
-                className="w-full accent-[#F5A623] cursor-pointer"
+                className="w-full accent-[hsl(var(--primary))] cursor-pointer"
                 id="max-parts-slider"
               />
-              <div className="flex justify-between text-[9px] text-[#52525B] font-mono">
+              <div className="flex justify-between text-[9px] text-[hsl(var(--muted-foreground))] font-mono">
                 <span>2</span>
                 <span>20</span>
               </div>
@@ -625,13 +625,13 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
 
             {/* Toggles */}
             <div
-              className="flex flex-col gap-4 pt-2 border-t border-[#1E1E26]"
+              className="flex flex-col gap-4 pt-2 border-t border-[hsl(var(--border))]"
               id="segmentation-toggles"
             >
               <div className="flex items-center justify-between">
                 <div className="flex flex-col">
                   <span className="text-xs font-bold text-white">Preserve UVs</span>
-                  <span className="text-[9px] text-[#71717A] mt-1">
+                  <span className="text-[9px] text-[hsl(var(--muted-foreground))] mt-1">
                     Retain existing UV mapping data
                   </span>
                 </div>
@@ -639,7 +639,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
                   type="checkbox"
                   checked={preserveUvs}
                   onChange={(e) => setPreserveUvs(e.target.checked)}
-                  className="accent-[#F5A623] h-4 w-4 cursor-pointer"
+                  className="accent-[hsl(var(--primary))] h-4 w-4 cursor-pointer"
                 />
               </div>
 
@@ -648,7 +648,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
                   <span className="text-xs font-bold text-white">
                     Export Separated Parts
                   </span>
-                  <span className="text-[9px] text-[#71717A] mt-1">
+                  <span className="text-[9px] text-[hsl(var(--muted-foreground))] mt-1">
                     Output each part as individual mesh
                   </span>
                 </div>
@@ -656,18 +656,18 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
                   type="checkbox"
                   checked={exportSeparated}
                   onChange={(e) => setExportSeparated(e.target.checked)}
-                  className="accent-[#F5A623] h-4 w-4 cursor-pointer"
+                  className="accent-[hsl(var(--primary))] h-4 w-4 cursor-pointer"
                 />
               </div>
             </div>
 
             {/* Credit Cost Badge */}
             <div className="flex items-center justify-between bg-[#18181F] border border-[#242430] rounded-lg px-4 py-3">
-              <span className="text-[10px] text-[#71717A] font-mono uppercase font-bold">
+              <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono uppercase font-bold">
                 Estimated Cost
               </span>
-              <span className="text-xs font-bold text-[#F5A623] flex items-center gap-1">
-                <Sparkles size={12} className="text-[#F5A623]" />
+              <span className="text-xs font-bold text-[hsl(var(--primary))] flex items-center gap-1">
+                <Sparkles size={12} className="text-[hsl(var(--primary))]" />
                 40 Credits
               </span>
             </div>
@@ -676,7 +676,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
             <button
               onClick={handleStartSegmenting}
               disabled={isProcessing}
-              className="w-full mt-4 bg-gradient-to-r from-[#F5A623] to-[#FF8A00] hover:brightness-110 active:scale-[0.98] text-black font-extrabold py-3.5 rounded-xl text-xs flex items-center justify-center gap-3 transition-all disabled:opacity-50 shadow-[0_4px_15px_rgba(245,166,35,0.2)]"
+              className="w-full mt-4 bg-gradient-to-r from-[hsl(var(--primary))] to-[#FF8A00] hover:brightness-110 active:scale-[0.98] text-black font-extrabold py-3.5 rounded-xl text-xs flex items-center justify-center gap-3 transition-all disabled:opacity-50 shadow-[0_4px_15px_rgba(245,166,35,0.2)]"
               id="trigger-segmentation-btn"
             >
               {isProcessing ? (
@@ -695,18 +695,18 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
         </div>
 
         {/* Limitation Warnings */}
-        <div className="bg-[#111116] border border-[#1E1E26] rounded-2xl p-4 flex flex-col gap-2.5">
+        <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-4 flex flex-col gap-2.5">
           <div className="flex items-center gap-2">
             <AlertTriangle size={14} className="text-amber-500" />
             <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">
               Limitations
             </span>
           </div>
-          <div className="flex items-start gap-2.5 text-[10px] text-[#A1A1AA] leading-relaxed">
+          <div className="flex items-start gap-2.5 text-[10px] text-[hsl(var(--muted-foreground))] leading-relaxed">
             <X size={12} className="text-red-400/60 flex-shrink-0 mt-0.5" />
             <span>Unavailable for quad models</span>
           </div>
-          <div className="flex items-start gap-2.5 text-[10px] text-[#A1A1AA] leading-relaxed">
+          <div className="flex items-start gap-2.5 text-[10px] text-[hsl(var(--muted-foreground))] leading-relaxed">
             <X size={12} className="text-red-400/60 flex-shrink-0 mt-0.5" />
             <span>Unavailable for rigged models</span>
           </div>
@@ -715,28 +715,28 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
 
       {/* Right Panel: Results Display */}
       <div
-        className="flex-1 bg-[#111116] border border-[#1E1E26] rounded-2xl p-6 flex flex-col gap-6 relative overflow-hidden"
+        className="flex-1 bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-6 flex flex-col gap-6 relative overflow-hidden"
         id="segmentation-right-stage"
       >
         {/* Processing Overlay */}
         {isProcessing && (
           <div className="absolute inset-0 bg-black/60 z-20 flex flex-col items-center justify-center text-center p-6 animate-speed-lines">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-[#F5A623] to-[#FF8A00] animate-energy-pulse flex items-center justify-center text-black font-extrabold text-xs">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-[hsl(var(--primary))] to-[#FF8A00] animate-energy-pulse flex items-center justify-center text-black font-extrabold text-xs">
               <Layers size={36} className="animate-spin text-black stroke-[3]" />
             </div>
-            <h3 className="text-lg font-black text-[#F5A623] uppercase tracking-widest mt-6 animate-pulse">
+            <h3 className="text-lg font-black text-[hsl(var(--primary))] uppercase tracking-widest mt-6 animate-pulse">
               Segmenting Model...
             </h3>
-            <p className="text-xs text-[#A1A1AA] mt-2 max-w-sm leading-relaxed font-mono">
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-2 max-w-sm leading-relaxed font-mono">
               {statusMessage}
             </p>
             <div className="w-64 h-2 bg-[#18181F] rounded-full mt-4 overflow-hidden border border-[#27272A]">
               <div
-                className="h-full bg-gradient-to-r from-[#F5A623] to-[#FF8A00] rounded-full transition-all duration-500 ease-out"
+                className="h-full bg-gradient-to-r from-[hsl(var(--primary))] to-[#FF8A00] rounded-full transition-all duration-500 ease-out"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
-            <span className="text-[10px] text-[#71717A] font-mono mt-1.5 tabular-nums">
+            <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono mt-1.5 tabular-nums">
               {progressPercent}%
             </span>
           </div>
@@ -746,10 +746,10 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
           {/* Header */}
           <div>
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Box size={16} className="text-[#F5A623]" />
+              <Box size={16} className="text-[hsl(var(--primary))]" />
               Segmentation Results
             </h3>
-            <p className="text-xs text-[#71717A] mt-1">
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
               {isCompleted
                 ? `${segmentedParts.length} parts detected. Inspect, toggle visibility, and export individual parts.`
                 : 'Configure segmentation settings on the left, then click "Start Segmenting" to analyze the model.'}
@@ -770,26 +770,26 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
               {/* Summary stats row */}
               <div className="grid grid-cols-3 gap-4">
                 <div className="bg-[#18181F] p-3 rounded-lg border border-[#27272A]">
-                  <p className="text-[10px] text-[#71717A] uppercase font-mono font-bold">
+                  <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
                     Parts Found
                   </p>
-                  <p className="text-xs font-bold text-[#F5A623] mt-1 tabular-nums">
+                  <p className="text-xs font-bold text-[hsl(var(--primary))] mt-1 tabular-nums">
                     {segmentedParts.length}
                   </p>
                 </div>
                 <div className="bg-[#18181F] p-3 rounded-lg border border-[#27272A]">
-                  <p className="text-[10px] text-[#71717A] uppercase font-mono font-bold">
+                  <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
                     Total Faces
                   </p>
-                  <p className="text-xs font-bold text-[#A1A1AA] mt-1 tabular-nums">
+                  <p className="text-xs font-bold text-[hsl(var(--muted-foreground))] mt-1 tabular-nums">
                     {totalFaces.toLocaleString()}
                   </p>
                 </div>
                 <div className="bg-[#18181F] p-3 rounded-lg border border-[#27272A]">
-                  <p className="text-[10px] text-[#71717A] uppercase font-mono font-bold">
+                  <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
                     Total Vertices
                   </p>
-                  <p className="text-xs font-bold text-[#A1A1AA] mt-1 tabular-nums">
+                  <p className="text-xs font-bold text-[hsl(var(--muted-foreground))] mt-1 tabular-nums">
                     {totalVerts.toLocaleString()}
                   </p>
                 </div>
@@ -798,19 +798,19 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
               {/* Parts Grid */}
               <div className="bg-[#18181F] border border-[#242430] rounded-xl p-5 max-h-[340px] overflow-y-auto custom-scrollbar">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-[10px] text-[#71717A] uppercase font-mono font-bold">
+                  <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
                     Detected Parts
                   </span>
                   <div className="flex items-center gap-4">
                     <button
                       onClick={selectAllParts}
-                      className="text-[9px] text-[#F5A623] hover:underline font-bold uppercase"
+                      className="text-[9px] text-[hsl(var(--primary))] hover:underline font-bold uppercase"
                     >
                       Select All
                     </button>
                     <button
                       onClick={deselectAllParts}
-                      className="text-[9px] text-[#71717A] hover:text-white font-bold uppercase"
+                      className="text-[9px] text-[hsl(var(--muted-foreground))] hover:text-white font-bold uppercase"
                     >
                       Deselect
                     </button>
@@ -822,9 +822,9 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
                     <div
                       key={part.id}
                       className={
-                        'bg-[#111116] border rounded-xl p-3 flex items-start gap-3 transition-all cursor-pointer ' +
+                        'bg-[hsl(var(--surface-1))] border rounded-xl p-3 flex items-start gap-3 transition-all cursor-pointer ' +
                         (part.selected
-                          ? 'border-[#F5A623]/40 bg-[#F5A623]/[0.03]'
+                          ? 'border-[hsl(var(--primary))]/40 bg-[hsl(var(--primary))]/[0.03]'
                           : 'border-[#27272A] opacity-70 hover:opacity-100')
                       }
                       onClick={() => togglePartSelection(part.id)}
@@ -840,26 +840,26 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
                         </p>
                         <div className="flex flex-col gap-0.5 mt-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-[9px] text-[#71717A] font-mono">
+                            <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">
                               Faces:
                             </span>
-                            <span className="text-[9px] text-[#A1A1AA] font-mono tabular-nums">
+                            <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono tabular-nums">
                               {part.faceCount.toLocaleString()}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-[9px] text-[#71717A] font-mono">
+                            <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">
                               Verts:
                             </span>
-                            <span className="text-[9px] text-[#A1A1AA] font-mono tabular-nums">
+                            <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono tabular-nums">
                               {part.vertexCount.toLocaleString()}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-[9px] text-[#71717A] font-mono">
+                            <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">
                               Mat:
                             </span>
-                            <span className="text-[9px] text-[#A1A1AA] font-mono truncate">
+                            <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono truncate">
                               {part.material}
                             </span>
                           </div>
@@ -874,8 +874,8 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
                         className={
                           'flex-shrink-0 p-1 rounded transition-colors ' +
                           (part.visible
-                            ? 'text-[#A1A1AA] hover:text-white'
-                            : 'text-[#3F3F46] hover:text-[#71717A]')
+                            ? 'text-[hsl(var(--muted-foreground))] hover:text-white'
+                            : 'text-[#3F3F46] hover:text-[hsl(var(--muted-foreground))]')
                         }
                         aria-label={part.visible ? 'Hide part' : 'Show part'}
                       >
@@ -890,15 +890,15 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleExportAll}
-                  className="flex-1 bg-[#18181F] border border-[#27272A] hover:border-[#F5A623]/50 rounded-xl py-2.5 text-xs font-bold text-white flex items-center justify-center gap-2 transition-all"
+                  className="flex-1 bg-[#18181F] border border-[#27272A] hover:border-[hsl(var(--primary))]/50 rounded-xl py-2.5 text-xs font-bold text-white flex items-center justify-center gap-2 transition-all"
                 >
-                  <Download size={13} className="text-[#F5A623]" />
+                  <Download size={13} className="text-[hsl(var(--primary))]" />
                   Export All Parts
                 </button>
                 <button
                   onClick={handleExportSelected}
                   disabled={selectedCount === 0}
-                  className="flex-1 bg-gradient-to-r from-[#F5A623] to-[#FF8A00] hover:brightness-110 active:scale-[0.98] disabled:opacity-40 text-black font-extrabold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-[0_4px_15px_rgba(245,166,35,0.2)]"
+                  className="flex-1 bg-gradient-to-r from-[hsl(var(--primary))] to-[#FF8A00] hover:brightness-110 active:scale-[0.98] disabled:opacity-40 text-black font-extrabold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-[0_4px_15px_rgba(245,166,35,0.2)]"
                 >
                   <Download size={13} className="stroke-[2.5]" />
                   Export Selected ({selectedCount})
@@ -907,7 +907,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
             </div>
           ) : (
             /* Empty / Idle state */
-            <div className="flex flex-col items-center justify-center text-center p-8 border border-dashed border-[#1E1E26] rounded-xl flex-1 my-6 bg-[#18181F]/40">
+            <div className="flex flex-col items-center justify-center text-center p-8 border border-dashed border-[hsl(var(--border))] rounded-xl flex-1 my-6 bg-[#18181F]/40">
               <Layers
                 size={36}
                 className={
@@ -916,12 +916,12 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
                     : 'text-[#27272A] mb-3 animate-spin-slow'
                 }
               />
-              <h4 className="text-xs font-bold text-[#A1A1AA]">
+              <h4 className="text-xs font-bold text-[hsl(var(--muted-foreground))]">
                 {showWarnings
                   ? 'Processing Finished'
                   : 'Awaiting Segmentation Pipeline Trigger'}
               </h4>
-              <p className="text-[11px] text-[#71717A] max-w-xs mt-1.5 leading-relaxed">
+              <p className="text-[11px] text-[hsl(var(--muted-foreground))] max-w-xs mt-1.5 leading-relaxed">
                 {showWarnings
                   ? 'No parts were detected. Try adjusting the method or max parts count.'
                   : 'Upload a 3D model and configure segmentation options, then click "Start Segmenting" to analyze geometry and detect individual parts.'}
@@ -930,13 +930,13 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
           )}
 
           {/* Bottom Info Notice */}
-          <div className="bg-[#18181F] rounded-xl p-4 border border-[#F5A623]/10 flex items-start gap-3">
-            <Info size={15} className="text-[#F5A623] flex-shrink-0 mt-0.5" />
+          <div className="bg-[#18181F] rounded-xl p-4 border border-[hsl(var(--primary))]/10 flex items-start gap-3">
+            <Info size={15} className="text-[hsl(var(--primary))] flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <span className="text-[10px] font-bold text-[#F5A623] uppercase tracking-wider">
+              <span className="text-[10px] font-bold text-[hsl(var(--primary))] uppercase tracking-wider">
                 Part Segmentation Info
               </span>
-              <p className="text-[10px] text-[#A1A1AA] mt-1 leading-relaxed">
+              <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1 leading-relaxed">
                 Segmentation splits a monolithic mesh into logical sub-meshes.{' '}
                 <strong className="text-white">Semantic</strong> uses AI to recognize
                 body parts, <strong className="text-white">Geometric</strong>{' '}
