@@ -24,7 +24,6 @@ function LoadingScreen() {
 function GeneratedModel({ url, wireframe }: { url: string; wireframe: boolean }) {
   const { scene } = useGLTF(url);
   const groupRef = useRef<Group>(null);
-  const bboxRef = useRef<Box3>(new Box3());
 
   useEffect(() => {
     if (groupRef.current) {
@@ -37,21 +36,32 @@ function GeneratedModel({ url, wireframe }: { url: string; wireframe: boolean })
           }
         }
       });
-      
+
       // Calculate bounding box to center and frame the model
       if (groupRef.current) {
-        bboxRef.current.setFromObject(groupRef.current);
-        const center = bboxRef.current.getCenter(new Vector3());
-        const size = bboxRef.current.getSize(new Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const offset = maxDim * 0.6;
-        
+        const box = new Box3().setFromObject(groupRef.current);
+        const center = box.getCenter(new Vector3());
+        const size = box.getSize(new Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+
         // Position model to be centered and properly framed
         groupRef.current.position.sub(center);
         groupRef.current.position.y += size.y * 0.5; // Sit on "ground"
-        
+
         // Store initial position for potential reset
         groupRef.current.userData.initialPosition = groupRef.current.position.clone();
+
+        // Auto-frame the camera so the model is visible without manual zoom
+        const { camera } = useThree();
+        const fov = (camera as any).fov ?? 45;
+        const distance = (maxDim / 2 / Math.tan((fov * Math.PI) / 360)) * 1.6;
+        camera.position.set(0, size.y * 0.5 + maxDim * 0.2, distance);
+        camera.lookAt(0, size.y * 0.5, 0);
+        const controls = (window as any).__orbitControls;
+        if (controls) {
+          controls.target.set(0, size.y * 0.5, 0);
+          controls.update();
+        }
       }
     }
   }, [wireframe, scene]);
@@ -74,6 +84,19 @@ function UserModel({ url, wireframe }: { url: string; wireframe: boolean }) {
           if (mesh.material) { (mesh.material as any).wireframe = wireframe; }
         }
       });
+      const box = new Box3().setFromObject(groupRef.current);
+      const size = box.getSize(new Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z) || 1;
+      const { camera } = useThree();
+      const fov = (camera as any).fov ?? 45;
+      const distance = (maxDim / 2 / Math.tan((fov * Math.PI) / 360)) * 1.6;
+      camera.position.set(0, size.y * 0.5 + maxDim * 0.2, distance);
+      camera.lookAt(0, size.y * 0.5, 0);
+      const controls = (window as any).__orbitControls;
+      if (controls) {
+        controls.target.set(0, size.y * 0.5, 0);
+        controls.update();
+      }
     }
   }, [wireframe, scene]);
   return <group ref={groupRef}><primitive object={scene} /></group>;
@@ -113,6 +136,15 @@ function CameraController({ autoRotate }: { autoRotate: boolean }) {
       camera.position.set(0, 3, 6);
     });
   }, [camera]);
+
+  useEffect(() => {
+    (window as any).__orbitControls = orbitRef.current;
+    return () => {
+      if ((window as any).__orbitControls === orbitRef.current) {
+        (window as any).__orbitControls = null;
+      }
+    };
+  }, []);
 
   return (
     <OrbitControls ref={orbitRef} autoRotate={autoRotate} autoRotateSpeed={1.5} enableDamping dampingFactor={0.08} minDistance={1.5} maxDistance={15} makeDefault />
@@ -164,7 +196,7 @@ export function ViewerScene() {
           intensity={1.2}
           color="#ffffff"
         />
-      <Environment preset="studio" intensity={1.2} />
+      <Environment preset="studio" />
       <Center>
         {userModelUrl ? (
           <Suspense fallback={<LoadingScreen />}>

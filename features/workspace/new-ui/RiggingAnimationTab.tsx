@@ -897,11 +897,11 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-col gap-2.5" id="rigging-action-buttons">
+          <div className="flex flex-col gap-3" id="rigging-action-buttons">
             <button
               onClick={handleApplyRigging}
               disabled={isRigging}
-              className="w-full bg-gradient-to-r from-[#F5A623] to-[#FF8A00] hover:brightness-110 active:scale-[0.98] text-black font-extrabold py-3 rounded-xl text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-[0_4px_15px_rgba(245,166,35,0.2)]"
+              className="w-full bg-gradient-to-r from-[#F5A623] to-[#FF8A00] hover:brightness-110 active:scale-[0.98] text-black font-extrabold py-3.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-[0_4px_15px_rgba(245,166,35,0.2)] mt-4"
               id="apply-rigging-btn"
             >
               {isRigging ? (
@@ -920,7 +920,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             <button
               onClick={handlePreviewAnimation}
               disabled={!riggingComplete || !selectedPreset}
-              className="w-full bg-[#18181F] border border-[#27272A] hover:border-[#F5A623]/50 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl py-3 text-xs font-bold text-white flex items-center justify-center gap-2 transition-all"
+              className="w-full bg-[#18181F] border border-[#27272A] hover:border-[#F5A623]/50 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl py-3.5 text-xs font-bold text-white flex items-center justify-center gap-2 transition-all mt-4"
               id="preview-animation-btn"
             >
               {isPlaying ? (
@@ -939,7 +939,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             {riggingComplete && (
               <button
                 onClick={handleExportRigged}
-                className="w-full bg-[#18181F] border border-[#27272A] hover:border-emerald-500/50 rounded-xl py-2.5 text-xs font-bold text-white flex items-center justify-center gap-2 transition-all"
+                className="w-full bg-[#18181F] border border-[#27272A] hover:border-emerald-500/50 rounded-xl py-3.5 text-xs font-bold text-white flex items-center justify-center gap-2 transition-all mt-4"
                 id="export-rigged-btn"
               >
                 <Download size={13} className="text-emerald-400" />
@@ -1119,10 +1119,10 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
           )}
 
           {/* Results Grid: Rigging Status + Animation Preview */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {/* Rigging Status Card */}
             <div
-              className="bg-[#18181F] border border-[#242430] rounded-xl p-4 flex flex-col gap-3"
+              className="bg-[#18181F] border border-[#242430] rounded-xl p-5 flex flex-col gap-4"
               id="rigging-status-card"
             >
               <span className="text-[10px] text-[#71717A] uppercase font-mono font-bold">
@@ -1180,7 +1180,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
 
             {/* Animation Preview Card */}
             <div
-              className="bg-[#18181F] border border-[#242430] rounded-xl p-4 flex flex-col gap-3"
+              className="bg-[#18181F] border border-[#242430] rounded-xl p-5 flex flex-col gap-4"
               id="animation-preview-card"
             >
               <span className="text-[10px] text-[#71717A] uppercase font-mono font-bold">

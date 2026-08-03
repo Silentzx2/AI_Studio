@@ -1713,10 +1713,89 @@ input[type="radio"], [role="switch"], [role="checkbox"],
 
 /* ═══════════════════════════════════════════════════════════════
    THEME ENGINE — Dynamic CSS Variables & Utility Classes
+   The AppearanceProvider writes the runtime variables below to
+   :root on every change. Color tokens (background, foreground,
+   card, surface, muted, border, input) are declared per theme so
+   dark / light / system switching works. Accent-driven tokens
+   (--primary, --accent, --ring, --neon-*) are supplied at runtime
+   by AppearanceProvider so the chosen accent color applies app-wide.
    ═══════════════════════════════════════════════════════════════ */
 
+:root,
+html.dark {
+  color-scheme: dark;
+
+  /* Base palette — dark (accent tokens overridden at runtime) */
+  --background: 250 15% 3%;
+  --foreground: 210 20% 95%;
+  --card: 250 12% 6%;
+  --card-foreground: 210 20% 95%;
+  --popover: 250 12% 7%;
+  --popover-foreground: 210 20% 95%;
+  --secondary: 250 10% 10%;
+  --secondary-foreground: 210 20% 95%;
+  --muted: 250 8% 8%;
+  --muted-foreground: 215 15% 55%;
+  --accent: 265 80% 60%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 72% 56%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 250 10% 13%;
+  --input: 250 10% 12%;
+  --ring: 265 85% 65%;
+
+  --surface-0: 250 15% 3%;
+  --surface-1: 250 12% 6%;
+  --surface-2: 250 10% 9%;
+  --surface-3: 250 8% 13%;
+  --surface-4: 250 6% 17%;
+
+  --neon-purple: 275 95% 65%;
+  --neon-blue: 210 100% 60%;
+  --neon-cyan: 190 100% 55%;
+  --neon-pink: 330 100% 65%;
+  --neon-green: 150 80% 55%;
+  --neon-amber: 38 95% 55%;
+}
+
+html.light {
+  color-scheme: light;
+
+  --background: 220 30% 97%;
+  --foreground: 224 30% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 224 30% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 224 30% 12%;
+  --secondary: 220 20% 94%;
+  --secondary-foreground: 224 30% 12%;
+  --muted: 220 20% 93%;
+  --muted-foreground: 220 12% 42%;
+  --accent: 265 80% 55%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 72% 48%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 18% 86%;
+  --input: 220 18% 88%;
+  --ring: 265 85% 55%;
+
+  --surface-0: 220 30% 97%;
+  --surface-1: 0 0% 100%;
+  --surface-2: 220 24% 96%;
+  --surface-3: 220 20% 92%;
+  --surface-4: 220 18% 88%;
+
+  --neon-purple: 275 85% 55%;
+  --neon-blue: 210 90% 50%;
+  --neon-cyan: 190 90% 45%;
+  --neon-pink: 330 90% 55%;
+  --neon-green: 150 70% 45%;
+  --neon-amber: 38 90% 50%;
+}
+
 :root {
-  /* Theme engine variables (set by AppearanceProvider) */
+  /* Theme engine runtime variables (set by AppearanceProvider) */
+  --radius: 0.75rem;
   --radius-sm: 0.5rem;
   --radius-lg: 1rem;
   --glass-blur: 12px;
@@ -1732,26 +1811,23 @@ input[type="radio"], [role="switch"], [role="checkbox"],
   --nav-backdrop-blur: 12px;
 }
 
-/* Glass Effect Utilities */
-.glass-effect {
-  backdrop-filter: blur(var(--glass-blur, 12px)) saturate(1.2);
-  -webkit-backdrop-filter: blur(var(--glass-blur, 12px)) saturate(1.2);
-  background: hsl(var(--card) / var(--glass-bg-opacity, 0.08));
-  border: 1px solid hsl(var(--foreground) / var(--glass-border-opacity, 0.1));
-}
-
+/* ── Glass Effect (gated by --glass-enabled set by AppearanceProvider) ── */
+.glass-effect,
 .glass-card {
   backdrop-filter: blur(var(--glass-blur, 12px)) saturate(1.2);
   -webkit-backdrop-filter: blur(var(--glass-blur, 12px)) saturate(1.2);
-  background: hsl(var(--card) / var(--glass-bg-opacity, 0.08));
-  border: 1px solid hsl(var(--foreground) / var(--glass-border-opacity, 0.1));
+  background: hsl(var(--card) / calc(var(--glass-bg-opacity, 0.08) * var(--glass-enabled, 1)));
+  border: 1px solid hsl(var(--foreground) / calc(var(--glass-border-opacity, 0.1) * var(--glass-enabled, 1)));
+}
+.glass-card {
   border-radius: var(--radius, 0.75rem);
   padding: 1.5rem;
 }
 
 .glow-effect {
-  box-shadow: 0 0 calc(15px * var(--shadow-intensity, 0.5)) calc(5px * var(--shadow-intensity, 0.5)) hsl(var(--shadow-color, var(--primary)) / 0.25),
-              0 0 calc(30px * var(--shadow-intensity, 0.5)) calc(10px * var(--shadow-intensity, 0.5)) hsl(var(--shadow-color, var(--primary)) / 0.1);
+  box-shadow:
+    0 0 calc(15px * var(--shadow-intensity, 0.5)) calc(5px * var(--shadow-intensity, 0.5)) hsl(var(--shadow-color, var(--primary)) / 0.25),
+    0 0 calc(30px * var(--shadow-intensity, 0.5)) calc(10px * var(--shadow-intensity, 0.5)) hsl(var(--shadow-color, var(--primary)) / 0.1);
 }
 
 /* Shimmer Loading Animation */
@@ -1777,7 +1853,6 @@ input[type="radio"], [role="switch"], [role="checkbox"],
   position: relative;
   overflow: hidden;
 }
-
 .progress-neon::after {
   content: '';
   position: absolute;
@@ -1786,36 +1861,37 @@ input[type="radio"], [role="switch"], [role="checkbox"],
   animation: shimmer-sweep calc(2s / var(--animation-speed, 1)) ease-in-out infinite;
 }
 
-/* Tab Style Utilities */
-.tabs-pill [data-state="active"] {
+/* ── Tab Style Utilities (driven by data-tab-style from AppearanceProvider) ── */
+.tabs-pill [data-state="active"],
+[data-tab-style="pill"] [data-state="active"] {
   background: hsl(var(--primary) / 0.15);
   color: hsl(var(--primary));
   border-radius: 9999px;
 }
-
-.tabs-underline [data-state="active"] {
+.tabs-underline [data-state="active"],
+[data-tab-style="underline"] [data-state="active"] {
   border-bottom: 2px solid hsl(var(--primary));
   color: hsl(var(--primary));
 }
-
-.tabs-rounded [data-state="active"] {
+.tabs-rounded [data-state="active"],
+[data-tab-style="rounded"] [data-state="active"] {
   background: hsl(var(--primary) / 0.1);
   border-radius: var(--radius, 0.75rem);
 }
-
-.tabs-glass [data-state="active"] {
+.tabs-glass [data-state="active"],
+[data-tab-style="glass"] [data-state="active"] {
   backdrop-filter: blur(12px);
   background: hsl(var(--primary) / 0.1);
   border: 1px solid hsl(var(--primary) / 0.2);
   border-radius: var(--radius, 0.75rem);
 }
-
-.tabs-minimal [data-state="active"] {
+.tabs-minimal [data-state="active"],
+[data-tab-style="minimal"] [data-state="active"] {
   color: hsl(var(--primary));
   border-bottom: 1px solid hsl(var(--primary) / 0.5);
 }
 
-/* Card Hover Effect Utilities */
+/* ── Card Hover Effect Utilities ── */
 .card-hover-lift {
   transition: transform calc(0.2s * var(--animation-speed, 1)) ease, box-shadow calc(0.2s * var(--animation-speed, 1)) ease;
 }
@@ -1823,14 +1899,12 @@ input[type="radio"], [role="switch"], [role="checkbox"],
   transform: translateY(-2px);
   box-shadow: 0 8px 25px -5px hsl(var(--shadow-color, var(--primary)) / calc(0.15 * var(--shadow-intensity, 0.5)));
 }
-
 .card-hover-glow {
   transition: box-shadow calc(0.3s * var(--animation-speed, 1)) ease;
 }
 .card-hover-glow:hover {
   box-shadow: 0 0 20px calc(5px * var(--shadow-intensity, 0.5)) hsl(var(--shadow-color, var(--primary)) / 0.2);
 }
-
 .card-hover-border {
   transition: border-color calc(0.2s * var(--animation-speed, 1)) ease;
 }
@@ -1843,7 +1917,6 @@ input[type="radio"], [role="switch"], [role="checkbox"],
   0%, 100% { transform: scale(1); opacity: 0.6; }
   50% { transform: scale(1.05); opacity: 1; }
 }
-
 .upload-pulse {
   animation: upload-pulse calc(1.5s / var(--animation-speed, 1)) ease-in-out infinite;
 }
@@ -1853,18 +1926,8 @@ input[type="radio"], [role="switch"], [role="checkbox"],
   background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent-secondary, var(--primary)))) !important;
 }
 
-/* Dropdown animation speed control */
-[data-dropdown-style] {
-  transition-duration: calc(0.15s * var(--animation-speed, 1));
-}
-
 /* Density utilities */
 [data-density="compact"] { --spacing-multiplier: 0.75; }
 [data-density="normal"] { --spacing-multiplier: 1; }
 [data-density="comfortable"] { --spacing-multiplier: 1.25; }
-
-/* Animation speed multiplier for framer-motion */
-html {
-  --fm-duration-multiplier: 1;
-}
 
