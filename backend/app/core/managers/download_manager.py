@@ -7,8 +7,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.core.downloader.checksum_validator import ChecksumValidator
-from app.core.downloader.chunk_manager import ChunkManager
+from app.core.download_manager.downloader import SmartDownloader
 from app.core.downloader.mirror_fallback import MirrorFallback
 from app.models.registry import DownloadQueue
 
@@ -21,9 +20,8 @@ class DownloadManager:
         self.db = db
         storage = get_storage_config()
         self.storage_path = Path(storage_path) if storage_path else storage.storage_dir
-        self.chunk_manager = ChunkManager(str(self.storage_path))
+        self.smart_downloader = SmartDownloader()
         self.mirror_fallback = MirrorFallback()
-        self.checksum_validator = ChecksumValidator()
     
     async def start_download(
         self,
@@ -109,46 +107,38 @@ class DownloadManager:
             output_path = Path(download.file_path)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             
-            # Try primary URL with fallback mirrors
-            working_url = await self.mirror_fallback.find_working_url(
-                download.url,
-                self.mirror_fallback.get_mirrors_for_url(download.url)
-            )
-            
-            if not working_url:
-                download.status = "failed"
-                download.error_message = "No working URL available"
-                self.db.commit()
-                return False
+            mirrors = self.mirror_fallback.get_mirrors_for_url(download.url)
             
             # Wrap progress callback to also update DB
             original_cb = progress_callback
-            def db_updating_cb(progress: dict):
-                # Update bytes_downloaded in DB so polling reflects real progress
+            def db_updating_cb(progress):
                 try:
-                    downloaded = progress.get("downloaded", 0)
-                    total = progress.get("total", 0)
-                    download.bytes_downloaded = downloaded
-                    if total and total > 0:
-                        download.total_bytes = total
+                    download.bytes_downloaded = progress.downloaded
+                    if progress.total_size and progress.total_size > 0:
+                        download.total_bytes = progress.total_size
                     self.db.commit()
                 except Exception:
                     pass
                 if original_cb:
-                    # Run original callback in a way that handles both sync and async
                     import asyncio
                     try:
                         loop = asyncio.get_running_loop()
-                        loop.create_task(original_cb(progress))
+                        prog_dict = {
+                            "downloaded": progress.downloaded,
+                            "total": progress.total_size,
+                            "percent": progress.percentage
+                        }
+                        loop.create_task(original_cb(prog_dict))
                     except RuntimeError:
                         pass
             
-            # Download with resume capability
-            success = await self.chunk_manager.parallel_chunk_download(
-                working_url,
-                output_path,
-                4,  # num_chunks
-                db_updating_cb
+            # Download with resume, retry, checksum and mirrors capability
+            success = await self.smart_downloader.download_file(
+                url=download.url,
+                destination=output_path,
+                checksum=download.checksum,
+                mirrors=mirrors,
+                progress_callback=db_updating_cb
             )
             
             if not success:
@@ -158,28 +148,9 @@ class DownloadManager:
                     download.error_message = "Download interrupted, will retry..."
                 else:
                     download.status = "failed"
-                    download.error_message = "Max retries exceeded"
+                    download.error_message = "Max retries exceeded or checksum mismatch"
                 self.db.commit()
                 return False
-            
-            # Validate checksum if provided
-            if download.checksum:
-                is_valid, actual = await self.checksum_validator.verify_checksum(
-                    output_path,
-                    download.checksum
-                )
-                
-                if not is_valid:
-                    # Clean up invalid file
-                    if output_path.exists():
-                        output_path.unlink()
-                    
-                    download.status = "failed"
-                    download.error_message = (
-                        f"Checksum mismatch. Expected: {download.checksum}, Got: {actual}"
-                    )
-                    self.db.commit()
-                    return False
             
             # Mark as completed
             download.status = "completed"

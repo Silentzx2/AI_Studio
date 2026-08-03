@@ -58,7 +58,7 @@ export function ThreeDViewer() {
         <div className="absolute top-2 right-2 w-6 h-6 pointer-events-none z-10" style={{ borderTop: '1.5px solid hsl(var(--neon-purple) / 0.25)', borderRight: '1.5px solid hsl(var(--neon-purple) / 0.25)', borderRadius: '0 4px 0 0' }} />
         <div className="absolute bottom-2 left-2 w-6 h-6 pointer-events-none z-10" style={{ borderBottom: '1.5px solid hsl(var(--neon-purple) / 0.25)', borderLeft: '1.5px solid hsl(var(--neon-purple) / 0.25)', borderRadius: '0 0 0 4px' }} />
         <div className="absolute bottom-2 right-2 w-6 h-6 pointer-events-none z-10" style={{ borderBottom: '1.5px solid hsl(var(--neon-purple) / 0.25)', borderRight: '1.5px solid hsl(var(--neon-purple) / 0.25)', borderRadius: '0 0 4px 0' }} />
-        <Canvas camera={{ position: [0, 2, 5], fov: 50 }} shadows gl={{ antialias: true, alpha: true }} className="w-full h-full" style={{ background: 'transparent' }}>
+        <Canvas camera={{ position: [0, 3, 6], fov: 45 }} shadows gl={{ antialias: true, alpha: true }} className="w-full h-full" style={{ background: 'transparent' }}>
           <Suspense fallback={null}>
             <ViewerScene />
           </Suspense>

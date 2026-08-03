@@ -4,7 +4,7 @@
 import { useRef, useEffect, useState, useCallback, Suspense } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid, Environment, Center, Float, Html, useProgress, Preload, Octahedron, useGLTF } from '@react-three/drei';
-import { Mesh, Group } from 'three';
+import { Mesh, Group, Box3, Vector3 } from 'three';
 import { registerResetCamera } from '@/stores/useUIStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { useGenerationStore } from '@/stores/useGenerationStore';
@@ -24,6 +24,7 @@ function LoadingScreen() {
 function GeneratedModel({ url, wireframe }: { url: string; wireframe: boolean }) {
   const { scene } = useGLTF(url);
   const groupRef = useRef<Group>(null);
+  const bboxRef = useRef<Box3>(new Box3());
 
   useEffect(() => {
     if (groupRef.current) {
@@ -36,6 +37,22 @@ function GeneratedModel({ url, wireframe }: { url: string; wireframe: boolean })
           }
         }
       });
+      
+      // Calculate bounding box to center and frame the model
+      if (groupRef.current) {
+        bboxRef.current.setFromObject(groupRef.current);
+        const center = bboxRef.current.getCenter(new Vector3());
+        const size = bboxRef.current.getSize(new Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const offset = maxDim * 0.6;
+        
+        // Position model to be centered and properly framed
+        groupRef.current.position.sub(center);
+        groupRef.current.position.y += size.y * 0.5; // Sit on "ground"
+        
+        // Store initial position for potential reset
+        groupRef.current.userData.initialPosition = groupRef.current.position.clone();
+      }
     }
   }, [wireframe, scene]);
 
@@ -93,7 +110,7 @@ function CameraController({ autoRotate }: { autoRotate: boolean }) {
   useEffect(() => {
     registerResetCamera(() => {
       if (orbitRef.current) orbitRef.current.reset();
-      camera.position.set(0, 2, 5);
+      camera.position.set(0, 3, 6);
     });
   }, [camera]);
 
@@ -128,26 +145,26 @@ export function ViewerScene() {
   return (
     <>
       <CameraController autoRotate={viewer.autoRotate} />
-      <ambientLight intensity={0.75} />
+      <ambientLight intensity={1.0} />
 
         <directionalLight
           position={[10, 10, 5]}
-          intensity={1.6}
+          intensity={2.0}
           castShadow
         />
 
         <directionalLight
           position={[-10, -10, -5]}
-          intensity={0.6}
+          intensity={1.0}
           color="#8b5cf6"
         />
 
         <directionalLight
           position={[0, 5, 8]}
-          intensity={0.8}
+          intensity={1.2}
           color="#ffffff"
         />
-      <Environment preset="studio" />
+      <Environment preset="realistic" intensity={1.2} />
       <Center>
         {userModelUrl ? (
           <Suspense fallback={<LoadingScreen />}>

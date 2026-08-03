@@ -479,7 +479,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
         id="segmentation-left-panel"
       >
         <div
-          className="bg-[#111116] border border-[#1E1E26] rounded-2xl p-5 flex flex-col gap-5"
+          className="bg-[#111116] border border-[#1E1E26] rounded-2xl p-5 flex flex-col gap-6"
           id="segmentation-inputs-box"
         >
           {/* Header */}
@@ -496,7 +496,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
 
           {/* Model Upload / Active Target */}
           <div
-            className="bg-[#18181F] rounded-xl border border-[#27272A] p-4 flex flex-col gap-3"
+            className="bg-[#18181F] rounded-xl border border-[#27272A] p-4 flex flex-col gap-4"
             id="segmentation-upload-area"
           >
             <span className="text-[9px] font-bold text-[#F5A623] uppercase tracking-wider">
@@ -567,11 +567,11 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
 
           {/* Segmentation Settings */}
           <div
-            className="flex flex-col gap-4"
+            className="flex flex-col gap-5"
             id="segmentation-settings-form"
           >
             {/* Segmentation Method */}
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               <label className="text-[10px] text-[#71717A] uppercase font-mono font-bold">
                 Segmentation Method
               </label>
@@ -625,13 +625,13 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
 
             {/* Toggles */}
             <div
-              className="flex flex-col gap-3 pt-2 border-t border-[#1E1E26]"
+              className="flex flex-col gap-4 pt-2 border-t border-[#1E1E26]"
               id="segmentation-toggles"
             >
               <div className="flex items-center justify-between">
                 <div className="flex flex-col">
                   <span className="text-xs font-bold text-white">Preserve UVs</span>
-                  <span className="text-[9px] text-[#71717A]">
+                  <span className="text-[9px] text-[#71717A] mt-1">
                     Retain existing UV mapping data
                   </span>
                 </div>
@@ -648,7 +648,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
                   <span className="text-xs font-bold text-white">
                     Export Separated Parts
                   </span>
-                  <span className="text-[9px] text-[#71717A]">
+                  <span className="text-[9px] text-[#71717A] mt-1">
                     Output each part as individual mesh
                   </span>
                 </div>
@@ -662,7 +662,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
             </div>
 
             {/* Credit Cost Badge */}
-            <div className="flex items-center justify-between bg-[#18181F] border border-[#242430] rounded-lg px-3 py-2">
+            <div className="flex items-center justify-between bg-[#18181F] border border-[#242430] rounded-lg px-4 py-3">
               <span className="text-[10px] text-[#71717A] font-mono uppercase font-bold">
                 Estimated Cost
               </span>
@@ -676,7 +676,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
             <button
               onClick={handleStartSegmenting}
               disabled={isProcessing}
-              className="w-full mt-2 bg-gradient-to-r from-[#F5A623] to-[#FF8A00] hover:brightness-110 active:scale-[0.98] text-black font-extrabold py-3 rounded-xl text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-[0_4px_15px_rgba(245,166,35,0.2)]"
+              className="w-full mt-4 bg-gradient-to-r from-[#F5A623] to-[#FF8A00] hover:brightness-110 active:scale-[0.98] text-black font-extrabold py-3.5 rounded-xl text-xs flex items-center justify-center gap-3 transition-all disabled:opacity-50 shadow-[0_4px_15px_rgba(245,166,35,0.2)]"
               id="trigger-segmentation-btn"
             >
               {isProcessing ? (
@@ -758,9 +758,9 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
 
           {/* Completed Results */}
           {isCompleted && segmentedParts.length > 0 ? (
-            <div className="flex flex-col gap-4 animate-fadeIn">
+            <div className="flex flex-col gap-5 animate-fadeIn">
               {/* Success banner */}
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-3">
                 <CheckCircle size={18} className="text-emerald-500" />
                 <span className="text-sm font-bold text-white uppercase tracking-wider">
                   Segmentation Complete!
@@ -768,7 +768,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
               </div>
 
               {/* Summary stats row */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="bg-[#18181F] p-3 rounded-lg border border-[#27272A]">
                   <p className="text-[10px] text-[#71717A] uppercase font-mono font-bold">
                     Parts Found
@@ -796,12 +796,12 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
               </div>
 
               {/* Parts Grid */}
-              <div className="bg-[#18181F] border border-[#242430] rounded-xl p-4 max-h-[340px] overflow-y-auto custom-scrollbar">
-                <div className="flex items-center justify-between mb-3">
+              <div className="bg-[#18181F] border border-[#242430] rounded-xl p-5 max-h-[340px] overflow-y-auto custom-scrollbar">
+                <div className="flex items-center justify-between mb-4">
                   <span className="text-[10px] text-[#71717A] uppercase font-mono font-bold">
                     Detected Parts
                   </span>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-4">
                     <button
                       onClick={selectAllParts}
                       className="text-[9px] text-[#F5A623] hover:underline font-bold uppercase"
@@ -817,7 +817,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {segmentedParts.map((part) => (
                     <div
                       key={part.id}
