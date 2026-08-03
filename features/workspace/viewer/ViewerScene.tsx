@@ -164,7 +164,7 @@ export function ViewerScene() {
           intensity={1.2}
           color="#ffffff"
         />
-      <Environment preset="realistic" intensity={1.2} />
+      <Environment preset="studio" intensity={1.2} />
       <Center>
         {userModelUrl ? (
           <Suspense fallback={<LoadingScreen />}>

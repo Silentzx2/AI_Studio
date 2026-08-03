@@ -1,11 +1,9 @@
-"use client";
-
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, Loader2, Check, Sun, Moon, Palette, Monitor, Type, Square, LayoutTemplate, Sparkles, Plus } from 'lucide-react';
-import { useAutoSave } from '@/hooks/useAutoSave';
-import { applyGlobalTheme, hexToHSLString } from '@/components/AppearanceProvider';
+import { Check, Sun, Moon, Palette, Monitor, Type, Square, LayoutTemplate, Sparkles, Plus } from 'lucide-react';
+import { hexToHSLString } from '@/components/AppearanceProvider';
+import { useThemeStore } from '@/stores/useThemeStore';
 
 interface AppearanceConfig {
   theme: 'light' | 'dark' | 'system';
@@ -33,85 +31,32 @@ const MASTER_PRESETS = [
 ];
 
 export function AppearanceSection() {
-  const [config, setConfig] = useState<AppearanceConfig | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const storeConfig = useThemeStore();
+  const error = null;
+  
+  const config: AppearanceConfig = {
+    theme: storeConfig.theme,
+    accentColor: storeConfig.accentColor,
+    fontSize: storeConfig.fontSize,
+    density: storeConfig.density,
+    borderRadius: storeConfig.borderRadius,
+    animations: storeConfig.animationSpeed === 0 ? 'none' : storeConfig.animationSpeed >= 2 ? 'reduced' : 'full',
+    navbarStyle: storeConfig.navbarStyle,
+  };
 
-  const { Indicator } = useAutoSave(config, async (data) => {
-    if (!data) return;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('appearance_settings', JSON.stringify(data));
+  const setConfig = (newCfg: Partial<AppearanceConfig>) => {
+    if (newCfg.theme !== undefined) storeConfig.updateSetting('theme', newCfg.theme);
+    if (newCfg.accentColor !== undefined) storeConfig.updateSetting('accentColor', newCfg.accentColor);
+    if (newCfg.fontSize !== undefined) storeConfig.updateSetting('fontSize', newCfg.fontSize);
+    if (newCfg.density !== undefined) storeConfig.updateSetting('density', newCfg.density);
+    if (newCfg.borderRadius !== undefined) storeConfig.updateSetting('borderRadius', newCfg.borderRadius);
+    if (newCfg.navbarStyle !== undefined) storeConfig.updateSetting('navbarStyle', newCfg.navbarStyle);
+    if (newCfg.animations !== undefined) {
+      if (newCfg.animations === 'none') storeConfig.updateSetting('animationSpeed', 0);
+      else if (newCfg.animations === 'reduced') storeConfig.updateSetting('animationSpeed', 2);
+      else storeConfig.updateSetting('animationSpeed', 1);
     }
-  }, 300, true);
-
-  useEffect(() => {
-    fetchAppearanceConfig();
-  }, []);
-
-  useEffect(() => {
-    if (config) {
-      const html = document.documentElement;
-      const root = document.documentElement.style;
-      
-      if (config.theme === 'dark') {
-        html.classList.add('dark');
-      } else if (config.theme === 'light') {
-        html.classList.remove('dark');
-      } else {
-        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-          html.classList.add('dark');
-        } else {
-          html.classList.remove('dark');
-        }
-      }
-
-      root.setProperty('--base-font-size', config.fontSize === 'sm' ? '14px' : config.fontSize === 'lg' ? '18px' : '16px');
-      html.style.fontSize = config.fontSize === 'sm' ? '14px' : config.fontSize === 'lg' ? '18px' : '16px';
-      html.dataset.density = config.density;
-      
-      applyGlobalTheme(config);
-    }
-  }, [config]);
-
-  async function fetchAppearanceConfig() {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem('appearance_settings');
-        if (saved) {
-          try {
-            setConfig({
-              theme: 'dark',
-              accentColor: '#f97316',
-              fontSize: 'md',
-              density: 'normal',
-              borderRadius: '0.75rem',
-              animations: 'full',
-              navbarStyle: 'glass',
-              ...JSON.parse(saved)
-            });
-            setLoading(false);
-            return;
-          } catch (e) {}
-        }
-      }
-
-      // Default: Dark mode with amber accent
-      setConfig({
-        theme: 'dark',
-        accentColor: '#f97316',
-        fontSize: 'md',
-        density: 'normal',
-        borderRadius: '0.75rem',
-        animations: 'full',
-        navbarStyle: 'glass',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }
+  };
 
   const applyMasterPreset = (presetName: string) => {
     if (!config) return;
@@ -140,14 +85,8 @@ export function AppearanceSection() {
   const fontSizeMap = { sm: { label: 'Small', px: '14px', desc: '14px' }, md: { label: 'Medium', px: '16px', desc: '16px' }, lg: { label: 'Large', px: '18px', desc: '18px' } };
   const densityMap = { compact: { label: 'Compact', icon: '≡', desc: 'Tight spacing' }, normal: { label: 'Normal', icon: '☰', desc: 'Balanced layout' }, comfortable: { label: 'Comfortable', icon: '☰', desc: 'Roomy spacing' } };
 
-  if (loading || !config) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-40">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      </div>
-    );
+  if (!config) {
+    return null;
   }
 
   const previewRadius = config.borderRadius;
@@ -157,7 +96,6 @@ export function AppearanceSection() {
 
   return (
     <div className="p-6 space-y-6">
-      <Indicator />
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Theme Manager</h1>
@@ -204,13 +142,6 @@ export function AppearanceSection() {
           </Button>
         </div>
       </div>
-
-      {error && (
-        <div className="flex items-center gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive">
-          <AlertCircle className="w-5 h-5 flex-shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
 
       {/* Colors Section */}
       <Card>

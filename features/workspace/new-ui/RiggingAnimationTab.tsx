@@ -589,12 +589,12 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
     >
       {/* ==================== LEFT PANEL ==================== */}
       <div
-        className="w-full lg:w-[380px] flex flex-col gap-5 flex-shrink-0"
+        className="w-full lg:w-[380px] flex flex-col gap-6 flex-shrink-0"
         id="rigging-left-panel"
       >
         {/* Main Config Card */}
         <div
-          className="bg-[#111116] border border-[#1E1E26] rounded-2xl p-5 flex flex-col gap-5"
+          className="bg-[#111116] border border-[#1E1E26] rounded-2xl p-5 flex flex-col gap-6"
           id="rigging-inputs-box"
         >
           {/* Header */}
@@ -610,7 +610,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
 
           {/* Model Upload / Active Target */}
           <div
-            className="bg-[#18181F] rounded-xl border border-[#27272A] p-4 flex flex-col gap-3"
+            className="bg-[#18181F] rounded-xl border border-[#27272A] p-4 flex flex-col gap-4"
             id="rigging-upload-area"
           >
             <span className="text-[9px] font-bold text-[#F5A623] uppercase tracking-wider">
@@ -681,7 +681,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
 
           {/* Rigging Options Section */}
           <div
-            className="flex flex-col gap-4"
+            className="flex flex-col gap-5"
             id="rigging-options-form"
           >
             <div className="flex items-center gap-2">
@@ -693,7 +693,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             <div className="flex items-center justify-between">
               <div className="flex flex-col">
                 <span className="text-xs font-bold text-white">Auto Rig</span>
-                <span className="text-[9px] text-[#71717A]">
+                <span className="text-[9px] text-[#71717A] mt-1">
                   Automatically detect and generate skeleton
                 </span>
               </div>
@@ -768,7 +768,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
           <div className="border-t border-[#1E1E26]" />
 
           {/* Animation Presets Section */}
-          <div className="flex flex-col gap-3" id="animation-presets-section">
+          <div className="flex flex-col gap-4" id="animation-presets-section">
             <div className="flex items-center gap-2">
               <Play size={14} className="text-[#F5A623]" />
               <span className="text-xs font-bold text-white">Animation Presets</span>
@@ -822,7 +822,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             <div className="flex items-center justify-between">
               <div className="flex flex-col">
                 <span className="text-xs font-bold text-white">Loop</span>
-                <span className="text-[9px] text-[#71717A]">
+                <span className="text-[9px] text-[#71717A] mt-1">
                   Repeat animation continuously
                 </span>
               </div>
@@ -835,7 +835,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             </div>
 
             {/* Speed Slider */}
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               <div className="flex justify-between items-center text-[10px] text-[#71717A] uppercase font-mono font-bold">
                 <span>Speed</span>
                 <span className="text-[#F5A623] tabular-nums">{speed.toFixed(1)}x</span>
@@ -857,7 +857,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             </div>
 
             {/* Blend Mode Selector */}
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               <label className="text-[10px] text-[#71717A] uppercase font-mono font-bold">
                 Blend Mode
               </label>
@@ -1085,7 +1085,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
               </div>
 
               {/* Scrubber */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 <button
                   onClick={handlePreviewAnimation}
                   className="w-8 h-8 rounded-lg bg-[#F5A623]/10 border border-[#F5A623]/20 flex items-center justify-center hover:bg-[#F5A623]/20 transition-colors flex-shrink-0"
