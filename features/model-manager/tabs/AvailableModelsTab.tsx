@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Download, Info, AlertTriangle } from 'lucide-react';
-import { CompatibilityChecker } from '@/app/features/model-manager/components/CompatibilityChecker';
+import { CompatibilityChecker } from '../components/CompatibilityChecker';
 
 interface AvailableModel {
   id: string;

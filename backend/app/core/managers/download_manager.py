@@ -16,9 +16,11 @@ from app.models.registry import DownloadQueue
 class DownloadManager:
     """Manages model downloads with queue, resume, and validation."""
     
-    def __init__(self, db: Session, storage_path: str):
+    def __init__(self, db: Session, storage_path: str = None):
+        from runtime.storage import get_storage_config
         self.db = db
-        self.storage_path = Path(storage_path)
+        storage = get_storage_config()
+        self.storage_path = Path(storage_path) if storage_path else storage.storage_dir
         self.chunk_manager = ChunkManager(str(self.storage_path))
         self.mirror_fallback = MirrorFallback()
         self.checksum_validator = ChecksumValidator()
@@ -51,13 +53,31 @@ class DownloadManager:
         if existing:
             return str(existing.id)
         
+        from runtime.storage import get_storage_config
+        
+        storage = get_storage_config()
+        try:
+            from runtime.installer import PROVIDER_METADATA
+            meta = PROVIDER_METADATA.get(model_id, {})
+            repo = meta.get("repo")
+        except ImportError:
+            repo = None
+            
+        if repo:
+            target_dir = storage.get_model_weights_dir(repo)
+        else:
+            target_dir = storage.storage_dir / "models"
+            
+        target_dir.mkdir(parents=True, exist_ok=True)
+        file_path = str(target_dir / filename)
+        
         download = DownloadQueue(
             id=download_id,
             model_id=model_id,
             model_name=model_name,
             url=url,
             filename=filename,
-            file_path=str(self.storage_path / filename),
+            file_path=file_path,
             total_bytes=total_size,
             status="pending",
             checksum=checksum,
@@ -124,10 +144,10 @@ class DownloadManager:
                         pass
             
             # Download with resume capability
-            success = await self.chunk_manager.download_with_resume(
+            success = await self.chunk_manager.parallel_chunk_download(
                 working_url,
                 output_path,
-                download.total_bytes,
+                4,  # num_chunks
                 db_updating_cb
             )
             

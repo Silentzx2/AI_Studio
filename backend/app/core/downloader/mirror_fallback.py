@@ -30,16 +30,29 @@ class MirrorFallback:
         return None
     
     async def _test_url(self, url: str, timeout: int) -> bool:
-        """Test if URL is accessible"""
+        """Test if URL is accessible (HEAD first, then GET range fallback)"""
         import aiohttp
         
         try:
-            async with aiohttp.ClientSession() as session, session.head(
-                url,
-                timeout=aiohttp.ClientTimeout(total=timeout),
-                allow_redirects=True
-            ) as resp:
-                return resp.status < 400
+            async with aiohttp.ClientSession() as session:
+                # Try HEAD first (cheapest)
+                async with session.head(
+                    url,
+                    timeout=aiohttp.ClientTimeout(total=timeout),
+                    allow_redirects=True
+                ) as resp:
+                    if resp.status < 400:
+                        return True
+                
+                # ponytail: HEAD blocked by many CDNs (405/403); GET with
+                # 1-byte range is near-universal fallback
+                async with session.get(
+                    url,
+                    headers={"Range": "bytes=0-0"},
+                    timeout=aiohttp.ClientTimeout(total=timeout),
+                    allow_redirects=True
+                ) as resp:
+                    return resp.status < 400
         except:
             return False
     

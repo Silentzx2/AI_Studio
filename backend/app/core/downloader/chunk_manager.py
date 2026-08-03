@@ -1,5 +1,6 @@
 """Chunk manager for resumable downloads"""
 import asyncio
+import inspect
 import json
 from datetime import datetime
 from pathlib import Path
@@ -45,6 +46,11 @@ class ChunkManager:
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(url, headers=headers) as resp:
+                        # If server returns full content (200) while we have a partial file,
+                        # the previous logic would append, corrupting the file.
+                        # Reset download state and write from scratch.
+                        if resp.status == 200 and downloaded_size > 0:
+                            downloaded_size = 0
                         if resp.status not in (200, 206):
                             retries += 1
                             await asyncio.sleep(2 ** retries)
@@ -57,6 +63,7 @@ class ChunkManager:
                                 total_size = int(content_length) + downloaded_size
                         
                         # Write in chunks
+                        # Choose mode based on whether we have existing data.
                         mode = "ab" if downloaded_size > 0 else "wb"
                         with open(output_path, mode) as f:
                             async for chunk in resp.content.iter_chunked(self.chunk_size):
@@ -70,7 +77,12 @@ class ChunkManager:
                                             "total": total_size,
                                             "percent": (downloaded_size / total_size * 100) if total_size else 0
                                         }
-                                        await progress_callback(progress)
+                                        # ponytail: support both sync and async callbacks;
+                                        # download_manager wraps in sync def for DB updates
+                                        if inspect.iscoroutinefunction(progress_callback):
+                                            await progress_callback(progress)
+                                        else:
+                                            progress_callback(progress)
                         
                         # Save metadata
                         self._save_metadata(str(output_path), {
@@ -131,6 +143,16 @@ class ChunkManager:
             results = await asyncio.gather(*tasks)
             
             if all(results):
+                # ponytail: merge chunks into the final file
+                with open(output_path, "wb") as outfile:
+                    for i in range(num_chunks):
+                        chunk_path = Path(f"{output_path}.part{i}")
+                        if chunk_path.exists():
+                            with open(chunk_path, "rb") as infile:
+                                import shutil
+                                shutil.copyfileobj(infile, outfile)
+                            chunk_path.unlink()
+                
                 self._save_metadata(str(output_path), {
                     "complete": True,
                     "size": total_size,
@@ -171,10 +193,14 @@ class ChunkManager:
                                     f.write(chunk)
                         
                         if progress_callback:
-                            await progress_callback({
+                            progress = {
                                 "chunk": chunk_id,
                                 "downloaded": end - start + 1
-                            })
+                            }
+                            if inspect.iscoroutinefunction(progress_callback):
+                                await progress_callback(progress)
+                            else:
+                                progress_callback(progress)
                         
                         return True
             
