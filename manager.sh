@@ -1,181 +1,103 @@
 #!/usr/bin/env bash
-# AI 3D Studio — Manager Menu
-# Interactive management console for the AI 3D Studio application.
-#
-# Usage: ./manager.sh
+# ═══════════════════════════════════════════════════════════════════════════
+# AI 3D Studio v3.2 — Service Manager (Non-Docker)
+# Interactive management console for native services
+# ═══════════════════════════════════════════════════════════════════════════
 
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
-# Colors
+# ── Colors ────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
+BLUE='\033[0;34m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-COMPOSE_CMD="docker compose -f docker-compose.yml -f docker-compose.gpu.yml"
+# ── PID directory ─────────────────────────────────────────────────────────
+PID_DIR=".pids"
+mkdir -p "$PID_DIR"
 
+# ── Service status check ──────────────────────────────────────────────────
+_check_service() {
+    local name=$1
+    local pid_file=$2
+    
+    if [[ -f "$pid_file" ]]; then
+        local pid=$(cat "$pid_file" 2>/dev/null || echo "")
+        if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+            echo -e "${GREEN}●${NC} $name (PID: $pid)"
+            return 0
+        else
+            echo -e "${RED}●${NC} $name (dead PID file)"
+            rm -f "$pid_file"
+            return 1
+        fi
+    else
+        echo -e "${RED}●${NC} $name (not running)"
+        return 1
+    fi
+}
+
+# ── Status function ──────────────────────────────────────────────────────
+_status() {
+    echo -e "${CYAN}Service Status:${NC}"
+    _check_service "PostgreSQL" "/tmp/pg.pid" 2>/dev/null || {
+        if systemctl is-active --quiet postgresql 2>/dev/null; then
+            echo -e "${GREEN}●${NC} PostgreSQL (system service)"
+        else
+            echo -e "${RED}●${NC} PostgreSQL (not running)"
+        fi
+    }
+    _check_service "Redis" "/tmp/redis.pid" 2>/dev/null || {
+        if systemctl is-active --quiet redis-server 2>/dev/null; then
+            echo -e "${GREEN}●${NC} Redis (system service)"
+        else
+            echo -e "${RED}●${NC} Redis (not running)"
+        fi
+    }
+    _check_service "Backend API" "$PID_DIR/api.pid"
+    _check_service "Celery Worker" "$PID_DIR/worker.pid"
+    _check_service "Frontend" "$PID_DIR/frontend.pid"
+    echo ""
+}
+
+# ── Main menu header ──────────────────────────────────────────────────────
 _header() {
     clear
     echo ""
-    echo -e "${BOLD}================================================${NC}"
-    echo -e "${BOLD}  AI 3D Studio — Manager${NC}"
-    echo -e "${BOLD}================================================${NC}"
+    echo -e "${BOLD}════════════════════════════════════════════════════════${NC}"
+    echo -e "${BOLD}  AI 3D Studio v3.2 — Native Service Manager${NC}"
+    echo -e "${BOLD}════════════════════════════════════════════════════════${NC}"
     echo ""
 }
 
-_status() {
-    echo -e "${CYAN}Container Status:${NC}"
-    $COMPOSE_CMD ps --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}' 2>/dev/null || \
-        docker compose ps --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}' 2>/dev/null || \
-        echo "  (docker compose not available)"
-    echo ""
-}
-
-_wait_api() {
-    local max=${1:-60}
-    local url="http://localhost:8000/api/v1/health"
-    echo -n "  Waiting for API"
-    for i in $(seq 1 $max); do
-        if curl -sf "$url" >/dev/null 2>&1; then
-            echo -e " ${GREEN}ready${NC}"
-            return 0
-        fi
-        echo -n "."
-        sleep 2
-    done
-    echo -e " ${RED}timeout${NC}"
-    return 1
-}
+# ── Command functions ─────────────────────────────────────────────────────
 
 cmd_start() {
     _header
-    echo -e "${CYAN}Starting all services...${NC}"
     bash scripts/start.sh
-}
-
-cmd_cloudflare() {
-bash scripts/cloudflare.sh
 }
 
 cmd_stop() {
     _header
     echo -e "${CYAN}Stopping all services...${NC}"
-    $COMPOSE_CMD down
-    echo -e "${GREEN}All services stopped.${NC}"
+    echo ""
+    bash scripts/stop.sh
 }
 
 cmd_restart() {
     _header
     echo -e "${CYAN}Restarting all services...${NC}"
-    $COMPOSE_CMD down
-    bash scripts/start.sh
+    echo ""
+    bash scripts/restart.sh
 }
 
-cmd_update_models() {
+cmd_status() {
     _header
-    echo -e "${CYAN}Update Models${NC}"
-    echo ""
-    echo "Choose an option:"
-    echo "  1) Full installation (repos + weights)"
-    echo "  2) Repos only"
-    echo "  3) Weights only"
-    echo "  4) Specific model"
-    echo "  b) Back"
-    echo ""
-    read -rp "Choice: " choice
-    case "$choice" in
-        1)
-            echo ""
-            bash scripts/update-models.sh
-            ;;
-        2)
-            echo ""
-            bash scripts/update-models.sh --repos-only
-            ;;
-        3)
-            echo ""
-            bash scripts/update-models.sh --weights-only
-            ;;
-        4)
-            echo ""
-            echo "Available models: hunyuan3d-2.1, hunyuan3d-2, trellis, triposr"
-            read -rp "Model name: " model_name
-            echo ""
-            bash scripts/update-models.sh --model="$model_name"
-            ;;
-        b|B) return ;;
-        *) echo -e "${RED}Invalid choice${NC}" ;;
-    esac
-    echo ""
-    read -rp "Press Enter to continue..."
-}
-
-cmd_health_check() {
-    _header
-    echo -e "${CYAN}Health Check${NC}"
-    echo ""
-
-    # Quick Docker service health
-    echo -e "${BOLD}--- Docker Services ---${NC}"
-    $COMPOSE_CMD ps --format 'table {{.Name}}\t{{.Status}}' 2>/dev/null || true
-    echo ""
-
-    # Backend API health
-    echo -e "${BOLD}--- Backend API ---${NC}"
-    if curl -sf http://localhost:8000/api/v1/health >/dev/null 2>&1; then
-        HEALTH=$(curl -s http://localhost:8000/api/v1/health 2>/dev/null)
-        echo -e "  ${GREEN}OK${NC}  API reachable at http://localhost:8000"
-        echo "  Response: $HEALTH"
-    else
-        echo -e "  ${RED}FAIL${NC} API not reachable at http://localhost:8000"
-    fi
-    echo ""
-
-    # Runtime verification via API
-    echo -e "${BOLD}--- Runtime Verification (via API) ---${NC}"
-    VERIFY=$(curl -sf -X POST http://localhost:8000/api/v1/runtime/verify 2>/dev/null || echo '{"error":"unavailable"}')
-    echo "  $VERIFY"
-    echo ""
-
-    # GPU check
-    echo -e "${BOLD}--- GPU ---${NC}"
-    if command -v nvidia-smi >/dev/null 2>&1; then
-        nvidia-smi --query-gpu=name,driver_version,memory.total,memory.free \
-            --format=csv,noheader 2>/dev/null | while IFS=',' read -r name driver total free; do
-            echo -e "  ${GREEN}GPU${NC}: $name | Driver: $driver | VRAM: $free / $total"
-        done
-    else
-        echo -e "  ${YELLOW}WARN${NC} nvidia-smi not found"
-    fi
-    echo ""
-
-    read -rp "Press Enter to continue..."
-}
-
-cmd_verify_runtime() {
-    _header
-    echo -e "${CYAN}Verify Runtime${NC}"
-    echo ""
-    bash scripts/verify-runtime.sh
-    echo ""
-    read -rp "Press Enter to continue..."
-}
-
-cmd_build_image() {
-    _header
-    echo -e "${CYAN}Build Runtime Image${NC}"
-    echo ""
-    if [ -f scripts/build-runtime-image.sh ]; then
-        bash scripts/build-runtime-image.sh
-    else
-        echo -e "${CYAN}Building Docker images...${NC}"
-        $COMPOSE_CMD build --no-cache
-        echo -e "${GREEN}Build complete.${NC}"
-    fi
-    echo ""
+    _status
     read -rp "Press Enter to continue..."
 }
 
@@ -184,33 +106,161 @@ cmd_logs() {
     echo -e "${CYAN}View Logs${NC}"
     echo ""
     echo "Choose a service:"
-    echo "  1) api"
-    echo "  2) worker"
-    echo "  3) frontend"
-    echo "  4) postgres"
-    echo "  5) redis"
-    echo "  6) All services"
+    echo "  1) API (backend)"
+    echo "  2) Worker (Celery)"
+    echo "  3) Frontend"
+    echo "  4) All logs (follow)"
     echo "  b) Back"
     echo ""
     read -rp "Choice: " choice
+    echo ""
     case "$choice" in
-        1) $COMPOSE_CMD logs --tail=100 -f api ;;
-        2) $COMPOSE_CMD logs --tail=100 -f worker ;;
-        3) $COMPOSE_CMD logs --tail=100 -f frontend ;;
-        4) $COMPOSE_CMD logs --tail=100 -f postgres ;;
-        5) $COMPOSE_CMD logs --tail=100 -f redis ;;
-        6) $COMPOSE_CMD logs --tail=100 -f ;;
+        1)
+            if [[ -f logs/api.log ]]; then
+                tail -f logs/api.log
+            else
+                echo -e "${YELLOW}API log not found${NC}"
+            fi
+            ;;
+        2)
+            if [[ -f logs/worker.log ]]; then
+                tail -f logs/worker.log
+            else
+                echo -e "${YELLOW}Worker log not found${NC}"
+            fi
+            ;;
+        3)
+            if [[ -f logs/frontend.log ]]; then
+                tail -f logs/frontend.log
+            else
+                echo -e "${YELLOW}Frontend log not found${NC}"
+            fi
+            ;;
+        4)
+            tail -f logs/*.log 2>/dev/null || echo "No logs found"
+            ;;
         b|B) return ;;
         *) echo -e "${RED}Invalid choice${NC}" ;;
     esac
 }
 
-cmd_migrations() {
+cmd_health_check() {
     _header
-    echo -e "${CYAN}Run Database Migrations${NC}"
+    echo -e "${CYAN}Health Check${NC}"
     echo ""
-    $COMPOSE_CMD run --rm migrate alembic upgrade head
-    echo -e "${GREEN}Migrations complete.${NC}"
+    
+    echo -e "${BOLD}--- PostgreSQL ---${NC}"
+    if pg_isready -h localhost -U postgres &>/dev/null; then
+        echo -e "  ${GREEN}✓${NC} PostgreSQL running"
+    else
+        echo -e "  ${RED}✗${NC} PostgreSQL not responding"
+    fi
+    
+    echo -e "${BOLD}--- Redis ---${NC}"
+    if redis-cli ping &>/dev/null 2>&1; then
+        echo -e "  ${GREEN}✓${NC} Redis running"
+    else
+        echo -e "  ${RED}✗${NC} Redis not responding"
+    fi
+    
+    echo -e "${BOLD}--- Backend API ---${NC}"
+    if curl -sf http://localhost:8000/api/v1/health &>/dev/null; then
+        echo -e "  ${GREEN}✓${NC} API reachable"
+        HEALTH=$(curl -s http://localhost:8000/api/v1/health 2>/dev/null || echo "{}")
+        echo "  Response: $HEALTH"
+    else
+        echo -e "  ${RED}✗${NC} API not responding"
+    fi
+    
+    echo -e "${BOLD}--- Frontend ---${NC}"
+    if curl -sf http://localhost:3000 &>/dev/null; then
+        echo -e "  ${GREEN}✓${NC} Frontend reachable"
+    else
+        echo -e "  ${RED}✗${NC} Frontend not responding"
+    fi
+    
+    echo -e "${BOLD}--- GPU ---${NC}"
+    if command -v nvidia-smi >/dev/null 2>&1; then
+        nvidia-smi --query-gpu=name,driver_version,memory.total,memory.free \
+            --format=csv,noheader 2>/dev/null | while IFS=',' read -r name driver total free; do
+            echo -e "  ${GREEN}✓${NC} GPU: $name | Driver: $driver | VRAM: $free / $total"
+        done
+    else
+        echo -e "  ${YELLOW}⚠${NC} nvidia-smi not available"
+    fi
+    
+    echo ""
+    read -rp "Press Enter to continue..."
+}
+
+cmd_reset_pids() {
+    _header
+    echo -e "${YELLOW}Reset PID Files${NC}"
+    echo ""
+    echo "This will clear all stale PID files without stopping services."
+    read -rp "Continue? [y/N] " confirm
+    case "$confirm" in
+        y|Y)
+            rm -f "$PID_DIR"/*.pid
+            echo -e "${GREEN}PID files cleared${NC}"
+            ;;
+        *) echo "Cancelled" ;;
+    esac
+    echo ""
+    read -rp "Press Enter to continue..."
+}
+
+cmd_database() {
+    _header
+    echo -e "${CYAN}Database Management${NC}"
+    echo ""
+    echo "Choose an option:"
+    echo "  1) Run migrations"
+    echo "  2) Reset database"
+    echo "  b) Back"
+    echo ""
+    read -rp "Choice: " choice
+    echo ""
+    case "$choice" in
+        1)
+            echo "Running migrations..."
+            cd backend
+            backend/.venv/bin/python -m alembic upgrade head
+            cd ..
+            echo -e "${GREEN}Migrations complete${NC}"
+            ;;
+        2)
+            echo -e "${RED}WARNING: This will delete all data!${NC}"
+            read -rp "Type 'reset' to confirm: " confirm
+            if [[ "$confirm" == "reset" ]]; then
+                echo "Dropping and recreating database..."
+                PGPASSWORD=postgres psql -h localhost -U postgres -c "DROP DATABASE IF EXISTS ai3dstudio;"
+                PGPASSWORD=postgres psql -h localhost -U postgres -c "CREATE DATABASE ai3dstudio;"
+                echo "Running migrations..."
+                cd backend
+                backend/.venv/bin/python -m alembic upgrade head
+                cd ..
+                echo -e "${GREEN}Database reset complete${NC}"
+            else
+                echo "Cancelled"
+            fi
+            ;;
+        b|B) return ;;
+        *) echo -e "${RED}Invalid choice${NC}" ;;
+    esac
+    echo ""
+    read -rp "Press Enter to continue..."
+}
+
+cmd_environment() {
+    _header
+    echo -e "${CYAN}View Environment${NC}"
+    echo ""
+    if [[ -f .env ]]; then
+        cat .env | grep -v "^#" | grep -v "^$"
+    else
+        echo -e "${YELLOW}No .env file found${NC}"
+    fi
     echo ""
     read -rp "Press Enter to continue..."
 }
@@ -229,171 +279,73 @@ cmd_setup() {
     read -rp "Press Enter to continue..."
 }
 
-
-cmd_status() {
+cmd_clean_logs() {
     _header
-    echo -e "${CYAN}System Status${NC}"
+    echo -e "${CYAN}Clean Old Logs${NC}"
     echo ""
-    if [ -f scripts/status.sh ]; then
-        bash scripts/status.sh
-    else
-        echo -e "${RED}scripts/status.sh not found${NC}"
-    fi
-    echo ""
-    read -rp "Press Enter to continue..."
-}
-
-cmd_rebuild() {
-    _header
-    echo -e "${CYAN}Rebuild Services${NC}"
-    echo ""
-    echo "Choose an option:"
-    echo "  1) Rebuild default services (api, worker, migrate)"
-    echo "  2) API"
-    echo "  3) Worker"
-    echo "  4) Frontend"
-    echo "  5) Migrate"
-    echo "  6) Custom services"
-    echo "  b) Back"
-    echo ""
-
-    read -rp "Choice: " choice
-
-    case "$choice" in
-        1)
-            bash scripts/rebuild.sh
-            ;;
-        2)
-            bash scripts/rebuild.sh api
-            ;;
-        3)
-            bash scripts/rebuild.sh worker
-            ;;
-        4)
-            bash scripts/rebuild.sh frontend
-            ;;
-        5)
-            bash scripts/rebuild.sh migrate
-            ;;
-        6)
-            read -rp "Enter service names (space separated): " services
-            bash scripts/rebuild.sh $services
-            ;;
-        b|B)
-            return
-            ;;
-        *)
-            echo -e "${RED}Invalid choice${NC}"
-            ;;
-    esac
-
-    echo ""
-    read -rp "Press Enter to continue..."
-}
-
-
-
-cmd_docker_cleanup() {
-    _header
-    echo -e "${RED}${BOLD}Full Docker Cleanup${NC}"
-    echo ""
-    echo "This will remove EVERYTHING related to Docker:"
-    echo "  • All containers"
-    echo "  • All images"
-    echo "  • All volumes"
-    echo "  • All networks (unused)"
-    echo "  • All build cache"
-    echo "  • All unused Docker resources"
-    echo ""
-    echo -e "${YELLOW}⚠ WARNING: This operation cannot be undone!${NC}"
-    echo ""
-
-    read -rp "Are you sure? [y/N]: " confirm
-
+    echo "This will remove log files older than 7 days."
+    read -rp "Continue? [y/N] " confirm
     case "$confirm" in
-        y|Y|yes|YES|Yes)
+        y|Y)
+            find logs -name "*.log" -mtime +7 -delete 2>/dev/null || true
+            echo -e "${GREEN}Old logs cleaned${NC}"
             ;;
-        n|N|no|NO|No|"")
-            echo -e "${GREEN}Cleanup cancelled.${NC}"
-            read -rp "Press Enter to continue..."
-            return
-            ;;
-        *)
-            echo -e "${RED}Invalid choice. Cleanup cancelled.${NC}"
-            read -rp "Press Enter to continue..."
-            return
-            ;;
+        *) echo "Cancelled" ;;
     esac
-
     echo ""
-    echo -e "${CYAN}Performing full Docker cleanup...${NC}"
-
-    docker compose down --volumes --remove-orphans 2>/dev/null || true
-    docker rm -f $(docker ps -aq) 2>/dev/null || true
-    docker rmi -f $(docker images -aq) 2>/dev/null || true
-    docker volume rm $(docker volume ls -q) 2>/dev/null || true
-    docker network prune -f
-    docker builder prune -af
-    docker system prune -af --volumes
-
-    echo ""
-    echo -e "${GREEN}✅ Docker has been completely cleaned.${NC}"
-    echo ""
-
     read -rp "Press Enter to continue..."
 }
 
-cmd_reset() {
-    chmod +x scripts/ai_studio_fresh_reset.sh
-    ./scripts/reset.sh
-}
-cmd_docker_images() {
-    bash scripts/docker-images.sh
+main() {
+  echo -e "${RED}${BOLD}"
+  cat << 'BANNER'
+
+ ██████╗██╗    ██████╗ ██████╗      ███████╗████████╗██╗   ██╗██████╗ ██╗ ██████╗
+██╔══██╗██║    ╚════██╗██╔══██╗     ██╔════╝╚══██╔══╝██║   ██║██╔══██╗██║██╔═══██╗
+███████║██║     █████╔╝██║  ██║     ███████╗   ██║   ██║   ██║██║  ██║██║██║   ██║
+██╔══██║██║    ╚═══██╗ ██║  ██║     ╚════██║   ██║   ██║   ██║██║  ██║██║██║   ██║
+██║  ██║██║   ██████╔╝ ██████╔╝     ███████║   ██║   ╚██████╔╝██████╔╝██║╚██████╔╝
+╚═╝  ╚═╝╚═╝   ╚═════╝  ╚═════╝      ╚══════╝   ╚═╝    ╚═════╝ ╚═════╝ ╚═╝ ╚═════╝
+
+BANNER
+  echo -e "${NC}  ${BOLD}Automatic Installer v3.2.0${NC}\n"
 }
 
+# ── Main menu loop ────────────────────────────────────────────────────────
 main_menu() {
     while true; do
+         Main
         _header
         _status
         echo -e "${BOLD}Actions:${NC}"
-        echo "  1) Start all services"
-        echo "  2) Stop all services"
-        echo "  3) Restart all services"
-        echo "  4) Update Models"
-        echo "  5) Health Check"
-        echo "  6) Verify Runtime"
-        echo "  7) Build Runtime Image"
-        echo "  8) View Logs"
-        echo "  9) Run Migrations"
-        echo "  10) Cloudflare"
-        echo "  11) System Status"
-        echo "  12) Rebuild Services"
-        echo "  13) Docker Cleanup"
-        echo "  14) Docker Image Library"
-        echo "  15) Full-Reset"
         echo "  0) First-Time Setup"
-        echo "  q) Quit"
+        echo "  1)  Start all services"
+        echo "  2)  Stop all services"
+        echo "  3)  Restart all services"
+        echo "  4)  Service status"
+        echo "  5)  View logs"
+        echo "  6)  Health check"
+        echo "  7)  Database management"
+        echo "  8)  View environment"
+        echo "  9)  Reset PID files"
+        echo "  10) Clean old logs"
+        echo "  q)  Quit"
         echo ""
         read -rp "Choice: " choice
         case "$choice" in
-            1) cmd_start ;;
-            2) cmd_stop ;;
-            3) cmd_restart ;;
-            4) cmd_update_models ;;
-            5) cmd_health_check ;;
-            6) cmd_verify_runtime ;;
-            7) cmd_build_image ;;
-            8) cmd_logs ;;
-            9) cmd_migrations ;;
-            10) cmd_cloudflare ;;
-            11) cmd_status ;;
-            12) cmd_rebuild ;;
-            13) cmd_docker_cleanup ;;
-            14) cmd_docker_images;;
-            15) cmd_reset ;;
-            0) cmd_setup ;;
+            0)  cmd_setup ;;
+            1)  cmd_start ;;
+            2)  cmd_stop ;;
+            3)  cmd_restart ;;
+            4)  cmd_status ;;
+            5)  cmd_logs ;;
+            6)  cmd_health_check ;;
+            7)  cmd_database ;;
+            8)  cmd_environment ;;
+            9)  cmd_reset_pids ;;
+            10) cmd_clean_logs ;;
             q|Q) echo ""; echo -e "${GREEN}Goodbye!${NC}"; echo ""; exit 0 ;;
-            *) echo -e "${RED}Invalid choice. Please try again.${NC}"; sleep 1 ;;
+            *) echo -e "${RED}Invalid choice${NC}"; sleep 1 ;;
         esac
     done
 }

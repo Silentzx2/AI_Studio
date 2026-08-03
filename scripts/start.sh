@@ -1,281 +1,243 @@
 #!/usr/bin/env bash
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║   AI 3D Studio v3.2 - Startup Script                           ║
-# ║                                                                  ║
-# ║   Starts all services in order:                                  ║
-# ║     infra (postgres, redis) → api → migrate → worker → frontend ║
-# ║                                                                  ║
-# ║   GPU auto-detected from nvidia-container-runtime.               ║
-# ║   Fails fast only on GPU validation (when GPU detected).         ║
-# ║   Non-critical step failures show logs and continue.            ║
-# ╚══════════════════════════════════════════════════════════════════╝
+# ═══════════════════════════════════════════════════════════════════════════
+# AI 3D Studio v3.2 — Startup Script (Non-Docker)
+# Starts all services natively:
+#   PostgreSQL → Redis → Migrations → Backend API → Celery Worker → Frontend
+# ═══════════════════════════════════════════════════════════════════════════
 
 set -euo pipefail
 
-# ── Colors ────────────────────────────────────────────────────────────
+# ── Colors ────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
-DIM='\033[2m'
+BOLD='\033[1m'
 NC='\033[0m'
 
-# ── Helpers ───────────────────────────────────────────────────────────
-info()  { echo -e "${CYAN}$1${NC}"; }
-ok()    { echo -e "${GREEN}  ✔ $1${NC}"; }
-warn()  { echo -e "${YELLOW}  ⚠ $1${NC}"; }
-err()   { echo -e "${RED}  ✖ $1${NC}"; }
-step()  { echo -e "${BLUE}$1${NC}"; }
+# ── Helpers ───────────────────────────────────────────────────────────────
+log()   { echo -e "${GREEN}[START]${NC}  $*"; }
+info()  { echo -e "${CYAN}[INFO]${NC}   $*"; }
+warn()  { echo -e "${YELLOW}[WARN]${NC}   $*"; }
+err()   { echo -e "${RED}[ERROR]${NC}  $*" >&2; }
+step()  { echo -e "\n${BOLD}${BLUE}➜ $*${NC}"; }
 
-# ── Project Root ──────────────────────────────────────────────────────
+# ── Project Root ──────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
-# ── Pre-flight: Docker ────────────────────────────────────────────────
-if ! command -v docker &>/dev/null; then
-    err "Docker is not installed or not in PATH."
-    echo "  Install: curl -fsSL https://get.docker.com | sh"
+# ── Load .env ──────────────────────────────────────────────────────────────
+if [[ ! -f .env ]]; then
+    err "No .env found. Run: sudo bash scripts/setup.sh"
+    exit 1
+fi
+set -a
+source .env
+set +a
+
+# ── Ensure Python venv exists ─────────────────────────────────────────────
+if [[ ! -f backend/.venv/bin/python ]]; then
+    err "Python venv not found at backend/.venv"
+    err "Run: sudo bash scripts/setup.sh"
     exit 1
 fi
 
-if ! docker info &>/dev/null; then
-    err "Docker daemon is not running. Start it first."
+PYTHON_BIN="backend/.venv/bin/python"
+PIP_BIN="backend/.venv/bin/pip"
+UVICORN_BIN="backend/.venv/bin/uvicorn"
+CELERY_BIN="backend/.venv/bin/celery"
+
+# ── Ensure Node.js is available ────────────────────────────────────────────
+if ! command -v npm &>/dev/null; then
+    err "Node.js/npm not found. Run: sudo bash scripts/setup.sh"
     exit 1
 fi
 
-if [ ! -f docker-compose.yml ]; then
-    err "docker-compose.yml not found in ${PROJECT_ROOT}"
-    exit 1
-fi
+# ── PID file directory ─────────────────────────────────────────────────────
+PID_DIR="${PROJECT_ROOT}/.pids"
+mkdir -p "$PID_DIR"
 
-# ── GPU Detection ────────────────────────────────────────────────────
-GPU_DETECTED=false
+# ── Service PIDs ───────────────────────────────────────────────────────────
+API_PID_FILE="$PID_DIR/api.pid"
+WORKER_PID_FILE="$PID_DIR/worker.pid"
+FRONTEND_PID_FILE="$PID_DIR/frontend.pid"
+MIGRATE_PID_FILE="$PID_DIR/migrate.pid"
 
-if command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null; then
-    if docker info 2>/dev/null | grep -qi 'runtimes.*nvidia'; then
-        GPU_DETECTED=true
-    fi
-fi
-
-# ── Build Compose Command ────────────────────────────────────────────
-COMPOSE_FILES=("-f" "docker-compose.yml")
-if [ "$GPU_DETECTED" = true ] && [ -f docker-compose.gpu.yml ]; then
-    COMPOSE_FILES+=("-f" "docker-compose.gpu.yml")
-fi
-
-# Helper: run compose command
-run_compose() {
-    docker compose "${COMPOSE_FILES[@]}" "$@"
+# ── Helper: Write PID ──────────────────────────────────────────────────────
+write_pid() {
+    local pid_file=$1
+    local pid=$2
+    mkdir -p "$(dirname "$pid_file")"
+    echo "$pid" > "$pid_file"
 }
 
-# ── Banner ────────────────────────────────────────────────────────────
-echo ""
-echo -e "${CYAN}🚀 AI 3D Studio v3.2 — Starting${NC}"
-echo "==========================================="
-echo ""
-if [ "$GPU_DETECTED" = true ]; then
-    GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 || echo "unknown")
-    DRIVER_VER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 || echo "unknown")
-    ok "GPU: ${GPU_NAME}"
-    ok "Driver: ${DRIVER_VER}"
-    ok "NVIDIA Container Runtime: available"
-else
-    info "Mode: CPU-only (no NVIDIA GPU detected)"
-    if [ -f docker-compose.gpu.yml ]; then
-        warn "docker-compose.gpu.yml exists but GPU runtime not available"
-    fi
-fi
-echo ""
-
-# ── GPU Validation (only when GPU is detected) ───────────────────────
-if [ "$GPU_DETECTED" = true ]; then
-    info "Validating GPU setup..."
-    GPU_ERRORS=0
-
-    # Verify nvidia-smi works
-    if ! nvidia-smi &>/dev/null; then
-        err "nvidia-smi failed — GPU may not be properly connected"
-        GPU_ERRORS=$((GPU_ERRORS + 1))
-    fi
-
-    # Verify docker can access GPU
-    if ! docker run --rm --gpus all nvidia/cuda:12.1-base nvidia-smi &>/dev/null; then
-        warn "Docker GPU test failed — pulling image first time may take a while"
-        warn "If this persists, ensure nvidia-container-toolkit is configured"
-        warn "  sudo nvidia-ctk runtime configure --runtime=docker"
-        warn "  sudo systemctl restart docker"
-    fi
-
-    if [ "$GPU_ERRORS" -gt 0 ]; then
-        echo ""
-        err "GPU validation failed. Fix the issues above or remove docker-compose.gpu.yml for CPU-only mode."
-        exit 1
-    fi
-    ok "GPU validation passed"
-    echo ""
-fi
-
-# ── Step 0: Check for existing containers ─────────────────────────────
-EXISTING=$(run_compose ps --quiet 2>/dev/null || true)
-if [ -n "$EXISTING" ]; then
-    info "Existing containers detected — cleaning up..."
-    run_compose down --remove-orphans 2>/dev/null || true
-    ok "Old containers removed"
-    echo ""
-fi
-
-# ── Step 1/5: Start Infrastructure ───────────────────────────────────
-step "[1/5] Starting infrastructure (postgres + redis)..."
-
-run_compose up -d postgres redis 2>&1 || {
-    err "Failed to start infrastructure services"
-    echo ""
-    echo -e "${RED}Infrastructure logs:${NC}"
-    run_compose logs postgres redis --tail=20 2>/dev/null || true
-    echo ""
-    err "Cannot continue without database. Check docker-compose.yml."
-    exit 1
-}
-
-# Wait for Postgres
-info "      Waiting for database..."
-DB_READY=false
-for i in $(seq 1 30); do
-    if run_compose exec -T postgres pg_isready -U postgres &>/dev/null; then
-        ok "Database ready"
-        DB_READY=true
-        break
-    fi
-    sleep 1
-done
-
-if [ "$DB_READY" = false ]; then
-    err "Database did not become ready in 30s"
-    echo ""
-    echo -e "${RED}Postgres logs:${NC}"
-    run_compose logs postgres --tail=30 2>/dev/null || true
-    echo ""
-    err "Cannot continue without database."
-    exit 1
-fi
-echo ""
-
-# ── Step 2/5: Start Backend API ─────────────────────────────────────
-step "[2/5] Starting backend API..."
-
-run_compose up -d api 2>&1 || {
-    err "Failed to start API"
-    echo -e "${RED}API logs:${NC}"
-    run_compose logs api --tail=30 2>/dev/null || true
-}
-
-# Wait for API health endpoint
-info "      Waiting for API (timeout: 120s)..."
-API_READY=false
-for i in $(seq 1 60); do
-    if curl -sf http://localhost:8000/api/v1/health &>/dev/null; then
-        ok "API is healthy"
-        API_READY=true
-        break
-    fi
-    # Check if API container crashed
-    API_CONTAINER=$(run_compose ps -q api 2>/dev/null || true)
-    if [ -n "$API_CONTAINER" ]; then
-        API_STATE=$(docker inspect --format='{{.State.Status}}' "$API_CONTAINER" 2>/dev/null || echo "unknown")
-        if [ "$API_STATE" != "running" ]; then
-            err "API container exited (status: ${API_STATE})"
-            echo -e "${RED}API logs:${NC}"
-            run_compose logs api --tail=40 2>/dev/null || true
-            break
+# ── Helper: Kill by PID file ──────────────────────────────────────────────
+kill_by_pid_file() {
+    local pid_file=$1
+    if [[ -f "$pid_file" ]]; then
+        local pid=$(cat "$pid_file" 2>/dev/null || echo "")
+        if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+            kill "$pid" 2>/dev/null || true
+            rm -f "$pid_file"
         fi
     fi
-    sleep 2
-done
-
-if [ "$API_READY" = false ]; then
-    warn "API did not respond within 120s — check: docker compose logs -f api"
-fi
-
-echo ""
-
-# ── Step 3/5: Run Migrations ─────────────────────────────────────────
-step "[3/5] Running database migrations..."
-
-if ! run_compose run --rm migrate alembic upgrade head 2>&1; then
-    warn "Migrations failed or already applied"
-    echo -e "${YELLOW}Migration logs:${NC}"
-    run_compose logs migrate --tail=20 2>/dev/null || true
-    warn "Continuing anyway"
-else
-    ok "Migrations complete"
-fi
-
-echo ""
-
-# ── Step 4/5: Start Worker ───────────────────────────────────────────
-step "[4/5] Starting worker..."
-
-# Remove stale worker container if it exists (use compose, not hardcoded name)
-run_compose rm -f worker 2>/dev/null || true
-
-if [ "$GPU_DETECTED" = true ]; then
-    info "      Starting worker (GPU mode)..."
-else
-    info "      Starting worker (CPU mode)..."
-fi
-
-run_compose up -d --force-recreate worker 2>&1 || {
-    err "Failed to start worker"
-    echo -e "${RED}Worker logs:${NC}"
-    run_compose logs worker --tail=30 2>/dev/null || true
 }
 
+# ── Banner ─────────────────────────────────────────────────────────────────
+echo ""
+echo -e "${CYAN}╔════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║${NC}  🚀 ${BOLD}AI 3D Studio v3.2${NC} — Starting Services (Native)"
+echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
-# ── Step 4b: Start Frontend ─────────────────────────────────────────
-if [ -f Dockerfile.frontend ]; then
-    step "      Starting frontend..."
-    run_compose up -d frontend 2>&1 || {
-        warn "Frontend failed to start"
-        echo -e "${YELLOW}Frontend logs:${NC}"
-        run_compose logs frontend --tail=20 2>/dev/null || true
+# ── Step 1: Verify PostgreSQL ──────────────────────────────────────────────
+step "1/6 Checking PostgreSQL..."
+if ! systemctl is-active --quiet postgresql; then
+    info "Starting PostgreSQL..."
+    sudo systemctl start postgresql || {
+        err "Failed to start PostgreSQL"
+        exit 1
     }
-else
-    info "      Frontend skipped (no Dockerfile.frontend)"
 fi
 
-echo ""
-
-# ── Step 5/5: Runtime Verification ───────────────────────────────────
-step "[5/5] Running runtime verification..."
-
-if run_compose exec -T api python -m runtime verify 2>&1; then
-    ok "Runtime verification passed"
-else
-    warn "Runtime verification failed or skipped — check: docker compose logs api"
+if ! pg_isready -h localhost -U postgres &>/dev/null; then
+    err "PostgreSQL not responding"
+    exit 1
 fi
 
+# Create database if it doesn't exist
+$PYTHON_BIN << 'PYEOF' 2>/dev/null || true
+import psycopg2
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+try:
+    conn = psycopg2.connect("host=localhost user=postgres password=postgres")
+    conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+    cursor = conn.cursor()
+    cursor.execute("SELECT 1 FROM pg_database WHERE datname = 'ai3dstudio'")
+    if not cursor.fetchone():
+        cursor.execute("CREATE DATABASE ai3dstudio")
+        print("Created ai3dstudio database")
+    else:
+        print("Database ai3dstudio already exists")
+    cursor.close()
+    conn.close()
+except Exception as e:
+    print(f"Database check: {e}")
+PYEOF
+
+log "PostgreSQL ready"
 echo ""
 
-# ── Summary ───────────────────────────────────────────────────────────
-echo "==========================================="
-echo -e "${GREEN}✅ AI 3D Studio Started${NC}"
-echo "==========================================="
-echo ""
-echo -e "  Backend API:  ${GREEN}http://localhost:8000${NC}"
-echo -e "  API Docs:     ${GREEN}http://localhost:8000/docs${NC}"
-if [ -f Dockerfile.frontend ]; then
-    echo -e "  Frontend:     ${GREEN}http://localhost:3000${NC}"
+# ── Step 2: Verify Redis ───────────────────────────────────────────────────
+step "2/6 Checking Redis..."
+if ! systemctl is-active --quiet redis-server; then
+    info "Starting Redis..."
+    sudo systemctl start redis-server || {
+        err "Failed to start Redis"
+        exit 1
+    }
 fi
-echo ""
-if [ "$GPU_DETECTED" = true ]; then
-    echo -e "  Mode: ${GREEN}GPU (NVIDIA CUDA)${NC}"
-else
-    echo -e "  Mode: ${YELLOW}CPU-only${NC}"
+
+if ! redis-cli ping &>/dev/null; then
+    err "Redis not responding"
+    exit 1
 fi
+
+log "Redis ready"
 echo ""
-echo -e "${DIM}Project root: ${PROJECT_ROOT}${NC}"
-echo -e "${DIM}Logs: docker compose ${COMPOSE_FILES[*]} logs -f <service>${NC}"
+
+# ── Step 3: Run Migrations ────────────────────────────────────────────────
+step "3/6 Running database migrations..."
+(
+    cd backend
+    if $PYTHON_BIN -m alembic upgrade head 2>&1; then
+        log "Migrations complete"
+    else
+        warn "Migrations skipped or failed (may already be applied)"
+    fi
+)
+echo ""
+
+# ── Step 4: Start Backend API ──────────────────────────────────────────────
+step "4/6 Starting Backend API (http://localhost:8000)..."
+(
+    cd backend
+    $UVICORN_BIN app.main:app \
+        --host 0.0.0.0 \
+        --port 8000 \
+        --reload \
+        --log-level info \
+        > "$PROJECT_ROOT/logs/api.log" 2>&1 &
+    write_pid "$API_PID_FILE" $!
+)
+log "Backend API started (PID: $(cat $API_PID_FILE))"
+
+# Wait for API to be ready
+info "Waiting for API to be healthy (timeout: 60s)..."
+for i in {1..30}; do
+    if curl -sf http://localhost:8000/api/v1/health &>/dev/null; then
+        log "API is healthy"
+        break
+    fi
+    echo -n "."
+    sleep 2
+done
+echo ""
+echo ""
+
+# ── Step 5: Start Celery Worker ────────────────────────────────────────────
+step "5/6 Starting Celery Worker..."
+(
+    cd backend
+    $CELERY_BIN -A app.workers.celery_app worker \
+        --loglevel=info \
+        --concurrency=1 \
+        -Q generation,images \
+        > "$PROJECT_ROOT/logs/worker.log" 2>&1 &
+    write_pid "$WORKER_PID_FILE" $!
+)
+log "Celery Worker started (PID: $(cat $WORKER_PID_FILE))"
+echo ""
+
+# ── Step 6: Start Frontend ────────────────────────────────────────────────
+step "6/6 Starting Frontend (http://localhost:3000)..."
+
+# Install deps if needed
+if [[ ! -d node_modules ]]; then
+    info "Installing npm dependencies..."
+    npm ci --prefer-offline --no-audit 2>&1 | grep -E '(added|up to date)' || true
+fi
+
+# Build if needed
+if [[ ! -d .next ]]; then
+    info "Building Next.js..."
+    npm run build 2>&1 | tail -5
+fi
+
+# Start frontend
+NEXT_PUBLIC_API_URL=http://localhost:8000 npm start \
+    > "$PROJECT_ROOT/logs/frontend.log" 2>&1 &
+write_pid "$FRONTEND_PID_FILE" $!
+
+log "Frontend started (PID: $(cat $FRONTEND_PID_FILE))"
+echo ""
+
+# ── Summary ────────────────────────────────────────────────────────────────
+echo -e "${CYAN}╔════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║${NC}  ${GREEN}✅ All Services Started${NC}"
+echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+echo -e "  ${BOLD}Endpoints:${NC}"
+echo -e "    Frontend       http://localhost:3000"
+echo -e "    Backend API    http://localhost:8000"
+echo -e "    API Docs       http://localhost:8000/docs"
+echo ""
+echo -e "  ${BOLD}Logs:${NC}"
+echo -e "    API      logs/api.log"
+echo -e "    Worker   logs/worker.log"
+echo -e "    Frontend logs/frontend.log"
+echo ""
+echo -e "  ${BOLD}Stop services:${NC} bash scripts/stop.sh"
 echo ""

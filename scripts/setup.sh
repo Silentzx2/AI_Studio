@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
-# AI 3D Studio — Automatic Setup Script
+# AI 3D Studio — Automatic Setup Script (Non-Docker)
+# Direct system installation without Docker containers
 # Supports Ubuntu 20.04/22.04/24.04 with NVIDIA GPU
 # Usage: sudo bash scripts/setup.sh
 # ============================================================
@@ -185,59 +186,38 @@ CUDA_ENV
   export LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}"
 }
 
-install_docker() {
-  head_ "Installing Docker"
-  if ! command -v docker &>/dev/null; then
-    log "Installing Docker Engine..."
-    curl -fsSL https://get.docker.com | bash || {
-      err "Docker installation failed — this is a critical dependency"
-      return 1
-    }
-    systemctl enable docker --now
-    log "Docker installed"
-  else
-    log "Docker already present: $(docker --version)"
+install_postgresql() {
+  head_ "Installing PostgreSQL 16"
+  if command -v psql &>/dev/null; then
+    log "PostgreSQL already installed: $(psql --version)"
+    return 0
   fi
+  
+  apt-get update -qq
+  apt-get install -y postgresql postgresql-contrib postgresql-16-pgvector || {
+    err "Failed to install PostgreSQL"
+    return 1
+  }
+  
+  systemctl enable postgresql --now
+  log "PostgreSQL installed and started"
+}
 
-  # Ensure the compose plugin is available
-  if ! docker compose version &>/dev/null 2>&1; then
-    COMPOSE_VER="2.27.1"
-    COMPOSE_BIN="/usr/local/lib/docker/cli-plugins/docker-compose"
-    mkdir -p "$(dirname "$COMPOSE_BIN")"
-    curl -SL "https://github.com/docker/compose/releases/download/v${COMPOSE_VER}/docker-compose-linux-x86_64" \
-      -o "$COMPOSE_BIN" || {
-      err "Failed to download Docker Compose v$COMPOSE_VER"
-      return 1
-    }
-    chmod +x "$COMPOSE_BIN"
-    log "Docker Compose v$COMPOSE_VER installed"
-  else
-    log "Docker Compose already present: $(docker compose version --short)"
+install_redis() {
+  head_ "Installing Redis 7"
+  if command -v redis-server &>/dev/null; then
+    log "Redis already installed: $(redis-server --version)"
+    return 0
   fi
-
-  if [[ "$GPU_AVAILABLE" == "true" ]]; then
-    if ! command -v nvidia-ctk &>/dev/null; then
-      head_ "Installing NVIDIA Container Toolkit"
-      curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
-        | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg || {
-        warn "Failed to add NVIDIA Container Toolkit GPG key — GPU passthrough may not work"
-        return 0
-      }
-      curl -sL "https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list" \
-        | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
-        > /etc/apt/sources.list.d/nvidia-container-toolkit.list
-      apt-get update -qq
-      apt-get install -y nvidia-container-toolkit || {
-        warn "Failed to install NVIDIA Container Toolkit — GPU passthrough may not work"
-        return 0
-      }
-      nvidia-ctk runtime configure --runtime=docker
-      systemctl restart docker
-      log "NVIDIA Container Toolkit installed"
-    else
-      log "NVIDIA Container Toolkit already present"
-    fi
-  fi
+  
+  apt-get update -qq
+  apt-get install -y redis-server || {
+    err "Failed to install Redis"
+    return 1
+  }
+  
+  systemctl enable redis-server --now
+  log "Redis installed and started"
 }
 
 install_node() {
@@ -312,28 +292,36 @@ setup_env() {
     log "Created .env from .env.example"
   else
     cat > .env << 'ENVEOF'
-# ── Database ──────────────────────────────────────────────
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/ai3dstudio
-DATABASE_SYNC_URL=postgresql://postgres:postgres@postgres:5432/ai3dstudio
+# ── Database (localhost) ──────────────────────────────────
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/ai3dstudio
+DATABASE_SYNC_URL=postgresql://postgres:postgres@localhost:5432/ai3dstudio
 
-# ── Redis / Celery ────────────────────────────────────────
-REDIS_URL=redis://redis:6379/0
-CELERY_BROKER_URL=redis://redis:6379/0
-CELERY_RESULT_BACKEND=redis://redis:6379/1
+# ── Redis / Celery (localhost) ────────────────────────────
+REDIS_URL=redis://localhost:6379/0
+CELERY_BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/1
 
 # ── API ───────────────────────────────────────────────────
 NEXT_PUBLIC_API_URL=http://localhost:8000
 
-# ── Storage (v3.2 bind-mount architecture) ─────────────────
-STORAGE_DIR=/app/backend/storage
-THIRD_PARTY_DIR=/app/backend/third_party
-RUNTIME_CACHE_DIR=/app/backend/.runtime_cache
+# ── Storage ────────────────────────────────────────────────
+STORAGE_LOCAL_PATH=./backend/storage
+RUNTIME_CACHE_DIR=./backend/.runtime_cache
+HF_HOME=./backend/third_party/.hf_cache
+HUGGINGFACE_HUB_CACHE=./backend/third_party/.hf_cache/hub
+TRANSFORMERS_CACHE=./backend/third_party/.hf_cache/transformers
+TORCH_HOME=./backend/third_party/.hf_cache/torch
+WEIGHTS_DIR=./backend/third_party/weights
 
 # ── GPU ───────────────────────────────────────────────────
 CUDA_VISIBLE_DEVICES=0
 CUDA_DEVICE=auto
 PLATFORM_MODE=gpu
 CPU_FALLBACK=false
+
+# ── Dev ────────────────────────────────────────────────────
+DEBUG=false
+PYTHONPATH=/app
 ENVEOF
     log "Created default .env"
   fi
@@ -461,23 +449,32 @@ print_summary() {
   head_ "Setup Complete"
   echo -e "${GREEN}${BOLD}AI 3D Studio v3.2.0 is ready!${NC}"
   echo
-  echo -e "  ${CYAN}Frontend :${NC}  http://localhost:3000"
-  echo -e "  ${CYAN}Backend  :${NC}  http://localhost:8000"
-  echo -e "  ${CYAN}API Docs :${NC}  http://localhost:8000/docs"
+  echo -e "  ${CYAN}Database :${NC}  PostgreSQL on localhost:5432"
+  echo -e "  ${CYAN}Cache    :${NC}  Redis on localhost:6379"
   echo
-   if [[ "$GPU_AVAILABLE" == "true" ]]; then
-    echo -e "  ${GREEN}GPU      :${NC}  ${GPU_NAME}"
+  echo -e "  ${CYAN}Setup complete!${NC} Now run:"
+  echo -e "    ${GREEN}bash scripts/start.sh${NC}"
+  echo
+  echo -e "  Services will start at:"
+  echo -e "    Frontend :  http://localhost:3000"
+  echo -e "    Backend  :  http://localhost:8000"
+  echo -e "    API Docs :  http://localhost:8000/docs"
+  echo
+  if [[ "$GPU_AVAILABLE" == "true" ]]; then
+    echo -e "  ${GREEN}GPU Mode:${NC}  ${GPU_NAME}"
   else
-    echo -e "  ${YELLOW}GPU      :${NC}  None — install NVIDIA GPU for AI inference"
+    echo -e "  ${YELLOW}GPU Mode:${NC}  None — install NVIDIA GPU for AI inference"
   fi
   echo
-  echo -e "  ${CYAN}Storage  :${NC}  backend/storage/   (uploads, models, exports, thumbnails, images)"
-  echo -e "  ${CYAN}3rd-party :${NC}  backend/third_party/ (weights, .hf_cache)"
-  echo -e "  ${CYAN}Cache     :${NC}  backend/.runtime_cache/"
+  echo -e "  ${CYAN}Storage  :${NC}  backend/storage/"
+  echo -e "  ${CYAN}3rd-party:${NC}  backend/third_party/"
+  echo -e "  ${CYAN}Config   :${NC}  .env"
   echo
-  echo -e "  View logs   :  ${CYAN}docker compose logs -f${NC}"
-  echo -e "  Stop stack  :  ${CYAN}docker compose down${NC}"
-  echo -e "  GPU restart :  ${CYAN}docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d${NC}"
+  echo -e "  ${CYAN}Command reference:${NC}"
+  echo -e "    Start services  : bash scripts/start.sh"
+  echo -e "    Stop services   : bash scripts/stop.sh"
+  echo -e "    Restart services: bash scripts/restart.sh"
+  echo -e "    Manage services : bash manager.sh"
   echo
 }
 
@@ -501,28 +498,27 @@ BANNER
   check_root
   check_os
   detect_gpu
-  install_system_deps   || { err "System dependency installation failed — aborting"; exit 1; }
-  install_python        || { err "Python installation failed — aborting"; exit 1; }
-  install_uv            || { err "uv installation failed — aborting"; exit 1; }
-  install_docker        || { err "Docker installation failed — aborting"; exit 1; }
-  install_node          || { err "Node.js installation failed — aborting"; exit 1; }
+  install_system_deps    || { err "System dependency installation failed — aborting"; exit 1; }
+  install_postgresql     || { err "PostgreSQL installation failed — aborting"; exit 1; }
+  install_redis          || { err "Redis installation failed — aborting"; exit 1; }
+  install_python         || { err "Python installation failed — aborting"; exit 1; }
+  install_uv             || { err "uv installation failed — aborting"; exit 1; }
+  install_node           || { err "Node.js installation failed — aborting"; exit 1; }
 
   # Non-critical steps — warn but continue
-  install_blender       || warn "Blender install skipped — post-processing may be unavailable"
-  install_cuda          || warn "CUDA install had issues — containers may use CPU fallback"
+  install_blender        || warn "Blender install skipped — post-processing may be unavailable"
+  install_cuda           || warn "CUDA install had issues — may use CPU fallback"
 
   # Project setup
   setup_folders
   setup_env
-  install_python_deps  || { err "Python dependency installation failed — aborting"; exit 1; }
+  install_python_deps    || { err "Python dependency installation failed — aborting"; exit 1; }
 
   # Non-critical project steps
   clone_anigen
-  install_frontend_deps || warn "Frontend deps had issues — check npm output above"
+  install_frontend_deps  || warn "Frontend deps had issues — check npm output above"
 
-  # Launch
-  start_services
-  wait_for_migrate
+  # Summary only — user runs scripts/start.sh manually
   print_summary
 }
 
