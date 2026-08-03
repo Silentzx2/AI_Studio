@@ -1,0 +1,15 @@
+# ponytail: Section 5 — exclude heavy dirs from build context
+# Without this, every `docker build` ships GBs of repos/weights to the daemon.
+third_party/
+storage/
+.runtime_cache/
+__pycache__/
+*.pyc
+.git
+.venv/
+*.egg-info/
+dist/
+build/
+.env
+.env.local
+.env.production

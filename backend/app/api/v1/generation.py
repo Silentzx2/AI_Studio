@@ -1,0 +1,282 @@
+"""Generation endpoints."""
+from __future__ import annotations
+
+import logging
+import uuid
+from datetime import datetime
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+
+from app.config import get_settings
+from app.utils.response import error, success
+
+router = APIRouter(tags=["Generation"])
+logger = logging.getLogger(__name__)
+settings = get_settings()
+
+MAX_PROMPT_LENGTH = 2000
+
+
+class GenerationRequest(BaseModel):
+    prompt: str
+    negative_prompt: str | None = None
+    mode: str = "text-to-3d"
+    quality: str = "standard"
+    style_preset: str | None = None
+    generate_texture: bool = True
+    auto_rig: bool = False
+    provider: str | None = None
+    reference_image_url: str | None = None
+    detail_pass: bool = False
+    detail_guidance: float = 7.5
+
+
+    # Add validation
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, v):
+        if hasattr(v, 'prompt') and len(v.prompt) > MAX_PROMPT_LENGTH:
+            raise ValueError(f"Prompt exceeds maximum length of {MAX_PROMPT_LENGTH} characters")
+        if hasattr(v, 'mode') and v.mode not in ('text-to-3d', 'image-to-3d', 'remesh', 'rigging', 'partition', 'texture-generation'):
+            raise ValueError(f"Invalid mode: {v.mode}")
+        if hasattr(v, 'quality') and v.quality not in ('low-poly', 'standard', 'high-poly', 'ultra', 'draft'):
+            raise ValueError(f"Invalid quality: {v.quality}")
+        return v
+
+
+# FIX: Define /history route FIRST before /{job_id}/status
+# FastAPI matches routes in order, so literal paths must come before parameterized ones
+@router.get("/history")
+async def generation_history(limit: int = 20, offset: int = 0):
+    """Return the most recent generation jobs."""
+    try:
+        from sqlalchemy import desc, select
+
+        from app.database import AsyncSessionLocal
+        from app.models.job import GenerationJob
+
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(GenerationJob)
+                .order_by(desc(GenerationJob.created_at))
+                .offset(offset)
+                .limit(limit)
+            )
+            jobs = result.scalars().all()
+            return success(
+                {
+                    "jobs": [
+                        {
+                            "id": j.id,
+                            "status": j.status,
+                            "mode": j.mode,
+                            "prompt": j.prompt,
+                            "provider": j.provider,
+                            "progress": j.progress,
+                            "stage": j.stage,
+                            "model_url": j.model_url,
+                            "thumbnail_url": j.thumbnail_url,
+                            "created_at": j.created_at.isoformat() if j.created_at else None,
+                            "completed_at": j.completed_at.isoformat() if j.completed_at else None,
+                        }
+                        for j in jobs
+                    ],
+                    "total": len(jobs),
+                    "offset": offset,
+                    "limit": limit,
+                }
+            )
+    except Exception as exc:
+        logger.warning("DB unavailable for history: %s", exc)
+        return success({"jobs": [], "total": 0, "offset": offset, "limit": limit})
+
+
+CREDIT_COSTS = {
+    "low-poly": {"base": 10, "texture": 5, "rig": 10},
+    "standard": {"base": 20, "texture": 5, "rig": 10},
+    "high-poly": {"base": 50, "texture": 5, "rig": 10},
+}
+
+
+@router.get("/cost-estimate")
+async def estimate_cost(quality: str = "standard", generate_texture: bool = True, auto_rig: bool = False):
+    """Estimate generation cost in credits."""
+    if quality not in CREDIT_COSTS:
+        raise HTTPException(status_code=400, detail=f"Invalid quality: {quality}")
+
+    costs = CREDIT_COSTS[quality]
+    total = costs["base"]
+    if generate_texture:
+        total += costs["texture"]
+    if auto_rig:
+        total += costs["rig"]
+
+    return success({
+        "quality": quality,
+        "credits": total,
+        "breakdown": {
+            "base": costs["base"],
+            "texture": costs["texture"] if generate_texture else 0,
+            "rig": costs["rig"] if auto_rig else 0,
+        },
+    })
+
+
+@router.post("")
+async def create_generation(req: GenerationRequest):
+    """Submit a new 3D generation job."""
+    job_id = str(uuid.uuid4())
+    provider = req.provider or settings.ai_provider
+    now = datetime.utcnow()
+
+    from app.database import AsyncSessionLocal
+    from app.models.job import GenerationJob
+    from app.workers.tasks import generate_3d_model
+
+    try:
+        async with AsyncSessionLocal() as session:
+            job = GenerationJob(
+                id=job_id,
+                status="queued",
+                mode=req.mode,
+                prompt=req.prompt,
+                negative_prompt=req.negative_prompt,
+                quality=req.quality,
+                style_preset=req.style_preset,
+                generate_texture=req.generate_texture,
+                auto_rig=req.auto_rig,
+                provider=provider,
+                reference_image_url=req.reference_image_url,
+                progress=0,
+                stage="queued",
+                has_rig=False,
+                processing_metadata={
+                    "detail_pass": req.detail_pass,
+                    "detail_guidance": req.detail_guidance,
+                },
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(job)
+            await session.commit()
+            # ponytail: Ensure flush so job is queryable immediately after
+            await session.refresh(job)
+    except Exception as exc:
+        logger.exception("Failed to persist generation job %s", job_id)
+        raise HTTPException(
+            status_code=503,
+            detail=f"Failed to create generation job: {exc}",
+        )
+
+    try:
+        generate_3d_model.delay(job_id)
+    except Exception as exc:
+        logger.exception("Failed to enqueue generation job %s", job_id)
+        # Keep the persisted row so status polling does not 404.
+        try:
+            async with AsyncSessionLocal() as session:
+                job = await session.get(GenerationJob, job_id)
+                if job:
+                    job.status = "failed"
+                    job.stage = "failed"
+                    job.error_message = f"Failed to enqueue worker task: {exc}"
+                    job.updated_at = datetime.utcnow()
+                    await session.commit()
+        except Exception:
+            logger.exception("Could not mark generation job %s as failed after enqueue error", job_id)
+        raise HTTPException(
+            status_code=503,
+            detail=f"Failed to queue generation job: {exc}",
+        )
+
+    logger.info("Generation job %s queued (provider=%s, mode=%s)", job_id, provider, req.mode)
+    return success(
+        {
+            "job_id": job_id,
+            "status": "queued",
+            "provider": provider,
+            "created_at": now.isoformat(),
+        },
+        "Generation job queued.",
+    )
+
+
+# FIX: This now comes AFTER /history so it's not shadowed
+@router.get("/{job_id}/status")
+async def get_generation_status(job_id: str):
+    """Get the status of a generation job.
+
+    This endpoint is polled by the frontend during generation to show
+    progress, stage, and estimated completion.
+    """
+    try:
+        from sqlalchemy import select
+
+        from app.database import AsyncSessionLocal
+        from app.models.job import GenerationJob
+
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(GenerationJob).where(GenerationJob.id == job_id)
+            )
+            job = result.scalar_one_or_none()
+
+            if not job:
+                raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
+            meta = job.processing_metadata or {}
+            response = {
+                "job_id": job.id,
+                "status": job.status,
+                "progress": job.progress or 0,
+                "stage": job.stage or "queued",
+                "message": _get_stage_message(job.stage, job.progress),
+                "mode": job.mode,
+                "prompt": job.prompt,
+                "provider": job.provider,
+                "error": job.error_message,
+                "error_message": job.error_message,
+                "detail_pass": meta.get("detail_pass", False),
+                "model_url_detailed": meta.get("model_url_detailed"),
+                "created_at": job.created_at.isoformat() if job.created_at else None,
+                "updated_at": job.updated_at.isoformat() if job.updated_at else None,
+            }
+
+            if job.status == "completed":
+                response["result"] = {
+                    "model_url": job.model_url,
+                    "thumbnail_url": job.thumbnail_url,
+                    "polygon_count": job.polygon_count,
+                    "vertex_count": job.vertex_count,
+                    "texture_resolution": job.texture_resolution,
+                    "has_rig": job.has_rig,
+                    "file_size": job.file_size,
+                    "download_urls": job.download_urls or {},
+                }
+
+            return success(response)
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Failed to get job status for %s: %s", job_id, exc)
+        return error(f"Failed to retrieve job status: {exc}")
+
+
+def _get_stage_message(stage: str, progress: int) -> str:
+    """Generate a user-friendly message for the current stage."""
+    messages = {
+        "queued": "Job queued — waiting for GPU slot",
+        "preparing": "Preparing model and assets...",
+        "generating": f"Generating 3D model... {progress}%",
+        "texturing": "Applying textures and materials...",
+        "rigging": "Adding skeletal rig...",
+        "postprocessing": "Finalizing model...",
+        "completed": "Generation complete!",
+        "failed": "Generation failed",
+    }
+    return messages.get(stage, f"Processing... {progress}%")

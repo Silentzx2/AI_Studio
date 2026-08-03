@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Coverage
+coverage/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# Cloudflare
+scripts/.cloudflare_tunnels/*.pid
+scripts/.cloudflare_tunnels/*.url
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+dist/
+build/
+
+# Docker
+*.tar
+
+# Database
+*.db
+tsconfig.tsbuildinfo
+*.sqlite
+
+ai-dev*.tar
+backend/third_party/*
+# Provider-local venvs and weights (managed per-provider, not tracked)
+third_party/*/.venv/
+third_party/*/weights/
+.runtime_cache/
+storage/
+next-env.d.ts
+scripts/.cloudflare_tunnels

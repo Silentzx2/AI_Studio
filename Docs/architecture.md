@@ -1,0 +1,1051 @@
+# AI 3D Studio - Architecture Documentation
+
+> **Version**: 3.2.0 (uv-Only Package Management)  
+> **Last Updated**: January 25, 2026
+
+---
+
+## Table of Contents
+
+1. [System Overview](#system-overview)
+2. [High-Level Architecture](#high-level-architecture)
+3. [Technology Stack](#technology-stack)
+4. [Project Structure](#project-structure)
+5. [Frontend Architecture](#frontend-architecture)
+6. [Backend Architecture](#backend-architecture)
+7. [Data Layer](#data-layer)
+8. [Background Workers](#background-workers)
+9. [AI Provider System](#ai-provider-system)
+10. [Download Pipeline](#download-pipeline)
+11. [Health Check System](#health-check-system)
+12. [Data Flow Diagrams](#data-flow-diagrams)
+13. [Design Decisions](#design-decisions)
+14. [Security Considerations](#security-considerations)
+15. [Per-Model Storage Architecture](#per-model-storage-architecture)
+
+---
+
+## System Overview
+
+**AI 3D Studio** is a full-stack web application for AI-powered 3D model generation and management. It enables users to:
+
+- Generate 3D models from text prompts or reference images
+- Download, install, and manage AI models from multiple sources
+- Monitor system health and performance
+- Render and preview 3D content in-browser
+
+### Key Capabilities
+
+| Feature | Description |
+|---------|-------------|
+| **Text-to-3D** | Generate 3D models from text descriptions |
+| **Image-to-3D** | Convert 2D images to 3D models |
+| **Model Management** | Install/uninstall AI models with dependency tracking |
+| **Download Queue** | Resumable downloads with mirror fallback |
+| **Health Monitoring** | Comprehensive system and model diagnostics |
+| **GPU Scheduling** | VRAM-aware provider selection |
+| **Multi-Provider** | Support for Hunyuan3D, TRELLIS, TripoSR, etc. |
+
+---
+
+## High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           CLIENT LAYER                                   │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                  │
+│  │   Next.js    │  │   Three.js  │  │  Framer      │                  │
+│  │   Frontend   │  │   3D Viewer  │  │  Motion      │                  │
+│  └──────┬───────┘  └──────┬───────┘  └──────────────┘                  │
+│         │                 │                                           │
+└─────────┼─────────────────┼───────────────────────────────────────────┘
+          │                 │ HTTP/SSE
+          ▼                 ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          API GATEWAY                                     │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │                    FastAPI Backend (Port 8000)                     │  │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐           │  │
+│  │  │Generation│ │ Models   │ │Download  │ │ System   │           │  │
+│  │  │   API    │ │   API    │ │   API    │ │   API    │           │  │
+│  │  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘           │  │
+│  │       └────────────┴────────────┴────────────┘                   │  │
+│  │                         │                                        │  │
+│  │  ┌─────────────────────▼─────────────────────┐                │  │
+│  │  │            Core Business Logic             │                │  │
+│  │  │  Managers │ Providers │ Workers │ Utils    │                │  │
+│  │  └───────────────────────────────────────────┘                │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
+          │                 │
+          ▼                 ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        DATA & QUEUE LAYER                                 │
+│  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐       │
+│  │ PostgreSQL │  │   Redis    │  │   Celery   │  │  File      │       │
+│  │ Database   │  │ Cache/Broker│  │  Workers   │  │ Storage    │       │
+│  │  (Port 5432)│  │(Port 6379) │  │            │  │ /app/storage│     │
+│  └────────────┘  └────────────┘  └────────────┘  └────────────┘       │
+└─────────────────────────────────────────────────────────────────────────┘
+          │
+          ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        GPU / HARDWARE LAYER                               │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │              NVIDIA GPU + CUDA Runtime                            │  │
+│  │  PyTorch │ Diffusers │ Transformers │ Blender (Optional)        │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Technology Stack
+
+### Frontend Stack
+
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| **Next.js** | 15.x | React framework with App Router |
+| **React** | 19.x | UI library |
+| **TypeScript** | 5.x | Type safety |
+| **Tailwind CSS** | 4.x | Utility-first styling |
+| **shadcn/ui** | Latest | UI component library |
+| **Radix UI** | Latest | Accessible primitives |
+| **Framer Motion** | 12.x | Animations |
+| **Zustand** | Latest | State management |
+| **Lucide React** | Latest | Icons |
+| **Three.js** | - | 3D rendering |
+
+### Backend Stack
+
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| **Python** | 3.11+ | Runtime environment |
+| **FastAPI** | 0.115.x | Web framework |
+| **SQLAlchemy** | 2.0.x | ORM |
+| **Alembic** | 1.14.x | Database migrations |
+| **Celery** | 5.4.x | Task queue |
+| **Redis** | 7.x | Cache/message broker |
+| **PyTorch** | 2.5.x | ML framework (CUDA) |
+| **Diffusers** | 0.30+ | Diffusion models |
+| **uvicorn** | 0.32.x | ASGI server |
+
+### Infrastructure
+
+| Component | Version | Purpose |
+|----------|---------|---------|
+| **PostgreSQL** | 16 | Primary database |
+| **Redis** | 7 | Caching & broker |
+| **Docker** | Latest | Containerization |
+| **NVIDIA CUDA** | 12.1 | GPU compute |
+| **Blender** | 4.x | 3D post-processing (optional) |
+
+---
+
+## Project Structure
+
+```
+ai-3d-studio/
+│
+├── app/                              # Next.js Application
+│   ├── page.tsx                      # Landing page
+│   ├── layout.tsx                    # Root layout
+│   ├── main.tsx                      # Client-side router
+│   ├── globals.css                   # Global styles
+│   │
+│   ├── workspace/                    # Main workspace page
+│   ├── generate/                     # Quick generate page
+│   ├── models/                       # Model manager page
+│   ├── settings/                     # Settings page
+│   ├── admin/                        # Admin dashboard
+│   ├── render/                       # Render view
+│   ├── texture/                      # Texture tools
+│   │
+│   ├── features/                     # Feature modules
+│   │   ├── landing/                  # Landing page components
+│   │   ├── workspace/                # Workspace components
+│   │   │   ├── new-ui/               # Tabbed workspace UI
+│   │   │   └── viewer/               # Three.js viewer
+│   │   ├── admin/                    # Admin dashboard
+│   │   └── model-manager/            # Model management
+│   │       ├── tabs/                 # Model tabs
+│   │       └── components/           # Model components
+│   │
+│   └── api/v1/[...path]/             # API proxy route
+│
+├── backend/                          # Python Backend
+│   ├── app/
+│   │   ├── main.py                   # FastAPI entry point
+│   │   ├── config.py                 # Configuration
+│   │   ├── database.py               # DB setup
+│   │   │
+│   │   ├── api/v1/                   # API endpoints
+│   │   │   ├── __init__.py           # Router aggregation
+│   │   │   ├── generation.py         # Generation endpoints
+│   │   │   ├── jobs.py               # Job management
+│   │   │   ├── health.py             # Health checks
+│   │   │   ├── runtime.py            # Runtime control
+│   │   │   ├── upload.py             # File uploads
+│   │   │   ├── image_generation.py   # SDXL image gen
+│   │   │   ├── admin.py              # Admin endpoints
+│   │   │   ├── hf_token.py           # HF token mgmt
+│   │   │   ├── plugin_manager.py     # Plugin system
+│   │   │   ├── models_api.py         # Model CRUD (NEW)
+│   │   │   ├── discover.py           # Discovery (NEW)
+│   │   │   ├── download.py           # Downloads (NEW)
+│   │   │   └── system.py             # System info (NEW)
+│   │   │
+│   │   ├── core/                     # Core business logic
+│   │   │   ├── providers/            # AI model providers
+│   │   │   │   ├── base.py           # Base classes
+│   │   │   │   ├── registry.py       # Provider registry
+│   │   │   │   ├── hunyuan3d*.py     # Hunyuan3D providers
+│   │   │   │   ├── trellis*.py       # TRELLIS providers
+│   │   │   │   ├── triposr*.py       # TripoSR providers
+│   │   │   │   ├── instant_mesh.py   # Instant Mesh
+│   │   │   │   ├── mock.py           # Mock/testing
+│   │   │   │   ├── sdxl.py           # SDXL image gen
+│   │   │   │   ├── huggingface_provider.py
+│   │   │   │   ├── github_provider.py
+│   │   │   │   ├── civitai_provider.py
+│   │   │   │   ├── modelscope_provider.py
+│   │   │   │   └── nvidia_ngc_provider.py
+│   │   │   │
+│   │   │   ├── managers/             # Business managers (NEW)
+│   │   │   │   ├── download_manager.py
+│   │   │   │   ├── environment_manager.py
+│   │   │   │   └── health_manager.py
+│   │   │   │
+│   │   │   ├── downloader/          # Download system
+│   │   │   │   ├── smart_downloader.py
+│   │   │   │   ├── chunk_manager.py
+│   │   │   │   ├── mirror_fallback.py
+│   │   │   │   └── checksum_validator.py
+│   │   │   │
+│   │   │   ├── installer/           # Plugin installer
+│   │   │   │   ├── plugin_installer.py
+│   │   │   │   └── dependency_resolver.py
+│   │   │   │
+│   │   │   ├── download_manager/    # Legacy download mgr
+│   │   │   ├── blender/              # Blender integration
+│   │   │   ├── prompt_enhancer.py    # Prompt enhancement
+│   │   │   ├── mesh_processor.py     # Mesh processing
+│   │   │   └── registry/             # Model registry
+│   │   │
+│   │   ├── scripts/                 # Maintenance scripts
+│   │   │   └── migrate_weights_to_per_model.py  # Weight migration
+│   │   │
+│   │   ├── workers/                 # Celery tasks
+│   │   │   ├── celery_app.py        # Celery config
+│   │   │   ├── tasks.py             # 3D generation
+│   │   │   ├── image_tasks.py       # Image generation
+│   │   │   ├── download_workers.py  # Download tasks (NEW)
+│   │   │   ├── installation_workers.py # Install tasks (NEW)
+│   │   │   └── health_workers.py    # Health tasks (NEW)
+│   │   │
+│   │   ├── models/                   # SQLAlchemy models
+│   │   │   ├── job.py               # Generation job
+│   │   │   ├── image_job.py         # Image job
+│   │   │   ├── download_queue.py    # Download queue
+│   │   │   └── registry.py          # Model registry
+│   │   │
+│   │   ├── schemas/                  # Pydantic schemas
+│   │   │   ├── generation.py
+│   │   │   └── manifest.py
+│   │   │
+│   │   └── utils/                    # Utilities
+│   │       ├── storage.py
+│   │       └── response.py
+│   │
+│   └── runtime/                      # Runtime utilities
+│       ├── engine.py                 # Runtime engine
+│       ├── gpu.py                    # GPU detection
+│       ├── health.py                 # Health checks
+│       ├── installer.py              # Installer logic
+│       ├── storage.py                # Storage handling
+│       └── platform_detection.py     # Platform detection
+│
+├── features/                         # Additional features
+│   ├── landing/                      # Landing page feature
+│   ├── admin/                        # Admin dashboard
+│   ├── render/                       # Render shell
+│   ├── settings/                     # Settings sections
+│   ├── texture/                      # Texture shell
+│   └── workspace/                    # Workspace feature
+│
+├── components/                       # Shared UI components
+│   ├── ui/                           # shadcn/ui components (50+)
+│   ├── premium/                      # Premium styled components
+│   ├── motion/                       # Animation components
+│   ├── landing/                      # Landing-specific
+│   ├── pages/                        # Page components
+│   └── image-gen/                    # Image generation UI
+│
+├── stores/                           # Zustand state stores
+│   ├── useGenerationStore.ts
+│   ├── useImageGenerationStore.ts
+│   ├── useUIStore.ts
+│   └── useWallpaperStore.ts
+│
+├── services/                         # API service layer
+│   ├── apiClient.ts                  # HTTP client
+│   ├── generationService.ts
+│   ├── imageGenerationService.ts
+│   ├── runtimeService.ts
+│   ├── uploadService.ts
+│   └── adminService.ts
+│
+├── types/                            # TypeScript types
+│   ├── index.ts
+│   └── new-ui.ts
+│
+├── hooks/                            # Custom React hooks
+│   ├── useToast.ts
+│   ├── useGeneration.ts
+│   └── useImageGeneration.ts
+│
+├── docs/                             # Documentation (NEW)
+│   ├── api-documentation.md
+│   ├── architecture.md
+│   ├── setup-guide.md
+│   ├── developer-guide.md
+│   └── pipeline-status.md
+│
+├── docker-compose.yml                # Multi-service orchestration
+├── docker-compose.gpu.yml            # GPU variant
+├── docker-compose.cpu.yml            # CPU-only variant
+├── Dockerfile.frontend               # Frontend container
+├── backend/Dockerfile                # Backend container
+├── .env.example                      # Environment template
+└── package.json                      # Node.js dependencies
+```
+
+---
+
+## Frontend Architecture
+
+### Routing Structure
+
+The application uses a custom client-side router defined in `app/main.tsx`:
+
+```typescript
+const routes = {
+  '/': HomePage,
+  '/workspace': WorkspacePage,
+  '/admin': AdminPage,
+  '/settings': SettingsPage,
+  '/generate': GeneratePage,
+  '/models': ModelsPage,
+  '/render': RenderPage,
+  '/texture': TexturePage
+};
+```
+
+### Component Hierarchy
+
+```
+App Layout
+├── Landing Page
+│   ├── LandingNavbar
+│   ├── HeroSection
+│   ├── FeaturesSection
+│   ├── HowItWorksSection
+│   ├── CTASection
+│   └── LandingFooter
+│
+├── Workspace Shell
+│   ├── WorkspaceNavbar
+│   ├── LeftSidebar
+│   │   ├── PromptInput
+│   │   ├── ModelSelector
+│   │   ├── QualitySelector
+│   │   ├── ToggleOptions
+│   │   └── ImageUpload
+│   ├── CenterWorkspace
+│   │   └── ThreeDViewer
+│   │       ├── ViewerScene
+│   │       ├── ViewerToolbar
+│   │       └── DownloadArea
+│   ├── RightSidebar
+│   └── BottomDock
+│       └── History Queue
+│
+├── Admin Shell
+│   ├── AdminSidebar
+│   └── Tabs (12 total)
+│       ├── OverviewTab
+│       ├── ModelsTab
+│       ├── DownloadsTab
+│       ├── RuntimeTab
+│       ├── JobsTab
+│       ├── QueueTab
+│       ├── HealthTab
+│       ├── DockerTab
+│       ├── LogsTab
+│       ├── TerminalTab
+│       └── SettingsTab
+│
+└── Model Manager
+    ├── AvailableModelsTab
+    ├── InstalledModelsTab
+    ├── QueueTab
+    ├── StorageTab
+    ├── BenchmarksTab (NEW)
+    └── HealthTab (NEW)
+```
+
+### State Management (Zustand)
+
+#### Generation Store (`useGenerationStore`)
+```typescript
+interface GenerationState {
+  // Mode Configuration
+  mode: 'text-to-3d' | 'image-to-3d';
+  quality: 'low-poly' | 'standard' | 'high-poly';
+  generateTexture: boolean;
+  
+  // Input
+  prompt: string;
+  negativePrompt?: string;
+  referenceImage?: string;
+  
+  // Job Management
+  currentJob: GenerationJob | null;
+  jobHistory: GenerationJob[];
+  
+  // Actions
+  setPrompt: (prompt: string) => void;
+  setQuality: (quality: QualityPreset) => void;
+  startGeneration: () => Promise<void>;
+  cancelJob: () => void;
+}
+```
+
+#### UI Store (`useUIStore`)
+```typescript
+interface UIState {
+  sidebarCollapsed: boolean;
+  isFullscreen: boolean;
+  creativeMode: boolean;
+  activeWorkspaceTab: string;
+  toggleSidebar: () => void;
+  setFullscreen: (fs: boolean) => void;
+}
+```
+
+### Service Layer Pattern
+
+All API calls go through `apiClient.ts` which provides:
+
+- Automatic retry with exponential backoff
+- SSE streaming support
+- File upload handling
+- Error normalization
+- Request/response logging
+
+```typescript
+// Example usage
+import { apiClient } from '@/services/apiClient';
+
+const response = await apiClient.post('/generation', { prompt: '...' });
+const data = response.data;
+```
+
+---
+
+## Backend Architecture
+
+### FastAPI Application Lifecycle
+
+```
+Startup Sequence:
+1. Normalize CUDA_VISIBLE_DEVICES env var
+2. Load configuration (Settings)
+3. Setup logging
+4. Initialize log broadcasting (admin panel)
+5. Platform detection (GPU/CPU)
+6. Create storage directories
+7. Initialize RuntimeEngine (per-model venvs created on demand via `uv venv`)
+8. Test database connection
+9. Test Redis connection
+10. Ready to serve requests
+```
+
+### Router Organization
+
+```python
+# backend/app/api/v1/__init__.py
+
+router = APIRouter()
+
+# Existing routes (with prefix added)
+router.include_router(generation_router, prefix="/generation")
+router.include_router(jobs_router, prefix="/jobs")
+router.include_router(health_router, prefix="/health")
+router.include_router(runtime_router, prefix="/runtime")
+router.include_router(upload_router, prefix="/upload")
+
+# New Pipeline V2 routes (have own prefixes)
+router.include_router(models_router)      # /api/v1/models/*
+router.include_router(discover_router)     # /api/v1/discover/*
+router.include_router(download_router)     # /api/v1/download/*
+router.include_router(system_router)       # /api/v1/system/*
+```
+
+### Middleware Stack
+
+1. **CORS Middleware** - Cross-origin request handling
+2. **Global Exception Handler** - Unified error responses
+3. **Static Files Mount** - `/static` for uploads/storage
+
+---
+
+## Data Layer
+
+### Database Schema (PostgreSQL)
+
+#### Generation Jobs Table
+```sql
+CREATE TABLE generation_jobs (
+    id VARCHAR PRIMARY KEY,
+    status VARCHAR DEFAULT 'pending',
+    prompt TEXT NOT NULL,
+    mode VARCHAR DEFAULT 'text-to-3d',
+    quality VARCHAR DEFAULT 'standard',
+    provider VARCHAR,
+    
+    -- Progress tracking
+    progress INTEGER DEFAULT 0,
+    stage VARCHAR,
+    message TEXT,
+    
+    -- Output
+    output_files JSONB,
+    thumbnail_url VARCHAR,
+    error_message TEXT,
+    
+    -- Timestamps
+    created_at TIMESTAMP DEFAULT NOW(),
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    
+    -- Metadata
+    metadata JSONB
+);
+```
+
+#### Download Queue Table
+```sql
+CREATE TABLE download_queue (
+    id VARCHAR PRIMARY KEY,
+    model_id VARCHAR NOT NULL,
+    model_name VARCHAR,
+    url VARCHAR,
+    filename VARCHAR,
+    file_path VARCHAR,
+    
+    -- Size tracking
+    total_size INTEGER,
+    downloaded_size INTEGER DEFAULT 0,
+    progress_percent FLOAT DEFAULT 0,
+    
+    -- Status
+    status VARCHAR DEFAULT 'pending',
+    error_message VARCHAR,
+    
+    -- Timing
+    created_at TIMESTAMP DEFAULT NOW(),
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    
+    -- Retry
+    retry_count INTEGER DEFAULT 0,
+    max_retries INTEGER DEFAULT 3,
+    
+    -- Validation
+    checksum VARCHAR,
+    checksum_algorithm VARCHAR DEFAULT 'sha256',
+    
+    -- Source
+    provider VARCHAR,
+    metadata JSONB
+);
+```
+
+### Redis Usage
+
+| Purpose | Key Pattern | Type |
+|---------|-------------|------|
+| Job Progress | `job_progress:{job_id}` | Pub/Sub Channel |
+| Cache | `cache:{key}` | String/Hash |
+| Rate Limiting | `ratelimit:{user}:{endpoint}` | Counter |
+| Worker Heartbeat | `worker:{id}:heartbeat` | Hash |
+| Session Store | `session:{token}` | Hash |
+
+---
+
+## Background Workers
+
+### Celery Configuration
+
+```python
+# backend/app/workers/celery_app.py
+
+celery_app = Celery("ai3dstudio", broker=redis_url, backend=redis_result)
+
+# Task routing
+task_routes = {
+    'app.workers.tasks.*': {'queue': 'generation'},
+    'app.workers.image_tasks.*': {'queue': 'images'},
+    'app.workers.download_workers.*': {'queue': 'downloads'},
+}
+```
+
+### Task Definitions
+
+#### 3D Generation Task (`tasks.generate_3d_model`)
+```
+Input: job_id (str)
+Output: dict with result or raises Exception
+
+Pipeline:
+1. Fetch job from DB
+2. Initialize RuntimeEngine
+3. Resolve reference image
+4. Enhance prompt (optional, via OpenAI)
+5. Select/load AI provider (VRAM-aware)
+6. Run inference with progress callbacks
+7. Unload provider (free VRAM)
+8. Optional: Blender post-process
+9. Generate thumbnail
+10. Build download URLs
+11. Update job status in DB
+12. Publish completion event
+```
+
+#### Download Task (`download_workers.execute_download`)
+```
+Input: download_id (str)
+Output: success/failure with retry
+
+Features:
+- Chunked downloads with resume
+- Mirror URL fallback on failure
+- SHA256 checksum validation
+- Auto-retry up to 3 times
+- Progress callbacks via DB update
+```
+
+### Scheduled Tasks (Celery Beat)
+
+```python
+celery_app.conf.beat_schedule = {
+    'process-downloads': {
+        'task': 'app.workers.download_workers.start_queued_downloads',
+        'schedule': crontab(minute='*/5'),  # Every 5 minutes
+    },
+    'health-checks': {
+        'task': 'app.workers.health_workers.run_all_health_checks',
+        'schedule': crontab(hour=0),  # Daily at midnight
+    },
+    'cleanup-downloads': {
+        'task': 'app.workers.download_workers.cleanup_completed_downloads',
+        'schedule': crontab(hour=3),  # Daily at 3 AM
+    },
+}
+```
+
+---
+
+## AI Provider System
+
+### Provider Architecture
+
+```
+BaseProvider (ABC)
+├── Hunyuan3DProvider (hunyuan3d_local.py)
+│   ├── Hunyuan3D_2_1 (16GB VRAM)
+│   └── Hunyuan3D_2 (24GB VRAM)
+├── TrellisProvider (trellis_local.py)
+│   └── ~8GB VRAM required
+├── TripoSRProvider (triposr_local.py)
+│   └── ~6GB VRAM required
+├── InstantMeshProvider (instant_mesh.py)
+├── SDXLProvider (sdxl.py) - For 2D images
+└── MockProvider (mock.py) - Testing without GPU
+```
+
+### Provider Selection Algorithm
+
+```python
+def get_best_provider_name(requested=None):
+    """
+    VRAM-aware provider selection:
+    1. If specific provider requested, check VRAM
+    2. Try providers in priority order
+    3. Skip if insufficient VRAM
+    4. Fall back to mock if no GPU fits
+    """
+    
+    PRIORITY = ["hunyuan3d-2.1", "trellis", "triposr", "hunyuan3d-2", "mock"]
+    VRAM_REQUIREMENTS = {
+        "hunyuan3d-2.1": 16000,
+        "trellis": 8000,
+        "triposr": 6000,
+        "hunyuan3d-2": 24000,
+        "mock": 0
+    }
+    
+    available_vram = get_gpu_info().gpus[0].free_memory_mb
+    
+    for provider in PRIORITY:
+        if available_vram >= VRAM_REQUIREMENTS[provider]:
+            return provider
+    
+    return "mock"  # Fallback
+```
+
+### Download Providers
+
+For downloading model weights from various sources:
+
+```
+DownloadProvider (ABC)
+├── HuggingFaceProvider
+├── GitHubProvider
+├── CivitAIProvider
+├── ModelScopeProvider
+└── NVIDIA NGC Provider
+```
+
+Each implements:
+- `list_models()` - Browse available models
+- `get_model(id)` - Get model details
+- `resolve_download_urls(id)` - Get download URLs
+- `get_mirrors(url)` - Mirror URLs for fallback
+
+---
+
+## Download Pipeline
+
+### Download Flow Diagram
+
+```
+User clicks "Download"
+        │
+        ▼
+POST /api/v1/download/start
+        │
+        ▼
+DownloadManager.start_download()
+        │
+        ├─→ Validate input
+        ├─→ Check for duplicates
+        ├─→ Create DownloadQueue record
+        └─→ Return download_id
+        │
+        ▼
+Celery: execute_download.delay(download_id)
+        │
+        ▼
+DownloadManager.execute_download()
+        │
+        ├─→ Update status: DOWNLOADING
+        ├─→ Find working URL (MirrorFallback)
+        │       ├─→ Try primary URL
+        │       ├─→ Try mirrors
+        │       └─→ Fail if none work
+        │
+        ├─→ Chunked Download (ChunkManager)
+        │       ├─→ Split into chunks (1MB each)
+        │       ├─→ Download with resume support
+        │       └─→ Report progress via callback
+        │
+        ├─→ Validate Integrity (ChecksumValidator)
+        │       ├─→ Calculate SHA256
+        │       └─→ Compare with expected
+        │
+        ├─→ On Success:
+        │       ├─→ Update status: COMPLETED
+        │       ├─→ Record file path
+        │       └─→ Trigger install task
+        │
+        └─→ On Failure:
+                ├─→ Increment retry_count
+                ├─→ If retries < max: PENDING (will retry)
+                └─→ Else: FAILED with error message
+```
+
+### Resume Capability
+
+Downloads support resumption by:
+1. Tracking `downloaded_size` in database
+2. Using HTTP Range headers for partial content
+3. Verifying existing file size before continuing
+4. Only downloading remaining bytes
+
+---
+
+## Health Check System
+
+### Check Categories
+
+```
+HealthManager.run_model_health_check(model_id)
+        │
+        ├─→ File Check (_check_files)
+        │       ├─→ Model directory exists?
+        │       ├─→ All required files present?
+        │       └─→ File sizes reasonable?
+        │
+        ├─→ Dependency Check (_check_dependencies)
+        │       ├─→ Python packages installed?
+        │       ├─→ Versions compatible?
+        │       └─→ List missing packages
+        │
+        ├─→ Manifest Check (_check_manifest)
+        │       ├─→ Required fields present?
+        │       ├─→ Version format valid?
+        │       └─→ Return validation issues
+        │
+        ├─→ Disk Space Check (_check_disk_space)
+        │       ├─→ Free space sufficient?
+        │       └─→ Current model size
+        │
+        ├─→ GPU Compatibility (_check_gpu_compatibility)
+        │       ├─→ CUDA available?
+        │       ├─→ CUDA version meets requirement?
+        │       └─→ VRAM sufficient?
+        │
+        └─→ Inference Test (optional)
+                ├─→ Can model load?
+                └─→ Does inference work?
+```
+
+### Health Status Values
+
+| Status | Meaning | Action Required |
+|--------|---------|-----------------|
+| `healthy` | All checks pass | None |
+| `warning` | Non-critical issues | Review recommended |
+| `unhealthy` | Critical issues | Repair needed |
+| `error` | Check failed | Investigation needed |
+
+---
+
+## Data Flow Diagrams
+
+### 3D Generation Data Flow
+
+```
+┌─────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+│  User   │───▶│  Zustand │───▶│ Service  │───▶│  FastAPI │───▶│  Celery  │
+│  Input  │    │  Store   │    │  Layer   │    │  API     │    │  Worker  │
+└─────────┘    └──────────┘    └──────────┘    └──────────┘    └────┬─────┘
+                                                                   │
+                              ┌──────────────────────────────────────┘
+                              │
+                              ▼
+┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+│  Three   │◀───│  SSE/    │◀───│  Redis   │◀───│  PyTorch │◀───│  GPU     │
+│  .js     │    │  Poll    │    │  Pub/Sub │    │  Inference│    │  Hardware│
+│  Viewer  │    │          │    │          │    │          │    │          │
+└──────────┘    └──────────┘    └──────────┘    └──────────┘    └──────────┘
+```
+
+### Download Data Flow
+
+```
+┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+│  User    │───▶│  Frontend│───▶│  POST    │───▶│ Download │───▶│  Celery  │
+│  Clicks  │    │  UI      │    │  /start  │    │  Manager │    │  Task    │
+└──────────┘    └──────────┘    └──────────┘    └──────────┘    └────┬─────┘
+                                                                  │
+                              ┌──────────────────────────────────────┘
+                              │
+                              ▼
+┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+│  File    │◀───│  DB      │◀───│  Chunked │◀───│  Mirror  │◀───│  HTTP    │
+│  Stored  │    │  Update  │    │  Download│    │  Fallback │    │  Request │
+│          │    │          │    │          │    │          │    │          │
+└──────────┘    └──────────┘    └──────────┘    └──────────┘    └──────────┘
+```
+
+---
+
+## Design Decisions
+
+### Why FastAPI over Django/Fastify?
+
+| Factor | Decision |
+|--------|----------|
+| **Performance** | Async-native, faster than Django |
+| **Type Safety** | Full Pydantic integration |
+| **Auto-docs** | OpenAPI/Swagger out of box |
+| **ML Ecosystem** | Better PyTorch integration |
+| **Simplicity** | Less boilerplate than Django |
+
+### Why Celery over ARQ/Dramatiq?
+
+| Factor | Decision |
+|--------|----------|
+| **Maturity** | Battle-tested, widely adopted |
+| **Monitoring** | Flower integration available |
+| **Persistence** | Redis backend for reliability |
+| **Scheduling** | Built-in Beat scheduler |
+| **Scalability** | Horizontal scaling support |
+
+### Why Zustand over Redux?
+
+| Factor | Decision |
+|--------|----------|
+| **Simplicity** | Less boilerplate code |
+| **Bundle Size** | Smaller footprint |
+| **TypeScript** | First-class TS support |
+| **DevTools** | Redux DevTools compatible |
+| **Learning Curve** | Easier for team adoption |
+
+### Why shadcn/ui over MUI/Ant Design?
+
+| Factor | Decision |
+|--------|----------|
+| **Customization** | Copy-paste, full control |
+| **Tree-shake** | Only import what you use |
+| **Accessibility** | Radix primitives built-in |
+| **Styling** | Tailwind CSS native |
+| **Modern** | Active development |
+
+---
+
+## Security Considerations
+
+### Implemented Measures
+
+1. **CORS Configuration**
+   - Configurable origins via env var
+   - Credentials support for cookies
+
+2. **File Upload Security**
+   - File type validation (MIME + extension)
+   - Size limits configurable
+   - Path traversal prevention
+
+3. **SQL Injection Prevention**
+   - SQLAlchemy ORM parameterized queries
+   - No raw SQL in user-facing code
+
+4. **Environment Variables**
+   - Secrets not in source code
+   - `.env.example` for documentation
+   - `.gitignore` excludes `.env`
+
+### Recommendations for Production
+
+1. Add authentication (JWT/API keys)
+2. Implement rate limiting middleware
+3. Set up HTTPS/TLS termination
+4. Configure Content-Security-Policy headers
+5. Enable audit logging
+6. Regular security dependency scanning
+
+---
+
+## Per-Model Storage Architecture
+
+Each model now lives in an isolated directory under `third_party/<RepoName>/` with its own virtual environment and weights subdirectory.
+
+### Directory Layout
+
+```
+backend/
+└── third_party/
+    ├── Hunyuan3D-2.1/
+    │   ├── .venv/                    # Per-model virtual environment (uv)
+    │   │   ├── bin/python
+    │   │   └── lib/python3.x/site-packages/
+    │   ├── weights/                  # Model weights for this model
+    │   │   └── *.safetensors
+    │   ├── .installing.lock          # Concurrency lock (created during install)
+    │   └── ...                       # Model source code
+    ├── TRELLIS/
+    │   ├── .venv/
+    │   ├── weights/
+    │   └── ...
+    └── TripoSR/
+        ├── .venv/
+        ├── weights/
+        └── ...
+```
+
+### StorageConfig Methods
+
+`StorageConfig` provides these methods for per-model paths:
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `get_model_venv_path(repo_name)` | `third_party/<repo>/.venv` | Per-model virtual environment path |
+| `get_model_venv_python(repo_name)` | `third_party/<repo>/.venv/bin/python` | Python binary inside per-model venv |
+| `get_model_weights_dir(repo_name)` | `third_party/<repo>/weights/` | Weights directory for a specific model |
+
+### Weight Resolution Order
+
+`get_weight_path()` resolves weights in this order:
+1. **Per-model location**: `third_party/<repo_name>/weights/<filename>` (new, preferred)
+2. **Legacy fallback**: `weights_dir/<provider_name>/<filename>` (old centralized location)
+
+### Install Flow
+
+1. `resolve_install_targets()` in `installer.py` validates the explicit model list (required — no "install everything" mode).
+2. A file-based lock (`third_party/<repo_name>/.installing.lock`) prevents concurrent installs.
+3. Disk space is checked before downloading weights.
+4. `install_repo_deps()` creates a per-model venv using `uv venv` (uv is a hard dependency — no fallback).
+5. Dependencies are uv-installed into the per-model venv.
+6. `download_weights()` saves to `third_party/<repo_name>/weights/`.
+
+### Docker Storage
+
+The `docker-compose.yml` uses **bind mounts** (not named volumes) for persistent data:
+
+```yaml
+# docker-compose.yml (relevant volumes)
+services:
+  api:
+    volumes:
+      - ./backend/storage:/app/storage        # Generated outputs
+      - ./backend/third_party:/app/third_party  # Model repos, venvs, weights
+```
+
+A `.dockerignore` excludes `third_party/`, `storage/`, and `.runtime_cache/` from the build context to keep images lean. The Dockerfile uses BuildKit cache mounts and installs `uv` via `COPY --from=ghcr.io/astral-sh/uv:latest` for fast per-model venv creation. All Python packages are installed with `uv pip install`. Application directories (`storage/`, `third_party/`, `.runtime_cache/`) are created at runtime by `storage.ensure_dirs()` — not by the Dockerfile.
+
+---
+
+*This document provides an overview of the AI 3D Studio architecture. For implementation details, see the Developer Guide.*
+
+## Settings → Pipelines Architecture
+
+The Settings → Pipelines page is driven by a compact pipeline snapshot flow:
+
+1. `ModelRegistry` returns the current installed + available catalog.
+2. `capability_matrix.py` converts manifests into UI feature flags.
+3. `backend/app/api/v1/pipelines.py` stores the enabled map in the runtime cache and serves the snapshot.
+4. `features/settings/sections/PipelinesSection.tsx` renders the page using the shared app theme.
+5. `services/runtimeService.ts` reads runtime status and options for GPU / provider UI.
+
+### Current model catalog
+
+- Hunyuan3D 2.1 — text/image-to-3D, texture generation
+- TripoSR — image-to-3D, optional texture bake
+- Trellis — image-to-3D, text-to-3D, texture generation
+- TripoSG — image-to-3D, detail enhancement
+- TripoSF — image-to-3D, detail enhancement
+- UniRig — rigging and animation
+- HoloPart — part completion and texture support
+
+### Feature gating summary
+
+- `texture_generation` is enabled when at least one texture-capable model is active.
+- `rigging_animation` is enabled when UniRig is active.
+- `detail_enhancement` is enabled when TripoSG, TripoSF, or HoloPart is active.
+- `text_to_3d` is enabled when Hunyuan3D 2.1 or Trellis is active.
+- `image_to_3d` is enabled when the catalog includes a compatible generation model.

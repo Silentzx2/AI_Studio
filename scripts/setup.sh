@@ -1,0 +1,529 @@
+#!/usr/bin/env bash
+# ============================================================
+# AI 3D Studio — Automatic Setup Script
+# Supports Ubuntu 20.04/22.04/24.04 with NVIDIA GPU
+# Usage: sudo bash scripts/setup.sh
+# ============================================================
+
+set -euo pipefail
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+log()   { echo -e "${GREEN}[SETUP]${NC} $*"; }
+warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
+err()   { echo -e "${RED}[ERROR]${NC} $*" >&2; }
+head_() { echo -e "\n${BOLD}${BLUE}===== $* =====${NC}\n"; }
+
+# ── Prerequisites ─────────────────────────────────────────────────────────────
+
+check_root() {
+  if [[ $EUID -ne 0 ]]; then
+    err "This script must be run as root (use: sudo bash scripts/setup.sh)"
+    exit 1
+  fi
+}
+
+check_os() {
+  head_ "Checking OS"
+  if [[ -f /etc/os-release ]]; then
+    # shellcheck disable=SC1091
+    . /etc/os-release
+    OS=$ID
+    log "Detected: $PRETTY_NAME"
+  else
+    err "Cannot detect OS. Supported: Ubuntu 20.04, 22.04, 24.04"
+    exit 1
+  fi
+  if [[ "$OS" != "ubuntu" ]] && [[ "$OS" != "debian" ]]; then
+    warn "Unsupported OS: $OS — proceeding anyway (Ubuntu/Debian recommended)"
+  fi
+}
+
+detect_gpu() {
+  head_ "GPU Detection"
+  GPU_AVAILABLE=false
+  GPU_NAME=""
+
+  if command -v nvidia-smi &>/dev/null; then
+    GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 || true)
+    if [[ -n "$GPU_NAME" ]]; then
+      GPU_AVAILABLE=true
+      DRIVER_VER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 || echo "unknown")
+      log "GPU detected : ${CYAN}${GPU_NAME}${NC}"
+      log "Driver       : $DRIVER_VER"
+    fi
+  fi
+
+  if [[ "$GPU_AVAILABLE" == "false" ]]; then
+    warn "No NVIDIA GPU detected — AI inference requires CUDA-capable hardware."
+    warn "The stack will start, but generation jobs will fail without a GPU."
+    read -rp "Continue without GPU? [y/N] " choice
+    if [[ "${choice,,}" != "y" ]]; then
+      err "Aborting. Install an NVIDIA GPU + driver and re-run."
+      exit 1
+    fi
+  fi
+}
+
+# ── System packages ────────────────────────────────────────────────────────────
+
+install_system_deps() {
+  head_ "Installing System Dependencies"
+  apt-get update -qq || {
+    err "apt-get update failed — check network / apt sources"
+    return 1
+  }
+  apt-get install -y --no-install-recommends \
+    curl wget git unzip tar ca-certificates gnupg lsb-release \
+    build-essential software-properties-common \
+    libssl-dev libffi-dev zlib1g-dev libpq-dev \
+    ffmpeg libsm6 libxext6 libxrender-dev libglib2.0-0 || {
+    err "Failed to install system dependencies"
+    return 1
+  }
+  log "System dependencies installed"
+}
+
+install_python() {
+  head_ "Installing Python 3.12"
+  if python3.12 --version &>/dev/null 2>&1; then
+    log "Already installed: $(python3.12 --version)"
+    return 0
+  fi
+  add-apt-repository ppa:deadsnakes/ppa -y || {
+    err "Failed to add deadsnakes PPA — cannot install Python 3.12"
+    return 1
+  }
+  apt-get update -qq
+  apt-get install -y python3.12 python3.12-dev || {
+    err "Failed to install Python 3.12"
+    return 1
+  }
+  update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
+  log "Python 3.12 installed"
+}
+
+install_uv() {
+  head_ "Installing uv (Python Package Manager)"
+  if command -v uv &>/dev/null; then
+    log "Already installed: $(uv --version)"
+    return 0
+  fi
+
+  log "Downloading uv installer..."
+  curl -LsSf https://astral.sh/uv/install.sh | sh || {
+    err "Failed to install uv — this is a critical dependency"
+    return 1
+  }
+
+  # Add uv to PATH for this session
+  export PATH="$HOME/.local/bin:$PATH"
+
+  # Also ensure it's on the default PATH for future sessions
+  if [[ -f "$HOME/.local/bin/uv" ]] && [[ ! -f /usr/local/bin/uv ]]; then
+    ln -sf "$HOME/.local/bin/uv" /usr/local/bin/uv 2>/dev/null || true
+  fi
+
+  # Verify installation
+  if command -v uv &>/dev/null; then
+    log "uv installed: $(uv --version)"
+  else
+    err "uv installed but not found on PATH — manual PATH fix may be needed"
+    return 1
+  fi
+}
+
+install_cuda() {
+  if [[ "$GPU_AVAILABLE" == "false" ]]; then
+    warn "Skipping CUDA (no GPU)"
+    return 0
+  fi
+  head_ "Installing CUDA Toolkit"
+  if nvcc --version &>/dev/null 2>&1; then
+    log "CUDA already installed: $(nvcc --version | head -1)"
+    return 0
+  fi
+
+  # Detect OS and arch for the correct CUDA keyring URL
+  local OS_ID; OS_ID=$(. /etc/os-release && echo "$ID")
+  local UBUNTU_VER; UBUNTU_VER=$(lsb_release -rs | tr -d '.')
+  local ARCH; ARCH=$(dpkg --print-architecture)
+  # Debian uses a different repo path
+  if [[ "$OS_ID" == "debian" ]]; then
+    local DEBIAN_VER; DEBIAN_VER=$(lsb_release -rs)
+    KEYRING_URL="https://developer.download.nvidia.com/compute/cuda/repos/debian${DEBIAN_VER}/${ARCH}/cuda-keyring_1.1-1_all.deb"
+  else
+    KEYRING_URL="https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VER}/${ARCH}/cuda-keyring_1.1-1_all.deb"
+  fi
+  wget -q "$KEYRING_URL" -O /tmp/cuda-keyring.deb || {
+    warn "Failed to download CUDA keyring — skipping CUDA install"
+    return 0
+  }
+  dpkg -i /tmp/cuda-keyring.deb
+  rm -f /tmp/cuda-keyring.deb
+  apt-get update -qq
+  apt-get install -y cuda-toolkit || {
+    warn "Failed to install CUDA toolkit — containers may fall back to CPU"
+    return 0
+  }
+  log "CUDA toolkit installed"
+
+  # Persist PATH/LD_LIBRARY_PATH
+  cat > /etc/profile.d/cuda.sh << 'CUDA_ENV'
+export PATH=/usr/local/cuda/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}
+CUDA_ENV
+  chmod +x /etc/profile.d/cuda.sh
+  # Apply for this session too
+  export PATH="/usr/local/cuda/bin:$PATH"
+  export LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}"
+}
+
+install_docker() {
+  head_ "Installing Docker"
+  if ! command -v docker &>/dev/null; then
+    log "Installing Docker Engine..."
+    curl -fsSL https://get.docker.com | bash || {
+      err "Docker installation failed — this is a critical dependency"
+      return 1
+    }
+    systemctl enable docker --now
+    log "Docker installed"
+  else
+    log "Docker already present: $(docker --version)"
+  fi
+
+  # Ensure the compose plugin is available
+  if ! docker compose version &>/dev/null 2>&1; then
+    COMPOSE_VER="2.27.1"
+    COMPOSE_BIN="/usr/local/lib/docker/cli-plugins/docker-compose"
+    mkdir -p "$(dirname "$COMPOSE_BIN")"
+    curl -SL "https://github.com/docker/compose/releases/download/v${COMPOSE_VER}/docker-compose-linux-x86_64" \
+      -o "$COMPOSE_BIN" || {
+      err "Failed to download Docker Compose v$COMPOSE_VER"
+      return 1
+    }
+    chmod +x "$COMPOSE_BIN"
+    log "Docker Compose v$COMPOSE_VER installed"
+  else
+    log "Docker Compose already present: $(docker compose version --short)"
+  fi
+
+  if [[ "$GPU_AVAILABLE" == "true" ]]; then
+    if ! command -v nvidia-ctk &>/dev/null; then
+      head_ "Installing NVIDIA Container Toolkit"
+      curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
+        | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg || {
+        warn "Failed to add NVIDIA Container Toolkit GPG key — GPU passthrough may not work"
+        return 0
+      }
+      curl -sL "https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list" \
+        | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
+        > /etc/apt/sources.list.d/nvidia-container-toolkit.list
+      apt-get update -qq
+      apt-get install -y nvidia-container-toolkit || {
+        warn "Failed to install NVIDIA Container Toolkit — GPU passthrough may not work"
+        return 0
+      }
+      nvidia-ctk runtime configure --runtime=docker
+      systemctl restart docker
+      log "NVIDIA Container Toolkit installed"
+    else
+      log "NVIDIA Container Toolkit already present"
+    fi
+  fi
+}
+
+install_node() {
+  head_ "Installing Node.js 20"
+  if node --version 2>/dev/null | grep -qE 'v2[0-9]'; then
+    log "Already installed: $(node --version)"
+    return 0
+  fi
+  curl -fsSL https://deb.nodesource.com/setup_20.x | bash - || {
+    err "Failed to add NodeSource repository"
+    return 1
+  }
+  apt-get install -y nodejs || {
+    err "Failed to install Node.js"
+    return 1
+  }
+  log "Node.js installed: $(node --version)"
+}
+
+install_blender() {
+  head_ "Installing Blender"
+  if command -v blender &>/dev/null; then
+    log "Already installed: $(blender --version 2>/dev/null | head -1)"
+    return 0
+  fi
+  apt-get install -y blender 2>/dev/null || {
+    warn "Blender not in apt — downloading from blender.org..."
+    BLENDER_VER="4.2.3"
+    BLENDER_URL="https://download.blender.org/release/Blender4.2/blender-${BLENDER_VER}-linux-x64.tar.xz"
+    wget -q "$BLENDER_URL" -O /tmp/blender.tar.xz || {
+      warn "Failed to download Blender — post-processing will be unavailable"
+      return 0
+    }
+    tar -xJf /tmp/blender.tar.xz -C /opt/
+    ln -sf "/opt/blender-${BLENDER_VER}-linux-x64/blender" /usr/local/bin/blender
+    rm -f /tmp/blender.tar.xz
+    log "Blender $BLENDER_VER installed to /opt/"
+  }
+}
+
+# ── Project setup ──────────────────────────────────────────────────────────────
+
+setup_folders() {
+  head_ "Creating Bind-Mount Directory Structure"
+  # These directories match docker-compose.yml bind mounts.
+  # Containers use storage.ensure_dirs() at runtime to create subdirs
+  # inside their own filesystem, but the HOST must provide the mount sources.
+  for dir in \
+    backend/storage/uploads \
+    backend/storage/models \
+    backend/storage/thumbnails \
+    backend/storage/exports \
+    backend/storage/images \
+    backend/third_party/weights \
+    backend/third_party/.hf_cache \
+    backend/.runtime_cache \
+    logs; do
+    mkdir -p "$dir"
+  done
+  chmod -R 755 backend/storage backend/third_party backend/.runtime_cache logs
+  log "Bind-mount directories created"
+}
+
+setup_env() {
+  head_ "Setting Up Environment"
+  if [[ -f .env ]]; then
+    log ".env already exists — skipping"
+    return 0
+  fi
+  if [[ -f .env.example ]]; then
+    cp .env.example .env
+    log "Created .env from .env.example"
+  else
+    cat > .env << 'ENVEOF'
+# ── Database ──────────────────────────────────────────────
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/ai3dstudio
+DATABASE_SYNC_URL=postgresql://postgres:postgres@postgres:5432/ai3dstudio
+
+# ── Redis / Celery ────────────────────────────────────────
+REDIS_URL=redis://redis:6379/0
+CELERY_BROKER_URL=redis://redis:6379/0
+CELERY_RESULT_BACKEND=redis://redis:6379/1
+
+# ── API ───────────────────────────────────────────────────
+NEXT_PUBLIC_API_URL=http://localhost:8000
+
+# ── Storage (v3.2 bind-mount architecture) ─────────────────
+STORAGE_DIR=/app/backend/storage
+THIRD_PARTY_DIR=/app/backend/third_party
+RUNTIME_CACHE_DIR=/app/backend/.runtime_cache
+
+# ── GPU ───────────────────────────────────────────────────
+CUDA_VISIBLE_DEVICES=0
+CUDA_DEVICE=auto
+PLATFORM_MODE=gpu
+CPU_FALLBACK=false
+ENVEOF
+    log "Created default .env"
+  fi
+}
+
+install_python_deps() {
+  head_ "Installing Python Dependencies (uv)"
+
+  # Ensure uv is on PATH before proceeding
+  if ! command -v uv &>/dev/null; then
+    err "uv not found on PATH — cannot install Python dependencies"
+    return 1
+  fi
+
+  # Run in subshell to avoid polluting parent environment, but capture exit code
+  (
+    cd backend
+
+    # Create venv using uv (replaces python3.12-venv entirely)
+    log "Creating virtual environment with uv..."
+    uv venv --python 3.12 .venv
+
+    # Install PyTorch once — GPU or CPU depending on hardware
+    if [[ "$GPU_AVAILABLE" == "true" ]]; then
+      log "Installing PyTorch with CUDA 12.1 via uv..."
+      uv pip install --python .venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
+        --index-url https://download.pytorch.org/whl/cu121 -q
+    else
+      log "Installing PyTorch CPU-only via uv..."
+      uv pip install --python .venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
+        --index-url https://download.pytorch.org/whl/cpu -q
+    fi
+
+    uv pip install --python .venv/bin/python -r requirements.txt -q
+  )
+  local rc=$?
+  if [[ $rc -ne 0 ]]; then
+    err "Python dependency installation failed (exit code $rc)"
+    return 1
+  fi
+  log "Python dependencies installed"
+}
+
+clone_anigen() {
+  head_ "Setting Up AniGen (Character Rigging)"
+  local ANIGEN_DIR="backend/third_party/AniGen"
+  if [[ -d "$ANIGEN_DIR" ]]; then
+    log "AniGen already cloned at $ANIGEN_DIR"
+    return 0
+  fi
+  mkdir -p "$(dirname "$ANIGEN_DIR")"
+  log "Cloning AniGen from VAST-AI-Research..."
+  git clone --depth 1 https://github.com/VAST-AI-Research/AniGen.git "$ANIGEN_DIR" 2>/dev/null || {
+    warn "Failed to clone AniGen — rigging will use passthrough mode"
+    return 0
+  }
+  # Install AniGen-specific Python deps (non-critical — warn on failure)
+  if [[ -f "$ANIGEN_DIR/requirements.txt" ]]; then
+    (
+      cd backend
+      uv pip install --python .venv/bin/python -r "$ANIGEN_DIR/requirements.txt" -q 2>/dev/null || true
+    )
+    log "AniGen dependencies installed (some may have been skipped)"
+  fi
+  log "AniGen setup complete"
+}
+
+install_frontend_deps() {
+  head_ "Installing Frontend Dependencies"
+  npm ci --prefer-offline --no-audit 2>/dev/null || npm install --no-audit || {
+    warn "Frontend dependency installation had issues — check npm output"
+    return 0
+  }
+  log "Frontend dependencies installed"
+}
+
+# ── Services ───────────────────────────────────────────────────────────────────
+
+start_services() {
+  head_ "Starting Services"
+
+  # docker-compose.gpu.yml is a pure OVERRIDE file — it adds GPU device
+  # reservations and extra env vars on top of the base docker-compose.yml.
+  # It MUST always be combined with the base file; never used alone.
+  if [[ "$GPU_AVAILABLE" == "true" ]]; then
+    log "Starting with GPU support..."
+    docker compose \
+      -f docker-compose.yml \
+      -f docker-compose.gpu.yml \
+      up -d --build
+  else
+    log "Starting without GPU support..."
+    docker compose -f docker-compose.yml up -d --build
+  fi
+
+  log "Services started — migrations run automatically via the 'migrate' container"
+}
+
+wait_for_migrate() {
+  head_ "Waiting for Database Migration"
+  log "Waiting for the 'migrate' service to finish..."
+  local retries=30
+  while [[ $retries -gt 0 ]]; do
+    # docker compose ps --format json returns a JSON array in newer Compose versions;
+    # use Go template to extract fields directly to avoid JSON parsing issues.
+    local state
+    state=$(docker compose ps --format '{{.State}}' migrate 2>/dev/null | head -1 || echo "")
+    if [[ "$state" == "exited" ]]; then
+      local exit_code
+      exit_code=$(docker compose ps --format '{{.ExitCode}}' migrate 2>/dev/null | head -1 || echo "1")
+      if [[ "$exit_code" == "0" ]]; then
+        log "Database migration complete"
+      else
+        warn "Migration container exited with code $exit_code — check: docker compose logs migrate"
+      fi
+      return 0
+    fi
+    sleep 2
+    retries=$((retries - 1))
+  done
+  warn "Migration timed out — check: docker compose logs migrate"
+}
+
+print_summary() {
+  head_ "Setup Complete"
+  echo -e "${GREEN}${BOLD}AI 3D Studio v3.2.0 is ready!${NC}"
+  echo
+  echo -e "  ${CYAN}Frontend :${NC}  http://localhost:3000"
+  echo -e "  ${CYAN}Backend  :${NC}  http://localhost:8000"
+  echo -e "  ${CYAN}API Docs :${NC}  http://localhost:8000/docs"
+  echo
+   if [[ "$GPU_AVAILABLE" == "true" ]]; then
+    echo -e "  ${GREEN}GPU      :${NC}  ${GPU_NAME}"
+  else
+    echo -e "  ${YELLOW}GPU      :${NC}  None — install NVIDIA GPU for AI inference"
+  fi
+  echo
+  echo -e "  ${CYAN}Storage  :${NC}  backend/storage/   (uploads, models, exports, thumbnails, images)"
+  echo -e "  ${CYAN}3rd-party :${NC}  backend/third_party/ (weights, .hf_cache)"
+  echo -e "  ${CYAN}Cache     :${NC}  backend/.runtime_cache/"
+  echo
+  echo -e "  View logs   :  ${CYAN}docker compose logs -f${NC}"
+  echo -e "  Stop stack  :  ${CYAN}docker compose down${NC}"
+  echo -e "  GPU restart :  ${CYAN}docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d${NC}"
+  echo
+}
+
+# ── Entry point ────────────────────────────────────────────────────────────────
+
+main() {
+  echo -e "${RED}${BOLD}"
+  cat << 'BANNER'
+
+ ██████╗██╗    ██████╗ ██████╗      ███████╗████████╗██╗   ██╗██████╗ ██╗ ██████╗
+██╔══██╗██║    ╚════██╗██╔══██╗     ██╔════╝╚══██╔══╝██║   ██║██╔══██╗██║██╔═══██╗
+███████║██║     █████╔╝██║  ██║     ███████╗   ██║   ██║   ██║██║  ██║██║██║   ██║
+██╔══██║██║    ╚═══██╗ ██║  ██║     ╚════██║   ██║   ██║   ██║██║  ██║██║██║   ██║
+██║  ██║██║   ██████╔╝ ██████╔╝     ███████║   ██║   ╚██████╔╝██████╔╝██║╚██████╔╝
+╚═╝  ╚═╝╚═╝   ╚═════╝  ╚═════╝      ╚══════╝   ╚═╝    ╚═════╝ ╚═════╝ ╚═╝ ╚═════╝
+
+BANNER
+  echo -e "${NC}  ${BOLD}Automatic Installer v3.2.0${NC}\n"
+
+  # Critical steps — failure aborts setup
+  check_root
+  check_os
+  detect_gpu
+  install_system_deps   || { err "System dependency installation failed — aborting"; exit 1; }
+  install_python        || { err "Python installation failed — aborting"; exit 1; }
+  install_uv            || { err "uv installation failed — aborting"; exit 1; }
+  install_docker        || { err "Docker installation failed — aborting"; exit 1; }
+  install_node          || { err "Node.js installation failed — aborting"; exit 1; }
+
+  # Non-critical steps — warn but continue
+  install_blender       || warn "Blender install skipped — post-processing may be unavailable"
+  install_cuda          || warn "CUDA install had issues — containers may use CPU fallback"
+
+  # Project setup
+  setup_folders
+  setup_env
+  install_python_deps  || { err "Python dependency installation failed — aborting"; exit 1; }
+
+  # Non-critical project steps
+  clone_anigen
+  install_frontend_deps || warn "Frontend deps had issues — check npm output above"
+
+  # Launch
+  start_services
+  wait_for_migrate
+  print_summary
+}
+
+main "$@"

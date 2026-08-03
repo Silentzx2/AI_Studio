@@ -1,0 +1,387 @@
+"use client";
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useRef, useEffect } from 'react';
+import { Palette, Sparkles, Sliders, CheckCircle, Zap, Image as ImageIcon, Upload, X } from 'lucide-react';
+import { Shape3D } from '@/types/new-ui';
+
+interface TextureGenTabProps {
+  activeModel: {
+    name: string;
+    prompt: string;
+    shapes: Shape3D[];
+    themeColor: string;
+    accentColor: string;
+    description: string;
+    promptDescription: string;
+    complexity: string;
+    textures: string;
+  };
+  onUpdateModel: (updatedModel: any) => void;
+  onNavigate: (tab: string) => void;
+}
+
+export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }: TextureGenTabProps) {
+  const [texturePrompt, setTexturePrompt] = useState('polished carbon fiber, neon teal glowing segments, brushed aerospace grade aluminum, futuristic sci-fi trim');
+  const [resolution, setResolution] = useState('4K PBR');
+  const [themeStyle, setThemeStyle] = useState('anime');
+  const [weathering, setWeathering] = useState(0.3);
+  const [uploadedModel, setUploadedModel] = useState<File | null>(null);
+  const [uploadedModelUrl, setUploadedModelUrl] = useState<string | null>(null);
+  const [uploadedModelName, setUploadedModelName] = useState<string>('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [successResult, setSuccessResult] = useState<any>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Cleanup polling on unmount to prevent state updates on unmounted component
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
+
+  const handleModelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.match(/\.(glb|gltf)$/i)) {
+      setStatusMessage('Please upload a .glb or .gltf file');
+      return;
+    }
+    setUploadedModel(file);
+    setUploadedModelName(file.name);
+    const url = URL.createObjectURL(file);
+    setUploadedModelUrl(url);
+    setStatusMessage(null);
+    setSuccessResult(null);
+  };
+
+  const handleRandomPrompt = () => {
+    const prompts = [
+      'glowing anime cel-shaded metallic gold, vivid crimson trim, glossy reflective lacquer',
+      'rusted vintage copper plate, verdigris corrosion decay, heavy iron hardware details',
+      'steampunk golden brass plates, dark polished mahogany timber, intricate copper conduits',
+      'glowing liquid plasma purple glass, dark obsidian armor plates, tactical fiber decals',
+      'frosted polycarbonate case, semi-transparent matte white, orange structural highlights',
+    ];
+    setTexturePrompt(prompts[Math.floor(Math.random() * prompts.length)]);
+  };
+
+  const handleTextureGen = async () => {
+    if (isProcessing || !texturePrompt) return;
+
+    // If user uploaded a model, upload it first
+    let modelUrl = uploadedModelUrl;
+    if (uploadedModel && !modelUrl) {
+      setIsProcessing(true);
+      setStatusMessage('Uploading model...');
+      try {
+        const formData = new FormData();
+        formData.append('file', uploadedModel);
+        const uploadRes = await fetch('/api/v1/upload/model', { method: 'POST', body: formData });
+        if (!uploadRes.ok) throw new Error('Upload failed');
+        const uploadData = await uploadRes.json();
+        modelUrl = uploadData?.data?.url || uploadData?.url;
+      } catch (err: any) {
+        setStatusMessage(`Upload failed: ${err.message}`);
+        setIsProcessing(false);
+        return;
+      }
+    }
+
+    setIsProcessing(true);
+    setStatusMessage('Submitting texture generation job...');
+    setSuccessResult(null);
+
+    try {
+      const payload: any = {
+        prompt: texturePrompt,
+        mode: 'texture-generation',
+        quality: resolution === '4K PBR' ? 'ultra' : resolution === '2K Mixed' ? 'standard' : 'draft',
+        style_preset: themeStyle,
+        generate_texture: true,
+      };
+      if (modelUrl) {
+        payload.reference_image_url = modelUrl;
+      }
+
+      const response = await fetch('/api/v1/generation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.data?.job_id) {
+        setStatusMessage(`Job submitted (ID: ${data.data?.job_id}). Processing...`);
+        // Poll job status
+        const jobId = data.data?.job_id;
+        pollRef.current = setInterval(async () => {
+          try {
+            const statusRes = await fetch(`/api/v1/generation/${jobId}/status`);
+            const statusData = await statusRes.json();
+            if (statusData.data?.status === 'completed') {
+              if (pollRef.current) clearInterval(pollRef.current);
+              pollRef.current = null;
+              setSuccessResult({
+                texturesDescription: `${resolution} textures baked for prompt: "${texturePrompt}"`,
+                accentColor: '#F5A623',
+                mapsCount: '4 Map Channels Baked',
+                albedoStatus: '100% Painted (RGB)',
+                roughnessStatus: 'Roughness Map Applied',
+                metalnessStatus: 'Metalness Channel Active',
+              });
+              setIsProcessing(false);
+            } else if (statusData.data?.status === 'failed') {
+              if (pollRef.current) clearInterval(pollRef.current);
+              pollRef.current = null;
+              setStatusMessage(`Generation failed: ${statusData.data?.error_message || 'Unknown error'}`);
+              setIsProcessing(false);
+            } else {
+              setStatusMessage(statusData.data?.stage || 'Processing...');
+            }
+          } catch {
+              if (pollRef.current) clearInterval(pollRef.current);
+              pollRef.current = null;
+            setIsProcessing(false);
+          }
+        }, 2000);
+      } else {
+        const errMsg = data.detail || data.error || 'Backend returned an error.';
+        setStatusMessage(`Error: ${errMsg}`);
+        setIsProcessing(false);
+      }
+    } catch (err: any) {
+      setStatusMessage('Cannot connect to backend. Ensure the API server is running.');
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <div className="flex-1 p-6 flex flex-col lg:flex-row gap-6 animate-fadeIn text-[#FAFAFA]" id="texture-gen-tab-panel">
+      
+      {/* Left Input Configuration Panel */}
+      <div className="w-full lg:w-[380px] flex flex-col gap-5 flex-shrink-0" id="texture-left-panel">
+        <div className="bg-[#111116] border border-[#1E1E26] rounded-2xl p-5 flex flex-col gap-5" id="texture-inputs-box">
+          <div>
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Palette size={20} className="text-[#F5A623]" />
+              Material & PBR Painting
+            </h2>
+            <p className="text-xs text-[#71717A] mt-1">
+              Apply rich, text-described textures and physical surface settings to individual active model components.
+            </p>
+          </div>
+
+          {/* Model Upload */}
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-semibold text-[#A1A1AA] uppercase tracking-wider">Target Model (Optional)</label>
+            {uploadedModelUrl ? (
+              <div className="bg-[#18181F] border border-emerald-500/20 rounded-xl p-3 flex items-center gap-3">
+                <Palette size={16} className="text-emerald-500" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-white truncate">{uploadedModelName}</p>
+                  <p className="text-[10px] text-[#71717A]">{((uploadedModel?.size ?? 0) / 1024).toFixed(1)} KB</p>
+                </div>
+                <button onClick={() => { setUploadedModel(null); setUploadedModelUrl(null); setUploadedModelName(''); }} className="text-[#71717A] hover:text-white">
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <label className="flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-[#27272A] hover:border-[#F5A623]/50 cursor-pointer transition-colors text-[11px] text-[#71717A] hover:text-[#F5A623]">
+                <Upload size={14} />
+                <span>Upload GLB/GLTF to Texture</span>
+                <input type="file" accept=".glb,.gltf" onChange={handleModelUpload} className="hidden" />
+              </label>
+            )}
+          </div>
+
+          {/* Model Description Input Prompt */}
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-semibold text-[#A1A1AA] uppercase tracking-wider">Material Prompt</label>
+            <div className="relative">
+              <textarea
+                value={texturePrompt}
+                onChange={(e) => setTexturePrompt(e.target.value)}
+                placeholder="Describe PBR materials, finishes, gloss levels, and weathering details..."
+                className="w-full bg-[#18181F] border border-[#27272A] rounded-xl p-3 text-xs text-white placeholder-[#52525B] min-h-[90px] max-h-[140px] focus:outline-none focus:border-[#F5A623] transition-all resize-y"
+                id="texture-prompt-textarea"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <button
+                onClick={handleRandomPrompt}
+                className="text-[11px] font-bold text-[#F5A623] hover:underline"
+                id="random-texture-prompt-btn"
+              >
+                🎲 Random Theme
+              </button>
+              <button
+                onClick={() => setTexturePrompt('')}
+                className="text-[11px] font-semibold text-[#71717A] hover:text-white transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4 border-t border-[#1E1E26] pt-4" id="texture-settings-form">
+            {/* Resolution selection */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] text-[#71717A] uppercase font-mono font-bold">Bake Resolution</label>
+              <select
+                value={resolution}
+                onChange={(e) => setResolution(e.target.value)}
+                className="w-full bg-[#18181F] border border-[#27272A] rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-[#F5A623] cursor-pointer"
+                id="texture-res-select"
+              >
+                <option value="4K PBR">4K Ultra Detail (High Fidelity)</option>
+                <option value="2K Mixed">2K Production Grade (Balanced)</option>
+                <option value="1K Standard">1K Web Optimized (Fast Load)</option>
+              </select>
+            </div>
+
+            {/* Art style preset selection */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] text-[#71717A] uppercase font-mono font-bold">Art Preset Theme</label>
+              <select
+                value={themeStyle}
+                onChange={(e) => setThemeStyle(e.target.value)}
+                className="w-full bg-[#18181F] border border-[#27272A] rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-[#F5A623] cursor-pointer"
+                id="texture-style-select"
+              >
+                <option value="anime">Anime / Cel-Shaded (Bold Outline, Vibrant Gloss)</option>
+                <option value="realistic">Photorealistic PBR (Physical Material Models)</option>
+                <option value="cyberpunk">Cyberpunk Neon (Fluorescent Emissive Shading)</option>
+                <option value="stylized-handpainted">Stylized Handpainted (Watercolor/Clay)</option>
+              </select>
+            </div>
+
+            {/* Weathering Slider controller */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex justify-between items-center text-[10px] text-[#71717A] uppercase font-mono font-bold">
+                <span>Weathering & Wear</span>
+                <span className="text-[#F5A623]">{Math.round(weathering * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={weathering}
+                onChange={(e) => setWeathering(parseFloat(e.target.value))}
+                className="w-full accent-[#F5A623] cursor-pointer"
+              />
+            </div>
+
+            {/* Run painting button */}
+            <button
+              onClick={handleTextureGen}
+              disabled={isProcessing || !texturePrompt}
+              className="w-full bg-[#F5A623] hover:brightness-110 active:scale-[0.98] disabled:opacity-50 text-black font-extrabold py-3 rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-[0_4px_15px_rgba(245,166,35,0.2)]"
+              id="trigger-texture-btn"
+            >
+              {isProcessing ? (
+                <>
+                  <Sparkles size={14} className="animate-spin text-black" />
+                  Baking Textures ({resolution})...
+                </>
+              ) : (
+                <>
+                  <Sparkles size={14} className="stroke-[2.5]" />
+                  Bake Material & Paint
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Result Visualizer Stage */}
+      <div className="flex-1 bg-[#111116] border border-[#1E1E26] rounded-2xl p-6 flex flex-col gap-6 relative overflow-hidden" id="texture-right-stage">
+        
+        {/* Background Anime Speed Lines/Aura overlay during baking */}
+        {isProcessing && (
+          <div className="absolute inset-0 bg-black/60 z-20 flex flex-col items-center justify-center text-center p-6 animate-speed-lines">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-[#F5A623] to-[#FF8A00] animate-energy-pulse flex items-center justify-center">
+              <Palette size={36} className="animate-bounce text-black" />
+            </div>
+            <h3 className="text-lg font-black text-[#F5A623] uppercase tracking-widest mt-6 animate-pulse">
+              Painting UV PBR Channels...
+            </h3>
+            <p className="text-xs text-[#A1A1AA] mt-2 max-w-sm leading-relaxed font-mono">
+              {statusMessage}
+            </p>
+          </div>
+        )}
+
+        <div className="flex-1 flex flex-col justify-between z-10">
+          <div>
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Sliders size={16} className="text-[#F5A623]" />
+              PBR Channel Diagnostics
+            </h3>
+            <p className="text-xs text-[#71717A] mt-1">
+              Inspect separate baked UV channel layouts. Generating textures applies real physical material values (Metalness, Roughness) instantly.
+            </p>
+          </div>
+
+          {successResult ? (
+            <div className="bg-[#18181F] border border-emerald-500/30 rounded-xl p-5 flex flex-col gap-4 animate-fadeIn">
+              <div className="flex items-center gap-2.5">
+                <CheckCircle size={18} className="text-emerald-500" />
+                <span className="text-sm font-bold text-white uppercase tracking-wider">Textures Successfully Baked!</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-[#111116] p-3 rounded-lg border border-[#27272A]">
+                  <p className="text-[10px] text-[#71717A] uppercase font-mono font-bold">Albedo Mapping</p>
+                  <p className="text-xs font-bold text-[#A1A1AA] mt-1">{successResult.albedoStatus}</p>
+                </div>
+                <div className="bg-[#111116] p-3 rounded-lg border border-[#27272A]">
+                  <p className="text-[10px] text-[#71717A] uppercase font-mono font-bold">Baked Maps</p>
+                  <p className="text-xs font-bold text-[#F5A623] mt-1">{successResult.mapsCount}</p>
+                </div>
+              </div>
+              <div className="bg-[#111116] p-4 rounded-lg border border-[#27272A] flex flex-col gap-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-[#A1A1AA]">Specular Roughness:</span>
+                  <span className="font-semibold text-white">{successResult.roughnessStatus}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs border-t border-white/[0.03] pt-2">
+                  <span className="text-[#A1A1AA]">Metalness Channel:</span>
+                  <span className="font-semibold text-white">{successResult.metalnessStatus}</span>
+                </div>
+              </div>
+              <p className="text-xs text-[#71717A] leading-relaxed italic bg-black/45 p-3 rounded-lg border border-[#27272A]">
+                💡 Baked PBR Materials: {successResult.texturesDescription}
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center text-center p-8 border border-dashed border-[#1E1E26] rounded-xl flex-1 my-6 bg-[#18181F]/40">
+              <ImageIcon size={36} className="text-[#27272A] mb-3" />
+              <h4 className="text-xs font-bold text-[#A1A1AA]">Awaiting Painting Pipeline Trigger</h4>
+              <p className="text-[11px] text-[#71717A] max-w-xs mt-1.5 leading-relaxed">
+                Provide a prompt describing the material parameters on the left and click &quot;Bake Material &amp; Paint&quot; to trigger the painting server.
+              </p>
+            </div>
+          )}
+
+          {/* Quick Info Tip */}
+          <div className="bg-[#18181F] rounded-xl p-4 border border-[#F5A623]/10 flex items-start gap-3">
+            <Zap size={15} className="text-[#F5A623] flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <span className="text-[10px] font-bold text-[#F5A623] uppercase tracking-wider">Pro Painting Tip</span>
+              <p className="text-[10px] text-[#A1A1AA] mt-1 leading-relaxed">
+                Describe the surface reflectivity using direct physical vocabulary. For example, use words like <code className="bg-[#111116] text-[#E4E4E7] px-1 rounded font-mono">rough brushed aluminum</code> or <code className="bg-[#111116] text-[#E4E4E7] px-1 rounded font-mono">mirror-like chrome</code> to produce precise roughness and metalness mapping coefficients.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,217 @@
+"""File upload endpoints.
+
+NOTE on upload progress tracking:
+This endpoint consumes the entire file body in one shot (await file.read()),
+so the server cannot report byte-level progress mid-upload.  Real-time upload
+progress bars must be implemented **client-side** using XMLHttpRequest (or
+Axios onUploadProgress) which exposes the native browser progress event.
+See the frontend upload service for the XHR-based implementation.
+"""
+from __future__ import annotations
+
+import io
+import logging
+import uuid
+from pathlib import Path
+
+from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse, JSONResponse
+from PIL import Image
+
+from app.config import get_settings
+from app.utils.response import error, success
+
+router = APIRouter(tags=["Upload"])
+logger = logging.getLogger(__name__)
+settings = get_settings()
+
+SUPPORTED_FORMATS = {".png", ".jpg", ".jpeg", ".webp"}
+ALLOWED_MIME_TYPES = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/webp": ".webp",
+    "model/gltf+binary": ".glb",
+    "model/gltf+json": ".gltf",
+}
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
+
+
+@router.post("/image")
+async def upload_image(file: UploadFile = File(...)):
+    """Upload and process an image file.
+
+    Validates format, size, MIME type, and returns dimensions for UI display.
+    Stores file in local storage for reference during generation.
+    """
+    # Validate MIME type
+    content_type = (file.content_type or "").lower()
+    if content_type not in ALLOWED_MIME_TYPES:
+        return JSONResponse(
+            status_code=422,
+            content=error(
+                f"Unsupported MIME type: {content_type or '(none)'}. "
+                f"Allowed: {', '.join(sorted(ALLOWED_MIME_TYPES.keys()))}"
+            )
+        )
+
+    # Validate file extension
+    file_ext = Path(file.filename or "").suffix.lower()
+    if file_ext not in SUPPORTED_FORMATS:
+        return JSONResponse(
+            status_code=422,
+            content=error(
+                f"Unsupported image format: {file_ext or '(none)'}. "
+                f"Allowed: {', '.join(sorted(SUPPORTED_FORMATS))}"
+            )
+        )
+
+    # Verify extension matches MIME type
+    expected_ext = ALLOWED_MIME_TYPES[content_type]
+    if file_ext not in (expected_ext, ".jpg") and content_type == "image/jpeg" and file_ext != ".jpeg":
+        if file_ext != ".jpg" and file_ext != ".jpeg":
+            logger.warning(f"Extension/MIME mismatch: ext={file_ext}, content_type={content_type}")
+
+    try:
+        # Read file content
+        content = await file.read()
+        if len(content) > MAX_FILE_SIZE:
+            return JSONResponse(
+                status_code=413,
+                content=error(f"File too large ({len(content) / 1024 / 1024:.1f} MB). Maximum: {MAX_FILE_SIZE // 1024 // 1024} MB")
+            )
+
+        if len(content) == 0:
+            return JSONResponse(
+                status_code=422,
+                content=error("Empty file uploaded")
+            )
+
+        # Validate image and get dimensions
+        try:
+            image = Image.open(io.BytesIO(content))
+            image.verify()  # Verify it's a valid image
+            image = Image.open(io.BytesIO(content))  # Re-open after verify
+            width, height = image.size
+
+            # Validate image dimensions
+            if width < 256 or height < 256:
+                return error("Image must be at least 256x256 pixels")
+            if width > 8192 or height > 8192:
+                return error("Image must not exceed 8192x8192 pixels")
+        except Exception as e:
+            logger.warning(f"Invalid image file: {e}")
+            return JSONResponse(
+                status_code=422,
+                content=error(f"Invalid image file: {e}")
+            )
+
+        # Generate unique filename
+        unique_id = str(uuid.uuid4())
+        stored_filename = f"upload_{unique_id}{file_ext}"
+        upload_dir = Path(settings.storage_local_path) / "uploads"
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        file_path = upload_dir / stored_filename
+
+        # Save file
+        with open(file_path, "wb") as f:
+            f.write(content)
+
+        logger.info(f"Uploaded image: {stored_filename} ({width}x{height}, {len(content)} bytes)")
+
+        return success(
+            {
+                "url": f"/api/v1/upload/uploads/{stored_filename}",
+                "width": width,
+                "height": height,
+                "filename": stored_filename,
+                "size_bytes": len(content),
+            },
+            "Image uploaded successfully"
+        )
+
+    except Exception as exc:
+        logger.exception(f"Upload error: {exc}")
+        return error(f"Upload failed: {exc}")
+
+
+@router.post("/model")
+async def upload_model(file: UploadFile = File(...)):  # noqa: C901
+    """Upload a 3D model file (.glb, .gltf)."""
+    # Validate file type
+    allowed_extensions = {'.glb', '.gltf'}
+    ext = Path(file.filename or '').suffix.lower()
+    if ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unsupported file type '{ext}'. Allowed: {', '.join(sorted(allowed_extensions))}"
+        )
+
+    # Validate file size (max 100MB)
+    max_size = 100 * 1024 * 1024
+    contents = await file.read()
+    if len(contents) > max_size:
+        raise HTTPException(
+            status_code=413,
+            detail="File too large. Maximum size: 100MB"
+        )
+
+    if len(contents) == 0:
+        raise HTTPException(status_code=422, detail="Empty file")
+
+    # Save file
+    models_dir = Path(settings.storage_local_path) / "models"
+    models_dir.mkdir(parents=True, exist_ok=True)
+
+    unique_name = f"{uuid.uuid4().hex[:12]}{ext}"
+    file_path = models_dir / unique_name
+
+    with open(file_path, "wb") as f:
+        f.write(contents)
+
+    # Return URL
+    url = f"/static/models/{unique_name}"
+
+    logger.info(f"Uploaded model: {file.filename} -> {unique_name} ({len(contents)} bytes)")
+
+    return success({
+        "url": url,
+        "filename": file.filename,
+        "size": len(contents),
+        "format": ext.lstrip('.'),
+    })
+
+
+@router.get("/uploads/{filename}")
+async def download_uploaded_image(filename: str):
+    """Retrieve an uploaded image by filename."""
+    try:
+        file_path = Path(settings.storage_local_path) / "uploads" / filename
+
+        # Security: prevent directory traversal
+        if not file_path.exists() or ".." in str(file_path):
+            raise HTTPException(status_code=404, detail="File not found")
+
+        # Verify it's actually in uploads directory
+        upload_dir = Path(settings.storage_local_path) / "uploads"
+        try:
+            file_path.resolve().relative_to(upload_dir.resolve())
+        except ValueError:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        # Determine MIME type
+        ext = file_path.suffix.lower()
+        mime_types = {
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".webp": "image/webp",
+        }
+        media_type = mime_types.get(ext, "application/octet-stream")
+
+        return FileResponse(file_path, media_type=media_type)
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning(f"Download error: {exc}")
+        raise HTTPException(status_code=500, detail="Download failed")

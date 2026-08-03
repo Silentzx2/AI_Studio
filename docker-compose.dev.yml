@@ -1,0 +1,98 @@
+# =============================================================================
+# DEVELOPMENT OVERRIDE - AI 3D Studio
+# =============================================================================
+# Usage:
+#   CPU Mode : docker compose -f docker-compose.yml -f docker-compose.cpu.yml -f docker-compose.dev.yml up
+#   GPU Mode : docker compose -f docker-compose.yml -f docker-compose.gpu.yml -f docker-compose.dev.yml up
+#
+# Pehli baar build karna padega (dependencies ke liye), uske baad sirf code
+# change karo aur save karo — rebuild nahi karna padega!
+# =============================================================================
+
+services:
+  # ===========================================================================
+  # BACKEND API - FastAPI with Auto-Reload
+  # ===========================================================================
+  api:
+    volumes:
+      # 🔥 BIND MOUNT: Local ./backend → Container /app
+      # Jaise hi aap VS Code mein save karoge, container mein turant update!
+      - ./backend:/app
+
+      # Ye folders named volumes mein rakho taaki host mount se overwrite na ho
+      - model_storage:/app/storage
+      - third_party_storage:/app/third_party
+      - runtime_cache:/app/.runtime_cache
+
+    # Uvicorn --reload flag se FastAPI apne aap restart hoga code change pe
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+    environment:
+      DEBUG: "true"
+
+    # Dev mein root user se chalao taaki bind mount permission issues na ho
+    user: root
+
+  # ===========================================================================
+  # CELERY WORKER - Background Tasks
+  # ===========================================================================
+  worker:
+    volumes:
+      - ./backend:/app
+      - model_storage:/app/storage
+      - third_party_storage:/app/third_party
+      - runtime_cache:/app/.runtime_cache
+    user: root
+    # ⚠️ Celery mein auto-reload nahi hota. Code change ke baad:
+    # docker compose -f docker-compose.yml -f docker-compose.dev.yml restart worker
+
+  # ===========================================================================
+  # FRONTEND - Next.js Dev Server (Hot Reload)
+  # ===========================================================================
+  frontend:
+    # Production multi-stage build ki jagah direct Node image use karo
+    image: node:20-alpine
+    working_dir: /app
+
+    volumes:
+      # 🔥 BIND MOUNT: Poora project root → /app
+      # Next.js app router, components, features — sab live!
+      - .:/app
+
+      # 🛡️ node_modules container ke andar rakho (host se overwrite na ho)
+      - node_modules:/app/node_modules
+
+      # 🛡️ .next build cache bhi container mein
+      - next_cache:/app/.next
+
+    # Pehle npm install, phir dev server
+    command: sh -c "npm install --legacy-peer-deps && npm run dev"
+
+    ports:
+      - "3000:3000"
+
+    environment:
+      NODE_ENV: development
+      NEXT_TELEMETRY_DISABLED: "1"
+      BACKEND_URL: http://api:8000
+
+    depends_on:
+      - api
+
+    user: root
+
+  # ===========================================================================
+  # DATABASE MIGRATIONS - Alembic
+  # ===========================================================================
+  migrate:
+    volumes:
+      - ./backend:/app
+    user: root
+
+# =============================================================================
+# EXTRA VOLUMES (Dev ke liye)
+# =============================================================================
+volumes:
+  runtime_cache:
+  node_modules:
+  next_cache:

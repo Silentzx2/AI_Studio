@@ -1,0 +1,96 @@
+from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+# ── Request schemas ────────────────────────────────────────────────────────────
+
+class GenerationRequest(BaseModel):
+    # ponytail: Extended modes to support remesh, texture-gen, and future pipeline steps
+    mode: Literal[
+        "text-to-3d", "image-to-3d", "remesh", "texture-generation",
+        "partition", "rigging",
+    ] = "text-to-3d"
+    prompt: str = Field(..., min_length=1, max_length=2000)
+    negative_prompt: str | None = Field(None, max_length=500)
+    # ponytail: Extended quality options for texture/remesh workflows
+    quality: Literal["low-poly", "standard", "high-poly", "ultra", "draft"] = "standard"
+    style_preset: str | None = None
+    generate_texture: bool = True
+    auto_rig: bool = False
+    reference_image_url: str | None = None
+    detail_pass: bool = False
+    detail_guidance: float = 7.5
+
+
+
+# ── Response schemas ───────────────────────────────────────────────────────────
+
+class DownloadUrls(BaseModel):
+    glb: str | None = None
+    fbx: str | None = None
+    obj: str | None = None
+    stl: str | None = None
+
+
+class JobResult(BaseModel):
+    model_url: str
+    thumbnail_url: str
+    polygon_count: int
+    vertex_count: int
+    texture_resolution: str | None = None
+    has_rig: bool
+    download_urls: DownloadUrls
+    file_size: int
+
+
+class JobResponse(BaseModel):
+    id: str
+    status: str
+    mode: str
+    prompt: str
+    negative_prompt: str | None = None
+    quality: str
+    style_preset: str | None = None
+    generate_texture: bool
+    auto_rig: bool
+    provider: str
+    enhanced_prompt: str | None = None
+    progress: int
+    stage: str
+    error_message: str | None = None
+    result: JobResult | None = None
+    created_at: datetime
+    updated_at: datetime
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class JobListResponse(BaseModel):
+    jobs: list[JobResponse]
+    total: int
+
+
+# ── SSE event schemas ──────────────────────────────────────────────────────────
+
+class ProgressEvent(BaseModel):
+    job_id: str
+    status: str
+    stage: str
+    progress: int
+    message: str
+    level: Literal["info", "warn", "error", "success"] = "info"
+    result: JobResult | None = None
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+# ── Upload schemas ─────────────────────────────────────────────────────────────
+
+class ImageUploadResponse(BaseModel):
+    url: str
+    width: int
+    height: int
+    size: int
+    content_type: str
