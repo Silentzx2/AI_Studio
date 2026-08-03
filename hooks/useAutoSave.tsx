@@ -2,13 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Loader2, Check, AlertCircle, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+export type AutoSaveStatus = 'idle' | 'saving' | 'saved' | 'error' | 'modified';
+
 export function useAutoSave<T>(
   data: T,
   saveAction: (data: T) => Promise<void> | void,
   delay: number = 800,
   skipInitial: boolean = true
 ) {
-  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error' | 'modified'>('idle');
+  const [status, setStatus] = useState<AutoSaveStatus>('idle');
   const initialRender = useRef(true);
   const saveActionRef = useRef(saveAction);
   const dataRef = useRef(data);
@@ -21,7 +23,10 @@ export function useAutoSave<T>(
     dataRef.current = data;
   }, [data]);
 
-  const isAutoSaveEnabled = typeof window !== 'undefined' ? localStorage.getItem('ai3d:settings:autoSaveEnabled') !== 'false' : true;
+  const isAutoSaveEnabled =
+    typeof window !== 'undefined'
+      ? localStorage.getItem('ai3d:settings:autoSaveEnabled') !== 'false'
+      : true;
 
   useEffect(() => {
     if (skipInitial && initialRender.current) {
@@ -34,40 +39,58 @@ export function useAutoSave<T>(
       return;
     }
 
-    // Don't set status if it's the very first render and we're skipping it.
     setStatus('saving');
-    
+
     const handler = setTimeout(async () => {
       try {
         await saveActionRef.current(data);
         setStatus('saved');
-      } catch (e) {
+      } catch {
         setStatus('error');
       } finally {
         setTimeout(() => {
-          setStatus((current) => (current === 'saved' || current === 'error' ? 'idle' : current));
+          setStatus((current) =>
+            current === 'saved' || current === 'error' ? 'idle' : current
+          );
         }, 2500);
       }
     }, delay);
 
     return () => clearTimeout(handler);
-  }, [data, delay, skipInitial, isAutoSaveEnabled]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, delay, skipInitial]);
 
   const handleManualSave = async () => {
     setStatus('saving');
     try {
       await saveActionRef.current(dataRef.current);
       setStatus('saved');
-    } catch (e) {
+    } catch {
       setStatus('error');
     } finally {
       setTimeout(() => {
-        setStatus((current) => (current === 'saved' || current === 'error' ? 'idle' : current));
+        setStatus((current) =>
+          current === 'saved' || current === 'error' ? 'idle' : current
+        );
       }, 2500);
     }
   };
 
-  const Indicator = () => (
+  return { status, save: handleManualSave };
+}
+
+/**
+ * Stable indicator component — defined at module scope so it is not
+ * re-created on every render of the consuming component.
+ */
+export function AutoSaveIndicator({
+  status,
+  onSave,
+}: {
+  status: AutoSaveStatus;
+  onSave: () => void;
+}) {
+  return (
     <AnimatePresence mode="wait">
       {status !== 'idle' && (
         <motion.div
@@ -81,7 +104,7 @@ export function useAutoSave<T>(
             <>
               <span className="text-amber-500 font-semibold">Unsaved changes</span>
               <button
-                onClick={handleManualSave}
+                onClick={onSave}
                 className="ml-2 flex items-center gap-1 bg-[#F5A623] hover:bg-[#D48C16] text-black px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer"
               >
                 <Save className="w-3 h-3" /> Save
@@ -110,6 +133,4 @@ export function useAutoSave<T>(
       )}
     </AnimatePresence>
   );
-
-  return { status, Indicator, save: handleManualSave };
 }

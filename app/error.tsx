@@ -65,7 +65,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
             className="text-sm font-semibold text-[hsl(var(--destructive))] tracking-widest uppercase font-mono"
             style={{ animation: 'fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards', opacity: 0 }}
           >
-            // System Exception
+            {/* System Exception */}
           </p>
           
           <h1 

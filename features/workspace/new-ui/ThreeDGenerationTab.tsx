@@ -1541,7 +1541,7 @@ export default function ThreeDGenerationTab({
           </div>
 
           <div className="flex flex-col gap-2">
-            {history.slice(0, 4).map((item, idx) => (
+            {history && history.slice(0, 4).map((item, idx) => (
               <div
                 key={item.id || idx}
                 onClick={() => onLoadProject && onLoadProject(item)}

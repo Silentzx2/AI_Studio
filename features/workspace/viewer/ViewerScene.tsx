@@ -24,6 +24,7 @@ function LoadingScreen() {
 function GeneratedModel({ url, wireframe }: { url: string; wireframe: boolean }) {
   const { scene } = useGLTF(url);
   const groupRef = useRef<Group>(null);
+  const { camera } = useThree();
 
   useEffect(() => {
     if (groupRef.current) {
@@ -52,7 +53,6 @@ function GeneratedModel({ url, wireframe }: { url: string; wireframe: boolean })
         groupRef.current.userData.initialPosition = groupRef.current.position.clone();
 
         // Auto-frame the camera so the model is visible without manual zoom
-        const { camera } = useThree();
         const fov = (camera as any).fov ?? 45;
         const distance = (maxDim / 2 / Math.tan((fov * Math.PI) / 360)) * 1.6;
         camera.position.set(0, size.y * 0.5 + maxDim * 0.2, distance);
@@ -76,6 +76,7 @@ function GeneratedModel({ url, wireframe }: { url: string; wireframe: boolean })
 function UserModel({ url, wireframe }: { url: string; wireframe: boolean }) {
   const { scene } = useGLTF(url, '/three-default/material.ball');
   const groupRef = useRef<Group>(null);
+  const { camera } = useThree();
   useEffect(() => {
     if (groupRef.current) {
       groupRef.current.traverse((child) => {
@@ -87,7 +88,6 @@ function UserModel({ url, wireframe }: { url: string; wireframe: boolean }) {
       const box = new Box3().setFromObject(groupRef.current);
       const size = box.getSize(new Vector3());
       const maxDim = Math.max(size.x, size.y, size.z) || 1;
-      const { camera } = useThree();
       const fov = (camera as any).fov ?? 45;
       const distance = (maxDim / 2 / Math.tan((fov * Math.PI) / 360)) * 1.6;
       camera.position.set(0, size.y * 0.5 + maxDim * 0.2, distance);
@@ -138,9 +138,10 @@ function CameraController({ autoRotate }: { autoRotate: boolean }) {
   }, [camera]);
 
   useEffect(() => {
-    (window as any).__orbitControls = orbitRef.current;
+    const controls = orbitRef.current;
+    (window as any).__orbitControls = controls;
     return () => {
-      if ((window as any).__orbitControls === orbitRef.current) {
+      if ((window as any).__orbitControls === controls) {
         (window as any).__orbitControls = null;
       }
     };
