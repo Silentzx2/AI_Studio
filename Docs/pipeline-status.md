@@ -49,10 +49,8 @@ core/providers/
   ✅ mock.py                    - Mock/testing provider
 
 core/downloader/
-  ✅ smart_downloader.py        - Smart download orchestration
-  ✅ chunk_manager.py           - Chunked download with resume
-  ✅ mirror_fallback.py         - Mirror URL fallback logic
-  ✅ checksum_validator.py      - SHA256 integrity validation
+  ✅ mirror_fallback.py        - Mirror URL fallback logic
+  ✅ checksum_validator.py     - SHA256 integrity validation
 
 core/installer/
   ✅ dependency_resolver.py     - Resolve model dependencies
@@ -65,7 +63,8 @@ scripts/
   ✅ migrate_weights_to_per_model.py - Weight migration (copy-then-verify)
 
 models/
-  ✅ download_queue.py          - Download queue ORM model
+  ✅ job.py                    - Generation job ORM model
+  ✅ registry.py               - Model registration tracking
 
 schemas/
   ✅ manifest.py                - Model manifest schema
@@ -439,52 +438,71 @@ Agent Browser Test: PASSED
 
 ```
 backend/app/core/managers/
-├── download_manager.py          [NEW]
-├── environment_manager.py       [NEW]
-└── health_manager.py            [NEW]
+├── compatibility_manager.py       [NEW]
+├── download_manager.py             [NEW]
+├── environment_manager.py          [NEW]
+├── health_manager.py               [NEW]
+├── plugin_manager.py               [NEW]
+└── vram_tracker.py                 [NEW]
 
 backend/app/workers/
-├── download_workers.py           [MODIFIED]
-├── installation_workers.py       [NEW]
-└── health_workers.py             [NEW]
+├── celery_app.py                   [EXISTING]
+├── tasks.py                        [EXISTING]
+├── download_workers.py             [NEW]
+├── installation_workers.py         [NEW]
+├── health_workers.py               [NEW]
+└── vram_health_worker.py           [NEW]
 
 backend/app/api/v1/
-├── __init__.py                  [MODIFIED]
-├── models_api.py                 [NEW]
-├── discover.py                   [NEW]
-├── download.py                   [NEW]
-└── system.py                     [NEW]
+├── __init__.py                     [MODIFIED — 16 routers registered]
+├── admin_router.py                 [EXISTING]
+├── generation_router.py            [EXISTING]
+├── models_api.py                   [NEW]
+├── discover_router.py              [NEW]
+├── download_router.py              [NEW]
+├── pipelines_router.py             [NEW]
+├── plugin_manager_router.py        [NEW]
+├── system_router.py                [NEW]
+├── settings_router.py              [NEW]
+├── rigging_router.py               [NEW]
 
-backend/app/core/installer/
-├── plugin_installer.py          [MODIFIED — per-model venvs]
-└── dependency_resolver.py       [MODIFIED]
+backend/app/core/
+├── providers/                      [EXISTING — 12+ providers]
+├── managers/                       [NEW — 6 managers]
+├── downloader/                     [NEW — mirror_fallback, checksum_validator]
+├── installer/                      [MODIFIED — per-model venvs]
+└── registry/
+    └── model_registry.py           [NEW]
 
 backend/runtime/
-├── installer.py                  [MODIFIED — resolve_install_targets(), per-model venvs]
-└── storage.py                    [MODIFIED — get_model_venv_path, get_model_weights_dir]
+├── installer.py                    [MODIFIED — resolve_install_targets(), full_install()]
+└── storage.py                      [MODIFIED — StorageConfig per-model paths]
 
 backend/scripts/
-└── migrate_weights_to_per_model.py [NEW]
+└── update-models.sh                [EXISTING — supports --migrate flag]
 
-backend/Dockerfile                [MODIFIED — BuildKit cache, uv install]
-backend/.dockerignore             [NEW]
-
-app/features/model-manager/
+features/model-manager/
 ├── tabs/
-│   ├── BenchmarksTab.tsx         [NEW]
-│   └── HealthTab.tsx              [NEW]
+│   ├── BenchmarksTab.tsx           [NEW]
+│   ├── HealthTab.tsx                [NEW]
+│   ├── InstalledModelsTab.tsx      [NEW]
+│   ├── AvailableModelsTab.tsx      [NEW]
+│   ├── QueueTab.tsx                 [NEW]
+│   └── StorageTab.tsx               [NEW]
 ├── components/
-│   └── ModelDetailsModal.tsx     [NEW]
-└── index.ts                      [NEW]
+│   ├── CompatibilityChecker.tsx    [NEW]
+│   ├── DownloadProgress.tsx         [NEW]
+│   └── ModelDetailsModal.tsx        [NEW]
 
-docs/
-├── api-documentation.md           [NEW]
-├── architecture.md               [NEW]
-├── setup-guide.md                [NEW]
-├── developer-guide.md            [NEW]
-└── pipeline-status.md            [NEW]
+Docs/
+├── api-documentation.md             [NEW]
+├── architecture.md                 [NEW]
+├── setup-guide.md                  [NEW]
+├── developer-guide.md              [NEW]
+├── pipeline-status.md              [NEW]
+└── CHANGELOG.md                    [NEW]
 
-README.md                         [MODIFIED]
+README.md                           [MODIFIED]
 ```
 
 ---
@@ -560,8 +578,7 @@ The current Settings → Pipelines page is backed by the live registry snapshot 
 | **Virtual envs** | Shared system venv | Per-model `.venv/` via `uv venv` |
 | **Install policy** | `models=None` → install all | `resolve_install_targets()` requires explicit list |
 | **Concurrency** | No locking | File-based `.installing.lock` per model |
-| **Docker volumes** | Named volumes `model_storage`, `third_party_storage` | Bind mounts `./backend/storage`, `./backend/third_party` |
-| **Docker build** | Standard pip install | `uv` via `COPY --from`, `uv pip install`, dirs created at runtime |
-| **.dockerignore** | None | Excludes `third_party/`, `storage/`, `.runtime_cache/` |
+| **Deployment** | Docker named volumes | Native bind mounts + shell scripts |
+| **.gitignore** | N/A | Excludes `third_party/`, `storage/`, `.runtime_cache/` |
 | **Migration** | N/A | `./scripts/update-models.sh --migrate` |
 | **Disk space** | No pre-check | Checked before weight download |

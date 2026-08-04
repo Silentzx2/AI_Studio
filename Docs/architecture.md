@@ -106,7 +106,7 @@
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| **Next.js** | 15.x | React framework with App Router |
+| **Next.js** | 16.x | React framework with App Router |
 | **React** | 19.x | UI library |
 | **TypeScript** | 5.x | Type safety |
 | **Tailwind CSS** | 4.x | Utility-first styling |
@@ -121,7 +121,7 @@
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| **Python** | 3.11+ | Runtime environment |
+| **Python** | 3.12+ | Runtime environment |
 | **FastAPI** | 0.115.x | Web framework |
 | **SQLAlchemy** | 2.0.x | ORM |
 | **Alembic** | 1.14.x | Database migrations |
@@ -136,9 +136,8 @@
 | Component | Version | Purpose |
 |----------|---------|---------|
 | **PostgreSQL** | 16 | Primary database |
-| **Redis** | 7 | Caching & broker |
-| **Docker** | Latest | Containerization |
-| **NVIDIA CUDA** | 12.1 | GPU compute |
+| **Redis** | 5.2 | Caching & broker |
+| **NVIDIA CUDA** | 12.x | GPU compute |
 | **Blender** | 4.x | 3D post-processing (optional) |
 
 ---
@@ -148,131 +147,48 @@
 ```
 ai-3d-studio/
 │
-├── app/                              # Next.js Application
-│   ├── page.tsx                      # Landing page
+├── app/                              # Next.js Application (App Router)
 │   ├── layout.tsx                    # Root layout
-│   ├── main.tsx                      # Client-side router
-│   ├── globals.css                   # Global styles
+│   ├── page.tsx                      # Landing/workspace page (renders WorkspaceShell directly)
+│   ├── workspace/page.tsx            # Main generation workspace
+│   ├── generate/page.tsx             # Quick generate page
+│   ├── render/page.tsx               # Render view
+│   ├── texture/page.tsx              # Texture tools
+│   ├── settings/page.tsx             # Unified settings (imports admin tabs)
+│   ├── admin/page.tsx                # DEPRECATED — redirects to /settings?section=monitoring
 │   │
-│   ├── workspace/                    # Main workspace page
-│   ├── generate/                     # Quick generate page
-│   ├── models/                       # Model manager page
-│   ├── settings/                     # Settings page
-│   ├── admin/                        # Admin dashboard
-│   ├── render/                       # Render view
-│   ├── texture/                      # Texture tools
-│   │
-│   ├── features/                     # Feature modules
-│   │   ├── landing/                  # Landing page components
-│   │   ├── workspace/                # Workspace components
-│   │   │   ├── new-ui/               # Tabbed workspace UI
-│   │   │   └── viewer/               # Three.js viewer
-│   │   ├── admin/                    # Admin dashboard
-│   │   └── model-manager/            # Model management
-│   │       ├── tabs/                 # Model tabs
-│   │       └── components/           # Model components
-│   │
-│   └── api/v1/[...path]/             # API proxy route
+│   └── api/v1/[...path]/route.ts     # API proxy route
 │
-├── backend/                          # Python Backend
-│   ├── app/
-│   │   ├── main.py                   # FastAPI entry point
-│   │   ├── config.py                 # Configuration
-│   │   ├── database.py               # DB setup
-│   │   │
-│   │   ├── api/v1/                   # API endpoints
-│   │   │   ├── __init__.py           # Router aggregation
-│   │   │   ├── generation.py         # Generation endpoints
-│   │   │   ├── jobs.py               # Job management
-│   │   │   ├── health.py             # Health checks
-│   │   │   ├── runtime.py            # Runtime control
-│   │   │   ├── upload.py             # File uploads
-│   │   │   ├── image_generation.py   # SDXL image gen
-│   │   │   ├── admin.py              # Admin endpoints
-│   │   │   ├── hf_token.py           # HF token mgmt
-│   │   │   ├── plugin_manager.py     # Plugin system
-│   │   │   ├── models_api.py         # Model CRUD (NEW)
-│   │   │   ├── discover.py           # Discovery (NEW)
-│   │   │   ├── download.py           # Downloads (NEW)
-│   │   │   └── system.py             # System info (NEW)
-│   │   │
-│   │   ├── core/                     # Core business logic
-│   │   │   ├── providers/            # AI model providers
-│   │   │   │   ├── base.py           # Base classes
-│   │   │   │   ├── registry.py       # Provider registry
-│   │   │   │   ├── hunyuan3d*.py     # Hunyuan3D providers
-│   │   │   │   ├── trellis*.py       # TRELLIS providers
-│   │   │   │   ├── triposr*.py       # TripoSR providers
-│   │   │   │   ├── instant_mesh.py   # Instant Mesh
-│   │   │   │   ├── mock.py           # Mock/testing
-│   │   │   │   ├── sdxl.py           # SDXL image gen
-│   │   │   │   ├── huggingface_provider.py
-│   │   │   │   ├── github_provider.py
-│   │   │   │   ├── civitai_provider.py
-│   │   │   │   ├── modelscope_provider.py
-│   │   │   │   └── nvidia_ngc_provider.py
-│   │   │   │
-│   │   │   ├── managers/             # Business managers (NEW)
-│   │   │   │   ├── download_manager.py
-│   │   │   │   ├── environment_manager.py
-│   │   │   │   └── health_manager.py
-│   │   │   │
-│   │   │   ├── downloader/          # Download system
-│   │   │   │   ├── smart_downloader.py
-│   │   │   │   ├── chunk_manager.py
-│   │   │   │   ├── mirror_fallback.py
-│   │   │   │   └── checksum_validator.py
-│   │   │   │
-│   │   │   ├── installer/           # Plugin installer
-│   │   │   │   ├── plugin_installer.py
-│   │   │   │   └── dependency_resolver.py
-│   │   │   │
-│   │   │   ├── download_manager/    # Legacy download mgr
-│   │   │   ├── blender/              # Blender integration
-│   │   │   ├── prompt_enhancer.py    # Prompt enhancement
-│   │   │   ├── mesh_processor.py     # Mesh processing
-│   │   │   └── registry/             # Model registry
-│   │   │
-│   │   ├── scripts/                 # Maintenance scripts
-│   │   │   └── migrate_weights_to_per_model.py  # Weight migration
-│   │   │
-│   │   ├── workers/                 # Celery tasks
-│   │   │   ├── celery_app.py        # Celery config
-│   │   │   ├── tasks.py             # 3D generation
-│   │   │   ├── image_tasks.py       # Image generation
-│   │   │   ├── download_workers.py  # Download tasks (NEW)
-│   │   │   ├── installation_workers.py # Install tasks (NEW)
-│   │   │   └── health_workers.py    # Health tasks (NEW)
-│   │   │
-│   │   ├── models/                   # SQLAlchemy models
-│   │   │   ├── job.py               # Generation job
-│   │   │   ├── image_job.py         # Image job
-│   │   │   ├── download_queue.py    # Download queue
-│   │   │   └── registry.py          # Model registry
-│   │   │
-│   │   ├── schemas/                  # Pydantic schemas
-│   │   │   ├── generation.py
-│   │   │   └── manifest.py
-│   │   │
-│   │   └── utils/                    # Utilities
-│   │       ├── storage.py
-│   │       └── response.py
-│   │
-│   └── runtime/                      # Runtime utilities
-│       ├── engine.py                 # Runtime engine
-│       ├── gpu.py                    # GPU detection
-│       ├── health.py                 # Health checks
-│       ├── installer.py              # Installer logic
-│       ├── storage.py                # Storage handling
-│       └── platform_detection.py     # Platform detection
-│
-├── features/                         # Additional features
+├── features/                         # Feature modules (ROOT level, NOT under app/)
 │   ├── landing/                      # Landing page feature
-│   ├── admin/                        # Admin dashboard
+│   ├── admin/tabs/                   # Admin dashboard tabs
 │   ├── render/                       # Render shell
-│   ├── settings/                     # Settings sections
+│   ├── settings/sections/            # Settings sections
+│   │   ├── GeneralSection.tsx
+│   │   ├── WorkspaceSection.tsx
+│   │   ├── AppearanceSection.tsx
+│   │   ├── GenerationSection.tsx
+│   │   ├── PipelinesSection.tsx
+│   │   ├── ExportBackupSection.tsx
+│   │   └── PreferencesSections/
+│   │       ├── NotificationsSection.tsx
+│   │       ├── ShortcutsSection.tsx
+│   │       ├── NetworkSection.tsx
+│   │       └── AdvancedSection.tsx
 │   ├── texture/                      # Texture shell
-│   └── workspace/                    # Workspace feature
+│   ├── workspace/                    # Workspace feature
+│   └── model-manager/                # Model management feature
+│       ├── tabs/
+│       │   ├── InstalledModelsTab.tsx
+│       │   ├── AvailableModelsTab.tsx
+│       │   ├── BenchmarksTab.tsx
+│       │   ├── HealthTab.tsx
+│       │   ├── QueueTab.tsx
+│       │   └── StorageTab.tsx
+│       └── components/
+│           ├── CompatibilityChecker.tsx
+│           ├── DownloadProgress.tsx
+│           └── ModelDetailsModal.tsx
 │
 ├── components/                       # Shared UI components
 │   ├── ui/                           # shadcn/ui components (50+)
@@ -284,14 +200,13 @@ ai-3d-studio/
 │
 ├── stores/                           # Zustand state stores
 │   ├── useGenerationStore.ts
-│   ├── useImageGenerationStore.ts
-│   ├── useUIStore.ts
-│   └── useWallpaperStore.ts
+│   ├── useProjectStore.ts
+│   ├── useThemeStore.ts
+│   └── useUIStore.ts
 │
 ├── services/                         # API service layer
 │   ├── apiClient.ts                  # HTTP client
 │   ├── generationService.ts
-│   ├── imageGenerationService.ts
 │   ├── runtimeService.ts
 │   ├── uploadService.ts
 │   └── adminService.ts
@@ -305,18 +220,111 @@ ai-3d-studio/
 │   ├── useGeneration.ts
 │   └── useImageGeneration.ts
 │
-├── docs/                             # Documentation (NEW)
+├── backend/                          # Python Backend
+│   ├── app/
+│   │   ├── main.py                   # FastAPI entry point
+│   │   ├── config.py                 # Configuration
+│   │   ├── database.py               # DB setup
+│   │   │
+│   │   ├── api/v1/                   # API endpoints
+│   │   │   ├── __init__.py           # Router aggregation
+│   │   │   ├── admin_router.py       # /admin
+│   │   │   ├── generation_router.py  # /generation
+│   │   │   ├── jobs_router.py        # /jobs
+│   │   │   ├── health_router.py      # /health
+│   │   │   ├── runtime_router.py     # /runtime
+│   │   │   ├── upload_router.py      # /upload
+│   │   │   ├── hf_token_router.py    # /hf-token
+│   │   │   ├── models_api.py         # /models (no prefix)
+│   │   │   ├── discover_router.py    # /discover (no prefix)
+│   │   │   ├── download_router.py    # /download (no prefix)
+│   │   │   ├── pipelines_router.py   # /pipelines (no prefix)
+│   │   │   ├── plugin_manager_router.py # /plugin-manager (no prefix)
+│   │   │   ├── system_router.py      # /system (no prefix)
+│   │   │   ├── settings_router.py    # /settings (no prefix)
+│   │   │   └── rigging_router.py     # /rigging (no prefix)
+│   │   │
+│   │   ├── core/                     # Core business logic
+│   │   │   ├── providers/            # AI model providers
+│   │   │   │   ├── base.py           # Base classes
+│   │   │   │   ├── registry.py       # Provider registry
+│   │   │   │   ├── hunyuan3d*.py     # Hunyuan3D providers
+│   │   │   │   ├── trellis*.py       # TRELLIS providers
+│   │   │   │   ├── triposr*.py       # TripoSR providers
+│   │   │   │   ├── instant_mesh.py   # Instant Mesh
+│   │   │   │   ├── detailgen3d.py    # DetailGen3D
+│   │   │   │   ├── anigen_provider.py # AniGen provider
+│   │   │   │   ├── huggingface_provider.py
+│   │   │   │   ├── github_provider.py
+│   │   │   │   ├── civitai_provider.py
+│   │   │   │   ├── modelscope_provider.py
+│   │   │   │   ├── nvidia_ngc_provider.py
+│   │   │   │   └── mock.py           # Mock/testing
+│   │   │   │
+│   │   │   ├── managers/             # Business managers
+│   │   │   │   ├── compatibility_manager.py
+│   │   │   │   ├── download_manager.py
+│   │   │   │   ├── environment_manager.py
+│   │   │   │   ├── health_manager.py
+│   │   │   │   ├── plugin_manager.py
+│   │   │   │   └── vram_tracker.py
+│   │   │   │
+│   │   │   ├── downloader/          # Download system
+│   │   │   │   ├── mirror_fallback.py
+│   │   │   │   └── checksum_validator.py
+│   │   │   │
+│   │   │   ├── installer/           # Plugin installer
+│   │   │   │   ├── plugin_installer.py
+│   │   │   │   └── dependency_resolver.py
+│   │   │   │
+│   │   │   └── registry/             # Model registry
+│   │   │       └── model_registry.py
+│   │   │
+│   │   ├── workers/                 # Celery tasks
+│   │   │   ├── celery_app.py        # Celery config
+│   │   │   ├── tasks.py             # 3D generation
+│   │   │   ├── download_workers.py  # Download tasks
+│   │   │   ├── installation_workers.py # Install tasks
+│   │   │   ├── health_workers.py    # Health tasks
+│   │   │   └── vram_health_worker.py
+│   │   │
+│   │   ├── models/                   # SQLAlchemy models
+│   │   │   ├── job.py               # Generation job
+│   │   │   └── registry.py          # Model registry
+│   │   │
+│   │   ├── schemas/                  # Pydantic schemas
+│   │   │   ├── generation.py
+│   │   │   └── manifest.py
+│   │   │
+│   │   └── utils/                    # Utilities
+│   │       └── storage.py
+│   │
+│   └── runtime/                      # Runtime utilities
+│       ├── engine.py                 # Runtime engine
+│       ├── gpu.py                    # GPU detection
+│       ├── health.py                 # Health checks
+│       ├── installer.py              # Installer logic (resolve_install_targets, full_install)
+│       ├── storage.py                # StorageConfig with per-model paths
+│       └── platform_detection.py     # Platform detection
+│
+├── Docs/                             # Documentation
 │   ├── api-documentation.md
 │   ├── architecture.md
 │   ├── setup-guide.md
 │   ├── developer-guide.md
-│   └── pipeline-status.md
+│   ├── pipeline-status.md
+│   └── CHANGELOG.md
 │
-├── docker-compose.yml                # Multi-service orchestration
-├── docker-compose.gpu.yml            # GPU variant
-├── docker-compose.cpu.yml            # CPU-only variant
-├── Dockerfile.frontend               # Frontend container
-├── backend/Dockerfile                # Backend container
+├── scripts/                          # Service management scripts
+│   ├── bootstrap.sh
+│   ├── setup.sh
+│   ├── start.sh
+│   ├── stop.sh
+│   ├── restart.sh
+│   ├── manager.sh
+│   ├── update-models.sh
+│   └── ...
+│
 ├── .env.example                      # Environment template
 └── package.json                      # Node.js dependencies
 ```
@@ -327,20 +335,7 @@ ai-3d-studio/
 
 ### Routing Structure
 
-The application uses a custom client-side router defined in `app/main.tsx`:
-
-```typescript
-const routes = {
-  '/': HomePage,
-  '/workspace': WorkspacePage,
-  '/admin': AdminPage,
-  '/settings': SettingsPage,
-  '/generate': GeneratePage,
-  '/models': ModelsPage,
-  '/render': RenderPage,
-  '/texture': TexturePage
-};
-```
+The application uses Next.js App Router. `app/page.tsx` renders `WorkspaceShell` directly.
 
 ### Component Hierarchy
 
@@ -375,14 +370,15 @@ App Layout
 │   ├── AdminSidebar
 │   └── Tabs (12 total)
 │       ├── OverviewTab
+│       ├── ConnectionsTab
 │       ├── ModelsTab
 │       ├── DownloadsTab
 │       ├── RuntimeTab
 │       ├── JobsTab
 │       ├── QueueTab
 │       ├── HealthTab
-│       ├── DockerTab
 │       ├── LogsTab
+│       ├── StorageTab
 │       ├── TerminalTab
 │       └── SettingsTab
 │
@@ -396,6 +392,15 @@ App Layout
 ```
 
 ### State Management (Zustand)
+
+#### Actual Stores
+
+| Store File | Purpose |
+|------------|---------|
+| `useGenerationStore.ts` | Generation state (mode, quality, prompts, job history) |
+| `useProjectStore.ts` | Project/session state |
+| `useThemeStore.ts` | Theme/appearance preferences |
+| `useUIStore.ts` | UI state (sidebar, fullscreen, workspace tab) |
 
 #### Generation Store (`useGenerationStore`)
 ```typescript
@@ -444,6 +449,16 @@ All API calls go through `apiClient.ts` which provides:
 - Error normalization
 - Request/response logging
 
+#### Actual Service Files
+
+| File | Purpose |
+|------|---------|
+| `services/apiClient.ts` | Core HTTP client with retry, SSE, error handling |
+| `services/generationService.ts` | Generation API operations |
+| `services/runtimeService.ts` | Runtime status, options, HuggingFace token |
+| `services/adminService.ts` | Admin/health/log operations |
+| `services/uploadService.ts` | File upload handling |
+
 ```typescript
 // Example usage
 import { apiClient } from '@/services/apiClient';
@@ -477,20 +492,40 @@ Startup Sequence:
 ```python
 # backend/app/api/v1/__init__.py
 
-router = APIRouter()
+from app.api.v1.admin_router import router as admin_router
+from app.api.v1.generation_router import router as generation_router
+from app.api.v1.jobs_router import router as jobs_router
+from app.api.v1.health_router import router as health_router
+from app.api.v1.runtime_router import router as runtime_router
+from app.api.v1.upload_router import router as upload_router
+from app.api.v1.hf_token_router import router as hf_token_router
+from app.api.v1.models_api import router as models_router
+from app.api.v1.discover_router import router as discover_router
+from app.api.v1.download_router import router as download_router
+from app.api.v1.pipelines_router import router as pipelines_router
+from app.api.v1.plugin_manager_router import router as plugin_manager_router
+from app.api.v1.system_router import router as system_router
+from app.api.v1.settings_router import router as settings_router
+from app.api.v1.rigging_router import router as rigging_router
 
-# Existing routes (with prefix added)
+# Routers with prefixes
+router.include_router(admin_router, prefix="/admin")
 router.include_router(generation_router, prefix="/generation")
 router.include_router(jobs_router, prefix="/jobs")
 router.include_router(health_router, prefix="/health")
 router.include_router(runtime_router, prefix="/runtime")
 router.include_router(upload_router, prefix="/upload")
+router.include_router(hf_token_router, prefix="/hf-token")
 
-# New Pipeline V2 routes (have own prefixes)
-router.include_router(models_router)      # /api/v1/models/*
-router.include_router(discover_router)     # /api/v1/discover/*
-router.include_router(download_router)     # /api/v1/download/*
-router.include_router(system_router)       # /api/v1/system/*
+# Routers with no prefix (own prefixes inside)
+router.include_router(models_router)         # /models/*
+router.include_router(discover_router)       # /discover/*
+router.include_router(download_router)       # /download/*
+router.include_router(pipelines_router)      # /pipelines/*
+router.include_router(plugin_manager_router) # /plugin-manager/*
+router.include_router(system_router)         # /system/*
+router.include_router(settings_router)       # /settings/*
+router.include_router(rigging_router)        # /rigging/*
 ```
 
 ### Middleware Stack
@@ -506,6 +541,7 @@ router.include_router(system_router)       # /api/v1/system/*
 ### Database Schema (PostgreSQL)
 
 #### Generation Jobs Table
+
 ```sql
 CREATE TABLE generation_jobs (
     id VARCHAR PRIMARY KEY,
@@ -531,44 +567,6 @@ CREATE TABLE generation_jobs (
     completed_at TIMESTAMP,
     
     -- Metadata
-    metadata JSONB
-);
-```
-
-#### Download Queue Table
-```sql
-CREATE TABLE download_queue (
-    id VARCHAR PRIMARY KEY,
-    model_id VARCHAR NOT NULL,
-    model_name VARCHAR,
-    url VARCHAR,
-    filename VARCHAR,
-    file_path VARCHAR,
-    
-    -- Size tracking
-    total_size INTEGER,
-    downloaded_size INTEGER DEFAULT 0,
-    progress_percent FLOAT DEFAULT 0,
-    
-    -- Status
-    status VARCHAR DEFAULT 'pending',
-    error_message VARCHAR,
-    
-    -- Timing
-    created_at TIMESTAMP DEFAULT NOW(),
-    started_at TIMESTAMP,
-    completed_at TIMESTAMP,
-    
-    -- Retry
-    retry_count INTEGER DEFAULT 0,
-    max_retries INTEGER DEFAULT 3,
-    
-    -- Validation
-    checksum VARCHAR,
-    checksum_algorithm VARCHAR DEFAULT 'sha256',
-    
-    -- Source
-    provider VARCHAR,
     metadata JSONB
 );
 ```
@@ -960,7 +958,7 @@ Each model now lives in an isolated directory under `third_party/<RepoName>/` wi
 ```
 backend/
 └── third_party/
-    ├── Hunyuan3D-2.1/
+    ├── AniGen/
     │   ├── .venv/                    # Per-model virtual environment (uv)
     │   │   ├── bin/python
     │   │   └── lib/python3.x/site-packages/
@@ -972,10 +970,11 @@ backend/
     │   ├── .venv/
     │   ├── weights/
     │   └── ...
-    └── TripoSR/
-        ├── .venv/
-        ├── weights/
-        └── ...
+    ├── TripoSR/
+    │   ├── .venv/
+    │   ├── weights/
+    │   └── ...
+    └── ...
 ```
 
 ### StorageConfig Methods
@@ -1003,20 +1002,17 @@ backend/
 5. Dependencies are uv-installed into the per-model venv.
 6. `download_weights()` saves to `third_party/<repo_name>/weights/`.
 
-### Docker Storage
+### Native Deployment Storage
 
-The `docker-compose.yml` uses **bind mounts** (not named volumes) for persistent data:
+The project uses native service management via shell scripts. Model data directories (`storage`, `third_party`) are bind-mounted to the project directory by the host system. No Docker volumes are used.
 
-```yaml
-# docker-compose.yml (relevant volumes)
-services:
-  api:
-    volumes:
-      - ./backend/storage:/app/storage        # Generated outputs
-      - ./backend/third_party:/app/third_party  # Model repos, venvs, weights
+```bash
+# Storage paths (native setup)
+./backend/storage/           # Generated outputs
+./backend/third_party/       # Model repos, venvs, weights
 ```
 
-A `.dockerignore` excludes `third_party/`, `storage/`, and `.runtime_cache/` from the build context to keep images lean. The Dockerfile uses BuildKit cache mounts and installs `uv` via `COPY --from=ghcr.io/astral-sh/uv:latest` for fast per-model venv creation. All Python packages are installed with `uv pip install`. Application directories (`storage/`, `third_party/`, `.runtime_cache/`) are created at runtime by `storage.ensure_dirs()` — not by the Dockerfile.
+A `.gitignore` excludes `backend/third_party/*`, `third_party/*/.venv/`, `third_party/*/weights/`, `.runtime_cache/`, and `storage/` from version control. Application directories are created at runtime by `storage.ensure_dirs()`.
 
 ---
 
@@ -1028,7 +1024,7 @@ The Settings → Pipelines page is driven by a compact pipeline snapshot flow:
 
 1. `ModelRegistry` returns the current installed + available catalog.
 2. `capability_matrix.py` converts manifests into UI feature flags.
-3. `backend/app/api/v1/pipelines.py` stores the enabled map in the runtime cache and serves the snapshot.
+3. `backend/app/api/v1/pipelines_router.py` stores the enabled map in the runtime cache and serves the snapshot.
 4. `features/settings/sections/PipelinesSection.tsx` renders the page using the shared app theme.
 5. `services/runtimeService.ts` reads runtime status and options for GPU / provider UI.
 

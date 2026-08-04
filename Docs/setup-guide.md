@@ -10,13 +10,12 @@
 
 1. [Prerequisites](#prerequisites)
 2. [Hardware Requirements](#hardware-requirements)
-3. [Quick Start (Docker)](#quick-start-docker)
+3. [Quick Start (Native)](#quick-start-native)
 4. [Manual Installation](#manual-installation)
 5. [Environment Configuration](#environment-configuration)
 6. [GPU Setup](#gpu-setup)
-7. [Docker Compose Variants](#docker-compose-variants)
-8. [Troubleshooting](#troubleshooting)
-9. [Verification](#verification)
+7. [Troubleshooting](#troubleshooting)
+8. [Verification](#verification)
 
 ---
 
@@ -26,11 +25,9 @@
 
 | Software | Version | Purpose |
 |----------|---------|---------|
-| **Docker** | 24.0+ | Containerization |
-| **Docker Compose** | 2.0+ | Multi-container orchestration |
 | **Git** | Latest | Clone repository |
 | **Node.js** | 18+ (for dev) | Frontend development |
-| **Python** | 3.11+ (for dev) | Backend development |
+| **Python** | 3.12+ (for dev) | Backend development |
 | **uv** | Latest (for dev) | Per-model venv creation |
 
 > **Note**: `uv` is a **hard dependency** for this project. It is used for per-model virtual environment creation and all Python package management. Install it with `curl -LsSf https://astral.sh/uv/install.sh | sh`. There is **no fallback** to `pip` or `python -m venv`.
@@ -82,7 +79,7 @@
 
 ---
 
-## Quick Start (Docker)
+## Quick Start (Native)
 
 ### Method 1: Using Setup Script (Recommended)
 
@@ -97,29 +94,6 @@ chmod +x scripts/*.sh manager.sh
 # Run setup and start
 ./scripts/setup.sh
 ./scripts/start.sh
-```
-
-### Method 2: Manual Docker Commands
-
-```bash
-# Clone the repository
-git clone https://github.com/your-org/ai-3d-studio.git
-cd ai-3d-studio
-
-# Copy environment template
-cp .env.example .env
-
-# Edit configuration
-nano .env
-
-# Start all services
-docker compose up -d
-
-# Check status
-docker compose ps
-
-# View logs
-docker compose logs -f api
 ```
 
 ### Access Points After Startup
@@ -365,14 +339,11 @@ nvidia-smi
 ### Test CUDA Availability
 
 ```bash
-# Test with Docker
-docker run --rm --gpus all nvidia/cuda:12.1-base nvidia-smi
-
-# Test PyTorch CUDA
-docker run --rm --gpus all pytorch/pytorch:latest python -c "import torch; print(torch.cuda.is_available())"
+# Test with PyTorch CUDA
+python -c "import torch; print(torch.cuda.is_available())"
 ```
 
-### Install NVIDIA Container Toolkit
+### Install NVIDIA Container Toolkit (Optional)
 
 ```bash
 # Add NVIDIA repository
@@ -385,13 +356,9 @@ curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-contai
 # Install
 sudo apt-get update
 sudo apt-get install -y nvidia-container-toolkit
-
-# Configure Docker runtime
-sudo nvidia-ctk runtime configure --runtime=docker
-sudo systemctl restart docker
 ```
 
-### Verify GPU in Containers
+### Verify GPU in Containers (if using containers)
 
 ```bash
 # Test GPU access from container
@@ -399,62 +366,6 @@ docker run --rm --gpus all ubuntu:22.04 nvidia-smi
 
 # Should show same output as host nvidia-smi
 ```
-
----
-
-## Docker Compose Variants
-
-### Full Stack (GPU Mode)
-
-```bash
-# Uses docker-compose.yml + docker-compose.gpu.yml
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
-```
-
-Services included:
-- `postgres` - Database
-- `redis` - Cache/Broker
-- `prompt enhancement` - Optional AI prompt assistant
-- `api` - FastAPI backend (with GPU access)
-- `frontend` - Next.js frontend
-- `worker` - Celery worker (with GPU access)
-
-### CPU-Only Mode
-
-```bash
-# For development/testing without GPU
-docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
-```
-
-Modifications:
-- Uses CPU-only base image
-- Sets `AI_PROVIDER=mock`
-- Disables GPU passthrough
-
-### Development Mode
-
-```bash
-# With hot-reload enabled
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
-```
-
-Features:
-- Volume mounts for code changes
-- Auto-reload on file save
-- Debug ports exposed
-
-### Production Mode
-
-```bash
-# Optimized for production
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-```
-
-Features:
-- Multi-worker scaling
-- Health checks configured
-- Resource limits set
-- Restart policies active
 
 ---
 
@@ -485,9 +396,6 @@ nvidia-smi
 # 1. Verify driver installation
 # 2. Check kernel module: lsmod | grep nvidia
 # 3. Reboot after driver install
-
-# In container, check:
-docker run --rm --gpus all nvidia/cuda:12.1-base nvidia-smi
 ```
 
 #### 3. Database Connection Failed
@@ -543,10 +451,7 @@ watch -n 1 nvidia-smi
 curl -I https://huggingface.co
 
 # Verify disk space (per-model weights live under third_party/)
-df -h /app/storage/third_party/
-
-# Check download logs
-docker compose logs worker | grep -i error
+df -h ./backend/third_party/
 
 # Retry failed downloads via API
 POST /api/v1/download/process-queue
@@ -567,11 +472,11 @@ This copies weights from `third_party/weights/<provider>/` into `third_party/<Re
 
 | Service | Log Command | Location |
 |---------|-------------|----------|
-| **API Server** | `docker compose logs api` | stdout/stderr |
-| **Worker** | `docker compose logs worker` | stdout/stderr |
-| **Frontend** | `docker compose logs frontend` | stdout/stderr |
-| **PostgreSQL** | `docker compose logs postgres` | /var/lib/postgresql/data/log |
-| **Redis** | `docker compose logs redis` | stdout/stderr |
+| **API Server** | `./scripts/manager.sh` → logs | stdout/stderr |
+| **Worker** | `./scripts/manager.sh` → logs | stdout/stderr |
+| **Frontend** | `./scripts/manager.sh` → logs | stdout/stderr |
+| **PostgreSQL** | `sudo systemctl status postgresql` | /var/log/postgresql/ |
+| **Redis** | `redis-cli monitor` | stdout |
 
 ### Debug Mode
 
@@ -586,11 +491,11 @@ LOG_LEVEL=DEBUG
 View real-time logs:
 
 ```bash
-# All services
-docker compose logs -f
+# Using manager.sh
+./scripts/manager.sh
 
-# Specific service
-docker compose logs -f api worker
+# Or check service logs directly
+journalctl -u redis-server -f
 ```
 
 ---

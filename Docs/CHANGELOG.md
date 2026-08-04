@@ -16,22 +16,18 @@
 - **Install concurrency control**: File-based locks at `third_party/<repo_name>/.installing.lock` prevent parallel installs of the same model.
 - **Pre-download disk space check**: Disk space is verified before starting weight downloads.
 
-### Docker Changes
+### Environment & Deployment Changes
 
-- **Bind mounts replace named volumes**: `model_storage` and `third_party_storage` named volumes replaced with `./backend/storage:/app/storage` and `./backend/third_party:/app/third_party`.
-- **New `backend/.dockerignore`**: Excludes `third_party/`, `storage/`, `.runtime_cache/` from build context. Root `.dockerignore` also updated.
-- **BuildKit cache mount**: Dockerfile now uses `--mount=type=cache,target=/root/.cache/pip` for faster rebuilds.
-- **`uv` installed in image**: Required for per-model venv creation.
+- **Native deployment via shell scripts**: Services are managed via `scripts/setup.sh`, `scripts/start.sh`, and `scripts/manager.sh`. No Docker deployment path exists.
+- **Per-model storage layout**: Each model is fully self-contained under `third_party/<RepoName>/` with its own `.venv/` (created by `uv`), `weights/`, `cache/`, `logs/`, and `metadata.json`.
+- **Gitignore updates**: Excludes `third_party/*`, `third_party/*/.venv/`, `third_party/*/weights/`, `.runtime_cache/`, and `storage/`.
+- **uv hard dependency**: `uv` is required for per-model venv creation; no fallback to `pip` or `python -m venv`.
 
 ### Files Changed
 
 - `backend/runtime/installer.py` — `resolve_install_targets()`, per-model venv creation
 - `backend/runtime/storage.py` — `get_model_venv_path()`, `get_model_venv_python()`, `get_model_weights_dir()`, updated `get_weight_path()`
-- `backend/scripts/migrate_weights_to_per_model.py` — new migration script
-- `backend/Dockerfile` — BuildKit cache, `uv` install
-- `backend/.dockerignore` — new file
-- `docker-compose.yml` — bind mounts
-- `.dockerignore` — root-level exclusions
+- `backend/scripts/update-models.sh` — supports `--migrate`, `--repos-only`, `--weights-only`, `--verify` flags
 - `AGENTS.md` — new "Model Pipeline Structure Rules (post-restructure)" section
 
 ---

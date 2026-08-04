@@ -27,9 +27,9 @@
 ### Prerequisites
 
 - Node.js 18+ and npm
-- Python 3.11+
-- Docker & Docker Compose
+- Python 3.12+
 - Git
+- uv (hard dependency for Python env management)
 - Code editor (VS Code recommended)
 
 ### VS Code Extensions (Recommended)
@@ -72,8 +72,9 @@ cp backend/.env.example backend/.env
 ### Start All Services
 
 ```bash
-# Using Docker Compose (recommended)
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+# Using setup scripts (recommended)
+./scripts/setup.sh
+./scripts/start.sh
 
 # Or start individually for development:
 
@@ -108,31 +109,50 @@ open http://localhost:8000/docs
 
 ## Code Structure Overview
 
-### Frontend (`src/` or `app/`)
+### Frontend (`app/` and `features/`)
 
 ```
-app/
-├── page.tsx              # Entry point / landing page
-├── layout.tsx            # Root layout wrapper
-├── main.tsx              # Client-side router
-├── globals.css           # Global styles + Tailwind
-│
-├── features/             # Feature-based modules
-│   ├── landing/          # Marketing pages
-│   ├── workspace/        # Main workspace UI
-│   │   └── viewer/       # Three.js 3D viewer
-│   ├── admin/            # Admin dashboard
-│   └── model-manager/    # Model management tabs
-│
-├── components/           # Reusable components
-│   ├── ui/               # shadcn/ui base components
-│   ├── premium/          # Styled premium components
-│   └── motion/           # Animation wrappers
-│
-├── stores/               # Zustand state stores
-├── services/             # API client functions
-├── hooks/                # Custom React hooks
-└── types/                # TypeScript definitions
+app/                              # Next.js App Router pages
+├── layout.tsx                    # Root layout
+├── page.tsx                      # Landing/workspace page
+├── workspace/page.tsx            # Main generation workspace
+├── generate/page.tsx             # Quick generate page
+├── render/page.tsx               # Render view
+├── texture/page.tsx              # Texture tools
+├── settings/page.tsx             # Unified settings (imports admin tabs)
+├── admin/page.tsx                # DEPRECATED — redirects to /settings?section=monitoring
+└── api/v1/[...path]/route.ts     # Backend API proxy
+
+features/                         # Feature modules (ROOT level, NOT under app/)
+├── landing/                      # Marketing pages
+├── workspace/                    # Main workspace UI
+│   └── viewer/                   # Three.js 3D viewer
+├── admin/tabs/                   # Admin dashboard tabs (12 tabs)
+├── model-manager/                # Model management
+│   ├── tabs/                     # Model tabs
+│   └── components/               # Model components
+├── settings/sections/            # Settings sections
+├── render/                       # Render shell
+├── texture/                      # Texture shell
+└── workspace/                    # Workspace feature
+
+components/                       # Reusable components
+├── ui/                           # shadcn/ui base components
+├── premium/                      # Styled premium components
+└── motion/                       # Animation wrappers
+
+stores/                           # Zustand state stores
+├── useGenerationStore.ts
+├── useProjectStore.ts
+├── useThemeStore.ts
+└── useUIStore.ts
+
+services/                         # API client functions
+├── apiClient.ts                  # Core HTTP client
+├── generationService.ts          # Generation API
+├── runtimeService.ts             # Runtime status/options
+├── uploadService.ts              # File uploads
+└── adminService.ts               # Admin/health/logs
 ```
 
 ### Backend (`backend/app/`)
@@ -144,24 +164,53 @@ backend/app/
 ├── database.py           # SQLAlchemy async setup
 │
 ├── api/v1/               # API route handlers
-│   ├── __init__.py      # Router aggregation
-│   ├── generation.py     # 3D generation endpoints
-│   ├── models_api.py     # Model CRUD (Pipeline V2)
-│   ├── download.py       # Download management (V2)
-│   ├── discover.py       # Model discovery (V2)
-│   └── system.py         # System info (V2)
+│   ├── __init__.py      # Router aggregation (16 routers)
+│   ├── admin_router.py  # /admin
+│   ├── generation_router.py # /generation
+│   ├── jobs_router.py   # /jobs
+│   ├── health_router.py # /health
+│   ├── runtime_router.py # /runtime
+│   ├── upload_router.py # /upload
+│   ├── hf_token_router.py # /hf-token
+│   ├── models_api.py    # /models (no prefix)
+│   ├── discover_router.py # /discover
+│   ├── download_router.py # /download
+│   ├── pipelines_router.py # /pipelines
+│   ├── plugin_manager_router.py # /plugin-manager
+│   ├── system_router.py # /system
+│   ├── settings_router.py # /settings
+│   └── rigging_router.py # /rigging
 │
 ├── core/                 # Business logic
 │   ├── providers/        # AI model providers
-│   ├── managers/         # Business managers (V2)
-│   ├── downloader/       # Download utilities
+│   ├── managers/         # Business managers
+│   ├── downloader/       # Download utilities (mirror_fallback, checksum_validator)
 │   ├── installer/        # Plugin installer (per-model venvs)
-│   └── scripts/          # Maintenance scripts (migration, etc.)
+│   └── registry/         # Model registry
 │
 ├── workers/              # Celery tasks
+│   ├── celery_app.py     # Celery config
+│   ├── tasks.py          # 3D generation
+│   ├── download_workers.py # Download tasks
+│   ├── installation_workers.py # Install tasks
+│   ├── health_workers.py # Health tasks
+│   └── vram_health_worker.py
+│
 ├── models/               # SQLAlchemy models
+│   ├── job.py            # Generation job
+│   └── registry.py       # Model registry
+│
 ├── schemas/              # Pydantic schemas
-└── utils/                # Helper functions
+│   ├── generation.py
+│   └── manifest.py
+│
+└── runtime/              # Runtime utilities
+    ├── engine.py
+    ├── gpu.py
+    ├── health.py
+    ├── installer.py      # resolve_install_targets(), full_install()
+    ├── storage.py        # StorageConfig with per-model paths
+    └── platform_detection.py
 ```
 
 ---
@@ -905,8 +954,8 @@ import logging
 logger = logging.getLogger(__name__)
 logger.debug("Processing job %s", job_id)
 
-# 5. Check logs
-docker compose logs -f api worker
+# 5. Check logs via manager.sh
+./scripts/manager.sh
 ```
 
 ### Common Issues
@@ -1095,9 +1144,9 @@ The current pipeline surface is split across a small set of files:
 
 ### Backend
 
-- `backend/app/api/v1/pipelines.py` — pipeline snapshot + feature gate toggle endpoints.
-- `backend/app/api/v1/runtime.py` — runtime status, health, options, and install stream routes. Install endpoints now require an explicit model list (no bulk "install everything" mode).
-- `backend/app/api/v1/hf_token.py` — HuggingFace token status and verification helpers.
+- `backend/app/api/v1/pipelines_router.py` — pipeline snapshot + feature gate toggle endpoints.
+- `backend/app/api/v1/runtime_router.py` — runtime status, health, options, and install stream routes. Install endpoints now require an explicit model list (no bulk "install everything" mode).
+- `backend/app/api/v1/hf_token_router.py` — HuggingFace token status and verification helpers.
 - `backend/app/core/capability_matrix.py` — computes feature availability from installed models.
 - `backend/app/core/registry/model_registry.py` — source of truth for the current catalog.
 - `backend/runtime/installer.py` — `resolve_install_targets()` enforces explicit model lists; per-model venv creation via `uv venv`.

@@ -1320,13 +1320,13 @@ async function generate3D(prompt: string) {
 
 #### Changed
 - Backend dependencies installed with `uv pip install` instead of `pip install`.
-- Dockerfile installs `uv` via `COPY --from=ghcr.io/astral-sh/uv:latest`.
-- Application directories created at runtime by `storage.ensure_dirs()` (no more Dockerfile `mkdir -p`).
+- Application directories created at runtime by `storage.ensure_dirs()`.
+- Model weights now resolved from `third_party/<RepoName>/weights/` with legacy fallback.
 
 #### Inherited from v3.1.0
 - **Install endpoint requires explicit model list**: `POST /api/v1/runtime/install` now requires a non-empty `models` array. The previous behavior of passing `null` to install all models is removed.
 - Model weights now resolved from `third_party/<RepoName>/weights/` with legacy fallback.
-- Docker volumes changed from named volumes to bind mounts (`./backend/storage`, `./backend/third_party`).
+- Native deployment via shell scripts (no Docker deployment path).
 - `GET /api/v1/runtime/install/stream?model_id=<id>` — SSE install progress.
 - Migration script accessible via `./scripts/update-models.sh --migrate`.
 
@@ -1337,7 +1337,7 @@ async function generate3D(prompt: string) {
 
 #### Changed
 - Model weights now resolved from `third_party/<RepoName>/weights/` with legacy fallback.
-- Docker volumes changed from named volumes to bind mounts (`./backend/storage`, `./backend/third_party`).
+- Per-model virtual environments via `uv venv`.
 
 #### Added
 - `GET /api/v1/runtime/install/stream?model_id=<id>` — SSE install progress (documented).
@@ -1365,5 +1365,5 @@ async function generate3D(prompt: string) {
 
 ### Frontend Connectivity Notes
 
-- The frontend checks backend availability via `GET /api/v1/admin/status` first, with a fallback to `GET /api/v1/health` when needed.
+- The frontend checks backend availability via the health and runtime status endpoints.
 - Workspace tabs are URL-synced with `?view=...` so section changes survive refresh and back/forward navigation.

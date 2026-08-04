@@ -19,15 +19,11 @@
 
   <img src="https://img.shields.io/badge/Pipeline-V2-Complete-success?style=for-the-badge">
 
-  <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white">
+  <img src="https://img.shields.io/badge/Python-3.12+-3776AB?style=for-the-badge&logo=python&logoColor=white">
 
   <img src="https://img.shields.io/badge/FastAPI-Backend-009688?style=for-the-badge&logo=fastapi&logoColor=white">
 
-  <img src="https://img.shields.io/badge/Next.js-15.x-Frontend-000000?style=for-the-badge&logo=nextdotjs">
-
-  <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white">
-
-  <img src="https://img.shields.io/badge/NVIDIA-CUDA-12.1+-76B900?style=for-the-badge&logo=nvidia&logoColor=white">
+  <img src="https://img.shields.io/badge/Next.js-16.x-Frontend-000000?style=for-the-badge&logo=nextdotjs">
 
   <img src="https://img.shields.io/badge/Linux-Ubuntu-E95420?style=for-the-badge&logo=ubuntu&logoColor=white">
 
@@ -92,7 +88,6 @@
 | **TripoSF** | 3D generation | ~12 GB | ~60s | image-to-3D, detail enhancement |
 | **UniRig** | Rigging | ~8 GB | ~30s | skeletal rigging, animation |
 | **HoloPart** | Post-processing | ~8 GB | ~20s | part completion, texture support |
-| **Mock** | Testing | 0 GB | Instant | development and CI fallback |
 
 ### Settings → Pipelines
 
@@ -229,10 +224,10 @@ The Settings → Pipelines page is the UI source of truth for feature gating and
 ┌─────────────────────────────────────────────────────────────┐
 │                     DATA & INFRASTRUCTURE                     │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
-│  │ PostgreSQL   │  │ Redis        │  │ Docker + NVIDIA  │  │
-│  │ - Models DB  │  │ - Job Queue  │  │ GPU/CUDA         │  │
-│  │ - Queues     │  │ - Cache      │  │ PyTorch          │  │
-│  │ - Health Log │  │ - Locks      │  │ CUDA 12.1+       │  │
+│  │ PostgreSQL   │  │ Redis        │  │ NVIDIA GPU/CUDA  │  │
+│  │ - Models DB  │  │ - Job Queue  │  │ - PyTorch        │  │
+│  │ - Queues     │  │ - Cache      │  │ - CUDA           │  │
+│  │ - Health Log │  │ - Locks      │  │                  │  │
 │  └──────────────┘  └──────────────┘  └──────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -241,16 +236,16 @@ The Settings → Pipelines page is the UI source of truth for feature gating and
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| **Frontend** | Next.js 15, React 19, TypeScript | Web UI |
+| **Frontend** | Next.js 16, React 19, TypeScript | Web UI |
 | **UI Components** | shadcn/ui, Radix UI, Lucide Icons | Design System |
 | **State Management** | Zustand | Global State |
 | **3D Rendering** | Three.js, Trimesh | Visualization |
-| **Backend** | FastAPI, Python 3.11+, SQLAlchemy 2 | REST API |
+| **Backend** | FastAPI, Python 3.12+, SQLAlchemy 2 | REST API |
 | **Task Queue** | Celery + Redis | Async Tasks |
 | **Database** | PostgreSQL 16 | Persistent Storage |
-| **ML/AI** | PyTorch, CUDA 12.1+, Diffusers | AI Models |
+| **ML/AI** | PyTorch, CUDA, Diffusers | AI Models |
 | **Download** | aiohttp, asyncio | Async Downloads |
-| **Container** | Docker, Docker Compose | Deployment |
+| **Deployment** | Native (shell scripts) | No Docker |
 
 ---
 
@@ -259,29 +254,24 @@ The Settings → Pipelines page is the UI source of truth for feature gating and
 ### Prerequisites
 
 - **NVIDIA GPU** with CUDA support (required for AI generation)
-- **Docker** and Docker Compose
 - **Git**
+- **uv** package manager (hard dependency)
 - Minimum **50GB** free disk space
 - **RAM**: 16GB+ (8GB+ for CPU-only mode)
 
-### Quick Start (Docker)
+### Quick Start (Native)
 
 ```bash
 # Clone the repository
 git clone https://github.com/your-org/ai-3d-studio.git
 cd ai-3d-studio
 
-# Copy environment template
-cp .env.example /.env
+# Make scripts executable
+chmod +x scripts/*.sh manager.sh
 
-# Start all services (with GPU)
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
-
-# Check status
-docker compose ps
-
-# View logs
-docker compose logs -f backend
+# Run setup and start (installs deps, starts all services)
+./scripts/setup.sh
+./scripts/start.sh
 ```
 
 ### Access Points
@@ -292,8 +282,8 @@ docker compose logs -f backend
 | **Backend API** | http://localhost:8000 | 8000 | REST API |
 | **API Docs** | http://localhost:8000/docs | 8000 | Swagger UI |
 | **ReDoc Docs** | http://localhost:8000/redoc | 8000 | ReDoc UI |
-| **Admin Panel** | http://localhost:3000/admin | 3000 | Administration |
-| **Model Manager** | http://localhost:3000/models | 3000 | V2 Feature |
+| **Admin Panel** | http://localhost:3000/settings?section=monitoring | 3000 | Administration (via Settings) |
+| **Model Manager** | http://localhost:3000/settings | 3000 | V2 Feature (Settings page) |
 | **Workspace** | http://localhost:3000/workspace | 3000 | Generation |
 
 ### Manual Setup (Development)
@@ -351,7 +341,7 @@ CELERY_RESULT_BACKEND=redis://localhost:6379/1
 
 # ===== AI PROVIDER =====
 AI_PROVIDER=hunyuan3d-2.1
-# Options: mock, trellis, triposr, instant_mesh, hunyuan3d-2, hunyuan3d-2.1, sdxl
+# Options: mock, trellis, triposr, triposg, triposf, instant_mesh, hunyuan3d-2, hunyuan3d-2.1
 
 # ===== GPU SETTINGS =====
 CUDA_DEVICE=auto
@@ -399,7 +389,7 @@ For complete configuration options, see [Setup Guide - Configuration](docs/setup
 
 ### Model Manager Interface (NEW in V2)
 
-Navigate to `/models` to access the new model management system:
+Navigate to **Settings** to access the model management system:
 
 #### **Installed Models Tab**
 - View all installed models with status badges
@@ -444,7 +434,7 @@ Navigate to `/models` to access the new model management system:
 
 ### Admin Dashboard
 
-Navigate to `/admin` for:
+Navigate to `/settings?section=monitoring` for:
 - System overview with GPU/memory stats
 - Job history and queue management
 - Download queue monitoring
@@ -577,7 +567,7 @@ source .venv/bin/activate
 celery -A app.workers.celery_app worker --loglevel=info
 ```
 
-**Terminal 3 - Redis** (if not using Docker):
+**Terminal 3 - Redis** (if not running as service):
 ```bash
 redis-server
 ```
@@ -595,12 +585,6 @@ npm run lint
 
 # Type check
 npx tsc --noEmit
-
-# Format code
-npm run format
-
-# Run tests
-npm run test
 ```
 
 ### Development Commands
@@ -622,9 +606,7 @@ python -c "from app.database import Base, engine; Base.metadata.drop_all(engine)
 # Frontend
 npm run dev          # Dev server with HMR
 npm run build        # Production build
-npm run preview      # Preview production build
 npm run lint         # ESLint
-npm run format       # Prettier
 ```
 
 See [Developer Guide](docs/developer-guide.md) for detailed contribution guidelines.
@@ -635,157 +617,192 @@ See [Developer Guide](docs/developer-guide.md) for detailed contribution guideli
 
 ```
 ai-3d-studio/
-│                 
+│
 ├── 📄 package.json                    # Node.js dependencies
 ├── 📄 tsconfig.json                   # TypeScript config
 ├── 📄 tailwind.config.ts              # Tailwind CSS config
-├── 📄 docker-compose.yml              # Container orchestration
-├── 📄 docker-compose.gpu.yml          # GPU variant
 │
-├── app/                               # Frontend (Next.js 15)
+├── app/                               # Frontend (Next.js 16 App Router)
 │   ├── layout.tsx                     # Root layout
-│   ├── page.tsx                       # Landing page
+│   ├── page.tsx                       # Landing/workspace page (renders WorkspaceShell)
 │   ├── workspace/page.tsx             # Main generation workspace
-│   ├── admin/page.tsx                 # Admin dashboard
-│   ├── models/page.tsx                # Model manager (NEW V2)
+│   ├── generate/page.tsx              # Quick generate page
+│   ├── render/page.tsx                # Render view
+│   ├── texture/page.tsx               # Texture tools
+│   ├── settings/page.tsx              # Unified settings (includes former admin tabs)
+│   ├── admin/page.tsx                 # DEPRECATED — redirects to /settings?section=monitoring
 │   │
-│   └── features/                      # Feature modules
-│       ├── landing/                   # Landing page components
-│       ├── workspace/                 # Workspace UI
-│       │   ├── components/
-│       │   ├── hooks/
-│       │   └── utils/
-│       ├── admin/                     # Admin UI
-│       │   ├── components/
-│       │   ├── hooks/
-│       │   └── stores/
-│       └── model-manager/             # Model management UI (NEW V2)
-│           ├── components/
-│           │   ├── DownloadProgress.tsx
-│           │   ├── CompatibilityChecker.tsx
-│           │   └── ModelDetailsModal.tsx
-│           └── tabs/
-│               ├── InstalledModelsTab.tsx
-│               ├── AvailableModelsTab.tsx
-│               ├── BenchmarksTab.tsx
-│               ├── HealthTab.tsx
-│               ├── QueueTab.tsx
-│               └── StorageTab.tsx
+│   └── api/                           # Next.js API proxy routes
+│       └── v1/[...path]/route.ts      # Backend API proxy
+│
+├── features/                          # Feature modules (ROOT level, NOT under app/)
+│   ├── admin/tabs/                    # Admin dashboard tabs
+│   │   ├── ConnectionsTab.tsx
+│   │   ├── DownloadsTab.tsx
+│   │   ├── HealthTab.tsx
+│   │   ├── JobsTab.tsx
+│   │   ├── LogsTab.tsx
+│   │   ├── ModelsTab.tsx
+│   │   ├── OverviewTab.tsx
+│   │   ├── QueueTab.tsx
+│   │   ├── RuntimeTab.tsx
+│   │   ├── SettingsTab.tsx
+│   │   ├── StorageTab.tsx
+│   │   └── TerminalTab.tsx
+│   ├── settings/sections/             # Settings page sections
+│   │   ├── GeneralSection.tsx
+│   │   ├── WorkspaceSection.tsx
+│   │   ├── AppearanceSection.tsx
+│   │   ├── GenerationSection.tsx
+│   │   ├── PipelinesSection.tsx
+│   │   ├── ExportBackupSection.tsx
+│   │   └── PreferencesSections/
+│   │       ├── NotificationsSection.tsx
+│   │       ├── ShortcutsSection.tsx
+│   │       ├── NetworkSection.tsx
+│   │       └── AdvancedSection.tsx
+│   ├── model-manager/tabs/            # Model management tabs (V2)
+│   │   ├── BenchmarksTab.tsx
+│   │   ├── HealthTab.tsx
+│   │   ├── InstalledModelsTab.tsx
+│   │   ├── AvailableModelsTab.tsx
+│   │   ├── QueueTab.tsx
+│   │   └── StorageTab.tsx
+│   └── model-manager/components/
+│       ├── CompatibilityChecker.tsx
+│       ├── DownloadProgress.tsx
+│       └── ModelDetailsModal.tsx
+│
+├── components/                        # Shared UI components
+│   ├── ui/                            # shadcn/ui components
+│   ├── premium/                       # Styled premium components
+│   └── motion/                        # Framer Motion wrappers
+│
+├── stores/                            # Zustand state stores
+│   ├── useGenerationStore.ts
+│   ├── useProjectStore.ts
+│   ├── useThemeStore.ts
+│   └── useUIStore.ts
+│
+├── services/                          # API client layer
+│   ├── adminService.ts
+│   ├── apiClient.ts
+│   ├── generationService.ts
+│   ├── runtimeService.ts
+│   └── uploadService.ts
 │
 ├── backend/                           # Python FastAPI Backend
 │   ├── app/
 │   │   ├── main.py                    # FastAPI entry point
+│   │   ├── config.py                  # Configuration
+│   │   ├── database.py                # DB setup
 │   │   │
-│   │   ├── api/v1/                    # API Endpoints (12 routers)
-│   │   │   ├── admin.py               # Admin operations
-│   │   │   ├── generation.py          # Generation endpoints
-│   │   │   ├── image_generation.py    # Image gen endpoints
-│   │   │   ├── runtime.py             # Runtime configuration
-│   │   │   ├── health.py              # Health checks
-│   │   │   ├── jobs.py                # Job management
-│   │   │   ├── upload.py              # File upload
-│   │   │   ├── models.py              # Model CRUD (NEW V2)
-│   │   │   ├── download.py            # Download ops (NEW V2)
-│   │   │   ├── discover.py            # Model discovery (NEW V2)
-│   │   │   ├── system.py              # System info (NEW V2)
-│   │   │   └── __init__.py            # Router aggregation
+│   │   ├── api/v1/                    # API Routers
+│   │   │   ├── __init__.py            # Registers all routers below
+│   │   │   ├── admin_router.py        # /admin
+│   │   │   ├── generation_router.py   # /generation
+│   │   │   ├── jobs_router.py         # /jobs
+│   │   │   ├── health_router.py       # /health
+│   │   │   ├── runtime_router.py      # /runtime
+│   │   │   ├── upload_router.py       # /upload
+│   │   │   ├── hf_token_router.py     # /hf-token
+│   │   │   ├── models_api.py          # /models (no prefix)
+│   │   │   ├── discover_router.py     # /discover (no prefix)
+│   │   │   ├── download_router.py     # /download (no prefix)
+│   │   │   ├── pipelines_router.py    # /pipelines (no prefix)
+│   │   │   ├── plugin_manager_router.py # /plugin-manager (no prefix)
+│   │   │   ├── system_router.py       # /system (no prefix)
+│   │   │   ├── settings_router.py     # /settings (no prefix)
+│   │   │   └── rigging_router.py      # /rigging (no prefix)
 │   │   │
-│   │   ├── core/                      # Business Logic
-│   │   │   ├── providers/             # AI Providers (12+ models)
+│   │   ├── core/
+│   │   │   ├── providers/             # AI Providers
 │   │   │   │   ├── base.py
+│   │   │   │   ├── registry.py
 │   │   │   │   ├── huggingface_provider.py
+│   │   │   │   ├── github_provider.py
+│   │   │   │   ├── civitai_provider.py
+│   │   │   │   ├── modelscope_provider.py
+│   │   │   │   ├── nvidia_ngc_provider.py
 │   │   │   │   ├── hunyuan3d.py
+│   │   │   │   ├── hunyuan3d_local.py
 │   │   │   │   ├── trellis.py
+│   │   │   │   ├── trellis_local.py
 │   │   │   │   ├── triposr.py
+│   │   │   │   ├── triposr_local.py
 │   │   │   │   ├── instant_mesh.py
-│   │   │   │   ├── sdxl.py
-│   │   │   │   ├── github_provider.py       # NEW V2
-│   │   │   │   ├── modelscope_provider.py   # NEW V2
-│   │   │   │   ├── nvidia_ngc_provider.py   # NEW V2
-│   │   │   │   ├── civitai_provider.py      # NEW V2
-│   │   │   │   └── registry.py
-│   │   │   │
-│   │   │   ├── managers/              # Business Managers (NEW V2)
+│   │   │   │   ├── detailgen3d.py
+│   │   │   │   ├── anigen_provider.py
+│   │   │   │   └── mock.py
+│   │   │   ├── managers/
 │   │   │   │   ├── compatibility_manager.py
+│   │   │   │   ├── download_manager.py
+│   │   │   │   ├── environment_manager.py
+│   │   │   │   ├── health_manager.py
 │   │   │   │   ├── plugin_manager.py
-│   │   │   │   ├── download_manager.py      # NEW V2
-│   │   │   │   ├── environment_manager.py   # NEW V2
-│   │   │   │   └── health_manager.py        # NEW V2
-│   │   │   │
-│   │   │   ├── downloader/            # Download Pipeline
-│   │   │   │   ├── smart_downloader.py
-│   │   │   │   ├── chunk_manager.py        # NEW V2
-│   │   │   │   ├── mirror_fallback.py      # NEW V2
-│   │   │   │   └── checksum_validator.py   # NEW V2
-│   │   │   │
-│   │   │   └── installer/             # Model Installation
-│   │   │       ├── dependency_resolver.py
-│   │   │       └── plugin_installer.py
+│   │   │   │   └── vram_tracker.py
+│   │   │   ├── downloader/
+│   │   │   │   ├── mirror_fallback.py
+│   │   │   │   └── checksum_validator.py
+│   │   │   ├── installer/
+│   │   │   │   ├── dependency_resolver.py
+│   │   │   │   └── plugin_installer.py
+│   │   │   └── registry/
+│   │   │       └── model_registry.py
 │   │   │
 │   │   ├── workers/                   # Celery Async Tasks
 │   │   │   ├── celery_app.py
 │   │   │   ├── tasks.py
-│   │   │   ├── download_workers.py    # NEW V2
-│   │   │   ├── installation_workers.py # NEW V2
-│   │   │   ├── health_workers.py      # NEW V2
-│   │   │   └── image_tasks.py
+│   │   │   ├── download_workers.py
+│   │   │   ├── installation_workers.py
+│   │   │   ├── health_workers.py
+│   │   │   └── vram_health_worker.py
 │   │   │
 │   │   ├── models/                    # SQLAlchemy ORM Models
-│   │   │   ├── __init__.py
 │   │   │   ├── job.py
-│   │   │   ├── download_queue.py      # NEW V2
 │   │   │   └── registry.py
 │   │   │
 │   │   ├── schemas/                   # Pydantic Schemas
-│   │   │   ├── __init__.py
 │   │   │   ├── generation.py
-│   │   │   └── manifest.py            # NEW V2
+│   │   │   └── manifest.py
 │   │   │
-│   │   ├── database.py                # SQLAlchemy setup
-│   │   └── config.py                  # Configuration
+│   │   └── database.py                # SQLAlchemy setup
 │   │
 │   ├── runtime/                       # GPU/Runtime Utilities
+│   │   ├── engine.py
 │   │   ├── gpu.py
+│   │   ├── health.py
+│   │   ├── installer.py               # resolve_install_targets(), clone_repos_for_models(), full_install()
 │   │   ├── platform_detection.py
-│   │   └── memory_manager.py
+│   │   └── storage.py                 # StorageConfig with per-model paths
 │   │
 │   ├── migrations/                    # Alembic DB Migrations
-│   ├── requirements.txt                # Python dependencies
-│   ├── requirements-dev.txt            # Dev dependencies
-│   ├── .env.example                   # Environment template
-│   └── Dockerfile                     # Container image
+│   ├── requirements.txt               # Python dependencies
+│   └── .env.example                   # Environment template
 │
-├── components/                         # Shared UI Components
-│   ├── ui/                             # shadcn/ui (50+ components)
-│   ├── premium/                        # Styled premium components
-│   └── motion/                         # Framer Motion wrappers
+├── Docs/                              # Documentation
+│   ├── README.md
+│   ├── api-documentation.md
+│   ├── architecture.md
+│   ├── setup-guide.md
+│   ├── developer-guide.md
+│   ├── pipeline-status.md
+│   └── CHANGELOG.md
 │
-├── stores/                             # Zustand State Stores
-│   ├── workspace.ts
-│   ├── admin.ts
-│   └── models.ts
+├── scripts/                           # Service management scripts
+│   ├── bootstrap.sh
+│   ├── setup.sh                       # Automatic native setup
+│   ├── start.sh                       # Start all services
+│   ├── stop.sh
+│   ├── restart.sh
+│   ├── manager.sh                     # Interactive service manager
+│   ├── update-models.sh               # Model update/migration script
+│   ├── cloudflare.sh
+│   ├── ensure-build-and-start.js
+│   └── install_nvidia_toolkit.sh
 │
-├── services/                           # API Client Layer
-│   ├── api.ts
-│   ├── generation.ts
-│   ├── models.ts                       # NEW V2
-│   └── download.ts                     # NEW V2
-│
-├── Docs/                               # Documentation (NEW)
-│   ├── README.md                       # Documentation index
-│   ├── api-documentation.md            # REST API reference
-│   ├── architecture.md                 # System design
-│   ├── setup-guide.md                  # Installation guide
-│   ├── developer-guide.md              # Contributing guide
-│   └── pipeline-status.md              # V2 progress tracking
-│
-│
-├── .dockerignore                       # Docker build ignore
-├── .gitignore                          # Git ignore
-├── Dockerfile                          # Frontend container
-├── Dockerfile.backend                  # Backend container
-├── docker-compose.cpu.yml              # CPU variant
-└── docker-compose.gpu.yml              # GPU variant
+├── .gitignore
+└── package.json                       # Node.js dependencies
 ```
 
 ---
@@ -799,12 +816,6 @@ ai-3d-studio/
 ```bash
 # Verify NVIDIA GPU is present
 nvidia-smi
-
-# Check Docker GPU support
-docker run --rm --gpus all nvidia/cuda:12.1-base nvidia-smi
-
-# Ensure using GPU compose file
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
 
 # Check CUDA_VISIBLE_DEVICES
 echo $CUDA_VISIBLE_DEVICES
@@ -820,7 +831,7 @@ lsof -i :3000
 kill -9 <PID>
 
 # Or use different port
-docker compose up -e FRONTEND_PORT=3001
+PORT=3001 npm run dev
 ```
 
 #### **Database Connection Failed**
@@ -831,10 +842,6 @@ sudo systemctl status postgresql
 
 # Test connection manually
 psql -h localhost -U ai3dstudio -d ai3dstudio
-
-# Reset database
-docker compose down -v  # Remove volumes
-docker compose up -d db
 ```
 
 #### **Out of Memory Errors**
@@ -924,10 +931,10 @@ For more solutions, see [Setup Guide - Troubleshooting](docs/setup-guide.md#trou
 | Download API | 4 | ✅ | `/api/v1/download` |
 | Discover API | 4 | ✅ | `/api/v1/discover` |
 | System API | 4 | ✅ | `/api/v1/system` |
-| Installed Models Tab | 5 | ✅ | `/models` page |
-| Available Models Tab | 5 | ✅ | `/models` page |
-| Benchmarks Tab | 5 | ✅ | `/models` page |
-| Health Tab | 5 | ✅ | `/models` page |
+| Installed Models Tab | 5 | ✅ | Settings page |
+| Available Models Tab | 5 | ✅ | Settings page |
+| Benchmarks Tab | 5 | ✅ | Settings page |
+| Health Tab | 5 | ✅ | Settings page |
 | Download Progress Component | 5 | ✅ | Queue Tab |
 | Compatibility Checker | 5 | ✅ | Download flow |
 | Model Details Modal | 5 | ✅ | Model cards |
