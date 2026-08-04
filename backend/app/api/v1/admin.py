@@ -191,6 +191,7 @@ class _AdminLogHandler(logging.Handler):
     log rates this is negligible and far simpler.
     """
     def emit(self, record: logging.LogRecord) -> None:
+        global _LOG_FILE_HANDLER
         msg = self.format(record)
         entry = {
             "ts": datetime.utcnow().isoformat(),
@@ -244,7 +245,13 @@ class _AdminLogHandler(logging.Handler):
 
 _admin_handler = _AdminLogHandler()
 _admin_handler.setFormatter(logging.Formatter("%(message)s"))
-logging.getLogger().addHandler(_admin_handler)
+_root = logging.getLogger()
+_root.addHandler(_admin_handler)
+# Force root to DEBUG so INFO/DEBUG records bubble to our handler even though
+# uvicorn's startup dictConfig sets the root level to WARNING. The handler
+# itself filters by its own level; the root level only gates propagation.
+_root.setLevel(logging.DEBUG)
+_root.propagate = True
 
 # Open the persistent log file at import time so every log record emitted
 # during app import / startup is captured (before lifespan runs).
@@ -941,7 +948,11 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
         _dl_init(model_id)
 
         def _run_install() -> None:
-            def _log_cb(msg: str) -> None:
+            def _log_cb(msg) -> None:
+                # Structured progress dict from runtime.installer (real bytes).
+                if isinstance(msg, dict) and "__progress__" in msg:
+                    _dl_update(model_id, **msg["__progress__"])
+                    return
                 logger.info("[install:%s] %s", model_id, msg)
                 _parse_log_for_progress(model_id, msg)
 
@@ -1437,7 +1448,11 @@ async def install_provider_endpoint(
     _dl_init(req.provider)
 
     def _run() -> None:
-        def _log_cb(msg: str) -> None:
+        def _log_cb(msg) -> None:
+            # Structured progress dict from runtime.installer (real bytes).
+            if isinstance(msg, dict) and "__progress__" in msg:
+                _dl_update(req.provider, **msg["__progress__"])
+                return
             logger.info("[install:%s] %s", req.provider, msg)
             _parse_log_for_progress(req.provider, msg)
 

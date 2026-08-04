@@ -29,8 +29,13 @@ head_() { echo -e "\n${BOLD}${BLUE}===== $* =====${NC}\n"; }
 
 check_root() {
   if [[ $EUID -ne 0 ]]; then
-    err "This script must be run as root (use: sudo bash scripts/setup.sh)"
-    exit 1
+    if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet systemd 2>/dev/null; then
+      err "This script must be run as root on a systemd host (use: sudo bash scripts/setup.sh)"
+      exit 1
+    else
+      warn "Not root and no systemd — installing in user mode; start.sh will use SQLite/broker fallbacks."
+      ROOTLESS=1
+    fi
   fi
 }
 
@@ -458,8 +463,12 @@ BANNER
   check_os
   detect_gpu
   install_system_deps    || { err "System dependency installation failed — aborting"; exit 1; }
-  install_postgresql     || { err "PostgreSQL installation failed — aborting"; exit 1; }
-  install_redis          || { err "Redis installation failed — aborting"; exit 1; }
+  if [[ "${ROOTLESS:-}" != "1" ]]; then
+    install_postgresql     || { err "PostgreSQL installation failed — aborting"; exit 1; }
+    install_redis          || { err "Redis installation failed — aborting"; exit 1; }
+  else
+    warn "Skipping PostgreSQL/Redis system install (user mode) — start.sh will use SQLite/broker fallbacks."
+  fi
   install_python         || { err "Python installation failed — aborting"; exit 1; }
   install_uv             || { err "uv installation failed — aborting"; exit 1; }
   install_node           || { err "Node.js installation failed — aborting"; exit 1; }

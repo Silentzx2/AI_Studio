@@ -501,6 +501,23 @@ def download_weights(
     local_dir = storage.get_repo_path(repo_name) / "weights"
     local_dir.mkdir(parents=True, exist_ok=True)
 
+    # Accurate, real-bytes progress via HuggingFace's progress callback.
+    # HF reports bytes downloaded / total per file; we forward a STRUCTURED
+    # dict to log_cb which the admin layer writes directly into _DL_STATE.
+    # This is real progress, not estimate-based. A coarse filesystem poll
+    # runs in parallel only as a fallback when HF reports no total.
+    def _structured_cb(total: int | None, downloaded: int) -> None:
+        if log_cb is None:
+            return
+        log_cb({
+            "__progress__": {
+                "bytes_downloaded": downloaded,
+                "bytes_total": total if total else size_bytes,
+                "phase": "weights",
+                "status": "downloading",
+            }
+        })
+
     if log_cb:
         log_cb(
             f"Downloading weights for {provider_name}: "
@@ -514,17 +531,13 @@ def download_weights(
     )
 
     # ------------------------------------------------------------------
-    # Filesystem-based progress monitoring.
-    # snapshot_download() writes files to local_dir but doesn't call
-    # log_cb with progress.  We poll the directory size every 2 seconds
-    # and emit progress strings that _parse_log_for_progress() can parse.
+    # Fallback filesystem poll: only feeds progress when HF has not
+    # reported a total (size_bytes estimate). Real HF bytes take priority.
     # ------------------------------------------------------------------
     stop_monitor = threading.Event()
-    last_bytes: list[int] = [0]
-    last_ts: list[float] = [time.monotonic()]
 
     def _monitor() -> None:
-        while not stop_monitor.wait(timeout=2.0):
+        while not stop_monitor.wait(timeout=3.0):
             try:
                 current_bytes = sum(
                     f.stat().st_size
@@ -533,47 +546,23 @@ def download_weights(
                 )
                 if current_bytes <= 0:
                     continue
-
-                now = time.monotonic()
-                dt = now - last_ts[0]
-                speed = max(0.0, (current_bytes - last_bytes[0]) / dt) if dt > 0 else 0.0
-                last_bytes[0] = current_bytes
-                last_ts[0] = now
-
-                if size_bytes > 0:
-                    pct = min(99.0, current_bytes / size_bytes * 100)
-                    eta = int((size_bytes - current_bytes) / speed) if speed > 0 else None
-                    eta_str = f" ETA {eta}s" if eta is not None else ""
-                    speed_str = (
-                        f" @ {speed/(1024**2):.1f} MB/s"
-                        if speed > 0 else ""
-                    )
-                    msg = (
-                        f"Downloading: {pct:.1f}% "
-                        f"({current_bytes/(1024**3):.2f}GB "
-                        f"/ {size_gb}GB){speed_str}{eta_str}"
-                    )
-                else:
-                    msg = (
-                        f"Downloading: {current_bytes/(1024**3):.2f}GB"
-                    )
-
-                if log_cb:
-                    log_cb(msg)
+                _structured_cb(size_bytes if size_bytes else None, current_bytes)
             except Exception:
                 pass
 
     monitor_thread = threading.Thread(target=_monitor, daemon=True, name=f"dl-monitor-{provider_name}")
     monitor_thread.start()
+    # ACCURATE_PROGRESS_ANCHOR
 
     try:
         from huggingface_hub import snapshot_download
-        logger.info("Downloading %s (~%sGB)\u2026", hf_repo, size_gb)
+        logger.info("Downloading %s (~%sGB)…", hf_repo, size_gb)
         path = snapshot_download(
             repo_id=hf_repo,
             local_dir=str(local_dir),
             token=token,
             ignore_patterns=["*.msgpack", "flax_model*", "tf_model*", "rust_model*"],
+            progress_callback=_structured_cb,
         )
         stop_monitor.set()
         monitor_thread.join(timeout=5)

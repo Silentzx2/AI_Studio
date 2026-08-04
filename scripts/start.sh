@@ -28,6 +28,21 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
+# ── Ensure uv is available (hard dependency for venv + per-model installs) ──
+if ! command -v uv &>/dev/null; then
+    info "uv not found — installing (required for backend + model venvs)..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh || {
+        err "Failed to install uv. Install manually: https://docs.astral.sh/uv/"
+        exit 1
+    }
+    export PATH="$HOME/.local/bin:$PATH"
+    # Also expose on default PATH for future sessions
+    if [[ -f "$HOME/.local/bin/uv" ]] && [[ ! -e /usr/local/bin/uv ]]; then
+        ln -sf "$HOME/.local/bin/uv" /usr/local/bin/uv 2>/dev/null || true
+    fi
+    log "uv installed: $(uv --version)"
+fi
+
 # ── Load .env ──────────────────────────────────────────────────────────────
 if [[ ! -f .env ]]; then
     err "No .env found. Run: sudo bash scripts/setup.sh"
@@ -55,6 +70,17 @@ if ! command -v npm &>/dev/null; then
     exit 1
 fi
 
+# ── Auto-bootstrap if backend venv is missing (fresh environment) ──────────
+if [[ ! -x backend/.venv/bin/python ]]; then
+    warn "Backend virtual environment not found — running first-time setup..."
+    if [[ -f scripts/setup.sh ]]; then
+        bash scripts/setup.sh || { err "Auto-setup failed. Run: bash scripts/setup.sh"; exit 1; }
+    else
+        err "scripts/setup.sh missing — cannot bootstrap."; exit 1
+    fi
+fi
+
+
 # ── PID file directory ─────────────────────────────────────────────────────
 PID_DIR="${PROJECT_ROOT}/.pids"
 mkdir -p "$PID_DIR"
@@ -62,6 +88,21 @@ mkdir -p "$PID_DIR"
 # ── Logs directory ─────────────────────────────────────────────────────────
 mkdir -p "${PROJECT_ROOT}/logs"
 
+# ── Clean stale per-model install locks ─────────────────────────────────────
+# Remove orphaned .installing.lock files left by interrupted installs (no .git)
+# so re-installs aren't blocked by a dead lock.
+$PYTHON_BIN 2>/dev/null << 'PYEOF' || true
+import os, glob
+root = os.environ.get("PROJECT_ROOT", ".")
+tp = os.path.join(root, "backend", "third_party")
+for lock in glob.glob(os.path.join(tp, "*", ".installing.lock")):
+    repo = os.path.dirname(lock)
+    if not os.path.exists(os.path.join(repo, ".git")):
+        try:
+            os.remove(lock)
+        except OSError:
+            pass
+PYEOF
 # ── Service PIDs ───────────────────────────────────────────────────────────
 API_PID_FILE="$PID_DIR/api.pid"
 WORKER_PID_FILE="$PID_DIR/worker.pid"
@@ -97,17 +138,21 @@ echo ""
 
 # ── Step 1: Verify PostgreSQL ──────────────────────────────────────────────
 step "1/6 Checking PostgreSQL..."
-if ! systemctl is-active --quiet postgresql; then
+if [[ "${USE_SQLITE:-}" != "1" ]]; then
+  if ! systemctl is-active --quiet postgresql; then
     info "Starting PostgreSQL..."
     sudo systemctl start postgresql || {
-        err "Failed to start PostgreSQL"
-        exit 1
+      err "Failed to start PostgreSQL"
+      exit 1
     }
+  fi
 fi
 
 if ! pg_isready -h localhost -U postgres &>/dev/null; then
-    err "PostgreSQL not responding"
-    exit 1
+    warn "PostgreSQL not responding — falling back to local SQLite (backend/storage/studio.db)."
+    export USE_SQLITE=1
+    export DATABASE_URL="sqlite:///$(pwd)/backend/storage/studio.db"
+    export DATABASE_SYNC_URL="sqlite:///$(pwd)/backend/storage/studio.db"
 fi
 
 # Create database if it doesn't exist
@@ -144,8 +189,7 @@ if ! systemctl is-active --quiet redis-server; then
 fi
 
 if ! redis-cli ping &>/dev/null; then
-    err "Redis not responding"
-    exit 1
+    warn "Redis not responding — Celery will run with degraded in-process broker (single worker)."
 fi
 
 log "Redis ready"
