@@ -44,7 +44,7 @@ export default function MyAssetsTab({
             placeholder="Search generated assets..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl py-2.5 pl-10 pr-4 text-xs text-white placeholder-[hsl(var(--muted-foreground))] focus:outline-none focus:border-[hsl(var(--neon-amber))] transition-all"
+            className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl py-2.5 pl-10 pr-4 text-xs text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))] focus:outline-none focus:border-[hsl(var(--neon-amber))] transition-all"
             id="assets-search-input"
           />
         </div>
@@ -57,8 +57,8 @@ export default function MyAssetsTab({
               onClick={() => setFormatFilter(fmt)}
               className={`flex-1 md:flex-initial px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                 formatFilter === fmt
-                  ? 'bg-[hsl(var(--neon-amber))] text-black shadow-[0_2px_8px_rgba(255,90,31,0.2)]'
-                  : 'bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-white'
+                  ? 'bg-[hsl(var(--neon-amber))] text-[hsl(var(--surface-0))] shadow-[0_2px_8px_rgba(255,90,31,0.2)]'
+                  : 'bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
               }`}
               id={`format-filter-btn-${fmt}`}
             >
@@ -88,7 +88,7 @@ export default function MyAssetsTab({
                 <button
                   onClick={(e) => onToggleFavorite(e, item.id)}
                   className={`p-2 rounded-lg bg-[hsl(var(--surface-0)/0.8)] hover:bg-black text-xs transition-all ${
-                    item.isFavorite ? 'text-[hsl(var(--destructive))]' : 'text-[hsl(var(--muted-foreground))] hover:text-white'
+                    item.isFavorite ? 'text-[hsl(var(--destructive))]' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
                   }`}
                   title="Favorite model"
                   id={`asset-fav-btn-${item.id}`}
@@ -107,7 +107,7 @@ export default function MyAssetsTab({
 
               {/* Format Badge */}
               <div className="absolute bottom-2.5 left-2.5" id={`asset-format-badge-container-${item.id}`}>
-                <span className="px-2 py-0.5 rounded bg-black/90 text-[9px] font-mono font-bold text-white border border-[hsl(var(--border))] uppercase">
+                <span className="px-2 py-0.5 rounded bg-[hsl(var(--surface-0)/0.9)] text-[9px] font-mono font-bold text-[hsl(var(--foreground))] border border-[hsl(var(--border))] uppercase">
                   {item.format}
                 </span>
               </div>
@@ -116,10 +116,10 @@ export default function MyAssetsTab({
             {/* Labels */}
             <div className="flex flex-col gap-1" id={`asset-meta-${item.id}`}>
               <div className="flex justify-between items-start gap-1">
-                <span className="text-xs font-bold text-white truncate group-hover:text-[hsl(var(--neon-amber))] transition-colors" id={`asset-title-${item.id}`}>
+                <span className="text-xs font-bold text-[hsl(var(--foreground))] truncate group-hover:text-[hsl(var(--neon-amber))] transition-colors" id={`asset-title-${item.id}`}>
                   {item.name}
                 </span>
-                <span className="px-1.5 py-0.5 rounded bg-white/[0.04] text-[9px] font-mono text-[hsl(var(--muted-foreground))]">PBR</span>
+                <span className="px-1.5 py-0.5 rounded bg-[hsl(var(--foreground)/0.04)] text-[9px] font-mono text-[hsl(var(--muted-foreground))]">PBR</span>
               </div>
               <p className="text-[10px] text-[hsl(var(--muted-foreground))] line-clamp-1 truncate" id={`asset-prompt-${item.id}`}>
                 {item.prompt}

@@ -184,7 +184,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
   ].filter(item => item.visible);
 
   return (
-    <div className="flex flex-1 min-h-0 bg-[hsl(var(--surface-0))] text-white" id="creative-layout-container">
+    <div className="flex flex-1 min-h-0 bg-[hsl(var(--surface-0))] text-[hsl(var(--foreground))]" id="creative-layout-container">
       {/* Sidebar panel */}
       <aside className="w-[220px] lg:w-[260px] bg-[hsl(var(--surface-1))] border-r border-[hsl(var(--border))] p-4 flex flex-col justify-between flex-shrink-0" id="creative-sidebar">
         <div className="flex flex-col gap-5">
@@ -213,7 +213,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left border ${
                     isActive
                       ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 border-[hsl(var(--primary))]/25 shadow-sm'
-                      : 'text-[hsl(var(--muted-foreground))] hover:text-white hover:bg-white/[0.02] border-transparent'
+                      : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--foreground)/0.02)] border-transparent'
                   }`}
                   id={`sidebar-nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
                 >

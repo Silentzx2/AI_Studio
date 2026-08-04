@@ -54,7 +54,7 @@ export default function AdminSidebar({
               boxShadow: '0 0 16px rgba(168,85,247,0.40)',
             }}
           >
-            <Boxes size={18} className="text-white" />
+            <Boxes size={18} className="text-[hsl(var(--foreground))]" />
           </div>
           <div>
             <p className="text-[11px] font-bold tracking-[0.15em] text-[hsl(var(--neon-purple))] uppercase">AI Studio</p>
@@ -84,7 +84,7 @@ export default function AdminSidebar({
               </div>
               <span className={cn(
                 'flex-1 text-sm transition-colors duration-200',
-                isActive ? 'text-white font-medium' : 'text-slate-400 group-hover:text-slate-200',
+                isActive ? 'text-[hsl(var(--foreground))] font-medium' : 'text-slate-400 group-hover:text-slate-200',
               )}>{label}</span>
               {badge && (
                 <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-[hsl(var(--neon-purple)/0.3)] text-violet-300 border border-[hsl(var(--neon-purple)/0.2)]">
@@ -100,7 +100,7 @@ export default function AdminSidebar({
             'group w-full flex items-center gap-2.5 px-2 py-2 rounded-lg transition-all duration-200 text-left relative',
             isActive
               ? 'bg-[hsl(var(--neon-purple)/0.15)] border border-[hsl(var(--neon-purple)/0.2)]'
-              : 'hover:bg-violet-500/05 border border-transparent hover:border-violet-500/10',
+              : 'hover:bg-[hsl(var(--primary)/0.05)] border border-transparent hover:border-[hsl(var(--primary)/0.10)]',
           );
 
           if (href) {
@@ -142,7 +142,7 @@ export default function AdminSidebar({
                   'group w-full flex items-center gap-2.5 px-2 py-2 rounded-lg transition-all duration-200 text-left relative border',
                   isActive
                     ? 'bg-[hsl(var(--neon-purple)/0.15)] border-[hsl(var(--neon-purple)/0.2)]'
-                    : 'hover:bg-violet-500/05 border-transparent hover:border-violet-500/10',
+                    : 'hover:bg-[hsl(var(--primary)/0.05)] border-transparent hover:border-[hsl(var(--primary)/0.10)]',
                 )}
               >
                 {isActive && (
@@ -153,7 +153,7 @@ export default function AdminSidebar({
                 )}
                 <div className={cn(
                   'w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-all',
-                  isActive ? 'bg-violet-600/25' : 'group-hover:bg-violet-500/08',
+                  isActive ? 'bg-[hsl(var(--primary)/0.25)]' : 'group-hover:bg-[hsl(var(--primary)/0.08)]',
                 )}>
                   <Icon size={14} className={cn(
                     isActive ? 'text-violet-300' : 'text-slate-600 group-hover:text-slate-400',
@@ -171,7 +171,7 @@ export default function AdminSidebar({
 
       {/* System status indicator */}
       <div className="px-3 py-2" style={{ borderTop: '1px solid rgba(168,85,247,0.08)' }}>
-        <div className="flex items-center gap-2 px-2 py-2 rounded-lg bg-emerald-500/05 border border-[hsl(var(--neon-green)/0.1)]">
+        <div className="flex items-center gap-2 px-2 py-2 rounded-lg bg-[hsl(var(--neon-green))]/05 border border-[hsl(var(--neon-green)/0.1)]">
           <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--neon-green))] animate-pulse shrink-0" />
           <span className="text-[11px] text-[hsl(var(--neon-green))] font-medium">System Online</span>
         </div>
@@ -179,9 +179,9 @@ export default function AdminSidebar({
 
       {/* User footer */}
       <div className="px-3 py-3" style={{ borderTop: '1px solid rgba(168,85,247,0.08)' }}>
-        <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-violet-500/05 transition-colors cursor-pointer group">
+        <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-[hsl(var(--primary)/0.05)] transition-colors cursor-pointer group">
           <div
-            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold text-white"
+            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold text-[hsl(var(--foreground))]"
             style={{ background: 'linear-gradient(135deg, rgba(168,85,247,0.8), rgba(99,51,189,0.8))' }}
           >
             Z

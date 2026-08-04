@@ -142,12 +142,12 @@ export function DownloadProgress() {
   };
 
   if (loading) {
-    return <div className="text-white/60">Loading downloads...</div>;
+    return <div className="text-[hsl(var(--foreground))]/60">Loading downloads...</div>;
   }
 
   if (downloads.length === 0) {
     return (
-      <div className="text-white/60 text-center py-8">
+      <div className="text-[hsl(var(--foreground))]/60 text-center py-8">
         <Download className="w-12 h-12 mx-auto mb-3 opacity-30" />
         No active downloads
       </div>
@@ -166,8 +166,8 @@ export function DownloadProgress() {
             <div className="space-y-3">
               <div className="flex justify-between items-start">
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-white truncate">{download.model_name}</h3>
-                  <p className="text-sm text-white/60 mt-1">
+                  <h3 className="font-medium text-[hsl(var(--foreground))] truncate">{download.model_name}</h3>
+                  <p className="text-sm text-[hsl(var(--foreground))]/60 mt-1">
                     {formatBytes(download.downloaded_size)} / {formatBytes(download.total_size)}
                   </p>
                   {/* Bug 6 Fix: Show speed and ETA */}
@@ -177,7 +177,7 @@ export function DownloadProgress() {
                       <span>{formatSpeed(speed)}</span>
                       {timeRemaining && (
                         <>
-                          <span className="text-white/30">|</span>
+                          <span className="text-[hsl(var(--foreground))]/30">|</span>
                           <Clock className="w-3 h-3" />
                           <span>{timeRemaining}</span>
                         </>
@@ -188,12 +188,12 @@ export function DownloadProgress() {
                 <div className="text-right ml-4">
                   <p className={`text-lg font-semibold ${
                     download.status === 'completed' ? 'text-[hsl(var(--neon-green))]' : 
-                    download.status === 'failed' ? 'text-[hsl(var(--destructive))]' : 'text-white'
+                    download.status === 'failed' ? 'text-[hsl(var(--destructive))]' : 'text-[hsl(var(--foreground))]'
                   }`}>
                     {download.progress_percent.toFixed(1)}%
                   </p>
                   {/* Bug 6 Fix: Status indicator */}
-                  <p className="text-xs text-white/40 mt-1 capitalize">{download.status}</p>
+                  <p className="text-xs text-[hsl(var(--foreground))]/40 mt-1 capitalize">{download.status}</p>
                 </div>
               </div>
 

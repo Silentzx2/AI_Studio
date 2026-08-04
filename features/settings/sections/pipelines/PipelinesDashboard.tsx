@@ -717,7 +717,7 @@ export function PipelinesDashboard({
             <Button variant="outline" size="icon" onClick={() => setNotificationOpen((value) => !value)} className="relative">
               <Bell className="h-4 w-4" />
               {notifications.some((item) => !item.read) && (
-                <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-background" />
+                <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-[hsl(var(--neon-green))] ring-2 ring-[hsl(var(--background))]" />
               )}
             </Button>
 
@@ -746,7 +746,7 @@ export function PipelinesDashboard({
                       onClick={() => markNotificationRead(item.id)}
                       className={[
                         'w-full rounded-xl border p-3 text-left transition-colors',
-                        item.read ? 'border-border bg-muted/20' : 'border-emerald-500/20 bg-emerald-500/10',
+                        item.read ? 'border-border bg-muted/20' : 'border-[hsl(var(--neon-green)/0.2)] bg-[hsl(var(--neon-green)/0.1)]',
                       ].join(' ')}
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -844,7 +844,7 @@ export function PipelinesDashboard({
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <Download className="h-4 w-4 text-emerald-400" />
+                  <Download className="h-4 w-4 text-[hsl(var(--neon-green))]" />
                   Input Modes
                 </CardTitle>
                 <CardDescription>Available generation entry points.</CardDescription>
@@ -905,7 +905,7 @@ export function PipelinesDashboard({
                             <div className="flex items-center gap-2">
                               <h3 className="text-base font-semibold">{model.label}</h3>
                               {model.installed ? (
-                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300">
+                                <span className="inline-flex items-center gap-1 rounded-full border border-[hsl(var(--neon-green)/0.2)] bg-[hsl(var(--neon-green)/0.1)] px-2 py-0.5 text-[11px] text-[hsl(var(--neon-green))]">
                                   <CheckCircle className="h-3.5 w-3.5" />
                                   Installed
                                 </span>
@@ -940,7 +940,7 @@ export function PipelinesDashboard({
                             disabled={isBusy}
                             className="gap-2"
                           >
-                            {model.enabled ? <Check className="h-4 w-4 text-emerald-400" /> : <X className="h-4 w-4 text-muted-foreground" />}
+                            {model.enabled ? <Check className="h-4 w-4 text-[hsl(var(--neon-green))]" /> : <X className="h-4 w-4 text-muted-foreground" />}
                             {model.enabled ? 'Enabled' : 'Disabled'}
                           </Button>
                         </div>
@@ -1102,7 +1102,7 @@ export function PipelinesDashboard({
                       <div className="space-y-2">
                         <div className="font-medium text-foreground">{formatGigabytes(model.vram_required_mb)}</div>
                         <div className="h-2 rounded-full bg-muted">
-                          <div className="h-2 rounded-full bg-sky-400" style={{ width: `${progressValue(model.vram_required_mb, maxVram || 1)}%` }} />
+                          <div className="h-2 rounded-full bg-[hsl(var(--neon-blue))]" style={{ width: `${progressValue(model.vram_required_mb, maxVram || 1)}%` }} />
                         </div>
                       </div>
                     ),

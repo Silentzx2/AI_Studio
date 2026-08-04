@@ -157,8 +157,8 @@ export function HealthTab({ modelId, autoRefresh = true }: HealthTabProps) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <Card className="bg-white/5 border-white/10 p-4">
           <div className="text-center">
-            <p className="text-3xl font-bold text-white">{models.length}</p>
-            <p className="text-sm text-white/60">Total Models</p>
+            <p className="text-3xl font-bold text-[hsl(var(--foreground))]">{models.length}</p>
+            <p className="text-sm text-[hsl(var(--foreground))]/60">Total Models</p>
           </div>
         </Card>
         <Card className="bg-[hsl(var(--neon-green)/0.1)] border-green-500/20 p-4">
@@ -187,7 +187,7 @@ export function HealthTab({ modelId, autoRefresh = true }: HealthTabProps) {
     return (
       <div className="flex items-center justify-center py-12">
         <Heart className={`w-8 h-8 text-[hsl(var(--neon-pink))] ${loading ? 'animate-pulse' : ''}`} />
-        <span className="ml-3 text-white/60">Checking system health...</span>
+        <span className="ml-3 text-[hsl(var(--foreground))]/60">Checking system health...</span>
       </div>
     );
   }
@@ -196,7 +196,7 @@ export function HealthTab({ modelId, autoRefresh = true }: HealthTabProps) {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+        <h3 className="text-lg font-semibold text-[hsl(var(--foreground))] flex items-center gap-2">
           <Heart className="w-5 h-5 text-[hsl(var(--neon-pink))]" />
           System Health
         </h3>
@@ -208,7 +208,7 @@ export function HealthTab({ modelId, autoRefresh = true }: HealthTabProps) {
             fetchHealthStatus();
           }}
           disabled={refreshing}
-          className="gap-2 border-white/20 text-white hover:bg-white/10"
+          className="gap-2 border-[hsl(var(--border))/0.2] text-[hsl(var(--foreground))] hover:bg-white/10"
         >
           <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
           Refresh Now
@@ -235,7 +235,7 @@ export function HealthTab({ modelId, autoRefresh = true }: HealthTabProps) {
                   key={id}
                   className={`bg-white/5 border p-4 cursor-pointer transition-all ${
                     selectedModelHealth?.model_id === id
-                      ? 'border-purple-500 bg-purple-500/10'
+                      ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary)/0.1)]'
                       : 'border-white/10 hover:bg-white/[0.08]'
                   }`}
                   onClick={() => setSelectedModelHealth({ ...health, model_id: id })}
@@ -244,8 +244,8 @@ export function HealthTab({ modelId, autoRefresh = true }: HealthTabProps) {
                     <div className="flex items-center gap-3">
                       {getStatusIcon(health.status)}
                       <div>
-                        <p className="font-medium text-white">{health.model_name || id}</p>
-                        <p className="text-xs text-white/40 font-mono">{id}</p>
+                        <p className="font-medium text-[hsl(var(--foreground))]">{health.model_name || id}</p>
+                        <p className="text-xs text-[hsl(var(--foreground))]/40 font-mono">{id}</p>
                       </div>
                     </div>
                     {getStatusBadge(health.status)}
@@ -255,8 +255,8 @@ export function HealthTab({ modelId, autoRefresh = true }: HealthTabProps) {
               
               {Object.keys(healthStatus).length === 0 && (
                 <Card className="bg-white/5 border-white/10 p-8 text-center">
-                  <Heart className="w-12 h-12 mx-auto mb-4 text-white/40" />
-                  <p className="text-white/60">No models found</p>
+                  <Heart className="w-12 h-12 mx-auto mb-4 text-[hsl(var(--foreground))]/40" />
+                  <p className="text-[hsl(var(--foreground))]/60">No models found</p>
                 </Card>
               )}
             </div>
@@ -270,7 +270,7 @@ export function HealthTab({ modelId, autoRefresh = true }: HealthTabProps) {
                   getStatusBadge={getStatusBadge} 
                 />
               ) : (
-                <div className="text-center py-12 text-white/40">
+                <div className="text-center py-12 text-[hsl(var(--foreground))]/40">
                   Select a model to view details
                 </div>
               )}
@@ -297,8 +297,8 @@ function SingleModelHealthView({
       {/* Model Header */}
       <div className="flex items-center justify-between pb-4 border-b border-white/10">
         <div>
-          <h4 className="text-xl font-semibold text-white">{health.model_name}</h4>
-          <p className="text-sm text-white/40 font-mono">{health.model_id}</p>
+          <h4 className="text-xl font-semibold text-[hsl(var(--foreground))]">{health.model_name}</h4>
+          <p className="text-sm text-[hsl(var(--foreground))]/40 font-mono">{health.model_id}</p>
         </div>
         {getStatusBadge(health.status)}
       </div>
@@ -307,8 +307,8 @@ function SingleModelHealthView({
       {health.summary && (
         <div className="grid grid-cols-4 gap-2 text-center">
           <div className="bg-[hsl(var(--surface-0)/0.2)] rounded-lg p-2">
-            <p className="text-lg font-bold text-white">{health.summary.total_checks}</p>
-            <p className="text-xs text-white/50">Checks</p>
+            <p className="text-lg font-bold text-[hsl(var(--foreground))]">{health.summary.total_checks}</p>
+            <p className="text-xs text-[hsl(var(--foreground))]/50">Checks</p>
           </div>
           <div className="bg-[hsl(var(--neon-green)/0.1)] rounded-lg p-2">
             <p className="text-lg font-bold text-[hsl(var(--neon-green))]">{health.summary.passed}</p>
@@ -327,12 +327,12 @@ function SingleModelHealthView({
 
       {/* Individual Checks */}
       <div className="space-y-3">
-        <p className="text-sm font-medium text-white/70 uppercase tracking-wider">Detailed Checks</p>
+        <p className="text-sm font-medium text-[hsl(var(--foreground))]/70 uppercase tracking-wider">Detailed Checks</p>
         
         {health.checks && Object.entries(health.checks).map(([checkName, result]) => (
           <div key={checkName} className="bg-[hsl(var(--surface-0)/0.2)] rounded-lg p-3">
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2 text-white/80">
+              <div className="flex items-center gap-2 text-[hsl(var(--foreground))]/80">
                 {getCheckIcon(checkName)}
                 <span className="capitalize font-medium">{checkName.replace('_', ' ')}</span>
               </div>
@@ -345,12 +345,12 @@ function SingleModelHealthView({
             </div>
             
             {result.message && (
-              <p className="text-sm text-white/50 ml-6">{result.message}</p>
+              <p className="text-sm text-[hsl(var(--foreground))]/50 ml-6">{result.message}</p>
             )}
             
             {/* Additional info based on check type */}
             {result.found_count !== undefined && (
-              <p className="text-xs text-white/40 ml-6">
+              <p className="text-xs text-[hsl(var(--foreground))]/40 ml-6">
                 Found {result.found_count}/{result.required_count || '?'} files
               </p>
             )}
@@ -369,7 +369,7 @@ function SingleModelHealthView({
             {result.gpus && Array.isArray(result.gpus) && (
               <div className="ml-6 mt-2 space-y-1">
                 {result.gpus.map((gpu: any, idx: number) => (
-                  <p key={idx} className="text-xs text-white/50">
+                  <p key={idx} className="text-xs text-[hsl(var(--foreground))]/50">
                     GPU {idx}: {gpu.name} ({gpu.vram_gb || gpu.total_memory_mb ? `${gpu.vram_gb || gpu.total_memory_mb/1024}GB VRAM` : ''})
                   </p>
                 ))}
@@ -377,7 +377,7 @@ function SingleModelHealthView({
             )}
             
             {result.disk_free_gb !== undefined && (
-              <p className="text-xs text-white/40 ml-6">
+              <p className="text-xs text-[hsl(var(--foreground))]/40 ml-6">
                 Free: {result.disk_free_gb}GB
               </p>
             )}
@@ -387,7 +387,7 @@ function SingleModelHealthView({
 
       {/* Timestamp */}
       {health.timestamp && (
-        <p className="text-xs text-white/30 pt-4 border-t border-white/10">
+        <p className="text-xs text-[hsl(var(--foreground))]/30 pt-4 border-t border-white/10">
           Last checked: {new Date(health.timestamp).toLocaleString()}
         </p>
       )}

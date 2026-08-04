@@ -39,7 +39,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
             <Sparkles size={12} className="animate-pulse" />
             AI 3D Studio Engine Active
           </span>
-          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[hsl(var(--foreground))]">
             Welcome back to your Creative Studio
           </h2>
           <p className="mt-2 text-sm text-[hsl(var(--muted-foreground))] leading-relaxed">
@@ -48,7 +48,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
           <div className="mt-5 flex flex-wrap gap-3">
             <button
               onClick={() => onNavigate('3D Generation')}
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] text-black font-bold text-xs flex items-center gap-2 hover:brightness-110 active:scale-[0.98] transition-all shadow-[0_4px_20px_rgba(245,166,35,0.25)]"
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] text-[hsl(var(--surface-0))] font-bold text-xs flex items-center gap-2 hover:brightness-110 active:scale-[0.98] transition-all shadow-[0_4px_20px_rgba(245,166,35,0.25)]"
               id="workspace-start-btn"
             >
               Open 3D Workspace
@@ -87,7 +87,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
         {/* Left Column: Recent Projects (Span 2) */}
         <div className="lg:col-span-2 flex flex-col gap-4" id="recent-drafts-wrapper">
           <div className="flex justify-between items-center" id="recent-drafts-header">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <h3 className="text-sm font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
               <FolderOpen size={16} className="text-[hsl(var(--primary))]" />
               Recent Workspace Projects
             </h3>
@@ -112,12 +112,12 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
                   <div className="w-12 h-12 rounded bg-gradient-to-tr from-[hsl(var(--primary))]/20 to-transparent flex items-center justify-center border border-[hsl(var(--primary))]/10 transform group-hover:rotate-6 transition-all">
                     <Database size={20} className="text-[hsl(var(--primary))] opacity-80" />
                   </div>
-                  <span className="absolute bottom-2 left-2 px-1.5 py-0.5 rounded bg-[hsl(var(--surface-0)/0.85)] border border-[hsl(var(--border))] text-[9px] font-mono font-bold text-white uppercase">
+                  <span className="absolute bottom-2 left-2 px-1.5 py-0.5 rounded bg-[hsl(var(--surface-0)/0.85)] border border-[hsl(var(--border))] text-[9px] font-mono font-bold text-[hsl(var(--foreground))] uppercase">
                     {item.format}
                   </span>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <span className="text-xs font-bold text-white group-hover:text-[hsl(var(--primary))] transition-colors truncate">
+                  <span className="text-xs font-bold text-[hsl(var(--foreground))] group-hover:text-[hsl(var(--primary))] transition-colors truncate">
                     {item.name}
                   </span>
                   <span className="text-[10px] text-[hsl(var(--muted-foreground))] truncate">
@@ -146,7 +146,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
         <div className="flex flex-col gap-6" id="workspace-sidebar-info">
           {/* Engine Health Panel */}
           <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-xl p-4 flex flex-col gap-4" id="engine-health-widget">
-            <h4 className="text-xs font-bold text-white uppercase tracking-wider">Engine Nodes Status</h4>
+            <h4 className="text-xs font-bold text-[hsl(var(--foreground))] uppercase tracking-wider">Engine Nodes Status</h4>
             <div className="flex flex-col gap-3" id="nodes-status-list">
               {[
                  { name: 'Compute CPU', load: `${cpuUsage}%`, status: cpuUsage > 80 ? 'High Load' : 'Operational', color: cpuUsage > 80 ? 'bg-[hsl(var(--neon-amber))]' : 'bg-[hsl(var(--neon-green))]' },
@@ -172,7 +172,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
             <span className="text-[10px] text-[hsl(var(--primary))] font-bold uppercase tracking-widest font-mono">PRO TIP</span>
             <h4 className="text-xs font-bold text-[hsl(var(--foreground))]">High fidelity texturing with PBR maps</h4>
             <p className="text-[11px] text-[hsl(var(--muted-foreground))] leading-relaxed">
-              When using Text-to-3D, append descriptive material keywords like <code className="text-xs text-white bg-[hsl(var(--surface-2))] px-1 py-0.5 rounded font-mono">polished carbon fiber</code>, <code className="text-xs text-white bg-[hsl(var(--surface-2))] px-1 py-0.5 rounded font-mono">brushed titanium</code>, or <code className="text-xs text-white bg-[hsl(var(--surface-2))] px-1 py-0.5 rounded font-mono">double-stitched leather</code> to generate automatically mapped diffuse, roughness, and metalness channels.
+              When using Text-to-3D, append descriptive material keywords like <code className="text-xs text-[hsl(var(--foreground))] bg-[hsl(var(--surface-2))] px-1 py-0.5 rounded font-mono">polished carbon fiber</code>, <code className="text-xs text-[hsl(var(--foreground))] bg-[hsl(var(--surface-2))] px-1 py-0.5 rounded font-mono">brushed titanium</code>, or <code className="text-xs text-[hsl(var(--foreground))] bg-[hsl(var(--surface-2))] px-1 py-0.5 rounded font-mono">double-stitched leather</code> to generate automatically mapped diffuse, roughness, and metalness channels.
             </p>
           </div>
         </div>

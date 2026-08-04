@@ -27,7 +27,7 @@ export default function FavoritesTab({
     <div className="flex-1 p-6 flex flex-col gap-6 animate-fadeIn text-[hsl(var(--foreground))]" id="favorites-tab-panel">
       {/* Intro */}
       <div>
-        <h2 className="text-lg font-bold text-white flex items-center gap-2">
+        <h2 className="text-lg font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
           <Heart size={20} className="text-[hsl(var(--destructive))] fill-rose-500" />
           Your Favorite Creations
         </h2>
@@ -73,7 +73,7 @@ export default function FavoritesTab({
 
               {/* Format Badge */}
               <div className="absolute bottom-2.5 left-2.5">
-                <span className="px-2 py-0.5 rounded bg-black/90 text-[9px] font-mono font-bold text-white border border-[hsl(var(--border))] uppercase">
+                <span className="px-2 py-0.5 rounded bg-[hsl(var(--surface-0))/0.9] text-[9px] font-mono font-bold text-[hsl(var(--foreground))] border border-[hsl(var(--border))] uppercase">
                   {item.format}
                 </span>
               </div>
@@ -81,7 +81,7 @@ export default function FavoritesTab({
 
             {/* Labels */}
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-bold text-white group-hover:text-[hsl(var(--neon-amber))] transition-colors truncate">
+              <span className="text-xs font-bold text-[hsl(var(--foreground))] group-hover:text-[hsl(var(--neon-amber))] transition-colors truncate">
                 {item.name}
               </span>
               <p className="text-[10px] text-[hsl(var(--muted-foreground))] line-clamp-1 truncate">

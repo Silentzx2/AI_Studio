@@ -162,8 +162,8 @@ export function BenchmarksTab({ modelId }: BenchmarksTabProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <RefreshCw className="w-6 h-6 animate-spin text-white/60" />
-        <span className="ml-2 text-white/60">Loading benchmarks...</span>
+        <RefreshCw className="w-6 h-6 animate-spin text-[hsl(var(--foreground))]/60" />
+        <span className="ml-2 text-[hsl(var(--foreground))]/60">Loading benchmarks...</span>
       </div>
     );
   }
@@ -172,7 +172,7 @@ export function BenchmarksTab({ modelId }: BenchmarksTabProps) {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+        <h3 className="text-lg font-semibold text-[hsl(var(--foreground))] flex items-center gap-2">
           <TrendingUp className="w-5 h-5" />
           Model Benchmarks
         </h3>
@@ -180,7 +180,7 @@ export function BenchmarksTab({ modelId }: BenchmarksTabProps) {
           variant="outline"
           size="sm"
           onClick={fetchBenchmarks}
-          className="gap-2 border-white/20 text-white hover:bg-white/10"
+          className="gap-2 border-[hsl(var(--border))/0.2] text-[hsl(var(--foreground))] hover:bg-white/10"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
@@ -191,9 +191,9 @@ export function BenchmarksTab({ modelId }: BenchmarksTabProps) {
       <div className="grid gap-4">
         {benchmarks.length === 0 ? (
           <Card className="bg-white/5 border-white/10 p-8 text-center">
-            <MonitorPlay className="w-12 h-12 mx-auto mb-4 text-white/40" />
-            <p className="text-white/60">No benchmark data available</p>
-            <p className="text-sm text-white/40 mt-2">
+            <MonitorPlay className="w-12 h-12 mx-auto mb-4 text-[hsl(var(--foreground))]/40" />
+            <p className="text-[hsl(var(--foreground))]/60">No benchmark data available</p>
+            <p className="text-sm text-[hsl(var(--foreground))]/40 mt-2">
               Run a benchmark to see performance metrics
             </p>
           </Card>
@@ -206,8 +206,8 @@ export function BenchmarksTab({ modelId }: BenchmarksTabProps) {
               {/* Model Info */}
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <h4 className="font-semibold text-white">{bench.model_name}</h4>
-                  <p className="text-sm text-white/50 font-mono">{bench.model_id}</p>
+                  <h4 className="font-semibold text-[hsl(var(--foreground))]">{bench.model_name}</h4>
+                  <p className="text-sm text-[hsl(var(--foreground))]/50 font-mono">{bench.model_id}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   {getStatusBadge(bench.status)}
@@ -215,7 +215,7 @@ export function BenchmarksTab({ modelId }: BenchmarksTabProps) {
                     size="sm"
                     onClick={() => runBenchmark(bench)}
                     disabled={runningBenchmarks.has(bench.model_id)}
-                    className="gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+                    className="gap-2 bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 text-[hsl(var(--foreground))]"
                   >
                     <Zap className={`w-4 h-4 ${runningBenchmarks.has(bench.model_id) ? 'animate-pulse' : ''}`} />
                     {runningBenchmarks.has(bench.model_id) ? 'Running...' : 'Run Benchmark'}
@@ -227,11 +227,11 @@ export function BenchmarksTab({ modelId }: BenchmarksTabProps) {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {/* Inference Time */}
                 <div className="bg-[hsl(var(--surface-0)/0.2)] rounded-lg p-3">
-                  <div className="flex items-center gap-2 text-white/50 text-sm mb-1">
+                  <div className="flex items-center gap-2 text-[hsl(var(--foreground))]/50 text-sm mb-1">
                     <Clock className="w-4 h-4" />
                     Inference Time
                   </div>
-                  <p className="text-xl font-bold text-white">
+                  <p className="text-xl font-bold text-[hsl(var(--foreground))]">
                     {bench.inference_time_ms !== null 
                       ? `${bench.inference_time_ms.toFixed(1)}ms` 
                       : '--'}
@@ -240,11 +240,11 @@ export function BenchmarksTab({ modelId }: BenchmarksTabProps) {
 
                 {/* Throughput */}
                 <div className="bg-[hsl(var(--surface-0)/0.2)] rounded-lg p-3">
-                  <div className="flex items-center gap-2 text-white/50 text-sm mb-1">
+                  <div className="flex items-center gap-2 text-[hsl(var(--foreground))]/50 text-sm mb-1">
                     <TrendingUp className="w-4 h-4" />
                     Throughput
                   </div>
-                  <p className="text-xl font-bold text-white">
+                  <p className="text-xl font-bold text-[hsl(var(--foreground))]">
                     {bench.throughput_samples_per_sec !== null 
                       ? `${bench.throughput_samples_per_sec.toFixed(1)} /s` 
                       : '--'}
@@ -253,11 +253,11 @@ export function BenchmarksTab({ modelId }: BenchmarksTabProps) {
 
                 {/* Memory Usage */}
                 <div className="bg-[hsl(var(--surface-0)/0.2)] rounded-lg p-3">
-                  <div className="flex items-center gap-2 text-white/50 text-sm mb-1">
+                  <div className="flex items-center gap-2 text-[hsl(var(--foreground))]/50 text-sm mb-1">
                     <HardDrive className="w-4 h-4" />
                     Memory Usage
                   </div>
-                  <p className="text-xl font-bold text-white">
+                  <p className="text-xl font-bold text-[hsl(var(--foreground))]">
                     {bench.memory_usage_mb !== null 
                       ? `${bench.memory_usage_mb.toFixed(0)} MB` 
                       : '--'}
@@ -266,11 +266,11 @@ export function BenchmarksTab({ modelId }: BenchmarksTabProps) {
 
                 {/* GPU Utilization */}
                 <div className="bg-[hsl(var(--surface-0)/0.2)] rounded-lg p-3">
-                  <div className="flex items-center gap-2 text-white/50 text-sm mb-1">
+                  <div className="flex items-center gap-2 text-[hsl(var(--foreground))]/50 text-sm mb-1">
                     <Cpu className="w-4 h-4" />
                     GPU Utilization
                   </div>
-                  <p className="text-xl font-bold text-white">
+                  <p className="text-xl font-bold text-[hsl(var(--foreground))]">
                     {bench.gpu_utilization_percent !== null 
                       ? `${bench.gpu_utilization_percent.toFixed(1)}%` 
                       : '--'}
@@ -280,7 +280,7 @@ export function BenchmarksTab({ modelId }: BenchmarksTabProps) {
 
               {/* Timestamp */}
               {bench.timestamp && (
-                <p className="text-xs text-white/40 mt-3">
+                <p className="text-xs text-[hsl(var(--foreground))]/40 mt-3">
                   Last run: {formatTime(bench.timestamp)}
                 </p>
               )}

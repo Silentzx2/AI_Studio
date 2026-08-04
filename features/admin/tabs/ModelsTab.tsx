@@ -209,10 +209,10 @@ export function ModelsTab() {
                           ) : model.installed ? (
                             <>
                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[hsl(var(--neon-green))] opacity-30"></span>
-                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" title="Online / Installed"></span>
+                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[hsl(var(--neon-green))]" title="Online / Installed"></span>
                             </>
                           ) : (
-                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-zinc-500/60" title="Offline / Not Installed"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[hsl(var(--muted-foreground)/0.6)]" title="Offline / Not Installed"></span>
                           )}
                         </span>
                       </div>
@@ -229,12 +229,12 @@ export function ModelsTab() {
                               </span>
                             ) : model.installed ? (
                               <span className="flex items-center gap-1 text-[hsl(var(--neon-green))]">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--neon-green))]" />
                                 Online
                               </span>
                             ) : (
                               <span className="flex items-center gap-1 text-muted-foreground/60">
-                                <span className="w-1.5 h-1.5 rounded-full bg-zinc-500/60" />
+                                <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--muted-foreground)/0.6)]" />
                                 Offline
                               </span>
                             )}

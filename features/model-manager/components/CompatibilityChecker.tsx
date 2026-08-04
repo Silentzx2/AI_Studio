@@ -59,7 +59,7 @@ export function CompatibilityChecker({ modelManifest }: { modelManifest: any }) 
   };
 
   if (loading) {
-    return <div className="text-white/60">Checking system compatibility...</div>;
+    return <div className="text-[hsl(var(--foreground))]/60">Checking system compatibility...</div>;
   }
 
   if (!compatibility) {
@@ -121,12 +121,12 @@ export function CompatibilityChecker({ modelManifest }: { modelManifest: any }) 
 
       {/* Requirements Breakdown */}
       <Card className="bg-white/5 border-white/10 p-4 space-y-2">
-        <h4 className="font-semibold text-white mb-3">System Requirements:</h4>
+        <h4 className="font-semibold text-[hsl(var(--foreground))] mb-3">System Requirements:</h4>
         
         <div className="flex justify-between items-center">
-          <span className="text-white/80">VRAM</span>
+          <span className="text-[hsl(var(--foreground))]/80">VRAM</span>
           <div className="flex gap-2 items-center">
-            <span className="text-white/60 text-sm">
+            <span className="text-[hsl(var(--foreground))]/60 text-sm">
               {compatibility.requirements.vram.required}MB / {compatibility.requirements.vram.available}MB
             </span>
             <StatusIcon ok={compatibility.requirements.vram.ok} />
@@ -134,9 +134,9 @@ export function CompatibilityChecker({ modelManifest }: { modelManifest: any }) 
         </div>
 
         <div className="flex justify-between items-center">
-          <span className="text-white/80">Python</span>
+          <span className="text-[hsl(var(--foreground))]/80">Python</span>
           <div className="flex gap-2 items-center">
-            <span className="text-white/60 text-sm">
+            <span className="text-[hsl(var(--foreground))]/60 text-sm">
               {compatibility.requirements.python.required} (have {compatibility.requirements.python.current})
             </span>
             <StatusIcon ok={compatibility.requirements.python.ok} />
@@ -144,9 +144,9 @@ export function CompatibilityChecker({ modelManifest }: { modelManifest: any }) 
         </div>
 
         <div className="flex justify-between items-center">
-          <span className="text-white/80">CUDA</span>
+          <span className="text-[hsl(var(--foreground))]/80">CUDA</span>
           <div className="flex gap-2 items-center">
-            <span className="text-white/60 text-sm">
+            <span className="text-[hsl(var(--foreground))]/60 text-sm">
               {compatibility.requirements.cuda.required} (have {compatibility.requirements.cuda.current})
             </span>
             <StatusIcon ok={compatibility.requirements.cuda.ok} />
@@ -154,9 +154,9 @@ export function CompatibilityChecker({ modelManifest }: { modelManifest: any }) 
         </div>
 
         <div className="flex justify-between items-center">
-          <span className="text-white/80">Disk Space</span>
+          <span className="text-[hsl(var(--foreground))]/80">Disk Space</span>
           <div className="flex gap-2 items-center">
-            <span className="text-white/60 text-sm">
+            <span className="text-[hsl(var(--foreground))]/60 text-sm">
               {compatibility.requirements.disk.required}MB / {compatibility.requirements.disk.available}MB
             </span>
             <StatusIcon ok={compatibility.requirements.disk.ok} />

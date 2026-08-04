@@ -67,7 +67,7 @@ export function KeyboardShortcuts({ open, onOpenChange }: KeyboardShortcutsProps
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-[hsl(var(--surface-0)/0.6)] backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

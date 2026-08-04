@@ -100,7 +100,7 @@ export function CommandPalette() {
         >
           {/* Backdrop */}
           <motion.div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-[hsl(var(--surface-0)/0.6)] backdrop-blur-sm"
             onClick={close}
             aria-hidden="true"
           />

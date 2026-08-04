@@ -32,7 +32,7 @@ const sizeClasses: Record<string, string> = {
 // ─── Variant Base Styles ─────────────────────────────────────────────────────
 
 const variantClasses: Record<string, string> = {
-  primary: 'text-white relative overflow-hidden',
+  primary: 'text-[hsl(var(--foreground))] relative overflow-hidden',
   secondary: 'bg-secondary text-secondary-foreground relative overflow-hidden',
   ghost: 'bg-transparent hover:bg-accent/10 text-foreground',
   outline: 'bg-transparent border border-border text-foreground relative overflow-hidden',

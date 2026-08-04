@@ -77,7 +77,7 @@ print(f"Model generated: {response.glb_url}")`,
         {/* Secret Key Panel */}
         <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-4" id="api-key-box">
           <div>
-            <h2 className="text-sm font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
+            <h2 className="text-sm font-extrabold text-[hsl(var(--foreground))] uppercase tracking-wider flex items-center gap-2">
               <Key size={16} className="text-[hsl(var(--neon-amber))]" />
               Developer API Access Key
             </h2>
@@ -93,14 +93,14 @@ print(f"Model generated: {response.glb_url}")`,
             <div className="flex gap-2" id="key-actions">
               <button
                 onClick={() => setShowKey(!showKey)}
-                className="px-3 py-1.5 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--surface-4))] hover:bg-[hsl(var(--surface-3))] text-xs font-semibold text-white transition-all"
+                className="px-3 py-1.5 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--surface-4))] hover:bg-[hsl(var(--surface-3))] text-xs font-semibold text-[hsl(var(--foreground))] transition-all"
                 id="show-key-btn"
               >
                 {showKey ? 'Hide' : 'Show'}
               </button>
               <button
                 onClick={handleCopyKey}
-                className="p-1.5 rounded-lg bg-[hsl(var(--neon-amber))] text-black hover:brightness-110 transition-all flex items-center justify-center w-8 h-8"
+                className="p-1.5 rounded-lg bg-[hsl(var(--neon-amber))] text-[hsl(var(--surface-0))] hover:brightness-110 transition-all flex items-center justify-center w-8 h-8"
                 title="Copy API key to clipboard"
                 id="copy-key-btn"
               >
@@ -125,7 +125,7 @@ print(f"Model generated: {response.glb_url}")`,
         <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-4" id="api-analytics-box">
           <div className="flex justify-between items-center flex-wrap gap-2" id="analytics-header">
             <div>
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <h3 className="text-sm font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
                 <Activity size={16} className="text-[hsl(var(--neon-amber))]" />
                 API Generation Volume
               </h3>
@@ -141,9 +141,9 @@ print(f"Model generated: {response.glb_url}")`,
           {/* SVG Line Chart */}
           <div className="h-44 w-full bg-[hsl(var(--surface-2))]/40 rounded-xl border border-white/[0.02] p-3 flex flex-col justify-end relative overflow-hidden" id="analytics-svg-chart-container">
             {/* Background grids */}
-            <div className="absolute inset-x-0 top-1/4 h-[1px] bg-white/[0.02]" />
-            <div className="absolute inset-x-0 top-2/4 h-[1px] bg-white/[0.02]" />
-            <div className="absolute inset-x-0 top-3/4 h-[1px] bg-white/[0.02]" />
+            <div className="absolute inset-x-0 top-1/4 h-[1px] bg-[hsl(var(--foreground)/0.02)]" />
+            <div className="absolute inset-x-0 top-2/4 h-[1px] bg-[hsl(var(--foreground)/0.02)]" />
+            <div className="absolute inset-x-0 top-3/4 h-[1px] bg-[hsl(var(--foreground)/0.02)]" />
 
             <svg className="w-full h-28 overflow-visible" viewBox="0 0 400 100" preserveAspectRatio="none">
               {/* Gradient def */}
@@ -201,7 +201,7 @@ print(f"Model generated: {response.glb_url}")`,
               <div key={i} className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-xl p-3.5 flex items-center justify-between" id={`api-metric-item-${i}`}>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-semibold uppercase tracking-wider">{stat.label}</span>
-                  <span className="text-sm font-mono font-bold text-white">{stat.value}</span>
+                  <span className="text-sm font-mono font-bold text-[hsl(var(--foreground))]">{stat.value}</span>
                 </div>
                 <Icon size={16} className="text-[hsl(var(--neon-amber))]" />
               </div>
@@ -212,7 +212,7 @@ print(f"Model generated: {response.glb_url}")`,
         {/* Code snippet panel */}
         <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-4 flex-1" id="api-playground">
           <div className="flex justify-between items-center" id="playground-header">
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+            <h3 className="text-xs font-bold text-[hsl(var(--foreground))] uppercase tracking-wider flex items-center gap-1.5">
               <Code size={14} className="text-[hsl(var(--neon-amber))]" />
               Quick SDK Integration
             </h3>
@@ -224,8 +224,8 @@ print(f"Model generated: {response.glb_url}")`,
                   onClick={() => setActiveCodeLang(lang)}
                   className={`px-2 py-1 rounded text-[9px] font-mono font-bold transition-all ${
                     activeCodeLang === lang
-                      ? 'bg-[hsl(var(--neon-amber))] text-black'
-                      : 'text-[hsl(var(--muted-foreground))] hover:text-white'
+                      ? 'bg-[hsl(var(--neon-amber))] text-[hsl(var(--surface-0))]'
+                      : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
                   }`}
                   id={`code-lang-btn-${lang}`}
                 >
@@ -244,7 +244,7 @@ print(f"Model generated: {response.glb_url}")`,
               onClick={() => {
                 navigator.clipboard.writeText(codeSnippets[activeCodeLang]);
               }}
-              className="absolute top-2.5 right-2.5 p-1.5 rounded-lg bg-black/60 hover:bg-black border border-white/[0.04] text-xs text-[hsl(var(--muted-foreground))] hover:text-white transition-all flex items-center justify-center"
+              className="absolute top-2.5 right-2.5 p-1.5 rounded-lg bg-[hsl(var(--surface-0))/0.6] hover:bg-black border border-white/[0.04] text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-all flex items-center justify-center"
               title="Copy code snippet"
               id="copy-snippet-btn"
             >

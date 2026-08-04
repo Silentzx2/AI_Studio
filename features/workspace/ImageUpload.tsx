@@ -74,7 +74,7 @@ export function ImageUpload() {
         </div>
         <AnimatePresence>
           {preview && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-8" onClick={() => setPreview(false)}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-[hsl(var(--surface-0)/0.8)] backdrop-blur-sm flex items-center justify-center p-8" onClick={() => setPreview(false)}>
               <div className="relative max-w-3xl max-h-full" onClick={(e) => e.stopPropagation()}>
                 <Image src={uploadedImage.preview} alt="Preview" width={uploadedImage.width} height={uploadedImage.height} className="object-contain max-h-[80vh] rounded-xl shadow-premium-lg" unoptimized />
                 <button onClick={() => setPreview(false)} className="absolute top-3 right-3 chip bg-black/50 backdrop-blur-md border-white/15 text-white hover:bg-black/70"><X className="w-4 h-4" /></button>

@@ -112,7 +112,7 @@ export function TerminalTab() {
           <div className="flex items-center gap-1.5">
             <div className="w-2.5 h-2.5 rounded-full bg-[hsl(var(--destructive))]/60" />
             <div className="w-2.5 h-2.5 rounded-full bg-[hsl(var(--neon-amber))]/60" />
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/60" />
+            <div className="w-2.5 h-2.5 rounded-full bg-[hsl(var(--neon-green))]/60" />
           </div>
           <Terminal className="w-3.5 h-3.5 text-muted-foreground ml-2" />
           <span className="text-xs font-mono text-muted-foreground">admin@ai-studio:~$</span>

@@ -85,7 +85,7 @@ export function InstalledModelsTab() {
   );
 
   if (loading) {
-    return <div className="text-white/60">Loading installed models...</div>;
+    return <div className="text-[hsl(var(--foreground))]/60">Loading installed models...</div>;
   }
 
   return (
@@ -107,8 +107,8 @@ export function InstalledModelsTab() {
             <div className="space-y-3">
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="font-semibold text-white">{model.name}</h3>
-                  <p className="text-sm text-white/60">{model.id}</p>
+                  <h3 className="font-semibold text-[hsl(var(--foreground))]">{model.name}</h3>
+                  <p className="text-sm text-[hsl(var(--foreground))]/60">{model.id}</p>
                 </div>
                 <div className={`px-2 py-1 rounded text-xs font-medium ${
                   model.status === 'active' ? 'bg-green-900/30 text-[hsl(var(--neon-green))]' :
@@ -122,7 +122,7 @@ export function InstalledModelsTab() {
                 </div>
               </div>
 
-              <div className="text-sm text-white/60">
+              <div className="text-sm text-[hsl(var(--foreground))]/60">
                 <p>Version: {model.version}</p>
                 <p>Size: {(model.size_mb / 1024).toFixed(1)} GB</p>
                 <p>Installed: {new Date(model.installed_at).toLocaleDateString()}</p>
@@ -131,12 +131,12 @@ export function InstalledModelsTab() {
               {model.capabilities.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {model.capabilities.slice(0, 3).map(cap => (
-                    <span key={cap} className="text-xs bg-white/10 text-white/80 px-2 py-1 rounded">
+                    <span key={cap} className="text-xs bg-white/10 text-[hsl(var(--foreground))]/80 px-2 py-1 rounded">
                       {cap}
                     </span>
                   ))}
                   {model.capabilities.length > 3 && (
-                    <span className="text-xs bg-white/10 text-white/80 px-2 py-1 rounded">
+                    <span className="text-xs bg-white/10 text-[hsl(var(--foreground))]/80 px-2 py-1 rounded">
                       +{model.capabilities.length - 3}
                     </span>
                   )}
@@ -184,7 +184,7 @@ export function InstalledModelsTab() {
       </div>
 
       {filteredModels.length === 0 && (
-        <div className="text-center text-white/60 py-8">
+        <div className="text-center text-[hsl(var(--foreground))]/60 py-8">
           No installed models found
         </div>
       )}

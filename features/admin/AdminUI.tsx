@@ -34,8 +34,8 @@ export function Badge({
   variant?: 'default' | 'success' | 'warn' | 'error' | 'info' | 'purple';
 }) {
   const cls = {
-    default: 'bg-slate-700/60 text-slate-300 border-slate-600/40',
-    success: 'bg-emerald-500/12 text-[hsl(var(--neon-green))] border-emerald-500/25',
+    default: 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] border-[hsl(var(--border))]/40',
+    success: 'bg-[hsl(var(--neon-green))]/12 text-[hsl(var(--neon-green))] border-emerald-500/25',
     warn:    'bg-[hsl(var(--neon-amber))]/12 text-[hsl(var(--neon-amber))] border-amber-500/25',
     error:   'bg-[hsl(var(--destructive))]/12 text-[hsl(var(--destructive))] border-red-500/25',
     info:    'bg-[hsl(var(--neon-blue))]/12 text-[hsl(var(--neon-blue))] border-blue-500/25',
@@ -76,7 +76,7 @@ export function Spinner({ size = 16 }: { size?: number }) {
 export function SectionHeader({ children, subtitle }: { children: React.ReactNode; subtitle?: string }) {
   return (
     <div className="mb-1">
-      <h2 className="text-xl font-bold text-white">{children}</h2>
+      <h2 className="text-xl font-bold text-[hsl(var(--foreground))]">{children}</h2>
       {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
     </div>
   );
@@ -98,8 +98,8 @@ export function ActionButton({
   const base = 'inline-flex items-center justify-center gap-1.5 font-medium rounded-lg transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]';
   const size = small ? 'px-2.5 py-1.5 text-xs' : 'px-4 py-2 text-sm';
   const cls = {
-    default: 'bg-slate-700/50 hover:bg-slate-600/60 text-slate-300 border border-slate-600/40 hover:border-slate-500/60 hover:text-white',
-    primary: 'text-white border border-[hsl(var(--neon-purple)/0.3)] hover:border-violet-400/50 hover:shadow-[0_0_16px_rgba(168,85,247,0.25)]',
+    default: 'bg-slate-700/50 hover:bg-slate-600/60 text-slate-300 border border-slate-600/40 hover:border-slate-500/60 hover:text-[hsl(var(--foreground))]',
+    primary: 'text-[hsl(var(--foreground))] border border-[hsl(var(--neon-purple)/0.3)] hover:border-violet-400/50 hover:shadow-[0_0_16px_rgba(168,85,247,0.25)]',
     danger:  'bg-red-600/20 hover:bg-red-600/30 text-[hsl(var(--destructive))] border border-[hsl(var(--destructive)/0.2)] hover:border-[hsl(var(--destructive)/0.4)]',
     success: 'bg-emerald-600/20 hover:bg-emerald-600/30 text-[hsl(var(--neon-green))] border border-[hsl(var(--neon-green)/0.2)] hover:border-[hsl(var(--neon-green))]/40',
   }[variant];
@@ -175,7 +175,7 @@ export function DataTable({
           {rows.map((row, i) => (
             <tr
               key={i}
-              className="transition-colors hover:bg-violet-500/04"
+              className="transition-colors hover:bg-[hsl(var(--primary)/0.04)]"
               style={{ borderBottom: '1px solid rgba(168,85,247,0.06)' }}
             >
               {row.map((cell, j) => (
@@ -234,7 +234,7 @@ export function MetricCard({
       <div className="flex items-start justify-between mb-3">
         <div>
           <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wider mb-1">{label}</p>
-          <p className="text-2xl font-bold text-white">
+          <p className="text-2xl font-bold text-[hsl(var(--foreground))]">
             {value}
             {unit && <span className="text-sm text-slate-400 ml-1 font-normal">{unit}</span>}
           </p>

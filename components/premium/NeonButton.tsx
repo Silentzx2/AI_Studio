@@ -92,12 +92,12 @@ export function NeonButton({
   const c = COLOR_MAP[color];
 
   const variantBase: Record<NeonVariant, string> = {
-    solid: 'text-white border-transparent',
+    solid: 'text-[hsl(var(--foreground))] border-transparent',
     outline: cn('bg-transparent border', c.textClass),
-    ghost: cn('bg-transparent border-transparent', c.textClass, 'hover:bg-white/5'),
-    primary: 'text-white border-transparent',
-    destructive: 'text-white border-transparent bg-red-600/80 hover:bg-red-600',
-    secondary: cn('bg-transparent border', c.textClass, 'hover:bg-white/5'),
+    ghost: cn('bg-transparent border-transparent', c.textClass, 'hover:bg-[hsl(var(--foreground)/0.05)]'),
+    primary: 'text-[hsl(var(--foreground))] border-transparent',
+    destructive: 'text-[hsl(var(--foreground))] border-transparent bg-[hsl(var(--destructive))/0.8] hover:bg-[hsl(var(--destructive))]',
+    secondary: cn('bg-transparent border', c.textClass, 'hover:bg-[hsl(var(--foreground)/0.05)]'),
   };
 
   const glowShadow = `0 0 12px ${c.glow} / 0.25, 0 0 30px ${c.glow} / 0.1`;

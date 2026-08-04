@@ -112,18 +112,18 @@ export function ModelDetailsModal({
       />
 
       {/* Modal Content */}
-      <div className="relative w-full max-w-3xl max-h-[85vh] overflow-hidden rounded-xl border border-white/20 bg-gray-900/95 shadow-2xl">
+      <div className="relative w-full max-w-3xl max-h-[85vh] overflow-hidden rounded-xl border border-[hsl(var(--border))/0.2] bg-[hsl(var(--surface-0))/0.95] shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-white/10">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-              <Package className="w-6 h-6 text-white" />
+              <Package className="w-6 h-6 text-[hsl(var(--foreground))]" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">
+              <h2 className="text-xl font-bold text-[hsl(var(--foreground))]">
                 {manifest?.name || modelId}
               </h2>
-              <p className="text-sm text-white/50 font-mono">{modelId}</p>
+              <p className="text-sm text-[hsl(var(--foreground))]/50 font-mono">{modelId}</p>
             </div>
           </div>
           
@@ -144,7 +144,7 @@ export function ModelDetailsModal({
             variant="ghost"
             size="icon"
             onClick={onClose}
-            className="text-white/60 hover:text-white hover:bg-white/10"
+            className="text-[hsl(var(--foreground))]/60 hover:text-[hsl(var(--foreground))] hover:bg-white/10"
           >
             <X className="w-5 h-5" />
           </Button>
@@ -162,8 +162,8 @@ export function ModelDetailsModal({
               onClick={() => setActiveTab(tab.id as typeof activeTab)}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
                 activeTab === tab.id
-                  ? 'text-white border-b-2 border-purple-500'
-                  : 'text-white/50 hover:text-white/80'
+                  ? 'text-[hsl(var(--foreground))] border-b-2 border-[hsl(var(--primary))]'
+                  : 'text-[hsl(var(--foreground))]/50 hover:text-[hsl(var(--foreground))]/80'
               }`}
             >
               <tab.icon className="w-4 h-4" />
@@ -176,7 +176,7 @@ export function ModelDetailsModal({
         <div className="p-6 overflow-y-auto max-h-[calc(85vh-200px)]">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-8 h-8 border-2 border-[hsl(var(--primary))] border-t-transparent rounded-full animate-spin" />
             </div>
           ) : (
             <>
@@ -200,7 +200,7 @@ export function ModelDetailsModal({
           <Button
             variant="outline"
             onClick={onClose}
-            className="border-white/20 text-white hover:bg-white/10"
+            className="border-[hsl(var(--border))/0.2] text-[hsl(var(--foreground))] hover:bg-white/10"
           >
             Close
           </Button>
@@ -236,7 +236,7 @@ export function ModelDetailsModal({
                 onDownload(modelId);
                 onClose();
               }}
-              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-[hsl(var(--foreground))]"
             >
               <Download className="w-4 h-4 mr-2" />
               Download / Install
@@ -252,7 +252,7 @@ export function ModelDetailsModal({
 function InfoTab({ manifest, modelId }: { manifest: ModelManifest | null; modelId: string }) {
   if (!manifest) {
     return (
-      <div className="text-center py-8 text-white/50">
+      <div className="text-center py-8 text-[hsl(var(--foreground))]/50">
         No information available for this model.
       </div>
     );
@@ -263,8 +263,8 @@ function InfoTab({ manifest, modelId }: { manifest: ModelManifest | null; modelI
       {/* Description */}
       {manifest.description && (
         <div>
-          <h4 className="text-sm font-medium text-white/60 mb-2">Description</h4>
-          <p className="text-white/80 leading-relaxed">{manifest.description}</p>
+          <h4 className="text-sm font-medium text-[hsl(var(--foreground))]/60 mb-2">Description</h4>
+          <p className="text-[hsl(var(--foreground))]/80 leading-relaxed">{manifest.description}</p>
         </div>
       )}
 
@@ -282,10 +282,10 @@ function InfoTab({ manifest, modelId }: { manifest: ModelManifest | null; modelI
       {/* Capabilities */}
       {manifest.capabilities && manifest.capabilities.length > 0 && (
         <div>
-          <h4 className="text-sm font-medium text-white/60 mb-3">Capabilities</h4>
+          <h4 className="text-sm font-medium text-[hsl(var(--foreground))]/60 mb-3">Capabilities</h4>
           <div className="flex flex-wrap gap-2">
             {manifest.capabilities.map((cap, idx) => (
-              <Badge key={idx} variant="secondary" className="bg-white/10 text-white/80">
+              <Badge key={idx} variant="secondary" className="bg-white/10 text-[hsl(var(--foreground))]/80">
                 {cap.replace('-', ' ').replace('_', ' ')}
               </Badge>
             ))}
@@ -296,10 +296,10 @@ function InfoTab({ manifest, modelId }: { manifest: ModelManifest | null; modelI
       {/* Tags */}
       {manifest.tags && manifest.tags.length > 0 && (
         <div>
-          <h4 className="text-sm font-medium text-white/60 mb-3">Tags</h4>
+          <h4 className="text-sm font-medium text-[hsl(var(--foreground))]/60 mb-3">Tags</h4>
           <div className="flex flex-wrap gap-2">
             {manifest.tags.map((tag, idx) => (
-              <Badge key={idx} variant="outline" className="border-white/20 text-white/60">
+              <Badge key={idx} variant="outline" className="border-[hsl(var(--border))/0.2] text-[hsl(var(--foreground))]/60">
                 #{tag}
               </Badge>
             ))}
@@ -314,7 +314,7 @@ function InfoTab({ manifest, modelId }: { manifest: ModelManifest | null; modelI
 function HealthTabContent({ health }: { health: any }) {
   if (!health) {
     return (
-      <div className="text-center py-8 text-white/50">
+      <div className="text-center py-8 text-[hsl(var(--foreground))]/50">
         Health check data not available.
       </div>
     );
@@ -327,8 +327,8 @@ function HealthTabContent({ health }: { health: any }) {
         <Card className="bg-[hsl(var(--surface-0)/0.3)] border-white/10 p-4">
           <div className="grid grid-cols-4 gap-4 text-center">
             <div>
-              <p className="text-2xl font-bold text-white">{health.summary.total_checks}</p>
-              <p className="text-xs text-white/50">Total Checks</p>
+              <p className="text-2xl font-bold text-[hsl(var(--foreground))]">{health.summary.total_checks}</p>
+              <p className="text-xs text-[hsl(var(--foreground))]/50">Total Checks</p>
             </div>
             <div>
               <p className="text-2xl font-bold text-[hsl(var(--neon-green))]">{health.summary.passed}</p>
@@ -353,7 +353,7 @@ function HealthTabContent({ health }: { health: any }) {
           result.status === 'warning' ? 'border-[hsl(var(--neon-amber)/0.2)]' : 'border-[hsl(var(--destructive)/0.2)]'
         }`}>
           <div className="flex items-center justify-between mb-2">
-            <span className="font-medium text-white capitalize">
+            <span className="font-medium text-[hsl(var(--foreground))] capitalize">
               {checkName.replace('_', ' ')}
             </span>
             <span className={`text-sm font-medium ${
@@ -364,14 +364,14 @@ function HealthTabContent({ health }: { health: any }) {
             </span>
           </div>
           {result.message && (
-            <p className="text-sm text-white/50">{result.message}</p>
+            <p className="text-sm text-[hsl(var(--foreground))]/50">{result.message}</p>
           )}
         </Card>
       ))}
 
       {/* Timestamp */}
       {health.timestamp && (
-        <p className="text-xs text-white/30 text-right">
+        <p className="text-xs text-[hsl(var(--foreground))]/30 text-right">
           Last checked: {new Date(health.timestamp).toLocaleString()}
         </p>
       )}
@@ -382,7 +382,7 @@ function HealthTabContent({ health }: { health: any }) {
 // Requirements Tab Component
 function RequirementsTab({ manifest }: { manifest: ModelManifest | null }) {
   if (!manifest) {
-    return <div className="text-center py-8 text-white/50">No requirements data.</div>;
+    return <div className="text-center py-8 text-[hsl(var(--foreground))]/50">No requirements data.</div>;
   }
 
   const runtime = manifest.runtime || {};
@@ -393,7 +393,7 @@ function RequirementsTab({ manifest }: { manifest: ModelManifest | null }) {
     <div className="space-y-6">
       {/* System Requirements */}
       <div>
-        <h4 className="text-sm font-medium text-white/60 mb-4 flex items-center gap-2">
+        <h4 className="text-sm font-medium text-[hsl(var(--foreground))]/60 mb-4 flex items-center gap-2">
           <Cpu className="w-4 h-4" />
           System Requirements
         </h4>
@@ -429,7 +429,7 @@ function RequirementsTab({ manifest }: { manifest: ModelManifest | null }) {
       {/* Python Dependencies */}
       {pythonPackages.length > 0 && (
         <div>
-          <h4 className="text-sm font-medium text-white/60 mb-4 flex items-center gap-2">
+          <h4 className="text-sm font-medium text-[hsl(var(--foreground))]/60 mb-4 flex items-center gap-2">
             <Package className="w-4 h-4" />
             Python Dependencies ({pythonPackages.length})
           </h4>
@@ -444,7 +444,7 @@ function RequirementsTab({ manifest }: { manifest: ModelManifest | null }) {
               >
                 <code className="text-sm text-[hsl(var(--neon-blue))]">{pkg.name}</code>
                 {pkg.version && (
-                  <span className="text-sm text-white/40">{pkg.version}</span>
+                  <span className="text-sm text-[hsl(var(--foreground))]/40">{pkg.version}</span>
                 )}
               </div>
             ))}
@@ -455,14 +455,14 @@ function RequirementsTab({ manifest }: { manifest: ModelManifest | null }) {
       {/* Files */}
       {manifest.files && manifest.files.length > 0 && (
         <div>
-          <h4 className="text-sm font-medium text-white/60 mb-4 flex items-center gap-2">
+          <h4 className="text-sm font-medium text-[hsl(var(--foreground))]/60 mb-4 flex items-center gap-2">
             <HardDrive className="w-4 h-4" />
             Model Files ({manifest.files.length})
           </h4>
           
           <div className="bg-[hsl(var(--surface-0)/0.3)] rounded-lg p-4 space-y-2">
             {manifest.files.map((file, idx) => (
-              <div key={idx} className="flex items-center gap-2 text-sm text-white/70">
+              <div key={idx} className="flex items-center gap-2 text-sm text-[hsl(var(--foreground))]/70">
                 <CheckCircle className="w-4 h-4 text-[hsl(var(--neon-green))]/50" />
                 <code>{file}</code>
               </div>
@@ -478,8 +478,8 @@ function RequirementsTab({ manifest }: { manifest: ModelManifest | null }) {
 function InfoItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-[hsl(var(--surface-0)/0.2)] rounded-lg p-3">
-      <p className="text-xs text-white/50 mb-1">{label}</p>
-      <p className="font-medium text-white">{value}</p>
+      <p className="text-xs text-[hsl(var(--foreground))]/50 mb-1">{label}</p>
+      <p className="font-medium text-[hsl(var(--foreground))]">{value}</p>
     </div>
   );
 }
@@ -501,9 +501,9 @@ function RequirementRow({
       highlight === 'error' ? 'bg-[hsl(var(--destructive)/0.1)]' : 'bg-[hsl(var(--surface-0)/0.2)]'
     }`}>
       {icon}
-      <span className="text-white/70 flex-1">{label}</span>
+      <span className="text-[hsl(var(--foreground))]/70 flex-1">{label}</span>
       <span className={`font-medium ${
-        highlight ? 'text-[hsl(var(--neon-amber))]' : 'text-white'
+        highlight ? 'text-[hsl(var(--neon-amber))]' : 'text-[hsl(var(--foreground))]'
       }`}>{value}</span>
     </div>
   );

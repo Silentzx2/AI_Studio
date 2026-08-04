@@ -148,7 +148,7 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
       <div className="w-full lg:w-[380px] flex flex-col gap-5 flex-shrink-0" id="remesh-left-panel">
         <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-5" id="remesh-inputs-box">
           <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <h2 className="text-lg font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
               <RefreshCw size={20} className="text-[hsl(var(--primary))]" />
               Remesh & Decimate
             </h2>
@@ -167,10 +167,10 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
                   <Layers size={18} className="text-[hsl(var(--primary))]" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-white truncate">{uploadedModelName}</p>
+                  <p className="text-xs font-bold text-[hsl(var(--foreground))] truncate">{uploadedModelName}</p>
                   <p className="text-[10px] text-[hsl(var(--muted-foreground))] truncate font-mono">{((uploadedModel?.size ?? 0) / 1024).toFixed(1)} KB</p>
                 </div>
-                <button onClick={() => { setUploadedModel(null); setUploadedModelUrl(null); setUploadedModelName(''); }} className="text-[hsl(var(--muted-foreground))] hover:text-white transition-colors">
+                <button onClick={() => { setUploadedModel(null); setUploadedModelUrl(null); setUploadedModelName(''); }} className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors">
                   <X size={14} />
                 </button>
               </div>
@@ -180,7 +180,7 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
                   <Layers size={18} className="text-[hsl(var(--primary))]" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-white truncate">{activeModel.name}</p>
+                  <p className="text-xs font-bold text-[hsl(var(--foreground))] truncate">{activeModel.name}</p>
                   <p className="text-[10px] text-[hsl(var(--muted-foreground))] truncate font-mono">{activeModel.complexity}</p>
                 </div>
               </div>
@@ -200,7 +200,7 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
               <select
                 value={targetType}
                 onChange={(e) => setTargetType(e.target.value)}
-                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer"
+                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer"
                 id="re-topology-select"
               >
                 <option value="quad-dominant">Quad-Dominant Flow (Subdivision Friendly)</option>
@@ -216,7 +216,7 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
               <select
                 value={vertexDensity}
                 onChange={(e) => setVertexDensity(e.target.value)}
-                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer"
+                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer"
                 id="re-density-select"
               >
                 <option value="10K">10K Low-Poly (Mobile Ready)</option>
@@ -230,7 +230,7 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
             <div className="flex flex-col gap-3 pt-2 border-t border-[hsl(var(--border))]" id="remesh-toggles">
               <div className="flex items-center justify-between">
                 <div className="flex flex-col">
-                  <span className="text-xs font-bold text-white">Preserve Symmetry</span>
+                  <span className="text-xs font-bold text-[hsl(var(--foreground))]">Preserve Symmetry</span>
                   <span className="text-[9px] text-[hsl(var(--muted-foreground))]">Maintains mirror axis planes</span>
                 </div>
                 <input
@@ -243,7 +243,7 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
 
               <div className="flex items-center justify-between">
                 <div className="flex flex-col">
-                  <span className="text-xs font-bold text-white">Retain Hard Edges</span>
+                  <span className="text-xs font-bold text-[hsl(var(--foreground))]">Retain Hard Edges</span>
                   <span className="text-[9px] text-[hsl(var(--muted-foreground))]">Keeps sharp boundary splits</span>
                 </div>
                 <input
@@ -259,12 +259,12 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
             <button
               onClick={handleRemesh}
               disabled={isProcessing}
-              className="w-full mt-2 bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] hover:brightness-110 active:scale-[0.98] text-black font-extrabold py-3 rounded-xl text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-[0_4px_15px_rgba(245,166,35,0.2)]"
+              className="w-full mt-2 bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] hover:brightness-110 active:scale-[0.98] text-[hsl(var(--surface-0))] font-extrabold py-3 rounded-xl text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-[0_4px_15px_rgba(245,166,35,0.2)]"
               id="trigger-remesh-btn"
             >
               {isProcessing ? (
                 <>
-                  <RefreshCw size={14} className="animate-spin text-black" />
+                  <RefreshCw size={14} className="animate-spin text-[hsl(var(--surface-0))]" />
                   Remeshing Mesh...
                 </>
               ) : (
@@ -283,10 +283,10 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
         
         {/* Background Anime Speed Lines/Aura overlay during baking */}
         {isProcessing && (
-          <div className="absolute inset-0 bg-black/60 z-20 flex flex-col items-center justify-center text-center p-6 animate-speed-lines">
+          <div className="absolute inset-0 bg-[hsl(var(--surface-0))/0.6] z-20 flex flex-col items-center justify-center text-center p-6 animate-speed-lines">
             {/* Pulsing energy sphere representing compute */}
-            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] animate-energy-pulse flex items-center justify-center text-black font-extrabold text-xs">
-              <RefreshCw size={36} className="animate-spin text-black stroke-[3]" />
+            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] animate-energy-pulse flex items-center justify-center text-[hsl(var(--surface-0))] font-extrabold text-xs">
+              <RefreshCw size={36} className="animate-spin text-[hsl(var(--surface-0))] stroke-[3]" />
             </div>
             <h3 className="text-lg font-black text-[hsl(var(--primary))] uppercase tracking-widest mt-6 animate-pulse">
               Computing Dual-Contour Retopology...
@@ -299,7 +299,7 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
 
         <div className="flex-1 flex flex-col justify-between z-10">
           <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <h3 className="text-sm font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
               <Cpu size={16} className="text-[hsl(var(--primary))]" />
               Topology Pipeline Diagnostics
             </h3>
@@ -313,7 +313,7 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
             <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--neon-green)/0.3)] rounded-xl p-5 flex flex-col gap-4 animate-fadeIn">
               <div className="flex items-center gap-2.5">
                 <CheckCircle size={18} className="text-[hsl(var(--neon-green))]" />
-                <span className="text-sm font-bold text-white uppercase tracking-wider">Remeshing Complete!</span>
+                <span className="text-sm font-bold text-[hsl(var(--foreground))] uppercase tracking-wider">Remeshing Complete!</span>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-[hsl(var(--surface-1))] p-3 rounded-lg border border-[hsl(var(--border))]">
@@ -329,7 +329,7 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
                 <span className="text-xs text-[hsl(var(--muted-foreground))]">Reduction Ratio:</span>
                 <span className="text-xs font-bold text-[hsl(var(--primary))]">{successResult.reduction}</span>
               </div>
-              <p className="text-xs text-[hsl(var(--muted-foreground))] leading-relaxed italic bg-black/45 p-3 rounded-lg border border-[hsl(var(--border))]">
+              <p className="text-xs text-[hsl(var(--muted-foreground))] leading-relaxed italic bg-[hsl(var(--surface-0))/0.45] p-3 rounded-lg border border-[hsl(var(--border))]">
                 💡 Topology Summary: {successResult.promptDescription}
               </p>
             </div>

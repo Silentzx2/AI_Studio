@@ -116,7 +116,7 @@ export function AvailableModelsTab({ onNavigateToQueue }: { onNavigateToQueue?: 
   const categories = [...new Set(models.map(m => m.category).filter(Boolean) as string[])];
 
   if (loading) {
-    return <div className="text-white/60">Loading available models...</div>;
+    return <div className="text-[hsl(var(--foreground))]/60">Loading available models...</div>;
   }
 
   return (
@@ -160,8 +160,8 @@ export function AvailableModelsTab({ onNavigateToQueue }: { onNavigateToQueue?: 
       {selectedModel && (
         <Card className="bg-white/5 border-white/10 p-4 space-y-4">
           <div>
-            <h3 className="font-semibold text-white mb-1">{selectedModel.name}</h3>
-            <p className="text-white/60 text-sm">{selectedModel.description}</p>
+            <h3 className="font-semibold text-[hsl(var(--foreground))] mb-1">{selectedModel.name}</h3>
+            <p className="text-[hsl(var(--foreground))]/60 text-sm">{selectedModel.description}</p>
           </div>
 
           <CompatibilityChecker modelManifest={selectedModel.manifest} />
@@ -201,18 +201,18 @@ export function AvailableModelsTab({ onNavigateToQueue }: { onNavigateToQueue?: 
           >
             <div className="space-y-3">
               <div>
-                <h3 className="font-semibold text-white">{model.name}</h3>
+                <h3 className="font-semibold text-[hsl(var(--foreground))]">{model.name}</h3>
                 {model.author && (
-                  <p className="text-xs text-white/60 mt-1">by {model.author}</p>
+                  <p className="text-xs text-[hsl(var(--foreground))]/60 mt-1">by {model.author}</p>
                 )}
                 {model.provider && (
-                  <p className="text-xs text-white/40 mt-0.5">via {model.provider}</p>
+                  <p className="text-xs text-[hsl(var(--foreground))]/40 mt-0.5">via {model.provider}</p>
                 )}
               </div>
 
-              <p className="text-sm text-white/70 line-clamp-2">{model.description}</p>
+              <p className="text-sm text-[hsl(var(--foreground))]/70 line-clamp-2">{model.description}</p>
 
-              <div className="text-xs text-white/60 space-y-1">
+              <div className="text-xs text-[hsl(var(--foreground))]/60 space-y-1">
                 {model.size_mb ? (
                   <p>{(model.size_mb / 1024).toFixed(1)} GB</p>
                 ) : model.size ? (
@@ -229,7 +229,7 @@ export function AvailableModelsTab({ onNavigateToQueue }: { onNavigateToQueue?: 
               {(model.tags || model.capabilities || model.supported_formats) && (
                 <div className="flex flex-wrap gap-1">
                   {(model.tags || model.capabilities || []).slice(0, 3).map(tag => (
-                    <span key={tag} className="text-xs bg-white/10 text-white/80 px-2 py-1 rounded">
+                    <span key={tag} className="text-xs bg-white/10 text-[hsl(var(--foreground))]/80 px-2 py-1 rounded">
                       {tag}
                     </span>
                   ))}
@@ -259,7 +259,7 @@ export function AvailableModelsTab({ onNavigateToQueue }: { onNavigateToQueue?: 
       </div>
 
       {filteredModels.length === 0 && !error && (
-        <div className="text-center text-white/60 py-8">
+        <div className="text-center text-[hsl(var(--foreground))]/60 py-8">
           No models found matching your search
         </div>
       )}

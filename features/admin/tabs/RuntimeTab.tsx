@@ -161,7 +161,7 @@ export function RuntimeTab() {
         <div className="mt-4 pt-4 border-t border-white/5 grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* GPU Detail Card */}
           <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-purple-500/10 to-violet-500/5 border border-purple-500/20">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-purple-500/20">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[hsl(var(--primary)/0.2)]">
               <Cpu className="w-5 h-5 text-[hsl(var(--neon-purple))]" />
             </div>
             <div className="min-w-0 flex-1">
@@ -179,7 +179,7 @@ export function RuntimeTab() {
           
           {/* CPU Detail Card */}
           <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-cyan-500/10 to-blue-500/5 border border-cyan-500/20">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-cyan-500/20">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[hsl(var(--accent-color-secondary)/0.2)]">
               <Server className="w-5 h-5 text-[hsl(var(--neon-cyan))]" />
             </div>
             <div className="min-w-0 flex-1">
@@ -349,10 +349,10 @@ function PerformanceChart({ history }: { history: { gpu: number; vram: number; c
     }).join(' ');
 
   const colors = {
-    gpu: 'hsl(275 95% 65%)',
-    vram: 'hsl(210 100% 60%)',
+    gpu: 'hsl(var(--neon-purple))',
+    vram: 'hsl(var(--neon-blue))',
     cpu: 'hsl(190 100% 55%)',
-    ram: 'hsl(150 80% 55%)',
+    ram: 'hsl(var(--neon-green))',
   };
 
   if (history.length === 0) {
@@ -371,7 +371,7 @@ function PerformanceChart({ history }: { history: { gpu: number; vram: number; c
           ))}
         </defs>
         {[0, 25, 50, 75, 100].map((y) => (
-          <line key={y} x1="0" y1={height - (y / 100) * height} x2={width} y2={height - (y / 100) * height} stroke="hsl(250 10% 15%)" strokeWidth="0.2" />
+           <line key={y} x1="0" y1={height - (y / 100) * height} x2={width} y2={height - (y / 100) * height} stroke="hsl(var(--border))" strokeWidth="0.2" />
         ))}
         {(Object.keys(colors) as ('gpu' | 'vram' | 'cpu' | 'ram')[]).map((key) => (
           <g key={key}>

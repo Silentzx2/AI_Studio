@@ -604,10 +604,10 @@ export default function ThreeDGenerationTab({
       
       {/* FIX: Mobile sidebar overlay backdrops */}
       {mobileLeftOpen && (
-        <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setMobileLeftOpen(false)} aria-hidden="true" />
+        <div className="fixed inset-0 z-30 bg-[hsl(var(--surface-0))/0.4] lg:hidden" onClick={() => setMobileLeftOpen(false)} aria-hidden="true" />
       )}
       {mobileRightOpen && (
-        <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setMobileRightOpen(false)} aria-hidden="true" />
+        <div className="fixed inset-0 z-30 bg-[hsl(var(--surface-0))/0.4] lg:hidden" onClick={() => setMobileRightOpen(false)} aria-hidden="true" />
       )}
 
       {/* ───────────────────────────────────────────────────────────── */}
@@ -622,11 +622,11 @@ export default function ThreeDGenerationTab({
       >
         {/* Sidebar Header */}
         <div className="p-4 border-b border-[hsl(var(--border))] flex items-center justify-between bg-[hsl(var(--surface-0))]">
-          <span className="text-xs font-black uppercase tracking-widest text-white">GENERATION SETUP</span>
-          <button onClick={() => setMobileLeftOpen(false)} className="lg:hidden p-1 rounded hover:bg-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-white" aria-label="Close sidebar">
+          <span className="text-xs font-black uppercase tracking-widest text-[hsl(var(--foreground))]">GENERATION SETUP</span>
+          <button onClick={() => setMobileLeftOpen(false)} className="lg:hidden p-1 rounded hover:bg-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]" aria-label="Close sidebar">
             <X size={14} />
           </button>
-          <ChevronUp size={14} className="text-[hsl(var(--muted-foreground))] cursor-pointer hover:text-white hidden lg:block" />
+          <ChevronUp size={14} className="text-[hsl(var(--muted-foreground))] cursor-pointer hover:text-[hsl(var(--foreground))] hidden lg:block" />
         </div>
 
         {/* Setup Options Form */}
@@ -646,7 +646,7 @@ export default function ThreeDGenerationTab({
               <select
                 value={selectedModelId}
                 onChange={(e) => setSelectedModelId(e.target.value)}
-                className="w-full bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-xl pl-3 pr-8 py-2.5 text-xs font-semibold text-white cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))] transition-all appearance-none"
+                className="w-full bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-xl pl-3 pr-8 py-2.5 text-xs font-semibold text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))] transition-all appearance-none"
               >
                 {modelsList.map(m => (
                   <option key={m.id} value={m.id}>
@@ -719,7 +719,7 @@ export default function ThreeDGenerationTab({
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value.slice(0, 500))}
                     placeholder="Describe your 3D humanoid, mecha or asset in detail..."
-                    className="w-full bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-xl p-3 text-xs text-white placeholder-[hsl(var(--muted-foreground))] min-h-[85px] max-h-[140px] focus:outline-none focus:border-[hsl(var(--primary))] transition-all resize-none leading-relaxed font-semibold"
+                    className="w-full bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-xl p-3 text-xs text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))] min-h-[85px] max-h-[140px] focus:outline-none focus:border-[hsl(var(--primary))] transition-all resize-none leading-relaxed font-semibold"
                     id="setup-prompt"
                   />
                   <span className="absolute bottom-2.5 right-2.5 text-[9px] font-mono font-bold text-[hsl(var(--muted-foreground))]">
@@ -773,7 +773,7 @@ export default function ThreeDGenerationTab({
                   ) : (
                     <>
                       <Upload size={18} className={isDragOver ? 'text-[hsl(var(--primary))] animate-bounce' : 'text-[hsl(var(--muted-foreground))]'} />
-                      <span className="text-[11px] font-bold text-white">
+                      <span className="text-[11px] font-bold text-[hsl(var(--foreground))]">
                         Drag & drop or click to upload
                       </span>
                       <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">PNG, JPG, WEBP up to 10MB</span>
@@ -878,7 +878,7 @@ export default function ThreeDGenerationTab({
           {/* Advanced Settings */}
           <div 
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center justify-between py-2.5 border-t border-[hsl(var(--border))] cursor-pointer text-[hsl(var(--muted-foreground))] hover:text-white transition-colors"
+            className="flex items-center justify-between py-2.5 border-t border-[hsl(var(--border))] cursor-pointer text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
           >
             <span className="text-xs font-bold flex items-center gap-1.5">
               <SlidersHorizontal size={13} className={showAdvanced ? 'text-[hsl(var(--primary))]' : ''} />
@@ -898,7 +898,7 @@ export default function ThreeDGenerationTab({
                       key={q}
                       type="button"
                       onClick={(e) => { e.stopPropagation(); toast.success(`Quality set to ${q}`); }}
-                      className="py-1 px-2 text-[10px] font-bold rounded bg-[hsl(var(--surface-0))] border border-[hsl(var(--border))] hover:border-[hsl(var(--primary))] hover:text-white transition-all text-center"
+                      className="py-1 px-2 text-[10px] font-bold rounded bg-[hsl(var(--surface-0))] border border-[hsl(var(--border))] hover:border-[hsl(var(--primary))] hover:text-[hsl(var(--foreground))] transition-all text-center"
                     >
                       {q}
                     </button>
@@ -943,7 +943,7 @@ export default function ThreeDGenerationTab({
                       key={r}
                       type="button"
                       onClick={(e) => { e.stopPropagation(); toast.success(`Texture set to ${r}`); }}
-                      className="py-1 px-2 text-[10px] font-bold rounded bg-[hsl(var(--surface-0))] border border-[hsl(var(--border))] hover:border-[hsl(var(--primary))] hover:text-white transition-all text-center"
+                      className="py-1 px-2 text-[10px] font-bold rounded bg-[hsl(var(--surface-0))] border border-[hsl(var(--border))] hover:border-[hsl(var(--primary))] hover:text-[hsl(var(--foreground))] transition-all text-center"
                     >
                       {r}
                     </button>
@@ -958,8 +958,8 @@ export default function ThreeDGenerationTab({
             onClick={isGenerating ? cancel : generate}
             className={`w-full font-black py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-[0_4px_24px_rgba(245,166,35,0.15)] ${
               isGenerating
-                 ? 'bg-[hsl(var(--neon-pink))] hover:brightness-110 text-white shadow-[0_4px_24px_rgba(225,29,72,0.15)]'
-                : 'bg-[hsl(var(--primary))] hover:brightness-110 text-black active:scale-[0.98]'
+                 ? 'bg-[hsl(var(--neon-pink))] hover:brightness-110 text-[hsl(var(--foreground))] shadow-[0_4px_24px_rgba(225,29,72,0.15)]'
+                : 'bg-[hsl(var(--primary))] hover:brightness-110 text-[hsl(var(--surface-0))] active:scale-[0.98]'
             }`}
             id="workspace-trigger-generation-btn"
           >
@@ -979,10 +979,10 @@ export default function ThreeDGenerationTab({
           
           {/* FIX: Mobile sidebar toggle buttons */}
           <div className="flex items-center gap-1 lg:hidden shrink-0">
-            <button onClick={() => { setMobileLeftOpen(true); setMobileRightOpen(false); }} className="p-2 rounded-lg hover:bg-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-white active:scale-95" title="Open Settings">
+            <button onClick={() => { setMobileLeftOpen(true); setMobileRightOpen(false); }} className="p-2 rounded-lg hover:bg-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] active:scale-95" title="Open Settings">
               <Settings size={16} />
             </button>
-            <button onClick={() => { setMobileRightOpen(true); setMobileLeftOpen(false); }} className="p-2 rounded-lg hover:bg-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-white active:scale-95" title="Open Progress">
+            <button onClick={() => { setMobileRightOpen(true); setMobileLeftOpen(false); }} className="p-2 rounded-lg hover:bg-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] active:scale-95" title="Open Progress">
               <Activity size={16} />
             </button>
           </div>
@@ -999,8 +999,8 @@ export default function ThreeDGenerationTab({
                 }}
                 className={`px-3 py-1.5 text-[11px] font-black tracking-wide rounded-lg transition-all ${
                   viewMode === m
-                    ? 'bg-[hsl(var(--primary))] text-black shadow-sm font-bold'
-                    : 'text-[hsl(var(--muted-foreground))] hover:text-white'
+                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] shadow-sm font-bold'
+                    : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
                 }`}
               >
                 {m}
@@ -1013,8 +1013,8 @@ export default function ThreeDGenerationTab({
                 isRigging
                   ? 'bg-[hsl(var(--neon-green)/0.2)] text-[hsl(var(--neon-green))] animate-pulse'
                   : viewMode === 'Rigging'
-                    ? 'bg-[hsl(var(--primary))] text-black shadow-sm font-bold'
-                    : 'text-[hsl(var(--muted-foreground))] hover:text-white'
+                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] shadow-sm font-bold'
+                    : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
               }`}
             >
               {isRigging ? 'Rigging...' : 'Rigging'}
@@ -1025,8 +1025,8 @@ export default function ThreeDGenerationTab({
                 onClick={() => { setViewMode(m); setShowWireframe(false); }}
                 className={`px-3 py-1.5 text-[11px] font-black tracking-wide rounded-lg transition-all ${
                   viewMode === m
-                    ? 'bg-[hsl(var(--primary))] text-black shadow-sm font-bold'
-                    : 'text-[hsl(var(--muted-foreground))] hover:text-white'
+                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] shadow-sm font-bold'
+                    : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
                 }`}
               >
                 {m}
@@ -1039,8 +1039,8 @@ export default function ThreeDGenerationTab({
                 isPartitioning
                   ? 'bg-[hsl(var(--neon-green)/0.2)] text-[hsl(var(--neon-green))] animate-pulse'
                   : viewMode === 'Parts'
-                    ? 'bg-[hsl(var(--primary))] text-black shadow-sm font-bold'
-                    : 'text-[hsl(var(--muted-foreground))] hover:text-white'
+                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] shadow-sm font-bold'
+                    : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
               }`}
             >
               {isPartitioning ? 'Parting...' : 'Parts'}
@@ -1051,8 +1051,8 @@ export default function ThreeDGenerationTab({
                 onClick={() => { setViewMode(m); setShowWireframe(false); }}
                 className={`px-3 py-1.5 text-[11px] font-black tracking-wide rounded-lg transition-all ${
                   viewMode === m
-                    ? 'bg-[hsl(var(--primary))] text-black shadow-sm font-bold'
-                    : 'text-[hsl(var(--muted-foreground))] hover:text-white'
+                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] shadow-sm font-bold'
+                    : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
                 }`}
               >
                 {m}
@@ -1070,7 +1070,7 @@ export default function ThreeDGenerationTab({
                   className={`px-3 py-1.5 text-[11px] font-bold rounded-lg transition-all ${
                     shading === shade
                       ? 'bg-[hsl(var(--primary))]/20 text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/30 font-extrabold'
-                      : 'text-[hsl(var(--muted-foreground))] border border-transparent hover:text-white'
+                      : 'text-[hsl(var(--muted-foreground))] border border-transparent hover:text-[hsl(var(--foreground))]'
                   }`}
                 >
                   {shade}
@@ -1080,10 +1080,10 @@ export default function ThreeDGenerationTab({
 
             {/* Custom toolbar buttons on the right */}
             <div className="flex items-center gap-1 border-l border-[hsl(var(--border))] pl-4 text-[hsl(var(--muted-foreground))]">
-              <button onClick={() => setShowGrid(!showGrid)} className={`p-2 rounded hover:bg-[hsl(var(--surface-0))] hover:text-white transition-all ${showGrid ? 'text-[hsl(var(--primary))]' : ''}`} title="Toggle grid floor">
+              <button onClick={() => setShowGrid(!showGrid)} className={`p-2 rounded hover:bg-[hsl(var(--surface-0))] hover:text-[hsl(var(--foreground))] transition-all ${showGrid ? 'text-[hsl(var(--primary))]' : ''}`} title="Toggle grid floor">
                 <Grid3X3 size={14} />
               </button>
-              <button className="p-2 rounded hover:bg-[hsl(var(--surface-0))] hover:text-white transition-all" title="Full screen">
+              <button className="p-2 rounded hover:bg-[hsl(var(--surface-0))] hover:text-[hsl(var(--foreground))] transition-all" title="Full screen">
                 <Maximize2 size={14} />
               </button>
             </div>
@@ -1106,21 +1106,21 @@ export default function ThreeDGenerationTab({
                   description: nextRotate ? 'The model will now rotate automatically.' : 'Automatic rotation paused.'
                 });
               }}
-              className={`p-2 rounded-lg hover:bg-[hsl(var(--border))] transition-all ${autoRotate ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 border border-[hsl(var(--primary))]/10' : 'hover:text-white'}`} 
+              className={`p-2 rounded-lg hover:bg-[hsl(var(--border))] transition-all ${autoRotate ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 border border-[hsl(var(--primary))]/10' : 'hover:text-[hsl(var(--foreground))]'}`} 
               title="Toggle Auto Rotation"
             >
               <RotateCw size={14} className={autoRotate ? 'animate-spin' : ''} />
             </button>
-            <button className="p-2 rounded-lg hover:bg-[hsl(var(--border))] hover:text-white" title="Pan Camera">
+            <button className="p-2 rounded-lg hover:bg-[hsl(var(--border))] hover:text-[hsl(var(--foreground))]" title="Pan Camera">
               <Move size={14} className="rotate-45" />
             </button>
-            <button className="p-2 rounded-lg hover:bg-[hsl(var(--border))] hover:text-white" title="Zoom Camera">
+            <button className="p-2 rounded-lg hover:bg-[hsl(var(--border))] hover:text-[hsl(var(--foreground))]" title="Zoom Camera">
               <ZoomIn size={14} />
             </button>
-            <button className="p-2 rounded-lg hover:bg-[hsl(var(--border))] hover:text-white" title="Show Bounding Box">
+            <button className="p-2 rounded-lg hover:bg-[hsl(var(--border))] hover:text-[hsl(var(--foreground))]" title="Show Bounding Box">
               <Box size={14} />
             </button>
-            <button className="p-2 rounded-lg hover:bg-[hsl(var(--border))] hover:text-white" title="Reset View">
+            <button className="p-2 rounded-lg hover:bg-[hsl(var(--border))] hover:text-[hsl(var(--foreground))]" title="Reset View">
               <Focus size={14} />
             </button>
           </div>
@@ -1136,7 +1136,7 @@ export default function ThreeDGenerationTab({
           {/* Interactive ThreeD Canvas */}
           <div className="w-full h-full relative" id="standing-model-rendering-view">
             <Suspense fallback={
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm z-10 gap-2">
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-[hsl(var(--surface-0))/0.5] backdrop-blur-sm z-10 gap-2">
                 <RefreshCw size={24} className="text-[hsl(var(--primary))] animate-spin" />
                 <span className="text-xs font-mono font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Compiling shaders...</span>
               </div>
@@ -1179,13 +1179,13 @@ export default function ThreeDGenerationTab({
             <span className="text-[9px] font-black uppercase tracking-wider text-[hsl(var(--muted-foreground))] border-b border-[hsl(var(--border))] pb-1 mb-0.5">Asset Spec</span>
             <div className="grid grid-cols-2 gap-y-1 gap-x-3 text-[10px] font-mono">
               <span className="text-[hsl(var(--muted-foreground))] font-sans">Faces</span>
-              <span className="font-extrabold text-right text-white">{activeModel?.stats?.triangles || '2.4M'}</span>
+              <span className="font-extrabold text-right text-[hsl(var(--foreground))]">{activeModel?.stats?.triangles || '2.4M'}</span>
               <span className="text-[hsl(var(--muted-foreground))] font-sans">Vertices</span>
-              <span className="font-extrabold text-right text-white">{activeModel?.stats?.vertices || '1.8M'}</span>
+              <span className="font-extrabold text-right text-[hsl(var(--foreground))]">{activeModel?.stats?.vertices || '1.8M'}</span>
               <span className="text-[hsl(var(--muted-foreground))] font-sans">Objects</span>
-              <span className="font-extrabold text-right text-white">{activeModel?.stats?.objects || '12'}</span>
+              <span className="font-extrabold text-right text-[hsl(var(--foreground))]">{activeModel?.stats?.objects || '12'}</span>
               <span className="text-[hsl(var(--muted-foreground))] font-sans">Materials</span>
-              <span className="font-extrabold text-right text-white">{activeModel?.stats?.materials || '8'}</span>
+              <span className="font-extrabold text-right text-[hsl(var(--foreground))]">{activeModel?.stats?.materials || '8'}</span>
             </div>
           </div>
         </div>
@@ -1202,7 +1202,7 @@ export default function ThreeDGenerationTab({
                   className={`py-3 text-[11px] font-black tracking-widest transition-all border-b-2 ${
                     activeBottomTab === tab
                       ? 'border-[hsl(var(--primary))] text-[hsl(var(--primary))] font-bold'
-                      : 'border-transparent text-[hsl(var(--muted-foreground))] hover:text-white'
+                      : 'border-transparent text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
                   }`}
                 >
                   {tab}
@@ -1262,14 +1262,14 @@ export default function ThreeDGenerationTab({
                             node.gate
                               ? 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))]'
                               : isActive
-                                ? 'bg-[hsl(var(--primary))] text-black animate-spin'
+                                ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] animate-spin'
                                 : isCompleted
-                                  ? 'bg-[hsl(var(--neon-green))] text-black'
+                                  ? 'bg-[hsl(var(--neon-green))] text-[hsl(var(--surface-0))]'
                                   : 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))]'
                           }`}>
                             {node.gate ? <Lock size={12} /> : isCompleted ? <Check size={12} className="stroke-[3]" /> : node.icon}
                           </div>
-                          <span className="text-[10px] font-black tracking-wide truncate max-w-full text-white">{node.label}</span>
+                          <span className="text-[10px] font-black tracking-wide truncate max-w-full text-[hsl(var(--foreground))]">{node.label}</span>
                           <span className="text-[8px] font-mono font-medium text-[hsl(var(--muted-foreground))] mt-0.5 truncate max-w-full">{node.desc}</span>
                         </div>
                       </React.Fragment>
@@ -1307,7 +1307,7 @@ export default function ThreeDGenerationTab({
                       <span className="absolute bottom-1 right-1 text-[8px] font-mono bg-black/70 text-[hsl(var(--muted-foreground))] px-1 rounded font-black">{asset.format}</span>
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-white truncate">{asset.name}</span>
+                      <span className="text-[10px] font-bold text-[hsl(var(--foreground))] truncate">{asset.name}</span>
                       <span className="text-[8px] font-mono text-[hsl(var(--muted-foreground))]">{asset.size}</span>
                     </div>
                   </div>
@@ -1317,10 +1317,10 @@ export default function ThreeDGenerationTab({
 
             {/* TAB 3: CONSOLE / LOGS */}
             {activeBottomTab === 'CONSOLE / LOGS' && (
-              <div className="h-full bg-black/40 border border-[hsl(var(--border))] rounded-xl p-3 flex flex-col gap-1.5 font-mono text-[10px] overflow-y-auto text-[hsl(var(--muted-foreground))]" id="logs-panel-area">
+              <div className="h-full bg-[hsl(var(--surface-0))/0.4] border border-[hsl(var(--border))] rounded-xl p-3 flex flex-col gap-1.5 font-mono text-[10px] overflow-y-auto text-[hsl(var(--muted-foreground))]" id="logs-panel-area">
                 <div className="flex items-center gap-1.5 text-[hsl(var(--muted-foreground))] pb-1 border-b border-[hsl(var(--surface-2))] shrink-0">
                   <Terminal size={11} className="text-[hsl(var(--primary))]" />
-                  <span className="font-black text-white text-[8px] uppercase tracking-widest">LIVE PIPELINE STREAM</span>
+                  <span className="font-black text-[hsl(var(--foreground))] text-[8px] uppercase tracking-widest">LIVE PIPELINE STREAM</span>
                 </div>
                 <div className="flex-1 flex flex-col gap-1 overflow-y-auto">
                   {activeLogs.length > 0 ? (
@@ -1363,8 +1363,8 @@ export default function ThreeDGenerationTab({
       >
         {/* FIX: Mobile close button for right sidebar */}
         <div className="flex items-center justify-between lg:hidden mb-2">
-          <span className="text-xs font-black uppercase tracking-widest text-white">PROGRESS & SPECS</span>
-          <button onClick={() => setMobileRightOpen(false)} className="p-1 rounded hover:bg-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-white" aria-label="Close sidebar">
+          <span className="text-xs font-black uppercase tracking-widest text-[hsl(var(--foreground))]">PROGRESS & SPECS</span>
+          <button onClick={() => setMobileRightOpen(false)} className="p-1 rounded hover:bg-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]" aria-label="Close sidebar">
             <X size={14} />
           </button>
         </div>
@@ -1372,7 +1372,7 @@ export default function ThreeDGenerationTab({
         {/* CARD 1: GENERATION PROGRESS */}
         <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-2xl p-4 flex flex-col gap-3" id="progress-container">
           <div className="flex items-center justify-between border-b border-[hsl(var(--surface-3))] pb-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-white">GENERATION PROGRESS</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--foreground))]">GENERATION PROGRESS</span>
             <ChevronUp size={13} className="text-[hsl(var(--muted-foreground))]" />
           </div>
 
@@ -1430,7 +1430,7 @@ export default function ThreeDGenerationTab({
                 return (
                   <div key={step.label} className="flex items-center justify-between text-[hsl(var(--muted-foreground))]">
                     <div className="flex items-center gap-2">
-                      <span className="w-1 h-1 rounded-full bg-zinc-700" />
+                      <span className="w-1 h-1 rounded-full bg-[hsl(var(--surface-2))]" />
                       <span>{step.label}</span>
                     </div>
                     <span>{step.duration}</span>
@@ -1444,36 +1444,36 @@ export default function ThreeDGenerationTab({
         {/* CARD 2: MODEL INFORMATION */}
         <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-2xl p-4 flex flex-col gap-3" id="model-info-container">
           <div className="flex items-center justify-between border-b border-[hsl(var(--surface-3))] pb-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-white">MODEL INFORMATION</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--foreground))]">MODEL INFORMATION</span>
             <ChevronUp size={13} className="text-[hsl(var(--muted-foreground))]" />
           </div>
 
           <div className="flex flex-col gap-2.5 text-xs font-semibold">
             <div className="flex justify-between items-center">
               <span className="text-[hsl(var(--muted-foreground))]">Model</span>
-              <span className="font-extrabold text-white font-mono">{activeModel?.name}</span>
+              <span className="font-extrabold text-[hsl(var(--foreground))] font-mono">{activeModel?.name}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-[hsl(var(--muted-foreground))]">VRAM Usage</span>
-              <span className="font-extrabold text-white font-mono">
+              <span className="font-extrabold text-[hsl(var(--foreground))] font-mono">
                 {activeModel?.id === 'triposr' ? '5.2 / 8 GB' : activeModel?.id === 'hunyuan3d-2' ? '7.0 / 8 GB' : '4.0 / 8 GB'}
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-[hsl(var(--muted-foreground))]">Triangles</span>
-              <span className="font-extrabold text-white font-mono">{activeModel?.stats?.triangles}</span>
+              <span className="font-extrabold text-[hsl(var(--foreground))] font-mono">{activeModel?.stats?.triangles}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-[hsl(var(--muted-foreground))]">Vertices</span>
-              <span className="font-extrabold text-white font-mono">{activeModel?.stats?.vertices}</span>
+              <span className="font-extrabold text-[hsl(var(--foreground))] font-mono">{activeModel?.stats?.vertices}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-[hsl(var(--muted-foreground))]">Materials</span>
-              <span className="font-extrabold text-white font-mono">{activeModel?.stats?.materials}</span>
+              <span className="font-extrabold text-[hsl(var(--foreground))] font-mono">{activeModel?.stats?.materials}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-[hsl(var(--muted-foreground))]">Texture Res.</span>
-              <span className="font-extrabold text-white font-mono">{activeModel?.id === 'triposr' || activeModel?.id === 'hunyuan3d-2' ? '4K (PBR)' : '--'}</span>
+              <span className="font-extrabold text-[hsl(var(--foreground))] font-mono">{activeModel?.id === 'triposr' || activeModel?.id === 'hunyuan3d-2' ? '4K (PBR)' : '--'}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-[hsl(var(--muted-foreground))]">File Size (Est.)</span>
@@ -1484,7 +1484,7 @@ export default function ThreeDGenerationTab({
 
         {/* CARD 3: EXPORT OPTIONS */}
         <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-2xl p-4 flex flex-col gap-3" id="export-container">
-          <span className="text-[10px] font-black uppercase tracking-widest text-white border-b border-[hsl(var(--surface-3))] pb-2">EXPORT OPTIONS</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--foreground))] border-b border-[hsl(var(--surface-3))] pb-2">EXPORT OPTIONS</span>
 
           {/* Formats row */}
           <div className="grid grid-cols-5 gap-1 bg-[hsl(var(--surface-2))] p-1 rounded-xl border border-[hsl(var(--surface-3))]">
@@ -1494,8 +1494,8 @@ export default function ThreeDGenerationTab({
                 onClick={() => setExportFormat(fmt)}
                 className={`py-1.5 text-[10px] font-black rounded-lg transition-all ${
                   exportFormat === fmt
-                    ? 'bg-[hsl(var(--primary))] text-black shadow-sm'
-                    : 'text-[hsl(var(--muted-foreground))] hover:text-white'
+                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] shadow-sm'
+                    : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
                 }`}
               >
                 {fmt}
@@ -1524,8 +1524,8 @@ export default function ThreeDGenerationTab({
             }}
             className={`w-full font-black py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all ${
               currentJob?.status === 'completed' || currentJob?.result?.downloadUrls
-                ? 'bg-[hsl(var(--primary))] hover:brightness-110 text-black cursor-pointer shadow-[0_4px_16px_rgba(245,166,35,0.2)]'
-                : 'bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-700/50'
+                ? 'bg-[hsl(var(--primary))] hover:brightness-110 text-[hsl(var(--surface-0))] cursor-pointer shadow-[0_4px_16px_rgba(245,166,35,0.2)]'
+                : 'bg-[hsl(var(--surface-1))] text-[hsl(var(--muted-foreground))] cursor-not-allowed border border-[hsl(var(--border))/0.5]'
             }`}
           >
             <Download size={13} className="stroke-[3]" />
@@ -1536,7 +1536,7 @@ export default function ThreeDGenerationTab({
         {/* CARD 4: RECENT PROJECTS / HISTORY */}
         <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-2xl p-4 flex flex-col gap-3" id="history-container">
           <div className="flex justify-between items-center border-b border-[hsl(var(--surface-3))] pb-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-white">HISTORY</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--foreground))]">HISTORY</span>
             <span className="text-[9px] font-black text-[hsl(var(--primary))] hover:underline cursor-pointer">View All</span>
           </div>
 
@@ -1551,7 +1551,7 @@ export default function ThreeDGenerationTab({
                   <Box size={16} />
                 </div>
                 <div className="flex flex-col min-w-0 flex-1">
-                  <span className="text-xs font-bold text-white truncate">{item.name}</span>
+                  <span className="text-xs font-bold text-[hsl(var(--foreground))] truncate">{item.name}</span>
                   <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">{item.timestamp}</span>
                 </div>
                 <ChevronRight size={12} className="text-[hsl(var(--muted-foreground))]" />

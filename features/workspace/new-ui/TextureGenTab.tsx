@@ -168,7 +168,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
       <div className="w-full lg:w-[380px] flex flex-col gap-6 flex-shrink-0" id="texture-left-panel">
         <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-5" id="texture-inputs-box">
           <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <h2 className="text-lg font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
               <Palette size={20} className="text-[hsl(var(--primary))]" />
               Material & PBR Painting
             </h2>
@@ -184,10 +184,10 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
               <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--neon-green)/0.2)] rounded-xl p-3 flex items-center gap-3">
                 <Palette size={16} className="text-[hsl(var(--neon-green))]" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-white truncate">{uploadedModelName}</p>
+                  <p className="text-xs font-bold text-[hsl(var(--foreground))] truncate">{uploadedModelName}</p>
                   <p className="text-[10px] text-[hsl(var(--muted-foreground))]">{((uploadedModel?.size ?? 0) / 1024).toFixed(1)} KB</p>
                 </div>
-                <button onClick={() => { setUploadedModel(null); setUploadedModelUrl(null); setUploadedModelName(''); }} className="text-[hsl(var(--muted-foreground))] hover:text-white">
+                <button onClick={() => { setUploadedModel(null); setUploadedModelUrl(null); setUploadedModelName(''); }} className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]">
                   <X size={14} />
                 </button>
               </div>
@@ -208,7 +208,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
                 value={texturePrompt}
                 onChange={(e) => setTexturePrompt(e.target.value)}
                 placeholder="Describe PBR materials, finishes, gloss levels, and weathering details..."
-                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-3 text-xs text-white placeholder-[hsl(var(--muted-foreground))] min-h-[90px] max-h-[140px] focus:outline-none focus:border-[hsl(var(--primary))] transition-all resize-y"
+                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-3 text-xs text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))] min-h-[90px] max-h-[140px] focus:outline-none focus:border-[hsl(var(--primary))] transition-all resize-y"
                 id="texture-prompt-textarea"
               />
             </div>
@@ -222,7 +222,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
               </button>
               <button
                 onClick={() => setTexturePrompt('')}
-                className="text-[11px] font-semibold text-[hsl(var(--muted-foreground))] hover:text-white transition-colors"
+                className="text-[11px] font-semibold text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
               >
                 Clear
               </button>
@@ -236,7 +236,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
               <select
                 value={resolution}
                 onChange={(e) => setResolution(e.target.value)}
-                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer"
+                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer"
                 id="texture-res-select"
               >
                 <option value="4K PBR">4K Ultra Detail (High Fidelity)</option>
@@ -251,7 +251,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
               <select
                 value={themeStyle}
                 onChange={(e) => setThemeStyle(e.target.value)}
-                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer"
+                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer"
                 id="texture-style-select"
               >
                 <option value="anime">Anime / Cel-Shaded (Bold Outline, Vibrant Gloss)</option>
@@ -282,12 +282,12 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
             <button
               onClick={handleTextureGen}
               disabled={isProcessing || !texturePrompt}
-              className="w-full bg-[hsl(var(--primary))] hover:brightness-110 active:scale-[0.98] disabled:opacity-50 text-black font-extrabold py-3 rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-[0_4px_15px_rgba(245,166,35,0.2)]"
+              className="w-full bg-[hsl(var(--primary))] hover:brightness-110 active:scale-[0.98] disabled:opacity-50 text-[hsl(var(--surface-0))] font-extrabold py-3 rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-[0_4px_15px_rgba(245,166,35,0.2)]"
               id="trigger-texture-btn"
             >
               {isProcessing ? (
                 <>
-                  <Sparkles size={14} className="animate-spin text-black" />
+                  <Sparkles size={14} className="animate-spin text-[hsl(var(--surface-0))]" />
                   Baking Textures ({resolution})...
                 </>
               ) : (
@@ -306,9 +306,9 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
         
         {/* Background Anime Speed Lines/Aura overlay during baking */}
         {isProcessing && (
-          <div className="absolute inset-0 bg-black/60 z-20 flex flex-col items-center justify-center text-center p-6 animate-speed-lines">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] animate-energy-pulse flex items-center justify-center">
-              <Palette size={36} className="animate-bounce text-black" />
+          <div className="absolute inset-0 bg-[hsl(var(--surface-0)/0.6)] z-20 flex flex-col items-center justify-center text-center p-6 animate-speed-lines">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] animate-energy-pulse flex items-center justify-center text-[hsl(var(--surface-0))] font-extrabold text-xs">
+              <Palette size={36} className="animate-bounce text-[hsl(var(--surface-0))]" />
             </div>
             <h3 className="text-lg font-black text-[hsl(var(--primary))] uppercase tracking-widest mt-6 animate-pulse">
               Painting UV PBR Channels...
@@ -321,7 +321,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
 
         <div className="flex-1 flex flex-col justify-between z-10">
           <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <h3 className="text-sm font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
               <Sliders size={16} className="text-[hsl(var(--primary))]" />
               PBR Channel Diagnostics
             </h3>
@@ -334,7 +334,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
             <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--neon-green)/0.3)] rounded-xl p-5 flex flex-col gap-4 animate-fadeIn">
               <div className="flex items-center gap-2.5">
                 <CheckCircle size={18} className="text-[hsl(var(--neon-green))]" />
-                <span className="text-sm font-bold text-white uppercase tracking-wider">Textures Successfully Baked!</span>
+                <span className="text-sm font-bold text-[hsl(var(--foreground))] uppercase tracking-wider">Textures Successfully Baked!</span>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-[hsl(var(--surface-1))] p-3 rounded-lg border border-[hsl(var(--border))]">
@@ -349,14 +349,14 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
               <div className="bg-[hsl(var(--surface-1))] p-4 rounded-lg border border-[hsl(var(--border))] flex flex-col gap-2">
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-[hsl(var(--muted-foreground))]">Specular Roughness:</span>
-                  <span className="font-semibold text-white">{successResult.roughnessStatus}</span>
+                  <span className="font-semibold text-[hsl(var(--foreground))]">{successResult.roughnessStatus}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs border-t border-white/[0.03] pt-2">
                   <span className="text-[hsl(var(--muted-foreground))]">Metalness Channel:</span>
-                  <span className="font-semibold text-white">{successResult.metalnessStatus}</span>
+                  <span className="font-semibold text-[hsl(var(--foreground))]">{successResult.metalnessStatus}</span>
                 </div>
               </div>
-              <p className="text-xs text-[hsl(var(--muted-foreground))] leading-relaxed italic bg-black/45 p-3 rounded-lg border border-[hsl(var(--border))]">
+              <p className="text-xs text-[hsl(var(--muted-foreground))] leading-relaxed italic bg-[hsl(var(--surface-0)/0.45)] p-3 rounded-lg border border-[hsl(var(--border))]">
                 💡 Baked PBR Materials: {successResult.texturesDescription}
               </p>
             </div>

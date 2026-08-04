@@ -531,7 +531,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
         >
           {/* Header */}
           <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <h2 className="text-lg font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
               <Activity size={20} className="text-[hsl(var(--primary))]" />
               3D Rigging & Animation
             </h2>
@@ -555,7 +555,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                   <Box size={18} className="text-[hsl(var(--primary))]" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-white truncate">
+                  <p className="text-xs font-bold text-[hsl(var(--foreground))] truncate">
                     {uploadedModelName}
                   </p>
                   <p className="text-[10px] text-[hsl(var(--muted-foreground))] truncate font-mono">
@@ -564,7 +564,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                 </div>
                 <button
                   onClick={clearUploadedModel}
-                  className="text-[hsl(var(--muted-foreground))] hover:text-white transition-colors"
+                  className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
                   aria-label="Remove uploaded model"
                 >
                   <X size={14} />
@@ -576,7 +576,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                   <Activity size={18} className="text-[hsl(var(--primary))]" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-white truncate">
+                  <p className="text-xs font-bold text-[hsl(var(--foreground))] truncate">
                     {activeModel.name}
                   </p>
                   <p className="text-[10px] text-[hsl(var(--muted-foreground))] truncate font-mono">
@@ -618,13 +618,13 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
           >
             <div className="flex items-center gap-2">
               <Bone size={14} className="text-[hsl(var(--primary))]" />
-              <span className="text-xs font-bold text-white">Rigging Options</span>
+              <span className="text-xs font-bold text-[hsl(var(--foreground))]">Rigging Options</span>
             </div>
 
             {/* Auto Rig Toggle */}
             <div className="flex items-center justify-between">
               <div className="flex flex-col">
-                <span className="text-xs font-bold text-white">Auto Rig</span>
+                <span className="text-xs font-bold text-[hsl(var(--foreground))]">Auto Rig</span>
                 <span className="text-[9px] text-[hsl(var(--muted-foreground))] mt-1">
                   Automatically detect and generate skeleton
                 </span>
@@ -646,7 +646,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                 <select
                   value={rigType}
                   onChange={(e) => setRigType(e.target.value)}
-                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 pr-8 text-xs text-white focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none"
+                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 pr-8 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none"
                   id="rig-type-select"
                 >
                   {RIG_TYPES.map((r) => (
@@ -679,7 +679,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                 <select
                   value={boneStructure}
                   onChange={(e) => setBoneStructure(e.target.value)}
-                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 pr-8 text-xs text-white focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none"
+                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 pr-8 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none"
                   id="bone-structure-select"
                 >
                   {BONE_STRUCTURES.map((b) => (
@@ -703,7 +703,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
           <div className="flex flex-col gap-4" id="animation-presets-section">
             <div className="flex items-center gap-2">
               <Play size={14} className="text-[hsl(var(--primary))]" />
-              <span className="text-xs font-bold text-white">Animation Presets</span>
+              <span className="text-xs font-bold text-[hsl(var(--foreground))]">Animation Presets</span>
             </div>
 
             <div className="grid grid-cols-3 gap-2">
@@ -747,13 +747,13 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
           <div className="flex flex-col gap-4" id="animation-settings-section">
             <div className="flex items-center gap-2">
               <Zap size={14} className="text-[hsl(var(--primary))]" />
-              <span className="text-xs font-bold text-white">Animation Settings</span>
+              <span className="text-xs font-bold text-[hsl(var(--foreground))]">Animation Settings</span>
             </div>
 
             {/* Loop Toggle */}
             <div className="flex items-center justify-between">
               <div className="flex flex-col">
-                <span className="text-xs font-bold text-white">Loop</span>
+                <span className="text-xs font-bold text-[hsl(var(--foreground))]">Loop</span>
                 <span className="text-[9px] text-[hsl(var(--muted-foreground))] mt-1">
                   Repeat animation continuously
                 </span>
@@ -797,7 +797,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                 <select
                   value={blendMode}
                   onChange={(e) => setBlendMode(e.target.value)}
-                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 pr-8 text-xs text-white focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none"
+                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 pr-8 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none"
                   id="blend-mode-select"
                 >
                   {BLEND_MODES.map((b) => (
@@ -833,12 +833,12 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             <button
               onClick={handleApplyRigging}
               disabled={isRigging}
-              className="w-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] hover:brightness-110 active:scale-[0.98] text-black font-extrabold py-3.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-[0_4px_15px_rgba(245,166,35,0.2)] mt-4"
+              className="w-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] hover:brightness-110 active:scale-[0.98] text-[hsl(var(--surface-0))] font-extrabold py-3.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-[0_4px_15px_rgba(245,166,35,0.2)] mt-4"
               id="apply-rigging-btn"
             >
               {isRigging ? (
                 <>
-                  <RefreshCw size={14} className="animate-spin text-black" />
+                  <RefreshCw size={14} className="animate-spin text-[hsl(var(--surface-0))]" />
                   Rigging...
                 </>
               ) : (
@@ -852,7 +852,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             <button
               onClick={handlePreviewAnimation}
               disabled={!riggingComplete || !selectedPreset}
-              className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/50 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl py-3.5 text-xs font-bold text-white flex items-center justify-center gap-2 transition-all mt-4"
+              className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/50 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl py-3.5 text-xs font-bold text-[hsl(var(--foreground))] flex items-center justify-center gap-2 transition-all mt-4"
               id="preview-animation-btn"
             >
               {isPlaying ? (
@@ -871,7 +871,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             {riggingComplete && (
               <button
                 onClick={handleExportRigged}
-                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-emerald-500/50 rounded-xl py-3.5 text-xs font-bold text-white flex items-center justify-center gap-2 transition-all mt-4"
+                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-emerald-500/50 rounded-xl py-3.5 text-xs font-bold text-[hsl(var(--foreground))] flex items-center justify-center gap-2 transition-all mt-4"
                 id="export-rigged-btn"
               >
                 <Download size={13} className="text-[hsl(var(--neon-green))]" />
@@ -913,8 +913,8 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
         {/* Processing Overlay */}
         {isRigging && (
           <div className="absolute inset-0 bg-[hsl(var(--surface-0)/0.6)] z-20 flex flex-col items-center justify-center text-center p-6 animate-speed-lines">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] animate-energy-pulse flex items-center justify-center text-black font-extrabold text-xs">
-              <Bone size={36} className="animate-spin text-black stroke-[3]" />
+            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] animate-energy-pulse flex items-center justify-center text-[hsl(var(--surface-0))] font-extrabold text-xs">
+              <Bone size={36} className="animate-spin text-[hsl(var(--surface-0))] stroke-[3]" />
             </div>
             <h3 className="text-lg font-black text-[hsl(var(--primary))] uppercase tracking-widest mt-6 animate-pulse">
               Rigging Model...
@@ -937,7 +937,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
         <div className="flex-1 flex flex-col gap-6 z-10">
           {/* Header */}
           <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <h3 className="text-sm font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
               <Eye size={16} className="text-[hsl(var(--primary))]" />
               Preview & Results
             </h3>
@@ -971,7 +971,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[hsl(var(--primary))]/20 to-transparent flex items-center justify-center border border-[hsl(var(--primary))]/20 mb-3">
                     <PersonStanding size={32} className="text-[hsl(var(--primary))]" />
                   </div>
-                  <p className="text-xs font-bold text-white">
+                  <p className="text-xs font-bold text-[hsl(var(--foreground))]">
                     {uploadedModelName || activeModel.name}
                   </p>
                   <p className="text-[10px] text-[hsl(var(--neon-green))] mt-1 flex items-center gap-1">
@@ -1126,7 +1126,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                       const IconComp = currentPreset.icon;
                       return <IconComp size={14} className="text-[hsl(var(--primary))]" />;
                     })()}
-                    <span className="text-xs font-bold text-white">
+                    <span className="text-xs font-bold text-[hsl(var(--foreground))]">
                       {currentPreset.label}
                     </span>
                   </div>
@@ -1187,11 +1187,11 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
               <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1 leading-relaxed">
                 Auto-rigging detects body segments and generates a bone skeleton
                 with proper weight maps.{' '}
-                <strong className="text-white">Full Body Rig</strong> includes all
+                <strong className="text-[hsl(var(--foreground))]">Full Body Rig</strong> includes all
                 limbs,{' '}
-                <strong className="text-white">Upper Body</strong> covers torso
+                <strong className="text-[hsl(var(--foreground))]">Upper Body</strong> covers torso
                 and arms, and{' '}
-                <strong className="text-white">Lower Body</strong> covers hips
+                <strong className="text-[hsl(var(--foreground))]">Lower Body</strong> covers hips
                 and legs. Animation presets are applied after rigging is complete.
                 Export as FBX for use in game engines and 3D software.
               </p>

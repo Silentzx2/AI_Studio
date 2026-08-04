@@ -209,7 +209,7 @@ export default function SettingsTab() {
       {/* Tab Header */}
       <div>
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+          <h2 className="text-lg font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
             <Settings size={20} className="text-[hsl(var(--neon-amber))]" />
             Platform Configurations & Real System Diagnostics
           </h2>
@@ -233,7 +233,7 @@ export default function SettingsTab() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" id="settings-grid">
         {/* Left Card: Core Integration Keys */}
         <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-5" id="settings-keys-box">
-          <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+          <h3 className="text-xs font-bold text-[hsl(var(--foreground))] uppercase tracking-wider flex items-center gap-2">
             <Key size={14} className="text-[hsl(var(--neon-amber))]" />
             Secure API Secrets Configuration
           </h3>
@@ -246,7 +246,7 @@ export default function SettingsTab() {
               value={hfToken}
               onChange={(e) => setHfToken(e.target.value)}
               disabled={isLoading}
-              className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-3 text-xs text-white placeholder-[hsl(var(--muted-foreground))] focus:outline-none focus:border-[hsl(var(--neon-amber))] transition-all font-mono disabled:opacity-50"
+              className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-3 text-xs text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))] focus:outline-none focus:border-[hsl(var(--neon-amber))] transition-all font-mono disabled:opacity-50"
               id="settings-gemini-key-input"
             />
             <p className="text-[10px] text-[hsl(var(--muted-foreground))] leading-relaxed">
@@ -254,7 +254,7 @@ export default function SettingsTab() {
             </p>
           </div>
 
-          <div className="flex items-center justify-between p-3 bg-white/[0.02] border border-white/[0.04] rounded-xl text-[11px]" id="secrets-verification">
+          <div className="flex items-center justify-between p-3 bg-[hsl(var(--foreground)/0.02)] border border-[hsl(var(--foreground)/0.04)] rounded-xl text-[11px]" id="secrets-verification">
             <span className="text-[hsl(var(--muted-foreground))]">Backend Sync Status:</span>
             <span className={`font-mono font-bold flex items-center gap-1.5 ${backendStatus === 'connected' ? 'text-[hsl(var(--neon-green))]' : 'text-[hsl(var(--destructive))]'}`}>
               <Check size={12} className="stroke-[3]" />
@@ -268,7 +268,7 @@ export default function SettingsTab() {
               value={aiProvider}
               onChange={(e) => setAiProvider(e.target.value)}
               disabled={isLoading}
-              className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-[hsl(var(--neon-amber))] cursor-pointer font-mono disabled:opacity-50"
+              className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--neon-amber))] cursor-pointer font-mono disabled:opacity-50"
             >
               <option value="hunyuan3d-2.1">Hunyuan3D-2 Neural Mesh</option>
               <option value="trellis">Trellis Dense MVS</option>
@@ -280,7 +280,7 @@ export default function SettingsTab() {
 
         {/* Right Card: Renderer Settings */}
         <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-5" id="settings-rendering-box">
-          <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+          <h3 className="text-xs font-bold text-[hsl(var(--foreground))] uppercase tracking-wider flex items-center gap-2">
             <Sliders size={14} className="text-[hsl(var(--neon-amber))]" />
             Viewport & Export Parameters
           </h3>
@@ -289,7 +289,7 @@ export default function SettingsTab() {
             {/* Ray tracing toggle */}
             <div className="flex items-center justify-between" id="param-raytracing">
               <div className="flex flex-col gap-0.5">
-                <span className="text-xs font-bold text-white">Post-Process Ray-Baking</span>
+                <span className="text-xs font-bold text-[hsl(var(--foreground))]">Post-Process Ray-Baking</span>
                 <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Calculates physical ray bounces for shadows</span>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -309,7 +309,7 @@ export default function SettingsTab() {
               <select
                 value={antiAliasing}
                 onChange={(e) => setAntiAliasing(e.target.value)}
-                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-[hsl(var(--neon-amber))] cursor-pointer"
+                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--neon-amber))] cursor-pointer"
                 id="anti-aliasing-dropdown"
               >
                 <option value="SMAA">SMAA (Post-Process, Fast)</option>
@@ -326,7 +326,7 @@ export default function SettingsTab() {
                 value={defaultFormat}
                 onChange={(e) => setDefaultFormat(e.target.value)}
                 disabled={isLoading}
-                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-[hsl(var(--neon-amber))] cursor-pointer disabled:opacity-50"
+                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--neon-amber))] cursor-pointer disabled:opacity-50"
                 id="default-format-dropdown"
               >
                 <option value="GLB">GLB (gLTF Binary Assembly)</option>
@@ -340,7 +340,7 @@ export default function SettingsTab() {
 
         {/* Card 3: Real Server Hardware */}
         <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-4">
-          <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+          <h3 className="text-xs font-bold text-[hsl(var(--foreground))] uppercase tracking-wider flex items-center gap-2">
             <Server size={14} className="text-[hsl(var(--neon-amber))]" />
             Backend Hardware & Runtime Specs
           </h3>
@@ -348,7 +348,7 @@ export default function SettingsTab() {
           <div className="grid grid-cols-2 gap-3 text-xs font-mono">
             <div className="bg-[hsl(var(--surface-2))] p-3 rounded-xl border border-[hsl(var(--border))] flex flex-col gap-1">
               <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase">GPU Accelerator</span>
-              <span className="font-bold text-white text-[11px] truncate" title={sysSpecs.gpuRenderer}>
+              <span className="font-bold text-[hsl(var(--foreground))] text-[11px] truncate" title={sysSpecs.gpuRenderer}>
                 {sysSpecs.gpuRenderer}
               </span>
             </div>
@@ -362,7 +362,7 @@ export default function SettingsTab() {
 
             <div className="bg-[hsl(var(--surface-2))] p-3 rounded-xl border border-[hsl(var(--border))] flex flex-col gap-1">
               <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase">CPU Cores</span>
-              <span className="font-bold text-white text-[11px]">
+              <span className="font-bold text-[hsl(var(--foreground))] text-[11px]">
                 {sysSpecs.cores} Threads
               </span>
             </div>
@@ -378,14 +378,14 @@ export default function SettingsTab() {
 
         {/* Card 4: Server Storage */}
         <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-4">
-          <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+          <h3 className="text-xs font-bold text-[hsl(var(--foreground))] uppercase tracking-wider flex items-center gap-2">
             <HardDrive size={14} className="text-[hsl(var(--neon-amber))]" />
             Backend Storage & Workspace
           </h3>
 
           <div className="flex justify-between items-center bg-[hsl(var(--surface-2))] p-3 rounded-xl border border-[hsl(var(--border))] text-xs">
             <div className="flex flex-col gap-0.5">
-              <span className="font-bold text-white">Server Storage Usage</span>
+              <span className="font-bold text-[hsl(var(--foreground))]">Server Storage Usage</span>
               <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Models, thumbnails & generated meshes</span>
             </div>
             <span className="font-mono font-bold text-[hsl(var(--neon-amber))]">
@@ -412,7 +412,7 @@ export default function SettingsTab() {
         <button
           onClick={handleSaveSettings}
           disabled={backendStatus === 'offline'}
-          className="px-6 py-3 rounded-xl bg-gradient-to-r from-[hsl(var(--neon-amber))] to-[hsl(var(--neon-amber))] text-black font-extrabold text-xs flex items-center gap-2 hover:brightness-110 transition-all shadow-[0_4px_16px_rgba(255,90,31,0.25)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-6 py-3 rounded-xl bg-gradient-to-r from-[hsl(var(--neon-amber))] to-[hsl(var(--neon-amber))] text-[hsl(var(--surface-0))] font-extrabold text-xs flex items-center gap-2 hover:brightness-110 transition-all shadow-[0_4px_16px_rgba(255,90,31,0.25)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           id="settings-save-btn"
         >
           {isSaved ? (
@@ -435,7 +435,7 @@ export default function SettingsTab() {
           className="flex items-center justify-between w-full px-4 py-3 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/40 transition-colors group"
         >
           <div>
-            <p className="text-xs font-bold text-white">Full Settings Panel</p>
+            <p className="text-xs font-bold text-[hsl(var(--foreground))]">Full Settings Panel</p>
             <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-0.5">Appearance, network, security, advanced options</p>
           </div>
           <Server size={16} className="text-[hsl(var(--muted-foreground))] group-hover:text-[hsl(var(--primary))] transition-colors flex-shrink-0" />

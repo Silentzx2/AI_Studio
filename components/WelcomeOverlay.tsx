@@ -139,7 +139,7 @@ export function WelcomeOverlay() {
 
           {/* Glass backdrop */}
           <motion.div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            className="absolute inset-0 bg-[hsl(var(--surface-0)/0.4)] backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -198,7 +198,7 @@ export function WelcomeOverlay() {
             <motion.div variants={itemVariants} className="flex flex-col items-center gap-3">
               <motion.button
                 onClick={dismiss}
-                className="relative inline-flex items-center justify-center h-12 px-8 rounded-xl font-semibold text-sm text-white border-0 cursor-pointer overflow-hidden"
+                className="relative inline-flex items-center justify-center h-12 px-8 rounded-xl font-semibold text-sm text-[hsl(var(--foreground))] border-0 cursor-pointer overflow-hidden"
                 style={{
                   boxShadow: '0 0 20px hsl(var(--neon-purple)) / 0.3, 0 0 40px hsl(var(--neon-purple)) / 0.1',
                 }}
