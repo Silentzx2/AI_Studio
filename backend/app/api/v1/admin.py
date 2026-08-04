@@ -246,6 +246,10 @@ _admin_handler = _AdminLogHandler()
 _admin_handler.setFormatter(logging.Formatter("%(message)s"))
 logging.getLogger().addHandler(_admin_handler)
 
+# Open the persistent log file at import time so every log record emitted
+# during app import / startup is captured (before lifespan runs).
+init_log_file_handler()
+
 # ---------------------------------------------------------------------------
 # Terminal command execution
 # ---------------------------------------------------------------------------
