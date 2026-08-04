@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class StorageConfig:
     """Centralized storage configuration — single source of truth."""
 
-    backend_root: Path = field(default_factory=lambda: Path(__file__).parent.parent)
+    backend_root: Path = field(default_factory=lambda: Path(__file__).resolve().parent.parent)
     third_party_dir: Path = field(default_factory=lambda: None)   # type: ignore
     weights_dir: Path = field(default_factory=lambda: None)        # type: ignore
     hf_cache_dirs: list[Path] = field(default_factory=list)

@@ -189,8 +189,9 @@ async def lifespan(app: FastAPI):
 
     # Initialize thread-safe log broadcasting for admin panel
     try:
-        from app.api.v1.admin import init_log_event_loop
+        from app.api.v1.admin import init_log_event_loop, init_logging_sinks
         init_log_event_loop()
+        init_logging_sinks()
     except Exception:
         pass
 

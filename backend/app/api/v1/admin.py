@@ -40,6 +40,113 @@ import time as _time_module
 _STARTUP_TIME = _time_module.time()
 
 # ---------------------------------------------------------------------------
+# Persistent file-backed log sink.
+#
+# _AdminLogHandler only broadcasts to SSE subscribers (in-memory). To make the
+# Logs page show the *complete* application history (startup, downloads, DB,
+# installs, API requests, errors) we also persist every record to a rotating
+# file on disk. The frontend reads that file via /admin/logs/file.
+#
+# ponytail: single rotating file, 5MB x 5 — fine for a single-node studio.
+# Swap for external log shipping (Loki/OTel) if this ever runs multi-host.
+# ---------------------------------------------------------------------------
+
+_LOG_FILE: Path | None = None
+_LOG_FILE_HANDLER: RotatingFileHandler | None = None
+
+
+def _resolve_log_file() -> Path:
+    """Locate the studio log file, creating the logs/ dir if needed."""
+    global _LOG_FILE
+    if _LOG_FILE is not None:
+        return _LOG_FILE
+    candidates = [
+        os.environ.get("STUDIO_LOG_FILE"),
+        str(Path(getattr(settings, "storage_local_path", "backend/storage")).parent.parent / "logs" / "app.log")
+        if getattr(settings, "storage_local_path", None)
+        else None,
+    ]
+    for c in candidates:
+        if c:
+            p = Path(c)
+            try:
+                p.parent.mkdir(parents=True, exist_ok=True)
+                _LOG_FILE = p
+                return p
+            except Exception:
+                continue
+    # Fallback: project-root/logs/app.log (relative to backend/.. => repo root)
+    p = Path(__file__).resolve().parents[4] / "logs" / "app.log"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    _LOG_FILE = p
+    return p
+
+
+def init_log_file_handler() -> RotatingFileHandler | None:
+    """Open the rotating log file (managed directly, not via the logging
+    root handler — uvicorn's dictConfig would otherwise disable it).
+
+    Returns the open file object, or None on failure. Safe to call repeatedly.
+    """
+    global _LOG_FILE_HANDLER
+    if _LOG_FILE_HANDLER is not None:
+        return _LOG_FILE_HANDLER
+    try:
+        log_path = _resolve_log_file()
+        # ponytail: line-based rotation by size, single backup. Simple and
+        # dependency-free; upgrade to RotatingFileHandler-on-root if uvicorn
+        # logging stops swallowing the root handler.
+        h = open(str(log_path), "a", encoding="utf-8", buffering=1)
+        _LOG_FILE_HANDLER = h
+        logger.info("Admin persistent log file opened: %s", log_path)
+    except Exception as exc:
+        logger.warning("Failed to open log file: %s", exc)
+    return _LOG_FILE_HANDLER
+
+
+def read_log_file(limit: int = 500, level: str = "", search: str = "") -> list[dict]:
+    """Read the persisted log file (most-recent first) with optional filters."""
+    init_log_file_handler()
+    path = _resolve_log_file()
+    if not path.exists():
+        return []
+    out: list[dict] = []
+    try:
+        # ponytail: naive tail-by-reverse-read; fine for <=5MB files. For very
+        # large volumes, switch to seek-based tail.
+        with path.open("r", encoding="utf-8", errors="replace") as fh:
+            lines = fh.read().splitlines()
+    except Exception:
+        return []
+    level = (level or "").upper()
+    search = (search or "").lower()
+    for raw in reversed(lines):
+        raw = raw.strip()
+        if not raw:
+            continue
+        # Parse: 2026-08-04 12:00:00,123 [LEVEL] logger.name: message
+        import re as _re
+        m = _re.match(r"^(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?)\s*\[([A-Z]+)\]\s*([^:]+):\s*(.*)$", raw)
+        if m:
+            ts, lvl, src, msg = m.group(1), m.group(2), m.group(3).strip(), m.group(4)
+        else:
+            ts, lvl, src, msg = "", "INFO", "", raw
+        if level and lvl.upper() != level:
+            continue
+        if search and search not in msg.lower() and search not in src.lower():
+            continue
+        out.append({
+            "id": str(len(out)),
+            "timestamp": ts,
+            "level": lvl.lower(),
+            "source": src,
+            "message": msg,
+        })
+        if len(out) >= limit:
+            break
+    return out
+
+# ---------------------------------------------------------------------------
 # In-memory log ring-buffer + SSE broadcast (thread-safe)
 # ---------------------------------------------------------------------------
 
@@ -62,24 +169,64 @@ def init_log_event_loop() -> None:
         pass
 
 
+def init_logging_sinks() -> None:
+    """Attach both the SSE broadcast handler (already done at import) and the
+    persistent file handler. Called once at FastAPI lifespan startup so the
+    Logs page captures the full application history."""
+    try:
+        init_log_file_handler()
+    except Exception:
+        pass
+
+
 class _AdminLogHandler(logging.Handler):
-    """Thread-safe log handler that broadcasts to SSE subscribers.
+    """Thread-safe log handler that broadcasts to SSE subscribers AND persists
+    every record to a rotating file on disk (source of truth for the Logs page).
 
     Uses call_soon_threadsafe to safely put entries into asyncio.Queue
     from any thread (including background install threads).
+
+    ponytail: the file write is synchronous + lock-guarded. For very
+    high-volume logging, batch writes to a background thread — but at studio
+    log rates this is negligible and far simpler.
     """
     def emit(self, record: logging.LogRecord) -> None:
+        msg = self.format(record)
         entry = {
             "ts": datetime.utcnow().isoformat(),
             "level": record.levelname,
             "logger": record.name,
-            "message": self.format(record),
+            "message": msg,
         }
         # Buffer is thread-safe under GIL for list append/pop
         with _LOG_LOCK:
             _LOG_BUFFER.append(entry)
             if len(_LOG_BUFFER) > _LOG_BUFFER_MAX:
                 _LOG_BUFFER.pop(0)
+
+        # Persist to the rotating log file (best-effort, direct write —
+        # independent of the logging root config which uvicorn overrides).
+        fh = _LOG_FILE_HANDLER
+        if fh is not None:
+            try:
+                from datetime import datetime as _dt
+                line = f"{_dt.now().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]} [{record.levelname}] {record.name}: {msg}\n"
+                fh.write(line)
+                fh.flush()
+                # ponytail: naive size-based rotation, single backup.
+                if fh.tell() > 5 * 1024 * 1024:
+                    fh.close()
+                    log_path = _resolve_log_file()
+                    backup = log_path.with_suffix(log_path.suffix + ".1")
+                    try:
+                        if backup.exists():
+                            backup.unlink()
+                        log_path.replace(backup)
+                    except Exception:
+                        pass
+                    _LOG_FILE_HANDLER = open(str(log_path), "a", encoding="utf-8", buffering=1)
+            except Exception:
+                pass
 
         # Thread-safe broadcast to SSE subscribers
         loop = _LOG_EVENT_LOOP
@@ -1034,19 +1181,48 @@ async def get_logs(
     level: str = "",
     search: str = "",
 ):
-    with _LOG_LOCK:
-        entries = list(_LOG_BUFFER)
-    if level:
-        entries = [e for e in entries if e.get("level") == level.upper()]
-    if search:
-        entries = [e for e in entries if search.lower() in e.get("message", "").lower()]
-    return success({"logs": entries[-limit:], "total": len(entries)})
+    """Return the most-recent persisted application logs (file-backed).
+
+    The in-memory SSE buffer is ephemeral; the file sink retains the full
+    history (startup, downloads, installs, DB ops, API requests, errors),
+    which is what the Logs page renders.
+    """
+    try:
+        entries = read_log_file(limit=min(limit, 2000), level=level, search=search)
+    except Exception:
+        with _LOG_LOCK:
+            entries = list(_LOG_BUFFER)
+        if level:
+            entries = [e for e in entries if e.get("level") == level.upper()]
+        if search:
+            entries = [e for e in entries if search.lower() in e.get("message", "").lower()]
+    return success({"logs": entries, "total": len(entries)})
+
+
+@router.get("/logs/file")
+async def get_logs_file(
+    limit: int = Query(500, ge=1, le=5000),
+    level: str = "",
+    search: str = "",
+):
+    """Raw, file-backed log tail — the source of truth for the Logs page."""
+    try:
+        entries = read_log_file(limit=min(limit, 5000), level=level, search=search)
+    except Exception as exc:
+        return error(f"Failed to read logs: {exc}")
+    return success({"logs": entries, "total": len(entries), "source": "file"})
 
 
 @router.delete("/logs")
 async def clear_logs():
     with _LOG_LOCK:
         _LOG_BUFFER.clear()
+    try:
+        path = _resolve_log_file()
+        if path.exists():
+            path.write_text("")
+    except Exception:
+        pass
     return success({"cleared": True})
 
 
