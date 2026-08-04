@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Shape3D } from '@/types/new-ui';
+import { useProjectStore } from '@/stores/useProjectStore';
 
 interface RiggingAnimationTabProps {
   activeModel: {
@@ -148,6 +149,7 @@ const SUPPORTED_FORMATS = [
 ];
 
 export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavigate }: RiggingAnimationTabProps) {
+  const { addLayer, currentProject } = useProjectStore();
   const [uploadedModel, setUploadedModel] = useState<File | null>(null);
   const [uploadedModelUrl, setUploadedModelUrl] = useState<string | null>(null);
   const [uploadedModelName, setUploadedModelName] = useState<string>('');
@@ -429,6 +431,23 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                 boneCount: statusData.data?.bone_count || statusData.data?.result?.bone_count || 0,
                 jointHierarchy: statusData.data?.joint_hierarchy || statusData.data?.result?.joint_hierarchy || '',
                 rigWeightMap: statusData.data?.weight_map || statusData.data?.result?.weight_map || 'Complete',
+              });
+
+              addLayer({
+                id: `rigging-${Date.now()}`,
+                type: 'rigging',
+                name: `Rig (${rigType})`,
+                enabled: true,
+                visible: true,
+                data: {
+                  boneCount: statusData.data?.bone_count || statusData.data?.result?.bone_count || 0,
+                  jointHierarchy: statusData.data?.joint_hierarchy || statusData.data?.result?.joint_hierarchy || '',
+                  rigWeightMap: statusData.data?.weight_map || statusData.data?.result?.weight_map || 'Complete',
+                  rigType,
+                  boneStructure,
+                },
+                sourceTab: 'RiggingAnimation',
+                timestamp: new Date(),
               });
 
               toast.success('Rigging complete!', {

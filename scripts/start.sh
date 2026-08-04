@@ -43,40 +43,167 @@ if ! command -v uv &>/dev/null; then
     log "uv installed: $(uv --version)"
 fi
 
-# ── Load .env ──────────────────────────────────────────────────────────────
+# ── Environment Detection ──────────────────────────────────────────
+
+detect_environment() {
+    if [[ -n "${CODESPACES:-}" || -n "${GITHUB_CODESPACE_NAME:-}" ]]; then
+        echo "codespaces"
+    elif [[ -n "${COLAB_GPU:-}" || -n "${COLAB_TPU_ADDR:-}" || -d "/content" ]]; then
+        echo "colab"
+    elif [[ -n "${NB_SESSION_ID:-}" || -n "${JUPYTER_BASE_URL:-}" || -d "/home/jovyan" ]]; then
+        echo "cloud-notebook"
+    elif [[ -n "${KUBERNETES_SERVICE_HOST:-}" || -n "${CONTAINER_NAME:-}" ]]; then
+        echo "container"
+    else
+        echo "local"
+    fi
+}
+
+detect_gpu() {
+    if command -v nvidia-smi &>/dev/null; then
+        local count
+        count=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | wc -l)
+        if [[ "$count" -gt 0 ]]; then
+            echo "gpu"
+            return
+        fi
+    fi
+    echo "cpu"
+}
+
+# ── Auto-bootstrap for cloud/Colab environments ──────────────────
+
+auto_bootstrap() {
+    local env_type
+    env_type=$(detect_environment)
+
+    if [[ "$env_type" == "local" ]]; then
+        return 0
+    fi
+
+    step "Auto-bootstrap for ${env_type} environment..."
+
+    # Install uv if missing
+    if ! command -v uv &>/dev/null; then
+        info "Installing uv..."
+        curl -LsSf https://astral.sh/uv/install.sh | sh || {
+            err "Failed to install uv. Install manually: https://docs.astral.sh/uv/"
+            exit 1
+        }
+        export PATH="$HOME/.local/bin:$PATH"
+        if [[ -f "$HOME/.local/bin/uv" ]] && [[ ! -e /usr/local/bin/uv ]]; then
+            ln -sf "$HOME/.local/bin/uv" /usr/local/bin/uv 2>/dev/null || true
+        fi
+        log "uv installed: $(uv --version)"
+    fi
+
+    # Colab-specific: ensure venv module is available
+    if [[ "$env_type" == "colab" ]]; then
+        if ! python3 -c "import venv" 2>/dev/null; then
+            warn "venv module missing, installing python3-venv..."
+            sudo apt-get update -qq && sudo apt-get install -y python3-venv 2>/dev/null || true
+        fi
+        export USE_SQLITE=1
+        warn "Colab detected — using SQLite fallback for database and in-process broker for Celery."
+    fi
+
+    # Codespaces/cloud notebooks: use SQLite fallback
+    if [[ "$env_type" == "codespaces" || "$env_type" == "cloud-notebook" ]]; then
+        export USE_SQLITE=1
+        warn "${env_type} detected — using SQLite fallback for database and in-process broker for Celery."
+    fi
+
+    # Ensure backend venv exists
+    if [[ ! -x backend/.venv/bin/python ]]; then
+        info "Creating backend virtual environment..."
+        uv venv --python 3.12 backend/.venv || {
+            err "Failed to create backend venv"
+            exit 1
+        }
+        log "Backend venv created"
+    fi
+
+    # Install backend deps if needed
+    if [[ -f backend/requirements.txt ]] && [[ -x backend/.venv/bin/python ]]; then
+        info "Installing backend dependencies..."
+        local gpu_type
+        gpu_type=$(detect_gpu)
+        if [[ "$gpu_type" == "gpu" ]]; then
+            uv pip install --python backend/.venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
+                --index-url https://download.pytorch.org/whl/cu121 -q 2>/dev/null || true
+        else
+            uv pip install --python backend/.venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
+                --index-url https://download.pytorch.org/whl/cpu -q 2>/dev/null || true
+        fi
+        uv pip install --python backend/.venv/bin/python -r backend/requirements.txt -q 2>/dev/null || true
+        log "Backend dependencies installed"
+    fi
+
+    # Ensure Node.js
+    if ! command -v npm &>/dev/null; then
+        warn "Node.js/npm not found — attempting to install..."
+        if command -v curl &>/dev/null; then
+            curl -fsSL https://deb.nodesource.com/setup_20.x 2>/dev/null | sudo bash - 2>/dev/null || true
+            sudo apt-get install -y nodejs 2>/dev/null || true
+        fi
+    fi
+
+    # Ensure frontend deps
+    if [[ ! -d node_modules ]]; then
+        info "Installing frontend dependencies..."
+        npm ci --prefer-offline --no-audit 2>/dev/null || npm install --no-audit 2>/dev/null || true
+    fi
+
+    # Ensure storage directories exist
+    mkdir -p backend/storage/uploads backend/storage/models backend/storage/thumbnails
+    mkdir -p backend/storage/exports backend/storage/images backend/third_party/.hf_cache/hub
+    mkdir -p backend/.runtime_cache logs .pids
+
+    log "Auto-bootstrap complete for ${env_type}"
+}
+
+# ── Run auto-bootstrap then load .env ──────────────────────
+auto_bootstrap
+
+# ── Load .env ──────────────────────────────────────────────────────
 if [[ ! -f .env ]]; then
-    err "No .env found. Run: sudo bash scripts/setup.sh"
-    exit 1
+    warn "No .env found — running auto-setup..."
+    if [[ -f scripts/setup.sh ]]; then
+        bash scripts/setup.sh || { err "Auto-setup failed. Run: bash scripts/setup.sh"; exit 1; }
+    else
+        err "No .env found and scripts/setup.sh missing — cannot bootstrap."
+        exit 1
+    fi
 fi
 set -a
 source .env
 set +a
 
 # ── Ensure Python venv exists ─────────────────────────────────────────────
-if [[ ! -f backend/.venv/bin/python ]]; then
-    err "Python venv not found at backend/.venv"
-    err "Run: sudo bash scripts/setup.sh"
-    exit 1
-fi
-
-PYTHON_BIN="${PROJECT_ROOT}/backend/.venv/bin/python"
-PIP_BIN="${PROJECT_ROOT}/backend/.venv/bin/pip"
-UVICORN_BIN="${PROJECT_ROOT}/backend/.venv/bin/uvicorn"
-CELERY_BIN="${PROJECT_ROOT}/backend/.venv/bin/celery"
-
-# ── Ensure Node.js is available ────────────────────────────────────────────
-if ! command -v npm &>/dev/null; then
-    err "Node.js/npm not found. Run: sudo bash scripts/setup.sh"
-    exit 1
-fi
-
-# ── Auto-bootstrap if backend venv is missing (fresh environment) ──────────
 if [[ ! -x backend/.venv/bin/python ]]; then
     warn "Backend virtual environment not found — running first-time setup..."
     if [[ -f scripts/setup.sh ]]; then
         bash scripts/setup.sh || { err "Auto-setup failed. Run: bash scripts/setup.sh"; exit 1; }
     else
-        err "scripts/setup.sh missing — cannot bootstrap."; exit 1
+        err "Backend venv not found and scripts/setup.sh missing — cannot bootstrap."
+        exit 1
+    fi
+fi
+
+PYTHON_BIN="${PROJECT_ROOT}/backend/.venv/bin/python"
+UVICORN_BIN="${PROJECT_ROOT}/backend/.venv/bin/uvicorn"
+CELERY_BIN="${PROJECT_ROOT}/backend/.venv/bin/celery"
+
+# ── Ensure Node.js is available ────────────────────────────────────────────
+if ! command -v npm &>/dev/null; then
+    warn "Node.js/npm not found — attempting to install..."
+    if command -v curl &>/dev/null; then
+        curl -fsSL https://deb.nodesource.com/setup_20.x 2>/dev/null | sudo bash - 2>/dev/null || true
+        sudo apt-get install -y nodejs 2>/dev/null || true
+    fi
+    if ! command -v npm &>/dev/null; then
+        err "Node.js/npm not found and auto-install failed. Run: sudo bash scripts/setup.sh"
+        exit 1
     fi
 fi
 

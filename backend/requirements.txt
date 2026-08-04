@@ -54,6 +54,6 @@ pytest==8.3.4
 pytest-asyncio==0.24.0
 
 # NOTE: PyTorch is installed separately in the Dockerfile with CUDA support:
-# pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cu121
+# uv pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cu121
 # NOTE: xformers is optional — install separately if needed:
-# pip install xformers==0.0.24
+# uv pip install xformers==0.0.24

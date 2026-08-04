@@ -7,6 +7,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Palette, Sparkles, Sliders, CheckCircle, Zap, Image as ImageIcon, Upload, X } from 'lucide-react';
 import { Shape3D } from '@/types/new-ui';
+import { useProjectStore } from '@/stores/useProjectStore';
+import { toast } from 'sonner';
 
 interface TextureGenTabProps {
   activeModel: {
@@ -25,6 +27,7 @@ interface TextureGenTabProps {
 }
 
 export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }: TextureGenTabProps) {
+  const { addLayer, currentProject } = useProjectStore();
   const [texturePrompt, setTexturePrompt] = useState('polished carbon fiber, neon teal glowing segments, brushed aerospace grade aluminum, futuristic sci-fi trim');
   const [resolution, setResolution] = useState('4K PBR');
   const [themeStyle, setThemeStyle] = useState('anime');
@@ -134,6 +137,25 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
                 albedoStatus: '100% Painted (RGB)',
                 roughnessStatus: 'Roughness Map Applied',
                 metalnessStatus: 'Metalness Channel Active',
+              });
+              addLayer({
+                id: `texture-${Date.now()}`,
+                type: 'texture',
+                name: `PBR Textures (${resolution})`,
+                enabled: true,
+                visible: true,
+                data: {
+                  prompt: texturePrompt,
+                  resolution,
+                  themeStyle,
+                  weathering,
+                  mapsCount: '4',
+                  albedoStatus: '100% Painted (RGB)',
+                  roughnessStatus: 'Roughness Map Applied',
+                  metalnessStatus: 'Metalness Channel Active',
+                },
+                sourceTab: 'TextureGen',
+                timestamp: new Date(),
               });
               setIsProcessing(false);
             } else if (statusData.data?.status === 'failed') {

@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Shape3D } from '@/types/new-ui';
+import { useProjectStore } from '@/stores/useProjectStore';
 
 interface SegmentationTabProps {
   activeModel: {
@@ -82,6 +83,7 @@ const SEGMENTATION_METHODS = [
 ];
 
 export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate }: SegmentationTabProps) {
+  const { addLayer, currentProject } = useProjectStore();
   const [uploadedModel, setUploadedModel] = useState<File | null>(null);
   const [uploadedModelUrl, setUploadedModelUrl] = useState<string | null>(null);
   const [uploadedModelName, setUploadedModelName] = useState<string>('');
@@ -337,17 +339,34 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
               if (pollIntervalRef.current) { clearInterval(pollIntervalRef.current); pollIntervalRef.current = null; }
               if (progressSimRef.current) { clearInterval(progressSimRef.current); progressSimRef.current = null; }
 
-              setProgressPercent(100);
-              setStatusMessage('Segmentation complete!');
-              setIsCompleted(true);
-              setIsProcessing(false);
+               setProgressPercent(100);
+               setStatusMessage('Segmentation complete!');
+               setIsCompleted(true);
+               setIsProcessing(false);
 
-              const backendParts = statusData.data?.parts || statusData.data?.result?.parts || [];
-              setSegmentedParts(backendParts);
+               const backendParts = statusData.data?.parts || statusData.data?.result?.parts || [];
+               setSegmentedParts(backendParts);
 
-              toast.success('Segmentation complete!', {
-                description: `Detected ${backendParts.length} parts`,
-              });
+               addLayer({
+                 id: `segmentation-${Date.now()}`,
+                 type: 'segmentation',
+                 name: `Segmentation (${segmentMethod}, ${backendParts.length} parts)`,
+                 enabled: true,
+                 visible: true,
+                 data: {
+                   method: segmentMethod,
+                   maxParts,
+                   preserveUvs,
+                   exportSeparated,
+                   parts: backendParts,
+                 },
+                 sourceTab: 'Segmentation',
+                 timestamp: new Date(),
+               });
+
+               toast.success('Segmentation complete!', {
+                 description: `Detected ${backendParts.length} parts`,
+               });
             } else if (statusData.data?.status === 'failed') {
               if (pollIntervalRef.current) { clearInterval(pollIntervalRef.current); pollIntervalRef.current = null; }
               if (progressSimRef.current) { clearInterval(progressSimRef.current); progressSimRef.current = null; }

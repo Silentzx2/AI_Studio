@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 
 const ACCENT_PRESETS = [
   '#F5A623', '#A855F7', '#06B6D4', '#10B981', '#F43F5E', '#3B82F6', '#EC4899', '#EAB308',
@@ -25,6 +26,11 @@ const MASTER_PRESETS = [
   { key: 'neon', label: 'Neon', desc: 'Purple · Glass · Glow' },
   { key: 'warm', label: 'Warm', desc: 'Orange · Frosted' },
   { key: 'frost', label: 'Frost', desc: 'Sky · Glass · Soft' },
+  { key: 'aurora', label: 'Aurora', desc: 'Cyan · Violet · Glow' },
+  { key: 'sunset', label: 'Sunset', desc: 'Rose · Amber · Glow' },
+  { key: 'ocean', label: 'Ocean', desc: 'Sky · Teal · Calm' },
+  { key: 'midnight', label: 'Midnight', desc: 'Indigo · Solid · Neon' },
+  { key: 'emerald', label: 'Emerald', desc: 'Green · Calm · Glow' },
 ] as const;
 
 const TAB_STYLES = ['pill', 'underline', 'rounded', 'glass', 'minimal'] as const;
@@ -494,6 +500,7 @@ export function AppearanceSection() {
 function previewColorFor(preset: string): string {
   const map: Record<string, string> = {
     default: '#F5A623', cyberpunk: '#06B6D4', minimalist: '#64748B', neon: '#A855F7', warm: '#F97316', frost: '#38BDF8',
+    aurora: '#22D3EE', sunset: '#FB7185', ocean: '#0EA5E9', midnight: '#818CF8', emerald: '#34D399',
   };
   return map[preset] ?? '#F5A623';
 }

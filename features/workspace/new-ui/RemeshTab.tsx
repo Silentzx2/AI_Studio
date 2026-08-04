@@ -7,6 +7,7 @@
 import React, { useState } from 'react';
 import { RefreshCw, Play, Settings, AlertTriangle, CheckCircle, Cpu, ShieldCheck, Zap, Layers, Upload, X } from 'lucide-react';
 import { Shape3D } from '@/types/new-ui';
+import { useProjectStore } from '@/stores/useProjectStore';
 
 interface RemeshTabProps {
   activeModel: {
@@ -25,6 +26,7 @@ interface RemeshTabProps {
 }
 
 export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: RemeshTabProps) {
+  const { addLayer, currentProject } = useProjectStore();
   const [targetType, setTargetType] = useState('quad-dominant');
   const [vertexDensity, setVertexDensity] = useState('20K');
   const [symmetry, setSymmetry] = useState(true);
@@ -108,16 +110,34 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
             const statusRes = await fetch(`/api/v1/generation/${jobId}/status`);
             const statusData = await statusRes.json();
             if (statusData.data?.status === 'completed') {
-              clearInterval(poll);
-              setSuccessResult({
-                name: `${activeModel.name} (Remeshed)`,
-                complexity: `${vertexDensity} Optimized Quad-Mesh`,
-                promptDescription: `Remeshed with ${targetType} topology.`,
-                oldVertices: 'Original',
-                newVertices: `~${vertexDensity} Quads`,
-                reduction: 'Optimized',
+               clearInterval(poll);
+               setSuccessResult({
+                 name: `${activeModel.name} (Remeshed)`,
+                 complexity: `${vertexDensity} Optimized Quad-Mesh`,
+                 promptDescription: `Remeshed with ${targetType} topology.`,
+                 oldVertices: 'Original',
+                 newVertices: `~${vertexDensity} Quads`,
+                 reduction: 'Optimized',
+               });
+              addLayer({
+                id: `remesh-${Date.now()}`,
+                type: 'remesh',
+                name: `Remesh (${vertexDensity})`,
+                enabled: true,
+                visible: true,
+                data: {
+                  targetType,
+                  vertexDensity,
+                  symmetry,
+                  keepBoundaries,
+                  oldVertices: 'Original',
+                  newVertices: `~${vertexDensity} Quads`,
+                  reduction: 'Optimized',
+                },
+                sourceTab: 'Remesh',
+                timestamp: new Date(),
               });
-              setIsProcessing(false);
+               setIsProcessing(false);
             } else if (statusData.data?.status === 'failed') {
               clearInterval(poll);
               setStatusMessage(`Remesh failed: ${statusData.data?.error_message || 'Unknown error'}`);

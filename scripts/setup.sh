@@ -73,10 +73,15 @@ detect_gpu() {
   if [[ "$GPU_AVAILABLE" == "false" ]]; then
     warn "No NVIDIA GPU detected — AI inference requires CUDA-capable hardware."
     warn "The stack will start, but generation jobs will fail without a GPU."
-    read -rp "Continue without GPU? [y/N] " choice
-    if [[ "${choice,,}" != "y" ]]; then
-      err "Aborting. Install an NVIDIA GPU + driver and re-run."
-      exit 1
+    if [[ -t 0 ]]; then
+      read -rp "Continue without GPU? [y/N] " choice
+      if [[ "${choice,,}" != "y" ]]; then
+        err "Aborting. Install an NVIDIA GPU + driver and re-run."
+        exit 1
+      fi
+    else
+      warn "Non-interactive environment detected — proceeding with CPU fallback."
+      warn "Generation jobs will fail without a GPU."
     fi
   fi
 }
@@ -495,8 +500,34 @@ BANNER
       node_modules .env logs .pids 2>/dev/null || true
   fi
 
-  # Summary only — user runs scripts/start.sh manually
-  print_summary
+  # Auto-start: run start.sh in the foreground after setup completes
+  if [[ "$AUTO_START" == "true" ]]; then
+    echo ""
+    log "Setup complete — launching services..."
+    echo ""
+    bash scripts/start.sh
+  else
+    # Summary — user runs scripts/start.sh manually
+    print_summary
+  fi
 }
+
+# ── Parse flags ────────────────────────────────────────────────────────
+
+AUTO_START=false
+
+for arg in "$@"; do
+    case "$arg" in
+        --auto-start) AUTO_START=true ;;
+        --help|-h)
+            echo "Usage: sudo bash scripts/setup.sh [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --auto-start    Run setup then automatically start services"
+            echo "  -h, --help      Show this help"
+            exit 0
+            ;;
+    esac
+done
 
 main "$@"

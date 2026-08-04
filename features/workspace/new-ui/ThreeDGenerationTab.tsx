@@ -12,16 +12,20 @@ import {
   Maximize2, Play, CheckCircle2, Clock, Check, Download, Layers,
   Box, Eye, Move, RotateCw, ZoomIn, Grid3X3, Sun, Focus, Terminal,
   Sliders, Shield, Cpu, RefreshCw, FolderOpen, Info, Lock, ArrowRight,
-  Activity, SlidersHorizontal, Settings, CheckSquare, X, ListFilter, Trash2
+  Activity, SlidersHorizontal, Settings, CheckSquare, X, ListFilter, Trash2,
+  EyeOff, GitBranch, Film, Box as BoxIcon,
 } from 'lucide-react';
 
 import { useGenerationStore } from '@/stores/useGenerationStore';
 import { useUIStore } from '@/stores/useUIStore';
+import { useProjectStore } from '@/stores/useProjectStore';
 import { useGeneration } from '@/hooks/useGeneration';
 import { useGenerationStatus, useAvailableModels } from '@/hooks/useBackendData';
 import { HistoryItem } from '@/types/new-ui';
 import { Skeleton } from '@/components/ux';
 import { toast } from 'sonner';
+import LayerVisibilityPanel from './LayerVisibilityPanel';
+import ExportDialog from './ExportDialog';
 
 interface ThreeDGenerationTabProps {
   activeModel: any;
@@ -355,17 +359,16 @@ export default function ThreeDGenerationTab({
   const [uploadedModel, setUploadedModel] = useState<File | null>(null);
   const [uploadedModelUrl, setUploadedModelUrl] = useState<string | null>(null);
   const [uploadedModelName, setUploadedModelName] = useState<string>('');
-  const [isRigging, setIsRigging] = useState(false);
-  const [isPartitioning, setIsPartitioning] = useState(false);
 
-  const [viewMode, setViewMode] = useState<'Mesh' | 'Wireframe' | 'Texture' | 'Rigging' | 'UV' | 'Parts' | 'Animation'>('Mesh');
+  const [viewMode, setViewMode] = useState<'Mesh' | 'Wireframe' | 'Texture'>('Mesh');
   const [shading, setShading] = useState<'PBR' | 'Clay'>('PBR');
   const [exportFormat, setExportFormat] = useState<'GLB' | 'FBX' | 'OBJ' | 'USDZ' | 'STL'>('GLB');
-  const [activeBottomTab, setActiveBottomTab] = useState<'GENERATION PIPELINE' | 'GENERATED ASSETS' | 'CONSOLE / LOGS'>('GENERATION PIPELINE');
+  const [activeBottomTab, setActiveBottomTab] = useState<'GENERATED ASSETS' | 'CONSOLE / LOGS'>('GENERATED ASSETS');
   const [showGrid, setShowGrid] = useState(true);
   const [showWireframe, setShowWireframe] = useState(false);
   const [autoRotate, setAutoRotate] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   // Drag-and-drop reference image local overlay states
   const [isDragOver, setIsDragOver] = useState(false);
@@ -382,101 +385,6 @@ export default function ThreeDGenerationTab({
     const url = URL.createObjectURL(file);
     setUploadedModelUrl(url);
     toast.success(`Model loaded: ${file.name}`);
-  };
-
-  const handleRigging = async () => {
-    if (!currentJob?.result?.modelUrl && !uploadedModel) {
-      toast.error('Generate or upload a model first before rigging');
-      return;
-    }
-    setIsRigging(true);
-    try {
-      const modelUrl = (currentJob?.result as any)?.modelUrl || uploadedModelUrl;
-      const res = await fetch('/api/v1/generation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: prompt || 'Auto rig model',
-          mode: 'rigging',
-          reference_image_url: modelUrl,
-          quality: 'standard',
-          auto_rig: true,
-        }),
-      });
-      const data = await res.json();
-      if (data.data?.job_id) {
-        toast.info('Rigging job submitted');
-        const jobId = data.data.job_id;
-        const poll = setInterval(async () => {
-          try {
-            const sRes = await fetch(`/api/v1/generation/${jobId}/status`);
-            const sData = await sRes.json();
-            if (sData.data?.status === 'completed') {
-              clearInterval(poll);
-              setIsRigging(false);
-              toast.success('Rigging complete!');
-            } else if (sData.data?.status === 'failed') {
-              clearInterval(poll);
-              setIsRigging(false);
-              toast.error('Rigging failed');
-            }
-          } catch { clearInterval(poll); setIsRigging(false); }
-        }, 2000);
-      } else {
-        setIsRigging(false);
-        toast.error('Failed to submit rigging job');
-      }
-    } catch (err: any) {
-      setIsRigging(false);
-      toast.error('Rigging failed: ' + err.message);
-    }
-  };
-
-  const handleMeshPartition = async () => {
-    if (!currentJob?.result && !uploadedModelUrl) {
-      toast.error('Generate or upload a model first');
-      return;
-    }
-    setIsPartitioning(true);
-    try {
-      const modelUrl = (currentJob?.result as any)?.modelUrl || uploadedModelUrl;
-      const res = await fetch('/api/v1/generation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: 'Partition mesh into semantic parts',
-          mode: 'partition',
-          reference_image_url: modelUrl,
-          quality: 'standard',
-        }),
-      });
-      const data = await res.json();
-      if (data.data?.job_id) {
-        toast.info('Mesh partition job submitted');
-        const jobId = data.data.job_id;
-        const poll = setInterval(async () => {
-          try {
-            const sRes = await fetch(`/api/v1/generation/${jobId}/status`);
-            const sData = await sRes.json();
-            if (sData.data?.status === 'completed') {
-              clearInterval(poll);
-              setIsPartitioning(false);
-              toast.success('Mesh partition complete!');
-            } else if (sData.data?.status === 'failed') {
-              clearInterval(poll);
-              setIsPartitioning(false);
-              toast.error('Mesh partition failed');
-            }
-          } catch { clearInterval(poll); setIsPartitioning(false); }
-        }, 2000);
-      } else {
-        setIsPartitioning(false);
-        toast.error('Failed to submit partition job');
-      }
-    } catch (err: any) {
-      setIsPartitioning(false);
-      toast.error('Partition failed: ' + err.message);
-    }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -549,18 +457,6 @@ export default function ThreeDGenerationTab({
     setUploadedImage(null);
   };
 
-  // Pipeline step switches local state matching Left Sidebar "PIPELINE STEPS"
-  const [stepsConfig, setStepsConfig] = useState({
-    baseMesh: true,
-    remesh: true,
-    texture: true,
-    partSeparation: true,
-    rigging: true,
-    animation: false,
-    optimization: true,
-    export: true
-  });
-
   // Derived progress percentage & active step description
   const derivedProgress = useMemo(() => {
     if (isGenerating) {
@@ -583,21 +479,27 @@ export default function ThreeDGenerationTab({
     return jobStatus?.logs ?? currentJob?.logs?.map((l: any) => l.message) ?? [];
   }, [jobStatus?.logs, currentJob?.logs]);
 
-  // Derived active node in the "GENERATION PIPELINE" graph
-  const activePipelineIndex = useMemo(() => {
-    if (!isGenerating) {
-      return currentJob?.status === 'completed' ? 8 : -1;
+  const { currentProject, setProject, addLayer } = useProjectStore();
+
+  // Sync activeModel to project store when a generation completes
+  useEffect(() => {
+    if (currentJob?.status === 'completed' && currentJob?.result) {
+      const r = currentJob.result as any;
+      setProject({
+        id: currentJob.id,
+        name: activeModel?.name || 'Generated Model',
+        modelUrl: r.modelUrl || r.downloadUrls?.glb || null,
+        modelData: r,
+        layers: [],
+        metadata: {
+          prompt: prompt || '',
+          model: selectedModelId,
+          quality: 'standard',
+          createdAt: new Date(),
+        },
+      });
     }
-    if (derivedProgress < 12) return 0; // Prompt
-    if (derivedProgress < 25) return 1; // Base Mesh
-    if (derivedProgress < 38) return 2; // Remesh
-    if (derivedProgress < 50) return 3; // Texture
-    if (derivedProgress < 65) return 4; // Part Separation
-    if (derivedProgress < 75) return 5; // Rigging
-    if (derivedProgress < 85) return 6; // Animation
-    if (derivedProgress < 95) return 7; // Optimization
-    return 8; // Export
-  }, [isGenerating, derivedProgress, currentJob?.status]);
+  }, [currentJob?.status, currentJob?.result]);
 
   return (
     <div className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden bg-[hsl(var(--surface-0))] text-[hsl(var(--foreground))] relative" id="ai-3d-studio-workspace">
@@ -830,51 +732,6 @@ export default function ThreeDGenerationTab({
 
           <div className="border-t border-[hsl(var(--border))] my-1" />
 
-          {/* PIPELINE STEPS TOGGLES */}
-          <div className="flex flex-col gap-2.5">
-            <span className="text-[10px] font-black uppercase tracking-wider text-[hsl(var(--muted-foreground))]">PIPELINE STEPS</span>
-            <div className="flex flex-col gap-2">
-              {[
-                { key: 'baseMesh', label: 'Generate Base Mesh', required: true, gated: false },
-                { key: 'remesh', label: 'Remesh', required: false, gated: false },
-                { key: 'texture', label: 'Texture (PBR)', required: false, gated: !activeModel.supports.texture_generation },
-                { key: 'partSeparation', label: 'Part Separation (HoloPart)', required: false, gated: false, alwaysAvailable: true },
-                { key: 'rigging', label: 'Rigging (UniRig)', required: false, gated: false, alwaysAvailable: true },
-                { key: 'animation', label: 'Animation (Optional)', required: false, gated: !activeModel.supports.rigging_animation },
-                { key: 'optimization', label: 'Optimization (LOD)', required: false, gated: false },
-                { key: 'export', label: 'Export', required: true, gated: false },
-              ].map((step) => (
-                <div key={step.key} className="flex items-center justify-between py-0.5">
-                  <span className={`text-xs font-semibold ${step.gated ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--muted-foreground))]'}`}>
-                    {step.label}{' '}{(step as any).alwaysAvailable && <span className="text-[8px] text-[hsl(var(--primary))] font-mono ml-1">(ALWAYS)</span>}
-                  </span>
-                  
-                  {step.gated ? (
-                    <div className="text-[hsl(var(--muted-foreground))]" title="Unsupported by selected Model">
-                      <Lock size={12} />
-                    </div>
-                  ) : step.required ? (
-                    <span className="text-[10px] font-bold text-[hsl(var(--neon-green))] bg-[hsl(var(--neon-green))]/10 px-2 py-0.5 rounded border border-[hsl(var(--neon-green))]/10">Required</span>
-                  ) : (
-                    <button
-                      onClick={() => setStepsConfig(prev => ({
-                        ...prev,
-                        [step.key]: !prev[step.key as keyof typeof prev]
-                      }))}
-                      className={`w-8 h-4.5 rounded-full p-0.5 transition-all cursor-pointer ${
-                        stepsConfig[step.key as keyof typeof stepsConfig] ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-3))]'
-                      }`}
-                    >
-                      <div className={`w-3.5 h-3.5 rounded-full bg-black transition-all ${
-                        stepsConfig[step.key as keyof typeof stepsConfig] ? 'translate-x-3.5 bg-white' : 'translate-x-0'
-                      }`} />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* Advanced Settings */}
           <div 
             onClick={() => setShowAdvanced(!showAdvanced)}
@@ -997,58 +854,6 @@ export default function ThreeDGenerationTab({
                   if (m === 'Wireframe') setShowWireframe(true);
                   else setShowWireframe(false);
                 }}
-                className={`px-3 py-1.5 text-[11px] font-black tracking-wide rounded-lg transition-all ${
-                  viewMode === m
-                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] shadow-sm font-bold'
-                    : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
-                }`}
-              >
-                {m}
-              </button>
-            ))}
-            <button
-              onClick={() => handleRigging()}
-              disabled={isRigging}
-              className={`px-3 py-1.5 text-[11px] font-black tracking-wide rounded-lg transition-all ${
-                isRigging
-                  ? 'bg-[hsl(var(--neon-green)/0.2)] text-[hsl(var(--neon-green))] animate-pulse'
-                  : viewMode === 'Rigging'
-                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] shadow-sm font-bold'
-                    : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
-              }`}
-            >
-              {isRigging ? 'Rigging...' : 'Rigging'}
-            </button>
-            {(['UV'] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => { setViewMode(m); setShowWireframe(false); }}
-                className={`px-3 py-1.5 text-[11px] font-black tracking-wide rounded-lg transition-all ${
-                  viewMode === m
-                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] shadow-sm font-bold'
-                    : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
-                }`}
-              >
-                {m}
-              </button>
-            ))}
-            <button
-              onClick={() => handleMeshPartition()}
-              disabled={isPartitioning}
-              className={`px-3 py-1.5 text-[11px] font-black tracking-wide rounded-lg transition-all ${
-                isPartitioning
-                  ? 'bg-[hsl(var(--neon-green)/0.2)] text-[hsl(var(--neon-green))] animate-pulse'
-                  : viewMode === 'Parts'
-                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] shadow-sm font-bold'
-                    : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
-              }`}
-            >
-              {isPartitioning ? 'Parting...' : 'Parts'}
-            </button>
-            {(['Animation'] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => { setViewMode(m); setShowWireframe(false); }}
                 className={`px-3 py-1.5 text-[11px] font-black tracking-wide rounded-lg transition-all ${
                   viewMode === m
                     ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] shadow-sm font-bold'
@@ -1188,6 +993,9 @@ export default function ThreeDGenerationTab({
               <span className="font-extrabold text-right text-[hsl(var(--foreground))]">{activeModel?.stats?.materials || '8'}</span>
             </div>
           </div>
+
+          {/* Layer Visibility Panel */}
+          <LayerVisibilityPanel />
         </div>
 
         {/* Bottom Dock Control Panel containing "GENERATION PIPELINE", "GENERATED ASSETS", "CONSOLE / LOGS" */}
@@ -1195,7 +1003,7 @@ export default function ThreeDGenerationTab({
           {/* Panel Tabs */}
           <div className="flex items-center justify-between px-4 border-b border-[hsl(var(--border))] bg-[hsl(var(--surface-0))] shrink-0">
             <div className="flex gap-6">
-              {(['GENERATION PIPELINE', 'GENERATED ASSETS', 'CONSOLE / LOGS'] as const).map((tab) => (
+              {(['GENERATED ASSETS' as const, 'CONSOLE / LOGS' as const]).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveBottomTab(tab)}
@@ -1218,67 +1026,6 @@ export default function ThreeDGenerationTab({
           {/* Tab Content Panels */}
           <div className="flex-1 p-4 overflow-y-auto min-h-0 bg-[hsl(var(--surface-0))]">
             
-            {/* TAB 1: GENERATION PIPELINE FLOW */}
-            {activeBottomTab === 'GENERATION PIPELINE' && (
-              <div className="h-full flex items-center justify-center" id="pipeline-diagram-tab">
-                <div className="flex items-center gap-2 overflow-x-auto max-w-full py-2 px-4 scrollbar-thin">
-                  {[
-                    { label: 'Prompt', desc: mode === 'text-to-3d' ? 'Prompt Text' : 'Image Ref', icon: <Terminal size={14} />, gate: false },
-                    { label: 'Base Mesh', desc: 'Geometry Base', icon: <Box size={14} />, gate: false },
-                    { label: 'Remesh', desc: 'Retopology', icon: <Layers size={14} />, gate: false },
-                    { label: 'Texture (PBR)', desc: '4K Texturing', icon: <Cpu size={14} />, gate: !activeModel.supports.texture_generation },
-                    { label: 'Part Separation', desc: 'HoloPart Separ.', icon: <Sliders size={14} />, gate: false },
-                    { label: 'Rigging', desc: 'Armature Bones', icon: <Activity size={14} />, gate: false },
-                    { label: 'Animation', desc: 'Clips Loop', icon: <Play size={14} />, gate: !activeModel.supports.rigging_animation },
-                    { label: 'Optimization', desc: 'LOD Mesh', icon: <SlidersHorizontal size={14} />, gate: false },
-                    { label: 'Export', desc: 'Packaging', icon: <Download size={14} />, gate: false },
-                  ].map((node, index) => {
-                    const isCompleted = index < activePipelineIndex;
-                    const isActive = index === activePipelineIndex && isGenerating;
-                    const isFuture = index > activePipelineIndex;
-
-                    return (
-                      <React.Fragment key={node.label}>
-                        {/* Connected Dashed Line Arrow */}
-                        {index > 0 && (
-                          <div className={`w-6 flex items-center justify-center shrink-0 ${isFuture ? 'text-zinc-800' : isCompleted ? 'text-[hsl(var(--neon-green))]' : 'text-[hsl(var(--neon-amber))] animate-pulse'}`}>
-                            <span className="font-mono text-xs">➔</span>
-                          </div>
-                        )}
-
-                        {/* Pipeline Node */}
-                        <div 
-                          className={`w-32 rounded-xl p-2.5 flex flex-col items-center text-center border transition-all duration-300 shrink-0 ${
-                            node.gate 
-                              ? 'bg-[hsl(var(--surface-1))]/30 border-[hsl(var(--surface-3))]/30 opacity-25'
-                              : isActive
-                                ? 'bg-[hsl(var(--primary))]/10 border-[hsl(var(--primary))] shadow-[0_0_15px_rgba(245,166,35,0.15)] ring-1 ring-[hsl(var(--primary))]'
-                                : isCompleted
-                                  ? 'bg-[hsl(var(--neon-green))]/5 border-[hsl(var(--neon-green))]/40 text-[hsl(var(--neon-green))]'
-                                  : 'bg-[hsl(var(--surface-0))] border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]'
-                          }`}
-                        >
-                          <div className={`w-7 h-7 rounded-full flex items-center justify-center mb-1.5 ${
-                            node.gate
-                              ? 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))]'
-                              : isActive
-                                ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] animate-spin'
-                                : isCompleted
-                                  ? 'bg-[hsl(var(--neon-green))] text-[hsl(var(--surface-0))]'
-                                  : 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))]'
-                          }`}>
-                            {node.gate ? <Lock size={12} /> : isCompleted ? <Check size={12} className="stroke-[3]" /> : node.icon}
-                          </div>
-                          <span className="text-[10px] font-black tracking-wide truncate max-w-full text-[hsl(var(--foreground))]">{node.label}</span>
-                          <span className="text-[8px] font-mono font-medium text-[hsl(var(--muted-foreground))] mt-0.5 truncate max-w-full">{node.desc}</span>
-                        </div>
-                      </React.Fragment>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
             {/* TAB 2: GENERATED ASSETS GRID */}
             {activeBottomTab === 'GENERATED ASSETS' && (
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3" id="generated-assets-tab-grid">
@@ -1505,31 +1252,15 @@ export default function ThreeDGenerationTab({
 
           {/* Trigger Export Button */}
           <button
-            onClick={() => {
-              const urls = currentJob?.result?.downloadUrls;
-              const url = urls?.[exportFormat.toLowerCase() as keyof typeof urls] || urls?.['glb'];
-              if (!url) {
-                toast.warning('No generated assets found in this session. Generate a model first.');
-                return;
-              }
-              const link = document.createElement('a');
-              link.href = url;
-              link.download = `model_export.${exportFormat.toLowerCase()}`;
-              link.target = '_blank';
-              link.rel = 'noopener noreferrer';
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              toast.success(`Exporting model as ${exportFormat}...`);
-            }}
-            className={`w-full font-black py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all ${
+            onClick={() => setShowExportDialog(true)}
+            className={`w-full font-black py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-[0_4px_16px_rgba(245,166,35,0.2)] ${
               currentJob?.status === 'completed' || currentJob?.result?.downloadUrls
-                ? 'bg-[hsl(var(--primary))] hover:brightness-110 text-[hsl(var(--surface-0))] cursor-pointer shadow-[0_4px_16px_rgba(245,166,35,0.2)]'
+                ? 'bg-[hsl(var(--primary))] hover:brightness-110 text-[hsl(var(--surface-0))] cursor-pointer'
                 : 'bg-[hsl(var(--surface-1))] text-[hsl(var(--muted-foreground))] cursor-not-allowed border border-[hsl(var(--border))/0.5]'
             }`}
           >
             <Download size={13} className="stroke-[3]" />
-            Export Model
+            Export Project
           </button>
         </div>
 
@@ -1576,6 +1307,14 @@ export default function ThreeDGenerationTab({
         </div>
 
       </aside>
+
+      {/* Export Dialog */}
+      {showExportDialog && (
+        <ExportDialog
+          isOpen={showExportDialog}
+          onClose={() => setShowExportDialog(false)}
+        />
+      )}
 
     </div>
   );

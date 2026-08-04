@@ -265,16 +265,50 @@ cmd_environment() {
     read -rp "Press Enter to continue..."
 }
 
+cmd_bootstrap() {
+    _header
+    echo -e "${CYAN}Intelligent Bootstrap${NC}"
+    echo ""
+    if [ -f scripts/bootstrap.sh ]; then
+        bash scripts/bootstrap.sh
+    else
+        echo -e "${YELLOW}bootstrap.sh not found — running setup.sh --auto-start${NC}"
+        bash scripts/setup.sh --auto-start
+    fi
+    echo ""
+    read -rp "Press Enter to continue..."
+}
+
 cmd_setup() {
     _header
     echo -e "${CYAN}First-Time Setup${NC}"
     echo ""
-    if [ -f scripts/setup.sh ]; then
-        bash scripts/setup.sh
-    else
-        echo -e "${YELLOW}setup.sh not found — running start.sh${NC}"
-        bash scripts/start.sh
-    fi
+    echo "  1) Full setup (system deps + venv + start)"
+    echo "  2) Bootstrap only (detect env + configure)"
+    echo "  b) Back"
+    echo ""
+    read -rp "Choice: " choice
+    echo ""
+    case "$choice" in
+        1)
+            if [ -f scripts/setup.sh ]; then
+                bash scripts/setup.sh --auto-start
+            else
+                echo -e "${YELLOW}setup.sh not found — running bootstrap.sh${NC}"
+                bash scripts/bootstrap.sh
+            fi
+            ;;
+        2)
+            if [ -f scripts/bootstrap.sh ]; then
+                bash scripts/bootstrap.sh --skip-start
+            else
+                echo -e "${YELLOW}bootstrap.sh not found — running setup.sh${NC}"
+                bash scripts/setup.sh
+            fi
+            ;;
+        b|B) return ;;
+        *) echo -e "${RED}Invalid choice${NC}" ;;
+    esac
     echo ""
     read -rp "Press Enter to continue..."
 }
@@ -318,31 +352,33 @@ main_menu() {
         _status
         echo -e "${BOLD}Actions:${NC}"
         echo "  0) First-Time Setup"
-        echo "  1)  Start all services"
-        echo "  2)  Stop all services"
-        echo "  3)  Restart all services"
-        echo "  4)  Service status"
-        echo "  5)  View logs"
-        echo "  6)  Health check"
-        echo "  7)  Database management"
-        echo "  8)  View environment"
-        echo "  9)  Reset PID files"
-        echo "  10) Clean old logs"
+        echo "  1)  Bootstrap (auto-detect env + configure)"
+        echo "  2)  Start all services"
+        echo "  3)  Stop all services"
+        echo "  4)  Restart all services"
+        echo "  5)  Service status"
+        echo "  6)  View logs"
+        echo "  7)  Health check"
+        echo "  8)  Database management"
+        echo "  9)  View environment"
+        echo "  10) Reset PID files"
+        echo "  11) Clean old logs"
         echo "  q)  Quit"
         echo ""
         read -rp "Choice: " choice
         case "$choice" in
             0)  cmd_setup ;;
-            1)  cmd_start ;;
-            2)  cmd_stop ;;
-            3)  cmd_restart ;;
-            4)  cmd_status ;;
-            5)  cmd_logs ;;
-            6)  cmd_health_check ;;
-            7)  cmd_database ;;
-            8)  cmd_environment ;;
-            9)  cmd_reset_pids ;;
-            10) cmd_clean_logs ;;
+            1)  cmd_bootstrap ;;
+            2)  cmd_start ;;
+            3)  cmd_stop ;;
+            4)  cmd_restart ;;
+            5)  cmd_status ;;
+            6)  cmd_logs ;;
+            7)  cmd_health_check ;;
+            8)  cmd_database ;;
+            9)  cmd_environment ;;
+            10) cmd_reset_pids ;;
+            11) cmd_clean_logs ;;
             q|Q) echo ""; echo -e "${GREEN}Goodbye!${NC}"; echo ""; exit 0 ;;
             *) echo -e "${RED}Invalid choice${NC}"; sleep 1 ;;
         esac

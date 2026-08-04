@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 import { useUIStore } from '@/stores/useUIStore';
+import { useProjectStore } from '@/stores/useProjectStore';
 import { useGeneration } from '@/hooks/useGeneration';
 
 // Import our modular redesigned tabs
@@ -46,6 +47,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
   const { generate, cancel, isGenerating, currentJob } = useGeneration();
   const { prompt, setPrompt, mode, setMode, jobHistory } = useGenerationStore();
   const { viewer, setViewerMode, toggleAutoRotate, toggleGrid, capabilities } = useUIStore();
+  const { setProject, currentProject } = useProjectStore();
 
   // Dynamically map real generation history jobs and merge them with local demo items
   const mappedRealHistory: HistoryItem[] = (jobHistory || []).map((job) => ({
@@ -95,7 +97,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
   });
 
   const loadHistoryItem = (item: HistoryItem) => {
-    setActiveModel({
+    const model = {
       name: item.name,
       prompt: item.prompt,
       shapes: item.shapes,
@@ -105,13 +107,27 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
       promptDescription: 'Synthesized using hierarchical geometric assemblies matching key descriptive vocabulary.',
       complexity: 'Standard Mesh (65K)',
       textures: '2K Albedo / Smoothness',
+    };
+    setActiveModel(model);
+    setProject({
+      id: item.id,
+      name: item.name,
+      modelUrl: null,
+      modelData: { shapes: item.shapes, prompt: item.prompt },
+      layers: [],
+      metadata: {
+        prompt: item.prompt,
+        model: 'unknown',
+        quality: 'standard',
+        createdAt: new Date(),
+      },
     });
     setPrompt(item.prompt);
     setActiveSidebarItem('3D Generation');
   };
 
   const loadTemplateItem = (template: any) => {
-    setActiveModel({
+    const model = {
       name: template.name,
       prompt: template.prompt,
       shapes: template.shapes,
@@ -121,6 +137,20 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
       promptDescription: template.promptDescription,
       complexity: template.complexity,
       textures: template.textures,
+    };
+    setActiveModel(model);
+    setProject({
+      id: template.id || Math.random().toString(36).slice(2),
+      name: template.name,
+      modelUrl: null,
+      modelData: { shapes: template.shapes, prompt: template.prompt },
+      layers: [],
+      metadata: {
+        prompt: template.prompt,
+        model: 'unknown',
+        quality: 'standard',
+        createdAt: new Date(),
+      },
     });
     setPrompt(template.prompt);
     setActiveSidebarItem('3D Generation');
