@@ -74,14 +74,14 @@ export function CompatibilityChecker({ modelManifest }: { modelManifest: any }) 
   return (
     <div className="space-y-4">
       {compatibility.compatible ? (
-        <Alert className="bg-green-900/20 border-green-800">
+        <Alert className="bg-[hsl(var(--neon-green)/0.2)] border-[hsl(var(--surface-2))]">
           <CheckCircle className="w-4 h-4 text-[hsl(var(--neon-green))]" />
           <AlertDescription className="text-[hsl(var(--neon-green))]">
             System meets all requirements for this model
           </AlertDescription>
         </Alert>
       ) : (
-        <Alert className="bg-red-900/20 border-red-800">
+        <Alert className="bg-[hsl(var(--destructive)/0.2)] border-[hsl(var(--destructive))]">
           <XCircle className="w-4 h-4 text-[hsl(var(--destructive))]" />
           <AlertDescription className="text-[hsl(var(--destructive))]">
             System does not meet requirements for this model
@@ -91,7 +91,7 @@ export function CompatibilityChecker({ modelManifest }: { modelManifest: any }) 
 
       {/* Errors */}
       {compatibility.errors.length > 0 && (
-        <Card className="bg-red-900/10 border-red-800/50 p-4">
+        <Card className="bg-[hsl(var(--destructive)/0.1)] border-[hsl(var(--destructive))]/50 p-4">
           <h4 className="font-semibold text-[hsl(var(--destructive))] mb-2">Critical Issues:</h4>
           <ul className="space-y-1">
             {compatibility.errors.map((error, i) => (
@@ -106,7 +106,7 @@ export function CompatibilityChecker({ modelManifest }: { modelManifest: any }) 
 
       {/* Warnings */}
       {compatibility.warnings.length > 0 && (
-        <Card className="bg-yellow-900/10 border-yellow-800/50 p-4">
+        <Card className="bg-[hsl(var(--neon-amber)/0.1)] border-[hsl(var(--neon-amber)/0.5)] p-4">
           <h4 className="font-semibold text-[hsl(var(--neon-amber))] mb-2">Warnings:</h4>
           <ul className="space-y-1">
             {compatibility.warnings.map((warning, i) => (

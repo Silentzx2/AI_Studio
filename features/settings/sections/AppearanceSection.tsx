@@ -142,7 +142,7 @@ export function AppearanceSection() {
                 style={{ backgroundColor: c, boxShadow: cfg.accentColor.toLowerCase() === c.toLowerCase() ? `0 0 18px ${c}` : undefined }}
                 title={c}
               >
-                {cfg.accentColor.toLowerCase() === c.toLowerCase() && <Check className="w-5 h-5 text-white drop-shadow" />}
+                {cfg.accentColor.toLowerCase() === c.toLowerCase() && <Check className="w-5 h-5 text-[hsl(var(--foreground))] drop-shadow" />}
               </button>
             ))}
             <div className="relative h-11 rounded-xl overflow-hidden shadow-sm group hover:scale-105 transition-all">
@@ -152,7 +152,7 @@ export function AppearanceSection() {
                 onChange={(e) => set('accentColor', e.target.value)}
                 className="absolute inset-[-10px] w-[calc(100%+20px)] h-[calc(100%+20px)] cursor-pointer"
               />
-              <div className="absolute inset-0 pointer-events-none flex items-center justify-center bg-black/20 text-white">
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-center bg-[hsl(var(--surface-0)/0.2)] text-[hsl(var(--foreground))]">
                 <Plus className="w-5 h-5" />
               </div>
             </div>
@@ -347,9 +347,9 @@ export function AppearanceSection() {
         <CardContent>
           <div className="rounded-2xl border border-border p-5" style={{ background: 'hsl(var(--card))', borderRadius: cfg.borderRadius }}>
             <div className="flex items-center gap-2 mb-4" style={{ borderBottom: '1px solid hsl(var(--border))', paddingBottom: '0.75rem' }}>
-              <span className="w-3 h-3 rounded-full bg-red-500/70" />
-              <span className="w-3 h-3 rounded-full bg-yellow-500/70" />
-              <span className="w-3 h-3 rounded-full bg-green-500/70" />
+              <span className="w-3 h-3 rounded-full bg-[hsl(var(--destructive)/0.7)]" />
+              <span className="w-3 h-3 rounded-full bg-[hsl(var(--neon-amber)/0.7)]" />
+              <span className="w-3 h-3 rounded-full bg-[hsl(var(--neon-green)/0.7)]" />
               <div className="flex-1 h-5 rounded-full bg-surface-2 ml-2" />
             </div>
 
@@ -360,7 +360,7 @@ export function AppearanceSection() {
                   This preview reflects your typography, density, and color choices instantly.
                 </p>
                 <div className="flex items-center gap-2 mt-3 flex-wrap">
-                  <button className="px-4 py-1.5 text-white text-sm font-medium rounded-lg"
+                  <button className="px-4 py-1.5 text-[hsl(var(--foreground))] text-sm font-medium rounded-lg"
                     style={{ background: `hsl(${previewHsl})`, borderRadius: cfg.borderRadius, boxShadow: cfg.buttonGlow ? `0 0 18px hsl(${previewHsl}/0.5)` : undefined }}>
                     Primary
                   </button>

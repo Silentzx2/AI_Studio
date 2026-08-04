@@ -58,14 +58,14 @@ export default function AdminSidebar({
           </div>
           <div>
             <p className="text-[11px] font-bold tracking-[0.15em] text-[hsl(var(--neon-purple))] uppercase">AI Studio</p>
-            <p className="text-xs font-medium text-slate-300 mt-0.5">Control Panel</p>
+            <p className="text-xs font-medium text-[hsl(var(--muted-foreground))] mt-0.5">Control Panel</p>
           </div>
         </div>
       </div>
 
       {/* Main nav */}
       <nav className="flex-1 overflow-y-auto py-4 space-y-0.5 px-3 hide-scrollbar">
-        <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider px-2 pb-2">Navigation</p>
+        <p className="text-[10px] font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider px-2 pb-2">Navigation</p>
         {PRIMARY_NAV.map(({ id, label, icon, href, badge }) => {
           const Icon = icon as any;
           const isActive = id !== null && active === id;
@@ -79,19 +79,19 @@ export default function AdminSidebar({
               )}>
                 <Icon size={15} className={cn(
                   'transition-colors duration-200',
-                  isActive ? 'text-violet-300' : 'text-slate-500 group-hover:text-slate-300',
+                  isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))] group-hover:text-[hsl(var(--muted-foreground))]',
                 )} />
               </div>
               <span className={cn(
                 'flex-1 text-sm transition-colors duration-200',
-                isActive ? 'text-[hsl(var(--foreground))] font-medium' : 'text-slate-400 group-hover:text-slate-200',
+                isActive ? 'text-[hsl(var(--foreground))] font-medium' : 'text-[hsl(var(--muted-foreground))] group-hover:text-[hsl(var(--muted-foreground))]',
               )}>{label}</span>
               {badge && (
-                <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-[hsl(var(--neon-purple)/0.3)] text-violet-300 border border-[hsl(var(--neon-purple)/0.2)]">
+                <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-[hsl(var(--neon-purple)/0.3)] text-[hsl(var(--primary))] border border-[hsl(var(--neon-purple)/0.2)]">
                   {badge}
                 </span>
               )}
-              {href && <ExternalLink size={11} className="text-slate-600 group-hover:text-slate-400 transition-colors" />}
+              {href && <ExternalLink size={11} className="text-[hsl(var(--muted-foreground))] group-hover:text-[hsl(var(--muted-foreground))] transition-colors" />}
               {isActive && <ChevronRight size={13} className="text-[hsl(var(--neon-purple))]" />}
             </>
           );
@@ -130,7 +130,7 @@ export default function AdminSidebar({
 
         {/* Admin section */}
         <div className="pt-4">
-          <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider px-2 pb-2">Admin</p>
+          <p className="text-[10px] font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider px-2 pb-2">Admin</p>
           {ADMIN_NAV.map(({ id, label, icon }) => {
             const Icon = icon as any;
             const isActive = active === id;
@@ -156,12 +156,12 @@ export default function AdminSidebar({
                   isActive ? 'bg-[hsl(var(--primary)/0.25)]' : 'group-hover:bg-[hsl(var(--primary)/0.08)]',
                 )}>
                   <Icon size={14} className={cn(
-                    isActive ? 'text-violet-300' : 'text-slate-600 group-hover:text-slate-400',
+                    isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))] group-hover:text-[hsl(var(--muted-foreground))]',
                   )} />
                 </div>
                 <span className={cn(
                   'text-xs transition-colors',
-                  isActive ? 'text-slate-200 font-medium' : 'text-slate-600 group-hover:text-slate-400',
+                  isActive ? 'text-[hsl(var(--muted-foreground))] font-medium' : 'text-[hsl(var(--muted-foreground))] group-hover:text-[hsl(var(--muted-foreground))]',
                 )}>{label}</span>
               </button>
             );
@@ -187,10 +187,10 @@ export default function AdminSidebar({
             Z
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-slate-300 truncate">ZeroByte</p>
-            <p className="text-[10px] text-slate-600 truncate">Administrator</p>
+            <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))] truncate">ZeroByte</p>
+            <p className="text-[10px] text-[hsl(var(--muted-foreground))] truncate">Administrator</p>
           </div>
-          <Link href="/" className="text-slate-600 hover:text-slate-400 transition-colors" title="Back to app">
+          <Link href="/" className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--muted-foreground))] transition-colors" title="Back to app">
             <ExternalLink size={12} />
           </Link>
         </div>

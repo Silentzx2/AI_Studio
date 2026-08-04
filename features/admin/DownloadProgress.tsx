@@ -54,9 +54,9 @@ const PHASE_LABELS: Record<string, string> = {
 };
 
 const PHASE_ICONS: Record<string, React.ReactNode> = {
-  repo: <GitBranch size={11} className="text-blue-400" />,
-  weights: <Download size={11} className="text-violet-400" />,
-  extract: <Package size={11} className="text-amber-400" />,
+  repo: <GitBranch size={11} className="text-[hsl(var(--neon-blue))]" />,
+  weights: <Download size={11} className="text-[hsl(var(--neon-purple))]" />,
+  extract: <Package size={11} className="text-[hsl(var(--neon-amber))]" />,
 };
 
 export function DownloadProgress({
@@ -106,7 +106,7 @@ export function DownloadProgress({
           className="w-2 h-2 rounded-full animate-pulse"
           style={{ background: 'rgba(168,85,247,0.9)', boxShadow: '0 0 6px rgba(168,85,247,0.6)' }}
         />
-        <span className="text-xs text-slate-400">Preparing installation...</span>
+        <span className="text-xs text-[hsl(var(--muted-foreground))]">Preparing installation...</span>
       </div>
     );
   }
@@ -133,14 +133,14 @@ export function DownloadProgress({
       <div className="flex items-center justify-between text-xs">
         <div className="flex items-center gap-1.5">
           {isDone ? (
-            <CheckCircle size={12} className="text-emerald-400" />
+            <CheckCircle size={12} className="text-[hsl(var(--neon-green))]" />
           ) : isFailed ? (
-            <XCircle size={12} className="text-red-400" />
+            <XCircle size={12} className="text-[hsl(var(--destructive))]" />
           ) : (
-            PHASE_ICONS[state.phase ?? ''] ?? <Download size={12} className="text-violet-400" />
+            PHASE_ICONS[state.phase ?? ''] ?? <Download size={12} className="text-[hsl(var(--neon-purple))]" />
           )}
           <span className={`font-medium ${
-            isDone ? 'text-emerald-400' : isFailed ? 'text-red-400' : 'text-slate-200'
+            isDone ? 'text-[hsl(var(--neon-green))]' : isFailed ? 'text-[hsl(var(--destructive))]' : 'text-[hsl(var(--muted-foreground))]'
           }`}>
             {isDone
               ? 'Installation complete'
@@ -150,7 +150,7 @@ export function DownloadProgress({
           </span>
         </div>
         <span className={`font-mono font-bold ${
-          isDone ? 'text-emerald-400' : isFailed ? 'text-red-400' : 'text-violet-300'
+          isDone ? 'text-[hsl(var(--neon-green))]' : isFailed ? 'text-[hsl(var(--destructive))]' : 'text-[hsl(var(--primary))]'
         }`}>
           {pct.toFixed(1)}%
         </span>
@@ -182,7 +182,7 @@ export function DownloadProgress({
           </span>
           <div className="flex items-center gap-3">
             {state.speed_bps > 0 && (
-              <span className="flex items-center gap-1 text-amber-500">
+              <span className="flex items-center gap-1 text-[hsl(var(--neon-amber))]">
                 <Zap size={10} />
                 {fmtSpeed(state.speed_bps)}
               </span>
@@ -210,7 +210,7 @@ export function DownloadProgress({
 
       {/* Error */}
       {isFailed && state.error && (
-        <p className="text-xs text-red-400 font-mono break-all">{state.error}</p>
+        <p className="text-xs text-[hsl(var(--destructive))] font-mono break-all">{state.error}</p>
       )}
     </div>
   );

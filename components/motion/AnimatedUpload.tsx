@@ -186,9 +186,9 @@ export function AnimatedUpload({
     state === 'dragging'
       ? 'border-solid'
       : state === 'success'
-        ? 'border-solid border-green-500'
+        ? 'border-solid border-[hsl(var(--neon-green))]'
         : state === 'error'
-          ? 'border-solid border-red-500'
+          ? 'border-solid border-[hsl(var(--destructive))]'
           : 'border-dashed border-border';
 
   const borderColor = state === 'dragging' ? accentColor : undefined;
@@ -244,9 +244,9 @@ export function AnimatedUpload({
             transition={{ duration: dur(150), ease }}
           >
             {state === 'success' ? (
-              <Check className="h-10 w-10 text-green-500" />
+              <Check className="h-10 w-10 text-[hsl(var(--neon-green))]" />
             ) : state === 'error' ? (
-              <AlertCircle className="h-10 w-10 text-red-500" />
+              <AlertCircle className="h-10 w-10 text-[hsl(var(--destructive))]" />
             ) : state === 'dragging' ? (
               <FileUp className="h-10 w-10" style={{ color: accentColor }} />
             ) : (

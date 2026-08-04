@@ -274,7 +274,7 @@ function storageWrite<T>(key: string, value: T) {
 
 function starRating(value: number) {
   return (
-    <span className="inline-flex items-center gap-0.5 text-amber-400">
+    <span className="inline-flex items-center gap-0.5 text-[hsl(var(--neon-amber))]">
       {Array.from({ length: 5 }, (_, i) => (
         <Star
           key={i}
@@ -790,7 +790,7 @@ export function PipelinesDashboard({
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <Sparkles className="h-4 w-4 text-amber-400" />
+                  <Sparkles className="h-4 w-4 text-[hsl(var(--neon-amber))]" />
                   Texture Generation
                 </CardTitle>
                 <CardDescription>Shown when texture-capable models are available.</CardDescription>
@@ -808,7 +808,7 @@ export function PipelinesDashboard({
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <Cpu className="h-4 w-4 text-sky-400" />
+                  <Cpu className="h-4 w-4 text-[hsl(var(--neon-blue))]" />
                   Rigging / Animation
                 </CardTitle>
                 <CardDescription>Enabled by UniRig.</CardDescription>
@@ -826,7 +826,7 @@ export function PipelinesDashboard({
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <Wand2 className="h-4 w-4 text-violet-400" />
+                  <Wand2 className="h-4 w-4 text-[hsl(var(--neon-purple))]" />
                   Detail Enhancement
                 </CardTitle>
                 <CardDescription>Shown when mesh-enhancing models are ready.</CardDescription>

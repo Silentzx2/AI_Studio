@@ -168,7 +168,7 @@ export function ExportBackupSection() {
       
       {status && (
         <div className={`p-4 rounded-lg flex items-start gap-3 border ${
-          status.type === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-500' : 'bg-red-500/10 border-red-500/20 text-red-500'
+          status.type === 'success' ? 'bg-[hsl(var(--neon-green)/0.1)] border-[hsl(var(--neon-green)/0.2)] text-[hsl(var(--neon-green))]' : 'bg-[hsl(var(--destructive)/0.1)] border-[hsl(var(--destructive)/0.2)] text-[hsl(var(--destructive))]'
         }`}>
           {status.type === 'success' ? <Check className="w-5 h-5 mt-0.5" /> : <AlertCircle className="w-5 h-5 mt-0.5" />}
           <div>

@@ -130,7 +130,7 @@ export function ModelDetailsModal({
           {/* Status Badge */}
           {health && (
             <Badge className={
-              health.status === 'healthy' ? 'bg-[hsl(var(--neon-green)/0.2)] text-[hsl(var(--neon-green))] border-green-500/30' :
+              health.status === 'healthy' ? 'bg-[hsl(var(--neon-green)/0.2)] text-[hsl(var(--neon-green))] border-[hsl(var(--neon-green))]/30' :
               health.status === 'warning' ? 'bg-[hsl(var(--neon-amber)/0.2)] text-[hsl(var(--neon-amber))] border-[hsl(var(--neon-amber)/0.3)]' :
               'bg-[hsl(var(--destructive)/0.2)] text-[hsl(var(--destructive))] border-[hsl(var(--destructive)/0.3)]'
             }>
@@ -349,7 +349,7 @@ function HealthTabContent({ health }: { health: any }) {
       {/* Individual Checks */}
       {health.checks && Object.entries(health.checks).map(([checkName, result]: [string, any]) => (
         <Card key={checkName} className={`p-4 ${
-          result.status === 'ok' ? 'border-green-500/20' :
+          result.status === 'ok' ? 'border-[hsl(var(--neon-green)/0.2)]' :
           result.status === 'warning' ? 'border-[hsl(var(--neon-amber)/0.2)]' : 'border-[hsl(var(--destructive)/0.2)]'
         }`}>
           <div className="flex items-center justify-between mb-2">

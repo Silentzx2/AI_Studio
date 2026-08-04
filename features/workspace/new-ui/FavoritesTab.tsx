@@ -47,7 +47,7 @@ export default function FavoritesTab({
           >
             {/* Visual Box */}
             <div className="relative aspect-square w-full rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--surface-3))] overflow-hidden flex items-center justify-center">
-              <div className="w-16 h-16 rounded bg-gradient-to-tr from-rose-500/10 to-transparent flex items-center justify-center border border-rose-500/10 transform group-hover:rotate-6 transition-all">
+              <div className="w-16 h-16 rounded bg-gradient-to-tr from-[hsl(var(--destructive))/0.1] to-transparent flex items-center justify-center border border-[hsl(var(--destructive))/0.1] transform group-hover:rotate-6 transition-all">
                 <Cpu size={28} className="text-[hsl(var(--destructive))] opacity-80" />
               </div>
 

@@ -11,7 +11,7 @@ export function JobProgressMonitor({ jobId }: JobProgressMonitorProps) {
 
   if (!jobId) return null;
 
-  if (error) return <div className="text-red-500 text-sm">Error: {error}</div>;
+  if (error) return <div className="text-[hsl(var(--destructive))] text-sm">Error: {error}</div>;
 
   return (
     <div className="space-y-4">
@@ -23,7 +23,7 @@ export function JobProgressMonitor({ jobId }: JobProgressMonitorProps) {
       </div>
       <Progress value={status?.progress || 0} className="h-2" />
       {loading && <p className="text-xs text-muted-foreground animate-pulse">Streaming updates...</p>}
-      {!loading && status?.status === 'completed' && <p className="text-xs text-green-500">Completed</p>}
+      {!loading && status?.status === 'completed' && <p className="text-xs text-[hsl(var(--neon-green))]">Completed</p>}
     </div>
   );
 }

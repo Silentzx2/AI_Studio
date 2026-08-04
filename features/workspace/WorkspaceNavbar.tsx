@@ -150,7 +150,7 @@ export function WorkspaceNavbar() {
           {/* Backend Status */}
           <div className="hidden md:flex items-center gap-1.5 px-2 py-1 rounded-lg glass-card transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-[hsl(var(--border)/0.6)] hover:shadow-[0_0_12px_hsl(var(--neon-green)/0.08)]">
            <Wifi
-  className={`w-3 h-3 ${backendStatus === 'online' ? 'text-emerald-400' : backendStatus === 'offline' ? 'text-red-400' : 'text-amber-400'}`}
+  className={`w-3 h-3 ${backendStatus === 'online' ? 'text-[hsl(var(--neon-green))]' : backendStatus === 'offline' ? 'text-[hsl(var(--destructive))]' : 'text-[hsl(var(--neon-amber))]'}`}
   style={{ filter: backendStatus === 'online' ? 'drop-shadow(0 0 6px hsl(142 76% 46% / 0.6))' : 'none' }}
 />
 <span className="text-[10px] font-medium text-muted-foreground">
@@ -163,7 +163,7 @@ export function WorkspaceNavbar() {
           <HoverCard>
             <HoverCardTrigger asChild>
               <div className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-lg glass-card transition-all duration-200 hover:border-[hsl(var(--border)/0.6)] cursor-pointer hover:shadow-[0_0_12px_hsl(var(--neon-blue)/0.15)]">
-                <Activity className="w-3.5 h-3.5 text-blue-400 animate-pulse" style={{ filter: 'drop-shadow(0 0 6px hsl(217 91% 60% / 0.6))' }} />
+                <Activity className="w-3.5 h-3.5 text-[hsl(var(--neon-blue))] animate-pulse" style={{ filter: 'drop-shadow(0 0 6px hsl(217 91% 60% / 0.6))' }} />
               </div>
             </HoverCardTrigger>
             <HoverCardContent className="w-56 z-50 p-3 border border-border bg-background shadow-lg shadow-black/20" align="end" sideOffset={12}>
@@ -189,7 +189,7 @@ export function WorkspaceNavbar() {
 
           {/* VRAM */}
           <div className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-lg glass-card transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-[hsl(var(--border)/0.6)] hover:shadow-[0_0_12px_hsl(var(--neon-amber)/0.08)]">
-            <Zap className="w-3 h-3 text-amber-400" style={{ filter: 'drop-shadow(0 0 6px hsl(38 92% 50% / 0.6))' }} />
+            <Zap className="w-3 h-3 text-[hsl(var(--neon-amber))]" style={{ filter: 'drop-shadow(0 0 6px hsl(38 92% 50% / 0.6))' }} />
             <span className="text-[10px] font-mono text-muted-foreground">{vramUsed}/{vramTotal} GB</span>
           </div>
 

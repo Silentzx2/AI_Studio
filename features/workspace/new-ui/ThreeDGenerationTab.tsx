@@ -304,7 +304,7 @@ export default function ThreeDGenerationTab({
       if (parentActiveModel?.id !== activeModel.id) {
         onUpdateModel({
           ...activeModel,
-          accentColor: activeModel.id === 'triposr' ? 'hsl(var(--primary))' : '#3B82F6'
+          accentColor: activeModel.id === 'triposr' ? 'hsl(var(--primary))' : 'hsl(var(--neon-blue))'
         });
       }
     }

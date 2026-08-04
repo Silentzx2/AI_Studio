@@ -160,7 +160,7 @@ export function RuntimeTab() {
         {/* Enhanced Hardware Details - Prominent Display */}
         <div className="mt-4 pt-4 border-t border-white/5 grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* GPU Detail Card */}
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-purple-500/10 to-violet-500/5 border border-purple-500/20">
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-[hsl(var(--primary))/0.1] to-[hsl(var(--primary))/0.05] border border-[hsl(var(--primary))/0.2]">
             <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[hsl(var(--primary)/0.2)]">
               <Cpu className="w-5 h-5 text-[hsl(var(--neon-purple))]" />
             </div>
@@ -178,7 +178,7 @@ export function RuntimeTab() {
           </div>
           
           {/* CPU Detail Card */}
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-cyan-500/10 to-blue-500/5 border border-cyan-500/20">
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-[hsl(var(--accent-color-secondary))/0.1] to-[hsl(var(--neon-blue))/0.05] border border-[hsl(var(--accent-color-secondary))/0.2]">
             <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[hsl(var(--accent-color-secondary)/0.2)]">
               <Server className="w-5 h-5 text-[hsl(var(--neon-cyan))]" />
             </div>

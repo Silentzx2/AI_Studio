@@ -273,7 +273,7 @@ export function ModelsTab() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Loader2 className="w-4 h-4 text-[hsl(var(--neon-purple))] animate-spin" />
-                          <span className="text-xs font-medium text-violet-300 capitalize">
+                          <span className="text-xs font-medium text-[hsl(var(--primary))] capitalize">
                             {progress.phase === 'downloading' ? '⬇️ Downloading Weights...' : 
                              progress.phase === 'extracting' ? '📦 Extracting Files...' :
                              progress.phase === 'repo' ? '🔀 Cloning Repository...' :
@@ -298,7 +298,7 @@ export function ModelsTab() {
                             <Zap className="w-3 h-3" />
                             <span className="text-[10px] font-medium">Speed</span>
                           </div>
-                          <span className="text-sm font-bold font-mono text-amber-300">
+                          <span className="text-sm font-bold font-mono text-[hsl(var(--neon-amber))]">
                             {progress.speed_mbps?.toFixed(1) ?? '0'}
                             <span className="text-[10px] font-normal text-muted-foreground">MB/s</span>
                           </span>

@@ -36,7 +36,7 @@ export function DownloadArea() {
           </span>
         )}
         {isCompleted && (
-          <span className="ml-auto flex items-center gap-1 text-[10px] text-emerald-400">
+          <span className="ml-auto flex items-center gap-1 text-[10px] text-[hsl(var(--neon-green))]">
             <CheckCircle2 className="w-3 h-3" /> Ready
           </span>
         )}

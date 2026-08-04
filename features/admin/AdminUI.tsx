@@ -20,7 +20,7 @@ export function Card({ children, className }: { children: React.ReactNode; class
 
 export function CardTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+    <h3 className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider mb-3">
       {children}
     </h3>
   );
@@ -35,11 +35,11 @@ export function Badge({
 }) {
   const cls = {
     default: 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] border-[hsl(var(--border))]/40',
-    success: 'bg-[hsl(var(--neon-green))]/12 text-[hsl(var(--neon-green))] border-emerald-500/25',
-    warn:    'bg-[hsl(var(--neon-amber))]/12 text-[hsl(var(--neon-amber))] border-amber-500/25',
-    error:   'bg-[hsl(var(--destructive))]/12 text-[hsl(var(--destructive))] border-red-500/25',
-    info:    'bg-[hsl(var(--neon-blue))]/12 text-[hsl(var(--neon-blue))] border-blue-500/25',
-    purple:  'bg-[hsl(var(--neon-purple)/0.15)] text-violet-300 border-[hsl(var(--neon-purple)/0.3)]',
+    success: 'bg-[hsl(var(--neon-green))/0.12] text-[hsl(var(--neon-green))] border-[hsl(var(--neon-green))]/25',
+    warn:    'bg-[hsl(var(--neon-amber))/0.12] text-[hsl(var(--neon-amber))] border-[hsl(var(--neon-amber))]/25',
+    error:   'bg-[hsl(var(--destructive))/0.12] text-[hsl(var(--destructive))] border-[hsl(var(--destructive))]/25',
+    info:    'bg-[hsl(var(--neon-blue))/0.12] text-[hsl(var(--neon-blue))] border-[hsl(var(--neon-blue))]/25',
+    purple:  'bg-[hsl(var(--neon-purple)/0.15)] text-[hsl(var(--primary))] border-[hsl(var(--neon-purple)/0.3)]',
   }[variant];
   return (
     <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border', cls)}>
@@ -77,7 +77,7 @@ export function SectionHeader({ children, subtitle }: { children: React.ReactNod
   return (
     <div className="mb-1">
       <h2 className="text-xl font-bold text-[hsl(var(--foreground))]">{children}</h2>
-      {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
+      {subtitle && <p className="text-sm text-[hsl(var(--muted-foreground))] mt-0.5">{subtitle}</p>}
     </div>
   );
 }
@@ -98,7 +98,7 @@ export function ActionButton({
   const base = 'inline-flex items-center justify-center gap-1.5 font-medium rounded-lg transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]';
   const size = small ? 'px-2.5 py-1.5 text-xs' : 'px-4 py-2 text-sm';
   const cls = {
-    default: 'bg-slate-700/50 hover:bg-slate-600/60 text-slate-300 border border-slate-600/40 hover:border-slate-500/60 hover:text-[hsl(var(--foreground))]',
+    default: 'bg-slate-700/50 hover:bg-slate-600/60 text-[hsl(var(--muted-foreground))] border border-slate-600/40 hover:border-slate-500/60 hover:text-[hsl(var(--foreground))]',
     primary: 'text-[hsl(var(--foreground))] border border-[hsl(var(--neon-purple)/0.3)] hover:border-violet-400/50 hover:shadow-[0_0_16px_rgba(168,85,247,0.25)]',
     danger:  'bg-red-600/20 hover:bg-red-600/30 text-[hsl(var(--destructive))] border border-[hsl(var(--destructive)/0.2)] hover:border-[hsl(var(--destructive)/0.4)]',
     success: 'bg-emerald-600/20 hover:bg-emerald-600/30 text-[hsl(var(--neon-green))] border border-[hsl(var(--neon-green)/0.2)] hover:border-[hsl(var(--neon-green))]/40',
@@ -165,7 +165,7 @@ export function DataTable({
         <thead>
           <tr style={{ borderBottom: '1px solid rgba(168,85,247,0.10)' }}>
             {headers.map((h) => (
-              <th key={h} className="text-left py-2.5 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+              <th key={h} className="text-left py-2.5 px-3 text-[11px] font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">
                 {h}
               </th>
             ))}
@@ -179,13 +179,13 @@ export function DataTable({
               style={{ borderBottom: '1px solid rgba(168,85,247,0.06)' }}
             >
               {row.map((cell, j) => (
-                <td key={j} className="py-2.5 px-3 text-slate-300 text-sm">{cell}</td>
+                <td key={j} className="py-2.5 px-3 text-[hsl(var(--muted-foreground))] text-sm">{cell}</td>
               ))}
             </tr>
           ))}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={headers.length} className="py-8 text-center text-slate-600 text-xs">
+              <td colSpan={headers.length} className="py-8 text-center text-[hsl(var(--muted-foreground))] text-xs">
                 No data available
               </td>
             </tr>
@@ -233,12 +233,12 @@ export function MetricCard({
     <Card>
       <div className="flex items-start justify-between mb-3">
         <div>
-          <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wider mb-1">{label}</p>
+          <p className="text-[11px] text-[hsl(var(--muted-foreground))] font-medium uppercase tracking-wider mb-1">{label}</p>
           <p className="text-2xl font-bold text-[hsl(var(--foreground))]">
             {value}
-            {unit && <span className="text-sm text-slate-400 ml-1 font-normal">{unit}</span>}
+            {unit && <span className="text-sm text-[hsl(var(--muted-foreground))] ml-1 font-normal">{unit}</span>}
           </p>
-          {sub && <p className="text-xs text-slate-500 mt-1">{sub}</p>}
+          {sub && <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{sub}</p>}
         </div>
         {Icon && (
           <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: iconBg }}>
