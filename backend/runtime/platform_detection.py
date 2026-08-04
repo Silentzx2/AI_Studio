@@ -2,7 +2,7 @@
 Platform Detection Module - Automatic Environment Detection
 
 Detects the execution environment and provides:
-- Platform identification (Codespaces, Actions, WSL, Docker, etc.)
+- Platform identification (Codespaces, Actions, WSL, etc.)
 - GPU/CUDA availability with detailed reason logging
 - Graceful CPU fallback with clear messaging
 - Comprehensive startup diagnostics
@@ -14,7 +14,6 @@ from __future__ import annotations
 import logging
 import os
 import platform
-import shutil
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -24,8 +23,9 @@ logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Normalize CUDA_VISIBLE_DEVICES at module import time.
-# docker-compose sets this to 'all' for the NVIDIA Container Toolkit; the
-# CUDA runtime does not understand 'all' and makes torch.cuda return False.
+# Some launchers set this to 'all' (e.g. container runtimes / NVIDIA
+# Container Toolkit); the CUDA runtime does not understand 'all' and makes
+# torch.cuda return False. Removing the variable restores default behavior.
 # ---------------------------------------------------------------------------
 _cv = os.environ.get("CUDA_VISIBLE_DEVICES", "")
 if _cv.strip().lower() == "all":
@@ -56,7 +56,6 @@ class PlatformInfo:
     cuda_version: str | None = None
     nvidia_driver: str | None = None
     nvidia_smi_available: bool = False
-    nvidia_runtime_available: bool = False
 
     # Reason for GPU status
     gpu_status_reason: str = ""
@@ -137,11 +136,6 @@ def _detect_gpu(info: PlatformInfo) -> None:
     if not info.nvidia_smi_available:
         reasons.append("nvidia-smi not found")
 
-    if info.is_docker or _has_docker():
-        info.nvidia_runtime_available = _check_nvidia_runtime()
-        if not info.nvidia_runtime_available:
-            reasons.append("NVIDIA container runtime not available")
-
     gpu_detected = False
     try:
         import torch
@@ -185,13 +179,6 @@ def _detect_gpu(info: PlatformInfo) -> None:
         reasons.append(f"CUDA detection error: {e}")
         info.gpu_status_reason = "; ".join(reasons)
 
-    if info.nvidia_smi_available and not gpu_detected and info.is_docker:
-        info.gpu_status_reason = (
-            "GPU visible via nvidia-smi but not accessible in container. "
-            "Use: docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d"
-        )
-        info.gpu_available = False
-
     if not gpu_detected:
         info.gpu_available = False
         logger.info(f"GPU detection result: {info.gpu_status_reason}")
@@ -208,17 +195,6 @@ def _check_nvidia_smi() -> bool:
         return False
 
 
-def _check_nvidia_runtime() -> bool:
-    try:
-        result = subprocess.run(
-            ["docker", "info"],
-            capture_output=True, text=True, timeout=10,
-        )
-        return "nvidia" in result.stdout.lower() or "Runtimes: nvidia" in result.stdout
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return False
-
-
 def _get_driver_version() -> str | None:
     try:
         output = subprocess.check_output(
@@ -230,25 +206,6 @@ def _get_driver_version() -> str | None:
         return None
 
 
-def _has_docker() -> bool:
-    return shutil.which("docker") is not None
-
-
-def _set_recommended_command(info: PlatformInfo) -> None:
-    if info.is_codespaces or info.is_github_actions:
-        info.recommended_command = "docker compose up -d  # Codespaces/Actions - CPU mode"
-    elif info.is_wsl and not info.gpu_available:
-        info.recommended_command = "docker compose up -d  # WSL without GPU detected"
-    elif info.gpu_available and info.nvidia_runtime_available:
-        info.recommended_command = (
-            "docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d  # GPU mode"
-        )
-    elif info.gpu_available and not info.nvidia_runtime_available:
-        info.recommended_command = "docker compose up -d  # GPU present but NVIDIA runtime unavailable"
-    else:
-        info.recommended_command = "docker compose up -d  # CPU-only mode"
-
-
 def _collect_diagnostics(info: PlatformInfo) -> None:
     info.diagnostics = {
         "platform": {
@@ -258,11 +215,9 @@ def _collect_diagnostics(info: PlatformInfo) -> None:
             "architecture": info.architecture,
         },
         "environment": {
-            "is_docker": info.is_docker,
             "is_codespaces": info.is_codespaces,
             "is_github_actions": info.is_github_actions,
             "is_wsl": info.is_wsl,
-            "is_docker_desktop": info.is_docker_desktop,
         },
         "gpu": {
             "available": info.gpu_available,
@@ -271,7 +226,6 @@ def _collect_diagnostics(info: PlatformInfo) -> None:
             "cuda_version": info.cuda_version,
             "nvidia_driver": info.nvidia_driver,
             "nvidia_smi_available": info.nvidia_smi_available,
-            "nvidia_runtime_available": info.nvidia_runtime_available,
             "status_reason": info.gpu_status_reason,
         },
         "environment_vars": {
@@ -280,7 +234,6 @@ def _collect_diagnostics(info: PlatformInfo) -> None:
             "AI_PROVIDER": os.environ.get("AI_PROVIDER", "(not set)"),
             "PLATFORM_MODE": os.environ.get("PLATFORM_MODE", "(not set)"),
         },
-        "recommended_command": info.recommended_command,
     }
 
 
@@ -294,11 +247,9 @@ def log_platform_info(info: PlatformInfo) -> None:
     logger.info(f"Architecture: {info.architecture}")
 
     env_parts = []
-    if info.is_docker: env_parts.append("Docker")
     if info.is_codespaces: env_parts.append("Codespaces")
     if info.is_github_actions: env_parts.append("GitHub Actions")
     if info.is_wsl: env_parts.append("WSL")
-    if info.is_docker_desktop: env_parts.append("Docker Desktop")
     env_str = ", ".join(env_parts) if env_parts else "Native"
     logger.info(f"Environment: {env_str}")
 
@@ -316,9 +267,6 @@ def log_platform_info(info: PlatformInfo) -> None:
         logger.info("  Status: CPU-ONLY MODE")
         logger.info(f"  Reason: {info.gpu_status_reason}")
 
-    logger.info("")
-    logger.info("RECOMMENDED COMMAND")
-    logger.info(f"  {info.recommended_command}")
     logger.info("=" * 60)
 
 
@@ -341,9 +289,8 @@ def get_platform_summary() -> dict:
     info = get_platform_info()
     return {
         "os": info.os_name,
-        "environment": "docker" if info.is_docker else "native",
+        "environment": "native",
         "gpu_available": info.gpu_available,
         "gpu_count": info.gpu_count,
         "cuda_version": info.cuda_version,
-        "recommended_command": info.recommended_command,
     }

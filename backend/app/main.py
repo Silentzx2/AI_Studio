@@ -20,11 +20,11 @@ from app.config import get_settings
 # ---------------------------------------------------------------------------
 # Normalize CUDA_VISIBLE_DEVICES BEFORE any torch/CUDA import.
 #
-# docker-compose sets CUDA_VISIBLE_DEVICES=all for the NVIDIA Container
-# Toolkit. The CUDA runtime itself does NOT understand 'all' — it expects
-# empty string (all GPUs) or comma-separated device indices.
-# Removing the variable here ensures torch.cuda.is_available() works
-# correctly on a Tesla T4 / any NVIDIA GPU in the container.
+# Some launchers set CUDA_VISIBLE_DEVICES=all (e.g. container runtimes /
+# NVIDIA Container Toolkit). The CUDA runtime itself does NOT understand
+# 'all' — it expects empty string (all GPUs) or comma-separated device
+# indices. Removing the variable here ensures torch.cuda.is_available()
+# works correctly on a real NVIDIA GPU.
 # ---------------------------------------------------------------------------
 _cuda_visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
 if _cuda_visible.strip().lower() == "all":
@@ -52,13 +52,10 @@ def log_startup_diagnostics() -> None:
     logger.info(f"Architecture: {platform.machine()}")
 
     # Environment detection
-    is_docker = Path("/.dockerenv").exists()
     is_codespaces = bool(os.environ.get("CODESPACES") or os.environ.get("GITHUB_CODESPACE_NAME"))
     is_github_actions = os.environ.get("GITHUB_ACTIONS", "").lower() == "true"
 
     env_parts = []
-    if is_docker:
-        env_parts.append("Docker")
     if is_codespaces:
         env_parts.append("Codespaces")
     if is_github_actions:

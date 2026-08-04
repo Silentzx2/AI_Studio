@@ -15,7 +15,6 @@ interface SystemInfo {
   architecture: string;
   disk_free_mb: number;
   system_ram_mb: number;
-  docker_available: boolean;
 }
 
 interface CompatibilityResult {

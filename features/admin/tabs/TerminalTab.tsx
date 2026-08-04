@@ -18,7 +18,6 @@ const PRESET_COMMANDS = [
   { id: 'restart', command: 'systemctl restart ai-studio', description: 'Restart service' },
   { id: 'cache', command: 'redis-cli FLUSHALL', description: 'Clear Redis cache' },
   { id: 'disk', command: 'df -h', description: 'Check disk usage' },
-  { id: 'docker', command: 'docker ps -a', description: 'List containers' },
   { id: 'workers', command: 'celery -A ai_studio inspect active', description: 'Check active workers' },
 ];
 

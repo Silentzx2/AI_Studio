@@ -211,7 +211,6 @@ export function OverviewTab() {
               { label: 'CUDA', status: (overview as any)?.cuda_available ?? runtime?.cuda_available ? 'online' as const : 'offline' as const },
               { label: 'Backend API', status: overview ? 'online' as const : 'offline' as const },
               { label: 'Worker Queue', status: overview?.queue_running ? 'online' as const : 'offline' as const },
-              { label: 'Docker', status: 'online' as const },
             ].map((item) => (
               <div key={item.label} className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">{item.label}</span>

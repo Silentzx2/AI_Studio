@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Boxes, Download, Activity, ScrollText, Briefcase,
-  ListOrdered, HeartPulse, Container, Terminal, Settings,
+  ListOrdered, HeartPulse, Terminal, Settings,
   ChevronLeft, ChevronRight, Box, Sparkles, Cpu, HardDrive,
   Zap, Wifi, Search, Bell, Menu, X, PanelLeftClose, PanelLeft,
 } from 'lucide-react';
@@ -20,7 +20,7 @@ import type { RuntimeStatus } from '@/types';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard, Boxes, Download, Activity, ScrollText, Briefcase,
-  ListOrdered, HeartPulse, Container, Terminal, Settings,
+  ListOrdered, HeartPulse, Terminal, Settings,
 };
 
 export type AdminTab =
@@ -32,7 +32,6 @@ export type AdminTab =
   | 'jobs'
   | 'queue'
   | 'health'
-  | 'docker'
   | 'terminal'
   | 'settings';
 

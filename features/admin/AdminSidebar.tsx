@@ -3,7 +3,7 @@ import Link from 'next/link';
 import type { AdminTab } from './AdminShell';
 import {
   LayoutDashboard, Layers, Package, Download, ListOrdered,
-  Cpu, ScrollText, Settings, Activity, Container,
+  Cpu, ScrollText, Settings, Activity,
   BriefcaseBusiness, Terminal, ChevronRight, ExternalLink,
   Boxes, Zap,
 } from 'lucide-react';
@@ -21,7 +21,6 @@ const PRIMARY_NAV: { id: AdminTab | null; label: string; icon: React.ElementType
 
 const ADMIN_NAV: { id: AdminTab; label: string; icon: React.ElementType }[] = [
   { id: 'health', label: 'Health', icon: Activity },
-  { id: 'docker', label: 'Docker', icon: Container },
   { id: 'jobs', label: 'Jobs', icon: BriefcaseBusiness },
   { id: 'terminal', label: 'Terminal', icon: Terminal },
   { id: 'settings', label: 'Config', icon: Settings },

@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import type { AdminOverview, AdminLog, AdminJob, AdminModel, QueueStatus, DockerService, TerminalCommand, InstallProgress, PipelineSnapshot } from '@/types';
+import type { AdminOverview, AdminLog, AdminJob, AdminModel, QueueStatus, TerminalCommand, InstallProgress, PipelineSnapshot } from '@/types';
 
 /**
  * Admin Service - handles all admin panel API calls
