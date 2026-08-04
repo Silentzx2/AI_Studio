@@ -44,10 +44,10 @@ if [[ ! -f backend/.venv/bin/python ]]; then
     exit 1
 fi
 
-PYTHON_BIN="backend/.venv/bin/python"
-PIP_BIN="backend/.venv/bin/pip"
-UVICORN_BIN="backend/.venv/bin/uvicorn"
-CELERY_BIN="backend/.venv/bin/celery"
+PYTHON_BIN="${PROJECT_ROOT}/backend/.venv/bin/python"
+PIP_BIN="${PROJECT_ROOT}/backend/.venv/bin/pip"
+UVICORN_BIN="${PROJECT_ROOT}/backend/.venv/bin/uvicorn"
+CELERY_BIN="${PROJECT_ROOT}/backend/.venv/bin/celery"
 
 # ── Ensure Node.js is available ────────────────────────────────────────────
 if ! command -v npm &>/dev/null; then

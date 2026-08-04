@@ -58,6 +58,48 @@ export const adminService = {
     await apiClient.delete('/api/v1/admin/logs');
   },
 
+  async getSettings(): Promise<Record<string, unknown> | null> {
+    try {
+      const res = await apiClient.get<{ data: Record<string, unknown> }>('/api/v1/admin/settings');
+      return res?.data || null;
+    } catch {
+      return null;
+    }
+  },
+
+  async getHFTokenStatus(): Promise<{ configured: boolean; valid: boolean }> {
+    try {
+      const res = await apiClient.get<{ data: { configured: boolean; valid: boolean } }>('/api/v1/admin/settings/hf-token');
+      return { configured: Boolean(res?.data?.configured), valid: Boolean(res?.data?.valid) };
+    } catch {
+      return { configured: false, valid: false };
+    }
+  },
+
+  async saveHFToken(token: string): Promise<void> {
+    await apiClient.post('/api/v1/admin/settings/hf-token', { token });
+  },
+
+  async runCommand(command: string): Promise<TerminalCommand> {
+    const res = await apiClient.post<{ data: TerminalCommand }>('/api/v1/admin/terminal', { command });
+    return res?.data || {
+      id: `cmd-${Date.now()}`,
+      command,
+      output: '(no output)',
+      timestamp: new Date().toISOString(),
+      exit_code: 0,
+    };
+  },
+
+  async commandHistory(): Promise<TerminalCommand[]> {
+    try {
+      const res = await apiClient.get<{ data: { history: TerminalCommand[] } }>('/api/v1/admin/terminal/history');
+      return res?.data?.history || [];
+    } catch {
+      return [];
+    }
+  },
+
   async queueStatus(): Promise<QueueStatus | null> {
     try {
       const res = await apiClient.get<{ data: QueueStatus }>('/api/v1/admin/queue');
@@ -116,6 +158,28 @@ export const adminService = {
       model_id: modelId,
       action,
     });
+  },
+
+  /**
+   * Stream live logs via SSE. Mirrors getLogs field mapping (ts/logger).
+   * last_n: number of existing entries to backfill on connect.
+   */
+  streamAdminLogs(onEntry: (log: AdminLog) => void, lastN = 50): () => void {
+    return apiClient.streamEvents(
+      `/api/v1/admin/logs/stream?last_n=${lastN}`,
+      (raw) => {
+        const d = raw as Record<string, unknown>;
+        if (d.level === 'HEARTBEAT' && !d.message) return;
+        const entry: AdminLog = {
+          id: String(d.id ?? `log-${Date.now()}-${Math.random().toString(36).slice(2)}`),
+          timestamp: String(d.timestamp || d.ts || new Date().toISOString()),
+          level: (String(d.level || 'info').toLowerCase() as AdminLog['level']).replace(/[^a-z]/g, '') as AdminLog['level'] || 'info',
+          source: String(d.source || d.logger || 'system'),
+          message: String(d.message || ''),
+        };
+        onEntry(entry);
+      }
+    );
   },
 
   /**

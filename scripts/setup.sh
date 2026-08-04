@@ -341,9 +341,12 @@ install_python_deps() {
   (
     cd backend
 
-    # Create venv using uv (replaces python3.12-venv entirely)
+    # Create venv using uv (replaces python3.12-venv entirely).
+    # Idempotent: skip if venv already exists so re-runs don't fail.
     log "Creating virtual environment with uv..."
-    uv venv --python 3.12 .venv
+    if [[ ! -x .venv/bin/python ]]; then
+        uv venv --python 3.12 .venv
+    fi
 
     # Install PyTorch once — GPU or CPU depending on hardware
     if [[ "$GPU_AVAILABLE" == "true" ]]; then

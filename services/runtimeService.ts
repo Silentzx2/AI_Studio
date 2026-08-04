@@ -190,7 +190,7 @@ export const runtimeService = {
 
   async getHFTokenStatus(): Promise<{ configured: boolean; valid: boolean; masked?: string }> {
     try {
-      const response = await apiClient.get<ApiEnvelope<{ configured: boolean; valid?: boolean; masked?: string }>>('/api/v1/runtime/hf-token/status');
+      const response = await apiClient.get<ApiEnvelope<{ configured: boolean; valid?: boolean; masked?: string }>>('/api/v1/runtime/hf-token');
       const status = unwrap(response);
       return { configured: Boolean(status.configured), valid: Boolean(status.valid), masked: status.masked };
     } catch {

@@ -76,7 +76,11 @@ export function useAutoSave<T>(
     }
   };
 
-  return { status, save: handleManualSave };
+  const Indicator = () => (
+    <AutoSaveIndicator status={status} onSave={handleManualSave} />
+  );
+
+  return { status, save: handleManualSave, Indicator };
 }
 
 /**
