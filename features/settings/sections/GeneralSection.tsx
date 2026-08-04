@@ -151,7 +151,7 @@ export function GeneralSection() {
     return (
       <div className="p-6">
         <div className="flex items-center justify-center h-40">
-          <Loader2 className="w-8 h-8 animate-spin text-[#F5A623]" />
+          <Loader2 className="w-8 h-8 animate-spin text-[hsl(var(--neon-amber))]" />
         </div>
       </div>
     );

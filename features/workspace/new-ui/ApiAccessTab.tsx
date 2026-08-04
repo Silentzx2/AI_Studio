@@ -71,14 +71,14 @@ print(f"Model generated: {response.glb_url}")`,
   };
 
   return (
-    <div className="flex-1 p-6 flex flex-col lg:flex-row gap-6 animate-fadeIn text-[#FAFAFA]" id="api-access-tab-panel">
+    <div className="flex-1 p-6 flex flex-col lg:flex-row gap-6 animate-fadeIn text-[hsl(var(--foreground))]" id="api-access-tab-panel">
       {/* Left Column: API key and Usage Statistics */}
       <div className="flex-1 flex flex-col gap-5 min-w-0" id="api-left-panel">
         {/* Secret Key Panel */}
         <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-4" id="api-key-box">
           <div>
             <h2 className="text-sm font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
-              <Key size={16} className="text-[#FF5A1F]" />
+              <Key size={16} className="text-[hsl(var(--neon-amber))]" />
               Developer API Access Key
             </h2>
             <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
@@ -86,21 +86,21 @@ print(f"Model generated: {response.glb_url}")`,
             </p>
           </div>
 
-          <div className="flex items-center gap-3 bg-[#18181F] border border-[#27272A] rounded-xl p-3" id="api-key-input-wrapper">
+          <div className="flex items-center gap-3 bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-3" id="api-key-input-wrapper">
             <span className="font-mono text-xs text-[hsl(var(--muted-foreground))] select-all flex-1 truncate">
               {showKey ? apiKey : '•••••••••••••••••••••••••••••••••••••••••••••••••'}
             </span>
             <div className="flex gap-2" id="key-actions">
               <button
                 onClick={() => setShowKey(!showKey)}
-                className="px-3 py-1.5 rounded-lg bg-[#1E1E24] border border-[#2E2E38] hover:bg-[#25252E] text-xs font-semibold text-white transition-all"
+                className="px-3 py-1.5 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--surface-4))] hover:bg-[hsl(var(--surface-3))] text-xs font-semibold text-white transition-all"
                 id="show-key-btn"
               >
                 {showKey ? 'Hide' : 'Show'}
               </button>
               <button
                 onClick={handleCopyKey}
-                className="p-1.5 rounded-lg bg-[#FF5A1F] text-black hover:brightness-110 transition-all flex items-center justify-center w-8 h-8"
+                className="p-1.5 rounded-lg bg-[hsl(var(--neon-amber))] text-black hover:brightness-110 transition-all flex items-center justify-center w-8 h-8"
                 title="Copy API key to clipboard"
                 id="copy-key-btn"
               >
@@ -113,7 +113,7 @@ print(f"Model generated: {response.glb_url}")`,
             <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Created on Dec 15, 2025</span>
             <button
               onClick={handleRegenerate}
-              className="text-xs font-bold text-[#FF5A1F] hover:underline"
+              className="text-xs font-bold text-[hsl(var(--neon-amber))] hover:underline"
               id="regenerate-key-btn"
             >
               Regenerate API Key
@@ -126,20 +126,20 @@ print(f"Model generated: {response.glb_url}")`,
           <div className="flex justify-between items-center flex-wrap gap-2" id="analytics-header">
             <div>
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <Activity size={16} className="text-[#FF5A1F]" />
+                <Activity size={16} className="text-[hsl(var(--neon-amber))]" />
                 API Generation Volume
               </h3>
               <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">Synthesized mesh API calls over the last 7 days</p>
             </div>
 
-            <div className="flex items-center gap-1.5 bg-[#18181F] border border-[#27272A] px-2.5 py-1 rounded-lg" id="analytics-active-calls">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#FF5A1F]" />
-              <span className="text-[10px] font-bold text-[#FF5A1F] uppercase font-mono">152 Total Requests</span>
+            <div className="flex items-center gap-1.5 bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] px-2.5 py-1 rounded-lg" id="analytics-active-calls">
+              <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--neon-amber))]" />
+              <span className="text-[10px] font-bold text-[hsl(var(--neon-amber))] uppercase font-mono">152 Total Requests</span>
             </div>
           </div>
 
           {/* SVG Line Chart */}
-          <div className="h-44 w-full bg-[#18181F]/40 rounded-xl border border-white/[0.02] p-3 flex flex-col justify-end relative overflow-hidden" id="analytics-svg-chart-container">
+          <div className="h-44 w-full bg-[hsl(var(--surface-2))]/40 rounded-xl border border-white/[0.02] p-3 flex flex-col justify-end relative overflow-hidden" id="analytics-svg-chart-container">
             {/* Background grids */}
             <div className="absolute inset-x-0 top-1/4 h-[1px] bg-white/[0.02]" />
             <div className="absolute inset-x-0 top-2/4 h-[1px] bg-white/[0.02]" />
@@ -149,8 +149,8 @@ print(f"Model generated: {response.glb_url}")`,
               {/* Gradient def */}
               <defs>
                 <linearGradient id="chart-grad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#FF5A1F" stopOpacity="0.25" />
-                  <stop offset="100%" stopColor="#FF5A1F" stopOpacity="0.0" />
+                  <stop offset="0%" stopColor="hsl(var(--neon-amber))" stopOpacity="0.25" />
+                  <stop offset="100%" stopColor="hsl(var(--neon-amber))" stopOpacity="0.0" />
                 </linearGradient>
               </defs>
 
@@ -164,14 +164,14 @@ print(f"Model generated: {response.glb_url}")`,
               <path
                 d="M 10 90 L 70 82 L 130 50 L 190 62 L 250 25 L 310 40 L 370 12"
                 fill="none"
-                stroke="#FF5A1F"
+                stroke="hsl(var(--neon-amber))"
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
 
               {/* Active marker node */}
-              <circle cx="370" cy="12" r="5" fill="#FF5A1F" stroke="#FAFAFA" strokeWidth="1.5" />
+              <circle cx="370" cy="12" r="5" fill="hsl(var(--neon-amber))" stroke="hsl(var(--foreground))" strokeWidth="1.5" />
             </svg>
 
             {/* X Axis labels */}
@@ -203,7 +203,7 @@ print(f"Model generated: {response.glb_url}")`,
                   <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-semibold uppercase tracking-wider">{stat.label}</span>
                   <span className="text-sm font-mono font-bold text-white">{stat.value}</span>
                 </div>
-                <Icon size={16} className="text-[#FF5A1F]" />
+                <Icon size={16} className="text-[hsl(var(--neon-amber))]" />
               </div>
             );
           })}
@@ -213,18 +213,18 @@ print(f"Model generated: {response.glb_url}")`,
         <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-4 flex-1" id="api-playground">
           <div className="flex justify-between items-center" id="playground-header">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-              <Code size={14} className="text-[#FF5A1F]" />
+              <Code size={14} className="text-[hsl(var(--neon-amber))]" />
               Quick SDK Integration
             </h3>
             
-            <div className="flex gap-1.5 bg-[#18181F] border border-[#27272A] p-0.5 rounded-lg" id="lang-switchers">
+            <div className="flex gap-1.5 bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] p-0.5 rounded-lg" id="lang-switchers">
               {(['JS', 'PY', 'CURL'] as const).map((lang) => (
                 <button
                   key={lang}
                   onClick={() => setActiveCodeLang(lang)}
                   className={`px-2 py-1 rounded text-[9px] font-mono font-bold transition-all ${
                     activeCodeLang === lang
-                      ? 'bg-[#FF5A1F] text-black'
+                      ? 'bg-[hsl(var(--neon-amber))] text-black'
                       : 'text-[hsl(var(--muted-foreground))] hover:text-white'
                   }`}
                   id={`code-lang-btn-${lang}`}
@@ -235,7 +235,7 @@ print(f"Model generated: {response.glb_url}")`,
             </div>
           </div>
 
-          <div className="flex-1 relative bg-[#18181F] border border-[#27272A] rounded-xl p-3 overflow-hidden flex flex-col justify-between" id="playground-code-window">
+          <div className="flex-1 relative bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-3 overflow-hidden flex flex-col justify-between" id="playground-code-window">
             <pre className="text-[10px] font-mono text-[hsl(var(--muted-foreground))] leading-relaxed whitespace-pre-wrap overflow-y-auto max-h-[220px]">
               {codeSnippets[activeCodeLang]}
             </pre>

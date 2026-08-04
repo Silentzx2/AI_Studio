@@ -24,7 +24,7 @@ export default function FavoritesTab({
   const favoriteItems = history.filter((item) => item.isFavorite);
 
   return (
-    <div className="flex-1 p-6 flex flex-col gap-6 animate-fadeIn text-[#FAFAFA]" id="favorites-tab-panel">
+    <div className="flex-1 p-6 flex flex-col gap-6 animate-fadeIn text-[hsl(var(--foreground))]" id="favorites-tab-panel">
       {/* Intro */}
       <div>
         <h2 className="text-lg font-bold text-white flex items-center gap-2">
@@ -46,7 +46,7 @@ export default function FavoritesTab({
             id={`favorite-card-${item.id}`}
           >
             {/* Visual Box */}
-            <div className="relative aspect-square w-full rounded-xl bg-[#18181F] border border-[#23232C] overflow-hidden flex items-center justify-center">
+            <div className="relative aspect-square w-full rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--surface-3))] overflow-hidden flex items-center justify-center">
               <div className="w-16 h-16 rounded bg-gradient-to-tr from-rose-500/10 to-transparent flex items-center justify-center border border-rose-500/10 transform group-hover:rotate-6 transition-all">
                 <Cpu size={28} className="text-rose-500 opacity-80" />
               </div>
@@ -73,7 +73,7 @@ export default function FavoritesTab({
 
               {/* Format Badge */}
               <div className="absolute bottom-2.5 left-2.5">
-                <span className="px-2 py-0.5 rounded bg-black/90 text-[9px] font-mono font-bold text-white border border-[#27272A] uppercase">
+                <span className="px-2 py-0.5 rounded bg-black/90 text-[9px] font-mono font-bold text-white border border-[hsl(var(--border))] uppercase">
                   {item.format}
                 </span>
               </div>
@@ -81,7 +81,7 @@ export default function FavoritesTab({
 
             {/* Labels */}
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-bold text-white group-hover:text-[#FF5A1F] transition-colors truncate">
+              <span className="text-xs font-bold text-white group-hover:text-[hsl(var(--neon-amber))] transition-colors truncate">
                 {item.name}
               </span>
               <p className="text-[10px] text-[hsl(var(--muted-foreground))] line-clamp-1 truncate">
@@ -100,8 +100,8 @@ export default function FavoritesTab({
 
         {favoriteItems.length === 0 && (
           <div className="col-span-full bg-[hsl(var(--surface-1))] border border-dashed border-[hsl(var(--border))] rounded-2xl p-12 text-center flex flex-col items-center justify-center text-[hsl(var(--muted-foreground))]" id="favorites-empty-placeholder">
-            <Heart size={40} className="text-[#27272A] mb-3" />
-            <p className="text-xs font-semibold text-[#FAFAFA]">No favorites saved yet</p>
+            <Heart size={40} className="text-[hsl(var(--border))] mb-3" />
+            <p className="text-xs font-semibold text-[hsl(var(--foreground))]">No favorites saved yet</p>
             <p className="text-[10px] mt-1">To add models here, click the heart icon on any generated item card in history grids.</p>
           </div>
         )}

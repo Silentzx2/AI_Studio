@@ -225,30 +225,6 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
     toast.success(`Exporting ${selectedParts.length} selected parts...`);
   };
 
-  const generateMockParts = (modelName: string): SegmentedPart[] => {
-    const methodLabels: Record<string, string[]> = {
-      semantic: ['Head', 'Body', 'Left Arm', 'Right Arm', 'Left Leg', 'Right Leg', 'Hand L', 'Hand R', 'Torso Upper', 'Torso Lower', 'Foot L', 'Foot R', 'Neck', 'Shoulder L', 'Shoulder R', 'Hip', 'Elbow L', 'Elbow R', 'Knee L', 'Knee R'],
-      geometric: ['Region A', 'Region B', 'Region C', 'Region D', 'Region E', 'Region F', 'Region G', 'Region H', 'Region I', 'Region J', 'Region K', 'Region L', 'Region M', 'Region N', 'Region O', 'Region P', 'Region Q', 'Region R', 'Region S', 'Region T'],
-      material: ['Material Group 1', 'Material Group 2', 'Material Group 3', 'Material Group 4', 'Material Group 5', 'Material Group 6', 'Material Group 7', 'Material Group 8', 'Material Group 9', 'Material Group 10', 'Material Group 11', 'Material Group 12', 'Material Group 13', 'Material Group 14', 'Material Group 15', 'Material Group 16', 'Material Group 17', 'Material Group 18', 'Material Group 19', 'Material Group 20'],
-    };
-    const materials = ['Default Material', 'PBR Standard', 'Lambert', 'Phong', 'Unlit', 'Glass', 'Metallic', 'Emissive'];
-    const partNames = methodLabels[segmentMethod] || methodLabels.semantic;
-    const count = Math.min(maxParts, partNames.length);
-    const baseFaces = 2000 + Math.floor(Math.random() * 8000);
-    const baseVerts = 1000 + Math.floor(Math.random() * 4000);
-
-    return partNames.slice(0, count).map((name, i) => ({
-      id: `part-${i}-${Date.now()}`,
-      name,
-      faceCount: Math.max(500, baseFaces - i * Math.floor(Math.random() * 800)),
-      vertexCount: Math.max(250, baseVerts - i * Math.floor(Math.random() * 400)),
-      material: materials[i % materials.length],
-      color: PART_COLORS[i % PART_COLORS.length],
-      selected: true,
-      visible: true,
-    }));
-  };
-
   const handleStartSegmenting = async () => {
     if (isProcessing) return;
 
@@ -366,12 +342,11 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
               setIsCompleted(true);
               setIsProcessing(false);
 
-              const modelName = uploadedModelName || activeModel.name;
-              const parts = generateMockParts(modelName);
-              setSegmentedParts(parts);
+              const backendParts = statusData.data?.parts || statusData.data?.result?.parts || [];
+              setSegmentedParts(backendParts);
 
               toast.success('Segmentation complete!', {
-                description: `Detected ${parts.length} parts in ${modelName}`,
+                description: `Detected ${backendParts.length} parts`,
               });
             } else if (statusData.data?.status === 'failed') {
               if (pollIntervalRef.current) { clearInterval(pollIntervalRef.current); pollIntervalRef.current = null; }
@@ -398,18 +373,11 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
             if (progressSimRef.current) { clearInterval(progressSimRef.current); progressSimRef.current = null; }
             setIsProcessing(false);
             setProgressPercent(0);
+            setStatusMessage('Connection lost to backend during polling.');
 
-            toast.warning('Connection lost during polling', {
-              description: 'Showing simulated results.',
+            toast.error('Connection lost', {
+              description: 'Lost connection to the backend during segmentation.',
             });
-            setProgressPercent(100);
-            setStatusMessage('Segmentation complete (simulated)!');
-            setIsCompleted(true);
-            setIsProcessing(false);
-
-            const modelName = uploadedModelName || activeModel.name;
-            const parts = generateMockParts(modelName);
-            setSegmentedParts(parts);
           }
         }, 2000);
       } else {
@@ -423,41 +391,12 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
         });
       }
     } catch {
-      // Backend unreachable — show mock results so the UI is demonstrable
-      toast.warning('Backend unreachable', {
-        description: 'Showing simulated segmentation results.',
+      toast.error('Backend unreachable', {
+        description: 'Could not connect to the backend to start segmentation.',
       });
-
-      let simProg = 20;
-      const simInterval = setInterval(() => {
-        simProg += Math.floor(Math.random() * 12) + 5;
-        if (simProg >= 100) {
-          clearInterval(simInterval);
-          setProgressPercent(100);
-          setStatusMessage('Segmentation complete (simulated)!');
-          setIsCompleted(true);
-          setIsProcessing(false);
-
-          const modelName = uploadedModelName || activeModel.name;
-          const parts = generateMockParts(modelName);
-          setSegmentedParts(parts);
-        } else {
-          setProgressPercent(simProg);
-          const stages = [
-            'Analyzing mesh topology...',
-            'Detecting part boundaries...',
-            'Computing segmentation map...',
-            'Separating geometry...',
-            'Generating part data...',
-            'Finalizing segmentation...',
-          ];
-          const stageIdx = Math.min(
-            Math.floor((simProg - 20) / 13),
-            stages.length - 1
-          );
-          setStatusMessage(stages[stageIdx]);
-        }
-      }, 800);
+      setIsProcessing(false);
+      setProgressPercent(0);
+      setStatusMessage('Backend unreachable. Please check your connection and retry.');
     }
   };
 
@@ -470,7 +409,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
 
   return (
     <div
-      className="flex-1 p-6 flex flex-col lg:flex-row gap-6 animate-fadeIn text-[#FAFAFA]"
+      className="flex-1 p-6 flex flex-col lg:flex-row gap-6 animate-fadeIn text-[hsl(var(--foreground))]"
       id="segmentation-tab-panel"
     >
       {/* Left Panel: Configuration */}
@@ -496,7 +435,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
 
           {/* Model Upload / Active Target */}
           <div
-            className="bg-[#18181F] rounded-xl border border-[#27272A] p-4 flex flex-col gap-4"
+            className="bg-[hsl(var(--surface-2))] rounded-xl border border-[hsl(var(--border))] p-4 flex flex-col gap-4"
             id="segmentation-upload-area"
           >
             <span className="text-[9px] font-bold text-[hsl(var(--primary))] uppercase tracking-wider">
@@ -550,7 +489,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
                 'flex items-center justify-center gap-2 p-3 rounded-lg border border-dashed cursor-pointer transition-all text-[11px] ' +
                 (isDragOver
                   ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]'
-                  : 'border-[#27272A] hover:border-[hsl(var(--primary))]/50 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))]')
+                  : 'border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/50 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))]')
               }
             >
               <Upload size={14} />
@@ -579,7 +518,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
                 <select
                   value={segmentMethod}
                   onChange={(e) => setSegmentMethod(e.target.value)}
-                  className="w-full bg-[#18181F] border border-[#27272A] rounded-xl p-2.5 pr-8 text-xs text-white focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none"
+                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 pr-8 text-xs text-white focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none"
                   id="segment-method-select"
                 >
                   {SEGMENTATION_METHODS.map((m) => (
@@ -662,7 +601,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
             </div>
 
             {/* Credit Cost Badge */}
-            <div className="flex items-center justify-between bg-[#18181F] border border-[#242430] rounded-lg px-4 py-3">
+            <div className="flex items-center justify-between bg-[hsl(var(--surface-2))] border border-[hsl(var(--surface-3))] rounded-lg px-4 py-3">
               <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono uppercase font-bold">
                 Estimated Cost
               </span>
@@ -676,7 +615,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
             <button
               onClick={handleStartSegmenting}
               disabled={isProcessing}
-              className="w-full mt-4 bg-gradient-to-r from-[hsl(var(--primary))] to-[#FF8A00] hover:brightness-110 active:scale-[0.98] text-black font-extrabold py-3.5 rounded-xl text-xs flex items-center justify-center gap-3 transition-all disabled:opacity-50 shadow-[0_4px_15px_rgba(245,166,35,0.2)]"
+              className="w-full mt-4 bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] hover:brightness-110 active:scale-[0.98] text-black font-extrabold py-3.5 rounded-xl text-xs flex items-center justify-center gap-3 transition-all disabled:opacity-50 shadow-[0_4px_15px_rgba(245,166,35,0.2)]"
               id="trigger-segmentation-btn"
             >
               {isProcessing ? (
@@ -721,7 +660,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
         {/* Processing Overlay */}
         {isProcessing && (
           <div className="absolute inset-0 bg-black/60 z-20 flex flex-col items-center justify-center text-center p-6 animate-speed-lines">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-[hsl(var(--primary))] to-[#FF8A00] animate-energy-pulse flex items-center justify-center text-black font-extrabold text-xs">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] animate-energy-pulse flex items-center justify-center text-black font-extrabold text-xs">
               <Layers size={36} className="animate-spin text-black stroke-[3]" />
             </div>
             <h3 className="text-lg font-black text-[hsl(var(--primary))] uppercase tracking-widest mt-6 animate-pulse">
@@ -730,9 +669,9 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
             <p className="text-xs text-[hsl(var(--muted-foreground))] mt-2 max-w-sm leading-relaxed font-mono">
               {statusMessage}
             </p>
-            <div className="w-64 h-2 bg-[#18181F] rounded-full mt-4 overflow-hidden border border-[#27272A]">
+            <div className="w-64 h-2 bg-[hsl(var(--surface-2))] rounded-full mt-4 overflow-hidden border border-[hsl(var(--border))]">
               <div
-                className="h-full bg-gradient-to-r from-[hsl(var(--primary))] to-[#FF8A00] rounded-full transition-all duration-500 ease-out"
+                className="h-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] rounded-full transition-all duration-500 ease-out"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
@@ -769,7 +708,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
 
               {/* Summary stats row */}
               <div className="grid grid-cols-3 gap-4">
-                <div className="bg-[#18181F] p-3 rounded-lg border border-[#27272A]">
+                <div className="bg-[hsl(var(--surface-2))] p-3 rounded-lg border border-[hsl(var(--border))]">
                   <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
                     Parts Found
                   </p>
@@ -777,7 +716,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
                     {segmentedParts.length}
                   </p>
                 </div>
-                <div className="bg-[#18181F] p-3 rounded-lg border border-[#27272A]">
+                <div className="bg-[hsl(var(--surface-2))] p-3 rounded-lg border border-[hsl(var(--border))]">
                   <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
                     Total Faces
                   </p>
@@ -785,7 +724,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
                     {totalFaces.toLocaleString()}
                   </p>
                 </div>
-                <div className="bg-[#18181F] p-3 rounded-lg border border-[#27272A]">
+                <div className="bg-[hsl(var(--surface-2))] p-3 rounded-lg border border-[hsl(var(--border))]">
                   <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
                     Total Vertices
                   </p>
@@ -796,7 +735,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
               </div>
 
               {/* Parts Grid */}
-              <div className="bg-[#18181F] border border-[#242430] rounded-xl p-5 max-h-[340px] overflow-y-auto custom-scrollbar">
+              <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--surface-3))] rounded-xl p-5 max-h-[340px] overflow-y-auto custom-scrollbar">
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
                     Detected Parts
@@ -825,7 +764,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
                         'bg-[hsl(var(--surface-1))] border rounded-xl p-3 flex items-start gap-3 transition-all cursor-pointer ' +
                         (part.selected
                           ? 'border-[hsl(var(--primary))]/40 bg-[hsl(var(--primary))]/[0.03]'
-                          : 'border-[#27272A] opacity-70 hover:opacity-100')
+                          : 'border-[hsl(var(--border))] opacity-70 hover:opacity-100')
                       }
                       onClick={() => togglePartSelection(part.id)}
                     >
@@ -875,7 +814,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
                           'flex-shrink-0 p-1 rounded transition-colors ' +
                           (part.visible
                             ? 'text-[hsl(var(--muted-foreground))] hover:text-white'
-                            : 'text-[#3F3F46] hover:text-[hsl(var(--muted-foreground))]')
+                            : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--muted-foreground))]')
                         }
                         aria-label={part.visible ? 'Hide part' : 'Show part'}
                       >
@@ -890,7 +829,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleExportAll}
-                  className="flex-1 bg-[#18181F] border border-[#27272A] hover:border-[hsl(var(--primary))]/50 rounded-xl py-2.5 text-xs font-bold text-white flex items-center justify-center gap-2 transition-all"
+                  className="flex-1 bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/50 rounded-xl py-2.5 text-xs font-bold text-white flex items-center justify-center gap-2 transition-all"
                 >
                   <Download size={13} className="text-[hsl(var(--primary))]" />
                   Export All Parts
@@ -898,7 +837,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
                 <button
                   onClick={handleExportSelected}
                   disabled={selectedCount === 0}
-                  className="flex-1 bg-gradient-to-r from-[hsl(var(--primary))] to-[#FF8A00] hover:brightness-110 active:scale-[0.98] disabled:opacity-40 text-black font-extrabold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-[0_4px_15px_rgba(245,166,35,0.2)]"
+                  className="flex-1 bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] hover:brightness-110 active:scale-[0.98] disabled:opacity-40 text-black font-extrabold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-[0_4px_15px_rgba(245,166,35,0.2)]"
                 >
                   <Download size={13} className="stroke-[2.5]" />
                   Export Selected ({selectedCount})
@@ -907,13 +846,13 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
             </div>
           ) : (
             /* Empty / Idle state */
-            <div className="flex flex-col items-center justify-center text-center p-8 border border-dashed border-[hsl(var(--border))] rounded-xl flex-1 my-6 bg-[#18181F]/40">
+            <div className="flex flex-col items-center justify-center text-center p-8 border border-dashed border-[hsl(var(--border))] rounded-xl flex-1 my-6 bg-[hsl(var(--surface-2))]/40">
               <Layers
                 size={36}
                 className={
                   showWarnings
                     ? 'text-amber-500/50 mb-3'
-                    : 'text-[#27272A] mb-3 animate-spin-slow'
+                    : 'text-[hsl(var(--border))] mb-3 animate-spin-slow'
                 }
               />
               <h4 className="text-xs font-bold text-[hsl(var(--muted-foreground))]">
@@ -930,7 +869,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
           )}
 
           {/* Bottom Info Notice */}
-          <div className="bg-[#18181F] rounded-xl p-4 border border-[hsl(var(--primary))]/10 flex items-start gap-3">
+          <div className="bg-[hsl(var(--surface-2))] rounded-xl p-4 border border-[hsl(var(--primary))]/10 flex items-start gap-3">
             <Info size={15} className="text-[hsl(var(--primary))] flex-shrink-0 mt-0.5" />
             <div className="flex-1">
               <span className="text-[10px] font-bold text-[hsl(var(--primary))] uppercase tracking-wider">

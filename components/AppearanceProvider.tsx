@@ -96,6 +96,7 @@ export function applyGlobalTheme(cfg: ThemeVisualConfig): void {
     root.setProperty('--ring', hsl);
     root.setProperty('--accent', hsl);
     root.setProperty('--neon-purple', hsl);
+    root.setProperty('--neon-amber', hsl);
   }
 
   if (cfg.accentColorSecondary) {

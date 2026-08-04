@@ -105,7 +105,7 @@ export function AutoSaveIndicator({
               <span className="text-amber-500 font-semibold">Unsaved changes</span>
               <button
                 onClick={onSave}
-                className="ml-2 flex items-center gap-1 bg-[#F5A623] hover:bg-[#D48C16] text-black px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer"
+                className="ml-2 flex items-center gap-1 bg-[hsl(var(--neon-amber))] hover:bg-[hsl(var(--neon-amber))] text-black px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer"
               >
                 <Save className="w-3 h-3" /> Save
               </button>

@@ -642,7 +642,7 @@ useEffect(() => {
                           transition-all duration-200 border-l-[4px] pr-8
                           ${
                             activeSection === section.id
-                              ? 'bg-[#F5A623] text-black shadow-md border-l-black'
+                              ? 'bg-[hsl(var(--neon-amber))] text-black shadow-md border-l-black'
                               : 'text-foreground hover:bg-accent hover:text-accent-foreground border-l-transparent'
                           }
                         `}
@@ -697,7 +697,7 @@ useEffect(() => {
                           transition-all duration-200 border-l-[4px] pr-8
                           ${
                             activeSection === section.id
-                              ? 'bg-[#F5A623] text-black shadow-md border-l-black'
+                              ? 'bg-[hsl(var(--neon-amber))] text-black shadow-md border-l-black'
                               : 'text-foreground hover:bg-accent hover:text-accent-foreground border-l-transparent'
                           }
                         `}

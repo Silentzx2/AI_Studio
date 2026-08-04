@@ -53,7 +53,7 @@ function normalizeRuntimeOptions(options: RuntimeOptions): RuntimeOptions {
     vram_limits: rawVramLimits
       .map((limit) => typeof limit === 'number' ? limit : Number(limit.id))
       .filter((limit) => Number.isFinite(limit)),
-    active_provider: options?.active_provider ?? 'mock',
+    active_provider: options?.active_provider ?? '',
   };
 }
 

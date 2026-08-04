@@ -99,7 +99,7 @@ export function useSystemOverview() {
         setLoading(true);
         const data = await apiClient.get<any>('/api/v1/admin/overview');
         const payload = data?.data ?? data ?? {};
-        setOverview({ ...payload, overview: payload });
+        setOverview(payload);
         setError(null);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch overview');
@@ -127,7 +127,7 @@ export function useSystemStatistics() {
         setLoading(true);
         const data = await apiClient.get<any>('/api/v1/system/statistics');
         const payload = data?.data ?? data ?? {};
-        setStats({ ...payload, stats: payload });
+        setStats(payload);
         setError(null);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch statistics');

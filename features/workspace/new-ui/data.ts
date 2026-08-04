@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { HistoryItem, Shape3D } from '@/types/new-ui';
+import { Shape3D } from '@/types/new-ui';
 
 // Geometric primitives structure for 'Modern Office Chair'
 export const officeChairShapes: Shape3D[] = [
@@ -102,51 +102,4 @@ export const robotHeadShapes: Shape3D[] = [
   // Antenna mast
   { type: 'cylinder', position: [0, 0.5, -0.1], rotation: [0, 0, 0], scale: [0.06, 0.4, 0.06], color: '#444444', roughness: 0.3, metalness: 0.9, name: 'antenna_rod' },
   { type: 'sphere', position: [0, 0.72, -0.1], rotation: [0, 0, 0], scale: [0.12, 0.12, 0.12], color: '#F5A623', roughness: 0.1, metalness: 0.95, name: 'antenna_tip' },
-];
-
-export const mockHistory: HistoryItem[] = [
-  {
-    id: 'hist_1',
-    prompt: 'Modern ergonomic office chair, premium black leather, aluminum base, ultra realistic, studio lighting',
-    name: 'Modern Office Chair',
-    timestamp: '2 minutes ago',
-    format: 'GLB',
-    shapes: officeChairShapes,
-    color: '#1C1C1C',
-    accentColor: '#F5A623',
-    isFavorite: true,
-  },
-  {
-    id: 'hist_2',
-    prompt: 'Running shoe, ultra responsive foam, lightweight carbon mesh, neon accents, high performance concept',
-    name: 'Sports Shoe Concept',
-    timestamp: '1 hour ago',
-    format: 'GLB',
-    shapes: sportsShoeShapes,
-    color: '#111827',
-    accentColor: '#FFA500',
-    isFavorite: false,
-  },
-  {
-    id: 'hist_3',
-    prompt: 'Futuristic electric hypercar, carbon fiber chassis, hyper aerodynamic bodywork, luxury street performance',
-    name: 'Futuristic Car Design',
-    timestamp: '3 hours ago',
-    format: 'GLB',
-    shapes: futuristicCarShapes,
-    color: '#121212',
-    accentColor: '#F5A623',
-    isFavorite: true,
-  },
-  {
-    id: 'hist_4',
-    prompt: 'Sci-fi robotic soldier head unit, cybernetic camera eye, tactical titanium alloy casing, armor plate decals',
-    name: 'Sci Fi Robot Head',
-    timestamp: '5 hours ago',
-    format: 'GLB',
-    shapes: robotHeadShapes,
-    color: '#1F2022',
-    accentColor: '#F5A623',
-    isFavorite: false,
-  },
 ];

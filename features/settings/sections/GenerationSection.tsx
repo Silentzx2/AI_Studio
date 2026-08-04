@@ -81,7 +81,7 @@ export function GenerationSection() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base font-semibold">
-            <Cpu className="w-5 h-5 text-[#F5A623]" />
+            <Cpu className="w-5 h-5 text-[hsl(var(--neon-amber))]" />
             Default 3D Model Provider
           </CardTitle>
           <CardDescription>Select the primary model engine for text-to-3D and image-to-3D generation.</CardDescription>
@@ -90,7 +90,7 @@ export function GenerationSection() {
           <select
             value={provider || (providersList[0]?.id || '')}
             onChange={(e) => setProvider(e.target.value)}
-            className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#F5A623]"
+            className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[hsl(var(--neon-amber))]"
           >
             {providersList.map((p: any) => (
               <option key={p.id || p.name} value={p.id || p.name}>
@@ -162,7 +162,7 @@ export function GenerationSection() {
               step="5"
               value={steps}
               onChange={(e) => setSteps(Number(e.target.value))}
-              className="w-full accent-[#F5A623]"
+              className="w-full accent-[hsl(var(--neon-amber))]"
             />
           </div>
 
@@ -176,7 +176,7 @@ export function GenerationSection() {
                   onClick={() => setQuality(q)}
                   className={`px-4 py-2.5 rounded-lg border text-sm font-medium capitalize transition-all ${
                     quality === q
-                      ? 'bg-[#F5A623] text-black border-[#F5A623] font-bold shadow-md'
+                      ? 'bg-[hsl(var(--neon-amber))] text-black border-[hsl(var(--neon-amber))] font-bold shadow-md'
                       : 'bg-background border-input hover:bg-accent hover:text-accent-foreground'
                   }`}
                 >

@@ -19,20 +19,20 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
   const { overview } = useSystemOverview();
   const { stats } = useSystemStatistics();
   
-  const totalAssets = overview?.overview?.total_jobs || history.length || 0;
+  const totalAssets = overview?.total_jobs || history.length || 0;
   const favoritesCount = history.filter(h => h.isFavorite).length || 0;
-  const storageUsed = overview?.overview?.storage_used || '0 GB';
-  const storageTotal = overview?.overview?.storage_total || '0 GB';
-  const avgGenerationTime = overview?.overview?.avg_generation_time || '0s';
+  const storageUsed = overview?.storage_used || '0 GB';
+  const storageTotal = overview?.storage_total || '0 GB';
+  const avgGenerationTime = overview?.avg_generation_time || '0s';
 
-  const cpuUsage = stats?.stats?.cpu_usage || 0;
-  const memoryUsage = stats?.stats?.memory_usage || 0;
-  const gpuUsage = stats?.stats?.gpu_utilization || 0;
+  const cpuUsage = stats?.cpu_usage || 0;
+  const memoryUsage = stats?.memory_usage || 0;
+  const gpuUsage = stats?.gpu_utilization || 0;
 
   return (
-    <div className="flex-1 p-6 flex flex-col gap-6 animate-fadeIn text-[#FAFAFA]" id="workspace-tab-panel">
+    <div className="flex-1 p-6 flex flex-col gap-6 animate-fadeIn text-[hsl(var(--foreground))]" id="workspace-tab-panel">
       {/* Welcome Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#1E1B4B] via-[#0F172A] to-[#1E293B] border border-[#27272A] p-6 sm:p-8" id="workspace-welcome-banner">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[hsl(var(--primary)/0.15)] via-[hsl(var(--background))] to-[hsl(var(--surface-1))] border border-[hsl(var(--border))] p-6 sm:p-8" id="workspace-welcome-banner">
         <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-[hsl(var(--primary))]/10 to-transparent rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 max-w-xl">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/30 text-xs font-bold text-[hsl(var(--primary))] uppercase tracking-wider mb-4">
@@ -48,7 +48,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
           <div className="mt-5 flex flex-wrap gap-3">
             <button
               onClick={() => onNavigate('3D Generation')}
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[hsl(var(--primary))] to-[#FF8A00] text-black font-bold text-xs flex items-center gap-2 hover:brightness-110 active:scale-[0.98] transition-all shadow-[0_4px_20px_rgba(245,166,35,0.25)]"
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] text-black font-bold text-xs flex items-center gap-2 hover:brightness-110 active:scale-[0.98] transition-all shadow-[0_4px_20px_rgba(245,166,35,0.25)]"
               id="workspace-start-btn"
             >
               Open 3D Workspace
@@ -108,11 +108,11 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
                 className="group bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/50 rounded-xl p-4 flex flex-col gap-3 cursor-pointer transition-all hover:scale-[1.01]"
                 id={`workspace-draft-card-${item.id}`}
               >
-                <div className="aspect-[4/3] rounded-lg bg-[#18181F] flex items-center justify-center relative border border-[#23232C] overflow-hidden">
+                <div className="aspect-[4/3] rounded-lg bg-[hsl(var(--surface-2))] flex items-center justify-center relative border border-[hsl(var(--surface-3))] overflow-hidden">
                   <div className="w-12 h-12 rounded bg-gradient-to-tr from-[hsl(var(--primary))]/20 to-transparent flex items-center justify-center border border-[hsl(var(--primary))]/10 transform group-hover:rotate-6 transition-all">
                     <Database size={20} className="text-[hsl(var(--primary))] opacity-80" />
                   </div>
-                  <span className="absolute bottom-2 left-2 px-1.5 py-0.5 rounded bg-black/85 border border-[#27272A] text-[9px] font-mono font-bold text-white uppercase">
+                  <span className="absolute bottom-2 left-2 px-1.5 py-0.5 rounded bg-black/85 border border-[hsl(var(--border))] text-[9px] font-mono font-bold text-white uppercase">
                     {item.format}
                   </span>
                 </div>
@@ -134,8 +134,8 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
             ))}
             {history.length === 0 && (
               <div className="col-span-full bg-[hsl(var(--surface-1))] border border-dashed border-[hsl(var(--border))] rounded-xl p-8 text-center flex flex-col items-center justify-center text-[hsl(var(--muted-foreground))]" id="empty-workspace-placeholder">
-                <FolderOpen size={36} className="text-[#27272A] mb-3" />
-                <p className="text-xs font-semibold text-[#FAFAFA]">No active projects</p>
+                <FolderOpen size={36} className="text-[hsl(var(--border))] mb-3" />
+                <p className="text-xs font-semibold text-[hsl(var(--foreground))]">No active projects</p>
                 <p className="text-[10px] mt-1">Start by generating your very first 3D model in the generator tab.</p>
               </div>
             )}
@@ -168,11 +168,11 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
           </div>
 
           {/* Quick Learning Card */}
-          <div className="bg-gradient-to-br from-[#18181F] to-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-xl p-4 flex flex-col gap-3" id="workspace-pro-tip">
+          <div className="bg-gradient-to-br from-[hsl(var(--surface-2))] to-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-xl p-4 flex flex-col gap-3" id="workspace-pro-tip">
             <span className="text-[10px] text-[hsl(var(--primary))] font-bold uppercase tracking-widest font-mono">PRO TIP</span>
-            <h4 className="text-xs font-bold text-[#FAFAFA]">High fidelity texturing with PBR maps</h4>
+            <h4 className="text-xs font-bold text-[hsl(var(--foreground))]">High fidelity texturing with PBR maps</h4>
             <p className="text-[11px] text-[hsl(var(--muted-foreground))] leading-relaxed">
-              When using Text-to-3D, append descriptive material keywords like <code className="text-xs text-white bg-[#1E1E24] px-1 py-0.5 rounded font-mono">polished carbon fiber</code>, <code className="text-xs text-white bg-[#1E1E24] px-1 py-0.5 rounded font-mono">brushed titanium</code>, or <code className="text-xs text-white bg-[#1E1E24] px-1 py-0.5 rounded font-mono">double-stitched leather</code> to generate automatically mapped diffuse, roughness, and metalness channels.
+              When using Text-to-3D, append descriptive material keywords like <code className="text-xs text-white bg-[hsl(var(--surface-2))] px-1 py-0.5 rounded font-mono">polished carbon fiber</code>, <code className="text-xs text-white bg-[hsl(var(--surface-2))] px-1 py-0.5 rounded font-mono">brushed titanium</code>, or <code className="text-xs text-white bg-[hsl(var(--surface-2))] px-1 py-0.5 rounded font-mono">double-stitched leather</code> to generate automatically mapped diffuse, roughness, and metalness channels.
             </p>
           </div>
         </div>

@@ -425,24 +425,14 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
               setRiggingComplete(true);
               setIsRigging(false);
 
-              const boneCountMap: Record<string, number> = {
-                full_body: 67,
-                upper_body: 34,
-                lower_body: 33,
-              };
-              const hierarchyMap: Record<string, string> = {
-                full_body: 'Hips > Spine > Chest > Neck > Head, L/R Shoulder > Upper/Lower Arm > Hand, L/R Upper/Lower Leg > Foot',
-                upper_body: 'Spine > Chest > Neck > Head, L/R Shoulder > Upper/Lower Arm > Hand',
-                lower_body: 'Hips > L/R Upper/Lower Leg > Foot > Toe',
-              };
               setRiggingResult({
-                boneCount: boneCountMap[rigType] || 67,
-                jointHierarchy: hierarchyMap[rigType] || hierarchyMap.full_body,
-                rigWeightMap: 'Complete',
+                boneCount: statusData.data?.bone_count || statusData.data?.result?.bone_count || 0,
+                jointHierarchy: statusData.data?.joint_hierarchy || statusData.data?.result?.joint_hierarchy || '',
+                rigWeightMap: statusData.data?.weight_map || statusData.data?.result?.weight_map || 'Complete',
               });
 
               toast.success('Rigging complete!', {
-                description: `${boneCountMap[rigType] || 67} bones generated.`,
+                description: `${statusData.data?.bone_count || statusData.data?.result?.bone_count || 0} bones generated.`,
               });
             } else if (statusData.data?.status === 'failed') {
               if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
@@ -469,29 +459,10 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             clearInterval(progressSim);
             setIsRigging(false);
             setProgressPercent(0);
+            setStatusMessage('Connection lost to backend during polling.');
 
-            toast.warning('Connection lost during polling', {
-              description: 'Showing simulated results.',
-            });
-            setProgressPercent(100);
-            setStatusMessage('Rigging complete (simulated)!');
-            setRiggingComplete(true);
-            setIsRigging(false);
-
-            const boneCountMap: Record<string, number> = {
-              full_body: 67,
-              upper_body: 34,
-              lower_body: 33,
-            };
-            const hierarchyMap: Record<string, string> = {
-              full_body: 'Hips > Spine > Chest > Neck > Head, L/R Shoulder > Upper/Lower Arm > Hand, L/R Upper/Lower Leg > Foot',
-              upper_body: 'Spine > Chest > Neck > Head, L/R Shoulder > Upper/Lower Arm > Hand',
-              lower_body: 'Hips > L/R Upper/Lower Leg > Foot > Toe',
-            };
-            setRiggingResult({
-              boneCount: boneCountMap[rigType] || 67,
-              jointHierarchy: hierarchyMap[rigType] || hierarchyMap.full_body,
-              rigWeightMap: 'Complete',
+            toast.error('Connection lost', {
+              description: 'Lost connection to the backend during rigging.',
             });
           }
         }, 2000);
@@ -506,52 +477,13 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
         });
       }
     } catch {
-      // Backend unreachable — show mock results so the UI is demonstrable
-      toast.warning('Backend unreachable', {
-        description: 'Showing simulated rigging results.',
+      toast.error('Backend unreachable', {
+        description: 'Could not connect to the backend to start rigging.',
       });
-
-      let simProg = 20;
-      const simInterval = setInterval(() => {
-        simProg += Math.floor(Math.random() * 12) + 5;
-        if (simProg >= 100) {
-          clearInterval(simInterval);
-          setProgressPercent(100);
-          setStatusMessage('Rigging complete (simulated)!');
-          setRiggingComplete(true);
-          setIsRigging(false);
-
-          const boneCountMap: Record<string, number> = {
-            full_body: 67,
-            upper_body: 34,
-            lower_body: 33,
-          };
-          const hierarchyMap: Record<string, string> = {
-            full_body: 'Hips > Spine > Chest > Neck > Head, L/R Shoulder > Upper/Lower Arm > Hand, L/R Upper/Lower Leg > Foot',
-            upper_body: 'Spine > Chest > Neck > Head, L/R Shoulder > Upper/Lower Arm > Hand',
-            lower_body: 'Hips > L/R Upper/Lower Leg > Foot > Toe',
-          };
-          setRiggingResult({
-            boneCount: boneCountMap[rigType] || 67,
-            jointHierarchy: hierarchyMap[rigType] || hierarchyMap.full_body,
-            rigWeightMap: 'Complete',
-          });
-        } else {
-          setProgressPercent(simProg);
-          const stages = [
-            'Analyzing mesh topology...',
-            'Detecting body segments...',
-            'Building joint hierarchy...',
-            'Computing rig weights...',
-            'Generating bone structure...',
-            'Finalizing rig...',
-          ];
-          const stageIdx = Math.min(
-            Math.floor((simProg - 20) / 13),
-            stages.length - 1
-          );
-          setStatusMessage(stages[stageIdx]);
-        }
+      setIsRigging(false);
+      setProgressPercent(0);
+      setStatusMessage('Backend unreachable. Please check your connection and retry.');
+    }
       }, 800);
     }
   };
@@ -584,7 +516,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
 
   return (
     <div
-      className="flex-1 p-6 flex flex-col lg:flex-row gap-6 animate-fadeIn text-[#FAFAFA]"
+      className="flex-1 p-6 flex flex-col lg:flex-row gap-6 animate-fadeIn text-[hsl(var(--foreground))]"
       id="rigging-animation-tab-panel"
     >
       {/* ==================== LEFT PANEL ==================== */}
@@ -610,7 +542,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
 
           {/* Model Upload / Active Target */}
           <div
-            className="bg-[#18181F] rounded-xl border border-[#27272A] p-4 flex flex-col gap-4"
+            className="bg-[hsl(var(--surface-2))] rounded-xl border border-[hsl(var(--border))] p-4 flex flex-col gap-4"
             id="rigging-upload-area"
           >
             <span className="text-[9px] font-bold text-[hsl(var(--primary))] uppercase tracking-wider">
@@ -664,7 +596,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                 'flex items-center justify-center gap-2 p-3 rounded-lg border border-dashed cursor-pointer transition-all text-[11px] ' +
                 (isDragOver
                   ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]'
-                  : 'border-[#27272A] hover:border-[hsl(var(--primary))]/50 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))]')
+                  : 'border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/50 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))]')
               }
             >
               <Upload size={14} />
@@ -714,7 +646,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                 <select
                   value={rigType}
                   onChange={(e) => setRigType(e.target.value)}
-                  className="w-full bg-[#18181F] border border-[#27272A] rounded-xl p-2.5 pr-8 text-xs text-white focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none"
+                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 pr-8 text-xs text-white focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none"
                   id="rig-type-select"
                 >
                   {RIG_TYPES.map((r) => (
@@ -747,7 +679,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                 <select
                   value={boneStructure}
                   onChange={(e) => setBoneStructure(e.target.value)}
-                  className="w-full bg-[#18181F] border border-[#27272A] rounded-xl p-2.5 pr-8 text-xs text-white focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none"
+                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 pr-8 text-xs text-white focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none"
                   id="bone-structure-select"
                 >
                   {BONE_STRUCTURES.map((b) => (
@@ -786,7 +718,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                       'flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all cursor-pointer ' +
                       (isSelected
                         ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/[0.06] shadow-[0_0_12px_rgba(245,166,35,0.1)]'
-                        : 'border-[#27272A] bg-[#18181F] hover:border-[hsl(var(--primary))]/30 hover:bg-[hsl(var(--primary))]/[0.03]')
+                        : 'border-[hsl(var(--border))] bg-[hsl(var(--surface-2))] hover:border-[hsl(var(--primary))]/30 hover:bg-[hsl(var(--primary))]/[0.03]')
                     }
                   >
                     <PresetIcon
@@ -865,7 +797,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                 <select
                   value={blendMode}
                   onChange={(e) => setBlendMode(e.target.value)}
-                  className="w-full bg-[#18181F] border border-[#27272A] rounded-xl p-2.5 pr-8 text-xs text-white focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none"
+                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 pr-8 text-xs text-white focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none"
                   id="blend-mode-select"
                 >
                   {BLEND_MODES.map((b) => (
@@ -886,7 +818,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
           <div className="border-t border-[hsl(var(--border))]" />
 
           {/* Credit Cost Badge */}
-          <div className="flex items-center justify-between bg-[#18181F] border border-[#242430] rounded-lg px-3 py-2">
+          <div className="flex items-center justify-between bg-[hsl(var(--surface-2))] border border-[hsl(var(--surface-3))] rounded-lg px-3 py-2">
             <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono uppercase font-bold">
               Estimated Cost
             </span>
@@ -901,7 +833,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             <button
               onClick={handleApplyRigging}
               disabled={isRigging}
-              className="w-full bg-gradient-to-r from-[hsl(var(--primary))] to-[#FF8A00] hover:brightness-110 active:scale-[0.98] text-black font-extrabold py-3.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-[0_4px_15px_rgba(245,166,35,0.2)] mt-4"
+              className="w-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] hover:brightness-110 active:scale-[0.98] text-black font-extrabold py-3.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-[0_4px_15px_rgba(245,166,35,0.2)] mt-4"
               id="apply-rigging-btn"
             >
               {isRigging ? (
@@ -920,7 +852,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             <button
               onClick={handlePreviewAnimation}
               disabled={!riggingComplete || !selectedPreset}
-              className="w-full bg-[#18181F] border border-[#27272A] hover:border-[hsl(var(--primary))]/50 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl py-3.5 text-xs font-bold text-white flex items-center justify-center gap-2 transition-all mt-4"
+              className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/50 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl py-3.5 text-xs font-bold text-white flex items-center justify-center gap-2 transition-all mt-4"
               id="preview-animation-btn"
             >
               {isPlaying ? (
@@ -939,7 +871,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             {riggingComplete && (
               <button
                 onClick={handleExportRigged}
-                className="w-full bg-[#18181F] border border-[#27272A] hover:border-emerald-500/50 rounded-xl py-3.5 text-xs font-bold text-white flex items-center justify-center gap-2 transition-all mt-4"
+                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-emerald-500/50 rounded-xl py-3.5 text-xs font-bold text-white flex items-center justify-center gap-2 transition-all mt-4"
                 id="export-rigged-btn"
               >
                 <Download size={13} className="text-emerald-400" />
@@ -958,7 +890,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             {SUPPORTED_FORMATS.map((fmt) => (
               <div
                 key={fmt.label}
-                className="flex flex-col items-center gap-1 p-2 rounded-lg bg-[#18181F] border border-[#27272A]"
+                className="flex flex-col items-center gap-1 p-2 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]"
               >
                 <Box size={16} className="text-[hsl(var(--muted-foreground))]" />
                 <span className="text-[10px] font-bold text-[hsl(var(--muted-foreground))]">
@@ -981,7 +913,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
         {/* Processing Overlay */}
         {isRigging && (
           <div className="absolute inset-0 bg-black/60 z-20 flex flex-col items-center justify-center text-center p-6 animate-speed-lines">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-[hsl(var(--primary))] to-[#FF8A00] animate-energy-pulse flex items-center justify-center text-black font-extrabold text-xs">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] animate-energy-pulse flex items-center justify-center text-black font-extrabold text-xs">
               <Bone size={36} className="animate-spin text-black stroke-[3]" />
             </div>
             <h3 className="text-lg font-black text-[hsl(var(--primary))] uppercase tracking-widest mt-6 animate-pulse">
@@ -990,9 +922,9 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             <p className="text-xs text-[hsl(var(--muted-foreground))] mt-2 max-w-sm leading-relaxed font-mono">
               {statusMessage}
             </p>
-            <div className="w-64 h-2 bg-[#18181F] rounded-full mt-4 overflow-hidden border border-[#27272A]">
+            <div className="w-64 h-2 bg-[hsl(var(--surface-2))] rounded-full mt-4 overflow-hidden border border-[hsl(var(--border))]">
               <div
-                className="h-full bg-gradient-to-r from-[hsl(var(--primary))] to-[#FF8A00] rounded-full transition-all duration-500 ease-out"
+                className="h-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] rounded-full transition-all duration-500 ease-out"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
@@ -1018,7 +950,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
 
           {/* 3D Viewport Placeholder */}
           <div
-            className="relative w-full rounded-xl border border-[#27272A] overflow-hidden flex-shrink-0"
+            className="relative w-full rounded-xl border border-[hsl(var(--border))] overflow-hidden flex-shrink-0"
             style={{ height: '280px' }}
             id="rigging-viewport"
           >
@@ -1051,7 +983,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                 <>
                   <Grid3X3
                     size={40}
-                    className={isRigging ? 'text-[hsl(var(--primary))]/30 animate-pulse' : 'text-[#27272A] mb-2'}
+                    className={isRigging ? 'text-[hsl(var(--primary))]/30 animate-pulse' : 'text-[hsl(var(--border))] mb-2'}
                   />
                   <p className="text-[11px] text-[hsl(var(--muted-foreground))]">
                     {isRigging ? 'Processing rigging...' : '3D Viewport'}
@@ -1064,7 +996,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
           {/* Animation Timeline Bar */}
           {riggingComplete && selectedPreset && (
             <div
-              className="bg-[#18181F] border border-[#242430] rounded-xl p-4 flex flex-col gap-3 animate-fadeIn"
+              className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--surface-3))] rounded-xl p-4 flex flex-col gap-3 animate-fadeIn"
               id="animation-timeline"
             >
               <div className="flex items-center justify-between">
@@ -1122,7 +1054,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {/* Rigging Status Card */}
             <div
-              className="bg-[#18181F] border border-[#242430] rounded-xl p-5 flex flex-col gap-4"
+              className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--surface-3))] rounded-xl p-5 flex flex-col gap-4"
               id="rigging-status-card"
             >
               <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
@@ -1165,7 +1097,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-4 text-center">
-                  <Bone size={24} className="text-[#27272A] mb-2" />
+                  <Bone size={24} className="text-[hsl(var(--border))] mb-2" />
                   <p className="text-[10px] text-[hsl(var(--muted-foreground))]">
                     {isRigging ? 'Processing...' : 'Not yet rigged'}
                   </p>
@@ -1180,7 +1112,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
 
             {/* Animation Preview Card */}
             <div
-              className="bg-[#18181F] border border-[#242430] rounded-xl p-5 flex flex-col gap-4"
+              className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--surface-3))] rounded-xl p-5 flex flex-col gap-4"
               id="animation-preview-card"
             >
               <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
@@ -1236,7 +1168,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-4 text-center">
-                  <Play size={24} className="text-[#27272A] mb-2" />
+                  <Play size={24} className="text-[hsl(var(--border))] mb-2" />
                   <p className="text-[10px] text-[hsl(var(--muted-foreground))]">
                     Select a preset to preview
                   </p>
@@ -1246,7 +1178,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
           </div>
 
           {/* Bottom Info Notice */}
-          <div className="bg-[#18181F] rounded-xl p-4 border border-[hsl(var(--primary))]/10 flex items-start gap-3 mt-auto">
+          <div className="bg-[hsl(var(--surface-2))] rounded-xl p-4 border border-[hsl(var(--primary))]/10 flex items-start gap-3 mt-auto">
             <Info size={15} className="text-[hsl(var(--primary))] flex-shrink-0 mt-0.5" />
             <div className="flex-1">
               <span className="text-[10px] font-bold text-[hsl(var(--primary))] uppercase tracking-wider">
