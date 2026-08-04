@@ -42,7 +42,6 @@ export const STYLE_PRESETS = ['Realistic', 'Cartoon', 'Anime', 'Sci-Fi', 'Fantas
 
 export const NAVIGATION_ITEMS = [
   { label: 'Features', href: '/#features' },
-  { label: 'Image Gen', href: '/generate' },
   { label: 'Gallery', href: '/#gallery' },
   { label: 'Docs', href: '#' }, // TODO: create /docs page
 ];
@@ -61,22 +60,4 @@ export const ADMIN_NAV_ITEMS = [
   { id: 'settings', label: 'Settings', icon: 'Settings' },
 ];
 
-export const IMAGE_GEN_MODELS = [
-  { id: 'sdxl-base', label: 'SDXL Base', description: 'Best quality, ~16GB VRAM' },
-  { id: 'sdxl-turbo', label: 'SDXL Turbo', description: 'Fast generation, ~14GB VRAM' },
-  { id: 'sdxl-lightning', label: 'SDXL Lightning', description: 'Fastest, ~14GB VRAM' },
-];
 
-export const IMAGE_GEN_SAMPLERS = [
-  { id: 'euler', label: 'Euler' },
-  { id: 'dpmpp_2m', label: 'DPM++ 2M' },
-  { id: 'heun', label: 'Heun' },
-  { id: 'euler_ancestral', label: 'Euler Ancestral' },
-];
-
-export const IMAGE_GEN_DIMENSIONS = [
-  { width: 512, height: 512, label: '512×512' },
-  { width: 768, height: 768, label: '768×768' },
-  { width: 1024, height: 768, label: '1024×768 (recommended)' },
-  { width: 1024, height: 1024, label: '1024×1024' },
-];

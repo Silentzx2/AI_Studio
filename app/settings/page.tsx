@@ -58,7 +58,6 @@ import {
   QueueTab,
   ModelsTab,
   DownloadsTab,
-  DockerTab,
   RuntimeTab,
   LogsTab,
   SettingsTab,
@@ -168,13 +167,6 @@ const SETTINGS_SECTIONS: SettingsSection[] = [
     icon: <AlertCircle className="w-4 h-4" />,
     group: 'monitoring',
     description: 'System health and resources',
-  },
-  {
-    id: 'docker',
-    label: 'Docker',
-    icon: <Boxes className="w-4 h-4" />,
-    group: 'monitoring',
-    description: 'Docker containers and services',
   },
   {
     id: 'database',
@@ -364,7 +356,7 @@ useEffect(() => {
       case 'appearance':
         return ['appearance_settings'];
       case 'generation':
-        return ['generationSettings', 'gen_advanced_settings', 'img_gen_advanced_settings'];
+        return ['generationSettings', 'gen_advanced_settings'];
       case 'notifications':
         return ['notificationSettings'];
       case 'network':
@@ -501,12 +493,6 @@ useEffect(() => {
           return (
             <Suspense fallback={<SectionLoading />}>
               <HealthTab />
-            </Suspense>
-          );
-        case 'docker':
-          return (
-            <Suspense fallback={<SectionLoading />}>
-              <DockerTab />
             </Suspense>
           );
         case 'runtime':

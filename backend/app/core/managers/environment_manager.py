@@ -378,7 +378,6 @@ class EnvironmentManager:
         """Get estimated VRAM requirements in GB for specific models."""
         estimates = {
             "anigen": 6.2,
-            "sdxl": 3.1,
             "triposr": 1.2,
             "detailgen3d": 4.0,
             "hunyuan3d": 16.0,

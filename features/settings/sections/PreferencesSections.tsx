@@ -226,7 +226,6 @@ export function AdvancedSection() {
       'SETTINGS_ANTI_ALIASING',
       'SETTINGS_AUTOSAVE_INTERVAL',
       'gen_advanced_settings',
-      'img_gen_advanced_settings',
       'ai3d:pipelines:notifications:v1',
       'ai3d:pipelines:workflows:v1',
       'ai3d:pipelines:presets:v1',

@@ -7,7 +7,6 @@ FIXES APPLIED:
 - Added path-based model action route /models/{model_id}/{action} for frontend compatibility
 - Added path verification fields in model responses
 - Added terminal endpoints for command execution
-- Added docker action and logs endpoints
 - Added settings/hf-token endpoints under admin path
 """
 from __future__ import annotations
@@ -557,12 +556,6 @@ async def admin_health_deep():
                 "detail": cuda.get("message", "CUDA not available"),
                 "extra": cuda.get("version", ""),
             },
-            "Docker": {
-                "status": "healthy" if _docker_available() else "down",
-                "latency": 0,
-                "detail": "Docker runtime available" if _docker_available() else "Docker not detected",
-                "extra": "",
-            },
             "Backend": {
                 "status": "healthy",
                 "latency": elapsed_ms,
@@ -629,16 +622,6 @@ async def admin_health_deep():
     except Exception as exc:
         logger.exception("Health deep check failed")
         return error(f"Health deep check failed: {exc}")
-
-
-def _docker_available() -> bool:
-    """Check if Docker is available."""
-    try:
-        r = subprocess.run(["docker", "info"], capture_output=True, timeout=5)
-        return r.returncode == 0
-    except Exception:
-        return False
-
 
 
 @router.get("/status")
@@ -1434,185 +1417,6 @@ async def admin_runtime_action(req: RuntimeActionRequest):
         return success({"action": "verified", "result": result})
     else:
         raise HTTPException(status_code=400, detail=f"Unknown action: {req.action}")
-
-
-# ---------------------------------------------------------------------------
-# Docker
-# ---------------------------------------------------------------------------
-
-
-@router.get("/docker/status")
-async def docker_status():
-    containers = []
-    available = False
-    try:
-        result = subprocess.run(
-            ["docker", "compose", "ps", "--format", "json"],
-            capture_output=True, text=True, timeout=5,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            lines = [l for l in result.stdout.strip().splitlines() if l.strip()]
-            for line in lines:
-                try:
-                    c = json.loads(line)
-                    raw_status = str(c.get("Status") or c.get("status") or "").lower()
-                    raw_state = str(c.get("State") or c.get("state") or "").lower()
-                    is_running = "running" in raw_status or "up" in raw_status or "running" in raw_state or "up" in raw_state
-                    ports_val = c.get("Publishers") or c.get("Ports") or c.get("ports") or []
-                    if isinstance(ports_val, list):
-                        ports_list = [f"{p.get('TargetPort', '')}:{p.get('PublishedPort', '')}" if isinstance(p, dict) else str(p) for p in ports_val]
-                    else:
-                        ports_list = [str(ports_val)]
-                    containers.append({
-                        "name": c.get("Name") or c.get("name") or c.get("Service") or "service",
-                        "service": c.get("Service") or c.get("service") or c.get("Name") or "service",
-                        "image": c.get("Image") or c.get("image") or "ai-studio:latest",
-                        "status": "running" if is_running else "stopped",
-                        "state": c.get("State") or c.get("state") or ("Up" if is_running else "Exited"),
-                        "ports": [p for p in ports_list if p and p != ":"],
-                    })
-                except json.JSONDecodeError:
-                    pass
-            available = len(containers) > 0
-    except Exception:
-        pass
-
-    # Fallback to local system services when docker compose is not accessible
-    if not containers:
-        containers = [
-            {
-                "name": "ai-studio-backend",
-                "service": "backend",
-                "image": "ai-3d-studio/backend:v3.0",
-                "status": "running",
-                "state": "Up (native)",
-                "ports": ["0.0.0.0:8000->8000/tcp"]
-            },
-            {
-                "name": "ai-studio-frontend",
-                "service": "frontend",
-                "image": "ai-3d-studio/frontend:v3.0",
-                "status": "running",
-                "state": "Up (native)",
-                "ports": ["0.0.0.0:3000->3000/tcp"]
-            },
-            {
-                "name": "ai-studio-celery",
-                "service": "celery-worker",
-                "image": "ai-3d-studio/worker:v3.0",
-                "status": "running",
-                "state": "Up (native)",
-                "ports": []
-            },
-            {
-                "name": "redis-cache",
-                "service": "redis",
-                "image": "redis:7.2-alpine",
-                "status": "running",
-                "state": "Up (native)",
-                "ports": ["127.0.0.1:6379->6379/tcp"]
-            }
-        ]
-        available = True
-
-    return success({"containers": containers, "available": available})
-
-
-class DockerActionRequest(BaseModel):
-    service: str
-    action: str  # start | stop | restart
-
-
-@router.post("/docker/action")
-async def docker_action(req: DockerActionRequest):
-    """Perform start/stop/restart action on a Docker service.
-    
-    Used by DockerTab to manage container lifecycle.
-    """
-    try:
-        ALLOWED_DOCKER_ACTIONS = {"start", "stop", "restart", "logs"}
-        if req.action not in ALLOWED_DOCKER_ACTIONS:
-            return error(f"Action '{req.action}' not allowed. Allowed: {ALLOWED_DOCKER_ACTIONS}")
-
-        # Validate action
-        if req.action not in ("start", "stop", "restart"):
-            raise HTTPException(status_code=400, detail=f"Invalid action: {req.action}")
-        
-        # Execute docker compose command
-        result = subprocess.run(
-            ["docker", "compose", req.action, req.service],
-            capture_output=True, text=True, timeout=60,
-            cwd="/app",
-        )
-        
-        if result.returncode != 0:
-            logger.warning("Docker action %s %s failed: %s", req.action, req.service, result.stderr)
-            raise HTTPException(status_code=500, detail=result.stderr or "Docker action failed")
-        
-        return success({"service": req.service, "action": req.action, "completed": True})
-    except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=504, detail="Docker action timed out")
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.exception("Docker action failed")
-        raise HTTPException(status_code=500, detail=str(exc))
-
-
-# ponytail: Docker CLI not available in containerized FastAPI environments unless socket is mounted.
-# Graceful fallback to file-based logs; upgrade to Docker SDK if socket mounted becomes available.
-@router.get("/docker/logs/{service}")
-async def docker_logs(service: str, lines: int = Query(100, ge=1, le=1000)):
-    """Get logs from a Docker container/service.
-    
-    Used by DockerTab to display container logs.
-    Falls back to app logs if Docker CLI is not available (e.g., inside a container).
-    """
-    try:
-        result = subprocess.run(
-            ["docker", "compose", "logs", "--tail", str(lines), service],
-            capture_output=True, text=True, timeout=30,
-            cwd="/app",
-        )
-        
-        log_lines = result.stdout.strip().splitlines() if result.stdout else []
-        return success({"lines": log_lines, "service": service})
-    except FileNotFoundError:
-        # Docker command not available - fall back to app logs
-        logger.warning("Docker CLI not available, falling back to app logs")
-        try:
-            # Try to read from app logs directory
-            log_path = Path("/app/logs") / f"{service}.log"
-            if log_path.exists():
-                all_lines = log_path.read_text().splitlines()
-                log_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
-            else:
-                # Try common log locations
-                alt_paths = [
-                    Path("/var/log") / f"{service}.log",
-                    Path("/app") / "logs" / "app.log",
-                ]
-                found = False
-                for alt_path in alt_paths:
-                    if alt_path.exists():
-                        all_lines = alt_path.read_text().splitlines()
-                        log_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
-                        found = True
-                        break
-                if not found:
-                    log_lines = [
-                        "Docker not available in this environment.",
-                        f"Service: {service}",
-                        "Tip: Run 'docker compose logs' from the host machine to view container logs.",
-                    ]
-        except Exception as e:
-            log_lines = [f"Error reading fallback logs: {e}"]
-        return success({"lines": log_lines, "service": service, "source": "fallback"})
-    except subprocess.TimeoutExpired:
-        return success({"lines": ["Error: Log retrieval timed out"], "service": service})
-    except Exception as exc:
-        logger.exception("Docker logs failed")
-        return success({"lines": [f"Error: {exc}"], "service": service})
 
 
 # ---------------------------------------------------------------------------

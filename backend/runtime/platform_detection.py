@@ -42,11 +42,9 @@ class PlatformInfo:
     architecture: str = ""
 
     # Environment detection
-    is_docker: bool = False
     is_codespaces: bool = False
     is_github_actions: bool = False
     is_wsl: bool = False
-    is_docker_desktop: bool = False
     is_macos: bool = False
     is_windows: bool = False
     is_linux: bool = False
@@ -63,9 +61,6 @@ class PlatformInfo:
     # Reason for GPU status
     gpu_status_reason: str = ""
 
-    # Recommended compose command
-    recommended_command: str = "docker compose up -d"
-
     # Detailed diagnostics
     diagnostics: dict = field(default_factory=dict)
 
@@ -80,11 +75,9 @@ def detect_platform() -> PlatformInfo:
     )
 
     # Detect environment type
-    info.is_docker = _is_docker()
     info.is_codespaces = _is_codespaces()
     info.is_github_actions = _is_github_actions()
     info.is_wsl = _is_wsl()
-    info.is_docker_desktop = _is_docker_desktop()
     info.is_macos = info.os_name == "Darwin"
     info.is_windows = info.os_name == "Windows"
     info.is_linux = info.os_name == "Linux"
@@ -92,26 +85,10 @@ def detect_platform() -> PlatformInfo:
     # Detect GPU
     _detect_gpu(info)
 
-    # Determine recommended command
-    _set_recommended_command(info)
-
     # Collect diagnostics
     _collect_diagnostics(info)
 
     return info
-
-
-def _is_docker() -> bool:
-    """Check if running inside a Docker container."""
-    if Path("/.dockerenv").exists():
-        return True
-    try:
-        cgroup = Path("/proc/1/cgroup").read_text()
-        if "docker" in cgroup or "containerd" in cgroup:
-            return True
-    except Exception:
-        pass
-    return False
 
 
 def _is_codespaces() -> bool:
@@ -143,15 +120,6 @@ def _is_wsl() -> bool:
         return True
     if Path("/proc/sys/fs/binfmt_misc/WSLInterop").exists():
         return True
-    return False
-
-
-def _is_docker_desktop() -> bool:
-    if "docker desktop" in os.environ.get("DOCKER_HOST", "").lower():
-        return True
-    for p in ("/Applications/Docker.app", "C:\\Program Files\\Docker\\Docker"):
-        if Path(p).exists():
-            return True
     return False
 
 

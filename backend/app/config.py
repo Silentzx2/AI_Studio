@@ -62,7 +62,6 @@ class Settings(BaseSettings):
     offline_mode: bool = False
     huggingface_token: str = ""
     allow_mock_provider: bool = False
-    image_gen_enabled: bool = True
 
     @property
     def sync_database_url(self) -> str:
