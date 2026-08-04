@@ -8,6 +8,10 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_ROOT"
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -261,10 +265,7 @@ install_blender() {
 # ── Project setup ──────────────────────────────────────────────────────────────
 
 setup_folders() {
-  head_ "Creating Bind-Mount Directory Structure"
-  # These directories match docker-compose.yml bind mounts.
-  # Containers use storage.ensure_dirs() at runtime to create subdirs
-  # inside their own filesystem, but the HOST must provide the mount sources.
+  head_ "Creating Project Directory Structure"
   for dir in \
     backend/storage/uploads \
     backend/storage/models \
@@ -278,7 +279,7 @@ setup_folders() {
     mkdir -p "$dir"
   done
   chmod -R 755 backend/storage backend/third_party backend/.runtime_cache logs
-  log "Bind-mount directories created"
+  log "Project directories created"
 }
 
 setup_env() {
@@ -302,7 +303,7 @@ CELERY_BROKER_URL=redis://localhost:6379/0
 CELERY_RESULT_BACKEND=redis://localhost:6379/1
 
 # ── API ───────────────────────────────────────────────────
-NEXT_PUBLIC_API_URL=http://localhost:8000
+BACKEND_URL=http://localhost:8000
 
 # ── Storage ────────────────────────────────────────────────
 STORAGE_LOCAL_PATH=./backend/storage
@@ -311,7 +312,7 @@ HF_HOME=./backend/third_party/.hf_cache
 HUGGINGFACE_HUB_CACHE=./backend/third_party/.hf_cache/hub
 TRANSFORMERS_CACHE=./backend/third_party/.hf_cache/transformers
 TORCH_HOME=./backend/third_party/.hf_cache/torch
-WEIGHTS_DIR=./backend/third_party/weights
+WEIGHTS_DIR=./backend/third_party/<Repo>/weights/
 
 # ── GPU ───────────────────────────────────────────────────
 CUDA_VISIBLE_DEVICES=0
@@ -400,51 +401,6 @@ install_frontend_deps() {
 
 # ── Services ───────────────────────────────────────────────────────────────────
 
-start_services() {
-  head_ "Starting Services"
-
-  # docker-compose.gpu.yml is a pure OVERRIDE file — it adds GPU device
-  # reservations and extra env vars on top of the base docker-compose.yml.
-  # It MUST always be combined with the base file; never used alone.
-  if [[ "$GPU_AVAILABLE" == "true" ]]; then
-    log "Starting with GPU support..."
-    docker compose \
-      -f docker-compose.yml \
-      -f docker-compose.gpu.yml \
-      up -d --build
-  else
-    log "Starting without GPU support..."
-    docker compose -f docker-compose.yml up -d --build
-  fi
-
-  log "Services started — migrations run automatically via the 'migrate' container"
-}
-
-wait_for_migrate() {
-  head_ "Waiting for Database Migration"
-  log "Waiting for the 'migrate' service to finish..."
-  local retries=30
-  while [[ $retries -gt 0 ]]; do
-    # docker compose ps --format json returns a JSON array in newer Compose versions;
-    # use Go template to extract fields directly to avoid JSON parsing issues.
-    local state
-    state=$(docker compose ps --format '{{.State}}' migrate 2>/dev/null | head -1 || echo "")
-    if [[ "$state" == "exited" ]]; then
-      local exit_code
-      exit_code=$(docker compose ps --format '{{.ExitCode}}' migrate 2>/dev/null | head -1 || echo "1")
-      if [[ "$exit_code" == "0" ]]; then
-        log "Database migration complete"
-      else
-        warn "Migration container exited with code $exit_code — check: docker compose logs migrate"
-      fi
-      return 0
-    fi
-    sleep 2
-    retries=$((retries - 1))
-  done
-  warn "Migration timed out — check: docker compose logs migrate"
-}
-
 print_summary() {
   head_ "Setup Complete"
   echo -e "${GREEN}${BOLD}AI 3D Studio v3.2.0 is ready!${NC}"
@@ -517,6 +473,15 @@ BANNER
   # Non-critical project steps
   clone_anigen
   install_frontend_deps  || warn "Frontend deps had issues — check npm output above"
+
+  # setup.sh runs as root; hand ownership back to the real user so that the
+  # non-root `start.sh` can use the venv, read .env, and write logs.
+  if [[ -n "${SUDO_USER:-}" ]]; then
+    log "Returning project ownership to $SUDO_USER..."
+    chown -R "${SUDO_USER}:$(id -gn "$SUDO_USER")" \
+      backend/.venv backend/storage backend/third_party backend/.runtime_cache \
+      node_modules .env logs .pids 2>/dev/null || true
+  fi
 
   # Summary only — user runs scripts/start.sh manually
   print_summary

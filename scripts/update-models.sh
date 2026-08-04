@@ -58,22 +58,25 @@ echo ""
 
 cd "$BACKEND_DIR"
 
+# Ensure the project venv exists (per-model weights live under third_party/<Repo>/weights)
+VENV_PYTHON="$BACKEND_DIR/.venv/bin/python"
+if [[ ! -x "$VENV_PYTHON" ]]; then
+    echo "[ERROR] Python venv not found at $VENV_PYTHON. Run: sudo bash scripts/setup.sh"
+    exit 1
+fi
+
 # Create necessary directories
-mkdir -p third_party/weights
 mkdir -p third_party/.hf_cache/hub
 
 # Set HuggingFace cache environment
 export HF_HOME="$BACKEND_DIR/third_party/.hf_cache"
 export HUGGINGFACE_HUB_CACHE="$HF_HOME/hub"
-export TRANSFORMERS_CACHE="$HF_HOME/transformers"
 export TORCH_HOME="$HF_HOME/torch"
 
 echo "Storage configuration:"
-echo "  Repos: $BACKEND_DIR/third_party/"
-echo "  Weights: $BACKEND_DIR/third_party/weights/"
+echo "  Repos:   $BACKEND_DIR/third_party/<Repo>/"
+echo "  Weights: $BACKEND_DIR/third_party/<Repo>/weights/"
 echo "  HF Cache: $HF_HOME"
-echo ""
-echo "Using weights directory: $BACKEND_DIR/third_party/weights"
 echo ""
 
 # Export env-vars for the embedded Python script
@@ -83,7 +86,7 @@ export INSTALL_VERIFY=$VERIFY
 export INSTALL_MODELS="${MODELS[*]:-}"
 export HF_TOKEN="$HF_TOKEN"
 
-python3 << 'PYTHON_SCRIPT'
+"$VENV_PYTHON" << 'PYTHON_SCRIPT'
 import sys
 import os
 
@@ -108,15 +111,19 @@ try:
     # Ensure storage dirs exist
     installer.create_folders()
 
+    # resolve_install_targets() requires an explicit list or the ['__all__'] sentinel;
+    # it raises on None, so we never pass None implicitly.
+    install_models = models if models else ["__all__"]
+
     if repos_only:
         print("\n--- Cloning Repositories ---")
-        installer.clone_repos_for_models(models if models else None)
-        installer.install_repo_deps_for_models(models if models else None)
+        installer.clone_repos_for_models(install_models)
+        installer.install_repo_deps_for_models(install_models)
         print("\n[OK] Repositories ready.")
 
     elif weights_only:
         print("\n--- Downloading Model Weights ---")
-        installer.download_weights(models if models else None)
+        installer.download_weights(install_models)
         installer.register_providers()
         print("\n[OK] Weights ready.")
 
@@ -124,7 +131,7 @@ try:
         print("\n--- Running Full Installation ---")
         installer.full_install(
             skip_weights=False,
-            models=models if models else None,
+            models=install_models,
         )
 
         if verify:
@@ -147,13 +154,9 @@ except Exception as exc:
     sys.exit(1)
 PYTHON_SCRIPT
 
-INSTALL_STATUS=$?
+
 echo ""
 echo "=============================================="
-if [ $INSTALL_STATUS -eq 0 ]; then
-    echo "  Installation Complete"
-    echo "=============================================="
-    echo ""
-    echo "Run './scripts/verify-runtime.sh' to confirm everything is ready."
-fi
-exit $INSTALL_STATUS
+echo "  Installation Complete"
+echo "=============================================="
+echo ""

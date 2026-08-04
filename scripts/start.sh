@@ -59,6 +59,9 @@ fi
 PID_DIR="${PROJECT_ROOT}/.pids"
 mkdir -p "$PID_DIR"
 
+# ── Logs directory ─────────────────────────────────────────────────────────
+mkdir -p "${PROJECT_ROOT}/logs"
+
 # ── Service PIDs ───────────────────────────────────────────────────────────
 API_PID_FILE="$PID_DIR/api.pid"
 WORKER_PID_FILE="$PID_DIR/worker.pid"
@@ -164,10 +167,9 @@ echo ""
 step "4/6 Starting Backend API (http://localhost:8000)..."
 (
     cd backend
-    $UVICORN_BIN app.main:app \
+    $PYTHON_BIN -m uvicorn app.main:app \
         --host 0.0.0.0 \
         --port 8000 \
-        --reload \
         --log-level info \
         > "$PROJECT_ROOT/logs/api.log" 2>&1 &
     write_pid "$API_PID_FILE" $!
@@ -187,11 +189,17 @@ done
 echo ""
 echo ""
 
+# Fail loudly if the API never came up (don't leave a half-started stack).
+if ! curl -sf http://localhost:8000/api/v1/health &>/dev/null; then
+    err "Backend API failed to become healthy. See logs/api.log"
+    exit 1
+fi
+
 # ── Step 5: Start Celery Worker ────────────────────────────────────────────
 step "5/6 Starting Celery Worker..."
 (
     cd backend
-    $CELERY_BIN -A app.workers.celery_app worker \
+    $PYTHON_BIN -m celery -A app.workers.celery_app worker \
         --loglevel=info \
         --concurrency=1 \
         -Q generation,images \
