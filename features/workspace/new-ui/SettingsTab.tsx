@@ -214,7 +214,7 @@ export default function SettingsTab() {
             Platform Configurations & Real System Diagnostics
           </h2>
           {backendStatus === 'offline' && (
-            <span className="bg-red-500/20 text-red-400 text-[10px] px-2 py-0.5 rounded border border-red-500/30 uppercase font-bold tracking-wider">
+            <span className="bg-[hsl(var(--destructive)/0.2)] text-[hsl(var(--destructive))] text-[10px] px-2 py-0.5 rounded border border-[hsl(var(--destructive))]/30 uppercase font-bold tracking-wider">
               Backend Offline
             </span>
           )}
@@ -225,7 +225,7 @@ export default function SettingsTab() {
       </div>
 
       {error && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs text-red-300">
+        <div className="rounded-xl border border-[hsl(var(--destructive))]/30 bg-[hsl(var(--destructive)/0.1)] px-4 py-3 text-xs text-red-300">
           {error}
         </div>
       )}
@@ -256,7 +256,7 @@ export default function SettingsTab() {
 
           <div className="flex items-center justify-between p-3 bg-white/[0.02] border border-white/[0.04] rounded-xl text-[11px]" id="secrets-verification">
             <span className="text-[hsl(var(--muted-foreground))]">Backend Sync Status:</span>
-            <span className={`font-mono font-bold flex items-center gap-1.5 ${backendStatus === 'connected' ? 'text-emerald-400' : 'text-red-400'}`}>
+            <span className={`font-mono font-bold flex items-center gap-1.5 ${backendStatus === 'connected' ? 'text-[hsl(var(--neon-green))]' : 'text-[hsl(var(--destructive))]'}`}>
               <Check size={12} className="stroke-[3]" />
               {backendStatus === 'connected' ? 'Connected to API' : 'Disconnected'}
             </span>
@@ -355,7 +355,7 @@ export default function SettingsTab() {
 
             <div className="bg-[hsl(var(--surface-2))] p-3 rounded-xl border border-[hsl(var(--border))] flex flex-col gap-1">
               <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase">GPU Memory</span>
-              <span className="font-bold text-emerald-400 text-sm">
+              <span className="font-bold text-[hsl(var(--neon-green))] text-sm">
                 {sysSpecs.memoryGB}
               </span>
             </div>
@@ -369,7 +369,7 @@ export default function SettingsTab() {
 
             <div className="bg-[hsl(var(--surface-2))] p-3 rounded-xl border border-[hsl(var(--border))] flex flex-col gap-1">
               <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase">CUDA Toolkit</span>
-              <span className="font-bold text-amber-400 text-xs">
+              <span className="font-bold text-[hsl(var(--neon-amber))] text-xs">
                 {sysSpecs.cudaVersion}
               </span>
             </div>
@@ -397,7 +397,7 @@ export default function SettingsTab() {
             <span className="text-[11px] text-[hsl(var(--muted-foreground))]">Sync with backend and clear local viewport preferences:</span>
             <button
               onClick={handleClearCache}
-              className="px-3 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 font-bold text-xs flex items-center gap-1.5 transition-all shrink-0"
+              className="px-3 py-2 rounded-xl bg-[hsl(var(--destructive)/0.1)] hover:bg-[hsl(var(--destructive)/0.2)] border border-[hsl(var(--destructive))]/30 text-[hsl(var(--destructive))] font-bold text-xs flex items-center gap-1.5 transition-all shrink-0"
             >
               <RefreshCw size={13} />
               Re-Sync Settings

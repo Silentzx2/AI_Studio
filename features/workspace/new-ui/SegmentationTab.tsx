@@ -636,17 +636,17 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
         {/* Limitation Warnings */}
         <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-4 flex flex-col gap-2.5">
           <div className="flex items-center gap-2">
-            <AlertTriangle size={14} className="text-amber-500" />
-            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">
+            <AlertTriangle size={14} className="text-[hsl(var(--neon-amber))]" />
+            <span className="text-[10px] font-bold text-[hsl(var(--neon-amber))] uppercase tracking-wider">
               Limitations
             </span>
           </div>
           <div className="flex items-start gap-2.5 text-[10px] text-[hsl(var(--muted-foreground))] leading-relaxed">
-            <X size={12} className="text-red-400/60 flex-shrink-0 mt-0.5" />
+            <X size={12} className="text-[hsl(var(--destructive))]/60 flex-shrink-0 mt-0.5" />
             <span>Unavailable for quad models</span>
           </div>
           <div className="flex items-start gap-2.5 text-[10px] text-[hsl(var(--muted-foreground))] leading-relaxed">
-            <X size={12} className="text-red-400/60 flex-shrink-0 mt-0.5" />
+            <X size={12} className="text-[hsl(var(--destructive))]/60 flex-shrink-0 mt-0.5" />
             <span>Unavailable for rigged models</span>
           </div>
         </div>
@@ -700,7 +700,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
             <div className="flex flex-col gap-5 animate-fadeIn">
               {/* Success banner */}
               <div className="flex items-center gap-3">
-                <CheckCircle size={18} className="text-emerald-500" />
+                <CheckCircle size={18} className="text-[hsl(var(--neon-green))]" />
                 <span className="text-sm font-bold text-white uppercase tracking-wider">
                   Segmentation Complete!
                 </span>
@@ -851,7 +851,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
                 size={36}
                 className={
                   showWarnings
-                    ? 'text-amber-500/50 mb-3'
+                    ? 'text-[hsl(var(--neon-amber))]/50 mb-3'
                     : 'text-[hsl(var(--border))] mb-3 animate-spin-slow'
                 }
               />

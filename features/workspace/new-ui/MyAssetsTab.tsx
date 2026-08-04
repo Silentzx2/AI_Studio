@@ -87,8 +87,8 @@ export default function MyAssetsTab({
               <div className="absolute top-2.5 right-2.5 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity" id={`asset-floating-tools-${item.id}`}>
                 <button
                   onClick={(e) => onToggleFavorite(e, item.id)}
-                  className={`p-2 rounded-lg bg-black/80 hover:bg-black text-xs transition-all ${
-                    item.isFavorite ? 'text-rose-500' : 'text-[hsl(var(--muted-foreground))] hover:text-white'
+                  className={`p-2 rounded-lg bg-[hsl(var(--surface-0)/0.8)] hover:bg-black text-xs transition-all ${
+                    item.isFavorite ? 'text-[hsl(var(--destructive))]' : 'text-[hsl(var(--muted-foreground))] hover:text-white'
                   }`}
                   title="Favorite model"
                   id={`asset-fav-btn-${item.id}`}
@@ -97,7 +97,7 @@ export default function MyAssetsTab({
                 </button>
                 <button
                   onClick={(e) => onDeleteProject(e, item.id)}
-                  className="p-2 rounded-lg bg-black/80 hover:bg-red-950 text-xs text-[hsl(var(--muted-foreground))] hover:text-red-400 transition-all"
+                  className="p-2 rounded-lg bg-[hsl(var(--surface-0)/0.8)] hover:bg-[hsl(var(--destructive)/0.1)] text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--destructive))] transition-all"
                   title="Delete model"
                   id={`asset-del-btn-${item.id}`}
                 >

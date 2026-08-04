@@ -130,9 +130,9 @@ export function ModelDetailsModal({
           {/* Status Badge */}
           {health && (
             <Badge className={
-              health.status === 'healthy' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
-              health.status === 'warning' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
-              'bg-red-500/20 text-red-400 border-red-500/30'
+              health.status === 'healthy' ? 'bg-[hsl(var(--neon-green)/0.2)] text-[hsl(var(--neon-green))] border-green-500/30' :
+              health.status === 'warning' ? 'bg-[hsl(var(--neon-amber)/0.2)] text-[hsl(var(--neon-amber))] border-[hsl(var(--neon-amber)/0.3)]' :
+              'bg-[hsl(var(--destructive)/0.2)] text-[hsl(var(--destructive))] border-[hsl(var(--destructive)/0.3)]'
             }>
               {health.status === 'healthy' && <CheckCircle className="w-3 h-3 mr-1" />}
               {health.status === 'warning' && <AlertTriangle className="w-3 h-3 mr-1" />}
@@ -196,7 +196,7 @@ export function ModelDetailsModal({
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-white/10 bg-black/20">
+        <div className="flex items-center justify-end gap-3 p-6 border-t border-white/10 bg-[hsl(var(--surface-0)/0.2)]">
           <Button
             variant="outline"
             onClick={onClose}
@@ -209,7 +209,7 @@ export function ModelDetailsModal({
             <Button
               variant="outline"
               onClick={() => onRepair(modelId)}
-              className="border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10"
+              className="border-[hsl(var(--neon-amber)/0.5)] text-[hsl(var(--neon-amber))] hover:bg-[hsl(var(--neon-amber)/0.1)]"
             >
               <Settings className="w-4 h-4 mr-2" />
               Repair Model
@@ -223,7 +223,7 @@ export function ModelDetailsModal({
                 onUninstall(modelId);
                 onClose();
               }}
-              className="border-red-500/50 text-red-400 hover:bg-red-500/10"
+              className="border-[hsl(var(--destructive)/0.5)] text-[hsl(var(--destructive))] hover:bg-[hsl(var(--destructive)/0.1)]"
             >
               <Trash2 className="w-4 h-4 mr-2" />
               Uninstall
@@ -324,23 +324,23 @@ function HealthTabContent({ health }: { health: any }) {
     <div className="space-y-4">
       {/* Summary */}
       {health.summary && (
-        <Card className="bg-black/30 border-white/10 p-4">
+        <Card className="bg-[hsl(var(--surface-0)/0.3)] border-white/10 p-4">
           <div className="grid grid-cols-4 gap-4 text-center">
             <div>
               <p className="text-2xl font-bold text-white">{health.summary.total_checks}</p>
               <p className="text-xs text-white/50">Total Checks</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-green-400">{health.summary.passed}</p>
-              <p className="text-xs text-green-400/70">Passed</p>
+              <p className="text-2xl font-bold text-[hsl(var(--neon-green))]">{health.summary.passed}</p>
+              <p className="text-xs text-[hsl(var(--neon-green))]/70">Passed</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-yellow-400">{health.summary.warnings}</p>
-              <p className="text-xs text-yellow-400/70">Warnings</p>
+              <p className="text-2xl font-bold text-[hsl(var(--neon-amber))]">{health.summary.warnings}</p>
+              <p className="text-xs text-[hsl(var(--neon-amber))]/70">Warnings</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-red-400">{health.summary.errors}</p>
-              <p className="text-xs text-red-400/70">Errors</p>
+              <p className="text-2xl font-bold text-[hsl(var(--destructive))]">{health.summary.errors}</p>
+              <p className="text-xs text-[hsl(var(--destructive))]/70">Errors</p>
             </div>
           </div>
         </Card>
@@ -350,15 +350,15 @@ function HealthTabContent({ health }: { health: any }) {
       {health.checks && Object.entries(health.checks).map(([checkName, result]: [string, any]) => (
         <Card key={checkName} className={`p-4 ${
           result.status === 'ok' ? 'border-green-500/20' :
-          result.status === 'warning' ? 'border-yellow-500/20' : 'border-red-500/20'
+          result.status === 'warning' ? 'border-[hsl(var(--neon-amber)/0.2)]' : 'border-[hsl(var(--destructive)/0.2)]'
         }`}>
           <div className="flex items-center justify-between mb-2">
             <span className="font-medium text-white capitalize">
               {checkName.replace('_', ' ')}
             </span>
             <span className={`text-sm font-medium ${
-              result.status === 'ok' ? 'text-green-400' :
-              result.status === 'warning' ? 'text-yellow-400' : 'text-red-400'
+              result.status === 'ok' ? 'text-[hsl(var(--neon-green))]' :
+              result.status === 'warning' ? 'text-[hsl(var(--neon-amber))]' : 'text-[hsl(var(--destructive))]'
             }`}>
               {result.status.toUpperCase()}
             </span>
@@ -400,26 +400,26 @@ function RequirementsTab({ manifest }: { manifest: ModelManifest | null }) {
         
         <div className="space-y-3">
           <RequirementRow 
-            icon={<Package className="w-5 h-5 text-blue-400" />}
+            icon={<Package className="w-5 h-5 text-[hsl(var(--neon-blue))]" />}
             label="Framework"
             value={runtime.framework || 'Unknown'}
           />
           
           <RequirementRow 
-            icon={<Shield className="w-5 h-5 text-green-400" />}
+            icon={<Shield className="w-5 h-5 text-[hsl(var(--neon-green))]" />}
             label="Python Version"
             value={runtime.python_version || '3.10+'}
           />
           
           <RequirementRow 
-            icon={<Cpu className="w-5 h-5 text-purple-400" />}
+            icon={<Cpu className="w-5 h-5 text-[hsl(var(--neon-purple))]" />}
             label="CUDA Required"
             value={runtime.cuda_required ? 'Yes' : 'Optional'}
             highlight={runtime.cuda_required ? 'warning' : undefined}
           />
           
           <RequirementRow 
-            icon={<HardDrive className="w-5 h-5 text-orange-400" />}
+            icon={<HardDrive className="w-5 h-5 text-[hsl(var(--neon-amber))]" />}
             label="Minimum VRAM"
             value={runtime.min_vram_mb ? `${(runtime.min_vram_mb / 1024).toFixed(1)} GB` : '4 GB+'}
           />
@@ -434,7 +434,7 @@ function RequirementsTab({ manifest }: { manifest: ModelManifest | null }) {
             Python Dependencies ({pythonPackages.length})
           </h4>
           
-          <div className="bg-black/30 rounded-lg overflow-hidden">
+          <div className="bg-[hsl(var(--surface-0)/0.3)] rounded-lg overflow-hidden">
             {pythonPackages.map((pkg, idx) => (
               <div 
                 key={idx}
@@ -442,7 +442,7 @@ function RequirementsTab({ manifest }: { manifest: ModelManifest | null }) {
                   idx !== pythonPackages.length - 1 ? 'border-b border-white/5' : ''
                 }`}
               >
-                <code className="text-sm text-blue-300">{pkg.name}</code>
+                <code className="text-sm text-[hsl(var(--neon-blue))]">{pkg.name}</code>
                 {pkg.version && (
                   <span className="text-sm text-white/40">{pkg.version}</span>
                 )}
@@ -460,10 +460,10 @@ function RequirementsTab({ manifest }: { manifest: ModelManifest | null }) {
             Model Files ({manifest.files.length})
           </h4>
           
-          <div className="bg-black/30 rounded-lg p-4 space-y-2">
+          <div className="bg-[hsl(var(--surface-0)/0.3)] rounded-lg p-4 space-y-2">
             {manifest.files.map((file, idx) => (
               <div key={idx} className="flex items-center gap-2 text-sm text-white/70">
-                <CheckCircle className="w-4 h-4 text-green-400/50" />
+                <CheckCircle className="w-4 h-4 text-[hsl(var(--neon-green))]/50" />
                 <code>{file}</code>
               </div>
             ))}
@@ -477,7 +477,7 @@ function RequirementsTab({ manifest }: { manifest: ModelManifest | null }) {
 // Helper Components
 function InfoItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-black/20 rounded-lg p-3">
+    <div className="bg-[hsl(var(--surface-0)/0.2)] rounded-lg p-3">
       <p className="text-xs text-white/50 mb-1">{label}</p>
       <p className="font-medium text-white">{value}</p>
     </div>
@@ -497,13 +497,13 @@ function RequirementRow({
 }) {
   return (
     <div className={`flex items-center gap-4 p-3 rounded-lg ${
-      highlight === 'warning' ? 'bg-yellow-500/10' :
-      highlight === 'error' ? 'bg-red-500/10' : 'bg-black/20'
+      highlight === 'warning' ? 'bg-[hsl(var(--neon-amber)/0.1)]' :
+      highlight === 'error' ? 'bg-[hsl(var(--destructive)/0.1)]' : 'bg-[hsl(var(--surface-0)/0.2)]'
     }`}>
       {icon}
       <span className="text-white/70 flex-1">{label}</span>
       <span className={`font-medium ${
-        highlight ? 'text-yellow-400' : 'text-white'
+        highlight ? 'text-[hsl(var(--neon-amber))]' : 'text-white'
       }`}>{value}</span>
     </div>
   );

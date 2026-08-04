@@ -102,10 +102,10 @@ export function AutoSaveIndicator({
         >
           {status === 'modified' && (
             <>
-              <span className="text-amber-500 font-semibold">Unsaved changes</span>
+              <span className="text-[hsl(var(--neon-amber))] font-semibold">Unsaved changes</span>
               <button
                 onClick={onSave}
-                className="ml-2 flex items-center gap-1 bg-[hsl(var(--neon-amber))] hover:bg-[hsl(var(--neon-amber))] text-black px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer"
+                className="ml-2 flex items-center gap-1 bg-primary hover:bg-primary/90 text-primary-foreground px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer"
               >
                 <Save className="w-3 h-3" /> Save
               </button>
@@ -119,8 +119,8 @@ export function AutoSaveIndicator({
           )}
           {status === 'saved' && (
             <>
-              <Check className="w-3.5 h-3.5 text-emerald-500" />
-              <span className="text-emerald-500">Changes saved</span>
+              <Check className="w-3.5 h-3.5 text-[hsl(var(--neon-green))]" />
+              <span className="text-[hsl(var(--neon-green))]">Changes saved</span>
             </>
           )}
           {status === 'error' && (

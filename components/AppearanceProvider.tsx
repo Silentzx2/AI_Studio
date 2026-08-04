@@ -11,7 +11,6 @@ import { useThemeStore } from '@/stores/useThemeStore';
  * If the input is already an HSL string, it is returned as-is.
  */
 export function hexToHSLString(hex: string): string {
-  // If it's already an HSL string like "265 85% 65%"
   if (!hex.startsWith('#')) return hex;
 
   let r = 0, g = 0, b = 0;
@@ -49,47 +48,20 @@ export function hexToHSLString(hex: string): string {
 
 // ─── Core Theme Application ─────────────────────────────────────────────────
 
-type ThemeAnimationConfig = {
-  cardHoverStyle?: string;
-  dropdownStyle?: string;
-};
-
-export type ThemeVisualConfig = {
-  accentColor?: string;
-  accentColorSecondary?: string;
-  surfaceOpacity?: number;
-  borderRadius?: string;
-  borderRadiusSm?: string;
-  borderRadiusLg?: string;
-  glassEnabled?: boolean;
-  glassBlur?: number;
-  glassBorderOpacity?: number;
-  glassBackgroundOpacity?: number;
-  shadowIntensity?: number;
-  shadowColor?: string;
-  animationSpeed?: number;
-  theme?: 'dark' | 'light' | 'system';
-  fontSize?: 'sm' | 'md' | 'lg';
-  density?: 'compact' | 'normal' | 'comfortable';
-  navbarStyle?: 'glass' | 'solid' | 'transparent';
-  tabStyle?: string;
-  animations?: ThemeAnimationConfig | 'none' | 'reduced' | 'full' | null;
-  neonGlowEnabled?: boolean;
-};
+import type { ThemeConfig } from '@/stores/useThemeStore';
 
 /**
- * Applies theme config values as CSS custom properties on
- * `document.documentElement.style` and toggles classes / data attributes.
- *
- * Accepts either the full store config or a smaller UI section config.
+ * Applies the entire ThemeConfig to `document.documentElement` as CSS custom
+ * properties and data attributes. Every setting in the store is written here so
+ * that globals.css has a single runtime layer to read from.
  */
-export function applyGlobalTheme(cfg: ThemeVisualConfig): void {
+export function applyGlobalTheme(cfg: ThemeConfig): void {
   if (typeof document === 'undefined') return;
 
   const root = document.documentElement.style;
   const html = document.documentElement;
 
-  // Colors
+  // ── Colors ──
   if (cfg.accentColor) {
     const hsl = hexToHSLString(cfg.accentColor);
     root.setProperty('--primary', hsl);
@@ -97,6 +69,8 @@ export function applyGlobalTheme(cfg: ThemeVisualConfig): void {
     root.setProperty('--accent', hsl);
     root.setProperty('--neon-purple', hsl);
     root.setProperty('--neon-amber', hsl);
+    root.setProperty('--accent-gradient-from', `hsl(${hsl})`);
+    root.setProperty('--accent-gradient-to', hexToHSLString(cfg.accentColorSecondary || cfg.accentColor));
   }
 
   if (cfg.accentColorSecondary) {
@@ -107,12 +81,12 @@ export function applyGlobalTheme(cfg: ThemeVisualConfig): void {
     root.setProperty('--surface-opacity', String(cfg.surfaceOpacity));
   }
 
-  // Radius
+  // ── Border Radius ──
   if (cfg.borderRadius) root.setProperty('--radius', cfg.borderRadius);
   if (cfg.borderRadiusSm) root.setProperty('--radius-sm', cfg.borderRadiusSm);
   if (cfg.borderRadiusLg) root.setProperty('--radius-lg', cfg.borderRadiusLg);
 
-  // Glass
+  // ── Glass Effect ──
   const glassEnabled = cfg.glassEnabled === true;
   if (cfg.glassBlur !== undefined) root.setProperty('--glass-blur', `${cfg.glassBlur}px`);
   if (cfg.glassBorderOpacity !== undefined) {
@@ -123,13 +97,16 @@ export function applyGlobalTheme(cfg: ThemeVisualConfig): void {
   }
   root.setProperty('--glass-enabled', glassEnabled ? '1' : '0');
 
-  // Shadows
+  // ── Shadows ──
   if (cfg.shadowIntensity !== undefined) {
     root.setProperty('--shadow-intensity', String(cfg.shadowIntensity));
   }
-  root.setProperty('--shadow-color', cfg.shadowColor || cfg.accentColor || '#000000');
+  root.setProperty('--shadow-color', hexToHSLString(cfg.shadowColor || cfg.accentColor || '#000000'));
 
-  // Animation
+  // ── Neon Glow ──
+  root.setProperty('--neon-glow-intensity', String(cfg.neonGlowIntensity ?? 0.5));
+
+  // ── Animation Speed ──
   if (cfg.animationSpeed !== undefined) {
     root.setProperty('--animation-speed', String(cfg.animationSpeed));
     html.classList.remove('no-animations', 'reduced-animations');
@@ -140,7 +117,7 @@ export function applyGlobalTheme(cfg: ThemeVisualConfig): void {
     }
   }
 
-  // Theme Mode
+  // ── Theme Mode ──
   const resolveTheme = (mode: string): 'dark' | 'light' => {
     if (mode === 'system') {
       return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -155,7 +132,7 @@ export function applyGlobalTheme(cfg: ThemeVisualConfig): void {
     html.setAttribute('data-theme', resolved);
   }
 
-  // Font Size
+  // ── Font Size ──
   if (cfg.fontSize) {
     const sizeMap: Record<string, string> = {
       sm: '14px',
@@ -165,12 +142,14 @@ export function applyGlobalTheme(cfg: ThemeVisualConfig): void {
     root.setProperty('--base-font-size', sizeMap[cfg.fontSize] || '16px');
   }
 
-  // Density
+  // ── Density ──
   if (cfg.density) {
     html.setAttribute('data-density', cfg.density);
+    const multMap: Record<string, string> = { compact: '0.75', normal: '1', comfortable: '1.25' };
+    root.setProperty('--spacing-multiplier', multMap[cfg.density] || '1');
   }
 
-  // Navbar
+  // ── Navbar ──
   if (cfg.navbarStyle) {
     const navMap: Record<string, [string, string]> = {
       glass: ['0.8', '12px'],
@@ -182,142 +161,39 @@ export function applyGlobalTheme(cfg: ThemeVisualConfig): void {
     root.setProperty('--nav-backdrop-blur', backdropBlur);
   }
 
-  // Data Attributes for CSS Selectors
-  html.setAttribute('data-glass-enabled', String(glassEnabled));
+  // ── Tab Style & Indicator ──
   html.setAttribute('data-tab-style', cfg.tabStyle || 'pill');
+  html.setAttribute('data-tab-indicator', cfg.tabIndicatorColor || 'accent');
 
-  if (typeof cfg.animations === 'object' && cfg.animations) {
-    html.setAttribute('data-card-hover', cfg.animations.cardHoverStyle || 'lift');
-    html.setAttribute('data-dropdown-style', cfg.animations.dropdownStyle || 'spring');
-  } else {
-    html.setAttribute('data-card-hover', 'lift');
-    html.setAttribute('data-dropdown-style', 'spring');
-  }
+  // ── Button Styles ──
+  html.setAttribute('data-button-glow', String(cfg.buttonGlow));
+  html.setAttribute('data-button-gradient', String(cfg.buttonGradient));
+  html.setAttribute('data-button-ripple', String(cfg.buttonRippleEffect));
+  html.setAttribute('data-button-border-glow', String(cfg.buttonBorderGlow));
 
-  if (typeof cfg.neonGlowEnabled === 'boolean') {
-    html.setAttribute('data-neon-glow', String(cfg.neonGlowEnabled));
-  }
-}
+  // ── Lighting Effects ──
+  html.setAttribute('data-neon-glow', String(cfg.neonGlowEnabled));
+  html.setAttribute('data-ambient-glow', String(cfg.ambientGlowEnabled));
+  html.setAttribute('data-spotlight-cards', String(cfg.spotlightOnCards));
 
-// ─── Dynamic Utility CSS ─────────────────────────────────────────────────────
+  // ── Animation Easing ──
+  html.setAttribute('data-animation-easing', cfg.animationEasing || 'spring');
 
-/**
- * Generates a `<style>` block whose rules read from CSS custom properties so
- * the utility classes automatically reflect the current theme values.
- */
-function buildUtilityCSS(): string {
-  return `
-/* ─── Glass Effect ─────────────────────────────────────── */
-.glass-effect {
-  backdrop-filter: blur(var(--glass-blur, 12px));
-  -webkit-backdrop-filter: blur(var(--glass-blur, 12px));
-  background: rgba(255, 255, 255, calc(var(--glass-bg-opacity, 0.08) * var(--glass-enabled, 1)));
-  border: 1px solid rgba(255, 255, 255, calc(var(--glass-border-opacity, 0.1) * var(--glass-enabled, 1)));
-}
-
-html.dark .glass-effect {
-  background: rgba(255, 255, 255, calc(var(--glass-bg-opacity, 0.08) * var(--glass-enabled, 1)));
-  border-color: rgba(255, 255, 255, calc(var(--glass-border-opacity, 0.1) * var(--glass-enabled, 1)));
-}
-
-html.light .glass-effect {
-  background: rgba(0, 0, 0, calc(var(--glass-bg-opacity, 0.08) * var(--glass-enabled, 1)));
-  border-color: rgba(0, 0, 0, calc(var(--glass-border-opacity, 0.1) * var(--glass-enabled, 1)));
-}
-
-/* ─── Glass Card ───────────────────────────────────────── */
-.glass-card {
-  backdrop-filter: blur(var(--glass-blur, 12px));
-  -webkit-backdrop-filter: blur(var(--glass-blur, 12px));
-  background: rgba(255, 255, 255, calc(var(--glass-bg-opacity, 0.08) * var(--glass-enabled, 1)));
-  border: 1px solid rgba(255, 255, 255, calc(var(--glass-border-opacity, 0.1) * var(--glass-enabled, 1)));
-  border-radius: var(--radius, 0.75rem);
-  padding: 1.5rem;
-}
-
-html.dark .glass-card {
-  background: rgba(255, 255, 255, calc(var(--glass-bg-opacity, 0.08) * var(--glass-enabled, 1)));
-  border-color: rgba(255, 255, 255, calc(var(--glass-border-opacity, 0.1) * var(--glass-enabled, 1)));
-}
-
-html.light .glass-card {
-  background: rgba(0, 0, 0, calc(var(--glass-bg-opacity, 0.08) * var(--glass-enabled, 1)));
-  border-color: rgba(0, 0, 0, calc(var(--glass-border-opacity, 0.1) * var(--glass-enabled, 1)));
-}
-
-/* ─── Glow Effect ──────────────────────────────────────── */
-.glow-effect {
-  box-shadow:
-    0 0 calc(15px * var(--shadow-intensity, 0.5))
-        hsl(from var(--neon-purple, 265 85% 65%) h s l / calc(0.35 * var(--shadow-intensity, 0.5))),
-    0 0 calc(40px * var(--shadow-intensity, 0.5))
-        hsl(from var(--neon-purple, 265 85% 65%) h s l / calc(0.15 * var(--shadow-intensity, 0.5)));
-}
-
-html:not([data-neon-glow="true"]) .glow-effect,
-[data-neon-glow="false"] .glow-effect {
-  box-shadow: none;
-}
-
-/* ─── Shimmer Loading ──────────────────────────────────── */
-@keyframes shimmer-slide {
-  0%   { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-
-.shimmer-loading {
-  position: relative;
-  overflow: hidden;
-  background: var(--surface-opacity, rgba(255, 255, 255, 0.06));
-}
-
-html.dark .shimmer-loading {
-  background: rgba(255, 255, 255, var(--surface-opacity, 0.06));
-}
-
-html.light .shimmer-loading {
-  background: rgba(0, 0, 0, var(--surface-opacity, 0.06));
-}
-
-.shimmer-loading::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.08) 50%,
-    transparent 100%
-  );
-  animation: shimmer-slide calc(1.5s / var(--animation-speed, 1)) infinite ease-in-out;
-}
-
-html.light .shimmer-loading::after {
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(0, 0, 0, 0.06) 50%,
-    transparent 100%
-  );
-}
-
-/* ─── Animation Speed Modifiers ────────────────────────── */
-.no-animations *,
-.no-animations *::before,
-.no-animations *::after {
-  animation-duration: 0s !important;
-  animation-delay: 0s !important;
-  transition-duration: 0s !important;
-  transition-delay: 0s !important;
-}
-
-.reduced-animations *,
-.reduced-animations *::before,
-.reduced-animations *::after {
-  animation-duration: 0.01s !important;
-  transition-duration: 0.01s !important;
-}
-  `.trim();
+  // ── Animation Toggles ──
+  const a = cfg.animations;
+  html.setAttribute('data-anim-page-transitions', String(a.pageTransitions));
+  html.setAttribute('data-anim-dropdown', String(a.dropdownOpen));
+  html.setAttribute('data-dropdown-style', a.dropdownStyle || 'spring');
+  html.setAttribute('data-anim-card-hover', String(a.cardHover));
+  html.setAttribute('data-card-hover', a.cardHoverStyle || 'lift');
+  html.setAttribute('data-anim-button-press', String(a.buttonPress));
+  html.setAttribute('data-anim-shimmer', String(a.shimmerLoading));
+  html.setAttribute('data-anim-stagger', String(a.staggerChildren));
+  html.setAttribute('data-anim-sidebar', String(a.sidebarTransitions));
+  html.setAttribute('data-anim-progress', a.progressBar || 'default');
+  html.setAttribute('data-anim-upload-pulse', String(a.uploadPulse));
+  html.setAttribute('data-anim-toast', String(a.toastAnimations));
+  html.setAttribute('data-anim-fade-in', String(a.fadeInSection));
 }
 
 // ─── Provider Component ──────────────────────────────────────────────────────
@@ -332,13 +208,11 @@ export function AppearanceProvider({ children }: { children: React.ReactNode }) 
     // Apply initial config from the store
     const cfg = useThemeStore.getState();
     applyGlobalTheme(cfg);
-    root.setAttribute('data-neon-glow', String(cfg.neonGlowEnabled));
     initialApplied.current = true;
 
     // Subscribe to store changes — re-apply on every update
     const unsubscribe = useThemeStore.subscribe((newCfg) => {
       applyGlobalTheme(newCfg);
-      root.setAttribute('data-neon-glow', String(newCfg.neonGlowEnabled));
     });
 
     // Listen for system prefers-color-scheme changes when theme === 'system'
@@ -360,14 +234,7 @@ export function AppearanceProvider({ children }: { children: React.ReactNode }) 
     };
   }, []);
 
-  return (
-    <>
-      {/* Utility CSS classes that read from CSS custom properties */}
-      <style
-        dangerouslySetInnerHTML={{ __html: buildUtilityCSS() }}
-        data-theme-utilities={styleId}
-      />
-      {children}
-    </>
-  );
+  void styleId;
+
+  return <>{children}</>;
 }

@@ -181,8 +181,8 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
           <div className="flex flex-col gap-2">
             <label className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Target Model (Optional)</label>
             {uploadedModelUrl ? (
-              <div className="bg-[hsl(var(--surface-2))] border border-emerald-500/20 rounded-xl p-3 flex items-center gap-3">
-                <Palette size={16} className="text-emerald-500" />
+              <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--neon-green)/0.2)] rounded-xl p-3 flex items-center gap-3">
+                <Palette size={16} className="text-[hsl(var(--neon-green))]" />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-white truncate">{uploadedModelName}</p>
                   <p className="text-[10px] text-[hsl(var(--muted-foreground))]">{((uploadedModel?.size ?? 0) / 1024).toFixed(1)} KB</p>
@@ -331,9 +331,9 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
           </div>
 
           {successResult ? (
-            <div className="bg-[hsl(var(--surface-2))] border border-emerald-500/30 rounded-xl p-5 flex flex-col gap-4 animate-fadeIn">
+            <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--neon-green)/0.3)] rounded-xl p-5 flex flex-col gap-4 animate-fadeIn">
               <div className="flex items-center gap-2.5">
-                <CheckCircle size={18} className="text-emerald-500" />
+                <CheckCircle size={18} className="text-[hsl(var(--neon-green))]" />
                 <span className="text-sm font-bold text-white uppercase tracking-wider">Textures Successfully Baked!</span>
               </div>
               <div className="grid grid-cols-2 gap-4">

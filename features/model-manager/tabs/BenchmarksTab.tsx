@@ -139,19 +139,19 @@ export function BenchmarksTab({ modelId }: BenchmarksTabProps) {
   const getStatusBadge = (status: BenchmarkResult['status']) => {
     switch (status) {
       case 'completed':
-        return <Badge variant="default" className="bg-green-500/20 text-green-400 border-green-500/30">
+        return <Badge variant="default" className="bg-[hsl(var(--neon-green)/0.2)] text-[hsl(var(--neon-green))] border-green-500/30">
           <CheckCircle className="w-3 h-3 mr-1" /> Completed
         </Badge>;
       case 'running':
-        return <Badge variant="default" className="bg-blue-500/20 text-blue-400 border-blue-500/30">
+        return <Badge variant="default" className="bg-[hsl(var(--neon-blue)/0.2)] text-[hsl(var(--neon-blue))] border-blue-500/30">
           <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> Running...
         </Badge>;
       case 'placeholder':
-        return <Badge variant="default" className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+        return <Badge variant="default" className="bg-[hsl(var(--neon-amber)/0.2)] text-[hsl(var(--neon-amber))] border-[hsl(var(--neon-amber)/0.3)]">
           <AlertCircle className="w-3 h-3 mr-1" /> Not Available
         </Badge>;
       case 'error':
-        return <Badge variant="default" className="bg-red-500/20 text-red-400 border-red-500/30">
+        return <Badge variant="default" className="bg-[hsl(var(--destructive)/0.2)] text-[hsl(var(--destructive))] border-[hsl(var(--destructive)/0.3)]">
           <AlertCircle className="w-3 h-3 mr-1" /> Error
         </Badge>;
       default:
@@ -226,7 +226,7 @@ export function BenchmarksTab({ modelId }: BenchmarksTabProps) {
               {/* Metrics Grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {/* Inference Time */}
-                <div className="bg-black/20 rounded-lg p-3">
+                <div className="bg-[hsl(var(--surface-0)/0.2)] rounded-lg p-3">
                   <div className="flex items-center gap-2 text-white/50 text-sm mb-1">
                     <Clock className="w-4 h-4" />
                     Inference Time
@@ -239,7 +239,7 @@ export function BenchmarksTab({ modelId }: BenchmarksTabProps) {
                 </div>
 
                 {/* Throughput */}
-                <div className="bg-black/20 rounded-lg p-3">
+                <div className="bg-[hsl(var(--surface-0)/0.2)] rounded-lg p-3">
                   <div className="flex items-center gap-2 text-white/50 text-sm mb-1">
                     <TrendingUp className="w-4 h-4" />
                     Throughput
@@ -252,7 +252,7 @@ export function BenchmarksTab({ modelId }: BenchmarksTabProps) {
                 </div>
 
                 {/* Memory Usage */}
-                <div className="bg-black/20 rounded-lg p-3">
+                <div className="bg-[hsl(var(--surface-0)/0.2)] rounded-lg p-3">
                   <div className="flex items-center gap-2 text-white/50 text-sm mb-1">
                     <HardDrive className="w-4 h-4" />
                     Memory Usage
@@ -265,7 +265,7 @@ export function BenchmarksTab({ modelId }: BenchmarksTabProps) {
                 </div>
 
                 {/* GPU Utilization */}
-                <div className="bg-black/20 rounded-lg p-3">
+                <div className="bg-[hsl(var(--surface-0)/0.2)] rounded-lg p-3">
                   <div className="flex items-center gap-2 text-white/50 text-sm mb-1">
                     <Cpu className="w-4 h-4" />
                     GPU Utilization

@@ -35,11 +35,11 @@ export function Badge({
 }) {
   const cls = {
     default: 'bg-slate-700/60 text-slate-300 border-slate-600/40',
-    success: 'bg-emerald-500/12 text-emerald-400 border-emerald-500/25',
-    warn:    'bg-amber-500/12 text-amber-400 border-amber-500/25',
-    error:   'bg-red-500/12 text-red-400 border-red-500/25',
-    info:    'bg-blue-500/12 text-blue-400 border-blue-500/25',
-    purple:  'bg-violet-500/15 text-violet-300 border-violet-500/30',
+    success: 'bg-emerald-500/12 text-[hsl(var(--neon-green))] border-emerald-500/25',
+    warn:    'bg-[hsl(var(--neon-amber))]/12 text-[hsl(var(--neon-amber))] border-amber-500/25',
+    error:   'bg-[hsl(var(--destructive))]/12 text-[hsl(var(--destructive))] border-red-500/25',
+    info:    'bg-[hsl(var(--neon-blue))]/12 text-[hsl(var(--neon-blue))] border-blue-500/25',
+    purple:  'bg-[hsl(var(--neon-purple)/0.15)] text-violet-300 border-[hsl(var(--neon-purple)/0.3)]',
   }[variant];
   return (
     <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border', cls)}>
@@ -53,7 +53,7 @@ export function StatusDot({ ok }: { ok: boolean }) {
     <span
       className={cn(
         'inline-block w-2 h-2 rounded-full',
-        ok ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]' : 'bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.5)]',
+        ok ? 'bg-[hsl(var(--neon-green))] shadow-[0_0_6px_rgba(52,211,153,0.6)]' : 'bg-[hsl(var(--destructive))] shadow-[0_0_6px_rgba(248,113,113,0.5)]',
       )}
     />
   );
@@ -99,9 +99,9 @@ export function ActionButton({
   const size = small ? 'px-2.5 py-1.5 text-xs' : 'px-4 py-2 text-sm';
   const cls = {
     default: 'bg-slate-700/50 hover:bg-slate-600/60 text-slate-300 border border-slate-600/40 hover:border-slate-500/60 hover:text-white',
-    primary: 'text-white border border-violet-500/30 hover:border-violet-400/50 hover:shadow-[0_0_16px_rgba(168,85,247,0.25)]',
-    danger:  'bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/20 hover:border-red-400/40',
-    success: 'bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/20 hover:border-emerald-400/40',
+    primary: 'text-white border border-[hsl(var(--neon-purple)/0.3)] hover:border-violet-400/50 hover:shadow-[0_0_16px_rgba(168,85,247,0.25)]',
+    danger:  'bg-red-600/20 hover:bg-red-600/30 text-[hsl(var(--destructive))] border border-[hsl(var(--destructive)/0.2)] hover:border-[hsl(var(--destructive)/0.4)]',
+    success: 'bg-emerald-600/20 hover:bg-emerald-600/30 text-[hsl(var(--neon-green))] border border-[hsl(var(--neon-green)/0.2)] hover:border-[hsl(var(--neon-green))]/40',
   }[variant];
 
   const primaryStyle = variant === 'primary' ? {
@@ -214,11 +214,11 @@ export function MetricCard({
   progress?: number;
 }) {
   const iconColors = {
-    violet: 'text-violet-400',
-    cyan:   'text-cyan-400',
-    emerald:'text-emerald-400',
-    amber:  'text-amber-400',
-    red:    'text-red-400',
+    violet: 'text-[hsl(var(--neon-purple))]',
+    cyan:   'text-[hsl(var(--neon-cyan))]',
+    emerald:'text-[hsl(var(--neon-green))]',
+    amber:  'text-[hsl(var(--neon-amber))]',
+    red:    'text-[hsl(var(--destructive))]',
   }[color];
 
   const iconBg = {

@@ -151,7 +151,7 @@ export function AvailableModelsTab({ onNavigateToQueue }: { onNavigateToQueue?: 
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-300 text-sm">
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-[hsl(var(--neon-amber)/0.1)] border border-[hsl(var(--neon-amber)/0.2)] text-[hsl(var(--neon-amber))] text-sm">
           <AlertTriangle size={16} />
           {error}
         </div>
@@ -176,7 +176,7 @@ export function AvailableModelsTab({ onNavigateToQueue }: { onNavigateToQueue?: 
           </Button>
           {downloadStatus[selectedModel.id] && (
             <p className={`text-xs text-center ${
-              downloadStatus[selectedModel.id].startsWith('Error') ? 'text-red-400' : 'text-green-400'
+              downloadStatus[selectedModel.id].startsWith('Error') ? 'text-[hsl(var(--destructive))]' : 'text-[hsl(var(--neon-green))]'
             }`}>
               {downloadStatus[selectedModel.id]}
             </p>
@@ -250,7 +250,7 @@ export function AvailableModelsTab({ onNavigateToQueue }: { onNavigateToQueue?: 
               </Button>
               {downloadStatus[model.id] && (
                 <p className={`text-[10px] text-center ${
-                  downloadStatus[model.id].startsWith('Error') ? 'text-red-400' : 'text-green-400'
+                  downloadStatus[model.id].startsWith('Error') ? 'text-[hsl(var(--destructive))]' : 'text-[hsl(var(--neon-green))]'
                 }`}>{downloadStatus[model.id]}</p>
               )}
             </div>

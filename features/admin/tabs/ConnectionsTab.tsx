@@ -44,7 +44,7 @@ export function ConnectionsTab() {
   if (!data) return null;
 
   const renderStatus = (info: ConnectionInfo) => {
-    if (info.ok) return <div className="flex items-center gap-2 text-emerald-500"><CheckCircle2 className="w-5 h-5" /> Connected</div>;
+    if (info.ok) return <div className="flex items-center gap-2 text-[hsl(var(--neon-green))]"><CheckCircle2 className="w-5 h-5" /> Connected</div>;
     return <div className="flex flex-col gap-1 text-destructive"><div className="flex items-center gap-2"><AlertCircle className="w-5 h-5" /> Error</div><p className="text-xs opacity-80">{info.error}</p></div>;
   };
 

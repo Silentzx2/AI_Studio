@@ -57,7 +57,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
     timestamp: new Date(job.createdAt).toLocaleDateString(),
     format: 'GLB',
     shapes: (job as any).result?.shapes || [],
-    color: '#1C1C1C',
+    color: 'hsl(var(--surface-0))',
     accentColor: 'hsl(var(--primary))',
     isFavorite: false,
   }));
@@ -69,7 +69,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
     timestamp: new Date(job.created_at).toLocaleDateString(),
     format: 'GLB',
     shapes: job.result?.shapes || [],
-    color: '#1C1C1C',
+    color: 'hsl(var(--surface-0))',
     accentColor: 'hsl(var(--primary))',
     isFavorite: job.is_favorite || false,
   }));
@@ -86,7 +86,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
     name: 'Untitled Model',
     prompt: '',
     shapes: [],
-    themeColor: '#1C1C1C',
+    themeColor: 'hsl(var(--surface-0))',
     accentColor: 'hsl(var(--primary))',
     description: 'No model loaded.',
     promptDescription: '',
@@ -231,7 +231,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
             <HelpCircle size={14} />
             <span>Help & Docs</span>
           </button>
-          <button className="flex items-center gap-3 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-rose-500 hover:text-rose-400 transition-all text-left" id="creative-logout-btn">
+          <button className="flex items-center gap-3 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-[hsl(var(--destructive))] hover:text-[hsl(var(--destructive)/0.8)] transition-all text-left" id="creative-logout-btn">
             <LogOut size={14} />
             <span>Log Out</span>
           </button>

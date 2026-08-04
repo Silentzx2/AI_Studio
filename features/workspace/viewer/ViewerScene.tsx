@@ -8,6 +8,7 @@ import { Mesh, Group, Box3, Vector3 } from 'three';
 import { registerResetCamera } from '@/stores/useUIStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { useGenerationStore } from '@/stores/useGenerationStore';
+import { useThemeStore } from '@/stores/useThemeStore';
 
 function LoadingScreen() {
   const { progress } = useProgress();
@@ -104,22 +105,24 @@ function UserModel({ url, wireframe }: { url: string; wireframe: boolean }) {
 
 function DemoModel({ wireframe }: { wireframe: boolean }) {
   const meshRef = useRef<Mesh>(null);
+  const { accentColor } = useThemeStore();
   return (
     <group>
       <mesh ref={meshRef}>
         <torusKnotGeometry args={[1, 0.35, 256, 64]} />
-        <meshStandardMaterial color="#bd76ff" roughness={0.3} metalness={0.7} wireframe={wireframe} envMapIntensity={1.5} />
+        <meshStandardMaterial color={accentColor} roughness={0.3} metalness={0.7} wireframe={wireframe} envMapIntensity={1.5} />
       </mesh>
     </group>
   );
 }
 
 function PlaceholderModel({ wireframe }: { wireframe: boolean }) {
+  const { accentColor } = useThemeStore();
   return (
     <Float speed={1.5} rotationIntensity={0.3} floatIntensity={0.5}>
       <group>
         <Octahedron args={[1.2, 0]}>
-          <meshStandardMaterial color="#9151ff" roughness={0.12} metalness={0.8} wireframe={wireframe} />
+          <meshStandardMaterial color={accentColor} roughness={0.12} metalness={0.8} wireframe={wireframe} />
         </Octahedron>
       </group>
     </Float>
@@ -153,9 +156,10 @@ function CameraController({ autoRotate }: { autoRotate: boolean }) {
 }
 
 function SceneGrid({ visible }: { visible: boolean }) {
+  const { accentColor } = useThemeStore();
   if (!visible) return null;
   return (
-    <Grid position={[0, -1.8, 0]} args={[20, 20]} cellSize={0.5} cellThickness={0.5} cellColor="#2a1a4a" sectionSize={2.5} sectionThickness={1} sectionColor="#7c3aed" fadeDistance={20} fadeStrength={1} infiniteGrid />
+    <Grid position={[0, -1.8, 0]} args={[20, 20]} cellSize={0.5} cellThickness={0.5} cellColor={accentColor} sectionSize={2.5} sectionThickness={1} sectionColor={accentColor} fadeDistance={20} fadeStrength={1} infiniteGrid />
   );
 }
 
@@ -189,13 +193,13 @@ export function ViewerScene() {
         <directionalLight
           position={[-10, -10, -5]}
           intensity={1.0}
-          color="#8b5cf6"
+          color={useThemeStore.getState().accentColor}
         />
 
         <directionalLight
           position={[0, 5, 8]}
           intensity={1.2}
-          color="#ffffff"
+          color="hsl(var(--foreground))"
         />
       <Environment preset="studio" />
       <Center>

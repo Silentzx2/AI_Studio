@@ -16,9 +16,9 @@ function getModelStatus(model: ProviderOption, activeId: string): ModelStatus {
 }
 
 const STATUS_CONFIG: Record<ModelStatus, { label: string; icon: React.ComponentType<{ className?: string }>; class: string; dot: string }> = {
-  installed: { label: 'Installed', icon: CheckCircle, class: 'text-emerald-400', dot: 'bg-emerald-400' },
-  'not-installed': { label: 'Not Installed', icon: AlertCircle, class: 'text-amber-400', dot: 'bg-amber-400' },
-  downloading: { label: 'Downloading', icon: Loader2, class: 'text-blue-400', dot: 'bg-blue-400' },
+  installed: { label: 'Installed', icon: CheckCircle, class: 'text-[hsl(var(--neon-green))]', dot: 'bg-[hsl(var(--neon-green))]' },
+  'not-installed': { label: 'Not Installed', icon: AlertCircle, class: 'text-[hsl(var(--neon-amber))]', dot: 'bg-[hsl(var(--neon-amber))]' },
+  downloading: { label: 'Downloading', icon: Loader2, class: 'text-[hsl(var(--neon-blue))]', dot: 'bg-[hsl(var(--neon-blue))]' },
   verified: { label: 'Active', icon: Shield, class: 'text-[hsl(var(--neon-purple))]', dot: 'bg-[hsl(var(--neon-purple))]' },
 };
 

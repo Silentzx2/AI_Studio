@@ -81,7 +81,7 @@ export function HealthTab() {
   if (error && checks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
-        <XCircle className="w-10 h-10 text-red-400" />
+        <XCircle className="w-10 h-10 text-[hsl(var(--destructive))]" />
         <p className="text-sm text-muted-foreground">{error}</p>
         <NeonButton variant="secondary" size="sm" onClick={load}>
           <RefreshCw className="w-3.5 h-3.5" /> Retry
@@ -110,9 +110,9 @@ export function HealthTab() {
         <div className="flex items-center gap-4">
           <div className={cn(
             'flex items-center justify-center w-16 h-16 rounded-2xl',
-            down > 0 ? 'bg-red-500/10' : degraded > 0 ? 'bg-amber-500/10' : 'bg-emerald-500/10'
+            down > 0 ? 'bg-[hsl(var(--destructive)/0.1)]' : degraded > 0 ? 'bg-[hsl(var(--neon-amber)/0.1)]' : 'bg-[hsl(var(--neon-green)/0.1)]'
           )}>
-            <HeartPulse className={cn('w-8 h-8', down > 0 ? 'text-red-400' : degraded > 0 ? 'text-amber-400' : 'text-emerald-400')} />
+            <HeartPulse className={cn('w-8 h-8', down > 0 ? 'text-[hsl(var(--destructive))]' : degraded > 0 ? 'text-[hsl(var(--neon-amber))]' : 'text-[hsl(var(--neon-green))]')} />
           </div>
           <div>
             <h2 className="text-xl font-bold">
@@ -133,12 +133,12 @@ export function HealthTab() {
                 <div className="flex items-center gap-3">
                   <div className={cn(
                     'flex items-center justify-center w-9 h-9 rounded-xl',
-                    check.status === 'healthy' ? 'bg-emerald-500/10' :
-                    check.status === 'degraded' ? 'bg-amber-500/10' : 'bg-red-500/10'
+                    check.status === 'healthy' ? 'bg-[hsl(var(--neon-green)/0.1)]' :
+                    check.status === 'degraded' ? 'bg-[hsl(var(--neon-amber)/0.1)]' : 'bg-[hsl(var(--destructive)/0.1)]'
                   )}>
-                    {check.status === 'healthy' ? <CheckCircle className="w-4 h-4 text-emerald-400" /> :
-                     check.status === 'degraded' ? <AlertTriangle className="w-4 h-4 text-amber-400" /> :
-                     <XCircle className="w-4 h-4 text-red-400" />}
+                    {check.status === 'healthy' ? <CheckCircle className="w-4 h-4 text-[hsl(var(--neon-green))]" /> :
+                     check.status === 'degraded' ? <AlertTriangle className="w-4 h-4 text-[hsl(var(--neon-amber))]" /> :
+                     <XCircle className="w-4 h-4 text-[hsl(var(--destructive))]" />}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">

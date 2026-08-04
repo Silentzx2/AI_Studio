@@ -874,7 +874,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                 className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-emerald-500/50 rounded-xl py-3.5 text-xs font-bold text-white flex items-center justify-center gap-2 transition-all mt-4"
                 id="export-rigged-btn"
               >
-                <Download size={13} className="text-emerald-400" />
+                <Download size={13} className="text-[hsl(var(--neon-green))]" />
                 Export Rigged Model (FBX)
               </button>
             )}
@@ -912,7 +912,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
       >
         {/* Processing Overlay */}
         {isRigging && (
-          <div className="absolute inset-0 bg-black/60 z-20 flex flex-col items-center justify-center text-center p-6 animate-speed-lines">
+          <div className="absolute inset-0 bg-[hsl(var(--surface-0)/0.6)] z-20 flex flex-col items-center justify-center text-center p-6 animate-speed-lines">
             <div className="w-24 h-24 rounded-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] animate-energy-pulse flex items-center justify-center text-black font-extrabold text-xs">
               <Bone size={36} className="animate-spin text-black stroke-[3]" />
             </div>
@@ -974,7 +974,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                   <p className="text-xs font-bold text-white">
                     {uploadedModelName || activeModel.name}
                   </p>
-                  <p className="text-[10px] text-emerald-400 mt-1 flex items-center gap-1">
+                  <p className="text-[10px] text-[hsl(var(--neon-green))] mt-1 flex items-center gap-1">
                     <CheckCircle size={10} />
                     Rigged — {riggingResult?.boneCount} bones
                   </p>
@@ -1064,8 +1064,8 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
               {riggingComplete && riggingResult ? (
                 <div className="flex flex-col gap-2.5 animate-fadeIn">
                   <div className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-500" />
-                    <span className="text-xs font-bold text-emerald-400">Complete</span>
+                    <CheckCircle size={14} className="text-[hsl(var(--neon-green))]" />
+                    <span className="text-xs font-bold text-[hsl(var(--neon-green))]">Complete</span>
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center justify-between">
@@ -1079,10 +1079,10 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                       <span className={
                         'text-[10px] font-bold ' +
                         (riggingResult.rigWeightMap === 'Complete'
-                          ? 'text-emerald-400'
+                          ? 'text-[hsl(var(--neon-green))]'
                           : riggingResult.rigWeightMap === 'Partial'
-                            ? 'text-amber-400'
-                            : 'text-red-400')
+                            ? 'text-[hsl(var(--neon-amber))]'
+                            : 'text-[hsl(var(--destructive))]')
                       }>
                         {riggingResult.rigWeightMap}
                       </span>

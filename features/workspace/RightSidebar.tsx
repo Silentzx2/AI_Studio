@@ -19,7 +19,7 @@ import type { LogEntry } from '@/types';
 
 /* ── Log helpers ────────────────────────────────────────── */
 const LOG_ICONS = { info: Info, warn: AlertCircle, error: XCircle, success: CheckCircle };
-const LOG_COLORS = { info: 'text-[hsl(var(--neon-cyan))]', warn: 'text-[hsl(var(--neon-amber))]', error: 'text-red-400', success: 'text-[hsl(var(--neon-green))]' };
+const LOG_COLORS = { info: 'text-[hsl(var(--neon-cyan))]', warn: 'text-[hsl(var(--neon-amber))]', error: 'text-[hsl(var(--destructive))]', success: 'text-[hsl(var(--neon-green))]' };
 const LOG_GLOW = { info: 'shadow-[0_0_6px_hsl(var(--neon-cyan)/0.3)]', warn: 'shadow-[0_0_6px_hsl(var(--neon-amber)/0.3)]', error: 'shadow-[0_0_6px_hsl(var(--neon-red)/0.4)]', success: 'shadow-[0_0_6px_hsl(var(--neon-green)/0.3)]' };
 
 function LogLine({ entry }: { entry: LogEntry }) {
@@ -32,7 +32,7 @@ function LogLine({ entry }: { entry: LogEntry }) {
       <div className="flex-1 min-w-0">
         <p className={cn(
           'text-[11px] leading-relaxed break-words',
-          entry.level === 'error' ? 'text-red-300' : entry.level === 'warn' ? 'text-[hsl(var(--neon-amber))]/90' : 'text-muted-foreground/80'
+          entry.level === 'error' ? 'text-[hsl(var(--destructive))]' : entry.level === 'warn' ? 'text-[hsl(var(--neon-amber))]/90' : 'text-muted-foreground/80'
         )}>{entry.message}</p>
         <p className="text-[10px] text-muted-foreground/30 mt-0.5 font-mono tabular-nums">{entry.timestamp.toLocaleTimeString()}</p>
       </div>
@@ -45,10 +45,10 @@ function StatusBadge({ status }: { status: string }) {
     idle: { color: 'text-muted-foreground/60', bg: 'bg-muted/20', label: 'Idle' },
     queued: { color: 'text-[hsl(var(--neon-amber))]', bg: 'bg-[hsl(var(--neon-amber)/0.08)]', label: 'Queued', glow: 'shadow-[0_0_12px_hsl(var(--neon-amber)/0.2)]' },
     generating: { color: 'text-[hsl(var(--neon-purple))]', bg: 'bg-[hsl(var(--neon-purple)/0.08)]', label: 'Generating', glow: 'shadow-[0_0_12px_hsl(var(--neon-purple)/0.3)]', ring: 'ring-1 ring-[hsl(var(--neon-purple)/0.2)]' },
-    texturing: { color: 'text-orange-400', bg: 'bg-orange-500/0.08', label: 'Texturing', glow: 'shadow-[0_0_12px_hsl(var(--neon-amber)/0.2)]' },
-    rigging: { color: 'text-purple-400', bg: 'bg-purple-500/0.08', label: 'Rigging', glow: 'shadow-[0_0_12px_hsl(var(--neon-pink)/0.2)]' },
+    texturing: { color: 'text-[hsl(var(--neon-amber))]', bg: 'bg-orange-500/0.08', label: 'Texturing', glow: 'shadow-[0_0_12px_hsl(var(--neon-amber)/0.2)]' },
+    rigging: { color: 'text-[hsl(var(--neon-purple))]', bg: 'bg-purple-500/0.08', label: 'Rigging', glow: 'shadow-[0_0_12px_hsl(var(--neon-pink)/0.2)]' },
     completed: { color: 'text-[hsl(var(--neon-green))]', bg: 'bg-[hsl(var(--neon-green)/0.08)]', label: 'Completed', glow: 'shadow-[0_0_12px_hsl(var(--neon-green)/0.2)]' },
-    failed: { color: 'text-red-400', bg: 'bg-red-500/0.08', label: 'Failed', glow: 'shadow-[0_0_12px_hsl(var(--neon-red)/0.2)]' },
+    failed: { color: 'text-[hsl(var(--destructive))]', bg: 'bg-[hsl(var(--destructive))]/0.08', label: 'Failed', glow: 'shadow-[0_0_12px_hsl(var(--neon-red)/0.2)]' },
     cancelled: { color: 'text-muted-foreground/60', bg: 'bg-muted/15', label: 'Cancelled' },
     uploading: { color: 'text-[hsl(var(--neon-blue))]', bg: 'bg-[hsl(var(--neon-blue)/0.08)]', label: 'Uploading', glow: 'shadow-[0_0_12px_hsl(var(--neon-blue)/0.2)]' },
   };
@@ -129,9 +129,9 @@ function PropertiesTab() {
                   <div key={axis} className="flex-1 flex items-center gap-1">
                     <span className={cn(
                       'text-[10px] font-black w-3.5 text-center',
-                      axis === 'X' ? 'text-red-400 shadow-[0_0_4px_hsl(var(--neon-pink)/0.4)]' :
-                      axis === 'Y' ? 'text-emerald-400 shadow-[0_0_4px_hsl(var(--neon-green)/0.4)]' :
-                      'text-blue-400 shadow-[0_0_4px_hsl(var(--neon-blue)/0.4)]'
+                      axis === 'X' ? 'text-[hsl(var(--destructive))] shadow-[0_0_4px_hsl(var(--neon-pink)/0.4)]' :
+                      axis === 'Y' ? 'text-[hsl(var(--neon-green))] shadow-[0_0_4px_hsl(var(--neon-green)/0.4)]' :
+                      'text-[hsl(var(--neon-blue))] shadow-[0_0_4px_hsl(var(--neon-blue)/0.4)]'
                     )}>{axis}</span>
                     <input
                       type="text"

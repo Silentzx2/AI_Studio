@@ -96,9 +96,9 @@ export function DockerTab() {
                   <div className="flex items-center gap-3">
                     <div className={cn(
                       'flex items-center justify-center w-9 h-9 rounded-xl',
-                      svc.status === 'running' ? 'bg-emerald-500/10' : 'bg-red-500/10'
+                      svc.status === 'running' ? 'bg-[hsl(var(--neon-green)/0.1)]' : 'bg-[hsl(var(--destructive)/0.1)]'
                     )}>
-                      <Container className={cn('w-4 h-4', svc.status === 'running' ? 'text-emerald-400' : 'text-red-400')} />
+                      <Container className={cn('w-4 h-4', svc.status === 'running' ? 'text-[hsl(var(--neon-green))]' : 'text-[hsl(var(--destructive))]')} />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-foreground">{svc.name}</p>
@@ -121,12 +121,12 @@ export function DockerTab() {
                         <button onClick={() => handleAction(svc.name, 'restart')} className="p-1.5 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-foreground" title="Restart">
                           <RotateCw className="w-3.5 h-3.5" />
                         </button>
-                        <button onClick={() => handleAction(svc.name, 'stop')} className="p-1.5 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-red-400" title="Stop">
+                        <button onClick={() => handleAction(svc.name, 'stop')} className="p-1.5 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-[hsl(var(--destructive))]" title="Stop">
                           <Square className="w-3.5 h-3.5" />
                         </button>
                       </>
                     ) : (
-                      <button onClick={() => handleAction(svc.name, 'start')} className="p-1.5 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-emerald-400" title="Start">
+                      <button onClick={() => handleAction(svc.name, 'start')} className="p-1.5 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-[hsl(var(--neon-green))]" title="Start">
                         <Play className="w-3.5 h-3.5" />
                       </button>
                     )}

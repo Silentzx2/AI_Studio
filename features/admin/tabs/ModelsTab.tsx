@@ -53,7 +53,6 @@ export function ModelsTab() {
   const installedCount = models.filter((m) => m.installed).length;
   const totalSize = models.filter((m) => m.installed).reduce((sum, m) => sum + m.size_mb, 0);
 
-  // FINAL_FIX_REPORT: Changed - Fixed race condition: action sent FIRST, then SSE stream opened after 200ms delay
   const handleInstall = async (model: AdminModel) => {
     setInstallProgress((prev) => ({
       ...prev,
@@ -195,21 +194,21 @@ export function ModelsTab() {
                       <div className={cn(
                         'flex items-center justify-center w-11 h-11 rounded-xl border relative',
                         model.installed
-                          ? 'bg-emerald-500/10 border-emerald-500/20'
+                          ? 'bg-[hsl(var(--neon-green)/0.1)] border-[hsl(var(--neon-green)/0.2)]'
                           : 'bg-surface-2 border-border'
                       )}>
-                        <Boxes className={cn('w-5 h-5', model.installed ? 'text-emerald-400' : 'text-muted-foreground')} />
+                        <Boxes className={cn('w-5 h-5', model.installed ? 'text-[hsl(var(--neon-green))]' : 'text-muted-foreground')} />
                         
                         {/* Status Indicator Dot Overlay */}
                         <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
                           {isDownloading ? (
                             <>
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" title="Loading/Downloading"></span>
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[hsl(var(--neon-amber))] opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[hsl(var(--neon-amber))]" title="Loading/Downloading"></span>
                             </>
                           ) : model.installed ? (
                             <>
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-30"></span>
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[hsl(var(--neon-green))] opacity-30"></span>
                               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" title="Online / Installed"></span>
                             </>
                           ) : (
@@ -224,12 +223,12 @@ export function ModelsTab() {
                           {/* In-line Status Text & Dot */}
                           <div className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground/80">
                             {isDownloading ? (
-                              <span className="flex items-center gap-1 text-amber-400">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                              <span className="flex items-center gap-1 text-[hsl(var(--neon-amber))]">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--neon-amber))] animate-pulse" />
                                 Loading...
                               </span>
                             ) : model.installed ? (
-                              <span className="flex items-center gap-1 text-emerald-400">
+                              <span className="flex items-center gap-1 text-[hsl(var(--neon-green))]">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                                 Online
                               </span>
@@ -269,11 +268,11 @@ export function ModelsTab() {
                   </div>
 
                   {isDownloading && (
-                    <div className="mb-4 space-y-3 p-3 rounded-xl bg-gradient-to-br from-violet-500/10 to-purple-500/5 border border-violet-500/20">
+                    <div className="mb-4 space-y-3 p-3 rounded-xl bg-gradient-to-br from-violet-500/10 to-purple-500/5 border border-[hsl(var(--neon-purple)/0.2)]">
                       {/* Animated Header with Phase */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Loader2 className="w-4 h-4 text-violet-400 animate-spin" />
+                          <Loader2 className="w-4 h-4 text-[hsl(var(--neon-purple))] animate-spin" />
                           <span className="text-xs font-medium text-violet-300 capitalize">
                             {progress.phase === 'downloading' ? '⬇️ Downloading Weights...' : 
                              progress.phase === 'extracting' ? '📦 Extracting Files...' :
@@ -281,7 +280,7 @@ export function ModelsTab() {
                              progress.status === 'installing' ? '⚙️ Installing...' : '🚀 Preparing...'}
                           </span>
                         </div>
-                        <span className="text-sm font-bold font-mono text-violet-400 animate-pulse">
+                        <span className="text-sm font-bold font-mono text-[hsl(var(--neon-purple))] animate-pulse">
                           {Math.round(progress.progress)}%
                         </span>
                       </div>
@@ -294,8 +293,8 @@ export function ModelsTab() {
                       {/* Detailed Stats Grid */}
                       <div className="grid grid-cols-3 gap-2">
                         {/* Speed with icon */}
-                        <div className="flex flex-col items-center p-2 rounded-lg bg-black/20">
-                          <div className="flex items-center gap-1 text-amber-400">
+                        <div className="flex flex-col items-center p-2 rounded-lg bg-[hsl(var(--surface-0)/0.2)]">
+                          <div className="flex items-center gap-1 text-[hsl(var(--neon-amber))]">
                             <Zap className="w-3 h-3" />
                             <span className="text-[10px] font-medium">Speed</span>
                           </div>
@@ -306,24 +305,24 @@ export function ModelsTab() {
                         </div>
                         
                         {/* Downloaded with icon */}
-                        <div className="flex flex-col items-center p-2 rounded-lg bg-black/20">
-                          <div className="flex items-center gap-1 text-blue-400">
+                        <div className="flex flex-col items-center p-2 rounded-lg bg-[hsl(var(--surface-0)/0.2)]">
+                          <div className="flex items-center gap-1 text-[hsl(var(--neon-blue))]">
                             <HardDrive className="w-3 h-3" />
                             <span className="text-[10px] font-medium">Progress</span>
                           </div>
-                          <span className="text-sm font-bold font-mono text-blue-300">
+                          <span className="text-sm font-bold font-mono text-[hsl(var(--neon-blue))]">
                             {progress.downloaded_mb?.toFixed(0) ?? '0'}
                             <span className="text-[10px] font-normal text-muted-foreground">/ {((progress.total_mb ?? 0) / 1024).toFixed(1)}GB</span>
                           </span>
                         </div>
                         
                         {/* ETA with icon */}
-                        <div className="flex flex-col items-center p-2 rounded-lg bg-black/20">
-                          <div className="flex items-center gap-1 text-emerald-400">
+                        <div className="flex flex-col items-center p-2 rounded-lg bg-[hsl(var(--surface-0)/0.2)]">
+                          <div className="flex items-center gap-1 text-[hsl(var(--neon-green))]">
                             <Clock className="w-3 h-3" />
                             <span className="text-[10px] font-medium">ETA</span>
                           </div>
-                          <span className="text-sm font-bold font-mono text-emerald-300">
+                          <span className="text-sm font-bold font-mono text-[hsl(var(--neon-green))]">
                             {progress.eta_seconds > 0 
                               ? (progress.eta_seconds < 60 ? `${Math.round(progress.eta_seconds)}s` :
                                  progress.eta_seconds < 3600 ? `${Math.floor(progress.eta_seconds / 60)}m ${Math.round(progress.eta_seconds % 60)}s` :
@@ -339,12 +338,12 @@ export function ModelsTab() {
                     {model.installed ? (
                       <>
                         <button className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl glass border border-[hsl(var(--border)/0.5)] text-xs text-muted-foreground hover:text-foreground transition-colors">
-                          <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                          <CheckCircle className="w-3.5 h-3.5 text-[hsl(var(--neon-green))]" />
                           Ready
                         </button>
                         <button
                           onClick={() => handleUninstall(model)}
-                          className="flex items-center justify-center w-9 h-9 rounded-xl glass border border-[hsl(var(--border)/0.5)] text-muted-foreground hover:text-red-400 hover:border-red-500/20 transition-colors"
+                          className="flex items-center justify-center w-9 h-9 rounded-xl glass border border-[hsl(var(--border)/0.5)] text-muted-foreground hover:text-[hsl(var(--destructive))] hover:border-[hsl(var(--destructive)/0.2)] transition-colors"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -355,7 +354,7 @@ export function ModelsTab() {
                           adminService.modelAction(model.id, 'cancel').catch(() => {});
                           setInstallProgress((prev) => { const n = { ...prev }; delete n[model.id]; return n; });
                         }}
-                        className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400 hover:bg-red-500/20 transition-colors"
+                        className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl bg-[hsl(var(--destructive)/0.1)] border border-[hsl(var(--destructive)/0.2)] text-xs text-[hsl(var(--destructive))] hover:bg-[hsl(var(--destructive)/0.2)] transition-colors"
                       >
                         <X className="w-3.5 h-3.5" />
                         Cancel

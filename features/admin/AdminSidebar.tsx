@@ -57,7 +57,7 @@ export default function AdminSidebar({
             <Boxes size={18} className="text-white" />
           </div>
           <div>
-            <p className="text-[11px] font-bold tracking-[0.15em] text-violet-400 uppercase">AI Studio</p>
+            <p className="text-[11px] font-bold tracking-[0.15em] text-[hsl(var(--neon-purple))] uppercase">AI Studio</p>
             <p className="text-xs font-medium text-slate-300 mt-0.5">Control Panel</p>
           </div>
         </div>
@@ -74,8 +74,8 @@ export default function AdminSidebar({
               <div className={cn(
                 'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all duration-200',
                 isActive
-                  ? 'bg-violet-600/30'
-                  : 'bg-transparent group-hover:bg-violet-500/10',
+                  ? 'bg-[hsl(var(--neon-purple)/0.3)]'
+                  : 'bg-transparent group-hover:bg-[hsl(var(--neon-purple)/0.1)]',
               )}>
                 <Icon size={15} className={cn(
                   'transition-colors duration-200',
@@ -87,19 +87,19 @@ export default function AdminSidebar({
                 isActive ? 'text-white font-medium' : 'text-slate-400 group-hover:text-slate-200',
               )}>{label}</span>
               {badge && (
-                <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-violet-600/30 text-violet-300 border border-violet-500/20">
+                <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-[hsl(var(--neon-purple)/0.3)] text-violet-300 border border-[hsl(var(--neon-purple)/0.2)]">
                   {badge}
                 </span>
               )}
               {href && <ExternalLink size={11} className="text-slate-600 group-hover:text-slate-400 transition-colors" />}
-              {isActive && <ChevronRight size={13} className="text-violet-400" />}
+              {isActive && <ChevronRight size={13} className="text-[hsl(var(--neon-purple))]" />}
             </>
           );
 
           const baseClass = cn(
             'group w-full flex items-center gap-2.5 px-2 py-2 rounded-lg transition-all duration-200 text-left relative',
             isActive
-              ? 'bg-violet-600/15 border border-violet-500/20'
+              ? 'bg-[hsl(var(--neon-purple)/0.15)] border border-[hsl(var(--neon-purple)/0.2)]'
               : 'hover:bg-violet-500/05 border border-transparent hover:border-violet-500/10',
           );
 
@@ -141,7 +141,7 @@ export default function AdminSidebar({
                 className={cn(
                   'group w-full flex items-center gap-2.5 px-2 py-2 rounded-lg transition-all duration-200 text-left relative border',
                   isActive
-                    ? 'bg-violet-600/15 border-violet-500/20'
+                    ? 'bg-[hsl(var(--neon-purple)/0.15)] border-[hsl(var(--neon-purple)/0.2)]'
                     : 'hover:bg-violet-500/05 border-transparent hover:border-violet-500/10',
                 )}
               >
@@ -171,9 +171,9 @@ export default function AdminSidebar({
 
       {/* System status indicator */}
       <div className="px-3 py-2" style={{ borderTop: '1px solid rgba(168,85,247,0.08)' }}>
-        <div className="flex items-center gap-2 px-2 py-2 rounded-lg bg-emerald-500/05 border border-emerald-500/10">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-          <span className="text-[11px] text-emerald-400 font-medium">System Online</span>
+        <div className="flex items-center gap-2 px-2 py-2 rounded-lg bg-emerald-500/05 border border-[hsl(var(--neon-green)/0.1)]">
+          <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--neon-green))] animate-pulse shrink-0" />
+          <span className="text-[11px] text-[hsl(var(--neon-green))] font-medium">System Online</span>
         </div>
       </div>
 

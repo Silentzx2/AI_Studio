@@ -100,8 +100,7 @@
 
 @layer components {
 
-  /* FINAL_FIX_REPORT: Changed - Removed all glassmorphism/backdrop-filter effects */
-  /* ── Premium SaaS Card Styling ──────────────────────────── */
+/* ── Premium SaaS Card Styling ── */
 
   .glass {
     background: hsl(var(--card));
@@ -113,60 +112,7 @@
     box-shadow: 0 1px 3px hsl(0 0% 0% / 0.1);
   }
 
-  .glass-subtle {
-    background: hsl(var(--surface-2));
-    border: 1px solid hsl(var(--border) / 0.5);
-    transition: all 200ms ease-out;
-  }
-  .glass-subtle:hover {
-    background: hsl(var(--surface-3));
-    border-color: hsl(var(--border) / 0.7);
-  }
-
-  .glass-strong {
-    background: hsl(var(--surface-1));
-    border: 1px solid hsl(var(--border));
-    transition: all 200ms ease-out;
-  }
-  .glass-strong:hover {
-    border-color: hsl(var(--border) / 0.8);
-    box-shadow: 0 2px 4px hsl(0 0% 0% / 0.15);
-  }
-
-  .glass-ultra {
-    background: hsl(var(--card));
-    border: 1px solid hsl(var(--border));
-    transition: all 200ms ease-out;
-  }
-  .glass-ultra:hover {
-    border-color: hsl(var(--border) / 0.8);
-    box-shadow: 0 1px 3px hsl(0 0% 0% / 0.1);
-  }
-
-  .glass-card {
-    background: hsl(var(--card));
-    border: 1px solid hsl(var(--border) / 0.6);
-    transition: all 200ms ease-out;
-  }
-  .glass-card:hover {
-    border-color: hsl(var(--border) / 0.8);
-    background: hsl(var(--surface-2));
-  }
-
-  .glass-frosted {
-    background: hsl(var(--surface-1) / var(--nav-bg-opacity, 1));
-    backdrop-filter: blur(var(--nav-backdrop-blur, 0px));
-    -webkit-backdrop-filter: blur(var(--nav-backdrop-blur, 0px));
-    border: 1px solid hsl(var(--border) / 0.5);
-    transition: all 200ms ease-out;
-  }
-  .glass-frosted:hover {
-    border-color: hsl(var(--border) / 0.7);
-    background: hsl(var(--surface-2) / var(--nav-bg-opacity, 1));
-  }
-
-  /* ── Gradient Text System ───────────────────────────────── */
-
+  /* ── Gradient Text System ── */
   .text-gradient {
     background: linear-gradient(135deg, hsl(var(--neon-purple)), hsl(var(--neon-blue)), hsl(var(--neon-cyan)));
     -webkit-background-clip: text;
@@ -267,7 +213,6 @@
 
   
 
-  /* FINAL_FIX_REPORT: Changed - Removed keyframe animations, replaced with static backgrounds */
   .bg-animated-gradient {
     background: hsl(var(--background));
   }
@@ -275,9 +220,6 @@
   .bg-animated-mesh {
     background: hsl(var(--background));
   }
-
-  /* FINAL_FIX_REPORT: Changed - Removed pseudo-element mask-composite animations, replaced with simple borders */
-  /* Glow and border effects removed - use simple borders instead */
 
   .glow-border {
     border: 1px solid hsl(var(--border));
@@ -1033,7 +975,6 @@
   }
 }
 
-/* FINAL_FIX_REPORT: Changed - Added Premium SaaS Design System utilities */
 /* ── Premium SaaS Design System ─────────────────────────── */
 
 /* Subtle divider */
@@ -1261,8 +1202,6 @@
    KEYFRAMES — Animation Library
    ═══════════════════════════════════════════════════════════════ */
 
-/* FINAL_FIX_REPORT: Changed - Removed expensive keyframe animations (gradient-shift, gradient-pan, text-shimmer, mesh-float) */
-
 @keyframes gradient-shift {
   /* Removed: was powering .text-gradient animation - not used after glassmorphism removal */
   0%, 100% { background-position: 0% center; }
@@ -1460,9 +1399,8 @@
    RESPONSIVE ADJUSTMENTS
    ═══════════════════════════════════════════════════════════════ */
 
-/* FINAL_FIX_REPORT: Changed - Removed responsive backdrop-filter overrides (no longer needed after glassmorphism removal) */
 @media (max-width: 768px) {
-  /* Glass classes now use solid backgrounds - no backdrop-filter to override */
+  /* Glass classes use CSS variables — no overrides needed */
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1712,20 +1650,16 @@ input[type="radio"], [role="switch"], [role="checkbox"],
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   THEME ENGINE — Dynamic CSS Variables & Utility Classes
-   The AppearanceProvider writes the runtime variables below to
-   :root on every change. Color tokens (background, foreground,
-   card, surface, muted, border, input) are declared per theme so
-   dark / light / system switching works. Accent-driven tokens
-   (--primary, --accent, --ring, --neon-*) are supplied at runtime
-   by AppearanceProvider so the chosen accent color applies app-wide.
+   THEME ENGINE — Single source of truth for all visual styling
+   AppearanceProvider writes runtime CSS variables + data attributes
+   on :root / <html> on every theme change. Everything below reads
+   from those variables so a single store update transforms the UI.
    ═══════════════════════════════════════════════════════════════ */
 
 :root,
 html.dark {
   color-scheme: dark;
 
-  /* Base palette — dark (accent tokens overridden at runtime) */
   --background: 250 15% 3%;
   --foreground: 210 20% 95%;
   --card: 250 12% 6%;
@@ -1736,13 +1670,10 @@ html.dark {
   --secondary-foreground: 210 20% 95%;
   --muted: 250 8% 8%;
   --muted-foreground: 215 15% 55%;
-  --accent: 265 80% 60%;
-  --accent-foreground: 0 0% 100%;
   --destructive: 0 72% 56%;
   --destructive-foreground: 0 0% 100%;
   --border: 250 10% 13%;
   --input: 250 10% 12%;
-  --ring: 265 85% 65%;
 
   --surface-0: 250 15% 3%;
   --surface-1: 250 12% 6%;
@@ -1750,12 +1681,18 @@ html.dark {
   --surface-3: 250 8% 13%;
   --surface-4: 250 6% 17%;
 
+  /* Accent-driven (overridden at runtime by AppearanceProvider) */
+  --primary: 265 85% 65%;
+  --ring: 265 85% 65%;
+  --accent: 265 80% 60%;
   --neon-purple: 275 95% 65%;
+  --neon-amber: 38 95% 55%;
+
+  /* Fixed semantic neon colors (not changed by accent) */
   --neon-blue: 210 100% 60%;
   --neon-cyan: 190 100% 55%;
   --neon-pink: 330 100% 65%;
   --neon-green: 150 80% 55%;
-  --neon-amber: 38 95% 55%;
 }
 
 html.light {
@@ -1771,13 +1708,10 @@ html.light {
   --secondary-foreground: 224 30% 12%;
   --muted: 220 20% 93%;
   --muted-foreground: 220 12% 42%;
-  --accent: 265 80% 55%;
-  --accent-foreground: 0 0% 100%;
   --destructive: 0 72% 48%;
   --destructive-foreground: 0 0% 100%;
   --border: 220 18% 86%;
   --input: 220 18% 88%;
-  --ring: 265 85% 55%;
 
   --surface-0: 220 30% 97%;
   --surface-1: 0 0% 100%;
@@ -1785,16 +1719,20 @@ html.light {
   --surface-3: 220 20% 92%;
   --surface-4: 220 18% 88%;
 
+  --primary: 265 85% 55%;
+  --ring: 265 85% 55%;
+  --accent: 265 80% 55%;
   --neon-purple: 275 85% 55%;
+  --neon-amber: 38 90% 50%;
+
   --neon-blue: 210 90% 50%;
   --neon-cyan: 190 90% 45%;
   --neon-pink: 330 90% 55%;
   --neon-green: 150 70% 45%;
-  --neon-amber: 38 90% 50%;
 }
 
 :root {
-  /* Theme engine runtime variables (set by AppearanceProvider) */
+  /* Runtime variables — set by AppearanceProvider.applyGlobalTheme() */
   --radius: 0.75rem;
   --radius-sm: 0.5rem;
   --radius-lg: 1rem;
@@ -1802,16 +1740,27 @@ html.light {
   --glass-border-opacity: 0.1;
   --glass-bg-opacity: 0.08;
   --glass-enabled: 1;
-  --accent-secondary: 20 100% 56%;
   --surface-opacity: 0.06;
   --shadow-intensity: 0.5;
   --shadow-color: var(--primary);
+  --neon-glow-intensity: 0.5;
   --animation-speed: 1;
+  --base-font-size: 16px;
+  --spacing-multiplier: 1;
   --nav-bg-opacity: 0.8;
   --nav-backdrop-blur: 12px;
+  --accent-secondary: 20 100% 56%;
+  --accent-gradient-from: var(--primary);
+  --accent-gradient-to: var(--neon-blue);
+  --border-radius: 0.75rem;
 }
 
-/* ── Glass Effect (gated by --glass-enabled set by AppearanceProvider) ── */
+/* ── Base application of font size & radius ── */
+html { font-size: var(--base-font-size, 16px); }
+* { border-radius: var(--border-radius, 0.75rem); }
+button, input, textarea, select { border-radius: var(--border-radius, 0.75rem); }
+
+/* ── Glass Effect (gated by --glass-enabled) ── */
 .glass-effect,
 .glass-card {
   backdrop-filter: blur(var(--glass-blur, 12px)) saturate(1.2);
@@ -1819,23 +1768,97 @@ html.light {
   background: hsl(var(--card) / calc(var(--glass-bg-opacity, 0.08) * var(--glass-enabled, 1)));
   border: 1px solid hsl(var(--foreground) / calc(var(--glass-border-opacity, 0.1) * var(--glass-enabled, 1)));
 }
+.glass-subtle {
+  background: hsl(var(--surface-2));
+  border: 1px solid hsl(var(--border) / 0.5);
+}
+.glass-strong {
+  background: hsl(var(--surface-1));
+  border: 1px solid hsl(var(--border));
+}
+.glass-ultra {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+}
+.glass-frosted {
+  background: hsl(var(--surface-1) / var(--nav-bg-opacity, 1));
+  backdrop-filter: blur(var(--nav-backdrop-blur, 0px));
+  -webkit-backdrop-filter: blur(var(--nav-backdrop-blur, 0px));
+  border: 1px solid hsl(var(--border) / 0.5);
+}
 .glass-card {
   border-radius: var(--radius, 0.75rem);
   padding: 1.5rem;
 }
 
+/* ── Neon Glow (gated by data-neon-glow, scaled by --neon-glow-intensity) ── */
 .glow-effect {
   box-shadow:
-    0 0 calc(15px * var(--shadow-intensity, 0.5)) calc(5px * var(--shadow-intensity, 0.5)) hsl(var(--shadow-color, var(--primary)) / 0.25),
-    0 0 calc(30px * var(--shadow-intensity, 0.5)) calc(10px * var(--shadow-intensity, 0.5)) hsl(var(--shadow-color, var(--primary)) / 0.1);
+    0 0 calc(15px * var(--neon-glow-intensity, 0.5) * var(--shadow-intensity, 0.5))
+        hsl(var(--shadow-color, var(--primary)) / 0.25),
+    0 0 calc(40px * var(--neon-glow-intensity, 0.5) * var(--shadow-intensity, 0.5))
+        hsl(var(--shadow-color, var(--primary)) / 0.1);
+}
+[data-neon-glow="false"] .glow-effect,
+html:not([data-neon-glow]) .glow-effect {
+  box-shadow: none;
 }
 
-/* Shimmer Loading Animation */
+/* ── Ambient Glow (gated by data-ambient-glow) ── */
+.bg-mesh-gradient {
+  background-color: hsl(var(--background));
+  background-image:
+    radial-gradient(at 15% 15%, hsl(var(--primary) / calc(0.08 * var(--neon-glow-intensity, 0.5))) 0px, transparent 50%),
+    radial-gradient(at 85% 10%, hsl(var(--neon-blue) / calc(0.06 * var(--neon-glow-intensity, 0.5))) 0px, transparent 50%),
+    radial-gradient(at 50% 85%, hsl(var(--neon-pink) / calc(0.05 * var(--neon-glow-intensity, 0.5))) 0px, transparent 50%),
+    radial-gradient(at 90% 60%, hsl(var(--neon-cyan) / calc(0.04 * var(--neon-glow-intensity, 0.5))) 0px, transparent 50%);
+}
+[data-ambient-glow="false"] .bg-mesh-gradient,
+html:not([data-ambient-glow]) .bg-mesh-gradient {
+  background-image: none;
+}
+
+.bg-mesh-gradient-strong {
+  background-color: hsl(var(--background));
+  background-image:
+    radial-gradient(at 10% 10%, hsl(var(--primary) / calc(0.15 * var(--neon-glow-intensity, 0.5))) 0px, transparent 40%),
+    radial-gradient(at 90% 5%, hsl(var(--neon-blue) / calc(0.12 * var(--neon-glow-intensity, 0.5))) 0px, transparent 40%),
+    radial-gradient(at 40% 90%, hsl(var(--neon-pink) / calc(0.1 * var(--neon-glow-intensity, 0.5))) 0px, transparent 40%),
+    radial-gradient(at 95% 70%, hsl(var(--neon-cyan) / calc(0.08 * var(--neon-glow-intensity, 0.5))) 0px, transparent 40%),
+    radial-gradient(at 50% 50%, hsl(var(--primary) / calc(0.03 * var(--neon-glow-intensity, 0.5))) 0px, transparent 60%);
+}
+
+/* ── Spotlight on Cards (gated by data-spotlight-cards) ── */
+.card-spotlight {
+  position: relative;
+  overflow: hidden;
+  background: hsl(var(--surface-1) / 0.5);
+  border: 1px solid hsl(var(--border) / 0.3);
+  border-radius: var(--radius, 1rem);
+  transition: border-color 0.3s ease;
+}
+.card-spotlight::before {
+  content: '';
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, hsl(var(--primary) / 0.08) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+[data-spotlight-cards="true"] .card-spotlight:hover::before { opacity: 1; }
+[data-spotlight-cards="true"] .card-spotlight:hover {
+  border-color: hsl(var(--primary) / 0.15);
+}
+
+/* ── Shimmer Loading (gated by data-anim-shimmer) ── */
 @keyframes shimmer-sweep {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
-
 .shimmer-loading {
   background: linear-gradient(
     90deg,
@@ -1847,8 +1870,9 @@ html.light {
   animation: shimmer-sweep calc(1.5s / var(--animation-speed, 1)) ease-in-out infinite;
   border-radius: var(--radius, 0.5rem);
 }
+[data-anim-shimmer="false"] .shimmer-loading { animation: none; }
 
-/* Neon progress bar */
+/* ── Progress Bar Styles (driven by data-anim-progress) ── */
 .progress-neon {
   position: relative;
   overflow: hidden;
@@ -1860,8 +1884,11 @@ html.light {
   background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.4), transparent);
   animation: shimmer-sweep calc(2s / var(--animation-speed, 1)) ease-in-out infinite;
 }
+.progress-gradient {
+  background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent-secondary, var(--primary)))) !important;
+}
 
-/* ── Tab Style Utilities (driven by data-tab-style from AppearanceProvider) ── */
+/* ── Tab Style Utilities (driven by data-tab-style) ── */
 .tabs-pill [data-state="active"],
 [data-tab-style="pill"] [data-state="active"] {
   background: hsl(var(--primary) / 0.15);
@@ -1891,7 +1918,13 @@ html.light {
   border-bottom: 1px solid hsl(var(--primary) / 0.5);
 }
 
-/* ── Card Hover Effect Utilities ── */
+/* ── Card Hover Effects (driven by data-card-hover) ── */
+[data-card-hover="true"] .card-hover {
+  transition: box-shadow calc(0.3s * var(--animation-speed, 1)) ease;
+}
+[data-card-hover="true"] .card-hover:hover {
+  box-shadow: 0 0 calc(20px * var(--neon-glow-intensity, 0.5)) hsl(var(--primary) / 0.2);
+}
 .card-hover-lift {
   transition: transform calc(0.2s * var(--animation-speed, 1)) ease, box-shadow calc(0.2s * var(--animation-speed, 1)) ease;
 }
@@ -1912,7 +1945,50 @@ html.light {
   border-color: hsl(var(--primary) / 0.3);
 }
 
-/* Upload pulse animation */
+/* ── Button Styles (driven by data-button-* attributes) ── */
+.btn-premium {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  border-radius: var(--radius, 0.75rem);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+.btn-premium::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, hsl(var(--foreground) / 0.1), transparent);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+[data-button-glow="true"] .btn-premium {
+  box-shadow: 0 0 calc(12px * var(--neon-glow-intensity, 0.5)) hsl(var(--primary) / 0.3),
+              0 0 calc(30px * var(--neon-glow-intensity, 0.5)) hsl(var(--primary) / 0.1);
+}
+[data-button-glow="false"] .btn-premium { box-shadow: none; }
+
+[data-button-gradient="true"] .btn-premium-solid,
+[data-button-gradient="true"] .btn-primary {
+  background: linear-gradient(135deg, hsl(var(--accent-gradient-from, var(--primary))), hsl(var(--accent-gradient-to, var(--primary))));
+  border-color: transparent;
+}
+[data-button-gradient="false"] .btn-premium-solid,
+[data-button-gradient="false"] .btn-primary {
+  background: hsl(var(--primary));
+  border-color: transparent;
+}
+
+[data-button-border-glow="true"] .btn-premium,
+[data-button-border-glow="true"] .btn-outline {
+  box-shadow: inset 0 0 0 1px hsl(var(--primary) / 0.4),
+              0 0 calc(8px * var(--neon-glow-intensity, 0.5)) hsl(var(--primary) / 0.3);
+}
+
+/* ── Upload Pulse (gated by data-anim-upload-pulse) ── */
 @keyframes upload-pulse {
   0%, 100% { transform: scale(1); opacity: 0.6; }
   50% { transform: scale(1.05); opacity: 1; }
@@ -1920,14 +1996,38 @@ html.light {
 .upload-pulse {
   animation: upload-pulse calc(1.5s / var(--animation-speed, 1)) ease-in-out infinite;
 }
+[data-anim-upload-pulse="false"] .upload-pulse { animation: none; }
 
-/* Gradient progress bar */
-.progress-gradient {
-  background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent-secondary, var(--primary)))) !important;
-}
-
-/* Density utilities */
+/* ── Density (driven by data-density) ── */
 [data-density="compact"] { --spacing-multiplier: 0.75; }
 [data-density="normal"] { --spacing-multiplier: 1; }
 [data-density="comfortable"] { --spacing-multiplier: 1.25; }
+
+/* ── Animation Speed Modifiers ── */
+html.no-animations *,
+html.no-animations *::before,
+html.no-animations *::after {
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+}
+html.reduced-animations *,
+html.reduced-animations *::before,
+html.reduced-animations *::after {
+  animation-duration: 0.01s !important;
+  transition-duration: 0.01s !important;
+}
+
+/* ── Page Transitions (gated by data-anim-page-transitions) ── */
+[data-anim-page-transitions="false"] .page-transition { opacity: 1 !important; transform: none !important; }
+
+/* ── Sidebar Transitions (gated by data-anim-sidebar) ── */
+[data-anim-sidebar="false"] .sidebar-transition { transition: none !important; }
+
+/* ── Fade-In Sections (gated by data-anim-fade-in) ── */
+[data-anim-fade-in="false"] .fade-in-section { opacity: 1 !important; transform: none !important; }
+
+/* ── Stagger Children (gated by data-anim-stagger) ── */
+[data-anim-stagger="false"] .stagger-children > * { transition-delay: 0ms !important; }
 

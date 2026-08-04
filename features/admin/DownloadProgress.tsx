@@ -173,7 +173,7 @@ export function DownloadProgress({
 
       {/* Speed / ETA / bytes */}
       {!isDone && !isFailed && (
-        <div className="flex items-center justify-between text-[11px] font-mono" style={{ color: '#475569' }}>
+        <div className="flex items-center justify-between text-[11px] font-mono" style={{ color: 'hsl(var(--muted-foreground))' }}>
           <span className="flex items-center gap-1">
             <HardDrive size={10} />
             {state.bytes_total > 0

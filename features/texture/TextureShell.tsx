@@ -17,9 +17,9 @@ const MATERIAL_LAYERS = [
   { id: 'albedo', label: 'Albedo', icon: Palette, color: 'text-[hsl(var(--neon-purple))]', enabled: true },
   { id: 'normal', label: 'Normal', icon: Layers, color: 'text-[hsl(var(--neon-blue))]', enabled: true },
   { id: 'roughness', label: 'Roughness', icon: Sliders, color: 'text-[hsl(var(--neon-cyan))]', enabled: true },
-  { id: 'metallic', label: 'Metallic', icon: Wand2, color: 'text-amber-400', enabled: true },
-  { id: 'ao', label: 'AO', icon: Eye, color: 'text-emerald-400', enabled: false },
-  { id: 'height', label: 'Height', icon: Brush, color: 'text-pink-400', enabled: false },
+  { id: 'metallic', label: 'Metallic', icon: Wand2, color: 'text-[hsl(var(--neon-amber))]', enabled: true },
+  { id: 'ao', label: 'AO', icon: Eye, color: 'text-[hsl(var(--neon-green))]', enabled: false },
+  { id: 'height', label: 'Height', icon: Brush, color: 'text-[hsl(var(--neon-pink))]', enabled: false },
 ];
 
 export function TextureShell() {
@@ -83,7 +83,7 @@ export function TextureShell() {
                 >
                   <Icon className={cn('w-4 h-4', layer.color)} />
                   <span className="text-sm font-medium text-foreground flex-1 text-left">{layer.label}</span>
-                  {layer.enabled && <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+                  {layer.enabled && <div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--neon-green))]" />}
                 </button>
               );
             })}

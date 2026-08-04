@@ -61,7 +61,7 @@ export function OverviewTab() {
   if (error && !overview && !runtime) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
-        <XCircle className="w-10 h-10 text-red-400" />
+        <XCircle className="w-10 h-10 text-[hsl(var(--destructive))]" />
         <p className="text-sm text-muted-foreground">{error}</p>
         <button onClick={() => { setLoading(true); load(); }} className="text-xs text-[hsl(var(--neon-purple))] hover:underline flex items-center gap-1.5">
           <RefreshCw className="w-3.5 h-3.5" /> Retry
@@ -111,12 +111,12 @@ export function OverviewTab() {
             <div className="text-right">
               <p className="text-xs text-muted-foreground uppercase tracking-wider">Today</p>
               <p className="text-2xl font-bold font-mono">{overview?.completed_today ?? 0}</p>
-              <p className="text-xs text-emerald-400">models generated</p>
+              <p className="text-xs text-[hsl(var(--neon-green))]">models generated</p>
             </div>
             <div className="w-px h-12 bg-border" />
             <div className="text-right">
               <p className="text-xs text-muted-foreground uppercase tracking-wider">Success Rate</p>
-              <p className="text-2xl font-bold font-mono text-emerald-400">{overview?.success_rate != null ? `${overview.success_rate}%` : '—'}</p>
+              <p className="text-2xl font-bold font-mono text-[hsl(var(--neon-green))]">{overview?.success_rate != null ? `${overview.success_rate}%` : '—'}</p>
               <p className="text-xs text-muted-foreground">last 24h</p>
             </div>
           </div>
@@ -130,7 +130,7 @@ export function OverviewTab() {
             purple: 'from-[hsl(var(--neon-purple)/0.15)] to-[hsl(var(--neon-purple)/0.05)] border-[hsl(var(--neon-purple)/0.2)] text-[hsl(var(--neon-purple))]',
             blue: 'from-[hsl(var(--neon-blue)/0.15)] to-[hsl(var(--neon-blue)/0.05)] border-[hsl(var(--neon-blue)/0.2)] text-[hsl(var(--neon-blue))]',
             cyan: 'from-[hsl(var(--neon-cyan)/0.15)] to-[hsl(var(--neon-cyan)/0.05)] border-[hsl(var(--neon-cyan)/0.2)] text-[hsl(var(--neon-cyan))]',
-            green: 'from-emerald-500/15 to-emerald-500/5 border-emerald-500/20 text-emerald-400',
+            green: 'from-emerald-500/15 to-emerald-500/5 border-[hsl(var(--neon-green)/0.2)] text-[hsl(var(--neon-green))]',
           };
           return (
             <motion.a
@@ -185,7 +185,7 @@ export function OverviewTab() {
 
         <GlassCard className="p-5" delay={0.45}>
           <div className="flex items-center gap-2 mb-3">
-            <Thermometer className="w-4 h-4 text-amber-400" />
+            <Thermometer className="w-4 h-4 text-[hsl(var(--neon-amber))]" />
             <h3 className="text-sm font-semibold">Temperature</h3>
           </div>
           <div className="flex items-baseline gap-1 mb-2">
@@ -195,7 +195,7 @@ export function OverviewTab() {
           <ProgressBar value={temp} color="amber" size="sm" />
           <div className="flex justify-between mt-2 text-[10px] text-muted-foreground">
             <span>Normal range</span>
-            <span className={temp > 80 ? 'text-red-400' : 'text-emerald-400'}>
+            <span className={temp > 80 ? 'text-[hsl(var(--destructive))]' : 'text-[hsl(var(--neon-green))]'}>
               {temp > 80 ? 'High' : 'Optimal'}
             </span>
           </div>
@@ -217,7 +217,7 @@ export function OverviewTab() {
                 <span className="text-xs text-muted-foreground">{item.label}</span>
                 <div className="flex items-center gap-2">
                   <StatusDot status={item.status} size="sm" />
-                  <span className="text-xs text-emerald-400">{item.status === 'online' ? 'Operational' : 'Offline'}</span>
+                  <span className="text-xs text-[hsl(var(--neon-green))]">{item.status === 'online' ? 'Operational' : 'Offline'}</span>
                 </div>
               </div>
             ))}

@@ -21,11 +21,11 @@ const LOG_ICONS = {
 };
 
 const LOG_COLORS = {
-  info: 'text-blue-400',
-  warn: 'text-amber-400',
-  error: 'text-red-400',
-  debug: 'text-purple-400',
-  success: 'text-emerald-400',
+  info: 'text-[hsl(var(--neon-blue))]',
+  warn: 'text-[hsl(var(--neon-amber))]',
+  error: 'text-[hsl(var(--destructive))]',
+  debug: 'text-[hsl(var(--neon-purple))]',
+  success: 'text-[hsl(var(--neon-green))]',
 };
 
 export function LogsTab() {

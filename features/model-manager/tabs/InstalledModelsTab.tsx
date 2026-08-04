@@ -111,9 +111,9 @@ export function InstalledModelsTab() {
                   <p className="text-sm text-white/60">{model.id}</p>
                 </div>
                 <div className={`px-2 py-1 rounded text-xs font-medium ${
-                  model.status === 'active' ? 'bg-green-900/30 text-green-400' :
-                  model.status === 'error' ? 'bg-red-900/30 text-red-400' :
-                  'bg-yellow-900/30 text-yellow-400'
+                  model.status === 'active' ? 'bg-green-900/30 text-[hsl(var(--neon-green))]' :
+                  model.status === 'error' ? 'bg-red-900/30 text-[hsl(var(--destructive))]' :
+                  'bg-yellow-900/30 text-[hsl(var(--neon-amber))]'
                 }`}>
                   <div className="flex gap-1 items-center">
                     <Activity className="w-3 h-3" />
@@ -144,7 +144,7 @@ export function InstalledModelsTab() {
               )}
 
               {model.status === 'error' && (
-                <div className="flex gap-1 text-yellow-400 text-sm">
+                <div className="flex gap-1 text-[hsl(var(--neon-amber))] text-sm">
                   <AlertTriangle className="w-4 h-4 mt-0.5" />
                   <span>Health check failed</span>
                 </div>
@@ -172,7 +172,7 @@ export function InstalledModelsTab() {
                     e.stopPropagation();
                     handleUninstall(model.id);
                   }}
-                  className="gap-1 flex-1 text-red-400 hover:text-red-300"
+                  className="gap-1 flex-1 text-[hsl(var(--destructive))] hover:text-[hsl(var(--destructive))]"
                 >
                   <Trash2 className="w-3 h-3" />
                   Uninstall

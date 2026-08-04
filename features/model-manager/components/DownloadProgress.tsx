@@ -172,7 +172,7 @@ export function DownloadProgress() {
                   </p>
                   {/* Bug 6 Fix: Show speed and ETA */}
                   {(download.status === 'downloading' && speed > 0) && (
-                    <p className="text-xs text-[#FF5A6B] mt-1 flex items-center gap-2">
+                    <p className="text-xs text-[hsl(var(--neon-pink))] mt-1 flex items-center gap-2">
                       <Download className="w-3 h-3" />
                       <span>{formatSpeed(speed)}</span>
                       {timeRemaining && (
@@ -187,8 +187,8 @@ export function DownloadProgress() {
                 </div>
                 <div className="text-right ml-4">
                   <p className={`text-lg font-semibold ${
-                    download.status === 'completed' ? 'text-green-400' : 
-                    download.status === 'failed' ? 'text-red-400' : 'text-white'
+                    download.status === 'completed' ? 'text-[hsl(var(--neon-green))]' : 
+                    download.status === 'failed' ? 'text-[hsl(var(--destructive))]' : 'text-white'
                   }`}>
                     {download.progress_percent.toFixed(1)}%
                   </p>
@@ -204,7 +204,7 @@ export function DownloadProgress() {
               />
 
               {download.status === 'failed' && download.error_message && (
-                <div className="flex gap-2 text-red-400 text-sm bg-red-500/10 p-2 rounded-md">
+                <div className="flex gap-2 text-[hsl(var(--destructive))] text-sm bg-[hsl(var(--destructive)/0.1)] p-2 rounded-md">
                   <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                   <span>{download.error_message}</span>
                 </div>
@@ -238,14 +238,14 @@ export function DownloadProgress() {
                     size="sm"
                     variant="outline"
                     onClick={() => handleCancel(download.id)}
-                    className="gap-1 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40"
+                    className="gap-1 hover:bg-[hsl(var(--destructive)/0.2)] hover:text-[hsl(var(--destructive))] hover:border-[hsl(var(--destructive)/0.4)]"
                   >
                     <X className="w-4 h-4" />
                     Cancel
                   </Button>
                 )}
                 {download.status === 'completed' && (
-                  <div className="flex items-center gap-2 text-green-400 text-sm ml-auto">
+                  <div className="flex items-center gap-2 text-[hsl(var(--neon-green))] text-sm ml-auto">
                     <CheckIcon className="w-4 h-4" />
                     Download Complete
                   </div>

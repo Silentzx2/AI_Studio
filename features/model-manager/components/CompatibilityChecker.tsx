@@ -68,22 +68,22 @@ export function CompatibilityChecker({ modelManifest }: { modelManifest: any }) 
 
   const StatusIcon = ({ ok }: { ok: boolean }) => 
     ok ? 
-      <CheckCircle className="w-4 h-4 text-green-400" /> : 
-      <AlertTriangle className="w-4 h-4 text-yellow-400" />;
+      <CheckCircle className="w-4 h-4 text-[hsl(var(--neon-green))]" /> : 
+      <AlertTriangle className="w-4 h-4 text-[hsl(var(--neon-amber))]" />;
 
   return (
     <div className="space-y-4">
       {compatibility.compatible ? (
         <Alert className="bg-green-900/20 border-green-800">
-          <CheckCircle className="w-4 h-4 text-green-400" />
-          <AlertDescription className="text-green-400">
+          <CheckCircle className="w-4 h-4 text-[hsl(var(--neon-green))]" />
+          <AlertDescription className="text-[hsl(var(--neon-green))]">
             System meets all requirements for this model
           </AlertDescription>
         </Alert>
       ) : (
         <Alert className="bg-red-900/20 border-red-800">
-          <XCircle className="w-4 h-4 text-red-400" />
-          <AlertDescription className="text-red-400">
+          <XCircle className="w-4 h-4 text-[hsl(var(--destructive))]" />
+          <AlertDescription className="text-[hsl(var(--destructive))]">
             System does not meet requirements for this model
           </AlertDescription>
         </Alert>
@@ -92,10 +92,10 @@ export function CompatibilityChecker({ modelManifest }: { modelManifest: any }) 
       {/* Errors */}
       {compatibility.errors.length > 0 && (
         <Card className="bg-red-900/10 border-red-800/50 p-4">
-          <h4 className="font-semibold text-red-400 mb-2">Critical Issues:</h4>
+          <h4 className="font-semibold text-[hsl(var(--destructive))] mb-2">Critical Issues:</h4>
           <ul className="space-y-1">
             {compatibility.errors.map((error, i) => (
-              <li key={i} className="text-sm text-red-300 flex gap-2">
+              <li key={i} className="text-sm text-[hsl(var(--destructive))] flex gap-2">
                 <XCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                 {error}
               </li>
@@ -107,10 +107,10 @@ export function CompatibilityChecker({ modelManifest }: { modelManifest: any }) 
       {/* Warnings */}
       {compatibility.warnings.length > 0 && (
         <Card className="bg-yellow-900/10 border-yellow-800/50 p-4">
-          <h4 className="font-semibold text-yellow-400 mb-2">Warnings:</h4>
+          <h4 className="font-semibold text-[hsl(var(--neon-amber))] mb-2">Warnings:</h4>
           <ul className="space-y-1">
             {compatibility.warnings.map((warning, i) => (
-              <li key={i} className="text-sm text-yellow-300 flex gap-2">
+              <li key={i} className="text-sm text-[hsl(var(--neon-amber))] flex gap-2">
                 <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                 {warning}
               </li>

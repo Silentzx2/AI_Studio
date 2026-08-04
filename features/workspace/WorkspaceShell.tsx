@@ -69,7 +69,7 @@ function WorkspaceShellContent() {
   }
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-[#09090B] relative">
+    <div className="h-screen flex flex-col overflow-hidden bg-surface-0 relative">
       <div className="relative z-[3] flex flex-col h-full">
         <WorkspaceNavbar />
         <div className="flex flex-1 min-h-0 overflow-hidden">

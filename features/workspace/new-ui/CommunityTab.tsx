@@ -153,7 +153,7 @@ export default function CommunityTab({ onCloneProject, onNavigate }: CommunityTa
               />
 
               {/* Creator details absolute top badge */}
-              <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 bg-black/80 px-2.5 py-1 rounded-lg border border-[hsl(var(--border))] max-w-[140px]">
+              <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 bg-[hsl(var(--surface-0)/0.8)] px-2.5 py-1 rounded-lg border border-[hsl(var(--border))] max-w-[140px]">
                 <img
                   src={item.avatar}
                   alt={item.creator}
@@ -185,7 +185,7 @@ export default function CommunityTab({ onCloneProject, onNavigate }: CommunityTa
                   >
                     {copiedId === item.id ? (
                       <>
-                        <Check size={10} className="text-emerald-500" />
+                        <Check size={10} className="text-[hsl(var(--neon-green))]" />
                         Copied
                       </>
                     ) : (
@@ -213,7 +213,7 @@ export default function CommunityTab({ onCloneProject, onNavigate }: CommunityTa
                 <button
                   onClick={() => handleLike(item.id)}
                   className={`flex items-center gap-1 hover:text-white transition-colors ${
-                    item.hasLiked ? 'text-rose-500 hover:text-rose-400' : ''
+                    item.hasLiked ? 'text-[hsl(var(--destructive))] hover:text-[hsl(var(--destructive))]' : ''
                   }`}
                   id={`like-comm-btn-${item.id}`}
                 >

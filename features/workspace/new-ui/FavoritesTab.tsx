@@ -28,7 +28,7 @@ export default function FavoritesTab({
       {/* Intro */}
       <div>
         <h2 className="text-lg font-bold text-white flex items-center gap-2">
-          <Heart size={20} className="text-rose-500 fill-rose-500" />
+          <Heart size={20} className="text-[hsl(var(--destructive))] fill-rose-500" />
           Your Favorite Creations
         </h2>
         <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
@@ -48,14 +48,14 @@ export default function FavoritesTab({
             {/* Visual Box */}
             <div className="relative aspect-square w-full rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--surface-3))] overflow-hidden flex items-center justify-center">
               <div className="w-16 h-16 rounded bg-gradient-to-tr from-rose-500/10 to-transparent flex items-center justify-center border border-rose-500/10 transform group-hover:rotate-6 transition-all">
-                <Cpu size={28} className="text-rose-500 opacity-80" />
+                <Cpu size={28} className="text-[hsl(var(--destructive))] opacity-80" />
               </div>
 
               {/* Floating top tools */}
               <div className="absolute top-2.5 right-2.5 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   onClick={(e) => onRemoveFavorite(e, item.id)}
-                  className="p-2 rounded-lg bg-black/85 hover:bg-black text-rose-500 text-xs transition-all"
+                  className="p-2 rounded-lg bg-[hsl(var(--surface-0)/0.85)] hover:bg-black text-[hsl(var(--destructive))] text-xs transition-all"
                   title="Remove from favorites"
                   id={`remove-fav-btn-${item.id}`}
                 >
@@ -63,7 +63,7 @@ export default function FavoritesTab({
                 </button>
                 <button
                   onClick={(e) => onDeleteProject(e, item.id)}
-                  className="p-2 rounded-lg bg-black/85 hover:bg-red-950 text-xs text-[hsl(var(--muted-foreground))] hover:text-red-400 transition-all"
+                  className="p-2 rounded-lg bg-[hsl(var(--surface-0)/0.85)] hover:bg-[hsl(var(--destructive)/0.1)] text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--destructive))] transition-all"
                   title="Delete creation"
                   id={`del-fav-btn-${item.id}`}
                 >
@@ -90,7 +90,7 @@ export default function FavoritesTab({
               
               <div className="flex items-center justify-between text-[10px] text-[hsl(var(--muted-foreground))] font-mono mt-2 pt-2 border-t border-white/[0.03]">
                 <span>🕒 {item.timestamp}</span>
-                <span className="text-rose-500 font-sans font-bold flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-[hsl(var(--destructive))] font-sans font-bold flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   Load <Play size={8} />
                 </span>
               </div>

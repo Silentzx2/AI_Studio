@@ -13,10 +13,10 @@ import type { AdminJob } from '@/types';
 import { cn } from '@/lib/utils';
 
 const STATUS_CONFIG = {
-  completed: { icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-500/10', label: 'Completed' },
+  completed: { icon: CheckCircle, color: 'text-[hsl(var(--neon-green))]', bg: 'bg-[hsl(var(--neon-green)/0.1)]', label: 'Completed' },
   generating: { icon: Loader2, color: 'text-[hsl(var(--neon-purple))]', bg: 'bg-[hsl(var(--neon-purple)/0.1)]', label: 'Generating' },
-  queued: { icon: Clock, color: 'text-amber-400', bg: 'bg-amber-500/10', label: 'Queued' },
-  failed: { icon: XCircle, color: 'text-red-400', bg: 'bg-red-500/10', label: 'Failed' },
+  queued: { icon: Clock, color: 'text-[hsl(var(--neon-amber))]', bg: 'bg-[hsl(var(--neon-amber)/0.1)]', label: 'Queued' },
+  failed: { icon: XCircle, color: 'text-[hsl(var(--destructive))]', bg: 'bg-[hsl(var(--destructive)/0.1)]', label: 'Failed' },
 };
 
 export function JobsTab() {
@@ -111,7 +111,7 @@ export function JobsTab() {
                       Created: {new Date(job.created_at).toLocaleString()}
                       {job.completed_at && ` · Completed: ${new Date(job.completed_at).toLocaleString()}`}
                     </p>
-                    {job.error && <p className="text-xs text-red-400 mt-1">{job.error}</p>}
+                    {job.error && <p className="text-xs text-[hsl(var(--destructive))] mt-1">{job.error}</p>}
                   </div>
                   <div className="w-32">
                     <div className="flex items-center justify-between mb-1">

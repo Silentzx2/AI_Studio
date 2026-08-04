@@ -152,7 +152,7 @@ export function DownloadsTab() {
           const Icon = stat.icon;
           const colorMap = {
             purple: 'text-[hsl(var(--neon-purple))] bg-[hsl(var(--neon-purple)/0.1)]',
-            green: 'text-emerald-400 bg-emerald-500/10',
+            green: 'text-[hsl(var(--neon-green))] bg-[hsl(var(--neon-green)/0.1)]',
             blue: 'text-[hsl(var(--neon-blue))] bg-[hsl(var(--neon-blue)/0.1)]',
             cyan: 'text-[hsl(var(--neon-cyan))] bg-[hsl(var(--neon-cyan)/0.1)]',
           };
@@ -182,12 +182,12 @@ export function DownloadsTab() {
                   <div onClick={() => setSelected(item.id)}>
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        <div className={cn('flex items-center justify-center w-9 h-9 rounded-xl', item.status === 'completed' ? 'bg-emerald-500/10' : 'bg-surface-2')}>
-                          {item.status === 'completed' ? <CheckCircle className="w-4 h-4 text-emerald-400" /> :
+                        <div className={cn('flex items-center justify-center w-9 h-9 rounded-xl', item.status === 'completed' ? 'bg-[hsl(var(--neon-green)/0.1)]' : 'bg-surface-2')}>
+                          {item.status === 'completed' ? <CheckCircle className="w-4 h-4 text-[hsl(var(--neon-green))]" /> :
                            item.status === 'downloading' ? <Loader2 className="w-4 h-4 text-[hsl(var(--neon-purple))] animate-spin" /> :
-                           item.status === 'paused' ? <Pause className="w-4 h-4 text-amber-400" /> :
+                           item.status === 'paused' ? <Pause className="w-4 h-4 text-[hsl(var(--neon-amber))]" /> :
                            item.status === 'queued' ? <Clock className="w-4 h-4 text-muted-foreground" /> :
-                           <AlertCircle className="w-4 h-4 text-red-400" />}
+                           <AlertCircle className="w-4 h-4 text-[hsl(var(--destructive))]" />}
                         </div>
                         <div>
                           <p className="text-sm font-medium text-foreground">{item.name}</p>
@@ -205,10 +205,10 @@ export function DownloadsTab() {
                     <div className="flex items-center justify-between mt-2">
                       <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
                         {item.status === 'downloading' && (<><span>{item.speed.toFixed(1)} MB/s</span><span>ETA: {item.eta}s</span></>)}
-                        {item.status === 'completed' && <span className="text-emerald-400">Completed</span>}
-                        {item.status === 'paused' && <span className="text-amber-400">Paused</span>}
+                        {item.status === 'completed' && <span className="text-[hsl(var(--neon-green))]">Completed</span>}
+                        {item.status === 'paused' && <span className="text-[hsl(var(--neon-amber))]">Paused</span>}
                         {item.status === 'queued' && <span>Waiting...</span>}
-                        {item.status === 'error' && <span className="text-red-400">Error</span>}
+                        {item.status === 'error' && <span className="text-[hsl(var(--destructive))]">Error</span>}
                       </div>
                       <div className="flex items-center gap-1">
                         {item.status === 'downloading' && (
@@ -227,7 +227,7 @@ export function DownloadsTab() {
                           </button>
                         )}
                         {item.status !== 'completed' && (
-                          <button onClick={(e) => { e.stopPropagation(); cancel(item.id); }} className="p-1.5 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-red-400">
+                          <button onClick={(e) => { e.stopPropagation(); cancel(item.id); }} className="p-1.5 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-[hsl(var(--destructive))]">
                             <X className="w-3.5 h-3.5" />
                           </button>
                         )}

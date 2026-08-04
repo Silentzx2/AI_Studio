@@ -35,7 +35,7 @@ export function ModelCard({ model, onAction }: { model: any, onAction: (id: stri
           </span>
         </div>
         {model.installed ? (
-          <CheckCircle className="w-5 h-5 text-green-400" />
+          <CheckCircle className="w-5 h-5 text-[hsl(var(--neon-green))]" />
         ) : (
           <Download className="w-5 h-5 text-white/40" />
         )}
@@ -59,7 +59,7 @@ export function ModelCard({ model, onAction }: { model: any, onAction: (id: stri
             <span>{Math.round(progress * 100)}%</span>
           </div>
           <div className="w-full bg-white/10 rounded-full h-1.5">
-            <div className="bg-blue-500 h-1.5 rounded-full transition-all" style={{ width: `${progress * 100}%` }}></div>
+            <div className="bg-[hsl(var(--neon-blue))] h-1.5 rounded-full transition-all" style={{ width: `${progress * 100}%` }}></div>
           </div>
         </div>
       )}
@@ -79,21 +79,21 @@ export function ModelCard({ model, onAction }: { model: any, onAction: (id: stri
             {model.loaded ? (
               <button 
                 onClick={() => onAction(model.id, 'unload')}
-                className="flex-1 bg-amber-500/20 text-amber-500 hover:bg-amber-500/30 py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
+                className="flex-1 bg-[hsl(var(--neon-amber)/0.2)] text-[hsl(var(--neon-amber))] hover:bg-[hsl(var(--neon-amber))]/30 py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
               >
                 <Pause className="w-4 h-4" /> Unload
               </button>
             ) : (
               <button 
                 onClick={() => onAction(model.id, 'load')}
-                className="flex-1 bg-green-500/20 text-green-400 hover:bg-green-500/30 py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
+                className="flex-1 bg-[hsl(var(--neon-green)/0.2)] text-[hsl(var(--neon-green))] hover:bg-green-500/30 py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
               >
                 <Play className="w-4 h-4" /> Load
               </button>
             )}
             <button 
               onClick={() => onAction(model.id, 'uninstall')}
-              className="bg-red-500/10 text-red-500 hover:bg-red-500/20 p-2 rounded-lg transition-colors"
+              className="bg-[hsl(var(--destructive)/0.1)] text-[hsl(var(--destructive))] hover:bg-[hsl(var(--destructive)/0.2)] p-2 rounded-lg transition-colors"
             >
               <Trash2 className="w-4 h-4" />
             </button>

@@ -180,8 +180,8 @@ export function RenderShell() {
           <div className="space-y-3">
             {RENDER_QUEUE.map((item, i) => (
               <motion.div key={item.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="flex items-center gap-3 p-3 rounded-xl glass border border-[hsl(var(--border)/0.3)]">
-                <div className={cn('flex items-center justify-center w-9 h-9 rounded-xl shrink-0', item.status === 'completed' ? 'bg-emerald-500/10' : item.status === 'rendering' ? 'bg-[hsl(var(--neon-purple)/0.1)]' : 'bg-surface-2')}>
-                  <Film className={cn('w-4 h-4', item.status === 'completed' ? 'text-emerald-400' : item.status === 'rendering' ? 'text-[hsl(var(--neon-purple))]' : 'text-muted-foreground')} />
+                <div className={cn('flex items-center justify-center w-9 h-9 rounded-xl shrink-0', item.status === 'completed' ? 'bg-[hsl(var(--neon-green)/0.1)]' : item.status === 'rendering' ? 'bg-[hsl(var(--neon-purple)/0.1)]' : 'bg-surface-2')}>
+                  <Film className={cn('w-4 h-4', item.status === 'completed' ? 'text-[hsl(var(--neon-green))]' : item.status === 'rendering' ? 'text-[hsl(var(--neon-purple))]' : 'text-muted-foreground')} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{item.name}</p>

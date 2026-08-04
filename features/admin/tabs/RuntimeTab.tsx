@@ -102,7 +102,7 @@ export function RuntimeTab() {
   if (error && !status) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
-        <XCircle className="w-10 h-10 text-red-400" />
+        <XCircle className="w-10 h-10 text-[hsl(var(--destructive))]" />
         <p className="text-sm text-muted-foreground">{error}</p>
         <button onClick={() => { setLoading(true); load(); }} className="text-xs text-[hsl(var(--neon-purple))] hover:underline flex items-center gap-1.5">
           <RefreshCw className="w-3.5 h-3.5" /> Retry
@@ -141,10 +141,10 @@ export function RuntimeTab() {
       <GlassCard className="p-4" delay={0.05}>
         <div className="flex flex-wrap items-center gap-4 lg:gap-6">
           {[
-            { label: 'CUDA', value: status?.cuda_version ?? '—', icon: Cpu, color: 'text-green-400' },
-            { label: 'Driver', value: status?.driver_version ?? '—', icon: Server, color: 'text-blue-400' },
-            { label: 'Network In', value: (status?.network_in ?? 0) > 0 ? `${(status?.network_in ?? 0).toFixed(1)} MB` : '—', icon: Wifi, color: 'text-cyan-400' },
-            { label: 'Network Out', value: (status?.network_out ?? 0) > 0 ? `${(status?.network_out ?? 0).toFixed(1)} MB` : '—', icon: Activity, color: 'text-purple-400' },
+            { label: 'CUDA', value: status?.cuda_version ?? '—', icon: Cpu, color: 'text-[hsl(var(--neon-green))]' },
+            { label: 'Driver', value: status?.driver_version ?? '—', icon: Server, color: 'text-[hsl(var(--neon-blue))]' },
+            { label: 'Network In', value: (status?.network_in ?? 0) > 0 ? `${(status?.network_in ?? 0).toFixed(1)} MB` : '—', icon: Wifi, color: 'text-[hsl(var(--neon-cyan))]' },
+            { label: 'Network Out', value: (status?.network_out ?? 0) > 0 ? `${(status?.network_out ?? 0).toFixed(1)} MB` : '—', icon: Activity, color: 'text-[hsl(var(--neon-purple))]' },
           ].map((item) => {
             const Icon = item.icon;
             return (
@@ -162,10 +162,10 @@ export function RuntimeTab() {
           {/* GPU Detail Card */}
           <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-purple-500/10 to-violet-500/5 border border-purple-500/20">
             <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-purple-500/20">
-              <Cpu className="w-5 h-5 text-purple-400" />
+              <Cpu className="w-5 h-5 text-[hsl(var(--neon-purple))]" />
             </div>
             <div className="min-w-0 flex-1">
-              <span className="text-[10px] uppercase tracking-wider text-purple-400/70 font-medium">GPU</span>
+              <span className="text-[10px] uppercase tracking-wider text-[hsl(var(--neon-purple))]/70 font-medium">GPU</span>
               <p className="text-sm font-semibold text-foreground truncate" title={status?.gpu_name}>
                 {status?.gpu_name || 'Not Detected'}
               </p>
@@ -180,10 +180,10 @@ export function RuntimeTab() {
           {/* CPU Detail Card */}
           <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-cyan-500/10 to-blue-500/5 border border-cyan-500/20">
             <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-cyan-500/20">
-              <Server className="w-5 h-5 text-cyan-400" />
+              <Server className="w-5 h-5 text-[hsl(var(--neon-cyan))]" />
             </div>
             <div className="min-w-0 flex-1">
-              <span className="text-[10px] uppercase tracking-wider text-cyan-400/70 font-medium">CPU</span>
+              <span className="text-[10px] uppercase tracking-wider text-[hsl(var(--neon-cyan))]/70 font-medium">CPU</span>
               <p className="text-sm font-semibold text-foreground truncate" title={status?.cpu_name}>
                 {status?.cpu_name 
                   ? (status.cpu_name.length > 35 ? status.cpu_name.slice(0, 35) + '…' : status.cpu_name)
@@ -198,12 +198,12 @@ export function RuntimeTab() {
           </div>
           
           {/* Disk/Storage Detail Card */}
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-emerald-500/10 to-green-500/5 border border-emerald-500/20">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-emerald-500/20">
-              <HardDrive className="w-5 h-5 text-emerald-400" />
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-emerald-500/10 to-green-500/5 border border-[hsl(var(--neon-green)/0.2)]">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[hsl(var(--neon-green)/0.2)]">
+              <HardDrive className="w-5 h-5 text-[hsl(var(--neon-green))]" />
             </div>
             <div className="min-w-0 flex-1">
-              <span className="text-[10px] uppercase tracking-wider text-emerald-400/70 font-medium">Storage</span>
+              <span className="text-[10px] uppercase tracking-wider text-[hsl(var(--neon-green))]/70 font-medium">Storage</span>
               <p className="text-sm font-semibold text-foreground">
                 {(status?.storage_used_gb ?? 0).toFixed(0)} / {(status?.storage_total_gb ?? 0).toFixed(0)} GB
               </p>
@@ -269,7 +269,7 @@ export function RuntimeTab() {
             {logs.length > 0 ? logs.map((log, i) => (
               <motion.div key={log.id || i} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }} className="flex gap-2 text-xs">
                 <span className="text-muted-foreground/50 shrink-0">{new Date(log.timestamp).toLocaleTimeString()}</span>
-                <span className={cn('shrink-0 font-bold', log.level === 'error' ? 'text-red-400' : log.level === 'warn' ? 'text-amber-400' : log.level === 'success' ? 'text-emerald-400' : 'text-blue-400')}>
+                <span className={cn('shrink-0 font-bold', log.level === 'error' ? 'text-[hsl(var(--destructive))]' : log.level === 'warn' ? 'text-[hsl(var(--neon-amber))]' : log.level === 'success' ? 'text-[hsl(var(--neon-green))]' : 'text-[hsl(var(--neon-blue))]')}>
                   {log.level.toUpperCase()}
                 </span>
                 <span className="text-muted-foreground">

@@ -49,7 +49,7 @@ export function ThreeDViewer() {
   const { currentJob } = useGenerationStore();
 
   return (
-    <div className={cn('relative flex flex-col bg-[hsl(var(--surface-0))] overflow-hidden', viewer.fullscreen ? 'fixed inset-0 z-50' : 'flex-1 min-h-0')}>
+      <div className={cn('relative flex flex-col bg-surface-0 overflow-hidden', viewer.fullscreen ? 'fixed inset-0 z-50' : 'flex-1 min-h-0')}>
       <div className="relative flex-1 min-h-0">
         <ViewerToolbar />
         <ViewerPlaceholder />
@@ -66,10 +66,10 @@ export function ThreeDViewer() {
         </Canvas>
         {/* Cinematic animated mesh background */}
         <div className="absolute inset-0 pointer-events-none -z-10 bg-animated-mesh">
-          <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 40%, hsl(260 20% 8%) 0%, hsl(255 18% 5%) 40%, hsl(250 15% 3%) 70%, hsl(248 12% 2%) 100%)' }} />
+          <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 40%, hsl(var(--surface-0)) 0%, hsl(var(--surface-1)) 40%, hsl(var(--surface-2)) 70%, hsl(var(--surface-3)) 100%)' }} />
         </div>
         {/* Vignette / inner shadow effect */}
-        <div className="absolute inset-0 pointer-events-none -z-10" style={{ boxShadow: 'inset 0 0 120px 40px hsl(var(--surface-0)/0.7), inset 0 0 60px 20px hsl(250 20% 2%/0.5)' }} />
+        <div className="absolute inset-0 pointer-events-none -z-10" style={{ boxShadow: 'inset 0 0 120px 40px hsl(var(--surface-0)/0.7), inset 0 0 60px 20px hsl(var(--surface-2)/0.5)' }} />
         {/* Fullscreen ambient glow border */}
         {viewer.fullscreen && (
           <div className="absolute inset-0 pointer-events-none -z-10 rounded-none" style={{ boxShadow: 'inset 0 0 80px 10px hsl(var(--neon-purple)/0.04), inset 0 0 2px 1px hsl(var(--neon-purple)/0.15), inset 0 0 200px 40px hsl(var(--neon-blue)/0.03)' }} />

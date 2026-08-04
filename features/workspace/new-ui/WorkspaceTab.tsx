@@ -62,9 +62,9 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4" id="workspace-stats-row">
         {[
           { label: 'Total Models Baked', value: totalAssets, sub: 'All formats (GLB/OBJ)', icon: Database, color: 'text-[hsl(var(--primary))]' },
-          { label: 'Favorite Creations', value: favoritesCount, sub: 'Saved in favorites', icon: TrendingUp, color: 'text-rose-500' },
-          { label: 'Storage Used', value: storageUsed, sub: `of ${storageTotal} limit`, icon: HardDrive, color: 'text-amber-500' },
-          { label: 'Baking Efficiency', value: avgGenerationTime, sub: 'Avg generation time', icon: Clock, color: 'text-emerald-500' },
+          { label: 'Favorite Creations', value: favoritesCount, sub: 'Saved in favorites', icon: TrendingUp, color: 'text-[hsl(var(--destructive))]' },
+          { label: 'Storage Used', value: storageUsed, sub: `of ${storageTotal} limit`, icon: HardDrive, color: 'text-[hsl(var(--neon-amber))]' },
+          { label: 'Baking Efficiency', value: avgGenerationTime, sub: 'Avg generation time', icon: Clock, color: 'text-[hsl(var(--neon-green))]' },
         ].map((stat, idx) => {
           const Icon = stat.icon;
           return (
@@ -112,7 +112,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
                   <div className="w-12 h-12 rounded bg-gradient-to-tr from-[hsl(var(--primary))]/20 to-transparent flex items-center justify-center border border-[hsl(var(--primary))]/10 transform group-hover:rotate-6 transition-all">
                     <Database size={20} className="text-[hsl(var(--primary))] opacity-80" />
                   </div>
-                  <span className="absolute bottom-2 left-2 px-1.5 py-0.5 rounded bg-black/85 border border-[hsl(var(--border))] text-[9px] font-mono font-bold text-white uppercase">
+                  <span className="absolute bottom-2 left-2 px-1.5 py-0.5 rounded bg-[hsl(var(--surface-0)/0.85)] border border-[hsl(var(--border))] text-[9px] font-mono font-bold text-white uppercase">
                     {item.format}
                   </span>
                 </div>
@@ -149,9 +149,9 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
             <h4 className="text-xs font-bold text-white uppercase tracking-wider">Engine Nodes Status</h4>
             <div className="flex flex-col gap-3" id="nodes-status-list">
               {[
-                { name: 'Compute CPU', load: `${cpuUsage}%`, status: cpuUsage > 80 ? 'High Load' : 'Operational', color: cpuUsage > 80 ? 'bg-amber-500' : 'bg-emerald-500' },
-                { name: 'System Memory', load: `${memoryUsage}%`, status: memoryUsage > 80 ? 'High Load' : 'Operational', color: memoryUsage > 80 ? 'bg-amber-500' : 'bg-emerald-500' },
-                { name: 'GPU Synthesizer', load: `${gpuUsage}%`, status: gpuUsage > 80 ? 'High Load' : (gpuUsage > 10 ? 'Generating' : 'Idle'), color: gpuUsage > 80 ? 'bg-amber-500' : (gpuUsage > 10 ? 'bg-blue-500' : 'bg-emerald-500') },
+                 { name: 'Compute CPU', load: `${cpuUsage}%`, status: cpuUsage > 80 ? 'High Load' : 'Operational', color: cpuUsage > 80 ? 'bg-[hsl(var(--neon-amber))]' : 'bg-[hsl(var(--neon-green))]' },
+                 { name: 'System Memory', load: `${memoryUsage}%`, status: memoryUsage > 80 ? 'High Load' : 'Operational', color: memoryUsage > 80 ? 'bg-[hsl(var(--neon-amber))]' : 'bg-[hsl(var(--neon-green))]' },
+                 { name: 'GPU Synthesizer', load: `${gpuUsage}%`, status: gpuUsage > 80 ? 'High Load' : (gpuUsage > 10 ? 'Generating' : 'Idle'), color: gpuUsage > 80 ? 'bg-[hsl(var(--neon-amber))]' : (gpuUsage > 10 ? 'bg-[hsl(var(--neon-blue))]' : 'bg-[hsl(var(--neon-green))]') },
               ].map((node, i) => (
                 <div key={i} className="flex flex-col gap-1" id={`node-${i}`}>
                   <div className="flex justify-between items-center text-[10px]">

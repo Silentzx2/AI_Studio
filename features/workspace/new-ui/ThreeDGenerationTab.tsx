@@ -91,12 +91,12 @@ function InteractiveMesh({ activeModel, shading, wireframe }: { activeModel: any
     if (shading === 'Clay') {
       return <meshStandardMaterial color="hsl(var(--surface-3))" roughness={0.7} metalness={0.1} wireframe={wireframe} />;
     }
-    return <meshStandardMaterial color="#27272A" roughness={0.2} metalness={0.8} wireframe={wireframe} />;
+     return <meshStandardMaterial color="hsl(var(--surface-2))" roughness={0.2} metalness={0.8} wireframe={wireframe} />;
   }, [shading, wireframe]);
 
   const accentMat = useMemo(() => {
     if (shading === 'Clay') {
-      return <meshStandardMaterial color="#D4D4D8" roughness={0.6} metalness={0.15} wireframe={wireframe} />;
+       return <meshStandardMaterial color="hsl(var(--muted-foreground))" roughness={0.6} metalness={0.15} wireframe={wireframe} />;
     }
     return <meshStandardMaterial color={primaryColor} roughness={0.3} metalness={0.9} wireframe={wireframe} emissive={primaryColor} emissiveIntensity={0.2} />;
   }, [shading, wireframe, primaryColor]);
@@ -117,7 +117,7 @@ function InteractiveMesh({ activeModel, shading, wireframe }: { activeModel: any
           {shading === 'Clay' ? (
             <meshStandardMaterial color="hsl(var(--muted-foreground))" roughness={0.8} wireframe={wireframe} />
           ) : (
-            <meshStandardMaterial color="#14141A" roughness={0.1} metalness={0.9} wireframe={wireframe} />
+            <meshStandardMaterial color="hsl(var(--surface-0))" roughness={0.1} metalness={0.9} wireframe={wireframe} />
           )}
         </mesh>
         
@@ -638,7 +638,7 @@ export default function ThreeDGenerationTab({
               {activeModel?.installed ? (
                 <span className="text-[9px] font-bold text-[hsl(var(--neon-green))] bg-[hsl(var(--neon-green))]/10 px-2 py-0.5 rounded-full border border-[hsl(var(--neon-green))]/20">Installed</span>
               ) : (
-                <span className="text-[9px] font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">Not Installed</span>
+                <span className="text-[9px] font-bold text-[hsl(var(--neon-amber))] bg-[hsl(var(--neon-amber)/0.1)] px-2 py-0.5 rounded-full border border-amber-500/20">Not Installed</span>
               )}
             </div>
             
@@ -765,7 +765,7 @@ export default function ThreeDGenerationTab({
                         <span className="text-[10px] font-bold text-[hsl(var(--neon-green))] flex items-center gap-1">
                           <CheckCircle2 size={11} /> Ready
                         </span>
-                        <button onClick={(e) => { e.stopPropagation(); clearImage(); }} className="text-[10px] font-black text-rose-500 hover:text-rose-400 p-0.5 bg-rose-500/10 rounded">
+                        <button onClick={(e) => { e.stopPropagation(); clearImage(); }} className="text-[10px] font-black text-[hsl(var(--destructive))] hover:text-[hsl(var(--destructive))] p-0.5 bg-rose-500/10 rounded">
                           Remove
                         </button>
                       </div>
@@ -815,7 +815,7 @@ export default function ThreeDGenerationTab({
                   <span className="text-[10px] font-bold text-[hsl(var(--neon-green))] truncate max-w-full">{uploadedModelName}</span>
                   <button
                     onClick={(e) => { e.stopPropagation(); setUploadedModel(null); setUploadedModelUrl(null); setUploadedModelName(''); toast.info('Model removed'); }}
-                    className="text-[9px] font-bold text-rose-500 hover:text-rose-400 mt-0.5"
+                    className="text-[9px] font-bold text-[hsl(var(--destructive))] hover:text-[hsl(var(--destructive))] mt-0.5"
                   >Remove</button>
                 </>
               ) : (
@@ -958,7 +958,7 @@ export default function ThreeDGenerationTab({
             onClick={isGenerating ? cancel : generate}
             className={`w-full font-black py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-[0_4px_24px_rgba(245,166,35,0.15)] ${
               isGenerating
-                ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-[0_4px_24px_rgba(225,29,72,0.15)]'
+                 ? 'bg-[hsl(var(--neon-pink))] hover:brightness-110 text-white shadow-[0_4px_24px_rgba(225,29,72,0.15)]'
                 : 'bg-[hsl(var(--primary))] hover:brightness-110 text-black active:scale-[0.98]'
             }`}
             id="workspace-trigger-generation-btn"
@@ -1011,7 +1011,7 @@ export default function ThreeDGenerationTab({
               disabled={isRigging}
               className={`px-3 py-1.5 text-[11px] font-black tracking-wide rounded-lg transition-all ${
                 isRigging
-                  ? 'bg-emerald-500/20 text-emerald-400 animate-pulse'
+                  ? 'bg-[hsl(var(--neon-green)/0.2)] text-[hsl(var(--neon-green))] animate-pulse'
                   : viewMode === 'Rigging'
                     ? 'bg-[hsl(var(--primary))] text-black shadow-sm font-bold'
                     : 'text-[hsl(var(--muted-foreground))] hover:text-white'
@@ -1037,7 +1037,7 @@ export default function ThreeDGenerationTab({
               disabled={isPartitioning}
               className={`px-3 py-1.5 text-[11px] font-black tracking-wide rounded-lg transition-all ${
                 isPartitioning
-                  ? 'bg-emerald-500/20 text-emerald-400 animate-pulse'
+                  ? 'bg-[hsl(var(--neon-green)/0.2)] text-[hsl(var(--neon-green))] animate-pulse'
                   : viewMode === 'Parts'
                     ? 'bg-[hsl(var(--primary))] text-black shadow-sm font-bold'
                     : 'text-[hsl(var(--muted-foreground))] hover:text-white'
@@ -1127,9 +1127,9 @@ export default function ThreeDGenerationTab({
 
           {/* Orientation Axis Widget in top-right */}
           <div className="absolute right-4 top-4 z-10 bg-[hsl(var(--surface-0))]/90 backdrop-blur-md border border-[hsl(var(--border))] px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-[10px] font-mono font-black" id="orientation-indicator">
-            <span className="text-red-500">X</span>
+            <span className="text-[hsl(var(--destructive))]">X</span>
             <span className="text-[hsl(var(--neon-green))]">Y</span>
-            <span className="text-sky-500">Z</span>
+            <span className="text-[hsl(var(--neon-cyan))]">Z</span>
             <div className="w-4 h-4 border border-[hsl(var(--surface-3))] rounded flex items-center justify-center text-[8px] text-[hsl(var(--muted-foreground))]">U</div>
           </div>
 
@@ -1157,7 +1157,7 @@ export default function ThreeDGenerationTab({
                   <Grid 
                     infiniteGrid 
                     fadeDistance={30} 
-                    cellColor="#242430" 
+                     cellColor="hsl(var(--surface-0))"
                     sectionColor="hsl(var(--primary))" 
                     cellThickness={0.5} 
                     sectionThickness={1.0} 
@@ -1241,7 +1241,7 @@ export default function ThreeDGenerationTab({
                       <React.Fragment key={node.label}>
                         {/* Connected Dashed Line Arrow */}
                         {index > 0 && (
-                          <div className={`w-6 flex items-center justify-center shrink-0 ${isFuture ? 'text-zinc-800' : isCompleted ? 'text-[hsl(var(--neon-green))]' : 'text-amber-500 animate-pulse'}`}>
+                          <div className={`w-6 flex items-center justify-center shrink-0 ${isFuture ? 'text-zinc-800' : isCompleted ? 'text-[hsl(var(--neon-green))]' : 'text-[hsl(var(--neon-amber))] animate-pulse'}`}>
                             <span className="font-mono text-xs">➔</span>
                           </div>
                         )}
@@ -1260,7 +1260,7 @@ export default function ThreeDGenerationTab({
                         >
                           <div className={`w-7 h-7 rounded-full flex items-center justify-center mb-1.5 ${
                             node.gate
-                              ? 'bg-zinc-900 text-[hsl(var(--muted-foreground))]'
+                              ? 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))]'
                               : isActive
                                 ? 'bg-[hsl(var(--primary))] text-black animate-spin'
                                 : isCompleted
@@ -1337,8 +1337,8 @@ export default function ThreeDGenerationTab({
                     </div>
                   )}
                   {isGenerating && (
-                    <div className="text-amber-400 font-semibold animate-pulse flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                    <div className="text-[hsl(var(--neon-amber))] font-semibold animate-pulse flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--neon-amber))] animate-ping" />
                       <span>{activeStageLabel} ({derivedProgress}%)</span>
                     </div>
                   )}

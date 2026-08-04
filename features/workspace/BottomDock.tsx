@@ -113,7 +113,7 @@ const LOG_COLORS: Record<string, { dot: string; text: string; bg: string }> = {
   info: { dot: 'bg-[hsl(var(--neon-blue))]', text: 'text-[hsl(var(--neon-cyan))/70]', bg: 'bg-transparent' },
   success: { dot: 'bg-[hsl(var(--neon-green))]', text: 'text-[hsl(var(--neon-green))/80]', bg: 'bg-[hsl(var(--neon-green)/0.02)]' },
   warning: { dot: 'bg-[hsl(var(--neon-amber))]', text: 'text-[hsl(var(--neon-amber))/90]', bg: 'bg-[hsl(var(--neon-amber)/0.03)]' },
-  error: { dot: 'bg-red-400', text: 'text-red-300', bg: 'bg-red-500/[0.04] shadow-[inset_0_0_12px_hsl(0_70%_50%/0.05)]' },
+  error: { dot: 'bg-[hsl(var(--destructive))]', text: 'text-[hsl(var(--destructive))]', bg: 'bg-[hsl(var(--destructive))]/[0.04] shadow-[inset_0_0_12px_hsl(0_70%_50%/0.05)]' },
 };
 
 /* ── Tab Content Components ─────────────────────────── */
@@ -139,7 +139,7 @@ function RecentPromptsTab() {
             'w-1.5 h-1.5 rounded-full shrink-0',
             p.status === 'completed'
               ? 'bg-[hsl(var(--neon-green))] shadow-[0_0_6px_hsl(var(--neon-green)/0.5)]'
-              : 'bg-red-400 shadow-[0_0_6px_hsl(0_70%_50%/0.5)]'
+              : 'bg-[hsl(var(--destructive))] shadow-[0_0_6px_hsl(0_70%_50%/0.5)]'
           )} />
           {/* Text */}
           <span className="flex-1 text-muted-foreground/70 group-hover:text-foreground/90 truncate transition-colors">
@@ -193,7 +193,7 @@ function QueueTab() {
           {/* Cancel button */}
           <button
             onClick={() => handleCancel(item.id, item.prompt)}
-            className="shrink-0 p-1 rounded-md text-muted-foreground/30 hover:text-red-400 hover:bg-red-500/10 hover:shadow-[0_0_8px_hsl(0_70%_50%/0.1)] transition-all duration-200"
+            className="shrink-0 p-1 rounded-md text-muted-foreground/30 hover:text-[hsl(var(--destructive))] hover:bg-[hsl(var(--destructive)/0.1)] hover:shadow-[0_0_8px_hsl(0_70%_50%/0.1)] transition-all duration-200"
           >
             <X className="w-3 h-3" />
           </button>
@@ -226,7 +226,7 @@ function ProgressTab() {
             </div>
             <button
               onClick={() => handleCancel(job.id, job.prompt)}
-              className="shrink-0 p-1 rounded-md text-muted-foreground/30 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 ml-2"
+              className="shrink-0 p-1 rounded-md text-muted-foreground/30 hover:text-[hsl(var(--destructive))] hover:bg-[hsl(var(--destructive)/0.1)] transition-all duration-200 ml-2"
             >
               <X className="w-3 h-3" />
             </button>

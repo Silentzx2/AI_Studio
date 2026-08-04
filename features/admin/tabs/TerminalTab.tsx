@@ -110,8 +110,8 @@ export function TerminalTab() {
       <GlassCard className="p-0 overflow-hidden" delay={0.1}>
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[hsl(var(--border)/0.3)] bg-surface-2/50">
           <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
-            <div className="w-2.5 h-2.5 rounded-full bg-amber-500/60" />
+            <div className="w-2.5 h-2.5 rounded-full bg-[hsl(var(--destructive))]/60" />
+            <div className="w-2.5 h-2.5 rounded-full bg-[hsl(var(--neon-amber))]/60" />
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/60" />
           </div>
           <Terminal className="w-3.5 h-3.5 text-muted-foreground ml-2" />
@@ -128,7 +128,7 @@ export function TerminalTab() {
             commands.map((cmd) => (
               <motion.div key={cmd.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs">
                 <pre className="text-[hsl(var(--neon-purple))] whitespace-pre-wrap">$ {cmd.command}</pre>
-                <pre className={cmd.exit_code === 0 ? 'text-muted-foreground whitespace-pre-wrap' : 'text-red-400 whitespace-pre-wrap'}>{cmd.output}</pre>
+                <pre className={cmd.exit_code === 0 ? 'text-muted-foreground whitespace-pre-wrap' : 'text-[hsl(var(--destructive))] whitespace-pre-wrap'}>{cmd.output}</pre>
               </motion.div>
             ))
           )}

@@ -1,4 +1,3 @@
-// FINAL_FIX_REPORT: Changed - Complete rewrite to remove glassmorphism effects
 'use client';
 
 import { motion, type HTMLMotionProps } from 'framer-motion';

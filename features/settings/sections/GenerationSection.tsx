@@ -81,7 +81,7 @@ export function GenerationSection() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base font-semibold">
-            <Cpu className="w-5 h-5 text-[hsl(var(--neon-amber))]" />
+            <Cpu className="w-5 h-5 text-primary" />
             Default 3D Model Provider
           </CardTitle>
           <CardDescription>Select the primary model engine for text-to-3D and image-to-3D generation.</CardDescription>
@@ -90,7 +90,7 @@ export function GenerationSection() {
           <select
             value={provider || (providersList[0]?.id || '')}
             onChange={(e) => setProvider(e.target.value)}
-            className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[hsl(var(--neon-amber))]"
+            className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
           >
             {providersList.map((p: any) => (
               <option key={p.id || p.name} value={p.id || p.name}>
@@ -105,7 +105,7 @@ export function GenerationSection() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base font-semibold">
-            <Box className="w-5 h-5 text-blue-400" />
+            <Box className="w-5 h-5 text-[hsl(var(--neon-blue))]" />
             Output Format & Quality
           </CardTitle>
           <CardDescription>Specify standard 3D export file formats and render target resolution.</CardDescription>
@@ -144,7 +144,7 @@ export function GenerationSection() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base font-semibold">
-            <Sliders className="w-5 h-5 text-emerald-400" />
+            <Sliders className="w-5 h-5 text-[hsl(var(--neon-green))]" />
             Inference & Sampling Parameters
           </CardTitle>
           <CardDescription>Control quality vs speed trade-offs during diffusion generation.</CardDescription>
@@ -162,7 +162,7 @@ export function GenerationSection() {
               step="5"
               value={steps}
               onChange={(e) => setSteps(Number(e.target.value))}
-              className="w-full accent-[hsl(var(--neon-amber))]"
+               className="w-full accent-primary"
             />
           </div>
 
@@ -176,7 +176,7 @@ export function GenerationSection() {
                   onClick={() => setQuality(q)}
                   className={`px-4 py-2.5 rounded-lg border text-sm font-medium capitalize transition-all ${
                     quality === q
-                      ? 'bg-[hsl(var(--neon-amber))] text-black border-[hsl(var(--neon-amber))] font-bold shadow-md'
+                       ? 'bg-primary text-primary-foreground border-primary font-bold shadow-md'
                       : 'bg-background border-input hover:bg-accent hover:text-accent-foreground'
                   }`}
                 >

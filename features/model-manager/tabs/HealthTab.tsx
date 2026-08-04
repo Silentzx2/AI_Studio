@@ -105,12 +105,12 @@ export function HealthTab({ modelId, autoRefresh = true }: HealthTabProps) {
     switch (status) {
       case 'healthy':
       case 'ok':
-        return <CheckCircle className="w-5 h-5 text-green-400" />;
+        return <CheckCircle className="w-5 h-5 text-[hsl(var(--neon-green))]" />;
       case 'unhealthy':
       case 'error':
-        return <XCircle className="w-5 h-5 text-red-400" />;
+        return <XCircle className="w-5 h-5 text-[hsl(var(--destructive))]" />;
       case 'warning':
-        return <AlertTriangle className="w-5 h-5 text-yellow-400" />;
+        return <AlertTriangle className="w-5 h-5 text-[hsl(var(--neon-amber))]" />;
       default:
         return <AlertTriangle className="w-5 h-5 text-gray-400" />;
     }
@@ -120,13 +120,13 @@ export function HealthTab({ modelId, autoRefresh = true }: HealthTabProps) {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'healthy':
-        return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Healthy</Badge>;
+        return <Badge className="bg-[hsl(var(--neon-green)/0.2)] text-[hsl(var(--neon-green))] border-green-500/30">Healthy</Badge>;
       case 'unhealthy':
-        return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">Unhealthy</Badge>;
+        return <Badge className="bg-[hsl(var(--destructive)/0.2)] text-[hsl(var(--destructive))] border-[hsl(var(--destructive)/0.3)]">Unhealthy</Badge>;
       case 'warning':
-        return <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">Warning</Badge>;
+        return <Badge className="bg-[hsl(var(--neon-amber)/0.2)] text-[hsl(var(--neon-amber))] border-[hsl(var(--neon-amber)/0.3)]">Warning</Badge>;
       case 'error':
-        return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">Error</Badge>;
+        return <Badge className="bg-[hsl(var(--destructive)/0.2)] text-[hsl(var(--destructive))] border-[hsl(var(--destructive)/0.3)]">Error</Badge>;
       default:
         return <Badge variant="secondary">Unknown</Badge>;
     }
@@ -161,22 +161,22 @@ export function HealthTab({ modelId, autoRefresh = true }: HealthTabProps) {
             <p className="text-sm text-white/60">Total Models</p>
           </div>
         </Card>
-        <Card className="bg-green-500/10 border-green-500/20 p-4">
+        <Card className="bg-[hsl(var(--neon-green)/0.1)] border-green-500/20 p-4">
           <div className="text-center">
-            <p className="text-3xl font-bold text-green-400">{healthy}</p>
-            <p className="text-sm text-green-400/80">Healthy</p>
+            <p className="text-3xl font-bold text-[hsl(var(--neon-green))]">{healthy}</p>
+            <p className="text-sm text-[hsl(var(--neon-green))]/80">Healthy</p>
           </div>
         </Card>
-        <Card className="bg-yellow-500/10 border-yellow-500/20 p-4">
+        <Card className="bg-[hsl(var(--neon-amber)/0.1)] border-[hsl(var(--neon-amber)/0.2)] p-4">
           <div className="text-center">
-            <p className="text-3xl font-bold text-yellow-400">{warnings}</p>
-            <p className="text-sm text-yellow-400/80">Warnings</p>
+            <p className="text-3xl font-bold text-[hsl(var(--neon-amber))]">{warnings}</p>
+            <p className="text-sm text-[hsl(var(--neon-amber))]/80">Warnings</p>
           </div>
         </Card>
-        <Card className="bg-red-500/10 border-red-500/20 p-4">
+        <Card className="bg-[hsl(var(--destructive)/0.1)] border-[hsl(var(--destructive)/0.2)] p-4">
           <div className="text-center">
-            <p className="text-3xl font-bold text-red-400">{unhealthy}</p>
-            <p className="text-sm text-red-400/80">Unhealthy</p>
+            <p className="text-3xl font-bold text-[hsl(var(--destructive))]">{unhealthy}</p>
+            <p className="text-sm text-[hsl(var(--destructive))]/80">Unhealthy</p>
           </div>
         </Card>
       </div>
@@ -186,7 +186,7 @@ export function HealthTab({ modelId, autoRefresh = true }: HealthTabProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Heart className={`w-8 h-8 text-pink-400 ${loading ? 'animate-pulse' : ''}`} />
+        <Heart className={`w-8 h-8 text-[hsl(var(--neon-pink))] ${loading ? 'animate-pulse' : ''}`} />
         <span className="ml-3 text-white/60">Checking system health...</span>
       </div>
     );
@@ -197,7 +197,7 @@ export function HealthTab({ modelId, autoRefresh = true }: HealthTabProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-          <Heart className="w-5 h-5 text-pink-400" />
+          <Heart className="w-5 h-5 text-[hsl(var(--neon-pink))]" />
           System Health
         </h3>
         <Button
@@ -306,21 +306,21 @@ function SingleModelHealthView({
       {/* Summary */}
       {health.summary && (
         <div className="grid grid-cols-4 gap-2 text-center">
-          <div className="bg-black/20 rounded-lg p-2">
+          <div className="bg-[hsl(var(--surface-0)/0.2)] rounded-lg p-2">
             <p className="text-lg font-bold text-white">{health.summary.total_checks}</p>
             <p className="text-xs text-white/50">Checks</p>
           </div>
-          <div className="bg-green-500/10 rounded-lg p-2">
-            <p className="text-lg font-bold text-green-400">{health.summary.passed}</p>
-            <p className="text-xs text-green-400/70">Passed</p>
+          <div className="bg-[hsl(var(--neon-green)/0.1)] rounded-lg p-2">
+            <p className="text-lg font-bold text-[hsl(var(--neon-green))]">{health.summary.passed}</p>
+            <p className="text-xs text-[hsl(var(--neon-green))]/70">Passed</p>
           </div>
-          <div className="bg-yellow-500/10 rounded-lg p-2">
-            <p className="text-lg font-bold text-yellow-400">{health.summary.warnings}</p>
-            <p className="text-xs text-yellow-400/70">Warnings</p>
+          <div className="bg-[hsl(var(--neon-amber)/0.1)] rounded-lg p-2">
+            <p className="text-lg font-bold text-[hsl(var(--neon-amber))]">{health.summary.warnings}</p>
+            <p className="text-xs text-[hsl(var(--neon-amber))]/70">Warnings</p>
           </div>
-          <div className="bg-red-500/10 rounded-lg p-2">
-            <p className="text-lg font-bold text-red-400">{health.summary.errors}</p>
-            <p className="text-xs text-red-400/70">Errors</p>
+          <div className="bg-[hsl(var(--destructive)/0.1)] rounded-lg p-2">
+            <p className="text-lg font-bold text-[hsl(var(--destructive))]">{health.summary.errors}</p>
+            <p className="text-xs text-[hsl(var(--destructive))]/70">Errors</p>
           </div>
         </div>
       )}
@@ -330,15 +330,15 @@ function SingleModelHealthView({
         <p className="text-sm font-medium text-white/70 uppercase tracking-wider">Detailed Checks</p>
         
         {health.checks && Object.entries(health.checks).map(([checkName, result]) => (
-          <div key={checkName} className="bg-black/20 rounded-lg p-3">
+          <div key={checkName} className="bg-[hsl(var(--surface-0)/0.2)] rounded-lg p-3">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 text-white/80">
                 {getCheckIcon(checkName)}
                 <span className="capitalize font-medium">{checkName.replace('_', ' ')}</span>
               </div>
               <span className={`text-sm ${
-                result.status === 'ok' ? 'text-green-400' :
-                result.status === 'warning' ? 'text-yellow-400' : 'text-red-400'
+                result.status === 'ok' ? 'text-[hsl(var(--neon-green))]' :
+                result.status === 'warning' ? 'text-[hsl(var(--neon-amber))]' : 'text-[hsl(var(--destructive))]'
               }`}>
                 {result.status.toUpperCase()}
               </span>
@@ -358,7 +358,7 @@ function SingleModelHealthView({
             {result.missing_packages && result.missing_packages.length > 0 && (
               <div className="ml-6 mt-2 space-y-1">
                 {result.missing_packages.map((pkg: any, idx: number) => (
-                  <p key={idx} className="text-xs text-yellow-400/80 flex items-center gap-1">
+                  <p key={idx} className="text-xs text-[hsl(var(--neon-amber))]/80 flex items-center gap-1">
                     <AlertTriangle className="w-3 h-3" />
                     {typeof pkg === 'string' ? pkg : pkg.name}
                   </p>

@@ -25,10 +25,10 @@ export function QueueTab({ models }: { models: any[] }) {
               <h4 className="font-medium text-white">{m.label}</h4>
               <p className="text-sm text-white/50">Downloading & Extracting...</p>
             </div>
-            <span className="text-blue-400 font-medium">{Math.round((m.progress || 0) * 100)}%</span>
+            <span className="text-[hsl(var(--neon-blue))] font-medium">{Math.round((m.progress || 0) * 100)}%</span>
           </div>
           <div className="w-full bg-white/10 rounded-full h-2">
-            <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: `${(m.progress || 0) * 100}%` }}></div>
+            <div className="bg-[hsl(var(--neon-blue))] h-2 rounded-full transition-all" style={{ width: `${(m.progress || 0) * 100}%` }}></div>
           </div>
         </div>
       ))}

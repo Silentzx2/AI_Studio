@@ -151,7 +151,7 @@ export function GeneralSection() {
     return (
       <div className="p-6">
         <div className="flex items-center justify-center h-40">
-          <Loader2 className="w-8 h-8 animate-spin text-[hsl(var(--neon-amber))]" />
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       </div>
     );
@@ -278,7 +278,7 @@ export function GeneralSection() {
                   <div className="mt-0.5 flex-shrink-0">
                     {step.status === 'pending' && <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/30" />}
                     {step.status === 'loading' && <Loader2 className="w-5 h-5 animate-spin text-primary" />}
-                    {step.status === 'success' && <CheckCircle className="w-5 h-5 text-emerald-500" />}
+                    {step.status === 'success' && <CheckCircle className="w-5 h-5 text-[hsl(var(--neon-green))]" />}
                     {step.status === 'error' && <XCircle className="w-5 h-5 text-destructive" />}
                   </div>
                   <div className="flex-1 min-w-0">

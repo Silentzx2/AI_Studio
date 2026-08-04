@@ -310,9 +310,9 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
 
           {/* Interactive display */}
           {successResult ? (
-            <div className="bg-[hsl(var(--surface-2))] border border-emerald-500/30 rounded-xl p-5 flex flex-col gap-4 animate-fadeIn">
+            <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--neon-green)/0.3)] rounded-xl p-5 flex flex-col gap-4 animate-fadeIn">
               <div className="flex items-center gap-2.5">
-                <CheckCircle size={18} className="text-emerald-500" />
+                <CheckCircle size={18} className="text-[hsl(var(--neon-green))]" />
                 <span className="text-sm font-bold text-white uppercase tracking-wider">Remeshing Complete!</span>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -320,9 +320,9 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
                   <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">Source Polys</p>
                   <p className="text-xs font-bold text-[hsl(var(--muted-foreground))] mt-1">{successResult.oldVertices}</p>
                 </div>
-                <div className="bg-[hsl(var(--surface-1))] p-3 rounded-lg border border-emerald-500/10">
+                <div className="bg-[hsl(var(--surface-1))] p-3 rounded-lg border border-[hsl(var(--neon-green)/0.1)]">
                   <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">Remeshed Polys</p>
-                  <p className="text-xs font-bold text-emerald-500 mt-1">{successResult.newVertices}</p>
+                  <p className="text-xs font-bold text-[hsl(var(--neon-green))] mt-1">{successResult.newVertices}</p>
                 </div>
               </div>
               <div className="bg-[hsl(var(--surface-1))] p-4 rounded-lg border border-[hsl(var(--border))] flex items-center justify-between">
@@ -345,9 +345,9 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
 
           {/* Quick Warning Footer */}
           <div className="bg-[hsl(var(--surface-2))] rounded-xl p-4 border border-amber-500/10 flex items-start gap-3">
-            <AlertTriangle size={15} className="text-amber-500 flex-shrink-0 mt-0.5" />
+            <AlertTriangle size={15} className="text-[hsl(var(--neon-amber))] flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Engine Notice</span>
+              <span className="text-[10px] font-bold text-[hsl(var(--neon-amber))] uppercase tracking-wider">Engine Notice</span>
               <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1 leading-relaxed">
                 Applying dual-contour retopology generates a clean isomorphic flow over the existing active model. It will update the layout of raw ThreeDViewer primitives.
               </p>
