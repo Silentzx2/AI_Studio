@@ -49,13 +49,6 @@ openai==1.60.1
 psutil==6.1.1
 pynvml>=11.5.0
 
-# Diffusers (SDXL image generation)
-diffusers>=0.30.0
-safetensors==0.4.1
-accelerate==0.30.0
-transformers==4.44.2
-torchvision>=0.16.0
-
 # Dev / testing
 pytest==8.3.4
 pytest-asyncio==0.24.0

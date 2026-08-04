@@ -115,9 +115,6 @@ export interface RuntimeOptions {
   vram_limits: number[];
   gpu_options: ProviderOption[];
   active_provider: string;
-  image_gen_models?: ProviderOption[];
-  image_gen_samplers?: ProviderOption[];
-  image_resolutions?: { width: number; height: number; label: string }[];
 }
 
 export interface GpuInfo {
@@ -241,14 +238,6 @@ export interface QueueStatus {
   scheduler_running: boolean;
 }
 
-export interface DockerService {
-  name: string;
-  status: string;
-  state: string;
-  image: string;
-  ports: string[];
-  uptime: string;
-}
 
 export interface TerminalCommand {
   id: string;
@@ -321,62 +310,4 @@ export interface AdminSettings {
   cudaDevice: string;
   maxVramMb: number;
   autoUnload: boolean;
-}
-
-// ── Image Generation Types ───────────────────────────────────────────────────
-
-export type ImageModel = string; // was: 'sdxl-turbo' | 'sdxl-lightning' | 'sdxl-base'
-export type ImageSampler = 'euler' | 'dpmpp_2m' | 'heun' | 'euler_ancestral';
-
-export interface ImageGenModelOption {
-  id: string;
-  label: string;
-  type: 'sdxl';
-  description: string;
-  vram_required_mb?: number;
-  available?: boolean;
-}
-
-export interface ImageGenerationConfig {
-  prompt: string;
-  negativePrompt?: string;
-  width: number;
-  height: number;
-  steps: number;
-  cfgScale: number;
-  sampler: ImageSampler;
-  scheduler: string;
-  seed?: string;
-  model: ImageModel;
-}
-
-export interface ImageGenerationResult {
-  image_url: string;
-  thumbnail_url: string;
-  generation_time_sec: number;
-  width?: number;
-  height?: number;
-  seed?: string;
-  metadata?: Record<string, unknown>;
-}
-
-export interface ImageJob {
-  id: string;
-  status: 'queued' | 'generating' | 'completed' | 'failed' | 'cancelled';
-  progress: number;
-  stage: string;
-  prompt: string;
-  model: string;
-  image_url?: string;
-  thumbnail_url?: string;
-  width: number;
-  height: number;
-  created_at: string;
-  completed_at?: string;
-  generation_time_sec?: number;
-  seed?: string;
-  steps?: number;
-  cfg_scale?: number;
-  sampler?: string;
-  error_message?: string;
 }
