@@ -858,7 +858,7 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
         background_tasks.add_task(_run_repair)
         return success({"model_id": model_id, "action": "repair_started"})
 
-    elif action == "delete":
+    elif action in ("delete", "uninstall"):
         try:
             from runtime.installer import PROVIDER_METADATA
             from runtime.storage import get_storage_config

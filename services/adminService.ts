@@ -102,8 +102,22 @@ export const adminService = {
 
   async queueStatus(): Promise<QueueStatus | null> {
     try {
-      const res = await apiClient.get<{ data: QueueStatus }>('/api/v1/admin/queue');
-      return res?.data || null;
+      const res = await apiClient.get<{ data: any }>('/api/v1/admin/queue');
+      const d = res?.data || {};
+      // Backend returns {active:{worker:[...]}, reserved:{...}, active_count, reserved_count}
+      const workerKeys = new Set<string>([
+        ...Object.keys(d.active || {}),
+        ...Object.keys(d.reserved || {}),
+      ]);
+      const active = Number(d.active_count ?? Object.values(d.active || {}).flat().length ?? 0);
+      const reserved = Number(d.reserved_count ?? Object.values(d.reserved || {}).flat().length ?? 0);
+      return {
+        active,
+        reserved,
+        queued: Math.max(0, reserved),
+        workers: workerKeys.size,
+        scheduler_running: workerKeys.size > 0,
+      };
     } catch {
       return null;
     }
@@ -115,8 +129,18 @@ export const adminService = {
 
   async listJobs(): Promise<AdminJob[]> {
     try {
-      const res = await apiClient.get<{ data: { jobs: AdminJob[] } }>('/api/v1/admin/jobs');
-      return res?.data?.jobs || [];
+      const res = await apiClient.get<{ data: { jobs: any[] } }>('/api/v1/admin/jobs');
+      return (res?.data?.jobs || []).map((j) => ({
+        id: j.id,
+        status: j.status,
+        type: j.mode ?? j.type ?? '',
+        progress: Number(j.progress ?? 0),
+        created_at: j.created_at,
+        completed_at: j.completed_at,
+        error: j.error_message ?? j.error,
+        mode: j.mode,
+        error_message: j.error_message,
+      }));
     } catch {
       return [];
     }

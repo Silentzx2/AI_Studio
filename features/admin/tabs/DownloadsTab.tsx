@@ -39,16 +39,16 @@ export function DownloadsTab() {
     const data = await adminService.listModels();
     setModels(data);
     const items: DownloadItem[] = data
-      .filter((m) => m.status === 'downloading' || m.status === 'not-installed')
+      .filter((m) => !m.installed || m.download_progress)
       .map((m) => ({
         id: m.id,
         name: m.name,
         type: m.type,
         size: m.size_mb,
-        downloaded: 0,
-        speed: 0,
-        status: m.status === 'downloading' ? 'downloading' as const : 'queued' as const,
-        eta: 0,
+        downloaded: m.download_progress?.downloaded_mb ?? 0,
+        speed: m.download_progress?.speed_mbps ?? 0,
+        status: m.download_progress ? 'downloading' as const : 'queued' as const,
+        eta: m.download_progress?.eta_seconds ?? 0,
         priority: 'normal' as const,
       }));
     setDownloads(items);

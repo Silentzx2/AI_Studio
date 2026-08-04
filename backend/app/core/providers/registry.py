@@ -148,6 +148,19 @@ def get_registry() -> RuntimeProviderRegistry:
     return registry
 
 
+def reset_provider() -> None:
+    """Drop cached runtime provider availability so it re-detects on next call."""
+    get_registry.cache_clear()
+
+
+def validate_provider_switch(name: str) -> tuple[bool, str]:
+    """Validate a runtime provider name before switching active provider."""
+    normalized = _canonical_runtime_provider_name(name)
+    if normalized in _RUNTIME_PROVIDER_MAP or normalized == "mock":
+        return True, ""
+    return False, f"Unknown provider: {name}"
+
+
 def get_provider(name: str, device: str | None = None):
     """Return a provider instance for download or 3D generation flows."""
     normalized = _canonical_runtime_provider_name(name)

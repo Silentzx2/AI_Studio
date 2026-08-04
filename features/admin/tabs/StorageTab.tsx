@@ -24,13 +24,14 @@ export function StorageTab() {
         const res = await apiClient.get<{ success: boolean; data: any }>('/api/v1/system/storage');
         const storage = (res as any)?.data ?? (res as any)?.storage;
         if (storage) {
+          const dirs = storage.directories ?? {};
           setData({
             total: storage.total_gb ?? storage.total ?? 0,
             used: storage.used_gb ?? storage.used ?? 0,
             available: storage.free_gb ?? storage.available ?? 0,
-            models_size: storage.details?.models?.size_gb ?? storage.models_size ?? 0,
-            cache_size: storage.details?.cache?.size_gb ?? storage.cache_size ?? 0,
-            temp_size: storage.details?.temp?.size_gb ?? storage.temp_size ?? 0,
+            models_size: dirs.models?.size_gb ?? storage.models_size ?? 0,
+            cache_size: dirs.uploads?.size_gb ?? 0,
+            temp_size: dirs.exports?.size_gb ?? 0,
             usage_percent: storage.used_percent ?? storage.usage_percent ?? 0,
           });
         }

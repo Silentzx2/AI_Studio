@@ -4,7 +4,7 @@ from app.core.providers.base import DownloadProvider
 
 
 class HuggingFaceProvider(DownloadProvider):
-    def list_models(self) -> list[dict[str, Any]]:
+    async def list_models(self) -> list[dict[str, Any]]:
         return []
         
     def get_model(self, identifier: str) -> dict[str, Any]:
