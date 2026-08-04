@@ -26,6 +26,7 @@ const nextConfig: NextConfig = {
   // Allow dev server access from non-localhost hosts (e.g. Docker, tunnel, LAN)
   allowedDevOrigins: [
     '*',
+    '*.trycloudflare.com',
     '*.run.app',
     '*.asia-east1.run.app',
   ],

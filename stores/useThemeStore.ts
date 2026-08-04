@@ -71,6 +71,11 @@ export interface ThemeConfig {
   // Shadows
   shadowIntensity: number;
   shadowColor: string;
+
+  // Global app background (solid / gradient / wallpaper) applied app-wide.
+  appBackgroundEnabled: boolean;
+  appBackgroundType: 'solid' | 'gradient' | 'wallpaper';
+  appBackground: string;
 }
 
 type AnimationKey = keyof ThemeConfig['animations'];

@@ -47,6 +47,12 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${geistMono.variable} font-sans antialiased bg-background text-foreground relative overflow-x-hidden`}
       >
+        {/* Global app background (solid / gradient / wallpaper) — sits behind all UI */}
+        <div
+          className="fixed inset-0 pointer-events-none z-[-1]"
+          style={{ background: "var(--app-background, transparent)" }}
+          aria-hidden="true"
+        />
         {/* Global ambient glow - Top Left Purple */}
         <div
           className="fixed top-0 left-0 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[hsl(275_95%_65%/0.07)] blur-[180px] rounded-full pointer-events-none z-0"

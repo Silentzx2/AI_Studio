@@ -4,7 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import {
   Check, Sun, Moon, Monitor, Palette, Type, Square, LayoutTemplate, Sparkles,
-  Plus, Droplet, Layers, MousePointerClick, Zap, Wand2, RefreshCw,
+  Plus, Droplet, Layers, MousePointerClick, Zap, Wand2, RefreshCw, Image, Paintbrush,
 } from 'lucide-react';
 import { hexToHSLString } from '@/components/AppearanceProvider';
 import { useThemeStore, type ThemeConfig } from '@/stores/useThemeStore';
@@ -337,6 +337,91 @@ export function AppearanceSection() {
                 <Switch checked={(cfg.animations as any)[key]} onCheckedChange={(v) => setAnim(key as keyof ThemeConfig['animations'], v)} />
               </label>
             ))}
+          </div>
+        </CardContent>
+      </Card>
+
+
+      {/* ── App Background ── */}
+      <Card>
+        <SectionHeader icon={Image} title="App Background" desc="Set a global background — solid color, gradient, or wallpaper — applied app-wide." />
+        <CardContent className="space-y-4">
+          <Row label="Enable Custom Background" hint="Override the default studio backdrop.">
+            <Switch checked={cfg.appBackgroundEnabled} onCheckedChange={(v) => set('appBackgroundEnabled', v)} />
+          </Row>
+
+          <div className={cn("space-y-4", cfg.appBackgroundEnabled ? "" : "opacity-50 pointer-events-none")}>
+            <Row label="Background Type">
+              <Segmented
+                options={['solid', 'gradient', 'wallpaper'] as const}
+                value={cfg.appBackgroundType}
+                onChange={(v) => set('appBackgroundType', v)}
+              />
+            </Row>
+
+            {cfg.appBackgroundType === 'solid' && (
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(cfg.appBackground) ? cfg.appBackground : '#0a0e14'}
+                  onChange={(e) => set('appBackground', e.target.value)}
+                  className="h-10 w-16 rounded-lg cursor-pointer bg-transparent border border-border"
+                />
+                <input
+                  value={cfg.appBackground}
+                  onChange={(e) => set('appBackground', e.target.value)}
+                  placeholder="#0a0e14"
+                  className="h-10 flex-1 rounded-lg glass text-sm border border-[hsl(var(--border)/0.5)] px-3 focus:outline-none font-mono"
+                />
+              </div>
+            )}
+
+            {cfg.appBackgroundType === 'gradient' && (
+              <div className="grid grid-cols-1 gap-2">
+                {[
+                  { label: 'Aurora', value: 'radial-gradient(1100px 700px at 12% 8%, rgba(34,211,238,0.22), transparent), radial-gradient(900px 600px at 88% 92%, rgba(167,139,250,0.20), transparent), linear-gradient(160deg, #04121a, #0a0f1f)' },
+                  { label: 'Sunset', value: 'radial-gradient(1000px 700px at 10% 0%, rgba(251,113,133,0.25), transparent), radial-gradient(900px 700px at 90% 100%, rgba(245,158,11,0.22), transparent), linear-gradient(180deg, #1a0e12, #120a10)' },
+                  { label: 'Ocean', value: 'radial-gradient(1200px 800px at 20% 100%, rgba(14,165,233,0.22), transparent), radial-gradient(800px 600px at 90% 10%, rgba(20,184,166,0.18), transparent), linear-gradient(200deg, #04141a, #061018)' },
+                  { label: 'Emerald', value: 'radial-gradient(1000px 700px at 15% 5%, rgba(52,211,153,0.20), transparent), radial-gradient(900px 700px at 85% 95%, rgba(16,185,129,0.18), transparent), linear-gradient(180deg, #04130d, #07120c)' },
+                  { label: 'Midnight', value: '#070912' },
+                  { label: 'Storm', value: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)' },
+                ].map((g) => (
+                  <button
+                    key={g.label}
+                    onClick={() => set('appBackground', g.value)}
+                    className={cn(
+                      'flex items-center gap-3 p-2 rounded-lg border transition-all text-left',
+                      cfg.appBackground === g.value
+                        ? 'border-primary/50 bg-primary/10'
+                        : 'border-border hover:border-primary/30'
+                    )}
+                  >
+                    <span className="w-10 h-8 rounded-md border border-border shrink-0" style={{ background: g.value }} />
+                    <span className="text-xs font-medium">{g.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {cfg.appBackgroundType === 'wallpaper' && (
+              <div className="space-y-2">
+                <input
+                  value={cfg.appBackground}
+                  onChange={(e) => set('appBackground', e.target.value)}
+                  placeholder="https://… or /wallpaper.png"
+                  className="h-10 w-full rounded-lg glass text-sm border border-[hsl(var(--border)/0.5)] px-3 focus:outline-none font-mono"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Enter an image URL. Tip: drop a file in <code className="font-mono">backend/storage</code> and use its path.
+                </p>
+                {/^https?:\/\//.test(cfg.appBackground) || cfg.appBackground.startsWith('/') ? (
+                  <div
+                    className="h-24 rounded-lg border border-border bg-cover bg-center"
+                    style={{ backgroundImage: `url(${cfg.appBackground})` }}
+                  />
+                ) : null}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

@@ -103,6 +103,13 @@ export function applyGlobalTheme(cfg: ThemeConfig): void {
   }
   root.setProperty('--shadow-color', hexToHSLString(cfg.shadowColor || cfg.accentColor || '#000000'));
 
+  // ── Global app background (solid / gradient / wallpaper) ──
+  if (cfg.appBackgroundEnabled && cfg.appBackground) {
+    root.setProperty('--app-background', cfg.appBackground);
+  } else {
+    root.setProperty('--app-background', '');
+  }
+
   // ── Neon Glow ──
   root.setProperty('--neon-glow-intensity', String(cfg.neonGlowIntensity ?? 0.5));
 
