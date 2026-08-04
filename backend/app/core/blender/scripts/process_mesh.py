@@ -160,11 +160,32 @@ if AUTO_RIG:
     except Exception as rig_err:
         print(f"# Rigify warning: {rig_err}", file=sys.stderr)
         armature_obj = None
+else:
+    # Remove any existing armatures from the scene so the export is rig-free
+    for obj in list(bpy.data.objects):
+        if obj.type == "ARMATURE":
+            bpy.data.objects.remove(obj, do_unlink=True)
+    armature_obj = None
 
 
-# ── 7. Collect stats ───────────────────────────────────────────────────────────
+# ── 5. Gather mesh stats ───────────────────────────────────────────────────────
 total_polys = sum(len(o.data.polygons) for o in bpy.data.objects if o.type == "MESH")
 total_verts = sum(len(o.data.vertices) for o in bpy.data.objects if o.type == "MESH")
+
+# ── 5b. Strip textures when disabled ──────────────────────────────────────────
+if not GEN_TEXTURE:
+    for obj in bpy.data.objects:
+        if obj.type == "MESH":
+            for slot in obj.material_slots:
+                if slot.material:
+                    bpy.data.materials.remove(slot.material, do_unlink=True)
+            obj.data.materials.clear()
+            # Assign a single default gray material so the mesh is still visible
+            default_mat = bpy.data.materials.new(name="Default")
+            default_mat.use_nodes = True
+            default_mat.node_tree.nodes.clear()
+            default_mat.node_tree.nodes.new("ShaderNodeBsdfDiffuse").inputs[0].default_value = (0.5, 0.5, 0.5, 1.0)
+            obj.data.materials.append(default_mat)
 
 
 # ── 8. Export ──────────────────────────────────────────────────────────────────

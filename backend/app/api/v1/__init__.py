@@ -21,6 +21,7 @@ from app.api.v1.system import router as system_router
 from app.api.v1.settings import router as settings_router
 from app.api.v1.upload import router as upload_router
 from app.api.v1.rigging import router as rigging_router
+from app.api.v1.project import router as project_router
 
 # Create main API v1 router
 router = APIRouter()
@@ -33,6 +34,7 @@ router.include_router(health_router, prefix="/health")
 router.include_router(runtime_router, prefix="/runtime")
 router.include_router(upload_router, prefix="/upload")
 router.include_router(rigging_router, prefix="/rigging")
+router.include_router(project_router, prefix="/project")
 router.include_router(admin_router, prefix="/admin")
 router.include_router(hf_token_router, prefix="/hf-token")
 router.include_router(pipelines_router)

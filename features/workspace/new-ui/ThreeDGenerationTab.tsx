@@ -10,10 +10,9 @@ import { OrbitControls, Grid, Environment, Float } from '@react-three/drei';
 import {
   Sparkles, Upload, RotateCcw, ChevronDown, ChevronUp, ChevronRight,
   Maximize2, Play, CheckCircle2, Clock, Check, Download, Layers,
-  Box, Eye, Move, RotateCw, ZoomIn, Grid3X3, Sun, Focus, Terminal,
+  Box, Eye, Move, RotateCw, ZoomIn, Grid3X3, Sun, Focus,
   Sliders, Shield, Cpu, RefreshCw, FolderOpen, Info, Lock, ArrowRight,
   Activity, SlidersHorizontal, Settings, CheckSquare, X, ListFilter, Trash2,
-  EyeOff, GitBranch, Film, Box as BoxIcon,
 } from 'lucide-react';
 
 import { useGenerationStore } from '@/stores/useGenerationStore';
@@ -25,6 +24,7 @@ import { HistoryItem } from '@/types/new-ui';
 import { Skeleton } from '@/components/ux';
 import { toast } from 'sonner';
 import LayerVisibilityPanel from './LayerVisibilityPanel';
+import AssetLayersPanel from './AssetLayersPanel';
 import ExportDialog from './ExportDialog';
 
 interface ThreeDGenerationTabProps {
@@ -363,7 +363,7 @@ export default function ThreeDGenerationTab({
   const [viewMode, setViewMode] = useState<'Mesh' | 'Wireframe' | 'Texture'>('Mesh');
   const [shading, setShading] = useState<'PBR' | 'Clay'>('PBR');
   const [exportFormat, setExportFormat] = useState<'GLB' | 'FBX' | 'OBJ' | 'USDZ' | 'STL'>('GLB');
-  const [activeBottomTab, setActiveBottomTab] = useState<'GENERATED ASSETS' | 'CONSOLE / LOGS'>('GENERATED ASSETS');
+
   const [showGrid, setShowGrid] = useState(true);
   const [showWireframe, setShowWireframe] = useState(false);
   const [autoRotate, setAutoRotate] = useState(false);
@@ -473,11 +473,6 @@ export default function ThreeDGenerationTab({
     if (currentJob?.status === 'failed') return 'Pipeline Failed';
     return 'Ready to Generate';
   }, [isGenerating, jobStatus?.stage, currentJob]);
-
-  // Generate logs content list
-  const activeLogs = useMemo(() => {
-    return jobStatus?.logs ?? currentJob?.logs?.map((l: any) => l.message) ?? [];
-  }, [jobStatus?.logs, currentJob?.logs]);
 
   const { currentProject, setProject, addLayer } = useProjectStore();
 
@@ -994,108 +989,12 @@ export default function ThreeDGenerationTab({
             </div>
           </div>
 
-          {/* Layer Visibility Panel */}
-          <LayerVisibilityPanel />
-        </div>
+        {/* Layer Visibility Panel */}
+        <LayerVisibilityPanel />
 
-        {/* Bottom Dock Control Panel containing "GENERATION PIPELINE", "GENERATED ASSETS", "CONSOLE / LOGS" */}
-        <div className="h-[150px] sm:h-[200px] bg-[hsl(var(--surface-0))] border-t border-[hsl(var(--border))] flex flex-col shrink-0" id="generation-bottom-panel">
-          {/* Panel Tabs */}
-          <div className="flex items-center justify-between px-4 border-b border-[hsl(var(--border))] bg-[hsl(var(--surface-0))] shrink-0">
-            <div className="flex gap-6">
-              {(['GENERATED ASSETS' as const, 'CONSOLE / LOGS' as const]).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveBottomTab(tab)}
-                  className={`py-3 text-[11px] font-black tracking-widest transition-all border-b-2 ${
-                    activeBottomTab === tab
-                      ? 'border-[hsl(var(--primary))] text-[hsl(var(--primary))] font-bold'
-                      : 'border-transparent text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-
-            {activeBottomTab === 'GENERATED ASSETS' && (
-              <span className="text-[10px] font-black text-[hsl(var(--primary))] hover:underline cursor-pointer">View All</span>
-            )}
-          </div>
-
-          {/* Tab Content Panels */}
-          <div className="flex-1 p-4 overflow-y-auto min-h-0 bg-[hsl(var(--surface-0))]">
-            
-            {/* TAB 2: GENERATED ASSETS GRID */}
-            {activeBottomTab === 'GENERATED ASSETS' && (
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3" id="generated-assets-tab-grid">
-                {[
-                  { name: 'Mesh (GLB)', size: activeModel?.stats?.size || '128 MB', desc: 'Core 3D mesh model with materials', active: true, format: 'GLB' },
-                  { name: 'Texture (PBR)', size: '4K Res', desc: 'Roughness, metallic, normals, ambient occlusion maps', active: activeModel.supports.texture_generation, format: 'PNG' },
-                  { name: 'Parts (12)', size: 'OBJ Layout', desc: 'Separated object elements hierarchy layout', active: true, format: 'OBJ' },
-                  { name: 'Rig', size: 'FBX Bone', desc: 'Armature bones joint structures hierarchy', active: true, format: 'FBX' },
-                  { name: 'Preview Render', size: '1080p Image', desc: 'Cinematic layout high quality preview image', active: true, format: 'PNG' },
-                ].map((asset) => (
-                  <div 
-                    key={asset.name}
-                    className={`bg-[hsl(var(--surface-0))] border rounded-xl p-3 flex flex-col gap-1.5 transition-all relative group ${
-                      !asset.active 
-                        ? 'opacity-35 border-[hsl(var(--surface-3))]/40' 
-                        : 'border-[hsl(var(--surface-3))] hover:border-[hsl(var(--primary))]/60 hover:shadow-lg'
-                    }`}
-                  >
-                    {!asset.active && (
-                      <div className="absolute top-2 right-2 text-[hsl(var(--muted-foreground))]">
-                        <Lock size={11} />
-                      </div>
-                    )}
-                    <div className="flex-1 bg-[hsl(var(--surface-1))] rounded-lg p-2.5 flex flex-col items-center justify-center relative min-h-[55px]">
-                      <Box size={20} className={asset.active ? "text-[hsl(var(--primary))]" : "text-zinc-600"} />
-                      <span className="absolute bottom-1 right-1 text-[8px] font-mono bg-black/70 text-[hsl(var(--muted-foreground))] px-1 rounded font-black">{asset.format}</span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-[hsl(var(--foreground))] truncate">{asset.name}</span>
-                      <span className="text-[8px] font-mono text-[hsl(var(--muted-foreground))]">{asset.size}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* TAB 3: CONSOLE / LOGS */}
-            {activeBottomTab === 'CONSOLE / LOGS' && (
-              <div className="h-full bg-[hsl(var(--surface-0))/0.4] border border-[hsl(var(--border))] rounded-xl p-3 flex flex-col gap-1.5 font-mono text-[10px] overflow-y-auto text-[hsl(var(--muted-foreground))]" id="logs-panel-area">
-                <div className="flex items-center gap-1.5 text-[hsl(var(--muted-foreground))] pb-1 border-b border-[hsl(var(--surface-2))] shrink-0">
-                  <Terminal size={11} className="text-[hsl(var(--primary))]" />
-                  <span className="font-black text-[hsl(var(--foreground))] text-[8px] uppercase tracking-widest">LIVE PIPELINE STREAM</span>
-                </div>
-                <div className="flex-1 flex flex-col gap-1 overflow-y-auto">
-                  {activeLogs.length > 0 ? (
-                    activeLogs.map((log: any, i: number) => (
-                      <div key={i} className="leading-normal">
-                        <span className="text-[hsl(var(--primary))] font-bold mr-1.5">&gt;&gt;</span>
-                        <span>{log}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-[hsl(var(--muted-foreground))] flex flex-col items-center justify-center h-full gap-1">
-                      <Terminal size={14} />
-                      <span>Waiting for generation trigger to initialize logger stream...</span>
-                    </div>
-                  )}
-                  {isGenerating && (
-                    <div className="text-[hsl(var(--neon-amber))] font-semibold animate-pulse flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--neon-amber))] animate-ping" />
-                      <span>{activeStageLabel} ({derivedProgress}%)</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-          </div>
-        </div>
-
+        {/* Asset Layers Panel */}
+        <AssetLayersPanel />
+      </div>
       </div>
 
       {/* ───────────────────────────────────────────────────────────── */}

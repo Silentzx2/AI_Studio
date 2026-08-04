@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { ViewerState, ViewerMode } from '@/types';
 
 export type InspectorTab = 'scene' | 'properties' | 'material' | 'lighting' | 'export' | 'logs';
-export type BottomDockTab = 'recent' | 'queue' | 'progress' | 'console' | 'notifications' | 'downloads' | 'history' | 'assets';
+export type BottomDockTab = 'recent' | 'queue' | 'progress' | 'notifications' | 'downloads' | 'history' | 'assets';
 
 interface UIState {
   leftSidebarCollapsed: boolean;

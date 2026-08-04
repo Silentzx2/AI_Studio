@@ -4,7 +4,7 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import {
-  MessageSquare, ListOrdered, Activity, Terminal,
+  MessageSquare, ListOrdered, Activity,
   Bell, Download, Clock, FolderOpen,
   ChevronDown, ChevronUp, X, CheckCircle2, AlertTriangle,
   FileDown, ImageIcon, Package, Wifi
@@ -21,7 +21,6 @@ const DOCK_TABS: { id: BottomDockTab; label: string; icon: React.ComponentType<{
   { id: 'recent', label: 'Recent Prompts', icon: MessageSquare },
   { id: 'queue', label: 'Queue', icon: ListOrdered },
   { id: 'progress', label: 'Progress', icon: Activity },
-  { id: 'console', label: 'Console', icon: Terminal },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'downloads', label: 'Downloads', icon: Download },
   { id: 'history', label: 'History', icon: Clock },
@@ -67,17 +66,6 @@ const activeJobs = [
   { id: 202, prompt: 'Modern coffee table with metal legs', model: 'Hunyuan3D', progress: 23, stage: 'Processing image...' },
 ];
 
-const consoleLogs = [
-  { time: '14:32:20', type: 'info' as const, message: 'Generating point cloud... (67%)' },
-  { time: '14:32:18', type: 'success' as const, message: 'Image preprocessing complete' },
-  { time: '14:32:16', type: 'info' as const, message: 'Model loaded: Trellis (VRAM: 8.2GB)' },
-  { time: '14:32:15', type: 'info' as const, message: 'Generation started: Dragon sculpture' },
-  { time: '14:31:45', type: 'success' as const, message: 'Generation complete: Medieval castle (12.4s)' },
-  { time: '14:31:30', type: 'info' as const, message: 'Generation started: Medieval castle' },
-  { time: '14:30:12', type: 'warning' as const, message: 'GPU temperature high: 82°C' },
-  { time: '14:29:55', type: 'error' as const, message: 'Generation failed: Art nouveau vase - CUDA OOM' },
-];
-
 const notifications = [
   { id: 1, title: 'Generation Complete', message: 'Medieval castle is ready for download', time: '2 min ago', type: 'success' as const, read: false },
   { id: 2, title: 'Model Updated', message: 'Trellis v2.1 is now available', time: '1 hour ago', type: 'info' as const, read: false },
@@ -107,14 +95,6 @@ const assets = [
   { id: 4, name: 'environment_hdri.exr', type: 'HDRI Map', size: '89 MB', thumbnail: '🌅' },
   { id: 5, name: 'material_library.json', type: 'Material', size: '2.4 MB', thumbnail: '✨' },
 ];
-
-/* ── Console log color mapping ──────────────────────── */
-const LOG_COLORS: Record<string, { dot: string; text: string; bg: string }> = {
-  info: { dot: 'bg-[hsl(var(--neon-blue))]', text: 'text-[hsl(var(--neon-cyan))/70]', bg: 'bg-transparent' },
-  success: { dot: 'bg-[hsl(var(--neon-green))]', text: 'text-[hsl(var(--neon-green))/80]', bg: 'bg-[hsl(var(--neon-green)/0.02)]' },
-  warning: { dot: 'bg-[hsl(var(--neon-amber))]', text: 'text-[hsl(var(--neon-amber))/90]', bg: 'bg-[hsl(var(--neon-amber)/0.03)]' },
-  error: { dot: 'bg-[hsl(var(--destructive))]', text: 'text-[hsl(var(--destructive))]', bg: 'bg-[hsl(var(--destructive))]/[0.04] shadow-[inset_0_0_12px_hsl(0_70%_50%/0.05)]' },
-};
 
 /* ── Tab Content Components ─────────────────────────── */
 
@@ -249,49 +229,6 @@ function ProgressTab() {
           </div>
         </motion.div>
       ))}
-    </motion.div>
-  );
-}
-
-function ConsoleTab() {
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // Auto-scroll to bottom
-    const el = scrollRef.current;
-    if (el) {
-      const viewport = el.querySelector('[data-radix-scroll-area-viewport]');
-      if (viewport) {
-        viewport.scrollTop = viewport.scrollHeight;
-      }
-    }
-  }, []);
-
-  return (
-    <motion.div
-      className="font-mono max-h-48 overflow-y-auto scrollbar-neon rounded-lg"
-      ref={scrollRef}
-      variants={listVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      {consoleLogs.map((log, i) => {
-        const colors = LOG_COLORS[log.type];
-        return (
-          <motion.div
-            key={i}
-            variants={listItemVariants}
-            className={cn(
-              'text-[10px] leading-relaxed px-2 py-0.5 rounded-md transition-colors flex items-start gap-1.5',
-              colors.bg
-            )}
-          >
-            <span className="text-muted-foreground/25 tabular-nums shrink-0">{log.time}</span>
-            <span className={cn('w-1.5 h-1.5 rounded-full shrink-0 mt-1.5', colors.dot)} />
-            <span className={colors.text}>{log.message}</span>
-          </motion.div>
-        );
-      })}
     </motion.div>
   );
 }
@@ -563,7 +500,6 @@ export function BottomDock() {
                 {bottomDockTab === 'recent' && <RecentPromptsTab />}
                 {bottomDockTab === 'queue' && <QueueTab />}
                 {bottomDockTab === 'progress' && <ProgressTab />}
-                {bottomDockTab === 'console' && <ConsoleTab />}
                 {bottomDockTab === 'notifications' && <NotificationsTab />}
                 {bottomDockTab === 'downloads' && <DownloadsTab />}
                 {bottomDockTab === 'history' && <HistoryTab />}
