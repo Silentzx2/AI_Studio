@@ -203,4 +203,5 @@ export const adminService = {
       cleanup();
     };
   },
+};
 

@@ -484,8 +484,6 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
       setProgressPercent(0);
       setStatusMessage('Backend unreachable. Please check your connection and retry.');
     }
-      }, 800);
-    }
   };
 
   const handlePreviewAnimation = () => {
