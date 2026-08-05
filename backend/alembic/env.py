@@ -35,12 +35,20 @@ def get_database_url():
         database_url = config.get_main_option("sqlalchemy.url")
     
     # Convert URL to appropriate async driver based on database type
-    if database_url.startswith("sqlite://"):
+    if database_url.startswith("sqlite://") or database_url.startswith("sqlite+aiosqlite://"):
         # SQLite: use aiosqlite for async
-        return database_url.replace("sqlite://", "sqlite+aiosqlite://")
-    elif database_url.startswith("postgresql://"):
+        # Handle both bare sqlite:// and already formatted sqlite+aiosqlite://
+        if "+aiosqlite" in database_url:
+            return database_url  # Already has correct async driver
+        else:
+            return database_url.replace("sqlite://", "sqlite+aiosqlite://")
+    elif database_url.startswith("postgresql://") or database_url.startswith("postgresql+asyncpg://"):
         # PostgreSQL: use asyncpg for async
-        return database_url.replace("postgresql://", "postgresql+asyncpg://")
+        # Handle both bare postgresql:// and already formatted postgresql+asyncpg://
+        if "+asyncpg" in database_url:
+            return database_url  # Already has correct async driver
+        else:
+            return database_url.replace("postgresql://", "postgresql+asyncpg://")
     else:
         # Return as-is for other cases or if already has driver specified
         return database_url
