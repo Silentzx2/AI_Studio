@@ -34,21 +34,30 @@ else:
     async_db_url = database_url
     sync_db_url = database_url.replace("+asyncpg", "+psycopg2")
 
+# Build engine kwargs based on database type
+# SQLite uses NullPool internally — pool_size/max_overflow are invalid there
+# and raise TypeError. PostgreSQL uses QueuePool which benefits from them.
+_is_sqlite = async_db_url.startswith("sqlite")
+if _is_sqlite:
+    _async_engine_kwargs = {"echo": settings.debug}
+    _sync_engine_kwargs = {"echo": settings.debug}
+else:
+    _async_engine_kwargs = {
+        "echo": settings.debug,
+        "pool_pre_ping": True,
+        "pool_size": 10,
+        "max_overflow": 20,
+    }
+    _sync_engine_kwargs = {
+        "echo": settings.debug,
+        "pool_pre_ping": True,
+    }
+
 # Async engine
-engine = create_async_engine(
-    async_db_url,
-    echo=settings.debug,
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
-)
+engine = create_async_engine(async_db_url, **_async_engine_kwargs)
 
 # Sync engine for celery workers
-sync_engine = create_engine(
-    sync_db_url,
-    echo=settings.debug,
-    pool_pre_ping=True,
-)
+sync_engine = create_engine(sync_db_url, **_sync_engine_kwargs)
 
 # Async session
 AsyncSessionLocal = async_sessionmaker(

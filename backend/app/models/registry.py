@@ -8,17 +8,23 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    JSON,
     String,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 from app.database import Base
 
+# Cross-database compatible column types.
+# JSONB/UUID are PostgreSQL-native; for SQLite use JSON/String fallbacks.
+_DB_JSON = JSON().with_variant(JSONB(), "postgresql")
+_DB_UUID = String(36).with_variant(UUID(as_uuid=True), "postgresql")
+
 
 class DownloadQueue(Base):
     __tablename__ = "download_queue"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(_DB_UUID, primary_key=True, default=uuid.uuid4)
     model_id = Column(String, index=True)
     status = Column(String, default="pending") # pending, downloading, paused, completed, failed, cancelled
     priority = Column(Integer, default=1)
@@ -66,8 +72,8 @@ class DownloadQueue(Base):
 class DownloadChunk(Base):
     __tablename__ = "download_chunks"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    queue_id = Column(UUID(as_uuid=True), ForeignKey("download_queue.id", ondelete="CASCADE"))
+    id = Column(_DB_UUID, primary_key=True, default=uuid.uuid4)
+    queue_id = Column(_DB_UUID, ForeignKey("download_queue.id", ondelete="CASCADE"))
     chunk_index = Column(Integer)
     offset = Column(BigInteger)
     size = Column(BigInteger)
@@ -78,7 +84,7 @@ class InstalledModel(Base):
     __tablename__ = "installed_models"
 
     id = Column(String, primary_key=True) # e.g., 'hunyuan3d'
-    manifest = Column(JSONB)
+    manifest = Column(_DB_JSON)
     status = Column(String) # installing, ready, broken, disabled
     installed_at = Column(DateTime, default=datetime.utcnow)
     last_used = Column(DateTime, nullable=True)
@@ -86,14 +92,14 @@ class InstalledModel(Base):
     venv_path = Column(String, nullable=True)
     size_mb = Column(Integer, default=0)
     download_source = Column(String)
-    health_check_result = Column(JSONB, nullable=True)
-    test_inference_result = Column(JSONB, nullable=True)
+    health_check_result = Column(_DB_JSON, nullable=True)
+    test_inference_result = Column(_DB_JSON, nullable=True)
     error_message = Column(String, nullable=True)
 
 class ModelCapability(Base):
     __tablename__ = "model_capabilities"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(_DB_UUID, primary_key=True, default=uuid.uuid4)
     model_id = Column(String, ForeignKey("installed_models.id", ondelete="CASCADE"))
     capability = Column(String)
     status = Column(String) # supported, beta, unsupported
@@ -101,7 +107,7 @@ class ModelCapability(Base):
 class ModelDependency(Base):
     __tablename__ = "model_dependencies"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(_DB_UUID, primary_key=True, default=uuid.uuid4)
     model_id = Column(String, ForeignKey("installed_models.id", ondelete="CASCADE"))
     package_name = Column(String)
     version_requirement = Column(String)

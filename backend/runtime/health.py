@@ -399,25 +399,29 @@ class RuntimeHealth:
 
         # Postgres
         try:
-            import psycopg2
             from app.config import get_settings
             settings = get_settings()
-            sync_url = (
-                settings.database_url
-                .replace("+asyncpg", "")
-                .replace("+aiosqlite", "")
-            )
-            conn = psycopg2.connect(sync_url, connect_timeout=2)
-            conn.close()
-            result["postgres"] = {"available": True}
-            messages.append("Postgres OK")
+            if settings.database_url.startswith("sqlite"):
+                result["postgres"] = {"available": False, "skipped": "Using SQLite — no PostgreSQL required"}
+                messages.append("Postgres skipped (SQLite mode)")
+            else:
+                import psycopg2
+                sync_url = settings.sync_database_url
+                conn = psycopg2.connect(sync_url, connect_timeout=2)
+                conn.close()
+                result["postgres"] = {"available": True}
+                messages.append("Postgres OK")
         except Exception as exc:
             result["postgres"] = {"available": False, "error": str(exc)}
             messages.append(f"Postgres FAIL: {exc}")
 
         redis_ok = result["redis"]["available"]
         pg_ok = result["postgres"]["available"]
-        if redis_ok and pg_ok:
+        db_url = settings.database_url
+        if db_url.startswith("sqlite"):
+            # SQLite mode: only Redis needed for the runtime services check
+            result["status"] = "PASS" if redis_ok else "WARN"
+        elif redis_ok and pg_ok:
             result["status"] = "PASS"
         elif not redis_ok and not pg_ok:
             result["status"] = "FAIL"
