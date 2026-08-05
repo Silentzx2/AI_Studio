@@ -1,5 +1,4 @@
 
-
 from collections.abc import AsyncGenerator
 
 from sqlalchemy import create_engine
@@ -10,14 +9,34 @@ from app.config import get_settings
 
 settings = get_settings()
 
-# Ensure the URL always uses +asyncpg for create_async_engine,
-# regardless of what the DATABASE_URL env var contains.
-_db_url = settings.database_url.replace("+psycopg2", "+asyncpg")
-_sync_db_url = settings.database_url.replace("+asyncpg", "+psycopg2")
+# Determine database type and use appropriate drivers
+database_url = settings.database_url
+if database_url.startswith("sqlite://") or database_url.startswith("sqlite+aiosqlite://"):
+    # SQLite: use aiosqlite for async, bare sqlite for sync
+    # Handle both bare sqlite:// and already formatted sqlite+aiosqlite://
+    if "+aiosqlite" in database_url:
+        async_db_url = database_url  # Already has correct async driver
+        sync_db_url = database_url.replace("+aiosqlite", "")  # Remove async driver for sync
+    else:
+        async_db_url = database_url.replace("sqlite://", "sqlite+aiosqlite://")
+        sync_db_url = database_url  # Keep bare sqlite:// for sync engine
+elif database_url.startswith("postgresql://") or database_url.startswith("postgresql+asyncpg://"):
+    # PostgreSQL: use asyncpg for async, psycopg2 for sync
+    # Handle both bare postgresql:// and already formatted postgresql+asyncpg://
+    if "+asyncpg" in database_url:
+        async_db_url = database_url  # Already has correct async driver
+        sync_db_url = database_url.replace("+asyncpg", "+psycopg2")  # Convert to sync driver
+    else:
+        async_db_url = database_url.replace("postgresql://", "postgresql+asyncpg://")
+        sync_db_url = database_url.replace("postgresql://", "postgresql+psycopg2://")
+else:
+    # Handle other cases or fallback
+    async_db_url = database_url
+    sync_db_url = database_url.replace("+asyncpg", "+psycopg2")
 
 # Async engine
 engine = create_async_engine(
-    _db_url,
+    async_db_url,
     echo=settings.debug,
     pool_pre_ping=True,
     pool_size=10,
@@ -26,7 +45,7 @@ engine = create_async_engine(
 
 # Sync engine for celery workers
 sync_engine = create_engine(
-    _sync_db_url,
+    sync_db_url,
     echo=settings.debug,
     pool_pre_ping=True,
 )
@@ -49,6 +68,7 @@ SessionLocal = sessionmaker(
 
 class Base(DeclarativeBase):
     pass
+
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
