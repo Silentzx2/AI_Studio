@@ -28,6 +28,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
+# ── Google Colab Detection ────────────────────────────────────────────────
+# Colab has its own bootstrap+start flow in scripts/colab.sh — redirect
+# there instead of running local/Linux startup logic.
+if [[ -n "${COLAB_GPU:-}" || -n "${COLAB_TPU_ADDR:-}" || -d "/content" ]]; then
+    echo -e "${YELLOW}[INFO]${NC}   Google Colab detected."
+    echo -e "${YELLOW}[WARN]${NC}   Please run ${BOLD}bash scripts/colab.sh${NC} instead — this script does not support Colab."
+    exit 0
+fi
+
 # ── Ensure uv is available (hard dependency for venv + per-model installs) ──
 if ! command -v uv &>/dev/null; then
     info "uv not found — installing (required for backend + model venvs)..."
@@ -48,8 +57,6 @@ fi
 detect_environment() {
     if [[ -n "${CODESPACES:-}" || -n "${GITHUB_CODESPACE_NAME:-}" ]]; then
         echo "codespaces"
-    elif [[ -n "${COLAB_GPU:-}" || -n "${COLAB_TPU_ADDR:-}" || -d "/content" ]]; then
-        echo "colab"
     elif [[ -n "${NB_SESSION_ID:-}" || -n "${JUPYTER_BASE_URL:-}" || -d "/home/jovyan" ]]; then
         echo "cloud-notebook"
     elif [[ -n "${KUBERNETES_SERVICE_HOST:-}" || -n "${CONTAINER_NAME:-}" ]]; then
@@ -71,7 +78,7 @@ detect_gpu() {
     echo "cpu"
 }
 
-# ── Auto-bootstrap for cloud/Colab environments ──────────────────
+# ── Auto-bootstrap for cloud environments ──────────────────
 
 auto_bootstrap() {
     local env_type
@@ -97,17 +104,7 @@ auto_bootstrap() {
         log "uv installed: $(uv --version)"
     fi
 
-    # Colab-specific: ensure venv module is available
-    if [[ "$env_type" == "colab" ]]; then
-        if ! python3 -c "import venv" 2>/dev/null; then
-            warn "venv module missing, installing python3-venv..."
-            sudo apt-get update -qq && sudo apt-get install -y python3-venv 2>/dev/null || true
-        fi
-        export USE_SQLITE=1
-        warn "Colab detected — using SQLite fallback for database and in-process broker for Celery."
-    fi
-
-    # Codespaces/cloud notebooks: use SQLite fallback
+    # Codespaces/cloud notebooks: use SQLite fallback (no systemd)
     if [[ "$env_type" == "codespaces" || "$env_type" == "cloud-notebook" ]]; then
         export USE_SQLITE=1
         warn "${env_type} detected — using SQLite fallback for database and in-process broker for Celery."

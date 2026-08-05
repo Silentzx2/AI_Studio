@@ -33,6 +33,7 @@ PID_DIR="${PROJECT_ROOT}/.pids"
 API_PID_FILE="$PID_DIR/api.pid"
 WORKER_PID_FILE="$PID_DIR/worker.pid"
 FRONTEND_PID_FILE="$PID_DIR/frontend.pid"
+KEEPALIVE_PID_FILE="$PID_DIR/colab_keepalive.pid"
 
 # ── Helper: Kill by PID file ──────────────────────────────────────────────
 kill_service() {
@@ -79,6 +80,7 @@ echo ""
 # ── Stop services in reverse order ─────────────────────────────────────────
 kill_service "Frontend" "$FRONTEND_PID_FILE"
 kill_service "Celery Worker" "$WORKER_PID_FILE"
+kill_service "Colab Keep-Alive" "$KEEPALIVE_PID_FILE"
 kill_service "Backend API" "$API_PID_FILE"
 
 echo ""
