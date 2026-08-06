@@ -5,7 +5,8 @@ import {
   Layers, Palette, Bone, Play, SlidersHorizontal, Scissors,
   RefreshCw, ChevronDown, ChevronUp,
 } from 'lucide-react';
-import { useProjectStore, type ProjectLayer } from '@/stores/useProjectStore';
+import { useProjectStore } from '@/stores/useProjectStore';
+import type { ProjectLayer } from '@/types';
 
 const LAYER_ICONS: Record<ProjectLayer['type'], React.ComponentType<{ className?: string; size?: number }>> = {
   texture: Palette,

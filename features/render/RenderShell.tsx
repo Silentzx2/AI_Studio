@@ -109,7 +109,6 @@ export function RenderShell() {
             <h3 className="text-sm font-semibold mb-4">Lighting</h3>
             <div className="space-y-2">
               {LIGHTING_PRESETS.map((light) => {
-                const Icon = light.icon;
                 return (
                   <button
                     key={light.id}

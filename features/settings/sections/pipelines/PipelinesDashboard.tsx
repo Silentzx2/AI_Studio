@@ -1037,7 +1037,6 @@ export function PipelinesDashboard({
                             />
                           </div>
                         )}
-                        </div>
 
                         <div className="mt-3 rounded-lg border border-border bg-muted/20 p-3 text-sm text-muted-foreground">
                           <span className="font-medium text-foreground">Best for:</span> {model.bestFor.join(', ')}. {model.notesText}

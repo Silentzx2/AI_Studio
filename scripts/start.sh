@@ -146,7 +146,7 @@ auto_bootstrap() {
     # Ensure storage directories exist
     mkdir -p backend/storage/uploads backend/storage/models backend/storage/thumbnails
     mkdir -p backend/storage/exports backend/storage/images backend/third_party/.hf_cache/hub
-    mkdir -p backend/.runtime_cache logs .pids
+    mkdir -p backend/.runtime_cache logs
 
     log "Auto-bootstrap complete for ${env_type}"
 }

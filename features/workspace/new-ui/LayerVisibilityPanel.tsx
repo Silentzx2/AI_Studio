@@ -6,7 +6,8 @@ import {
   Palette, Bone, Play, SlidersHorizontal, Scissors,
   RefreshCw, X, CheckCircle2,
 } from 'lucide-react';
-import { useProjectStore, type ProjectLayer } from '@/stores/useProjectStore';
+import { useProjectStore } from '@/stores/useProjectStore';
+import type { ProjectLayer } from '@/types';
 import { toast } from 'sonner';
 
 const LAYER_ICONS: Record<ProjectLayer['type'], React.ComponentType<{ className?: string }>> = {

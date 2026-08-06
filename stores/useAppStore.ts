@@ -21,6 +21,7 @@ interface AppState {
   recentPrompts: RecentPrompt[];
   isLoadingHistory: boolean;
   loadingError: string | null;
+  retryCount: number;
 
   // ── UI ──
   leftSidebarCollapsed: boolean;
@@ -144,7 +145,12 @@ interface AppState {
   setJobFilter: (filter: string) => void;
 }
 
-const DEFAULT_STATE: Omit<AppState, keyof AppState['actions']> = {
+type ActionKeys = {
+  [K in keyof AppState]: AppState[K] extends (...args: any[]) => any ? K : never;
+}[keyof AppState];
+type AppStateData = Omit<AppState, ActionKeys>;
+
+const DEFAULT_STATE: AppStateData = {
   mode: 'text-to-3d',
   prompt: '',
   negativePrompt: '',
@@ -162,6 +168,7 @@ const DEFAULT_STATE: Omit<AppState, keyof AppState['actions']> = {
   recentPrompts: [],
   isLoadingHistory: false,
   loadingError: null,
+  retryCount: 0,
 
   leftSidebarCollapsed: false,
   rightSidebarCollapsed: false,
@@ -188,107 +195,6 @@ const DEFAULT_STATE: Omit<AppState, keyof AppState['actions']> = {
   currentProject: null,
   activeLayerId: null,
   isDirty: false,
-
-  setProject: (project) => set({ currentProject: project, isDirty: false, activeLayerId: null }),
-  clearProject: () => set({ currentProject: null, activeLayerId: null, isDirty: false }),
-  addLayer: (layer) =>
-    set((s) => {
-      if (!s.currentProject) return {};
-      const existing = s.currentProject.layers.find(
-        (l) => l.type === layer.type && l.sourceTab === layer.sourceTab
-      );
-      if (existing) {
-        const updatedLayers = s.currentProject.layers.map((l) =>
-          l.id === existing.id ? { ...layer, id: existing.id, timestamp: new Date() } : l
-        );
-        return {
-          currentProject: { ...s.currentProject, layers: updatedLayers },
-          isDirty: true,
-        };
-      }
-      return {
-        currentProject: {
-          ...s.currentProject,
-          layers: [...s.currentProject.layers, { ...layer, id: layer.id || Math.random().toString(36).slice(2, 10), timestamp: new Date() }],
-        },
-        isDirty: true,
-      };
-    }),
-  removeLayer: (layerId) =>
-    set((s) => {
-      if (!s.currentProject) return {};
-      return {
-        currentProject: {
-          ...s.currentProject,
-          layers: s.currentProject.layers.filter((l) => l.id !== layerId),
-        },
-        isDirty: true,
-        activeLayerId: s.activeLayerId === layerId ? null : s.activeLayerId,
-      };
-    }),
-  toggleLayerEnabled: (layerId) =>
-    set((s) => {
-      if (!s.currentProject) return {};
-      return {
-        currentProject: {
-          ...s.currentProject,
-          layers: s.currentProject.layers.map((l) =>
-            l.id === layerId ? { ...l, enabled: !l.enabled } : l
-          ),
-        },
-        isDirty: true,
-      };
-    }),
-  toggleLayerVisible: (layerId) =>
-    set((s) => {
-      if (!s.currentProject) return {};
-      return {
-        currentProject: {
-          ...s.currentProject,
-          layers: s.currentProject.layers.map((l) =>
-            l.id === layerId ? { ...l, visible: !l.visible } : l
-          ),
-        },
-        isDirty: true,
-      };
-    }),
-  updateLayer: (layerId, updates) =>
-    set((s) => {
-      if (!s.currentProject) return {};
-      return {
-        currentProject: {
-          ...s.currentProject,
-          layers: s.currentProject.layers.map((l) =>
-            l.id === layerId ? { ...l, ...updates } : l
-          ),
-        },
-        isDirty: true,
-      };
-    }),
-  setActiveLayer: (activeLayerId) => set({ activeLayerId }),
-  getEnabledLayers: () => {
-    const s = get();
-    return s.currentProject?.layers.filter((l) => l.enabled) ?? [];
-  },
-  getVisibleLayers: () => {
-    const s = get();
-    return s.currentProject?.layers.filter((l) => l.visible) ?? [];
-  },
-  getLayerByType: (type) => {
-    const s = get();
-    return s.currentProject?.layers.find((l) => l.type === type);
-  },
-  reorderLayers: (fromId, toId) =>
-    set((s) => {
-      if (!s.currentProject) return {};
-      const layers = [...s.currentProject.layers];
-      const fromIdx = layers.findIndex((l) => l.id === fromId);
-      const toIdx = layers.findIndex((l) => l.id === toId);
-      if (fromIdx === -1 || toIdx === -1) return {};
-      const [moved] = layers.splice(fromIdx, 1);
-      layers.splice(toIdx, 0, moved);
-      return { currentProject: { ...s.currentProject, layers }, isDirty: true };
-    }),
 };
 
 const PERSISTENCE_VERSION = 1;
@@ -422,6 +328,108 @@ export const useAppStore = create<AppState>()(
       setModelSearchQuery: (modelSearchQuery) => set({ modelSearchQuery }),
       setModelCategoryFilter: (modelCategoryFilter) => set({ modelCategoryFilter }),
       setJobFilter: (jobFilter) => set({ jobFilter }),
+
+      // ── Project Actions ──
+      setProject: (project) => set({ currentProject: project, isDirty: false, activeLayerId: null }),
+      clearProject: () => set({ currentProject: null, activeLayerId: null, isDirty: false }),
+      addLayer: (layer) =>
+        set((s) => {
+          if (!s.currentProject) return {};
+          const existing = s.currentProject.layers.find(
+            (l) => l.type === layer.type && l.sourceTab === layer.sourceTab
+          );
+          if (existing) {
+            const updatedLayers = s.currentProject.layers.map((l) =>
+              l.id === existing.id ? { ...layer, id: existing.id, timestamp: new Date() } : l
+            );
+            return {
+              currentProject: { ...s.currentProject, layers: updatedLayers },
+              isDirty: true,
+            };
+          }
+          return {
+            currentProject: {
+              ...s.currentProject,
+              layers: [...s.currentProject.layers, { ...layer, id: layer.id || Math.random().toString(36).slice(2, 10), timestamp: new Date() }],
+            },
+            isDirty: true,
+          };
+        }),
+      removeLayer: (layerId) =>
+        set((s) => {
+          if (!s.currentProject) return {};
+          return {
+            currentProject: {
+              ...s.currentProject,
+              layers: s.currentProject.layers.filter((l) => l.id !== layerId),
+            },
+            isDirty: true,
+            activeLayerId: s.activeLayerId === layerId ? null : s.activeLayerId,
+          };
+        }),
+      toggleLayerEnabled: (layerId) =>
+        set((s) => {
+          if (!s.currentProject) return {};
+          return {
+            currentProject: {
+              ...s.currentProject,
+              layers: s.currentProject.layers.map((l) =>
+                l.id === layerId ? { ...l, enabled: !l.enabled } : l
+              ),
+            },
+            isDirty: true,
+          };
+        }),
+      toggleLayerVisible: (layerId) =>
+        set((s) => {
+          if (!s.currentProject) return {};
+          return {
+            currentProject: {
+              ...s.currentProject,
+              layers: s.currentProject.layers.map((l) =>
+                l.id === layerId ? { ...l, visible: !l.visible } : l
+              ),
+            },
+            isDirty: true,
+          };
+        }),
+      updateLayer: (layerId, updates) =>
+        set((s) => {
+          if (!s.currentProject) return {};
+          return {
+            currentProject: {
+              ...s.currentProject,
+              layers: s.currentProject.layers.map((l) =>
+                l.id === layerId ? { ...l, ...updates } : l
+              ),
+            },
+            isDirty: true,
+          };
+        }),
+      setActiveLayer: (activeLayerId) => set({ activeLayerId }),
+      getEnabledLayers: () => {
+        const s = get();
+        return s.currentProject?.layers.filter((l) => l.enabled) ?? [];
+      },
+      getVisibleLayers: () => {
+        const s = get();
+        return s.currentProject?.layers.filter((l) => l.visible) ?? [];
+      },
+      getLayerByType: (type) => {
+        const s = get();
+        return s.currentProject?.layers.find((l) => l.type === type);
+      },
+      reorderLayers: (fromId, toId) =>
+        set((s) => {
+          if (!s.currentProject) return {};
+          const layers = [...s.currentProject.layers];
+          const fromIdx = layers.findIndex((l) => l.id === fromId);
+          const toIdx = layers.findIndex((l) => l.id === toId);
+          if (fromIdx === -1 || toIdx === -1) return {};
+          const [moved] = layers.splice(fromIdx, 1);
+          layers.splice(toIdx, 0, moved);
+          return { currentProject: { ...s.currentProject, layers }, isDirty: true };
+        }),
     }),
     {
       name: PERSISTENCE_KEY,
