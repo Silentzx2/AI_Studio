@@ -415,11 +415,49 @@ def _check_disk_space(provider_name: str) -> tuple[bool, str]:
 # Module-level functions (primary API)
 # ---------------------------------------------------------------------------
 
+def _ensure_git_installed() -> tuple[bool, str]:
+    """Ensure git is available in the environment.
+
+    In Colab, git is not pre-installed, so we install it automatically.
+    Returns (success, message).
+    """
+    git_path = shutil.which("git")
+    if git_path:
+        return True, f"git found at {git_path}"
+
+    from runtime.platform_detection import _is_colab
+
+    if not _is_colab():
+        return False, "git is not installed and this is not a Colab environment"
+
+    try:
+        code, output = _run(["apt-get", "update", "-qq"])
+        if code != 0:
+            return False, f"apt-get update failed: {output[:200]}"
+        code, output = _run(["apt-get", "install", "-y", "-qq", "git"])
+        if code != 0:
+            return False, f"apt-get install git failed: {output[:200]}"
+        git_path = shutil.which("git")
+        if git_path:
+            return True, f"git installed at {git_path}"
+        return False, "git installation succeeded but git binary not found"
+    except Exception as exc:
+        return False, f"Failed to install git in Colab: {exc}"
+
+
 def clone_repo(repo_name: str, log_cb: Callable | None = None) -> dict:
     storage = get_storage_config()
     repo_cfg = REPOS.get(repo_name)
     if not repo_cfg:
         return {"success": False, "error": f"Unknown repo: {repo_name}"}
+
+    # Ensure git is available (especially important in Colab)
+    git_ok, git_msg = _ensure_git_installed()
+    if not git_ok:
+        return {"success": False, "error": f"git not available: {git_msg}"}
+    if log_cb and git_msg != "git found":
+        log_cb(git_msg)
+
     dest = storage.get_repo_path(repo_name)
     if dest.exists() and (dest / ".git").exists():
         logger.info("Repo %s already cloned, pulling latest.", repo_name)

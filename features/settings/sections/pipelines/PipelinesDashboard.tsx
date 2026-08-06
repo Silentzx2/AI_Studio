@@ -375,6 +375,9 @@ function downloadJson(filename: string, value: unknown) {
   URL.revokeObjectURL(url);
 }
 
+import { ModelInstallProgress } from '../ModelInstallProgress';
+import type { EnvironmentType } from '../ModelInstallProgress';
+
 interface PipelinesDashboardProps {
   snapshot: PipelineSnapshot;
   busy: BusyState;
@@ -382,6 +385,9 @@ interface PipelinesDashboardProps {
   onToggle: (model: PipelineStatus) => Promise<PipelineSnapshot | null>;
   onInstall: (model: PipelineStatus) => Promise<void>;
   onUninstall: (model: PipelineStatus) => Promise<void>;
+  installProgress?: Record<string, boolean>;
+  environment?: EnvironmentType;
+  onInstallProgressChange?: (modelId: string, inProgress: boolean) => void;
 }
 
 function generateUniqueId() {
@@ -395,6 +401,9 @@ export function PipelinesDashboard({
   onToggle,
   onInstall,
   onUninstall,
+  installProgress = {},
+  environment = 'vps',
+  onInstallProgressChange,
 }: PipelinesDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [notifications, setNotifications] = useState<NotificationItem[]>(DEFAULT_NOTIFICATIONS);
@@ -1010,6 +1019,24 @@ export function PipelinesDashboard({
                             <LayoutGrid className="h-4 w-4" />
                             Compare
                           </Button>
+                        </div>
+
+                        {/* Installation Progress Bar */}
+                        {installProgress[model.id] && (
+                          <div className="mt-3">
+                            <ModelInstallProgress
+                              modelId={model.id}
+                              modelLabel={model.label}
+                              environment={environment}
+                              onComplete={() => {
+                                onInstallProgressChange?.(model.id, false);
+                              }}
+                              onError={() => {
+                                onInstallProgressChange?.(model.id, false);
+                              }}
+                            />
+                          </div>
+                        )}
                         </div>
 
                         <div className="mt-3 rounded-lg border border-border bg-muted/20 p-3 text-sm text-muted-foreground">

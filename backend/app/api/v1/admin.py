@@ -39,6 +39,28 @@ import time as _time_module
 
 _STARTUP_TIME = _time_module.time()
 
+
+def _get_environment_type() -> str:
+    """Detect the runtime environment type for the frontend."""
+    try:
+        from runtime.platform_detection import _is_colab
+        if _is_colab():
+            return "colab"
+    except Exception:
+        pass
+    # Check common VPS/VM indicators
+    if os.environ.get("CODESPACES") or os.environ.get("GITHUB_CODESPACE_NAME"):
+        return "codespace"
+    if Path("/proc/version").exists():
+        try:
+            proc_version = Path("/proc/version").read_text()
+            if "microsoft" in proc_version.lower():
+                return "wsl"
+        except Exception:
+            pass
+    return "vps"
+
+
 # ---------------------------------------------------------------------------
 # Persistent file-backed log sink.
 #
@@ -600,6 +622,7 @@ async def admin_overview():
             "storage_total_gb": storage_total_gb,
             "queue_running": active_tasks > 0,
             "cuda_available": gpu.available,
+            "environment": _get_environment_type(),
         })
     except Exception as exc:
         logger.exception("overview failed")
@@ -610,6 +633,8 @@ async def admin_overview():
 async def admin_system():
     try:
         from runtime.gpu import get_gpu_info, get_vram_usage
+        from runtime.platform_detection import _is_colab
+
         gpu = get_gpu_info()
 
         ram_info: dict = {}
@@ -636,6 +661,8 @@ async def admin_system():
         except Exception:
             pass
 
+        env_type = "colab" if _is_colab() else "vps"
+
         return success({
             "gpu": {
                 "available": gpu.available,
@@ -651,6 +678,7 @@ async def admin_system():
             "ram": ram_info,
             "cpu": cpu_info,
             "disk": disk_info,
+            "environment": env_type,
         })
     except Exception as exc:
         logger.exception("system failed")

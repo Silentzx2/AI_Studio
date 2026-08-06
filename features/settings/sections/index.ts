@@ -5,9 +5,10 @@ export { AppearanceSection } from './AppearanceSection';
 export { GenerationSection } from './GenerationSection';
 export { PipelinesSection } from './PipelinesSection';
 export { ExportBackupSection } from './ExportBackupSection';
-export { 
-  NotificationsSection, 
-  ShortcutsSection, 
-  NetworkSection, 
-  AdvancedSection 
+export {
+  NotificationsSection,
+  ShortcutsSection,
+  NetworkSection,
+  AdvancedSection,
 } from './PreferencesSections';
+export { ModelInstallProgress } from './ModelInstallProgress';

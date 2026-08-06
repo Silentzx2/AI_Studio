@@ -11,6 +11,7 @@ import { PipelinesDashboard } from './pipelines/PipelinesDashboard';
 import { useUIStore } from '@/stores/useUIStore';
 import { Switch } from '@/components/ui/switch';
 import { useAutoSave } from '@/hooks/useAutoSave';
+import type { EnvironmentType } from './ModelInstallProgress';
 
 type BusyState = Record<string, boolean>;
 
@@ -19,11 +20,14 @@ export function PipelinesSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<BusyState>({});
-  
+  const [installProgress, setInstallProgress] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [environment, setEnvironment] = useState<EnvironmentType>('vps');
+
   const { capabilities, setCapability } = useUIStore();
 
   const { Indicator } = useAutoSave(capabilities, async () => {
-    // Already saved to local state synchronously, but showing the indicator for UX.
     await new Promise(r => setTimeout(r, 200));
   }, 500, true);
 
@@ -48,6 +52,19 @@ export function PipelinesSection() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    adminService.system().then((data) => {
+      if (data && (data as Record<string, unknown>).environment) {
+        const env = String((data as Record<string, unknown>).environment);
+        if (env === 'colab' || env === 'vps' || env === 'codespace' || env === 'wsl') {
+          setEnvironment(env as EnvironmentType);
+        }
+      }
+    }).catch(() => {
+      setEnvironment('vps');
+    });
+  }, []);
 
   const setModelBusy = (id: string, value: boolean) => {
     setBusy((current) => ({ ...current, [id]: value }));
@@ -74,6 +91,7 @@ export function PipelinesSection() {
 
   const handleInstall = async (model: PipelineStatus) => {
     setModelBusy(model.id, true);
+    setInstallProgress((prev) => ({ ...prev, [model.id]: true }));
     try {
       await adminService.modelAction(model.id, 'install');
       setTimeout(() => { void load(); }, 2000);
@@ -86,7 +104,12 @@ export function PipelinesSection() {
     setModelBusy(model.id, true);
     try {
       await adminService.modelAction(model.id, 'uninstall');
-      setTimeout(() => { void load(); }, 1500);
+      setInstallProgress((prev) => {
+        const next = { ...prev };
+        delete next[model.id];
+        return next;
+      });
+      load();
     } finally {
       setModelBusy(model.id, false);
     }
@@ -140,7 +163,7 @@ export function PipelinesSection() {
               onCheckedChange={(c) => setCapability('threeDGen', c)}
             />
           </div>
-          
+
           <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-card">
             <div>
               <p className="font-medium">Remesh & Refine</p>
@@ -186,7 +209,7 @@ export function PipelinesSection() {
           </div>
         </div>
       </div>
-      
+
       <div>
         <h2 className="text-xl font-semibold mb-4">Pipeline Status & Management</h2>
         <PipelinesDashboard
@@ -196,6 +219,19 @@ export function PipelinesSection() {
           onToggle={handleToggle}
           onInstall={handleInstall}
           onUninstall={handleUninstall}
+          installProgress={installProgress}
+          environment={environment}
+          onInstallProgressChange={(modelId, inProgress) => {
+            setInstallProgress((prev) => {
+              const next = { ...prev };
+              if (inProgress) {
+                next[modelId] = true;
+              } else {
+                delete next[modelId];
+              }
+              return next;
+            });
+          }}
         />
       </div>
     </div>

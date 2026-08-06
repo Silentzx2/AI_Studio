@@ -48,6 +48,7 @@ class PlatformInfo:
     is_macos: bool = False
     is_windows: bool = False
     is_linux: bool = False
+    is_colab: bool = False
 
     # GPU status
     gpu_available: bool = False
@@ -80,6 +81,7 @@ def detect_platform() -> PlatformInfo:
     info.is_macos = info.os_name == "Darwin"
     info.is_windows = info.os_name == "Windows"
     info.is_linux = info.os_name == "Linux"
+    info.is_colab = _is_colab()
 
     # Detect GPU
     _detect_gpu(info)
@@ -118,6 +120,27 @@ def _is_wsl() -> bool:
     if os.environ.get("WSL_DISTRO_NAME"):
         return True
     if Path("/proc/sys/fs/binfmt_misc/WSLInterop").exists():
+        return True
+    return False
+
+
+def _is_colab() -> bool:
+    """Check if running in Google Colab environment."""
+    # Check for Colab-specific environment variables
+    if os.environ.get("COLAB_GPU") or os.environ.get("COLAB_TPU_ADDR"):
+        return True
+    # Check for Colab-specific files/directories
+    if Path("/content").exists() and Path("/content/drive").exists():
+        return True
+    # Check for google.colab in Python packages
+    try:
+        import google.colab
+        return True
+    except ImportError:
+        pass
+    # Check hostname patterns common in Colab
+    hostname = os.environ.get("HOSTNAME", "")
+    if "colab" in hostname.lower() or "google" in hostname.lower():
         return True
     return False
 
@@ -218,6 +241,7 @@ def _collect_diagnostics(info: PlatformInfo) -> None:
             "is_codespaces": info.is_codespaces,
             "is_github_actions": info.is_github_actions,
             "is_wsl": info.is_wsl,
+            "is_colab": info.is_colab,
         },
         "gpu": {
             "available": info.gpu_available,
@@ -250,6 +274,7 @@ def log_platform_info(info: PlatformInfo) -> None:
     if info.is_codespaces: env_parts.append("Codespaces")
     if info.is_github_actions: env_parts.append("GitHub Actions")
     if info.is_wsl: env_parts.append("WSL")
+    if info.is_colab: env_parts.append("Colab")
     env_str = ", ".join(env_parts) if env_parts else "Native"
     logger.info(f"Environment: {env_str}")
 
@@ -287,9 +312,11 @@ def is_gpu_available() -> bool:
 
 def get_platform_summary() -> dict:
     info = get_platform_info()
+    env_type = "colab" if info.is_colab else "vps" if info.is_linux else "native"
     return {
         "os": info.os_name,
-        "environment": "native",
+        "environment": env_type,
+        "is_colab": info.is_colab,
         "gpu_available": info.gpu_available,
         "gpu_count": info.gpu_count,
         "cuda_version": info.cuda_version,
