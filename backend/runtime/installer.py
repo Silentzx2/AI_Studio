@@ -389,6 +389,17 @@ def _acquire_install_lock(repo_name: str) -> bool:
         return False
 
 
+def _release_install_lock(repo_name: str) -> None:
+    """Remove the install lock file for a repo (best-effort)."""
+    try:
+        from runtime.storage import get_storage_config
+        lock_path = get_storage_config().get_repo_path(repo_name) / ".installing.lock"
+        if lock_path.exists():
+            lock_path.unlink()
+    except Exception:
+        pass
+
+
 def _check_disk_space(provider_name: str) -> tuple[bool, str]:
     """Check if there's enough disk space for a model's weights.
     Returns (sufficient, error_message).
@@ -636,104 +647,128 @@ def install_provider(
         }
     # Section 4: concurrency + disk space checks
     repo_name = meta.get("repo")
+    locked_repos: list[str] = []
     if repo_name:
         if not _acquire_install_lock(repo_name):
             return {
                 "success": False,
                 "error": f"Model {provider_name} is already being installed. Wait for the current install to finish.",
             }
+        locked_repos.append(repo_name)
     sufficient, space_err = _check_disk_space(provider_name)
     if not sufficient:
+        for rn in locked_repos:
+            _release_install_lock(rn)
         return {"success": False, "error": space_err}
     # ponytail: Specific exception handling per AGENTS.md - never swallow errors silently.
     # Each failure mode gets a clear message so frontend can show actionable feedback.
     results: dict = {"provider": provider_name, "steps": {}}
     state = _load_state()
-    if repo_name:
-        if log_cb:
-            log_cb(f"Cloning {repo_name}\u2026")
-        try:
-            r = clone_repo(repo_name, log_cb=log_cb)
-            results["steps"]["clone"] = r
-            if not r["success"]:
-                # ponytail: Provide git-specific error context from clone output
-                error_detail = r.get("error", "Unknown clone error")
-                output_hint = r.get("output", "")[:200] if r.get("output") else ""
+    try:
+        if repo_name:
+            if log_cb:
+                log_cb(f"Cloning {repo_name}\u2026")
+            try:
+                r = clone_repo(repo_name, log_cb=log_cb)
+                results["steps"]["clone"] = r
+                if not r["success"]:
+                    # ponytail: Provide git-specific error context from clone output
+                    error_detail = r.get("error", "Unknown clone error")
+                    output_hint = r.get("output", "")[:200] if r.get("output") else ""
+                    return {
+                        **results,
+                        "success": False,
+                        "error": f"Repo clone failed: {error_detail}",
+                        "error_detail": output_hint,
+                    }
+            except subprocess.CalledProcessError as exc:
+                # ponytail: Git clone failed with exit code - log command + output
+                logger.exception("Git clone failed for %s", repo_name)
                 return {
                     **results,
                     "success": False,
-                    "error": f"Repo clone failed: {error_detail}",
-                    "error_detail": output_hint,
+                    "error": f"Git clone failed (exit code {exc.returncode}): check network or repo URL",
+                    "error_detail": str(exc.output)[:500] if exc.output else str(exc),
                 }
-        except subprocess.CalledProcessError as exc:
-            # ponytail: Git clone failed with exit code - log command + output
-            logger.exception("Git clone failed for %s", repo_name)
-            return {
-                **results,
-                "success": False,
-                "error": f"Git clone failed (exit code {exc.returncode}): check network or repo URL",
-                "error_detail": str(exc.output)[:500] if exc.output else str(exc),
-            }
-        except FileNotFoundError as exc:
-            # ponytail: git binary not found in container
-            return {
-                **results,
-                "success": False,
-                "error": "git command not found - ensure git is installed in this environment",
-            }
+            except FileNotFoundError as exc:
+                # ponytail: git binary not found in container
+                return {
+                    **results,
+                    "success": False,
+                    "error": "git command not found - ensure git is installed in this environment",
+                }
 
-        try:
-            r = install_repo_deps(repo_name, log_cb=log_cb)
-            results["steps"]["deps"] = r
-            
-        except Exception as exc:
-            logger.exception("Dependency installation failed for %s", repo_name)
-            results["steps"]["deps"] = {"success": False, "error": f"Failed to install dependencies: {exc}"}
+            if log_cb:
+                log_cb(f"Creating isolated virtual environment for {repo_name}\u2026")
+            try:
+                r = install_repo_deps(repo_name, log_cb=log_cb)
+                results["steps"]["deps"] = r
+                if not r.get("success", False):
+                    return {
+                        **results,
+                        "success": False,
+                        "error": r.get("error", "Dependency installation failed"),
+                    }
+            except Exception as exc:
+                logger.exception("Dependency installation failed for %s", repo_name)
+                results["steps"]["deps"] = {"success": False, "error": f"Failed to install dependencies: {exc}"}
+                return {
+                    **results,
+                    "success": False,
+                    "error": f"Dependency installation failed: {exc}",
+                }
 
-    weight_key = meta.get("weight_key")
-    if weight_key:
+        weight_key = meta.get("weight_key")
+        if weight_key:
+            if log_cb:
+                log_cb(f"Downloading weights for {provider_name}\u2026")
+            try:
+                r = download_weights(weight_key, hf_token=hf_token, log_cb=log_cb)
+                results["steps"]["weights"] = r
+                if not r["success"]:
+                    error_msg = r.get("error", "Weight download failed")
+                    # ponytail: Check for common HuggingFace errors and provide clearer messages
+                    if "404" in str(error_msg) or "not found" in str(error_msg).lower():
+                        error_msg = f"Model '{weight_key}' not found on HuggingFace - check model ID is correct"
+                    elif "401" in str(error_msg) or "403" in str(error_msg) or "auth" in str(error_msg).lower():
+                        error_msg = "Authentication failed - check your HuggingFace token"
+                    elif "timeout" in str(error_msg).lower():
+                        error_msg = "Download timed out - check your internet connection"
+                    results["steps"]["weights"]["error"] = error_msg
+            except Exception as exc:
+                error_str = str(exc).lower()
+                # ponytail: Classify errors for better user messages
+                if "404" in error_str or "not found" in error_str:
+                    error_msg = f"Model '{weight_key}' does not exist on HuggingFace"
+                elif "401" in error_str or "403" in error_str or "auth" in error_str or "token" in error_str:
+                    error_msg = "Invalid or missing HuggingFace token - please configure HF_TOKEN"
+                elif "connection" in error_str or "network" in error_str or "timeout" in error_str:
+                    error_msg = "Network error during download - please check connection and retry"
+                else:
+                    error_msg = f"Unexpected error downloading weights: {exc}"
+                logger.exception("Weight download exception for %s", weight_key)
+                results["steps"]["weights"] = {"success": False, "error": error_msg}
+        failed_steps = [k for k, v in results["steps"].items() if not v.get("success", True)]
+        if failed_steps:
+            error_msgs = []
+            for step in failed_steps:
+                err = results["steps"][step].get("error", f"{step} failed")
+                error_msgs.append(f"[{step}] {err}")
+            return {**results, "success": False, "error": " | ".join(error_msgs)}
+
         if log_cb:
-            log_cb(f"Downloading weights for {provider_name}\u2026")
-        try:
-            r = download_weights(weight_key, hf_token=hf_token, log_cb=log_cb)
-            results["steps"]["weights"] = r
-            if not r["success"]:
-                error_msg = r.get("error", "Weight download failed")
-                # ponytail: Check for common HuggingFace errors and provide clearer messages
-                if "404" in str(error_msg) or "not found" in str(error_msg).lower():
-                    error_msg = f"Model '{weight_key}' not found on HuggingFace - check model ID is correct"
-                elif "401" in str(error_msg) or "403" in str(error_msg) or "auth" in str(error_msg).lower():
-                    error_msg = "Authentication failed - check your HuggingFace token"
-                elif "timeout" in str(error_msg).lower():
-                    error_msg = "Download timed out - check your internet connection"
-                results["steps"]["weights"]["error"] = error_msg
-        except Exception as exc:
-            error_str = str(exc).lower()
-            # ponytail: Classify errors for better user messages
-            if "404" in error_str or "not found" in error_str:
-                error_msg = f"Model '{weight_key}' does not exist on HuggingFace"
-            elif "401" in error_str or "403" in error_str or "auth" in error_str or "token" in error_str:
-                error_msg = "Invalid or missing HuggingFace token - please configure HF_TOKEN"
-            elif "connection" in error_str or "network" in error_str or "timeout" in error_str:
-                error_msg = "Network error during download - please check connection and retry"
-            else:
-                error_msg = f"Unexpected error downloading weights: {exc}"
-            logger.exception("Weight download exception for %s", weight_key)
-            results["steps"]["weights"] = {"success": False, "error": error_msg}
-    failed_steps = [k for k, v in results["steps"].items() if not v.get("success", True)]
-    if failed_steps:
-        error_msgs = []
-        for step in failed_steps:
-            err = results["steps"][step].get("error", f"{step} failed")
-            error_msgs.append(f"[{step}] {err}")
-        return {**results, "success": False, "error": " | ".join(error_msgs)}
-
-    state.setdefault("repos", {})[provider_name] = {
-        "installed_at": datetime.utcnow().isoformat(),
-    }
-    state["last_updated"] = datetime.utcnow().isoformat()
-    _save_state(state)
-    return {**results, "success": True}
+            log_cb("Verifying installation\u2026")
+        state.setdefault("repos", {})[provider_name] = {
+            "installed_at": datetime.utcnow().isoformat(),
+        }
+        state["last_updated"] = datetime.utcnow().isoformat()
+        _save_state(state)
+        if log_cb:
+            log_cb("Installation complete")
+        return {**results, "success": True}
+    finally:
+        for rn in locked_repos:
+            _release_install_lock(rn)
 
 
 def get_install_status() -> dict:

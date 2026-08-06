@@ -384,6 +384,45 @@ _DL_STATE: dict[str, dict] = {}  # model_id -> progress dict
 _DL_LOCK = threading.Lock()
 
 
+def _dl_state_path() -> Path:
+    """Return the file path for persisting download progress state."""
+    try:
+        from runtime.storage import get_storage_config
+        return get_storage_config().runtime_cache_dir / "install_progress.json"
+    except Exception:
+        return Path(__file__).resolve().parent.parent.parent / ".runtime_cache" / "install_progress.json"
+
+
+def _dl_save_state() -> None:
+    """Persist current _DL_STATE to disk (best-effort, never raises)."""
+    try:
+        path = _dl_state_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with _DL_LOCK:
+            snapshot = {k: {kk: vv for kk, vv in s.items() if not kk.startswith("_")}
+                        for k, s in _DL_STATE.items()}
+        path.write_text(json.dumps(snapshot, indent=2, default=str))
+    except Exception:
+        pass  # Disk write is best-effort
+
+
+def _dl_load_state() -> None:
+    """Restore _DL_STATE from disk if in-memory state is empty."""
+    try:
+        path = _dl_state_path()
+        if not path.exists():
+            return
+        if _DL_STATE:
+            return  # Don't overwrite active in-memory state
+        text = path.read_text(encoding="utf-8")
+        data = json.loads(text)
+        if isinstance(data, dict):
+            with _DL_LOCK:
+                _DL_STATE.update(data)
+    except Exception:
+        pass
+
+
 def _dl_init(model_id: str) -> None:
     """Initialise a fresh download state for model_id."""
     with _DL_LOCK:
@@ -403,6 +442,7 @@ def _dl_init(model_id: str) -> None:
             "updated_at": time.time(),
             "_speed_samples": [],
         }
+    _dl_save_state()
 
 
 def _dl_update(model_id: str, **fields) -> None:
@@ -438,6 +478,7 @@ def _dl_update(model_id: str, **fields) -> None:
 
         state.update(fields)
         state["updated_at"] = now
+    _dl_save_state()
 
 
 def _dl_snapshot(model_id: str) -> dict:
@@ -469,7 +510,7 @@ def _parse_log_for_progress(model_id: str, msg: str) -> None:
         spd = int(_b(tqdm_m.group(6), tqdm_m.group(7)))
         _dl_update(model_id,
             percent=pct, bytes_downloaded=dl, bytes_total=tot,
-            speed_bps=spd, status="downloading", log=msg.strip())
+            speed_bps=spd, status="downloading", phase="weights", log=msg.strip())
         return
 
     # Simple percent
@@ -495,13 +536,19 @@ def _parse_log_for_progress(model_id: str, msg: str) -> None:
     # Phase / status detection
     lmsg = msg.lower()
     if any(k in lmsg for k in ("cloning", "git clone", "receiving objects")):
-        _dl_update(model_id, phase="repo", log=msg.strip())
-    elif any(k in lmsg for k in ("downloading weight", "downloading model", "fetching model", "hf hub")):
+        _dl_update(model_id, phase="repo", status="downloading", log=msg.strip())
+    elif any(k in lmsg for k in ("creating virtualenv", "venv", "virtualenv", "creating isolated env")):
+        _dl_update(model_id, phase="venv", status="installing", log=msg.strip())
+    elif any(k in lmsg for k in ("installing dependencies", "resolving dependencies", "fetching dependencies", "pip install", "uv pip")):
+        _dl_update(model_id, phase="deps", status="installing", log=msg.strip())
+    elif any(k in lmsg for k in ("downloading weight", "downloading model", "fetching model", "hf hub", "snapshot_download")):
         _dl_update(model_id, phase="weights", status="downloading", log=msg.strip())
     elif any(k in lmsg for k in ("extracting", "unzipping", "untar")):
         _dl_update(model_id, phase="extract", status="extracting", log=msg.strip())
-    elif any(k in lmsg for k in ("complete", "success", "finished installing", " installed.")):
-        _dl_update(model_id, status="completed", percent=100, log=msg.strip())
+    elif any(k in lmsg for k in ("verifying", "checking", "validating")):
+        _dl_update(model_id, phase="verify", status="verifying", log=msg.strip())
+    elif any(k in lmsg for k in ("complete", "success", "finished installing", " installed.", "installation complete")):
+        _dl_update(model_id, status="completed", percent=100, phase="complete", log=msg.strip())
     elif any(k in lmsg for k in ("error:", "failed:", "exception:", "traceback")):
         _dl_update(model_id, status="failed", error=msg.strip(), log=msg.strip())
     else:
@@ -1079,6 +1126,7 @@ async def get_model_progress(model_id: str):
     This endpoint fixes Issue #4 - frontend was calling this path
     but backend only had /install/progress/{model_id}.
     """
+    _dl_load_state()
     if model_id not in _DL_STATE:
         return success({"model_id": model_id, "status": "idle"})
     return success(_dl_snapshot(model_id))
@@ -1091,7 +1139,8 @@ async def stream_model_progress(model_id: str):
     This endpoint fixes Issue #4 - frontend was calling this path
     but backend only had /install/stream/{model_id}.
     """
-    # FINAL_FIX_REPORT: Changed - Updated internal call to renamed install_stream function
+    # Restore state from disk if in-memory state was lost (e.g. worker restart)
+    _dl_load_state()
     return await install_stream(model_id)
 
 
@@ -1103,6 +1152,7 @@ async def stream_model_progress(model_id: str):
 @router.get("/install/progress/{model_id}")
 async def get_install_progress(model_id: str):
     """JSON snapshot of current download progress for one model."""
+    _dl_load_state()
     if model_id not in _DL_STATE:
         return success({"model_id": model_id, "status": "idle"})
     return success(_dl_snapshot(model_id))
@@ -1116,6 +1166,9 @@ async def install_stream(model_id: str) -> StreamingResponse:
     Connects to _DL_STATE and broadcasts progress updates in real-time.
     Frontend uses EventSource to listen to this stream.
     """
+    # Restore state from disk if in-memory state was lost (e.g. worker restart)
+    _dl_load_state()
+
     async def _stream_progress() -> AsyncGenerator[str, None]:
         """Generate SSE events for model installation progress."""
         last_update = 0.0

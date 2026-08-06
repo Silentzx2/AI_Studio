@@ -26,7 +26,7 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3000",
         "http://127.0.0.1:3001",
     ]
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/ai3dstudio"
+    database_url: str = "postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/ai3dstudio"
     redis_url: str = "redis://localhost:6379/0"
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/1"

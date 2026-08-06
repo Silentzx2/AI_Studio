@@ -264,34 +264,66 @@ if [[ "${USE_SQLITE:-}" != "1" ]]; then
   fi
 fi
 
-if ! pg_isready -h localhost -U postgres &>/dev/null; then
+# Extract DB credentials from .env if available
+_DB_USER="${POSTGRES_USER:-postgres}"
+_DB_PASS="${POSTGRES_PASSWORD:-postgres}"
+_DB_HOST="${POSTGRES_HOST:-localhost}"
+_DB_PORT="${POSTGRES_PORT:-5432}"
+_DB_NAME="${POSTGRES_DB:-ai3dstudio}"
+
+# Try to parse DATABASE_URL if set
+if [[ -n "${DATABASE_URL:-}" ]]; then
+  _DB_URL_PARSE="$(echo "$DATABASE_URL" | sed -n 's|^postgresql[+]asyncpg://\([^:]*\):\([^@]*\)@\([^:/]*\):\([0-9]*\)/.*$|\1 \2 \3 \4|p')"
+  if [[ -n "$_DB_URL_PARSE" ]]; then
+    set -- $_DB_URL_PARSE
+    _DB_USER="${1:-$_DB_USER}"
+    _DB_PASS="${2:-$_DB_PASS}"
+    _DB_HOST="${3:-$_DB_HOST}"
+    _DB_PORT="${4:-$_DB_PORT}"
+  fi
+fi
+
+_PG_READY=false
+if [[ "${USE_SQLITE:-}" != "1" ]]; then
+  # First check if server is running
+  if pg_isready -h "$_DB_HOST" -p "$_DB_PORT" -U "$_DB_USER" &>/dev/null; then
+    # Now test actual authentication with the configured password
+    if PGPASSWORD="$_DB_PASS" psql -h "$_DB_HOST" -p "$_DB_PORT" -U "$_DB_USER" -d postgres -c "SELECT 1;" &>/dev/null; then
+      _PG_READY=true
+      log "PostgreSQL authentication successful (user=$_DB_USER, host=$_DB_HOST)"
+    else
+      warn "PostgreSQL is running but authentication failed for user '$DB_USER'@$_DB_HOST — falling back to SQLite."
+      export USE_SQLITE=1
+      export DATABASE_URL="sqlite:///$(pwd)/backend/storage/studio.db"
+      export DATABASE_SYNC_URL="sqlite:///$(pwd)/backend/storage/studio.db"
+    fi
+  else
     warn "PostgreSQL not responding — falling back to local SQLite (backend/storage/studio.db)."
     export USE_SQLITE=1
     export DATABASE_URL="sqlite:///$(pwd)/backend/storage/studio.db"
     export DATABASE_SYNC_URL="sqlite:///$(pwd)/backend/storage/studio.db"
+  fi
 fi
 
-# Create database if it doesn't exist
-$PYTHON_BIN << 'PYEOF' 2>/dev/null || true
-import psycopg2
-from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-try:
-    conn = psycopg2.connect("host=localhost user=postgres password=postgres")
-    conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-    cursor = conn.cursor()
-    cursor.execute("SELECT 1 FROM pg_database WHERE datname = 'ai3dstudio'")
-    if not cursor.fetchone():
-        cursor.execute("CREATE DATABASE ai3dstudio")
-        print("Created ai3dstudio database")
-    else:
-        print("Database ai3dstudio already exists")
-    cursor.close()
-    conn.close()
-except Exception as e:
-    print(f"Database check: {e}")
-PYEOF
-
-log "PostgreSQL ready"
+# Create database if it doesn't exist (only when PostgreSQL is ready)
+if [[ "$_PG_READY" == "true" ]]; then
+  PGPASSWORD="$_DB_PASS" psql -h "$_DB_HOST" -p "$_DB_PORT" -U "$_DB_USER" -d postgres << 'SQL' 2>/dev/null || true
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'ai3dstudio') THEN
+    CREATE DATABASE ai3dstudio;
+    RAISE NOTICE 'Created ai3dstudio database';
+  ELSE
+    RAISE NOTICE 'Database ai3dstudio already exists';
+  END IF;
+END
+$$;
+SQL
+  log "PostgreSQL ready"
+else
+  info "Using SQLite for database (no PostgreSQL credentials available)"
+  mkdir -p "$(pwd)/backend/storage"
+fi
 echo ""
 
 # ── Step 2: Verify Redis ───────────────────────────────────────────────────

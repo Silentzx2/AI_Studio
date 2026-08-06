@@ -267,7 +267,10 @@ async def install_stream_sse(model_id: str = ""):
     if model_id:
         # Delegate to the admin progress-tracking layer if available.
         try:
-            from app.api.v1.admin import _DL_STATE, _dl_snapshot
+            from app.api.v1.admin import _DL_STATE, _dl_snapshot, _dl_load_state
+
+            # Restore state from disk if in-memory state was lost (e.g. worker restart)
+            _dl_load_state()
 
             if model_id not in _DL_STATE:
                 return StreamingResponse(
