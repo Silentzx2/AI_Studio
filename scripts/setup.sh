@@ -215,6 +215,17 @@ install_postgresql() {
   
   systemctl enable postgresql --now
   log "PostgreSQL installed and started"
+
+  # Use trust auth for local TCP connections so no password is required
+  # (the app connects via localhost; credentials in .env are ignored).
+  local hba
+  hba="$(sudo -u postgres psql -t -c 'SHOW hba_file;' | xargs)"
+  if [[ -f "$hba" ]]; then
+    sudo sed -i -E "s|^(host\\s+all\\s+all\\s+(127\\.0\\.0\\.1/32|::1/128)\\s+)scram-sha-256$|\\1trust|" "$hba"
+    sudo pg_ctlcluster "$(ls /etc/postgresql)" main reload 2>/dev/null \
+      || sudo systemctl reload postgresql
+    log "Local PostgreSQL auth set to trust (no password needed)"
+  fi
 }
 
 install_redis() {
@@ -379,30 +390,6 @@ install_python_deps() {
   log "Python dependencies installed"
 }
 
-clone_anigen() {
-  head_ "Setting Up AniGen (Character Rigging)"
-  local ANIGEN_DIR="backend/third_party/AniGen"
-  if [[ -d "$ANIGEN_DIR" ]]; then
-    log "AniGen already cloned at $ANIGEN_DIR"
-    return 0
-  fi
-  mkdir -p "$(dirname "$ANIGEN_DIR")"
-  log "Cloning AniGen from VAST-AI-Research..."
-  git clone --depth 1 https://github.com/VAST-AI-Research/AniGen.git "$ANIGEN_DIR" 2>/dev/null || {
-    warn "Failed to clone AniGen — rigging will use passthrough mode"
-    return 0
-  }
-  # Install AniGen-specific Python deps (non-critical — warn on failure)
-  if [[ -f "$ANIGEN_DIR/requirements.txt" ]]; then
-    (
-      cd backend
-      uv pip install --python .venv/bin/python -r "$ANIGEN_DIR/requirements.txt" -q 2>/dev/null || true
-    )
-    log "AniGen dependencies installed (some may have been skipped)"
-  fi
-  log "AniGen setup complete"
-}
-
 install_frontend_deps() {
   head_ "Installing Frontend Dependencies"
   npm ci --prefer-offline --no-audit 2>/dev/null || npm install --no-audit || {
@@ -412,6 +399,17 @@ install_frontend_deps() {
   log "Frontend dependencies installed"
 }
 
+build_frontend() {
+    head_ "Building Frontend"
+
+
+    npm run build || {
+        error "Frontend build failed"
+        return 1
+    }
+
+    log "Frontend built successfully"
+}
 # ── Services ───────────────────────────────────────────────────────────────────
 
 print_summary() {
@@ -421,7 +419,8 @@ print_summary() {
   echo -e "  ${CYAN}Database :${NC}  PostgreSQL on localhost:5432"
   echo -e "  ${CYAN}Cache    :${NC}  Redis on localhost:6379"
   echo
-  echo -e "  ${CYAN}Setup complete!${NC} Now run:"
+  echo -e "  ${CYAN}Setup complete!${NC} Services auto-start by default."
+  echo -e "    Re-run with ${GREEN}--no-start${NC} to skip and start manually:"
   echo -e "    ${GREEN}bash scripts/start.sh${NC}"
   echo
   echo -e "  Services will start at:"
@@ -450,6 +449,16 @@ print_summary() {
 # ── Entry point ────────────────────────────────────────────────────────────────
 
 main() {
+  # Auto-start the project when setup finishes (default on; opt out with --no-start).
+  # start.sh backgrounds all services and returns, so this is non-blocking.
+  AUTO_START=true
+  for arg in "$@"; do
+    case "$arg" in
+      --auto-start) AUTO_START=true ;;
+      --no-start)   AUTO_START=false ;;
+    esac
+  done
+
   echo -e "${RED}${BOLD}"
   cat << 'BANNER'
 
@@ -480,7 +489,7 @@ BANNER
 
   # Non-critical steps — warn but continue
   install_blender        || warn "Blender install skipped — post-processing may be unavailable"
-  install_cuda           || warn "CUDA install had issues — may use CPU fallback"
+  # install_cuda           || warn "CUDA install had issues — may use CPU fallback"
 
   # Project setup
   setup_folders
@@ -488,8 +497,8 @@ BANNER
   install_python_deps    || { err "Python dependency installation failed — aborting"; exit 1; }
 
   # Non-critical project steps
-  clone_anigen
   install_frontend_deps  || warn "Frontend deps had issues — check npm output above"
+  build_frontend || warn "Frontend build had issues — check npm output above"
 
   # setup.sh runs as root; hand ownership back to the real user so that the
   # non-root `start.sh` can use the venv, read .env, and write logs.
@@ -500,34 +509,25 @@ BANNER
       node_modules .env logs .pids 2>/dev/null || true
   fi
 
-  # Auto-start: run start.sh in the foreground after setup completes
+
+  # Auto-start: launch the project automatically when setup finishes.
+  # Run start.sh as the non-root user so the services are owned by that user
+  # (killable later by scripts/stop.sh without sudo). Postgres/Redis were
+  # already started by the install steps above, so start.sh needs no sudo.
   if [[ "$AUTO_START" == "true" ]]; then
     echo ""
     log "Setup complete — launching services..."
     echo ""
-    bash scripts/start.sh
+    if [[ -n "${SUDO_USER:-}" ]] && [[ "$(id -un)" == "root" ]]; then
+      su - "${SUDO_USER}" -c "cd '${PROJECT_ROOT}' && bash scripts/start.sh"
+    else
+      bash scripts/start.sh
+    fi
   else
     # Summary — user runs scripts/start.sh manually
     print_summary
   fi
 }
 
-# ── Parse flags ────────────────────────────────────────────────────────
-
-AUTO_START=false
-
-for arg in "$@"; do
-    case "$arg" in
-        --auto-start) AUTO_START=true ;;
-        --help|-h)
-            echo "Usage: sudo bash scripts/setup.sh [OPTIONS]"
-            echo ""
-            echo "Options:"
-            echo "  --auto-start    Run setup then automatically start services"
-            echo "  -h, --help      Show this help"
-            exit 0
-            ;;
-    esac
-done
 
 main "$@"

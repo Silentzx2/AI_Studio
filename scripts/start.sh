@@ -327,7 +327,7 @@ echo ""
 step "4/6 Starting Backend API (http://localhost:8000)..."
 (
     cd backend
-    $PYTHON_BIN -m uvicorn app.main:app \
+    setsid $PYTHON_BIN -m uvicorn app.main:app \
         --host 0.0.0.0 \
         --port 8000 \
         --log-level info \
@@ -359,7 +359,7 @@ fi
 step "5/6 Starting Celery Worker..."
 (
     cd backend
-    $PYTHON_BIN -m celery -A app.workers.celery_app worker \
+    setsid $PYTHON_BIN -m celery -A app.workers.celery_app worker \
         --loglevel=info \
         --concurrency=1 \
         -Q generation,images \
@@ -385,7 +385,7 @@ if [[ ! -d .next ]]; then
 fi
 
 # Start frontend
-NEXT_PUBLIC_API_URL=http://localhost:8000 npm start \
+NEXT_PUBLIC_API_URL=http://localhost:8000 setsid npm start \
     > "$PROJECT_ROOT/logs/frontend.log" 2>&1 &
 write_pid "$FRONTEND_PID_FILE" $!
 

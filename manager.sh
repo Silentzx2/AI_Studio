@@ -314,6 +314,31 @@ cmd_cf() {
     bash scripts/cloudflare.sh
 }
 
+cmd_update_models() {
+    banner
+    echo -e "${CYAN}Update / Install Models${NC}"
+    echo ""
+    echo "Options:"
+    echo "  1) Full install (all models: repos + weights)"
+    echo "  2) Repos only (clone/update)"
+    echo "  3) Weights only (download)"
+    echo "  4) Verify installation"
+    echo "  b) Back"
+    echo ""
+    read -rp "Choice: " choice
+    echo ""
+    case "$choice" in
+        1) bash scripts/update-models.sh ;;
+        2) bash scripts/update-models.sh --repos-only ;;
+        3) bash scripts/update-models.sh --weights-only ;;
+        4) bash scripts/update-models.sh --verify ;;
+        b|B) return ;;
+        *) echo -e "${RED}Invalid choice${NC}" ;;
+    esac
+    echo ""
+    read -rp "Press Enter to continue..."
+}
+
 banner() {
   echo -e "${RED}${BOLD}"
   cat << 'BANNER'
@@ -347,6 +372,7 @@ _main_menu_() {
         echo "  10) Reset PID files"
         echo "  11) Clean old logs"
         echo "  12) Cloudflare"
+        echo "  13) Update / install models"
         echo "  q)  Quit"
         echo ""
         read -rp "Choice: " choice
@@ -363,6 +389,7 @@ _main_menu_() {
             10) cmd_reset_pids ;;
             11) cmd_clean_logs ;;
             12) cmd_cf ;;
+            13) cmd_update_models ;;
             q|Q) echo ""; echo -e "${GREEN}Goodbye!${NC}"; echo ""; exit 0 ;;
             *) echo -e "${RED}Invalid choice${NC}"; sleep 1 ;;
         esac
