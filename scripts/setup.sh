@@ -25,15 +25,6 @@ warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 err()   { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 head_() { echo -e "\n${BOLD}${BLUE}===== $* =====${NC}\n"; }
 
-# ── Google Colab Detection ────────────────────────────────────────────────
-# Colab has its own bootstrap+start flow in scripts/colab.sh — redirect
-# there instead of running local/Linux install logic.
-if [[ -n "${COLAB_GPU:-}" || -n "${COLAB_TPU_ADDR:-}" || -d "/content" ]]; then
-    err "Google Colab detected — setup.sh is for local/Linux systems."
-    warn "Please run: bash scripts/colab.sh"
-    exit 0
-fi
-
 # ── Prerequisites ─────────────────────────────────────────────────────────────
 
 check_root() {

@@ -28,14 +28,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
-# ── Google Colab Detection ────────────────────────────────────────────────
-# Colab has its own bootstrap+start flow in scripts/colab.sh — redirect
-# there instead of running local/Linux startup logic.
-if [[ -n "${COLAB_GPU:-}" || -n "${COLAB_TPU_ADDR:-}" || -d "/content" ]]; then
-    echo -e "${YELLOW}[INFO]${NC}   Google Colab detected."
-    echo -e "${YELLOW}[WARN]${NC}   Please run ${BOLD}bash scripts/colab.sh${NC} instead — this script does not support Colab."
-    exit 0
-fi
 
 # ── Ensure uv is available (hard dependency for venv + per-model installs) ──
 if ! command -v uv &>/dev/null; then

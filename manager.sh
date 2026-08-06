@@ -44,65 +44,58 @@ _check_service() {
 # ── Status function ──────────────────────────────────────────────────────
 _status() {
     echo -e "${CYAN}Service Status:${NC}"
-    _check_service "PostgreSQL" "/tmp/pg.pid" 2>/dev/null || {
-        if systemctl is-active --quiet postgresql 2>/dev/null; then
-            echo -e "${GREEN}●${NC} PostgreSQL (system service)"
-        else
-            echo -e "${RED}●${NC} PostgreSQL (not running)"
-        fi
-    }
-    _check_service "Redis" "/tmp/redis.pid" 2>/dev/null || {
-        if systemctl is-active --quiet redis-server 2>/dev/null; then
-            echo -e "${GREEN}●${NC} Redis (system service)"
-        else
-            echo -e "${RED}●${NC} Redis (not running)"
-        fi
-    }
-    _check_service "Backend API" "$PID_DIR/api.pid"
-    _check_service "Celery Worker" "$PID_DIR/worker.pid"
-    _check_service "Frontend" "$PID_DIR/frontend.pid"
-    echo ""
+
+    [[ -f "$PID_DIR/api.pid" ]] && kill -0 "$(cat "$PID_DIR/api.pid")" 2>/dev/null \
+        && echo -e "${GREEN}●${NC} Backend API" \
+        || echo -e "${RED}●${NC} Backend API"
+
+    [[ -f "$PID_DIR/worker.pid" ]] && kill -0 "$(cat "$PID_DIR/worker.pid")" 2>/dev/null \
+        && echo -e "${GREEN}●${NC} Celery Worker" \
+        || echo -e "${RED}●${NC} Celery Worker"
+
+    [[ -f "$PID_DIR/frontend.pid" ]] && kill -0 "$(cat "$PID_DIR/frontend.pid")" 2>/dev/null \
+        && echo -e "${GREEN}●${NC} Frontend" \
+        || echo -e "${RED}●${NC} Frontend"
+
+    systemctl is-active --quiet postgresql 2>/dev/null \
+        && echo -e "${GREEN}●${NC} PostgreSQL" \
+        || echo -e "${RED}●${NC} PostgreSQL"
+
+    systemctl is-active --quiet redis-server 2>/dev/null \
+        && echo -e "${GREEN}●${NC} Redis" \
+        || echo -e "${RED}●${NC} Redis"
+    echo
 }
 
-# ── Main menu header ──────────────────────────────────────────────────────
-_header() {
-    clear
-    echo ""
-    echo -e "${BOLD}════════════════════════════════════════════════════════${NC}"
-    echo -e "${BOLD}  AI 3D Studio v3.2 — Native Service Manager${NC}"
-    echo -e "${BOLD}════════════════════════════════════════════════════════${NC}"
-    echo ""
-}
 
 # ── Command functions ─────────────────────────────────────────────────────
 
 cmd_start() {
-    _header
+    banner
     bash scripts/start.sh
 }
 
 cmd_stop() {
-    _header
+    banner
     echo -e "${CYAN}Stopping all services...${NC}"
     echo ""
     bash scripts/stop.sh
 }
 
 cmd_restart() {
-    _header
+    banner
     echo -e "${CYAN}Restarting all services...${NC}"
     echo ""
     bash scripts/restart.sh
 }
 
 cmd_status() {
-    _header
     _status
     read -rp "Press Enter to continue..."
 }
 
 cmd_logs() {
-    _header
+    banner
     echo -e "${CYAN}View Logs${NC}"
     echo ""
     echo "Choose a service:"
@@ -145,7 +138,7 @@ cmd_logs() {
 }
 
 cmd_health_check() {
-    _header
+    banner
     echo -e "${CYAN}Health Check${NC}"
     echo ""
     
@@ -194,7 +187,7 @@ cmd_health_check() {
 }
 
 cmd_reset_pids() {
-    _header
+    banner
     echo -e "${YELLOW}Reset PID Files${NC}"
     echo ""
     echo "This will clear all stale PID files without stopping services."
@@ -211,7 +204,7 @@ cmd_reset_pids() {
 }
 
 cmd_database() {
-    _header
+    banner
     echo -e "${CYAN}Database Management${NC}"
     echo ""
     echo "Choose an option:"
@@ -253,7 +246,7 @@ cmd_database() {
 }
 
 cmd_environment() {
-    _header
+    banner
     echo -e "${CYAN}View Environment${NC}"
     echo ""
     if [[ -f .env ]]; then
@@ -265,22 +258,8 @@ cmd_environment() {
     read -rp "Press Enter to continue..."
 }
 
-cmd_bootstrap() {
-    _header
-    echo -e "${CYAN}Intelligent Bootstrap${NC}"
-    echo ""
-    if [ -f scripts/bootstrap.sh ]; then
-        bash scripts/bootstrap.sh
-    else
-        echo -e "${YELLOW}bootstrap.sh not found — running setup.sh --auto-start${NC}"
-        bash scripts/setup.sh --auto-start
-    fi
-    echo ""
-    read -rp "Press Enter to continue..."
-}
-
 cmd_setup() {
-    _header
+    banner
     echo -e "${CYAN}First-Time Setup${NC}"
     echo ""
     echo "  1) Full setup (system deps + venv + start)"
@@ -314,7 +293,7 @@ cmd_setup() {
 }
 
 cmd_clean_logs() {
-    _header
+    banner
     echo -e "${CYAN}Clean Old Logs${NC}"
     echo ""
     echo "This will remove log files older than 7 days."
@@ -330,7 +309,12 @@ cmd_clean_logs() {
     read -rp "Press Enter to continue..."
 }
 
-main() {
+cmd_cf() {
+    echo ""
+    bash scripts/cloudflare.sh
+}
+
+banner() {
   echo -e "${RED}${BOLD}"
   cat << 'BANNER'
 
@@ -346,13 +330,12 @@ BANNER
 }
 
 # ── Main menu loop ────────────────────────────────────────────────────────
-main_menu() {
+_main_menu_() {
     while true; do
-        _header
+        banner
         _status
         echo -e "${BOLD}Actions:${NC}"
-        echo "  0) First-Time Setup"
-        echo "  1)  Bootstrap (auto-detect env + configure)"
+        echo "  1) First-Time Setup"
         echo "  2)  Start all services"
         echo "  3)  Stop all services"
         echo "  4)  Restart all services"
@@ -363,12 +346,12 @@ main_menu() {
         echo "  9)  View environment"
         echo "  10) Reset PID files"
         echo "  11) Clean old logs"
+        echo "  12) Cloudflare"
         echo "  q)  Quit"
         echo ""
         read -rp "Choice: " choice
         case "$choice" in
-            0)  cmd_setup ;;
-            1)  cmd_bootstrap ;;
+            1)  cmd_setup ;;
             2)  cmd_start ;;
             3)  cmd_stop ;;
             4)  cmd_restart ;;
@@ -379,10 +362,11 @@ main_menu() {
             9)  cmd_environment ;;
             10) cmd_reset_pids ;;
             11) cmd_clean_logs ;;
+            12) cmd_cf ;;
             q|Q) echo ""; echo -e "${GREEN}Goodbye!${NC}"; echo ""; exit 0 ;;
             *) echo -e "${RED}Invalid choice${NC}"; sleep 1 ;;
         esac
     done
 }
 
-main_menu
+_main_menu_
