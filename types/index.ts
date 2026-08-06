@@ -300,6 +300,7 @@ export interface PipelineStatus {
   vram_required_mb: number;
   speed_seconds: number;
   supports: PipelineFeatureFlags;
+  workspace_compatibility?: string[];
   repo?: string | null;
   weight_key?: string | null;
   notes?: string[];
@@ -310,6 +311,7 @@ export interface PipelineSnapshot {
   computed_features: PipelineFeatureFlags;
   input_modes: string[];
   total_models: number;
+  workspace_types?: string[];
   updated_at?: string;
 }
 

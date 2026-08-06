@@ -165,6 +165,10 @@ async def create_generation(req: GenerationRequest):
         except Exception:
             pass  # Soft validation: don't block generation if check fails
 
+        # Auto-map workspace to generation mode if not explicitly provided
+        if req.mode == "text-to-3d" and req.workspace in _WORKSPACE_MODE_MAP:
+            req.mode = _WORKSPACE_MODE_MAP[req.workspace]
+
     from app.database import AsyncSessionLocal
     from app.models.job import GenerationJob
     from app.workers.tasks import generate_3d_model
