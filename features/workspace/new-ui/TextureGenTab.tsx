@@ -4,10 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Palette, Sparkles, Sliders, CheckCircle, Zap, Image as ImageIcon, Upload, X } from 'lucide-react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Palette, Sparkles, Sliders, CheckCircle, Zap, Image as ImageIcon, Upload, X, Settings, ChevronDown } from 'lucide-react';
 import { Shape3D } from '@/types/new-ui';
 import { useProjectStore } from '@/stores/useProjectStore';
+import { useWorkspaceModels } from '@/hooks/useBackendData';
 import { toast } from 'sonner';
 
 interface TextureGenTabProps {
@@ -29,9 +30,12 @@ interface TextureGenTabProps {
 export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }: TextureGenTabProps) {
   const { addLayer, currentProject } = useProjectStore();
   const [texturePrompt, setTexturePrompt] = useState('polished carbon fiber, neon teal glowing segments, brushed aerospace grade aluminum, futuristic sci-fi trim');
-  const [resolution, setResolution] = useState('4K PBR');
-  const [themeStyle, setThemeStyle] = useState('anime');
+  const [resolution, setResolution] = useState('2048');
+  const [themeStyle, setThemeStyle] = useState('photorealistic');
   const [weathering, setWeathering] = useState(0.3);
+  const [metalnessBias, setMetalnessBias] = useState(0.5);
+  const [roughnessBias, setRoughnessBias] = useState(0.5);
+  const [materialModel, setMaterialModel] = useState<string>('hunyuan3d-2.1');
   const [uploadedModel, setUploadedModel] = useState<File | null>(null);
   const [uploadedModelUrl, setUploadedModelUrl] = useState<string | null>(null);
   const [uploadedModelName, setUploadedModelName] = useState<string>('');
@@ -39,6 +43,36 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [successResult, setSuccessResult] = useState<any>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Fetch texture-compatible models from the workspace-aware API
+  const { models: textureModels, loading: isLoadingTextureModels, error: textureModelsError } = useWorkspaceModels('texture-generation');
+
+  // Resolve available texture models, falling back to TEXTURE_MODELS if the API is unavailable
+  const availableTextureModels = useMemo(() => {
+    if (textureModelsError || !textureModels || textureModels.length === 0) {
+      return [
+        { id: 'hunyuan3d-2.1', label: 'Hunyuan3D 2.1 (recommended)', installed: true },
+        { id: 'hunyuan3d-2', label: 'Hunyuan3D 2', installed: true },
+        { id: 'trellis', label: 'TRELLIS', installed: true },
+        { id: 'triposr', label: 'TripoSR (bake texture)', installed: true },
+      ];
+    }
+    return textureModels.map((m: any) => ({
+      id: m.id,
+      label: m.label,
+      installed: m.installed,
+    }));
+  }, [textureModels, textureModelsError]);
+
+  // Set default texture model to the first installed one (preferred: hunyuan3d-2.1)
+  useEffect(() => {
+    if (availableTextureModels.length > 0) {
+      const preferred = availableTextureModels.find((m) => m.id === 'hunyuan3d-2.1' && m.installed)
+        || availableTextureModels.find((m) => m.installed)
+        || availableTextureModels[0];
+      setMaterialModel(preferred.id);
+    }
+  }, [availableTextureModels]);
 
   // Cleanup polling on unmount to prevent state updates on unmounted component
   useEffect(() => {
@@ -103,12 +137,22 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
       const payload: any = {
         prompt: texturePrompt,
         mode: 'texture-generation',
-        quality: resolution === '4K PBR' ? 'ultra' : resolution === '2K Mixed' ? 'standard' : 'draft',
+        quality: resolution === '4096' ? 'ultra' : resolution === '2048' ? 'high-poly' : resolution === '1024' ? 'standard' : 'draft',
         style_preset: themeStyle,
         generate_texture: true,
+        provider: materialModel,
+        workspace: 'texture-generation',
+        processing_metadata: {
+          weathering,
+          metalness_bias: metalnessBias,
+          roughness_bias: roughnessBias,
+        },
       };
       if (modelUrl) {
         payload.reference_image_url = modelUrl;
+      }
+      if (currentProject?.id) {
+        payload.project_id = currentProject.id;
       }
 
       const response = await fetch('/api/v1/generation', {
@@ -252,6 +296,27 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
           </div>
 
           <div className="flex flex-col gap-4 border-t border-[hsl(var(--border))] pt-4" id="texture-settings-form">
+            {/* Texture Model Selection */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">Texture Model</label>
+              <select
+                value={materialModel}
+                onChange={(e) => setMaterialModel(e.target.value)}
+                disabled={isLoadingTextureModels}
+                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer disabled:opacity-50"
+                id="texture-model-select"
+              >
+                {availableTextureModels.map((m: any) => (
+                  <option key={m.id} value={m.id} disabled={m.installed === false}>
+                    {m.label}{m.installed === false ? ' — not installed' : ''}
+                  </option>
+                ))}
+              </select>
+              {textureModelsError && (
+                <p className="text-[10px] text-orange-400">Using fallback model list (backend unavailable)</p>
+              )}
+            </div>
+
             {/* Resolution selection */}
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">Bake Resolution</label>
@@ -261,9 +326,10 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
                 className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer"
                 id="texture-res-select"
               >
-                <option value="4K PBR">4K Ultra Detail (High Fidelity)</option>
-                <option value="2K Mixed">2K Production Grade (Balanced)</option>
-                <option value="1K Standard">1K Web Optimized (Fast Load)</option>
+                <option value="4096">4K Ultra Detail (4096px) — High Fidelity</option>
+                <option value="2048">2K Production Grade (2048px) — Balanced</option>
+                <option value="1024">1K Standard (1024px) — Fast</option>
+                <option value="512">512px (Low) — Draft</option>
               </select>
             </div>
 
@@ -276,10 +342,11 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
                 className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer"
                 id="texture-style-select"
               >
-                <option value="anime">Anime / Cel-Shaded (Bold Outline, Vibrant Gloss)</option>
-                <option value="realistic">Photorealistic PBR (Physical Material Models)</option>
-                <option value="cyberpunk">Cyberpunk Neon (Fluorescent Emissive Shading)</option>
+                <option value="photorealistic">Photorealistic PBR (Physical Material Models)</option>
                 <option value="stylized-handpainted">Stylized Handpainted (Watercolor/Clay)</option>
+                <option value="anime">Anime / Cel-Shaded (Bold Outline, Vibrant Gloss)</option>
+                <option value="cyberpunk">Cyberpunk Neon (Fluorescent Emissive Shading)</option>
+                <option value="procedural">Procedural (Noise / Tileable)</option>
               </select>
             </div>
 
@@ -300,6 +367,40 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
               />
             </div>
 
+            {/* Metalness Bias Slider */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex justify-between items-center text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
+                <span>Metalness Bias</span>
+                <span className="text-[hsl(var(--primary))]">{Math.round(metalnessBias * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={metalnessBias}
+                onChange={(e) => setMetalnessBias(parseFloat(e.target.value))}
+                className="w-full accent-[hsl(var(--neon-amber))] cursor-pointer"
+              />
+            </div>
+
+            {/* Roughness Bias Slider */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex justify-between items-center text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
+                <span>Roughness Bias</span>
+                <span className="text-[hsl(var(--primary))]">{Math.round(roughnessBias * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={roughnessBias}
+                onChange={(e) => setRoughnessBias(parseFloat(e.target.value))}
+                className="w-full accent-[hsl(var(--neon-amber))] cursor-pointer"
+              />
+            </div>
+
             {/* Run painting button */}
             <button
               onClick={handleTextureGen}
@@ -310,11 +411,11 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
               {isProcessing ? (
                 <>
                   <Sparkles size={14} className="animate-spin text-[hsl(var(--surface-0))]" />
-                  Baking Textures ({resolution})...
+                  Baking Textures ({resolution}px)...
                 </>
               ) : (
                 <>
-                  <Sparkles size={14} className="stroke-[2.5]" />
+                  <Palette size={14} />
                   Bake Material & Paint
                 </>
               )}

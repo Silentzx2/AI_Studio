@@ -94,7 +94,7 @@ def is_compatible_with_workspace(model: dict[str, Any], workspace: str) -> bool:
         return True
     ws = workspace.strip().lower()
     compat = _workspace_compatibility(model)
-    return ws in compat or "mesh-generation" in compat  # mesh-generation is universal fallback
+    return ws in compat
 
 
 def filter_by_workspace(models: Iterable[dict[str, Any]], workspace: str) -> list[dict[str, Any]]:

@@ -1,5 +1,62 @@
 # AI 3D Studio — Changelog
 
+## v3.3.0 — Workspace Compatibility & Texture Pipeline (August 6, 2026)
+
+### New Features
+
+- **Model-to-Workspace Compatibility System**: Each model now declares `workspace_compatibility` in its manifest/metadata. Frontend workspace tabs (Mesh Generation, Texture, Rigging, Segmentation, Remesh) only present compatible models to users, preventing invalid selections.
+- **Backend Capability Matrix** (`backend/app/core/capability_matrix.py`): Added `WORKSPACE_TYPES`, `is_compatible_with_workspace()`, `filter_by_workspace()`, and `_workspace_compatibility()` derivation. `build_pipeline_snapshot()` now includes `workspace_compatibility` per model.
+- **New Pipelines API Endpoints** (`backend/app/api/v1/pipelines.py`):
+  - `GET /api/v1/pipelines/workspace-models?workspace=<type>&installed_only=<bool>` — returns models compatible with a specific workspace.
+  - `GET /api/v1/pipelines/workspace-types` — lists all workspace types with descriptions.
+  - `GET /api/v1/pipelines` now returns `workspace_types` in the snapshot.
+- **Model Registry Compatibility Filtering** (`backend/app/core/registry/model_registry.py`): Each manifest includes `workspace_compatibility`. Registry only surfaces models with a real provider class in `engine._PROVIDER_MAP`.
+- **Generation API Workspace Validation** (`backend/app/api/v1/generation.py`): `GenerationRequest` now accepts optional `workspace` field and validates provider/workspace compatibility at submission.
+- **Frontend Workspace Hooks** (`hooks/useBackendData.ts`): New `useWorkspaceModels(workspace)` hook returns workspace-filtered models. Existing `useAvailableModels()` returns all models.
+- **Frontend Types** (`types/index.ts`): Added `WorkspaceType` union (`mesh-generation`, `texture-generation`, `rigging`, `animation`, `segmentation`, `remesh`, `post-processing`). Added `workspace?: WorkspaceType` to `GenerationConfig` and `workspace_compatibility?: WorkspaceType[]` to `ProviderOption`.
+- **Workspace Tabs Model Filtering**: ThreeDGenerationTab, RiggingAnimationTab, SegmentationTab, and RemeshTab all consume `useWorkspaceModels()` to restrict model selection.
+- **Texture Generation Workflow Improvements** (`features/workspace/new-ui/TextureGenTab.tsx`):
+  - Workspace-aware texture model selector (`hunyuan3d-2.1`, `hunyuan3d-2`, `trellis`, `triposr`) fetched via `useWorkspaceModels('texture-generation')`.
+  - Resolution options expanded: 512px (Draft), 1024px (Fast), 2048px (Balanced), 4096px (Ultra).
+  - PBR material bias controls: Metalness Bias and Roughness Bias sliders (0–100%).
+  - Style presets expanded: Photorealistic PBR, Stylized Handpainted, Anime/Cel-Shaded, Cyberpunk Neon, Procedural.
+  - Generation payload now includes `provider`, `workspace`, and `processing_metadata` (weathering, metalness_bias, roughness_bias).
+- **Settings → Pipelines Page** (`features/settings/sections/pipelines/PipelinesDashboard.tsx`):
+  - Workspace filter bar with counts per workspace type.
+  - Filtered model list with "Showing X of Y" caption.
+  - Workspace compatibility badges rendered on each pipeline card.
+  - Improved card hover states and spacing.
+
+### Backend Changes
+
+- `backend/runtime/installer.py` — Added `workspace_compatibility` to all `PROVIDER_METADATA` entries.
+- `backend/app/core/capability_matrix.py` — New workspace functions; `build_pipeline_snapshot()` enriched.
+- `backend/app/core/registry/model_registry.py` — Manifests include `workspace_compatibility`.
+- `backend/app/api/v1/pipelines.py` — New `workspace-models` and `workspace-types` endpoints.
+- `backend/app/api/v1/generation.py` — `workspace` field + provider/workspace soft validation.
+- `backend/app/api/v1/runtime.py` — `three_d_models` now includes `workspace_compatibility`.
+
+### Frontend Changes
+
+- `hooks/useBackendData.ts` — New `useWorkspaceModels(workspace)` hook.
+- `types/index.ts` — New `WorkspaceType` union and related interface fields.
+- `features/workspace/new-ui/TextureGenTab.tsx` — Model selector + PBR bias controls.
+- `features/settings/sections/pipelines/PipelinesDashboard.tsx` — Workspace filter bar, badges, polished cards.
+- `features/workspace/new-ui/ThreeDGenerationTab.tsx` — Already wired to `useWorkspaceModels('mesh-generation')`.
+- `features/workspace/new-ui/RiggingAnimationTab.tsx` — Already wired to `useWorkspaceModels('rigging')`.
+- `features/workspace/new-ui/SegmentationTab.tsx` — Already wired to `useWorkspaceModels('segmentation')`.
+- `features/workspace/new-ui/RemeshTab.tsx` — Already wired to `useWorkspaceModels('remesh')`.
+
+### Documentation
+
+- Updated `Docs/README.md`, `Docs/api-documentation.md`, `Docs/developer-guide.md`, `Docs/pipeline-status.md` to reflect the workspace compatibility system and new endpoints.
+
+### Breaking Changes
+
+- None. Backward-compatible additions. Existing pipelines without `workspace_compatibility` default to derivation from existing capability flags.
+
+---
+
 ## v3.2.0 — uv-Only Package Management (January 25, 2026)
 
 ### Breaking Changes

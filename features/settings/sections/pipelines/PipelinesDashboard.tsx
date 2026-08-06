@@ -106,6 +106,7 @@ interface DisplayPipeline extends PipelineStatus {
   bestFor: string[];
   workflow: string;
   notesText: string;
+  workspace_compatibility: WorkspaceTag[];
 }
 
 const STORAGE_KEYS = {
@@ -116,17 +117,39 @@ const STORAGE_KEYS = {
 } as const;
 
 type WorkspaceKey = 'all' | 'mesh-generation' | 'texture-generation' | 'rigging' | 'animation' | 'segmentation' | 'remesh' | 'post-processing';
+type WorkspaceTag = Exclude<WorkspaceKey, 'all'>;
 
-const WORKSPACE_OPTIONS: { key: WorkspaceKey; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { key: 'all', label: 'All', icon: LayoutGrid },
-  { key: 'mesh-generation', label: 'Mesh', icon: Box },
-  { key: 'texture-generation', label: 'Texture', icon: Palette },
-  { key: 'rigging', label: 'Rigging', icon: Bone },
-  { key: 'animation', label: 'Animation', icon: PlayCircle },
-  { key: 'segmentation', label: 'Segment', icon: Scissors },
-  { key: 'remesh', label: 'Remesh', icon: Grid3x3 },
-  { key: 'post-processing', label: 'Post', icon: Wand2 },
+const WORKSPACE_OPTIONS: { key: WorkspaceKey; label: string; title: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { key: 'all', label: 'All', title: 'All workspaces', icon: LayoutGrid },
+  { key: 'mesh-generation', label: 'Mesh', title: 'Mesh Generation', icon: Box },
+  { key: 'texture-generation', label: 'Texture', title: 'Texture Generation', icon: Palette },
+  { key: 'rigging', label: 'Rigging', title: 'Rigging', icon: Bone },
+  { key: 'animation', label: 'Animation', title: 'Animation', icon: PlayCircle },
+  { key: 'segmentation', label: 'Segment', title: 'Segmentation', icon: Scissors },
+  { key: 'remesh', label: 'Remesh', title: 'Remesh', icon: Grid3x3 },
+  { key: 'post-processing', label: 'Post', title: 'Post-Processing', icon: Wand2 },
 ];
+
+const WORKSPACE_META: Record<string, { label: string; title: string; icon: React.ComponentType<{ className?: string }> }> =
+  WORKSPACE_OPTIONS.reduce((acc, option) => {
+    acc[option.key] = { label: option.label, title: option.title, icon: option.icon };
+    return acc;
+  }, {} as Record<string, { label: string; title: string; icon: React.ComponentType<{ className?: string }> }>);
+
+function workspaceTitle(key: WorkspaceKey) {
+  return WORKSPACE_META[key]?.title ?? key;
+}
+
+/** Backend attaches `workspace_compatibility` to each pipeline; keep only keys we can render. */
+function normalizeWorkspaceTags(value: unknown): WorkspaceTag[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  return value.filter((tag): tag is WorkspaceTag => {
+    if (typeof tag !== 'string' || tag === 'all' || !(tag in WORKSPACE_META) || seen.has(tag)) return false;
+    seen.add(tag);
+    return true;
+  });
+}
 
 const MODEL_LIBRARY: Record<string, ModelReference> = {
   triposr: {
@@ -434,6 +457,9 @@ export function PipelinesDashboard({
 
       return {
         ...pipeline,
+        workspace_compatibility: normalizeWorkspaceTags(
+          (pipeline as PipelineStatus & { workspace_compatibility?: unknown }).workspace_compatibility
+        ),
         summary: reference.summary,
         diskSpaceMb: reference.diskSpaceMb,
         quality: reference.quality,
@@ -449,6 +475,23 @@ export function PipelinesDashboard({
       return a.label.localeCompare(b.label);
     });
   }, [snapshot.pipelines]);
+
+  const visibleModels = useMemo(
+    () => displayModels.filter(
+      (model) => selectedWorkspace === 'all' || model.workspace_compatibility.includes(selectedWorkspace)
+    ),
+    [displayModels, selectedWorkspace]
+  );
+
+  const workspaceCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: displayModels.length };
+    displayModels.forEach((model) => {
+      model.workspace_compatibility.forEach((tag) => {
+        counts[tag] = (counts[tag] ?? 0) + 1;
+      });
+    });
+    return counts;
+  }, [displayModels]);
 
   const installedCount = displayModels.filter((model) => model.installed).length;
   const enabledCount = displayModels.filter((model) => model.installed && model.enabled).length;
@@ -895,52 +938,59 @@ export function PipelinesDashboard({
               <CardDescription>Use the switches to gate a model in the UI. Install and uninstall actions remain model-driven.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex flex-col gap-3">
-                <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-border bg-muted/30 p-1.5">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <Filter className="h-3.5 w-3.5" />
+                  Workspace
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-border bg-card p-1.5">
                   {WORKSPACE_OPTIONS.map((option) => {
                     const active = selectedWorkspace === option.key;
                     const Icon = option.icon;
+                    const count = workspaceCounts[option.key] ?? 0;
                     return (
                       <button
                         key={option.key}
+                        type="button"
+                        title={option.title}
+                        aria-pressed={active}
                         onClick={() => setSelectedWorkspace(option.key)}
                         className={[
                           'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors',
-                          active ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                          active
+                            ? 'bg-primary text-primary-foreground shadow-sm'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                         ].join(' ')}
                       >
                         <Icon className="h-3.5 w-3.5" />
                         {option.label}
+                        <span className={active ? 'text-[11px] opacity-80' : 'text-[11px] opacity-70'}>{count}</span>
                       </button>
                     );
                   })}
                 </div>
                 {selectedWorkspace !== 'all' && (
                   <p className="text-xs text-muted-foreground">
-                    Showing models compatible with <span className="font-medium text-foreground">{selectedWorkspace}</span>.
+                    Showing models compatible with{' '}
+                    <span className="font-medium text-foreground">{workspaceTitle(selectedWorkspace)}</span>
+                    {` (${visibleModels.length} of ${displayModels.length}).`}
                   </p>
                 )}
               </div>
 
-              {(() => {
-                const visibleModels = displayModels.filter(
-                  (model) => selectedWorkspace === 'all' || model.workspace_compatibility?.includes(selectedWorkspace)
-                );
-                if (displayModels.length === 0) {
-                  return (
-                    <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
-                      No pipelines found in the registry.
-                    </div>
-                  );
-                }
-                if (visibleModels.length === 0) {
-                  return (
-                    <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
-                      No pipelines are compatible with {selectedWorkspace}.
-                    </div>
-                  );
-                }
-                return (
+              {displayModels.length === 0 ? (
+                <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                  No pipelines found in the registry.
+                </div>
+              ) : visibleModels.length === 0 ? (
+                <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                  <span>No pipelines are compatible with {workspaceTitle(selectedWorkspace)}.</span>
+                  <Button variant="ghost" size="sm" className="gap-2" onClick={() => setSelectedWorkspace('all')}>
+                    <X className="h-4 w-4" />
+                    Clear filter
+                  </Button>
+                </div>
+              ) : (
                 <div className="grid gap-4 lg:grid-cols-2">
                   {visibleModels.map((model) => {
                     const isBusy = Boolean(busy[model.id]);
@@ -998,6 +1048,35 @@ export function PipelinesDashboard({
                               {cap.label}
                             </Badge>
                           ))}
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Workspace</span>
+                          {model.workspace_compatibility.length === 0 ? (
+                            <span className="text-xs text-muted-foreground">Not mapped</span>
+                          ) : (
+                            model.workspace_compatibility.map((tag) => {
+                              const meta = WORKSPACE_META[tag];
+                              const TagIcon = meta?.icon;
+                              const isFiltered = selectedWorkspace === tag;
+                              return (
+                                <Badge
+                                  key={tag}
+                                  variant="outline"
+                                  title={meta?.title ?? tag}
+                                  className={[
+                                    'gap-1 px-2 py-0 text-[11px] font-medium',
+                                    isFiltered
+                                      ? 'border-primary/50 bg-primary/10 text-primary'
+                                      : 'border-border text-muted-foreground',
+                                  ].join(' ')}
+                                >
+                                  {TagIcon ? <TagIcon className="h-3 w-3" /> : null}
+                                  {meta?.label ?? tag}
+                                </Badge>
+                              );
+                            })
+                          )}
                         </div>
 
                         <div className="mt-4 grid gap-2 text-sm text-muted-foreground md:grid-cols-2">
@@ -1082,8 +1161,7 @@ export function PipelinesDashboard({
                     );
                   })}
                 </div>
-                );
-              })()}
+              )}
             </CardContent>
           </Card>
         </TabsContent>

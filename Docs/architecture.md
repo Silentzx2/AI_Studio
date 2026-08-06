@@ -1,7 +1,7 @@
 # AI 3D Studio - Architecture Documentation
 
-> **Version**: 3.2.0 (uv-Only Package Management)  
-> **Last Updated**: January 25, 2026
+> **Version**: 3.3.0 (Workspace Compatibility & Texture Pipeline)  
+> **Last Updated**: August 6, 2026
 
 ---
 
@@ -16,12 +16,14 @@
 7. [Data Layer](#data-layer)
 8. [Background Workers](#background-workers)
 9. [AI Provider System](#ai-provider-system)
-10. [Download Pipeline](#download-pipeline)
-11. [Health Check System](#health-check-system)
-12. [Data Flow Diagrams](#data-flow-diagrams)
-13. [Design Decisions](#design-decisions)
-14. [Security Considerations](#security-considerations)
-15. [Per-Model Storage Architecture](#per-model-storage-architecture)
+10. [Workspace Compatibility System](#workspace-compatibility-system)
+11. [Texture Generation Pipeline](#texture-generation-pipeline)
+12. [Download Pipeline](#download-pipeline)
+13. [Health Check System](#health-check-system)
+14. [Data Flow Diagrams](#data-flow-diagrams)
+15. [Design Decisions](#design-decisions)
+16. [Security Considerations](#security-considerations)
+17. [Per-Model Storage Architecture](#per-model-storage-architecture)
 
 ---
 
@@ -722,6 +724,133 @@ Each implements:
 - `get_model(id)` - Get model details
 - `resolve_download_urls(id)` - Get download URLs
 - `get_mirrors(url)` - Mirror URLs for fallback
+
+---
+
+## Workspace Compatibility System
+
+### Overview
+
+The workspace compatibility system prevents users from selecting incompatible models for specific tasks. Each model declares which workspace types it supports, and the frontend filters model lists accordingly.
+
+### Workspace Types
+
+| Workspace | Description | Compatible Models |
+|-----------|-------------|-------------------|
+| `mesh-generation` | Generate 3D meshes from text or images | hunyuan3d-2.1, hunyuan3d-2, trellis, triposr, triposg, triposf |
+| `texture-generation` | Generate PBR textures and materials | hunyuan3d-2.1, hunyuan3d-2, trellis, triposr |
+| `rigging` | Auto-rig 3D character meshes | anigen, unirig |
+| `animation` | Generate skeletal animations | anigen, unirig |
+| `segmentation` | Part segmentation and mesh splitting | holopart |
+| `remesh` | Retopology and mesh optimization | detailgen3d |
+| `post-processing` | Detail enhancement and mesh polishing | hunyuan3d-2.1, hunyuan3d-2, detailgen3d |
+
+### Backend Implementation
+
+**Capability Matrix** (`backend/app/core/capability_matrix.py`):
+- `WORKSPACE_TYPES`: Tuple of all supported workspace types.
+- `_workspace_compatibility(model)`: Reads `workspace_compatibility` from model metadata or derives from capability flags.
+- `is_compatible_with_workspace(model, workspace)`: Returns True if model supports the given workspace.
+- `filter_by_workspace(models, workspace)`: Filters a list of models to compatible ones.
+- `build_pipeline_snapshot()`: Now includes `workspace_compatibility` array per model in the snapshot.
+
+**Model Registry** (`backend/app/core/registry/model_registry.py`):
+- Each model manifest includes `workspace_compatibility: string[]`.
+- Registry only surfaces models with a real provider class in `engine._PROVIDER_MAP`.
+
+**Pipelines API** (`backend/app/api/v1/pipelines.py`):
+- `GET /api/v1/pipelines/workspace-models?workspace=<type>&installed_only=<bool>`: Returns workspace-filtered models.
+- `GET /api/v1/pipelines/workspace-types`: Returns all workspace types with descriptions.
+
+### Frontend Implementation
+
+**Hook** (`hooks/useBackendData.ts`):
+- `useWorkspaceModels(workspace)`: Fetches models compatible with a specific workspace from `/api/v1/pipelines/workspace-models`.
+
+**Workspace Tabs**:
+- `ThreeDGenerationTab.tsx` → `useWorkspaceModels('mesh-generation')`
+- `RiggingAnimationTab.tsx` → `useWorkspaceModels('rigging')`
+- `SegmentationTab.tsx` → `useWorkspaceModels('segmentation')`
+- `RemeshTab.tsx` → `useWorkspaceModels('remesh')`
+- `TextureGenTab.tsx` → `useWorkspaceModels('texture-generation')`
+
+**Settings → Pipelines** (`PipelinesDashboard.tsx`):
+- Workspace filter bar with counts per workspace type.
+- Filtered model list with "Showing X of Y" caption.
+- Workspace compatibility badges rendered on each pipeline card.
+
+---
+
+## Texture Generation Pipeline
+
+### Overview
+
+The texture generation workflow has been enhanced to support production-grade PBR material painting with model selection, resolution control, and material bias parameters.
+
+### Supported Texture Models
+
+| Model | Resolution Support | Style Presets | Best For |
+|-------|-------------------|---------------|----------|
+| **Hunyuan3D 2.1** | 512–4096px | Photorealistic, Stylized, Anime, Cyberpunk, Procedural | Complete asset texturing |
+| **Hunyuan3D 2** | 512–4096px | Photorealistic, Stylized, Anime, Cyberpunk, Procedural | High-quality texturing |
+| **TRELLIS** | 512–4096px | Photorealistic, Stylized, Anime, Cyberpunk, Procedural | Textured mesh generation |
+| **TripoSR** | 512–2048px | Photorealistic, Stylized, Anime, Cyberpunk, Procedural | Fast texture baking |
+
+### Texture Generation Flow
+
+```
+User selects texture model
+         │
+         ▼
+Configure parameters:
+- Resolution (512/1024/2048/4096)
+- Style preset (Photorealistic, Stylized, Anime, Cyberpunk, Procedural)
+- Weathering (0–100%)
+- Metalness bias (0–100%)
+- Roughness bias (0–100%)
+         │
+         ▼
+POST /api/v1/generation
+  mode: 'texture-generation'
+  provider: <selected model>
+  workspace: 'texture-generation'
+  quality: <resolution-mapped>
+  style_preset: <theme>
+  generate_texture: true
+  processing_metadata: { weathering, metalness_bias, roughness_bias }
+         │
+         ▼
+Backend validates workspace compatibility
+         │
+         ▼
+Provider runs texture generation (e.g., Hunyuan3DPaintPipeline)
+         │
+         ▼
+Result returned with texture maps:
+- Albedo (RGB)
+- Roughness
+- Metalness
+- Normal (optional)
+         │
+         ▼
+Frontend displays PBR Channel Diagnostics
+```
+
+### Frontend Controls (TextureGenTab)
+
+- **Texture Model Selector**: Dropdown populated from `useWorkspaceModels('texture-generation')`.
+- **Resolution Presets**: 512px (Draft), 1024px (Fast), 2048px (Balanced), 4096px (Ultra).
+- **Style Presets**: Photorealistic PBR, Stylized Handpainted, Anime/Cel-Shaded, Cyberpunk Neon, Procedural.
+- **PBR Bias Sliders**: Metalness Bias and Roughness Bias (0–100%).
+- **Weathering Slider**: Surface wear and aging (0–100%).
+- **Model Upload**: Optional GLB/GLTF target for texturing.
+
+### Backend Integration
+
+The generation API (`backend/app/api/v1/generation.py`) accepts:
+- `provider`: Texture model ID (validated against workspace compatibility).
+- `workspace`: `texture-generation` (soft validation against provider metadata).
+- `processing_metadata`: Contains `weathering`, `metalness_bias`, `roughness_bias`.
 
 ---
 

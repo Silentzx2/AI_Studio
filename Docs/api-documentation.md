@@ -981,7 +981,8 @@ GET /api/v1/pipelines
           "detail_enhancement": true,
           "text_to_3d": false,
           "image_to_3d": true
-        }
+        },
+        "workspace_compatibility": ["mesh-generation"]
       }
     ],
     "computed_features": {
@@ -993,6 +994,15 @@ GET /api/v1/pipelines
     },
     "input_modes": ["text-to-3d", "image-to-3d"],
     "total_models": 7,
+    "workspace_types": [
+      "mesh-generation",
+      "texture-generation",
+      "rigging",
+      "animation",
+      "segmentation",
+      "remesh",
+      "post-processing"
+    ],
     "updated_at": "2026-07-27T00:00:00Z"
   }
 }
@@ -1014,6 +1024,73 @@ Content-Type: application/json
 - Validates the model id against installed + available models.
 - Persists the toggle state in the runtime cache.
 - Recomputes the feature matrix for the UI.
+
+### Get Workspace Models
+
+```http
+GET /api/v1/pipelines/workspace-models?workspace=<type>&installed_only=<bool>
+```
+
+**Query Parameters:**
+- `workspace` (required): One of `mesh-generation`, `texture-generation`, `rigging`, `animation`, `segmentation`, `remesh`, `post-processing`.
+- `installed_only` (optional, default `false`): If `true`, only return installed models.
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "pipelines": [
+      {
+        "id": "hunyuan3d-2.1",
+        "label": "Hunyuan3D 2.1",
+        "installed": true,
+        "status": "ready",
+        "vram_required_mb": 16000,
+        "supports": {
+          "text_to_3d": true,
+          "image_to_3d": true,
+          "texture_generation": true
+        },
+        "workspace_compatibility": ["mesh-generation", "texture-generation", "post-processing"]
+      }
+    ]
+  }
+}
+```
+
+### List Workspace Types
+
+```http
+GET /api/v1/pipelines/workspace-types
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "workspace_types": [
+      "mesh-generation",
+      "texture-generation",
+      "rigging",
+      "animation",
+      "segmentation",
+      "remesh",
+      "post-processing"
+    ],
+    "descriptions": {
+      "mesh-generation": "Generate 3D meshes from text or images",
+      "texture-generation": "Generate PBR textures and materials",
+      "rigging": "Auto-rig 3D character meshes",
+      "animation": "Generate skeletal animations",
+      "segmentation": "Part segmentation and mesh splitting",
+      "remesh": "Retopology and mesh optimization",
+      "post-processing": "Detail enhancement and mesh polishing"
+    }
+  }
+}
+```
 
 ### Supported model ids in the current catalog
 

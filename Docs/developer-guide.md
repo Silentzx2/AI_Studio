@@ -1144,13 +1144,24 @@ The current pipeline surface is split across a small set of files:
 
 ### Backend
 
-- `backend/app/api/v1/pipelines_router.py` — pipeline snapshot + feature gate toggle endpoints.
-- `backend/app/api/v1/runtime_router.py` — runtime status, health, options, and install stream routes. Install endpoints now require an explicit model list (no bulk "install everything" mode).
+- `backend/app/api/v1/pipelines.py` — pipeline snapshot, workspace-models, workspace-types, and feature gate toggle endpoints.
+- `backend/app/api/v1/runtime.py` — runtime status, health, options, and install stream routes. Install endpoints now require an explicit model list (no bulk "install everything" mode).
+- `backend/app/api/v1/generation.py` — generation endpoints with optional `workspace` field for provider/workspace compatibility validation.
 - `backend/app/api/v1/hf_token_router.py` — HuggingFace token status and verification helpers.
-- `backend/app/core/capability_matrix.py` — computes feature availability from installed models.
-- `backend/app/core/registry/model_registry.py` — source of truth for the current catalog.
-- `backend/runtime/installer.py` — `resolve_install_targets()` enforces explicit model lists; per-model venv creation via `uv venv`.
+- `backend/app/core/capability_matrix.py` — computes feature availability from installed models; includes `is_compatible_with_workspace()` and `filter_by_workspace()`.
+- `backend/app/core/registry/model_registry.py` — source of truth for the current catalog; manifests include `workspace_compatibility`.
+- `backend/runtime/installer.py` — `resolve_install_targets()` enforces explicit model lists; per-model venv creation via `uv venv`; `PROVIDER_METADATA` includes `workspace_compatibility`.
 - `backend/runtime/storage.py` — `StorageConfig` now provides `get_model_venv_path()`, `get_model_venv_python()`, `get_model_weights_dir()`.
+
+### Workspace Compatibility System
+
+When adding a new model, declare its `workspace_compatibility` in both:
+1. `backend/runtime/installer.py` → `PROVIDER_METADATA[model_id]["workspace_compatibility"]`
+2. `backend/app/core/registry/model_registry.py` → model manifest `workspace_compatibility`
+
+Valid workspace types: `mesh-generation`, `texture-generation`, `rigging`, `animation`, `segmentation`, `remesh`, `post-processing`.
+
+The frontend uses `useWorkspaceModels(workspace)` to fetch only compatible models for each workspace tab.
 
 ### Current catalog
 
@@ -1159,6 +1170,8 @@ The current pipeline surface is split across a small set of files:
 ### Verification checklist
 
 - `GET /api/v1/pipelines` returns the snapshot used by Settings → Pipelines.
+- `GET /api/v1/pipelines/workspace-models?workspace=<type>` returns workspace-filtered models.
+- `GET /api/v1/pipelines/workspace-types` returns all supported workspace types.
 - `GET /api/v1/runtime/status` returns engine, provider, storage, and worker data.
 - `GET /api/v1/runtime/options` exposes the runtime pickers used by the UI.
 - There is no bare `GET /api/v1/runtime` route in the current router.

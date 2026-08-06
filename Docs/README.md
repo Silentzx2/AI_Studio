@@ -73,6 +73,8 @@
 | **Download Queue** | Pause, resume, cancel, concurrent downloads | ✅ | V2 |
 | **Performance Benchmarks** | Model performance metrics & comparisons | ✅ | V2 |
 | **GPU Scheduling** | VRAM-aware provider selection | ✅ | v1 |
+| **Workspace Compatibility** | Model-to-workspace filtering (prevents invalid selection) | ✅ | v3.3 |
+| **Texture Pipeline** | Production-grade PBR texture generation with model selection | ✅ | v3.3 |
 | **3D Viewer** | In-browser Three.js rendering | ✅ | v1 |
 | **Admin Dashboard** | System administration interface | ✅ | v1 |
 
@@ -95,6 +97,8 @@ The Settings → Pipelines page is the UI source of truth for feature gating and
 
 - `GET /api/v1/pipelines` returns the current snapshot of models, features, and input modes.
 - `POST /api/v1/pipelines/{model_id}/toggle` enables or disables a pipeline in the local feature gate.
+- `GET /api/v1/pipelines/workspace-models?workspace=<type>&installed_only=<bool>` returns models compatible with a specific workspace.
+- `GET /api/v1/pipelines/workspace-types` lists all supported workspace/task types with descriptions.
 - Runtime health and provider data come from `/api/v1/runtime/status`, `/api/v1/runtime/health`, and `/api/v1/runtime/options`.
 - The backend does **not** register a bare `GET /api/v1/runtime` route; use the sub-routes above.
 
@@ -386,6 +390,19 @@ For complete configuration options, see [Setup Guide - Configuration](docs/setup
 - **Center Area**: Live 3D preview with interactive rotation
 - **Right Panel**: Output options and generation metadata
 - **Bottom Dock**: Generation history with thumbnail previews
+- **Workspace Compatibility**: Each model declares which workspaces it supports. The UI only shows compatible models in each workspace tab, preventing invalid selections.
+
+### Workspace Types
+
+| Workspace | Purpose | Compatible Models |
+|-----------|---------|-------------------|
+| **Mesh Generation** | Create 3D meshes from text or images | Hunyuan3D 2.1, Hunyuan3D 2, TRELLIS, TripoSR, TripoSG, TripoSF |
+| **Texture Generation** | Generate PBR textures and materials | Hunyuan3D 2.1, Hunyuan3D 2, TRELLIS, TripoSR |
+| **Rigging** | Auto-rig 3D character meshes | AniGen, UniRig |
+| **Animation** | Generate skeletal animations | AniGen, UniRig |
+| **Segmentation** | Part segmentation and mesh splitting | HoloPart |
+| **Remesh** | Retopology and mesh optimization | DetailGen3D |
+| **Post-Processing** | Detail enhancement and mesh polishing | Hunyuan3D 2.1, Hunyuan3D 2, DetailGen3D |
 
 ### Model Manager Interface (NEW in V2)
 
@@ -443,6 +460,25 @@ Navigate to `/settings?section=monitoring` for:
 - Log viewer with filtering
 - Terminal access for advanced operations
 
+### Settings → Pipelines Dashboard
+
+The Pipelines page (`/settings?section=pipelines`) provides:
+- **Workspace Filter Bar**: Filter models by compatible workspace type (Mesh Generation, Texture, Rigging, etc.) with counts per type.
+- **Compatibility Badges**: Each pipeline card shows its workspace compatibility tags.
+- **Feature Matrix**: Live computed feature flags based on installed models.
+- **Model Comparison**: Select up to 4 models for side-by-side comparison.
+- **Workflow Presets**: Save and reuse generation workflows.
+
+### Texture Generation Workflow
+
+The Texture tab (`/workspace/texture`) now supports:
+- **Model Selection**: Choose from texture-compatible models (Hunyuan3D 2.1, Hunyuan3D 2, TRELLIS, TripoSR).
+- **Resolution Presets**: 512px (Draft), 1024px (Fast), 2048px (Balanced), 4096px (Ultra).
+- **Style Presets**: Photorealistic PBR, Stylized Handpainted, Anime/Cel-Shaded, Cyberpunk Neon, Procedural.
+- **PBR Material Controls**: Metalness Bias and Roughness Bias sliders (0–100%).
+- **Weathering Control**: Surface wear and aging (0–100%).
+- **Model Upload**: Optional GLB/GLTF target for texturing.
+
 ---
 
 ## 🔌 Model Manager (V2)
@@ -482,6 +518,14 @@ GET    /api/v1/system/info                           - System specs
 POST   /api/v1/system/compatibility                  - Check compatibility
 GET    /api/v1/system/health                         - Overall health status
 GET    /api/v1/system/benchmark/{model_id}          - Get benchmarks
+```
+
+#### **Pipelines & Workspace**
+```
+GET    /api/v1/pipelines                             - Pipeline snapshot + feature matrix
+POST   /api/v1/pipelines/{model_id}/toggle           - Enable/disable a pipeline
+GET    /api/v1/pipelines/workspace-models            - Models compatible with a workspace
+GET    /api/v1/pipelines/workspace-types             - List all workspace types
 ```
 
 ### Download Features

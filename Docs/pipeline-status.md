@@ -541,29 +541,43 @@ The current Settings → Pipelines page is backed by the live registry snapshot 
 
 ### Capability summary
 
-| Model | Category | Key capabilities | VRAM |
-|------|----------|------------------|------|
-| Hunyuan3D 2.1 | 3D generation | text/image-to-3D, texture generation | 16 GB |
-| TripoSR | 3D generation | image-to-3D, optional texture bake | 6 GB |
-| Trellis | 3D generation | image-to-3D, text-to-3D, texture generation | 12 GB |
-| TripoSG | 3D generation | image-to-3D, detail enhancement | 12 GB |
-| TripoSF | 3D generation | image-to-3D, detail enhancement | 12 GB |
-| UniRig | Rigging | rigging, animation | 8 GB |
-| HoloPart | Post-processing | texture support, part completion | 8 GB |
+| Model | Category | Workspace compatibility | Key capabilities | VRAM |
+|------|----------|------------------------|------------------|------|
+| Hunyuan3D 2.1 | 3D generation | mesh-generation, texture-generation, post-processing | text/image-to-3D, texture generation | 16 GB |
+| TripoSR | 3D generation | mesh-generation, texture-generation | image-to-3D, optional texture bake | 6 GB |
+| Trellis | 3D generation | mesh-generation, texture-generation | image-to-3D, text-to-3D, texture generation | 8 GB |
+| TripoSG | 3D generation | mesh-generation | image-to-3D, detail enhancement | 12 GB |
+| TripoSF | 3D generation | mesh-generation | image-to-3D, detail enhancement | 12 GB |
+| UniRig | Rigging | rigging, animation | rigging, animation | 8 GB |
+| HoloPart | Post-processing | segmentation, post-processing | part completion, texture support | 8 GB |
+| DetailGen3D | Post-processing | post-processing | detail enhancement | 4 GB |
+
+### Workspace compatibility rules
+
+- **mesh-generation**: hunyuan3d-2.1, hunyuan3d-2, trellis, triposr, triposg, triposf
+- **texture-generation**: hunyuan3d-2.1, hunyuan3d-2, trellis, triposr
+- **rigging**: anigen, unirig
+- **animation**: anigen, unirig
+- **segmentation**: holopart
+- **remesh**: detailgen3d
+- **post-processing**: hunyuan3d-2.1, hunyuan3d-2, detailgen3d
 
 ### Feature gating rules
 
 - Texture generation is enabled when at least one texture-capable model is active.
-- Rigging / animation is enabled when UniRig is active.
-- Detail enhancement is enabled when TripoSG, TripoSF, or HoloPart is active.
+- Rigging / animation is enabled when AniGen or UniRig is active.
+- Detail enhancement is enabled when DetailGen3D or HoloPart is active.
 - Text-to-3D is enabled when Hunyuan3D 2.1 or Trellis is active.
 - Image-to-3D is enabled whenever a generation model is active.
 
 ### Current UI surface
 
-- Settings → Pipelines: `features/settings/sections/PipelinesSection.tsx`
-- Runtime data source: `services/runtimeService.ts`
+- Settings → Pipelines: `features/settings/sections/PipelinesDashboard.tsx`
+- Workspace tabs: `features/workspace/new-ui/*Tab.tsx`
+- Runtime data source: `hooks/useBackendData.ts`
 - Backend snapshot API: `GET /api/v1/pipelines`
+- Backend workspace API: `GET /api/v1/pipelines/workspace-models?workspace=<type>`
+- Backend workspace types: `GET /api/v1/pipelines/workspace-types`
 - Backend runtime APIs: `GET /api/v1/runtime/status`, `GET /api/v1/runtime/health`, `GET /api/v1/runtime/options`
 
 ---
