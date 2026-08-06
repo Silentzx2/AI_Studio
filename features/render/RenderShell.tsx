@@ -1,7 +1,7 @@
 "use client";
 
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Camera, Sun, Moon, Aperture, Film, Download, Play, Settings, Image as ImageIcon } from 'lucide-react';
 import { GlassCard } from '@/components/premium/GlassCard';
@@ -13,6 +13,7 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useTaskManager } from '@/hooks/useTaskManager';
 
 const CAMERA_PRESETS = [
   { id: 'front', label: 'Front View', icon: Camera },
@@ -41,6 +42,11 @@ export function RenderShell() {
   const [denoise, setDenoise] = useState(true);
   const [lighting, setLighting] = useState('studio');
   const [camera, setCamera] = useState('perspective');
+  const { reconnectToRunningTasks } = useTaskManager();
+
+  useEffect(() => {
+    reconnectToRunningTasks();
+  }, [reconnectToRunningTasks]);
 
   const handleRender = () => {
     toast.info('Render started', { description: `Quality: ${quality} · ${resolution} · ${samples} samples` });
@@ -102,24 +108,27 @@ export function RenderShell() {
           <GlassCard className="p-4 sm:p-5" delay={0.15}>
             <h3 className="text-sm font-semibold mb-4">Lighting</h3>
             <div className="space-y-2">
-              {LIGHTING_PRESETS.map((light) => (
-                <button
-                  key={light.id}
-                  onClick={() => setLighting(light.id)}
-                  className={cn(
-                    'flex items-center justify-between w-full p-3 rounded-xl border text-left transition-all touch-target',
-                    lighting === light.id
-                      ? 'bg-[hsl(var(--neon-purple)/0.1)] border-[hsl(var(--neon-purple)/0.3)]'
-                      : 'glass border-[hsl(var(--border)/0.5)] hover:border-[hsl(var(--border)/0.8)]'
-                  )}
-                >
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{light.label}</p>
-                    <p className="text-xs text-muted-foreground">{light.description}</p>
-                  </div>
-                  {lighting === light.id && <div className="w-2 h-2 rounded-full bg-[hsl(var(--neon-purple))]" />}
-                </button>
-              ))}
+              {LIGHTING_PRESETS.map((light) => {
+                const Icon = light.icon;
+                return (
+                  <button
+                    key={light.id}
+                    onClick={() => setLighting(light.id)}
+                    className={cn(
+                      'flex items-center justify-between w-full p-3 rounded-xl border text-left transition-all touch-target',
+                      lighting === light.id
+                        ? 'bg-[hsl(var(--neon-purple)/0.1)] border-[hsl(var(--neon-purple)/0.3)]'
+                        : 'glass border-[hsl(var(--border)/0.5)] hover:border-[hsl(var(--border)/0.8)]'
+                    )}
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{light.label}</p>
+                      <p className="text-xs text-muted-foreground">{light.description}</p>
+                    </div>
+                    {lighting === light.id && <div className="w-2 h-2 rounded-full bg-[hsl(var(--neon-purple))]" />}
+                  </button>
+                );
+              })}
             </div>
           </GlassCard>
         </div>

@@ -1,9 +1,11 @@
 "use client";
 
-
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useGenerationStore } from '@/stores/useGenerationStore';
+import { useAppStore } from '@/stores/useAppStore';
+import { useTaskManager } from '@/hooks/useTaskManager';
+import { getEventBus } from '@/hooks/useEventBus';
 import { generationService } from '@/services/generationService';
 import { uploadService } from '@/services/uploadService';
 import type { GenerationConfig, GenerationJob } from '@/types';
@@ -17,8 +19,10 @@ function createJob(config: GenerationConfig): GenerationJob {
 
 export function useGeneration() {
   const { mode, uploadedImage, currentJob, getConfig, setCurrentJob, updateJobProgress, addLogEntry, addRecentPrompt, cancelJob } = useGenerationStore();
+  const { registerTask, updateTask, completeTask } = useTaskManager();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(0);
+  const eventBus = getEventBus();
 
   const startElapsedTimer = useCallback((jobId: string) => {
     startTimeRef.current = Date.now();
@@ -35,6 +39,20 @@ export function useGeneration() {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
   }, []);
 
+  useEffect(() => {
+    if (currentJob && !['completed', 'failed', 'cancelled', 'idle'].includes(currentJob.status)) {
+      registerTask({
+        id: currentJob.id,
+        type: 'generation',
+        status: currentJob.status as 'queued' | 'running' | 'completed' | 'failed' | 'cancelled',
+        progress: currentJob.progress,
+        label: currentJob.config.prompt || 'Generation',
+        createdAt: currentJob.createdAt.getTime(),
+        updatedAt: currentJob.updatedAt.getTime(),
+      });
+    }
+  }, []);
+
   const generate = useCallback(async () => {
     let config = getConfig();
     if (mode === 'text-to-3d' && !config.prompt.trim()) { toast.error('Please enter a prompt to generate a 3D model.'); return; }
@@ -45,14 +63,24 @@ export function useGeneration() {
     startElapsedTimer(job.id);
     toast.info('Generation started', { description: 'Your 3D model is being created...' });
 
+    registerTask({
+      id: job.id,
+      type: 'generation',
+      status: 'queued',
+      progress: 0,
+      label: config.prompt || 'Generation',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    eventBus.emit('generation:started', { jobId: job.id });
+
     try {
       if (mode === 'image-to-3d' && uploadedImage) {
         updateJobProgress(job.id, 3, 'uploading');
         addLogEntry(job.id, 'Uploading reference image...', 'info');
         const uploaded = await uploadService.upload(uploadedImage.file);
         config = { ...config, referenceImage: uploaded.url };
-        // BUG-05 FIX: sync the server URL back into the store so job history shows
-        // the permanent URL, not the stale pre-upload blob URL from the closure.
         useGenerationStore.setState((s) => ({
           currentJob: s.currentJob?.id === job.id
             ? { ...s.currentJob, config }
@@ -61,26 +89,35 @@ export function useGeneration() {
         addLogEntry(job.id, 'Reference image uploaded', 'success');
       }
 
+      updateTask(job.id, { status: 'running', progress: 5 });
+
       const result = await generationService.startGeneration(config, (progress, status, log, level) => {
         updateJobProgress(job.id, progress, status);
         addLogEntry(job.id, log, level);
+        updateTask(job.id, { progress, status: status as 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' });
       });
-      // BUG-05 FIX: read the fresh job from the store (which has the updated config with
-      // referenceImage after upload) instead of spreading the stale closure `job`.
+
       const latestJob = useGenerationStore.getState().currentJob ?? job;
       setCurrentJob({ ...latestJob, status: 'completed', progress: 100, result, updatedAt: new Date() });
       addRecentPrompt({ id: job.id, text: config.prompt, mode: config.mode, thumbnailUrl: result.thumbnailUrl, createdAt: new Date() });
+      completeTask(job.id, 'completed');
+      eventBus.emit('generation:completed', { jobId: job.id, result });
       toast.success('Model generated!', { description: 'Your 3D model is ready for download.' });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      if (message === 'Generation cancelled') { toast.warning('Generation cancelled'); }
-      else {
+      if (message === 'Generation cancelled') {
+        toast.warning('Generation cancelled');
+        completeTask(job.id, 'cancelled');
+        eventBus.emit('generation:cancelled', { jobId: job.id });
+      } else {
         const current = useGenerationStore.getState().currentJob;
         if (current) { useGenerationStore.getState().setCurrentJob({ ...current, status: 'failed', updatedAt: new Date() }); }
+        completeTask(job.id, 'failed');
+        eventBus.emit('generation:failed', { jobId: job.id, error: message });
         toast.error('Generation failed', { description: message });
       }
     } finally { stopElapsedTimer(); }
-  }, [mode, uploadedImage, getConfig, setCurrentJob, updateJobProgress, addLogEntry, addRecentPrompt, startElapsedTimer, stopElapsedTimer]);
+  }, [mode, uploadedImage, getConfig, setCurrentJob, updateJobProgress, addLogEntry, addRecentPrompt, startElapsedTimer, stopElapsedTimer, registerTask, updateTask, completeTask, eventBus]);
 
   const cancel = useCallback(() => { generationService.cancel(); cancelJob(); stopElapsedTimer(); }, [cancelJob, stopElapsedTimer]);
   const isGenerating = currentJob ? !['completed', 'failed', 'cancelled', 'idle'].includes(currentJob.status) : false;

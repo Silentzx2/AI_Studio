@@ -1,7 +1,7 @@
 "use client";
 
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Palette, Layers, Eye, Download, Sparkles, Sliders, Brush, Wand2 } from 'lucide-react';
 import { GlassCard } from '@/components/premium/GlassCard';
@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useTaskManager } from '@/hooks/useTaskManager';
 
 const MATERIAL_LAYERS = [
   { id: 'albedo', label: 'Albedo', icon: Palette, color: 'text-[hsl(var(--neon-purple))]', enabled: true },
@@ -30,6 +31,11 @@ export function TextureShell() {
   const [tileable, setTileable] = useState(true);
   const [resolution, setResolution] = useState('2048');
   const [material, setMaterial] = useState('auto');
+  const { reconnectToRunningTasks } = useTaskManager();
+
+  useEffect(() => {
+    reconnectToRunningTasks();
+  }, [reconnectToRunningTasks]);
 
   const handleGenerate = () => {
     toast.info('Texture generation started', { description: `Material: ${material} · ${resolution}px` });

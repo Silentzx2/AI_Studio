@@ -311,3 +311,28 @@ export interface AdminSettings {
   maxVramMb: number;
   autoUnload: boolean;
 }
+
+export interface ProjectLayer {
+  id: string;
+  type: 'texture' | 'rigging' | 'animation' | 'lod' | 'segmentation' | 'remesh' | 'part_separation';
+  name: string;
+  enabled: boolean;
+  visible: boolean;
+  data: any;
+  sourceTab: string;
+  timestamp: Date;
+}
+
+export interface ProjectAsset {
+  id: string;
+  name: string;
+  modelUrl: string | null;
+  modelData: any;
+  layers: ProjectLayer[];
+  metadata: {
+    prompt: string;
+    model: string;
+    quality: string;
+    createdAt: Date;
+  };
+}

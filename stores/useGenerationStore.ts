@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
+import { useAppStore } from '@/stores/useAppStore';
 import type { GenerationJob, GenerationConfig, GenerationMode, QualityPreset, RecentPrompt, UploadedImage, LogEntry } from '@/types';
 
 interface GenerationState {
@@ -47,66 +48,60 @@ interface GenerationState {
   loadHistory: () => Promise<void>;
 }
 
-const DEFAULT_STATE = {
-  mode: 'text-to-3d' as GenerationMode,
-  prompt: '',
-  negativePrompt: '',
-  quality: 'standard' as QualityPreset,
-  generateTexture: true,
-  autoRig: false,
-  uploadedImage: null,
-  stylePreset: 'Realistic',
-  selectedModel: '',
-  steps: 30,
-  cfgScale: 7.5,
-  seed: '',
-  currentJob: null,
-  jobHistory: [],
-  recentPrompts: [
-    { id: '1', text: 'A medieval stone castle tower with moss-covered walls', mode: 'text-to-3d' as GenerationMode, createdAt: new Date() },
-    { id: '2', text: 'Futuristic sci-fi spaceship with glowing engines', mode: 'text-to-3d' as GenerationMode, createdAt: new Date() },
-    { id: '3', text: 'Cute cartoon robot with big expressive eyes', mode: 'text-to-3d' as GenerationMode, createdAt: new Date() },
-  ],
-  loadingError: null,
-  retryCount: 0,
-  isLoadingHistory: false,
-};
-
 export const useGenerationStore = create<GenerationState>()(
   subscribeWithSelector((set, get) => ({
-    ...DEFAULT_STATE,
-    setMode: (mode) => set({ mode }),
-    setPrompt: (prompt) => set({ prompt }),
-    setNegativePrompt: (negativePrompt) => set({ negativePrompt }),
-    setQuality: (quality) => set({ quality }),
-    setGenerateTexture: (generateTexture) => set({ generateTexture }),
-    setAutoRig: (autoRig) => set({ autoRig }),
-    setUploadedImage: (uploadedImage) => set({ uploadedImage }),
-    setStylePreset: (stylePreset) => set({ stylePreset }),
-    setSelectedModel: (selectedModel) => set({ selectedModel }),
-    setSteps: (steps) => set({ steps }),
-    setCfgScale: (cfgScale) => set({ cfgScale }),
-    setSeed: (seed) => set({ seed }),
-    setCurrentJob: (currentJob) => set({ currentJob }),
+    get mode() { return useAppStore.getState().mode; },
+    get prompt() { return useAppStore.getState().prompt; },
+    get negativePrompt() { return useAppStore.getState().negativePrompt; },
+    get quality() { return useAppStore.getState().quality; },
+    get generateTexture() { return useAppStore.getState().generateTexture; },
+    get autoRig() { return useAppStore.getState().autoRig; },
+    get uploadedImage() { return useAppStore.getState().uploadedImage; },
+    get stylePreset() { return useAppStore.getState().stylePreset; },
+    get selectedModel() { return useAppStore.getState().selectedModel; },
+    get steps() { return useAppStore.getState().steps; },
+    get cfgScale() { return useAppStore.getState().cfgScale; },
+    get seed() { return useAppStore.getState().seed; },
+    get currentJob() { return useAppStore.getState().currentJob; },
+    get jobHistory() { return useAppStore.getState().jobHistory; },
+    get recentPrompts() { return useAppStore.getState().recentPrompts; },
+    get loadingError() { return useAppStore.getState().loadingError; },
+    get retryCount() { return useAppStore.getState().retryCount; },
+    get isLoadingHistory() { return useAppStore.getState().isLoadingHistory; },
+
+    setMode: (mode) => useAppStore.setState({ mode }),
+    setPrompt: (prompt) => useAppStore.setState({ prompt }),
+    setNegativePrompt: (negativePrompt) => useAppStore.setState({ negativePrompt }),
+    setQuality: (quality) => useAppStore.setState({ quality }),
+    setGenerateTexture: (generateTexture) => useAppStore.setState({ generateTexture }),
+    setAutoRig: (autoRig) => useAppStore.setState({ autoRig }),
+    setUploadedImage: (uploadedImage) => useAppStore.setState({ uploadedImage }),
+    setStylePreset: (stylePreset) => useAppStore.setState({ stylePreset }),
+    setSelectedModel: (selectedModel) => useAppStore.setState({ selectedModel }),
+    setSteps: (steps) => useAppStore.setState({ steps }),
+    setCfgScale: (cfgScale) => useAppStore.setState({ cfgScale }),
+    setSeed: (seed) => useAppStore.setState({ seed }),
+    setCurrentJob: (currentJob) => useAppStore.setState({ currentJob }),
     updateJobProgress: (jobId, progress, status) =>
-      set((s) => {
+      useAppStore.setState((s) => {
         if (!s.currentJob || s.currentJob.id !== jobId) return {};
         return { currentJob: { ...s.currentJob, progress, status: status as GenerationJob['status'], updatedAt: new Date() } };
       }),
     addLogEntry: (jobId, message, level) =>
-      set((s) => {
+      useAppStore.setState((s) => {
         if (!s.currentJob || s.currentJob.id !== jobId) return {};
         const entry: LogEntry = { id: Math.random().toString(36).slice(2), timestamp: new Date(), level, message };
         return { currentJob: { ...s.currentJob, logs: [...s.currentJob.logs, entry] } };
       }),
     cancelJob: () =>
-      set((s) => {
+      useAppStore.setState((s) => {
         if (!s.currentJob) return {};
         return { currentJob: { ...s.currentJob, status: 'cancelled', updatedAt: new Date() } };
       }),
-    addRecentPrompt: (prompt) => set((s) => ({ recentPrompts: [prompt, ...s.recentPrompts].slice(0, 10) })),
+    addRecentPrompt: (prompt) =>
+      useAppStore.setState((s) => ({ recentPrompts: [prompt, ...s.recentPrompts].slice(0, 10) })),
     getConfig: () => {
-      const s = get();
+      const s = useAppStore.getState();
       return {
         mode: s.mode,
         prompt: s.prompt,
@@ -122,12 +117,27 @@ export const useGenerationStore = create<GenerationState>()(
         seed: s.seed || undefined,
       };
     },
-    reset: () => set(DEFAULT_STATE),
-    setLoadingError: (error) => set({ loadingError: error }),
-    setRetryCount: (count) => set({ retryCount: count }),
-    setIsLoadingHistory: (v) => set({ isLoadingHistory: v }),
+    reset: () =>
+      useAppStore.setState({
+        mode: 'text-to-3d',
+        prompt: '',
+        negativePrompt: '',
+        quality: 'standard',
+        generateTexture: true,
+        autoRig: false,
+        uploadedImage: null,
+        stylePreset: 'Realistic',
+        selectedModel: '',
+        steps: 30,
+        cfgScale: 7.5,
+        seed: '',
+        currentJob: null,
+      }),
+    setLoadingError: (error) => useAppStore.setState({ loadingError: error }),
+    setRetryCount: (count) => useAppStore.setState({ retryCount: count }),
+    setIsLoadingHistory: (v) => useAppStore.setState({ isLoadingHistory: v }),
     loadHistory: async () => {
-      set({ isLoadingHistory: true, loadingError: null });
+      useAppStore.setState({ isLoadingHistory: true, loadingError: null });
       try {
         const res = await fetch('/api/v1/jobs?limit=20');
         if (!res.ok) {
@@ -135,14 +145,14 @@ export const useGenerationStore = create<GenerationState>()(
         }
         const json = await res.json();
         const jobs = json?.data?.jobs ?? [];
-        set({ jobHistory: jobs, isLoadingHistory: false });
+        useAppStore.setState({ jobHistory: jobs, isLoadingHistory: false });
       } catch (error) {
         console.error('Error loading history:', error);
-        set({ 
-          isLoadingHistory: false, 
-          loadingError: error instanceof Error ? error.message : 'Failed to load history' 
+        useAppStore.setState({
+          isLoadingHistory: false,
+          loadingError: error instanceof Error ? error.message : 'Failed to load history',
+          jobHistory: [],
         });
-        set({ jobHistory: [] });
       }
     },
   }))

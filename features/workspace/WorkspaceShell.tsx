@@ -18,6 +18,7 @@ import { KeyboardShortcuts } from '@/components/KeyboardShortcuts';
 import { WelcomeOverlay } from '@/components/WelcomeOverlay';
 import { CommandPalette } from '@/components/CommandPalette';
 import CreativeWorkspaceLayout from './new-ui/CreativeWorkspaceLayout';
+import { useTaskManager } from '@/hooks/useTaskManager';
 
 const ThreeDViewer = dynamic(
   () => import('./viewer/ThreeDViewer').then((m) => ({ default: m.ThreeDViewer })),
@@ -34,8 +35,13 @@ const ThreeDViewer = dynamic(
 function WorkspaceShellContent() {
   const viewerFullscreen = useUIStore((s) => s.viewer.fullscreen);
   const toggleFullscreen = useUIStore((s) => s.toggleFullscreen);
+  const { reconnectToRunningTasks } = useTaskManager();
 
   const [showShortcuts, setShowShortcuts] = useState(false);
+
+  useEffect(() => {
+    reconnectToRunningTasks();
+  }, [reconnectToRunningTasks]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

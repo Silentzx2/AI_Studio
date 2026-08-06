@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from app.config import get_settings
 from app.utils.response import error, success
@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 MAX_PROMPT_LENGTH = 2000
+
+_VALID_MODES = ('text-to-3d', 'image-to-3d', 'remesh', 'rigging', 'partition', 'texture-generation')
+_VALID_QUALITIES = ('low-poly', 'standard', 'high-poly', 'ultra', 'draft')
 
 
 class GenerationRequest(BaseModel):
@@ -31,20 +34,25 @@ class GenerationRequest(BaseModel):
     detail_pass: bool = False
     detail_guidance: float = 7.5
 
-
-    # Add validation
+    @field_validator('prompt')
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-
-    @classmethod
-    def validate(cls, v):
-        if hasattr(v, 'prompt') and len(v.prompt) > MAX_PROMPT_LENGTH:
+    def validate_prompt_length(cls, v: str) -> str:
+        if len(v) > MAX_PROMPT_LENGTH:
             raise ValueError(f"Prompt exceeds maximum length of {MAX_PROMPT_LENGTH} characters")
-        if hasattr(v, 'mode') and v.mode not in ('text-to-3d', 'image-to-3d', 'remesh', 'rigging', 'partition', 'texture-generation'):
-            raise ValueError(f"Invalid mode: {v.mode}")
-        if hasattr(v, 'quality') and v.quality not in ('low-poly', 'standard', 'high-poly', 'ultra', 'draft'):
-            raise ValueError(f"Invalid quality: {v.quality}")
+        return v
+
+    @field_validator('mode')
+    @classmethod
+    def validate_mode(cls, v: str) -> str:
+        if v not in _VALID_MODES:
+            raise ValueError(f"Invalid mode: {v}")
+        return v
+
+    @field_validator('quality')
+    @classmethod
+    def validate_quality(cls, v: str) -> str:
+        if v not in _VALID_QUALITIES:
+            raise ValueError(f"Invalid quality: {v}")
         return v
 
 

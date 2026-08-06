@@ -12,6 +12,7 @@ import { ProgressBar } from '@/components/premium/ProgressBar';
 import { Badge } from '@/components/premium/Badge';
 import { Spinner } from '@/components/premium/Spinner';
 import { adminService } from '@/services/adminService';
+import { useTaskManager } from '@/hooks/useTaskManager';
 import type { AdminModel, InstallProgress } from '@/types';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -34,6 +35,7 @@ export function DownloadsTab() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
   const [progressMap, setProgressMap] = useState<Record<string, InstallProgress>>({});
+  const { reconnectToDownload } = useTaskManager();
 
   const load = useCallback(async () => {
     const data = await adminService.listModels();
@@ -56,6 +58,14 @@ export function DownloadsTab() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    for (const d of downloads) {
+      if (d.status === 'downloading' || d.status === 'queued' || d.status === 'paused') {
+        reconnectToDownload(d.id);
+      }
+    }
+  }, []);
 
   const downloadingIds = downloads.filter((d) => d.status === 'downloading').map((d) => d.id).join(',');
 

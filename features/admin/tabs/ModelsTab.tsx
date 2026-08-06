@@ -13,6 +13,7 @@ import { ProgressBar } from '@/components/premium/ProgressBar';
 import { Badge } from '@/components/premium/Badge';
 import { Spinner } from '@/components/premium/Spinner';
 import { adminService } from '@/services/adminService';
+import { useTaskManager } from '@/hooks/useTaskManager';
 import type { AdminModel, InstallProgress } from '@/types';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -25,6 +26,7 @@ export function ModelsTab() {
   const [category, setCategory] = useState('All');
   const [installProgress, setInstallProgress] = useState<Record<string, InstallProgress>>({});
   const [categories, setCategories] = useState<string[]>(['All']);
+  const { reconnectToInstall } = useTaskManager();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -43,6 +45,12 @@ export function ModelsTab() {
   }, []);
 
   useEffect(() => { setTimeout(() => load(), 0); }, [load]);
+
+  useEffect(() => {
+    for (const [modelId, progress] of Object.entries(installProgress)) {
+      reconnectToInstall(modelId, progress);
+    }
+  }, []);
 
   const filtered = models.filter((m) => {
     const matchesSearch = m.name.toLowerCase().includes(search.toLowerCase()) || m.id.toLowerCase().includes(search.toLowerCase());

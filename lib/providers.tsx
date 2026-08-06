@@ -1,15 +1,12 @@
 "use client";
 
+
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { useState } from 'react';
 import { useThemeStore } from '@/stores/useThemeStore';
+import { getCacheService } from '@/services/cacheService';
 
-/**
- * Toaster that follows the Appearance theme setting (dark / light / system).
- * The AppearanceProvider owns the <html> theme class; we only mirror it here
- * so sonner toasts match. Replaces the previous next-themes coupling.
- */
 function ThemeAwareToaster() {
   const theme = useThemeStore((s) => s.theme);
   return (
@@ -34,9 +31,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
-        defaultOptions: { queries: { staleTime: 60 * 1000, retry: 1 } },
+        defaultOptions: {
+          queries: {
+            staleTime: 60 * 1000,
+            retry: 1,
+            refetchOnWindowFocus: false,
+          },
+        },
       })
   );
+
+  getCacheService();
 
   return (
     <QueryClientProvider client={queryClient}>
