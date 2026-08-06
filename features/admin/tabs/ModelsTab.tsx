@@ -495,7 +495,7 @@ export function ModelsTab() {
                     )}
                   </div>
 
-                  {/* Progress section */}
+                  {/* Progress section — show for any non-terminal install phase */}
                   {isDownloading && progress && (
                     <InstallProgressInline
                       progress={progress}
@@ -505,7 +505,16 @@ export function ModelsTab() {
 
                   {/* Actions */}
                   <div className="mt-auto flex items-center gap-2 pt-3 border-t border-white/[0.04]">
-                    {model.installed ? (
+                    {/* isDownloading covers starting / downloading / installing;
+                        false when completed or failed → show Install in those cases. */}
+                    {!model.installed && isDownloading ? (
+                      <button
+                        onClick={() => handleCancel(model.id)}
+                        className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl bg-[hsl(var(--destructive)/0.08)] border border-[hsl(var(--destructive)/0.15)] text-xs text-[hsl(var(--destructive))] hover:bg-[hsl(var(--destructive)/0.14)] transition-colors"
+                      >
+                        <Unplug className="w-3.5 h-3.5" /> Cancel
+                      </button>
+                    ) : model.installed ? (
                       <>
                         {model.loaded ? (
                           <button
@@ -530,13 +539,6 @@ export function ModelsTab() {
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </>
-                    ) : isDownloading ? (
-                      <button
-                        onClick={() => handleCancel(model.id)}
-                        className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl bg-[hsl(var(--destructive)/0.08)] border border-[hsl(var(--destructive)/0.15)] text-xs text-[hsl(var(--destructive))] hover:bg-[hsl(var(--destructive)/0.14)] transition-colors"
-                      >
-                        <Unplug className="w-3.5 h-3.5" /> Cancel
-                      </button>
                     ) : (
                       <button
                         onClick={() => handleInstall(model)}

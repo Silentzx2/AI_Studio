@@ -1,7 +1,8 @@
 """Capability matrix for model-driven feature gating.
 
-The Settings → Pipelines page uses this module as the single source of truth
-for which higher-level features should be exposed to the user.
+The Settings → Pipelines page and Workspace pages use this module as the single
+source of truth for which higher-level features should be exposed to the user,
+and which models are compatible with which workspaces.
 """
 
 from __future__ import annotations
@@ -16,6 +17,17 @@ FEATURE_KEYS = (
     "detail_enhancement",
     "text_to_3d",
     "image_to_3d",
+)
+
+# Workspace types that map to frontend workspace tabs / task flows.
+WORKSPACE_TYPES = (
+    "mesh-generation",
+    "texture-generation",
+    "rigging",
+    "animation",
+    "segmentation",
+    "remesh",
+    "post-processing",
 )
 
 
@@ -42,6 +54,54 @@ def _capabilities(model: dict[str, Any]) -> dict[str, bool]:
         "text_to_3d": bool(caps.get("text_to_3d") or model.get("supports_text_to_3d")),
         "image_to_3d": bool(caps.get("image_to_3d") or model.get("supports_image_to_3d")),
     }
+
+
+def _workspace_compatibility(model: dict[str, Any]) -> list[str]:
+    """Return the list of workspace types this model is compatible with.
+
+    Reads from model manifest first, then falls back to PROVIDER_METADATA-style
+    top-level keys. If neither is present, derives compatibility from capabilities.
+    """
+    manifest = model.get("manifest") or {}
+    caps = manifest.get("capabilities") or {}
+
+    # 1. Explicit metadata on the model dict or manifest
+    explicit = model.get("workspace_compatibility") or manifest.get("workspace_compatibility")
+    if explicit:
+        return [str(w).strip().lower() for w in explicit if str(w).strip()]
+
+    # 2. Derive from capability flags
+    derived: list[str] = []
+    if caps.get("text_to_3d") or caps.get("image_to_3d"):
+        derived.append("mesh-generation")
+    if caps.get("texture_generation"):
+        derived.append("texture-generation")
+    if caps.get("rigging_animation"):
+        derived.append("rigging")
+        derived.append("animation")
+    if caps.get("segmentation"):
+        derived.append("segmentation")
+    if caps.get("remesh"):
+        derived.append("remesh")
+    if caps.get("detail_enhancement"):
+        derived.append("post-processing")
+    return derived
+
+
+def is_compatible_with_workspace(model: dict[str, Any], workspace: str) -> bool:
+    """Return True if the model can be used in the given workspace."""
+    if not workspace:
+        return True
+    ws = workspace.strip().lower()
+    compat = _workspace_compatibility(model)
+    return ws in compat or "mesh-generation" in compat  # mesh-generation is universal fallback
+
+
+def filter_by_workspace(models: Iterable[dict[str, Any]], workspace: str) -> list[dict[str, Any]]:
+    """Filter a list of models to only those compatible with the given workspace."""
+    if not workspace:
+        return list(models)
+    return [m for m in models if is_compatible_with_workspace(m, workspace)]
 
 
 def compute_enabled_features(
@@ -90,6 +150,7 @@ def build_pipeline_snapshot(
             "vram_required_mb": int(model.get("vram_required_mb") or model.get("manifest", {}).get("recommended_vram_mb") or model.get("manifest", {}).get("min_vram_mb") or 0),
             "speed_seconds": int(model.get("speed_seconds") or model.get("manifest", {}).get("speed_seconds") or 0),
             "supports": caps,
+            "workspace_compatibility": _workspace_compatibility(model),
             "repo": model.get("manifest", {}).get("runtime", {}).get("repo") or model.get("repo"),
             "weight_key": model.get("manifest", {}).get("runtime", {}).get("weight_key") or model.get("weight_key"),
             "notes": model.get("notes") or [],

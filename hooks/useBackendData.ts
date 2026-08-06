@@ -87,6 +87,44 @@ export function useAvailableModels() {
   return { models, loading, error };
 }
 
+// Hook for models compatible with a specific workspace type
+// Workspace types: mesh-generation, texture-generation, rigging, animation,
+//                   segmentation, remesh, post-processing
+export function useWorkspaceModels(workspace: string | null | undefined) {
+  const [models, setModels] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        setLoading(true);
+        if (!workspace) {
+          // Fall back to all models if no workspace specified
+          const data = await apiClient.get<any>('/api/v1/runtime/options');
+          const payload = data?.data ?? data ?? {};
+          setModels(payload.three_d_models || []);
+          setError(null);
+          return;
+        }
+        const data = await apiClient.get<any>(`/api/v1/pipelines/workspace-models?workspace=${encodeURIComponent(workspace)}&installed_only=false`);
+        const payload = data?.data ?? data ?? {};
+        setModels(payload.pipelines || []);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch workspace models');
+        setModels([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchModels();
+  }, [workspace]);
+
+  return { models, loading, error };
+}
+
 // Hook for system overview
 export function useSystemOverview() {
   const [overview, setOverview] = useState<any>(null);

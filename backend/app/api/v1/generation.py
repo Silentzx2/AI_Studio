@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, field_validator
 
 from app.config import get_settings
+from app.core.capability_matrix import is_compatible_with_workspace
 from app.utils.response import error, success
 
 router = APIRouter(tags=["Generation"])
@@ -19,6 +20,15 @@ MAX_PROMPT_LENGTH = 2000
 
 _VALID_MODES = ('text-to-3d', 'image-to-3d', 'remesh', 'rigging', 'partition', 'texture-generation')
 _VALID_QUALITIES = ('low-poly', 'standard', 'high-poly', 'ultra', 'draft')
+_WORKSPACE_MODE_MAP = {
+    'mesh-generation': 'text-to-3d',
+    'texture-generation': 'texture-generation',
+    'rigging': 'rigging',
+    'animation': 'rigging',
+    'segmentation': 'partition',
+    'remesh': 'remesh',
+    'post-processing': 'texture-generation',
+}
 
 
 class GenerationRequest(BaseModel):
@@ -33,6 +43,7 @@ class GenerationRequest(BaseModel):
     reference_image_url: str | None = None
     detail_pass: bool = False
     detail_guidance: float = 7.5
+    workspace: str | None = None
 
     @field_validator('prompt')
     @classmethod
@@ -141,6 +152,19 @@ async def create_generation(req: GenerationRequest):
     provider = req.provider or settings.ai_provider
     now = datetime.utcnow()
 
+    # Validate workspace/provider compatibility if workspace is specified
+    if req.workspace:
+        try:
+            from runtime.installer import PROVIDER_METADATA
+            meta = PROVIDER_METADATA.get(provider, {})
+            if not is_compatible_with_workspace(meta, req.workspace):
+                logger.warning(
+                    "Incompatible workspace '%s' for provider '%s'",
+                    req.workspace, provider,
+                )
+        except Exception:
+            pass  # Soft validation: don't block generation if check fails
+
     from app.database import AsyncSessionLocal
     from app.models.job import GenerationJob
     from app.workers.tasks import generate_3d_model
@@ -165,6 +189,7 @@ async def create_generation(req: GenerationRequest):
                 processing_metadata={
                     "detail_pass": req.detail_pass,
                     "detail_guidance": req.detail_guidance,
+                    "workspace": req.workspace,
                 },
                 created_at=now,
                 updated_at=now,

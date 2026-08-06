@@ -407,7 +407,13 @@ def _dl_save_state() -> None:
 
 
 def _dl_load_state() -> None:
-    """Restore _DL_STATE from disk if in-memory state is empty."""
+    """Restore _DL_STATE from disk if in-memory state is empty.
+
+    Also detects stale installs (server restarted, background task lost) and
+    marks them as failed so the frontend doesn't show an eternal spinner.
+    ponytail: 5-minute staleness threshold; bump to 10 min if installs
+    routinely take longer than that without progress updates.
+    """
     try:
         path = _dl_state_path()
         if not path.exists():
@@ -419,6 +425,25 @@ def _dl_load_state() -> None:
         if isinstance(data, dict):
             with _DL_LOCK:
                 _DL_STATE.update(data)
+
+        # Detect stale installs caused by server restarts: if the persisted
+        # state is in-progress but hasn't been touched in >5 min, the
+        # background task is gone — mark it failed so the UI can recover.
+        now = time.time()
+        STALE_THRESHOLD = 300  # seconds
+        with _DL_LOCK:
+            for mid, state in list(_DL_STATE.items()):
+                if state.get("status") in ("starting", "downloading", "installing", "extracting", "verifying"):
+                    updated = state.get("updated_at", 0)
+                    if isinstance(updated, (int, float)) and (now - updated) > STALE_THRESHOLD:
+                        logger.warning(
+                            "Stale install detected for %s (last update %.1fs ago) — marking as failed",
+                            mid, now - updated,
+                        )
+                        state["status"] = "failed"
+                        state["error"] = "Installation interrupted (server restarted). Please retry."
+                        state["log"] = "Installation interrupted — server was restarted during install"
+                        state["updated_at"] = now
     except Exception:
         pass
 
@@ -519,14 +544,20 @@ def _parse_log_for_progress(model_id: str, msg: str) -> None:
         _dl_update(model_id, percent=float(pct_m.group(1)), status="downloading", log=msg.strip())
         return
 
-    # git clone progress
+    # git clone progress — git emits lines like:
+    #   "Receiving objects: 50% (250/500), 10.00 MiB | 2.00 MiB/s"
+    # The action label ("Receiving", "Resolving", etc.) is followed by
+    # remaining text, then a colon, then optional whitespace, then the
+    # percentage + object count. Use \s* (not \s+) after the colon because
+    # some git builds emit "Receiving objects:50%" with no space.
     git_m = re.search(
-        r'(Receiving|Resolving|Counting|Compressing|Checking)[^:]*:\s+(\d+)%\s+\((\d+)/(\d+)\)',
+        r'(Receiving|Resolving|Counting|Compressing|Checking)[^:]*:\s*'
+        r'(\d+)%\s+\((\d+)/(\d+)\)',
         msg,
     )
     if git_m:
-        pct = int(git_m.group(2))
-        done = int(git_m.group(3))
+        pct   = int(git_m.group(2))
+        done  = int(git_m.group(3))
         total = int(git_m.group(4))
         _dl_update(model_id,
             percent=pct, bytes_downloaded=done, bytes_total=total,
@@ -1235,9 +1266,22 @@ async def install_stream(model_id: str) -> StreamingResponse:
 @router.get("/install/stream")
 async def stream_all_install_progress():
     """SSE stream broadcasting progress for ALL active downloads."""
+    _dl_load_state()
     async def _gen() -> AsyncGenerator[str, None]:
         last_json = ""
         last_heartbeat = time.monotonic()
+
+        # Yield current state immediately so reconnecting clients see
+        # live progress without waiting for the next update cycle.
+        with _DL_LOCK:
+            initial = {
+                mid: {k: v for k, v in s.items() if not k.startswith("_")}
+                for mid, s in _DL_STATE.items()
+            }
+        init_json = json.dumps(initial)
+        if init_json and init_json != "{}":
+            yield f"data: {init_json}\n\n"
+            last_json = init_json
 
         while True:
             with _DL_LOCK:

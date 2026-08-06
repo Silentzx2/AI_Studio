@@ -64,6 +64,13 @@ REPOS = {
         "category": "3d_generation",
         "providers": ["triposf"],
     },
+    "AniGen": {
+        "url": "https://github.com/VAST-AI-Research/AniGen.git",
+        "branch": "main",
+        "requirements": "requirements.txt",
+        "category": "rigging",
+        "providers": ["anigen"],
+    },
     "UniRig": {
         "url": "https://github.com/VAST-AI-Research/UniRig.git",
         "branch": "main",
@@ -87,8 +94,9 @@ HF_MODELS = {
     "triposr":       {"repo": "stabilityai/TripoSR",           "size_estimate_gb": 2},
     "triposg":       {"repo": "VAST-AI/TripoSG",               "size_estimate_gb": 6},
     "triposf":       {"repo": "VAST-AI/TripoSF",               "size_estimate_gb": 6},
+    "anigen":        {"repo": "VAST-AI/AniGen_Weights",        "size_estimate_gb": 23},
     "unirig":        {"repo": "VAST-AI/UniRig",                "size_estimate_gb": 2},
-    "holopart":      {"repo": "VAST-AI/HoloPart",             "size_estimate_gb": 3},
+    "holopart":      {"repo": "VAST-AI/HoloPart",              "size_estimate_gb": 3},
 }
 
 PROVIDER_ALIASES = {
@@ -111,6 +119,7 @@ PROVIDER_METADATA = {
         "vram_required_mb": 16000,
         "repo": "Hunyuan3D-2",
         "weight_key": "hunyuan3d-2.1",
+        "workspace_compatibility": ["mesh-generation", "texture-generation", "post-processing"],
     },
     "hunyuan3d-2": {
         "label": "Hunyuan3D 2",
@@ -121,6 +130,7 @@ PROVIDER_METADATA = {
         "vram_required_mb": 24000,
         "repo": "Hunyuan3D-2",
         "weight_key": "hunyuan3d-2",
+        "workspace_compatibility": ["mesh-generation", "texture-generation", "post-processing"],
     },
     "trellis": {
         "label": "TRELLIS",
@@ -131,6 +141,7 @@ PROVIDER_METADATA = {
         "vram_required_mb": 8000,
         "repo": "TRELLIS",
         "weight_key": "trellis",
+        "workspace_compatibility": ["mesh-generation", "texture-generation"],
     },
     "triposr": {
         "label": "TripoSR",
@@ -141,6 +152,7 @@ PROVIDER_METADATA = {
         "vram_required_mb": 6000,
         "repo": "TripoSR",
         "weight_key": "triposr",
+        "workspace_compatibility": ["mesh-generation", "texture-generation"],
     },
     "triposg": {
         "label": "TripoSG",
@@ -151,6 +163,7 @@ PROVIDER_METADATA = {
         "vram_required_mb": 12000,
         "repo": "TripoSG",
         "weight_key": "triposg",
+        "workspace_compatibility": ["mesh-generation"],
     },
     "triposf": {
         "label": "TripoSF",
@@ -161,6 +174,18 @@ PROVIDER_METADATA = {
         "vram_required_mb": 12000,
         "repo": "TripoSF",
         "weight_key": "triposf",
+        "workspace_compatibility": ["mesh-generation"],
+    },
+    "anigen": {
+        "label": "AniGen",
+        "category": "rigging",
+        "supports_text_to_3d": False,
+        "supports_image_to_3d": False,
+        "supports_texture": False,
+        "vram_required_mb": 6200,
+        "repo": "AniGen",
+        "weight_key": None,
+        "workspace_compatibility": ["rigging", "animation"],
     },
     "unirig": {
         "label": "UniRig",
@@ -171,16 +196,29 @@ PROVIDER_METADATA = {
         "vram_required_mb": 8000,
         "repo": "UniRig",
         "weight_key": "unirig",
+        "workspace_compatibility": ["rigging", "animation"],
     },
     "holopart": {
         "label": "HoloPart",
         "category": "post_processing",
         "supports_text_to_3d": False,
         "supports_image_to_3d": False,
-        "supports_texture": True,
+        "supports_texture": False,
         "vram_required_mb": 8000,
         "repo": "HoloPart",
         "weight_key": "holopart",
+        "workspace_compatibility": ["segmentation", "post-processing"],
+    },
+    "detailgen3d": {
+        "label": "DetailGen3D",
+        "category": "post_processing",
+        "supports_text_to_3d": False,
+        "supports_image_to_3d": False,
+        "supports_texture": False,
+        "vram_required_mb": 4000,
+        "repo": None,
+        "weight_key": None,
+        "workspace_compatibility": ["post-processing"],
     },
     "mock": {
         "label": "Mock (Testing)",
@@ -191,6 +229,7 @@ PROVIDER_METADATA = {
         "vram_required_mb": 0,
         "repo": None,
         "weight_key": None,
+        "workspace_compatibility": ["mesh-generation", "texture-generation", "rigging", "segmentation", "remesh", "post-processing", "animation"],
     },
 }
 
@@ -199,12 +238,10 @@ TEXTURE_MODELS = [
     {"id": "hunyuan3d-2", "label": "Hunyuan3D 2"},
     {"id": "triposr", "label": "TripoSR (bake texture)"},
     {"id": "trellis", "label": "TRELLIS"},
-    {"id": "holopart", "label": "HoloPart"},
 ]
 
 RIGGING_PROVIDERS = [
     {"id": "auto", "label": "Auto (best available)"},
-    {"id": "unirig", "label": "UniRig"},
     {"id": "blender", "label": "Blender"},
     {"id": "none", "label": "No rigging"},
 ]

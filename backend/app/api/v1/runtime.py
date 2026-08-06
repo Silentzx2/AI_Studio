@@ -145,6 +145,7 @@ async def get_runtime_options():
                 "vram_required_mb": meta.get("vram_required_mb", 0),
                 "supports_text_to_3d": meta.get("supports_text_to_3d", False),
                 "supports_image_to_3d": meta.get("supports_image_to_3d", False),
+                "workspace_compatibility": meta.get("workspace_compatibility", []),
                 "supports": {
                     "text_to_3d": meta.get("supports_text_to_3d", False),
                     "image_to_3d": meta.get("supports_image_to_3d", False),
@@ -172,6 +173,7 @@ async def get_runtime_options():
                     continue
                 manifest = m.get("manifest") or {}
                 caps = manifest.get("capabilities") or {}
+                ws_compat = m.get("workspace_compatibility") or manifest.get("workspace_compatibility") or []
                 three_d_models.append({
                     "id": m.get("id", mid),
                     "label": m.get("label") or m.get("name") or mid,
@@ -181,6 +183,7 @@ async def get_runtime_options():
                     "vram_required_mb": m.get("vram_required_mb") or manifest.get("recommended_vram_mb", 0),
                     "supports_text_to_3d": bool(caps.get("text_to_3d")),
                     "supports_image_to_3d": bool(caps.get("image_to_3d")),
+                    "workspace_compatibility": ws_compat,
                     "supports": {
                         "text_to_3d": bool(caps.get("text_to_3d")),
                         "image_to_3d": bool(caps.get("image_to_3d")),

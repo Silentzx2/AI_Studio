@@ -4,6 +4,16 @@ export type GenerationStatus = 'idle' | 'uploading' | 'queued' | 'generating' | 
 export type ExportFormat = 'glb' | 'fbx' | 'obj' | 'stl';
 export type ViewerMode = 'solid' | 'wireframe' | 'texture' | 'material';
 
+// Workspace types that map to frontend workspace tabs
+export type WorkspaceType =
+  | 'mesh-generation'
+  | 'texture-generation'
+  | 'rigging'
+  | 'animation'
+  | 'segmentation'
+  | 'remesh'
+  | 'post-processing';
+
 export interface GenerationConfig {
   mode: GenerationMode;
   prompt: string;
@@ -17,6 +27,7 @@ export interface GenerationConfig {
   steps?: number;
   cfgScale?: number;
   seed?: string;
+  workspace?: WorkspaceType;
 }
 
 export interface GenerationResult {
@@ -102,6 +113,7 @@ export interface ProviderOption {
   vram_required_mb?: number;
   supports_text_to_3d?: boolean;
   supports_image_to_3d?: boolean;
+  workspace_compatibility?: WorkspaceType[];
 }
 
 export interface RuntimeOptions {
@@ -178,7 +190,8 @@ export interface AdminOverview {
   vram_used_mb: number;
   vram_total_mb: number;
   cpu_usage: number;
-  ram_usage: number;
+  cpu_ram_usage: number;
+  ram_total: number;
   storage_used_gb: number;
   storage_total_gb: number;
   queue_running: boolean;
@@ -259,7 +272,7 @@ export interface InstallProgress {
   total_mb: number;
   bytes_total?: number;
   eta_seconds: number;
-  status: 'starting' | 'downloading' | 'extracting' | 'installing' | 'completed' | 'failed' | 'error';
+  status: 'idle' | 'starting' | 'downloading' | 'extracting' | 'installing' | 'completed' | 'failed' | 'error';
   log?: string;
   error?: string;
 }

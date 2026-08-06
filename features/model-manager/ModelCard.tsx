@@ -4,16 +4,17 @@ import React, { useState, useEffect } from 'react';
 import { Play, Pause, Trash2, Download, CheckCircle, AlertTriangle, Layers } from 'lucide-react';
 
 export function ModelCard({ model, onAction }: { model: any, onAction: (id: string, action: string) => void }) {
-  const [progress, setProgress] = useState(model.progress || 0);
-  const [status, setStatus] = useState(model.status);
+  const [progress, setProgress] = useState<number>(model.download_progress?.percent ?? model.progress ?? 0);
+  const [status, setStatus] = useState(model.download_progress?.status ?? model.status);
 
-   
+    
   useEffect(() => {
-    if (model.status === 'downloading') {
+    if (model.status === 'downloading' || status === 'downloading' || status === 'starting') {
       const evtSource = new EventSource(`/api/v1/admin/install/stream/${model.id}`);
       evtSource.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        setProgress(data.progress);
+        // Backend sends percent as 0-100 (not a fraction); use it directly.
+        setProgress(data.percent ?? data.progress ?? 0);
         setStatus(data.status);
         if (data.status === 'completed' || data.status === 'failed') {
           evtSource.close();
@@ -22,7 +23,7 @@ export function ModelCard({ model, onAction }: { model: any, onAction: (id: stri
       };
       return () => evtSource.close();
     }
-  }, [model.status, model.id, onAction]);
+  }, [model.status, model.id, status, onAction]);
 
   return (
     <div className="bg-white/5 border border-white/10 rounded-xl p-5 flex flex-col gap-4">
@@ -52,14 +53,20 @@ export function ModelCard({ model, onAction }: { model: any, onAction: (id: stri
         </div>
       </div>
 
-      {status === 'downloading' && (
+      {/* Show progress during any active install phase */}
+      {(status === 'downloading' || status === 'starting' || status === 'installing') && (
         <div className="space-y-2 mt-auto">
           <div className="flex justify-between text-xs text-[hsl(var(--foreground))]/60">
-            <span>Downloading...</span>
-            <span>{Math.round(progress * 100)}%</span>
+            <span>
+              {status === 'starting' ? 'Starting installation…'
+               : status === 'installing' ? 'Installing dependencies…'
+               : 'Downloading…'}
+            </span>
+            <span>{Math.round(progress)}%</span>
           </div>
           <div className="w-full bg-white/10 rounded-full h-1.5">
-            <div className="bg-[hsl(var(--neon-blue))] h-1.5 rounded-full transition-all" style={{ width: `${progress * 100}%` }}></div>
+            <div className="bg-[hsl(var(--neon-blue))] h-1.5 rounded-full transition-all"
+                 style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}></div>
           </div>
         </div>
       )}

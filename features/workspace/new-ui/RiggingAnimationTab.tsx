@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   Activity,
   Upload,
@@ -33,6 +33,7 @@ import {
 import { toast } from 'sonner';
 import { Shape3D } from '@/types/new-ui';
 import { useProjectStore } from '@/stores/useProjectStore';
+import { useWorkspaceModels } from '@/hooks/useBackendData';
 
 interface RiggingAnimationTabProps {
   activeModel: {
@@ -148,6 +149,12 @@ const SUPPORTED_FORMATS = [
   { label: 'OBJ', desc: 'Wavefront OBJ' },
 ];
 
+// Offline fallback: used only when the workspace-models endpoint is unreachable
+const LOCAL_MODELS: { id: string; label: string; installed: boolean }[] = [
+  { id: 'unirig', label: 'UniRig', installed: false },
+  { id: 'anigen', label: 'AniGen', installed: false },
+];
+
 export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavigate }: RiggingAnimationTabProps) {
   const { addLayer, currentProject } = useProjectStore();
   const [uploadedModel, setUploadedModel] = useState<File | null>(null);
@@ -160,6 +167,32 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
   const [autoRig, setAutoRig] = useState(true);
   const [rigType, setRigType] = useState('full_body');
   const [boneStructure, setBoneStructure] = useState('humanoid_standard');
+
+  // Models compatible with the rigging workspace
+  const {
+    models: workspaceModels,
+    loading: isLoadingModels,
+    error: modelsError,
+  } = useWorkspaceModels('rigging');
+  const [selectedModelId, setSelectedModelId] = useState('');
+
+  const modelOptions = useMemo(() => {
+    if (modelsError || !workspaceModels || workspaceModels.length === 0) {
+      return LOCAL_MODELS;
+    }
+    return workspaceModels.map((m: any) => ({
+      id: String(m.id ?? ''),
+      label: String(m.label ?? m.name ?? m.id ?? 'Unknown model'),
+      installed: Boolean(m.installed ?? m.status === 'ready'),
+    }));
+  }, [workspaceModels, modelsError]);
+
+  // Keep the selection valid for the current (filtered) option list
+  const selectedModel =
+    modelOptions.find((m) => m.id === selectedModelId) ||
+    modelOptions.find((m) => m.installed) ||
+    modelOptions[0];
+  const effectiveModelId = selectedModel?.id ?? '';
 
   // Animation state
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
@@ -366,7 +399,11 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
         mode: 'rigging',
         quality: 'standard',
         auto_rig: autoRig,
+        workspace: 'rigging',
       };
+      if (effectiveModelId) {
+        payload.provider = effectiveModelId;
+      }
       if (modelUrl) {
         payload.reference_image_url = modelUrl;
       }
@@ -445,6 +482,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                   rigWeightMap: statusData.data?.weight_map || statusData.data?.result?.weight_map || 'Complete',
                   rigType,
                   boneStructure,
+                  model: effectiveModelId,
                 },
                 sourceTab: 'RiggingAnimation',
                 timestamp: new Date(),
@@ -636,6 +674,43 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             <div className="flex items-center gap-2">
               <Bone size={14} className="text-[hsl(var(--primary))]" />
               <span className="text-xs font-bold text-[hsl(var(--foreground))]">Rigging Options</span>
+            </div>
+
+            {/* Rigging Model Selector (workspace-compatible models only) */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
+                  Rigging Model
+                </label>
+                {isLoadingModels ? (
+                  <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">
+                    Loading models…
+                  </span>
+                ) : selectedModel && !selectedModel.installed ? (
+                  <span className="text-[9px] font-bold text-[hsl(var(--neon-amber))] uppercase">
+                    Not installed
+                  </span>
+                ) : null}
+              </div>
+              <div className="relative">
+                <select
+                  value={effectiveModelId}
+                  onChange={(e) => setSelectedModelId(e.target.value)}
+                  disabled={isLoadingModels}
+                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 pr-8 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none disabled:opacity-60 disabled:cursor-wait"
+                  id="rigging-model-select"
+                >
+                  {modelOptions.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label}{m.installed ? '' : ' — not installed'}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={14}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] pointer-events-none"
+                />
+              </div>
             </div>
 
             {/* Auto Rig Toggle */}

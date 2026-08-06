@@ -14,8 +14,25 @@ class ModelRegistry:
         self.storage_path.mkdir(parents=True, exist_ok=True)
         
     def _fetch_provider_manifests(self) -> list[dict[str, Any]]:
+        # Only expose models that have a real provider class in engine._PROVIDER_MAP.
+        # Repos like TripoSG/TripoSF/UniRig/HoloPart can be cloned and have weights
+        # downloaded, but without a provider class they cannot be loaded or executed,
+        # so they must not appear in the Pipelines page or generation UI.
+        try:
+            from runtime.engine import _PROVIDER_MAP
+            _loadable = set(_PROVIDER_MAP.keys())
+        except Exception:
+            _loadable = {
+                "hunyuan3d", "hunyuan3d-1.0", "hunyuan3d-2.1", "hunyuan3d-2",
+                "trellis", "triposr", "anigen", "detailgen3d", "mock",
+            }
+
+        def _ok(meta: dict[str, Any]) -> bool:
+            pid = str(meta.get("id", "")).lower()
+            return pid in _loadable
+
         # Hardcode some available models based on requirements for discoverability
-        return [
+        _raw = [
             {
                 "id": "hunyuan3d-2.1",
                 "label": "Hunyuan3D 2.1",
@@ -27,6 +44,7 @@ class ModelRegistry:
                 "size_mb": 15000,
                 "vram_required_mb": 16000,
                 "speed_seconds": 90,
+                "workspace_compatibility": ["mesh-generation", "texture-generation", "post-processing"],
                 "manifest": {
                     "name": "Hunyuan3D 2.1",
                     "version": "2.1",
@@ -53,9 +71,83 @@ class ModelRegistry:
                 }
             },
             {
+                "id": "hunyuan3d-2",
+                "label": "Hunyuan3D 2",
+                "name": "tencent/Hunyuan3D-2",
+                "category": "3d_generation",
+                "description": "Full Hunyuan 3D pipeline with textured output",
+                "author": "Tencent",
+                "installed": False,
+                "size_mb": 24000,
+                "vram_required_mb": 24000,
+                "speed_seconds": 120,
+                "workspace_compatibility": ["mesh-generation", "texture-generation", "post-processing"],
+                "manifest": {
+                    "name": "Hunyuan3D 2",
+                    "version": "2.0",
+                    "category": "3d_generation",
+                    "description": "Hunyuan3D 2 full pipeline",
+                    "author": "Tencent",
+                    "license": "Apache-2.0",
+                    "min_vram_mb": 20000,
+                    "recommended_vram_mb": 24000,
+                    "cuda_required": True,
+                    "cuda_min_version": "11.8",
+                    "python_min": "3.10",
+                    "supported_os": ["linux", "windows"],
+                    "supported_architectures": ["x86_64"],
+                    "disk_space_mb": 30000,
+                    "capabilities": {
+                        "text_to_3d": True,
+                        "image_to_3d": True,
+                        "texture_generation": True,
+                    },
+                    "dependencies": {"python_packages": []},
+                    "download_sources": [],
+                    "runtime": {"type": "python", "entrypoint": "", "inference_class": ""}
+                }
+            },
+            {
+                "id": "trellis",
+                "label": "Trellis",
+                "name": "microsoft/TRELLIS-image-large",
+                "category": "3d_generation",
+                "description": "High-quality 3D generation",
+                "author": "JeffreyXiang/Microsoft",
+                "installed": False,
+                "size_mb": 5000,
+                "vram_required_mb": 8000,
+                "speed_seconds": 60,
+                "workspace_compatibility": ["mesh-generation", "texture-generation"],
+                "manifest": {
+                    "name": "TRELLIS",
+                    "version": "1.0",
+                    "category": "3d_generation",
+                    "description": "Trellis 3D generation",
+                    "author": "Microsoft",
+                    "license": "MIT",
+                    "min_vram_mb": 8000,
+                    "recommended_vram_mb": 8000,
+                    "cuda_required": True,
+                    "cuda_min_version": "11.8",
+                    "python_min": "3.10",
+                    "supported_os": ["linux", "windows"],
+                    "supported_architectures": ["x86_64"],
+                    "disk_space_mb": 10000,
+                    "capabilities": {
+                        "image_to_3d": True,
+                        "text_to_3d": True,
+                        "texture_generation": True,
+                    },
+                    "dependencies": {"python_packages": []},
+                    "download_sources": [],
+                    "runtime": {"type": "python", "entrypoint": "", "inference_class": ""}
+                }
+            },
+            {
                 "id": "triposr",
                 "label": "TripoSR",
-                "name": "VAST-AI/TripoSR",
+                "name": "stabilityai/TripoSR",
                 "category": "3d_generation",
                 "description": "Fast feedforward 3D reconstruction from a single image",
                 "author": "VAST-AI",
@@ -63,6 +155,7 @@ class ModelRegistry:
                 "size_mb": 2000,
                 "vram_required_mb": 6000,
                 "speed_seconds": 1,
+                "workspace_compatibility": ["mesh-generation", "texture-generation"],
                 "manifest": {
                     "name": "TripoSR",
                     "version": "1.0",
@@ -88,131 +181,26 @@ class ModelRegistry:
                 }
             },
             {
-                "id": "trellis",
-                "label": "Trellis",
-                "name": "JeffreyXiang/TRELLIS-image-large",
-                "category": "3d_generation",
-                "description": "High-quality 3D generation",
-                "author": "JeffreyXiang",
-                "installed": False,
-                "size_mb": 5000,
-                "vram_required_mb": 12000,
-                "speed_seconds": 60,
-                "manifest": {
-                    "name": "Trellis",
-                    "version": "1.0",
-                    "category": "3d_generation",
-                    "description": "Trellis 3D generation",
-                    "author": "JeffreyXiang",
-                    "license": "MIT",
-                    "min_vram_mb": 8000,
-                    "recommended_vram_mb": 16000,
-                    "cuda_required": True,
-                    "cuda_min_version": "11.8",
-                    "python_min": "3.10",
-                    "supported_os": ["linux", "windows"],
-                    "supported_architectures": ["x86_64"],
-                    "disk_space_mb": 10000,
-                    "capabilities": {
-                        "image_to_3d": True,
-                        "text_to_3d": True,
-                        "texture_generation": True,
-                    },
-                    "dependencies": {"python_packages": []},
-                    "download_sources": [],
-                    "runtime": {"type": "python", "entrypoint": "", "inference_class": ""}
-                }
-            },
-            {
-                "id": "triposg",
-                "label": "TripoSG",
-                "name": "VAST-AI/TripoSG",
-                "category": "3d_generation",
-                "description": "High-fidelity single-view 3D shape synthesis",
-                "author": "VAST-AI",
-                "installed": False,
-                "size_mb": 6000,
-                "vram_required_mb": 12000,
-                "speed_seconds": 45,
-                "manifest": {
-                    "name": "TripoSG",
-                    "version": "1.0",
-                    "category": "3d_generation",
-                    "description": "Detailed 3D geometry synthesis",
-                    "author": "VAST-AI",
-                    "license": "Apache-2.0",
-                    "min_vram_mb": 12000,
-                    "recommended_vram_mb": 12000,
-                    "cuda_required": True,
-                    "cuda_min_version": "11.8",
-                    "python_min": "3.10",
-                    "supported_os": ["linux"],
-                    "supported_architectures": ["x86_64"],
-                    "disk_space_mb": 12000,
-                    "capabilities": {
-                        "image_to_3d": True,
-                        "detail_enhancement": True,
-                    },
-                    "dependencies": {"python_packages": []},
-                    "download_sources": [],
-                    "runtime": {"type": "python", "entrypoint": "", "inference_class": ""}
-                }
-            },
-            {
-                "id": "triposf",
-                "label": "TripoSF",
-                "name": "VAST-AI/TripoSF",
-                "category": "3d_generation",
-                "description": "High-resolution 1024³ arbitrary-topology 3D shape generation",
-                "author": "VAST-AI",
-                "installed": False,
-                "size_mb": 6000,
-                "vram_required_mb": 12000,
-                "speed_seconds": 60,
-                "manifest": {
-                    "name": "TripoSF",
-                    "version": "1.0",
-                    "category": "3d_generation",
-                    "description": "High-resolution sparse-flex 3D synthesis",
-                    "author": "VAST-AI",
-                    "license": "Apache-2.0",
-                    "min_vram_mb": 12000,
-                    "recommended_vram_mb": 12000,
-                    "cuda_required": True,
-                    "cuda_min_version": "11.8",
-                    "python_min": "3.10",
-                    "supported_os": ["linux"],
-                    "supported_architectures": ["x86_64"],
-                    "disk_space_mb": 12000,
-                    "capabilities": {
-                        "image_to_3d": True,
-                        "detail_enhancement": True,
-                    },
-                    "dependencies": {"python_packages": []},
-                    "download_sources": [],
-                    "runtime": {"type": "python", "entrypoint": "", "inference_class": ""}
-                }
-            },
-            {
-                "id": "unirig",
-                "label": "UniRig",
-                "name": "VAST-AI/UniRig",
+                "id": "anigen",
+                "label": "AniGen",
+                "name": "VAST-AI-Research/AniGen",
                 "category": "rigging",
-                "description": "Automatic skeletal rigging for 3D meshes",
+                "description": "Automatic skeletal rigging for 3D character meshes from 2D images",
                 "author": "VAST-AI",
                 "installed": False,
                 "size_mb": 2000,
-                "vram_required_mb": 8000,
+                "vram_required_mb": 6200,
                 "speed_seconds": 30,
+                "workspace_compatibility": ["rigging", "animation"],
                 "manifest": {
-                    "name": "UniRig",
+                    "name": "AniGen",
                     "version": "1.0",
                     "category": "rigging",
-                    "description": "Rigging and animation helper",
+                    "description": "Automatic character rigging and animation",
                     "author": "VAST-AI",
                     "license": "Apache-2.0",
-                    "min_vram_mb": 8000,
-                    "recommended_vram_mb": 8000,
+                    "min_vram_mb": 6200,
+                    "recommended_vram_mb": 6200,
                     "cuda_required": True,
                     "cuda_min_version": "11.8",
                     "python_min": "3.10",
@@ -220,8 +208,7 @@ class ModelRegistry:
                     "supported_architectures": ["x86_64"],
                     "disk_space_mb": 3000,
                     "capabilities": {
-                        "rigging": True,
-                        "animation": True,
+                        "rigging_animation": True,
                     },
                     "dependencies": {"python_packages": []},
                     "download_sources": [],
@@ -229,41 +216,43 @@ class ModelRegistry:
                 }
             },
             {
-                "id": "holopart",
-                "label": "HoloPart",
-                "name": "VAST-AI/HoloPart",
+                "id": "detailgen3d",
+                "label": "DetailGen3D",
+                "name": "detailgen3d",
                 "category": "post_processing",
-                "description": "Part completion and semantic mesh enhancement",
-                "author": "VAST-AI",
+                "description": "Post-processes coarse 3D meshes with high-frequency geometric details",
+                "author": "Internal",
                 "installed": False,
-                "size_mb": 3000,
-                "vram_required_mb": 8000,
-                "speed_seconds": 20,
+                "size_mb": 500,
+                "vram_required_mb": 4000,
+                "speed_seconds": 15,
+                "workspace_compatibility": ["post-processing"],
                 "manifest": {
-                    "name": "HoloPart",
+                    "name": "DetailGen3D",
                     "version": "1.0",
                     "category": "post_processing",
-                    "description": "Part completion and enhancement",
-                    "author": "VAST-AI",
-                    "license": "Apache-2.0",
-                    "min_vram_mb": 8000,
-                    "recommended_vram_mb": 8000,
+                    "description": "Mesh detail enhancement pass",
+                    "author": "Internal",
+                    "license": "MIT",
+                    "min_vram_mb": 4000,
+                    "recommended_vram_mb": 4000,
                     "cuda_required": True,
                     "cuda_min_version": "11.8",
                     "python_min": "3.10",
-                    "supported_os": ["linux"],
+                    "supported_os": ["linux", "windows"],
                     "supported_architectures": ["x86_64"],
-                    "disk_space_mb": 5000,
+                    "disk_space_mb": 1000,
                     "capabilities": {
                         "detail_enhancement": True,
-                        "texture_generation": True,
                     },
                     "dependencies": {"python_packages": []},
                     "download_sources": [],
                     "runtime": {"type": "python", "entrypoint": "", "inference_class": ""}
                 }
-            }
+            },
         ]
+
+        return [m for m in _raw if _ok(m)]
     async def get_installed_models(self) -> list[dict[str, Any]]:
         async with AsyncSessionLocal() as session:
             result = await session.execute(select(InstalledModel))

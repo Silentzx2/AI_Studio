@@ -19,7 +19,7 @@ import { useGenerationStore } from '@/stores/useGenerationStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useGeneration } from '@/hooks/useGeneration';
-import { useGenerationStatus, useAvailableModels } from '@/hooks/useBackendData';
+import { useGenerationStatus, useWorkspaceModels } from '@/hooks/useBackendData';
 import { HistoryItem } from '@/types/new-ui';
 import { Skeleton } from '@/components/ux';
 import { toast } from 'sonner';
@@ -229,69 +229,55 @@ export default function ThreeDGenerationTab({
   history,
   onLoadProject,
 }: ThreeDGenerationTabProps) {
-  const { prompt, setPrompt, uploadedImage, setUploadedImage, mode, setMode } = useGenerationStore();
+  const { prompt, setPrompt, uploadedImage, setUploadedImage, mode, setMode, setSelectedModel } = useGenerationStore();
   const { generate, cancel, isGenerating, currentJob } = useGeneration();
   const { status: jobStatus } = useGenerationStatus(currentJob?.id || null);
-  const { models: backendModels, loading: isLoadingBackendModels } = useAvailableModels();
+  // Only models declared compatible with the mesh-generation workspace
+  const {
+    models: workspaceModels,
+    loading: isLoadingWorkspaceModels,
+    error: workspaceModelsError,
+  } = useWorkspaceModels('mesh-generation');
 
-  // Combine local spec matrix with loaded models from backend (including pipeline models)
+  // Build the selectable list from the workspace-compatible pipelines,
+  // enriched by the local spec matrix. Falls back to LOCAL_MODELS offline.
   const modelsList = useMemo(() => {
-    if (!backendModels || backendModels.length === 0) {
+    if (workspaceModelsError || !workspaceModels || workspaceModels.length === 0) {
       return LOCAL_MODELS;
     }
-    // Start with LOCAL_MODELS enriched by matching backend data
-    const merged = LOCAL_MODELS.map(local => {
-      const match = backendModels.find((b: any) => b.id?.toLowerCase() === local.id || b.name?.toLowerCase() === local.name?.toLowerCase());
-      if (match) {
-        return {
-          ...local,
-          id: match.id,
-          name: match.label || match.name || local.name,
-          installed: match.installed ?? (match.status === 'ready' || local.installed),
-          status: match.status || local.status,
-          vram_required_mb: match.vram_required_mb || match.manifest?.recommended_vram_mb || local.vram_required_mb,
-          supports: {
-            ...local.supports,
-            ...(match.supports || {})
-          }
-        };
-      }
-      return local;
+    return workspaceModels.map((m: any) => {
+      const mid = String(m.id ?? '');
+      const label = m.label || m.name || mid;
+      const local = LOCAL_MODELS.find(
+        l => l.id === mid.toLowerCase() || l.name.toLowerCase() === String(label).toLowerCase()
+      );
+      const supports = m.supports || {};
+      return {
+        id: mid,
+        name: label,
+        label,
+        installed: m.installed ?? m.status === 'ready',
+        status: m.status || (m.installed ? 'ready' : 'not_installed'),
+        vram_required_mb: m.vram_required_mb ?? local?.vram_required_mb ?? 0,
+        speed_seconds: local?.speed_seconds ?? 0,
+        supports: {
+          text_to_3d: supports.text_to_3d ?? local?.supports.text_to_3d ?? false,
+          image_to_3d: supports.image_to_3d ?? local?.supports.image_to_3d ?? false,
+          texture_generation: supports.texture_generation ?? local?.supports.texture_generation ?? false,
+          rigging_animation: supports.rigging_animation ?? local?.supports.rigging_animation ?? false,
+          detail_enhancement: supports.detail_enhancement ?? local?.supports.detail_enhancement ?? false,
+          part_separation: supports.part_separation ?? local?.supports.part_separation ?? false,
+        },
+        stats: local?.stats ?? {
+          triangles: '0',
+          vertices: '0',
+          objects: '0',
+          materials: '0',
+          size: '0 MB',
+        },
+      };
     });
-    // Also include backend-only models (from pipelines) not in LOCAL_MODELS
-    const localIds = new Set(LOCAL_MODELS.map(m => m.id.toLowerCase()));
-    for (const b of backendModels) {
-      const bid = (b.id || '').toLowerCase();
-      if (bid && !localIds.has(bid) && (b.supports_text_to_3d || b.supports_image_to_3d || b.supports?.text_to_3d || b.supports?.image_to_3d)) {
-        const bSupports = b.supports || {};
-        merged.push({
-          id: b.id,
-          name: b.label || b.name || b.id,
-          label: b.label || b.name || b.id,
-          installed: b.installed ?? false,
-          status: b.status || (b.installed ? 'ready' : 'not_installed'),
-          vram_required_mb: b.vram_required_mb || 0,
-          speed_seconds: 0,
-          supports: {
-            text_to_3d: bSupports.text_to_3d ?? b.supports_text_to_3d ?? false,
-            image_to_3d: bSupports.image_to_3d ?? b.supports_image_to_3d ?? false,
-            texture_generation: bSupports.texture_generation ?? false,
-            rigging_animation: bSupports.rigging_animation ?? false,
-            detail_enhancement: bSupports.detail_enhancement ?? false,
-            part_separation: bSupports.part_separation ?? false,
-          },
-          stats: {
-            triangles: '0',
-            vertices: '0',
-            objects: '0',
-            materials: '0',
-            size: '0 MB',
-          },
-        });
-      }
-    }
-    return merged;
-  }, [backendModels]);
+  }, [workspaceModels, workspaceModelsError]);
 
   // Set selected model id
   const [selectedModelId, setSelectedModelId] = useState('triposr');
@@ -300,6 +286,13 @@ export default function ThreeDGenerationTab({
   const activeModel = useMemo(() => {
     return modelsList.find(m => m.id === selectedModelId) || modelsList[0];
   }, [modelsList, selectedModelId]);
+
+  // Keep the generation config in sync with the workspace-filtered selection
+  useEffect(() => {
+    if (activeModel) {
+      setSelectedModel(activeModel.id);
+    }
+  }, [activeModel, setSelectedModel]);
 
   // Sync back to workspace page container when active model details changes
   useEffect(() => {
@@ -488,7 +481,7 @@ export default function ThreeDGenerationTab({
         layers: [],
         metadata: {
           prompt: prompt || '',
-          model: selectedModelId,
+          model: activeModel?.id || selectedModelId,
           quality: 'standard',
           createdAt: new Date(),
         },
@@ -532,7 +525,9 @@ export default function ThreeDGenerationTab({
           <div className="flex flex-col gap-1.5" id="model-select-field">
             <div className="flex justify-between items-center">
               <label className="text-[10px] font-black uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Model</label>
-              {activeModel?.installed ? (
+              {isLoadingWorkspaceModels ? (
+                <span className="text-[9px] font-bold text-[hsl(var(--muted-foreground))] font-mono">Loading models…</span>
+              ) : activeModel?.installed ? (
                 <span className="text-[9px] font-bold text-[hsl(var(--neon-green))] bg-[hsl(var(--neon-green))]/10 px-2 py-0.5 rounded-full border border-[hsl(var(--neon-green))]/20">Installed</span>
               ) : (
                 <span className="text-[9px] font-bold text-[hsl(var(--neon-amber))] bg-[hsl(var(--neon-amber)/0.1)] px-2 py-0.5 rounded-full border border-amber-500/20">Not Installed</span>
@@ -541,13 +536,14 @@ export default function ThreeDGenerationTab({
             
             <div className="relative">
               <select
-                value={selectedModelId}
+                value={activeModel?.id ?? ''}
                 onChange={(e) => setSelectedModelId(e.target.value)}
-                className="w-full bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-xl pl-3 pr-8 py-2.5 text-xs font-semibold text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))] transition-all appearance-none"
+                disabled={isLoadingWorkspaceModels}
+                className="w-full bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-xl pl-3 pr-8 py-2.5 text-xs font-semibold text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))] transition-all appearance-none disabled:opacity-60 disabled:cursor-wait"
               >
                 {modelsList.map(m => (
                   <option key={m.id} value={m.id}>
-                    {m.name} {!m.installed ? '(Available)' : ''}
+                    {m.name}{!m.installed ? ' — not installed' : ''}
                   </option>
                 ))}
               </select>

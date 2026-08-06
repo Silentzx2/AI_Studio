@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   Layers,
   Upload,
@@ -26,6 +26,7 @@ import {
 import { toast } from 'sonner';
 import { Shape3D } from '@/types/new-ui';
 import { useProjectStore } from '@/stores/useProjectStore';
+import { useWorkspaceModels } from '@/hooks/useBackendData';
 
 interface SegmentationTabProps {
   activeModel: {
@@ -82,6 +83,11 @@ const SEGMENTATION_METHODS = [
   },
 ];
 
+// Offline fallback: used only when the workspace-models endpoint is unreachable
+const LOCAL_MODELS: { id: string; label: string; installed: boolean }[] = [
+  { id: 'holopart', label: 'HoloPart', installed: false },
+];
+
 export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate }: SegmentationTabProps) {
   const { addLayer, currentProject } = useProjectStore();
   const [uploadedModel, setUploadedModel] = useState<File | null>(null);
@@ -94,6 +100,32 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
   const [maxParts, setMaxParts] = useState(8);
   const [preserveUvs, setPreserveUvs] = useState(true);
   const [exportSeparated, setExportSeparated] = useState(false);
+
+  // Models compatible with the segmentation workspace
+  const {
+    models: workspaceModels,
+    loading: isLoadingModels,
+    error: modelsError,
+  } = useWorkspaceModels('segmentation');
+  const [selectedModelId, setSelectedModelId] = useState('');
+
+  const modelOptions = useMemo(() => {
+    if (modelsError || !workspaceModels || workspaceModels.length === 0) {
+      return LOCAL_MODELS;
+    }
+    return workspaceModels.map((m: any) => ({
+      id: String(m.id ?? ''),
+      label: String(m.label ?? m.name ?? m.id ?? 'Unknown model'),
+      installed: Boolean(m.installed ?? m.status === 'ready'),
+    }));
+  }, [workspaceModels, modelsError]);
+
+  // Keep the selection valid for the current (filtered) option list
+  const selectedModel =
+    modelOptions.find((m) => m.id === selectedModelId) ||
+    modelOptions.find((m) => m.installed) ||
+    modelOptions[0];
+  const effectiveModelId = selectedModel?.id ?? '';
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [progressPercent, setProgressPercent] = useState(0);
@@ -283,7 +315,11 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
         prompt: `Segment model into parts using ${segmentMethod} method, max ${maxParts} parts${preserveUvs ? ', preserve UVs' : ''}${exportSeparated ? ', export separated' : ''}`,
         mode: 'partition',
         quality: 'standard',
+        workspace: 'segmentation',
       };
+      if (effectiveModelId) {
+        payload.provider = effectiveModelId;
+      }
       if (modelUrl) {
         payload.reference_image_url = modelUrl;
       }
@@ -358,6 +394,7 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
                    maxParts,
                    preserveUvs,
                    exportSeparated,
+                   model: effectiveModelId,
                    parts: backendParts,
                  },
                  sourceTab: 'Segmentation',
@@ -528,6 +565,43 @@ export default function SegmentationTab({ activeModel, onUpdateModel, onNavigate
             className="flex flex-col gap-5"
             id="segmentation-settings-form"
           >
+            {/* Segmentation Model (workspace-compatible models only) */}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
+                  Segmentation Model
+                </label>
+                {isLoadingModels ? (
+                  <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">
+                    Loading models…
+                  </span>
+                ) : selectedModel && !selectedModel.installed ? (
+                  <span className="text-[9px] font-bold text-[hsl(var(--neon-amber))] uppercase">
+                    Not installed
+                  </span>
+                ) : null}
+              </div>
+              <div className="relative">
+                <select
+                  value={effectiveModelId}
+                  onChange={(e) => setSelectedModelId(e.target.value)}
+                  disabled={isLoadingModels}
+                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 pr-8 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none disabled:opacity-60 disabled:cursor-wait"
+                  id="segmentation-model-select"
+                >
+                  {modelOptions.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label}{m.installed ? '' : ' — not installed'}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={14}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] pointer-events-none"
+                />
+              </div>
+            </div>
+
             {/* Segmentation Method */}
             <div className="flex flex-col gap-2">
               <label className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">

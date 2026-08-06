@@ -23,9 +23,11 @@ MODEL_VRAM_REQUIREMENTS: dict[str, int] = {
     "hunyuan3d-2": 24_000,
     "trellis": 8_000,
     "triposr": 6_000,
+    "anigen": 6_200,
+    "detailgen3d": 4_000,
     "mock": 0,
 }
-PROVIDER_PRIORITY = ["hunyuan3d-2.1", "trellis", "triposr", "hunyuan3d-2", "mock"]
+PROVIDER_PRIORITY = ["hunyuan3d-2.1", "trellis", "triposr", "hunyuan3d-2", "anigen", "detailgen3d", "mock"]
 
 _PROVIDER_MAP: dict[str, tuple[str, str]] = {
     "hunyuan3d": ("app.core.providers.hunyuan3d_local", "Hunyuan3D21LocalProvider"),
@@ -34,6 +36,8 @@ _PROVIDER_MAP: dict[str, tuple[str, str]] = {
     "hunyuan3d-2": ("app.core.providers.hunyuan3d_local", "Hunyuan3D2LocalProvider"),
     "trellis": ("app.core.providers.trellis_local", "TRELLISLocalProvider"),
     "triposr": ("app.core.providers.triposr_local", "TripoSRLocalProvider"),
+    "anigen": ("app.core.providers.anigen_provider", "AniGenProvider"),
+    "detailgen3d": ("app.core.providers.detailgen3d", "DetailGen3DProvider"),
     "mock": ("app.core.providers.mock", "MockProvider"),
 }
 

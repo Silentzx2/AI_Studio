@@ -5,6 +5,7 @@ import {
   AlertCircle,
   ArrowRight,
   Bell,
+  Bone,
   Box,
   ChevronDown,
   ChevronRight,
@@ -14,14 +15,17 @@ import {
   Download,
   Filter,
   Flame,
+  Grid3x3,
   Layers3,
   LayoutGrid,
   Loader2,
+  Palette,
   PauseCircle,
   PlayCircle,
   Plus,
   RefreshCw,
   Save,  Search,
+  Scissors,
   Sparkles,
   Star,
   Trash2,
@@ -111,6 +115,19 @@ const STORAGE_KEYS = {
   compare: 'ai3d:pipelines:compare:v1',
 } as const;
 
+type WorkspaceKey = 'all' | 'mesh-generation' | 'texture-generation' | 'rigging' | 'animation' | 'segmentation' | 'remesh' | 'post-processing';
+
+const WORKSPACE_OPTIONS: { key: WorkspaceKey; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { key: 'all', label: 'All', icon: LayoutGrid },
+  { key: 'mesh-generation', label: 'Mesh', icon: Box },
+  { key: 'texture-generation', label: 'Texture', icon: Palette },
+  { key: 'rigging', label: 'Rigging', icon: Bone },
+  { key: 'animation', label: 'Animation', icon: PlayCircle },
+  { key: 'segmentation', label: 'Segment', icon: Scissors },
+  { key: 'remesh', label: 'Remesh', icon: Grid3x3 },
+  { key: 'post-processing', label: 'Post', icon: Wand2 },
+];
+
 const MODEL_LIBRARY: Record<string, ModelReference> = {
   triposr: {
     label: 'TripoSR',
@@ -121,26 +138,6 @@ const MODEL_LIBRARY: Record<string, ModelReference> = {
     bestFor: ['Quick preview', 'Iteration', 'Small VRAM'],
     workflow: 'Direct mesh output',
     notes: 'Texture baking is optional via the model flag.',
-  },
-  triposg: {
-    label: 'TripoSG',
-    summary: 'High-fidelity shape synthesis with sharper geometry.',
-    diskSpaceMb: 2300,
-    quality: 4,
-    recommendation: 'quality',
-    bestFor: ['Fine detail', 'Complex shapes', 'Polish passes'],
-    workflow: 'Generate then enhance',
-    notes: 'Geometry-first pipeline; pair with rigging if needed.',
-  },
-  triposf: {
-    label: 'TripoSF',
-    summary: 'High-resolution sparse-flex reconstruction.',
-    diskSpaceMb: 4100,
-    quality: 5,
-    recommendation: 'professional',
-    bestFor: ['Open surfaces', 'Rich topology', 'High detail'],
-    workflow: 'High-res mesh build',
-    notes: 'Best when detail matters more than speed.',
   },
   trellis: {
     label: 'Trellis',
@@ -172,9 +169,9 @@ const MODEL_LIBRARY: Record<string, ModelReference> = {
     workflow: 'Mesh then texture in one pipeline',
     notes: 'Alias of the current Hunyuan 3D runtime family.',
   },
-  unirig: {
-    label: 'UniRig',
-    summary: 'Automatic skeletal rigging and animation prep.',
+  anigen: {
+    label: 'AniGen',
+    summary: 'Automatic skeletal rigging and animation prep for 3D character meshes.',
     diskSpaceMb: 3000,
     quality: 4,
     recommendation: 'balanced',
@@ -182,15 +179,15 @@ const MODEL_LIBRARY: Record<string, ModelReference> = {
     workflow: 'Rig after generation',
     notes: 'Best chained after a mesh-producing model.',
   },
-  holopart: {
-    label: 'HoloPart',
-    summary: 'Part completion and semantic mesh enhancement.',
-    diskSpaceMb: 5000,
+  detailgen3d: {
+    label: 'DetailGen3D',
+    summary: 'Post-processes coarse 3D meshes with high-frequency geometric details.',
+    diskSpaceMb: 1000,
     quality: 4,
     recommendation: 'balanced',
-    bestFor: ['Part completion', 'Editing', 'Enhancement'],
-    workflow: 'Post-process mesh parts',
-    notes: 'Useful when geometry needs cleanup or completion.',
+    bestFor: ['Mesh enhancement', 'Polish passes', 'Geometry cleanup'],
+    workflow: 'Post-process mesh for detail',
+    notes: 'Refines coarse geometry after initial generation.',
   },
 };
 
@@ -228,13 +225,13 @@ const DEFAULT_WORKFLOWS: WorkflowPreset[] = [
     description: 'Quality mesh with optional rigging.',
     source: 'system',
     inputMode: 'image',
-    chain: ['triposg', 'unirig'],
-    texture: false,
-    rigging: true,
-    detail: true,
+    chain: ['trellis'],
+    texture: true,
+    rigging: false,
+    detail: false,
     outputFormat: 'glb',
-    estimatedSeconds: 75,
-    minVramMb: 12000,
+    estimatedSeconds: 60,
+    minVramMb: 8000,
     usageCount: 0,
     createdAt: new Date().toISOString(),
   },
@@ -244,13 +241,13 @@ const DEFAULT_WORKFLOWS: WorkflowPreset[] = [
     description: 'Complete asset with texture and rigging.',
     source: 'system',
     inputMode: 'text',
-    chain: ['hunyuan3d-2.1', 'unirig'],
+    chain: ['hunyuan3d-2.1'],
     texture: true,
     rigging: true,
     detail: true,
     outputFormat: 'glb',
-    estimatedSeconds: 165,
-    minVramMb: 20000,
+    estimatedSeconds: 120,
+    minVramMb: 16000,
     usageCount: 0,
     createdAt: new Date().toISOString(),
   },
@@ -350,13 +347,11 @@ function computeWorkflowVram(chain: string[]) {
     if (!model) return max;
     const vramById: Record<string, number> = {
       triposr: 6000,
-      triposg: 12000,
-      triposf: 12000,
-      trellis: 12000,
-      'hunyuan3d-2.1': 20000,
-      'hunyuan3d-2': 20000,
-      unirig: 8000,
-      holopart: 8000,
+      trellis: 8000,
+      'hunyuan3d-2.1': 16000,
+      'hunyuan3d-2': 24000,
+      anigen: 6200,
+      detailgen3d: 4000,
     };
     return Math.max(max, vramById[id] ?? 0);
   }, 0);
@@ -422,6 +417,7 @@ export function PipelinesDashboard({
   const [userPresets, setUserPresets] = useState<WorkflowPreset[]>([]);
   const [searchPreset, setSearchPreset] = useState('');
   const [presetFilter, setPresetFilter] = useState<'all' | 'system' | 'custom'>('all');
+  const [selectedWorkspace, setSelectedWorkspace] = useState<WorkspaceKey>('all');
 
   const displayModels: DisplayPipeline[] = useMemo(() => {
     return snapshot.pipelines.map((pipeline) => {
@@ -809,7 +805,7 @@ export function PipelinesDashboard({
                 <p className="text-sm text-muted-foreground">
                   {snapshot.computed_features.texture_generation
                     ? 'At least one installed model supports texture output.'
-                    : 'Install TripoSR, Hunyuan3D-2, or HoloPart to unlock texturing.'}
+                    : 'Install TripoSR, Hunyuan3D-2, or Trellis to unlock texturing.'}
                 </p>
               </CardContent>
             </Card>
@@ -820,14 +816,14 @@ export function PipelinesDashboard({
                   <Cpu className="h-4 w-4 text-[hsl(var(--neon-blue))]" />
                   Rigging / Animation
                 </CardTitle>
-                <CardDescription>Enabled by UniRig.</CardDescription>
+                <CardDescription>Enabled by AniGen.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 <div className="text-2xl font-semibold">{snapshot.computed_features.rigging_animation ? 'Enabled' : 'Disabled'}</div>
                 <p className="text-sm text-muted-foreground">
                   {snapshot.computed_features.rigging_animation
-                    ? 'UniRig is ready for post-processing and animation.'
-                    : 'Install UniRig to unlock skeletal rigging.'}
+                    ? 'AniGen is ready for post-processing and animation.'
+                    : 'Install AniGen to unlock skeletal rigging.'}
                 </p>
               </CardContent>
             </Card>
@@ -844,8 +840,8 @@ export function PipelinesDashboard({
                 <div className="text-2xl font-semibold">{snapshot.computed_features.detail_enhancement ? 'Enabled' : 'Disabled'}</div>
                 <p className="text-sm text-muted-foreground">
                   {snapshot.computed_features.detail_enhancement
-                    ? 'TripoSG, TripoSF, Trellis, or HoloPart can enhance mesh detail.'
-                    : 'Install a detail-capable model for mesh polishing.'}
+                    ? 'DetailGen3D or textured models can enhance mesh detail.'
+                    : 'Install DetailGen3D for mesh polishing.'}
                 </p>
               </CardContent>
             </Card>
@@ -899,16 +895,57 @@ export function PipelinesDashboard({
               <CardDescription>Use the switches to gate a model in the UI. Install and uninstall actions remain model-driven.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {displayModels.length === 0 ? (
-                <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
-                  No pipelines found in the registry.
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-border bg-muted/30 p-1.5">
+                  {WORKSPACE_OPTIONS.map((option) => {
+                    const active = selectedWorkspace === option.key;
+                    const Icon = option.icon;
+                    return (
+                      <button
+                        key={option.key}
+                        onClick={() => setSelectedWorkspace(option.key)}
+                        className={[
+                          'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors',
+                          active ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                        ].join(' ')}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                        {option.label}
+                      </button>
+                    );
+                  })}
                 </div>
-              ) : (
+                {selectedWorkspace !== 'all' && (
+                  <p className="text-xs text-muted-foreground">
+                    Showing models compatible with <span className="font-medium text-foreground">{selectedWorkspace}</span>.
+                  </p>
+                )}
+              </div>
+
+              {(() => {
+                const visibleModels = displayModels.filter(
+                  (model) => selectedWorkspace === 'all' || model.workspace_compatibility?.includes(selectedWorkspace)
+                );
+                if (displayModels.length === 0) {
+                  return (
+                    <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                      No pipelines found in the registry.
+                    </div>
+                  );
+                }
+                if (visibleModels.length === 0) {
+                  return (
+                    <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                      No pipelines are compatible with {selectedWorkspace}.
+                    </div>
+                  );
+                }
+                return (
                 <div className="grid gap-4 lg:grid-cols-2">
-                  {displayModels.map((model) => {
+                  {visibleModels.map((model) => {
                     const isBusy = Boolean(busy[model.id]);
                     return (
-                      <div key={model.id} className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                      <div key={model.id} className="rounded-xl border border-border bg-card p-4 shadow-sm transition-colors hover:border-primary/40">
                         <div className="flex items-start justify-between gap-4">
                           <div>
                             <div className="flex items-center gap-2">
@@ -1045,7 +1082,8 @@ export function PipelinesDashboard({
                     );
                   })}
                 </div>
-              )}
+                );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>

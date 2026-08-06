@@ -292,7 +292,7 @@ if [[ "${USE_SQLITE:-}" != "1" ]]; then
       _PG_READY=true
       log "PostgreSQL authentication successful (user=$_DB_USER, host=$_DB_HOST)"
     else
-      warn "PostgreSQL is running but authentication failed for user '$DB_USER'@$_DB_HOST — falling back to SQLite."
+      warn "PostgreSQL is running but authentication failed for user '$_DB_USER'@$_DB_HOST — falling back to SQLite."
       export USE_SQLITE=1
       export DATABASE_URL="sqlite:///$(pwd)/backend/storage/studio.db"
       export DATABASE_SYNC_URL="sqlite:///$(pwd)/backend/storage/studio.db"

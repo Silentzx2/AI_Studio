@@ -4,10 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { RefreshCw, Play, Settings, AlertTriangle, CheckCircle, Cpu, ShieldCheck, Zap, Layers, Upload, X } from 'lucide-react';
 import { Shape3D } from '@/types/new-ui';
 import { useProjectStore } from '@/stores/useProjectStore';
+import { useWorkspaceModels } from '@/hooks/useBackendData';
 
 interface RemeshTabProps {
   activeModel: {
@@ -25,6 +26,11 @@ interface RemeshTabProps {
   onNavigate: (tab: string) => void;
 }
 
+// Offline fallback: used only when the workspace-models endpoint is unreachable
+const LOCAL_MODELS: { id: string; label: string; installed: boolean }[] = [
+  { id: '', label: 'Default remesh pipeline', installed: true },
+];
+
 export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: RemeshTabProps) {
   const { addLayer, currentProject } = useProjectStore();
   const [targetType, setTargetType] = useState('quad-dominant');
@@ -37,6 +43,32 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [successResult, setSuccessResult] = useState<any>(null);
+
+  // Models compatible with the remesh workspace
+  const {
+    models: workspaceModels,
+    loading: isLoadingModels,
+    error: modelsError,
+  } = useWorkspaceModels('remesh');
+  const [selectedModelId, setSelectedModelId] = useState('');
+
+  const modelOptions = useMemo(() => {
+    if (modelsError || !workspaceModels || workspaceModels.length === 0) {
+      return LOCAL_MODELS;
+    }
+    return workspaceModels.map((m: any) => ({
+      id: String(m.id ?? ''),
+      label: String(m.label ?? m.name ?? m.id ?? 'Unknown model'),
+      installed: Boolean(m.installed ?? m.status === 'ready'),
+    }));
+  }, [workspaceModels, modelsError]);
+
+  // Keep the selection valid for the current (filtered) option list
+  const selectedModel =
+    modelOptions.find((m) => m.id === selectedModelId) ||
+    modelOptions.find((m) => m.installed) ||
+    modelOptions[0];
+  const effectiveModelId = selectedModel?.id ?? '';
 
   const handleModelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -88,7 +120,11 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
         prompt: `Remesh model with ${targetType} topology, ${vertexDensity} vertex density`,
         mode: 'remesh',
         quality: 'standard',
+        workspace: 'remesh',
       };
+      if (effectiveModelId) {
+        payload.provider = effectiveModelId;
+      }
       if (modelUrl) {
         payload.reference_image_url = modelUrl;
         payload.mode = 'remesh';
@@ -130,6 +166,7 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
                   vertexDensity,
                   symmetry,
                   keepBoundaries,
+                  model: effectiveModelId,
                   oldVertices: 'Original',
                   newVertices: `~${vertexDensity} Quads`,
                   reduction: 'Optimized',
@@ -214,6 +251,31 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
           </div>
 
           <div className="flex flex-col gap-4" id="remesh-settings-form">
+            {/* Remesh Model Selector (workspace-compatible models only) */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">Remesh Model</label>
+                {isLoadingModels ? (
+                  <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">Loading models…</span>
+                ) : selectedModel && !selectedModel.installed ? (
+                  <span className="text-[9px] font-bold text-[hsl(var(--neon-amber))] uppercase">Not installed</span>
+                ) : null}
+              </div>
+              <select
+                value={effectiveModelId}
+                onChange={(e) => setSelectedModelId(e.target.value)}
+                disabled={isLoadingModels}
+                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer disabled:opacity-60 disabled:cursor-wait"
+                id="re-model-select"
+              >
+                {modelOptions.map((m) => (
+                  <option key={m.id || 'default'} value={m.id}>
+                    {m.label}{m.installed ? '' : ' — not installed'}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Target Topology Selector */}
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">Topology Algorithm</label>
