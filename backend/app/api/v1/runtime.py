@@ -439,15 +439,14 @@ class RepoActionRequest(BaseModel):
 
 @router.post("/update")
 async def update_repo(req: RepoActionRequest, background_tasks: BackgroundTasks):
-    from runtime.installer import RuntimeInstaller, REPOS
+    from runtime.installer import REPOS, clone_repo
 
-    # ponytail: Section 1 — update only the specific repo, not everything
+    # ponytail: update only the specific repo, not everything
     if req.repo not in REPOS:
         return error(f"Unknown repo: {req.repo}. Available: {list(REPOS.keys())}")
-    providers = REPOS[req.repo].get("providers", [])
 
     def _run() -> None:
-        RuntimeInstaller().clone_repos_for_models(models=providers)
+        clone_repo(req.repo)
 
     background_tasks.add_task(_run)
     return success({"repo": req.repo, "started": True}, "Update started.")
@@ -457,24 +456,22 @@ async def update_repo(req: RepoActionRequest, background_tasks: BackgroundTasks)
 async def repair_repo(req: RepoActionRequest, background_tasks: BackgroundTasks):
     import shutil
 
-    from runtime.installer import RuntimeInstaller
+    from runtime.installer import REPOS, clone_repo, install_repo_deps
     from runtime.storage import get_storage_config
 
-    # ponytail: Section 1 — repair only the specific repo, not everything
-    providers = []
-    try:
-        from runtime.installer import REPOS
-        if req.repo in REPOS:
-            providers = REPOS[req.repo].get("providers", [])
-    except Exception:
-        pass
+    # ponytail: repair only the specific repo, not everything.
+    # Re-clone the repo and rebuild its isolated venv/deps (runtime prep).
+    # Weights live separately and are preserved.
+    if req.repo not in REPOS:
+        return error(f"Unknown repo: {req.repo}. Available: {list(REPOS.keys())}")
 
     def _run() -> None:
         storage = get_storage_config()
         repo_path = storage.get_repo_path(req.repo)
         if repo_path.exists():
             shutil.rmtree(str(repo_path), ignore_errors=True)
-        RuntimeInstaller().clone_repos_for_models(models=providers if providers else None)
+        clone_repo(req.repo)
+        install_repo_deps(req.repo)
 
     background_tasks.add_task(_run)
     return success({"repo": req.repo, "started": True}, "Repair started.")

@@ -371,10 +371,17 @@ def _uv_install(
     # If torch landed in the venv, point CMake at its cmake config so
     # packages like torchmcubes can find Torch during build.
     cmake_env = {}
-    torch_cmake = venv_python.parents[1] / "lib" / f"python{venv_python.name.replace('python', '')}" / "site-packages" / "torch" / "share" / "cmake" / "Torch"
-    if torch_cmake.exists():
-        cmake_env["CMAKE_PREFIX_PATH"] = str(torch_cmake.parent.parent)
-        cmake_env["Torch_DIR"] = str(torch_cmake)
+    code, out = _run([str(venv_python), "-c",
+                     "import sysconfig; print(sysconfig.get_path('platlib'))"])
+    if code == 0:
+        site_packages = Path(out.strip())
+        torch_cmake = site_packages / "torch" / "share" / "cmake" / "Torch"
+        if torch_cmake.exists():
+            # Torch_DIR must point at the dir holding TorchConfig.cmake.
+            cmake_env["Torch_DIR"] = str(torch_cmake)
+            # CMAKE_PREFIX_PATH: find_package(Torch) looks in
+            # <prefix>/share/cmake/Torch, so prefix = .../site-packages/torch.
+            cmake_env["CMAKE_PREFIX_PATH"] = str(torch_cmake.parents[2])
 
     if not requirements_file.exists():
         pyproject = repo_dir / "pyproject.toml"
@@ -404,15 +411,6 @@ def _uv_install(
             ["pip", "install", "--python", str(venv_python), "-r", str(requirements_file)],
             cwd=repo_dir,
             extra_env=cmake_env,
-        )
-
-    if code != 0:
-        return {"success": False, "error": output}
-    return {"success": True}
-    else:
-        code, output = _run_uv(
-            ["pip", "install", "--python", str(venv_python), "-r", str(requirements_file)],
-            cwd=repo_dir,
         )
 
     if code != 0:

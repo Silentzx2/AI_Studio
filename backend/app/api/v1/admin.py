@@ -1100,24 +1100,33 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
         _dl_update(model_id, phase="repo", log="Repairing repository...")
 
         def _run_repair() -> None:
-            from runtime.installer import PROVIDER_METADATA
+            from runtime.installer import PROVIDER_METADATA, REPOS, clone_repo, install_repo_deps
             from runtime.storage import get_storage_config
             storage = get_storage_config()
             meta = PROVIDER_METADATA.get(model_id, {})
             repo_name = meta.get("repo")
-            if repo_name:
-                repo_path = storage.get_repo_path(repo_name)
-                if repo_path.exists():
-                    shutil.rmtree(str(repo_path), ignore_errors=True)
+            if not repo_name or repo_name not in REPOS:
+                _dl_update(model_id, status="failed", error="No repo to repair",
+                           log="Repair failed: model has no repo")
+                return
+            repo_path = storage.get_repo_path(repo_name)
+            if repo_path.exists():
+                shutil.rmtree(str(repo_path), ignore_errors=True)
             _dl_update(model_id, log="Re-cloning repository...")
+
+            def _repair_log(msg):
+                logger.info("[repair:%s] %s", model_id, msg)
+                if isinstance(msg, str):
+                    _dl_update(model_id, log=msg)
+
             try:
-                from runtime.installer import REPOS, PROVIDER_METADATA
-                meta = PROVIDER_METADATA.get(model_id, {})
-                repo_name = meta.get("repo")
-                providers_for_repo = []
-                if repo_name and repo_name in REPOS:
-                    providers_for_repo = REPOS[repo_name].get("providers", [])
-                RuntimeInstaller().clone_repos_for_models(models=providers_for_repo if providers_for_repo else None)
+                r = clone_repo(repo_name, log_cb=_repair_log)
+                if not r.get("success"):
+                    raise RuntimeError(r.get("error", "clone failed"))
+                _dl_update(model_id, log="Re-installing repository dependencies...")
+                r = install_repo_deps(repo_name, log_cb=_repair_log)
+                if not r.get("success"):
+                    raise RuntimeError(r.get("error", "dependency install failed"))
                 _dl_update(model_id, status="completed", percent=100,
                            log="Repair complete")
             except Exception as exc:
