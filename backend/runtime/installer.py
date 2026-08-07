@@ -11,9 +11,11 @@ import json
 import logging
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from collections.abc import Callable
@@ -319,6 +321,134 @@ def _run(
     return proc.returncode, "\n".join(lines)
 
 
+# ponytail: Py3.12 dropped `distutils` and several pinned deps publish no
+# cp312 wheels. On Py3.12 we rewrite the cloned repo's requirements to
+# installable versions so the per-model venv can be created. Real GPU
+# deployments run on Py3.11 where the upstream pins are valid, so this table
+# is only applied on Py>=3.12. Upgrade path: drop this once repos publish
+# cp312-compatible pins or the stack targets Py3.11.
+_PY312_REQ_REWRITES: list[tuple[re.Pattern, str | None]] = [
+    # numpy 1.22.x builds via distutils (gone in 3.12); keep the already
+    # installed numpy 2.x from the per-model venv base.
+    (re.compile(r"^numpy==1\.22\..*$"), "numpy>=1.26.4"),
+    # open3d 0.18.0 has no cp312 wheel; 0.19.0 is the first with one.
+    (re.compile(r"^open3d==0\.18\.0$"), "open3d==0.19.0"),
+    # flash-attn / bpy publish no cp312 wheels (CUDA-build / Blender-bound);
+    # not installable on a CPU Py3.12 box — drop rather than fail the venv.
+    (re.compile(r"^flash[-_]attn==.*$"), None),
+    (re.compile(r"^bpy==.*$"), None),
+]
+
+
+def _normalize_requirements_for_py312(requirements_file: Path) -> Path:
+    """On Py<3.12 return the original path unchanged.
+
+    On Py>=3.12 rewrite uninstallable pins to cp312-installable versions
+    (see _PY312_REQ_REWRITES) into a temp file and return that path. The
+    upstream requirements file is left pristine so re-clones stay clean.
+    """
+    if sys.version_info < (3, 12):
+        return requirements_file
+    if not requirements_file.exists():
+        return requirements_file
+
+    text = requirements_file.read_text(errors="ignore")
+    out_lines: list[str] = []
+    changed = False
+    for raw in text.splitlines():
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#"):
+            out_lines.append(raw)
+            continue
+        line = stripped.split("#", 1)[0].strip()
+        dropped = False
+        replaced: str | None = None
+        for pat, repl in _PY312_REQ_REWRITES:
+            if pat.match(line):
+                if repl is None:
+                    dropped = True
+                else:
+                    replaced = repl
+                changed = True
+                break
+        if dropped:
+            out_lines.append(f"# ponytail: dropped on py3.12 (no cp312 wheel): {line}")
+            continue
+        if replaced is not None:
+            out_lines.append(replaced)
+            continue
+        out_lines.append(raw)
+
+    if not changed:
+        return requirements_file
+
+    tmp = Path(tempfile.gettempdir()) / (requirements_file.stem + ".py312.requirements.txt")
+    tmp.write_text("\n".join(out_lines) + "\n")
+    logger.info("Py3.12 requirement rewrite -> %s", tmp)
+    return tmp
+
+
+# ponytail: source extensions that compile a CUDA kernel at build time. They
+# cannot be built on a host without a CUDA toolkit (no cuda_runtime.h / nvcc),
+# and the install must not hard-fail the whole setup on such hosts — the stack
+# already warns that inference is unavailable without a GPU. On GPU hosts this
+# is a no-op. Upgrade path: narrow the list if a package gains a cp312 wheel
+# that installs header-less.
+_CUDA_ONLY_PKG_PATTERNS: list[re.Pattern] = [
+    re.compile(r"^diso($|==)"),
+    re.compile(r"^torch-cluster($|==)"),
+    re.compile(r"^torch-scatter($|==)"),
+    re.compile(r"^torch-sparse($|==)"),
+    re.compile(r"^(git\+)?.*torchmcubes"),
+    re.compile(r"^flash[-_]attn($|==)"),
+    re.compile(r"^xformers($|==)"),
+    re.compile(r"^pytorch3d($|==)"),
+]
+
+
+def _cuda_available() -> bool:
+    """Best-effort detection of a usable CUDA toolkit on the build host."""
+    if os.environ.get("CUDA_HOME") or os.environ.get("CUDA_PATH"):
+        return True
+    if shutil.which("nvcc"):
+        return True
+    for cand in ("/usr/local/cuda", "/opt/cuda"):
+        if Path(cand).exists():
+            return True
+    return False
+
+
+def _drop_cuda_only_packages(requirements_file: Path) -> Path:
+    """Return a requirements path with CUDA-only build packages commented out.
+
+    Used only when no CUDA toolkit is present, so the per-model venv can
+    install its pure-Python deps and start in a degraded (CPU/inference-less)
+    mode instead of failing the entire setup.
+    """
+    if not requirements_file.exists():
+        return requirements_file
+    text = requirements_file.read_text(errors="ignore")
+    out_lines: list[str] = []
+    changed = False
+    for raw in text.splitlines():
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#"):
+            out_lines.append(raw)
+            continue
+        line = stripped.split("#", 1)[0].strip()
+        if any(pat.match(line) for pat in _CUDA_ONLY_PKG_PATTERNS):
+            changed = True
+            out_lines.append(f"# ponytail: dropped (no CUDA toolkit on host): {line}")
+            continue
+        out_lines.append(raw)
+    if not changed:
+        return requirements_file
+    tmp = Path(tempfile.gettempdir()) / (requirements_file.stem + ".nocuda.requirements.txt")
+    tmp.write_text("\n".join(out_lines) + "\n")
+    logger.info("CUDA-less host: dropped CUDA-only build packages -> %s", tmp)
+    return tmp
+
+
 def _uv_install(
     requirements_file: Path,
     repo_dir: Path,
@@ -359,14 +489,51 @@ def _uv_install(
 
     # Pre-install torch so build-backends that import it during wheel build
     # (diso, torchmcubes, etc.) can compile inside isolated build envs.
+    # Also seed setuptools/wheel: uv venvs don't include them, and they're
+    # required when a package is built with --no-build-isolation.
     if log_cb:
         log_cb(f"Pre-installing torch in {venv_python} for build isolation…")
     code, output = _run_uv(
-        ["pip", "install", "--python", str(venv_python), "torch", "torchvision", "torchaudio"],
+        ["pip", "install", "--python", str(venv_python),
+         "torch", "torchvision", "torchaudio", "setuptools", "wheel"],
         cwd=repo_dir,
     )
     if code != 0:
         logger.warning("Pre-install of torch failed for %s: %s", repo_name, output[:300])
+
+    # Packages whose build step imports torch (diso, torch-cluster, …) must
+    # compile inside the venv — which now has torch pre-installed — instead of
+    # an empty isolated build env, otherwise they fail with
+    # `ModuleNotFoundError: No module named 'torch'`.
+    # ponytail: fixed allow-list of known torch-dependent build packages;
+    # extend here if a new repo adds another torch-extension built from source.
+    TORCH_BUILD_PKGS = {
+        "diso", "torch-cluster", "torch-scatter",
+        "torch-sparse", "torchmcubes", "torch-geometric",
+    }
+
+    # rembg -> pymatting -> numba -> llvmlite==0.36.0 only builds on Python
+    # <3.10. Pre-installing a modern pymatting (>=1.1.15 requires numba>=0.60,
+    # which supports py3.12) stops uv from resolving that ancient chain.
+    # ponytail: hardcoded rembg workaround; revisit if rembg drops pymatting.
+    build_iso_args: list[str] = []
+    req_blob = ""
+    for _f in (requirements_file, repo_dir / "pyproject.toml", repo_dir / "setup.py"):
+        if _f.exists():
+            req_blob += "\n" + _f.read_text(errors="ignore")
+    for pkg in sorted(TORCH_BUILD_PKGS):
+        if re.search(rf"\b{re.escape(pkg)}\b", req_blob):
+            build_iso_args += ["--no-build-isolation-package", pkg]
+    if re.search(r"\brembg\b", req_blob):
+        if log_cb:
+            log_cb("Pre-installing modern pymatting/numba/llvmlite for rembg (py3.12 compat)…")
+        code, output = _run_uv(
+            ["pip", "install", "--python", str(venv_python),
+             "pymatting>=1.1.15", "numba>=0.60", "llvmlite>=0.43"],
+            cwd=repo_dir,
+        )
+        if code != 0:
+            logger.warning("Pre-install of pymatting chain failed for %s: %s", repo_name, output[:300])
 
     # If torch landed in the venv, point CMake at its cmake config so
     # packages like torchmcubes can find Torch during build.
@@ -383,20 +550,48 @@ def _uv_install(
             # <prefix>/share/cmake/Torch, so prefix = .../site-packages/torch.
             cmake_env["CMAKE_PREFIX_PATH"] = str(torch_cmake.parents[2])
 
-    if not requirements_file.exists():
+    # Rewrite py3.12-incompatible pins (open3d 0.18, numpy 1.22, flash-attn,
+    # bpy) before resolving, so the per-model venv can be created on Py3.12.
+    install_requirements = _normalize_requirements_for_py312(requirements_file)
+
+    # No CUDA toolkit on this host: CUDA-only source extensions (diso,
+    # torch-cluster, torchmcubes, …) cannot be compiled. Drop them so the venv
+    # still installs its pure-Python deps instead of failing the whole setup.
+    # Inference is already flagged as unavailable without a GPU.
+    if not _cuda_available():
+        install_requirements = _drop_cuda_only_packages(install_requirements)
+        if log_cb and install_requirements.name.endswith(".nocuda.requirements.txt"):
+            log_cb("No CUDA toolkit detected — skipping CUDA-only build packages (CPU mode)")
+
+    # torchmcubes (TripoSR) builds with scikit-build-core but doesn't declare
+    # it as a build dependency. Because we build it with
+    # --no-build-isolation-package, scikit_build_core must live in the venv.
+    # (Only needed when CUDA is present; skipped on CPU-only hosts where
+    # torchmcubes is dropped above.)
+    if _cuda_available() and re.search(r"\btorchmcubes\b", req_blob):
+        if log_cb:
+            log_cb("Pre-installing scikit_build_core for torchmcubes build…")
+        code, output = _run_uv(
+            ["pip", "install", "--python", str(venv_python), "scikit_build_core"],
+            cwd=repo_dir,
+        )
+        if code != 0:
+            logger.warning("Pre-install of scikit_build_core failed for %s: %s", repo_name, output[:300])
+
+    if not install_requirements.exists():
         pyproject = repo_dir / "pyproject.toml"
         setup_py = repo_dir / "setup.py"
         if pyproject.exists():
             logger.info("No requirements.txt for %s, using uv pip install -e .", repo_name)
             code, output = _run_uv(
-                ["pip", "install", "--python", str(venv_python), "-e", "."],
+                ["pip", "install", "--python", str(venv_python), "-e", ".", *build_iso_args],
                 cwd=repo_dir,
                 extra_env=cmake_env,
             )
         elif setup_py.exists():
             logger.info("No requirements.txt for %s, using uv pip install -e .", repo_name)
             code, output = _run_uv(
-                ["pip", "install", "--python", str(venv_python), "-e", "."],
+                ["pip", "install", "--python", str(venv_python), "-e", ".", *build_iso_args],
                 cwd=repo_dir,
                 extra_env=cmake_env,
             )
@@ -408,7 +603,7 @@ def _uv_install(
             return {"success": True}
     else:
         code, output = _run_uv(
-            ["pip", "install", "--python", str(venv_python), "-r", str(requirements_file)],
+            ["pip", "install", "--python", str(venv_python), "-r", str(install_requirements), *build_iso_args],
             cwd=repo_dir,
             extra_env=cmake_env,
         )

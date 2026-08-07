@@ -242,52 +242,199 @@ fi
 
 log "Frontend dependencies ready"
 
-# ── Per-model virtual environments ────────────────────────────────────────
+# ── Per-model virtual environments (clone + isolated venvs) ───────────────
+# Reuses backend/runtime/installer.py — the single source of truth used by
+# setup.sh. Doing it here (instead of a raw `uv pip install -r`) is required
+# so the same Py3.12 pin rewrites, CUDA-less package drop, and
+# scikit_build_core pre-install apply on Colab/Kaggle (which may be CPU-only
+# or Py3.12, the exact cases that broke setup.sh before).
+# ponytail: do NOT re-implement uv pip install here; it would silently
+# regress on Py3.12 / no-CUDA hosts.
 
-step "Checking per-model virtual environments"
+prepare_model_runtimes() {
+    step "Preparing model runtimes (clone + venvs)"
+    local PYTHONBIN="${PROJECT_ROOT}/backend/.venv/bin/python"
+    [[ -x "$PYTHONBIN" ]] || { err "Backend venv missing — run full bootstrap first"; return 1; }
+    (
+        cd backend
+        PYTHONPATH=. "$PYTHONBIN" - << 'PYEOF'
+import logging
+import platform
+import shutil
+import subprocess
+import sys
+from pathlib import Path
 
-UV_PATH=$(command -v uv)
+logging.basicConfig(level=logging.INFO, format="  %(levelname)-5s %(name)s: %(message)s")
+logger = logging.getLogger(__name__)
+sys.path.insert(0, str(Path(".").resolve()))
 
-for repo_dir in backend/third_party/*/; do
-    [[ -d "$repo_dir" ]] || continue
-    repo_name=$(basename "$repo_dir")
-    venv_dir="${repo_dir}.venv"
+try:
+    from runtime.installer import REPOS, clone_repo, install_repo_deps
+    from runtime.storage import get_storage_config
+except Exception as exc:
+    print(f"  [FAIL] Could not import runtime modules: {exc}")
+    sys.exit(1)
 
-    if [[ -e "$venv_dir" ]]; then
-        log "Model ${repo_name}: venv exists"
+storage = get_storage_config()
+
+
+def _run(cmd, cwd=None):
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
+    return result.returncode, result.stdout, result.stderr
+
+
+def validate_repo(repo_name):
+    repo_path = storage.get_repo_path(repo_name)
+    repo_cfg = REPOS.get(repo_name)
+    if not repo_path.exists():
+        return False, "missing"
+    if not (repo_path / ".git").exists():
+        return False, "not_a_git_repo"
+    if repo_cfg:
+        req = repo_cfg.get("requirements")
+        if req and not (repo_path / req).exists():
+            if not (repo_path / "pyproject.toml").exists() and not (repo_path / "setup.py").exists():
+                return False, "missing_requirements"
+    code, _, _ = _run(["git", "status", "--porcelain"], cwd=repo_path)
+    if code != 0:
+        return False, "git_status_failed"
+    return True, "ok"
+
+
+def validate_venv(repo_name):
+    venv_dir = storage.get_model_venv_path(repo_name)
+    venv_python = (venv_dir / "Scripts" / "python.exe") if platform.system() == "Windows" else (venv_dir / "bin" / "python")
+    if not venv_dir.exists() or not venv_python.exists():
+        return False, "missing"
+    code, _, _ = _run([str(venv_python), "--version"], cwd=venv_dir.parent)
+    if code != 0:
+        return False, "broken"
+    return True, "ok"
+
+
+def validate_deps(repo_name):
+    venv_dir = storage.get_model_venv_path(repo_name)
+    venv_python = (venv_dir / "Scripts" / "python.exe") if platform.system() == "Windows" else (venv_dir / "bin" / "python")
+    if not venv_python.exists():
+        return False, ["python_missing"]
+    missing = []
+    for pkg in ["torch", "huggingface_hub"]:
+        code, _, _ = _run([str(venv_python), "-c", f"import {pkg}"], cwd=venv_dir.parent)
+        if code != 0:
+            missing.append(pkg)
+    return len(missing) == 0, missing
+
+
+def repair_repo(repo_name):
+    repo_path = storage.get_repo_path(repo_name)
+    if repo_path.exists():
+        shutil.rmtree(str(repo_path), ignore_errors=True)
+    return clone_repo(repo_name)
+
+
+def repair_venv(repo_name):
+    venv_dir = storage.get_model_venv_path(repo_name)
+    if venv_dir.exists() or venv_dir.is_symlink():
+        shutil.rmtree(str(venv_dir), ignore_errors=True)
+        if venv_dir.is_symlink():
+            venv_dir.unlink()
+    return install_repo_deps(repo_name)
+
+
+repaired = skipped = failed = 0
+
+for repo_name in sorted(REPOS.keys()):
+    repo_ok, repo_reason = validate_repo(repo_name)
+    venv_ok, venv_reason = validate_venv(repo_name)
+    deps_ok, deps_missing = validate_deps(repo_name)
+
+    if repo_ok and venv_ok and deps_ok:
+        print(f"  [SKIP] {repo_name}: runtime OK")
+        skipped += 1
         continue
-    fi
 
-    if [[ ! -f "${repo_dir}requirements.txt" ]] && [[ ! -f "${repo_dir}pyproject.toml" ]] && [[ ! -f "${repo_dir}setup.py" ]]; then
-        info "Model ${repo_name}: no requirements.txt/pyproject.toml/setup.py — skipping venv creation"
-        continue
-    fi
+    print(f"  [FIX ] {repo_name}: repairing (repo={repo_reason}, venv={venv_reason}, deps={deps_missing})")
 
-    info "Model ${repo_name}: creating isolated venv..."
-    "$UV_PATH" venv --python 3.12 "$venv_dir" 2>/dev/null || {
-        warn "Failed to create venv for ${repo_name}"
-        continue
-    }
+    if not repo_ok:
+        print(f"    -> Re-cloning {repo_name}...")
+        r = repair_repo(repo_name)
+        if not r.get("success"):
+            print(f"    [FAIL] clone failed: {r.get('error')}")
+            failed += 1
+            continue
+        print(f"    [OK  ] {repo_name} cloned")
 
-    if [[ -f "${repo_dir}requirements.txt" ]]; then
-        info "Model ${repo_name}: installing deps via uv..."
-        "$UV_PATH" pip install --python "$venv_dir/bin/python" -r "${repo_dir}requirements.txt" -q 2>/dev/null || {
-            warn "Some deps failed for ${repo_name}"
-        }
-    fi
+    if not venv_ok:
+        print(f"    -> Recreating venv for {repo_name}...")
+        r = repair_venv(repo_name)
+        if not r.get("success"):
+            print(f"    [FAIL] venv creation failed: {r.get('error')}")
+            failed += 1
+            continue
+        print(f"    [OK  ] {repo_name} venv ready")
+    elif not deps_ok:
+        print(f"    -> Repairing dependencies for {repo_name}...")
+        r = repair_venv(repo_name)
+        if not r.get("success"):
+            print(f"    [FAIL] dependency repair failed: {r.get('error')}")
+            failed += 1
+            continue
+        print(f"    [OK  ] {repo_name} dependencies ready")
 
-    log "Model ${repo_name}: venv created and deps installed"
-done
+    print(f"  [DONE] {repo_name}: repaired")
+    repaired += 1
 
-# ── Repos-only / Weights-only exit ────────────────────────────────────────
+print(f"\nRuntime preparation complete: {repaired} repaired, {skipped} skipped, {failed} failed")
+PYEOF
+    )
+}
 
-if [[ "$REPOS_ONLY" == "true" ]]; then
-    log "Repos-only setup complete. Start services with: bash scripts/colab.sh"
+download_model_weights() {
+    step "Downloading model weights"
+    local PYTHONBIN="${PROJECT_ROOT}/backend/.venv/bin/python"
+    [[ -x "$PYTHONBIN" ]] || { err "Backend venv missing — run full bootstrap first"; return 1; }
+    (
+        cd backend
+        PYTHONPATH=. "$PYTHONBIN" - << 'PYEOF'
+import logging
+import os
+import sys
+from pathlib import Path
+
+logging.basicConfig(level=logging.INFO, format="  %(levelname)-5s %(name)s: %(message)s")
+sys.path.insert(0, str(Path(".").resolve()))
+try:
+    from runtime.installer import HF_MODELS, download_weights
+except Exception as exc:
+    print(f"  [FAIL] Could not import runtime modules: {exc}")
+    sys.exit(1)
+
+token = os.environ.get("HUGGINGFACE_TOKEN") or os.environ.get("HF_TOKEN")
+for key in sorted(HF_MODELS.keys()):
+    print(f"  [WEIGHTS] {key}: downloading ~{HF_MODELS[key]['size_estimate_gb']}GB ...")
+    r = download_weights(key, hf_token=token)
+    if r.get("success"):
+        print(f"    [OK  ] {key}: {r.get('action', 'done')}")
+    else:
+        print(f"    [WARN] {key}: {r.get('error', 'failed')}")
+PYEOF
+    )
+}
+
+# ── Flags: --weights-only / --repos-only ──────────────────────────────────
+
+if [[ "$WEIGHTS_ONLY" == "true" ]]; then
+    prepare_model_runtimes || warn "Model runtime prep had issues — check output above"
+    download_model_weights || warn "Weight download had issues — check output above"
+    log "Weights-only setup complete. Start services with: bash scripts/colab.sh"
     exit 0
 fi
 
-if [[ "$WEIGHTS_ONLY" == "true" ]]; then
-    log "Weights-only setup complete. Start services with: bash scripts/colab.sh"
+prepare_model_runtimes || warn "Model runtime prep had issues — check output above"
+
+if [[ "$REPOS_ONLY" == "true" ]]; then
+    log "Repos-only setup complete. Start services with: bash scripts/colab.sh"
     exit 0
 fi
 
