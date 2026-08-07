@@ -1,6 +1,6 @@
 # AI 3D Studio - Developer Guide
 
-> **Version**: 3.2.0 (uv-Only Package Management)  
+> **Version**: 3.3.1 (uv-Only Package Management + Provider Fix)  
 > **Target Audience**: Developers contributing to AI 3D Studio
 
 ---
@@ -335,112 +335,147 @@ async def create_resource(
 
 ## Adding a New AI Provider
 
+### Step 0: Determine Provider Type
+
+There are two types of providers:
+
+1. **Download providers** (github, modelscope, nvidia_ngc, civitai, huggingface) - fetch models from external sources
+2. **Runtime providers** (hunyuan3d, trellis, triposr, etc.) - run inference locally
+
+This guide covers **runtime providers** that run inference locally.
+
 ### Step 1: Create Provider File
 
 ```python
 # backend/app/core/providers/my_provider.py
 
-from .base import BaseProvider, ProviderResult
-from ..managers.health_manager import HealthManager
+# CRITICAL: Call _add_model_env() BEFORE any other imports
+# This ensures the per-model venv's site-packages take precedence
+# over the backend's shared dependencies (e.g., huggingface_hub versions)
+from app.core.providers.base import BaseProvider, ProviderResult, _add_model_env
+_add_model_env("MyRepoName")  # Replace with your repo name
+
+import asyncio
+import logging
+from pathlib import Path
+from typing import Any
+
+from app.core.providers.base import BaseProvider, ProviderResult
+from app.schemas.generation import GenerationRequest
+
+logger = logging.getLogger(__name__)
 
 
 class MyProvider(BaseProvider):
-    """Custom AI provider implementation."""
+    """Local inference provider for MyRepoName model."""
     
-    name = "my_provider"
-    vram_required_mb = 8000  # Adjust based on requirements
+    @property
+    def name(self) -> str:
+        return "my_provider"
     
-    def __init__(self, config: dict = None):
-        super().__init__(config)
-        self.model = None
+    def __init__(self, device: str = "cuda") -> None:
+        self.device = device
+        self._model: Any = None
+        
+        # Use StorageConfig for path resolution (Issue #10 + Section 2 per-model)
+        from runtime.storage import get_storage_config
+        storage = get_storage_config()
+        per_model = storage.get_model_weights_dir("MyRepoName")
+        if _safe_exists(per_model) and any(per_model.iterdir()):
+            self.weights_dir = per_model
+        else:
+            self.weights_dir = storage.weights_dir / "my_provider"
     
-    async def initialize(self) -> bool:
-        """Load model into memory."""
+    def _ensure_loaded(self) -> None:
+        if self._model is not None:
+            return
+        if not self.weights_dir.exists():
+            logger.warning("Weights not found. Using simulated fallback.")
+            self._mock_fallback = True
+            return
+        self._mock_fallback = False
+        self._load_model()
+    
+    def _load_model(self) -> None:
+        # Import from your model's package (comes from per-model venv)
         try:
-            # Your initialization code here
-            import torch
-            self.model = torch.load("path/to/model")
-            return True
-        except Exception as e:
-            self.logger.error(f"Initialization failed: {e}")
-            return False
+            from my_repo.model import MyModelPipeline
+            logger.info("Loading MyRepoName from %s on %s", self.weights_dir, self.device)
+            self._model = MyModelPipeline.from_pretrained(str(self.weights_dir))
+            logger.info("Model loaded successfully")
+        except Exception as exc:
+            raise RuntimeError(f"Model load failed: {exc}") from exc
     
-    async def generate(
-        self,
-        prompt: str,
-        **kwargs
-    ) -> ProviderResult:
-        """Run inference."""
+    async def generate(self, request: GenerationRequest, output_dir: str, progress_callback: Any = None) -> ProviderResult:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self._ensure_loaded)
         
-        # Prepare inputs
-        inputs = self._prepare_inputs(prompt, kwargs)
+        if getattr(self, "_mock_fallback", False):
+            return self._mock_fallback_result(output_dir)
         
-        # Run inference
-        output = self.model(inputs)
+        # Run actual inference
+        result = await loop.run_in_executor(None, lambda: self._run_inference(request))
         
-        # Post-process output
-        result_data = self._post_process(output)
+        from app.core.mesh_processor import get_mesh_stats
+        stats = get_mesh_stats(result.model_path)
         
         return ProviderResult(
-            success=True,
-            data=result_data,
-            output_files=result_data.get("files", []),
-            metadata={
-                "provider": self.name,
-                "inference_time_ms": result_data.get("time_ms"),
-            }
+            model_path=result.model_path,
+            thumbnail_path="",
+            polygon_count=stats.get("polygon_count", 0),
+            vertex_count=stats.get("vertex_count", 0),
+            texture_resolution=result.texture_resolution,
+            has_rig=result.has_rig,
+            file_size=Path(result.model_path).stat().st_size,
+            metadata={"provider": self.name, "device": self.device},
         )
     
-    def _prepare_inputs(self, prompt: str, kwargs: dict) -> any:
-        """Prepare model inputs from prompt."""
-        # Implementation specific
+    def _run_inference(self, request: GenerationRequest) -> Any:
+        # Your inference implementation
         pass
     
-    def _post_process(self, output: any) -> dict:
-        """Process raw model output."""
-        # Implementation specific
-        pass
+    def _mock_fallback_result(self, output_dir: str) -> ProviderResult:
+        out = Path(output_dir)
+        out.mkdir(parents=True, exist_ok=True)
+        mesh_path = str(out / "model.glb")
+        with open(mesh_path, "wb") as f:
+            f.write(b"GLB_PLACEHOLDER")
+        return ProviderResult(
+            model_path=mesh_path,
+            thumbnail_path="",
+            polygon_count=1800,
+            vertex_count=900,
+            texture_resolution="2048x2048",
+            has_rig=False,
+            file_size=len(b"GLB_PLACEHOLDER"),
+            metadata={"provider": self.name, "device": self.device, "simulated": True},
+        )
     
-    async def unload(self) -> None:
-        """Free GPU memory."""
-        if self.model:
-            del self.model
-            self.model = None
-            
-            import torch
-            torch.cuda.empty_cache()
+    def _safe_exists(p) -> bool:
+        try:
+            return p.exists()
+        except (PermissionError, OSError):
+            return False
     
-    async def health_check(self) -> dict:
-        """Check provider health."""
-        return {
-            "name": self.name,
-            "loaded": self.model is not None,
-            "vram_usage_mb": self._get_vram_usage(),
-        }
-```
+    async def health_check(self) -> bool:
+        return self.weights_dir.exists()
 
 ### Step 2: Register in Registry
 
 ```python
 # backend/app/core/providers/registry.py
 
-# Add to PROVIDER_REGISTRY dict
-PROVIDER_REGISTRY = {
-    # ... existing providers ...
-    "my_provider": {
-        "class": "MyProvider",
-        "module": "app.core.providers.my_provider",
-        "default_config": {}
-    }
+# Add to _RUNTIME_PROVIDER_MAP (sync with runtime/engine.py::_PROVIDER_MAP)
+_RUNTIME_PROVIDER_MAP = {
+    # ... existing entries ...
+    "my_provider": ("app.core.providers.my_provider", "MyProvider"),
 }
 
-# Add to get_provider function
-def get_provider(name: str, config: dict = None) -> BaseProvider:
-    """Get provider instance by name."""
-    if name == "my_provider":
-        from .my_provider import MyProvider
-        return MyProvider(config)
-    # ... rest of function
+# Add to _KNOWN_PROVIDERS list if not present
+_KNOWN_PROVIDERS = [
+    # ... existing ...
+    "my_provider",
+]
 ```
 
 ### Step 3: Update Runtime Engine
@@ -448,20 +483,39 @@ def get_provider(name: str, config: dict = None) -> BaseProvider:
 ```python
 # backend/runtime/engine.py
 
-# Add VRAM requirement
+# Add VRAM requirement to MODEL_VRAM_REQUIREMENTS
 MODEL_VRAM_REQUIREMENTS = {
     # ... existing ...
-    "my_provider": 8000,
+    "my_provider": 8000,  # Adjust based on requirements
 }
 
-# Add to priority list
+# Add to PROVIDER_PRIORITY list (order matters for fallback)
 PROVIDER_PRIORITY = [
     # ... existing ...
     "my_provider",
+    "mock",  # Always last
 ]
 ```
 
-### Step 4: Update Configuration
+### Step 4: Update Installer Metadata
+
+```python
+# backend/runtime/installer.py
+
+# Add to PROVIDER_METADATA
+PROVIDER_METADATA = {
+    # ... existing ...
+    "my_provider": {
+        "repo": "MyRepoName",
+        "weight_key": "my-provider",
+        "vram_mb": 8000,
+        "workspace_compatibility": ["mesh-generation"],
+        "install_cmd": ["uv", "pip", "install", "-r", "requirements.txt"],
+    }
+}
+```
+
+### Step 5: Update Configuration
 
 ```env
 # .env

@@ -1,6 +1,53 @@
 from abc import ABC, abstractmethod
+import glob
+import importlib
+import logging
+import sys
 from typing import Any, Optional
 from dataclasses import dataclass
+from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+
+def _add_model_env(repo_name: str) -> None:
+    """Make a model repo importable in-process from the backend worker.
+
+    ponytail: the per-model venv's site-packages must take precedence over the
+    backend venv's version (e.g., huggingface_hub needs >=0.28 for is_offline_mode).
+    We prepend the venv path and reload any conflicting packages that may have
+    already been imported by the backend process.
+    """
+    from runtime.storage import get_storage_config
+
+    storage = get_storage_config()
+    repo_path = str(storage.get_repo_path(repo_name))
+
+    # Prepend repo path at position 0 (highest priority)
+    if repo_path not in sys.path:
+        sys.path.insert(0, repo_path)
+
+    venv_dir = storage.get_model_venv_path(repo_name)
+    if venv_dir.exists():
+        site_packages = glob.glob(str(venv_dir / "lib" / "python*" / "site-packages"))
+        for sp in reversed(site_packages):  # insert in reverse so order is correct
+            if sp in sys.path:
+                sys.path.remove(sp)  # remove any existing
+            sys.path.insert(0, sp)    # prepend at front
+
+    # Reload any packages that may have been already imported by the backend venv
+    # with potentially incompatible versions.
+    _SHARED_PKGS = [
+        "huggingface_hub", "transformers", "diffusers",
+        "pydantic", "requests", "httpx", "urllib3",
+    ]
+    for pkg in _SHARED_PKGS:
+        if pkg in sys.modules:
+            try:
+                importlib.reload(sys.modules[pkg])
+                logger.debug("Reloaded %s from per-model venv", pkg)
+            except Exception:
+                pass  # Ignore reload failures; let import continue
 
 
 class DownloadProvider(ABC):

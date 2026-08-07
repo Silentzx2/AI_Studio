@@ -406,6 +406,17 @@ _CUDA_ONLY_PKG_PATTERNS: list[re.Pattern] = [
 ]
 
 
+# ponytail: some repos' requirements.txt omit the actual inference library
+# (e.g. Hunyuan3D-2 needs `hy3dgen`, which is published separately). The
+# in-process local providers import from the backend process, so these EXTRA_DEPS
+# are installed into BOTH the per-model venv and the backend venv (via
+# sys.executable) so they resolve regardless of which sys.path the provider uses.
+# Extend per repo as other missing inference libs are discovered.
+EXTRA_DEPS: dict[str, list[str]] = {
+    "Hunyuan3D-2": ["hy3dgen"],
+}
+
+
 def _cuda_available() -> bool:
     """Best-effort detection of a usable CUDA toolkit on the build host."""
     if os.environ.get("CUDA_HOME") or os.environ.get("CUDA_PATH"):
@@ -610,6 +621,26 @@ def _uv_install(
 
     if code != 0:
         return {"success": False, "error": output}
+
+    # ponytail: install EXTRA_DEPS (inference libs omitted from the repo's own
+    # requirements.txt, e.g. hy3dgen) into the per-model venv. In-process local
+    # providers append this venv's site-packages to sys.path, so the inference
+    # libraries resolve without needing to pollute the backend venv (which
+    # lacks the full ML stack and may conflict with its own deps).
+    extra = EXTRA_DEPS.get(repo_name)
+    if extra:
+        code_e, out_e = _run_uv(
+            ["pip", "install", "--python", str(venv_python), *extra],
+            cwd=repo_dir,
+        )
+        if code_e != 0:
+            logger.warning(
+                "Extra deps %s install failed for %s (per-model venv): %s",
+                extra, repo_name, out_e[:200],
+            )
+        else:
+            logger.info("Installed extra deps %s into %s (per-model venv)", extra, repo_name)
+
     return {"success": True}
 
 

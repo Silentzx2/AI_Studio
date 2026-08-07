@@ -664,17 +664,19 @@ celery_app.conf.beat_schedule = {
 
 ```
 BaseProvider (ABC)
-├── Hunyuan3DProvider (hunyuan3d_local.py)
+├── Hunyuan3DProvider (hunyuan3d_local.py) - calls _add_model_env() at import time
 │   ├── Hunyuan3D_2_1 (16GB VRAM)
 │   └── Hunyuan3D_2 (24GB VRAM)
-├── TrellisProvider (trellis_local.py)
+├── TRELLISProvider (trellis_local.py) - calls _add_model_env() at import time
 │   └── ~8GB VRAM required
-├── TripoSRProvider (triposr_local.py)
+├── TripoSRProvider (triposr_local.py) - calls _add_model_env() at import time
 │   └── ~6GB VRAM required
 ├── InstantMeshProvider (instant_mesh.py)
 ├── SDXLProvider (sdxl.py) - For 2D images
 └── MockProvider (mock.py) - Testing without GPU
 ```
+
+**Key Implementation Detail**: Local providers (hunyuan3d_local, trellis_local, triposr_local) must call `_add_model_env()` at the very top of the module (before any other imports) to ensure the per-model venv's site-packages take precedence over the backend process's shared dependencies (e.g., huggingface_hub version conflicts).
 
 ### Provider Selection Algorithm
 

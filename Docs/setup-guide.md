@@ -1,6 +1,6 @@
 # AI 3D Studio - Setup & Installation Guide
 
-> **Version**: 3.2.0 (uv-Only Package Management)  
+> **Version**: 3.3.1 (uv-Only Package Management + Provider Fix)  
 > **Difficulty**: Intermediate  
 > **Estimated Time**: 30-60 minutes
 
@@ -467,6 +467,31 @@ If you previously installed models with the centralized `third_party/weights/` l
 ```
 
 This copies weights from `third_party/weights/<provider>/` into `third_party/<RepoName>/weights/` and verifies integrity afterwards.
+
+#### 8. Provider Import Errors (huggingface_hub version conflicts)
+
+If you see errors like `ImportError: cannot import name 'is_offline_mode'`:
+
+This indicates a version conflict between the backend process's huggingface_hub and the per-model venv's version. The fix (v3.2.1+) calls `_add_model_env()` at the top of local provider files (hunyuan3d_local, trellis_local, triposr_local) to reload packages from the per-model venv context.
+
+To verify the fix is applied:
+
+```bash
+# Check provider module for correct import order
+grep -n "_add_model_env" backend/app/core/providers/hunyuan3d_local.py
+
+# Should appear BEFORE any other imports (asyncio, logging, etc.)
+```
+
+If the issue persists:
+
+```bash
+# Ensure you're running v3.2.1+ with the provider fix
+git log --oneline | head -5
+
+# Restart the backend to clear cached imports
+pkill -f uvicorn  # or ./scripts/manager.sh restart
+```
 
 ### Log Locations
 

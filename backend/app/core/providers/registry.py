@@ -24,12 +24,20 @@ _RUNTIME_PROVIDER_ALIASES = {
     "hunyuan3d": "hunyuan3d-2.1",
 }
 
+# ponytail: keep this map in sync with runtime/engine.py::_PROVIDER_MAP — it is
+# the availability/selection source of truth used by get_provider() and
+# validate_provider_switch(). Divergence here silently aliased real providers
+# (triposg/triposf/unirig/holopart) to the mock.
 _RUNTIME_PROVIDER_MAP = {
     "hunyuan3d-2.1": ("app.core.providers.hunyuan3d_local", "Hunyuan3D21LocalProvider"),
     "hunyuan3d-2": ("app.core.providers.hunyuan3d_local", "Hunyuan3D2LocalProvider"),
     "trellis": ("app.core.providers.trellis_local", "TRELLISLocalProvider"),
     "triposr": ("app.core.providers.triposr_local", "TripoSRLocalProvider"),
+    "triposg": ("app.core.providers.triposg_provider", "TripoSGProvider"),
+    "triposf": ("app.core.providers.triposf_provider", "TripoSFProvider"),
     "anigen": ("app.core.providers.anigen_provider", "AniGenProvider"),
+    "unirig": ("app.core.providers.unirig_provider", "UniRigProvider"),
+    "holopart": ("app.core.providers.holopart_provider", "HoloPartProvider"),
     "detailgen3d": ("app.core.providers.detailgen3d", "DetailGen3DProvider"),
 }
 
@@ -86,6 +94,10 @@ _KNOWN_PROVIDERS = [
     "hunyuan3d-2.1",
     "trellis",
     "triposr",
+    "triposg",
+    "triposf",
+    "unirig",
+    "holopart",
     "instant-mesh",
     "anigen",
     "detailgen3d",
