@@ -1063,6 +1063,10 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
                 _parse_log_for_progress(model_id, msg)
 
             try:
+                # ponytail: explicit phase transitions so the progress bar
+                # reflects actual backend stages, not just log heuristics.
+                _dl_update(model_id, phase="repo", status="starting",
+                           log=f"Starting installation of {model_id}…")
                 result = install_provider(model_id, log_cb=_log_cb)
                 if result.get("success"):
                     # Log actual paths
@@ -1079,7 +1083,7 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
                         logger.info("Repo for %s cloned to: %s", model_id, rp)
 
                     _dl_update(model_id, status="completed", percent=100,
-                               log="Installation complete")
+                               phase="complete", log="Installation complete")
                     logger.info("Provider %s installed.", model_id)
                 else:
                     err = result.get("error", "Unknown error")

@@ -326,7 +326,12 @@ def _uv_install(
     python_path: str | None = None,
     log_cb: Callable | None = None,
 ) -> dict:
-    """Install dependencies using uv. No pip fallback."""
+    """Install dependencies using uv. No pip fallback.
+
+    ponytail: Fixed --python flag so uv targets the per-model venv Python
+    instead of the system Python. Previously uv would install into whatever
+    environment it detected, silently bypassing the isolated .venv.
+    """
     uv_path = shutil.which("uv")
     if not uv_path:
         msg = (
@@ -338,7 +343,14 @@ def _uv_install(
             log_cb(msg)
         return {"success": False, "error": msg}
 
-    _python = python_path or sys.executable
+    venv_python = Path(python_path) if python_path else None
+    if not venv_python or not venv_python.exists():
+        msg = f"Target venv Python not found at {python_path} for {repo_name or 'unknown repo'}"
+        logger.error(msg)
+        if log_cb:
+            log_cb(msg)
+        return {"success": False, "error": msg}
+
     if not requirements_file.exists():
         # Try pyproject.toml or setup.py as fallback
         pyproject = repo_dir / "pyproject.toml"
@@ -346,17 +358,15 @@ def _uv_install(
         if pyproject.exists():
             logger.info("No requirements.txt for %s, using uv pip install -e .", repo_name)
             code, output = _run(
-                [uv_path, "pip", "install", "-e", "."],
+                [uv_path, "pip", "install", "--python", str(venv_python), "-e", "."],
                 cwd=repo_dir,
-                env={"VIRTUAL_ENV": str(repo_dir / ".venv")},
                 log_cb=log_cb,
             )
         elif setup_py.exists():
             logger.info("No requirements.txt for %s, using uv pip install -e .", repo_name)
             code, output = _run(
-                [uv_path, "pip", "install", "-e", "."],
+                [uv_path, "pip", "install", "--python", str(venv_python), "-e", "."],
                 cwd=repo_dir,
-                env={"VIRTUAL_ENV": str(repo_dir / ".venv")},
                 log_cb=log_cb,
             )
         else:
@@ -367,9 +377,8 @@ def _uv_install(
             return {"success": True}  # Not an error
     else:
         code, output = _run(
-            [uv_path, "pip", "install", "-r", str(requirements_file)],
+            [uv_path, "pip", "install", "--python", str(venv_python), "-r", str(requirements_file)],
             cwd=repo_dir,
-            env={"VIRTUAL_ENV": str(repo_dir / ".venv")},
             log_cb=log_cb,
         )
 
@@ -532,8 +541,12 @@ def install_repo_deps(repo_name: str, log_cb: Callable | None = None) -> dict:
     if not repo_dir.exists():
         return {"success": False, "error": f"Repo not cloned: {repo_name}"}
     # per-model isolated venv — uv only, no fallback
+    # ponytail: cross-platform venv Python path detection
     venv_dir = repo_dir / ".venv"
-    venv_python = venv_dir / "bin" / "python"
+    if platform.system() == "Windows":
+        venv_python = venv_dir / "Scripts" / "python.exe"
+    else:
+        venv_python = venv_dir / "bin" / "python"
     if not venv_dir.exists():
         uv_path = shutil.which("uv")
         if not uv_path:
@@ -573,9 +586,23 @@ def download_weights(
     storage = get_storage_config()
     existing = storage.get_weight_path(provider_name)
     if existing:
-        if log_cb:
-            log_cb(f"Weights already present: {existing}")
-        return {"success": True, "path": str(existing), "action": "already_present"}
+        # ponytail: Verify integrity — check that the weights directory has
+        # actual model files, not just an empty dir or leftover .lock files.
+        existing_path = Path(existing)
+        real_files = [f for f in existing_path.iterdir() if f.is_file() and not f.name.startswith(".")]
+        if real_files:
+            total_size = sum(f.stat().st_size for f in real_files if f.stat().st_size > 0)
+            min_expected = int(size_gb * 1024 ** 3) * 0.1  # at least 10% of expected
+            if total_size > min_expected or min_expected == 0:
+                if log_cb:
+                    log_cb(f"Weights already present ({len(real_files)} files, {total_size / (1024**3):.2f}GB): {existing}")
+                return {"success": True, "path": str(existing), "action": "already_present"}
+            else:
+                if log_cb:
+                    log_cb(f"Weights directory exists but incomplete ({total_size / (1024**3):.2f}GB / ~{size_gb}GB expected) — re-downloading")
+        else:
+            if log_cb:
+                log_cb(f"Weights directory exists but empty — re-downloading")
 
     hf_repo = model_cfg["repo"]
     size_gb = model_cfg["size_estimate_gb"]
@@ -798,8 +825,23 @@ def install_provider(
         state.setdefault("repos", {})[provider_name] = {
             "installed_at": datetime.utcnow().isoformat(),
         }
+        # ponytail: Also save under repo_name so shared repos (e.g. Hunyuan3D-2
+        # for hunyuan3d-2 and hunyuan3d-2.1) cross-reference each other.
+        if repo_name and repo_name != provider_name:
+            state.setdefault("repos", {})[repo_name] = {
+                "installed_at": datetime.utcnow().isoformat(),
+                "installed_via": provider_name,
+            }
         state["last_updated"] = datetime.utcnow().isoformat()
         _save_state(state)
+        # ponytail: Reset provider registry so runtime picks up new availability.
+        try:
+            from app.core.providers.registry import reset_provider
+            reset_provider()
+            if log_cb:
+                log_cb("Provider registry refreshed")
+        except Exception:
+            pass  # Non-critical
         if log_cb:
             log_cb("Installation complete")
         return {**results, "success": True}

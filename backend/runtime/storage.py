@@ -120,6 +120,21 @@ class StorageConfig:
     # Weight path helpers
     # ------------------------------------------------------------------
 
+    def _has_real_weight_files(self, d: Path) -> bool:
+        """Check that directory contains actual model weight files, not empty or
+        temporary artifacts. ponytail: prevents false positives on partial
+        downloads (e.g. a lone .incomplete file or .lock).
+        """
+        try:
+            real = [f for f in d.iterdir()
+                    if f.is_file()
+                    and not f.name.startswith(".")
+                    and f.name != ".gitattributes"
+                    and f.stat().st_size > 0]
+            return len(real) > 0
+        except (PermissionError, OSError):
+            return False
+
     def get_weight_path(self, weight_key: str) -> Path | None:
         """
         Search all known locations for model weights.
@@ -127,6 +142,7 @@ class StorageConfig:
 
         ponytail: Section 2 — checks per-model location first (new),
         then falls back to old centralized weights_dir (migration safety net).
+        Uses _has_real_weight_files to avoid false positives on partial downloads.
         """
         # 1. New per-model location: third_party/<repo_name>/weights/<weight_key>
         #    We need to map weight_key -> repo_name. Try all repos.
@@ -135,11 +151,11 @@ class StorageConfig:
             for _pname, meta in PROVIDER_METADATA.items():
                 if meta.get("weight_key") == weight_key and meta.get("repo"):
                     per_model_dir = self.get_repo_path(meta["repo"]) / "weights" / weight_key
-                    if _safe_exists(per_model_dir) and any(per_model_dir.iterdir()):
+                    if _safe_exists(per_model_dir) and self._has_real_weight_files(per_model_dir):
                         return per_model_dir
                     # Also check without weight_key subfolder (flat)
                     per_model_dir2 = self.get_repo_path(meta["repo"]) / "weights"
-                    if _safe_exists(per_model_dir2) and any(per_model_dir2.iterdir()):
+                    if _safe_exists(per_model_dir2) and self._has_real_weight_files(per_model_dir2):
                         return per_model_dir2
         except Exception:
             pass
@@ -147,7 +163,7 @@ class StorageConfig:
         # 2. Old centralized location: weights_dir / weight_key (migration safety net)
         try:
             direct = self.weights_dir / weight_key
-            if direct.exists() and any(direct.iterdir()):
+            if _safe_exists(direct) and self._has_real_weight_files(direct):
                 return direct
         except PermissionError:
             pass
