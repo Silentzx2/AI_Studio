@@ -1063,13 +1063,10 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
                 _parse_log_for_progress(model_id, msg)
 
             try:
-                # ponytail: explicit phase transitions so the progress bar
-                # reflects actual backend stages, not just log heuristics.
-                _dl_update(model_id, phase="repo", status="starting",
-                           log=f"Starting installation of {model_id}…")
+                _dl_update(model_id, phase="weights", status="starting",
+                           log=f"Downloading weights for {model_id}…")
                 result = install_provider(model_id, log_cb=_log_cb)
                 if result.get("success"):
-                    # Log actual paths
                     storage = get_storage_config()
                     from runtime.installer import PROVIDER_METADATA
                     meta = PROVIDER_METADATA.get(model_id, {})
@@ -1080,7 +1077,7 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
                         logger.info("Weights for %s saved to: %s", model_id, wp)
                     if repo_name:
                         rp = storage.get_repo_path(repo_name)
-                        logger.info("Repo for %s cloned to: %s", model_id, rp)
+                        logger.info("Repo for %s at: %s", model_id, rp)
 
                     _dl_update(model_id, status="completed", percent=100,
                                phase="complete", log="Installation complete")

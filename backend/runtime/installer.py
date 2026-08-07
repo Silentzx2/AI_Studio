@@ -351,35 +351,68 @@ def _uv_install(
             log_cb(msg)
         return {"success": False, "error": msg}
 
+    def _run_uv(args, cwd=None, extra_env=None):
+        env = dict(os.environ)
+        if extra_env:
+            env.update(extra_env)
+        return _run([uv_path] + args, cwd=cwd, env=env, log_cb=log_cb)
+
+    # Pre-install torch so build-backends that import it during wheel build
+    # (diso, torchmcubes, etc.) can compile inside isolated build envs.
+    if log_cb:
+        log_cb(f"Pre-installing torch in {venv_python} for build isolation…")
+    code, output = _run_uv(
+        ["pip", "install", "--python", str(venv_python), "torch", "torchvision", "torchaudio"],
+        cwd=repo_dir,
+    )
+    if code != 0:
+        logger.warning("Pre-install of torch failed for %s: %s", repo_name, output[:300])
+
+    # If torch landed in the venv, point CMake at its cmake config so
+    # packages like torchmcubes can find Torch during build.
+    cmake_env = {}
+    torch_cmake = venv_python.parents[1] / "lib" / f"python{venv_python.name.replace('python', '')}" / "site-packages" / "torch" / "share" / "cmake" / "Torch"
+    if torch_cmake.exists():
+        cmake_env["CMAKE_PREFIX_PATH"] = str(torch_cmake.parent.parent)
+        cmake_env["Torch_DIR"] = str(torch_cmake)
+
     if not requirements_file.exists():
-        # Try pyproject.toml or setup.py as fallback
         pyproject = repo_dir / "pyproject.toml"
         setup_py = repo_dir / "setup.py"
         if pyproject.exists():
             logger.info("No requirements.txt for %s, using uv pip install -e .", repo_name)
-            code, output = _run(
-                [uv_path, "pip", "install", "--python", str(venv_python), "-e", "."],
+            code, output = _run_uv(
+                ["pip", "install", "--python", str(venv_python), "-e", "."],
                 cwd=repo_dir,
-                log_cb=log_cb,
+                extra_env=cmake_env,
             )
         elif setup_py.exists():
             logger.info("No requirements.txt for %s, using uv pip install -e .", repo_name)
-            code, output = _run(
-                [uv_path, "pip", "install", "--python", str(venv_python), "-e", "."],
+            code, output = _run_uv(
+                ["pip", "install", "--python", str(venv_python), "-e", "."],
                 cwd=repo_dir,
-                log_cb=log_cb,
+                extra_env=cmake_env,
             )
         else:
             msg = f"No requirements.txt, pyproject.toml, or setup.py found for {repo_name or 'unknown repo'} at {repo_dir} — skipping install"
             logger.info(msg)
             if log_cb:
                 log_cb(msg)
-            return {"success": True}  # Not an error
+            return {"success": True}
     else:
-        code, output = _run(
-            [uv_path, "pip", "install", "--python", str(venv_python), "-r", str(requirements_file)],
+        code, output = _run_uv(
+            ["pip", "install", "--python", str(venv_python), "-r", str(requirements_file)],
             cwd=repo_dir,
-            log_cb=log_cb,
+            extra_env=cmake_env,
+        )
+
+    if code != 0:
+        return {"success": False, "error": output}
+    return {"success": True}
+    else:
+        code, output = _run_uv(
+            ["pip", "install", "--python", str(venv_python), "-r", str(requirements_file)],
+            cwd=repo_dir,
         )
 
     if code != 0:
@@ -650,7 +683,7 @@ def download_weights(
     stop_monitor = threading.Event()
 
     def _monitor() -> None:
-        while not stop_monitor.wait(timeout=3.0):
+        while not stop_monitor.wait(timeout=1.0):
             try:
                 current_bytes = sum(
                     f.stat().st_size
@@ -675,7 +708,6 @@ def download_weights(
             local_dir=str(local_dir),
             token=token,
             ignore_patterns=["*.msgpack", "flax_model*", "tf_model*", "rust_model*"],
-            progress_callback=_structured_cb,
         )
         stop_monitor.set()
         monitor_thread.join(timeout=5)
@@ -724,130 +756,63 @@ def install_provider(
         for rn in locked_repos:
             _release_install_lock(rn)
         return {"success": False, "error": space_err}
-    # ponytail: Specific exception handling per AGENTS.md - never swallow errors silently.
-    # Each failure mode gets a clear message so frontend can show actionable feedback.
-    results: dict = {"provider": provider_name, "steps": {}}
-    state = _load_state()
-    try:
-        if repo_name:
-            if log_cb:
-                log_cb(f"Cloning {repo_name}\u2026")
-            try:
-                r = clone_repo(repo_name, log_cb=log_cb)
-                results["steps"]["clone"] = r
-                if not r["success"]:
-                    # ponytail: Provide git-specific error context from clone output
-                    error_detail = r.get("error", "Unknown clone error")
-                    output_hint = r.get("output", "")[:200] if r.get("output") else ""
-                    return {
-                        **results,
-                        "success": False,
-                        "error": f"Repo clone failed: {error_detail}",
-                        "error_detail": output_hint,
-                    }
-            except subprocess.CalledProcessError as exc:
-                # ponytail: Git clone failed with exit code - log command + output
-                logger.exception("Git clone failed for %s", repo_name)
-                return {
-                    **results,
-                    "success": False,
-                    "error": f"Git clone failed (exit code {exc.returncode}): check network or repo URL",
-                    "error_detail": str(exc.output)[:500] if exc.output else str(exc),
-                }
-            except FileNotFoundError as exc:
-                # ponytail: git binary not found in container
-                return {
-                    **results,
-                    "success": False,
-                    "error": "git command not found - ensure git is installed in this environment",
-                }
-
-            if log_cb:
-                log_cb(f"Creating isolated virtual environment for {repo_name}\u2026")
-            try:
-                r = install_repo_deps(repo_name, log_cb=log_cb)
-                results["steps"]["deps"] = r
-                if not r.get("success", False):
-                    return {
-                        **results,
-                        "success": False,
-                        "error": r.get("error", "Dependency installation failed"),
-                    }
-            except Exception as exc:
-                logger.exception("Dependency installation failed for %s", repo_name)
-                results["steps"]["deps"] = {"success": False, "error": f"Failed to install dependencies: {exc}"}
-                return {
-                    **results,
-                    "success": False,
-                    "error": f"Dependency installation failed: {exc}",
-                }
-
-        weight_key = meta.get("weight_key")
-        if weight_key:
-            if log_cb:
-                log_cb(f"Downloading weights for {provider_name}\u2026")
-            try:
-                r = download_weights(weight_key, hf_token=hf_token, log_cb=log_cb)
-                results["steps"]["weights"] = r
-                if not r["success"]:
-                    error_msg = r.get("error", "Weight download failed")
-                    # ponytail: Check for common HuggingFace errors and provide clearer messages
-                    if "404" in str(error_msg) or "not found" in str(error_msg).lower():
-                        error_msg = f"Model '{weight_key}' not found on HuggingFace - check model ID is correct"
-                    elif "401" in str(error_msg) or "403" in str(error_msg) or "auth" in str(error_msg).lower():
-                        error_msg = "Authentication failed - check your HuggingFace token"
-                    elif "timeout" in str(error_msg).lower():
-                        error_msg = "Download timed out - check your internet connection"
-                    results["steps"]["weights"]["error"] = error_msg
-            except Exception as exc:
-                error_str = str(exc).lower()
-                # ponytail: Classify errors for better user messages
-                if "404" in error_str or "not found" in error_str:
-                    error_msg = f"Model '{weight_key}' does not exist on HuggingFace"
-                elif "401" in error_str or "403" in error_str or "auth" in error_str or "token" in error_str:
-                    error_msg = "Invalid or missing HuggingFace token - please configure HF_TOKEN"
-                elif "connection" in error_str or "network" in error_str or "timeout" in error_str:
-                    error_msg = "Network error during download - please check connection and retry"
-                else:
-                    error_msg = f"Unexpected error downloading weights: {exc}"
-                logger.exception("Weight download exception for %s", weight_key)
-                results["steps"]["weights"] = {"success": False, "error": error_msg}
-        failed_steps = [k for k, v in results["steps"].items() if not v.get("success", True)]
-        if failed_steps:
-            error_msgs = []
-            for step in failed_steps:
-                err = results["steps"][step].get("error", f"{step} failed")
-                error_msgs.append(f"[{step}] {err}")
-            return {**results, "success": False, "error": " | ".join(error_msgs)}
-
+    # ponytail: setup.sh handles repo cloning, venv creation, and dependency
+    # installation. install_provider() now only downloads weights and updates
+    # state. If the runtime is missing, setup.sh must be re-run.
+    weight_key = meta.get("weight_key")
+    if weight_key:
         if log_cb:
-            log_cb("Verifying installation\u2026")
-        state.setdefault("repos", {})[provider_name] = {
-            "installed_at": datetime.utcnow().isoformat(),
-        }
-        # ponytail: Also save under repo_name so shared repos (e.g. Hunyuan3D-2
-        # for hunyuan3d-2 and hunyuan3d-2.1) cross-reference each other.
-        if repo_name and repo_name != provider_name:
-            state.setdefault("repos", {})[repo_name] = {
-                "installed_at": datetime.utcnow().isoformat(),
-                "installed_via": provider_name,
-            }
-        state["last_updated"] = datetime.utcnow().isoformat()
-        _save_state(state)
-        # ponytail: Reset provider registry so runtime picks up new availability.
+            log_cb(f"Downloading weights for {provider_name}\u2026")
         try:
-            from app.core.providers.registry import reset_provider
-            reset_provider()
-            if log_cb:
-                log_cb("Provider registry refreshed")
-        except Exception:
-            pass  # Non-critical
+            r = download_weights(weight_key, hf_token=hf_token, log_cb=log_cb)
+            results = {"provider": provider_name, "steps": {"weights": r}}
+            if not r["success"]:
+                error_msg = r.get("error", "Weight download failed")
+                if "404" in str(error_msg) or "not found" in str(error_msg).lower():
+                    error_msg = f"Model '{weight_key}' not found on HuggingFace - check model ID is correct"
+                elif "401" in str(error_msg) or "403" in str(error_msg) or "auth" in str(error_msg).lower():
+                    error_msg = "Authentication failed - check your HuggingFace token"
+                elif "timeout" in str(error_msg).lower():
+                    error_msg = "Download timed out - check your internet connection"
+                results["steps"]["weights"]["error"] = error_msg
+                return {**results, "success": False, "error": error_msg}
+        except Exception as exc:
+            error_str = str(exc).lower()
+            if "404" in error_str or "not found" in error_str:
+                error_msg = f"Model '{weight_key}' does not exist on HuggingFace"
+            elif "401" in error_str or "403" in error_str or "auth" in error_str or "token" in error_str:
+                error_msg = "Invalid or missing HuggingFace token - please configure HF_TOKEN"
+            elif "connection" in error_str or "network" in error_str or "timeout" in error_str:
+                error_msg = "Network error during download - please check connection and retry"
+            else:
+                error_msg = f"Unexpected error downloading weights: {exc}"
+            logger.exception("Weight download exception for %s", weight_key)
+            return {"success": False, "error": error_msg}
+    else:
+        r = {"success": True, "action": "no_weights"}
+
+    if log_cb:
+        log_cb("Verifying installation\u2026")
+    state.setdefault("repos", {})[provider_name] = {
+        "installed_at": datetime.utcnow().isoformat(),
+    }
+    if repo_name and repo_name != provider_name:
+        state.setdefault("repos", {})[repo_name] = {
+            "installed_at": datetime.utcnow().isoformat(),
+            "installed_via": provider_name,
+        }
+    state["last_updated"] = datetime.utcnow().isoformat()
+    _save_state(state)
+    try:
+        from app.core.providers.registry import reset_provider
+        reset_provider()
         if log_cb:
-            log_cb("Installation complete")
-        return {**results, "success": True}
-    finally:
-        for rn in locked_repos:
-            _release_install_lock(rn)
+            log_cb("Provider registry refreshed")
+    except Exception:
+        pass
+    if log_cb:
+        log_cb("Installation complete")
+    return {"success": True, "provider": provider_name, "steps": {"weights": r} if weight_key else {}}
 
 
 def get_install_status() -> dict:

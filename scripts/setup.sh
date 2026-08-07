@@ -390,6 +390,172 @@ install_python_deps() {
   log "Python dependencies installed"
 }
 
+prepare_model_runtimes() {
+  head_ "Preparing Model Runtimes"
+  if [[ ! -x backend/.venv/bin/python ]]; then
+    warn "Backend venv not found — skipping runtime preparation"
+    return 0
+  fi
+
+  (
+    cd backend
+    PYTHONPATH=. .venv/bin/python - << 'PYEOF'
+import logging
+import platform
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="  %(levelname)-5s %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+sys.path.insert(0, str(Path(".").resolve()))
+
+try:
+    from runtime.installer import REPOS, clone_repo, install_repo_deps
+    from runtime.storage import get_storage_config
+except Exception as exc:
+    print(f"  [FAIL] Could not import runtime modules: {exc}")
+    sys.exit(1)
+
+storage = get_storage_config()
+
+
+def _run(cmd, cwd=None):
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        cwd=cwd,
+    )
+    return result.returncode, result.stdout, result.stderr
+
+
+def validate_repo(repo_name):
+    repo_path = storage.get_repo_path(repo_name)
+    repo_cfg = REPOS.get(repo_name)
+
+    if not repo_path.exists():
+        return False, "missing"
+    if not (repo_path / ".git").exists():
+        return False, "not_a_git_repo"
+    if repo_cfg:
+        req = repo_cfg.get("requirements")
+        if req and not (repo_path / req).exists():
+            if not (repo_path / "pyproject.toml").exists() and not (repo_path / "setup.py").exists():
+                return False, "missing_requirements"
+    code, _, _ = _run(["git", "status", "--porcelain"], cwd=repo_path)
+    if code != 0:
+        return False, "git_status_failed"
+    return True, "ok"
+
+
+def validate_venv(repo_name):
+    venv_dir = storage.get_model_venv_path(repo_name)
+    if platform.system() == "Windows":
+        venv_python = venv_dir / "Scripts" / "python.exe"
+    else:
+        venv_python = venv_dir / "bin" / "python"
+
+    if not venv_dir.exists() or not venv_python.exists():
+        return False, "missing"
+    code, _, _ = _run([str(venv_python), "--version"], cwd=venv_dir.parent)
+    if code != 0:
+        return False, "broken"
+    return True, "ok"
+
+
+def validate_deps(repo_name):
+    venv_dir = storage.get_model_venv_path(repo_name)
+    if platform.system() == "Windows":
+        venv_python = venv_dir / "Scripts" / "python.exe"
+    else:
+        venv_python = venv_dir / "bin" / "python"
+
+    if not venv_python.exists():
+        return False, ["python_missing"]
+
+    missing = []
+    for pkg in ["torch", "huggingface_hub"]:
+        code, _, _ = _run(
+            [str(venv_python), "-c", f"import {pkg}"],
+            cwd=venv_dir.parent,
+        )
+        if code != 0:
+            missing.append(pkg)
+    return len(missing) == 0, missing
+
+
+def repair_repo(repo_name):
+    repo_path = storage.get_repo_path(repo_name)
+    if repo_path.exists():
+        shutil.rmtree(str(repo_path), ignore_errors=True)
+    return clone_repo(repo_name)
+
+
+def repair_venv(repo_name):
+    venv_dir = storage.get_model_venv_path(repo_name)
+    if venv_dir.exists() or venv_dir.is_symlink():
+        shutil.rmtree(str(venv_dir), ignore_errors=True)
+        if venv_dir.is_symlink():
+            venv_dir.unlink()
+    return install_repo_deps(repo_name)
+
+
+repaired = 0
+skipped = 0
+failed = 0
+
+for repo_name in sorted(REPOS.keys()):
+    repo_ok, repo_reason = validate_repo(repo_name)
+    venv_ok, venv_reason = validate_venv(repo_name)
+    deps_ok, deps_missing = validate_deps(repo_name)
+
+    if repo_ok and venv_ok and deps_ok:
+        print(f"  [SKIP] {repo_name}: runtime OK")
+        skipped += 1
+        continue
+
+    print(f"  [FIX ] {repo_name}: repairing (repo={repo_reason}, venv={venv_reason}, deps={deps_missing})")
+
+    if not repo_ok:
+        print(f"    -> Re-cloning {repo_name}...")
+        r = repair_repo(repo_name)
+        if not r.get("success"):
+            print(f"    [FAIL] clone failed: {r.get('error')}")
+            failed += 1
+            continue
+        print(f"    [OK  ] {repo_name} cloned")
+
+    if not venv_ok:
+        print(f"    -> Recreating venv for {repo_name}...")
+        r = repair_venv(repo_name)
+        if not r.get("success"):
+            print(f"    [FAIL] venv creation failed: {r.get('error')}")
+            failed += 1
+            continue
+        print(f"    [OK  ] {repo_name} venv ready")
+    elif not deps_ok:
+        print(f"    -> Repairing dependencies for {repo_name}...")
+        r = repair_venv(repo_name)
+        if not r.get("success"):
+            print(f"    [FAIL] dependency repair failed: {r.get('error')}")
+            failed += 1
+            continue
+        print(f"    [OK  ] {repo_name} dependencies ready")
+
+    print(f"  [DONE] {repo_name}: repaired")
+    repaired += 1
+
+print(f"\nRuntime preparation complete: {repaired} repaired, {skipped} skipped, {failed} failed")
+PYEOF
+  )
+}
+
 install_frontend_deps() {
   head_ "Installing Frontend Dependencies"
   npm ci --prefer-offline --no-audit 2>/dev/null || npm install --no-audit || {
@@ -495,6 +661,7 @@ BANNER
   setup_folders
   setup_env
   install_python_deps    || { err "Python dependency installation failed — aborting"; exit 1; }
+  prepare_model_runtimes || warn "Model runtime preparation had issues — check output above"
 
   # Non-critical project steps
   install_frontend_deps  || warn "Frontend deps had issues — check npm output above"
