@@ -8,12 +8,17 @@ FIXES APPLIED (Issue #1):
 - Added GPU execution verification after model load
 - Added GPU memory logging before/after inference
 - Unified path resolution using StorageConfig (Issue #10)
+- CRITICAL: Call _add_model_env() BEFORE any other imports to ensure per-model
+  venv packages (hy3dgen, newer huggingface_hub) take precedence.
 """
 from __future__ import annotations
 
+# CRITICAL: Must set up per-model env BEFORE any other imports
+from app.core.providers.base import _add_model_env
+_add_model_env("Hunyuan3D-2")
+
 import asyncio
 import logging
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -28,15 +33,6 @@ def _safe_exists(p) -> bool:
         return p.exists()
     except (PermissionError, OSError):
         return False
-
-
-def _add_repo(repo_name: str) -> None:
-    """Add third-party repo to Python path."""
-    from runtime.storage import get_storage_config
-    storage = get_storage_config()
-    p = str(storage.get_repo_path(repo_name))
-    if p not in sys.path:
-        sys.path.insert(0, p)
 
 
 def _verify_gpu_placement(model: Any, model_name: str) -> None:
@@ -75,7 +71,7 @@ def _verify_gpu_placement(model: Any, model_name: str) -> None:
             )
         else:
             logger.warning(
-                "GPU VERIFICATION SKIPPED for %s: no parameters found to check",
+                "GPU VERIFICATION SKIPPED for %s: no parameters found",
                 model_name
             )
     except ImportError:
@@ -109,7 +105,6 @@ class _HunyuanBase(BaseProvider):
         # Use StorageConfig for path resolution (Issue #10 + Section 2 per-model)
         from runtime.storage import get_storage_config
         storage = get_storage_config()
-        # ponytail: Section 2 — check per-model weights first, fall back to old
         per_model = storage.get_model_weights_dir(repo_name)
         if _safe_exists(per_model) and any(per_model.iterdir()):
             self.weights_dir = per_model
@@ -126,7 +121,6 @@ class _HunyuanBase(BaseProvider):
             self._mock_fallback = True
             return
         self._mock_fallback = False
-        _add_repo("Hunyuan3D-2")
         _log_gpu_memory(f"before_{self.model_key}_load")
         self._load_model()
         _verify_gpu_placement(self._model, self.model_key)

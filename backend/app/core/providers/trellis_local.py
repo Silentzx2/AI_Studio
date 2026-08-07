@@ -5,12 +5,17 @@ FIXES APPLIED (Issue #1):
 - Added GPU execution verification after model load
 - Added GPU memory logging before/after inference
 - Unified path resolution using StorageConfig (Issue #10)
+- CRITICAL: Call _add_model_env() BEFORE any other imports to ensure per-model
+  venv packages (trellis, newer huggingface_hub) take precedence.
 """
 from __future__ import annotations
 
+# CRITICAL: Must set up per-model env BEFORE any other imports
+from app.core.providers.base import _add_model_env
+_add_model_env("TRELLIS")
+
 import asyncio
 import logging
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -25,15 +30,6 @@ def _safe_exists(p) -> bool:
         return p.exists()
     except (PermissionError, OSError):
         return False
-
-
-def _add_trellis() -> None:
-    """Add TRELLIS repo to Python path."""
-    from runtime.storage import get_storage_config
-    storage = get_storage_config()
-    p = str(storage.get_repo_path("TRELLIS"))
-    if p not in sys.path:
-        sys.path.insert(0, p)
 
 
 def _verify_gpu_placement(model: Any, model_name: str, expected_device: str) -> None:
@@ -112,7 +108,6 @@ class TRELLISLocalProvider(BaseProvider):
             self._mock_fallback = True
             return
         self._mock_fallback = False
-        _add_trellis()
         _log_gpu_memory("before_trellis_load")
         try:
             from trellis.pipelines import TrellisImageTo3DPipeline
