@@ -229,7 +229,7 @@ export default function ThreeDGenerationTab({
   history,
   onLoadProject,
 }: ThreeDGenerationTabProps) {
-  const { prompt, setPrompt, uploadedImage, setUploadedImage, mode, setMode, setSelectedModel } = useGenerationStore();
+  const { prompt, setPrompt, uploadedImage, setUploadedImage, mode, setMode, selectedModel, setSelectedModel } = useGenerationStore();
   const { generate, cancel, isGenerating, currentJob } = useGeneration();
   const { status: jobStatus } = useGenerationStatus(currentJob?.id || null);
   // Only models declared compatible with the mesh-generation workspace
@@ -279,20 +279,21 @@ export default function ThreeDGenerationTab({
     });
   }, [workspaceModels, workspaceModelsError]);
 
-  // Set selected model id
-  const [selectedModelId, setSelectedModelId] = useState('triposr');
-
-  // Find active model details
+  // Use the store's selectedModel as the single source of truth so this tab's
+  // dropdown stays in sync with the rich ModelSelector (GeneratePanel/LeftSidebar)
+  // and other tabs. ponytail: previously a local selectedModelId defaulted to
+  // 'triposr' and never synced back, so selecting a model elsewhere left this
+  // dropdown displaying the wrong model.
   const activeModel = useMemo(() => {
-    return modelsList.find(m => m.id === selectedModelId) || modelsList[0];
-  }, [modelsList, selectedModelId]);
+    return modelsList.find((m) => m.id === selectedModel) || modelsList[0];
+  }, [modelsList, selectedModel]);
 
-  // Keep the generation config in sync with the workspace-filtered selection
+  // Ensure a default is selected so generation always has a provider.
   useEffect(() => {
-    if (activeModel) {
-      setSelectedModel(activeModel.id);
+    if (!selectedModel && modelsList.length > 0) {
+      setSelectedModel(modelsList[0].id);
     }
-  }, [activeModel, setSelectedModel]);
+  }, [selectedModel, modelsList, setSelectedModel]);
 
   // Sync back to workspace page container when active model details changes
   useEffect(() => {
@@ -481,7 +482,7 @@ export default function ThreeDGenerationTab({
         layers: [],
         metadata: {
           prompt: prompt || '',
-          model: activeModel?.id || selectedModelId,
+          model: selectedModel || activeModel?.id,
           quality: 'standard',
           createdAt: new Date(),
         },
@@ -535,9 +536,9 @@ export default function ThreeDGenerationTab({
             </div>
             
             <div className="relative">
-              <select
-                value={activeModel?.id ?? ''}
-                onChange={(e) => setSelectedModelId(e.target.value)}
+                <select
+                  value={activeModel?.id ?? ''}
+                  onChange={(e) => setSelectedModel(e.target.value)}
                 disabled={isLoadingWorkspaceModels}
                 className="w-full bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-xl pl-3 pr-8 py-2.5 text-xs font-semibold text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))] transition-all appearance-none disabled:opacity-60 disabled:cursor-wait"
               >

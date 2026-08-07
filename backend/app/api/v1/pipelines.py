@@ -61,6 +61,45 @@ def _save_enabled_map(enabled_map: dict[str, bool]) -> None:
     p.write_text(json.dumps(payload, indent=2, sort_keys=True))
 
 
+def _models_from_installer() -> list[dict[str, Any]]:
+    """Bridge runtime.installer.get_install_status() into the capability-matrix
+    model shape used by build_pipeline_snapshot/filter_by_workspace.
+
+    ponytail: ModelRegistry reads the DB `installed_models` table, which is
+    empty in this deployment (installs run through runtime.installer and write
+    to disk/state json, not the DB). get_install_status() is the authoritative
+    source for what is actually installed on disk (it checks the filesystem),
+    so we fall back to it to populate the workspace model list.
+    """
+    from runtime.installer import get_install_status
+
+    out: list[dict[str, Any]] = []
+    try:
+        status = get_install_status()
+    except Exception:
+        return out
+    for name, st in status.items():
+        meta = st.get("metadata") or {}
+        if meta.get("category") != "3d_generation":
+            continue
+        out.append({
+            "id": name,
+            "label": meta.get("label") or name,
+            "name": meta.get("label") or name,
+            "category": meta.get("category") or "unknown",
+            "installed": bool(st.get("installed", False)),
+            "available": bool(st.get("installed", False)),
+            "supports_text_to_3d": meta.get("supports_text_to_3d", False),
+            "supports_image_to_3d": meta.get("supports_image_to_3d", False),
+            "supports_texture": meta.get("supports_texture", False),
+            "workspace_compatibility": meta.get("workspace_compatibility"),
+            "vram_required_mb": meta.get("vram_required_mb", 0),
+            "weight_key": meta.get("weight_key"),
+            "repo": meta.get("repo"),
+        })
+    return out
+
+
 @router.get("")
 async def list_pipelines() -> dict[str, Any]:
     """Return all known models and the computed feature matrix."""
@@ -75,6 +114,13 @@ async def list_pipelines() -> dict[str, Any]:
         if not model_id:
             continue
         merged[model_id] = {**merged.get(model_id, {}), **model}
+
+    # ponytail: ModelRegistry reads the DB `installed_models` table, which is
+    # empty here (installs go through runtime.installer → disk/state). Fall back
+    # to get_install_status() so the pipeline list is actually populated.
+    if not merged:
+        for m in _models_from_installer():
+            merged[m["id"]] = m
 
     enabled_map = _load_enabled_map()
     snapshot = build_pipeline_snapshot(merged.values(), enabled_map)
@@ -111,6 +157,13 @@ async def get_workspace_models(workspace: str = Query(...), installed_only: bool
         if not model_id:
             continue
         merged[model_id] = {**merged.get(model_id, {}), **model}
+
+    # ponytail: ModelRegistry reads the DB `installed_models` table, which is
+    # empty here (installs go through runtime.installer → disk/state). Fall back
+    # to get_install_status() so the workspace model list is actually populated.
+    if not merged:
+        for m in _models_from_installer():
+            merged[m["id"]] = m
 
     models = list(merged.values())
     if installed_only:
