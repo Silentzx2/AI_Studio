@@ -1100,7 +1100,13 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
         _dl_update(model_id, phase="repo", log="Repairing repository...")
 
         def _run_repair() -> None:
-            from runtime.installer import PROVIDER_METADATA, REPOS, clone_repo, install_repo_deps
+            from runtime.installer import (
+                PROVIDER_METADATA,
+                REPOS,
+                clone_repo,
+                download_weights,
+                install_repo_deps,
+            )
             from runtime.storage import get_storage_config
             storage = get_storage_config()
             meta = PROVIDER_METADATA.get(model_id, {})
@@ -1111,6 +1117,10 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
                 return
             repo_path = storage.get_repo_path(repo_name)
             if repo_path.exists():
+                # ponytail: rmtree removes the whole repo INCLUDING its
+                # per-model weights dir. We must re-download weights after
+                # re-cloning, otherwise repair silently leaves the model
+                # uninstalled (weights gone, selector shows "not installed").
                 shutil.rmtree(str(repo_path), ignore_errors=True)
             _dl_update(model_id, log="Re-cloning repository...")
 
@@ -1127,6 +1137,12 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
                 r = install_repo_deps(repo_name, log_cb=_repair_log)
                 if not r.get("success"):
                     raise RuntimeError(r.get("error", "dependency install failed"))
+                weight_key = meta.get("weight_key")
+                if weight_key:
+                    _dl_update(model_id, phase="weights", log="Re-downloading weights...")
+                    r = download_weights(weight_key, log_cb=_repair_log)
+                    if not r.get("success"):
+                        raise RuntimeError(r.get("error", "weight download failed"))
                 _dl_update(model_id, status="completed", percent=100,
                            log="Repair complete")
             except Exception as exc:

@@ -91,11 +91,32 @@ export function useGeneration() {
 
       updateTask(job.id, { status: 'running', progress: 5 });
 
-      const result = await generationService.startGeneration(config, (progress, status, log, level) => {
-        updateJobProgress(job.id, progress, status);
-        addLogEntry(job.id, log, level);
-        updateTask(job.id, { progress, status: status as 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' });
-      });
+      const localJobId = job.id;
+      const result = await generationService.startGeneration(
+        config,
+        (progress, status, log, level) => {
+          updateJobProgress(job.id, progress, status);
+          addLogEntry(job.id, log, level);
+          updateTask(job.id, { progress, status: status as 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' });
+        },
+        (backendJobId: string) => {
+          // ponytail: unify on the backend UUID. Mutate the local ref so all
+          // later callbacks (updateJobProgress/updateTask) use it, and move the
+          // task + currentJob to the backend id so SSE/task-pollers stop 404ing
+          // on the local placeholder id.
+          job.id = backendJobId;
+          const cur = useGenerationStore.getState().currentJob;
+          if (cur && cur.id !== backendJobId) {
+            setCurrentJob({ ...cur, id: backendJobId });
+          }
+          const tasks = useAppStore.getState().tasks;
+          if (localJobId !== backendJobId && tasks[localJobId]) {
+            const t = tasks[localJobId];
+            useAppStore.getState().removeTask(localJobId);
+            useAppStore.getState().setTask({ ...t, id: backendJobId });
+          }
+        },
+      );
 
       const latestJob = useGenerationStore.getState().currentJob ?? job;
       setCurrentJob({ ...latestJob, status: 'completed', progress: 100, result, updatedAt: new Date() });

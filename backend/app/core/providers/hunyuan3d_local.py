@@ -106,15 +106,16 @@ class _HunyuanBase(BaseProvider):
         self._model: Any = None
         self._tex: Any = None
 
-        # Use StorageConfig for path resolution (Issue #10 + Section 2 per-model)
+        # Use StorageConfig for path resolution (single source of truth).
+        # get_weight_path() checks the per-model dir first, then the
+        # deprecated centralized weights_dir. ponytail: do NOT fall back to
+        # the centralized weights_dir — that produced "wrong weight path".
         from runtime.storage import get_storage_config
         storage = get_storage_config()
-        # ponytail: Section 2 — check per-model weights first, fall back to old
-        per_model = storage.get_model_weights_dir(repo_name)
-        if _safe_exists(per_model) and any(per_model.iterdir()):
-            self.weights_dir = per_model
-        else:
-            self.weights_dir = storage.weights_dir / weights_subdir
+        self.repo_name = repo_name
+        self.weight_key = model_key
+        resolved = storage.get_weight_path(self.weight_key)
+        self.weights_dir = Path(resolved) if resolved else storage.get_model_weights_dir(self.repo_name)
 
     # ── lifecycle ──────────────────────────────────────────────────────────────
 

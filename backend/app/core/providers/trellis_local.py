@@ -94,15 +94,16 @@ class TRELLISLocalProvider(BaseProvider):
         self.device = device
         self._pipeline: Any = None
 
-        # Use StorageConfig for path resolution (Issue #10 + Section 2 per-model)
+        # Use StorageConfig for path resolution (single source of truth).
+        # get_weight_path() checks the per-model dir first, then the
+        # deprecated centralized weights_dir. ponytail: do NOT fall back to
+        # the centralized weights_dir — that produced "wrong weight path".
         from runtime.storage import get_storage_config
         storage = get_storage_config()
         self.repo_name = "TRELLIS"
-        per_model = storage.get_model_weights_dir("TRELLIS")
-        if _safe_exists(per_model) and any(per_model.iterdir()):
-            self.weights_dir = per_model
-        else:
-            self.weights_dir = storage.weights_dir / "trellis"
+        self.weight_key = "trellis"
+        resolved = storage.get_weight_path(self.weight_key)
+        self.weights_dir = Path(resolved) if resolved else storage.get_model_weights_dir(self.repo_name)
 
     def _ensure_loaded(self) -> None:
         if self._pipeline is not None:

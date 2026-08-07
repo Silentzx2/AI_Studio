@@ -63,7 +63,11 @@ function normalizeResult(result: BackendGenerationResult | GenerationResult): Ge
  * - Status polling endpoint exists in fixed backend
  */
 export const generationService = {
-  async startGeneration(config: GenerationConfig, onProgress: ProgressCallback): Promise<GenerationResult> {
+  async startGeneration(
+    config: GenerationConfig,
+    onProgress: ProgressCallback,
+    onJobId?: (jobId: string) => void,
+  ): Promise<GenerationResult> {
     // BUG-03 FIX: local scope controller, registered in shared Set
     const abortController = new AbortController();
     _activeControllers.add(abortController);
@@ -92,6 +96,12 @@ export const generationService = {
     if (!jobId) {
       return normalizeResult(data?.data || data);
     }
+
+    // ponytail: surface the REAL backend job id to the caller so the store
+    // (and any SSE/task-pollers) track the backend UUID, not the local
+    // placeholder id. Without this, status polling hits a non-existent job
+    // and returns 404 (e.g. /api/v1/generation/<localId>/status).
+    onJobId?.(jobId);
 
     onProgress(10, 'generating', 'Generation started', 'info');
 

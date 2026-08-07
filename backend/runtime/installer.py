@@ -641,16 +641,45 @@ def resolve_install_targets(models: list[str] | None) -> list[str]:
 import fcntl
 
 
+def _pid_alive(pid: int) -> bool:
+    """Return True if a process with the given PID currently exists."""
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        # Process exists but we lack permission to signal it — it's alive.
+        return True
+    return True
+
+
 def _acquire_install_lock(repo_name: str) -> bool:
     """Try to acquire a file-based install lock for a repo.
     ponytail: file-based lock, fine for single-VPS. Upgrade to Redis
     if multi-host.
     Returns True if lock acquired, False if already locked.
+
+    Stale-lock recovery: if the lock file references a PID that is no
+    longer alive, the previous install crashed. We break the lock so a
+    fresh install can proceed instead of deadlocking forever.
     """
     from runtime.storage import get_storage_config
     storage = get_storage_config()
     lock_path = storage.get_repo_path(repo_name) / ".installing.lock"
     lock_path.parent.mkdir(parents=True, exist_ok=True)
+    # Break a stale lock left behind by a dead install process.
+    if lock_path.exists():
+        try:
+            content = lock_path.read_text().strip().splitlines()
+            stale_pid = int(content[0]) if content else None
+            if stale_pid and not _pid_alive(stale_pid):
+                logger.warning(
+                    "Breaking stale install lock for %s (PID %s dead)",
+                    repo_name, stale_pid,
+                )
+                lock_path.unlink(missing_ok=True)
+        except (ValueError, OSError, IndexError):
+            pass
     try:
         lock_file = open(lock_path, "w")
         fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -944,68 +973,81 @@ def install_provider(
                 "error": f"Model {provider_name} is already being installed. Wait for the current install to finish.",
             }
         locked_repos.append(repo_name)
-    sufficient, space_err = _check_disk_space(provider_name)
-    if not sufficient:
+    # ponytail: the lock is released in the `finally` block below on EVERY
+    # exit path (success, disk-space failure, download failure, exception).
+    # Previously a failed weight download returned without releasing the lock,
+    # which left a permanent stale lock that blocked all future reinstalls.
+    try:
+        sufficient, space_err = _check_disk_space(provider_name)
+        if not sufficient:
+            return {"success": False, "error": space_err}
+        # ponytail: setup.sh handles repo cloning, venv creation, and dependency
+        # installation. install_provider() now only downloads weights and updates
+        # state. If the runtime is missing, setup.sh must be re-run.
+        weight_key = meta.get("weight_key")
+        if weight_key:
+            if log_cb:
+                log_cb(f"Downloading weights for {provider_name}\u2026")
+            try:
+                r = download_weights(weight_key, hf_token=hf_token, log_cb=log_cb)
+                results = {"provider": provider_name, "steps": {"weights": r}}
+                if not r["success"]:
+                    error_msg = r.get("error", "Weight download failed")
+                    if "404" in str(error_msg) or "not found" in str(error_msg).lower():
+                        error_msg = f"Model '{weight_key}' not found on HuggingFace - check model ID is correct"
+                    elif "401" in str(error_msg) or "403" in str(error_msg) or "auth" in str(error_msg).lower():
+                        error_msg = "Authentication failed - check your HuggingFace token"
+                    elif "timeout" in str(error_msg).lower():
+                        error_msg = "Download timed out - check your internet connection"
+                    results["steps"]["weights"]["error"] = error_msg
+                    return {**results, "success": False, "error": error_msg}
+            except Exception as exc:
+                error_str = str(exc).lower()
+                if "404" in error_str or "not found" in error_str:
+                    error_msg = f"Model '{weight_key}' does not exist on HuggingFace"
+                elif "401" in error_str or "403" in error_str or "auth" in error_str or "token" in error_str:
+                    error_msg = "Invalid or missing HuggingFace token - please configure HF_TOKEN"
+                elif "connection" in error_str or "network" in error_str or "timeout" in error_str:
+                    error_msg = "Network error during download - please check connection and retry"
+                else:
+                    error_msg = f"Unexpected error downloading weights: {exc}"
+                logger.exception("Weight download exception for %s", weight_key)
+                return {"success": False, "error": error_msg}
+        else:
+            r = {"success": True, "action": "no_weights"}
+
+        if log_cb:
+            log_cb("Verifying installation\u2026")
+        # ponytail: load the persisted install state BEFORE mutating it.
+        # Previously `state` was referenced here but never defined in this
+        # function's scope (only get_install_status() defined it), so every
+        # successful install crashed with "name 'state' is not defined" right
+        # after the (heavy) weight download — weights landed on disk but the
+        # install reported failure and the registry was never refreshed.
+        state = _load_state()
+        state.setdefault("repos", {})[provider_name] = {
+            "installed_at": datetime.utcnow().isoformat(),
+        }
+        if repo_name and repo_name != provider_name:
+            state.setdefault("repos", {})[repo_name] = {
+                "installed_at": datetime.utcnow().isoformat(),
+                "installed_via": provider_name,
+            }
+        state["last_updated"] = datetime.utcnow().isoformat()
+        _save_state(state)
+        try:
+            from app.core.providers.registry import reset_provider
+            reset_provider()
+            if log_cb:
+                log_cb("Provider registry refreshed")
+        except Exception:
+            pass
+        if log_cb:
+            log_cb("Installation complete")
+        return {"success": True, "provider": provider_name, "steps": {"weights": r} if weight_key else {}}
+    finally:
         for rn in locked_repos:
             _release_install_lock(rn)
-        return {"success": False, "error": space_err}
-    # ponytail: setup.sh handles repo cloning, venv creation, and dependency
-    # installation. install_provider() now only downloads weights and updates
-    # state. If the runtime is missing, setup.sh must be re-run.
-    weight_key = meta.get("weight_key")
-    if weight_key:
-        if log_cb:
-            log_cb(f"Downloading weights for {provider_name}\u2026")
-        try:
-            r = download_weights(weight_key, hf_token=hf_token, log_cb=log_cb)
-            results = {"provider": provider_name, "steps": {"weights": r}}
-            if not r["success"]:
-                error_msg = r.get("error", "Weight download failed")
-                if "404" in str(error_msg) or "not found" in str(error_msg).lower():
-                    error_msg = f"Model '{weight_key}' not found on HuggingFace - check model ID is correct"
-                elif "401" in str(error_msg) or "403" in str(error_msg) or "auth" in str(error_msg).lower():
-                    error_msg = "Authentication failed - check your HuggingFace token"
-                elif "timeout" in str(error_msg).lower():
-                    error_msg = "Download timed out - check your internet connection"
-                results["steps"]["weights"]["error"] = error_msg
-                return {**results, "success": False, "error": error_msg}
-        except Exception as exc:
-            error_str = str(exc).lower()
-            if "404" in error_str or "not found" in error_str:
-                error_msg = f"Model '{weight_key}' does not exist on HuggingFace"
-            elif "401" in error_str or "403" in error_str or "auth" in error_str or "token" in error_str:
-                error_msg = "Invalid or missing HuggingFace token - please configure HF_TOKEN"
-            elif "connection" in error_str or "network" in error_str or "timeout" in error_str:
-                error_msg = "Network error during download - please check connection and retry"
-            else:
-                error_msg = f"Unexpected error downloading weights: {exc}"
-            logger.exception("Weight download exception for %s", weight_key)
-            return {"success": False, "error": error_msg}
-    else:
-        r = {"success": True, "action": "no_weights"}
-
-    if log_cb:
-        log_cb("Verifying installation\u2026")
-    state.setdefault("repos", {})[provider_name] = {
-        "installed_at": datetime.utcnow().isoformat(),
-    }
-    if repo_name and repo_name != provider_name:
-        state.setdefault("repos", {})[repo_name] = {
-            "installed_at": datetime.utcnow().isoformat(),
-            "installed_via": provider_name,
-        }
-    state["last_updated"] = datetime.utcnow().isoformat()
-    _save_state(state)
-    try:
-        from app.core.providers.registry import reset_provider
-        reset_provider()
-        if log_cb:
-            log_cb("Provider registry refreshed")
-    except Exception:
-        pass
-    if log_cb:
-        log_cb("Installation complete")
-    return {"success": True, "provider": provider_name, "steps": {"weights": r} if weight_key else {}}
 
 
 def get_install_status() -> dict:

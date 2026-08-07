@@ -87,15 +87,18 @@ class TripoSRLocalProvider(BaseProvider):
         self.device = device
         self._model: Any = None
 
-        # Use StorageConfig for path resolution (Issue #10 + Section 2 per-model)
+        # Use StorageConfig for path resolution (single source of truth).
+        # get_weight_path() checks the per-model dir first, then the
+        # deprecated centralized weights_dir, so generation always loads from
+        # the correct location (third_party/TripoSR/weights) instead of the
+        # old centralized path. ponytail: do NOT fall back to the centralized
+        # weights_dir here — that produced the "wrong weight path" warnings.
         from runtime.storage import get_storage_config
         storage = get_storage_config()
         self.repo_name = "TripoSR"
-        per_model = storage.get_model_weights_dir("TripoSR")
-        if _safe_exists(per_model) and any(per_model.iterdir()):
-            self.weights_dir = per_model
-        else:
-            self.weights_dir = storage.weights_dir / "triposr"
+        self.weight_key = "triposr"
+        resolved = storage.get_weight_path(self.weight_key)
+        self.weights_dir = Path(resolved) if resolved else storage.get_model_weights_dir(self.repo_name)
 
     def _ensure_loaded(self) -> None:
         if self._model is not None:
