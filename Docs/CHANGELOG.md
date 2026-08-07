@@ -1,5 +1,46 @@
 # AI 3D Studio — Changelog
 
+## v3.3.1 — Fix Shared Dependency Version Conflicts in Local Providers (August 7, 2026)
+
+### Problem
+
+When local providers (hunyuan3d_local, trellis_local, triposr_local) run in-process, they import model packages that depend on specific versions of shared packages (e.g., huggingface_hub>=0.28 for `is_offline_mode`). However, Python's import system found the backend process's already-cached `huggingface_hub` in `sys.modules` first, causing:
+
+- `ImportError: cannot import name 'is_offline_mode'`
+- Other version mismatch errors when model venvs have newer shared package versions
+
+### Solution
+
+- **Enhanced `_add_model_env()` in `base.py`**: Now prepends per-model venv site-packages to `sys.path` at position 0 (highest priority) and force-reloads shared packages (`huggingface_hub`, `transformers`, `diffusers`, `pydantic`, `requests`, `httpx`, `urllib3`) that may already be cached in the backend process.
+
+- **Fixed import order in local providers**: Moved `_add_model_env()` calls to execute at the **very top** of provider modules (before any other imports including `asyncio`, `logging`, `from pathlib`, etc.). This ensures the per-model venv's site-packages take precedence.
+
+- **Fixed provider map divergence**: Added missing provider mappings (`triposg`, `triposf`, `unirig`, `holopart`) to `registry.py` that existed in `engine.py`.
+
+- **Added `EXTRA_DEPS` mechanism in `installer.py`**: Allows declaring inference libraries that are omitted from a repo's own requirements.txt (e.g., `hy3dgen` for Hunyuan3D-2) and installs them into the per-model venv.
+
+### Files Modified
+
+- `backend/app/core/providers/base.py` — Enhanced `_add_model_env()` with prepend + reload
+- `backend/app/core/providers/hunyuan3d_local.py` — Early import of `_add_model_env()`
+- `backend/app/core/providers/trellis_local.py` — Early import of `_add_model_env()`
+- `backend/app/core/providers/triposr_local.py` — Early import of `_add_model_env()`
+- `backend/app/core/providers/registry.py` — Added missing provider mappings
+- `backend/runtime/installer.py` — Added `EXTRA_DEPS` mechanism
+
+### Testing
+
+```bash
+# Verify provider imports work
+python -c "from app.core.providers.base import _add_model_env"
+
+# Check import order in providers
+grep -n "_add_model_env" backend/app/core/providers/hunyuan3d_local.py
+# Should see it at line ~17, before "import asyncio" or "import logging"
+```
+
+---
+
 ## v3.3.0 — Workspace Compatibility & Texture Pipeline (August 6, 2026)
 
 ### New Features
