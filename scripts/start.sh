@@ -168,6 +168,39 @@ set -a
 source .env
 set +a
 
+# ── Interactive Mode Selection ───────────────────────────────────────────────
+# Dev: npm run dev, Reticle enabled, ENVIRONMENT=development
+# Prod: npm run build + start, Reticle OFF, ENVIRONMENT=production
+echo -e "\n${BOLD}${CYAN}┌─────────────────────────────────────────────┐${NC}"
+echo -e "${BOLD}${CYAN}│  AI 3D Studio — Startup Mode Selection     │${NC}"
+echo -e "${BOLD}${CYAN}└─────────────────────────────────────────────┘${NC}"
+echo ""
+echo -e "  ${BOLD}1)${NC} Dev Mode   — npm run dev, Reticle debug ON, hot-reload"
+echo -e "  ${BOLD}2)${NC} Prod Mode  — npm run build + start, Reticle OFF, optimized"
+echo ""
+read -rp "Choose mode [1/2] (default: 1): " MODE_CHOICE
+case "$MODE_CHOICE" in
+    2|prod|Prod|PROD)
+        START_MODE="production"
+        export ENVIRONMENT="production"
+        export NODE_ENV="production"
+        export RETICLE_ENABLED="false"
+        FRONTEND_CMD="npm run build && npm start"
+        FRONTEND_LABEL="Prod build + start"
+        ;;
+    *)
+        START_MODE="development"
+        export ENVIRONMENT="development"
+        export NODE_ENV="development"
+        export RETICLE_ENABLED="true"
+        FRONTEND_CMD="npm run dev"
+        FRONTEND_LABEL="Dev (hot-reload)"
+        ;;
+esac
+echo ""
+info "Mode: ${START_MODE} | Reticle: ${RETICLE_ENABLED} | Frontend: ${FRONTEND_LABEL}"
+echo ""
+
 # ── Ensure Python venv exists ─────────────────────────────────────────────
 if [[ ! -x backend/.venv/bin/python ]]; then
     warn "Backend virtual environment not found — running first-time setup..."
@@ -366,7 +399,7 @@ step "4/6 Starting Backend API (http://localhost:8000)..."
         > "$PROJECT_ROOT/logs/api.log" 2>&1 &
     write_pid "$API_PID_FILE" $!
 )
-log "Backend API started (PID: $(cat $API_PID_FILE))"
+log "Backend API started (PID: $(cat $API_PID_FILE)) (Reticle: ${RETICLE_ENABLED})"
 
 # Wait for API to be ready
 info "Waiting for API to be healthy (timeout: 60s)..."
@@ -402,7 +435,7 @@ log "Celery Worker started (PID: $(cat $WORKER_PID_FILE))"
 echo ""
 
 # ── Step 6: Start Frontend ────────────────────────────────────────────────
-step "6/6 Starting Frontend (http://localhost:3000)..."
+step "6/6 Starting Frontend (${FRONTEND_LABEL}) — http://localhost:3000..."
 
 # Install deps if needed
 if [[ ! -d node_modules ]]; then
@@ -410,14 +443,18 @@ if [[ ! -d node_modules ]]; then
     npm ci --prefer-offline --no-audit 2>&1 | grep -E '(added|up to date)' || true
 fi
 
-# Build if needed
-if [[ ! -d .next ]]; then
-    info "Building Next.js..."
+# Dev mode: skip build (hot-reload). Prod mode: build first.
+if [[ "$START_MODE" == "production" ]]; then
+    info "Building Next.js for production..."
     npm run build 2>&1 | tail -5
+    FRONTEND_RUN_CMD="npm start"
+else
+    # Dev mode — no build step, use next dev
+    FRONTEND_RUN_CMD="npm run dev"
 fi
 
 # Start frontend
-NEXT_PUBLIC_API_URL=http://localhost:8000 setsid npm start \
+NEXT_PUBLIC_API_URL=http://localhost:8000 setsid $FRONTEND_RUN_CMD \
     > "$PROJECT_ROOT/logs/frontend.log" 2>&1 &
 write_pid "$FRONTEND_PID_FILE" $!
 
@@ -426,13 +463,16 @@ echo ""
 
 # ── Summary ────────────────────────────────────────────────────────────────
 echo -e "${CYAN}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║${NC}  ${GREEN}✅ All Services Started${NC}"
+echo -e "${CYAN}║${NC}  ${GREEN}✅ All Services Started${NC} — ${START_MODE} mode"
 echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "  ${BOLD}Endpoints:${NC}"
-echo -e "    Frontend       http://localhost:3000"
+echo -e "    Frontend       http://localhost:3000  (${FRONTEND_LABEL})"
 echo -e "    Backend API    http://localhost:8000"
 echo -e "    API Docs       http://localhost:8000/docs"
+if [[ "$RETICLE_ENABLED" == "true" ]]; then
+    echo -e "    Reticle        http://localhost:9000  (connect: reticle connect --port 7777)"
+fi
 echo ""
 echo -e "  ${BOLD}Logs:${NC}"
 echo -e "    API      logs/api.log"
