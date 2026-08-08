@@ -7,7 +7,8 @@
  * Tree-shaken out of production builds — zero runtime cost.
  *
  * Installs React fiber instrumentation, connects to the Reticle bridge daemon
- * (localhost:4400), and registers capabilities for agent debugging.
+ * (localhost:4400), and enables presenter mode (HUD: glow border, animated
+ * cursor, narration line per action).
  */
 import { useEffect } from 'react';
 
@@ -17,8 +18,10 @@ export function ReticleDev() {
     void import('@reticlehq/react').then(
       ({ reticle, install }) => {
         install();
-        const token = process.env.NEXT_PUBLIC_RETICLE_TOKEN;
-        reticle.connect({ ...(token ? { token } : {}), session: 'ai3d-studio' });
+        reticle.connect({
+          session: 'ai3d-studio',
+          present: true, // enable HUD: glow border + narration
+        });
       },
     );
   }, []);
