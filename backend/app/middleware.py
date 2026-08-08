@@ -4,64 +4,68 @@ Wraps the Reticle observer (localhost:7777) so the backend emits
 request traces during local development. In production the middleware
 is a transparent no-op — zero runtime cost, zero bundle impact.
 
-ponytail: reticle-server is not yet on PyPI, so this shim provides the
-middleware interface with graceful degradation. Once reticle-server publishes,
-replace the try/except import with a direct ``from reticle_server import ReticleMiddleware``.
+Uses a local observer server (backend/app/reticle_observer.py) written in
+Python stdlib — no external dependencies required.
 """
 from __future__ import annotations
 
+import time
 import logging
-from typing import Any
+from typing import Any, Awaitable, Callable
+
+from app.reticle_observer import add_event, start_observer
 
 logger = logging.getLogger(__name__)
 
-# ponytail: use a module-level dict for caching — avoids a Python 3.12.11
-# compiler bug where ``global`` + ``import`` in the same function body causes
-# UnboundLocalError. Dict is mutable, no global declaration needed.
-_CACHE: dict[str, bool] = {}
-
-
-def reticle_available() -> bool:
-    """Return True if the Reticle server package can be imported."""
-    if "checked" not in _CACHE:
-        try:
-            import reticle_server  # noqa: F401
-            _CACHE["checked"] = True
-        except ImportError:
-            _CACHE["checked"] = False
-    return _CACHE["checked"]
-
 
 class ReticleMiddleware:
-    """Thin wrapper around the Reticle observer middleware.
+    """Dev-only middleware that traces HTTP requests to the Reticle observer.
 
-    If ``reticle_server`` is installed, delegates to its middleware.
-    Otherwise provides a minimal localhost-only observer that logs
-    request metadata to the Reticle dev bridge on port 7777.
+    Inserts itself into the FastAPI/ASGI middleware chain (after CORS, before
+    routes) and pushes request/response metadata to the localhost:7777 observer
+    server. In production the middleware is not added to the app at all.
     """
 
-    def __init__(self, app: Any, port: int = 7777, bind_address: str = "127.0.0.1") -> None:
+    _observer_started: bool = False
+
+    def __init__(self, app: Callable, port: int = 7777, bind_address: str = "127.0.0.1") -> None:
         self.app = app
         self.port = port
         self.bind_address = bind_address
-        self._real_middleware = None
 
-        if reticle_available():
-            try:
-                from reticle_server import ReticleMiddleware as _RealMiddleware
-                self._real_middleware = _RealMiddleware(app, port=port, bind_address=bind_address)
+        if not ReticleMiddleware._observer_started:
+            observer = start_observer(host=bind_address, port=port)
+            if observer is not None and observer.is_running():
+                ReticleMiddleware._observer_started = True
                 logger.info("Reticle observer listening on %s:%d", bind_address, port)
-            except Exception as exc:
-                logger.warning("Reticle middleware init failed (%s) — using fallback", exc)
-        else:
-            logger.info("Reticle fallback observer on %s:%d (reticle-server not installed)", bind_address, port)
+            else:
+                logger.info("Reticle observer on %s:%d (middleware tracing active, no server)", bind_address, port)
 
     async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
-        if self._real_middleware is not None:
-            await self._real_middleware(scope, receive, send)
-        else:
-            if scope["type"] == "http":
-                method = scope.get("method", "?")
-                path = scope.get("path", "?")
-                logger.debug("HTTP %s %s (Reticle fallback observer)", method, path)
+        if scope["type"] != "http":
             await self.app(scope, receive, send)
+            return
+
+        method = scope.get("method", "?")
+        path = scope.get("path", "?")
+        start = time.perf_counter()
+
+        captured_status: list[int] = []
+
+        async def _tracing_send(message):
+            if message["type"] == "http.response.start":
+                captured_status.append(message.get("status", 0))
+            await send(message)
+
+        await self.app(scope, receive, _tracing_send)
+
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        status_code = captured_status[0] if captured_status else 0
+
+        add_event({
+            "type": "http_request",
+            "method": method,
+            "path": path,
+            "status": status_code,
+            "duration_ms": round(elapsed_ms, 1),
+        })
