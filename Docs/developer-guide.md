@@ -1012,6 +1012,26 @@ logger.debug("Processing job %s", job_id)
 ./scripts/manager.sh
 ```
 
+### Debugging with Reticle
+
+Reticle visualizes real-time application behavior (dev-only, localhost:7777):
+
+**Network requests**: See all HTTP calls with latency
+**Component renders**: Track React re-renders and performance
+**State changes**: Inspect Zustand state mutations
+
+Common debug scenarios:
+- **Slow API call?** Look at Reticle network timeline
+- **Unexpected re-render?** Check Reticle component tree
+- **State mutation loop?** Track state changes in Reticle dashboard
+
+Reticle only observes your local machine (localhost:7777 binding). No data leaves your machine.
+
+**Setup**:
+1. Install CLI: `npm install -g @reticlehq/cli`
+2. Start dev: `./manager.sh` → `2) Start all services`
+3. Connect: `reticle connect --port 7777`
+
 ### Common Issues
 
 | Issue | Solution |

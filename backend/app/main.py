@@ -309,6 +309,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Reticle observability middleware — dev-only, localhost:7777 only.
+# In production: no-op (middleware not added).
+from app.middleware import ReticleMiddleware
+if settings.environment == "development":
+    app.add_middleware(ReticleMiddleware, port=7777, bind_address="127.0.0.1")
+
 
 @app.middleware("http")
 async def request_timing_middleware(request: Request, call_next):

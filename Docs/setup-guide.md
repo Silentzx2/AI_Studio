@@ -105,6 +105,24 @@ chmod +x scripts/*.sh manager.sh
 | **API Docs** | http://localhost:8000/docs | Swagger UI |
 | **Prompt Assistant** | built-in | Optional AI prompt enhancement |
 
+### Runtime Observability with Reticle
+
+Reticle provides real-time visibility into API requests, React renders, and performance metrics during development.
+
+**One-time setup**:
+```bash
+npm install -g @reticlehq/cli
+```
+
+**To use**:
+1. Start dev server: `./manager.sh` → `2) Start all services`
+2. In new terminal: `npm install -g @reticlehq/cli && reticle connect --port 7777`
+3. Open web dashboard (URL printed above)
+
+Reticle only runs in development (`ENVIRONMENT=development`). Production builds are unaffected — the SDK is tree-shaken out at build time.
+
+To disable: Set `RETICLE_ENABLED=false` in `.env.development.local`
+
 ---
 
 ## Manual Installation

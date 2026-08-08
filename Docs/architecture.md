@@ -533,8 +533,21 @@ router.include_router(rigging_router)        # /rigging/*
 ### Middleware Stack
 
 1. **CORS Middleware** - Cross-origin request handling
-2. **Global Exception Handler** - Unified error responses
-3. **Static Files Mount** - `/static` for uploads/storage
+2. **Reticle Observability** (dev-only) - localhost:7777 request tracing
+3. **Global Exception Handler** - Unified error responses
+4. **Static Files Mount** - `/static` for uploads/storage
+
+#### Development Observability Stack
+
+**Reticle** (localhost-only, dev-time):
+- Server: `ReticleMiddleware` in `backend/app/middleware.py` (FastAPI)
+- Client: `@reticlehq/react` SDK (installed as dev-only dependency)
+- Bridge: localhost:7777 (internal, never exposed)
+- Dashboard: `npm i -g @reticlehq/cli` → `reticle connect --port 7777`
+
+**Environment gating**:
+- Dev: Reticle middleware + SDK active
+- Prod: Tree-shaken out of build, zero runtime cost
 
 ---
 
