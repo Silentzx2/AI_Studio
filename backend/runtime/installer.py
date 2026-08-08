@@ -415,7 +415,12 @@ _CUDA_ONLY_PKG_PATTERNS: list[re.Pattern] = [
 EXTRA_DEPS: dict[str, list[str]] = {
     "Hunyuan3D-2": ["hy3dgen", "accelerate"],
     "TRELLIS": ["accelerate"],
-    "TripoSR": ["accelerate"],
+    # ponytail: TripoSR pins transformers==4.35.0, which hard-requires
+    # huggingface-hub<1.0 — but its requirements.txt leaves the hub pin
+    # unpinned, so a fresh install pulls hub>=1.0 and breaks transformers at
+    # import time. rembg also needs onnxruntime, which its requirements.txt
+    # omits. Nail both here so every reinstall lands in a working state.
+    "TripoSR": ["accelerate", "huggingface-hub<1.0", "onnxruntime"],
 }
 
 
