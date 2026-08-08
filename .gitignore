@@ -47,7 +47,9 @@ build/
 .reticle/
 .reticlerc*
 .reticle-state/
+# Machine-local MCP config — only commit if project-level registration is requested
 .mcp.json
+# .reticle.json is the project config — COMMIT it (reticle mcp reads it)
 .kilo
 
 # Database

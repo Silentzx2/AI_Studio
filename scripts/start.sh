@@ -220,19 +220,24 @@ write_pid() {
 if [[ "$RETICLE_ENABLED" == "true" ]]; then
     RETICLE_PID_FILE="$PID_DIR/reticle.pid"
     if ! [[ -f "$RETICLE_PID_FILE" ]] || ! kill -0 "$(cat "$RETICLE_PID_FILE" 2>/dev/null)" 2>/dev/null; then
-        info "Starting Reticle observer daemon (localhost:4400)..."
-        npx @reticlehq/server serve --port 4400 \
+        info "Starting Reticle daemon (localhost:4400)..."
+        npx @reticlehq/server serve \
             > "$PROJECT_ROOT/logs/reticle.log" 2>&1 &
         write_pid "$RETICLE_PID_FILE" $!
-        sleep 3
-        if ss -tlnp sport = :4400 2>/dev/null | grep -q LISTEN; then
-            log "Reticle daemon running on :4400 (PID: $(cat $RETICLE_PID_FILE))"
-            info "View traces: npx @reticlehq/server status --port 4400"
-        else
-            warn "Reticle daemon starting — check logs/reticle.log in a few seconds"
-        fi
+        info "Waiting for Reticle daemon to initialize..."
+        for i in 1 2 3 4 5; do
+            sleep 1
+            if npx @reticlehq/server status 2>/dev/null | grep -q '"running":true'; then
+                log "Reticle daemon running on :4400 (PID: $(cat $RETICLE_PID_FILE))"
+                info "Open http://localhost:3000 in your browser — Reticle HUD will appear"
+                break
+            fi
+            if [[ $i -eq 5 ]]; then
+                warn "Reticle daemon still starting — check logs/reticle.log"
+            fi
+        done
     else
-        info "Reticle observer already running (PID: $(cat $RETICLE_PID_FILE))"
+        info "Reticle daemon already running (PID: $(cat $RETICLE_PID_FILE))"
     fi
 fi
 
@@ -491,7 +496,7 @@ echo -e "    Frontend       http://localhost:3000  (${FRONTEND_LABEL})"
 echo -e "    Backend API    http://localhost:8000"
 echo -e "    API Docs       http://localhost:8000/docs"
 if [[ "$RETICLE_ENABLED" == "true" ]]; then
-    echo -e "    Reticle        http://localhost:4400  (daemon bridge)"
+    echo -e "    Reticle        localhost:4400  (daemon — HUD in browser at :3000)"
     echo -e "    Observer       http://localhost:7777  (server-side traces)"
 fi
 echo ""
