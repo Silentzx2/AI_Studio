@@ -208,6 +208,14 @@ mkdir -p "$PID_DIR"
 # ── Logs directory ─────────────────────────────────────────────────────────
 mkdir -p "${PROJECT_ROOT}/logs"
 
+# ── Helper: Write PID ──────────────────────────────────────────────────────
+write_pid() {
+    local pid_file=$1
+    local pid=$2
+    mkdir -p "$(dirname "$pid_file")"
+    echo "$pid" > "$pid_file"
+}
+
 # ── Auto-start Reticle server (dev-only) ─────────────────────────────────────
 if [[ "$RETICLE_ENABLED" == "true" ]]; then
     RETICLE_PID_FILE="$PID_DIR/reticle.pid"
@@ -216,12 +224,12 @@ if [[ "$RETICLE_ENABLED" == "true" ]]; then
         npx @reticlehq/server serve --port 4400 \
             > "$PROJECT_ROOT/logs/reticle.log" 2>&1 &
         write_pid "$RETICLE_PID_FILE" $!
-        sleep 2
-        if npx @reticlehq/server status --port 4400 2>/dev/null | grep -q '"running":true'; then
-            log "Reticle observer running (PID: $(cat $RETICLE_PID_FILE))"
+        sleep 3
+        if ss -tlnp sport = :4400 2>/dev/null | grep -q LISTEN; then
+            log "Reticle daemon running on :4400 (PID: $(cat $RETICLE_PID_FILE))"
             info "View traces: npx @reticlehq/server status --port 4400"
         else
-            warn "Reticle observer starting — check logs/reticle.log in a few seconds"
+            warn "Reticle daemon starting — check logs/reticle.log in a few seconds"
         fi
     else
         info "Reticle observer already running (PID: $(cat $RETICLE_PID_FILE))"
@@ -277,14 +285,6 @@ API_PID_FILE="$PID_DIR/api.pid"
 WORKER_PID_FILE="$PID_DIR/worker.pid"
 FRONTEND_PID_FILE="$PID_DIR/frontend.pid"
 MIGRATE_PID_FILE="$PID_DIR/migrate.pid"
-
-# ── Helper: Write PID ──────────────────────────────────────────────────────
-write_pid() {
-    local pid_file=$1
-    local pid=$2
-    mkdir -p "$(dirname "$pid_file")"
-    echo "$pid" > "$pid_file"
-}
 
 # ── Helper: Kill by PID file ──────────────────────────────────────────────
 kill_by_pid_file() {
@@ -492,6 +492,7 @@ echo -e "    Backend API    http://localhost:8000"
 echo -e "    API Docs       http://localhost:8000/docs"
 if [[ "$RETICLE_ENABLED" == "true" ]]; then
     echo -e "    Reticle        http://localhost:4400  (daemon bridge)"
+    echo -e "    Observer       http://localhost:7777  (server-side traces)"
 fi
 echo ""
 echo -e "  ${BOLD}Logs:${NC}"
