@@ -50,7 +50,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (RETICLE_ENABLED) {
-      import('@reticlehq/react').then(({ install }) => install());
+      import('@reticlehq/react').then(({ install, reticle }) => {
+        install();
+        reticle.connect({ session: 'ai3d-studio' });
+      });
     }
   }, []);
 

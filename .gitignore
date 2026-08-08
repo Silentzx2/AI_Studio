@@ -47,6 +47,7 @@ build/
 .reticle/
 .reticlerc*
 .reticle-state/
+.mcp.json
 .kilo
 
 # Database

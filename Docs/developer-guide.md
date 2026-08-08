@@ -1028,9 +1028,9 @@ Common debug scenarios:
 Reticle only observes your local machine (localhost:7777 binding). No data leaves your machine.
 
 **Setup**:
-1. Install CLI: `npm install -g @reticlehq/cli`
-2. Start dev: `./manager.sh` → `2) Start all services`
-3. Connect: `reticle connect --port 7777`
+1. Start dev mode: `bash scripts/start.sh` → choose `1) Dev Mode`
+2. Reticle daemon auto-starts on `localhost:7777`
+3. Check status: `curl http://localhost:7777/health`
 
 ### Common Issues
 

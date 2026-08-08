@@ -111,18 +111,22 @@ Reticle provides real-time visibility into API requests, React renders, and perf
 
 **One-time setup**:
 ```bash
-# No CLI installation needed — Reticle observer runs embedded in the backend
+# Reticle is already a dev dependency — no additional install needed
+npx @reticlehq/server doctor  # verify setup
 ```
 
 **To use**:
 1. Start in **Dev Mode**: `bash scripts/start.sh` → choose `1) Dev Mode`
-2. Backend (port 8000) starts with Reticle middleware + observer server (port 7777)
-3. View traced requests:
+2. Reticle daemon auto-starts on `localhost:7777` (dev-only)
+3. The frontend SDK (`@reticlehq/react`) auto-connects via `@reticlehq/next` build plugin
+4. View observer status:
    ```bash
-   curl http://localhost:7777/health   # observer status
-   curl http://localhost:7777/events   # all traced HTTP requests
+   curl http://localhost:7777/health   # → {"status": "ok"}
    ```
-4. The frontend SDK (`@reticlehq/react`) calls `install()` automatically in dev mode
+5. For interactive debugging, register the MCP server:
+   ```bash
+   npx @reticlehq/server init  # installs packages, registers MCP server
+   ```
 
 Reticle only runs in development (`ENVIRONMENT=development`). Production builds are unaffected — the SDK is tree-shaken out at build time.
 

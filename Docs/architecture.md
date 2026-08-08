@@ -540,19 +540,20 @@ router.include_router(rigging_router)        # /rigging/*
 #### Development Observability Stack
 
 **Reticle** (localhost-only, dev-time):
-- Server: `ReticleMiddleware` in `backend/app/middleware.py` (FastAPI)
-- Client: `@reticlehq/react` SDK (installed as dev-only dependency)
+- Daemon: `npx @reticlehq/server serve --port 7777` (started by scripts/start.sh in Dev Mode)
+- Client: `@reticlehq/react` + `@reticlehq/next` SDK (installed as dev-only dependency)
 - Bridge: localhost:7777 (internal, never exposed)
-- Dashboard: view traces via `curl localhost:7777/events` or browser (embedded observer)
+- MCP: `.mcp.json` registers `@reticlehq/server mcp` for agent integration
+- Backend middleware: `ReticleMiddleware` in `backend/app/middleware.py` (supplementary server-side tracing)
 
 **Next.js + FastAPI proxy chain**:
 - Frontend (Next.js :3000) proxies API calls via `app/api/v1/[...path]/route.ts` → `BACKEND_URL`
-- Reticle observes both the Next.js client-side SDK calls AND the FastAPI backend requests
+- Reticle observes browser DOM, network, React fiber + backend HTTP traces
 - Network Tab shows full round-trip: frontend → proxy → FastAPI → response
 
 **Environment gating**:
-- Dev: Reticle middleware + SDK active
-- Prod: Tree-shaken out of build, zero runtime cost
+- Dev: Reticle daemon + middleware + SDK active (npm run dev, ENVIRONMENT=development)
+- Prod: All Reticle code tree-shaken out, zero runtime cost
 
 ---
 

@@ -169,7 +169,7 @@ source .env
 set +a
 
 # ── Interactive Mode Selection ───────────────────────────────────────────────
-# Dev: npm run dev, Reticle enabled, ENVIRONMENT=development
+# Dev: npm run dev, Reticle enabled, ENVIRONMENT=development, auto-start Reticle server
 # Prod: npm run build + start, Reticle OFF, ENVIRONMENT=production
 echo -e "\n${BOLD}${CYAN}┌─────────────────────────────────────────────┐${NC}"
 echo -e "${BOLD}${CYAN}│  AI 3D Studio — Startup Mode Selection     │${NC}"
@@ -200,6 +200,26 @@ esac
 echo ""
 info "Mode: ${START_MODE} | Reticle: ${RETICLE_ENABLED} | Frontend: ${FRONTEND_LABEL}"
 echo ""
+
+# ── Auto-start Reticle server (dev-only) ─────────────────────────────────────
+if [[ "$RETICLE_ENABLED" == "true" ]]; then
+    RETICLE_PID_FILE="$PID_DIR/reticle.pid"
+    if ! [[ -f "$RETICLE_PID_FILE" ]] || ! kill -0 "$(cat "$RETICLE_PID_FILE" 2>/dev/null)" 2>/dev/null; then
+        info "Starting Reticle observer daemon (localhost:7777)..."
+        npx @reticlehq/server serve --port 7777 --host 127.0.0.1 \
+            > "$PROJECT_ROOT/logs/reticle.log" 2>&1 &
+        write_pid "$RETICLE_PID_FILE" $!
+        sleep 1
+        if curl -sf http://localhost:7777/health &>/dev/null; then
+            log "Reticle observer running (PID: $(cat $RETICLE_PID_FILE))"
+            info "Connect dashboard: npx @reticlehq/server status --port 7777"
+        else
+            warn "Reticle observer starting — check logs/reticle.log in a few seconds"
+        fi
+    else
+        info "Reticle observer already running (PID: $(cat $RETICLE_PID_FILE))"
+    fi
+fi
 
 # ── Ensure Python venv exists ─────────────────────────────────────────────
 if [[ ! -x backend/.venv/bin/python ]]; then
