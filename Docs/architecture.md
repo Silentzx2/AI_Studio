@@ -543,7 +543,7 @@ router.include_router(rigging_router)        # /rigging/*
 - Server: `ReticleMiddleware` in `backend/app/middleware.py` (FastAPI)
 - Client: `@reticlehq/react` SDK (installed as dev-only dependency)
 - Bridge: localhost:7777 (internal, never exposed)
-- Dashboard: `npm i -g @reticlehq/cli` → `reticle connect --port 7777`
+- Dashboard: view traces via `curl localhost:7777/events` or browser (embedded observer)
 
 **Next.js + FastAPI proxy chain**:
 - Frontend (Next.js :3000) proxies API calls via `app/api/v1/[...path]/route.ts` → `BACKEND_URL`
