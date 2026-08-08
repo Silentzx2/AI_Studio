@@ -22,57 +22,13 @@ from typing import Any
 from app.core.providers.base import BaseProvider, ProviderResult
 from app.core.mesh_processor import get_mesh_stats, write_placeholder_mesh
 from app.schemas.generation import GenerationRequest
+from runtime.accelerate_loader import (
+    verify_gpu_placement as _verify_gpu_placement,
+    log_gpu_memory as _log_gpu_memory,
+    safe_unload,
+)
 
 logger = logging.getLogger(__name__)
-
-
-def _safe_exists(p) -> bool:
-    try:
-        return p.exists()
-    except (PermissionError, OSError):
-        return False
-
-
-def _verify_gpu_placement(model: Any, model_name: str, expected_device: str) -> None:
-    """
-    Verify that model tensors are on GPU after load.
-    Issue #1 Fix: This prevents silent CPU fallback.
-    """
-    try:
-        import torch
-        param = None
-        try:
-            param = next(model.parameters())
-        except StopIteration:
-            pass
-
-        if param is not None:
-            device_str = str(param.device)
-            if not device_str.startswith('cuda'):
-                raise RuntimeError(
-                    f"GPU VERIFICATION FAILED for {model_name}: "
-                    f"Tensors on {device_str}, expected cuda device. "
-                    f"Model may silently fall back to CPU."
-                )
-            logger.info("GPU VERIFIED for %s: tensors on %s", model_name, device_str)
-        else:
-            logger.warning("GPU VERIFICATION SKIPPED for %s: no parameters found", model_name)
-    except ImportError:
-        logger.warning("Cannot verify GPU placement: torch not available")
-
-
-def _log_gpu_memory(context: str) -> None:
-    """Log current GPU memory usage for debugging."""
-    try:
-        import torch
-        if torch.cuda.is_available():
-            for i in range(torch.cuda.device_count()):
-                allocated = torch.cuda.memory_allocated(i) / (1024**3)
-                reserved = torch.cuda.memory_reserved(i) / (1024**3)
-                logger.info("GPU %d memory [%s]: %.2f GB allocated, %.2f GB reserved",
-                           i, context, allocated, reserved)
-    except ImportError:
-        pass
 
 
 class TripoSRLocalProvider(BaseProvider):
@@ -114,17 +70,34 @@ class TripoSRLocalProvider(BaseProvider):
                 config_name="config.yaml",
                 weight_name="model.ckpt",
             )
-            self._model = self._model.to(self.device)
-            logger.info("TripoSR loaded successfully on %s", self.device)
+
+            # ponytail: use Accelerate for memory-aware device dispatch when
+            # VRAM is constrained. Falls back to native .to(device) when
+            # Accelerate is unavailable or VRAM is sufficient.
+            from runtime.accelerate_loader import (
+                accelerate_available,
+                dispatch_model_to_device,
+            )
+            from runtime.capability import get_model_vram_required
+            vram_needed = get_model_vram_required("triposr")
+            dispatched = dispatch_model_to_device(
+                self._model,
+                device=self.device,
+                vram_required_mb=vram_needed,
+                offload_folder=self.weights_dir / ".accelerate_offload",
+            )
+            if not dispatched:
+                self._model = self._model.to(self.device)
+
+            logger.info("TripoSR loaded successfully on %s (accelerate=%s)", self.device, dispatched)
         except Exception as exc:
             raise RuntimeError(f"TripoSR load failed: {exc}") from exc
         _verify_gpu_placement(self._model, "triposr", self.device)
         _log_gpu_memory("after_triposr_load")
 
     def unload(self) -> None:
+        safe_unload(self._model, provider_name="triposr")
         self._model = None
-        from runtime.gpu import empty_cuda_cache
-        empty_cuda_cache()
         _log_gpu_memory("after_triposr_unload")
 
     async def generate(

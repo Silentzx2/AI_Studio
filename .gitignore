@@ -43,6 +43,11 @@ build/
 # Docker
 *.tar
 
+# Reticle dev-only debugging/verification tool
+.reticle/
+.reticlerc*
+.reticle-state/
+
 # Database
 *.db
 tsconfig.tsbuildinfo

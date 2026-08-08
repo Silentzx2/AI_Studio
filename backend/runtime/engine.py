@@ -64,7 +64,20 @@ class RuntimeEngine:
         logger.info("=" * 50)
         logger.info("RuntimeEngine initializing...")
         logger.info("  Third-party dir: %s", self._storage.third_party_dir)
-        logger.info("  Weights dir: %s", self._storage.weights_dir)
+        # ponytail: weights live per-model under third_party/<repo>/weights.
+        # The old central weights_dir is empty post-migration; logging it is
+        # misleading ("wrong weight folder"). Log the resolved per-model dirs.
+        available = self._discover_providers()
+        try:
+            from runtime.installer import PROVIDER_METADATA
+            resolved = {
+                name: str(self._storage.get_weight_path(meta.get("weight_key")))
+                for name, meta in PROVIDER_METADATA.items()
+                if name in available and meta.get("weight_key")
+            }
+        except Exception:
+            resolved = {}
+        logger.info("  Per-model weight dirs: %s", resolved or "(none)")
         gpu = get_gpu_info()
         if gpu.available:
             logger.info("  CUDA %s — %d GPU(s)", gpu.cuda_version, gpu.device_count)
@@ -118,7 +131,30 @@ class RuntimeEngine:
 
     async def get_best_provider_name(self, requested: str) -> str:
         gpu = get_gpu_info()
-        free_mb = gpu.free_vram_mb if gpu.available else 0
+
+        # CPU-only machine: there is no VRAM to gate on — models run on system
+        # RAM/CPU. The free_mb==0 branch below would otherwise reject every real
+        # provider ("only 0 MB free") and generation could never start.
+        # ponytail: VRAM gating is GPU-only; pick by availability (weights on disk).
+        if not gpu.available:
+            if requested == "mock" or self._check_provider_available(requested):
+                return requested
+            for candidate in PROVIDER_PRIORITY:
+                if candidate == "mock":
+                    if not self._is_mock_allowed():
+                        continue
+                elif self._check_provider_available(candidate):
+                    logger.info(
+                        "CPU mode: requested provider '%s' not installed, falling back to '%s'",
+                        requested, candidate,
+                    )
+                    return candidate
+            raise RuntimeError(
+                f"No provider is installed on this machine. Requested '{requested}' "
+                f"is not installed and no installed fallback exists."
+            )
+
+        free_mb = gpu.free_vram_mb
         needed = get_model_vram_required(requested)
         if needed == 0 or free_mb >= needed:
             return requested

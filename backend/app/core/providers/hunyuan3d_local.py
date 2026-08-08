@@ -25,74 +25,12 @@ from typing import Any
 from app.core.providers.base import BaseProvider, ProviderResult
 from app.core.mesh_processor import write_placeholder_mesh
 from app.schemas.generation import GenerationRequest
+from runtime.accelerate_loader import (
+    verify_gpu_placement as _verify_gpu_placement,
+    log_gpu_memory as _log_gpu_memory,
+)
 
 logger = logging.getLogger(__name__)
-
-
-def _safe_exists(p) -> bool:
-    try:
-        return p.exists()
-    except (PermissionError, OSError):
-        return False
-
-
-def _verify_gpu_placement(model: Any, model_name: str) -> None:
-    """
-    Verify that model tensors are on GPU after load.
-
-    Issue #1 Fix: This prevents silent CPU fallback.
-    Raises RuntimeError if tensors are not on expected device.
-    """
-    try:
-        import torch
-        # Check if model has parameters
-        param = None
-        try:
-            param = next(model.parameters())
-        except StopIteration:
-            # Model might have different structure, check for pipeline
-            if hasattr(model, 'model') and model.model is not None:
-                try:
-                    param = next(model.model.parameters())
-                except StopIteration:
-                    pass
-
-        if param is not None:
-            device_str = str(param.device)
-            if not device_str.startswith('cuda'):
-                raise RuntimeError(
-                    f"GPU VERIFICATION FAILED for {model_name}: "
-                    f"Tensors on {device_str}, expected cuda device. "
-                    f"Model may silently fall back to CPU. "
-                    f"Check CUDA installation and GPU memory."
-                )
-            logger.info(
-                "GPU VERIFIED for %s: tensors on %s",
-                model_name, device_str
-            )
-        else:
-            logger.warning(
-                "GPU VERIFICATION SKIPPED for %s: no parameters found",
-                model_name
-            )
-    except ImportError:
-        logger.warning("Cannot verify GPU placement: torch not available")
-
-
-def _log_gpu_memory(context: str) -> None:
-    """Log current GPU memory usage for debugging."""
-    try:
-        import torch
-        if torch.cuda.is_available():
-            for i in range(torch.cuda.device_count()):
-                allocated = torch.cuda.memory_allocated(i) / (1024**3)
-                reserved = torch.cuda.memory_reserved(i) / (1024**3)
-                logger.info(
-                    "GPU %d memory [%s]: %.2f GB allocated, %.2f GB reserved",
-                    i, context, allocated, reserved
-                )
-    except ImportError:
-        pass
 
 
 class _HunyuanBase(BaseProvider):
@@ -103,22 +41,11 @@ class _HunyuanBase(BaseProvider):
         self._model: Any = None
         self._tex: Any = None
 
-        # Use StorageConfig for path resolution (single source of truth).
-        # get_weight_path() checks the per-model dir first, then the
-        # deprecated centralized weights_dir. ponytail: do NOT fall back to
-        # the centralized weights_dir — that produced "wrong weight path".
         from runtime.storage import get_storage_config
         storage = get_storage_config()
-        # Use StorageConfig for path resolution (single source of truth).
-        # get_weight_path() checks the per-model dir first, then the
-        # deprecated centralized weights_dir. ponytail: do NOT fall back to
-        # the centralized weights_dir — that produced "wrong weight path".
-        self.repo_name = repo_name
         self.weight_key = model_key
         resolved = storage.get_weight_path(self.weight_key)
         self.weights_dir = Path(resolved) if resolved else storage.get_model_weights_dir(self.repo_name)
-
-    # ── lifecycle ──────────────────────────────────────────────────────────────
 
     def _ensure_loaded(self) -> None:
         if self._model is not None:
@@ -130,17 +57,77 @@ class _HunyuanBase(BaseProvider):
         self._mock_fallback = False
         _log_gpu_memory(f"before_{self.model_key}_load")
         self._load_model()
-        _verify_gpu_placement(self._model, self.model_key)
+        _verify_gpu_placement(self._model, self.model_key, self.device)
         _log_gpu_memory(f"after_{self.model_key}_load")
 
     def _load_model(self) -> None:
         raise NotImplementedError
 
+    def _load_model_with_accelerate(self, pipeline_cls, weight_key: str) -> None:
+        """Load a Hunyuan3D-2 pipeline with Accelerate device dispatch.
+
+        ponytail: Hunyuan3D-2 pipelines expose ``model``, ``vae``, ``conditioner``
+        sub-modules (stored as attributes, not in a ``models`` dict). When VRAM
+        is constrained, dispatch each via Accelerate with an auto device_map so
+        layers can be offloaded to CPU. Falls back to native ``device=device``
+        when Accelerate is unavailable or VRAM is sufficient.
+        """
+        from runtime.accelerate_loader import (
+            accelerate_available,
+            should_use_accelerate,
+            get_max_memory_per_device,
+        )
+        from runtime.capability import get_model_vram_required
+
+        vram_needed = get_model_vram_required(self.model_key)
+
+        if not accelerate_available() or not should_use_accelerate(vram_needed):
+            # Native path — unchanged behavior
+            self._model = pipeline_cls.from_pretrained(
+                str(self.weights_dir), device=self.device
+            )
+            return
+
+        # VRAM constrained — load on CPU, then dispatch
+        from accelerate import dispatch_model, infer_auto_device_map
+        self._model = pipeline_cls.from_pretrained(
+            str(self.weights_dir), device="cpu"
+        )
+
+        max_memory = get_max_memory_per_device()
+        if max_memory is None:
+            # No GPU info — fall back to native device
+            self._model = self._model.to(self.device)
+            return
+
+        offload_folder = self.weights_dir / ".accelerate_offload"
+        sub_models = {}
+        for name in ("vae", "model", "conditioner"):
+            attr = getattr(self._model, name, None)
+            if attr is not None:
+                sub_models[name] = attr
+
+        for name, sub_model in sub_models.items():
+            try:
+                device_map = infer_auto_device_map(
+                    sub_model, max_memory=max_memory, dtype="auto"
+                )
+                dispatch_model(
+                    sub_model,
+                    device_map=device_map,
+                    offload_folder=str(offload_folder),
+                )
+            except Exception as exc:
+                logger.warning("Accelerate dispatch failed for '%s': %s — using .to(device)", name, exc)
+                sub_model.to(self.device)
+
+        logger.info("Hunyuan3D loaded with Accelerate dispatch (offload=%s)", vram_needed > 0)
+
     def unload(self) -> None:
+        from runtime.accelerate_loader import safe_unload
+        safe_unload(self._model, self._tex, provider_name=self.model_key)
         self._model = None
         self._tex = None
-        from runtime.gpu import empty_cuda_cache
-        empty_cuda_cache()
         _log_gpu_memory(f"after_{self.model_key}_unload")
 
     # ── generation ────────────────────────────────────────────────────────────
@@ -250,8 +237,8 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
         try:
             from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
             logger.info("Loading Hunyuan3D-2.1 from %s on %s", self.weights_dir, self.device)
-            self._model = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(
-                str(self.weights_dir), device=self.device
+            self._load_model_with_accelerate(
+                Hunyuan3DDiTFlowMatchingPipeline, "hunyuan3d-2.1"
             )
             logger.info("Hunyuan3D-2.1 loaded successfully on %s", self.device)
         except Exception as exc:
@@ -315,8 +302,8 @@ class Hunyuan3D2LocalProvider(_HunyuanBase):
         try:
             from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
             logger.info("Loading Hunyuan3D-2 from %s on %s", self.weights_dir, self.device)
-            self._model = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(
-                str(self.weights_dir), device=self.device
+            self._load_model_with_accelerate(
+                Hunyuan3DDiTFlowMatchingPipeline, "hunyuan3d-2"
             )
             logger.info("Hunyuan3D-2 loaded successfully on %s", self.device)
         except Exception as exc:

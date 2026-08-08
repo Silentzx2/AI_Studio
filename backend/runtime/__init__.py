@@ -74,19 +74,38 @@ select_device = _lazy_import("runtime.gpu", "select_device")
 StorageConfig = _lazy_import("runtime.storage", "StorageConfig")
 get_storage_config = _lazy_import("runtime.storage", "get_storage_config")
 
+# Accelerate integration — lazy so the runtime package remains importable
+# even when accelerate is not installed in the backend venv.
+accelerate_available = _lazy_import("runtime.accelerate_loader", "accelerate_available")
+dispatch_model_to_device = _lazy_import("runtime.accelerate_loader", "dispatch_model_to_device")
+dispatch_pipeline_models = _lazy_import("runtime.accelerate_loader", "dispatch_pipeline_models")
+cleanup_accelerate_model = _lazy_import("runtime.accelerate_loader", "cleanup_accelerate_model")
+enable_cpu_offload = _lazy_import("runtime.accelerate_loader", "enable_cpu_offload")
+verify_gpu_placement = _lazy_import("runtime.accelerate_loader", "verify_gpu_placement")
+log_gpu_memory = _lazy_import("runtime.accelerate_loader", "log_gpu_memory")
+safe_unload = _lazy_import("runtime.accelerate_loader", "safe_unload")
+
 __all__ = [
     "GPUInfo",
     "GPURequiredError",
     "RuntimeEngine",
     "StorageConfig",
+    "accelerate_available",
+    "cleanup_accelerate_model",
     "check_vram_sufficient",
+    "dispatch_model_to_device",
+    "dispatch_pipeline_models",
     "empty_cuda_cache",
+    "enable_cpu_offload",
     "get_device",
     "get_engine",
     "get_gpu_info",
     "get_storage_config",
     "get_vram_usage",
+    "log_gpu_memory",
     "require_engine",
     "require_gpu",
+    "safe_unload",
     "select_device",
+    "verify_gpu_placement",
 ]

@@ -54,6 +54,12 @@ pynvml>=11.5.0
 pytest==8.3.4
 pytest-asyncio==0.24.0
 
+# Hugging Face Accelerate — big-model inference, memory-aware device dispatch,
+# CPU/disk offloading, and mixed-precision support for local model loading.
+# Installed into the backend venv (where local providers load models in-process).
+# Per-model venvs also receive it via EXTRA_DEPS in runtime/installer.py.
+accelerate>=0.34.0
+
 # NOTE: PyTorch is installed separately in the Dockerfile with CUDA support:
 # uv pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cu121
 # NOTE: xformers is optional — install separately if needed:

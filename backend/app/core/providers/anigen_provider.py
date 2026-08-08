@@ -14,6 +14,7 @@ from typing import Any
 
 from app.core.providers.base import BaseProvider, ProviderResult
 from app.core.managers.vram_tracker import vram_tracker
+from runtime.accelerate_loader import safe_unload
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,6 @@ class AniGenProvider(BaseProvider):
     def __init__(self, device: str = "cuda:0") -> None:
         self.device = device
         self.is_loaded = False
-        self._pipeline = None
         self._smpl_model = None
         logger.info("AniGenProvider initialized on %s", device)
 
@@ -105,16 +105,9 @@ class AniGenProvider(BaseProvider):
     def unload(self) -> None:
         if not self.is_loaded:
             return
-        self._pipeline = None
+        safe_unload(self._smpl_model, provider_name="anigen")
         self._smpl_model = None
-        vram_tracker.deallocate("anigen", reason="anigen_model_unload")
         self.is_loaded = False
-        try:
-            import torch
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-        except Exception:
-            pass
         logger.info("AniGen model unloaded from VRAM.")
 
     async def generate(self, request: Any, output_dir: str, progress_callback: Any = None) -> ProviderResult:

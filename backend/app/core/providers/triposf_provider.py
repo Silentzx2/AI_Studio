@@ -6,6 +6,7 @@ from typing import Any
 from app.core.providers.base import BaseProvider, ProviderResult
 from app.core.managers.vram_tracker import vram_tracker
 from app.core.mesh_processor import write_placeholder_mesh
+from runtime.accelerate_loader import safe_unload
 
 logger = logging.getLogger(__name__)
 
@@ -34,14 +35,8 @@ class TripoSFProvider(BaseProvider):
     def unload(self) -> None:
         if not self.is_loaded:
             return
-        vram_tracker.deallocate("triposf", reason="triposf_model_unload")
+        safe_unload(provider_name="triposf")
         self.is_loaded = False
-        try:
-            import torch
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-        except Exception:
-            pass
         logger.info("TripoSF model unloaded from VRAM.")
 
     async def generate_from_image(self, image_path: str, progress_callback: Any = None, **kwargs) -> str:

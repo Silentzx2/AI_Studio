@@ -18,6 +18,15 @@ interface Task {
 const POLL_INTERVAL = 3000;
 const MAX_RECONNECT_ATTEMPTS = 30;
 
+// ponytail: only poll tasks that map to a real backend generation job (uuid).
+// Local placeholder ids (created before POST returns) and non-generation tasks
+// (download/install/render) would hit /generation/{id}/status and 404 forever.
+const BACKEND_JOB_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isPollableGenerationTask(task: Task): boolean {
+  return task.type === 'generation' && BACKEND_JOB_ID_RE.test(task.id);
+}
+
 function createTaskFromJob(job: { id: string; status: string; progress: number; prompt?: string; mode?: string }): Task {
   return {
     id: job.id,
@@ -77,7 +86,7 @@ export function useTaskManager() {
   const reconnectToRunningTasks = useCallback(async () => {
     const state = useAppStore.getState();
     const runningTasks = Object.values(state.tasks).filter(
-      (t) => t.status === 'running' || t.status === 'queued'
+      (t) => (t.status === 'running' || t.status === 'queued') && isPollableGenerationTask(t)
     );
 
     if (runningTasks.length === 0) return;
@@ -110,7 +119,7 @@ export function useTaskManager() {
     pollIntervalRef.current = setInterval(() => {
       const state = useAppStore.getState();
       const runningTasks = Object.values(state.tasks).filter(
-        (t) => t.status === 'running' || t.status === 'queued'
+        (t) => (t.status === 'running' || t.status === 'queued') && isPollableGenerationTask(t)
       );
 
       if (runningTasks.length === 0) {

@@ -406,14 +406,16 @@ _CUDA_ONLY_PKG_PATTERNS: list[re.Pattern] = [
 ]
 
 
-# ponytail: some repos' requirements.txt omit the actual inference library
+# ponytail: Section 2 — some repos' requirements.txt omit the actual inference library
 # (e.g. Hunyuan3D-2 needs `hy3dgen`, which is published separately). The
 # in-process local providers import from the backend process, so these EXTRA_DEPS
 # are installed into BOTH the per-model venv and the backend venv (via
 # sys.executable) so they resolve regardless of which sys.path the provider uses.
 # Extend per repo as other missing inference libs are discovered.
 EXTRA_DEPS: dict[str, list[str]] = {
-    "Hunyuan3D-2": ["hy3dgen"],
+    "Hunyuan3D-2": ["hy3dgen", "accelerate"],
+    "TRELLIS": ["accelerate"],
+    "TripoSR": ["accelerate"],
 }
 
 

@@ -160,7 +160,12 @@ async def _async_generate(task: Task, job_id: str) -> dict:
         logger.warning("Falling back to direct provider loading with VRAM check")
         # FALLBACK (Issue #6): Use VRAM-aware device selection directly
         try:
-            from runtime.engine import MODEL_VRAM_REQUIREMENTS
+            # BUG-17 FIX: the old fallback path imported an undefined symbol from
+            # runtime.engine that was never defined — the import raised ImportError,
+            # silently caught by the outer except, and vram_needed stayed 0 (no
+            # real check). Use the canonical source: get_model_vram_required()
+            # from runtime.capability.
+            from runtime.capability import get_model_vram_required
             from runtime.gpu import GPURequiredError, get_gpu_info, select_device
 
             gpu_info = get_gpu_info()
@@ -181,7 +186,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                         job_check = result.scalar_one_or_none()
                         if job_check:
                             provider_name = job_check.provider
-                            vram_needed = MODEL_VRAM_REQUIREMENTS.get(provider_name, 0)
+                            vram_needed = get_model_vram_required(provider_name)
                 except Exception:
                     pass
 

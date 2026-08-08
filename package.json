@@ -72,6 +72,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@reticlehq/react": "^2.4.0",
     "@tailwindcss/postcss": "4.1.11",
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.3.3",
