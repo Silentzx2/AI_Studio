@@ -5,6 +5,7 @@ from typing import Any
 
 from app.core.providers.base import BaseProvider, ProviderResult
 from app.core.managers.vram_tracker import vram_tracker
+from app.core.mesh_processor import write_placeholder_mesh
 
 logger = logging.getLogger(__name__)
 
@@ -80,12 +81,12 @@ class HoloPartProvider(BaseProvider):
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         glb_path = output_path / "model.glb"
-        glb_path.write_bytes(b"HOLOPART_STANDALONE_GLB")
+        stats = write_placeholder_mesh(glb_path)
         return ProviderResult(
             model_path=str(glb_path),
             thumbnail_path="",
-            polygon_count=20000,
-            vertex_count=10000,
+            polygon_count=stats["polygon_count"],
+            vertex_count=stats["vertex_count"],
             texture_resolution="4096x4096",
             has_rig=False,
             file_size=glb_path.stat().st_size,

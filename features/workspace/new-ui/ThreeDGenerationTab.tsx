@@ -13,6 +13,7 @@ import {
   Box, Eye, Move, RotateCw, ZoomIn, Grid3X3, Sun, Focus,
   Sliders, Shield, Cpu, RefreshCw, FolderOpen, Info, Lock, ArrowRight,
   Activity, SlidersHorizontal, Settings, CheckSquare, X, ListFilter, Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 
 import { useGenerationStore } from '@/stores/useGenerationStore';
@@ -58,7 +59,9 @@ const LOCAL_MODELS = [
       objects: '12',
       materials: '8',
       size: '128 MB',
-    }
+    },
+    colab_incompatible: false,
+    colab_skip_reason: null,
   },
   {
     id: 'hunyuan3d-2',
@@ -82,7 +85,9 @@ const LOCAL_MODELS = [
       objects: '1',
       materials: '4',
       size: '72 MB',
-    }
+    },
+    colab_incompatible: false,
+    colab_skip_reason: null,
   }
 ];
 
@@ -275,6 +280,8 @@ export default function ThreeDGenerationTab({
           materials: '0',
           size: '0 MB',
         },
+        colab_incompatible: m.colab_incompatible ?? local?.colab_incompatible ?? false,
+        colab_skip_reason: m.colab_skip_reason ?? local?.colab_skip_reason ?? null,
       };
     });
   }, [workspaceModels, workspaceModelsError]);

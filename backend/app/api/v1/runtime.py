@@ -227,6 +227,22 @@ async def get_runtime_options():
         except Exception as pipeline_exc:
             logger.warning("Could not merge pipeline models into runtime options: %s", pipeline_exc)
 
+        # ponytail: Overlay authoritative on-disk install state so PROVIDER_METADATA
+        # models (which skip the registry merge due to seen_ids) still report
+        # installed/status correctly.
+        try:
+            from runtime.installer import get_install_status
+            install_status = get_install_status()
+            install_map = {str(k).lower(): v for k, v in install_status.items()}
+            for m in three_d_models:
+                mid = str(m.get("id", "")).lower()
+                ist = install_map.get(mid)
+                if ist:
+                    m["installed"] = bool(ist.get("installed", m.get("installed", False)))
+                    m["status"] = ist.get("status") or m.get("status") or ("ready" if m["installed"] else "not_installed")
+        except Exception as install_exc:
+            logger.warning("Could not overlay install state into runtime options: %s", install_exc)
+
         gpu_options = [{"id": "cpu", "label": "CPU Only"}]
         if gpu.available:
             for dev in gpu.devices:

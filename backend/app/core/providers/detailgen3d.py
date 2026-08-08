@@ -5,6 +5,7 @@ from typing import Any
 
 from app.core.providers.base import BaseProvider, ProviderResult
 from app.core.managers.vram_tracker import vram_tracker
+from app.core.mesh_processor import write_placeholder_mesh
 
 logger = logging.getLogger(__name__)
 
@@ -62,10 +63,10 @@ class DetailGen3DProvider(BaseProvider):
 
         refined_path = coarse_path.parent / f"{coarse_path.stem}_detailed.glb"
         try:
-            # ponytail: mock detailing process. We simply write/rename/copy the coarse mesh with some dummy extra details.
-            # In production, this runs actual DetailGen3D inference to enhance the geometry.
-            content = coarse_path.read_bytes()
-            refined_path.write_bytes(content + b"\n_DETAILED_DETAILS_")
+            # ponytail: mock detailing process. We simply copy the coarse mesh — appending
+            # junk bytes above would corrupt the GLB container. In production, this runs
+            # actual DetailGen3D inference to enhance the geometry.
+            refined_path.write_bytes(coarse_path.read_bytes())
             logger.info("DetailGen3D refinement complete: %s", refined_path)
             return str(refined_path)
         except Exception as exc:
@@ -78,12 +79,12 @@ class DetailGen3DProvider(BaseProvider):
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         glb_path = output_path / "model.glb"
-        glb_path.write_bytes(b"DETAILGEN_STANDALONE_GLB")
+        stats = write_placeholder_mesh(glb_path)
         return ProviderResult(
             model_path=str(glb_path),
             thumbnail_path="",
-            polygon_count=20000,
-            vertex_count=10000,
+            polygon_count=stats["polygon_count"],
+            vertex_count=stats["vertex_count"],
             texture_resolution="4096x4096",
             has_rig=False,
             file_size=glb_path.stat().st_size,

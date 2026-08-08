@@ -5,6 +5,7 @@ from typing import Any
 
 from app.core.providers.base import BaseProvider, ProviderResult
 from app.core.managers.vram_tracker import vram_tracker
+from app.core.mesh_processor import write_placeholder_mesh
 
 logger = logging.getLogger(__name__)
 
@@ -64,8 +65,9 @@ class UniRigProvider(BaseProvider):
         try:
             # ponytail: mock rigging process. In production, this runs actual UniRig inference
             # to generate a skeleton, bind skin weights, and produce a rigged GLB.
-            content = mesh_path.read_bytes()
-            rigged_path.write_bytes(content + b"\n_UNIRIG_SKELETON_SKIN_")
+            # Keep the file a valid GLB (a copy) — appending raw bytes corrupts the
+            # container and the viewer rejects it as "invalid GLB".
+            rigged_path.write_bytes(mesh_path.read_bytes())
             logger.info("UniRig rigging complete: %s", rigged_path)
             return str(rigged_path)
         except Exception as exc:
@@ -78,12 +80,12 @@ class UniRigProvider(BaseProvider):
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         glb_path = output_path / "model.glb"
-        glb_path.write_bytes(b"UNIRIG_STANDALONE_GLB")
+        stats = write_placeholder_mesh(glb_path)
         return ProviderResult(
             model_path=str(glb_path),
             thumbnail_path="",
-            polygon_count=20000,
-            vertex_count=10000,
+            polygon_count=stats["polygon_count"],
+            vertex_count=stats["vertex_count"],
             texture_resolution="4096x4096",
             has_rig=True,
             file_size=glb_path.stat().st_size,

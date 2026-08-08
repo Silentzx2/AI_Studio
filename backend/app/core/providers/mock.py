@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from app.core.providers.base import BaseProvider, ProviderResult
+from app.core.mesh_processor import write_placeholder_mesh
 
 logger = logging.getLogger(__name__)
 
@@ -23,17 +24,17 @@ class MockProvider(BaseProvider):
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         mock_glb = output_path / "model.glb"
-        mock_glb.write_bytes(b"GLB_PLACEHOLDER")
+        stats = write_placeholder_mesh(mock_glb)
         if progress_callback:
             await progress_callback(100, "complete", "Mock model created.")
         return ProviderResult(
             model_path=str(mock_glb),
             thumbnail_path="",
-            polygon_count=1000,
-            vertex_count=500,
+            polygon_count=stats["polygon_count"],
+            vertex_count=stats["vertex_count"],
             texture_resolution=None,
             has_rig=False,
-            file_size=mock_glb.stat().st_size,
+            file_size=stats["file_size"],
             metadata={"provider": "mock", "device": self.device},
         )
 

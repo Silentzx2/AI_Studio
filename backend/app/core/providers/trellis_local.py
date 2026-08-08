@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from app.core.providers.base import BaseProvider, ProviderResult
+from app.core.mesh_processor import get_mesh_stats, write_placeholder_mesh
 from app.schemas.generation import GenerationRequest
 
 logger = logging.getLogger(__name__)
@@ -154,16 +155,15 @@ class TRELLISLocalProvider(BaseProvider):
             out = Path(output_dir)
             out.mkdir(parents=True, exist_ok=True)
             mesh_path = str(out / "model.glb")
-            with open(mesh_path, "wb") as f:
-                f.write(b"GLB_PLACEHOLDER")
+            stats = write_placeholder_mesh(mesh_path)
             return ProviderResult(
                 model_path=mesh_path,
                 thumbnail_path="",
-                polygon_count=2200,
-                vertex_count=1100,
+                polygon_count=stats["polygon_count"],
+                vertex_count=stats["vertex_count"],
                 texture_resolution="2048x2048" if request.generate_texture else None,
                 has_rig=False,
-                file_size=len(b"GLB_PLACEHOLDER"),
+                file_size=stats["file_size"],
                 metadata={"provider": self.name, "device": self.device, "simulated": True},
             )
 

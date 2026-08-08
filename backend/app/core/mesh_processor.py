@@ -3,7 +3,11 @@ Post-process generated meshes using trimesh/open3d/PyMeshLab.
 Runs cleanup, decimation, UV unwrap repair, and thumbnail rendering.
 """
 import logging
+import random
 from pathlib import Path
+from typing import Any
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +18,36 @@ def _try_import_trimesh():
         return trimesh
     except ImportError:
         return None
+
+
+def write_placeholder_mesh(glb_path: str, seed: int | None = None) -> dict[str, Any]:
+    """Write a *valid, viewable* placeholder GLB.
+
+    Provider fallbacks that have no real inference available (no GPU, weights
+    not installed) used to write raw bytes named ``.glb``, which GLTFLoaders in
+    the viewer reject with "invalid GLB". This emits a real, parseable GLB: a
+    low-poly lumpy icosphere whose shape varies with ``seed``.
+
+    ponytail: still a placeholder — the whole "simulated" provider path stays.
+    Upgrading to real meshes means swapping the caller to per-model subprocess
+    inference (see the model pipeline rules); this keeps that swap invisible to
+    the UI.
+    """
+    trimesh = _try_import_trimesh()
+    if trimesh is None:
+        raise RuntimeError("trimesh not installed; cannot emit a valid placeholder GLB")
+
+    rng = random.Random(seed)
+    base = trimesh.creation.icosphere(subdivisions=2, radius=1.0)
+    jitter = 1.0 + 0.12 * rng.uniform(-1.0, 1.0)
+    squash = np.array([rng.uniform(0.85, 1.0), 1.0, rng.uniform(0.85, 1.0)])
+    mesh = trimesh.Trimesh(vertices=(base.vertices * jitter) * squash[None, :], faces=base.faces)
+    mesh.export(str(glb_path), file_type="glb")
+    return {
+        "polygon_count": len(mesh.faces),
+        "vertex_count": len(mesh.vertices),
+        "file_size": Path(glb_path).stat().st_size,
+    }
 
 
 def clean_mesh(input_path: str, output_path: str, target_faces: int | None = None) -> dict:

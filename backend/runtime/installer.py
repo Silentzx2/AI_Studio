@@ -870,6 +870,7 @@ def download_weights(
         return {"success": False, "error": f"No HF model config for: {provider_name}"}
 
     storage = get_storage_config()
+    size_gb = model_cfg["size_estimate_gb"]
     existing = storage.get_weight_path(provider_name)
     if existing:
         # ponytail: Verify integrity — check that the weights directory has
