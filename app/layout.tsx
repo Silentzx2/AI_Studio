@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { Providers } from "@/lib/providers";
 import { AppearanceProvider } from "@/components/AppearanceProvider";
+import { ReticleDev } from "@/app/reticle-dev";
 import "./globals.css";
 
 const inter = Inter({
@@ -74,6 +75,7 @@ export default function RootLayout({
           aria-hidden="true"
         />
         <AppearanceProvider>
+          {process.env.NODE_ENV === "development" && <ReticleDev />}
           <Providers>
             <div className="relative z-10 min-h-screen flex flex-col">
               {children}

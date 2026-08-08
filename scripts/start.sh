@@ -203,16 +203,17 @@ echo ""
 
 # ── Auto-start Reticle server (dev-only) ─────────────────────────────────────
 if [[ "$RETICLE_ENABLED" == "true" ]]; then
+    mkdir -p "$PID_DIR"
     RETICLE_PID_FILE="$PID_DIR/reticle.pid"
     if ! [[ -f "$RETICLE_PID_FILE" ]] || ! kill -0 "$(cat "$RETICLE_PID_FILE" 2>/dev/null)" 2>/dev/null; then
-        info "Starting Reticle observer daemon (localhost:7777)..."
-        npx @reticlehq/server serve --port 7777 --host 127.0.0.1 \
+        info "Starting Reticle observer daemon (localhost:4400)..."
+        npx @reticlehq/server serve --port 4400 --host 127.0.0.1 \
             > "$PROJECT_ROOT/logs/reticle.log" 2>&1 &
         write_pid "$RETICLE_PID_FILE" $!
         sleep 1
-        if curl -sf http://localhost:7777/health &>/dev/null; then
+        if curl -sf http://localhost:4400/health &>/dev/null; then
             log "Reticle observer running (PID: $(cat $RETICLE_PID_FILE))"
-            info "Connect dashboard: npx @reticlehq/server status --port 7777"
+            info "Dashboard: npx @reticlehq/server status --port 4400"
         else
             warn "Reticle observer starting — check logs/reticle.log in a few seconds"
         fi
@@ -491,7 +492,7 @@ echo -e "    Frontend       http://localhost:3000  (${FRONTEND_LABEL})"
 echo -e "    Backend API    http://localhost:8000"
 echo -e "    API Docs       http://localhost:8000/docs"
 if [[ "$RETICLE_ENABLED" == "true" ]]; then
-    echo -e "    Reticle        http://localhost:9000  (connect: reticle connect --port 7777)"
+    echo -e "    Reticle        http://localhost:4400  (daemon bridge)"
 fi
 echo ""
 echo -e "  ${BOLD}Logs:${NC}"
