@@ -53,6 +53,8 @@ class ReticleMiddleware:
                 logger.info("Reticle observer listening on %s:%d", bind_address, port)
             except Exception as exc:
                 logger.warning("Reticle middleware init failed (%s) — using fallback", exc)
+        else:
+            logger.info("Reticle fallback observer on %s:%d (reticle-server not installed)", bind_address, port)
 
     async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
         if self._real_middleware is not None:

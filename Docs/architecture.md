@@ -545,6 +545,11 @@ router.include_router(rigging_router)        # /rigging/*
 - Bridge: localhost:7777 (internal, never exposed)
 - Dashboard: `npm i -g @reticlehq/cli` → `reticle connect --port 7777`
 
+**Next.js + FastAPI proxy chain**:
+- Frontend (Next.js :3000) proxies API calls via `app/api/v1/[...path]/route.ts` → `BACKEND_URL`
+- Reticle observes both the Next.js client-side SDK calls AND the FastAPI backend requests
+- Network Tab shows full round-trip: frontend → proxy → FastAPI → response
+
 **Environment gating**:
 - Dev: Reticle middleware + SDK active
 - Prod: Tree-shaken out of build, zero runtime cost
