@@ -1,45 +1,59 @@
-"""Dev-only observability middleware — bridges to Reticle.
+"""Dev-only observability middleware — supplementary server-side tracing.
 
-Wraps the Reticle observer (localhost:7777) so the backend emits
-request traces during local development. In production the middleware
-is a transparent no-op — zero runtime cost, zero bundle impact.
+Works alongside Reticle (localhost:4400) but provides additional server-side
+visibility that the browser SDK cannot see: backend-internal timing, server-side
+errors, and traces for API calls made server-to-server (not from the browser).
 
-Uses a local observer server (backend/app/reticle_observer.py) written in
-Python stdlib — no external dependencies required.
+Events are pushed to the local observer server (localhost:7777) which the
+developer can query via:
+    curl http://localhost:7777/events
+
+In production, this middleware is not added to the app at all.
 """
 from __future__ import annotations
 
 import time
 import logging
-from typing import Any, Awaitable, Callable
+from typing import Any, Callable
 
-from app.reticle_observer import add_event, start_observer
+from app.reticle_observer import add_event
 
 logger = logging.getLogger(__name__)
 
 
 class ReticleMiddleware:
-    """Dev-only middleware that traces HTTP requests to the Reticle observer.
+    """Dev-only ASGI middleware that traces HTTP requests.
 
-    Inserts itself into the FastAPI/ASGI middleware chain (after CORS, before
-    routes) and pushes request/response metadata to the localhost:7777 observer
-    server. In production the middleware is not added to the app at all.
+    Inserts into the FastAPI middleware chain (after CORS, before routes)
+    and records request metadata to the local observer server.
+
+    Note: Reticle's browser SDK already captures network requests client-side.
+    This middleware adds server-side visibility for cases where the browser SDK
+    cannot observe (e.g. cron-triggered API calls, internal service-to-service
+    requests, server-side errors).
     """
 
-    _observer_started: bool = False
+    _started: bool = False
 
     def __init__(self, app: Callable, port: int = 7777, bind_address: str = "127.0.0.1") -> None:
         self.app = app
         self.port = port
         self.bind_address = bind_address
 
-        if not ReticleMiddleware._observer_started:
-            observer = start_observer(host=bind_address, port=port)
-            if observer is not None and observer.is_running():
-                ReticleMiddleware._observer_started = True
-                logger.info("Reticle observer listening on %s:%d", bind_address, port)
-            else:
-                logger.info("Reticle observer on %s:%d (middleware tracing active, no server)", bind_address, port)
+        if not ReticleMiddleware._started:
+            try:
+                from app.reticle_observer import start_observer
+                obs = start_observer(host=bind_address, port=port)
+                if obs is not None and obs.is_running():
+                    ReticleMiddleware._started = True
+                    logger.info("Server-side observer running on %s:%d", bind_address, port)
+                else:
+                    logger.info(
+                        "Server-side observer bind failed on %s:%d — middleware logging only",
+                        bind_address, port,
+                    )
+            except Exception as exc:
+                logger.warning("Reticle middleware observer init failed: %s", exc)
 
     async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
         if scope["type"] != "http":
@@ -62,10 +76,13 @@ class ReticleMiddleware:
         elapsed_ms = (time.perf_counter() - start) * 1000
         status_code = captured_status[0] if captured_status else 0
 
-        add_event({
-            "type": "http_request",
-            "method": method,
-            "path": path,
-            "status": status_code,
-            "duration_ms": round(elapsed_ms, 1),
-        })
+        try:
+            add_event({
+                "type": "http_request",
+                "method": method,
+                "path": path,
+                "status": status_code,
+                "duration_ms": round(elapsed_ms, 1),
+            })
+        except Exception:
+            pass

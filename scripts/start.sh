@@ -201,19 +201,25 @@ echo ""
 info "Mode: ${START_MODE} | Reticle: ${RETICLE_ENABLED} | Frontend: ${FRONTEND_LABEL}"
 echo ""
 
+# ── PID file directory ─────────────────────────────────────────────────────
+PID_DIR="${PROJECT_ROOT}/.pids"
+mkdir -p "$PID_DIR"
+
+# ── Logs directory ─────────────────────────────────────────────────────────
+mkdir -p "${PROJECT_ROOT}/logs"
+
 # ── Auto-start Reticle server (dev-only) ─────────────────────────────────────
 if [[ "$RETICLE_ENABLED" == "true" ]]; then
-    mkdir -p "$PID_DIR"
     RETICLE_PID_FILE="$PID_DIR/reticle.pid"
     if ! [[ -f "$RETICLE_PID_FILE" ]] || ! kill -0 "$(cat "$RETICLE_PID_FILE" 2>/dev/null)" 2>/dev/null; then
         info "Starting Reticle observer daemon (localhost:4400)..."
-        npx @reticlehq/server serve --port 4400 --host 127.0.0.1 \
+        npx @reticlehq/server serve --port 4400 \
             > "$PROJECT_ROOT/logs/reticle.log" 2>&1 &
         write_pid "$RETICLE_PID_FILE" $!
-        sleep 1
-        if curl -sf http://localhost:4400/health &>/dev/null; then
+        sleep 2
+        if npx @reticlehq/server status --port 4400 2>/dev/null | grep -q '"running":true'; then
             log "Reticle observer running (PID: $(cat $RETICLE_PID_FILE))"
-            info "Dashboard: npx @reticlehq/server status --port 4400"
+            info "View traces: npx @reticlehq/server status --port 4400"
         else
             warn "Reticle observer starting — check logs/reticle.log in a few seconds"
         fi
@@ -250,13 +256,6 @@ if ! command -v npm &>/dev/null; then
     fi
 fi
 
-
-# ── PID file directory ─────────────────────────────────────────────────────
-PID_DIR="${PROJECT_ROOT}/.pids"
-mkdir -p "$PID_DIR"
-
-# ── Logs directory ─────────────────────────────────────────────────────────
-mkdir -p "${PROJECT_ROOT}/logs"
 
 # ── Clean stale per-model install locks ─────────────────────────────────────
 # Remove orphaned .installing.lock files left by interrupted installs (no .git)
