@@ -152,6 +152,26 @@ async def create_generation(req: GenerationRequest):
     provider = req.provider or settings.ai_provider
     now = datetime.utcnow()
 
+    # Colab VRAM guard: block generation for models that exceed the Colab
+    # preparation limit so we don't silently OOM and crash the runtime.
+    try:
+        from runtime.capability import get_colab_incompatibility_reason  # noqa: PLC0415
+        reason = get_colab_incompatibility_reason(provider)
+        if reason:
+            logger.warning("Blocked Colab-incompatible generation: provider=%s reason=%s", provider, reason)
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"This model requires more VRAM than the current Google Colab runtime "
+                    f"is designed to provide. Running it may cause GPU OOM, process "
+                    f"termination, or runtime crash.\n\n{reason}"
+                ),
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        pass  # Soft fail: don't block generation if capability check errors
+
     # Validate workspace/provider compatibility if workspace is specified
     if req.workspace:
         try:
@@ -240,6 +260,42 @@ async def create_generation(req: GenerationRequest):
         },
         "Generation job queued.",
     )
+
+
+@router.post("/{job_id}/cancel")
+async def cancel_generation(job_id: str):
+    """Cancel a generation job.
+
+    Marks the job as cancelled in the DB (single source of truth). The worker
+    checks the status at each progress/stage boundary and stops; the frontend
+    stops polling. ponytail: we mark the DB row instead of faking cancellation
+    only on the client — the model process would otherwise keep running server-side.
+    """
+    from app.database import AsyncSessionLocal
+    from app.models.job import GenerationJob
+
+    try:
+        async with AsyncSessionLocal() as session:
+            from sqlalchemy import select
+            result = await session.execute(
+                select(GenerationJob).where(GenerationJob.id == job_id)
+            )
+            job = result.scalar_one_or_none()
+            if not job:
+                raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+            if job.status in ("completed", "failed", "cancelled"):
+                return success({"job_id": job_id, "status": job.status})
+            job.status = "cancelled"
+            job.stage = "cancelled"
+            job.updated_at = datetime.utcnow()
+            await session.commit()
+        logger.info("Generation job %s cancelled", job_id)
+        return success({"job_id": job_id, "status": "cancelled"})
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to cancel generation job %s", job_id)
+        return error(f"Failed to cancel job: {exc}")
 
 
 # FIX: This now comes AFTER /history so it's not shadowed

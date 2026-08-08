@@ -1,19 +1,40 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Square, Zap } from 'lucide-react';
+import { Sparkles, Square, Zap, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useGeneration } from '@/hooks/useGeneration';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 import { cn } from '@/lib/utils';
+import { useEffect, useState } from 'react';
+import { runtimeService } from '@/services/runtimeService';
 
 export function GenerateButton() {
   const { generate, cancel, isGenerating, currentJob } = useGeneration();
-  const { mode, prompt, uploadedImage, quality, generateTexture, autoRig } = useGenerationStore();
+  const { mode, prompt, uploadedImage, quality, generateTexture, autoRig, selectedModel } = useGenerationStore();
+  const [colabIncompatible, setColabIncompatible] = useState(false);
+  const [colabReason, setColabReason] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    runtimeService.getOptions().then((opts) => {
+      if (cancelled || !opts) return;
+      const model = opts.three_d_models.find((m) => m.id === selectedModel);
+      if (model?.colab_incompatible) {
+        setColabIncompatible(true);
+        setColabReason(model.colab_skip_reason || 'Model incompatible with current runtime');
+      } else {
+        setColabIncompatible(false);
+        setColabReason(null);
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [selectedModel]);
 
   const isDisabled = !isGenerating && (
     (mode === 'text-to-3d' && !prompt.trim()) ||
-    (mode === 'image-to-3d' && !uploadedImage)
+    (mode === 'image-to-3d' && !uploadedImage) ||
+    colabIncompatible
   );
 
   const CREDIT_MAP: Record<string, number> = { 'low-poly': 10, 'standard': 20, 'high-poly': 50 };
@@ -51,6 +72,17 @@ export function GenerateButton() {
         )}
       </AnimatePresence>
 
+      {colabIncompatible && (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-[hsl(var(--neon-amber)/0.1)] border border-[hsl(var(--neon-amber)/0.3)] text-[11px] text-[hsl(var(--neon-amber))]">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span>
+            This model requires more VRAM than the current Google Colab runtime is designed to provide.
+            Running it may cause GPU OOM, process termination, or runtime crash.
+            {colabReason && <span className="block text-[10px] opacity-80 mt-0.5">{colabReason}</span>}
+          </span>
+        </div>
+      )}
+
       <div className="flex gap-2">
         <div className="relative flex-1 glow-border-animated rounded-xl">
           <Button
@@ -60,15 +92,17 @@ export function GenerateButton() {
               'relative flex-1 w-full h-11 font-semibold text-sm transition-all duration-300 rounded-xl overflow-hidden group',
               isGenerating
                 ? 'bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/25 hover:border-destructive/40'
-                : 'bg-gradient-to-r from-[hsl(var(--neon-purple))] via-[hsl(var(--neon-purple)/0.9)] to-[hsl(var(--neon-blue))] hover:shadow-[0_0_30px_hsl(var(--neon-purple)/0.4),0_0_60px_hsl(var(--neon-blue)/0.2),0_0_80px_hsl(var(--neon-purple)/0.1)] hover:scale-[1.02] active:scale-[0.98] text-white border border-[hsl(var(--neon-purple)/0.2)]',
+                : colabIncompatible
+                  ? 'bg-[hsl(var(--neon-amber)/0.1)] text-[hsl(var(--neon-amber))] border border-[hsl(var(--neon-amber)/0.3)] cursor-not-allowed'
+                  : 'bg-gradient-to-r from-[hsl(var(--neon-purple))] via-[hsl(var(--neon-purple)/0.9)] to-[hsl(var(--neon-blue))] hover:shadow-[0_0_30px_hsl(var(--neon-purple)/0.4),0_0_60px_hsl(var(--neon-blue)/0.2),0_0_80px_hsl(var(--neon-purple)/0.1)] hover:scale-[1.02] active:scale-[0.98] text-white border border-[hsl(var(--neon-purple)/0.2)]',
               isDisabled && 'opacity-30 cursor-not-allowed shadow-none hover:shadow-none grayscale-[0.3] border-dashed hover:scale-100'
             )}
-            style={!isDisabled && !isGenerating ? {
+            style={!isDisabled && !isGenerating && !colabIncompatible ? {
               boxShadow: '0 0 15px hsl(var(--neon-purple) / 0.25), 0 0 40px hsl(var(--neon-purple) / 0.1)',
             } : undefined}
           >
             {/* Shimmer/shine effect */}
-            {!isDisabled && !isGenerating && (
+            {!isDisabled && !isGenerating && !colabIncompatible && (
               <span className="absolute inset-0 overflow-hidden rounded-xl">
                 <span className="absolute inset-0 -translate-x-full animate-[shine-sweep_3s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/[0.15] to-transparent" />
               </span>
@@ -86,6 +120,8 @@ export function GenerateButton() {
             <span className="relative z-10 flex items-center justify-center gap-2">
               {isGenerating ? (
                 <><Square className="w-4 h-4" /> Cancel Generation</>
+              ) : colabIncompatible ? (
+                <><AlertTriangle className="w-4 h-4" /> Model Unavailable on Colab</>
               ) : (
                 <><Sparkles className="w-4 h-4 transition-transform duration-300 group-hover:rotate-12 group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]" /> Generate 3D Model</>
               )}

@@ -364,6 +364,8 @@ export default function ThreeDGenerationTab({
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
 
+  const isColabIncompatible = Boolean(activeModel?.colab_incompatible);
+
   // Drag-and-drop reference image local overlay states
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -803,17 +805,29 @@ export default function ThreeDGenerationTab({
           )}
 
           {/* Generate 3D Model Button */}
+          {isColabIncompatible && (
+            <div className="w-full flex items-center gap-2 p-3 rounded-xl bg-[hsl(var(--neon-amber)/0.1)] border border-[hsl(var(--neon-amber)/0.3)] text-[11px] text-[hsl(var(--neon-amber))]">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>
+                This model requires more VRAM than the current Google Colab runtime is designed to provide.
+                Running it may cause GPU OOM, process termination, or runtime crash.
+              </span>
+            </div>
+          )}
           <button
             onClick={isGenerating ? cancel : generate}
             className={`w-full font-black py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-[0_4px_24px_rgba(245,166,35,0.15)] ${
               isGenerating
                  ? 'bg-[hsl(var(--neon-pink))] hover:brightness-110 text-[hsl(var(--foreground))] shadow-[0_4px_24px_rgba(225,29,72,0.15)]'
+                : isColabIncompatible
+                  ? 'bg-[hsl(var(--surface-1))] text-[hsl(var(--muted-foreground))] cursor-not-allowed border border-[hsl(var(--border))/0.5]'
                 : 'bg-[hsl(var(--primary))] hover:brightness-110 text-[hsl(var(--surface-0))] active:scale-[0.98]'
             }`}
             id="workspace-trigger-generation-btn"
+            disabled={isColabIncompatible}
           >
             <Sparkles size={14} className={isGenerating ? "" : "fill-current"} />
-            {isGenerating ? 'Cancel Generation' : 'Generate 3D Model'}
+            {isGenerating ? 'Cancel Generation' : isColabIncompatible ? 'Model Unavailable on Colab' : 'Generate 3D Model'}
           </button>
         </div>
       </aside>

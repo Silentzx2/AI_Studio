@@ -894,10 +894,14 @@ def download_weights(
     size_gb = model_cfg["size_estimate_gb"]
     size_bytes = int(size_gb * 1024 ** 3)
 
-    # ponytail: weights now live inside the model's repo folder
+    # ponytail: weights live inside the model's repo folder under a per-model
+    # subdir keyed by the weight_key. This keeps models that share a repo
+    # (hunyuan3d-2.1 + hunyuan3d-2 both map to "Hunyuan3D-2") isolated —
+    # previously they collapsed into one shared flat weights dir and
+    # get_weight_path() could not tell them apart.
     meta = PROVIDER_METADATA.get(provider_name, {})
     repo_name = meta.get("repo", provider_name)
-    local_dir = storage.get_repo_path(repo_name) / "weights"
+    local_dir = storage.get_repo_path(repo_name) / "weights" / provider_name
     local_dir.mkdir(parents=True, exist_ok=True)
 
     # Accurate, real-bytes progress via HuggingFace's progress callback.

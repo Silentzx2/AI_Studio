@@ -69,7 +69,8 @@ def _models_from_installer() -> list[dict[str, Any]]:
     empty in this deployment (installs run through runtime.installer and write
     to disk/state json, not the DB). get_install_status() is the authoritative
     source for what is actually installed on disk (it checks the filesystem),
-    so we fall back to it to populate the workspace model list.
+    so we overlay it onto the registry/manifest models to surface the real
+    install state.
     """
     from runtime.installer import get_install_status
 
@@ -80,8 +81,6 @@ def _models_from_installer() -> list[dict[str, Any]]:
         return out
     for name, st in status.items():
         meta = st.get("metadata") or {}
-        if meta.get("category") != "3d_generation":
-            continue
         out.append({
             "id": name,
             "label": meta.get("label") or name,
@@ -89,6 +88,7 @@ def _models_from_installer() -> list[dict[str, Any]]:
             "category": meta.get("category") or "unknown",
             "installed": bool(st.get("installed", False)),
             "available": bool(st.get("installed", False)),
+            "status": "ready" if st.get("installed") else "not_installed",
             "supports_text_to_3d": meta.get("supports_text_to_3d", False),
             "supports_image_to_3d": meta.get("supports_image_to_3d", False),
             "supports_texture": meta.get("supports_texture", False),
@@ -98,6 +98,41 @@ def _models_from_installer() -> list[dict[str, Any]]:
             "repo": meta.get("repo"),
         })
     return out
+
+
+def _overlay_install_state(merged: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Overlay the authoritative on-disk install state onto merged models.
+
+    Merges per model id so the hardcoded manifest wins for display metadata
+    while install/ready status comes from runtime.installer (filesystem truth).
+    """
+    for m in _models_from_installer():
+        mid = str(m["id"]).lower()
+        if mid not in merged:
+            merged[mid] = m
+        else:
+            merged[mid] = {**merged[mid], "installed": m["installed"], "status": m["status"]}
+    return merged
+
+
+def _enrich_with_colab(models: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Add colab_incompatible and colab_skip_reason to each model dict."""
+    try:
+        from runtime.capability import get_colab_incompatibility_reason  # noqa: PLC0415
+        enriched = []
+        for m in models:
+            mm = dict(m)
+            reason = get_colab_incompatibility_reason(mm.get("id", ""))
+            if reason:
+                mm["colab_incompatible"] = True
+                mm["colab_skip_reason"] = reason
+            else:
+                mm["colab_incompatible"] = False
+                mm["colab_skip_reason"] = None
+            enriched.append(mm)
+        return enriched
+    except Exception:
+        return models
 
 
 @router.get("")
@@ -116,14 +151,12 @@ async def list_pipelines() -> dict[str, Any]:
         merged[model_id] = {**merged.get(model_id, {}), **model}
 
     # ponytail: ModelRegistry reads the DB `installed_models` table, which is
-    # empty here (installs go through runtime.installer → disk/state). Fall back
-    # to get_install_status() so the pipeline list is actually populated.
-    if not merged:
-        for m in _models_from_installer():
-            merged[m["id"]] = m
+    # empty here (installs go through runtime.installer → disk/state). Overlay
+    # get_install_status() so installed/ready reflects on-disk truth.
+    merged = _overlay_install_state(merged)
 
     enabled_map = _load_enabled_map()
-    snapshot = build_pipeline_snapshot(merged.values(), enabled_map)
+    snapshot = build_pipeline_snapshot(_enrich_with_colab(list(merged.values())), enabled_map)
 
     return success(
         {
@@ -159,11 +192,9 @@ async def get_workspace_models(workspace: str = Query(...), installed_only: bool
         merged[model_id] = {**merged.get(model_id, {}), **model}
 
     # ponytail: ModelRegistry reads the DB `installed_models` table, which is
-    # empty here (installs go through runtime.installer → disk/state). Fall back
-    # to get_install_status() so the workspace model list is actually populated.
-    if not merged:
-        for m in _models_from_installer():
-            merged[m["id"]] = m
+    # empty here (installs go through runtime.installer → disk/state). Overlay
+    # get_install_status() so installed/ready reflects on-disk truth.
+    merged = _overlay_install_state(merged)
 
     models = list(merged.values())
     if installed_only:
@@ -171,7 +202,7 @@ async def get_workspace_models(workspace: str = Query(...), installed_only: bool
 
     compatible = filter_by_workspace(models, workspace)
     enabled_map = _load_enabled_map()
-    snapshot = build_pipeline_snapshot(compatible, enabled_map)
+    snapshot = build_pipeline_snapshot(_enrich_with_colab(compatible), enabled_map)
     return success(snapshot)
 
 
@@ -195,7 +226,7 @@ async def toggle_pipeline(model_id: str, payload: PipelineToggleRequest) -> dict
     for model in available + installed:
         merged[str(model.get("id", "")).lower()] = {**merged.get(str(model.get("id", "")).lower(), {}), **model}
 
-    snapshot = build_pipeline_snapshot(merged.values(), enabled_map)
+    snapshot = build_pipeline_snapshot(_enrich_with_colab(list(merged.values())), enabled_map)
     return success(
         {
             "model_id": model_id_norm,

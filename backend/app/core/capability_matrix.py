@@ -154,6 +154,8 @@ def build_pipeline_snapshot(
             "repo": model.get("manifest", {}).get("runtime", {}).get("repo") or model.get("repo"),
             "weight_key": model.get("manifest", {}).get("runtime", {}).get("weight_key") or model.get("weight_key"),
             "notes": model.get("notes") or [],
+            "colab_incompatible": bool(model.get("colab_incompatible")),
+            "colab_skip_reason": model.get("colab_skip_reason"),
         })
 
     features = compute_enabled_features(model_list, enabled_map)

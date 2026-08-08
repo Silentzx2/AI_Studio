@@ -11,26 +11,12 @@ import logging
 import os
 from typing import Any
 
+from runtime.capability import get_model_vram_required
 from runtime.gpu import get_device, get_gpu_info, select_device
 from runtime.storage import get_storage_config
 
 logger = logging.getLogger(__name__)
 
-MODEL_VRAM_REQUIREMENTS: dict[str, int] = {
-    "hunyuan3d": 16_000,
-    "hunyuan3d-1.0": 16_000,
-    "hunyuan3d-2.1": 16_000,
-    "hunyuan3d-2": 24_000,
-    "trellis": 8_000,
-    "triposr": 6_000,
-    "triposg": 12_000,
-    "triposf": 12_000,
-    "anigen": 6_200,
-    "unirig": 8_000,
-    "holopart": 8_000,
-    "detailgen3d": 4_000,
-    "mock": 0,
-}
 PROVIDER_PRIORITY = ["hunyuan3d-2.1", "trellis", "triposr", "hunyuan3d-2", "triposg", "triposf", "anigen", "unirig", "holopart", "detailgen3d", "mock"]
 
 _PROVIDER_MAP: dict[str, tuple[str, str]] = {
@@ -133,7 +119,7 @@ class RuntimeEngine:
     async def get_best_provider_name(self, requested: str) -> str:
         gpu = get_gpu_info()
         free_mb = gpu.free_vram_mb if gpu.available else 0
-        needed = MODEL_VRAM_REQUIREMENTS.get(requested, 0)
+        needed = get_model_vram_required(requested)
         if needed == 0 or free_mb >= needed:
             return requested
         logger.warning(
@@ -142,13 +128,12 @@ class RuntimeEngine:
         )
         for candidate in PROVIDER_PRIORITY:
             if candidate == "mock":
-                # Issue #9 Fix: Check setting before using mock as fallback
                 from app.config import get_settings
                 if not get_settings().allow_mock_provider:
                     continue
             if not self._check_provider_available(candidate):
                 continue
-            req = MODEL_VRAM_REQUIREMENTS.get(candidate, 0)
+            req = get_model_vram_required(candidate)
             if req == 0 or free_mb >= req:
                 logger.info("Fallback to '%s'", candidate)
                 return candidate
@@ -166,7 +151,7 @@ class RuntimeEngine:
         async with self._lock:
             if name in self._loaded:
                 return self._loaded[name]
-            vram_needed = MODEL_VRAM_REQUIREMENTS.get(name, 0)
+            vram_needed = get_model_vram_required(name)
             # Use VRAM-aware device selection
             try:
                 device = select_device("auto", max_vram_mb=vram_needed)

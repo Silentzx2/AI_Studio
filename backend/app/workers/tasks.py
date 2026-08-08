@@ -52,6 +52,19 @@ def _update_job(session: Session, job_id: str, **kwargs) -> None:
     session.commit()
 
 
+class _JobCancelled(Exception):
+    """Raised when a generation job has been cancelled via the API while the
+    worker was executing it. The task stops at the next stage boundary and the
+    job row stays 'cancelled' (never overwritten to 'failed')."""
+
+
+def _ensure_not_cancelled(session: Session, job_id: str) -> None:
+    from app.models.job import GenerationJob
+    job = session.get(GenerationJob, job_id)
+    if job and job.status == "cancelled":
+        raise _JobCancelled(job_id)
+
+
 def _resolve_reference_image(reference: str | None, job_id: str) -> str | None:
     """Convert frontend image references into local files providers can open."""
     if not reference:
@@ -187,8 +200,12 @@ async def _async_generate(task: Task, job_id: str) -> dict:
         job = session.get(GenerationJob, job_id)
         if not job:
             raise ValueError(f"Job {job_id} not found")
+        if job.status == "cancelled":
+            logger.info("Job %s already cancelled — not starting.", job_id)
+            return {"status": "cancelled", "job_id": job_id}
 
         def sync_publish(progress: int, stage: str, message: str, level: str = "info") -> None:
+            _ensure_not_cancelled(session, job_id)
             _publish(job_id, {
                 "job_id": job_id,
                 "status": "processing",
@@ -203,6 +220,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
         async def progress_callback(progress: int, stage: str, message: str, level: str = "info") -> None:
             sync_publish(progress, stage, message, level)
 
+        _ensure_not_cancelled(session, job_id)
         _update_job(session, job_id, status="processing", stage="preparing", started_at=datetime.utcnow())
         sync_publish(2, "preparing", "Job started.", "info")
 
@@ -246,6 +264,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 provider = get_provider(provider_name, device=device or "cuda:0")
 
             # 5. AI generation
+            _ensure_not_cancelled(session, job_id)
             out_dir = str(model_output_dir(job_id))
             provider_result = await provider.generate(request, out_dir, progress_callback)
 
@@ -363,6 +382,24 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             })
 
             return {"status": "completed", "job_id": job_id}
+
+        except _JobCancelled as exc:
+            logger.info("Generation job %s cancelled via API", exc)
+            if engine:
+                try:
+                    await engine.unload_provider(provider_name)
+                except Exception:
+                    pass
+            _publish(job_id, {
+                "job_id": job_id,
+                "status": "cancelled",
+                "stage": "cancelled",
+                "progress": 0,
+                "message": "Generation cancelled.",
+                "level": "warning",
+                "timestamp": datetime.utcnow().isoformat(),
+            })
+            return {"status": "cancelled", "job_id": job_id}
 
         except Exception as exc:
             logger.exception("Generation task failed for job %s", job_id)

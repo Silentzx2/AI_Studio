@@ -31,6 +31,15 @@ class ModelRegistry:
             pid = str(meta.get("id", "")).lower()
             return pid in _loadable
 
+        try:
+            from runtime.installer import PROVIDER_METADATA  # noqa: PLC0415
+            _vram_map = {k: v.get("vram_required_mb", 0) for k, v in PROVIDER_METADATA.items()}
+        except Exception:
+            _vram_map = {}
+
+        def _vram(meta_id: str) -> int:
+            return _vram_map.get(meta_id, 0)
+
         # Hardcode some available models based on requirements for discoverability
         _raw = [
             {
@@ -42,7 +51,7 @@ class ModelRegistry:
                 "author": "Tencent",
                 "installed": False,
                 "size_mb": 15000,
-                "vram_required_mb": 16000,
+                "vram_required_mb": _vram("hunyuan3d-2.1"),
                 "speed_seconds": 90,
                 "workspace_compatibility": ["mesh-generation", "texture-generation", "post-processing"],
                 "manifest": {
@@ -79,7 +88,7 @@ class ModelRegistry:
                 "author": "Tencent",
                 "installed": False,
                 "size_mb": 24000,
-                "vram_required_mb": 24000,
+                "vram_required_mb": _vram("hunyuan3d-2"),
                 "speed_seconds": 120,
                 "workspace_compatibility": ["mesh-generation", "texture-generation", "post-processing"],
                 "manifest": {
@@ -116,7 +125,7 @@ class ModelRegistry:
                 "author": "JeffreyXiang/Microsoft",
                 "installed": False,
                 "size_mb": 5000,
-                "vram_required_mb": 8000,
+                "vram_required_mb": _vram("trellis"),
                 "speed_seconds": 60,
                 "workspace_compatibility": ["mesh-generation", "texture-generation"],
                 "manifest": {
@@ -153,7 +162,7 @@ class ModelRegistry:
                 "author": "VAST-AI",
                 "installed": False,
                 "size_mb": 2000,
-                "vram_required_mb": 6000,
+                "vram_required_mb": _vram("triposr"),
                 "speed_seconds": 1,
                 "workspace_compatibility": ["mesh-generation", "texture-generation"],
                 "manifest": {
@@ -189,7 +198,7 @@ class ModelRegistry:
                 "author": "VAST-AI",
                 "installed": False,
                 "size_mb": 6144,
-                "vram_required_mb": 12000,
+                "vram_required_mb": _vram("triposg"),
                 "speed_seconds": 15,
                 "workspace_compatibility": ["mesh-generation"],
                 "manifest": {
@@ -224,7 +233,7 @@ class ModelRegistry:
                 "author": "VAST-AI",
                 "installed": False,
                 "size_mb": 6144,
-                "vram_required_mb": 12000,
+                "vram_required_mb": _vram("triposf"),
                 "speed_seconds": 15,
                 "workspace_compatibility": ["mesh-generation"],
                 "manifest": {
@@ -259,7 +268,7 @@ class ModelRegistry:
                 "author": "VAST-AI",
                 "installed": False,
                 "size_mb": 2000,
-                "vram_required_mb": 6200,
+                "vram_required_mb": _vram("anigen"),
                 "speed_seconds": 30,
                 "workspace_compatibility": ["rigging", "animation"],
                 "manifest": {
@@ -294,7 +303,7 @@ class ModelRegistry:
                 "author": "VAST-AI",
                 "installed": False,
                 "size_mb": 2048,
-                "vram_required_mb": 8000,
+                "vram_required_mb": _vram("unirig"),
                 "speed_seconds": 20,
                 "workspace_compatibility": ["rigging", "animation"],
                 "manifest": {
@@ -329,7 +338,7 @@ class ModelRegistry:
                 "author": "VAST-AI",
                 "installed": False,
                 "size_mb": 3072,
-                "vram_required_mb": 8000,
+                "vram_required_mb": _vram("holopart"),
                 "speed_seconds": 10,
                 "workspace_compatibility": ["segmentation", "post-processing"],
                 "manifest": {
@@ -364,7 +373,7 @@ class ModelRegistry:
                 "author": "Internal",
                 "installed": False,
                 "size_mb": 500,
-                "vram_required_mb": 4000,
+                "vram_required_mb": _vram("detailgen3d"),
                 "speed_seconds": 15,
                 "workspace_compatibility": ["post-processing"],
                 "manifest": {

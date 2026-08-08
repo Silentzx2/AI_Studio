@@ -17,8 +17,23 @@ from app.core.managers.vram_tracker import vram_tracker
 
 logger = logging.getLogger(__name__)
 
-# ponytail: AniGen repo path — expects it cloned at this location
-ANIGEN_ROOT = Path(__file__).resolve().parents[4] / "third_party" / "AniGen"
+# ponytail: AniGen repo lives under the storage third_party dir (per-model layout).
+# The old parents[4]/third_party guess pointed at the project root and never resolved.
+def _anigen_root() -> Path:
+    from runtime.storage import get_storage_config
+    return get_storage_config().get_repo_path("AniGen")
+
+def _anigen_python() -> str:
+    """Return the per-model venv python for AniGen (AGENTS.md subprocess rule)."""
+    from runtime.storage import get_storage_config
+    venv_python = get_storage_config().get_model_venv_python("AniGen")
+    if venv_python:
+        return str(venv_python)
+    logger.warning("AniGen venv python not found; falling back to bare 'python'.")
+    return "python"
+
+
+ANIGEN_ROOT = _anigen_root()
 
 
 class AniGenProvider(BaseProvider):
@@ -226,7 +241,7 @@ class AniGenProvider(BaseProvider):
 
         try:
             cmd = [
-                "python", str(ANIGEN_ROOT / "apps" / "inference" / "infer.py"),
+                _anigen_python(), str(ANIGEN_ROOT / "apps" / "inference" / "infer.py"),
                 "--input_mesh", str(input_model),
                 "--output_dir", str(output_path),
                 "--device", self.device,

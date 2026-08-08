@@ -114,6 +114,8 @@ export interface ProviderOption {
   supports_text_to_3d?: boolean;
   supports_image_to_3d?: boolean;
   workspace_compatibility?: WorkspaceType[];
+  colab_incompatible?: boolean;
+  colab_skip_reason?: string | null;
 }
 
 export interface RuntimeOptions {
@@ -127,6 +129,9 @@ export interface RuntimeOptions {
   vram_limits: number[];
   gpu_options: ProviderOption[];
   active_provider: string;
+  colab_detected?: boolean;
+  colab_detected_vram_mb?: number;
+  colab_preparation_limit_mb?: number | null;
 }
 
 export interface GpuInfo {

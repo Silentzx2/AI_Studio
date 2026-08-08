@@ -179,9 +179,18 @@ export const generationService = {
     });
   },
 
-  cancel() {
-    // BUG-03 FIX: abort every active controller, not just the last-assigned module-level one
+  async cancel(jobId?: string) {
+    // Abort the pollers first so the UI stops immediately, then tell the
+    // backend to mark the job cancelled (single source of truth) so the worker
+    // stops at the next stage boundary instead of running to completion.
     for (const c of _activeControllers) c.abort();
     _activeControllers.clear();
+    if (jobId) {
+      try {
+        await fetch(`/api/v1/generation/${jobId}/cancel`, { method: 'POST' });
+      } catch {
+        // ponytail: best-effort — the AbortController above already stopped the UI.
+      }
+    }
   },
 };

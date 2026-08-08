@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ChevronDown, CheckCircle, AlertCircle, Loader2, HardDrive, Shield, X } from 'lucide-react';
+import { Search, ChevronDown, CheckCircle, AlertCircle, Loader2, HardDrive, Shield, X, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { runtimeService, type ProviderOption } from '@/services/runtimeService';
 
@@ -172,23 +172,30 @@ export function ModelSelector({ value, onChange, className }: { value: string; o
                     const cfg = STATUS_CONFIG[status];
                     const Icon = cfg.icon;
                     const isSelected = model.id === value;
+                    const isColabBlocked = Boolean(model.colab_incompatible);
                     return (
                       <button
                         key={model.id}
-                        onClick={() => { onChange(model.id); setOpen(false); }}
-                        disabled={!model.available}
+                        onClick={() => { if (!isColabBlocked) { onChange(model.id); setOpen(false); } }}
+                        disabled={!model.available || isColabBlocked}
                         className={cn(
                           'flex items-center gap-3 w-full px-3 py-2.5 text-left transition-all duration-200',
                           isSelected
                             ? 'bg-[hsl(var(--neon-purple)/0.08)] shadow-[inset_0_0_0_1px_hsl(var(--neon-purple)/0.25),0_0_12px_hsl(var(--neon-purple)/0.06)]'
                             : 'hover:bg-white/[0.03] hover:shadow-[inset_0_0_0_1px_hsl(var(--border)/0.15)]',
-                          !model.available && 'opacity-40 cursor-not-allowed'
+                          (!model.available || isColabBlocked) && 'opacity-40 cursor-not-allowed'
                         )}
                       >
                         <Icon className={cn('w-4 h-4 shrink-0', cfg.class)} />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-foreground truncate">{model.label}</p>
                           <p className="text-[10px] text-muted-foreground/50">{formatVRAM(model.vramMb)}</p>
+                          {isColabBlocked && (
+                            <p className="text-[9px] text-[hsl(var(--neon-amber))] mt-0.5 flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3" />
+                              {model.colab_skip_reason?.split('\n')[0] || 'Colab-incompatible'}
+                            </p>
+                          )}
                         </div>
                         {isSelected && <CheckCircle className="w-3.5 h-3.5 text-[hsl(var(--neon-purple))] shrink-0 drop-shadow-[0_0_6px_hsl(var(--neon-purple)/0.5)]" />}
                       </button>

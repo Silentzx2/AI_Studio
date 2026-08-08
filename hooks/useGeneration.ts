@@ -140,7 +140,14 @@ export function useGeneration() {
     } finally { stopElapsedTimer(); }
   }, [mode, uploadedImage, getConfig, setCurrentJob, updateJobProgress, addLogEntry, addRecentPrompt, startElapsedTimer, stopElapsedTimer, registerTask, updateTask, completeTask, eventBus]);
 
-  const cancel = useCallback(() => { generationService.cancel(); cancelJob(); stopElapsedTimer(); }, [cancelJob, stopElapsedTimer]);
+  const cancel = useCallback(() => {
+    // Pass the backend job id (after it has been created) so the server marks
+    // the job cancelled and stops the worker, not just the client poller.
+    const backendJobId = currentJob?.id;
+    generationService.cancel(backendJobId);
+    cancelJob();
+    stopElapsedTimer();
+  }, [cancelJob, stopElapsedTimer, currentJob]);
   const isGenerating = currentJob ? !['completed', 'failed', 'cancelled', 'idle'].includes(currentJob.status) : false;
   return { generate, cancel, isGenerating, currentJob };
 }

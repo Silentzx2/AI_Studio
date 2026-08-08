@@ -314,6 +314,37 @@ npm run dev  # Starts on http://localhost:3000
 
 See [Setup Guide](docs/setup-guide.md) for detailed instructions.
 
+### Google Colab Setup
+
+```bash
+# In a Colab notebook cell:
+!bash scripts/colab.sh
+```
+
+Colab mode automatically:
+- Detects the Colab environment and available GPU
+- Forces SQLite mode (no PostgreSQL/Redis systemd)
+- Installs backend venv + PyTorch (CUDA 12.1 if GPU detected)
+- Clones and prepares model runtimes
+- Starts API, Celery worker, and frontend via Cloudflare Tunnel
+
+**Colab VRAM Preparation Policy**: Models requiring **15 GB or more** VRAM are **not** automatically cloned or prepared by `colab.sh`. They remain visible in the UI but are marked as Colab-incompatible. This prevents GPU OOM crashes during setup on Colab T4/P100 runtimes (~16 GB VRAM). On VPS/full-GPU hosts, all models are available without this restriction.
+
+| Model | VRAM Required | Colab Prep |
+|-------|--------------|------------|
+| Hunyuan3D 2.1 | 16 GB | Skipped |
+| Hunyuan3D 2 | 24 GB | Skipped |
+| TRELLIS | 8 GB | Prepared |
+| TripoSR | 6 GB | Prepared |
+| TripoSG | 12 GB | Prepared |
+| TripoSF | 12 GB | Prepared |
+| AniGen | 6.2 GB | Prepared |
+| UniRig | 8 GB | Prepared |
+| HoloPart | 8 GB | Prepared |
+| DetailGen3D | 4 GB | Prepared |
+
+To run a skipped model on Colab, use a VPS or full-GPU environment instead.
+
 ---
 
 ## ⚙️ Configuration

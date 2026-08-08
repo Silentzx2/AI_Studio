@@ -131,6 +131,30 @@ async def get_runtime_options():
         gpu = get_gpu_info()
         registry = get_registry()
 
+        try:
+            from runtime.capability import get_runtime_capabilities  # noqa: PLC0415
+            caps = get_runtime_capabilities()
+            colab_detected = caps.get("is_colab", False)
+            colab_vram = caps.get("total_vram_mb", 0)
+            colab_limit = caps.get("colab_preparation_limit_mb")
+        except Exception:
+            colab_detected = False
+            colab_vram = 0
+            colab_limit = None
+
+        def _colab_flags(model_id: str, vram_req: int) -> dict[str, Any]:
+            if not colab_detected:
+                return {"colab_incompatible": False, "colab_skip_reason": None}
+            if vram_req >= (colab_limit or 15_000):
+                return {
+                    "colab_incompatible": True,
+                    "colab_skip_reason": (
+                        f"Required VRAM: {vram_req / 1024:.1f} GB — "
+                        f"exceeds Colab preparation limit ({colab_limit / 1024:.0f} GB)"
+                    ),
+                }
+            return {"colab_incompatible": False, "colab_skip_reason": None}
+
         # --- Build three_d_models from PROVIDER_METADATA ---
         three_d_models = []
         seen_ids: set[str] = set()
@@ -138,11 +162,13 @@ async def get_runtime_options():
             if meta.get("category") != "3d_generation":
                 continue
             avail = registry.get_availability(name)
+            vram_req = meta.get("vram_required_mb", 0)
+            colab_info = _colab_flags(name, vram_req)
             three_d_models.append({
                 "id": name,
                 "label": meta["label"],
                 "available": avail.get("available", False),
-                "vram_required_mb": meta.get("vram_required_mb", 0),
+                "vram_required_mb": vram_req,
                 "supports_text_to_3d": meta.get("supports_text_to_3d", False),
                 "supports_image_to_3d": meta.get("supports_image_to_3d", False),
                 "workspace_compatibility": meta.get("workspace_compatibility", []),
@@ -154,6 +180,7 @@ async def get_runtime_options():
                     "detail_enhancement": False,
                     "part_separation": False,
                 },
+                **colab_info,
             })
             seen_ids.add(name.lower())
 
@@ -174,13 +201,15 @@ async def get_runtime_options():
                 manifest = m.get("manifest") or {}
                 caps = manifest.get("capabilities") or {}
                 ws_compat = m.get("workspace_compatibility") or manifest.get("workspace_compatibility") or []
+                vram_req = m.get("vram_required_mb") or manifest.get("recommended_vram_mb", 0)
+                colab_info = _colab_flags(mid, vram_req)
                 three_d_models.append({
                     "id": m.get("id", mid),
                     "label": m.get("label") or m.get("name") or mid,
                     "available": bool(m.get("available", m.get("installed", False))),
                     "installed": bool(m.get("installed", False)),
                     "status": m.get("status", "not_installed"),
-                    "vram_required_mb": m.get("vram_required_mb") or manifest.get("recommended_vram_mb", 0),
+                    "vram_required_mb": vram_req,
                     "supports_text_to_3d": bool(caps.get("text_to_3d")),
                     "supports_image_to_3d": bool(caps.get("image_to_3d")),
                     "workspace_compatibility": ws_compat,
@@ -192,6 +221,7 @@ async def get_runtime_options():
                         "detail_enhancement": bool(caps.get("detail_enhancement")),
                         "part_separation": bool(caps.get("part_separation")),
                     },
+                    **colab_info,
                 })
                 seen_ids.add(mid)
         except Exception as pipeline_exc:
@@ -220,6 +250,9 @@ async def get_runtime_options():
             "hf_token_configured": bool(
                 os.environ.get("HUGGINGFACE_TOKEN") or settings.huggingface_token
             ),
+            "colab_detected": colab_detected,
+            "colab_detected_vram_mb": colab_vram,
+            "colab_preparation_limit_mb": colab_limit,
         })
     except Exception as exc:
         logger.exception("get_runtime_options failed")

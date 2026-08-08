@@ -270,6 +270,7 @@ logger = logging.getLogger(__name__)
 sys.path.insert(0, str(Path(".").resolve()))
 
 try:
+    from runtime.capability import get_model_vram_required, is_model_preparable_for_colab
     from runtime.installer import REPOS, clone_repo, install_repo_deps
     from runtime.storage import get_storage_config
 except Exception as exc:
@@ -342,9 +343,28 @@ def repair_venv(repo_name):
     return install_repo_deps(repo_name)
 
 
-repaired = skipped = failed = 0
+repaired = skipped = failed = skipped_colab = 0
 
 for repo_name in sorted(REPOS.keys()):
+    repo_cfg = REPOS.get(repo_name, {})
+    providers = repo_cfg.get("providers", [])
+    colab_skip_reason = None
+    for prov in providers:
+        if not is_model_preparable_for_colab(prov):
+            vram = get_model_vram_required(prov)
+            colab_skip_reason = (
+                f"Required VRAM: {vram / 1024:.1f} GB\n"
+                f"Colab preparation limit: <15 GB\n"
+                f"Reason: exceeds Colab runtime policy"
+            )
+            break
+    if colab_skip_reason:
+        print(f"  [COLAB] {repo_name}: skipped")
+        for line in colab_skip_reason.split("\n"):
+            print(f"  {line}")
+        skipped_colab += 1
+        continue
+
     repo_ok, repo_reason = validate_repo(repo_name)
     venv_ok, venv_reason = validate_venv(repo_name)
     deps_ok, deps_missing = validate_deps(repo_name)
@@ -385,7 +405,7 @@ for repo_name in sorted(REPOS.keys()):
     print(f"  [DONE] {repo_name}: repaired")
     repaired += 1
 
-print(f"\nRuntime preparation complete: {repaired} repaired, {skipped} skipped, {failed} failed")
+print(f"\nRuntime preparation complete: {repaired} repaired, {skipped} skipped, {skipped_colab} skipped (Colab VRAM), {failed} failed")
 PYEOF
     )
 }
@@ -405,6 +425,7 @@ from pathlib import Path
 logging.basicConfig(level=logging.INFO, format="  %(levelname)-5s %(name)s: %(message)s")
 sys.path.insert(0, str(Path(".").resolve()))
 try:
+    from runtime.capability import get_model_vram_required, is_model_preparable_for_colab
     from runtime.installer import HF_MODELS, download_weights
 except Exception as exc:
     print(f"  [FAIL] Could not import runtime modules: {exc}")
@@ -412,12 +433,19 @@ except Exception as exc:
 
 token = os.environ.get("HUGGINGFACE_TOKEN") or os.environ.get("HF_TOKEN")
 for key in sorted(HF_MODELS.keys()):
-    print(f"  [WEIGHTS] {key}: downloading ~{HF_MODELS[key]['size_estimate_gb']}GB ...")
-    r = download_weights(key, hf_token=token)
-    if r.get("success"):
-        print(f"    [OK  ] {key}: {r.get('action', 'done')}")
-    else:
-        print(f"    [WARN] {key}: {r.get('error', 'failed')}")
+        if not is_model_preparable_for_colab(key):
+            vram = get_model_vram_required(key)
+            print(f"  [COLAB] {key}: skipped")
+            print(f"  Required VRAM: {vram / 1024:.1f} GB")
+            print(f"  Colab preparation limit: <15 GB")
+            print(f"  Reason: exceeds Colab runtime policy")
+            continue
+        print(f"  [WEIGHTS] {key}: downloading ~{HF_MODELS[key]['size_estimate_gb']}GB ...")
+        r = download_weights(key, hf_token=token)
+        if r.get("success"):
+            print(f"    [OK  ] {key}: {r.get('action', 'done')}")
+        else:
+            print(f"    [WARN] {key}: {r.get('error', 'failed')}")
 PYEOF
     )
 }

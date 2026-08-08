@@ -34,6 +34,8 @@ function normalizeProviderOption(model: ProviderOption): ProviderOption {
     ...model,
     available: Boolean(model.available),
     vramMb: model.vramMb ?? model.vram_required_mb ?? 0,
+    colab_incompatible: Boolean(model.colab_incompatible),
+    colab_skip_reason: model.colab_skip_reason ?? null,
   };
 }
 
@@ -54,6 +56,9 @@ function normalizeRuntimeOptions(options: RuntimeOptions): RuntimeOptions {
       .map((limit) => typeof limit === 'number' ? limit : Number(limit.id))
       .filter((limit) => Number.isFinite(limit)),
     active_provider: options?.active_provider ?? '',
+    colab_detected: Boolean(options?.colab_detected),
+    colab_detected_vram_mb: asNumber(options?.colab_detected_vram_mb),
+    colab_preparation_limit_mb: options?.colab_preparation_limit_mb ?? null,
   };
 }
 
