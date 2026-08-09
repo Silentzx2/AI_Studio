@@ -62,15 +62,10 @@ class StorageConfig:
             home = Path.home()
             _add(home / ".cache" / "huggingface")
             _add(home / ".cache" / "huggingface" / "hub")
+            cwd = Path.cwd()
+            _add(cwd / ".cache" / "huggingface")
         except Exception:
             pass
-
-        for base in (
-            "/home/zeus",
-            "/home/zeus/content",
-            "/teamspace/studios/this_studio",
-        ):
-            _add(Path(base) / ".cache" / "huggingface")
 
     def _configure_hf_environment(self) -> None:
         primary = self.third_party_dir / ".hf_cache"
