@@ -66,7 +66,6 @@ class StorageConfig:
             pass
 
         for base in (
-            "/app",
             "/home/zeus",
             "/home/zeus/content",
             "/teamspace/studios/this_studio",
