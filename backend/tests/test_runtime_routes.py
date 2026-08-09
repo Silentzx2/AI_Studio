@@ -88,12 +88,11 @@ def test_runtime_root_and_provider_health_return_data(monkeypatch: pytest.Monkey
 
     class _Registry:
         def list_providers(self):
-            return ["hunyuan3d-2.1", "triposg"]
+            return ["hunyuan3d-2.1"]
 
         def get_all_availability(self):
             return {
                 "hunyuan3d-2.1": {"available": True, "loaded": True},
-                "triposg": {"available": False, "loaded": False},
             }
 
         def get_availability(self, name: str):

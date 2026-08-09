@@ -69,7 +69,6 @@
 | Model | VRAM Required | Quality | Speed |
 |-------|---------------|---------|-------|
 | **Trellis** | 12 GB | High quality | ~60 seconds |
-| **TripoSG** | 12 GB | High-detail geometry | ~45 seconds |
 | **UniRig** | 8 GB | Rigging / animation | ~30 seconds |
 | **Hunyuan3D-2.1** | 16 GB | High quality | ~90 seconds |
 
@@ -283,7 +282,7 @@ MAX_UPLOAD_SIZE=52428800  # 50MB
 AI_PROVIDER=hunyuan3d-2.1
 RUNTIME_MODE=local
 
-# Options: mock, hunyuan3d-2.1, hunyuan3d-2, trellis, triposg, unirig
+# Options: mock, hunyuan3d-2.1, hunyuan3d-2, trellis, unirig
 
 # ===== GPU SETTINGS =====
 CUDA_DEVICE=auto
@@ -631,5 +630,5 @@ After successful installation:
 - The workspace model pickers read from `GET /api/v1/pipelines/workspace-models`.
 - Runtime status comes from `GET /api/v1/runtime/status` and `GET /api/v1/runtime/health`.
 - Runtime options for the UI come from `GET /api/v1/runtime/options`.
-- The current model ids exposed by the registry are: `hunyuan3d-2.1`, `trellis`, `triposg`, `unirig`.
+- The current model ids exposed by the registry are: `hunyuan3d-2.1`, `trellis`, `unirig`.
 - The backend does not expose a bare `GET /api/v1/runtime` route.

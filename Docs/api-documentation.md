@@ -994,8 +994,8 @@ GET /api/v1/pipelines
   "data": {
     "pipelines": [
       {
-        "id": "triposg",
-        "label": "TripoSG",
+        "id": "hunyuan3d-2.1",
+        "label": "Hunyuan3D 2.1",
         "category": "3d_generation",
         "status": "not_installed",
         "installed": false,
@@ -1119,7 +1119,7 @@ GET /api/v1/pipelines/workspace-types
 
 ### Supported model ids in the current catalog
 
-`hunyuan3d-2.1`, `trellis`, `triposg`, `unirig`
+`hunyuan3d-2.1`, `trellis`, `unirig`
 
 
 ## Runtime APIs
@@ -1195,7 +1195,7 @@ POST /api/v1/runtime/hf-token/verify
 ### Install Progress Stream
 
 ```http
-GET /api/v1/runtime/install/stream?model_id=triposg
+GET /api/v1/runtime/install/stream?model_id=hunyuan3d-2.1
 ```
 
 Server-sent events stream installation progress for the active model installer.

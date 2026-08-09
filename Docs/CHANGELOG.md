@@ -5,7 +5,7 @@
 ### Removed
 
 - **Pipelines page** fully removed from Settings (`features/settings/sections/PipelinesSection.tsx` and `pipelines/PipelinesDashboard.tsx` deleted; section def, reset keys, and render case removed from `app/settings/page.tsx`).
-- **TripoSR removed entirely**: frontend model lists (ThreeDGenerationTab, TextureGenTab, WorkspaceSettingsTab, GenerationSection, CommandPalette), backend providers (`triposr.py`, `triposr_local.py`), `model_registry` entry, `engine.py`/`providers/registry.py` maps, `config.py` API URL, `installer.py` repo/weights/texture/EXTRA_DEPS entries, `discover.py` catalog entry, shell scripts, and tests.
+- **TripoSG removed entirely**: backend providers (`triposg_provider.py`), `model_registry` entry, `engine.py`/`providers/registry.py` maps, tests, docs, and shell scripts.
 - **HoloPart** removed: deleted `backend/third_party/HoloPart` folder and the unused `backend/third_party/TripoSR` folder.
 - Removed dead `adminService.getPipelines()`/`togglePipeline()` and the now-unused `PipelineSnapshot`/`PipelineStatus`/`PipelineFeatureFlags` types.
 
@@ -15,12 +15,12 @@
 
 ### Kept
 
-- TripoSG, TripoSF and all other providers untouched. Backend `/api/v1/pipelines` endpoints kept — `/workspace-models` still powers the workspace model pickers.
+- TripoSF and all other providers untouched. Backend `/api/v1/pipelines` endpoints kept — `/workspace-models` still powers the workspace model pickers.
 
 ### Files Modified
 
 - `app/settings/page.tsx`, `features/admin/tabs/ModelsTab.tsx`, `features/settings/sections/index.ts`, `services/adminService.ts`, `types/index.ts`, `stores/useAppStore.ts`, `components/CommandPalette.tsx`, `features/settings/sections/GenerationSection.tsx`, `features/workspace/new-ui/{ThreeDGenerationTab,TextureGenTab,WorkspaceSettingsTab}.tsx`, `package-production.sh`, `scripts/update-models.sh`, backend `config.py`, `discover.py`, `registry.py`, `model_registry.py`, `environment_manager.py`, `engine.py`, `installer.py`, tests
-- Deleted: `PipelinesSection.tsx`, `pipelines/PipelinesDashboard.tsx`, `triposr.py`, `triposr_local.py`, `backend/third_party/{HoloPart,TripoSR}`
+- Deleted: `PipelinesSection.tsx`, `pipelines/PipelinesDashboard.tsx`, `triposr.py`, `triposr_local.py`, `backend/third_party/{HoloPart,TripoSR}`, `backend/app/core/providers/triposg_provider.py`
 - Docs: `Docs/README.md`, `Docs/architecture.md`, `Docs/api-documentation.md`, `Docs/developer-guide.md`
 
 ## v3.4.5 — Remove Downloads Page from Settings (August 9, 2026)

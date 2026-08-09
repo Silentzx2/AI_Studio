@@ -340,7 +340,7 @@ async def create_resource(
 There are two types of providers:
 
 1. **Download providers** (github, modelscope, nvidia_ngc, civitai, huggingface) - fetch models from external sources
-2. **Runtime providers** (hunyuan3d, trellis, triposg, etc.) - run inference locally
+2. **Runtime providers** (hunyuan3d, trellis, etc.) - run inference locally
 
 This guide covers **runtime providers** that run inference locally.
 
@@ -1235,7 +1235,7 @@ The frontend uses `useWorkspaceModels(workspace)` to fetch only compatible model
 
 ### Current catalog
 
-`hunyuan3d-2.1`, `trellis`, `triposg`, `unirig`
+`hunyuan3d-2.1`, `trellis`, `unirig`
 
 ### Verification checklist
 

@@ -15,7 +15,7 @@ class ModelRegistry:
         
     def _fetch_provider_manifests(self) -> list[dict[str, Any]]:
         # Only expose models that have a real provider class in engine._PROVIDER_MAP.
-        # Repos like TripoSG/UniRig can be cloned and have weights
+        # Repos like UniRig can be cloned and have weights
         # downloaded, but without a provider class they cannot be loaded or executed,
         # so they must not appear in the Pipelines page or generation UI.
         try:
@@ -147,41 +147,6 @@ class ModelRegistry:
                         "image_to_3d": True,
                         "text_to_3d": True,
                         "texture_generation": True,
-                    },
-                    "dependencies": {"python_packages": []},
-                    "download_sources": [],
-                    "runtime": {"type": "python", "entrypoint": "", "inference_class": ""}
-                }
-            },
-            {
-                "id": "triposg",
-                "label": "TripoSG",
-                "name": "VAST-AI-Research/TripoSG",
-                "category": "3d_generation",
-                "description": "Generative 3D model creation from images with geometry focus",
-                "author": "VAST-AI",
-                "installed": False,
-                "size_mb": 6144,
-                "vram_required_mb": _vram("triposg"),
-                "speed_seconds": 15,
-                "workspace_compatibility": ["mesh-generation"],
-                "manifest": {
-                    "name": "TripoSG",
-                    "version": "1.0",
-                    "category": "3d_generation",
-                    "description": "Geometry-focused 3D generation",
-                    "author": "VAST-AI",
-                    "license": "Apache-2.0",
-                    "min_vram_mb": 10000,
-                    "recommended_vram_mb": 12000,
-                    "cuda_required": True,
-                    "cuda_min_version": "11.8",
-                    "python_min": "3.10",
-                    "supported_os": ["linux"],
-                    "supported_architectures": ["x86_64"],
-                    "disk_space_mb": 6144,
-                    "capabilities": {
-                        "image_to_3d": True,
                     },
                     "dependencies": {"python_packages": []},
                     "download_sources": [],

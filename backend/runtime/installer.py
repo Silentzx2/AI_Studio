@@ -41,16 +41,9 @@ REPOS = {
     "TRELLIS": {
         "url": "https://github.com/microsoft/TRELLIS.git",
         "branch": "main",
-        "requirements": "requirements.txt",
+        "requirements": None,
         "category": "3d_generation",
         "providers": ["trellis"],
-    },
-    "TripoSG": {
-        "url": "https://github.com/VAST-AI-Research/TripoSG.git",
-        "branch": "main",
-        "requirements": "requirements.txt",
-        "category": "3d_generation",
-        "providers": ["triposg"],
     },
     "AniGen": {
         "url": "https://github.com/VAST-AI-Research/AniGen.git",
@@ -72,7 +65,6 @@ HF_MODELS = {
     "hunyuan3d-2.1": {"repo": "tencent/Hunyuan3D-2.1",         "size_estimate_gb": 14},
     "hunyuan3d-2":   {"repo": "tencent/Hunyuan3D-2",           "size_estimate_gb": 24},
     "trellis":       {"repo": "microsoft/TRELLIS-image-large", "size_estimate_gb": 3},
-    "triposg":       {"repo": "VAST-AI/TripoSG",               "size_estimate_gb": 6},
     "anigen":        {"repo": "VAST-AI/AniGen_Weights",        "size_estimate_gb": 23},
     "unirig":        {"repo": "VAST-AI/UniRig",                "size_estimate_gb": 2},
 }
@@ -120,17 +112,6 @@ PROVIDER_METADATA = {
         "repo": "TRELLIS",
         "weight_key": "trellis",
         "workspace_compatibility": ["mesh-generation", "texture-generation"],
-    },
-    "triposg": {
-        "label": "TripoSG",
-        "category": "3d_generation",
-        "supports_text_to_3d": False,
-        "supports_image_to_3d": True,
-        "supports_texture": False,
-        "vram_required_mb": 12000,
-        "repo": "TripoSG",
-        "weight_key": "triposg",
-        "workspace_compatibility": ["mesh-generation"],
     },
     "anigen": {
         "label": "AniGen",
@@ -277,7 +258,9 @@ _PY312_REQ_REWRITES: list[tuple[re.Pattern, str | None]] = [
     (re.compile(r"^open3d==0\.18\.0$"), "open3d==0.19.0"),
     # flash-attn / bpy publish no cp312 wheels (CUDA-build / Blender-bound);
     # not installable on a CPU Py3.12 box — drop rather than fail the venv.
-    (re.compile(r"^flash[-_]attn==.*$"), None),
+    # flash-attn is also in _CUDA_ONLY_PKG_PATTERNS so it gets dropped on
+    # CPU-only hosts regardless of Py version; removed from here so CUDA hosts
+    # can build it with --no-build-isolation-package (torch is pre-installed).
     (re.compile(r"^bpy==.*$"), None),
 ]
 
@@ -372,6 +355,70 @@ def _cuda_available() -> bool:
     return False
 
 
+# ponytail: TRELLIS uses setup.sh (conda-based) instead of requirements.txt.
+# We replicate the equivalent --basic install via uv inside the per-model venv.
+# The repo has no pyproject.toml/setup.py, so the generic _uv_install path
+# would skip it entirely.
+_TRELLIS_BASIC_DEPS = [
+    "pillow", "imageio", "imageio-ffmpeg", "tqdm", "easydict",
+    "opencv-python-headless", "scipy", "ninja", "rembg", "onnxruntime",
+    "trimesh", "open3d", "xatlas", "pyvista", "pymeshfix", "igraph",
+    "transformers",
+]
+_TRELLIS_GIT_DEPS = [
+    "git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8",
+]
+
+
+def _install_trellis_deps(
+    repo_dir: Path,
+    venv_python: Path,
+    log_cb: Callable | None = None,
+) -> dict:
+    """Install TRELLIS dependencies into the per-model venv.
+
+    Mirrors setup.sh --basic (core runtime deps + utils3d).
+    Optional extensions (xformers, flash-attn, spconv, kaolin, …) are
+    omitted here — they require CUDA toolkit builds and are installed
+    separately by the generic EXTRA_DEPS / TORCH_BUILD_PKGS paths when
+    the host has the necessary toolchain.
+    """
+    uv_path = shutil.which("uv")
+    if not uv_path:
+        return {"success": False, "error": "uv not found for TRELLIS"}
+
+    def _run_uv(args, cwd=None, extra_env=None):
+        env = dict(os.environ)
+        if extra_env:
+            env.update(extra_env)
+        return _run([uv_path] + args, cwd=cwd, env=env, log_cb=log_cb)
+
+    # Pre-install torch (already done by caller, safe to re-run)
+    _run_uv(
+        ["pip", "install", "--python", str(venv_python),
+         "torch", "torchvision", "torchaudio", "setuptools", "wheel"],
+        cwd=repo_dir,
+    )
+
+    # Basic runtime dependencies (setup.sh --basic)
+    code, output = _run_uv(
+        ["pip", "install", "--python", str(venv_python), *_TRELLIS_BASIC_DEPS],
+        cwd=repo_dir,
+    )
+    if code != 0:
+        return {"success": False, "error": f"TRELLIS basic deps failed: {output[:300]}"}
+
+    # utils3d (pinned commit from setup.sh)
+    code, output = _run_uv(
+        ["pip", "install", "--python", str(venv_python), *_TRELLIS_GIT_DEPS],
+        cwd=repo_dir,
+    )
+    if code != 0:
+        logger.warning("TRELLIS utils3d install failed: %s", output[:300])
+
+    return {"success": True}
+
+
 def _drop_cuda_only_packages(requirements_file: Path) -> Path:
     """Return a requirements path with CUDA-only build packages commented out.
 
@@ -379,7 +426,7 @@ def _drop_cuda_only_packages(requirements_file: Path) -> Path:
     install its pure-Python deps and start in a degraded (CPU/inference-less)
     mode instead of failing the entire setup.
     """
-    if not requirements_file.exists():
+    if requirements_file is None or not requirements_file.exists():
         return requirements_file
     text = requirements_file.read_text(errors="ignore")
     out_lines: list[str] = []
@@ -464,6 +511,7 @@ def _uv_install(
     TORCH_BUILD_PKGS = {
         "diso", "torch-cluster", "torch-scatter",
         "torch-sparse", "torchmcubes", "torch-geometric",
+        "flash-attn",
     }
 
     # rembg -> pymatting -> numba -> llvmlite==0.36.0 only builds on Python
@@ -506,7 +554,10 @@ def _uv_install(
 
     # Rewrite py3.12-incompatible pins (open3d 0.18, numpy 1.22, flash-attn,
     # bpy) before resolving, so the per-model venv can be created on Py3.12.
-    install_requirements = _normalize_requirements_for_py312(requirements_file)
+    if requirements_file is not None:
+        install_requirements = _normalize_requirements_for_py312(requirements_file)
+    else:
+        install_requirements = None
 
     # No CUDA toolkit on this host: CUDA-only source extensions (diso,
     # torch-cluster, torchmcubes, …) cannot be compiled. Drop them so the venv
@@ -514,7 +565,7 @@ def _uv_install(
     # Inference is already flagged as unavailable without a GPU.
     if not _cuda_available():
         install_requirements = _drop_cuda_only_packages(install_requirements)
-        if log_cb and install_requirements.name.endswith(".nocuda.requirements.txt"):
+        if install_requirements and log_cb and install_requirements.name.endswith(".nocuda.requirements.txt"):
             log_cb("No CUDA toolkit detected — skipping CUDA-only build packages (CPU mode)")
 
     # torchmcubes (used by some 3D-gen repos) builds with scikit-build-core but
@@ -532,7 +583,7 @@ def _uv_install(
         if code != 0:
             logger.warning("Pre-install of scikit_build_core failed for %s: %s", repo_name, output[:300])
 
-    if not install_requirements.exists():
+    if install_requirements is None or not install_requirements.exists():
         pyproject = repo_dir / "pyproject.toml"
         setup_py = repo_dir / "setup.py"
         if pyproject.exists():
@@ -797,7 +848,11 @@ def install_repo_deps(repo_name: str, log_cb: Callable | None = None) -> dict:
         return {"success": False, "error": f"venv python not found at {venv_python} for {repo_name}"}
 
     logger.info("Installing deps for %s using uv + per-model venv python", repo_name)
-    ok = _uv_install(repo_dir / repo_cfg["requirements"], repo_dir, repo_name=repo_name, python_path=str(venv_python), log_cb=log_cb)
+    if repo_name == "TRELLIS" and not repo_cfg.get("requirements"):
+        ok = _install_trellis_deps(repo_dir, venv_python, log_cb=log_cb)
+    else:
+        req = repo_dir / repo_cfg["requirements"] if repo_cfg.get("requirements") else None
+        ok = _uv_install(req, repo_dir, repo_name=repo_name, python_path=str(venv_python), log_cb=log_cb)
     if not ok.get("success", False):
         return {"success": False, "error": f"uv install failed for {repo_name}: {ok.get('error', 'Unknown error')}"}
     return {"success": True, "repo": repo_name}

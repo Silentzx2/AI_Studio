@@ -28,8 +28,8 @@ def test_provider_manifests_no_nameerror():
     reg = model_registry.ModelRegistry.__new__(model_registry.ModelRegistry)
     manifests = reg._fetch_provider_manifests()
     ids = {m["id"] for m in manifests}
-    # triposg/unirig are real providers and must stay visible.
-    assert {"triposg", "unirig"} <= ids
+    # unirig is a real provider and must stay visible.
+    assert {"unirig"} <= ids
     assert all(m["vram_required_mb"] >= 0 for m in manifests)
 
 
@@ -44,7 +44,7 @@ def test_workspace_mesh_returns_all_compatible_models(monkeypatch):
     compat = filter_by_workspace(available, "mesh-generation")
     snap = build_pipeline_snapshot(compat)
     ids = {m["id"] for m in snap["pipelines"]}
-    assert {"hunyuan3d-2.1", "hunyuan3d-2", "trellis", "triposg"} <= ids
+    assert {"hunyuan3d-2.1", "hunyuan3d-2", "trellis"} <= ids
 
 
 def test_overlay_install_state_uses_disk_truth(monkeypatch):
@@ -52,14 +52,13 @@ def test_overlay_install_state_uses_disk_truth(monkeypatch):
     DB installed_models table is empty (installs go through runtime.installer)."""
     pipelines = _load_pipelines()
     merged = {
-        "triposg": {"id": "triposg", "installed": False, "status": "not_installed"},
         "hunyuan3d-2.1": {"id": "hunyuan3d-2.1", "installed": False, "status": "not_installed"},
     }
     fake_status = {
-        "triposg": {
+        "hunyuan3d-2.1": {
             "installed": True, "repo_ready": True, "weights_ready": True,
-            "metadata": {"category": "3d_generation", "label": "TripoSG",
-                         "workspace_compatibility": ["mesh-generation"]},
+            "metadata": {"category": "3d_generation", "label": "Hunyuan3D 2.1",
+                         "workspace_compatibility": ["mesh-generation", "texture-generation", "post-processing"]},
         },
     }
 
@@ -67,7 +66,5 @@ def test_overlay_install_state_uses_disk_truth(monkeypatch):
     monkeypatch.setattr(installer_mod, "get_install_status", lambda: fake_status)
 
     out = pipelines._overlay_install_state(dict(merged))
-    assert out["triposg"]["installed"] is True
-    assert out["triposg"]["status"] == "ready"
-    assert out["hunyuan3d-2.1"]["installed"] is False
-    assert out["hunyuan3d-2.1"]["status"] == "not_installed"
+    assert out["hunyuan3d-2.1"]["installed"] is True
+    assert out["hunyuan3d-2.1"]["status"] == "ready"

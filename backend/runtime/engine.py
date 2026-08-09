@@ -17,7 +17,7 @@ from runtime.storage import get_storage_config
 
 logger = logging.getLogger(__name__)
 
-PROVIDER_PRIORITY = ["hunyuan3d-2.1", "trellis", "hunyuan3d-2", "triposg", "anigen", "unirig", "detailgen3d", "mock"]
+PROVIDER_PRIORITY = ["hunyuan3d-2.1", "trellis", "hunyuan3d-2", "anigen", "unirig", "detailgen3d", "mock"]
 
 _PROVIDER_MAP: dict[str, tuple[str, str]] = {
     "hunyuan3d": ("app.core.providers.hunyuan3d_local", "Hunyuan3D21LocalProvider"),
@@ -25,7 +25,6 @@ _PROVIDER_MAP: dict[str, tuple[str, str]] = {
     "hunyuan3d-2.1": ("app.core.providers.hunyuan3d_local", "Hunyuan3D21LocalProvider"),
     "hunyuan3d-2": ("app.core.providers.hunyuan3d_local", "Hunyuan3D2LocalProvider"),
     "trellis": ("app.core.providers.trellis_local", "TRELLISLocalProvider"),
-    "triposg": ("app.core.providers.triposg_provider", "TripoSGProvider"),
     "anigen": ("app.core.providers.anigen_provider", "AniGenProvider"),
     "unirig": ("app.core.providers.unirig_provider", "UniRigProvider"),
     "detailgen3d": ("app.core.providers.detailgen3d", "DetailGen3DProvider"),

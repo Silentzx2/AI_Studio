@@ -46,7 +46,7 @@
 | **Download Queue** | Resumable downloads with mirror fallback |
 | **Health Monitoring** | Comprehensive system and model diagnostics |
 | **GPU Scheduling** | VRAM-aware provider selection |
-| **Multi-Provider** | Support for Hunyuan3D, TRELLIS, TripoSG, etc. |
+| **Multi-Provider** | Support for Hunyuan3D, TRELLIS, etc. |
 
 ---
 
@@ -251,7 +251,7 @@ ai-3d-studio/
 │   │   │   │   ├── registry.py       # Provider registry
 │   │   │   │   ├── hunyuan3d*.py     # Hunyuan3D providers
 │   │   │   │   ├── trellis*.py       # TRELLIS providers
-│   │   │   │   ├── triposg*.py       # TripoSG providers
+│   │   │   │   ├── hunyuan3d*.py       # Hunyuan3D providers
 │   │   │   │   ├── instant_mesh.py   # Instant Mesh
 │   │   │   │   ├── detailgen3d.py    # DetailGen3D
 │   │   │   │   ├── anigen_provider.py # AniGen provider
@@ -753,7 +753,7 @@ The workspace compatibility system prevents users from selecting incompatible mo
 
 | Workspace | Description | Compatible Models |
 |-----------|-------------|-------------------|
-| `mesh-generation` | Generate 3D meshes from text or images | hunyuan3d-2.1, hunyuan3d-2, trellis, triposg |
+| `mesh-generation` | Generate 3D meshes from text or images | hunyuan3d-2.1, hunyuan3d-2, trellis |
 | `texture-generation` | Generate PBR textures and materials | hunyuan3d-2.1, hunyuan3d-2, trellis |
 | `rigging` | Auto-rig 3D character meshes | anigen, unirig |
 | `animation` | Generate skeletal animations | anigen, unirig |
@@ -1169,7 +1169,6 @@ The backend pipelines flow drives workspace model pickers and feature gating (th
 
 - Hunyuan3D 2.1 — text/image-to-3D, texture generation
 - Trellis — image-to-3D, text-to-3D, texture generation
-- TripoSG — image-to-3D, detail enhancement
 - UniRig — rigging and animation
 
 ### Feature gating summary
