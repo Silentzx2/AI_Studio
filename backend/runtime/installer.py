@@ -225,6 +225,7 @@ def _run(
     log_cb: Callable | None = None,
 ) -> tuple[int, str]:
     merged_env = {**os.environ, **(env or {})}
+    merged_env.setdefault("UV_LINK_MODE", "copy")
     proc = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
