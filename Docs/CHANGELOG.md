@@ -1,5 +1,59 @@
 # AI 3D Studio — Changelog
 
+## v3.4.7 — Fix TRELLIS/Hunyuan3D Load: torch/torchvision Version Mismatch (August 9, 2026)
+
+### Problem
+
+Pressing **Generate** on the 3D generation page failed for the `trellis` provider with:
+
+```
+RuntimeError: operator torchvision::nms does not exist
+```
+
+Root cause: the per-model install step installed **unpinned** `torch torchvision torchaudio`
+into each model's `.venv`, which resolved to the latest builds (`torch 2.13.0 / torchvision
+0.28.0`). But the backend process loads its own `torch 2.5.1+cu121` first. When a provider
+runs in-process, `_add_model_env()` prepends the per-model venv's site-packages, so
+`torchvision 0.28.0` is imported from the per-model venv while `torch` stays the already-loaded
+backend `2.5.1`. torchvision's C++ operator registration (`torchvision::nms`) then fails against
+the incompatible torch → the `nms` error. The same broken stack (`2.13/0.28`) was also present in
+the Hunyuan3D-2 venv (same install path).
+
+### Solution
+
+- **`backend/runtime/installer.py`**: added `_backend_torch_stack()` which resolves the backend
+  venv's exact `torch`/`torchvision`/`torchaudio` versions + the matching PyTorch wheel index
+  (derived from the `+cuXXX` build tag) and a `_install_torch_stack()` helper. Both install paths
+  (`_uv_install` and `_install_trellis_deps`) now pin the per-model venv's torch stack to the
+  backend build instead of installing unpinned latest. This keeps every in-process provider on a
+  single ABI-compatible torch.
+- **`clone_repo()`** now runs `git submodule update --init --recursive` after cloning: `--depth 1`
+  skips submodules (e.g. TRELLIS's FlexiCubes CUDA extension), which previously left in-repo source
+  missing.
+
+### Verification
+
+- Confirmed broken state: TRELLIS venv had `torch 2.13.0+cu130 / torchvision 0.28.0+cu130`; backend
+  had `2.5.1+cu121 / 0.20.1+cu121`.
+- Reinstalled the torch stack in the existing `TRELLIS` and `Hunyuan3D-2` venvs to
+  `2.5.1+cu121 / 0.20.1+cu121 / 2.5.1+cu121` and confirmed `trellis` now imports past
+  `torchvision` (the `nms` error no longer occurs).
+- `_backend_torch_stack()` returns
+  `https://download.pytorch.org/whl/cu121` + `['torch==2.5.1+cu121','torchvision==0.20.1+cu121','torchaudio==2.5.1+cu121']`.
+
+### Known follow-up (separate, pre-existing)
+
+TRELLIS still requires its **FlexiCubes** submodule to be built (`pip install` of the
+`MaxtirError/FlexiCubes` extension, which needs `kaolin` + a CUDA build). That is a distinct
+install/build issue from this torch mismatch and is tracked separately.
+
+### Files Modified
+
+- `backend/runtime/installer.py` — `_backend_torch_stack()`, `_install_torch_stack()`,
+  updated `_uv_install()` and `_install_trellis_deps()`, `clone_repo()` submodule init
+
+---
+
 ## v3.4.6 — Remove Pipelines Page + TripoSR/HoloPart Cleanup (August 9, 2026)
 
 ### Removed

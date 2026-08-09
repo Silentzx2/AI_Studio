@@ -693,6 +693,8 @@ BaseProvider (ABC)
 
 **Key Implementation Detail**: Local providers (hunyuan3d_local, trellis_local) must call `_add_model_env()` at the very top of the module (before any other imports) to ensure the per-model venv's site-packages take precedence over the backend process's shared dependencies (e.g., huggingface_hub version conflicts).
 
+**torch/torchvision ABI lock**: All providers run in-process, so they share the backend's single `torch`. The installer pins each per-model venv's `torch`/`torchvision`/`torchaudio` to the backend's exact build via `_backend_torch_stack()` (in `runtime/installer.py`). Installing unpinned latest torch into a per-model venv causes an ABI mismatch — TRELLIS then crashes at import with `RuntimeError: operator torchvision::nms does not exist` because its `torchvision 0.28` registers operators against the backend's older `torch 2.5`. Keep the per-model torch stack identical to the backend's `+cuXXX` build.
+
 ### Provider Selection Algorithm
 
 ```python

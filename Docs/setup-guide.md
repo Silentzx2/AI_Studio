@@ -504,6 +504,44 @@ git log --oneline | head -5
 pkill -f uvicorn  # or ./scripts/manager.sh restart
 ```
 
+#### 9. Provider Import Errors (torch/torchvision version mismatch)
+
+If generation fails immediately for `trellis` (or `hunyuan3d`) with:
+
+```
+RuntimeError: operator torchvision::nms does not exist
+```
+
+the per-model venv's `torch`/`torchvision` is newer than the backend's and ABI-incompatible with
+the in-process backend `torch`. This happens when the per-model venv was created with unpinned
+`torch/torchvision/torchaudio` (resolves to the latest release).
+
+The installer pins each per-model venv's torch stack to the backend's exact build
+(`backend/runtime/installer.py` → `_backend_torch_stack()`), so a fresh install no longer hits this.
+If an existing venv is affected, reinstall its torch stack to match the backend:
+
+```bash
+# Find the backend torch build
+backend/.venv/bin/python -c "import torch, torchvision; print(torch.__version__, torchvision.__version__)"
+
+# Reinstall the matching stack into the affected per-model venv
+uv pip install --python backend/third_party/TRELLIS/.venv/bin/python \
+  --index-url https://download.pytorch.org/whl/cu121 --extra-index-url https://pypi.org/simple \
+  torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 setuptools wheel
+```
+
+> The `+cuXXX` index is derived automatically from the backend's torch local version tag
+> (`2.5.1+cu121` → `cu121`). Use whichever CUDA tag your backend torch reports.
+
+#### 10. TRELLIS FlexiCubes Submodule (separate, pre-existing)
+
+TRELLIS needs its `trellis/representations/mesh/flexicubes` submodule built (it is a CUDA
+extension requiring `kaolin`). The installer now clones submodules, but the extension still must be
+built in the per-model venv. Until that is done, TRELLIS import fails at
+`from .flexicubes.flexicubes import FlexiCubes`. This is independent of the torch mismatch above.
+
+
+
 ### Log Locations
 
 | Service | Log Command | Location |

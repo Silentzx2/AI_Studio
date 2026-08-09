@@ -379,6 +379,86 @@ _TRELLIS_GIT_DEPS = [
 ]
 
 
+def _backend_torch_stack() -> tuple[str, list[str]]:
+    """Resolve the exact torch/torchvision/torchaudio build used by the backend
+    venv so each per-model venv can mirror it.
+
+    ponytail: all in-process providers share ONE torch — the backend's. The
+    per-model venv must install the same torch/torchvision/torchaudio versions,
+    otherwise torchvision's C++ operator registration (e.g. torchvision::nms)
+    fails against the already-loaded backend torch. Earlier code installed
+    unpinned torch/torchvision/torchaudio, pulling the latest (2.13/0.28) which
+    is ABI-incompatible with the backend's 2.5.1 and crashes TRELLIS load with
+    "RuntimeError: operator torchvision::nms does not exist". Upgrade path:
+    read the torch wheel URL straight from backend metadata instead of the
+    +cuXXX heuristic if a future torch build drops the local version tag.
+    """
+    try:
+        import importlib.metadata as md
+
+        tv = md.version("torch")
+        tvv = md.version("torchvision")
+        tav = md.version("torchaudio")
+    except Exception:
+        # Fallback to the documented baseline if torch metadata is unreadable.
+        tv, tvv, tav = "2.5.1", "0.20.1", "2.5.1"
+    # The +cuXXX / +cpu local version tag selects the matching PyTorch wheel
+    # index (e.g. 2.5.1+cu121 -> https://download.pytorch.org/whl/cu121).
+    cuda = "cu121"
+    if "+" in tv:
+        tag = tv.split("+", 1)[1]
+        if tag.startswith("cu") or tag == "cpu":
+            cuda = tag
+    index = f"https://download.pytorch.org/whl/{cuda}"
+    # Pin the FULL version including the +cuXXX local tag. The per-model venv may
+    # already hold a mismatched build (e.g. 2.13/0.28 from an unpinned install),
+    # and `torch==2.5.1` alone is satisfied by any 2.5.1+local already present,
+    # so uv would skip the fix. The explicit tag + --reinstall forces the exact
+    # backend build.
+    specs = [f"torch=={tv}", f"torchvision=={tvv}", f"torchaudio=={tav}"]
+    return index, specs
+
+
+def _install_torch_stack(
+    venv_python: Path,
+    cwd: Path,
+    log_cb: Callable | None = None,
+) -> tuple[int, str]:
+    """Install the backend-matching torch/torchvision/torchaudio into a per-model
+    venv. Mirrors the backend's exact build so in-process inference stays ABI
+    compatible with the backend's already-loaded torch.
+    """
+    uv_path = shutil.which("uv")
+    if not uv_path:
+        return 1, "uv not found"
+    torch_index, torch_specs = _backend_torch_stack()
+    # Install the torch stack with the PyTorch index as primary and PyPI as a
+    # fallback (the nvidia-* CUDA libs that torch depends on live on PyPI).
+    # --index-strategy unsafe-best-match is required so the pinned +cuXXX local
+    # tag is found on the PyTorch index even though PyPI also lists torch.
+    # --reinstall forces the correct build even if a mismatched version is
+    # already present in the per-model venv.
+    code, output = _run(
+        [uv_path, "pip", "install", "--python", str(venv_python),
+         "--index-url", torch_index, "--extra-index-url", "https://pypi.org/simple",
+         "--index-strategy", "unsafe-best-match", "--reinstall", *torch_specs],
+        cwd=str(cwd),
+        log_cb=log_cb,
+    )
+    if code != 0:
+        return code, output
+    # Seed setuptools/wheel from PyPI (needed for --no-build-isolation builds;
+    # the PyTorch index does not provide them).
+    code2, output2 = _run(
+        [uv_path, "pip", "install", "--python", str(venv_python), "setuptools", "wheel"],
+        cwd=str(cwd),
+        log_cb=log_cb,
+    )
+    if code2 != 0:
+        logger.warning("setuptools/wheel install failed: %s", output2[:200])
+    return 0, output
+
+
 def _install_trellis_deps(
     repo_dir: Path,
     venv_python: Path,
@@ -402,12 +482,12 @@ def _install_trellis_deps(
             env.update(extra_env)
         return _run([uv_path] + args, cwd=cwd, env=env, log_cb=log_cb)
 
-    # Pre-install torch (already done by caller, safe to re-run)
-    _run_uv(
-        ["pip", "install", "--python", str(venv_python),
-         "torch", "torchvision", "torchaudio", "setuptools", "wheel"],
-        cwd=repo_dir,
-    )
+    # Pre-install torch (already done by caller, safe to re-run). Mirror the
+    # backend's exact torch/torchvision/torchaudio build so the per-model venv
+    # stays ABI compatible with the in-process backend torch.
+    code, output = _install_torch_stack(venv_python, repo_dir, log_cb=log_cb)
+    if code != 0:
+        return {"success": False, "error": f"TRELLIS torch stack install failed: {output[:300]}"}
     # Pre-install numba/llvmlite at py3.12-compatible versions. rembg's
     # dependency chain (pymatting -> numba==0.53.1 -> llvmlite==0.36.0) does
     # not support Python >=3.10, so uv must find the newer pins already
@@ -508,17 +588,13 @@ def _uv_install(
 
     # Pre-install torch so build-backends that import it during wheel build
     # (diso, torchmcubes, etc.) can compile inside isolated build envs.
-    # Also seed setuptools/wheel: uv venvs don't include them, and they're
-    # required when a package is built with --no-build-isolation.
+    # Mirror the backend's exact torch/torchvision/torchaudio build so the
+    # per-model venv stays ABI compatible with the in-process backend torch.
     if log_cb:
-        log_cb(f"Pre-installing torch in {venv_python} for build isolation…")
-    code, output = _run_uv(
-        ["pip", "install", "--python", str(venv_python),
-         "torch", "torchvision", "torchaudio", "setuptools", "wheel"],
-        cwd=repo_dir,
-    )
+        log_cb(f"Pre-installing torch stack in {venv_python} (matching backend build)…")
+    code, output = _install_torch_stack(venv_python, repo_dir, log_cb=log_cb)
     if code != 0:
-        logger.warning("Pre-install of torch failed for %s: %s", repo_name, output[:300])
+        logger.warning("Pre-install of torch stack failed for %s: %s", repo_name, output[:300])
 
     # Packages whose build step imports torch (diso, torch-cluster, …) must
     # compile inside the venv — which now has torch pre-installed — instead of
@@ -827,6 +903,10 @@ def clone_repo(repo_name: str, log_cb: Callable | None = None) -> dict:
     code, out = _run(cmd, log_cb=log_cb)
     if code != 0:
         return {"success": False, "error": f"git clone failed (exit {code})", "output": out}
+    # ponytail: --depth 1 skips submodules (e.g. TRELLIS's FlexiCubes CUDA
+    # extension). Pull them so in-repo source isn't missing at import time.
+    # Failure is non-fatal: repos without submodules just no-op here.
+    _run(["git", "submodule", "update", "--init", "--recursive"], cwd=dest, log_cb=log_cb)
     return {"success": True, "path": str(dest), "action": "cloned"}
 
 
