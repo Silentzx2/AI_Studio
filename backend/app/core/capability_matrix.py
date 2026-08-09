@@ -25,7 +25,6 @@ WORKSPACE_TYPES = (
     "texture-generation",
     "rigging",
     "animation",
-    "segmentation",
     "remesh",
     "post-processing",
 )
@@ -79,8 +78,6 @@ def _workspace_compatibility(model: dict[str, Any]) -> list[str]:
     if caps.get("rigging_animation"):
         derived.append("rigging")
         derived.append("animation")
-    if caps.get("segmentation"):
-        derived.append("segmentation")
     if caps.get("remesh"):
         derived.append("remesh")
     if caps.get("detail_enhancement"):

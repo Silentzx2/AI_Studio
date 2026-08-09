@@ -180,7 +180,7 @@ const DEFAULT_STATE: AppStateData = {
   inspectorTab: 'scene',
   bottomDockTab: 'recent',
   creativeLayoutMode: true,
-  capabilities: { threeDGen: true, remesh: true, textureGen: true, segmentation: true, riggingAnimation: true },
+  capabilities: { threeDGen: true, remesh: true, textureGen: true, riggingAnimation: true },
 
   tasks: {},
   downloads: {},

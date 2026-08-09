@@ -1,9 +1,9 @@
 """Regression guard for the "invalid GLB" bug.
 
 The simulated/fallback provider paths used to write raw bytes named ``.glb``
-(e.g. ``TRIPOSF_GENERATED_GLB``) that no GLTFLoader could parse. Every such
-writer now goes through ``write_placeholder_mesh``; this test proves the output
-is a parseable GLB.
+(e.g. a literal ``..._GENERATED_GLB`` string) that no GLTFLoader could parse.
+Every such writer now goes through ``write_placeholder_mesh``; this test proves
+the output is a parseable GLB.
 """
 
 from pathlib import Path

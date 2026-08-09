@@ -993,13 +993,12 @@ GET /api/v1/pipelines
       "image_to_3d": true
     },
     "input_modes": ["text-to-3d", "image-to-3d"],
-    "total_models": 7,
+    "total_models": 8,
     "workspace_types": [
       "mesh-generation",
       "texture-generation",
       "rigging",
       "animation",
-      "segmentation",
       "remesh",
       "post-processing"
     ],
@@ -1032,7 +1031,7 @@ GET /api/v1/pipelines/workspace-models?workspace=<type>&installed_only=<bool>
 ```
 
 **Query Parameters:**
-- `workspace` (required): One of `mesh-generation`, `texture-generation`, `rigging`, `animation`, `segmentation`, `remesh`, `post-processing`.
+- `workspace` (required): One of `mesh-generation`, `texture-generation`, `rigging`, `animation`, `remesh`, `post-processing`.
 - `installed_only` (optional, default `false`): If `true`, only return installed models.
 
 **Response (200):**
@@ -1075,7 +1074,6 @@ GET /api/v1/pipelines/workspace-types
       "texture-generation",
       "rigging",
       "animation",
-      "segmentation",
       "remesh",
       "post-processing"
     ],
@@ -1084,7 +1082,6 @@ GET /api/v1/pipelines/workspace-types
       "texture-generation": "Generate PBR textures and materials",
       "rigging": "Auto-rig 3D character meshes",
       "animation": "Generate skeletal animations",
-      "segmentation": "Part segmentation and mesh splitting",
       "remesh": "Retopology and mesh optimization",
       "post-processing": "Detail enhancement and mesh polishing"
     }
@@ -1094,7 +1091,7 @@ GET /api/v1/pipelines/workspace-types
 
 ### Supported model ids in the current catalog
 
-`hunyuan3d-2.1`, `triposr`, `trellis`, `triposg`, `triposf`, `unirig`, `holopart`
+`hunyuan3d-2.1`, `triposr`, `trellis`, `triposg`, `unirig`
 
 
 ## Runtime APIs

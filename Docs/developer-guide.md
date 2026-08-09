@@ -1233,13 +1233,13 @@ When adding a new model, declare its `workspace_compatibility` in both:
 1. `backend/runtime/installer.py` → `PROVIDER_METADATA[model_id]["workspace_compatibility"]`
 2. `backend/app/core/registry/model_registry.py` → model manifest `workspace_compatibility`
 
-Valid workspace types: `mesh-generation`, `texture-generation`, `rigging`, `animation`, `segmentation`, `remesh`, `post-processing`.
+Valid workspace types: `mesh-generation`, `texture-generation`, `rigging`, `animation`, `remesh`, `post-processing`.
 
 The frontend uses `useWorkspaceModels(workspace)` to fetch only compatible models for each workspace tab.
 
 ### Current catalog
 
-`hunyuan3d-2.1`, `triposr`, `trellis`, `triposg`, `triposf`, `unirig`, `holopart`
+`hunyuan3d-2.1`, `triposr`, `trellis`, `triposg`, `unirig`
 
 ### Verification checklist
 

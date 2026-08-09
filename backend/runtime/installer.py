@@ -59,13 +59,6 @@ REPOS = {
         "category": "3d_generation",
         "providers": ["triposg"],
     },
-    "TripoSF": {
-        "url": "https://github.com/VAST-AI-Research/TripoSF.git",
-        "branch": "main",
-        "requirements": "requirements.txt",
-        "category": "3d_generation",
-        "providers": ["triposf"],
-    },
     "AniGen": {
         "url": "https://github.com/VAST-AI-Research/AniGen.git",
         "branch": "main",
@@ -80,13 +73,6 @@ REPOS = {
         "category": "rigging",
         "providers": ["unirig"],
     },
-    "HoloPart": {
-        "url": "https://github.com/VAST-AI-Research/HoloPart.git",
-        "branch": "main",
-        "requirements": "requirements.txt",
-        "category": "post_processing",
-        "providers": ["holopart"],
-    },
 }
 
 HF_MODELS = {
@@ -95,10 +81,8 @@ HF_MODELS = {
     "trellis":       {"repo": "microsoft/TRELLIS-image-large", "size_estimate_gb": 3},
     "triposr":       {"repo": "stabilityai/TripoSR",           "size_estimate_gb": 2},
     "triposg":       {"repo": "VAST-AI/TripoSG",               "size_estimate_gb": 6},
-    "triposf":       {"repo": "VAST-AI/TripoSF",               "size_estimate_gb": 6},
     "anigen":        {"repo": "VAST-AI/AniGen_Weights",        "size_estimate_gb": 23},
     "unirig":        {"repo": "VAST-AI/UniRig",                "size_estimate_gb": 2},
-    "holopart":      {"repo": "VAST-AI/HoloPart",              "size_estimate_gb": 3},
 }
 
 PROVIDER_ALIASES = {
@@ -167,17 +151,6 @@ PROVIDER_METADATA = {
         "weight_key": "triposg",
         "workspace_compatibility": ["mesh-generation"],
     },
-    "triposf": {
-        "label": "TripoSF",
-        "category": "3d_generation",
-        "supports_text_to_3d": False,
-        "supports_image_to_3d": True,
-        "supports_texture": False,
-        "vram_required_mb": 12000,
-        "repo": "TripoSF",
-        "weight_key": "triposf",
-        "workspace_compatibility": ["mesh-generation"],
-    },
     "anigen": {
         "label": "AniGen",
         "category": "rigging",
@@ -200,17 +173,6 @@ PROVIDER_METADATA = {
         "weight_key": "unirig",
         "workspace_compatibility": ["rigging", "animation"],
     },
-    "holopart": {
-        "label": "HoloPart",
-        "category": "post_processing",
-        "supports_text_to_3d": False,
-        "supports_image_to_3d": False,
-        "supports_texture": False,
-        "vram_required_mb": 8000,
-        "repo": "HoloPart",
-        "weight_key": "holopart",
-        "workspace_compatibility": ["segmentation", "post-processing"],
-    },
     "detailgen3d": {
         "label": "DetailGen3D",
         "category": "post_processing",
@@ -231,7 +193,7 @@ PROVIDER_METADATA = {
         "vram_required_mb": 0,
         "repo": None,
         "weight_key": None,
-        "workspace_compatibility": ["mesh-generation", "texture-generation", "rigging", "segmentation", "remesh", "post-processing", "animation"],
+        "workspace_compatibility": ["mesh-generation", "texture-generation", "rigging", "remesh", "post-processing", "animation"],
     },
 }
 

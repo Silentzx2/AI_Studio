@@ -18,14 +18,13 @@ settings = get_settings()
 
 MAX_PROMPT_LENGTH = 2000
 
-_VALID_MODES = ('text-to-3d', 'image-to-3d', 'remesh', 'rigging', 'partition', 'texture-generation')
+_VALID_MODES = ('text-to-3d', 'image-to-3d', 'remesh', 'rigging', 'texture-generation')
 _VALID_QUALITIES = ('low-poly', 'standard', 'high-poly', 'ultra', 'draft')
 _WORKSPACE_MODE_MAP = {
     'mesh-generation': 'text-to-3d',
     'texture-generation': 'texture-generation',
     'rigging': 'rigging',
     'animation': 'rigging',
-    'segmentation': 'partition',
     'remesh': 'remesh',
     'post-processing': 'texture-generation',
 }

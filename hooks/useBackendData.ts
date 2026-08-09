@@ -89,7 +89,7 @@ export function useAvailableModels() {
 
 // Hook for models compatible with a specific workspace type
 // Workspace types: mesh-generation, texture-generation, rigging, animation,
-//                   segmentation, remesh, post-processing
+//                   remesh, post-processing
 export function useWorkspaceModels(workspace: string | null | undefined) {
   const [models, setModels] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

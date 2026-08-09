@@ -7,7 +7,7 @@
 
 import React, { useState } from 'react';
 import {
-  Folder, Cpu, RefreshCw, Palette, Bookmark, Layers, Heart, Globe, Code, Settings, Sparkles, HelpCircle, LogOut, Scissors, Activity
+  Folder, Cpu, RefreshCw, Palette, Bookmark, Layers, Heart, Globe, Code, Settings, Sparkles, HelpCircle, LogOut, Activity
 } from 'lucide-react';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 import { useUIStore } from '@/stores/useUIStore';
@@ -18,7 +18,6 @@ import { useGeneration } from '@/hooks/useGeneration';
 import WorkspaceTab from './WorkspaceTab';
 import RemeshTab from './RemeshTab';
 import TextureGenTab from './TextureGenTab';
-import SegmentationTab from './SegmentationTab';
 import RiggingAnimationTab from './RiggingAnimationTab';
 import MyAssetsTab from './MyAssetsTab';
 import FavoritesTab from './FavoritesTab';
@@ -201,7 +200,6 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
   const sidebarItems = [
     { label: 'Workspace', icon: Folder, visible: true },
     { label: '3D Generation', icon: Cpu, visible: capabilities.threeDGen },
-    { label: 'Segmentation', icon: Scissors, visible: capabilities.segmentation },
     { label: 'Rigging & Animation', icon: Activity, visible: capabilities.riggingAnimation },
     { label: 'Remesh', icon: RefreshCw, visible: capabilities.remesh },
     { label: 'Texture Gen', icon: Palette, visible: capabilities.textureGen },
@@ -288,14 +286,6 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
 
         {activeSidebarItem === 'Texture Gen' && (
           <TextureGenTab
-            activeModel={activeModel}
-            onUpdateModel={setActiveModel}
-            onNavigate={setActiveSidebarItem}
-          />
-        )}
-
-        {activeSidebarItem === 'Segmentation' && (
-          <SegmentationTab
             activeModel={activeModel}
             onUpdateModel={setActiveModel}
             onNavigate={setActiveSidebarItem}

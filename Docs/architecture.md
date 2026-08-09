@@ -758,11 +758,10 @@ The workspace compatibility system prevents users from selecting incompatible mo
 
 | Workspace | Description | Compatible Models |
 |-----------|-------------|-------------------|
-| `mesh-generation` | Generate 3D meshes from text or images | hunyuan3d-2.1, hunyuan3d-2, trellis, triposr, triposg, triposf |
+| `mesh-generation` | Generate 3D meshes from text or images | hunyuan3d-2.1, hunyuan3d-2, trellis, triposr, triposg |
 | `texture-generation` | Generate PBR textures and materials | hunyuan3d-2.1, hunyuan3d-2, trellis, triposr |
 | `rigging` | Auto-rig 3D character meshes | anigen, unirig |
 | `animation` | Generate skeletal animations | anigen, unirig |
-| `segmentation` | Part segmentation and mesh splitting | holopart |
 | `remesh` | Retopology and mesh optimization | detailgen3d |
 | `post-processing` | Detail enhancement and mesh polishing | hunyuan3d-2.1, hunyuan3d-2, detailgen3d |
 
@@ -791,7 +790,6 @@ The workspace compatibility system prevents users from selecting incompatible mo
 **Workspace Tabs**:
 - `ThreeDGenerationTab.tsx` → `useWorkspaceModels('mesh-generation')`
 - `RiggingAnimationTab.tsx` → `useWorkspaceModels('rigging')`
-- `SegmentationTab.tsx` → `useWorkspaceModels('segmentation')`
 - `RemeshTab.tsx` → `useWorkspaceModels('remesh')`
 - `TextureGenTab.tsx` → `useWorkspaceModels('texture-generation')`
 
@@ -1184,14 +1182,12 @@ The Settings → Pipelines page is driven by a compact pipeline snapshot flow:
 - TripoSR — image-to-3D, optional texture bake
 - Trellis — image-to-3D, text-to-3D, texture generation
 - TripoSG — image-to-3D, detail enhancement
-- TripoSF — image-to-3D, detail enhancement
 - UniRig — rigging and animation
-- HoloPart — part completion and texture support
 
 ### Feature gating summary
 
 - `texture_generation` is enabled when at least one texture-capable model is active.
 - `rigging_animation` is enabled when UniRig is active.
-- `detail_enhancement` is enabled when TripoSG, TripoSF, or HoloPart is active.
+- `detail_enhancement` is enabled when DetailGen3D is active.
 - `text_to_3d` is enabled when Hunyuan3D 2.1 or Trellis is active.
 - `image_to_3d` is enabled when the catalog includes a compatible generation model.

@@ -15,7 +15,7 @@ class ModelRegistry:
         
     def _fetch_provider_manifests(self) -> list[dict[str, Any]]:
         # Only expose models that have a real provider class in engine._PROVIDER_MAP.
-        # Repos like TripoSG/TripoSF/UniRig/HoloPart can be cloned and have weights
+        # Repos like TripoSG/UniRig can be cloned and have weights
         # downloaded, but without a provider class they cannot be loaded or executed,
         # so they must not appear in the Pipelines page or generation UI.
         try:
@@ -225,41 +225,6 @@ class ModelRegistry:
                 }
             },
             {
-                "id": "triposf",
-                "label": "TripoSF",
-                "name": "VAST-AI-Research/TripoSF",
-                "category": "3d_generation",
-                "description": "Surface-focused 3D generation from images with smooth topology",
-                "author": "VAST-AI",
-                "installed": False,
-                "size_mb": 6144,
-                "vram_required_mb": _vram("triposf"),
-                "speed_seconds": 15,
-                "workspace_compatibility": ["mesh-generation"],
-                "manifest": {
-                    "name": "TripoSF",
-                    "version": "1.0",
-                    "category": "3d_generation",
-                    "description": "Surface-focused 3D generation",
-                    "author": "VAST-AI",
-                    "license": "Apache-2.0",
-                    "min_vram_mb": 10000,
-                    "recommended_vram_mb": 12000,
-                    "cuda_required": True,
-                    "cuda_min_version": "11.8",
-                    "python_min": "3.10",
-                    "supported_os": ["linux"],
-                    "supported_architectures": ["x86_64"],
-                    "disk_space_mb": 6144,
-                    "capabilities": {
-                        "image_to_3d": True,
-                    },
-                    "dependencies": {"python_packages": []},
-                    "download_sources": [],
-                    "runtime": {"type": "python", "entrypoint": "", "inference_class": ""}
-                }
-            },
-            {
                 "id": "anigen",
                 "label": "AniGen",
                 "name": "VAST-AI-Research/AniGen",
@@ -323,41 +288,6 @@ class ModelRegistry:
                     "disk_space_mb": 2048,
                     "capabilities": {
                         "rigging_animation": True,
-                    },
-                    "dependencies": {"python_packages": []},
-                    "download_sources": [],
-                    "runtime": {"type": "python", "entrypoint": "", "inference_class": ""}
-                }
-            },
-            {
-                "id": "holopart",
-                "label": "HoloPart",
-                "name": "VAST-AI-Research/HoloPart",
-                "category": "post_processing",
-                "description": "AI-driven part segmentation and decomposition for 3D meshes",
-                "author": "VAST-AI",
-                "installed": False,
-                "size_mb": 3072,
-                "vram_required_mb": _vram("holopart"),
-                "speed_seconds": 10,
-                "workspace_compatibility": ["segmentation", "post-processing"],
-                "manifest": {
-                    "name": "HoloPart",
-                    "version": "1.0",
-                    "category": "post_processing",
-                    "description": "AI part segmentation",
-                    "author": "VAST-AI",
-                    "license": "Apache-2.0",
-                    "min_vram_mb": 6000,
-                    "recommended_vram_mb": 8000,
-                    "cuda_required": True,
-                    "cuda_min_version": "11.8",
-                    "python_min": "3.10",
-                    "supported_os": ["linux"],
-                    "supported_architectures": ["x86_64"],
-                    "disk_space_mb": 3072,
-                    "capabilities": {
-                        "segmentation": True,
                     },
                     "dependencies": {"python_packages": []},
                     "download_sources": [],

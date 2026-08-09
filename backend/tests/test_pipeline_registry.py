@@ -28,13 +28,13 @@ def test_provider_manifests_no_nameerror():
     reg = model_registry.ModelRegistry.__new__(model_registry.ModelRegistry)
     manifests = reg._fetch_provider_manifests()
     ids = {m["id"] for m in manifests}
-    # triposg/triposf/unirig/holopart are real providers and must stay visible.
-    assert {"triposg", "triposf", "unirig", "holopart"} <= ids
+    # triposg/unirig are real providers and must stay visible.
+    assert {"triposg", "unirig"} <= ids
     assert all(m["vram_required_mb"] >= 0 for m in manifests)
 
 
 def test_workspace_mesh_returns_all_compatible_models(monkeypatch):
-    """Mesh-generation must expose all 6 compatible models (not just the
+    """Mesh-generation must expose all 5 compatible models (not just the
     frontend's 2-model offline fallback)."""
     reg = model_registry.ModelRegistry.__new__(model_registry.ModelRegistry)
     available = reg._fetch_provider_manifests()
@@ -44,7 +44,7 @@ def test_workspace_mesh_returns_all_compatible_models(monkeypatch):
     compat = filter_by_workspace(available, "mesh-generation")
     snap = build_pipeline_snapshot(compat)
     ids = {m["id"] for m in snap["pipelines"]}
-    assert ids == {"hunyuan3d-2.1", "hunyuan3d-2", "trellis", "triposr", "triposg", "triposf"}
+    assert ids == {"hunyuan3d-2.1", "hunyuan3d-2", "trellis", "triposr", "triposg"}
 
 
 def test_overlay_install_state_uses_disk_truth(monkeypatch):

@@ -98,9 +98,7 @@ def test_safe_unload_handles_provider_name():
     """safe_unload with a valid provider_name should deallocate vram_tracker entry."""
     from runtime.accelerate_loader import safe_unload
     # Should not raise even if the provider_name wasn't tracked
-    safe_unload(provider_name="holopart")
     safe_unload(provider_name="triposg")
-    safe_unload(provider_name="triposf")
     safe_unload(provider_name="detailgen3d")
     safe_unload(provider_name="unirig")
     safe_unload(provider_name="anigen")
@@ -126,10 +124,8 @@ def test_all_providers_use_safe_unload():
         "trellis": PROVIDERS_DIR / "trellis_local.py",
         "hunyuan3d": PROVIDERS_DIR / "hunyuan3d_local.py",
         "triposr": PROVIDERS_DIR / "triposr_local.py",
-        "holopart": PROVIDERS_DIR / "holopart_provider.py",
         "unirig": PROVIDERS_DIR / "unirig_provider.py",
         "triposg": PROVIDERS_DIR / "triposg_provider.py",
-        "triposf": PROVIDERS_DIR / "triposf_provider.py",
         "detailgen3d": PROVIDERS_DIR / "detailgen3d.py",
         "anigen": PROVIDERS_DIR / "anigen_provider.py",
     }
@@ -172,10 +168,8 @@ def test_all_providers_import_accelerate_loader():
         "trellis": PROVIDERS_DIR / "trellis_local.py",
         "hunyuan3d": PROVIDERS_DIR / "hunyuan3d_local.py",
         "triposr": PROVIDERS_DIR / "triposr_local.py",
-        "holopart": PROVIDERS_DIR / "holopart_provider.py",
         "unirig": PROVIDERS_DIR / "unirig_provider.py",
         "triposg": PROVIDERS_DIR / "triposg_provider.py",
-        "triposf": PROVIDERS_DIR / "triposf_provider.py",
         "detailgen3d": PROVIDERS_DIR / "detailgen3d.py",
         "anigen": PROVIDERS_DIR / "anigen_provider.py",
     }

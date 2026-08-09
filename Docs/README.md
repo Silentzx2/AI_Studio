@@ -87,9 +87,7 @@
 | **TripoSR** | 3D generation | ~6 GB | ~1s | image-to-3D, optional texture bake |
 | **Trellis** | 3D generation | ~12 GB | ~60s | image-to-3D, text-to-3D, texture generation |
 | **TripoSG** | 3D generation | ~12 GB | ~45s | image-to-3D, detail enhancement |
-| **TripoSF** | 3D generation | ~12 GB | ~60s | image-to-3D, detail enhancement |
 | **UniRig** | Rigging | ~8 GB | ~30s | skeletal rigging, animation |
-| **HoloPart** | Post-processing | ~8 GB | ~20s | part completion, texture support |
 
 ### Settings → Pipelines
 
@@ -337,10 +335,8 @@ Colab mode automatically:
 | TRELLIS | 8 GB | Prepared |
 | TripoSR | 6 GB | Prepared |
 | TripoSG | 12 GB | Prepared |
-| TripoSF | 12 GB | Prepared |
 | AniGen | 6.2 GB | Prepared |
 | UniRig | 8 GB | Prepared |
-| HoloPart | 8 GB | Prepared |
 | DetailGen3D | 4 GB | Prepared |
 
 To run a skipped model on Colab, use a VPS or full-GPU environment instead.
@@ -376,7 +372,7 @@ CELERY_RESULT_BACKEND=redis://localhost:6379/1
 
 # ===== AI PROVIDER =====
 AI_PROVIDER=hunyuan3d-2.1
-# Options: mock, trellis, triposr, triposg, triposf, instant_mesh, hunyuan3d-2, hunyuan3d-2.1
+# Options: mock, trellis, triposr, triposg, instant_mesh, hunyuan3d-2, hunyuan3d-2.1
 
 # ===== GPU SETTINGS =====
 CUDA_DEVICE=auto
@@ -427,11 +423,10 @@ For complete configuration options, see [Setup Guide - Configuration](docs/setup
 
 | Workspace | Purpose | Compatible Models |
 |-----------|---------|-------------------|
-| **Mesh Generation** | Create 3D meshes from text or images | Hunyuan3D 2.1, Hunyuan3D 2, TRELLIS, TripoSR, TripoSG, TripoSF |
+| **Mesh Generation** | Create 3D meshes from text or images | Hunyuan3D 2.1, Hunyuan3D 2, TRELLIS, TripoSR, TripoSG |
 | **Texture Generation** | Generate PBR textures and materials | Hunyuan3D 2.1, Hunyuan3D 2, TRELLIS, TripoSR |
 | **Rigging** | Auto-rig 3D character meshes | AniGen, UniRig |
 | **Animation** | Generate skeletal animations | AniGen, UniRig |
-| **Segmentation** | Part segmentation and mesh splitting | HoloPart |
 | **Remesh** | Retopology and mesh optimization | DetailGen3D |
 | **Post-Processing** | Detail enhancement and mesh polishing | Hunyuan3D 2.1, Hunyuan3D 2, DetailGen3D |
 

@@ -188,17 +188,6 @@ export function PipelinesSection() {
 
           <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-card">
             <div>
-              <p className="font-medium">Segmentation (HoloPart)</p>
-              <p className="text-sm text-muted-foreground">Enable AI part segmentation for 3D models</p>
-            </div>
-            <Switch
-              checked={capabilities.segmentation}
-              onCheckedChange={(c) => setCapability('segmentation', c)}
-            />
-          </div>
-
-          <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-card">
-            <div>
               <p className="font-medium">Rigging & Animation</p>
               <p className="text-sm text-muted-foreground">Enable auto-rigging and animation preview</p>
             </div>

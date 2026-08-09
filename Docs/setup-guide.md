@@ -71,9 +71,7 @@
 | **TripoSR** | 6 GB | Fast preview | ~1 second |
 | **Trellis** | 12 GB | High quality | ~60 seconds |
 | **TripoSG** | 12 GB | High-detail geometry | ~45 seconds |
-| **TripoSF** | 12 GB | High-resolution geometry | ~60 seconds |
 | **UniRig** | 8 GB | Rigging / animation | ~30 seconds |
-| **HoloPart** | 8 GB | Part completion | ~20 seconds |
 | **Hunyuan3D-2.1** | 16 GB | High quality | ~90 seconds |
 
 
@@ -298,7 +296,7 @@ MAX_UPLOAD_SIZE=52428800  # 50MB
 AI_PROVIDER=hunyuan3d-2.1
 RUNTIME_MODE=local
 
-# Options: mock, hunyuan3d-2.1, hunyuan3d-2, trellis, triposr, triposg, triposf, unirig, holopart
+# Options: mock, hunyuan3d-2.1, hunyuan3d-2, trellis, triposr, triposg, unirig
 
 # ===== GPU SETTINGS =====
 CUDA_DEVICE=auto
@@ -646,5 +644,5 @@ After successful installation:
 - The Settings → Pipelines page reads from `GET /api/v1/pipelines`.
 - Runtime status comes from `GET /api/v1/runtime/status` and `GET /api/v1/runtime/health`.
 - Runtime options for the UI come from `GET /api/v1/runtime/options`.
-- The current model ids exposed by the registry are: `hunyuan3d-2.1`, `triposr`, `trellis`, `triposg`, `triposf`, `unirig`, `holopart`.
+- The current model ids exposed by the registry are: `hunyuan3d-2.1`, `triposr`, `trellis`, `triposg`, `unirig`.
 - The backend does not expose a bare `GET /api/v1/runtime` route.

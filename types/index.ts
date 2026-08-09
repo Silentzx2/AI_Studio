@@ -10,7 +10,6 @@ export type WorkspaceType =
   | 'texture-generation'
   | 'rigging'
   | 'animation'
-  | 'segmentation'
   | 'remesh'
   | 'post-processing';
 
@@ -337,7 +336,7 @@ export interface AdminSettings {
 
 export interface ProjectLayer {
   id: string;
-  type: 'texture' | 'rigging' | 'animation' | 'lod' | 'segmentation' | 'remesh' | 'part_separation';
+  type: 'texture' | 'rigging' | 'animation' | 'lod' | 'remesh' | 'part_separation';
   name: string;
   enabled: boolean;
   visible: boolean;

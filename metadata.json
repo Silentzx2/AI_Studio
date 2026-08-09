@@ -1,6 +1,6 @@
 {
   "name": "AI 3D Generation Studio",
-  "description": "A comprehensive workspace for AI-powered 3D model generation, pipelines, segmentation, and rigging.",
+  "description": "A comprehensive workspace for AI-powered 3D model generation, pipelines, and rigging.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -176,7 +176,6 @@ async def get_workspace_models(workspace: str = Query(...), installed_only: bool
     - texture-generation
     - rigging
     - animation
-    - segmentation
     - remesh
     - post-processing
     """
@@ -246,7 +245,6 @@ async def list_workspace_types() -> dict[str, Any]:
             "texture-generation": "Generate PBR textures and materials",
             "rigging": "Auto-rig 3D character meshes",
             "animation": "Generate skeletal animations",
-            "segmentation": "Part segmentation and mesh splitting",
             "remesh": "Retopology and mesh optimization",
             "post-processing": "Detail enhancement and mesh polishing",
         },

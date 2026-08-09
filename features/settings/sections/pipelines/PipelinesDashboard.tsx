@@ -25,7 +25,6 @@ import {
   Plus,
   RefreshCw,
   Save,  Search,
-  Scissors,
   Sparkles,
   Star,
   Trash2,
@@ -116,7 +115,7 @@ const STORAGE_KEYS = {
   compare: 'ai3d:pipelines:compare:v1',
 } as const;
 
-type WorkspaceKey = 'all' | 'mesh-generation' | 'texture-generation' | 'rigging' | 'animation' | 'segmentation' | 'remesh' | 'post-processing';
+type WorkspaceKey = 'all' | 'mesh-generation' | 'texture-generation' | 'rigging' | 'animation' | 'remesh' | 'post-processing';
 type WorkspaceTag = Exclude<WorkspaceKey, 'all'>;
 
 const WORKSPACE_OPTIONS: { key: WorkspaceKey; label: string; title: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -125,7 +124,6 @@ const WORKSPACE_OPTIONS: { key: WorkspaceKey; label: string; title: string; icon
   { key: 'texture-generation', label: 'Texture', title: 'Texture Generation', icon: Palette },
   { key: 'rigging', label: 'Rigging', title: 'Rigging', icon: Bone },
   { key: 'animation', label: 'Animation', title: 'Animation', icon: PlayCircle },
-  { key: 'segmentation', label: 'Segment', title: 'Segmentation', icon: Scissors },
   { key: 'remesh', label: 'Remesh', title: 'Remesh', icon: Grid3x3 },
   { key: 'post-processing', label: 'Post', title: 'Post-Processing', icon: Wand2 },
 ];
@@ -171,16 +169,6 @@ const MODEL_LIBRARY: Record<string, ModelReference> = {
     bestFor: ['Image-to-3D', 'Geometry generation', 'Mesh quality'],
     workflow: 'Image to high-quality mesh',
     notes: 'Geometry-focused variant of the Tripo family. Requires 12GB VRAM.',
-  },
-  triposf: {
-    label: 'TripoSF',
-    summary: 'Surface-focused 3D generation from images with smooth topology.',
-    diskSpaceMb: 6144,
-    quality: 4,
-    recommendation: 'balanced',
-    bestFor: ['Smooth surfaces', 'Organic shapes', 'Clean topology'],
-    workflow: 'Image to smooth mesh',
-    notes: 'Surface-focused variant optimized for organic and smooth geometry.',
   },
   trellis: {
     label: 'Trellis',
@@ -231,16 +219,6 @@ const MODEL_LIBRARY: Record<string, ModelReference> = {
     bestFor: ['Universal rigging', 'Character animation', 'Skeleton generation'],
     workflow: 'Rig any character mesh',
     notes: 'Lighter-weight rigging alternative to AniGen. Good for diverse character types.',
-  },
-  holopart: {
-    label: 'HoloPart',
-    summary: 'AI-driven part segmentation and decomposition for 3D meshes.',
-    diskSpaceMb: 3072,
-    quality: 4,
-    recommendation: 'balanced',
-    bestFor: ['Part segmentation', 'Per-part editing', 'Mesh decomposition'],
-    workflow: 'Segment mesh into semantic parts',
-    notes: 'Enables per-part texturing and editing by decomposing meshes into semantic regions.',
   },
   detailgen3d: {
     label: 'DetailGen3D',

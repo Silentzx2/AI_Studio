@@ -36,7 +36,6 @@ interface UIState {
     threeDGen: boolean;
     remesh: boolean;
     textureGen: boolean;
-    segmentation: boolean;
     riggingAnimation: boolean;
   };
   setCapability: (cap: keyof UIState['capabilities'], enabled: boolean) => void;

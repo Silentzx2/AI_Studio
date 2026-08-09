@@ -537,7 +537,7 @@ The current Settings → Pipelines page is backed by the live registry snapshot 
 
 ### Registered model ids
 
-`hunyuan3d-2.1`, `triposr`, `trellis`, `triposg`, `triposf`, `unirig`, `holopart`
+`hunyuan3d-2.1`, `triposr`, `trellis`, `triposg`, `unirig`
 
 ### Capability summary
 
@@ -547,18 +547,15 @@ The current Settings → Pipelines page is backed by the live registry snapshot 
 | TripoSR | 3D generation | mesh-generation, texture-generation | image-to-3D, optional texture bake | 6 GB |
 | Trellis | 3D generation | mesh-generation, texture-generation | image-to-3D, text-to-3D, texture generation | 8 GB |
 | TripoSG | 3D generation | mesh-generation | image-to-3D, detail enhancement | 12 GB |
-| TripoSF | 3D generation | mesh-generation | image-to-3D, detail enhancement | 12 GB |
 | UniRig | Rigging | rigging, animation | rigging, animation | 8 GB |
-| HoloPart | Post-processing | segmentation, post-processing | part completion, texture support | 8 GB |
 | DetailGen3D | Post-processing | post-processing | detail enhancement | 4 GB |
 
 ### Workspace compatibility rules
 
-- **mesh-generation**: hunyuan3d-2.1, hunyuan3d-2, trellis, triposr, triposg, triposf
+- **mesh-generation**: hunyuan3d-2.1, hunyuan3d-2, trellis, triposr, triposg
 - **texture-generation**: hunyuan3d-2.1, hunyuan3d-2, trellis, triposr
 - **rigging**: anigen, unirig
 - **animation**: anigen, unirig
-- **segmentation**: holopart
 - **remesh**: detailgen3d
 - **post-processing**: hunyuan3d-2.1, hunyuan3d-2, detailgen3d
 
@@ -566,7 +563,7 @@ The current Settings → Pipelines page is backed by the live registry snapshot 
 
 - Texture generation is enabled when at least one texture-capable model is active.
 - Rigging / animation is enabled when AniGen or UniRig is active.
-- Detail enhancement is enabled when DetailGen3D or HoloPart is active.
+- Detail enhancement is enabled when DetailGen3D is active.
 - Text-to-3D is enabled when Hunyuan3D 2.1 or Trellis is active.
 - Image-to-3D is enabled whenever a generation model is active.
 

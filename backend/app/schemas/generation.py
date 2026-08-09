@@ -9,7 +9,7 @@ class GenerationRequest(BaseModel):
     # ponytail: Extended modes to support remesh, texture-gen, and future pipeline steps
     mode: Literal[
         "text-to-3d", "image-to-3d", "remesh", "texture-generation",
-        "partition", "rigging",
+        "rigging",
     ] = "text-to-3d"
     prompt: str = Field(..., min_length=1, max_length=2000)
     negative_prompt: str | None = Field(None, max_length=500)

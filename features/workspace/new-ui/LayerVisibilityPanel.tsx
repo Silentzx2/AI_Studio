@@ -15,7 +15,6 @@ const LAYER_ICONS: Record<ProjectLayer['type'], React.ComponentType<{ className?
   rigging: Bone,
   animation: Play,
   lod: SlidersHorizontal,
-  segmentation: Scissors,
   remesh: RefreshCw,
   part_separation: Scissors,
 };
@@ -25,7 +24,6 @@ const LAYER_COLORS: Record<ProjectLayer['type'], string> = {
   rigging: 'hsl(var(--neon-purple))',
   animation: 'hsl(var(--neon-cyan))',
   lod: 'hsl(var(--neon-green))',
-  segmentation: 'hsl(var(--destructive))',
   remesh: 'hsl(var(--primary))',
   part_separation: 'hsl(var(--neon-amber))',
 };

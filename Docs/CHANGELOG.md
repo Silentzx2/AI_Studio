@@ -1,5 +1,23 @@
 # AI 3D Studio — Changelog
 
+## v3.4.0 — Remove TripoSF, HoloPart, and Segmentation Workspace (August 9, 2026)
+
+### Problem
+
+TripoSF and HoloPart providers were duplicative of TripoSG and DetailGen3D capabilities, and the segmentation workspace was only served by HoloPart. Keeping them added catalog surface without distinct user value.
+
+### Solution
+
+- Removed `triposf_provider.py` and `holopart_provider.py` from `backend/app/core/providers/`.
+- Removed their registrations from `registry.py`, `engine.py` provider map, `installer.py` metadata, and `model_registry.py` manifests.
+- Removed the `segmentation` workspace type and the `SegmentationTab.tsx` UI.
+- Updated capability matrix, feature gating, workspace compatibility, and all docs to the reduced catalog.
+
+### Files Modified
+
+- Deleted: `backend/app/core/providers/triposf_provider.py`, `backend/app/core/providers/holopart_provider.py`, `features/workspace/new-ui/SegmentationTab.tsx`
+- Updated: registry, engine, installer, capability matrix, model registry, generation schemas, pipelines APIs, stores, types, tests, and all `Docs/*.md`.
+
 ## v3.3.1 — Fix Shared Dependency Version Conflicts in Local Providers (August 7, 2026)
 
 ### Problem
