@@ -13,8 +13,10 @@ import { GlassCard } from '@/components/premium/GlassCard';
 import { ProgressBar } from '@/components/premium/ProgressBar';
 import { Badge } from '@/components/premium/Badge';
 import { Spinner } from '@/components/premium/Spinner';
+import { Switch } from '@/components/ui/switch';
 import { adminService } from '@/services/adminService';
 import { useTaskManager } from '@/hooks/useTaskManager';
+import { useUIStore } from '@/stores/useUIStore';
 import type { AdminModel, InstallProgress } from '@/types';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -180,6 +182,7 @@ export function ModelsTab() {
   const [categories, setCategories] = useState<string[]>(['All']);
   const { reconnectToInstall } = useTaskManager();
   const streamCleanups = useRef<Record<string, () => void>>({});
+  const { capabilities, setCapability } = useUIStore();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -408,6 +411,36 @@ export function ModelsTab() {
           ))}
         </div>
       )}
+
+      {/* Global AI capabilities */}
+      <GlassCard className="p-4" hover>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold flex items-center gap-2">
+            <Zap className="w-4 h-4 text-[hsl(var(--neon-amber))]" />
+            Global AI Capabilities
+          </h2>
+          <span className="text-xs text-muted-foreground">Feature toggles used across the workspace</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {([
+            { key: 'threeDGen', label: '3D Generation', desc: 'Enable 3D mesh generation capabilities' },
+            { key: 'remesh', label: 'Remesh & Refine', desc: 'Enable mesh optimization and remeshing' },
+            { key: 'textureGen', label: 'Texture Generation', desc: 'Enable AI texture mapping for 3D objects' },
+            { key: 'riggingAnimation', label: 'Rigging & Animation', desc: 'Enable auto-rigging and animation preview' },
+          ] as const).map(({ key, label, desc }) => (
+            <div key={key} className="flex items-center justify-between p-3 rounded-lg border border-[hsl(var(--border)/0.5)] bg-[hsl(var(--surface-0)/0.5)]">
+              <div>
+                <p className="text-sm font-medium">{label}</p>
+                <p className="text-xs text-muted-foreground">{desc}</p>
+              </div>
+              <Switch
+                checked={capabilities[key]}
+                onCheckedChange={(c) => setCapability(key, c)}
+              />
+            </div>
+          ))}
+        </div>
+      </GlassCard>
 
       {/* Model grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

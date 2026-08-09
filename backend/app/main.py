@@ -311,13 +311,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Server-side observability middleware — dev-only, localhost:7777 only.
-# Supplementary to Reticle (daemon on :4400) — captures server-side traces
-# that the browser SDK cannot see. In production: no-op (middleware not added).
-from app.middleware import ReticleMiddleware
-if settings.environment == "development":
-    app.add_middleware(ReticleMiddleware, port=7777, bind_address="127.0.0.1")
-
 
 @app.middleware("http")
 async def request_timing_middleware(request: Request, call_next):
@@ -331,7 +324,7 @@ async def request_timing_middleware(request: Request, call_next):
     response.headers["X-Request-ID"] = request_id
     response.headers["X-Response-Time"] = f"{elapsed_ms:.1f}ms"
 
-    logger.debug(
+    logger.info(
         "%s %s → %d (%.1fms)",
         request.method, request.url.path, response.status_code, elapsed_ms
     )

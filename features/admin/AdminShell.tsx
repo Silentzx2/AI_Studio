@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard, Boxes, Download, Activity, ScrollText, Briefcase,
+  LayoutDashboard, Boxes, Activity, ScrollText, Briefcase,
   ListOrdered, HeartPulse, Terminal, Settings,
   ChevronLeft, ChevronRight, Box, Sparkles, Cpu, HardDrive,
   Zap, Wifi, Search, Bell, Menu, X, PanelLeftClose, PanelLeft,
@@ -19,14 +19,13 @@ import { useBackendStatus } from '@/hooks/useBackendData';
 import type { RuntimeStatus } from '@/types';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  LayoutDashboard, Boxes, Download, Activity, ScrollText, Briefcase,
+  LayoutDashboard, Boxes, Activity, ScrollText, Briefcase,
   ListOrdered, HeartPulse, Terminal, Settings,
 };
 
 export type AdminTab =
   | 'overview'
   | 'models'
-  | 'downloads'
   | 'runtime'
   | 'logs'
   | 'jobs'

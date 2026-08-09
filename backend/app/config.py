@@ -43,7 +43,6 @@ class Settings(BaseSettings):
     hunyuan3d_api_url: str = "http://localhost:7860"
     trellis_api_url: str = "http://localhost:7861"
     instant_mesh_api_url: str = "http://localhost:7862"
-    triposr_api_url: str = "http://localhost:7863"
     runtime_mode: Literal["local", "api"] = "local"
     third_party_dir: str = "./third_party"
     weights_dir: str = "./third_party/weights"

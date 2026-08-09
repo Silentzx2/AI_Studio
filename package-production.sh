@@ -79,7 +79,7 @@ rm -rf backend/third_party/.hf_cache/
 
 # Model weights — EXCLUDED from production image per user requirement
 rm -rf backend/third_party/weights/
-for repo in AniGen Hunyuan3D-2 TRELLIS TripoSG TripoSR UniRig; do
+for repo in AniGen Hunyuan3D-2 TRELLIS TripoSG UniRig; do
     rm -rf "backend/third_party/${repo}/weights/"
 done
 
@@ -228,7 +228,7 @@ ENV DATABASE_SYNC_URL=sqlite:///./backend/storage/studio.db
 ENV REDIS_URL=redis://localhost:6379/0
 ENV CELERY_BROKER_URL=redis://localhost:6379/0
 ENV CELERY_RESULT_BACKEND=redis://localhost:6379/1
-ENV AI_PROVIDER=triposr
+ENV AI_PROVIDER=trellis
 ENV RUNTIME_MODE=local
 ENV CUDA_DEVICE=auto
 ENV STORAGE_LOCAL_PATH=./backend/storage

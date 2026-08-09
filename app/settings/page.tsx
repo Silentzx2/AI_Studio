@@ -23,11 +23,9 @@ import {
   HardDrive,
   BarChart3,
   Package,
-  Download,
   Zap,
   Users,
   Clock,
-  Boxes,
   RotateCcw,
   Save,
   Menu,
@@ -57,7 +55,6 @@ import {
   JobsTab,
   QueueTab,
   ModelsTab,
-  DownloadsTab,
   RuntimeTab,
   LogsTab,
   SettingsTab,
@@ -78,7 +75,6 @@ import {
   ShortcutsSection,
   NetworkSection,
   AdvancedSection,
-  PipelinesSection,
 } from '@/features/settings/sections';
 
 interface SettingsSection {
@@ -129,22 +125,6 @@ const SETTINGS_SECTIONS: SettingsSection[] = [
     group: 'management',
     description: 'Installed models and settings',
   },
-  {
-    id: 'pipelines',
-    label: 'Pipelines',
-    icon: <Boxes className="w-4 h-4" />,
-    group: 'management',
-    description: 'Capability-based feature controls',
-  },
-  {
-    id: 'downloads',
-    label: 'Downloads',
-    icon: <Download className="w-4 h-4" />,
-    group: 'management',
-    description: 'Download queue and history',
-  },
-
-
   {
     id: 'queue',
     label: 'Queue',
@@ -371,13 +351,6 @@ useEffect(() => {
         return ['networkSettings'];
       case 'advanced':
         return ['advancedSettings'];
-      case 'pipelines':
-        return [
-          'ai3d:pipelines:notifications:v1',
-          'ai3d:pipelines:workflows:v1',
-          'ai3d:pipelines:presets:v1',
-          'ai3d:pipelines:compare:v1'
-        ];
       case 'workspace':
         return [
           'SETTINGS_RAY_TRACING',
@@ -470,18 +443,6 @@ useEffect(() => {
           return (
             <Suspense fallback={<SectionLoading />}>
               <ModelsTab />
-            </Suspense>
-          );
-        case 'pipelines':
-          return (
-            <Suspense fallback={<SectionLoading />}>
-              <PipelinesSection />
-            </Suspense>
-          );
-        case 'downloads':
-          return (
-            <Suspense fallback={<SectionLoading />}>
-              <DownloadsTab />
             </Suspense>
           );
         case 'queue':

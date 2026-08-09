@@ -45,13 +45,6 @@ REPOS = {
         "category": "3d_generation",
         "providers": ["trellis"],
     },
-    "TripoSR": {
-        "url": "https://github.com/VAST-AI-Research/TripoSR.git",
-        "branch": "main",
-        "requirements": "requirements.txt",
-        "category": "3d_generation",
-        "providers": ["triposr"],
-    },
     "TripoSG": {
         "url": "https://github.com/VAST-AI-Research/TripoSG.git",
         "branch": "main",
@@ -79,7 +72,6 @@ HF_MODELS = {
     "hunyuan3d-2.1": {"repo": "tencent/Hunyuan3D-2.1",         "size_estimate_gb": 14},
     "hunyuan3d-2":   {"repo": "tencent/Hunyuan3D-2",           "size_estimate_gb": 24},
     "trellis":       {"repo": "microsoft/TRELLIS-image-large", "size_estimate_gb": 3},
-    "triposr":       {"repo": "stabilityai/TripoSR",           "size_estimate_gb": 2},
     "triposg":       {"repo": "VAST-AI/TripoSG",               "size_estimate_gb": 6},
     "anigen":        {"repo": "VAST-AI/AniGen_Weights",        "size_estimate_gb": 23},
     "unirig":        {"repo": "VAST-AI/UniRig",                "size_estimate_gb": 2},
@@ -127,17 +119,6 @@ PROVIDER_METADATA = {
         "vram_required_mb": 8000,
         "repo": "TRELLIS",
         "weight_key": "trellis",
-        "workspace_compatibility": ["mesh-generation", "texture-generation"],
-    },
-    "triposr": {
-        "label": "TripoSR",
-        "category": "3d_generation",
-        "supports_text_to_3d": False,
-        "supports_image_to_3d": True,
-        "supports_texture": True,
-        "vram_required_mb": 6000,
-        "repo": "TripoSR",
-        "weight_key": "triposr",
         "workspace_compatibility": ["mesh-generation", "texture-generation"],
     },
     "triposg": {
@@ -200,7 +181,6 @@ PROVIDER_METADATA = {
 TEXTURE_MODELS = [
     {"id": "hunyuan3d-2.1", "label": "Hunyuan3D 2.1 (recommended)"},
     {"id": "hunyuan3d-2", "label": "Hunyuan3D 2"},
-    {"id": "triposr", "label": "TripoSR (bake texture)"},
     {"id": "trellis", "label": "TRELLIS"},
 ]
 
@@ -377,12 +357,6 @@ _CUDA_ONLY_PKG_PATTERNS: list[re.Pattern] = [
 EXTRA_DEPS: dict[str, list[str]] = {
     "Hunyuan3D-2": ["hy3dgen", "accelerate"],
     "TRELLIS": ["accelerate"],
-    # ponytail: TripoSR pins transformers==4.35.0, which hard-requires
-    # huggingface-hub<1.0 — but its requirements.txt leaves the hub pin
-    # unpinned, so a fresh install pulls hub>=1.0 and breaks transformers at
-    # import time. rembg also needs onnxruntime, which its requirements.txt
-    # omits. Nail both here so every reinstall lands in a working state.
-    "TripoSR": ["accelerate", "huggingface-hub<1.0", "onnxruntime"],
 }
 
 
@@ -543,8 +517,8 @@ def _uv_install(
         if log_cb and install_requirements.name.endswith(".nocuda.requirements.txt"):
             log_cb("No CUDA toolkit detected — skipping CUDA-only build packages (CPU mode)")
 
-    # torchmcubes (TripoSR) builds with scikit-build-core but doesn't declare
-    # it as a build dependency. Because we build it with
+    # torchmcubes (used by some 3D-gen repos) builds with scikit-build-core but
+    # doesn't declare it as a build dependency. Because we build it with
     # --no-build-isolation-package, scikit_build_core must live in the venv.
     # (Only needed when CUDA is present; skipped on CPU-only hosts where
     # torchmcubes is dropped above.)

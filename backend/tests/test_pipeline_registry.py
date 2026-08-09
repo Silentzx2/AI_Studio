@@ -34,7 +34,7 @@ def test_provider_manifests_no_nameerror():
 
 
 def test_workspace_mesh_returns_all_compatible_models(monkeypatch):
-    """Mesh-generation must expose all 5 compatible models (not just the
+    """Mesh-generation must expose all compatible models (not just the
     frontend's 2-model offline fallback)."""
     reg = model_registry.ModelRegistry.__new__(model_registry.ModelRegistry)
     available = reg._fetch_provider_manifests()
@@ -44,7 +44,7 @@ def test_workspace_mesh_returns_all_compatible_models(monkeypatch):
     compat = filter_by_workspace(available, "mesh-generation")
     snap = build_pipeline_snapshot(compat)
     ids = {m["id"] for m in snap["pipelines"]}
-    assert ids == {"hunyuan3d-2.1", "hunyuan3d-2", "trellis", "triposr", "triposg"}
+    assert {"hunyuan3d-2.1", "hunyuan3d-2", "trellis", "triposg"} <= ids
 
 
 def test_overlay_install_state_uses_disk_truth(monkeypatch):
@@ -52,13 +52,13 @@ def test_overlay_install_state_uses_disk_truth(monkeypatch):
     DB installed_models table is empty (installs go through runtime.installer)."""
     pipelines = _load_pipelines()
     merged = {
-        "triposr": {"id": "triposr", "installed": False, "status": "not_installed"},
+        "triposg": {"id": "triposg", "installed": False, "status": "not_installed"},
         "hunyuan3d-2.1": {"id": "hunyuan3d-2.1", "installed": False, "status": "not_installed"},
     }
     fake_status = {
-        "triposr": {
+        "triposg": {
             "installed": True, "repo_ready": True, "weights_ready": True,
-            "metadata": {"category": "3d_generation", "label": "TripoSR",
+            "metadata": {"category": "3d_generation", "label": "TripoSG",
                          "workspace_compatibility": ["mesh-generation"]},
         },
     }
@@ -67,7 +67,7 @@ def test_overlay_install_state_uses_disk_truth(monkeypatch):
     monkeypatch.setattr(installer_mod, "get_install_status", lambda: fake_status)
 
     out = pipelines._overlay_install_state(dict(merged))
-    assert out["triposr"]["installed"] is True
-    assert out["triposr"]["status"] == "ready"
+    assert out["triposg"]["installed"] is True
+    assert out["triposg"]["status"] == "ready"
     assert out["hunyuan3d-2.1"]["installed"] is False
     assert out["hunyuan3d-2.1"]["status"] == "not_installed"

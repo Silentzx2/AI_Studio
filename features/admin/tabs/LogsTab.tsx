@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   Terminal, Search, Trash2, Info, AlertTriangle, XCircle, CheckCircle, Bug,
-  RefreshCw, Copy, ChevronDown, Zap, Pause, Play, WrapText, Filter,
+  RefreshCw, Copy, Zap, Pause, Play, WrapText, Filter,
   Download, ArrowDownToLine, BarChart3,
 } from "lucide-react";
 import { GlassCard } from "@/components/premium/GlassCard";
@@ -14,11 +14,6 @@ import { adminService } from "@/services/adminService";
 import type { AdminLog } from "@/types";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 
 type LevelKey = "all" | "info" | "warn" | "error" | "debug" | "success";
 
@@ -39,7 +34,7 @@ const SOURCE_COLORS: Record<string, string> = {
   models:   "bg-[hsl(var(--neon-purple)/0.2)] text-[hsl(var(--neon-purple))]",
   database: "bg-[hsl(var(--neon-cyan)/0.2)] text-[hsl(var(--neon-cyan))]",
   workers:  "bg-[hsl(var(--neon-pink)/0.2)] text-[hsl(var(--neon-pink))]",
-  pipelines:"bg-[hsl(var(--neon-orange)/0.2)] text-[hsl(var(--neon-orange))]",
+  pipelines:"bg-[hsl(var(--neon-purple)/0.2)] text-[hsl(var(--neon-purple))]",
   system:   "bg-[hsl(var(--muted-foreground)/0.2)] text-[hsl(var(--muted-foreground))]",
 };
 
@@ -449,23 +444,36 @@ export function LogsTab() {
 
       {/* ── Terminal ── */}
       <GlassCard className="p-0 overflow-hidden" delay={0.1}>
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-[hsl(var(--border)/0.3)] bg-[hsl(var(--surface-0)/0.4)]">
-          <span className="w-2.5 h-2.5 rounded-full bg-[hsl(var(--destructive)/0.7)]" />
-          <span className="w-2.5 h-2.5 rounded-full bg-[hsl(var(--neon-amber)/0.7)]" />
-          <span className="w-2.5 h-2.5 rounded-full bg-[hsl(var(--neon-green)/0.7)]" />
-          <span className="ml-2 text-xs font-mono text-muted-foreground">
-            studio@ai-3d:~/logs$ tail -f app.log
+        {/* Terminal title bar */}
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[hsl(var(--neon-green)/0.15)] bg-[#06090f]">
+          <span className="w-3 h-3 rounded-full bg-[#ff5f57]" />
+          <span className="w-3 h-3 rounded-full bg-[#febc2e]" />
+          <span className="w-3 h-3 rounded-full bg-[#28c840]" />
+          <span className="ml-3 text-xs font-mono text-[hsl(var(--neon-green)/0.85)]">
+            ai3d@studio:~/logs$ <span className="text-[hsl(var(--muted-foreground))]">tail -f app.log --follow</span>
+            <span className="terminal-cursor ml-1" />
           </span>
-          <span className="ml-auto text-xs font-mono text-muted-foreground/70">
-            {totalFiltered} / {logs.length} lines
+          <span className="ml-auto flex items-center gap-2">
+            <span className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider">
+              <span className={cn(
+                "w-2 h-2 rounded-full",
+                live ? "bg-[hsl(var(--neon-green))] shadow-[0_0_8px_hsl(var(--neon-green))] animate-pulse" : "bg-[hsl(var(--muted-foreground))]"
+              )} />
+              <span className={live ? "text-[hsl(var(--neon-green))]" : "text-muted-foreground"}>
+                {live ? "Live" : "Paused"}
+              </span>
+            </span>
+            <span className="text-xs font-mono text-muted-foreground/70 tabular-nums">
+              {totalFiltered} / {logs.length} lines
+            </span>
           </span>
         </div>
 
         <div
           ref={scrollRef}
           className={cn(
-            "bg-[#0a0e14] text-[hsl(var(--foreground))] font-mono text-[12.5px] leading-relaxed",
-            "max-h-[64vh] overflow-y-auto scrollbar-thin p-3"
+            "bg-[#05070b] text-[#c9d1d9] font-mono text-[13px] leading-[1.5]",
+            "h-[calc(100vh-420px)] min-h-[460px] overflow-y-auto scrollbar-thin p-3"
           )}
         >
           {loading && logs.length === 0 ? (
@@ -475,7 +483,7 @@ export function LogsTab() {
           ) : totalFiltered === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/50">
               <Terminal className="w-10 h-10 mb-2 opacity-30" />
-              <p className="text-sm">No log entries match the current filter</p>
+              <p className="text-sm font-mono">no log entries match the current filter</p>
             </div>
           ) : (
             <div style={{ height: `${virtualItems.length * ITEM_HEIGHT}px`, position: "relative" }}>
@@ -486,14 +494,13 @@ export function LogsTab() {
                     return (
                       <div
                         key={`header-${item.source}`}
-                        className="sticky top-0 z-10 flex items-center gap-2 px-2 py-1.5 mt-1 mb-0.5 rounded-md bg-[#0a0e14]/95 backdrop-blur-sm border-b border-[hsl(var(--border)/0.2)]"
+                        className="sticky top-0 z-10 flex items-center gap-2 px-2 py-1.5 mt-1 mb-0.5 rounded-md bg-[#05070b]/95 backdrop-blur-sm border-b border-[hsl(var(--neon-green)/0.12)]"
                         style={{ height: `${ITEM_HEIGHT}px`, boxSizing: "border-box" }}
                       >
-                        <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
-                        <span className={cn("w-2 h-2 rounded-full shrink-0", color)} />
-                        <span className="text-[hsl(var(--foreground))] font-semibold text-xs">{item.source}</span>
-                        <span className="text-[hsl(var(--muted-foreground))] text-xs">{item.count} entries</span>
-                        <span className="ml-auto text-[hsl(var(--muted-foreground)/0.4)] text-[10px] font-mono">
+                        <span className="text-[hsl(var(--neon-green)/0.6)] select-none">── </span>
+                        <span className="text-[hsl(var(--neon-green)/0.8)] font-semibold text-xs uppercase tracking-wider">{item.source}</span>
+                        <span className="text-[hsl(var(--muted-foreground))] text-xs font-mono">({item.count})</span>
+                        <span className="ml-auto text-[hsl(var(--muted-foreground)/0.35)] text-[10px] font-mono">
                           {formatDate(logs.find((l) => l.source === item.source)?.timestamp ?? "")}
                         </span>
                       </div>
@@ -506,12 +513,12 @@ export function LogsTab() {
                     <div
                       key={`${log.timestamp}-${log.id}-${i}`}
                       className={cn(
-                        "group flex items-start gap-2 px-1.5 py-0.5 rounded hover:bg-white/[0.04] transition-colors",
+                        "group flex items-start gap-2 px-1.5 py-0.5 rounded hover:bg-white/[0.03] transition-colors",
                         !wrap && "whitespace-nowrap"
                       )}
                       style={{ height: `${ITEM_HEIGHT}px`, boxSizing: "border-box" }}
                     >
-                      <span className="text-[hsl(var(--muted-foreground)/0.45)] shrink-0 select-none tabular-nums text-[11px]">
+                      <span className="text-[hsl(var(--muted-foreground)/0.4)] shrink-0 select-none tabular-nums text-[11px]">
                         {formatTime(log.timestamp)}
                       </span>
                       <Icon className={cn("w-3 h-3 mt-0.5 shrink-0", style.color)} />
@@ -521,7 +528,7 @@ export function LogsTab() {
                       <span className={cn("shrink-0 select-none text-[11px] px-1.5 py-0.5 rounded-full font-medium", getSourceColor(log.source))}>
                         {log.source}
                       </span>
-                      <span className={cn("flex-1 min-w-0", wrap ? "break-words" : "truncate", log.level === "error" ? "text-[hsl(var(--destructive))]" : "")}>
+                      <span className={cn("flex-1 min-w-0", wrap ? "break-words" : "truncate", log.level === "error" ? "text-[#ff6b6b]" : "text-[#c9d1d9]")}>
                         {highlight(log.message, search)}
                       </span>
                     </div>
@@ -530,14 +537,39 @@ export function LogsTab() {
               </div>
             </div>
           )}
+          {/* Prompt line + blinking cursor */}
+          <div className="flex items-center gap-2 px-1.5 py-1 text-[hsl(var(--neon-green))] select-none">
+            <span className="font-mono text-xs">ai3d@studio:~$</span>
+            <span className="terminal-cursor" />
+          </div>
           <div ref={endRef} />
+        </div>
+
+        {/* Terminal status bar */}
+        <div className="flex items-center gap-3 px-4 py-1.5 border-t border-[hsl(var(--neon-green)/0.15)] bg-[#06090f] text-[10px] font-mono">
+          <span className={cn("flex items-center gap-1.5", live ? "text-[hsl(var(--neon-green))]" : "text-muted-foreground")}>
+            {live ? "●" : "○"} {live ? "LIVE" : "PAUSED"}
+          </span>
+          <span className="text-[hsl(var(--muted-foreground))]">mode: <span className="text-[#e6edf3]">{level}</span></span>
+          <span className="text-[hsl(var(--muted-foreground))]">src: <span className="text-[#e6edf3]">{sourceFilter === "all" ? "*" : sourceFilter}</span></span>
+          <span className="text-[hsl(var(--muted-foreground))]">wrap: <span className="text-[#e6edf3]">{wrap ? "on" : "off"}</span></span>
+          <span className="ml-auto flex items-center gap-3 tabular-nums">
+            {LEVELS.filter((lv) => lv !== "all").map((lv) => {
+              const style = LEVEL_STYLE[lv];
+              return (
+                <span key={lv} className={cn("flex items-center gap-1", style.color)}>
+                  {style.tag} <span className="text-[#e6edf3]">{counts[lv] ?? 0}</span>
+                </span>
+              );
+            })}
+          </span>
         </div>
 
         {!autoScroll && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="sticky bottom-0 z-20 flex items-center justify-center py-2 bg-[#0a0e14]/90 backdrop-blur-sm border-t border-[hsl(var(--border)/0.3)]"
+            className="absolute bottom-10 right-6 z-20"
           >
             <NeonButton
               variant="primary"
@@ -554,7 +586,7 @@ export function LogsTab() {
 
       <p className="text-xs text-muted-foreground/60 flex items-center gap-1.5">
         <Zap className="w-3 h-3 text-[hsl(var(--neon-amber))]" />
-        Logs persist to <code className="font-mono">logs/app.log</code> and stream live. Restart the backend to see startup diagnostics appear here.
+        Logs persist to <code className="font-mono">logs/app.log</code> and stream live — frontend API calls &amp; button clicks are captured by the ActivityLogger and forwarded to <code className="font-mono">POST /api/v1/system/log</code>.
       </p>
     </div>
   );

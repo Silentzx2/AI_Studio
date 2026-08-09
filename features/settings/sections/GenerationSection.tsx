@@ -38,7 +38,6 @@ export function GenerationSection() {
   }, 1000, true);
 
   const providersList = options?.three_d_models || options?.providers || [
-    { id: 'triposr', label: 'TripoSR (Fast)' },
     { id: 'hunyuan3d-1.0', label: 'HunYuan 3D' },
     { id: 'trellis', label: 'Trellis' },
   ];
@@ -55,7 +54,7 @@ export function GenerationSection() {
         if (parsed.steps) setSteps(parsed.steps);
       } catch { /* ignore */ }
     } else if (settings?.default_provider || options?.active_provider) {
-      setProvider(settings?.default_provider || options?.active_provider || 'triposr');
+      setProvider(settings?.default_provider || options?.active_provider || '');
     }
   }, [settings, options]);
 

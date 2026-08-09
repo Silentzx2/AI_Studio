@@ -286,41 +286,6 @@ export interface InstallProgress {
   error?: string;
 }
 
-export interface PipelineFeatureFlags {
-  texture_generation: boolean;
-  rigging_animation: boolean;
-  detail_enhancement: boolean;
-  text_to_3d: boolean;
-  image_to_3d: boolean;
-}
-
-export interface PipelineStatus {
-  id: string;
-  label: string;
-  name: string;
-  category: string;
-  status: 'ready' | 'disabled' | 'not_installed' | 'installing' | 'experimental';
-  installed: boolean;
-  enabled: boolean;
-  available: boolean;
-  vram_required_mb: number;
-  speed_seconds: number;
-  supports: PipelineFeatureFlags;
-  workspace_compatibility?: string[];
-  repo?: string | null;
-  weight_key?: string | null;
-  notes?: string[];
-}
-
-export interface PipelineSnapshot {
-  pipelines: PipelineStatus[];
-  computed_features: PipelineFeatureFlags;
-  input_modes: string[];
-  total_models: number;
-  workspace_types?: string[];
-  updated_at?: string;
-}
-
 export interface GenerationRequest {
   prompt: string;
   provider: string;

@@ -54,7 +54,6 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
         { id: 'hunyuan3d-2.1', label: 'Hunyuan3D 2.1 (recommended)', installed: true },
         { id: 'hunyuan3d-2', label: 'Hunyuan3D 2', installed: true },
         { id: 'trellis', label: 'TRELLIS', installed: true },
-        { id: 'triposr', label: 'TripoSR (bake texture)', installed: true },
       ];
     }
     return textureModels.map((m: any) => ({

@@ -1998,6 +1998,20 @@ html:not([data-ambient-glow]) .bg-mesh-gradient {
 }
 [data-anim-upload-pulse="false"] .upload-pulse { animation: none; }
 
+/* ── Terminal blinking cursor ── */
+@keyframes terminal-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.terminal-cursor {
+  display: inline-block;
+  width: 0.6em;
+  height: 1.1em;
+  vertical-align: text-bottom;
+  background: hsl(var(--neon-green));
+  animation: terminal-blink 1s steps(1) infinite;
+}
+
 /* ── Density (driven by data-density) ── */
 [data-density="compact"] { --spacing-multiplier: 0.75; }
 [data-density="normal"] { --spacing-multiplier: 1; }

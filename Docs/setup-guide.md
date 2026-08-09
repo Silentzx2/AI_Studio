@@ -1,6 +1,6 @@
 # AI 3D Studio - Setup & Installation Guide
 
-> **Version**: 3.4.2 (Bugfix & Cleanup Batch)  
+> **Version**: 3.4.3 (Reticle Removal + Unified Logger)  
 > **Difficulty**: Intermediate  
 > **Estimated Time**: 30-60 minutes
 
@@ -68,7 +68,6 @@
 
 | Model | VRAM Required | Quality | Speed |
 |-------|---------------|---------|-------|
-| **TripoSR** | 6 GB | Fast preview | ~1 second |
 | **Trellis** | 12 GB | High quality | ~60 seconds |
 | **TripoSG** | 12 GB | High-detail geometry | ~45 seconds |
 | **UniRig** | 8 GB | Rigging / animation | ~30 seconds |
@@ -103,32 +102,20 @@ chmod +x scripts/*.sh manager.sh
 | **API Docs** | http://localhost:8000/docs | Swagger UI |
 | **Prompt Assistant** | built-in | Optional AI prompt enhancement |
 
-### Runtime Observability with Reticle
+### Project Activity Logging
 
-Reticle provides real-time visibility into API requests, React renders, and performance metrics during development.
+The whole project — backend requests, frontend API calls, and user clicks — is written to one unified log (`logs/api.log` when started via `scripts/start.sh`).
 
-**One-time setup**:
-```bash
-# Reticle is already a dev dependency — no additional install needed
-npx @reticlehq/server doctor  # verify setup
-```
+- **Backend**: every HTTP request is logged at INFO level by the request timing middleware (`GET /api/v1/... → 200 (12.3ms)`).
+- **Frontend**: `components/ActivityLogger.tsx` captures all API calls and button/link clicks, writes them to the browser console, and forwards them to `POST /api/v1/system/log` so they land in the same backend log.
 
-**To use**:
+**To view**:
 1. Start in **Dev Mode**: `bash scripts/start.sh` → choose `1) Dev Mode`
-2. Reticle daemon auto-starts on `localhost:7777` (dev-only)
-3. The frontend SDK (`@reticlehq/react`) auto-connects via `@reticlehq/next` build plugin
-4. View observer status:
+2. Tail the unified log:
    ```bash
-   curl http://localhost:7777/health   # → {"status": "ok"}
+   tail -f logs/api.log
    ```
-5. For interactive debugging, register the MCP server:
-   ```bash
-   npx @reticlehq/server init  # installs packages, registers MCP server
-   ```
-
-Reticle only runs in development (`ENVIRONMENT=development`). Production builds are unaffected — the SDK is tree-shaken out at build time.
-
-To disable: Set `RETICLE_ENABLED=false` in `.env.development.local`
+3. Browser console also shows live `[activity]` lines for every click and API call.
 
 ---
 
@@ -272,7 +259,7 @@ cp .env.example .env
 ENVIRONMENT=development
 DEBUG=true
 APP_NAME=AI 3D Studio
-APP_VERSION=3.4.2
+APP_VERSION=3.4.3
 
 # ===== DATABASE =====
 DATABASE_URL=postgresql+asyncpg://ai3dstudio:password@localhost:5432/ai3dstudio
@@ -296,7 +283,7 @@ MAX_UPLOAD_SIZE=52428800  # 50MB
 AI_PROVIDER=hunyuan3d-2.1
 RUNTIME_MODE=local
 
-# Options: mock, hunyuan3d-2.1, hunyuan3d-2, trellis, triposr, triposg, unirig
+# Options: mock, hunyuan3d-2.1, hunyuan3d-2, trellis, triposg, unirig
 
 # ===== GPU SETTINGS =====
 CUDA_DEVICE=auto
@@ -497,7 +484,7 @@ This copies weights from `third_party/weights/<provider>/` into `third_party/<Re
 
 If you see errors like `ImportError: cannot import name 'is_offline_mode'`:
 
-This indicates a version conflict between the backend process's huggingface_hub and the per-model venv's version. The fix (v3.2.1+) calls `_add_model_env()` at the top of local provider files (hunyuan3d_local, trellis_local, triposr_local) to reload packages from the per-model venv context.
+This indicates a version conflict between the backend process's huggingface_hub and the per-model venv's version. The fix (v3.2.1+) calls `_add_model_env()` at the top of local provider files (hunyuan3d_local, trellis_local) to reload packages from the per-model venv context.
 
 To verify the fix is applied:
 
@@ -641,8 +628,8 @@ After successful installation:
 
 ## Pipelines Setup Notes
 
-- The Settings → Pipelines page reads from `GET /api/v1/pipelines`.
+- The workspace model pickers read from `GET /api/v1/pipelines/workspace-models`.
 - Runtime status comes from `GET /api/v1/runtime/status` and `GET /api/v1/runtime/health`.
 - Runtime options for the UI come from `GET /api/v1/runtime/options`.
-- The current model ids exposed by the registry are: `hunyuan3d-2.1`, `triposr`, `trellis`, `triposg`, `unirig`.
+- The current model ids exposed by the registry are: `hunyuan3d-2.1`, `trellis`, `triposg`, `unirig`.
 - The backend does not expose a bare `GET /api/v1/runtime` route.

@@ -1,6 +1,6 @@
 # AI 3D Studio - Architecture Documentation
 
-> **Version**: 3.4.2 (Bugfix & Cleanup Batch)  
+> **Version**: 3.4.3 (Reticle Removal + Unified Logger)  
 > **Last Updated**: August 9, 2026
 
 ---
@@ -46,7 +46,7 @@
 | **Download Queue** | Resumable downloads with mirror fallback |
 | **Health Monitoring** | Comprehensive system and model diagnostics |
 | **GPU Scheduling** | VRAM-aware provider selection |
-| **Multi-Provider** | Support for Hunyuan3D, TRELLIS, TripoSR, etc. |
+| **Multi-Provider** | Support for Hunyuan3D, TRELLIS, TripoSG, etc. |
 
 ---
 
@@ -170,7 +170,6 @@ ai-3d-studio/
 │   │   ├── WorkspaceSection.tsx
 │   │   ├── AppearanceSection.tsx
 │   │   ├── GenerationSection.tsx
-│   │   ├── PipelinesSection.tsx
 │   │   ├── ExportBackupSection.tsx
 │   │   └── PreferencesSections/
 │   │       ├── NotificationsSection.tsx
@@ -252,7 +251,7 @@ ai-3d-studio/
 │   │   │   │   ├── registry.py       # Provider registry
 │   │   │   │   ├── hunyuan3d*.py     # Hunyuan3D providers
 │   │   │   │   ├── trellis*.py       # TRELLIS providers
-│   │   │   │   ├── triposr*.py       # TripoSR providers
+│   │   │   │   ├── triposg*.py       # TripoSG providers
 │   │   │   │   ├── instant_mesh.py   # Instant Mesh
 │   │   │   │   ├── detailgen3d.py    # DetailGen3D
 │   │   │   │   ├── anigen_provider.py # AniGen provider
@@ -369,11 +368,10 @@ App Layout
 │
 ├── Admin Shell
 │   ├── AdminSidebar
-│   └── Tabs (12 total)
+│   └── Tabs (11 total)
 │       ├── OverviewTab
 │       ├── ConnectionsTab
 │       ├── ModelsTab
-│       ├── DownloadsTab
 │       ├── RuntimeTab
 │       ├── JobsTab
 │       ├── QueueTab
@@ -539,27 +537,21 @@ router.include_router(settings_router)       # /settings/*
 ### Middleware Stack
 
 1. **CORS Middleware** - Cross-origin request handling
-2. **Reticle Observability** (dev-only) - localhost:7777 request tracing
-3. **Global Exception Handler** - Unified error responses
-4. **Static Files Mount** - `/static` for uploads/storage
+2. **Global Exception Handler** - Unified error responses
+3. **Static Files Mount** - `/static` for uploads/storage
+4. **Request Timing Middleware** - logs every HTTP request (method, path, status, duration) to the backend log
 
-#### Development Observability Stack
+#### Activity Logging (unified project log)
 
-**Reticle** (localhost-only, dev-time):
-- Daemon: `npx @reticlehq/server serve --port 7777` (started by scripts/start.sh in Dev Mode)
-- Client: `@reticlehq/react` + `@reticlehq/next` SDK (installed as dev-only dependency)
-- Bridge: localhost:7777 (internal, never exposed)
-- MCP: `.mcp.json` registers `@reticlehq/server mcp` for agent integration
-- Backend middleware: `ReticleMiddleware` in `backend/app/middleware.py` (supplementary server-side tracing)
+Every API call — frontend or backend — is written to the same backend log output (`logs/api.log` when started via `scripts/start.sh`):
+
+- **Backend**: `request_timing_middleware` in `app/main.py` logs every HTTP request at INFO level (`GET /api/v1/... → 200 (12.3ms)`).
+- **Frontend**: `components/ActivityLogger.tsx` (mounted once in `app/layout.tsx`) wraps `window.fetch` to capture all API calls (method, path, status, duration) and listens for button/link clicks. Each event is written to the browser console and fire-and-forget POSTed to `POST /api/v1/system/log`, which forwards it into the same backend log.
+- **Result**: one unified log (`logs/api.log`) showing the whole project — backend requests, frontend API calls, and user clicks.
 
 **Next.js + FastAPI proxy chain**:
 - Frontend (Next.js :3000) proxies API calls via `app/api/v1/[...path]/route.ts` → `BACKEND_URL`
-- Reticle observes browser DOM, network, React fiber + backend HTTP traces
 - Network Tab shows full round-trip: frontend → proxy → FastAPI → response
-
-**Environment gating**:
-- Dev: Reticle daemon + middleware + SDK active (npm run dev, ENVIRONMENT=development)
-- Prod: All Reticle code tree-shaken out, zero runtime cost
 
 ---
 
@@ -694,14 +686,12 @@ BaseProvider (ABC)
 │   └── Hunyuan3D_2 (24GB VRAM)
 ├── TRELLISProvider (trellis_local.py) - calls _add_model_env() at import time
 │   └── ~8GB VRAM required
-├── TripoSRProvider (triposr_local.py) - calls _add_model_env() at import time
-│   └── ~6GB VRAM required
 ├── InstantMeshProvider (instant_mesh.py)
 ├── SDXLProvider (sdxl.py) - For 2D images
 └── MockProvider (mock.py) - Testing without GPU
 ```
 
-**Key Implementation Detail**: Local providers (hunyuan3d_local, trellis_local, triposr_local) must call `_add_model_env()` at the very top of the module (before any other imports) to ensure the per-model venv's site-packages take precedence over the backend process's shared dependencies (e.g., huggingface_hub version conflicts).
+**Key Implementation Detail**: Local providers (hunyuan3d_local, trellis_local) must call `_add_model_env()` at the very top of the module (before any other imports) to ensure the per-model venv's site-packages take precedence over the backend process's shared dependencies (e.g., huggingface_hub version conflicts).
 
 ### Provider Selection Algorithm
 
@@ -715,11 +705,10 @@ def get_best_provider_name(requested=None):
     4. Fall back to mock if no GPU fits
     """
     
-    PRIORITY = ["hunyuan3d-2.1", "trellis", "triposr", "hunyuan3d-2", "mock"]
+    PRIORITY = ["hunyuan3d-2.1", "trellis", "hunyuan3d-2", "mock"]
     VRAM_REQUIREMENTS = {
         "hunyuan3d-2.1": 16000,
         "trellis": 8000,
-        "triposr": 6000,
         "hunyuan3d-2": 24000,
         "mock": 0
     }
@@ -764,8 +753,8 @@ The workspace compatibility system prevents users from selecting incompatible mo
 
 | Workspace | Description | Compatible Models |
 |-----------|-------------|-------------------|
-| `mesh-generation` | Generate 3D meshes from text or images | hunyuan3d-2.1, hunyuan3d-2, trellis, triposr, triposg |
-| `texture-generation` | Generate PBR textures and materials | hunyuan3d-2.1, hunyuan3d-2, trellis, triposr |
+| `mesh-generation` | Generate 3D meshes from text or images | hunyuan3d-2.1, hunyuan3d-2, trellis, triposg |
+| `texture-generation` | Generate PBR textures and materials | hunyuan3d-2.1, hunyuan3d-2, trellis |
 | `rigging` | Auto-rig 3D character meshes | anigen, unirig |
 | `animation` | Generate skeletal animations | anigen, unirig |
 | `remesh` | Retopology and mesh optimization | detailgen3d |
@@ -799,7 +788,7 @@ The workspace compatibility system prevents users from selecting incompatible mo
 - `RemeshTab.tsx` → `useWorkspaceModels('remesh')`
 - `TextureGenTab.tsx` → `useWorkspaceModels('texture-generation')`
 
-**Settings → Pipelines** (`PipelinesDashboard.tsx`):
+**Pipelines API** (`backend/app/api/v1/pipelines.py`):
 - Workspace filter bar with counts per workspace type.
 - Filtered model list with "Showing X of Y" caption.
 - Workspace compatibility badges rendered on each pipeline card.
@@ -819,7 +808,6 @@ The texture generation workflow has been enhanced to support production-grade PB
 | **Hunyuan3D 2.1** | 512–4096px | Photorealistic, Stylized, Anime, Cyberpunk, Procedural | Complete asset texturing |
 | **Hunyuan3D 2** | 512–4096px | Photorealistic, Stylized, Anime, Cyberpunk, Procedural | High-quality texturing |
 | **TRELLIS** | 512–4096px | Photorealistic, Stylized, Anime, Cyberpunk, Procedural | Textured mesh generation |
-| **TripoSR** | 512–2048px | Photorealistic, Stylized, Anime, Cyberpunk, Procedural | Fast texture baking |
 
 ### Texture Generation Flow
 
@@ -1124,10 +1112,6 @@ backend/
     │   ├── .venv/
     │   ├── weights/
     │   └── ...
-    ├── TripoSR/
-    │   ├── .venv/
-    │   ├── weights/
-    │   └── ...
     └── ...
 ```
 
@@ -1172,20 +1156,18 @@ A `.gitignore` excludes `backend/third_party/*`, `third_party/*/.venv/`, `third_
 
 *This document provides an overview of the AI 3D Studio architecture. For implementation details, see the Developer Guide.*
 
-## Settings → Pipelines Architecture
+## Pipelines & Capability Architecture
 
-The Settings → Pipelines page is driven by a compact pipeline snapshot flow:
+The backend pipelines flow drives workspace model pickers and feature gating (the Settings → Pipelines UI page was removed; the AI Models page now hosts the Global AI Capability toggles):
 
 1. `ModelRegistry` returns the current installed + available catalog.
 2. `capability_matrix.py` converts manifests into UI feature flags.
-3. `backend/app/api/v1/pipelines_router.py` stores the enabled map in the runtime cache and serves the snapshot.
-4. `features/settings/sections/PipelinesSection.tsx` renders the page using the shared app theme.
-5. `services/runtimeService.ts` reads runtime status and options for GPU / provider UI.
+3. `backend/app/api/v1/pipelines.py` stores the enabled map in the runtime cache and serves the snapshot / workspace-models.
+4. `services/runtimeService.ts` reads runtime status and options for GPU / provider UI.
 
 ### Current model catalog
 
 - Hunyuan3D 2.1 — text/image-to-3D, texture generation
-- TripoSR — image-to-3D, optional texture bake
 - Trellis — image-to-3D, text-to-3D, texture generation
 - TripoSG — image-to-3D, detail enhancement
 - UniRig — rigging and animation

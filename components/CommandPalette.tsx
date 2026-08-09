@@ -290,19 +290,6 @@ export function CommandPalette() {
                   <CommandItem
                     onSelect={() =>
                       handleAction(() => {
-                        setSelectedModel('triposr');
-                        toast.success('TripoSR selected');
-                      })
-                    }
-                    className="rounded-lg px-3 py-2.5 cursor-pointer data-[selected=true]:bg-[hsl(var(--neon-purple)/0.1)] data-[selected=true]:text-foreground transition-colors duration-150"
-                  >
-                    <Box className="w-4 h-4 mr-2 text-[hsl(var(--neon-green))]" />
-                    <span>Select TripoSR</span>
-                  </CommandItem>
-
-                  <CommandItem
-                    onSelect={() =>
-                      handleAction(() => {
                         setSelectedModel('instantmesh');
                         toast.success('InstantMesh selected');
                       })

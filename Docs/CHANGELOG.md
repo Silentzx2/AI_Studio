@@ -1,5 +1,74 @@
 # AI 3D Studio — Changelog
 
+## v3.4.6 — Remove Pipelines Page + TripoSR/HoloPart Cleanup (August 9, 2026)
+
+### Removed
+
+- **Pipelines page** fully removed from Settings (`features/settings/sections/PipelinesSection.tsx` and `pipelines/PipelinesDashboard.tsx` deleted; section def, reset keys, and render case removed from `app/settings/page.tsx`).
+- **TripoSR removed entirely**: frontend model lists (ThreeDGenerationTab, TextureGenTab, WorkspaceSettingsTab, GenerationSection, CommandPalette), backend providers (`triposr.py`, `triposr_local.py`), `model_registry` entry, `engine.py`/`providers/registry.py` maps, `config.py` API URL, `installer.py` repo/weights/texture/EXTRA_DEPS entries, `discover.py` catalog entry, shell scripts, and tests.
+- **HoloPart** removed: deleted `backend/third_party/HoloPart` folder and the unused `backend/third_party/TripoSR` folder.
+- Removed dead `adminService.getPipelines()`/`togglePipeline()` and the now-unused `PipelineSnapshot`/`PipelineStatus`/`PipelineFeatureFlags` types.
+
+### Moved
+
+- The 4 **Global AI Capability** toggles (3D Generation, Remesh & Refine, Texture Generation, Rigging & Animation) now live in the **AI Models** page (`ModelsTab.tsx`) via `useUIStore.capabilities`.
+
+### Kept
+
+- TripoSG, TripoSF and all other providers untouched. Backend `/api/v1/pipelines` endpoints kept — `/workspace-models` still powers the workspace model pickers.
+
+### Files Modified
+
+- `app/settings/page.tsx`, `features/admin/tabs/ModelsTab.tsx`, `features/settings/sections/index.ts`, `services/adminService.ts`, `types/index.ts`, `stores/useAppStore.ts`, `components/CommandPalette.tsx`, `features/settings/sections/GenerationSection.tsx`, `features/workspace/new-ui/{ThreeDGenerationTab,TextureGenTab,WorkspaceSettingsTab}.tsx`, `package-production.sh`, `scripts/update-models.sh`, backend `config.py`, `discover.py`, `registry.py`, `model_registry.py`, `environment_manager.py`, `engine.py`, `installer.py`, tests
+- Deleted: `PipelinesSection.tsx`, `pipelines/PipelinesDashboard.tsx`, `triposr.py`, `triposr_local.py`, `backend/third_party/{HoloPart,TripoSR}`
+- Docs: `Docs/README.md`, `Docs/architecture.md`, `Docs/api-documentation.md`, `Docs/developer-guide.md`
+
+## v3.4.5 — Remove Downloads Page from Settings (August 9, 2026)
+
+### Removed
+
+- The **Downloads** page is fully removed from Settings and the admin sidebar (was `features/admin/tabs/DownloadsTab.tsx`).
+- Removed the `downloads` entry from `ADMIN_NAV_ITEMS`, the `AdminTab` union, the settings section definition, and the render case in `app/settings/page.tsx`.
+- The workspace **BottomDock** downloads tab is unchanged (it has its own inline `DownloadsTab`).
+
+### Files Modified
+
+- `constants/index.ts`, `features/admin/AdminShell.tsx`, `app/settings/page.tsx`, `features/admin/tabs/index.ts`, `Docs/README.md`, `Docs/architecture.md`
+- Deleted: `features/admin/tabs/DownloadsTab.tsx`
+
+## v3.4.4 — Terminal-Style Logs Page with Full ActivityLogger Integration (August 9, 2026)
+
+### Improved
+
+- **Logs page** (Settings → Logs / admin Logs tab) rebuilt as a large, authentic Linux terminal: near-black background (`#05070b`), macOS traffic-light title bar with a `tail -f app.log --follow` prompt + blinking cursor, a tmux-style status bar (LIVE mode, level/source/wrap state, per-level counts), and a much taller viewport (`calc(100vh-420px)`, min 460px) instead of the cramped 64vh card.
+- Added a `terminal-cursor` blink animation in `app/globals.css`.
+
+### Integrated
+
+- The frontend `ActivityLogger` events are now fully visible in the Logs page: `components/ActivityLogger.tsx` captures all API calls and button/link clicks, forwards them to `POST /api/v1/system/log` (logger name `frontend`), and they render live in the terminal alongside backend logs with the `frontend` source badge (green).
+- `SOURCE_COLORS` updated: `frontend` → green, `pipelines` → purple (replaced the undefined `--neon-orange`).
+
+### Files Modified
+
+- `features/admin/tabs/LogsTab.tsx`, `components/ActivityLogger.tsx`, `backend/app/api/v1/system.py`, `app/globals.css`
+
+## v3.4.3 — Remove Reticle, Add Unified Project Logger (August 9, 2026)
+
+### Removed
+
+- **Reticle** (dev observability SDK) removed completely: `@reticlehq/next`, `@reticlehq/react`, `@reticlehq/server` packages, `.reticle.json`, `.mcp.json` MCP registration, `.kilo/reticle-generation-flow.json`, `app/reticle-dev.tsx`, `backend/app/reticle_observer.py`, `backend/app/middleware.py` (`ReticleMiddleware`), `reticle` pip dep, Reticle daemon startup + `RETICLE_*` env vars in `scripts/start.sh`, `.env.example`, `.env.development.local`, `backend/.env.development`, and the `.gitignore` Reticle section.
+- Removed the now-obsolete `test_accelerate_in_gitignore` test (asserted Reticle entries in `.gitignore`).
+
+### Added
+
+- **Unified project logger**: `components/ActivityLogger.tsx` (mounted in `app/layout.tsx`) wraps `window.fetch` to capture all API calls and listens for button/link clicks. Events are logged to the browser console and fire-and-forget POSTed to the new `POST /api/v1/system/log` endpoint in `backend/app/api/v1/system.py`, which writes them to the backend log.
+- Backend request timing middleware bumped from DEBUG to INFO so every API call lands in `logs/api.log` — one unified log for the whole project (backend requests + frontend API calls + user clicks).
+
+### Files Modified
+
+- Deleted: `app/reticle-dev.tsx`, `backend/app/reticle_observer.py`, `backend/app/middleware.py`, `.reticle.json`, `.mcp.json`, `.kilo/reticle-generation-flow.json`
+- Modified: `app/layout.tsx`, `components/ActivityLogger.tsx` (new), `next.config.ts`, `package.json`, `package-lock.json`, `backend/app/main.py`, `backend/app/api/v1/system.py`, `backend/requirements.txt`, `backend/tests/test_accelerate_integration.py`, `scripts/start.sh`, `.env.example`, `.env.development.local`, `backend/.env.development`, `.gitignore`, `Docs/*.md`
+
 ## v3.4.2 — Remaining error.md Batch: Async Fixes, Wiring, Cleanup (August 9, 2026)
 
 Second wave of fixes from `error.md` (full deep-scan report). All 53 reported issues addressed; two verified as false positives/non-issues.

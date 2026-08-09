@@ -43,7 +43,6 @@ export const STYLE_PRESETS = ['Realistic', 'Cartoon', 'Anime', 'Sci-Fi', 'Fantas
 export const ADMIN_NAV_ITEMS = [
   { id: 'overview', label: 'Dashboard', icon: 'LayoutDashboard' },
   { id: 'models', label: 'Models', icon: 'Boxes' },
-  { id: 'downloads', label: 'Downloads', icon: 'Download' },
   { id: 'runtime', label: 'Runtime', icon: 'Activity' },
   { id: 'logs', label: 'Logs', icon: 'ScrollText' },
   { id: 'jobs', label: 'Jobs', icon: 'Briefcase' },

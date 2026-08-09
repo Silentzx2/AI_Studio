@@ -1,6 +1,6 @@
 # AI 3D Studio - Developer Guide
 
-> **Version**: 3.4.2 (Bugfix & Cleanup Batch)  
+> **Version**: 3.4.3 (Reticle Removal + Unified Logger)  
 > **Target Audience**: Developers contributing to AI 3D Studio
 
 ---
@@ -340,7 +340,7 @@ async def create_resource(
 There are two types of providers:
 
 1. **Download providers** (github, modelscope, nvidia_ngc, civitai, huggingface) - fetch models from external sources
-2. **Runtime providers** (hunyuan3d, trellis, triposr, etc.) - run inference locally
+2. **Runtime providers** (hunyuan3d, trellis, triposg, etc.) - run inference locally
 
 This guide covers **runtime providers** that run inference locally.
 
@@ -1012,25 +1012,21 @@ logger.debug("Processing job %s", job_id)
 ./scripts/manager.sh
 ```
 
-### Debugging with Reticle
+### Debugging with the Activity Log
 
-Reticle visualizes real-time application behavior (dev-only, localhost:7777):
+The whole project — backend requests, frontend API calls, and user clicks — writes to one unified log (`logs/api.log` when started via `scripts/start.sh`).
 
-**Network requests**: See all HTTP calls with latency
-**Component renders**: Track React re-renders and performance
-**State changes**: Inspect Zustand state mutations
+**What is captured**:
+- Backend: every HTTP request with status + duration (request timing middleware, INFO level)
+- Frontend: every API call (method, path, status, duration) and button/link click via `components/ActivityLogger.tsx`
+- Frontend events are POSTed to `POST /api/v1/system/log` so they appear in the same backend log, and printed to the browser console as `[activity]` lines.
 
 Common debug scenarios:
-- **Slow API call?** Look at Reticle network timeline
-- **Unexpected re-render?** Check Reticle component tree
-- **State mutation loop?** Track state changes in Reticle dashboard
+- **Slow API call?** `grep "→" logs/api.log` for duration, or watch browser console `[activity] api` lines
+- **Which buttons get clicked?** `grep "click" logs/api.log`
+- **Backend error?** `tail -f logs/api.log`
 
-Reticle only observes your local machine (localhost:7777 binding). No data leaves your machine.
-
-**Setup**:
-1. Start dev mode: `bash scripts/start.sh` → choose `1) Dev Mode`
-2. Reticle daemon auto-starts on `localhost:7777`
-3. Check status: `curl http://localhost:7777/health`
+**Setup**: no setup needed — the logger is mounted in `app/layout.tsx` and active in all environments.
 
 ### Common Issues
 
@@ -1211,7 +1207,7 @@ The current pipeline surface is split across a small set of files:
 
 ### Frontend
 
-- `features/settings/sections/PipelinesSection.tsx` — renders the Settings → Pipelines page.
+- `features/admin/tabs/ModelsTab.tsx` — hosts the Global AI Capability toggles (3D Gen, Remesh, Texture, Rigging).
 - `services/runtimeService.ts` — reads runtime status, options, verification, and HuggingFace token state.
 - `hooks/useBackendData.ts` — central backend data hook used by runtime-related UI.
 - `app/api/v1/[...path]/route.ts` — Next.js proxy route for backend API calls.
@@ -1239,7 +1235,7 @@ The frontend uses `useWorkspaceModels(workspace)` to fetch only compatible model
 
 ### Current catalog
 
-`hunyuan3d-2.1`, `triposr`, `trellis`, `triposg`, `unirig`
+`hunyuan3d-2.1`, `trellis`, `triposg`, `unirig`
 
 ### Verification checklist
 

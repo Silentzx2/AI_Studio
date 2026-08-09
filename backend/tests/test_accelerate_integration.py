@@ -123,7 +123,6 @@ def test_all_providers_use_safe_unload():
     provider_files = {
         "trellis": PROVIDERS_DIR / "trellis_local.py",
         "hunyuan3d": PROVIDERS_DIR / "hunyuan3d_local.py",
-        "triposr": PROVIDERS_DIR / "triposr_local.py",
         "unirig": PROVIDERS_DIR / "unirig_provider.py",
         "triposg": PROVIDERS_DIR / "triposg_provider.py",
         "detailgen3d": PROVIDERS_DIR / "detailgen3d.py",
@@ -147,7 +146,6 @@ def test_local_providers_no_duplicated_helpers():
     local_providers = {
         "trellis": PROVIDERS_DIR / "trellis_local.py",
         "hunyuan3d": PROVIDERS_DIR / "hunyuan3d_local.py",
-        "triposr": PROVIDERS_DIR / "triposr_local.py",
     }
     for name, path in local_providers.items():
         source = path.read_text()
@@ -167,7 +165,6 @@ def test_all_providers_import_accelerate_loader():
     provider_files = {
         "trellis": PROVIDERS_DIR / "trellis_local.py",
         "hunyuan3d": PROVIDERS_DIR / "hunyuan3d_local.py",
-        "triposr": PROVIDERS_DIR / "triposr_local.py",
         "unirig": PROVIDERS_DIR / "unirig_provider.py",
         "triposg": PROVIDERS_DIR / "triposg_provider.py",
         "detailgen3d": PROVIDERS_DIR / "detailgen3d.py",
@@ -188,7 +185,7 @@ def test_accelerate_in_requirements():
 
 
 def test_accelerate_in_extra_deps():
-    """accelerate must be in EXTRA_DEPS for TRELLIS, Hunyuan3D-2, TripoSR."""
+    """accelerate must be in EXTRA_DEPS for TRELLIS, Hunyuan3D-2."""
     installer_path = BACKEND_ROOT / "runtime" / "installer.py"
     source = installer_path.read_text()
     assert '"TRELLIS":' in source and "accelerate" in source, (
@@ -197,17 +194,6 @@ def test_accelerate_in_extra_deps():
     assert '"Hunyuan3D-2":' in source and "accelerate" in source, (
         "Hunyuan3D-2 not in EXTRA_DEPS with accelerate"
     )
-    assert '"TripoSR":' in source and "accelerate" in source, (
-        "TripoSR not in EXTRA_DEPS with accelerate"
-    )
-
-
-def test_accelerate_in_gitignore():
-    """Reticle dev entries must be in .gitignore."""
-    project_root = BACKEND_ROOT.parent
-    gitignore = project_root / ".gitignore"
-    source = gitignore.read_text()
-    assert "Reticle" in source, "Reticle entry not found in .gitignore"
 
 
 def test_anigen_no_dead_pipeline_attr():

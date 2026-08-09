@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import type { AdminOverview, AdminLog, AdminJob, AdminModel, QueueStatus, TerminalCommand, InstallProgress, PipelineSnapshot } from '@/types';
+import type { AdminOverview, AdminLog, AdminJob, AdminModel, QueueStatus, TerminalCommand, InstallProgress } from '@/types';
 
 /**
  * Admin Service - handles all admin panel API calls
@@ -152,24 +152,6 @@ export const adminService = {
       return res?.data?.models || [];
     } catch {
       return [];
-    }
-  },
-
-  async getPipelines(): Promise<PipelineSnapshot | null> {
-    try {
-      const res = await apiClient.get<{ data: PipelineSnapshot }>('/api/v1/pipelines');
-      return res?.data || null;
-    } catch {
-      return null;
-    }
-  },
-
-  async togglePipeline(modelId: string, enabled: boolean): Promise<PipelineSnapshot | null> {
-    try {
-      const res = await apiClient.post<{ data: { snapshot: PipelineSnapshot } }>(`/api/v1/pipelines/${modelId}/toggle`, { enabled });
-      return res?.data?.snapshot || null;
-    } catch {
-      return null;
     }
   },
 

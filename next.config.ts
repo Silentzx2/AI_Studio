@@ -1,6 +1,5 @@
 import path from 'path';
 import type {NextConfig} from 'next';
-import { withReticle } from '@reticlehq/next';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -33,4 +32,4 @@ const nextConfig: NextConfig = {
   ],
 };
 
-export default withReticle(nextConfig);
+export default nextConfig;

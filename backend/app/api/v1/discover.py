@@ -266,17 +266,6 @@ async def get_featured_models(limit: int = Query(10, ge=1, le=50)):
             "difficulty": "beginner"
         },
         {
-            "id": "triposr",
-            "name": "TripoSR",
-            "provider": "internal",
-            "category": "image-to-3d",
-            "description": "Lightning-fast image-to-3D for preview/prototyping",
-            "tags": ["featured", "fastest", "lightweight"],
-            "capabilities": ["image-to-3d", "real-time", "low-vram"],
-            "min_vram_mb": 4096,
-            "difficulty": "beginner"
-        },
-        {
             "id": "instant-mesh",
             "name": "Instant Mesh",
             "provider": "internal",

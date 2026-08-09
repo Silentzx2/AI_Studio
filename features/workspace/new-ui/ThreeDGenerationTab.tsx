@@ -38,32 +38,6 @@ interface ThreeDGenerationTabProps {
 // Model details and capability definitions matching high fidelity UI
 const LOCAL_MODELS = [
   {
-    id: 'triposr',
-    name: 'TripoSR',
-    label: 'TripoSR',
-    installed: true,
-    status: 'ready',
-    vram_required_mb: 5324, // 5.2 GB
-    speed_seconds: 12,
-    supports: {
-      text_to_3d: false,
-      image_to_3d: true,
-      texture_generation: true,
-      rigging_animation: true,
-      detail_enhancement: true,
-      part_separation: true,
-    },
-    stats: {
-      triangles: '2,402,118',
-      vertices: '1,801,554',
-      objects: '12',
-      materials: '8',
-      size: '128 MB',
-    },
-    colab_incompatible: false,
-    colab_skip_reason: null,
-  },
-  {
     id: 'hunyuan3d-2',
     name: 'Hunyuan3D-2',
     label: 'Hunyuan3D-2',
@@ -289,7 +263,7 @@ export default function ThreeDGenerationTab({
   // Use the store's selectedModel as the single source of truth so this tab's
   // dropdown stays in sync with the rich ModelSelector (GeneratePanel/LeftSidebar)
   // and other tabs. ponytail: previously a local selectedModelId defaulted to
-  // 'triposr' and never synced back, so selecting a model elsewhere left this
+  // 'hunyuan3d-2' and never synced back, so selecting a model elsewhere left this
   // dropdown displaying the wrong model.
   const activeModel = useMemo(() => {
     return modelsList.find((m) => m.id === selectedModel) || modelsList[0];
@@ -309,7 +283,7 @@ export default function ThreeDGenerationTab({
       if (parentActiveModel?.id !== activeModel.id) {
         onUpdateModel({
           ...activeModel,
-          accentColor: activeModel.id === 'triposr' ? 'hsl(var(--primary))' : 'hsl(var(--neon-blue))'
+          accentColor: 'hsl(var(--neon-blue))'
         });
       }
     }
@@ -1120,7 +1094,7 @@ export default function ThreeDGenerationTab({
             <div className="flex justify-between items-center">
               <span className="text-[hsl(var(--muted-foreground))]">VRAM Usage</span>
               <span className="font-extrabold text-[hsl(var(--foreground))] font-mono">
-                {activeModel?.id === 'triposr' ? '5.2 / 8 GB' : activeModel?.id === 'hunyuan3d-2' ? '7.0 / 8 GB' : '4.0 / 8 GB'}
+                {activeModel?.id === 'hunyuan3d-2' ? '7.0 / 8 GB' : '4.0 / 8 GB'}
               </span>
             </div>
             <div className="flex justify-between items-center">
@@ -1137,7 +1111,7 @@ export default function ThreeDGenerationTab({
             </div>
             <div className="flex justify-between items-center">
               <span className="text-[hsl(var(--muted-foreground))]">Texture Res.</span>
-              <span className="font-extrabold text-[hsl(var(--foreground))] font-mono">{activeModel?.id === 'triposr' || activeModel?.id === 'hunyuan3d-2' ? '4K (PBR)' : '--'}</span>
+              <span className="font-extrabold text-[hsl(var(--foreground))] font-mono">{activeModel?.id === 'hunyuan3d-2' ? '4K (PBR)' : '--'}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-[hsl(var(--muted-foreground))]">File Size (Est.)</span>

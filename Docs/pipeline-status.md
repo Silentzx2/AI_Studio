@@ -1,6 +1,6 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 3.4.2 (Bugfix & Cleanup Batch)  
+> **Version**: 3.4.3 (Reticle Removal + Unified Logger)  
 > **Status**: ✅ **COMPLETE**  
 > **Last Updated**: August 9, 2026
 
@@ -42,7 +42,6 @@ core/providers/
   ✅ huggingface_provider.py    - HuggingFace Hub provider
   ✅ hunyuan3d.py               - Hunyuan3D generation provider
   ✅ trellis.py                 - TRELLIS generation provider
-  ✅ triposr.py                 - TripoSR generation provider
   ✅ sdxl.py                    - SDXL image generation
   ✅ prompt_enhancer.py         - Optional prompt enhancement
   ✅ instant_mesh.py            - Instant Mesh provider
@@ -532,18 +531,17 @@ The system is ready for:
 
 ## Current Pipelines Snapshot
 
-The current Settings → Pipelines page is backed by the live registry snapshot and feature matrix.
+The current workspace model pickers are backed by the live registry snapshot and feature matrix.
 
 ### Registered model ids
 
-`hunyuan3d-2.1`, `triposr`, `trellis`, `triposg`, `unirig`
+`hunyuan3d-2.1`, `trellis`, `triposg`, `unirig`
 
 ### Capability summary
 
 | Model | Category | Workspace compatibility | Key capabilities | VRAM |
 |------|----------|------------------------|------------------|------|
 | Hunyuan3D 2.1 | 3D generation | mesh-generation, texture-generation, post-processing | text/image-to-3D, texture generation | 16 GB |
-| TripoSR | 3D generation | mesh-generation, texture-generation | image-to-3D, optional texture bake | 6 GB |
 | Trellis | 3D generation | mesh-generation, texture-generation | image-to-3D, text-to-3D, texture generation | 8 GB |
 | TripoSG | 3D generation | mesh-generation | image-to-3D, detail enhancement | 12 GB |
 | UniRig | Rigging | rigging, animation | rigging, animation | 8 GB |
@@ -551,8 +549,8 @@ The current Settings → Pipelines page is backed by the live registry snapshot 
 
 ### Workspace compatibility rules
 
-- **mesh-generation**: hunyuan3d-2.1, hunyuan3d-2, trellis, triposr, triposg
-- **texture-generation**: hunyuan3d-2.1, hunyuan3d-2, trellis, triposr
+- **mesh-generation**: hunyuan3d-2.1, hunyuan3d-2, trellis, triposg
+- **texture-generation**: hunyuan3d-2.1, hunyuan3d-2, trellis
 - **rigging**: anigen, unirig
 - **animation**: anigen, unirig
 - **remesh**: detailgen3d
@@ -568,7 +566,7 @@ The current Settings → Pipelines page is backed by the live registry snapshot 
 
 ### Current UI surface
 
-- Settings → Pipelines: `features/settings/sections/PipelinesDashboard.tsx`
+- Global AI Capability toggles: `features/admin/tabs/ModelsTab.tsx`
 - Workspace tabs: `features/workspace/new-ui/*Tab.tsx`
 - Runtime data source: `hooks/useBackendData.ts`
 - Backend snapshot API: `GET /api/v1/pipelines`

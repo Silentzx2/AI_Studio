@@ -15,7 +15,7 @@
 
 <p align="center">
 
-  <img src="https://img.shields.io/badge/Version-3.4.2-8A2BE2?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Version-3.4.3-8A2BE2?style=for-the-badge">
 
   <img src="https://img.shields.io/badge/Pipeline-V2-Complete-success?style=for-the-badge">
 
@@ -84,14 +84,13 @@
 | Name | Category | VRAM Required | Speed | Key Capabilities |
 |------|----------|--------------|-------|------------------|
 | **Hunyuan3D 2.1** | 3D generation | ~16 GB | ~90s | text-to-3D, image-to-3D, texture generation |
-| **TripoSR** | 3D generation | ~6 GB | ~1s | image-to-3D, optional texture bake |
 | **Trellis** | 3D generation | ~12 GB | ~60s | image-to-3D, text-to-3D, texture generation |
 | **TripoSG** | 3D generation | ~12 GB | ~45s | image-to-3D, detail enhancement |
 | **UniRig** | Rigging | ~8 GB | ~30s | skeletal rigging, animation |
 
-### Settings → Pipelines
+### Pipeline & Workspace APIs
 
-The Settings → Pipelines page is the UI source of truth for feature gating and the currently enabled model catalog.
+The backend pipelines API drives workspace model pickers and feature gating (the Settings → Pipelines UI page was removed; the AI Models page now hosts the Global AI Capability toggles).
 
 - `GET /api/v1/pipelines` returns the current snapshot of models, features, and input modes.
 - `POST /api/v1/pipelines/{model_id}/toggle` enables or disables a pipeline in the local feature gate.
@@ -333,7 +332,6 @@ Colab mode automatically:
 | Hunyuan3D 2.1 | 16 GB | Skipped |
 | Hunyuan3D 2 | 24 GB | Skipped |
 | TRELLIS | 8 GB | Prepared |
-| TripoSR | 6 GB | Prepared |
 | TripoSG | 12 GB | Prepared |
 | AniGen | 6.2 GB | Prepared |
 | UniRig | 8 GB | Prepared |
@@ -360,7 +358,7 @@ cp .env.example .env
 ENVIRONMENT=development
 DEBUG=true
 APP_NAME=AI 3D Studio
-APP_VERSION=3.4.2
+APP_VERSION=3.4.3
 
 # ===== DATABASE =====
 DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/ai3dstudio
@@ -372,7 +370,7 @@ CELERY_RESULT_BACKEND=redis://localhost:6379/1
 
 # ===== AI PROVIDER =====
 AI_PROVIDER=hunyuan3d-2.1
-# Options: mock, trellis, triposr, triposg, instant_mesh, hunyuan3d-2, hunyuan3d-2.1
+# Options: mock, trellis, triposg, instant_mesh, hunyuan3d-2, hunyuan3d-2.1
 
 # ===== GPU SETTINGS =====
 CUDA_DEVICE=auto
@@ -423,8 +421,8 @@ For complete configuration options, see [Setup Guide - Configuration](docs/setup
 
 | Workspace | Purpose | Compatible Models |
 |-----------|---------|-------------------|
-| **Mesh Generation** | Create 3D meshes from text or images | Hunyuan3D 2.1, Hunyuan3D 2, TRELLIS, TripoSR, TripoSG |
-| **Texture Generation** | Generate PBR textures and materials | Hunyuan3D 2.1, Hunyuan3D 2, TRELLIS, TripoSR |
+| **Mesh Generation** | Create 3D meshes from text or images | Hunyuan3D 2.1, Hunyuan3D 2, TRELLIS, TripoSG |
+| **Texture Generation** | Generate PBR textures and materials | Hunyuan3D 2.1, Hunyuan3D 2, TRELLIS |
 | **Rigging** | Auto-rig 3D character meshes | AniGen, UniRig |
 | **Animation** | Generate skeletal animations | AniGen, UniRig |
 | **Remesh** | Retopology and mesh optimization | DetailGen3D |
@@ -498,7 +496,7 @@ The Pipelines page (`/settings?section=pipelines`) provides:
 ### Texture Generation Workflow
 
 The Texture tab (`/workspace/texture`) now supports:
-- **Model Selection**: Choose from texture-compatible models (Hunyuan3D 2.1, Hunyuan3D 2, TRELLIS, TripoSR).
+- **Model Selection**: Choose from texture-compatible models (Hunyuan3D 2.1, Hunyuan3D 2, TRELLIS).
 - **Resolution Presets**: 512px (Draft), 1024px (Fast), 2048px (Balanced), 4096px (Ultra).
 - **Style Presets**: Photorealistic PBR, Stylized Handpainted, Anime/Cel-Shaded, Cyberpunk Neon, Procedural.
 - **PBR Material Controls**: Metalness Bias and Roughness Bias sliders (0–100%).
@@ -708,7 +706,6 @@ ai-3d-studio/
 ├── features/                          # Feature modules (ROOT level, NOT under app/)
 │   ├── admin/tabs/                    # Admin dashboard tabs
 │   │   ├── ConnectionsTab.tsx
-│   │   ├── DownloadsTab.tsx
 │   │   ├── HealthTab.tsx
 │   │   ├── JobsTab.tsx
 │   │   ├── LogsTab.tsx
@@ -724,7 +721,6 @@ ai-3d-studio/
 │   │   ├── WorkspaceSection.tsx
 │   │   ├── AppearanceSection.tsx
 │   │   ├── GenerationSection.tsx
-│   │   ├── PipelinesSection.tsx
 │   │   ├── ExportBackupSection.tsx
 │   │   └── PreferencesSections/
 │   │       ├── NotificationsSection.tsx
@@ -798,8 +794,6 @@ ai-3d-studio/
 │   │   │   │   ├── hunyuan3d_local.py
 │   │   │   │   ├── trellis.py
 │   │   │   │   ├── trellis_local.py
-│   │   │   │   ├── triposr.py
-│   │   │   │   ├── triposr_local.py
 │   │   │   │   ├── instant_mesh.py
 │   │   │   │   ├── detailgen3d.py
 │   │   │   │   ├── anigen_provider.py
@@ -926,7 +920,7 @@ export BATCH_SIZE=1
 watch -n 1 nvidia-smi
 
 # Use smaller model
-export AI_PROVIDER=triposr  # Uses less VRAM
+export AI_PROVIDER=trellis  # Uses less VRAM
 ```
 
 #### **Model Download Fails**
@@ -1028,5 +1022,5 @@ See [Pipeline Status Document](docs/pipeline-status.md) for detailed breakdown.
 ---
 
 <p align="center">
-  <sub>Last Updated: August 2026 | Version 3.4.2 | Pipeline V2 Complete</sub>
+  <sub>Last Updated: August 2026 | Version 3.4.3 | Pipeline V2 Complete</sub>
 </p>

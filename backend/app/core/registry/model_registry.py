@@ -24,7 +24,7 @@ class ModelRegistry:
         except Exception:
             _loadable = {
                 "hunyuan3d", "hunyuan3d-1.0", "hunyuan3d-2.1", "hunyuan3d-2",
-                "trellis", "triposr", "anigen", "detailgen3d", "mock",
+                "trellis", "anigen", "detailgen3d", "mock",
             }
 
         def _ok(meta: dict[str, Any]) -> bool:
@@ -146,42 +146,6 @@ class ModelRegistry:
                     "capabilities": {
                         "image_to_3d": True,
                         "text_to_3d": True,
-                        "texture_generation": True,
-                    },
-                    "dependencies": {"python_packages": []},
-                    "download_sources": [],
-                    "runtime": {"type": "python", "entrypoint": "", "inference_class": ""}
-                }
-            },
-            {
-                "id": "triposr",
-                "label": "TripoSR",
-                "name": "stabilityai/TripoSR",
-                "category": "3d_generation",
-                "description": "Fast feedforward 3D reconstruction from a single image",
-                "author": "VAST-AI",
-                "installed": False,
-                "size_mb": 2000,
-                "vram_required_mb": _vram("triposr"),
-                "speed_seconds": 1,
-                "workspace_compatibility": ["mesh-generation", "texture-generation"],
-                "manifest": {
-                    "name": "TripoSR",
-                    "version": "1.0",
-                    "category": "3d_generation",
-                    "description": "Fast 3D generation",
-                    "author": "VAST",
-                    "license": "MIT",
-                    "min_vram_mb": 4000,
-                    "recommended_vram_mb": 8000,
-                    "cuda_required": True,
-                    "cuda_min_version": "11.8",
-                    "python_min": "3.10",
-                    "supported_os": ["linux", "windows", "macos"],
-                    "supported_architectures": ["x86_64", "arm64"],
-                    "disk_space_mb": 5000,
-                    "capabilities": {
-                        "image_to_3d": True,
                         "texture_generation": True,
                     },
                     "dependencies": {"python_packages": []},

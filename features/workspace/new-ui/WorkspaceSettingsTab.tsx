@@ -273,7 +273,6 @@ export default function WorkspaceSettingsTab() {
               <option value="hunyuan3d-2.1">Hunyuan3D-2 Neural Mesh</option>
               <option value="trellis">Trellis Dense MVS</option>
               <option value="instant-mesh">InstantMesh LRM</option>
-              <option value="triposr">TripoSR v2</option>
             </select>
           </div>
         </div>

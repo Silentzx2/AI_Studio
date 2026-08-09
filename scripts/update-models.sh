@@ -6,8 +6,8 @@
 #   ./scripts/update-models.sh --repos-only           # Only clone repos
 #   ./scripts/update-models.sh --weights-only         # Only download weights
 #   ./scripts/update-models.sh --verify               # Verify after install
-#   ./scripts/update-models.sh --model=triposr        # Specific model
-#   ./scripts/update-models.sh --models=triposr,trellis  # Multiple models
+#   ./scripts/update-models.sh --model=trellis        # Specific model
+#   ./scripts/update-models.sh --models=hunyuan3d-2,trellis  # Multiple models
 #
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -38,7 +38,7 @@ for arg in "$@"; do
             echo "  --models=A,B,C      Download specific models (comma-separated)"
             echo "  --hf-token=TOKEN    HuggingFace token for gated models"
             echo ""
-            echo "Available models: hunyuan3d-2.1, hunyuan3d-2, trellis, triposr"
+            echo "Available models: hunyuan3d-2.1, hunyuan3d-2, trellis"
             exit 0
             ;;
     esac

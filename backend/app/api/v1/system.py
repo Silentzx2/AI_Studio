@@ -477,3 +477,24 @@ async def test_connection():
         "data": results,
         "message": "All connections OK" if all_ok else "Some connections failed"
     }
+
+
+class ClientLogEntry(BaseModel):
+    """Client-side activity entry forwarded from the browser ActivityLogger."""
+    ts: str = Field(default="", description="ISO timestamp (client clock)")
+    type: str = Field(default="", description="Event type: api | click | error")
+    detail: str = Field(default="", description="Human-readable event detail")
+
+
+@router.post("/log")
+async def record_client_log(entry: ClientLogEntry):
+    """Accept client activity events (API calls, button clicks) and write them
+    to the backend log so all project activity lands in the same log output.
+
+    Fire-and-forget from the frontend; failures are swallowed client-side.
+    This endpoint itself is logged by request_timing_middleware like any other.
+    """
+    import logging
+    logger = logging.getLogger("frontend")
+    logger.info("[%s] %s%s", entry.type, entry.detail, f" (ts={entry.ts})" if entry.ts else "")
+    return {"success": True}

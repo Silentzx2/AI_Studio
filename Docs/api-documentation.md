@@ -1,6 +1,6 @@
 # AI 3D Studio - Complete API Documentation
 
-> **Version**: 3.4.2 (Bugfix & Cleanup Batch)  
+> **Version**: 3.4.3 (Reticle Removal + Unified Logger)  
 > **Base URL**: `http://localhost:8000` (Backend API)  
 > **API Prefix**: `/api/v1`  
 > **Documentation**: Interactive docs at `/docs` (Swagger UI)
@@ -856,6 +856,34 @@ POST /api/v1/system/test/connection
 
 ---
 
+### Record Client Activity Log
+
+Accepts client-side activity events (API calls, button clicks) forwarded by the frontend `ActivityLogger`, and writes them to the backend log output — the same log the backend request timing middleware writes to.
+
+```http
+POST /api/v1/system/log
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "ts": "2026-08-09T07:00:00.000Z",
+  "type": "click",
+  "detail": "Generate"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ts` | string | ISO timestamp (client clock) |
+| `type` | string | Event type: `api` \| `click` \| `error` |
+| `detail` | string | Human-readable event detail |
+
+Fire-and-forget from the frontend; failures are swallowed client-side.
+
+---
+
 ### Get Public Configuration
 
 Non-sensitive configuration values.
@@ -1091,7 +1119,7 @@ GET /api/v1/pipelines/workspace-types
 
 ### Supported model ids in the current catalog
 
-`hunyuan3d-2.1`, `triposr`, `trellis`, `triposg`, `unirig`
+`hunyuan3d-2.1`, `trellis`, `triposg`, `unirig`
 
 
 ## Runtime APIs
@@ -1177,7 +1205,7 @@ Server-sent events stream installation progress for the active model installer.
 ```json
 // POST /api/v1/runtime/install — request body (models is now REQUIRED)
 {
-  "models": ["hunyuan3d-2.1", "triposr"]
+  "models": ["hunyuan3d-2.1", "trellis"]
 }
 ```
 
@@ -1386,6 +1414,14 @@ async function generate3D(prompt: string) {
 ---
 
 ## Changelog
+
+### v3.4.3 (Reticle Removal + Unified Logger)
+
+#### Added
+- `POST /api/v1/system/log` — frontend activity logger endpoint. The `ActivityLogger` component (mounted in `app/layout.tsx`) captures all frontend API calls and button/link clicks and forwards them here, so the whole project writes to one unified log (`logs/api.log`).
+
+#### Removed
+- `ReticleMiddleware` and the localhost:7777 observer server removed along with the Reticle SDK.
 
 ### v3.4.2 (Bugfix & Cleanup Batch)
 
