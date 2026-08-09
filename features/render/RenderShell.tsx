@@ -14,6 +14,10 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useTaskManager } from '@/hooks/useTaskManager';
+import { useAppStore } from '@/stores/useAppStore';
+import { useGenerationStore } from '@/stores/useGenerationStore';
+import { generationService } from '@/services/generationService';
+import type { GenerationConfig } from '@/types';
 
 const CAMERA_PRESETS = [
   { id: 'front', label: 'Front View', icon: Camera },
@@ -29,27 +33,70 @@ const LIGHTING_PRESETS = [
   { id: 'dramatic', label: 'Dramatic', description: 'High contrast' },
 ];
 
-const RENDER_QUEUE = [
-  { id: '1', name: 'castle_tower.glb', status: 'rendering', progress: 67, time: '00:42' },
-  { id: '2', name: 'robot_character.fbx', status: 'queued', progress: 0, time: '—' },
-  { id: '3', name: 'dragon_high.glb', status: 'completed', progress: 100, time: '00:58' },
-];
-
-export function RenderShell() {
-  const [quality, setQuality] = useState('high');
+export function RenderShell() {  const [quality, setQuality] = useState('high');
   const [resolution, setResolution] = useState('1920x1080');
   const [samples, setSamples] = useState(128);
   const [denoise, setDenoise] = useState(true);
   const [lighting, setLighting] = useState('studio');
   const [camera, setCamera] = useState('perspective');
-  const { reconnectToRunningTasks } = useTaskManager();
+  const { reconnectToRunningTasks, registerTask, updateTask, completeTask } = useTaskManager();
+  const renderTasks = useAppStore((s) =>
+    Object.values(s.tasks).filter((t) => t.type === 'render').sort((a, b) => b.createdAt - a.createdAt).slice(0, 10)
+  );
+  const RENDER_QUEUE = renderTasks.map((t) => ({
+    id: t.id,
+    name: t.label,
+    status: t.status === 'running' ? 'rendering' : t.status,
+    progress: t.progress,
+    time: t.status === 'completed' ? `${Math.round(t.progress)}%` : '—',
+  }));
 
   useEffect(() => {
     reconnectToRunningTasks();
   }, [reconnectToRunningTasks]);
 
-  const handleRender = () => {
+  const handleRender = async () => {
+    const store = useGenerationStore.getState();
+    const prompt = store.prompt || 'Render current 3D scene';
+
+    const config: GenerationConfig = {
+      mode: 'text-to-3d',
+      prompt: `${prompt} — render quality: ${quality}, resolution: ${resolution}, lighting: ${lighting}, camera: ${camera}`,
+      negativePrompt: store.negativePrompt,
+      quality: store.quality,
+      generateTexture: false,
+      autoRig: false,
+      model: store.selectedModel,
+    };
+
+    const taskId = `render-${Date.now()}`;
+    registerTask({
+      id: taskId,
+      type: 'render',
+      status: 'queued',
+      progress: 0,
+      label: `Render: ${resolution} ${quality}`,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
     toast.info('Render started', { description: `Quality: ${quality} · ${resolution} · ${samples} samples` });
+
+    try {
+      updateTask(taskId, { status: 'running', progress: 5 });
+      await generationService.startGeneration(
+        config,
+        (progress, status, log) => {
+          updateTask(taskId, { progress, status: status as 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' });
+        },
+        () => {},
+      );
+      completeTask(taskId, 'completed');
+      toast.success('Render complete');
+    } catch (error) {
+      completeTask(taskId, 'failed');
+      toast.error('Render failed', { description: error instanceof Error ? error.message : undefined });
+    }
   };
 
   return (

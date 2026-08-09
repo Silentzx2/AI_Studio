@@ -62,29 +62,14 @@ export function ModelSelector({ value, onChange, className }: { value: string; o
   }, []);
 
   // // eslint-disable-next-line react-hooks/set-state-in-effect
-   
+    
   useEffect(() => {
     const cleanup = loadModels();
     return cleanup;
   }, [loadModels]);
 
-  // Periodically refresh the model list so newly installed models appear
-   
-  useEffect(() => {
-    const interval = setInterval(() => {
-      runtimeService.getOptions()
-        .then((opts) => {
-          if (opts && opts.three_d_models.length > 0) {
-            setModels(opts.three_d_models);
-            setError(null);
-          }
-        })
-        .catch(() => { /* silent — don't overwrite existing state */ });
-    }, 30_000);
-    return () => clearInterval(interval);
-  }, []);
-
   // Refresh the model list each time the dropdown opens
+  // (covers newly installed models without a duplicate polling loop — FE-020)
    
   useEffect(() => {
     if (open) loadModels();

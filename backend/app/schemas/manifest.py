@@ -2,7 +2,7 @@
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ModelCategory(str, Enum):
@@ -132,5 +132,4 @@ class ManifestSchema(BaseModel):
     documentation_url: str | None = None
     repository_url: str | None = None
     
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)

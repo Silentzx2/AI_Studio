@@ -288,6 +288,14 @@ function ErrorFallback({ error }: { error: Error }) {
 }
 
 export default function SettingsPage() {
+  return (
+    <Suspense fallback={<SectionLoading />}>
+      <SettingsContent />
+    </Suspense>
+  );
+}
+
+function SettingsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeSection = searchParams.get('section') || 'general';

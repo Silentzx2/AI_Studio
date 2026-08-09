@@ -222,6 +222,8 @@ export interface AdminJob {
   created_at: string;
   completed_at?: string;
   error?: string;
+  mode?: string;
+  error_message?: string;
 }
 
 export interface AdminModel {

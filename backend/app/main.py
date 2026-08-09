@@ -138,10 +138,12 @@ def log_startup_diagnostics() -> None:
     logger.info("DATABASE")
     db_url = settings.database_url
     if db_url:
-        # Mask sensitive parts
+        # Mask credentials entirely: keep scheme + host, drop user:pass@
         masked_url = db_url
         if "@" in db_url:
-            masked_url = db_url[:db_url.find("://")+3] + "***" + db_url[db_url.find("@")-1:]
+            scheme = db_url[:db_url.find("://")+3]
+            host = db_url[db_url.find("@")+1:]
+            masked_url = scheme + "***:***@" + host
         logger.info(f"  URL: {masked_url}")
     else:
         logger.info("  URL: (not configured)")

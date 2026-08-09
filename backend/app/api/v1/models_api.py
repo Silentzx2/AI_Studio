@@ -1,12 +1,10 @@
 """API endpoints for model management."""
 
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, HTTPException, Query
 
 from app.core.installer.plugin_installer import PluginInstaller
 from app.core.managers.health_manager import HealthManager
-from app.database import get_db
 from app.workers.installation_workers import uninstall_model as uninstall_task
 
 router = APIRouter(prefix="/models", tags=["models"])
@@ -43,17 +41,17 @@ async def list_all_models():
 @router.get("/installed")
 async def list_installed_models(
     include_health: bool = Query(False, description="Include health status for each model"),
-    db: Session = Depends(get_db)
 ):
     """List all installed models."""
     
     try:
-        models = await installer.get_installed_models()
-        
+        model_dicts = await installer.get_installed_models()
+        model_ids = [m.get("model_id") for m in model_dicts if isinstance(m, dict) and m.get("model_id")]
+
         result_models = []
         
         if include_health:
-            for model_id in models:
+            for model_id in model_ids:
                 model_info = {
                     "id": model_id,
                     "name": model_id
@@ -74,7 +72,7 @@ async def list_installed_models(
                 
                 result_models.append(model_info)
         else:
-            result_models = [{"id": m, "name": m} for m in models]
+            result_models = [{"id": m, "name": m} for m in model_ids]
         
         return {
             "success": True,

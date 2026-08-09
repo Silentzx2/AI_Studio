@@ -41,7 +41,13 @@ function createTaskFromJob(job: { id: string; status: string; progress: number; 
 }
 
 export function useTaskManager() {
-  const { tasks, setTask, removeTask, currentJob, setCurrentJob, updateJobProgress, addLogEntry } = useAppStore();
+  const tasks = useAppStore((s) => s.tasks);
+  const setTask = useAppStore((s) => s.setTask);
+  const removeTask = useAppStore((s) => s.removeTask);
+  const currentJob = useAppStore((s) => s.currentJob);
+  const setCurrentJob = useAppStore((s) => s.setCurrentJob);
+  const updateJobProgress = useAppStore((s) => s.updateJobProgress);
+  const addLogEntry = useAppStore((s) => s.addLogEntry);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const activeJobIdRef = useRef<string | null>(null);

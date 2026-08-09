@@ -1,12 +1,10 @@
-from pydantic import Field
-
 """API endpoints for system information and diagnostics."""
 
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import text
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/system", tags=["system"])
 
@@ -428,23 +426,31 @@ async def test_connection():
     
     # Test Database
     try:
+        import asyncio
+
         from app.database import SessionLocal
-        db = SessionLocal()
-        db.execute(text("SELECT 1"))
-        db.close()
+
+        def _db_check():
+            db = SessionLocal()
+            try:
+                db.execute(text("SELECT 1"))
+            finally:
+                db.close()
+
+        await asyncio.to_thread(_db_check)
         results["database"] = {"status": "connected", "ok": True}
     except Exception as e:
         results["database"] = {"status": "error", "ok": False, "error": str(e)}
     
     # Test Redis
     try:
+        import asyncio
         import redis
 
         from app.config import get_settings
         settings = get_settings()
-        
-        r = redis.from_url(settings.redis_url)
-        r.ping()
+
+        await asyncio.to_thread(redis.from_url(settings.redis_url).ping)
         results["redis"] = {"status": "connected", "ok": True}
     except Exception as e:
         results["redis"] = {"status": "error", "ok": False, "error": str(e)}

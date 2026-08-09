@@ -15,7 +15,7 @@
 
 <p align="center">
 
-  <img src="https://img.shields.io/badge/Version-3.2.0-8A2BE2?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Version-3.4.2-8A2BE2?style=for-the-badge">
 
   <img src="https://img.shields.io/badge/Pipeline-V2-Complete-success?style=for-the-badge">
 
@@ -360,7 +360,7 @@ cp .env.example .env
 ENVIRONMENT=development
 DEBUG=true
 APP_NAME=AI 3D Studio
-APP_VERSION=3.2.0
+APP_VERSION=3.4.2
 
 # ===== DATABASE =====
 DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/ai3dstudio
@@ -780,9 +780,9 @@ ai-3d-studio/
 │   │   │   ├── discover_router.py     # /discover (no prefix)
 │   │   │   ├── download_router.py     # /download (no prefix)
 │   │   │   ├── pipelines_router.py    # /pipelines (no prefix)
-│   │   │   ├── plugin_manager_router.py # /plugin-manager (no prefix)
 │   │   │   ├── system_router.py       # /system (no prefix)
 │   │   │   ├── settings_router.py     # /settings (no prefix)
+│   │   │   ├── project_router.py      # /project (no prefix)
 │   │   │   └── rigging_router.py      # /rigging (no prefix)
 │   │   │
 │   │   ├── core/
@@ -809,7 +809,6 @@ ai-3d-studio/
 │   │   │   │   ├── download_manager.py
 │   │   │   │   ├── environment_manager.py
 │   │   │   │   ├── health_manager.py
-│   │   │   │   ├── plugin_manager.py
 │   │   │   │   └── vram_tracker.py
 │   │   │   ├── downloader/
 │   │   │   │   ├── mirror_fallback.py
@@ -1029,5 +1028,5 @@ See [Pipeline Status Document](docs/pipeline-status.md) for detailed breakdown.
 ---
 
 <p align="center">
-  <sub>Last Updated: July 2026 | Version 3.2.0 | Pipeline V2 Complete</sub>
+  <sub>Last Updated: August 2026 | Version 3.4.2 | Pipeline V2 Complete</sub>
 </p>

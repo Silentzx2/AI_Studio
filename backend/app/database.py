@@ -1,9 +1,9 @@
 
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import get_settings
 
@@ -90,3 +90,15 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             raise
         finally:
             await session.close()
+
+
+def get_sync_db() -> Generator[Session, None, None]:
+    with SessionLocal() as session:
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()

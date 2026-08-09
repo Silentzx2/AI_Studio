@@ -40,12 +40,6 @@ export const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
 
 export const STYLE_PRESETS = ['Realistic', 'Cartoon', 'Anime', 'Sci-Fi', 'Fantasy', 'Low Poly', 'Voxel', 'Steampunk'];
 
-export const NAVIGATION_ITEMS = [
-  { label: 'Features', href: '/#features' },
-  { label: 'Gallery', href: '/#gallery' },
-  { label: 'Docs', href: '#' }, // TODO: create /docs page
-];
-
 export const ADMIN_NAV_ITEMS = [
   { id: 'overview', label: 'Dashboard', icon: 'LayoutDashboard' },
   { id: 'models', label: 'Models', icon: 'Boxes' },

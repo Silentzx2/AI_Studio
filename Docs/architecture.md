@@ -1,7 +1,7 @@
 # AI 3D Studio - Architecture Documentation
 
-> **Version**: 3.3.0 (Workspace Compatibility & Texture Pipeline)  
-> **Last Updated**: August 6, 2026
+> **Version**: 3.4.2 (Bugfix & Cleanup Batch)  
+> **Last Updated**: August 9, 2026
 
 ---
 
@@ -241,9 +241,9 @@ ai-3d-studio/
 │   │   │   ├── discover_router.py    # /discover (no prefix)
 │   │   │   ├── download_router.py    # /download (no prefix)
 │   │   │   ├── pipelines_router.py   # /pipelines (no prefix)
-│   │   │   ├── plugin_manager_router.py # /plugin-manager (no prefix)
 │   │   │   ├── system_router.py      # /system (no prefix)
 │   │   │   ├── settings_router.py    # /settings (no prefix)
+│   │   │   ├── project_router.py     # /project (no prefix)
 │   │   │   └── rigging_router.py     # /rigging (no prefix)
 │   │   │
 │   │   ├── core/                     # Core business logic
@@ -268,7 +268,6 @@ ai-3d-studio/
 │   │   │   │   ├── download_manager.py
 │   │   │   │   ├── environment_manager.py
 │   │   │   │   ├── health_manager.py
-│   │   │   │   ├── plugin_manager.py
 │   │   │   │   └── vram_tracker.py
 │   │   │   │
 │   │   │   ├── downloader/          # Download system
@@ -399,10 +398,15 @@ App Layout
 
 | Store File | Purpose |
 |------------|---------|
-| `useGenerationStore.ts` | Generation state (mode, quality, prompts, job history) |
-| `useProjectStore.ts` | Project/session state |
-| `useThemeStore.ts` | Theme/appearance preferences |
-| `useUIStore.ts` | UI state (sidebar, fullscreen, workspace tab) |
+| `useAppStore.ts` | Single source of truth (generation config, tasks, downloads, UI, project). Persists a subset to `localStorage`. |
+| `useGenerationStore.ts` | Proxy over `useAppStore` — getters delegate to app store; a `useAppStore.subscribe` mirror block copies app state into its own state so `subscribeWithSelector` subscribers re-render. |
+| `useProjectStore.ts` | Proxy over `useAppStore` — mirrors app state (same pattern as above). |
+| `useThemeStore.ts` | Theme/appearance preferences (independent store). |
+| `useUIStore.ts` | Proxy over `useAppStore` — mirrors UI state (same pattern as above). |
+
+**Proxy store pattern (FE-001)**: A plain getter-only proxy (`get mode() { return useAppStore.getState().mode }`) never notifies `subscribeWithSelector` subscribers, so components froze. Each proxy store now ends with `useAppStore.subscribe((state) => { …ProxyStore.setState({…mirrored fields}) })` to actually push updates.
+
+**Persistence (FE-023/024/026)**: `useAppStore` persists only JSON-safe, non-transient fields. `uploadedImage` (holds a `File` — unserializable) and `currentJob` (contains `Date` objects + stale result URLs) are deliberately excluded; `jobHistory` is re-fetched from the backend via `loadHistory()`. `recentPrompts` is capped at 10 entries.
 
 #### Generation Store (`useGenerationStore`)
 ```typescript
@@ -494,41 +498,43 @@ Startup Sequence:
 ```python
 # backend/app/api/v1/__init__.py
 
-from app.api.v1.admin_router import router as admin_router
-from app.api.v1.generation_router import router as generation_router
-from app.api.v1.jobs_router import router as jobs_router
-from app.api.v1.health_router import router as health_router
-from app.api.v1.runtime_router import router as runtime_router
-from app.api.v1.upload_router import router as upload_router
-from app.api.v1.hf_token_router import router as hf_token_router
+from app.api.v1.admin import router as admin_router
+from app.api.v1.discover import router as discover_router
+from app.api.v1.download import router as download_router
+from app.api.v1.generation import router as generation_router
+from app.api.v1.health import router as health_router
+from app.api.v1.hf_token import router as hf_token_router
+from app.api.v1.jobs import router as jobs_router
 from app.api.v1.models_api import router as models_router
-from app.api.v1.discover_router import router as discover_router
-from app.api.v1.download_router import router as download_router
-from app.api.v1.pipelines_router import router as pipelines_router
-from app.api.v1.plugin_manager_router import router as plugin_manager_router
-from app.api.v1.system_router import router as system_router
-from app.api.v1.settings_router import router as settings_router
-from app.api.v1.rigging_router import router as rigging_router
+from app.api.v1.pipelines import router as pipelines_router
+from app.api.v1.runtime import router as runtime_router
+from app.api.v1.system import router as system_router
+from app.api.v1.settings import router as settings_router
+from app.api.v1.upload import router as upload_router
+from app.api.v1.rigging import router as rigging_router
+from app.api.v1.project import router as project_router
 
 # Routers with prefixes
-router.include_router(admin_router, prefix="/admin")
 router.include_router(generation_router, prefix="/generation")
 router.include_router(jobs_router, prefix="/jobs")
 router.include_router(health_router, prefix="/health")
 router.include_router(runtime_router, prefix="/runtime")
 router.include_router(upload_router, prefix="/upload")
+router.include_router(rigging_router, prefix="/rigging")
+router.include_router(project_router, prefix="/project")
+router.include_router(admin_router, prefix="/admin")
 router.include_router(hf_token_router, prefix="/hf-token")
+router.include_router(pipelines_router)
 
 # Routers with no prefix (own prefixes inside)
 router.include_router(models_router)         # /models/*
 router.include_router(discover_router)       # /discover/*
 router.include_router(download_router)       # /download/*
-router.include_router(pipelines_router)      # /pipelines/*
-router.include_router(plugin_manager_router) # /plugin-manager/*
 router.include_router(system_router)         # /system/*
 router.include_router(settings_router)       # /settings/*
-router.include_router(rigging_router)        # /rigging/*
 ```
+
+> Note: `plugin_manager_router` was removed (BE-003) — it previously shadowed the richer `/admin/models` implementation that ModelsTab needs. The dead `plugin_manager.py` router registration is gone from the aggregator.
 
 ### Middleware Stack
 

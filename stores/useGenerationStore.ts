@@ -139,12 +139,14 @@ export const useGenerationStore = create<GenerationState>()(
     loadHistory: async () => {
       useAppStore.setState({ isLoadingHistory: true, loadingError: null });
       try {
-        const res = await fetch('/api/v1/jobs?limit=20');
+        // FE-010 FIX: use the same endpoint + shape as useGenerationHistory
+        // (/api/v1/generation/history) so merged histories don't duplicate or mismatch.
+        const res = await fetch('/api/v1/generation/history?limit=20&offset=0');
         if (!res.ok) {
           throw new Error(`Failed to load history: ${res.status}`);
         }
         const json = await res.json();
-        const jobs = json?.data?.jobs ?? [];
+        const jobs = json?.data?.jobs ?? json?.jobs ?? [];
         useAppStore.setState({ jobHistory: jobs, isLoadingHistory: false });
       } catch (error) {
         console.error('Error loading history:', error);
@@ -157,3 +159,28 @@ export const useGenerationStore = create<GenerationState>()(
     },
   }))
 );
+
+// Mirror app store data into this proxy store so subscribeWithSelector
+// subscribers actually re-render (getters alone never notify listeners).
+useAppStore.subscribe((state) => {
+  useGenerationStore.setState({
+    mode: state.mode,
+    prompt: state.prompt,
+    negativePrompt: state.negativePrompt,
+    quality: state.quality,
+    generateTexture: state.generateTexture,
+    autoRig: state.autoRig,
+    uploadedImage: state.uploadedImage,
+    stylePreset: state.stylePreset,
+    selectedModel: state.selectedModel,
+    steps: state.steps,
+    cfgScale: state.cfgScale,
+    seed: state.seed,
+    currentJob: state.currentJob,
+    jobHistory: state.jobHistory,
+    recentPrompts: state.recentPrompts,
+    loadingError: state.loadingError,
+    retryCount: state.retryCount,
+    isLoadingHistory: state.isLoadingHistory,
+  });
+});

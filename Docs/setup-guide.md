@@ -1,6 +1,6 @@
 # AI 3D Studio - Setup & Installation Guide
 
-> **Version**: 3.3.1 (uv-Only Package Management + Provider Fix)  
+> **Version**: 3.4.2 (Bugfix & Cleanup Batch)  
 > **Difficulty**: Intermediate  
 > **Estimated Time**: 30-60 minutes
 
@@ -272,7 +272,7 @@ cp .env.example .env
 ENVIRONMENT=development
 DEBUG=true
 APP_NAME=AI 3D Studio
-APP_VERSION=3.0.0
+APP_VERSION=3.4.2
 
 # ===== DATABASE =====
 DATABASE_URL=postgresql+asyncpg://ai3dstudio:password@localhost:5432/ai3dstudio

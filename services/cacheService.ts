@@ -1,5 +1,3 @@
-"use client";
-
 interface CacheEntry<T = unknown> {
   data: T;
   timestamp: number;

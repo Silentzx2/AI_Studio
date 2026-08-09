@@ -1,5 +1,87 @@
 # AI 3D Studio — Changelog
 
+## v3.4.2 — Remaining error.md Batch: Async Fixes, Wiring, Cleanup (August 9, 2026)
+
+Second wave of fixes from `error.md` (full deep-scan report). All 53 reported issues addressed; two verified as false positives/non-issues.
+
+### Frontend
+
+- **FE-003 (P1)**: `BottomDock` replaced all 7 tabs' hardcoded mock arrays with real `useAppStore` data (recent prompts, tasks, current job, downloads, job history, project layers) + empty states.
+- **FE-004 (P1)**: `TextureShell` and `RenderShell` buttons now register a task and call `generationService.startGeneration` (mode cast fix; RENDER_QUEUE wired to store tasks of type `render`).
+- **FE-005 (P1)**: `WorkspaceNavbar` active-link detection now matches query-string links (e.g. `/settings?section=models`).
+- **FE-007 (P2)**: `useTaskManager` switched from whole-store destructure to per-value selectors — re-renders only on task state changes.
+- **FE-008 (P2)**: Resolved by FE-001 mirror (mode/uploadedImage/currentJob now reactive).
+- **FE-009 (P2)**: `generationService` now routes POST/status-poll/cancel through `apiClient` (retry + timeout + API_URL prefix). Status poll uses `useCache=false` so a stale cached status can't freeze the loop.
+- **FE-010 (P2)**: `useGenerationStore.loadHistory` now uses `/api/v1/generation/history` (same endpoint + shape as `useGenerationHistory`) instead of `/api/v1/jobs`.
+- **FE-011 (P3)**: `apiClient` circuit-breaker `setTimeout` is now cleared in a `finally` after the race settles.
+- **FE-012 (P3)**: `app/admin/page.tsx` — removed dead `isRedirecting` state (always true, never set false).
+- **FE-013 (P3)**: `hooks/use-toast.ts` `TOAST_REMOVE_DELAY` lowered from 1,000,000 ms (~11 min) to 5,000 ms.
+- **FE-014 (P3)**: `AdminJob` type gained `mode` and `error_message` fields used by `adminService.listJobs`.
+- **FE-015 (P3)**: `ViewerScene` revokes the previous blob object URL when a new GLB is loaded.
+- **FE-016 (P3)**: Removed misleading `"use client"` from `services/cacheService.ts` (utility module).
+- **FE-017 (P4)**: Removed hardcoded "47%" from `app/loading.tsx`.
+- **FE-018 (P4)**: Renamed workspace `SettingsTab` → `WorkspaceSettingsTab` to remove name collision with admin's `SettingsTab`.
+- **FE-019 (P4)**: Kept as deliberate reuse — `ModelsTab` from admin is embedded in the creative workspace (reuse over duplication per AGENTS.md; no fix suggested in report).
+- **FE-020 (P4)**: `ModelSelector` dropped the redundant 30s polling loop (initial load + open-refresh remain).
+- **FE-021 (P4)**: `AppearanceProvider` — removed unused `useId`/`styleId` and dead `initialApplied` ref.
+- **FE-022 (P4)**: Removed dead `NAVIGATION_ITEMS` (unused, `Docs` link went to `#`) and the redirect-only `/admin` link from `WorkspaceNavbar`.
+- **FE-023/024/026 (P4)**: `useAppStore` no longer persists `uploadedImage` (File — unserializable) or `currentJob` (Date objects degrade to strings + stale jobs resurrect on refresh). `jobHistory` remains refreshed from backend via `loadHistory()`.
+- **FE-025 (P4)**: Non-issue — `recentPrompts` already capped at 10.
+
+### Backend
+
+- **BE-007 (P2)**: `upload.py` MIME/extension mismatch now rejects with 422 instead of warning-and-accepting (`.jpg`/`.jpeg` tolerate `image/jpeg`).
+- **BE-009 (P2)**: `installation_workers.py` — removed unused `SessionLocal` + `db.close()`.
+- **BE-010 (P2)**: `system.py test_connection` — DB/Redis checks moved to `asyncio.to_thread`.
+- **BE-011 (P2)**: `rigging.py` — sync Redis calls in async handlers wrapped in `asyncio.to_thread`.
+- **BE-012 (P2)**: `environment_manager.py` — blocking `subprocess.run` (60s/300s) moved to `asyncio.to_thread`.
+- **BE-014 (P2)**: `download_manager.py` download ID changed from `{model_id}_{timestamp}` to `str(uuid.uuid4())` — the old format violated the PG UUID column.
+- **BE-015 (P3)**: `health.py` engine status uses `engine.health().get("initialized")` instead of a nonexistent `.status` attribute (was always "unknown").
+- **BE-016 (P3)**: `tasks.py` VRAM-fallback exception no longer silently swallowed — logs a warning.
+- **BE-017 (P3)**: Documented — `get_settings()` is an intentional cached singleton; runtime provider/config mutations are deliberate (registry tracks availability separately). No functional change.
+- **BE-018 (P3)**: Already resolved — `_KNOWN_PROVIDERS` includes `instant-mesh` (registry.py:97).
+- **BE-019/022 (P4)**: `admin.py` — removed redundant `import time` and in-function `import re as _re`.
+- **BE-020/021 (P4)**: `system.py` / `download.py` — moved imports below module docstring so `__doc__` is correct.
+- **BE-023 (P4)**: `schemas/manifest.py` — `class Config: use_enum_values` → `model_config = ConfigDict(use_enum_values=True)`.
+- **BE-024 (P4)**: `tasks.py` — removed redundant local `import redis as redis_sync`.
+- **BE-025 (P4)**: `admin.py` — imports `HFTokenRequest` from `hf_token.py` instead of redefining it.
+- **BE-026 (P4)**: `upload.py` — removed redundant `".." in str(file_path)` check (`relative_to` is the authoritative guard).
+
+### Housekeeping
+
+- Deleted `error.md` (root) — the full deep-scan report it held has been fully addressed across v3.4.1 and v3.4.2; its fixes are now recorded here in the changelog instead.
+
+### Files Modified
+
+- Frontend: `features/workspace/BottomDock.tsx`, `features/texture/TextureShell.tsx`, `features/render/RenderShell.tsx`, `features/workspace/WorkspaceNavbar.tsx`, `hooks/useTaskManager.ts`, `hooks/use-toast.ts`, `services/generationService.ts`, `services/apiClient.ts`, `services/cacheService.ts`, `stores/useGenerationStore.ts`, `stores/useAppStore.ts`, `types/index.ts`, `app/loading.tsx`, `app/admin/page.tsx`, `constants/index.ts`, `components/AppearanceProvider.tsx`, `features/workspace/ModelSelector.tsx`, `features/workspace/viewer/ViewerScene.tsx`, `features/workspace/new-ui/CreativeWorkspaceLayout.tsx`, `features/workspace/new-ui/WorkspaceSettingsTab.tsx` (renamed from `SettingsTab.tsx`)
+- Backend: `app/api/v1/upload.py`, `app/api/v1/system.py`, `app/api/v1/rigging.py`, `app/api/v1/health.py`, `app/api/v1/admin.py`, `app/api/v1/download.py`, `app/api/v1/hf_token.py`, `app/workers/tasks.py`, `app/workers/installation_workers.py`, `app/core/managers/environment_manager.py`, `app/core/managers/download_manager.py`, `app/schemas/manifest.py`
+
+## v3.4.1 — Bugfix Batch: Store Reactivity, DB Sync, Security (August 9, 2026)
+
+Applied the first wave of fixes from `error.md` (full deep-scan report):
+
+### Frontend
+
+- **FE-001 (P0)**: Proxy stores (`useGenerationStore`, `useUIStore`, `useProjectStore`) were completely non-reactive — getters read from `useAppStore` but never called `set()`, so `subscribeWithSelector` subscribers never re-rendered (20+ components frozen). Fixed by subscribing to `useAppStore` and mirroring the relevant data into each proxy store's state.
+- **FE-002 (P0)**: Settings page called `useSearchParams()` without a `<Suspense>` boundary. Split the page into a `SettingsContent` component wrapped in `<Suspense>` by the default export.
+- **FE-006 (P2)**: `BottomDock.tsx` used the un-mounted Radix toast system (invisible). Replaced all `useToast()` calls with `sonner`'s `toast()`.
+
+### Backend
+
+- **BE-002 (P1)**: Download endpoints passed an `AsyncSession` into `DownloadManager` (sync `.query()` calls) — every download endpoint crashed. Added a sync `get_sync_db()` dependency in `database.py` and switched `download.py` to it; removed the unused `db` param from `models_api.py`.
+- **BE-001 (P0 latent)**: `RotatingFileHandler` referenced in `admin.py` but never imported. Added the import.
+- **BE-003 (P1)**: `plugin_manager.py` router registered `/admin/models` before `admin.py`, shadowing the richer implementation ModelsTab needs. Removed the dead router registration.
+- **BE-004 (P1)**: Reported `/health/all` shadowed by `/{model_id}` — verified as a false positive (FastAPI matches by path segments) and left unchanged.
+- **BE-005 (P1)**: Terminal endpoint used an easily-bypassed blocklist with `shell=True` (command injection). Now rejects shell metacharacters outright and runs the command with `shlex.split` + `shell=False`.
+- **BE-006 (P1)**: `main.py` masked DB URL leaked the password (`***` only replaced the username). Now masks `***:***@` with the host preserved.
+- **BE-013 (P2)**: `models_api.py` iterated manifest dicts as model-ID strings. Extracts `model_id` from each dict.
+- **BE-008 (P2)**: `download_manager.py` `get_statistics` omitted `avg_speed_mb_per_sec` on zero-duration downloads (potential KeyError). Initialized to `0`.
+
+### Files Modified
+
+- Frontend: `stores/useGenerationStore.ts`, `stores/useUIStore.ts`, `stores/useProjectStore.ts`, `app/settings/page.tsx`, `features/workspace/BottomDock.tsx`
+- Backend: `app/database.py`, `app/api/v1/download.py`, `app/api/v1/models_api.py`, `app/api/v1/admin.py`, `app/api/v1/__init__.py`, `app/main.py`, `app/core/managers/download_manager.py`
+
 ## v3.4.0 — Remove TripoSF, HoloPart, and Segmentation Workspace (August 9, 2026)
 
 ### Problem

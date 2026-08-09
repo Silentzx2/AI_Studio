@@ -187,8 +187,8 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                         if job_check:
                             provider_name = job_check.provider
                             vram_needed = get_model_vram_required(provider_name)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("Could not read VRAM requirement for job %s: %s", job_id, exc)
 
                 try:
                     device = select_device("auto", max_vram_mb=vram_needed)
@@ -440,7 +440,6 @@ def anigen_rig_task(model_glb_url: str, reference_image_url: str | None = None, 
 
 async def _async_anigen_rig(model_glb_url: str, reference_image_url: str | None, model_task_id: str | None) -> dict:
     import uuid
-    import redis as redis_sync
     from app.core.providers.registry import get_provider
     from app.utils.storage import model_output_dir, model_public_url
 

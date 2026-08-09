@@ -171,7 +171,11 @@ export function ViewerScene() {
   const [userModelUrl, setUserModelUrl] = useState<string | null>(null);
 
   const handleLoadGlb = useCallback((e: CustomEvent) => {
-    setUserModelUrl(e.detail.url);
+    setUserModelUrl((prev) => {
+      // FE-015: revoke the previous blob URL so object URLs don't leak.
+      if (prev) URL.revokeObjectURL(prev);
+      return e.detail.url;
+    });
   }, []);
 
   useEffect(() => {

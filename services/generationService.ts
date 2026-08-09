@@ -1,4 +1,5 @@
 import type { GenerationConfig, GenerationResult, LogEntry } from '@/types';
+import { apiClient } from './apiClient';
 
 type ProgressCallback = (progress: number, status: string, log: string, level: LogEntry['level']) => void;
 
@@ -75,19 +76,8 @@ export const generationService = {
     onProgress(5, 'queued', 'Job queued — waiting for GPU slot', 'info');
 
     // Issue #3 Fix: Use correct endpoint without /start suffix
-    const response = await fetch('/api/v1/generation', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(toBackendPayload(config)),
-      signal: abortController.signal,
-    });
+    const data = await apiClient.post<any>('/api/v1/generation', toBackendPayload(config));
 
-    if (!response.ok) {
-      const msg = await response.text().catch(() => 'Generation failed');
-      throw new Error(msg);
-    }
-
-    const data = await response.json();
     if (data?.success === false) {
       throw new Error(data?.message || 'Generation failed');
     }
@@ -110,18 +100,9 @@ export const generationService = {
       let pollRetryCount = 0;
       const poll = async () => {
         try {
-          // Issue #3 Fix: Backend now has GET /generation/{job_id}/status endpoint
-          const statusRes = await fetch(`/api/v1/generation/${jobId}/status`, {
-            signal: abortController?.signal,
-          });
-          if (!statusRes.ok) {
-            // If status endpoint fails, try to get from history
-            if (statusRes.status === 404) {
-              throw new Error('Status endpoint not found - backend may need update');
-            }
-            throw new Error('Failed to fetch status');
-          }
-          const statusData = await statusRes.json();
+          // Issue #3 Fix: Backend now has GET /generation/{job_id}/status endpoint.
+          // useCache=false so a stale cached status never freezes the poll loop.
+          const statusData = await apiClient.get<any>(`/api/v1/generation/${jobId}/status`, false);
           if (statusData?.success === false) {
             throw new Error(statusData?.message || 'Failed to fetch status');
           }
@@ -187,7 +168,7 @@ export const generationService = {
     _activeControllers.clear();
     if (jobId) {
       try {
-        await fetch(`/api/v1/generation/${jobId}/cancel`, { method: 'POST' });
+        await apiClient.post(`/api/v1/generation/${jobId}/cancel`);
       } catch {
         // ponytail: best-effort — the AbortController above already stopped the UI.
       }

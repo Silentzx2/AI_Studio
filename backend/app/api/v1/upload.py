@@ -65,11 +65,19 @@ async def upload_image(file: UploadFile = File(...)):
             )
         )
 
-    # Verify extension matches MIME type
+    # Verify extension matches MIME type (jpeg accepts both .jpg and .jpeg)
     expected_ext = ALLOWED_MIME_TYPES[content_type]
-    if file_ext not in (expected_ext, ".jpg") and content_type == "image/jpeg" and file_ext != ".jpeg":
-        if file_ext != ".jpg" and file_ext != ".jpeg":
-            logger.warning(f"Extension/MIME mismatch: ext={file_ext}, content_type={content_type}")
+    allowed_exts = {expected_ext}
+    if content_type == "image/jpeg":
+        allowed_exts = {".jpg", ".jpeg"}
+    if file_ext not in allowed_exts:
+        return JSONResponse(
+            status_code=422,
+            content=error(
+                f"Extension/MIME mismatch: ext={file_ext}, content_type={content_type}. "
+                f"Expected extension: {expected_ext}"
+            )
+        )
 
     try:
         # Read file content
@@ -188,7 +196,7 @@ async def download_uploaded_image(filename: str):
         file_path = Path(settings.storage_local_path) / "uploads" / filename
 
         # Security: prevent directory traversal
-        if not file_path.exists() or ".." in str(file_path):
+        if not file_path.exists():
             raise HTTPException(status_code=404, detail="File not found")
 
         # Verify it's actually in uploads directory

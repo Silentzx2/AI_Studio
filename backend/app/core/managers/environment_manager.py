@@ -2,6 +2,7 @@ from typing import Any
 
 """Environment Manager for managing Python environment and dependencies."""
 
+import asyncio
 import json
 import platform
 import subprocess
@@ -90,12 +91,14 @@ class EnvironmentManager:
     async def get_installed_packages(self) -> dict[str, str]:
         """Get list of installed Python packages with versions."""
         try:
-            result = subprocess.run(
-                [sys.executable, "-m", "pip", "list", "--format=json"],
-                capture_output=True,
-                text=True,
-                timeout=60
-            )
+            def _run():
+                return subprocess.run(
+                    [sys.executable, "-m", "pip", "list", "--format=json"],
+                    capture_output=True,
+                    text=True,
+                    timeout=60
+                )
+            result = await asyncio.to_thread(_run)
             
             if result.returncode != 0:
                 return {}
@@ -135,12 +138,14 @@ class EnvironmentManager:
         ])
         
         try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=300  # 5 minute timeout
-            )
+            def _run():
+                return subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=300  # 5 minute timeout
+                )
+            result = await asyncio.to_thread(_run)
             
             return {
                 "success": result.returncode == 0,

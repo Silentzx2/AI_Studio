@@ -95,7 +95,7 @@ export default function Loading() {
             Sys.Online
           </span>
           <span className="text-white/20">|</span>
-          <span>Loading Assets... 47%</span>
+          <span>Loading Assets...</span>
         </div>
       </div>
     </div>

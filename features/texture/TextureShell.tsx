@@ -13,6 +13,9 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useTaskManager } from '@/hooks/useTaskManager';
+import { useGenerationStore } from '@/stores/useGenerationStore';
+import { generationService } from '@/services/generationService';
+import type { GenerationConfig } from '@/types';
 
 const MATERIAL_LAYERS = [
   { id: 'albedo', label: 'Albedo', icon: Palette, color: 'text-[hsl(var(--neon-purple))]', enabled: true },
@@ -31,14 +34,55 @@ export function TextureShell() {
   const [tileable, setTileable] = useState(true);
   const [resolution, setResolution] = useState('2048');
   const [material, setMaterial] = useState('auto');
-  const { reconnectToRunningTasks } = useTaskManager();
+  const { reconnectToRunningTasks, registerTask, updateTask, completeTask } = useTaskManager();
 
   useEffect(() => {
     reconnectToRunningTasks();
   }, [reconnectToRunningTasks]);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
+    const store = useGenerationStore.getState();
+    const prompt = store.prompt || 'Generate PBR texture set for current model';
+
+    const config: GenerationConfig = {
+      mode: 'texture-generation' as GenerationConfig['mode'],
+      prompt,
+      negativePrompt: store.negativePrompt,
+      quality: store.quality,
+      generateTexture: true,
+      autoRig: false,
+      model: store.selectedModel,
+    };
+
+    const taskId = `texture-${Date.now()}`;
+    registerTask({
+      id: taskId,
+      type: 'texture',
+      status: 'queued',
+      progress: 0,
+      label: `Texture: ${material} ${resolution}px`,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
     toast.info('Texture generation started', { description: `Material: ${material} · ${resolution}px` });
+
+    try {
+      updateTask(taskId, { status: 'running', progress: 5 });
+      await generationService.startGeneration(
+        config,
+        (progress, status, log) => {
+          updateTask(taskId, { progress, status: status as 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' });
+          if (log && log !== `Processing... ${progress}%`) console.debug(log);
+        },
+        () => {},
+      );
+      completeTask(taskId, 'completed');
+      toast.success('Texture generation complete');
+    } catch (error) {
+      completeTask(taskId, 'failed');
+      toast.error('Texture generation failed', { description: error instanceof Error ? error.message : undefined });
+    }
   };
 
   return (

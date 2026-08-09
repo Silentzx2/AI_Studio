@@ -24,7 +24,7 @@ import FavoritesTab from './FavoritesTab';
 import CommunityTab from './CommunityTab';
 import { ModelsTab } from '@/features/admin/tabs/ModelsTab';
 import ApiAccessTab from './ApiAccessTab';
-import SettingsTab from './SettingsTab';
+import WorkspaceSettingsTab from './WorkspaceSettingsTab';
 import ThreeDGenerationTab from './ThreeDGenerationTab';
 
 // Shared type for shapes
@@ -332,7 +332,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
 
         {activeSidebarItem === 'API Access' && <ApiAccessTab />}
 
-        {activeSidebarItem === 'Settings' && <SettingsTab />}
+        {activeSidebarItem === 'Settings' && <WorkspaceSettingsTab />}
 
         {/* Real-time 3D Viewport Generation tab matching Studio UI */}
         {/* activeModel/onUpdateModel wiring confirmed: shared state flows correctly between all tabs */}

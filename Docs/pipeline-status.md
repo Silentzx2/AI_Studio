@@ -1,8 +1,8 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 3.2.0 (uv-Only Package Management)  
+> **Version**: 3.4.2 (Bugfix & Cleanup Batch)  
 > **Status**: ✅ **COMPLETE**  
-> **Last Updated**: January 25, 2026
+> **Last Updated**: August 9, 2026
 
 ---
 
@@ -442,7 +442,6 @@ backend/app/core/managers/
 ├── download_manager.py             [NEW]
 ├── environment_manager.py          [NEW]
 ├── health_manager.py               [NEW]
-├── plugin_manager.py               [NEW]
 └── vram_tracker.py                 [NEW]
 
 backend/app/workers/
@@ -454,21 +453,21 @@ backend/app/workers/
 └── vram_health_worker.py           [NEW]
 
 backend/app/api/v1/
-├── __init__.py                     [MODIFIED — 16 routers registered]
+├── __init__.py                     [MODIFIED — 15 routers registered]
 ├── admin_router.py                 [EXISTING]
 ├── generation_router.py            [EXISTING]
 ├── models_api.py                   [NEW]
 ├── discover_router.py              [NEW]
 ├── download_router.py              [NEW]
 ├── pipelines_router.py             [NEW]
-├── plugin_manager_router.py        [NEW]
 ├── system_router.py                [NEW]
 ├── settings_router.py              [NEW]
 ├── rigging_router.py               [NEW]
+└── project_router.py               [NEW]
 
 backend/app/core/
 ├── providers/                      [EXISTING — 12+ providers]
-├── managers/                       [NEW — 6 managers]
+├── managers/                       [NEW — 5 managers]
 ├── downloader/                     [NEW — mirror_fallback, checksum_validator]
 ├── installer/                      [MODIFIED — per-model venvs]
 └── registry/

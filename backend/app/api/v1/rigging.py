@@ -1,4 +1,5 @@
 """Rigging API endpoints."""
+import asyncio
 import logging
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -26,13 +27,16 @@ async def trigger_anigen_rig(req: AniGenRigRequest):
             req.reference_image_url,
             req.model_task_id
         )
-        
-        # Initialize status in redis
-        r = redis_sync.from_url(settings.redis_url, decode_responses=True)
-        r.set(f"rig:{task.id}:status", "processing")
-        r.set(f"rig:{task.id}:progress", "0")
-        r.set(f"rig:{task.id}:message", "Queueing rigging job...")
-        
+
+        # Initialize status in redis (sync client — run off the event loop)
+        def _init_status():
+            r = redis_sync.from_url(settings.redis_url, decode_responses=True)
+            r.set(f"rig:{task.id}:status", "processing")
+            r.set(f"rig:{task.id}:progress", "0")
+            r.set(f"rig:{task.id}:message", "Queueing rigging job...")
+
+        await asyncio.to_thread(_init_status)
+
         return success({
             "task_id": task.id,
             "status": "queued",
@@ -45,9 +49,20 @@ async def trigger_anigen_rig(req: AniGenRigRequest):
 @router.get("/{task_id}/status")
 async def get_rigging_status(task_id: str):
     """Poll status of an active AniGen rigging job."""
-    r = redis_sync.from_url(settings.redis_url, decode_responses=True)
-    status = r.get(f"rig:{task_id}:status")
-    
+
+    def _get_status():
+        r = redis_sync.from_url(settings.redis_url, decode_responses=True)
+        return {
+            "status": r.get(f"rig:{task_id}:status"),
+            "progress": r.get(f"rig:{task_id}:progress"),
+            "message": r.get(f"rig:{task_id}:message"),
+            "result_url": r.get(f"rig:{task_id}:result"),
+            "error_msg": r.get(f"rig:{task_id}:error"),
+        }
+
+    redis_data = await asyncio.to_thread(_get_status)
+    status = redis_data["status"]
+
     if not status:
         # Fallback to checking celery task directly
         from app.workers.celery_app import celery_app
@@ -76,10 +91,10 @@ async def get_rigging_status(task_id: str):
             "message": "Rigging job is in queue"
         })
 
-    progress = int(r.get(f"rig:{task_id}:progress") or 0)
-    message = r.get(f"rig:{task_id}:message") or "Processing rigging..."
-    result_url = r.get(f"rig:{task_id}:result")
-    error_msg = r.get(f"rig:{task_id}:error")
+    progress = int(redis_data["progress"] or 0)
+    message = redis_data["message"] or "Processing rigging..."
+    result_url = redis_data["result_url"]
+    error_msg = redis_data["error_msg"]
 
     return success({
         "task_id": task_id,

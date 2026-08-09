@@ -8,7 +8,6 @@ from celery import shared_task
 
 from app.core.installer.plugin_installer import PluginInstaller
 from app.core.managers.health_manager import HealthManager
-from app.database import SessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +21,6 @@ def install_model(
 ):
     """Install a downloaded model to the models directory."""
     
-    db = SessionLocal()
     installer = PluginInstaller("./storage/models")
     
     try:
@@ -71,9 +69,6 @@ def install_model(
     except Exception as exc:
         logger.error(f"Installation error for {model_id}: {exc}")
         raise self.retry(exc=exc)
-    
-    finally:
-        db.close()
 
 
 @shared_task(bind=True)

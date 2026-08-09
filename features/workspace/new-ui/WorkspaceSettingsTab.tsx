@@ -9,7 +9,7 @@ import React, { useState, useEffect } from 'react';
 import { Settings, Shield, Sliders, Save, Check, Key, Cpu, HardDrive, Trash2, Monitor, RefreshCw, Server } from 'lucide-react';
 import { apiClient } from '@/services/apiClient';
 
-export default function SettingsTab() {
+export default function WorkspaceSettingsTab() {
   const [hfToken, setHfToken] = useState('');
   const [rayTracing, setRayTracing] = useState(true);
   const [antiAliasing, setAntiAliasing] = useState('SMAA');

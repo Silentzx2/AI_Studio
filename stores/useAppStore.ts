@@ -443,13 +443,15 @@ export const useAppStore = create<AppState>()(
         quality: state.quality,
         generateTexture: state.generateTexture,
         autoRig: state.autoRig,
-        uploadedImage: state.uploadedImage,
         stylePreset: state.stylePreset,
         selectedModel: state.selectedModel,
         steps: state.steps,
         cfgScale: state.cfgScale,
         seed: state.seed,
-        currentJob: state.currentJob,
+        // FE-023/024/026: uploadedImage holds a File (unserializable) and
+        // currentJob holds Date objects + stale result URLs — both degrade to
+        // junk after JSON round-trip and resurrect stale jobs on refresh.
+        // jobHistory is refreshed from the backend via loadHistory().
         jobHistory: state.jobHistory,
         recentPrompts: state.recentPrompts,
         // UI state

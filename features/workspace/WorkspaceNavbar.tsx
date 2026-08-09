@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Bell, Menu, X, Box, Cpu, Wifi, Zap, ChevronDown,
-  PanelLeft, PanelRight, LayoutDashboard, Settings, Boxes, Package, Activity
+  PanelLeft, PanelRight, LayoutDashboard, Boxes, Package, Activity
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { APP_NAME } from '@/constants';
@@ -28,7 +28,6 @@ const NAV_LINKS = [
   { href: '/workspace', label: 'Workspace', icon: Box },
   // ponytail: Changed /models to /settings?section=models - unified model management
   { href: '/settings?section=models', label: 'Models', icon: Boxes },
-  { href: '/admin', label: 'Admin', icon: Settings },
   { href: '/settings', label: 'Settings', icon: Package },
 ];
 
@@ -259,7 +258,7 @@ export function WorkspaceNavbar() {
             <div className="space-y-1">
               {NAV_LINKS.map((link) => {
                 const Icon = link.icon;
-                const isActive = pathname === link.href;
+              const isActive = pathname === link.href || (link.href.includes('?') && pathname === link.href.split('?')[0]);
                 return (
                   <Link
                     key={link.label}

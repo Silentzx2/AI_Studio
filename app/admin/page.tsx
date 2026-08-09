@@ -5,12 +5,11 @@
  * Kept for backward compatibility
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function AdminPage() {
   const router = useRouter();
-  const [isRedirecting, setIsRedirecting] = useState(true);
 
   useEffect(() => {
     // Small delay to ensure router is ready, then redirect
@@ -19,8 +18,6 @@ export default function AdminPage() {
     }, 100);
     return () => clearTimeout(timer);
   }, [router]);
-
-  if (!isRedirecting) return null;
 
   return (
     <div className="flex items-center justify-center min-h-screen">

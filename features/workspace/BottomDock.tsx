@@ -11,9 +11,10 @@ import {
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useUIStore, type BottomDockTab } from '@/stores/useUIStore';
+import { useAppStore } from '@/stores/useAppStore';
 import { ProgressBar } from '@/components/premium/ProgressBar';
 import { Badge } from '@/components/premium/Badge';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 /* ── Tab Config ─────────────────────────────────────── */
@@ -44,66 +45,24 @@ const listItemVariants: Variants = {
   },
 };
 
-/* ── Mock Data ──────────────────────────────────────── */
-
-const recentPrompts = [
-  { id: 1, text: 'A detailed medieval castle with towers and courtyard', time: '2 min ago', model: 'Trellis', status: 'completed' as const },
-  { id: 2, text: 'Futuristic cyberpunk motorcycle with neon accents', time: '15 min ago', model: 'Hunyuan3D', status: 'completed' as const },
-  { id: 3, text: 'Low-poly game character with sword and shield', time: '1 hour ago', model: 'TripoSR', status: 'completed' as const },
-  { id: 4, text: 'Art nouveau vase with floral patterns', time: '2 hours ago', model: 'Trellis', status: 'failed' as const },
-  { id: 5, text: 'Realistic human hand with detailed fingernails', time: '3 hours ago', model: 'InstantMesh', status: 'completed' as const },
-  { id: 6, text: 'Stylized cartoon tree with autumn leaves', time: '5 hours ago', model: 'TripoSR', status: 'completed' as const },
-];
-
-const queueItems = [
-  { id: 101, position: 1, prompt: 'Ancient Greek temple with columns', model: 'Trellis', wait: '~2 min' },
-  { id: 102, position: 2, prompt: 'Steampunk airship with propellers', model: 'Hunyuan3D', wait: '~5 min' },
-  { id: 103, position: 3, prompt: 'Cute robot companion with LED eyes', model: 'TripoSR', wait: '~8 min' },
-];
-
-const activeJobs = [
-  { id: 201, prompt: 'Dragon sculpture with detailed scales', model: 'Trellis', progress: 67, stage: 'Generating geometry...' },
-  { id: 202, prompt: 'Modern coffee table with metal legs', model: 'Hunyuan3D', progress: 23, stage: 'Processing image...' },
-];
-
-const notifications = [
-  { id: 1, title: 'Generation Complete', message: 'Medieval castle is ready for download', time: '2 min ago', type: 'success' as const, read: false },
-  { id: 2, title: 'Model Updated', message: 'Trellis v2.1 is now available', time: '1 hour ago', type: 'info' as const, read: false },
-  { id: 3, title: 'GPU Warning', message: 'Temperature exceeded 80°C threshold', time: '2 hours ago', type: 'warning' as const, read: true },
-  { id: 4, title: 'Download Ready', message: 'Cyberpunk motorcycle.glb (24MB)', time: '3 hours ago', type: 'info' as const, read: true },
-];
-
-const downloads = [
-  { id: 1, name: 'medieval_castle.glb', size: '24.3 MB', status: 'complete' as const, time: '2 min ago' },
-  { id: 2, name: 'cyberpunk_motorcycle.obj', size: '18.7 MB', status: 'complete' as const, time: '15 min ago' },
-  { id: 3, name: 'game_character.fbx', size: '32.1 MB', status: 'complete' as const, time: '1 hour ago' },
-];
-
-const historyItems = [
-  { id: 1, prompt: 'Medieval castle', model: 'Trellis', quality: 'High Poly', duration: '12.4s', date: 'Today 14:31', verts: '98,432', format: 'GLB' },
-  { id: 2, prompt: 'Cyberpunk motorcycle', model: 'Hunyuan3D', quality: 'Standard', duration: '8.2s', date: 'Today 14:15', verts: '45,210', format: 'GLB' },
-  { id: 3, prompt: 'Game character', model: 'TripoSR', quality: 'Low Poly', duration: '3.1s', date: 'Today 13:05', verts: '8,240', format: 'OBJ' },
-  { id: 4, prompt: 'Human hand', model: 'InstantMesh', quality: 'High Poly', duration: '15.7s', date: 'Today 11:20', verts: '124,800', format: 'FBX' },
-  { id: 5, prompt: 'Cartoon tree', model: 'TripoSR', quality: 'Low Poly', duration: '2.8s', date: 'Today 09:30', verts: '5,680', format: 'GLB' },
-  { id: 6, prompt: 'Art nouveau vase', model: 'Trellis', quality: 'High Poly', duration: '14.1s', date: 'Yesterday 22:10', verts: '67,320', format: 'GLB' },
-];
-
-const assets = [
-  { id: 1, name: 'medieval_castle.glb', type: '3D Model', size: '24.3 MB', thumbnail: '🏰' },
-  { id: 2, name: 'texture_pack_pbr.zip', type: 'Texture Pack', size: '156 MB', thumbnail: '🎨' },
-  { id: 3, name: 'cyberpunk_motorcycle.glb', type: '3D Model', size: '18.7 MB', thumbnail: '🏍️' },
-  { id: 4, name: 'environment_hdri.exr', type: 'HDRI Map', size: '89 MB', thumbnail: '🌅' },
-  { id: 5, name: 'material_library.json', type: 'Material', size: '2.4 MB', thumbnail: '✨' },
-];
-
 /* ── Tab Content Components ─────────────────────────── */
 
 function RecentPromptsTab() {
-  const { toast } = useToast();
+  const recentPrompts = useAppStore((s) => s.recentPrompts);
 
   const handleClick = useCallback((text: string) => {
-    toast({ title: 'Loaded prompt', description: text.length > 50 ? text.slice(0, 50) + '...' : text });
-  }, [toast]);
+    toast('Loaded prompt', { description: text.length > 50 ? text.slice(0, 50) + '...' : text });
+  }, []);
+
+  const fmtTime = (d: Date) => {
+    const diff = Date.now() - new Date(d).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins} min ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs} hour${hrs > 1 ? 's' : ''} ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  };
 
   return (
     <motion.div className="space-y-0.5" variants={listVariants} initial="hidden" animate="visible">
@@ -117,9 +76,7 @@ function RecentPromptsTab() {
           {/* Status dot */}
           <span className={cn(
             'w-1.5 h-1.5 rounded-full shrink-0',
-            p.status === 'completed'
-              ? 'bg-[hsl(var(--neon-green))] shadow-[0_0_6px_hsl(var(--neon-green)/0.5)]'
-              : 'bg-[hsl(var(--destructive))] shadow-[0_0_6px_hsl(0_70%_50%/0.5)]'
+            'bg-[hsl(var(--neon-green))] shadow-[0_0_6px_hsl(var(--neon-green)/0.5)]'
           )} />
           {/* Text */}
           <span className="flex-1 text-muted-foreground/70 group-hover:text-foreground/90 truncate transition-colors">
@@ -127,28 +84,36 @@ function RecentPromptsTab() {
           </span>
           {/* Model chip */}
           <span className="chip shrink-0 text-[10px] px-1.5 py-px rounded-md bg-[hsl(var(--surface-2)/0.6)] text-muted-foreground/60 border border-[hsl(var(--border)/0.2)]">
-            {p.model}
+            {p.mode}
           </span>
           {/* Time */}
           <span className="text-[10px] text-muted-foreground/30 shrink-0 tabular-nums w-14 text-right">
-            {p.time}
+            {fmtTime(p.createdAt)}
           </span>
         </motion.button>
       ))}
+      {recentPrompts.length === 0 && (
+        <p className="text-xs text-muted-foreground/40 px-3 py-4 text-center">No recent prompts yet</p>
+      )}
     </motion.div>
   );
 }
 
 function QueueTab() {
-  const { toast } = useToast();
+  const queueItems = useAppStore((s) =>
+    Object.values(s.tasks)
+      .filter((t) => t.status === 'queued' || t.status === 'running')
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .slice(0, 10)
+  );
 
-  const handleCancel = useCallback((id: number, prompt: string) => {
-    toast({ title: 'Job cancelled', description: prompt.slice(0, 30) + '...' });
-  }, [toast]);
+  const handleCancel = useCallback((id: string, prompt: string) => {
+    toast('Job cancelled', { description: prompt.slice(0, 30) + '...' });
+  }, []);
 
   return (
     <motion.div className="space-y-1.5" variants={listVariants} initial="hidden" animate="visible">
-      {queueItems.map((item) => (
+      {queueItems.map((item, idx) => (
         <motion.div
           key={item.id}
           variants={listItemVariants}
@@ -156,39 +121,70 @@ function QueueTab() {
         >
           {/* Position badge */}
           <span className="shrink-0 w-5 h-5 flex items-center justify-center rounded-md bg-[hsl(var(--neon-purple)/0.15)] border border-[hsl(var(--neon-purple)/0.3)] text-[10px] font-bold text-[hsl(var(--neon-purple))] tabular-nums shadow-[0_0_8px_hsl(var(--neon-purple)/0.1)]">
-            {item.position}
+            {idx + 1}
           </span>
           {/* Content */}
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-foreground/80 truncate font-medium">{item.prompt}</p>
+            <p className="text-xs text-foreground/80 truncate font-medium">{item.label}</p>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="chip text-[10px] px-1.5 py-px rounded-md bg-[hsl(var(--surface-2)/0.6)] text-muted-foreground/50 border border-[hsl(var(--border)/0.15)]">
-                {item.model}
+                {item.type}
               </span>
               <span className="text-[10px] text-muted-foreground/30 flex items-center gap-1">
-                <Wifi className="w-2.5 h-2.5" />{item.wait}
+                <Wifi className="w-2.5 h-2.5" />{item.status}
               </span>
             </div>
           </div>
           {/* Cancel button */}
           <button
-            onClick={() => handleCancel(item.id, item.prompt)}
+            onClick={() => handleCancel(item.id, item.label)}
             className="shrink-0 p-1 rounded-md text-muted-foreground/30 hover:text-[hsl(var(--destructive))] hover:bg-[hsl(var(--destructive)/0.1)] hover:shadow-[0_0_8px_hsl(0_70%_50%/0.1)] transition-all duration-200"
           >
             <X className="w-3 h-3" />
           </button>
         </motion.div>
       ))}
+      {queueItems.length === 0 && (
+        <p className="text-xs text-muted-foreground/40 px-3 py-4 text-center">Queue is empty</p>
+      )}
     </motion.div>
   );
 }
 
 function ProgressTab() {
-  const { toast } = useToast();
+  const currentJob = useAppStore((s) => s.currentJob);
+  const runningTasks = useAppStore((s) =>
+    Object.values(s.tasks).filter((t) => t.status === 'running')
+  );
 
-  const handleCancel = useCallback((id: number, prompt: string) => {
-    toast({ title: 'Generation cancelled', description: prompt.slice(0, 30) + '...' });
-  }, [toast]);
+  const activeJobs = currentJob
+    ? [
+        {
+          id: currentJob.id,
+          prompt: currentJob.config?.prompt || 'Generation in progress',
+          model: currentJob.config?.model || 'unknown',
+          progress: currentJob.progress || 0,
+          stage: currentJob.status,
+        },
+        ...runningTasks.map((t) => ({
+          id: t.id,
+          prompt: t.label,
+          model: t.type,
+          progress: t.progress,
+          stage: t.status,
+        })),
+      ].filter((j, i, arr) => arr.findIndex((x) => x.id === j.id) === i)
+    : runningTasks.map((t) => ({
+        id: t.id,
+        prompt: t.label,
+        model: t.type,
+        progress: t.progress,
+        stage: t.status,
+      }));
+
+  const handleCancel = useCallback((id: string, prompt: string) => {
+    toast('Generation cancelled', { description: prompt.slice(0, 30) + '...' });
+  }, []);
 
   return (
     <motion.div className="space-y-3" variants={listVariants} initial="hidden" animate="visible">
@@ -224,16 +220,50 @@ function ProgressTab() {
           <div className="flex items-center justify-between">
             <span className="text-[10px] text-muted-foreground/30">Processing...</span>
             <span className="text-xs font-mono font-bold text-[hsl(var(--neon-purple))] tabular-nums drop-shadow-[0_0_6px_hsl(var(--neon-purple)/0.4)]">
-              {job.progress}%
+              {Math.round(job.progress)}%
             </span>
           </div>
         </motion.div>
       ))}
+      {activeJobs.length === 0 && (
+        <p className="text-xs text-muted-foreground/40 px-3 py-4 text-center">No active jobs</p>
+      )}
     </motion.div>
   );
 }
 
 function NotificationsTab() {
+  const notifications = useAppStore((s) => {
+    const items: { id: string; title: string; message: string; time: string; type: 'success' | 'warning' | 'info'; read: boolean }[] = [];
+    const now = Date.now();
+    for (const t of Object.values(s.tasks)) {
+      if (t.status === 'completed' || t.status === 'failed') {
+        const mins = Math.floor((now - t.updatedAt) / 60000);
+        items.push({
+          id: `task-${t.id}`,
+          title: t.status === 'completed' ? 'Task Complete' : 'Task Failed',
+          message: t.label,
+          time: mins < 1 ? 'just now' : mins < 60 ? `${mins} min ago` : 'over an hour ago',
+          type: t.status === 'completed' ? 'success' : 'warning',
+          read: false,
+        });
+      }
+    }
+    for (const d of Object.values(s.downloads)) {
+      if (d.status === 'completed' || d.status === 'error') {
+        items.push({
+          id: `dl-${d.id}`,
+          title: d.status === 'completed' ? 'Download Complete' : 'Download Failed',
+          message: d.name,
+          time: 'recent',
+          type: d.status === 'completed' ? 'success' : 'warning',
+          read: false,
+        });
+      }
+    }
+    return items.sort((a, b) => b.time.localeCompare(a.time)).slice(0, 20);
+  });
+
   const notifIcon = (type: string) => {
     switch (type) {
       case 'success': return <CheckCircle2 className="w-3.5 h-3.5" />;
@@ -287,16 +317,25 @@ function NotificationsTab() {
           </div>
         </motion.div>
       ))}
+      {notifications.length === 0 && (
+        <p className="text-xs text-muted-foreground/40 px-3 py-4 text-center">No notifications</p>
+      )}
     </motion.div>
   );
 }
 
 function DownloadsTab() {
-  const { toast } = useToast();
+  const downloads = useAppStore((s) => Object.values(s.downloads).slice(0, 10));
 
   const handleDownload = useCallback((name: string) => {
-    toast({ title: 'Download started', description: name });
-  }, [toast]);
+    toast('Download started', { description: name });
+  }, []);
+
+  const fmtSize = (bytes: number) => {
+    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${bytes} B`;
+  };
 
   return (
     <motion.div className="space-y-1.5" variants={listVariants} initial="hidden" animate="visible">
@@ -314,14 +353,14 @@ function DownloadsTab() {
           <div className="flex-1 min-w-0">
             <p className="text-xs text-foreground/80 truncate font-medium">{d.name}</p>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[10px] text-muted-foreground/30 tabular-nums">{d.size}</span>
+              <span className="text-[10px] text-muted-foreground/30 tabular-nums">{fmtSize(d.size)}</span>
               <span className="text-[10px] text-muted-foreground/20">·</span>
-              <span className="text-[10px] text-muted-foreground/25">{d.time}</span>
+              <span className="text-[10px] text-muted-foreground/25">{d.status}</span>
             </div>
           </div>
           {/* Status + action */}
           <div className="flex items-center gap-2 shrink-0">
-            <Badge variant="success" size="sm" dot>
+            <Badge variant={d.status === 'completed' ? 'success' : 'default'} size="sm" dot>
               {d.status}
             </Badge>
             <button
@@ -339,6 +378,12 @@ function DownloadsTab() {
 }
 
 function HistoryTab() {
+  const historyItems = useAppStore((s) =>
+    [...s.jobHistory].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10)
+  );
+
+  const fmtTime = (d: Date) => new Date(d).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
   return (
     <motion.div className="space-y-1" variants={listVariants} initial="hidden" animate="visible">
       {historyItems.map((item) => (
@@ -350,43 +395,51 @@ function HistoryTab() {
           {/* Top row: prompt + format */}
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs text-foreground/80 group-hover:text-foreground/95 truncate font-medium transition-colors">
-              {item.prompt}
+              {item.config?.prompt}
             </span>
             <Badge variant="default" size="sm" className="shrink-0 font-mono">
-              {item.format}
+              {item.status}
             </Badge>
           </div>
           {/* Bottom row: badges + stats */}
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-            <Badge variant="neon" size="sm">{item.model}</Badge>
-            <Badge variant="default" size="sm">{item.quality}</Badge>
+            <Badge variant="neon" size="sm">{item.config?.model || 'unknown'}</Badge>
+            <Badge variant="default" size="sm">{item.config?.quality}</Badge>
             <span className="text-[10px] text-muted-foreground/25 flex items-center gap-1">
-              <Clock className="w-2.5 h-2.5" />{item.duration}
-            </span>
-            <span className="text-[10px] text-muted-foreground/25">
-              {item.verts} verts
+              <Clock className="w-2.5 h-2.5" />{Math.round(item.progress)}%
             </span>
             <span className="text-[10px] text-muted-foreground/20 ml-auto">
-              {item.date}
+              {fmtTime(item.createdAt)}
             </span>
           </div>
         </motion.div>
       ))}
+      {historyItems.length === 0 && (
+        <p className="text-xs text-muted-foreground/40 px-3 py-4 text-center">No history yet</p>
+      )}
     </motion.div>
   );
 }
 
 function AssetsTab() {
-  const { toast } = useToast();
+  const assets = useAppStore((s) =>
+    s.currentProject?.layers.map((l) => ({
+      id: l.id,
+      name: l.name,
+      type: l.type,
+      timestamp: l.timestamp,
+    })) ?? []
+  );
 
   const handleClick = useCallback((name: string) => {
-    toast({ title: 'Asset selected', description: name });
-  }, [toast]);
+    toast('Asset selected', { description: name });
+  }, []);
 
   const typeIcon = (type: string) => {
     switch (type) {
-      case '3D Model': return <Package className="w-2.5 h-2.5" />;
-      case 'Texture Pack': return <ImageIcon className="w-2.5 h-2.5" />;
+      case 'texture': return <ImageIcon className="w-2.5 h-2.5" />;
+      case 'rigging':
+      case 'animation': return <Package className="w-2.5 h-2.5" />;
       default: return <FileDown className="w-2.5 h-2.5" />;
     }
   };
@@ -407,7 +460,7 @@ function AssetsTab() {
         >
           {/* Thumbnail */}
           <div className="w-full aspect-square rounded-lg bg-[hsl(var(--surface-2)/0.5)] border border-[hsl(var(--border)/0.15)] flex items-center justify-center mb-2 text-2xl group-hover:scale-[1.03] transition-transform duration-200">
-            {asset.thumbnail}
+            📦
           </div>
           {/* Name */}
           <p className="text-[11px] text-foreground/80 font-medium truncate">{asset.name}</p>
@@ -417,10 +470,12 @@ function AssetsTab() {
               {typeIcon(asset.type)}
               {asset.type}
             </Badge>
-            <span className="text-[10px] text-muted-foreground/25 tabular-nums">{asset.size}</span>
           </div>
         </motion.button>
       ))}
+      {assets.length === 0 && (
+        <p className="text-xs text-muted-foreground/40 px-3 py-4 text-center col-span-full">No project assets</p>
+      )}
     </motion.div>
   );
 }

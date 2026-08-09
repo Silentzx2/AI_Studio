@@ -83,3 +83,20 @@ export const useUIStore = create<UIState>()((set) => ({
   toggleCreativeLayoutMode: () =>
     useAppStore.setState((s) => ({ creativeLayoutMode: !s.creativeLayoutMode })),
 }));
+
+// Mirror app store data into this proxy store so subscribers re-render.
+useAppStore.subscribe((state) => {
+  useUIStore.setState({
+    leftSidebarCollapsed: state.leftSidebarCollapsed,
+    rightSidebarCollapsed: state.rightSidebarCollapsed,
+    bottomPanelCollapsed: state.bottomPanelCollapsed,
+    mobileMenuOpen: state.mobileMenuOpen,
+    mobileLeftSidebarOpen: state.mobileLeftSidebarOpen,
+    mobileRightSidebarOpen: state.mobileRightSidebarOpen,
+    viewer: state.viewer,
+    inspectorTab: state.inspectorTab as InspectorTab,
+    bottomDockTab: state.bottomDockTab as BottomDockTab,
+    creativeLayoutMode: state.creativeLayoutMode,
+    capabilities: state.capabilities as UIState['capabilities'],
+  });
+});

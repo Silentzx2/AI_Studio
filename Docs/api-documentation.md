@@ -1,6 +1,6 @@
 # AI 3D Studio - Complete API Documentation
 
-> **Version**: 3.2.0 (uv-Only Package Management)  
+> **Version**: 3.4.2 (Bugfix & Cleanup Batch)  
 > **Base URL**: `http://localhost:8000` (Backend API)  
 > **API Prefix**: `/api/v1`  
 > **Documentation**: Interactive docs at `/docs` (Swagger UI)
@@ -1387,6 +1387,15 @@ async function generate3D(prompt: string) {
 
 ## Changelog
 
+### v3.4.2 (Bugfix & Cleanup Batch)
+
+#### Removed
+- `plugin_manager_router` removed from the API aggregator — it previously shadowed the richer `/admin/models` implementation that the ModelsTab needs. The dead `plugin_manager.py` registration is gone (BE-003).
+
+#### Fixed
+- `POST /api/v1/download/*` endpoints now use a proper synchronous DB session (`get_sync_db`) instead of the async session, fixing session/threading errors during download operations (BE-001).
+- Various async fixes across the download queue and generation history endpoints (see `Docs/CHANGELOG.md` for the full 53-fix list).
+
 ### v3.2.0 (uv-Only Package Management)
 
 #### Breaking
@@ -1434,7 +1443,7 @@ async function generate3D(prompt: string) {
 
 ---
 
-*Last Updated: January 25, 2026*
+*Last Updated: August 9, 2026*
 
 
 ### Frontend Connectivity Notes

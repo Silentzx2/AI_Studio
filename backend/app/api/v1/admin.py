@@ -16,12 +16,13 @@ import json
 import logging
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import threading
-import time
 from collections.abc import AsyncGenerator
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
@@ -30,6 +31,8 @@ from pydantic import BaseModel
 
 from app.config import get_settings
 from app.utils.response import error, success
+
+from app.api.v1.hf_token import HFTokenRequest
 
 router = APIRouter()
 settings = get_settings()
@@ -147,8 +150,7 @@ def read_log_file(limit: int = 500, level: str = "", search: str = "") -> list[d
         if not raw:
             continue
         # Parse: 2026-08-04 12:00:00,123 [LEVEL] logger.name: message
-        import re as _re
-        m = _re.match(r"^(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?)\s*\[([A-Z]+)\]\s*([^:]+):\s*(.*)$", raw)
+        m = re.match(r"^(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?)\s*\[([A-Z]+)\]\s*([^:]+):\s*(.*)$", raw)
         if m:
             ts, lvl, src, msg = m.group(1), m.group(2), m.group(3).strip(), m.group(4)
         else:
@@ -305,28 +307,33 @@ def _execute_command(command: str) -> dict:
     import uuid
     cmd_id = str(uuid.uuid4())[:8]
     timestamp = datetime.utcnow().isoformat()
-    
-    # Security: block dangerous commands
-    blocked_patterns = [
-        r'rm\s+-rf\s+/', r'rm\s+-r\s+-f\s+/', r'mkfs', r'dd\s+if=', r':(){ :|:& };:',
-        r'chmod\s+777\s+/', r'>\s*/dev/', r'curl.*\|\s*(ba)?sh',
-        r'wget.*\|\s*(ba)?sh', r'sudo\s+', r'su\s+',
-        r'\|\s*(ba)?sh', r';\s*rm', r'&&\s*rm\s+-rf',
-    ]
-    for pattern in blocked_patterns:
-        if re.search(pattern, command, re.IGNORECASE):
-            return {
-                "id": cmd_id,
-                "command": command,
-                "output": "Command blocked for security reasons",
-                "timestamp": timestamp,
-                "exit_code": 1,
-            }
-    
+
+    # Security: reject shell metacharacters outright (allowlist-style).
+    # A blocklist (rm -rf /, curl|sh, ...) is trivially bypassable via nested
+    # shells, command substitution, newlines, etc. — so no metacharacters, period.
+    if re.search(r'[;&|><`$\n\r\\]', command):
+        return {
+            "id": cmd_id,
+            "command": command,
+            "output": "Command blocked: shell metacharacters are not allowed",
+            "timestamp": timestamp,
+            "exit_code": 1,
+        }
+
+    argv = shlex.split(command)
+    if not argv:
+        return {
+            "id": cmd_id,
+            "command": command,
+            "output": "Empty command",
+            "timestamp": timestamp,
+            "exit_code": 1,
+        }
+
     try:
         result = subprocess.run(
-            command,
-            shell=True,
+            argv,
+            shell=False,
             capture_output=True,
             text=True,
             timeout=30,
@@ -338,10 +345,13 @@ def _execute_command(command: str) -> dict:
     except subprocess.TimeoutExpired:
         output = "Command timed out after 30 seconds"
         exit_code = 124
+    except FileNotFoundError:
+        output = f"Command not found: {argv[0]}"
+        exit_code = 127
     except Exception as e:
         output = f"Error executing command: {e}"
         exit_code = 1
-    
+
     return {
         "id": cmd_id,
         "command": command,
@@ -597,10 +607,6 @@ class InstallRequest(BaseModel):
 
 class ProviderSwitchRequest(BaseModel):
     provider: str
-
-
-class HFTokenRequest(BaseModel):
-    token: str
 
 
 # ---------------------------------------------------------------------------

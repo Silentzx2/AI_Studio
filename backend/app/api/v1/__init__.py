@@ -15,7 +15,6 @@ from app.api.v1.models_api import router as models_router
 
 # Existing routers
 from app.api.v1.pipelines import router as pipelines_router
-from app.api.v1.plugin_manager import router as plugin_manager_router
 from app.api.v1.runtime import router as runtime_router
 from app.api.v1.system import router as system_router
 from app.api.v1.settings import router as settings_router
@@ -27,7 +26,6 @@ from app.api.v1.project import router as project_router
 router = APIRouter()
 
 # Include existing routers
-router.include_router(plugin_manager_router)
 router.include_router(generation_router, prefix="/generation")
 router.include_router(jobs_router, prefix="/jobs")
 router.include_router(health_router, prefix="/health")

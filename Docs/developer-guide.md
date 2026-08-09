@@ -1,6 +1,6 @@
 # AI 3D Studio - Developer Guide
 
-> **Version**: 3.3.1 (uv-Only Package Management + Provider Fix)  
+> **Version**: 3.4.2 (Bugfix & Cleanup Batch)  
 > **Target Audience**: Developers contributing to AI 3D Studio
 
 ---
@@ -164,7 +164,7 @@ backend/app/
 ├── database.py           # SQLAlchemy async setup
 │
 ├── api/v1/               # API route handlers
-│   ├── __init__.py      # Router aggregation (16 routers)
+│   ├── __init__.py      # Router aggregation (15 routers)
 │   ├── admin_router.py  # /admin
 │   ├── generation_router.py # /generation
 │   ├── jobs_router.py   # /jobs
@@ -176,9 +176,9 @@ backend/app/
 │   ├── discover_router.py # /discover
 │   ├── download_router.py # /download
 │   ├── pipelines_router.py # /pipelines
-│   ├── plugin_manager_router.py # /plugin-manager
 │   ├── system_router.py # /system
 │   ├── settings_router.py # /settings
+│   ├── project_router.py # /project
 │   └── rigging_router.py # /rigging
 │
 ├── core/                 # Business logic

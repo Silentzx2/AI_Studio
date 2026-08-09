@@ -1,5 +1,6 @@
 """Download Manager for managing model downloads with queue, resume, and validation."""
 
+import uuid
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
@@ -34,7 +35,7 @@ class DownloadManager:
         provider: str = "direct"
     ) -> str:
         """Start new download and return download_id."""
-        download_id = f"{model_id}_{datetime.utcnow().timestamp()}"
+        download_id = str(uuid.uuid4())
         
         # Check if already downloading this model
         existing = (
@@ -295,6 +296,7 @@ class DownloadManager:
             .all()
         )
         
+        stats["avg_speed_mb_per_sec"] = 0
         if completed_downloads:
             total_time = sum(
                 (d.completed_at - d.started_at).total_seconds()

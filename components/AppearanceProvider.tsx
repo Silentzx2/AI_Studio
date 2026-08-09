@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef } from 'react';
+import { useEffect } from 'react';
 import { useThemeStore } from '@/stores/useThemeStore';
 
 // ─── Hex → HSL Conversion ──────────────────────────────────────────────────
@@ -206,16 +206,12 @@ export function applyGlobalTheme(cfg: ThemeConfig): void {
 // ─── Provider Component ──────────────────────────────────────────────────────
 
 export function AppearanceProvider({ children }: { children: React.ReactNode }) {
-  const styleId = useId();
-  const initialApplied = useRef(false);
-
   useEffect(() => {
     const root = document.documentElement;
 
     // Apply initial config from the store
     const cfg = useThemeStore.getState();
     applyGlobalTheme(cfg);
-    initialApplied.current = true;
 
     // Subscribe to store changes — re-apply on every update
     const unsubscribe = useThemeStore.subscribe((newCfg) => {
@@ -240,8 +236,6 @@ export function AppearanceProvider({ children }: { children: React.ReactNode }) 
       mediaQuery.removeEventListener('change', handleSystemChange);
     };
   }, []);
-
-  void styleId;
 
   return <>{children}</>;
 }

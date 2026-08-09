@@ -103,3 +103,12 @@ export const useProjectStore = create<ProjectState>()(
     }),
   }))
 );
+
+// Mirror app store data into this proxy store so subscribers re-render.
+useAppStore.subscribe((state) => {
+  useProjectStore.setState({
+    currentProject: state.currentProject,
+    activeLayerId: state.activeLayerId,
+    isDirty: state.isDirty,
+  });
+});

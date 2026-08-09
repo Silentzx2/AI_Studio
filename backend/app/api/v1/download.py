@@ -1,14 +1,11 @@
-from fastapi import Query
-
 """API endpoints for download management."""
 
-
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.managers.download_manager import DownloadManager
-from app.database import get_db
+from app.database import get_sync_db
 from app.workers.download_workers import execute_download, start_queued_downloads
 from app.workers.download_workers import resume_download as resume_task
 
@@ -40,7 +37,7 @@ VALID_STATUSES = ["pending", "downloading", "paused", "completed", "failed", "ca
 @router.post("/start")
 async def start_download(
     request: DownloadRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_sync_db)
 ):
     """Start a new model download and queue it for execution."""
     
@@ -77,7 +74,7 @@ async def start_download(
 @router.post("/start-batch")
 async def start_batch_download(
     request: BatchDownloadRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_sync_db)
 ):
     """Start batch downloads for a model (multiple files)."""
     
@@ -117,7 +114,7 @@ async def start_batch_download(
 @router.get("/queue")
 async def get_download_queue(
     status: str | None = Query(None, description="Filter by status"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_sync_db)
 ):
     """Get all downloads in queue, optionally filtered by status."""
     
@@ -145,7 +142,7 @@ async def get_download_queue(
 
 
 @router.get("/queue/active")
-async def get_active_downloads(db: Session = Depends(get_db)):
+async def get_active_downloads(db: Session = Depends(get_sync_db)):
     """Get currently active downloads (pending/downloading/paused)."""
     
     manager = DownloadManager(db, "./storage")
@@ -161,7 +158,7 @@ async def get_active_downloads(db: Session = Depends(get_db)):
 
 
 @router.get("/{download_id}")
-async def get_download_status(download_id: str, db: Session = Depends(get_db)):
+async def get_download_status(download_id: str, db: Session = Depends(get_sync_db)):
     """Get detailed status of a specific download."""
     
     manager = DownloadManager(db, "./storage")
@@ -174,7 +171,7 @@ async def get_download_status(download_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/{download_id}/pause")
-async def pause_download(download_id: str, db: Session = Depends(get_db)):
+async def pause_download(download_id: str, db: Session = Depends(get_sync_db)):
     """Pause an active download."""
     
     manager = DownloadManager(db, "./storage")
@@ -197,7 +194,7 @@ async def pause_download(download_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/{download_id}/resume")
-async def resume_download_endpoint(download_id: str, db: Session = Depends(get_db)):
+async def resume_download_endpoint(download_id: str, db: Session = Depends(get_sync_db)):
     """Resume a paused download."""
     
     manager = DownloadManager(db, "./storage")
@@ -223,7 +220,7 @@ async def resume_download_endpoint(download_id: str, db: Session = Depends(get_d
 
 
 @router.post("/{download_id}/cancel")
-async def cancel_download(download_id: str, db: Session = Depends(get_db)):
+async def cancel_download(download_id: str, db: Session = Depends(get_sync_db)):
     """Cancel a download and cleanup partial files."""
     
     manager = DownloadManager(db, "./storage")
@@ -246,7 +243,7 @@ async def cancel_download(download_id: str, db: Session = Depends(get_db)):
 
 
 @router.delete("/queue/cleanup")
-async def cleanup_completed_downloads(db: Session = Depends(get_db)):
+async def cleanup_completed_downloads(db: Session = Depends(get_sync_db)):
     """Remove completed/failed/cancelled downloads from queue."""
     
     manager = DownloadManager(db, "./storage")
@@ -260,7 +257,7 @@ async def cleanup_completed_downloads(db: Session = Depends(get_db)):
 
 
 @router.get("/statistics")
-async def get_download_statistics(db: Session = Depends(get_db)):
+async def get_download_statistics(db: Session = Depends(get_sync_db)):
     """Get download statistics and metrics."""
     
     manager = DownloadManager(db, "./storage")
@@ -270,7 +267,7 @@ async def get_download_statistics(db: Session = Depends(get_db)):
 
 
 @router.get("/model/{model_id}")
-async def get_model_downloads(model_id: str, db: Session = Depends(get_db)):
+async def get_model_downloads(model_id: str, db: Session = Depends(get_sync_db)):
     """Get all downloads associated with a specific model."""
     
     manager = DownloadManager(db, "./storage")

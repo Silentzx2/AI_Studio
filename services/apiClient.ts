@@ -115,16 +115,23 @@ async function requestWithCircuitBreaker<T>(
   maxRetries: number = 3,
   timeout: number = 5000
 ): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
   // Create a promise that rejects after timeout
   const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error('Request timeout')), timeout);
+    timeoutId = setTimeout(() => reject(new Error('Request timeout')), timeout);
   });
 
-  // Race the request against the timeout
-  return Promise.race([
-    requestWithRetry<T>(path, init, maxRetries),
-    timeoutPromise
-  ]);
+  try {
+    // Race the request against the timeout
+    return await Promise.race([
+      requestWithRetry<T>(path, init, maxRetries),
+      timeoutPromise
+    ]);
+  } finally {
+    // FE-011 FIX: the loser of the race would otherwise keep a timer alive
+    // until timeout after the winner resolved — clear it as soon as the race settles.
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+  }
 }
 
 export const apiClient = {
