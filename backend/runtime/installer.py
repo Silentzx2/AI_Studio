@@ -407,6 +407,15 @@ def _install_trellis_deps(
          "torch", "torchvision", "torchaudio", "setuptools", "wheel"],
         cwd=repo_dir,
     )
+    # Pre-install numba/llvmlite at py3.12-compatible versions. rembg's
+    # dependency chain (pymatting -> numba==0.53.1 -> llvmlite==0.36.0) does
+    # not support Python >=3.10, so uv must find the newer pins already
+    # present in the venv or it will try to build the broken ones.
+    _run_uv(
+        ["pip", "install", "--python", str(venv_python),
+         "numba>=0.60", "llvmlite>=0.43"],
+        cwd=repo_dir,
+    )
 
     # Basic runtime dependencies (setup.sh --basic)
     code, output = _run_uv(
