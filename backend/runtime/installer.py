@@ -256,11 +256,19 @@ _PY312_REQ_REWRITES: list[tuple[re.Pattern, str | None]] = [
     (re.compile(r"^numpy==1\.22\..*$"), "numpy>=1.26.4"),
     # open3d 0.18.0 has no cp312 wheel; 0.19.0 is the first with one.
     (re.compile(r"^open3d==0\.18\.0$"), "open3d==0.19.0"),
+    # numba 0.53.1 / llvmlite 0.36.0 only support Python <3.10.
+    # Bump to py3.12-compatible versions (also pre-installed below when rembg
+    # is detected, but uv will downgrade them unless the requirements file
+    # itself is rewritten).
+    (re.compile(r"^numba==0\.53\.1$"), "numba>=0.60"),
+    (re.compile(r"^llvmlite==0\.36\.0$"), "llvmlite>=0.43"),
     # flash-attn / bpy publish no cp312 wheels (CUDA-build / Blender-bound);
     # not installable on a CPU Py3.12 box — drop rather than fail the venv.
     # flash-attn is also in _CUDA_ONLY_PKG_PATTERNS so it gets dropped on
-    # CPU-only hosts regardless of Py version; removed from here so CUDA hosts
-    # can build it with --no-build-isolation-package (torch is pre-installed).
+    # CPU-only hosts regardless of Py version; dropped here too because
+    # --no-build-isolation-package does not make torch visible to the build
+    # backend in the current uv version.
+    (re.compile(r"^flash[-_]attn($|==|>=|<=|!=|~=).*$"), None),
     (re.compile(r"^bpy==.*$"), None),
 ]
 
