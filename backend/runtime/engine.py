@@ -19,6 +19,21 @@ logger = logging.getLogger(__name__)
 
 PROVIDER_PRIORITY = ["hunyuan3d-2.1", "trellis", "hunyuan3d-2", "anigen", "unirig", "detailgen3d", "mock"]
 
+# ponytail: mode support matrix. Used by get_best_provider_name to avoid
+# silently falling back to a provider that can't handle the requested mode
+# (e.g. TRELLIS for text-to-3d).
+PROVIDER_MODES: dict[str, set[str]] = {
+    "hunyuan3d": {"text-to-3d", "image-to-3d"},
+    "hunyuan3d-1.0": {"text-to-3d", "image-to-3d"},
+    "hunyuan3d-2.1": {"text-to-3d", "image-to-3d"},
+    "hunyuan3d-2": {"text-to-3d", "image-to-3d"},
+    "trellis": {"image-to-3d"},
+    "anigen": {"rigging"},
+    "unirig": {"rigging"},
+    "detailgen3d": {"remesh", "texture-generation"},
+    "mock": {"text-to-3d", "image-to-3d", "remesh", "texture-generation", "rigging"},
+}
+
 _PROVIDER_MAP: dict[str, tuple[str, str]] = {
     "hunyuan3d": ("app.core.providers.hunyuan3d_local", "Hunyuan3D21LocalProvider"),
     "hunyuan3d-1.0": ("app.core.providers.hunyuan3d_local", "Hunyuan3D21LocalProvider"),
@@ -125,7 +140,7 @@ class RuntimeEngine:
         )
         return repo_ready and weights_ready
 
-    async def get_best_provider_name(self, requested: str) -> str:
+    async def get_best_provider_name(self, requested: str, mode: str = "text-to-3d") -> str:
         gpu = get_gpu_info()
 
         # CPU-only machine: there is no VRAM to gate on — models run on system
@@ -133,18 +148,21 @@ class RuntimeEngine:
         # provider ("only 0 MB free") and generation could never start.
         # ponytail: VRAM gating is GPU-only; pick by availability (weights on disk).
         if not gpu.available:
-            if requested == "mock" or self._check_provider_available(requested):
+            if requested == "mock" or (self._check_provider_available(requested) and mode in PROVIDER_MODES.get(requested, set())):
                 return requested
             for candidate in PROVIDER_PRIORITY:
                 if candidate == "mock":
                     if not self._is_mock_allowed():
                         continue
-                elif self._check_provider_available(candidate):
-                    logger.info(
-                        "CPU mode: requested provider '%s' not installed, falling back to '%s'",
-                        requested, candidate,
-                    )
-                    return candidate
+                elif not self._check_provider_available(candidate):
+                    continue
+                if mode not in PROVIDER_MODES.get(candidate, set()):
+                    continue
+                logger.info(
+                    "CPU mode: requested provider '%s' not installed, falling back to '%s'",
+                    requested, candidate,
+                )
+                return candidate
             raise RuntimeError(
                 f"No provider is installed on this machine. Requested '{requested}' "
                 f"is not installed and no installed fallback exists."
@@ -153,7 +171,12 @@ class RuntimeEngine:
         free_mb = gpu.free_vram_mb
         needed = get_model_vram_required(requested)
         if needed == 0 or free_mb >= needed:
-            return requested
+            if mode in PROVIDER_MODES.get(requested, set()):
+                return requested
+            logger.warning(
+                "Provider '%s' fits VRAM but does not support mode '%s'",
+                requested, mode,
+            )
         logger.warning(
             "Provider '%s' needs %d MB VRAM, only %d MB free",
             requested, needed, free_mb,
@@ -165,15 +188,17 @@ class RuntimeEngine:
                     continue
             if not self._check_provider_available(candidate):
                 continue
+            if mode not in PROVIDER_MODES.get(candidate, set()):
+                continue
             req = get_model_vram_required(candidate)
             if req == 0 or free_mb >= req:
-                logger.info("Fallback to '%s'", candidate)
+                logger.info("Fallback to '%s' (mode=%s)", candidate, mode)
                 return candidate
         # BUG-10 FIX: was returning `requested` here even though we just determined it exceeds
         # available VRAM — that caused an OOM crash deep inside model loading instead of a
         # clean, user-visible error. Raise explicitly so the job is marked failed immediately.
         raise RuntimeError(
-            f"Insufficient VRAM to run any available provider. "
+            f"Insufficient VRAM to run any available provider for mode '{mode}'. "
             f"Free: {free_mb} MB. "
             f"Requested '{requested}' requires {needed} MB. "
             f"Reduce resolution, free VRAM, or enable the mock provider."

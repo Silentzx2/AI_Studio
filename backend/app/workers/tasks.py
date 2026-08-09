@@ -233,7 +233,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
         try:
             # 1. GPU scheduling — select best available provider
             if engine:
-                provider_name = await engine.get_best_provider_name(job.provider)
+                provider_name = await engine.get_best_provider_name(job.provider, mode=job.mode)
                 if provider_name != job.provider:
                     _update_job(session, job_id, provider=provider_name)
                     sync_publish(2, "preparing", f"Provider auto-selected: {provider_name}", "info")
