@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 export function ImageUpload() {
-  const { uploadedImage, setUploadedImage } = useGenerationStore();
+  const { uploadedImage, setUploadedImage, mode, setMode } = useGenerationStore();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
@@ -29,13 +29,16 @@ export function ImageUpload() {
     try {
       const processed = await processImageFile(file);
       setUploadedImage(processed);
+      if (mode !== 'image-to-3d') {
+        setMode('image-to-3d');
+      }
       toast.success('Image uploaded', { description: `${processed.width}×${processed.height}px` });
     } catch {
       setError('Failed to process image. Please try again.');
     } finally {
       setUploading(false);
     }
-  }, [setUploadedImage]);
+  }, [setUploadedImage, setMode, mode]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,

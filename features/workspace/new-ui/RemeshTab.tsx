@@ -199,7 +199,7 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
   };
 
   return (
-    <div className="flex-1 p-6 flex flex-col lg:flex-row gap-6 animate-fadeIn text-[hsl(var(--foreground))]" id="remesh-tab-panel">
+    <div className="flex-1 p-6 flex flex-col lg:flex-row gap-6 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="remesh-tab-panel">
       
       {/* Left Input Configuration Panel */}
       <div className="w-full lg:w-[380px] flex flex-col gap-5 flex-shrink-0" id="remesh-left-panel">

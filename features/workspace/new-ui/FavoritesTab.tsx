@@ -24,7 +24,7 @@ export default function FavoritesTab({
   const favoriteItems = history.filter((item) => item.isFavorite);
 
   return (
-    <div className="flex-1 p-6 flex flex-col gap-6 animate-fadeIn text-[hsl(var(--foreground))]" id="favorites-tab-panel">
+    <div className="flex-1 p-6 flex flex-col gap-6 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="favorites-tab-panel">
       {/* Intro */}
       <div>
         <h2 className="text-lg font-bold text-[hsl(var(--foreground))] flex items-center gap-2">

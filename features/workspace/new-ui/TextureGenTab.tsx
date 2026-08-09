@@ -227,7 +227,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
   };
 
   return (
-    <div className="flex-1 p-6 flex flex-col lg:flex-row gap-6 animate-fadeIn text-[hsl(var(--foreground))]" id="texture-gen-tab-panel">
+    <div className="flex-1 p-6 flex flex-col lg:flex-row gap-6 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="texture-gen-tab-panel">
       
       {/* Left Input Configuration Panel */}
       <div className="w-full lg:w-[380px] flex flex-col gap-6 flex-shrink-0" id="texture-left-panel">

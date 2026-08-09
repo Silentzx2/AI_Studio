@@ -375,6 +375,7 @@ export default function ThreeDGenerationTab({
           width: 512,
           height: 512
         });
+        setMode('image-to-3d');
       };
       reader.readAsDataURL(file);
       toast.success('Image loaded for Image-to-3D pipeline.');

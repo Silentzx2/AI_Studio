@@ -103,7 +103,7 @@ export default function CommunityTab({ onCloneProject, onNavigate }: CommunityTa
   };
 
   return (
-    <div className="flex-1 p-6 flex flex-col gap-6 animate-fadeIn text-[hsl(var(--foreground))]" id="community-tab-panel">
+    <div className="flex-1 p-6 flex flex-col gap-6 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="community-tab-panel">
       {/* Tab Header with Banner */}
       <div className="flex justify-between items-center bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-4 flex-wrap gap-4" id="community-header">
         <div id="community-title-meta">

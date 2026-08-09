@@ -79,7 +79,14 @@ export function useGeneration() {
       if (mode === 'image-to-3d' && uploadedImage) {
         updateJobProgress(job.id, 3, 'uploading');
         addLogEntry(job.id, 'Uploading reference image...', 'info');
-        const uploaded = await uploadService.upload(uploadedImage.file);
+        const uploaded = await uploadService.uploadWithProgress(
+          uploadedImage.file,
+          (progress) => {
+            const uploadPercent = Math.round((progress.loaded / progress.total) * 100);
+            updateJobProgress(job.id, 3 + Math.round(uploadPercent * 0.1), 'uploading');
+            addLogEntry(job.id, `Uploading... ${uploadPercent}%`, 'info');
+          }
+        );
         config = { ...config, referenceImage: uploaded.url };
         useGenerationStore.setState((s) => ({
           currentJob: s.currentJob?.id === job.id

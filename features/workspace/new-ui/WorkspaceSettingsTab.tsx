@@ -205,7 +205,7 @@ export default function WorkspaceSettingsTab() {
   };
 
   return (
-    <div className="flex-1 p-6 flex flex-col gap-6 animate-fadeIn text-[hsl(var(--foreground))]" id="settings-tab-panel">
+    <div className="flex-1 p-6 flex flex-col gap-6 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="settings-tab-panel">
       {/* Tab Header */}
       <div>
         <div className="flex items-center gap-3">

@@ -30,7 +30,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
   const gpuUsage = stats?.gpu_utilization || 0;
 
   return (
-    <div className="flex-1 p-6 flex flex-col gap-6 animate-fadeIn text-[hsl(var(--foreground))]" id="workspace-tab-panel">
+    <div className="flex-1 p-6 flex flex-col gap-6 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="workspace-tab-panel">
       {/* Welcome Banner */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[hsl(var(--primary)/0.15)] via-[hsl(var(--background))] to-[hsl(var(--surface-1))] border border-[hsl(var(--border))] p-6 sm:p-8" id="workspace-welcome-banner">
         <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-[hsl(var(--primary))]/10 to-transparent rounded-full blur-3xl pointer-events-none" />
