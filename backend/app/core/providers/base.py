@@ -10,6 +10,28 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+def _patch_numpy_legacy_aliases() -> None:
+    """Restore numpy aliases removed in numpy>=1.24 that per-model deps still use.
+
+    Root cause: the worker's active numpy (backend .venv / conda cloudspace, 1.26.4)
+    removed np.long / np.ulong, but _add_model_env prepends a per-model venv whose
+    scipy (1.18) references them at module level in scipy/sparse/_sputils.py:17.
+    Because numpy is already cached from the backend env, the per-model venv's numpy
+    never wins and scipy crashes with "module 'numpy' has no attribute 'long'".
+    Restore the aliases on the live numpy module before importing the model stack.
+
+    ponytail: masks a numpy-2 migration gap. Proper fix is aligning the worker's
+    numpy with the per-model venv (numpy 2.x) via the reload list; until then we
+    just restore the missing dtype aliases.
+    """
+    import numpy as _np
+
+    if not hasattr(_np, "long"):
+        _np.long = _np.int_
+    if not hasattr(_np, "ulong"):
+        _np.ulong = _np.uint
+
+
 def _add_model_env(repo_name: str) -> None:
     """Make a model repo importable in-process from the backend worker.
 
@@ -18,6 +40,9 @@ def _add_model_env(repo_name: str) -> None:
     We prepend the venv path and reload any conflicting packages that may have
     already been imported by the backend process.
     """
+    # Must run before any model-stack import that touches numpy (e.g. scipy).
+    _patch_numpy_legacy_aliases()
+
     from runtime.storage import get_storage_config
 
     storage = get_storage_config()
