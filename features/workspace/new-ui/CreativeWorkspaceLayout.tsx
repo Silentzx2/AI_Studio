@@ -5,8 +5,9 @@
  */
 
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import anime from 'animejs';
+import CursorGlow from '@/components/CursorGlow';
 import {
   Folder, Cpu, RefreshCw, Palette, Bookmark, Layers, Heart, Globe, Code, Settings, Sparkles, HelpCircle, LogOut, Activity
 } from 'lucide-react';
@@ -89,6 +90,23 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
         return dateB - dateA;
       });
   }, [jobHistory, isLoadingHistory, localDeletions]);
+
+  const mainRef = useRef<HTMLDivElement>(null);
+
+  // Staggered entrance for whichever tab panel is active. Runs on mount and on
+  // every switch so navigating the sidebar feels alive without re-mounting.
+  useEffect(() => {
+    const el = mainRef.current?.firstElementChild as HTMLElement | null;
+    if (!el) return;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    anime({
+      targets: el,
+      translateY: reducedMotion ? [0, 0] : [16, 0],
+      opacity: reducedMotion ? [1, 1] : [0, 1],
+      duration: reducedMotion ? 0 : 420,
+      easing: 'easeOutCubic',
+    });
+  }, [activeSidebarItem]);
 
   const [activeModel, setActiveModel] = useState<any>({
     name: 'Untitled Model',
@@ -233,6 +251,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
 
   return (
     <div className="flex flex-1 min-h-0 min-w-0 bg-[hsl(var(--surface-0))] text-[hsl(var(--foreground))]" id="creative-layout-container">
+      <CursorGlow />
       {/* Sidebar panel */}
       <aside className="w-[240px] lg:w-[280px] bg-[hsl(var(--surface-1))] border-r border-[hsl(var(--border))] flex flex-col justify-between flex-shrink-0 z-20" id="creative-sidebar">
         <div className="flex flex-col h-full">
@@ -290,7 +309,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
       </aside>
 
       {/* Main viewport panels */}
-      <main className="flex-1 flex flex-col bg-[hsl(var(--surface-0))] overflow-hidden" id="creative-main-viewport">
+        <main ref={mainRef} className="flex-1 flex flex-col bg-[hsl(var(--surface-0))] overflow-hidden" id="creative-main-viewport">
         {activeSidebarItem === 'Workspace' && (
           <WorkspaceTab
             history={history ?? []}

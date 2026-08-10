@@ -29,6 +29,7 @@ import { uploadService } from '@/services/uploadService';
 import LayerVisibilityPanel from './LayerVisibilityPanel';
 import AssetLayersPanel from './AssetLayersPanel';
 import ExportDialog from './ExportDialog';
+import { ThreeDViewer } from '@/features/workspace/viewer/ThreeDViewer';
 
 interface ThreeDGenerationTabProps {
   activeModel: any;
@@ -390,12 +391,13 @@ export default function ThreeDGenerationTab({
       const { url } = await uploadService.uploadWithProgress(file, (progress) => {
         setModelUploadProgress(progress.percent);
       }, '/api/v1/upload/model');
+      const blobUrl = URL.createObjectURL(file);
       setUploadedModel(file);
       setUploadedModelName(file.name);
-      setUploadedModelUrl(url);
-      
-      // Load model into viewer
-      window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url } }));
+      setUploadedModelUrl(blobUrl);
+
+      // Immediate local preview — don't wait for backend round-trip
+      window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url: blobUrl } }));
 
       // AnimeJS animation for successful load
       anime({
@@ -504,6 +506,7 @@ export default function ThreeDGenerationTab({
       setUploadedModelName(file.name);
       const url = URL.createObjectURL(file);
       setUploadedModelUrl(url);
+      window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url } }));
       toast.success(`3D Model imported: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)`);
       return;
     }
@@ -934,80 +937,9 @@ export default function ThreeDGenerationTab({
         {/* 3D Viewer Space — expanded vertically */}
         <div className="flex-1 relative bg-[hsl(var(--surface-0))] overflow-hidden" id="canvas-workspace">
           
-          {/* Floating HUD Control bar — Integrated into viewport */}
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 bg-[hsl(var(--surface-1))/0.8] backdrop-blur-xl border border-[hsl(var(--border))] px-4 py-2 rounded-2xl shadow-2xl" id="viewer-hud-controls">
-            {/* View Mode segmented control */}
-            <div className="flex items-center gap-1 bg-[hsl(var(--surface-2))/0.5] p-1 rounded-xl">
-              {(['Mesh', 'Wireframe', 'Texture'] as const).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => {
-                    setViewMode(m);
-                    if (m === 'Wireframe') setShowWireframe(true);
-                    else setShowWireframe(false);
-                  }}
-                  className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all ${
-                    viewMode === m
-                      ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] shadow-md'
-                      : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-3))]'
-                  }`}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-
-            <div className="w-[1px] h-4 bg-[hsl(var(--border))] mx-1" />
-
-            {/* Shading options */}
-            <div className="flex items-center gap-1">
-              {(['PBR', 'Clay'] as const).map((shade) => (
-                <button
-                  key={shade}
-                  onClick={() => setShading(shade)}
-                  className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all ${
-                    shading === shade
-                      ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10'
-                      : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
-                  }`}
-                >
-                  {shade}
-                </button>
-              ))}
-            </div>
-          </div>
+           {/* Floating HUD Control bar removed: controls targeted the old InteractiveMesh demo. ThreeDViewer has its own toolbar. */}
           
-          {/* Floating left toolbar — hidden on very small screens for space */}
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 hidden sm:flex flex-col gap-1.5 bg-[hsl(var(--surface-0))]/90 backdrop-blur-md border border-[hsl(var(--border))] p-1.5 rounded-xl text-[hsl(var(--muted-foreground))]">
-            <button className="p-2 rounded-lg hover:bg-[hsl(var(--border))] text-[hsl(var(--primary))]" title="Pointer Mode">
-              <Move size={14} />
-            </button>
-            <button 
-              onClick={() => {
-                const nextRotate = !autoRotate;
-                setAutoRotate(nextRotate);
-                toast.success(nextRotate ? 'Auto-rotation enabled' : 'Auto-rotation disabled', {
-                  description: nextRotate ? 'The model will now rotate automatically.' : 'Automatic rotation paused.'
-                });
-              }}
-              className={`p-2 rounded-lg hover:bg-[hsl(var(--border))] transition-all ${autoRotate ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 border border-[hsl(var(--primary))]/10' : 'hover:text-[hsl(var(--foreground))]'}`} 
-              title="Toggle Auto Rotation"
-            >
-              <RotateCw size={14} className={autoRotate ? 'animate-spin' : ''} />
-            </button>
-            <button className="p-2 rounded-lg hover:bg-[hsl(var(--border))] hover:text-[hsl(var(--foreground))]" title="Pan Camera">
-              <Move size={14} className="rotate-45" />
-            </button>
-            <button className="p-2 rounded-lg hover:bg-[hsl(var(--border))] hover:text-[hsl(var(--foreground))]" title="Zoom Camera">
-              <ZoomIn size={14} />
-            </button>
-            <button className="p-2 rounded-lg hover:bg-[hsl(var(--border))] hover:text-[hsl(var(--foreground))]" title="Show Bounding Box">
-              <Box size={14} />
-            </button>
-            <button className="p-2 rounded-lg hover:bg-[hsl(var(--border))] hover:text-[hsl(var(--foreground))]" title="Reset View">
-              <Focus size={14} />
-            </button>
-          </div>
+           {/* Left toolbar removed: buttons targeted the old InteractiveMesh demo. ThreeDViewer has its own controls. */}
 
           {/* Orientation Axis Widget in top-right */}
           <div className="absolute right-4 top-4 z-10 bg-[hsl(var(--surface-0))]/90 backdrop-blur-md border border-[hsl(var(--border))] px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-[10px] font-mono font-black" id="orientation-indicator">
@@ -1019,32 +951,7 @@ export default function ThreeDGenerationTab({
 
           {/* Interactive ThreeD Canvas */}
           <div className="w-full h-full relative" id="standing-model-rendering-view">
-            <Suspense fallback={
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-[hsl(var(--surface-0))/0.5] backdrop-blur-sm z-10 gap-2">
-                <RefreshCw size={24} className="text-[hsl(var(--primary))] animate-spin" />
-                <span className="text-xs font-mono font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Compiling shaders...</span>
-              </div>
-            }>
-              <Canvas shadows camera={{ position: [0, 1.8, 5.5], fov: 40, zoom: 0.7 }} className="w-full h-full">
-                <ambientLight intensity={1.5} />
-                <Environment preset="studio" />
-                <directionalLight position={[10, 20, 10]} intensity={2.5} castShadow />
-                <directionalLight position={[-10, -5, -10]} intensity={1.0} color="hsl(var(--primary))" />
-                
-                <InteractiveMesh 
-                  activeModel={activeModel} 
-                  shading={shading} 
-                  wireframe={showWireframe} 
-                />
-                
-                <OrbitControls makeDefault enablePan enableZoom minDistance={1} maxDistance={15} autoRotate={autoRotate} autoRotateSpeed={1.5} />
-              </Canvas>
-            </Suspense>
-
-            {/* Added Soon Placeholder overlays to respect previous truncation instruction of "Added soon" */}
-            <div className="absolute bottom-4 left-4 z-10 bg-[hsl(var(--surface-0))]/70 backdrop-blur-sm border border-[hsl(var(--border))] px-3 py-1.5 rounded-lg text-[10px] font-bold text-[hsl(var(--muted-foreground))] hidden sm:block">
-              3D Viewport • <span className="text-[hsl(var(--primary))]">Interactivity Active</span>
-            </div>
+            <ThreeDViewer />
           </div>
 
           {/* Bottom-right stats overlay matching high-fidelity mock — hidden on mobile for space */}

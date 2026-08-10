@@ -71,7 +71,7 @@ print(f"Model generated: {response.glb_url}")`,
   };
 
   return (
-    <div className="flex-1 p-6 flex flex-col lg:flex-row gap-6 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="api-access-tab-panel">
+    <div className="flex-1 min-h-0 p-6 flex flex-col lg:flex-row gap-6 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="api-access-tab-panel">
       {/* Left Column: API key and Usage Statistics */}
       <div className="flex-1 flex flex-col gap-5 min-w-0" id="api-left-panel">
         {/* Secret Key Panel */}

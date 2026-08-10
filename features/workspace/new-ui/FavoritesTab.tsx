@@ -36,7 +36,7 @@ export default function FavoritesTab({
   }, [favoriteItems.length]);
 
   return (
-    <div className="flex-1 p-8 flex flex-col gap-8 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="favorites-tab-panel">
+    <div className="flex-1 min-h-0 p-8 flex flex-col gap-8 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="favorites-tab-panel">
       {/* Header section with refined alignment */}
       <div className="flex flex-col gap-2 max-w-4xl">
         <div className="flex items-center gap-3">

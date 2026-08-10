@@ -319,7 +319,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-8" id="texture-engine-box">
+        <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-8" id="texture-engine-box">
           <div className="flex flex-col gap-1.5">
             <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))] text-left">Target Asset</span>
           </div>

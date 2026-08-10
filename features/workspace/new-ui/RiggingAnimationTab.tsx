@@ -621,7 +621,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
 
   return (
     <div
-      className="flex-1 p-6 flex flex-col lg:flex-row gap-6 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto"
+      className="flex-1 min-h-0 p-6 flex flex-col lg:flex-row gap-6 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto"
       id="rigging-animation-tab-panel"
     >
       {/* Left Input Configuration Panel */}

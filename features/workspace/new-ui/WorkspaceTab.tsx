@@ -30,7 +30,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
   const gpuUsage = stats?.gpu_utilization || 0;
 
   return (
-    <div className="flex-1 p-8 flex flex-col gap-10 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto bg-[hsl(var(--surface-0))]" id="workspace-tab-panel">
+    <div className="flex-1 min-h-0 p-8 flex flex-col gap-10 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto bg-[hsl(var(--surface-0))]" id="workspace-tab-panel">
       
       {/* Header Section */}
       <div className="flex flex-col gap-2" id="workspace-header-section">
