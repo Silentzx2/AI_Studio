@@ -1,5 +1,39 @@
 # AI 3D Studio — Changelog
 
+## v3.4.8 — Fix TRELLIS Load: `module 'numpy' has no attribute 'long'` (August 9, 2026)
+
+### Problem
+
+A 3D generation job for the `trellis` provider failed in the Celery worker with:
+
+```
+RuntimeError: TRELLIS load failed: module 'numpy' has no attribute 'long'
+```
+
+Root cause: the worker runs on the conda `cloudspace` interpreter whose numpy is **1.26.4**
+(`np.long` / `np.ulong` were removed in numpy 1.24). `_add_model_env()` prepends the per-model
+venv (which carries `scipy 1.18.0` / `open3d 0.19.0`, built for numpy 2.x), but its reload list
+omits `numpy`, so the already-cached `cloudspace` numpy wins. When TRELLIS's import chain pulls in
+`scipy.sparse._sputils`, its **module-level** `supported_dtypes = [..., np.long, np.ulong, ...]`
+crashes against the 1.26.4 numpy. (`pandas` already guards this; `open3d` ml3d references `np.long`
+too, only on a path not used by TRELLIS generation.)
+
+### Solution
+
+- **`backend/app/core/providers/base.py`**: added `_patch_numpy_legacy_aliases()` and call it at
+  the top of `_add_model_env()` (before any model-stack import). It restores the removed
+  `np.long` → `np.int_` and `np.ulong` → `np.uint` aliases on the *active* numpy module when
+  missing. This is a shared guard, so both `trellis` and `hunyuan3d` providers benefit, and it is a
+  safe no-op when the per-model venv's numpy 2.x (which still has `np.long`) is the active one.
+
+### Verification
+
+- Reproduced the exact worker traceback: `cloudspace numpy 1.26.4 + trellis venv prepended →
+  import scipy.sparse._sputils` raised `AttributeError: module 'numpy' has no attribute 'long'`
+  at `scipy/sparse/_sputils.py:17`.
+- With the shim applied, `scipy` and its `sparse / special / linalg / optimize / spatial.transform`
+  submodules all import cleanly on numpy 1.26.4.
+
 ## v3.4.7 — Fix TRELLIS/Hunyuan3D Load: torch/torchvision Version Mismatch (August 9, 2026)
 
 ### Problem
