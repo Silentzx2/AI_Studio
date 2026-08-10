@@ -254,6 +254,7 @@ ai-3d-studio/
 │   │   │   │   ├── hunyuan3d*.py       # Hunyuan3D providers
 │   │   │   │   ├── instant_mesh.py   # Instant Mesh
 │   │   │   │   ├── detailgen3d.py    # DetailGen3D
+│   │   │   │   ├── triposg_local.py  # TripoSG (image-to-3D)
 │   │   │   │   ├── anigen_provider.py # AniGen provider
 │   │   │   │   ├── huggingface_provider.py
 │   │   │   │   ├── github_provider.py
@@ -787,7 +788,7 @@ The workspace compatibility system prevents users from selecting incompatible mo
 
 | Workspace | Description | Compatible Models |
 |-----------|-------------|-------------------|
-| `mesh-generation` | Generate 3D meshes from text or images | hunyuan3d-2.1, hunyuan3d-2, trellis |
+| `mesh-generation` | Generate 3D meshes from text or images | hunyuan3d-2.1, hunyuan3d-2, trellis, triposg |
 | `texture-generation` | Generate PBR textures and materials | hunyuan3d-2.1, hunyuan3d-2, trellis |
 | `rigging` | Auto-rig 3D character meshes | anigen, unirig |
 | `animation` | Generate skeletal animations | anigen, unirig |

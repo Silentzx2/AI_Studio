@@ -17,7 +17,7 @@ from runtime.storage import get_storage_config
 
 logger = logging.getLogger(__name__)
 
-PROVIDER_PRIORITY = ["hunyuan3d-2.1", "trellis", "hunyuan3d-2", "hunyuan3d-2-mini", "anigen", "unirig", "detailgen3d", "mock"]
+PROVIDER_PRIORITY = ["hunyuan3d-2.1", "trellis", "hunyuan3d-2", "hunyuan3d-2-mini", "triposg", "anigen", "unirig", "detailgen3d", "mock"]
 
 # ponytail: mode support matrix. Used by get_best_provider_name to avoid
 # silently falling back to a provider that can't handle the requested mode
@@ -29,9 +29,10 @@ PROVIDER_MODES: dict[str, set[str]] = {
     "hunyuan3d-2": {"text-to-3d", "image-to-3d"},
     "hunyuan3d-2-mini": {"image-to-3d"},
     "trellis": {"image-to-3d"},
+    "triposg": {"image-to-3d"},
     "anigen": {"rigging"},
     "unirig": {"rigging"},
-    "detailgen3d": {"remesh", "texture-generation"},
+    "detailgen3d": {"remesh", "post-processing"},
     "mock": {"text-to-3d", "image-to-3d", "remesh", "texture-generation", "rigging"},
 }
 
@@ -42,6 +43,7 @@ _PROVIDER_MAP: dict[str, tuple[str, str]] = {
     "hunyuan3d-2": ("app.core.providers.hunyuan3d_local", "Hunyuan3D2LocalProvider"),
     "hunyuan3d-2-mini": ("app.core.providers.hunyuan3d_local", "Hunyuan3D2MiniLocalProvider"),
     "trellis": ("app.core.providers.trellis_local", "TRELLISLocalProvider"),
+    "triposg": ("app.core.providers.triposg_local", "TripoSGLocalProvider"),
     "anigen": ("app.core.providers.anigen_provider", "AniGenProvider"),
     "unirig": ("app.core.providers.unirig_provider", "UniRigProvider"),
     "detailgen3d": ("app.core.providers.detailgen3d", "DetailGen3DProvider"),

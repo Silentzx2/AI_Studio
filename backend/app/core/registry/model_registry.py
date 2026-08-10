@@ -24,7 +24,7 @@ class ModelRegistry:
         except Exception:
             _loadable = {
                 "hunyuan3d", "hunyuan3d-1.0", "hunyuan3d-2.1", "hunyuan3d-2",
-                "hunyuan3d-2-mini", "trellis", "anigen", "detailgen3d", "mock",
+                "hunyuan3d-2-mini", "trellis", "triposg", "anigen", "detailgen3d", "mock",
             }
 
         def _ok(meta: dict[str, Any]) -> bool:
@@ -289,6 +289,41 @@ class ModelRegistry:
                     "disk_space_mb": 1000,
                     "capabilities": {
                         "detail_enhancement": True,
+                    },
+                    "dependencies": {"python_packages": []},
+                    "download_sources": [],
+                    "runtime": {"type": "python", "entrypoint": "", "inference_class": ""}
+                }
+            },
+            {
+                "id": "triposg",
+                "label": "TripoSG",
+                "name": "VAST-AI/TripoSG",
+                "category": "3d_generation",
+                "description": "Image-to-3D generation with rectified flow transformer",
+                "author": "VAST-AI",
+                "installed": False,
+                "size_mb": 2000,
+                "vram_required_mb": _vram("triposg"),
+                "speed_seconds": 60,
+                "workspace_compatibility": ["mesh-generation"],
+                "manifest": {
+                    "name": "TripoSG",
+                    "version": "1.0",
+                    "category": "3d_generation",
+                    "description": "TripoSG image-to-3D model",
+                    "author": "VAST-AI",
+                    "license": "MIT",
+                    "min_vram_mb": 8192,
+                    "recommended_vram_mb": 8192,
+                    "cuda_required": True,
+                    "cuda_min_version": "11.8",
+                    "python_min": "3.10",
+                    "supported_os": ["linux", "windows"],
+                    "supported_architectures": ["x86_64"],
+                    "disk_space_mb": 3000,
+                    "capabilities": {
+                        "image_to_3d": True,
                     },
                     "dependencies": {"python_packages": []},
                     "download_sources": [],

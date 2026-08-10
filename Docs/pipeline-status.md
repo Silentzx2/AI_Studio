@@ -535,7 +535,7 @@ The current workspace model pickers are backed by the live registry snapshot and
 
 ### Registered model ids
 
-`hunyuan3d-2-mini`, `hunyuan3d-2.1`, `trellis`, `unirig`
+`hunyuan3d-2-mini`, `hunyuan3d-2.1`, `trellis`, `triposg`, `unirig`, `detailgen3d`
 
 ### Capability summary
 
@@ -544,12 +544,13 @@ The current workspace model pickers are backed by the live registry snapshot and
 | Hunyuan3D 2.1 | 3D generation | mesh-generation, texture-generation, post-processing | text/image-to-3D, texture generation | 16 GB |
 | Hunyuan3D-2 Mini | 3D generation | mesh-generation | image-to-3D (texture via Hunyuan3D-2 paint weights) | 6 GB |
 | Trellis | 3D generation | mesh-generation, texture-generation | image-to-3D, text-to-3D, texture generation | 8 GB |
+| TripoSG | 3D generation | mesh-generation | image-to-3D (no texture) | 8 GB |
 | UniRig | Rigging | rigging, animation | rigging, animation | 8 GB |
 | DetailGen3D | Post-processing | post-processing | detail enhancement | 4 GB |
 
 ### Workspace compatibility rules
 
-- **mesh-generation**: hunyuan3d-2-mini, hunyuan3d-2.1, hunyuan3d-2, trellis
+- **mesh-generation**: hunyuan3d-2-mini, hunyuan3d-2.1, hunyuan3d-2, trellis, triposg
 - **texture-generation**: hunyuan3d-2.1, hunyuan3d-2, trellis
 - **rigging**: anigen, unirig
 - **animation**: anigen, unirig

@@ -1,5 +1,24 @@
 # AI 3D Studio — Changelog
 
+## v3.6.0 — DetailGen3D (real) + TripoSG Providers (August 10, 2026)
+
+### Added
+- **DetailGen3D provider** (`detailgen3d`): real generative 3D geometry enhancement. Takes a coarse mesh (GLB) + reference image → detailed mesh GLB. Based on TripoSG; uses HunyuanDiT, FlashVDM, 3DShape2VecSet. `PROVIDER_MODES` is `{"remesh", "post-processing"}` — it does NOT do texture. Pure-PyTorch FPS fallback added to `detailgen3d/models/autoencoders/autoencoder_kl_triposg.py` so the `torch-cluster` CUDA build is avoided.
+- **TripoSG provider** (`triposg`): real 1.5B rectified-flow image→3D mesh/GLB pipeline. `PROVIDER_MODES` is `{"image-to-3d"}` — image-to-3d ONLY (no text-to-3d, no texture/PBR). Adds both `backend/third_party/TripoSG` (for the `triposg` package) and `backend/third_party/TripoSG/scripts` (for `briarmbg`, `image_process`) to `sys.path`. Loads `BriaRMBG` for background removal and `TripoSGPipeline` for mesh generation; exports GLB via `prepare_image` + `TripoSGPipeline(..., guidance_scale=7.0, num_inference_steps=50)`.
+- **Installer wiring**: `REPOS["TripoSG"]` and `REPOS["DetailGen3D"]` added; `HF_MODELS["triposg"] = VAST-AI/TripoSG` (~2 GB) and `HF_MODELS["detailgen3d"] = VAST-AI/DetailGen3D`; `PROVIDER_METADATA` entries added with honest VRAM/capability/workspace metadata.
+- **Engine registration**: `triposg` added to `PROVIDER_PRIORITY` (after `hunyuan3d-2-mini`) and `PROVIDER_MODES`/`_PROVIDER_MAP`. `detailgen3d` modes corrected to `{"remesh", "post-processing"}`.
+- **Model registry + frontend**: both models surfaced in `model_registry.py` `_raw` list and the offline `LOCAL_MODELS` fallback in `ThreeDGenerationTab.tsx` with honest capability flags.
+- **Tests**: `backend/tests/test_detailgen3d.py` and `backend/tests/test_triposg.py` verify metadata honesty, engine routing/modes, provider import + `_HAS_DEPS` guard, HF_MODELS entries, and weights-path resolution.
+
+### Honest capability notes
+- **DetailGen3D**: `supports_image_to_3d: False`, `supports_texture: False`, `supports_detail_enhancement: True`. Workspace compatibility: `["post-processing", "remesh"]`. VRAM ceiling `vram_required_mb: 4000` (provisional, not GPU-verified on this box).
+- **TripoSG**: `supports_text_to_3d: False`, `supports_image_to_3d: True`, `supports_texture: False`. Workspace compatibility: `["mesh-generation"]`. VRAM ceiling `vram_required_mb: 8192` (official "at least 8 GB VRAM"; not GPU-verified here).
+- **Both real implementations are NOT GPU-verified on this box** (no GPU present; tests run CPU-only and only assert wiring/metadata). Inference must be validated on real hardware before marking READY.
+
+### Files Modified
+- Backend: `runtime/installer.py`, `runtime/engine.py`, `app/core/providers/detailgen3d.py`, `app/core/providers/triposg_local.py` (new), `app/core/registry/model_registry.py`, `app/workers/tasks.py` (detail pass verified), `tests/test_detailgen3d.py` (new), `tests/test_triposg.py` (new)
+- Frontend: `features/workspace/new-ui/ThreeDGenerationTab.tsx`, `features/workspace/new-ui/RemeshTab.tsx` (verified)
+
 ## v3.5.2 — Hunyuan3D-2 Mini Provider (August 10, 2026)
 
 ### Added

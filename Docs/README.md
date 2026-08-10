@@ -86,6 +86,8 @@
 | **Hunyuan3D 2.1** | 3D generation | ~16 GB | ~90s | text-to-3D, image-to-3D, texture generation |
 | **Hunyuan3D-2 Mini** | 3D generation | ~6 GB | ~45s | image-to-3D (texture via Hunyuan3D-2 paint weights) |
 | **Trellis** | 3D generation | ~12 GB | ~60s | image-to-3D, text-to-3D, texture generation |
+| **TripoSG** | 3D generation | ~8 GB | ~60s | image-to-3D (rectified-flow, no texture) |
+| **DetailGen3D** | Post-processing | ~4 GB | ~15s | detail enhancement (mesh refinement, no texture) |
 | **UniRig** | Rigging | ~8 GB | ~30s | skeletal rigging, animation |
 
 ### Pipeline & Workspace APIs
@@ -336,6 +338,7 @@ Colab mode automatically:
 | AniGen | 6.2 GB | Prepared |
 | UniRig | 8 GB | Prepared |
 | DetailGen3D | 4 GB | Prepared |
+| TripoSG | 8 GB | Prepared |
 
 To run a skipped model on Colab, use a VPS or full-GPU environment instead.
 
@@ -370,7 +373,7 @@ CELERY_RESULT_BACKEND=redis://localhost:6379/1
 
 # ===== AI PROVIDER =====
 AI_PROVIDER=hunyuan3d-2.1
-# Options: mock, trellis, hunyuan3d-2, hunyuan3d-2.1, hunyuan3d-2-mini, unirig
+# Options: mock, trellis, hunyuan3d-2, hunyuan3d-2.1, hunyuan3d-2-mini, triposg, detailgen3d, unirig
 
 # ===== GPU SETTINGS =====
 CUDA_DEVICE=auto
@@ -421,7 +424,7 @@ For complete configuration options, see [Setup Guide - Configuration](docs/setup
 
 | Workspace | Purpose | Compatible Models |
 |-----------|---------|-------------------|
-| **Mesh Generation** | Create 3D meshes from text or images | Hunyuan3D 2.1, Hunyuan3D 2, Hunyuan3D-2 Mini, TRELLIS |
+| **Mesh Generation** | Create 3D meshes from text or images | Hunyuan3D 2.1, Hunyuan3D 2, Hunyuan3D-2 Mini, TRELLIS, TripoSG |
 | **Texture Generation** | Generate PBR textures and materials | Hunyuan3D 2.1, Hunyuan3D 2, TRELLIS |
 | **Rigging** | Auto-rig 3D character meshes | AniGen, UniRig |
 | **Animation** | Generate skeletal animations | AniGen, UniRig |
