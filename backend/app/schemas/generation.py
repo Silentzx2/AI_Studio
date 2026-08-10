@@ -21,6 +21,10 @@ class GenerationRequest(BaseModel):
     reference_image_url: str | None = None
     detail_pass: bool = False
     detail_guidance: float = 7.5
+    # Low VRAM mode: True forces low-VRAM execution; vram_mode may be
+    # "auto" (default — runtime picks a mode that fits), "normal" or "low".
+    low_vram: bool = False
+    vram_mode: Literal["auto", "normal", "low"] = "auto"
 
 
 

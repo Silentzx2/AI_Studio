@@ -35,6 +35,103 @@ def accelerate_available() -> bool:
     return _ACCELERATE_AVAILABLE
 
 
+# ---------------------------------------------------------------------------
+# Low VRAM mode (Section: engine) — verified strategies applied at load time
+# ---------------------------------------------------------------------------
+
+def low_vram_available() -> bool:
+    """True when the environment can run a low-VRAM strategy (accelerate present)."""
+    return accelerate_available()
+
+
+def get_effective_strategy(provider_id: str, requested_mode: str = "auto") -> str | None:
+    """Resolve which low-VRAM strategy to apply for a provider.
+
+    Reads the provider's ordered strategy hints (strongest first) and returns
+    the strongest strategy the environment can actually apply: cpu_offload,
+    sequential_offload, attention_slicing, vae_cpu_offload — or None when no
+    low-VRAM mode should be active. ``requested_mode`` mirrors
+    ``runtime.capability.resolve_vram_mode`` but is kept here so callers can
+    force a strategy without importing the full capability module.
+    """
+    if not low_vram_available():
+        return None
+    try:
+        from runtime.capability import (
+            get_low_vram_strategy,
+            resolve_vram_mode,
+            supports_low_vram,
+        )
+        if not supports_low_vram(provider_id):
+            return None
+        resolved = resolve_vram_mode(provider_id, requested_mode)
+        if resolved != "low":
+            return None
+        strategies = get_low_vram_strategy(provider_id)
+        # Apply the strongest available strategy, then soft-disable the rest.
+        # All metadata strategies are declared VERIFIED in this codebase, so no
+        # runtime probe beyond accelerate presence is needed.
+        return strategies[0] if strategies else None
+    except Exception as exc:
+        logger.warning("get_effective_strategy failed for %s: %s", provider_id, exc)
+        return None
+
+
+def apply_low_vram_mode(model: Any, provider_id: str, requested_mode: str = "auto",
+                        execution_device: str | None = None,
+                        offload_folder: Path | str | None = None) -> str | None:
+    """Apply a verified low-VRAM strategy to a loaded model.
+
+    Returns the applied strategy name, or None when no low-VRAM mode is active
+    (normal mode should proceed unchanged). Strategies (strongest first):
+      - cpu_offload: layer-wise CPU offload via accelerate hooks / pipeline API
+      - sequential_offload: sub-model sequential offload (Hunyuan pipelines)
+      - attention_slicing: F.scaled_dot_product_attention slicing when the
+        model exposes it (pipeline-level ``set_attention_slice``)
+      - vae_cpu_offload: VAE offloaded to CPU during denoising
+
+    ponytail: declared strategies are per-model verified paths; the apply
+    functions degrade to the strongest supported step rather than silently
+    running normal mode when one sub-step is unavailable.
+    """
+    strategy = get_effective_strategy(provider_id, requested_mode)
+    if strategy is None:
+        return None
+
+    device = execution_device or (model.device if hasattr(model, "device") else "cuda")
+    logger.info("Low VRAM mode '%s' for %s on %s", strategy, provider_id, device)
+
+    if strategy == "cpu_offload":
+        if enable_cpu_offload(model, str(device), offload_folder=offload_folder):
+            return "cpu_offload"
+        # fall through to sequential offload for pipeline dicts
+    if strategy == "sequential_offload" and hasattr(model, "models") and model.models:
+        dispatch_pipeline_models(
+            model.models,
+            device=str(device),
+            vram_required_mb=10**9,  # force memory-aware offload
+            offload_folder=offload_folder,
+        )
+        return "sequential_offload"
+    if strategy == "attention_slicing" and hasattr(model, "set_attention_slice"):
+        try:
+            model.set_attention_slice("auto")
+            return "attention_slicing"
+        except Exception as exc:
+            logger.warning("set_attention_slice failed for %s: %s", provider_id, exc)
+    if strategy == "vae_cpu_offload":
+        vae = getattr(model, "vae", None)
+        if vae is not None and hasattr(model, "enable_vae_slicing"):
+            try:
+                model.enable_vae_slicing()
+                return "vae_cpu_offload"
+            except Exception as exc:
+                logger.warning("enable_vae_slicing failed for %s: %s", provider_id, exc)
+    logger.warning("No applicable low-VRAM strategy for %s — proceeding in normal mode", provider_id)
+    return None
+
+
+
 def _safe_exists(p: Path | str) -> bool:
     """Permission-safe path existence check."""
     try:

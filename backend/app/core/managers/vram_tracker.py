@@ -35,7 +35,9 @@ class VRAMAllocationTracker:
             logger.warning("Failed to get allocated models from Redis: %s", exc)
             return {}
 
-    def log_audit(self, model_name: str, action: str, size_gb: float, reason: str | None = None) -> None:
+    def log_audit(self, model_name: str, action: str, size_gb: float, reason: str | None = None,
+                  provider: str | None = None, mode: str | None = None,
+                  attempt: int = 1, oom_retried: bool = False) -> None:
         """Log audit trail to database synchronously."""
         try:
             with SessionLocal() as session:
@@ -44,14 +46,19 @@ class VRAMAllocationTracker:
                     action=action,
                     size_gb=size_gb,
                     reason=reason,
-                    timestamp=datetime.utcnow()
+                    timestamp=datetime.utcnow(),
+                    provider=provider or model_name,
+                    mode=mode,
+                    attempt=attempt,
+                    oom_retried=oom_retried,
                 )
                 session.add(log_entry)
                 session.commit()
         except Exception as exc:
             logger.exception("Failed to write VRAM audit log: %s", exc)
 
-    def allocate(self, model_name: str, size_gb: float, reason: str | None = None) -> bool:
+    def allocate(self, model_name: str, size_gb: float, reason: str | None = None,
+                 mode: str | None = None, attempt: int = 1, oom_retried: bool = False) -> bool:
         """Allocate VRAM for model. Returns True if successful."""
         allocated = self.get_allocated_models()
         current_sum = sum(allocated.values())
@@ -72,7 +79,8 @@ class VRAMAllocationTracker:
                 # Save eviction/load timestamp for LRU in redis
                 self.redis.hset(self.redis_key, model_name, str(size_gb))
                 self.redis.set(f"vram:timestamp:{model_name}", datetime.utcnow().isoformat())
-                self.log_audit(model_name, "load", size_gb, reason or "allocation_success")
+                self.log_audit(model_name, "load", size_gb, reason or "allocation_success",
+                               mode=mode, attempt=attempt, oom_retried=oom_retried)
                 logger.info("Allocated %s GB for model %s. Total allocated: %s GB", size_gb, model_name, current_sum + size_gb)
                 return True
             except Exception as exc:
@@ -82,14 +90,16 @@ class VRAMAllocationTracker:
             logger.warning("Allocation failed for %s (%s GB). VRAM pressure too high.", model_name, size_gb)
             return False
 
-    def deallocate(self, model_name: str, reason: str | None = None) -> None:
+    def deallocate(self, model_name: str, reason: str | None = None,
+                   mode: str | None = None, attempt: int = 1, oom_retried: bool = False) -> None:
         """Deallocate VRAM for model."""
         allocated = self.get_allocated_models()
         size_gb = allocated.get(model_name, 0.0)
         try:
             self.redis.hdel(self.redis_key, model_name)
             self.redis.delete(f"vram:timestamp:{model_name}")
-            self.log_audit(model_name, "unload", size_gb, reason or "deallocation_request")
+            self.log_audit(model_name, "unload", size_gb, reason or "deallocation_request",
+                           mode=mode, attempt=attempt, oom_retried=oom_retried)
             logger.info("Deallocated model %s (%s GB). Reason: %s", model_name, size_gb, reason)
         except Exception as exc:
             logger.error("Failed to deallocate %s from Redis: %s", model_name, exc)

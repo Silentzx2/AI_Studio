@@ -114,17 +114,25 @@ class StorageConfig:
     # Weight path helpers
     # ------------------------------------------------------------------
 
-    def _has_real_weight_files(self, d: Path) -> bool:
+    def _has_real_weight_files(self, d: Path, recursive: bool = True) -> bool:
         """Check that directory contains actual model weight files, not empty or
-        temporary artifacts. ponytail: prevents false positives on partial
-        downloads (e.g. a lone .incomplete file or .lock).
+        temporary artifacts. ponytail: scans recursively by default — some
+        snapshots keep files under a subfolder (e.g.
+        hunyuan3d-2-mini/hunyuan3d-dit-v2-mini/), so a top-level-only scan would
+        wrongly report "no weights". Pass ``recursive=False`` for shared roots
+        (e.g. repo/weights) where a nested per-model subdir of a sibling model
+        must NOT count as this model's weights. Hidden paths (.*) are excluded
+        to avoid .accelerate_offload false positives.
         """
         try:
-            real = [f for f in d.iterdir()
-                    if f.is_file()
-                    and not f.name.startswith(".")
-                    and f.name != ".gitattributes"
-                    and f.stat().st_size > 0]
+            it = d.rglob("*") if recursive else d.iterdir()
+            real = [
+                f for f in it
+                if f.is_file()
+                and not f.name.startswith(".")
+                and not any(part.startswith(".") for part in f.relative_to(d).parts[:-1])
+                and f.name != ".gitattributes"
+                and f.stat().st_size > 0]
             return len(real) > 0
         except (PermissionError, OSError):
             return False
@@ -147,9 +155,12 @@ class StorageConfig:
                     per_model_dir = self.get_repo_path(meta["repo"]) / "weights" / weight_key
                     if _safe_exists(per_model_dir) and self._has_real_weight_files(per_model_dir):
                         return per_model_dir
-                    # Also check without weight_key subfolder (flat)
+                    # ponytail: legacy flat fallback — weights directly in
+                    # repo/weights (no per-model subdir). TOP-LEVEL check only:
+                    # a shared root whose only files live under a sibling
+                    # model's subdir must not be claimed as this model's weights.
                     per_model_dir2 = self.get_repo_path(meta["repo"]) / "weights"
-                    if _safe_exists(per_model_dir2) and self._has_real_weight_files(per_model_dir2):
+                    if _safe_exists(per_model_dir2) and self._has_real_weight_files(per_model_dir2, recursive=False):
                         return per_model_dir2
         except Exception:
             pass

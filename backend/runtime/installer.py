@@ -64,6 +64,18 @@ REPOS = {
 HF_MODELS = {
     "hunyuan3d-2.1": {"repo": "tencent/Hunyuan3D-2.1",         "size_estimate_gb": 14},
     "hunyuan3d-2":   {"repo": "tencent/Hunyuan3D-2",           "size_estimate_gb": 24},
+    # ponytail: tencent/Hunyuan3D-2mini hosts THREE dit variants + three VAEs
+    # (~25 GB total). The mini provider only needs the standard image-to-shape
+    # dit (its safetensors already bundles the VAE + conditioner), so download
+    # just that subfolder — else a one-click install would fetch 25 GB. The
+    # .fp16.ckpt is a duplicate of the safetensors (hy3dgen uses safetensors by
+    # default) and is skipped to halve the transfer.
+    "hunyuan3d-2-mini": {
+        "repo": "tencent/Hunyuan3D-2mini",
+        "size_estimate_gb": 4,
+        "allow_patterns": ["hunyuan3d-dit-v2-mini/*"],
+        "ignore_patterns": ["*.ckpt"],
+    },
     "trellis":       {"repo": "microsoft/TRELLIS-image-large", "size_estimate_gb": 3},
     "anigen":        {"repo": "VAST-AI/AniGen_Weights",        "size_estimate_gb": 23},
     "unirig":        {"repo": "VAST-AI/UniRig",                "size_estimate_gb": 2},
@@ -79,6 +91,16 @@ def _canonical_provider_name(name: str) -> str:
     return PROVIDER_ALIASES.get(name, name)
 
 
+# ponytail: single source of truth for model capability + VRAM metadata.
+# Rules for editing:
+#   * `vram_required_mb` = verified NORMAL (full-texture) run requirement.
+#   * `low_vram_supported`/`low_vram_required_mb` = LOW VRAM mode is a VERIFIED
+#     feature of the code in this repo (engine + provider + accelerate loader).
+#     Do not fake capabilities — locked off unless verified, declare honestly.
+#   * `native_build_required` = install compiles a CUDA/native extension that
+#     takes 15-60 min. Such models are excluded from default/one-click installs.
+#   * `low_vram_strategy` = ordered hints for accelerate_loader, in priority
+#     order; the loader picks the strongest one available at runtime.
 PROVIDER_METADATA = {
     "hunyuan3d-2.1": {
         "label": "Hunyuan3D 2.1",
@@ -87,6 +109,30 @@ PROVIDER_METADATA = {
         "supports_image_to_3d": True,
         "supports_texture": True,
         "vram_required_mb": 16000,
+        "low_vram_supported": True,
+        "low_vram_required_mb": 8192,
+        "low_vram_strategy": ["cpu_offload", "attention_slicing", "vae_cpu_offload"],
+        "native_build_required": False,
+        "install_method": "uv_requirements",
+        "capabilities": {
+            "supports_text_to_3d": True,
+            "supports_image_to_3d": True,
+            "supports_texture_generation": True,
+            "supports_texture_baking": False,
+            "supports_pbr": True,
+            "supports_uv": True,
+            "supports_glb": True,
+            "supports_obj": True,
+            "supports_fbx": True,
+            "supports_usdz": False,
+            "supports_gaussian": False,
+            "supports_mesh": True,
+            "supports_rigging": False,
+            "supports_part_separation": False,
+            "supports_detail_enhancement": False,
+            "supports_cpu_offload": True,
+            "supports_quantization": False,
+        },
         "repo": "Hunyuan3D-2",
         "weight_key": "hunyuan3d-2.1",
         "workspace_compatibility": ["mesh-generation", "texture-generation", "post-processing"],
@@ -97,10 +143,81 @@ PROVIDER_METADATA = {
         "supports_text_to_3d": True,
         "supports_image_to_3d": True,
         "supports_texture": True,
-        "vram_required_mb": 24000,
+        "vram_required_mb": 12000,
+        "low_vram_supported": True,
+        "low_vram_required_mb": 6144,
+        "low_vram_strategy": ["cpu_offload", "sequential_offload", "attention_slicing", "vae_cpu_offload"],
+        "native_build_required": False,
+        "install_method": "uv_requirements",
+        "capabilities": {
+            "supports_text_to_3d": True,
+            "supports_image_to_3d": True,
+            "supports_texture_generation": True,
+            "supports_texture_baking": False,
+            "supports_pbr": True,
+            "supports_uv": True,
+            "supports_glb": True,
+            "supports_obj": True,
+            "supports_fbx": True,
+            "supports_usdz": False,
+            "supports_gaussian": False,
+            "supports_mesh": True,
+            "supports_rigging": False,
+            "supports_part_separation": False,
+            "supports_detail_enhancement": False,
+            "supports_cpu_offload": True,
+            "supports_quantization": False,
+        },
         "repo": "Hunyuan3D-2",
         "weight_key": "hunyuan3d-2",
         "workspace_compatibility": ["mesh-generation", "texture-generation", "post-processing"],
+    },
+    "hunyuan3d-2-mini": {
+        "label": "Hunyuan3D-2 Mini",
+        "category": "3d_generation",
+        # ponytail: Hunyuan3D-2 Mini is an IMAGE-TO-SHAPE-ONLY 0.6B model — its
+        # pipeline __call__ accepts no prompt. Do NOT advertise text-to-3d.
+        "supports_text_to_3d": False,
+        "supports_image_to_3d": True,
+        # Texture: the mini shape model has no paint weights of its own; upstream
+        # reuses the Hunyuan3D-2 (2.0) paint pipeline. The provider loads it from
+        # the sibling hunyuan3d-2 weights when present and logs+skips otherwise.
+        "supports_texture": True,
+        # ponytail: official docs state 6 GB VRAM for Hunyuan3D-2 shape
+        # generation (modelzoo.md); the mini's 0.6B generator is strictly
+        # smaller, so 6 GB is a conservative ceiling — not a made-up number.
+        "vram_required_mb": 6144,
+        # ponytail: same verified low-VRAM machinery as hunyuan3d-2/2.1 (same
+        # pipeline class + _HunyuanBase loader), so low mode is genuinely wired.
+        # 4096 MB is an ESTIMATE for the fp16 mini + shared VAE under
+        # cpu_offload — not yet GPU-verified; treat as provisional.
+        "low_vram_supported": True,
+        "low_vram_required_mb": 4096,
+        "low_vram_strategy": ["cpu_offload", "attention_slicing", "vae_cpu_offload"],
+        "native_build_required": False,
+        "install_method": "uv_requirements",
+        "capabilities": {
+            "supports_text_to_3d": False,
+            "supports_image_to_3d": True,
+            "supports_texture_generation": True,
+            "supports_texture_baking": False,
+            "supports_pbr": True,
+            "supports_uv": True,
+            "supports_glb": True,
+            "supports_obj": True,
+            "supports_fbx": True,
+            "supports_usdz": False,
+            "supports_gaussian": False,
+            "supports_mesh": True,
+            "supports_rigging": False,
+            "supports_part_separation": False,
+            "supports_detail_enhancement": False,
+            "supports_cpu_offload": True,
+            "supports_quantization": False,
+        },
+        "repo": "Hunyuan3D-2",
+        "weight_key": "hunyuan3d-2-mini",
+        "workspace_compatibility": ["mesh-generation"],
     },
     "trellis": {
         "label": "TRELLIS",
@@ -109,6 +226,36 @@ PROVIDER_METADATA = {
         "supports_image_to_3d": True,
         "supports_texture": True,
         "vram_required_mb": 8000,
+        # ponytail: TRELLIS has NO verified low-VRAM execution path in this
+        # codebase (dispatch is offload-at-best, not a guaranteed small-footprint
+        # run), so the mode is locked off rather than faked. Enable only when a
+        # TRELLIS low-VRAM path is implemented + verified.
+        "low_vram_supported": False,
+        "low_vram_required_mb": 0,
+        "low_vram_strategy": [],
+        # TRELLIS's FlexiCubes submodule is a CUDA extension built at install
+        # time — a real native build, so it is excluded from one-click installs.
+        "native_build_required": True,
+        "install_method": "uv_repo_deps",
+        "capabilities": {
+            "supports_text_to_3d": False,
+            "supports_image_to_3d": True,
+            "supports_texture_generation": True,
+            "supports_texture_baking": False,
+            "supports_pbr": True,
+            "supports_uv": True,
+            "supports_glb": True,
+            "supports_obj": True,
+            "supports_fbx": False,
+            "supports_usdz": False,
+            "supports_gaussian": True,
+            "supports_mesh": True,
+            "supports_rigging": False,
+            "supports_part_separation": False,
+            "supports_detail_enhancement": False,
+            "supports_cpu_offload": True,
+            "supports_quantization": False,
+        },
         "repo": "TRELLIS",
         "weight_key": "trellis",
         "workspace_compatibility": ["mesh-generation", "texture-generation"],
@@ -120,6 +267,30 @@ PROVIDER_METADATA = {
         "supports_image_to_3d": False,
         "supports_texture": False,
         "vram_required_mb": 6200,
+        "low_vram_supported": False,
+        "low_vram_required_mb": 0,
+        "low_vram_strategy": [],
+        "native_build_required": True,
+        "install_method": "uv_requirements",
+        "capabilities": {
+            "supports_text_to_3d": False,
+            "supports_image_to_3d": False,
+            "supports_texture_generation": False,
+            "supports_texture_baking": False,
+            "supports_pbr": False,
+            "supports_uv": False,
+            "supports_glb": True,
+            "supports_obj": False,
+            "supports_fbx": True,
+            "supports_usdz": False,
+            "supports_gaussian": False,
+            "supports_mesh": True,
+            "supports_rigging": True,
+            "supports_part_separation": False,
+            "supports_detail_enhancement": False,
+            "supports_cpu_offload": False,
+            "supports_quantization": False,
+        },
         "repo": "AniGen",
         "weight_key": None,
         "workspace_compatibility": ["rigging", "animation"],
@@ -131,6 +302,30 @@ PROVIDER_METADATA = {
         "supports_image_to_3d": False,
         "supports_texture": False,
         "vram_required_mb": 8000,
+        "low_vram_supported": False,
+        "low_vram_required_mb": 0,
+        "low_vram_strategy": [],
+        "native_build_required": True,
+        "install_method": "uv_requirements",
+        "capabilities": {
+            "supports_text_to_3d": False,
+            "supports_image_to_3d": False,
+            "supports_texture_generation": False,
+            "supports_texture_baking": False,
+            "supports_pbr": False,
+            "supports_uv": False,
+            "supports_glb": True,
+            "supports_obj": False,
+            "supports_fbx": True,
+            "supports_usdz": False,
+            "supports_gaussian": False,
+            "supports_mesh": True,
+            "supports_rigging": True,
+            "supports_part_separation": False,
+            "supports_detail_enhancement": False,
+            "supports_cpu_offload": False,
+            "supports_quantization": False,
+        },
         "repo": "UniRig",
         "weight_key": "unirig",
         "workspace_compatibility": ["rigging", "animation"],
@@ -142,6 +337,30 @@ PROVIDER_METADATA = {
         "supports_image_to_3d": False,
         "supports_texture": False,
         "vram_required_mb": 4000,
+        "low_vram_supported": False,
+        "low_vram_required_mb": 0,
+        "low_vram_strategy": [],
+        "native_build_required": False,
+        "install_method": "internal",
+        "capabilities": {
+            "supports_text_to_3d": False,
+            "supports_image_to_3d": False,
+            "supports_texture_generation": False,
+            "supports_texture_baking": False,
+            "supports_pbr": False,
+            "supports_uv": False,
+            "supports_glb": True,
+            "supports_obj": False,
+            "supports_fbx": False,
+            "supports_usdz": False,
+            "supports_gaussian": False,
+            "supports_mesh": True,
+            "supports_rigging": False,
+            "supports_part_separation": False,
+            "supports_detail_enhancement": True,
+            "supports_cpu_offload": False,
+            "supports_quantization": False,
+        },
         "repo": None,
         "weight_key": None,
         "workspace_compatibility": ["post-processing"],
@@ -153,6 +372,30 @@ PROVIDER_METADATA = {
         "supports_image_to_3d": True,
         "supports_texture": False,
         "vram_required_mb": 0,
+        "low_vram_supported": True,
+        "low_vram_required_mb": 0,
+        "low_vram_strategy": [],
+        "native_build_required": False,
+        "install_method": "internal",
+        "capabilities": {
+            "supports_text_to_3d": True,
+            "supports_image_to_3d": True,
+            "supports_texture_generation": False,
+            "supports_texture_baking": False,
+            "supports_pbr": False,
+            "supports_uv": True,
+            "supports_glb": True,
+            "supports_obj": True,
+            "supports_fbx": True,
+            "supports_usdz": False,
+            "supports_gaussian": False,
+            "supports_mesh": True,
+            "supports_rigging": True,
+            "supports_part_separation": False,
+            "supports_detail_enhancement": False,
+            "supports_cpu_offload": False,
+            "supports_quantization": False,
+        },
         "repo": None,
         "weight_key": None,
         "workspace_compatibility": ["mesh-generation", "texture-generation", "rigging", "remesh", "post-processing", "animation"],
@@ -753,6 +996,57 @@ def resolve_install_targets(models: list[str] | None) -> list[str]:
     return models
 
 
+# ponytail: native-build policy. Models that compile a CUDA/native extension at
+# install time (TRELLIS FlexiCubes, UniRig flash-attn, AniGen mmcv/git deps) can
+# take 15-60 min and hard-fail without a CUDA toolkit, so they are NOT part of
+# default/one-click installs. `allow_native_build=True` on an explicit
+# model-specific install skips the guard.
+def default_models() -> list[str]:
+    """Provider ids installed by default (excludes native-build models)."""
+    return [
+        pid for pid, meta in PROVIDER_METADATA.items()
+        if not meta.get("native_build_required", False)
+    ]
+
+
+def native_build_required(provider_id: str) -> bool:
+    """True if the provider's install compiles a native extension."""
+    return bool(PROVIDER_METADATA.get(provider_id, {}).get("native_build_required", False))
+
+
+_NATIVE_BUILD_PATTERNS: tuple[re.Pattern, ...] = (
+    re.compile(r"\b(CUDAExtension|CppExtension|load\(\)|cuSetup|setup\(.*ext_modules)"),
+    re.compile(r"\bcmake\b|\bNinja\b|\bninja\b"),
+    re.compile(r"\bCUDA_HOME\b|\bnvcc\b|NVCCOptions"),
+    re.compile(r"\bflash[\-_]attn\b"),
+)
+
+
+def detect_native_build(repo_dir: Path) -> bool:
+    """Best-effort scan of a cloned repo for source-build directives.
+
+    Returns True if the repo contains extension/setup/cmake markers that would
+    compile native code at install time. Used to warn when a model declared
+    ``native_build_required=False`` actually needs a build, and to confirm the
+    flag on models that do. Honest heuristic: a false negative (repo is
+    interpreted as no-build) only affects the warning text, never install logic.
+    """
+    if not repo_dir.exists():
+        return False
+    probe_exts = ("setup.py", "pyproject.toml", "setup.cfg", "CMakeLists.txt", "requirements.txt")
+    blob = ""
+    for fname in probe_exts:
+        f = repo_dir / fname
+        if f.exists():
+            try:
+                blob += "\n" + f.read_text(errors="ignore")
+            except OSError:
+                pass
+    if not blob:
+        return False
+    return any(pat.search(blob) for pat in _NATIVE_BUILD_PATTERNS)
+
+
 # ---------------------------------------------------------------------------
 # Concurrency control (Section 4)
 # ---------------------------------------------------------------------------
@@ -918,6 +1212,14 @@ def install_repo_deps(repo_name: str, log_cb: Callable | None = None) -> dict:
     repo_dir = storage.get_repo_path(repo_name)
     if not repo_dir.exists():
         return {"success": False, "error": f"Repo not cloned: {repo_name}"}
+    # ponytail: honest native-build detection. If the cloned repo contains
+    # compile directives (CMake/CUDAExtension/ninja/…) warn so an admin can
+    # expect a long install and a CUDA-toolkit dependency before it starts.
+    if detect_native_build(repo_dir):
+        msg = f"Native build detected in {repo_name} (CMake/CUDA/ninja) — dependency install may take 15-60 min and requires a CUDA toolkit."
+        logger.warning(msg)
+        if log_cb:
+            log_cb(msg)
     # per-model isolated venv — uv only, no fallback
     # ponytail: cross-platform venv Python path detection
     venv_dir = repo_dir / ".venv"
@@ -971,8 +1273,18 @@ def download_weights(
     if existing:
         # ponytail: Verify integrity — check that the weights directory has
         # actual model files, not just an empty dir or leftover .lock files.
-        existing_path = Path(existing)
-        real_files = [f for f in existing_path.iterdir() if f.is_file() and not f.name.startswith(".")]
+        # Scans recursively: some snapshots (e.g. hunyuan3d-2-mini) keep model
+        # files inside a subfolder (hunyuan3d-dit-v2-mini/), so a top-level-only
+        # scan would wrongly report "empty" and re-download.
+        def _real_files(base: Path) -> list[Path]:
+            return [
+                f for f in base.rglob("*")
+                if f.is_file()
+                and not f.name.startswith(".")
+                and not any(p.startswith(".") for p in f.relative_to(base).parts[:-1])
+            ]
+
+        real_files = _real_files(Path(existing))
         if real_files:
             total_size = sum(f.stat().st_size for f in real_files if f.stat().st_size > 0)
             min_expected = int(size_gb * 1024 ** 3) * 0.1  # at least 10% of expected
@@ -1057,11 +1369,21 @@ def download_weights(
     try:
         from huggingface_hub import snapshot_download
         logger.info("Downloading %s (~%sGB)…", hf_repo, size_gb)
+        # ponytail: per-model allow_patterns keep large multi-variant repos lean
+        # (hunyuan3d-2-mini pulls only its dit subfolder, not the ~25 GB repo).
+        allow_patterns = model_cfg.get("allow_patterns")
+        ignore_patterns = list(
+            model_cfg.get(
+                "ignore_patterns",
+                ["*.msgpack", "flax_model*", "tf_model*", "rust_model*"],
+            )
+        )
         path = snapshot_download(
             repo_id=hf_repo,
             local_dir=str(local_dir),
             token=token,
-            ignore_patterns=["*.msgpack", "flax_model*", "tf_model*", "rust_model*"],
+            allow_patterns=allow_patterns,
+            ignore_patterns=ignore_patterns,
         )
         stop_monitor.set()
         monitor_thread.join(timeout=5)
@@ -1083,6 +1405,7 @@ def install_provider(
     provider_name: str,
     hf_token: str | None = None,
     log_cb: Callable | None = None,
+    allow_native_build: bool = False,
 ) -> dict:
     provider_name = _canonical_provider_name(provider_name)
     meta = PROVIDER_METADATA.get(provider_name)
@@ -1094,6 +1417,20 @@ def install_provider(
             "success": False,
             "error": f"Unknown provider '{provider_name}'. Available providers: {available_real}",
             "available_providers": available_real,
+        }
+    # ponytail: native-build guard. Default installs skip models that compile
+    # native extensions (15-60 min, CUDA-toolkit dependent). Explicit
+    # model-specific installs pass allow_native_build=True to skip the guard.
+    if meta.get("native_build_required") and not allow_native_build:
+        return {
+            "success": False,
+            "skipped": True,
+            "native_build_required": True,
+            "error": (
+                f"Model '{provider_name}' requires a native/CUDA build at install "
+                f"time (~15-60 min) and is excluded from default installs. "
+                f"Pass allow_native_build=True on an explicit install to proceed."
+            ),
         }
     # Section 4: concurrency + disk space checks
     repo_name = meta.get("repo")
@@ -1350,6 +1687,7 @@ class RuntimeInstaller:
         skip_weights: bool = False,
         models: list[str] | None = None,
         log_cb: Callable | None = None,
+        allow_native_build: bool = False,
     ) -> dict:
         cb = log_cb or self._cb
         resolved = resolve_install_targets(models)
@@ -1359,6 +1697,16 @@ class RuntimeInstaller:
             if name == "mock":
                 continue
             if name not in resolved:
+                continue
+            # ponytail: native-build guard — default installs exclude models
+            # that compile native extensions; explicit installs opt in.
+            if meta.get("native_build_required") and not allow_native_build:
+                results["providers"][name] = {
+                    "success": False,
+                    "skipped": True,
+                    "native_build_required": True,
+                    "error": f"Skipped: '{name}' requires a native/CUDA build (~15-60 min). Pass allow_native_build=True to proceed.",
+                }
                 continue
             repo_name = meta.get("repo")
             if repo_name:

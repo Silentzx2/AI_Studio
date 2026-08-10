@@ -2,13 +2,76 @@
 
 
 import { useRef, useEffect, useState, useCallback, Suspense } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useFrame, useThree, useLoader } from '@react-three/fiber';
 import { OrbitControls, Grid, Environment, Center, Float, Html, useProgress, Preload, Octahedron, useGLTF } from '@react-three/drei';
 import { Mesh, Group, Box3, Vector3 } from 'three';
+import { FBXLoader } from 'three-stdlib/loaders/FBXLoader.js';
+import { OBJLoader } from 'three-stdlib/loaders/OBJLoader.js';
+import { STLLoader } from 'three-stdlib/loaders/STLLoader.js';
 import { registerResetCamera } from '@/stores/useUIStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 import { useThemeStore } from '@/stores/useThemeStore';
+
+function disposeObject(object) {
+  if (object.isMesh) {
+    if (object.geometry) object.geometry.dispose();
+    if (object.material) {
+      if (Array.isArray(object.material)) {
+        object.material.forEach(material => {
+          if material.map) material.map.dispose();
+          if material.lightMap) material.lightMap.dispose();
+          if material.aoMap) material.aoMap.dispose();
+          if material.emissiveMap) material.emissiveMap.dispose();
+          if material.bumpMap) material.bumpMap.dispose();
+          if material.normalMap) material.normalMap.dispose();
+          if material.roughnessMap) material.roughnessMap.dispose();
+          if material.metalnessMap) material.metalnessMap.dispose();
+          if material.alphaMap) material.alphaMap.dispose();
+          material.dispose();
+        });
+      } else {
+        if (object.material.map) object.material.map.dispose();
+        if (object.material.lightMap) object.material.lightMap.dispose();
+        if (object.material.aoMap) object.material.aoMap.dispose();
+        if (object.material.emissiveMap) object.material.emissiveMap.dispose();
+        if (object.material.bumpMap) object.material.bumpMap.dispose();
+        if (object.material.normalMap) object.material.normalMap.dispose();
+        if (object.material.roughnessMap) object.material.roughnessMap.dispose();
+        if (object.material.metalnessMap) object.material.metalnessMap.dispose();
+        if (object.material.alphaMap) object.material.alphaMap.dispose();
+        object.material.dispose();
+      }
+    }
+  }
+
+  if (object.isLight) {
+    // Lights have nothing to dispose
+    return;
+  }
+
+  object.traverse((child) => {
+    if (!object.isScene) {
+      disposeObject(child);
+    }
+  });
+}
+
+function ErrorBoundary({ fallback, children }) {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      setHasError(false);
+    };
+  }, []);
+
+  if (hasError) {
+    return <div className="text-center py-4">{fallback}</div>;
+  }
+
+  return <>{children}</>;
+}
 
 function LoadingScreen() {
   const { progress } = useProgress();
@@ -129,6 +192,177 @@ function PlaceholderModel({ wireframe }: { wireframe: boolean }) {
   );
 }
 
+function FbxModel({ url, wireframe }: { url: string; wireframe: boolean }) {
+  const { scene } = useLoader(FBXLoader, url);
+  const groupRef = useRef<Group>(null);
+  const { camera } = useThree();
+
+  useEffect(() => {
+    if (groupRef.current) {
+      groupRef.current.traverse((child) => {
+        if ((child as Mesh).isMesh) {
+          const mesh = child as Mesh;
+          if (mesh.material) {
+            const mat = mesh.material as any;
+            mat.wireframe = wireframe;
+          }
+        }
+      });
+    }
+
+    // Calculate bounding box to center and frame the model
+    if (groupRef.current) {
+      const box = new Box3().setFromObject(groupRef.current);
+      const center = box.getCenter(new Vector3());
+      const size = box.getSize(new Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z) || 1;
+
+      // Position model to be centered and properly framed
+      groupRef.current.position.sub(center);
+      groupRef.current.position.y += size.y * 0.5; // Sit on "ground"
+
+      // Store initial position for potential reset
+      groupRef.current.userData.initialPosition = groupRef.current.position.clone();
+
+      // Auto-frame the camera so the model is visible without manual zoom
+      const fov = (camera as any).fov ?? 45;
+      const distance = (maxDim / 2 / Math.tan((fov * Math.PI) / 360)) * 1.6;
+      camera.position.set(0, size.y * 0.5 + maxDim * 0.2, distance);
+      camera.lookAt(0, size.y * 0.5, 0);
+      const controls = (window as any).__orbitControls;
+      if (controls) {
+        controls.target.set(0, size.y * 0.5, 0);
+        controls.update();
+      }
+    }
+  }, [wireframe, scene]);
+
+  // Dispose of the previous scene when the component unmounts or before loading a new one
+  useEffect(() => {
+    return () => {
+      if (groupRef.current) {
+        disposeObject(groupRef.current);
+      }
+    };
+  }, []);
+
+  return <group ref={groupRef}><primitive object={scene} /></group>;
+}
+
+function ObjModel({ url, wireframe }: { url: string; wireframe: boolean }) {
+  const { scene } = useLoader(OBJLoader, url);
+  const groupRef = useRef<Group>(null);
+  const { camera } = useThree();
+
+  useEffect(() => {
+    if (groupRef.current) {
+      groupRef.current.traverse((child) => {
+        if ((child as Mesh).isMesh) {
+          const mesh = child as Mesh;
+          if (mesh.material) {
+            const mat = mesh.material as any;
+            mat.wireframe = wireframe;
+          }
+        }
+      });
+    }
+
+    // Calculate bounding box to center and frame the model
+    if (groupRef.current) {
+      const box = new Box3().setFromObject(groupRef.current);
+      const center = box.getCenter(new Vector3());
+      const size = box.getSize(new Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z) || 1;
+
+      // Position model to be centered and properly framed
+      groupRef.current.position.sub(center);
+      groupRef.current.position.y += size.y * 0.5; // Sit on "ground"
+
+      // Store initial position for potential reset
+      groupRef.current.userData.initialPosition = groupRef.current.position.clone();
+
+      // Auto-frame the camera so the model is visible without manual zoom
+      const fov = (camera as any).fov ?? 45;
+      const distance = (maxDim / 2 / Math.tan((fov * Math.PI) / 360)) * 1.6;
+      camera.position.set(0, size.y * 0.5 + maxDim * 0.2, distance);
+      camera.lookAt(0, size.y * 0.5, 0);
+      const controls = (window as any).__orbitControls;
+      if (controls) {
+        controls.target.set(0, size.y * 0.5, 0);
+        controls.update();
+      }
+    }
+  }, [wireframe, scene]);
+
+  // Dispose of the previous scene when the component unmounts or before loading a new one
+  useEffect(() => {
+    return () => {
+      if (groupRef.current) {
+        disposeObject(groupRef.current);
+      }
+    };
+  }, []);
+
+  return <group ref={groupRef}><primitive object={scene} /></group>;
+}
+
+function StlModel({ url, wireframe }: { url: string; wireframe: boolean }) {
+  const { scene } = useLoader(STLLoader, url);
+  const groupRef = useRef<Group>(null);
+  const { camera } = useThree();
+
+  useEffect(() => {
+    if (groupRef.current) {
+      groupRef.current.traverse((child) => {
+        if ((child as Mesh).isMesh) {
+          const mesh = child as Mesh;
+          if (mesh.material) {
+            const mat = mesh.material as any;
+            mat.wireframe = wireframe;
+          }
+        }
+      });
+    }
+
+    // Calculate bounding box to center and frame the model
+    if (groupRef.current) {
+      const box = new Box3().setFromObject(groupRef.current);
+      const center = box.getCenter(new Vector3());
+      const size = box.getSize(new Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z) || 1;
+
+      // Position model to be centered and properly framed
+      groupRef.current.position.sub(center);
+      groupRef.current.position.y += size.y * 0.5; // Sit on "ground"
+
+      // Store initial position for potential reset
+      groupRef.current.userData.initialPosition = groupRef.current.position.clone();
+
+      // Auto-frame the camera so the model is visible without manual zoom
+      const fov = (camera as any).fov ?? 45;
+      const distance = (maxDim / 2 / Math.tan((fov * Math.PI) / 360)) * 1.6;
+      camera.position.set(0, size.y * 0.5 + maxDim * 0.2, distance);
+      camera.lookAt(0, size.y * 0.5, 0);
+      const controls = (window as any).__orbitControls;
+      if (controls) {
+        controls.target.set(0, size.y * 0.5, 0);
+        controls.update();
+      }
+    }
+  }, [wireframe, scene]);
+
+  // Dispose of the previous scene when the component unmounts or before loading a new one
+  useEffect(() => {
+    return () => {
+      if (groupRef.current) {
+        disposeObject(groupRef.current);
+      }
+    };
+  }, []);
+
+  return <group ref={groupRef}><primitive object={scene} /></group>;
+}
+
 function CameraController({ autoRotate }: { autoRotate: boolean }) {
   const { camera } = useThree();
   const orbitRef = useRef<any>(null);
@@ -183,6 +417,13 @@ export function ViewerScene() {
     return () => { window.removeEventListener('load-glb-model', handleLoadGlb as EventListener); };
   }, [handleLoadGlb]);
 
+  // Helper to get file extension in lowercase without dot
+  const getFileExtension = (url: string): string => {
+    if (!url) return '';
+    const match = url.match(/\.([^.]+)$/);
+    return match ? match[1].toLowerCase() : '';
+  };
+
   return (
     <>
       <CameraController autoRotate={viewer.autoRotate} />
@@ -209,11 +450,39 @@ export function ViewerScene() {
       <Center>
         {userModelUrl ? (
           <Suspense fallback={<LoadingScreen />}>
-            <UserModel url={userModelUrl} wireframe={viewer.showWireframe} />
+            <ErrorBoundary fallback={<div className="text-center py-4">Failed to load model</div>}>
+              {/* User uploads: use UserModel for GLB/GLTF, and specific loaders for other formats */}
+              {getFileExtension(userModelUrl) === 'glb' || getFileExtension(userModelUrl) === 'gltf' ? (
+                <UserModel url={userModelUrl} wireframe={viewer.showWireframe} />
+              ) : getFileExtension(userModelUrl) === 'fbx' ? (
+                <FbxModel url={userModelUrl} wireframe={viewer.showWireframe} />
+              ) : getFileExtension(userModelUrl) === 'obj' ? (
+                <ObjModel url={userModelUrl} wireframe={viewer.showWireframe} />
+              ) : getFileExtension(userModelUrl) === 'stl' ? (
+                <StlModel url={userModelUrl} wireframe={viewer.showWireframe} />
+              ) : (
+                // Unsupported format - fallback to placeholder
+                <PlaceholderModel wireframe={viewer.showWireframe} />
+              )}
+            </ErrorBoundary>
           </Suspense>
         ) : hasModel && modelUrl ? (
           <Suspense fallback={<LoadingScreen />}>
-            <GeneratedModel url={modelUrl} wireframe={viewer.showWireframe} />
+            <ErrorBoundary fallback={<div className="text-center py-4">Failed to load model</div>}>
+              {/* Generated models: use GeneratedModel for GLB/GLTF, and specific loaders for other formats */}
+              {getFileExtension(modelUrl) === 'glb' || getFileExtension(modelUrl) === 'gltf' ? (
+                <GeneratedModel url={modelUrl} wireframe={viewer.showWireframe} />
+              ) : getFileExtension(modelUrl) === 'fbx' ? (
+                <FbxModel url={modelUrl} wireframe={viewer.showWireframe} />
+              ) : getFileExtension(modelUrl) === 'obj' ? (
+                <ObjModel url={modelUrl} wireframe={viewer.showWireframe} />
+              ) : getFileExtension(modelUrl) === 'stl' ? (
+                <StlModel url={modelUrl} wireframe={viewer.showWireframe} />
+              ) : (
+                // Unsupported format - fallback to demo
+                <DemoModel wireframe={viewer.showWireframe} />
+              )}
+            </ErrorBoundary>
           </Suspense>
         ) : hasModel ? (
           <DemoModel wireframe={viewer.showWireframe} />

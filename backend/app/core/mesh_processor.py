@@ -155,3 +155,116 @@ def get_mesh_stats(model_path: str) -> dict:
     except Exception as exc:
         logger.warning("Failed to read mesh stats: %s", exc)
         return {"polygon_count": 0, "vertex_count": 0, "file_size": Path(model_path).stat().st_size}
+
+
+# ---------------------------------------------------------------------------
+# Output validation (GLB / UV / texture / export)
+# ---------------------------------------------------------------------------
+
+def validate_glb(model_path: str) -> dict:
+    """Validate a generated GLB parses as a real mesh with non-zero geometry.
+
+    Used by the worker after provider generation to catch corrupt/empty
+    outputs (invalid GLB, zero-face mesh, etc.) before they reach the UI.
+    Returns a dict with ``valid`` and, when invalid, ``reason``.
+    """
+    path = Path(model_path)
+    if not path.exists():
+        return {"valid": False, "reason": "file not found", "model_path": model_path}
+    size = path.stat().st_size
+    if size == 0:
+        return {"valid": False, "reason": "empty file (0 bytes)", "model_path": model_path}
+    trimesh = _try_import_trimesh()
+    if trimesh is None:
+        return {"valid": True, "model_path": model_path}  # cannot verify — don't block
+    try:
+        loaded = trimesh.load(str(path))
+        if isinstance(loaded, trimesh.Scene):
+            meshes = [g for g in loaded.geometry.values() if isinstance(g, trimesh.Trimesh)]
+            face_count = sum(len(m.faces) for m in meshes)
+            vertex_count = sum(len(m.vertices) for m in meshes)
+        else:
+            mesh = loaded
+            face_count, vertex_count = len(mesh.faces), len(mesh.vertices)
+        if face_count == 0 or vertex_count == 0:
+            return {
+                "valid": False,
+                "reason": f"parses but has no geometry (faces={face_count}, vertices={vertex_count})",
+                "model_path": model_path,
+            }
+        return {
+            "valid": True,
+            "model_path": model_path,
+            "polygon_count": face_count,
+            "vertex_count": vertex_count,
+            "file_size": size,
+        }
+    except Exception as exc:
+        return {"valid": False, "reason": f"invalid GLB: {exc}", "model_path": model_path}
+
+
+def validate_uv_mapping(model_path: str) -> dict:
+    """Check that a mesh has UV coordinates (required for texturing)."""
+    trimesh = _try_import_trimesh()
+    if trimesh is None:
+        return {"valid": True, "unverifiable": True, "model_path": model_path}
+    try:
+        mesh = trimesh.load(model_path, force="mesh")
+        uvs = getattr(mesh, "visual", None)
+        has_uv = bool(uvs is not None and getattr(uvs, "uv", None) is not None and len(uvs.uv) > 0)
+        return {"valid": has_uv, "has_uv": has_uv, "model_path": model_path}
+    except Exception as exc:
+        return {"valid": False, "reason": f"could not inspect UVs: {exc}", "model_path": model_path}
+
+
+def validate_texture(model_path: str) -> dict:
+    """Check that a GLB carries a base-color texture (material or image).
+
+    A textured model must expose a texture image via material.baseColorTexture
+    or the visual's material image. Untextured models are still valid output,
+    so this returns ``textured`` rather than blocking on ``valid``.
+    """
+    trimesh = _try_import_trimesh()
+    if trimesh is None:
+        return {"valid": True, "textured": False, "unverifiable": True, "model_path": model_path}
+    try:
+        loaded = trimesh.load(model_path, force="scene")
+        textured = False
+        for node in loaded.geometry.values():
+            mat = getattr(node, "visual", None)
+            mat = getattr(mat, "material", None) if mat is not None else None
+            if mat is not None and getattr(mat, "image", None) is not None:
+                textured = True
+                break
+            # trimesh PBR material exposes texture via baseColorTexture
+            if mat is not None and getattr(mat, "baseColorTexture", None) is not None:
+                textured = True
+                break
+        return {"valid": True, "textured": textured, "model_path": model_path}
+    except Exception as exc:
+        return {"valid": False, "reason": f"could not inspect texture: {exc}", "model_path": model_path}
+
+
+def validate_export(model_path: str, fmt: str) -> dict:
+    """Validate an exported model file for a given format ('glb'|'obj'|'fbx')."""
+    fmt = (fmt or "glb").lower().lstrip(".")
+    path = Path(model_path)
+    if fmt == "glb":
+        return validate_glb(model_path)
+    if not path.exists() or path.stat().st_size == 0:
+        return {"valid": False, "reason": f"{fmt.upper()} export missing or empty", "model_path": model_path}
+    trimesh = _try_import_trimesh()
+    if trimesh is None:
+        return {"valid": True, "model_path": model_path}
+    try:
+        mesh = trimesh.load(str(path), force="mesh")
+        return {
+            "valid": len(mesh.faces) > 0,
+            "polygon_count": len(mesh.faces),
+            "vertex_count": len(mesh.vertices),
+            "file_size": path.stat().st_size,
+            "model_path": model_path,
+        }
+    except Exception as exc:
+        return {"valid": False, "reason": f"invalid {fmt.upper()}: {exc}", "model_path": model_path}
+

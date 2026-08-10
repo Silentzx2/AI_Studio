@@ -25,6 +25,11 @@ class GenerationJob(Base):
     reference_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     provider: Mapped[str] = mapped_column(String(32), nullable=False, default="mock")
     enhanced_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # ponytail: low-VRAM request snapshot. low_vram=False forces normal mode;
+    # True forces low mode; vram_mode="auto" lets the runtime pick whichever
+    # fits (see runtime.capability.resolve_vram_mode).
+    low_vram: Mapped[bool] = mapped_column(default=False)
+    vram_mode: Mapped[str] = mapped_column(String(16), nullable=False, default="auto")
 
     # Progress
     progress: Mapped[int] = mapped_column(Integer, default=0)
@@ -58,4 +63,11 @@ class VramAuditLog(Base):
     size_gb: Mapped[float] = mapped_column(nullable=False)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # ponytail: enriched audit fields — which provider/mode was loaded, on which
+    # attempt, and whether the attempt was a post-OOM retry. Lets an admin see
+    # low-vs-normal VRAM usage and OOM recovery activity without grepping logs.
+    provider: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    mode: Mapped[str | None] = mapped_column(String(16), nullable=True)  # "normal" | "low"
+    attempt: Mapped[int] = mapped_column(Integer, default=1)
+    oom_retried: Mapped[bool] = mapped_column(default=False)
 

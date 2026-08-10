@@ -136,6 +136,132 @@ def get_model_metadata(provider_id: str) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Low VRAM mode + Auto VRAM planner
+# ---------------------------------------------------------------------------
+
+def get_vram_safety_margin_mb() -> int:
+    """Safety headroom reserved below total VRAM before declaring a model
+    un-runnable. Configurable via ``vram_safety_margin_mb`` setting; defaults
+    to 2 GB. Applied by the Auto VRAM planner and engine gating."""
+    try:
+        from app.config import get_settings  # noqa: PLC0415
+        return int(get_settings().vram_safety_margin_mb or 2048)
+    except Exception:
+        return 2048
+
+
+def supports_low_vram(provider_id: str) -> bool:
+    """True if the provider has a VERIFIED low-VRAM execution path.
+
+    Never fake: a provider only reports low-VRAM support when the code in this
+    repo (engine + provider + accelerate loader) implements and validates it.
+    """
+    meta = get_model_metadata(provider_id)
+    return bool(meta.get("low_vram_supported", False))
+
+
+def get_low_vram_required(provider_id: str) -> int:
+    """VRAM (MB) required to run the provider in low-VRAM mode, 0 if unsupported."""
+    return int(get_model_metadata(provider_id).get("low_vram_required_mb", 0))
+
+
+def get_low_vram_strategy(provider_id: str) -> list[str]:
+    """Ordered low-VRAM strategy hints from metadata (strongest first)."""
+    return list(get_model_metadata(provider_id).get("low_vram_strategy", []))
+
+
+def resolve_vram_mode(provider_id: str, requested_mode: str = "auto") -> str:
+    """Resolve an explicit/auto low-VRAM mode to a concrete load mode.
+
+    Valid returns: ``"normal"``, ``"low"``, or ``"unavailable"`` (the provider
+    does not support low-VRAM execution). ``"auto"`` selects low-VRAM only when
+    the detected free VRAM cannot fit the normal requirement; otherwise normal.
+    """
+    requested_mode = requested_mode or "auto"
+    if requested_mode not in ("auto", "normal", "low"):
+        requested_mode = "auto"
+    if requested_mode == "low":
+        return "low" if supports_low_vram(provider_id) else "unavailable"
+    if requested_mode == "normal":
+        return "normal"
+    # auto: run low-VRAM only when the normal footprint does not fit free VRAM
+    required = get_model_vram_required(provider_id)
+    if not supports_low_vram(provider_id) or required == 0:
+        return "normal"
+    free_mb = get_detected_free_vram_mb()
+    if free_mb == 0:
+        return "normal"  # CPU-only host — no VRAM constraint to apply
+    return "low" if free_mb < required else "normal"
+
+
+def get_detected_free_vram_mb() -> int:
+    """Free VRAM (MB) of the first GPU, or 0 when no GPU is detected."""
+    try:
+        from runtime.gpu import get_gpu_info  # noqa: PLC0415
+        gpu = get_gpu_info()
+        if gpu.available:
+            return int(gpu.free_vram_mb or 0)
+    except Exception:
+        pass
+    return 0
+
+
+def plan_vram_usage(provider_id: str, mode: str = "auto") -> dict[str, Any]:
+    """Auto VRAM planner: pick the mode that fits the current GPU.
+
+    Returns a dict describing the mode selected, its VRAM footprint, whether
+    it fits, and the shortfall (MB). ``mode`` may be ``auto``/``normal``/``low``.
+    The planner always reserves ``get_vram_safety_margin_mb()`` headroom below
+    total VRAM so the model does not OOM the CUDA context.
+
+    ponytail: single call site for "which mode + does it fit" so the engine,
+    the generation API, and the frontend all agree on one answer.
+    """
+    meta = get_model_metadata(provider_id)
+    normal_mb = get_model_vram_required(provider_id)
+    low_mb = get_low_vram_required(provider_id)
+    low_supported = supports_low_vram(provider_id)
+
+    resolved = resolve_vram_mode(provider_id, mode)
+    if resolved == "unavailable":
+        return {
+            "mode": "unavailable",
+            "normal_vram_mb": normal_mb,
+            "low_vram_mb": 0,
+            "low_vram_supported": False,
+            "reason": f"{provider_id} does not support verified low-VRAM execution.",
+        }
+
+    chosen_mb = low_mb if resolved == "low" else normal_mb
+    free_mb = get_detected_free_vram_mb()
+    safety = get_vram_safety_margin_mb()
+
+    if free_mb == 0:
+        # No GPU — no VRAM gating (CPU-only path already handled upstream).
+        fits, shortfall = True, 0
+    else:
+        fits = (chosen_mb + safety) <= free_mb
+        shortfall = max(0, (chosen_mb + safety) - free_mb)
+
+    strategy = get_low_vram_strategy(provider_id) if resolved == "low" else []
+    return {
+        "provider": provider_id,
+        "label": meta.get("label", provider_id),
+        "mode": resolved,
+        "normal_vram_mb": normal_mb,
+        "low_vram_mb": low_mb,
+        "low_vram_supported": low_supported,
+        "strategy": strategy,
+        "vram_required_mb": chosen_mb,
+        "safety_margin_mb": safety,
+        "free_vram_mb": free_mb,
+        "fits": bool(fits),
+        "shortfall_mb": shortfall,
+        "cpu_only": free_mb == 0,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Colab preparation policy
 # ---------------------------------------------------------------------------
 
@@ -207,6 +333,10 @@ def get_runtime_capabilities() -> dict[str, Any]:
             providers[pid] = {
                 "label": meta.get("label", pid),
                 "vram_required_mb": vram_req,
+                "low_vram_supported": bool(meta.get("low_vram_supported", False)),
+                "low_vram_required_mb": int(meta.get("low_vram_required_mb", 0)),
+                "low_vram_strategy": list(meta.get("low_vram_strategy", [])),
+                "native_build_required": bool(meta.get("native_build_required", False)),
                 "category": meta.get("category"),
                 "colab_preparable": not colab_incompat,
                 "colab_incompatibility_reason": colab_incompat,
@@ -222,5 +352,6 @@ def get_runtime_capabilities() -> dict[str, Any]:
         "total_vram_mb": vram_mb,
         "cuda_version": cuda,
         "colab_preparation_limit_mb": _COLAB_PREP_LIMIT_MB if colab else None,
+        "vram_safety_margin_mb": get_vram_safety_margin_mb(),
         "providers": providers,
     }

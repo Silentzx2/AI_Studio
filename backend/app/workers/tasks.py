@@ -131,6 +131,55 @@ def _wait_for_stable_file(path: str, timeout_seconds: float = 15.0, stable_check
     return p.exists() and p.stat().st_size > 0
 
 
+_OOM_MARKERS = (
+    "out of memory", "cuda out of memory", "cuda oom",
+    "cuinit error", "runtimeerror: cuda", "oom",
+    "no memory to allocate", "nvidia-smi", "memory exhausted",
+)
+
+
+def _is_oom_error(exc: BaseException) -> bool:
+    """True when an exception is a GPU OOM / memory-exhaustion failure.
+
+    Drives the low-VRAM fallback retry: only genuine memory failures retry in
+    low mode, so a code bug is not masked by an expensive double run.
+    """
+    msg = str(exc).lower()
+    return any(marker in msg for marker in _OOM_MARKERS)
+
+
+def _resolve_job_vram_mode(job) -> str:
+    """Map a job's low_vram/vram_mode snapshot to an engine load mode.
+
+    low_vram=True forces 'low'; otherwise the stored vram_mode ('auto' by
+    default) is passed through so the engine's Auto VRAM planner decides.
+    """
+    if getattr(job, "low_vram", False):
+        return "low"
+    return getattr(job, "vram_mode", "auto") or "auto"
+
+
+def _can_retry_low_vram(provider_name: str) -> bool:
+    """Whether a job that OOM'd may be retried in low VRAM mode.
+
+    Gated on the provider supporting a low-VRAM footprint so a buggy provider
+    is not pointlessly double-run.
+    """
+    from runtime.capability import plan_vram_usage
+    try:
+        plan = plan_vram_usage(provider_name, "low")
+        supported = bool(plan.get("fits", False)) or plan.get("cpu_only", False)
+    except Exception:
+        supported = False
+    if not supported:
+        logger.warning(
+            "Job %s OOM'd but provider '%s' has no verified low VRAM mode — skipping retry",
+            job_id, provider_name,
+        )
+        return False
+    return True
+
+
 @celery_app.task(bind=True, name="app.workers.tasks.generate_3d_model")
 def generate_3d_model(self: Task, job_id: str) -> dict:
     loop = asyncio.new_event_loop()
@@ -260,11 +309,18 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             )
 
             # 4. Load provider via RuntimeEngine (enforces VRAM scheduling)
+            # ponytail: Low VRAM mode — resolve the job's requested mode and
+            # pass it to the engine so the Auto VRAM planner picks the fitting
+            # footprint (normal vs low). On OOM, retry once in low mode.
+            vram_mode = _resolve_job_vram_mode(job)
+            if vram_mode == "low":
+                sync_publish(5, "preparing", "Low VRAM mode requested — using memory-optimized loading.", "info")
+
             # FALLBACK (Issue #6): Use direct provider instantiation if engine unavailable
             provider = None
             if job.mode != "render":
                 if engine:
-                    provider = await engine.load_provider(provider_name)
+                    provider = await engine.load_provider(provider_name, vram_mode=vram_mode)
                 else:
                     # Direct provider loading with device from fallback VRAM check
                     logger.info("Loading provider %s directly on device %s", provider_name, device)
@@ -274,14 +330,14 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             _ensure_not_cancelled(session, job_id)
             out_dir = str(model_output_dir(job_id))
             provider_result = None
-            
+
             if job.mode == "render":
                 # For render mode, the reference image is the GLB to render
                 glb_to_process = request.reference_image_url
                 if not glb_to_process or not Path(glb_to_process).exists():
                      # Fallback to current model if URL didn't resolve to local path
                      glb_to_process = request.reference_image_url
-                
+
                 from app.core.providers.base import ProviderResult
                 provider_result = ProviderResult(
                     model_path=glb_to_process,
@@ -292,7 +348,46 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                     file_size=0
                 )
             else:
-                provider_result = await provider.generate(request, out_dir, progress_callback)
+                try:
+                    provider_result = await provider.generate(request, out_dir, progress_callback)
+                except Exception as gen_exc:
+                    # OOM recovery: retry once in low VRAM mode when supported.
+                    if (
+                        _is_oom_error(gen_exc)
+                        and vram_mode != "low"
+                        and _can_retry_low_vram(provider_name)
+                    ):
+                        logger.warning(
+                            "Job %s OOM'd in vram_mode=%s — retrying in low VRAM mode", job_id, vram_mode
+                        )
+                        _update_job(session, job_id, low_vram=True, vram_mode="low")
+                        if engine:
+                            try:
+                                await engine.unload_provider(provider_name)
+                            except Exception:
+                                pass
+                            provider = await engine.load_provider(provider_name, vram_mode="low")
+                        sync_publish(5, "preparing", "Out of memory detected — retrying with low VRAM mode.", "warn")
+                        provider_result = await provider.generate(request, out_dir, progress_callback)
+                    else:
+                        raise
+
+            # 5b. Output validation — reject corrupt/empty GLB output before
+            # the UI ever sees it.
+            if provider_result and provider_result.model_path:
+                _wait_for_stable_file(provider_result.model_path)
+                try:
+                    from app.core.mesh_processor import validate_glb
+                    glb_check = validate_glb(provider_result.model_path)
+                    if not glb_check.get("valid"):
+                        raise RuntimeError(
+                            f"Provider produced invalid output ({glb_check.get('reason', 'unknown')}). "
+                            f"Tried model file: {provider_result.model_path}"
+                        )
+                except RuntimeError:
+                    raise
+                except Exception as exc:
+                    logger.warning("Output validation skipped for job %s: %s", job_id, exc)
 
             # 6. Unload model from VRAM before running Blender
             if provider:

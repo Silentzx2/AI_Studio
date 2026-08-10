@@ -36,6 +36,24 @@ class ModelCapabilities(BaseModel):
     background_jobs: bool = True
     custom_parameters: bool = True
     export_formats: list[str] = Field(default_factory=lambda: ["glb", "obj", "fbx"])
+    # Low VRAM mode: a VERIFIED small-footprint execution path. Never declare
+    # this true unless the engine/provider/accelerate loader implements it.
+    low_vram: bool = False
+    cpu_offload: bool = False
+    attention_slicing: bool = False
+    quantization: bool = False
+    # Format / asset capabilities
+    supports_glb: bool = True
+    supports_obj: bool = False
+    supports_fbx: bool = False
+    supports_usdz: bool = False
+    supports_gaussian: bool = False
+    supports_mesh: bool = True
+    supports_uv: bool = False
+    supports_pbr: bool = False
+    supports_texture_baking: bool = False
+    supports_part_separation: bool = False
+    supports_detail_enhancement: bool = False
 
 
 class PythonDependency(BaseModel):
@@ -101,6 +119,12 @@ class ManifestSchema(BaseModel):
     # System requirements
     min_vram_mb: int = 1024
     recommended_vram_mb: int = 4096
+    low_vram_mb: int = 0
+    low_vram_required_mb: int | None = None
+    low_vram_supported: bool = False
+    low_vram_strategy: list[str] = Field(default_factory=list)
+    native_build_required: bool = False
+    install_method: str = "uv_requirements"
     cuda_required: bool = True
     cuda_min_version: str = "11.8"
     python_min: str = "3.10"

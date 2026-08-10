@@ -43,6 +43,10 @@ class GenerationRequest(BaseModel):
     detail_pass: bool = False
     detail_guidance: float = 7.5
     workspace: str | None = None
+    # Low VRAM mode: True forces low-VRAM execution; vram_mode may be
+    # "auto" (default), "normal" or "low".
+    low_vram: bool = False
+    vram_mode: str = "auto"
 
     @field_validator('prompt')
     @classmethod
@@ -63,6 +67,13 @@ class GenerationRequest(BaseModel):
     def validate_quality(cls, v: str) -> str:
         if v not in _VALID_QUALITIES:
             raise ValueError(f"Invalid quality: {v}")
+        return v
+
+    @field_validator('vram_mode')
+    @classmethod
+    def validate_vram_mode(cls, v: str) -> str:
+        if v not in ("auto", "normal", "low"):
+            raise ValueError(f"Invalid vram_mode: {v}")
         return v
 
 
@@ -96,6 +107,8 @@ async def generation_history(limit: int = 20, offset: int = 0):
                             "provider": j.provider,
                             "progress": j.progress,
                             "stage": j.stage,
+                            "low_vram": j.low_vram,
+                            "vram_mode": j.vram_mode,
                             "model_url": j.model_url,
                             "thumbnail_url": j.thumbnail_url,
                             "created_at": j.created_at.isoformat() if j.created_at else None,
@@ -171,6 +184,34 @@ async def create_generation(req: GenerationRequest):
     except Exception:
         pass  # Soft fail: don't block generation if capability check errors
 
+    # Low VRAM guard: reject an explicit low-vram request for a provider that
+    # has no verified low-VRAM execution path instead of silently running in
+    # normal mode (and likely OOMing). 'auto' is never rejected — the worker
+    # resolves a fitting mode at runtime.
+    try:
+        from runtime.capability import supports_low_vram  # noqa: PLC0415
+        if req.low_vram and not supports_low_vram(provider):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Model '{provider}' does not support verified low-VRAM "
+                    f"execution. Disable Low VRAM mode or choose a model that "
+                    f"supports it (Hunyuan3D 2 / 2.1)."
+                ),
+            )
+        if req.vram_mode == "low" and not supports_low_vram(provider):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Model '{provider}' does not support verified low-VRAM "
+                    f"execution, so vram_mode='low' is unavailable."
+                ),
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        pass  # Soft fail: never block generation on a capability-check error
+
     # Validate workspace/provider compatibility if workspace is specified
     if req.workspace:
         try:
@@ -209,6 +250,8 @@ async def create_generation(req: GenerationRequest):
                 progress=0,
                 stage="queued",
                 has_rig=False,
+                low_vram=req.low_vram,
+                vram_mode=req.vram_mode,
                 processing_metadata={
                     "detail_pass": req.detail_pass,
                     "detail_guidance": req.detail_guidance,
@@ -333,6 +376,8 @@ async def get_generation_status(job_id: str):
                 "error": job.error_message,
                 "error_message": job.error_message,
                 "detail_pass": meta.get("detail_pass", False),
+                "low_vram": job.low_vram,
+                "vram_mode": job.vram_mode,
                 "model_url_detailed": meta.get("model_url_detailed"),
                 "created_at": job.created_at.isoformat() if job.created_at else None,
                 "updated_at": job.updated_at.isoformat() if job.updated_at else None,

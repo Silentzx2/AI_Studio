@@ -24,7 +24,7 @@ class ModelRegistry:
         except Exception:
             _loadable = {
                 "hunyuan3d", "hunyuan3d-1.0", "hunyuan3d-2.1", "hunyuan3d-2",
-                "trellis", "anigen", "detailgen3d", "mock",
+                "hunyuan3d-2-mini", "trellis", "anigen", "detailgen3d", "mock",
             }
 
         def _ok(meta: dict[str, Any]) -> bool:
@@ -108,6 +108,43 @@ class ModelRegistry:
                     "disk_space_mb": 30000,
                     "capabilities": {
                         "text_to_3d": True,
+                        "image_to_3d": True,
+                        "texture_generation": True,
+                    },
+                    "dependencies": {"python_packages": []},
+                    "download_sources": [],
+                    "runtime": {"type": "python", "entrypoint": "", "inference_class": ""}
+                }
+            },
+            {
+                "id": "hunyuan3d-2-mini",
+                "label": "Hunyuan3D-2 Mini",
+                "name": "tencent/Hunyuan3D-2mini",
+                "category": "3d_generation",
+                "description": "Fast 0.6B image-to-shape model",
+                "author": "Tencent",
+                "installed": False,
+                "size_mb": 4000,
+                "vram_required_mb": _vram("hunyuan3d-2-mini"),
+                "speed_seconds": 45,
+                "workspace_compatibility": ["mesh-generation"],
+                "manifest": {
+                    "name": "Hunyuan3D-2 Mini",
+                    "version": "2.0-mini",
+                    "category": "3d_generation",
+                    "description": "Hunyuan3D-2 Mini 0.6B fast image-to-shape",
+                    "author": "Tencent",
+                    "license": "Tencent Hunyuan Community",
+                    "min_vram_mb": 4096,
+                    "recommended_vram_mb": 6144,
+                    "cuda_required": True,
+                    "cuda_min_version": "11.8",
+                    "python_min": "3.10",
+                    "supported_os": ["linux", "windows"],
+                    "supported_architectures": ["x86_64"],
+                    "disk_space_mb": 5000,
+                    "capabilities": {
+                        "text_to_3d": False,
                         "image_to_3d": True,
                         "texture_generation": True,
                     },

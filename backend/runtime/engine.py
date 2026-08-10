@@ -17,16 +17,17 @@ from runtime.storage import get_storage_config
 
 logger = logging.getLogger(__name__)
 
-PROVIDER_PRIORITY = ["hunyuan3d-2.1", "trellis", "hunyuan3d-2", "anigen", "unirig", "detailgen3d", "mock"]
+PROVIDER_PRIORITY = ["hunyuan3d-2.1", "trellis", "hunyuan3d-2", "hunyuan3d-2-mini", "anigen", "unirig", "detailgen3d", "mock"]
 
 # ponytail: mode support matrix. Used by get_best_provider_name to avoid
 # silently falling back to a provider that can't handle the requested mode
-# (e.g. TRELLIS for text-to-3d).
+# (e.g. TRELLIS for text-to-3d). hunyuan3d-2-mini is image-to-shape only.
 PROVIDER_MODES: dict[str, set[str]] = {
     "hunyuan3d": {"text-to-3d", "image-to-3d"},
     "hunyuan3d-1.0": {"text-to-3d", "image-to-3d"},
     "hunyuan3d-2.1": {"text-to-3d", "image-to-3d"},
     "hunyuan3d-2": {"text-to-3d", "image-to-3d"},
+    "hunyuan3d-2-mini": {"image-to-3d"},
     "trellis": {"image-to-3d"},
     "anigen": {"rigging"},
     "unirig": {"rigging"},
@@ -39,6 +40,7 @@ _PROVIDER_MAP: dict[str, tuple[str, str]] = {
     "hunyuan3d-1.0": ("app.core.providers.hunyuan3d_local", "Hunyuan3D21LocalProvider"),
     "hunyuan3d-2.1": ("app.core.providers.hunyuan3d_local", "Hunyuan3D21LocalProvider"),
     "hunyuan3d-2": ("app.core.providers.hunyuan3d_local", "Hunyuan3D2LocalProvider"),
+    "hunyuan3d-2-mini": ("app.core.providers.hunyuan3d_local", "Hunyuan3D2MiniLocalProvider"),
     "trellis": ("app.core.providers.trellis_local", "TRELLISLocalProvider"),
     "anigen": ("app.core.providers.anigen_provider", "AniGenProvider"),
     "unirig": ("app.core.providers.unirig_provider", "UniRigProvider"),
@@ -190,8 +192,20 @@ class RuntimeEngine:
                 continue
             if mode not in PROVIDER_MODES.get(candidate, set()):
                 continue
-            req = get_model_vram_required(candidate)
-            if req == 0 or free_mb >= req:
+            # ponytail: Auto VRAM — accept a candidate that fits either its
+            # normal footprint OR its verified low-VRAM footprint. Previously
+            # only the normal requirement was consulted, so a 12 GB hunyuan3d-2
+            # on an 8 GB GPU was rejected even though low mode fits.
+            try:
+                from runtime.capability import plan_vram_usage
+                plan = plan_vram_usage(candidate, "auto")
+                fits = bool(plan.get("fits", False)) or plan.get("cpu_only", False)
+            except Exception:
+                fits = False
+            if not fits:
+                req = get_model_vram_required(candidate)
+                fits = req == 0 or free_mb >= req
+            if fits:
                 logger.info("Fallback to '%s' (mode=%s)", candidate, mode)
                 return candidate
         # BUG-10 FIX: was returning `requested` here even though we just determined it exceeds
@@ -204,25 +218,38 @@ class RuntimeEngine:
             f"Reduce resolution, free VRAM, or enable the mock provider."
         )
 
-    async def load_provider(self, name: str) -> Any:
+    async def load_provider(self, name: str, vram_mode: str = "auto", low_vram: bool = False) -> Any:
         async with self._lock:
             if name in self._loaded:
                 return self._loaded[name]
-            vram_needed = get_model_vram_required(name)
+            # ponytail: Auto VRAM planner — resolve normal vs low mode and the
+            # VRAM footprint to gate device selection on the mode actually used.
+            try:
+                from runtime.capability import plan_vram_usage
+                requested = "low" if low_vram else vram_mode
+                plan = plan_vram_usage(name, requested)
+                resolved_mode = plan.get("mode")
+                vram_needed = plan.get("vram_required_mb") or 0
+                if resolved_mode == "unavailable":
+                    raise RuntimeError(plan.get("reason", f"Low VRAM mode unavailable for {name}"))
+            except Exception:
+                vram_needed = get_model_vram_required(name)
+                resolved_mode = "normal"
             # Use VRAM-aware device selection
             try:
                 device = select_device("auto", max_vram_mb=vram_needed)
             except Exception:
                 device = get_device()
             self.gpu.acquire(name)
-            logger.info("Loading provider '%s' on %s...", name, device)
+            logger.info("Loading provider '%s' on %s (vram_mode=%s)...", name, device, resolved_mode)
             try:
                 loop = asyncio.get_running_loop()
                 provider = await loop.run_in_executor(
-                    None, lambda: _instantiate_provider(name, device)
+                    None,
+                    lambda: _instantiate_provider(name, device, low_vram=(resolved_mode == "low")),
                 )
                 self._loaded[name] = provider
-                logger.info("Provider '%s' loaded", name)
+                logger.info("Provider '%s' loaded (vram_mode=%s)", name, resolved_mode)
                 return provider
             except Exception as exc:
                 logger.error("Failed to load provider '%s': %s", name, exc)
@@ -279,7 +306,7 @@ class RuntimeEngine:
             return False
 
 
-def _instantiate_provider(name: str, device: str) -> Any:
+def _instantiate_provider(name: str, device: str, low_vram: bool = False) -> Any:
     import importlib
     entry = _PROVIDER_MAP.get(name)
     if not entry:
@@ -287,7 +314,13 @@ def _instantiate_provider(name: str, device: str) -> Any:
     module_path, class_name = entry
     mod = importlib.import_module(module_path)
     cls = getattr(mod, class_name)
-    return cls() if name == "mock" else cls(device=device)
+    if name == "mock":
+        return cls()
+    try:
+        return cls(device=device, low_vram=low_vram)
+    except TypeError:
+        # Older providers may not accept the low_vram kwarg yet — keep loading.
+        return cls(device=device)
 
 
 _engine: RuntimeEngine | None = None

@@ -6,8 +6,7 @@
 
 import React, { useState, useEffect, Suspense, useRef, useMemo } from 'react';
 import anime from 'animejs';
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Grid, Environment, Float } from '@react-three/drei';
+import { Float } from '@react-three/drei';
 import {
   Sparkles, Upload, RotateCcw, ChevronDown, ChevronUp, ChevronRight,
   Maximize2, Play, CheckCircle2, Clock, Check, Download, Layers,
@@ -41,6 +40,32 @@ interface ThreeDGenerationTabProps {
 // Model details and capability definitions matching high fidelity UI
 const LOCAL_MODELS = [
   {
+    id: 'hunyuan3d-2-mini',
+    name: 'Hunyuan3D-2 Mini',
+    label: 'Hunyuan3D-2 Mini',
+    installed: false,
+    status: 'not_installed',
+    vram_required_mb: 6144,
+    speed_seconds: 45,
+    supports: {
+      text_to_3d: false,
+      image_to_3d: true,
+      texture_generation: true,
+      rigging_animation: false,
+      detail_enhancement: false,
+      part_separation: false,
+    },
+    stats: {
+      triangles: '0',
+      vertices: '0',
+      objects: '1',
+      materials: '1',
+      size: '0 MB',
+    },
+    colab_incompatible: false,
+    colab_skip_reason: null,
+  },
+  {
     id: 'hunyuan3d-2',
     name: 'Hunyuan3D-2',
     label: 'Hunyuan3D-2',
@@ -67,143 +92,6 @@ const LOCAL_MODELS = [
     colab_skip_reason: null,
   }
 ];
-
-// Interactive 3D mecha mesh with pedestal that changes shading on-the-fly
-function InteractiveMesh({ activeModel, shading, wireframe }: { activeModel: any; shading: 'PBR' | 'Clay'; wireframe: boolean }) {
-  const primaryColor = activeModel?.accentColor || "hsl(var(--primary))";
-
-  // Create PBR metallic shader vs Clay ceramic shader materials
-  const bodyMat = useMemo(() => {
-    if (shading === 'Clay') {
-      return <meshStandardMaterial color="hsl(var(--surface-3))" roughness={0.7} metalness={0.1} wireframe={wireframe} />;
-    }
-     return <meshStandardMaterial color="hsl(var(--surface-2))" roughness={0.2} metalness={0.8} wireframe={wireframe} />;
-  }, [shading, wireframe]);
-
-  const accentMat = useMemo(() => {
-    if (shading === 'Clay') {
-       return <meshStandardMaterial color="hsl(var(--muted-foreground))" roughness={0.6} metalness={0.15} wireframe={wireframe} />;
-    }
-    return <meshStandardMaterial color={primaryColor} roughness={0.3} metalness={0.9} wireframe={wireframe} emissive={primaryColor} emissiveIntensity={0.2} />;
-  }, [shading, wireframe, primaryColor]);
-
-  const jointMat = useMemo(() => {
-    if (shading === 'Clay') {
-      return <meshStandardMaterial color="hsl(var(--muted-foreground))" roughness={0.8} metalness={0.0} wireframe={wireframe} />;
-    }
-    return <meshStandardMaterial color="hsl(var(--surface-0))" roughness={0.5} metalness={0.6} wireframe={wireframe} />;
-  }, [shading, wireframe]);
-
-  return (
-    <Float speed={1.2} rotationIntensity={0.15} floatIntensity={0.2}>
-      <group position={[0, -0.3, 0]}>
-        {/* Main Pedestal */}
-        <mesh position={[0, -0.75, 0]} receiveShadow>
-          <cylinderGeometry args={[1.5, 1.6, 0.15, 32]} />
-          {shading === 'Clay' ? (
-            <meshStandardMaterial color="hsl(var(--muted-foreground))" roughness={0.8} wireframe={wireframe} />
-          ) : (
-            <meshStandardMaterial color="hsl(var(--surface-0))" roughness={0.1} metalness={0.9} wireframe={wireframe} />
-          )}
-        </mesh>
-        
-        {/* Pedestal Inner Glow Ring */}
-        {shading === 'PBR' && !wireframe && (
-          <mesh position={[0, -0.66, 0]}>
-            <torusGeometry args={[1.35, 0.02, 8, 32]} />
-            <meshBasicMaterial color={primaryColor} />
-          </mesh>
-        )}
-
-        {/* Torso */}
-        <mesh position={[0, 0.7, 0]} castShadow receiveShadow>
-          <boxGeometry args={[0.8, 1.0, 0.6]} />
-          {bodyMat}
-        </mesh>
-
-        {/* Chest Plate Plate */}
-        <mesh position={[0, 0.8, 0.31]} castShadow receiveShadow>
-          <boxGeometry args={[0.6, 0.4, 0.1]} />
-          {accentMat}
-        </mesh>
-
-        {/* Left Shoulder Pad */}
-        <mesh position={[-0.6, 1.1, 0]} castShadow receiveShadow>
-          <boxGeometry args={[0.35, 0.3, 0.45]} />
-          {accentMat}
-        </mesh>
-
-        {/* Right Shoulder Pad */}
-        <mesh position={[0.6, 1.1, 0]} castShadow receiveShadow>
-          <boxGeometry args={[0.35, 0.3, 0.45]} />
-          {accentMat}
-        </mesh>
-
-        {/* Upper Arms */}
-        <mesh position={[-0.55, 0.7, 0]} castShadow receiveShadow>
-          <cylinderGeometry args={[0.1, 0.1, 0.5, 12]} />
-          {jointMat}
-        </mesh>
-        <mesh position={[0.55, 0.7, 0]} castShadow receiveShadow>
-          <cylinderGeometry args={[0.1, 0.1, 0.5, 12]} />
-          {jointMat}
-        </mesh>
-
-        {/* Forearms */}
-        <mesh position={[-0.55, 0.3, 0.15]} rotation={[0.4, 0, 0]} castShadow receiveShadow>
-          <boxGeometry args={[0.15, 0.5, 0.15]} />
-          {bodyMat}
-        </mesh>
-        <mesh position={[0.55, 0.3, 0.15]} rotation={[0.4, 0, 0]} castShadow receiveShadow>
-          <boxGeometry args={[0.15, 0.5, 0.15]} />
-          {bodyMat}
-        </mesh>
-
-        {/* Head Base Joint */}
-        <mesh position={[0, 1.25, 0]} castShadow>
-          <cylinderGeometry args={[0.15, 0.15, 0.2, 12]} />
-          {jointMat}
-        </mesh>
-
-        {/* Head */}
-        <mesh position={[0, 1.5, 0]} castShadow receiveShadow>
-          <boxGeometry args={[0.45, 0.35, 0.45]} />
-          {bodyMat}
-        </mesh>
-
-        {/* Futuristic Visor/Eyes */}
-        <mesh position={[0, 1.52, 0.23]}>
-          <planeGeometry args={[0.3, 0.08]} />
-          {shading === 'Clay' ? (
-            <meshStandardMaterial color="hsl(var(--muted-foreground))" roughness={0.9} wireframe={wireframe} />
-          ) : (
-            <meshBasicMaterial color={primaryColor} />
-          )}
-        </mesh>
-
-        {/* Thighs */}
-        <mesh position={[-0.25, 0.1, 0]} castShadow receiveShadow>
-          <cylinderGeometry args={[0.15, 0.12, 0.4, 12]} />
-          {bodyMat}
-        </mesh>
-        <mesh position={[0.25, 0.1, 0]} castShadow receiveShadow>
-          <cylinderGeometry args={[0.15, 0.12, 0.4, 12]} />
-          {bodyMat}
-        </mesh>
-
-        {/* Calves */}
-        <mesh position={[-0.25, -0.3, 0]} castShadow receiveShadow>
-          <boxGeometry args={[0.2, 0.5, 0.2]} />
-          {accentMat}
-        </mesh>
-        <mesh position={[0.25, -0.3, 0]} castShadow receiveShadow>
-          <boxGeometry args={[0.2, 0.5, 0.2]} />
-          {accentMat}
-        </mesh>
-      </group>
-    </Float>
-  );
-}
 
 export default function ThreeDGenerationTab({
   activeModel: parentActiveModel,

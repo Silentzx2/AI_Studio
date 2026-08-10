@@ -1,5 +1,37 @@
 # AI 3D Studio — Changelog
 
+## v3.5.2 — Hunyuan3D-2 Mini Provider (August 10, 2026)
+
+### Added
+- **Hunyuan3D-2 Mini provider** (`hunyuan3d-2-mini`): 0.6B image-to-shape model added to the existing Hunyuan provider family. Installs only the `hunyuan3d-dit-v2-mini/` subfolder (~4 GB) from `tencent/Hunyuan3D-2mini`, avoiding the ~25 GB full repo. Downloads via `snapshot_download` with `allow_patterns`/`ignore_patterns` (skips duplicate `.ckpt` files).
+- **Image-to-3D only**: the mini pipeline (`Hunyuan3DDiTFlowMatchingPipeline`) has no text prompt — `PROVIDER_MODES` gates routing to `image-to-3d` only and `_text_to_3d` raises `NotImplementedError`. Frontend model lists surface `text_to_3d: false` automatically.
+- **Combined texture flow**: `generate_texture` on an image-to-3d request textures the mesh via the sibling Hunyuan3D-2 paint pipeline (upstream `textured_shape_gen_mini.py`). Soft dependency — logs and skips when the `hunyuan3d-2` (2.0) delight weights are absent. The mini is NOT a standalone texture-generation model.
+- **Nested weights layout support**: `_has_real_weight_files` in `runtime/storage.py` is now recursive so snapshots that keep weights in a per-model subfolder (`hunyuan3d-dit-v2-mini/`) are detected as installed (also fixes a regression where `hunyuan3d-2` could resolve to a shared weights root when only a sibling model was present).
+- **UI**: `Hunyuan3D-2 Mini` surfaced in the workspace model picker (via the runtime options API, which iterates `PROVIDER_METADATA`) and in the offline `LOCAL_MODELS` fallback in `ThreeDGenerationTab.tsx`.
+
+### Honest VRAM notes
+- `vram_required_mb: 6144` is derived from the official figure (6 GB VRAM for shape generation on the 1.1B model; the 0.6B mini is smaller, so 6 GB is a conservative ceiling).
+- `low_vram_required_mb: 4096` is an **estimate, not GPU-verified** — flagged provisional until measured on real hardware.
+- The mini supports `cpu_offload`, `attention_slicing`, and `vae_cpu_offload` low-VRAM strategies.
+
+### Files Modified
+- Backend: `runtime/installer.py`, `runtime/storage.py`, `runtime/engine.py`, `app/core/providers/hunyuan3d_local.py`, `app/core/registry/model_registry.py`, `tests/test_hunyuan_mini.py` (new)
+- Frontend: `features/workspace/new-ui/ThreeDGenerationTab.tsx`
+
+## v3.5.1 — Auto VRAM Planner: Low-VRAM Mode End-to-End (August 10, 2026)
+
+### Added
+- **Low-VRAM generation mode**: providers with a verified low-VRAM footprint (Hunyuan3D-2 / 2.1) can now be loaded with a memory-optimized strategy. The engine resolves the requested mode (`auto`/`normal`/`low`) via the existing Auto VRAM planner (`plan_vram_usage`), gates device selection on the actual footprint, and instantiates providers with `low_vram=True`.
+- **Hunyuan low-VRAM loading**: `_HunyuanBase` loads pipelines on CPU then applies the strategy from `apply_low_vram_mode` (Accelerate dispatch / attention slicing / float16), with an Accelerate offload folder under the per-model weights dir. Texture pipeline honors the same mode.
+- **OOM retry**: when a job OOMs during generation, the worker retries once in low VRAM mode (only for providers that support it, so a buggy provider is not double-run). Job record is updated to `low_vram=True` so the UI shows the fallback.
+
+### Fixed
+- **Provider selection now respects low mode**: `get_best_provider_name` previously rejected any provider whose *normal* VRAM requirement exceeded free VRAM (e.g. a 12 GB Hunyuan3D-2 on an 8 GB GPU) even when low mode fits. It now accepts a candidate that fits either footprint.
+- **Output validation**: the worker now validates the generated GLB (`validate_glb`) before Blender post-processing, rejecting corrupt/empty output instead of surfacing it in the UI.
+
+### Files Modified
+- Backend: `runtime/engine.py`, `app/core/providers/hunyuan3d_local.py`, `app/workers/tasks.py`
+
 ## v3.5.0 — API Connectivity & History Synchronization (August 9, 2026)
 
 ### Fixed

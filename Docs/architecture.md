@@ -696,7 +696,8 @@ celery_app.conf.beat_schedule = {
 BaseProvider (ABC)
 ├── Hunyuan3DProvider (hunyuan3d_local.py) - calls _add_model_env() at import time
 │   ├── Hunyuan3D_2_1 (16GB VRAM)
-│   └── Hunyuan3D_2 (24GB VRAM)
+│   ├── Hunyuan3D_2 (24GB VRAM)
+│   └── Hunyuan3D_2_Mini (6GB VRAM, image-to-3D only, subfolder weights)
 ├── TRELLISProvider (trellis_local.py) - calls _add_model_env() at import time
 │   └── ~8GB VRAM required
 ├── InstantMeshProvider (instant_mesh.py)
@@ -720,11 +721,12 @@ def get_best_provider_name(requested=None):
     4. Fall back to mock if no GPU fits
     """
     
-    PRIORITY = ["hunyuan3d-2.1", "trellis", "hunyuan3d-2", "mock"]
+    PRIORITY = ["hunyuan3d-2.1", "trellis", "hunyuan3d-2", "hunyuan3d-2-mini", "mock"]
     VRAM_REQUIREMENTS = {
         "hunyuan3d-2.1": 16000,
         "trellis": 8000,
         "hunyuan3d-2": 24000,
+        "hunyuan3d-2-mini": 6144,
         "mock": 0
     }
     
@@ -736,6 +738,23 @@ def get_best_provider_name(requested=None):
     
     return "mock"  # Fallback
 ```
+
+The live implementation lives in `runtime/engine.py` (`get_best_provider_name` /
+`load_provider`) and is gated by the Auto VRAM planner in
+`runtime/capability.py` (`plan_vram_usage`). Each provider declares a normal
+and an optional *verified low-VRAM footprint* (`get_low_vram_required` /
+`supports_low_vram`). The planner resolves the requested mode (`auto` /
+`normal` / `low`), reports whether that footprint fits the current GPU, and the
+engine:
+
+1. Accepts a provider that fits **either** footprint — so a Hunyuan3D-2 whose
+   normal 12 GB footprint exceeds an 8 GB GPU is still usable in low mode.
+2. Passes the resolved mode into `load_provider`, which instantiates the
+   provider with `low_vram=True` when low mode is chosen; Hunyuan3D then loads
+   on CPU and applies Accelerate dispatch / attention slicing / float16.
+3. Worker OOM recovery: if a job OOMs at generation time, `app/workers/tasks.py`
+   retries once in low mode (only for providers that support it), and records
+   `low_vram=True` on the job.
 
 ### Download Providers
 

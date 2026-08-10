@@ -3,6 +3,9 @@ Hunyuan3D local providers — wraps third_party/Hunyuan3D-2 without modifying it
 
 Hunyuan3D21LocalProvider  — primary   (Hunyuan3D-2.1, ~16 GB VRAM)
 Hunyuan3D2LocalProvider   — fallback  (Hunyuan3D-2,   ~12 GB VRAM)
+Hunyuan3D2MiniLocalProvider — fast    (Hunyuan3D-2 Mini 0.6B, image-to-shape only,
+                                      loads its dit from the hunyuan3d-dit-v2-mini
+                                      subfolder of the tencent/Hunyuan3D-2mini snapshot)
 
 FIXES APPLIED (Issue #1):
 - Added GPU execution verification after model load
@@ -34,10 +37,11 @@ logger = logging.getLogger(__name__)
 
 
 class _HunyuanBase(BaseProvider):
-    def __init__(self, model_key: str, weights_subdir: str, repo_name: str = "Hunyuan3D-2", device: str = "cuda") -> None:
+    def __init__(self, model_key: str, weights_subdir: str, repo_name: str = "Hunyuan3D-2", device: str = "cuda", low_vram: bool = False) -> None:
         self.model_key = model_key
         self.repo_name = repo_name
         self.device = device
+        self.low_vram = low_vram
         self._model: Any = None
         self._tex: Any = None
 
@@ -63,7 +67,7 @@ class _HunyuanBase(BaseProvider):
     def _load_model(self) -> None:
         raise NotImplementedError
 
-    def _load_model_with_accelerate(self, pipeline_cls, weight_key: str) -> None:
+    def _load_model_with_accelerate(self, pipeline_cls, weight_key: str, subfolder: str | None = None) -> None:
         """Load a Hunyuan3D-2 pipeline with Accelerate device dispatch.
 
         ponytail: Hunyuan3D-2 pipelines expose ``model``, ``vae``, ``conditioner``
@@ -71,28 +75,55 @@ class _HunyuanBase(BaseProvider):
         is constrained, dispatch each via Accelerate with an auto device_map so
         layers can be offloaded to CPU. Falls back to native ``device=device``
         when Accelerate is unavailable or VRAM is sufficient.
+
+        ``subfolder`` is passed through to ``from_pretrained`` for models whose
+        weights live in a subdirectory of the snapshot (hunyuan3d-2-mini keeps
+        its dit checkpoint under ``hunyuan3d-dit-v2-mini/``).
         """
         from runtime.accelerate_loader import (
             accelerate_available,
             should_use_accelerate,
             get_max_memory_per_device,
+            apply_low_vram_mode,
         )
         from runtime.capability import get_model_vram_required
 
         vram_needed = get_model_vram_required(self.model_key)
 
+        def _from_pretrained(device: str) -> Any:
+            kwargs: dict[str, Any] = {"device": device}
+            if subfolder:
+                kwargs["subfolder"] = subfolder
+            return pipeline_cls.from_pretrained(str(self.weights_dir), **kwargs)
+
+        if self.low_vram:
+            # ponytail: verified low-VRAM path — load on CPU then let the
+            # strategy layer decide offload/attention-slicing placement.
+            logger.info("Low VRAM mode enabled for %s — loading on CPU then dispatching", self.model_key)
+            self._model = _from_pretrained("cpu")
+            applied = apply_low_vram_mode(
+                self._model,
+                self.model_key,
+                requested_mode="low",
+                execution_device=self.device,
+                offload_folder=self.weights_dir / ".accelerate_offload",
+            )
+            if applied is None:
+                # No strategy applied — move the model onto the device so the
+                # pipeline still runs (falls back to normal footprint behavior).
+                self._model = self._model.to(self.device)
+            else:
+                logger.info("Hunyuan3D low VRAM strategy applied: %s", applied)
+            return
+
         if not accelerate_available() or not should_use_accelerate(vram_needed):
             # Native path — unchanged behavior
-            self._model = pipeline_cls.from_pretrained(
-                str(self.weights_dir), device=self.device
-            )
+            self._model = _from_pretrained(self.device)
             return
 
         # VRAM constrained — load on CPU, then dispatch
         from accelerate import dispatch_model, infer_auto_device_map
-        self._model = pipeline_cls.from_pretrained(
-            str(self.weights_dir), device="cpu"
-        )
+        self._model = _from_pretrained("cpu")
 
         max_memory = get_max_memory_per_device()
         if max_memory is None:
@@ -234,8 +265,8 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
     def name(self) -> str:
         return "hunyuan3d-2.1"
 
-    def __init__(self, device: str = "cuda") -> None:
-        super().__init__("hunyuan3d-2.1", "hunyuan3d-2.1", device)
+    def __init__(self, device: str = "cuda", low_vram: bool = False) -> None:
+        super().__init__("hunyuan3d-2.1", "hunyuan3d-2.1", device, low_vram=low_vram)
 
     def _load_model(self) -> None:
         try:
@@ -251,9 +282,22 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
     def _load_tex(self) -> None:
         try:
             from hy3dgen.texgen import Hunyuan3DPaintPipeline
-            self._tex = Hunyuan3DPaintPipeline.from_pretrained(
-                str(self.weights_dir), device=self.device
-            )
+            if self.low_vram:
+                from runtime.accelerate_loader import apply_low_vram_mode
+                self._tex = Hunyuan3DPaintPipeline.from_pretrained(
+                    str(self.weights_dir), device="cpu"
+                )
+                apply_low_vram_mode(
+                    self._tex,
+                    self.model_key,
+                    requested_mode="low",
+                    execution_device=self.device,
+                    offload_folder=self.weights_dir / ".accelerate_offload",
+                )
+            else:
+                self._tex = Hunyuan3DPaintPipeline.from_pretrained(
+                    str(self.weights_dir), device=self.device
+                )
         except Exception as exc:
             logger.warning("Hunyuan3D tex pipeline unavailable: %s", exc)
 
@@ -299,8 +343,8 @@ class Hunyuan3D2LocalProvider(_HunyuanBase):
     def name(self) -> str:
         return "hunyuan3d-2"
 
-    def __init__(self, device: str = "cuda") -> None:
-        super().__init__("hunyuan3d-2", "hunyuan3d-2", device)
+    def __init__(self, device: str = "cuda", low_vram: bool = False) -> None:
+        super().__init__("hunyuan3d-2", "hunyuan3d-2", device, low_vram=low_vram)
 
     def _load_model(self) -> None:
         try:
@@ -330,3 +374,113 @@ class Hunyuan3D2LocalProvider(_HunyuanBase):
         dest = str(out / "mesh.glb")
         result.meshes[0].export(dest)
         return dest
+
+
+# -- Hunyuan3D-2 Mini (0.6B image-to-shape, fast) ------------------------------
+
+class Hunyuan3D2MiniLocalProvider(_HunyuanBase):
+    """Hunyuan3D-2 Mini (0.6B) -- fast image-to-shape model.
+
+    Image-to-shape ONLY: its pipeline ``__call__`` accepts no ``prompt``, so
+    text-to-3d is neither advertised nor routable. The dit checkpoint lives in
+    the ``hunyuan3d-dit-v2-mini`` subfolder of the tencent/Hunyuan3D-2mini
+    snapshot. Texture generation reuses the Hunyuan3D-2 (2.0) paint pipeline
+    per the upstream ``textured_shape_gen_mini.py`` example; it is a soft
+    dependency -- the paint weights must be present in the sibling
+    hunyuan3d-2 weights dir, otherwise ``_texture`` logs and skips.
+    """
+
+    SUBFOLDER = "hunyuan3d-dit-v2-mini"
+    _TEX_SOURCE = "hunyuan3d-2"  # sibling weight_key holding the 2.0 paint weights
+
+    @property
+    def name(self) -> str:
+        return "hunyuan3d-2-mini"
+
+    def __init__(self, device: str = "cuda", low_vram: bool = False) -> None:
+        super().__init__("hunyuan3d-2-mini", "hunyuan3d-2-mini", device, low_vram=low_vram)
+
+    def _load_model(self) -> None:
+        try:
+            from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
+            logger.info("Loading Hunyuan3D-2 Mini from %s on %s", self.weights_dir, self.device)
+            self._load_model_with_accelerate(
+                Hunyuan3DDiTFlowMatchingPipeline, "hunyuan3d-2-mini", subfolder=self.SUBFOLDER
+            )
+            logger.info("Hunyuan3D-2 Mini loaded successfully on %s", self.device)
+        except Exception as exc:
+            raise RuntimeError(f"Hunyuan3D-2 Mini load failed: {exc}") from exc
+
+    def _text_to_3d(self, request: GenerationRequest, output_dir: str) -> str:
+        raise NotImplementedError(
+            "Hunyuan3D-2 Mini is an image-to-shape model -- text-to-3d is not supported."
+        )
+
+    def _image_to_3d(self, request: GenerationRequest, output_dir: str) -> str:
+        import torch
+        from PIL import Image
+        out = Path(output_dir)
+        out.mkdir(parents=True, exist_ok=True)
+        img = Image.open(request.reference_image_url).convert("RGBA")
+        # ponytail: steps/octree_resolution/num_chunks match the official
+        # shape_gen_mini.py reference; quality scales inference steps only.
+        steps = {"low-poly": 20, "standard": 30, "high-poly": 50}.get(request.quality, 30)
+        result = self._model(
+            image=img,
+            num_inference_steps=steps,
+            octree_resolution=380,
+            num_chunks=20000,
+            generator=torch.manual_seed(12345),
+            output_type="trimesh",
+        )[0]
+        dest = str(out / "mesh.glb")
+        result.export(dest)
+        return dest
+
+    def _load_tex(self) -> None:
+        try:
+            from hy3dgen.texgen import Hunyuan3DPaintPipeline
+            from runtime.storage import get_storage_config
+            tex_dir = (
+                get_storage_config().get_repo_path("Hunyuan3D-2")
+                / "weights" / self._TEX_SOURCE
+            )
+            if not (tex_dir / "hunyuan3d-delight-v2-0").exists():
+                logger.warning(
+                    "Hunyuan3D-2 Mini texture generation needs the Hunyuan3D-2 (2.0) "
+                    "paint weights under %s -- skipping texture.", tex_dir,
+                )
+                return
+            if self.low_vram:
+                from runtime.accelerate_loader import apply_low_vram_mode
+                self._tex = Hunyuan3DPaintPipeline.from_pretrained(str(tex_dir))
+                apply_low_vram_mode(
+                    self._tex, self.model_key, requested_mode="low",
+                    execution_device=self.device,
+                    offload_folder=self.weights_dir / ".accelerate_offload",
+                )
+            else:
+                self._tex = Hunyuan3DPaintPipeline.from_pretrained(str(tex_dir))
+        except Exception as exc:
+            logger.warning("Hunyuan3D tex pipeline unavailable: %s", exc)
+
+    def _texture(self, request: GenerationRequest, mesh_path: str, output_dir: str) -> None:
+        if self._tex is None:
+            self._load_tex()
+        if self._tex is None:
+            return
+        if not request.reference_image_url:
+            logger.warning(
+                "Hunyuan3D-2 Mini texture generation needs a reference image "
+                "(use image-to-3d + texture)."
+            )
+            return
+        import trimesh
+        from PIL import Image
+        try:
+            mesh = trimesh.load(mesh_path)
+            img = Image.open(request.reference_image_url).convert("RGBA")
+            textured = self._tex(mesh, image=img)
+            textured.export(mesh_path)  # overwrite the shape with the textured mesh
+        except Exception as exc:
+            logger.warning("Texture generation failed: %s", exc)

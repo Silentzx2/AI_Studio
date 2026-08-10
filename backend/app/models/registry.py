@@ -95,6 +95,8 @@ class InstalledModel(Base):
     health_check_result = Column(_DB_JSON, nullable=True)
     test_inference_result = Column(_DB_JSON, nullable=True)
     error_message = Column(String, nullable=True)
+    last_health_check_at = Column(DateTime, nullable=True)
+    last_health_check_status = Column(String, nullable=True)
 
 class ModelCapability(Base):
     __tablename__ = "model_capabilities"
