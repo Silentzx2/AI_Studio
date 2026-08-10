@@ -36,6 +36,8 @@ export interface HistoryItem {
   color: string;
   accentColor: string;
   isFavorite?: boolean;
+  modelUrl?: string | null;
+  thumbnailUrl?: string | null;
 }
 
 export interface ProgressStep {

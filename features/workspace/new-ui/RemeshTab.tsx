@@ -5,7 +5,9 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { RefreshCw, Play, Settings, AlertTriangle, CheckCircle, Cpu, ShieldCheck, Zap, Layers, Upload, X } from 'lucide-react';
+import anime from 'animejs';
+import { motion, AnimatePresence } from 'motion/react';
+import { RefreshCw, Play, Settings, AlertTriangle, CheckCircle, Cpu, ShieldCheck, Zap, Layers, Upload, X, Box } from 'lucide-react';
 import { Shape3D } from '@/types/new-ui';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useWorkspaceModels } from '@/hooks/useBackendData';
@@ -40,9 +42,29 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
   const [uploadedModel, setUploadedModel] = useState<File | null>(null);
   const [uploadedModelUrl, setUploadedModelUrl] = useState<string | null>(null);
   const [uploadedModelName, setUploadedModelName] = useState<string>('');
+  const [isUploadingModel, setIsUploadingModel] = useState(false);
+  const [modelUploadProgress, setModelUploadProgress] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [successResult, setSuccessResult] = useState<any>(null);
+
+  React.useEffect(() => {
+    anime({
+      targets: '#remesh-left-panel > div',
+      opacity: [0, 1],
+      translateX: [-20, 0],
+      delay: anime.stagger(60),
+      easing: 'easeOutQuad',
+      duration: 500
+    });
+    anime({
+      targets: '#remesh-right-stage',
+      opacity: [0, 1],
+      scale: [0.98, 1],
+      easing: 'easeOutQuad',
+      duration: 600
+    });
+  }, []);
 
   // Models compatible with the remesh workspace
   const {
@@ -70,46 +92,98 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
     modelOptions[0];
   const effectiveModelId = selectedModel?.id ?? '';
 
-  const handleModelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleModelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.name.match(/\.(glb|gltf)$/i)) {
       setStatusMessage('Please upload a .glb or .gltf file');
       return;
     }
-    setUploadedModel(file);
-    setUploadedModelName(file.name);
-    const url = URL.createObjectURL(file);
-    setUploadedModelUrl(url);
-    setStatusMessage(null);
-    setSuccessResult(null);
+    setIsUploadingModel(true);
+    setModelUploadProgress(0);
+    try {
+      const { uploadService } = await import('@/services/uploadService');
+      const { url } = await uploadService.uploadWithProgress(file, (progress) => {
+        setModelUploadProgress(progress.percent);
+      }, '/api/v1/upload/model');
+      setUploadedModel(file);
+      setUploadedModelName(file.name);
+      setUploadedModelUrl(url);
+      setStatusMessage(null);
+      setSuccessResult(null);
+      
+      // Load model into viewer
+      window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url } }));
+
+      // AnimeJS animation for successful load
+      anime({
+        targets: '#remesh-upload-area',
+        scale: [1.02, 1],
+        boxShadow: ['0 0 20px hsl(var(--primary)/0.5)', '0 0 0px hsl(var(--primary)/0)'],
+        duration: 800,
+        easing: 'easeOutElastic(1, .8)'
+      });
+
+    } catch (err: any) {
+      setStatusMessage(`Upload failed: ${err.message}`);
+    } finally {
+      setIsUploadingModel(false);
+      setModelUploadProgress(0);
+    }
+  };
+
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDragOver) {
+      setIsDragOver(true);
+      anime({
+        targets: '#remesh-upload-dropzone',
+        scale: 1.02,
+        boxShadow: '0 0 15px hsl(var(--primary)/0.3)',
+        duration: 300,
+        easing: 'easeOutQuad'
+      });
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    anime({
+      targets: '#remesh-upload-dropzone',
+      scale: 1,
+      boxShadow: '0 0 0px hsl(var(--primary)/0)',
+      duration: 300,
+      easing: 'easeOutQuad'
+    });
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    anime({
+      targets: '#remesh-upload-dropzone',
+      scale: 1,
+      boxShadow: '0 0 0px hsl(var(--primary)/0)',
+      duration: 300,
+      easing: 'easeOutQuad'
+    });
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      handleModelUpload({ target: { files: [file] } } as any);
+    }
   };
 
   const handleRemesh = async () => {
     if (isProcessing) return;
 
-    // If user uploaded a model, upload it first
+    // If user uploaded a model, it is already uploaded via handleModelUpload
     let modelUrl = uploadedModelUrl;
-    if (uploadedModel && !modelUrl) {
-      setIsProcessing(true);
-      setStatusMessage('Uploading model...');
-      try {
-        const formData = new FormData();
-        formData.append('file', uploadedModel);
-        const uploadRes = await fetch('/api/v1/upload/model', {
-          method: 'POST',
-          body: formData,
-        });
-        if (!uploadRes.ok) throw new Error('Upload failed');
-        const uploadData = await uploadRes.json();
-        modelUrl = uploadData?.data?.url || uploadData?.url || '';
-        if (!modelUrl) throw new Error('No URL returned');
-      } catch (err: any) {
-        setStatusMessage(`Upload failed: ${err.message}`);
-        setIsProcessing(false);
-        return;
-      }
-    }
 
     setIsProcessing(true);
     setStatusMessage('Submitting remesh job...');
@@ -199,239 +273,272 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
   };
 
   return (
-    <div className="flex-1 p-6 flex flex-col lg:flex-row gap-6 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="remesh-tab-panel">
-      
-      {/* Left Input Configuration Panel */}
-      <div className="w-full lg:w-[380px] flex flex-col gap-5 flex-shrink-0" id="remesh-left-panel">
-        <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-5" id="remesh-inputs-box">
-          <div>
-            <h2 className="text-lg font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
-              <RefreshCw size={20} className="text-[hsl(var(--primary))]" />
-              Remesh & Decimate
-            </h2>
-            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
-              Optimize active 3D topology and convert messy high-poly geometries to pristine game-ready assets.
-            </p>
+    <div className="flex-1 flex flex-col lg:flex-row gap-0 bg-[hsl(var(--surface-0))] overflow-hidden" id="remesh-tab-panel">
+      {/* Left Settings sidebar — Refined Studio layout */}
+      <aside className="w-full lg:w-[360px] border-r border-[hsl(var(--border))] flex flex-col h-full bg-[hsl(var(--surface-1))] z-10" id="remesh-left-panel">
+        
+        {/* SECTION: TARGET ASSET */}
+        <div className="p-6 border-b border-[hsl(var(--border))]">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] flex items-center justify-center shadow-lg shadow-[hsl(var(--primary))]/20">
+              <RefreshCw size={18} className="text-white" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[11px] font-black uppercase tracking-tighter">Retopology Flow</span>
+              <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase">Topology Optimization</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-8" id="remesh-target-box">
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Target Asset</span>
           </div>
 
-          {/* Model Upload / Active Target */}
-          <div className="bg-[hsl(var(--surface-2))] rounded-xl border border-[hsl(var(--border))] p-4 flex flex-col gap-3" id="remesh-upload-area">
-            <span className="text-[9px] font-bold text-[hsl(var(--primary))] uppercase tracking-wider">Target Model</span>
-            
-            {uploadedModelUrl ? (
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded bg-gradient-to-tr from-[hsl(var(--primary))]/20 to-transparent flex items-center justify-center border border-[hsl(var(--primary))]/10">
-                  <Layers size={18} className="text-[hsl(var(--primary))]" />
+          <div className="flex flex-col gap-3">
+            {isUploadingModel ? (
+              <div className="w-full flex flex-col items-center gap-2 py-4 bg-[hsl(var(--surface-2))] rounded-xl border border-[hsl(var(--border))]">
+                <RefreshCw size={16} className="text-[hsl(var(--primary))] animate-spin" />
+                <div className="w-full max-w-[80%] h-1 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden">
+                  <div className="h-full bg-[hsl(var(--primary))] transition-all duration-200" style={{ width: `${modelUploadProgress}%` }} />
+                </div>
+              </div>
+            ) : uploadedModelUrl ? (
+              <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--neon-green)/0.3)] rounded-xl p-3 flex items-center gap-3 group">
+                <div className="w-8 h-8 rounded-lg bg-[hsl(var(--neon-green))/0.1] flex items-center justify-center text-[hsl(var(--neon-green))]">
+                  <Layers size={14} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-[hsl(var(--foreground))] truncate">{uploadedModelName}</p>
-                  <p className="text-[10px] text-[hsl(var(--muted-foreground))] truncate font-mono">{((uploadedModel?.size ?? 0) / 1024).toFixed(1)} KB</p>
+                  <p className="text-[11px] font-black text-[hsl(var(--foreground))] truncate">{uploadedModelName}</p>
+                  <p className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter">Ready to Remesh</p>
                 </div>
-                <button onClick={() => { setUploadedModel(null); setUploadedModelUrl(null); setUploadedModelName(''); }} className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors">
+                <button 
+                  onClick={() => { setUploadedModel(null); setUploadedModelUrl(null); setUploadedModelName(''); }} 
+                  className="p-1.5 rounded-lg hover:bg-[hsl(var(--destructive))/0.1] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+                >
                   <X size={14} />
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded bg-gradient-to-tr from-[hsl(var(--primary))]/20 to-transparent flex items-center justify-center border border-[hsl(var(--primary))]/10">
-                  <Layers size={18} className="text-[hsl(var(--primary))]" />
+              <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-[hsl(var(--primary))/0.1] flex items-center justify-center text-[hsl(var(--primary))]">
+                  <Box size={14} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-[hsl(var(--foreground))] truncate">{activeModel.name}</p>
-                  <p className="text-[10px] text-[hsl(var(--muted-foreground))] truncate font-mono">{activeModel.complexity}</p>
+                  <p className="text-[11px] font-black text-[hsl(var(--foreground))] truncate">{activeModel.name}</p>
+                  <p className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter">Active Workspace Mesh</p>
                 </div>
               </div>
             )}
             
-            <label className="flex items-center justify-center gap-2 p-3 rounded-lg border border-dashed border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/50 cursor-pointer transition-colors text-[11px] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))]">
-              <Upload size={14} />
-              <span>Upload GLB/GLTF Model</span>
+            <label
+              id="remesh-upload-dropzone"
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`flex flex-col items-center justify-center gap-1.5 py-5 rounded-xl border-2 border-dashed transition-all cursor-pointer text-center group ${
+                isDragOver
+                  ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5'
+                  : 'border-[hsl(var(--border))] bg-[hsl(var(--surface-1))] hover:border-[hsl(var(--primary))]/50 hover:bg-[hsl(var(--surface-2))]'
+              }`}
+            >
+              <Upload size={16} className="text-[hsl(var(--muted-foreground))] group-hover:scale-110 group-hover:text-[hsl(var(--primary))] transition-all" />
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-[hsl(var(--foreground))]">Import Custom Mesh</span>
+                <span className="text-[8px] text-[hsl(var(--muted-foreground))] font-mono uppercase">GLB / GLTF Only</span>
+              </div>
               <input type="file" accept=".glb,.gltf" onChange={handleModelUpload} className="hidden" />
             </label>
           </div>
+        </div>
 
-          <div className="flex flex-col gap-4" id="remesh-settings-form">
-            {/* Remesh Model Selector (workspace-compatible models only) */}
+        <div className="flex flex-col gap-6" id="remesh-pipeline-box">
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Processing Pipeline</span>
+          </div>
+
+          <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">Remesh Model</label>
-                {isLoadingModels ? (
-                  <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">Loading models…</span>
-                ) : selectedModel && !selectedModel.installed ? (
-                  <span className="text-[9px] font-bold text-[hsl(var(--neon-amber))] uppercase">Not installed</span>
-                ) : null}
-              </div>
+              <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Remesh Algorithm</label>
               <select
                 value={effectiveModelId}
                 onChange={(e) => setSelectedModelId(e.target.value)}
                 disabled={isLoadingModels}
-                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer disabled:opacity-60 disabled:cursor-wait"
-                id="re-model-select"
+                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl px-3 py-2.5 text-[11px] font-black text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))] transition-all appearance-none disabled:opacity-60 shadow-sm"
               >
                 {modelOptions.map((m) => (
                   <option key={m.id || 'default'} value={m.id}>
-                    {m.label}{m.installed ? '' : ' — not installed'}
+                    {m.label}{m.installed ? '' : ' (Not Installed)'}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Target Topology Selector */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">Topology Algorithm</label>
+              <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Target Topology</label>
               <select
                 value={targetType}
                 onChange={(e) => setTargetType(e.target.value)}
-                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer"
-                id="re-topology-select"
+                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl px-3 py-2.5 text-[11px] font-black text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))]"
               >
-                <option value="quad-dominant">Quad-Dominant Flow (Subdivision Friendly)</option>
-                <option value="uniform-triangles">Uniform Triangulation (Sculpt Ready)</option>
-                <option value="decimate">Fast Decimation (Polygon Reduction)</option>
-                <option value="voronoi">Voronoi Dual-Mesh (Stylized Concept)</option>
+                <option value="quad-dominant">Quad-Dominant Flow</option>
+                <option value="uniform-triangles">Uniform Triangulation</option>
+                <option value="decimate">Fast Decimation</option>
+                <option value="voronoi">Voronoi Concept</option>
               </select>
             </div>
 
-            {/* Target Vertex Count */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">Target Density</label>
+              <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Vertex Density</label>
               <select
                 value={vertexDensity}
                 onChange={(e) => setVertexDensity(e.target.value)}
-                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer"
-                id="re-density-select"
+                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl px-3 py-2.5 text-[11px] font-black text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))]"
               >
-                <option value="10K">10K Low-Poly (Mobile Ready)</option>
-                <option value="20K">20K Game-Ready (Optimized Assets)</option>
-                <option value="50K">50K Mid-Poly (Cinema / VFX)</option>
-                <option value="100K">100K High-Poly (Subdivision Raw)</option>
+                <option value="10K">10K Low-Poly (Mobile)</option>
+                <option value="20K">20K Optimized (Game)</option>
+                <option value="50K">50K Mid-Poly (CGI)</option>
+                <option value="100K">100K High-Poly (Raw)</option>
               </select>
             </div>
 
-            {/* Constraints */}
-            <div className="flex flex-col gap-3 pt-2 border-t border-[hsl(var(--border))]" id="remesh-toggles">
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col">
-                  <span className="text-xs font-bold text-[hsl(var(--foreground))]">Preserve Symmetry</span>
-                  <span className="text-[9px] text-[hsl(var(--muted-foreground))]">Maintains mirror axis planes</span>
+            <div className="flex flex-col gap-3 pt-2 border-t border-[hsl(var(--border))/40]">
+              {[
+                { label: 'Preserve Symmetry', state: symmetry, setter: setSymmetry, desc: 'Sync mirror planes' },
+                { label: 'Retain Hard Edges', state: keepBoundaries, setter: setKeepBoundaries, desc: 'Protect sharp splits' },
+              ].map((t) => (
+                <div key={t.label} className="flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-[hsl(var(--foreground))] uppercase">{t.label}</span>
+                    <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase">{t.desc}</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={t.state}
+                    onChange={(e) => t.setter(e.target.checked)}
+                    className="accent-[hsl(var(--primary))] h-4 w-4 cursor-pointer"
+                  />
                 </div>
-                <input
-                  type="checkbox"
-                  checked={symmetry}
-                  onChange={(e) => setSymmetry(e.target.checked)}
-                  className="accent-[hsl(var(--primary))] h-4 w-4 cursor-pointer"
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col">
-                  <span className="text-xs font-bold text-[hsl(var(--foreground))]">Retain Hard Edges</span>
-                  <span className="text-[9px] text-[hsl(var(--muted-foreground))]">Keeps sharp boundary splits</span>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={keepBoundaries}
-                  onChange={(e) => setKeepBoundaries(e.target.checked)}
-                  className="accent-[hsl(var(--primary))] h-4 w-4 cursor-pointer"
-                />
-              </div>
+              ))}
             </div>
 
-            {/* Run Button */}
             <button
               onClick={handleRemesh}
               disabled={isProcessing}
-              className="w-full mt-2 bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] hover:brightness-110 active:scale-[0.98] text-[hsl(var(--surface-0))] font-extrabold py-3 rounded-xl text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-[0_4px_15px_rgba(245,166,35,0.2)]"
-              id="trigger-remesh-btn"
+              className="w-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] hover:brightness-110 active:scale-[0.98] text-[hsl(var(--surface-0))] font-black py-3 rounded-xl text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-[0_8px_20px_rgba(245,166,35,0.2)] mt-2"
             >
               {isProcessing ? (
                 <>
-                  <RefreshCw size={14} className="animate-spin text-[hsl(var(--surface-0))]" />
-                  Remeshing Mesh...
+                  <RefreshCw size={14} className="animate-spin" />
+                  Remeshing...
                 </>
               ) : (
                 <>
-                  <Play size={10} className="fill-black stroke-none" />
-                  Bake Retopology Flow
+                  <Zap size={14} className="fill-current" />
+                  Bake Topology
                 </>
               )}
             </button>
           </div>
         </div>
-      </div>
+      </aside>
 
-      {/* Right Result Visualizer Stage */}
-      <div className="flex-1 bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-6 flex flex-col gap-6 relative overflow-hidden" id="remesh-right-stage">
+      {/* Right Result Visualizer Stage — Full Studio Expansion */}
+      <div className="flex-1 bg-[hsl(var(--surface-0))] flex flex-col relative overflow-hidden" id="remesh-right-stage">
         
-        {/* Background Anime Speed Lines/Aura overlay during baking */}
-        {isProcessing && (
-          <div className="absolute inset-0 bg-[hsl(var(--surface-0))/0.6] z-20 flex flex-col items-center justify-center text-center p-6 animate-speed-lines">
-            {/* Pulsing energy sphere representing compute */}
-            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] animate-energy-pulse flex items-center justify-center text-[hsl(var(--surface-0))] font-extrabold text-xs">
-              <RefreshCw size={36} className="animate-spin text-[hsl(var(--surface-0))] stroke-[3]" />
-            </div>
-            <h3 className="text-lg font-black text-[hsl(var(--primary))] uppercase tracking-widest mt-6 animate-pulse">
-              Computing Dual-Contour Retopology...
-            </h3>
-            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-2 max-w-sm leading-relaxed font-mono">
-              {statusMessage}
-            </p>
-          </div>
-        )}
-
-        <div className="flex-1 flex flex-col justify-between z-10">
-          <div>
-            <h3 className="text-sm font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
-              <Cpu size={16} className="text-[hsl(var(--primary))]" />
-              Topology Pipeline Diagnostics
-            </h3>
-            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
-              Review current vertex structures and performance ratios. Once remeshed, updates are pushed directly to the Studio.
-            </p>
-          </div>
-
-          {/* Interactive display */}
-          {successResult ? (
-            <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--neon-green)/0.3)] rounded-xl p-5 flex flex-col gap-4 animate-fadeIn">
-              <div className="flex items-center gap-2.5">
-                <CheckCircle size={18} className="text-[hsl(var(--neon-green))]" />
-                <span className="text-sm font-bold text-[hsl(var(--foreground))] uppercase tracking-wider">Remeshing Complete!</span>
+        {/* Background Aura overlay during baking */}
+        <AnimatePresence>
+          {isProcessing && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-[hsl(var(--surface-0))/0.8] backdrop-blur-md z-30 flex flex-col items-center justify-center text-center p-12"
+            >
+              <div className="relative">
+                <div className="w-24 h-24 rounded-full border-4 border-[hsl(var(--primary))/0.1] border-t-[hsl(var(--primary))] animate-spin" />
+                <RefreshCw size={32} className="absolute inset-0 m-auto text-[hsl(var(--primary))] animate-pulse" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-[hsl(var(--surface-1))] p-3 rounded-lg border border-[hsl(var(--border))]">
-                  <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">Source Polys</p>
-                  <p className="text-xs font-bold text-[hsl(var(--muted-foreground))] mt-1">{successResult.oldVertices}</p>
-                </div>
-                <div className="bg-[hsl(var(--surface-1))] p-3 rounded-lg border border-[hsl(var(--neon-green)/0.1)]">
-                  <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">Remeshed Polys</p>
-                  <p className="text-xs font-bold text-[hsl(var(--neon-green))] mt-1">{successResult.newVertices}</p>
-                </div>
+              <h3 className="text-xl font-black text-[hsl(var(--foreground))] uppercase tracking-widest mt-8">Synthesizing Topology</h3>
+              <p className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter mt-1">{statusMessage}</p>
+              
+              <div className="w-48 h-1 bg-[hsl(var(--surface-3))] rounded-full mt-8 overflow-hidden">
+                <div className="h-full bg-[hsl(var(--primary))] animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-white/30 to-transparent" />
               </div>
-              <div className="bg-[hsl(var(--surface-1))] p-4 rounded-lg border border-[hsl(var(--border))] flex items-center justify-between">
-                <span className="text-xs text-[hsl(var(--muted-foreground))]">Reduction Ratio:</span>
-                <span className="text-xs font-bold text-[hsl(var(--primary))]">{successResult.reduction}</span>
-              </div>
-              <p className="text-xs text-[hsl(var(--muted-foreground))] leading-relaxed italic bg-[hsl(var(--surface-0))/0.45] p-3 rounded-lg border border-[hsl(var(--border))]">
-                💡 Topology Summary: {successResult.promptDescription}
-              </p>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center text-center p-8 border border-dashed border-[hsl(var(--border))] rounded-xl flex-1 my-6 bg-[hsl(var(--surface-2))]/40">
-              <Settings size={36} className="text-[hsl(var(--border))] mb-3 animate-spin-slow" />
-              <h4 className="text-xs font-bold text-[hsl(var(--muted-foreground))]">Awaiting Topology Pipeline Trigger</h4>
-              <p className="text-[11px] text-[hsl(var(--muted-foreground))] max-w-xs mt-1.5 leading-relaxed">
-                Click &quot;Bake Retopology Flow&quot; to optimize and convert your active model primitives into structured game meshes.
-              </p>
-            </div>
+            </motion.div>
           )}
+        </AnimatePresence>
 
-          {/* Quick Warning Footer */}
-          <div className="bg-[hsl(var(--surface-2))] rounded-xl p-4 border border-amber-500/10 flex items-start gap-3">
-            <AlertTriangle size={15} className="text-[hsl(var(--neon-amber))] flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <span className="text-[10px] font-bold text-[hsl(var(--neon-amber))] uppercase tracking-wider">Engine Notice</span>
-              <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1 leading-relaxed">
-                Applying dual-contour retopology generates a clean isomorphic flow over the existing active model. It will update the layout of raw ThreeDViewer primitives.
+        <div className="flex-1 flex flex-col p-8 z-10 overflow-y-auto">
+          <div className="max-w-4xl w-full mx-auto flex flex-col gap-8">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]" />
+                <h3 className="text-[11px] font-black text-[hsl(var(--foreground))] uppercase tracking-widest">
+                  Topology Pipeline Diagnostics
+                </h3>
+              </div>
+              <p className="text-xs text-[hsl(var(--muted-foreground))] max-w-2xl leading-relaxed">
+                Analyze and review isomorphic mesh distribution. The Studio engine automatically maps these baked attributes to the primary render stage.
+              </p>
+            </div>
+
+            {/* Interactive display */}
+            {successResult ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fadeIn">
+                <div className="col-span-full bg-[hsl(var(--surface-1))] border border-[hsl(var(--neon-green)/0.2)] rounded-2xl p-6 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-[hsl(var(--neon-green))/0.1] flex items-center justify-center text-[hsl(var(--neon-green))]">
+                    <CheckCircle size={24} />
+                  </div>
+                  <div>
+                    <span className="text-sm font-black text-[hsl(var(--foreground))] uppercase tracking-tight">Optimization Success</span>
+                    <p className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono uppercase">Mesh retopologized with {successResult.reduction} reduction</p>
+                  </div>
+                </div>
+
+                <div className="bg-[hsl(var(--surface-1))] p-6 rounded-2xl border border-[hsl(var(--border))] flex flex-col gap-4">
+                  <span className="text-[10px] font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest border-b border-[hsl(var(--border))] pb-2">Mesh Statistics</span>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-end">
+                      <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono">Input Density</span>
+                      <span className="text-xs font-bold text-[hsl(var(--foreground))]">{successResult.oldVertices}</span>
+                    </div>
+                    <div className="flex justify-between items-end">
+                      <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono text-[hsl(var(--neon-green))]">Optimized Density</span>
+                      <span className="text-xs font-bold text-[hsl(var(--neon-green))]">{successResult.newVertices}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-[hsl(var(--surface-1))] p-6 rounded-2xl border border-[hsl(var(--border))] flex flex-col gap-4">
+                  <span className="text-[10px] font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest border-b border-[hsl(var(--border))] pb-2">Analysis AI</span>
+                  <p className="text-[11px] text-[hsl(var(--foreground))] leading-relaxed">
+                    {successResult.promptDescription}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 min-h-[400px] flex flex-col items-center justify-center text-center p-12 border-2 border-dashed border-[hsl(var(--border))] rounded-3xl bg-[hsl(var(--surface-1))]/50">
+                <div className="w-20 h-20 rounded-full bg-[hsl(var(--surface-2))] flex items-center justify-center text-[hsl(var(--border))] mb-6">
+                  <Settings size={40} className="animate-spin-slow opacity-20" />
+                </div>
+                <h4 className="text-sm font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest">Awaiting Stage Trigger</h4>
+                <p className="text-[10px] text-[hsl(var(--muted-foreground))] max-w-sm mt-2 leading-relaxed uppercase font-bold tracking-tighter">
+                  Select a model source and click &quot;Bake Topology&quot; to initiate the Studio retopology pipeline.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Engine Notice Footer */}
+        <div className="mt-auto p-6 bg-[hsl(var(--surface-1))] border-t border-[hsl(var(--border))]">
+          <div className="max-w-4xl mx-auto flex items-start gap-4">
+            <AlertTriangle size={18} className="text-[hsl(var(--neon-amber))] flex-shrink-0 mt-0.5" />
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-black text-[hsl(var(--neon-amber))] uppercase tracking-widest">Studio Engine Notice</span>
+              <p className="text-[10px] text-[hsl(var(--muted-foreground))] leading-relaxed uppercase font-bold tracking-tighter">
+                Retopology updates are destructive to the local vertex buffer but persistent in the Studio stage. Always export original primitives before committing heavy decimation.
               </p>
             </div>
           </div>

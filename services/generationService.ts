@@ -95,69 +95,118 @@ export const generationService = {
 
     onProgress(10, 'generating', 'Generation started', 'info');
 
+    // Use SSE if supported, otherwise fallback to polling
+    if (typeof window !== 'undefined' && 'EventSource' in window) {
+      const eventSource = new EventSource(`/api/v1/generation/${jobId}/stream`);
+      
+      return new Promise<GenerationResult>((resolve, reject) => {
+        eventSource.onmessage = (event) => {
+          try {
+            const status = JSON.parse(event.data);
+            onProgress(
+              status.progress ?? 0,
+              normalizeStatus(status.status),
+              status.message ?? `Processing... ${status.progress ?? 0}%`,
+              status.status === 'completed' ? 'success' : 'info'
+            );
+
+            if (status.status === 'completed') {
+              eventSource.close();
+              resolve(normalizeResult(status.result || status));
+            } else if (status.status === 'failed') {
+              eventSource.close();
+              reject(new Error(status.error || 'Generation failed'));
+            } else if (status.status === 'cancelled') {
+              eventSource.close();
+              reject(new Error('Generation cancelled'));
+            }
+          } catch (err) {
+            console.error("Failed to parse SSE message:", err);
+          }
+        };
+
+        eventSource.onerror = (err) => {
+          console.warn("SSE connection error, falling back to polling:", err);
+          eventSource.close();
+          // Fallback to existing polling logic
+          this._pollGeneration(jobId, abortController, onProgress, resolve, reject);
+        };
+
+        abortController.signal.addEventListener('abort', () => {
+          eventSource.close();
+          reject(new Error('Generation cancelled'));
+        });
+      }).finally(() => {
+        _activeControllers.delete(abortController);
+      });
+    }
+
+    // Fallback for environments without EventSource (or if SSE fails)
     return new Promise<GenerationResult>((resolve, reject) => {
-      // BUG-04 FIX: added retry counter for backoff (was missing; image service has it)
-      let pollRetryCount = 0;
-      const poll = async () => {
-        try {
-          // Issue #3 Fix: Backend now has GET /generation/{job_id}/status endpoint.
-          // useCache=false so a stale cached status never freezes the poll loop.
-          const statusData = await apiClient.get<any>(`/api/v1/generation/${jobId}/status`, false);
-          if (statusData?.success === false) {
-            throw new Error(statusData?.message || 'Failed to fetch status');
-          }
-          const status = statusData?.data || statusData;
-
-          onProgress(
-            status.progress ?? 0,
-            normalizeStatus(status.status),
-            status.message ?? `Processing... ${status.progress ?? 0}%`,
-            status.status === 'completed' ? 'success' : 'info'
-          );
-
-          if (status.status === 'completed') {
-            resolve(normalizeResult(status.result || status));
-            return;
-          }
-
-          if (status.status === 'failed') {
-            reject(new Error(status.error || 'Generation failed'));
-            return;
-          }
-
-          if (abortController?.signal.aborted) {
-            reject(new Error('Generation cancelled'));
-            return;
-          }
-
-          // BUG-04 FIX: reset retry counter on every successful poll
-          pollRetryCount = 0;
-          setTimeout(poll, 1000);
-        } catch (err) {
-          if (err instanceof Error && err.message === 'Generation cancelled') {
-            reject(err);
-            return;
-          }
-          if (abortController?.signal.aborted) {
-            reject(new Error('Generation cancelled'));
-            return;
-          }
-          // BUG-04 FIX: was an immediate reject() — any transient network error killed the job.
-          // Now retry with exponential backoff up to 5 times.
-          pollRetryCount++;
-          if (pollRetryCount > 5) {
-            reject(new Error(err instanceof Error ? err.message : 'Polling failed'));
-            return;
-          }
-          setTimeout(poll, 2000 * pollRetryCount); // 2s, 4s, 6s, 8s, 10s
-        }
-      };
-
-      setTimeout(poll, 1000);
+      this._pollGeneration(jobId, abortController, onProgress, resolve, reject);
     }).finally(() => {
-      // BUG-03 FIX: remove controller from active set when generation finishes/errors/cancels
       _activeControllers.delete(abortController);
     });
+  },
+
+  async _pollGeneration(
+    jobId: string,
+    abortController: AbortController,
+    onProgress: ProgressCallback,
+    resolve: (res: GenerationResult) => void,
+    reject: (err: any) => void
+  ) {
+    let pollRetryCount = 0;
+    const poll = async () => {
+      try {
+        const statusData = await apiClient.get<any>(`/api/v1/generation/${jobId}/status`, false);
+        if (statusData?.success === false) {
+          throw new Error(statusData?.message || 'Failed to fetch status');
+        }
+        const status = statusData?.data || statusData;
+
+        onProgress(
+          status.progress ?? 0,
+          normalizeStatus(status.status),
+          status.message ?? `Processing... ${status.progress ?? 0}%`,
+          status.status === 'completed' ? 'success' : 'info'
+        );
+
+        if (status.status === 'completed') {
+          resolve(normalizeResult(status.result || status));
+          return;
+        }
+
+        if (status.status === 'failed') {
+          reject(new Error(status.error || 'Generation failed'));
+          return;
+        }
+
+        if (abortController?.signal.aborted) {
+          reject(new Error('Generation cancelled'));
+          return;
+        }
+
+        pollRetryCount = 0;
+        setTimeout(poll, 1000);
+      } catch (err) {
+        if (err instanceof Error && err.message === 'Generation cancelled') {
+          reject(err);
+          return;
+        }
+        if (abortController?.signal.aborted) {
+          reject(new Error('Generation cancelled'));
+          return;
+        }
+        pollRetryCount++;
+        if (pollRetryCount > 5) {
+          reject(new Error(err instanceof Error ? err.message : 'Polling failed'));
+          return;
+        }
+        setTimeout(poll, 2000 * pollRetryCount);
+      }
+    };
+    setTimeout(poll, 1000);
   },
 
   async cancel(jobId?: string) {

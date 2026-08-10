@@ -31,6 +31,10 @@ OUTPUT_DIR    = _args.get("output_dir", os.path.dirname(INPUT_PATH))
 AUTO_RIG      = _args.get("auto_rig", False)
 GEN_TEXTURE   = _args.get("generate_texture", True)
 QUALITY       = _args.get("quality", "standard")
+RENDER_RES    = _args.get("render_resolution", [512, 512])
+RENDER_SAMPLES = _args.get("render_samples", 128)
+THUMBNAIL_PATH = os.path.join(OUTPUT_DIR, "thumbnail.png")
+RENDER_PATH    = os.path.join(OUTPUT_DIR, "render.png")
 
 DECIMATE_FACES = {"low-poly": 4000, "standard": 0, "high-poly": 0}
 
@@ -77,11 +81,56 @@ for obj in mesh_objects:
     bpy.context.view_layer.objects.active = obj
     obj.select_set(True)
 
+    # Convert to BMesh for advanced cleanup
+    import bmesh
+    
     bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.mesh.remove_doubles(threshold=0.0001)
-    bpy.ops.mesh.normals_make_consistent(inside=False)
-    bpy.ops.mesh.dissolve_degenerate()
+    bm = bmesh.from_edit_mesh(obj.data)
+    
+    # 1. Remove doubles
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.0001)
+    
+    # 2. Fill holes (capped by poly count to avoid massive meshes)
+    bmesh.ops.holes_fill(bm, edges=bm.edges, sides=4)
+    
+    # 3. Recalculate normals
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    
+    # 4. Remove disconnected parts (Keep only the largest island)
+    bmesh.update_edit_mesh(obj.data)
+    bpy.ops.mesh.select_all(action='DESELECT')
+    
+    # Iterate through islands and find the one with most vertices
+    total_verts = len(bm.verts)
+    processed_verts = set()
+    islands = []
+    
+    while len(processed_verts) < total_verts:
+        # Find an unvisited vertex
+        start_vert = next((v for v in bm.verts if v not in processed_verts), None)
+        if not start_vert: break
+        
+        # Grow island
+        island = {start_vert}
+        stack = [start_vert]
+        while stack:
+            v = stack.pop()
+            for edge in v.link_edges:
+                other = edge.other_vert(v)
+                if other not in island:
+                    island.add(other)
+                    stack.append(other)
+        
+        islands.append(island)
+        processed_verts.update(island)
+    
+    if islands:
+        largest_island = max(islands, key=len)
+        for v in bm.verts:
+            if v not in largest_island:
+                bm.verts.remove(v)
+    
+    bmesh.update_edit_mesh(obj.data)
     bpy.ops.object.mode_set(mode="OBJECT")
 
     # Decimate
@@ -188,6 +237,51 @@ if not GEN_TEXTURE:
             obj.data.materials.append(default_mat)
 
 
+# ── 7. Render Thumbnail & High-res ─────────────────────────────────────────────
+# Set up rendering
+scene = bpy.context.scene
+scene.render.engine = 'BLENDER_EEVEE_NEXT' if hasattr(bpy.types, "EeveeNextRenderSettings") else 'BLENDER_EEVEE'
+
+# Set up camera
+if "Camera" not in bpy.data.objects:
+    bpy.ops.object.camera_add(location=(3, -3, 2))
+    cam = bpy.context.object
+    cam.rotation_euler = (1.1, 0, 0.785)
+else:
+    cam = bpy.data.objects["Camera"]
+
+scene.camera = cam
+
+# Set up lighting
+if "Light" not in bpy.data.objects:
+    bpy.ops.object.light_add(type='SUN', location=(5, 5, 10))
+    sun = bpy.context.object
+    sun.data.energy = 5.0
+
+# World background
+scene.world.use_nodes = True
+bg = scene.world.node_tree.nodes.get("Background")
+if bg:
+    bg.inputs[0].default_value = (0.05, 0.05, 0.06, 1.0)
+
+# 1. Render Thumbnail
+scene.render.filepath = THUMBNAIL_PATH
+scene.render.resolution_x = 512
+scene.render.resolution_y = 512
+bpy.ops.render.render(write_still=True)
+
+# 2. Render High-res (if requested)
+if RENDER_RES:
+    scene.render.filepath = RENDER_PATH
+    scene.render.resolution_x = RENDER_RES[0]
+    scene.render.resolution_y = RENDER_RES[1]
+    # Increase samples for better quality
+    if scene.render.engine == 'BLENDER_EEVEE_NEXT':
+        scene.eevee.ray_tracing_options.use_raytracing = True
+    
+    bpy.ops.render.render(write_still=True)
+
+
 # ── 8. Export ──────────────────────────────────────────────────────────────────
 glb_path = os.path.join(OUTPUT_DIR, "model.glb")
 fbx_path = os.path.join(OUTPUT_DIR, "model.fbx")
@@ -234,6 +328,7 @@ result = {
     "fbx": fbx_path,
     "obj": obj_path,
     "stl": stl_path,
+    "thumbnail": THUMBNAIL_PATH,
     "polygon_count": total_polys,
     "vertex_count": total_verts,
     "has_rig": armature_obj is not None,

@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useEffect, Suspense, useRef, useMemo } from 'react';
+import anime from 'animejs';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid, Environment, Float } from '@react-three/drei';
 import {
@@ -24,6 +25,7 @@ import { useGenerationStatus, useWorkspaceModels } from '@/hooks/useBackendData'
 import { HistoryItem } from '@/types/new-ui';
 import { Skeleton } from '@/components/ux';
 import { toast } from 'sonner';
+import { uploadService } from '@/services/uploadService';
 import LayerVisibilityPanel from './LayerVisibilityPanel';
 import AssetLayersPanel from './AssetLayersPanel';
 import ExportDialog from './ExportDialog';
@@ -335,11 +337,36 @@ export default function ThreeDGenerationTab({
   const [uploadedModelUrl, setUploadedModelUrl] = useState<string | null>(null);
   const [uploadedModelName, setUploadedModelName] = useState<string>('');
 
+  const [isUploadingModel, setIsUploadingModel] = useState(false);
+  const [modelUploadProgress, setModelUploadProgress] = useState(0);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imageUploadProgress, setImageUploadProgress] = useState(0);
+
   const [viewMode, setViewMode] = useState<'Mesh' | 'Wireframe' | 'Texture'>('Mesh');
+  useEffect(() => {
+    // Comprehensive entrance animations for the workspace
+    anime({
+      targets: '#three-d-gen-left-sidebar > div',
+      opacity: [0, 1],
+      translateX: [-20, 0],
+      delay: anime.stagger(40),
+      easing: 'easeOutQuad',
+      duration: 500
+    });
+
+    anime({
+      targets: '#specs-and-progress-sidebar > div',
+      opacity: [0, 1],
+      translateX: [20, 0],
+      delay: anime.stagger(40),
+      easing: 'easeOutQuad',
+      duration: 500
+    });
+  }, []);
+
   const [shading, setShading] = useState<'PBR' | 'Clay'>('PBR');
   const [exportFormat, setExportFormat] = useState<'GLB' | 'FBX' | 'OBJ' | 'USDZ' | 'STL'>('GLB');
 
-  const [showGrid, setShowGrid] = useState(true);
   const [showWireframe, setShowWireframe] = useState(false);
   const [autoRotate, setAutoRotate] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -350,54 +377,120 @@ export default function ThreeDGenerationTab({
   // Drag-and-drop reference image local overlay states
   const [isDragOver, setIsDragOver] = useState(false);
 
-  const handleModelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleModelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.name.match(/\.(glb|gltf)$/i)) {
       toast.error('Please upload a .glb or .gltf file');
       return;
     }
-    setUploadedModel(file);
-    setUploadedModelName(file.name);
-    const url = URL.createObjectURL(file);
-    setUploadedModelUrl(url);
-    toast.success(`Model loaded: ${file.name}`);
+    setIsUploadingModel(true);
+    setModelUploadProgress(0);
+    try {
+      const { url } = await uploadService.uploadWithProgress(file, (progress) => {
+        setModelUploadProgress(progress.percent);
+      }, '/api/v1/upload/model');
+      setUploadedModel(file);
+      setUploadedModelName(file.name);
+      setUploadedModelUrl(url);
+      
+      // Load model into viewer
+      window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url } }));
+
+      // AnimeJS animation for successful load
+      anime({
+        targets: '#model-import-container',
+        scale: [1.02, 1],
+        boxShadow: ['0 0 20px hsl(var(--primary)/0.5)', '0 0 0px hsl(var(--primary)/0)'],
+        duration: 800,
+        easing: 'easeOutElastic(1, .8)'
+      });
+
+      toast.success(`Model loaded: ${file.name}`);
+    } catch (err) {
+      toast.error('Failed to upload model');
+    } finally {
+      setIsUploadingModel(false);
+      setModelUploadProgress(0);
+    }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && file.size <= 10 * 1024 * 1024) { // 10MB limit
-      const reader = new FileReader();
-      reader.onload = () => {
+      setIsUploadingImage(true);
+      setImageUploadProgress(0);
+      try {
+        const { url, width, height } = await uploadService.uploadWithProgress(file, (progress) => {
+          setImageUploadProgress(progress.percent);
+        }, '/api/v1/upload/image');
         setUploadedImage({
           file,
-          preview: reader.result as string,
-          width: 512,
-          height: 512
+          preview: url,
+          width: width || 512,
+          height: height || 512
         });
         setMode('image-to-3d');
-      };
-      reader.readAsDataURL(file);
-      toast.success('Image loaded for Image-to-3D pipeline.');
+        toast.success('Image loaded for Image-to-3D pipeline.');
+      } catch (err) {
+        toast.error('Failed to upload image');
+      } finally {
+        setIsUploadingImage(false);
+        setImageUploadProgress(0);
+      }
+    } else if (file) {
+      toast.error('File size must be under 10MB');
     }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragOver(true);
+    if (!isDragOver) {
+      setIsDragOver(true);
+      const targetId = (e.currentTarget as HTMLElement).id;
+      if (targetId) {
+        anime({
+          targets: `#${targetId}`,
+          scale: 1.05,
+          boxShadow: '0 0 15px hsl(var(--primary)/0.3)',
+          duration: 300,
+          easing: 'easeOutQuad'
+        });
+      }
+    }
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
+    const targetId = (e.currentTarget as HTMLElement).id;
+    if (targetId) {
+      anime({
+        targets: `#${targetId}`,
+        scale: 1,
+        boxShadow: '0 0 0px hsl(var(--primary)/0)',
+        duration: 300,
+        easing: 'easeOutQuad'
+      });
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
+    const targetId = (e.currentTarget as HTMLElement).id;
+    if (targetId) {
+      anime({
+        targets: `#${targetId}`,
+        scale: 1,
+        boxShadow: '0 0 0px hsl(var(--primary)/0)',
+        duration: 300,
+        easing: 'easeOutQuad'
+      });
+    }
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
     
@@ -505,158 +598,160 @@ export default function ThreeDGenerationTab({
         </div>
 
         {/* Setup Options Form */}
-        <div className="p-4 flex flex-col gap-5">
-          {/* Model Selector */}
-          <div className="flex flex-col gap-1.5" id="model-select-field">
-            <div className="flex justify-between items-center">
-              <label className="text-[10px] font-black uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Model</label>
-              {isLoadingWorkspaceModels ? (
-                <span className="text-[9px] font-bold text-[hsl(var(--muted-foreground))] font-mono">Loading models…</span>
-              ) : activeModel?.installed ? (
-                <span className="text-[9px] font-bold text-[hsl(var(--neon-green))] bg-[hsl(var(--neon-green))]/10 px-2 py-0.5 rounded-full border border-[hsl(var(--neon-green))]/20">Installed</span>
-              ) : (
-                <span className="text-[9px] font-bold text-[hsl(var(--neon-amber))] bg-[hsl(var(--neon-amber)/0.1)] px-2 py-0.5 rounded-full border border-amber-500/20">Not Installed</span>
-              )}
-            </div>
-            
-            <div className="relative">
-                <select
-                  value={activeModel?.id ?? ''}
-                  onChange={(e) => setSelectedModel(e.target.value)}
-                disabled={isLoadingWorkspaceModels}
-                className="w-full bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-xl pl-3 pr-8 py-2.5 text-xs font-semibold text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))] transition-all appearance-none disabled:opacity-60 disabled:cursor-wait"
-              >
-                {modelsList.map(m => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}{!m.installed ? ' — not installed' : ''}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={14} className="absolute right-3 top-3.5 text-[hsl(var(--muted-foreground))] pointer-events-none" />
-            </div>
-          </div>
-
-          {/* Supports Checklist (Gated based on model capability) */}
-          <div className="flex flex-col gap-2 p-3 bg-[hsl(var(--surface-1))] rounded-xl border border-[hsl(var(--surface-3))]" id="capabilities-checklist">
-            <span className="text-[9px] font-black uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Supports</span>
-            <div className="grid grid-cols-2 gap-y-2 gap-x-1.5 text-[10px] font-semibold text-[hsl(var(--muted-foreground))]">
-              <div 
-                onClick={() => activeModel.supports.text_to_3d && setMode('text-to-3d')}
-                className={`flex items-center gap-1.5 p-1 rounded transition-all cursor-pointer ${
-                  !activeModel.supports.text_to_3d ? 'opacity-30 cursor-not-allowed' : mode === 'text-to-3d' ? 'bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] ring-1 ring-[hsl(var(--primary))]/30' : 'hover:bg-white/5'
-                }`}
-              >
-                <Check size={11} className={activeModel.supports.text_to_3d ? "text-[hsl(var(--neon-green))]" : "text-[hsl(var(--muted-foreground))]"} />
-                <span>Text to 3D</span>
-              </div>
-              <div 
-                onClick={() => activeModel.supports.image_to_3d && setMode('image-to-3d')}
-                className={`flex items-center gap-1.5 p-1 rounded transition-all cursor-pointer ${
-                  !activeModel.supports.image_to_3d ? 'opacity-30 cursor-not-allowed' : mode === 'image-to-3d' ? 'bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] ring-1 ring-[hsl(var(--primary))]/30' : 'hover:bg-white/5'
-                }`}
-              >
-                <Check size={11} className={activeModel.supports.image_to_3d ? "text-[hsl(var(--neon-green))]" : "text-[hsl(var(--muted-foreground))]"} />
-                <span>Image to 3D</span>
-              </div>
-              <div className={`flex items-center gap-1.5 ${!activeModel.supports.texture_generation && 'opacity-30'}`}>
-                <Check size={11} className={activeModel.supports.texture_generation ? "text-[hsl(var(--neon-green))]" : "text-[hsl(var(--muted-foreground))]"} />
-                <span>Texture Gen</span>
-              </div>
-              <div className={`flex items-center gap-1.5 ${!activeModel.supports.rigging_animation && 'opacity-30'}`}>
-                <Check size={11} className={activeModel.supports.rigging_animation ? "text-[hsl(var(--neon-green))]" : "text-[hsl(var(--muted-foreground))]"} />
-                <span>Rigging / Anim</span>
-              </div>
-              <div className={`flex items-center gap-1.5 ${!activeModel.supports.part_separation && 'opacity-30'}`}>
-                <Check size={11} className={activeModel.supports.part_separation ? "text-[hsl(var(--neon-green))]" : "text-[hsl(var(--muted-foreground))]"} />
-                <span>Part Separation</span>
-              </div>
-              <div className={`flex items-center gap-1.5 ${!activeModel.supports.detail_enhancement && 'opacity-30'}`}>
-                <Check size={11} className={activeModel.supports.detail_enhancement ? "text-[hsl(var(--neon-green))]" : "text-[hsl(var(--muted-foreground))]"} />
-                <span>Detail Enhance</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-[hsl(var(--border))] my-1" />
-
-          {/* INPUT SECTION */}
-          <div className="flex flex-col gap-3">
-            <span className="text-[10px] font-black uppercase tracking-wider text-[hsl(var(--muted-foreground))] -mb-1">INPUT</span>
-            
-            {/* Prompt input with character count (disabled if text-to-3d is unsupported) */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))]">Prompt</label>
-              {!activeModel.supports.text_to_3d ? (
-                <div className="bg-[hsl(var(--surface-1))]/50 border border-[hsl(var(--surface-3))]/60 p-3 rounded-xl text-[11px] text-[hsl(var(--muted-foreground))] font-medium flex gap-2">
-                  <Lock size={12} className="shrink-0 mt-0.5" />
-                  <span>Prompt disabled for {activeModel.name} (Image-to-3D only).</span>
-                </div>
-              ) : (
-                <div className="relative">
-                  <textarea
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value.slice(0, 500))}
-                    placeholder="Describe your 3D humanoid, mecha or asset in detail..."
-                    className="w-full bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-xl p-3 text-xs text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))] min-h-[85px] max-h-[140px] focus:outline-none focus:border-[hsl(var(--primary))] transition-all resize-none leading-relaxed font-semibold"
-                    id="setup-prompt"
-                  />
-                  <span className="absolute bottom-2.5 right-2.5 text-[9px] font-mono font-bold text-[hsl(var(--muted-foreground))]">
-                    {prompt.length} / 500
-                  </span>
-                </div>
-              )}
+        <div className="flex flex-col gap-6" id="three-d-gen-sidebar-content">
+          
+          {/* SECTION: ENGINE CONFIGURATION */}
+          <div className="flex flex-col gap-4 animate-slide-in">
+            <div className="flex items-center justify-between border-b border-[hsl(var(--border))] pb-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Engine Config</span>
+              <Cpu size={12} className="text-[hsl(var(--primary))]" />
             </div>
 
-            {/* Reference Image Optional Drag & Drop Upload Zone (disabled if image-to-3d is unsupported) */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))]">Reference Image (Optional)</label>
-              {!activeModel.supports.image_to_3d ? (
-                <div className="bg-[hsl(var(--surface-1))]/50 border border-[hsl(var(--surface-3))]/60 p-3 rounded-xl text-[11px] text-[hsl(var(--muted-foreground))] font-medium flex gap-2">
-                  <Lock size={12} className="shrink-0 mt-0.5" />
-                  <span>Image reference disabled for {activeModel.name}.</span>
-                </div>
-              ) : (
-                <div
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onClick={() => document.getElementById('image-uploader-btn')?.click()}
-                  className={`border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all text-center ${
-                    isDragOver
-                      ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10'
-                      : uploadedImage
-                        ? 'border-[hsl(var(--neon-green))]/30 bg-[hsl(var(--neon-green))]/5'
-                        : 'border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))]/55 hover:bg-[hsl(var(--surface-1))] hover:border-[hsl(var(--primary))]/50'
-                  }`}
-                >
-                  <input
-                    id="image-uploader-btn"
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-                  {uploadedImage ? (
-                    <>
-                      <img src={uploadedImage.preview} alt="Reference Preview" className="w-full h-20 object-contain rounded-lg border border-[hsl(var(--surface-3))]" referrerPolicy="no-referrer" />
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] font-bold text-[hsl(var(--neon-green))] flex items-center gap-1">
-                          <CheckCircle2 size={11} /> Ready
-                        </span>
-                        <button onClick={(e) => { e.stopPropagation(); clearImage(); }} className="text-[10px] font-black text-[hsl(var(--destructive))] hover:text-[hsl(var(--destructive))] p-0.5 bg-rose-500/10 rounded">
-                          Remove
-                        </button>
-                      </div>
-                    </>
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center text-[10px] font-bold">
+                  <span className="text-[hsl(var(--muted-foreground))]">Model</span>
+                  {activeModel?.installed ? (
+                    <span className="text-[hsl(var(--neon-green))] flex items-center gap-1">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--neon-green))] animate-pulse" />
+                      Active
+                    </span>
                   ) : (
-                    <>
-                      <Upload size={18} className={isDragOver ? 'text-[hsl(var(--primary))] animate-bounce' : 'text-[hsl(var(--muted-foreground))]'} />
-                      <span className="text-[11px] font-bold text-[hsl(var(--foreground))]">
-                        Drag & drop or click to upload
-                      </span>
-                      <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">PNG, JPG, WEBP up to 10MB</span>
-                    </>
+                    <span className="text-[hsl(var(--neon-amber))]">Not Ready</span>
                   )}
+                </div>
+                <div className="relative group">
+                  <select
+                    value={activeModel?.id ?? ''}
+                    onChange={(e) => setSelectedModel(e.target.value)}
+                    disabled={isLoadingWorkspaceModels}
+                    className="w-full bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-xl pl-3 pr-8 py-2.5 text-[11px] font-black text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))] transition-all appearance-none disabled:opacity-60 disabled:cursor-wait shadow-sm group-hover:border-[hsl(var(--primary))/0.3]"
+                  >
+                    {modelsList.map(m => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}{!m.installed ? ' (Offline)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-3 top-3.5 text-[hsl(var(--muted-foreground))] pointer-events-none group-hover:text-[hsl(var(--primary))] transition-colors" />
+                </div>
+              </div>
+
+              {/* Mode Selection Chips */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-bold text-[hsl(var(--muted-foreground))]">Processing Mode</span>
+                <div className="flex gap-1.5 bg-[hsl(var(--surface-1))] p-1 rounded-xl border border-[hsl(var(--surface-3))]">
+                  <button 
+                    onClick={() => activeModel.supports.text_to_3d && setMode('text-to-3d')}
+                    disabled={!activeModel.supports.text_to_3d}
+                    className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${
+                      mode === 'text-to-3d' 
+                        ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] shadow-md' 
+                        : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--surface-2))] disabled:opacity-30'
+                    }`}
+                  >
+                    Text-to-3D
+                  </button>
+                  <button 
+                    onClick={() => activeModel.supports.image_to_3d && setMode('image-to-3d')}
+                    disabled={!activeModel.supports.image_to_3d}
+                    className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${
+                      mode === 'image-to-3d' 
+                        ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] shadow-md' 
+                        : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--surface-2))] disabled:opacity-30'
+                    }`}
+                  >
+                    Image-to-3D
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION: INPUT SOURCE */}
+          <div className="flex flex-col gap-4 animate-slide-in">
+            <div className="flex items-center justify-between border-b border-[hsl(var(--border))] pb-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Input Source</span>
+              <Sparkles size={12} className="text-[hsl(var(--primary))]" />
+            </div>
+
+            <div className="flex flex-col gap-4">
+              {/* Conditional Prompt Area */}
+              {activeModel.supports.text_to_3d && (
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-[hsl(var(--muted-foreground))]">
+                    <label>Description</label>
+                    <span className="font-mono text-[9px]">{prompt.length}/500</span>
+                  </div>
+                  <div className="relative group">
+                    <textarea
+                      value={prompt}
+                      onChange={(e) => setPrompt(e.target.value.slice(0, 500))}
+                      placeholder="High-fidelity mech sentinel with matte carbon finish..."
+                      className="w-full bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-xl p-3 text-[11px] text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))/0.5] min-h-[100px] max-h-[140px] focus:outline-none focus:border-[hsl(var(--primary))] transition-all resize-none font-bold leading-relaxed shadow-inner"
+                    />
+                    <div className="absolute right-2 bottom-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button 
+                        onClick={() => setPrompt('Futuristic cybernetic avatar with bioluminescent plating, high-detail mechanical internal structure')}
+                        className="p-1.5 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] shadow-sm"
+                        title="Auto-fill Example"
+                      >
+                        <RefreshCw size={10} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Enhanced Upload Zone */}
+              {activeModel.supports.image_to_3d && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))]">Visual Reference</label>
+                  <div
+                    id="image-import-container"
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => document.getElementById('image-uploader-btn')?.click()}
+                    className={`border-2 border-dashed rounded-2xl p-5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all text-center relative overflow-hidden group ${
+                      isDragOver
+                        ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 scale-[0.98]'
+                        : uploadedImage
+                          ? 'border-[hsl(var(--neon-green))]/40 bg-[hsl(var(--neon-green))]/5'
+                          : 'border-[hsl(var(--border))] bg-[hsl(var(--surface-1))] hover:border-[hsl(var(--primary))]/50 hover:bg-[hsl(var(--surface-2))]'
+                    }`}
+                  >
+                    <input id="image-uploader-btn" type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                    
+                    {isUploadingImage ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <RefreshCw size={20} className="text-[hsl(var(--primary))] animate-spin" />
+                        <span className="text-[10px] font-black text-[hsl(var(--primary))] uppercase">{imageUploadProgress}% Loaded</span>
+                      </div>
+                    ) : uploadedImage ? (
+                      <div className="relative w-full group">
+                        <img src={uploadedImage.preview} alt="Ref" className="w-full h-24 object-cover rounded-xl border border-[hsl(var(--border))]" />
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl backdrop-blur-[2px]">
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); clearImage(); }}
+                            className="bg-[hsl(var(--destructive))] text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5"
+                          >
+                            <Trash2 size={10} /> Remove
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="w-10 h-10 rounded-full bg-[hsl(var(--surface-2))] flex items-center justify-center mb-1 group-hover:scale-110 group-hover:bg-[hsl(var(--surface-3))] transition-all">
+                          <Upload size={18} className="text-[hsl(var(--muted-foreground))]" />
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[11px] font-black text-[hsl(var(--foreground))]">Drop reference</span>
+                          <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter">PNG, JPG up to 10MB</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -668,6 +763,7 @@ export default function ThreeDGenerationTab({
           <div className="flex flex-col gap-1.5">
             <span className="text-[10px] font-black uppercase tracking-wider text-[hsl(var(--muted-foreground))]">IMPORT 3D MODEL</span>
             <div
+              id="model-import-container"
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
@@ -687,7 +783,15 @@ export default function ThreeDGenerationTab({
                 onChange={handleModelUpload}
                 className="hidden"
               />
-              {uploadedModelUrl ? (
+              {isUploadingModel ? (
+                <div className="w-full flex flex-col items-center gap-2 py-2">
+                  <div className="w-4 h-4 border-2 border-[hsl(var(--primary)/0.3)] border-t-[hsl(var(--primary))] rounded-full animate-spin" />
+                  <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Uploading... {modelUploadProgress}%</span>
+                  <div className="w-full h-1 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden">
+                    <div className="h-full bg-[hsl(var(--primary))] transition-all duration-200" style={{ width: `${modelUploadProgress}%` }} />
+                  </div>
+                </div>
+              ) : uploadedModelUrl ? (
                 <>
                   <Layers size={16} className="text-[hsl(var(--neon-green))]" />
                   <span className="text-[10px] font-bold text-[hsl(var(--neon-green))] truncate max-w-full">{uploadedModelName}</span>
@@ -797,13 +901,21 @@ export default function ThreeDGenerationTab({
             </div>
           )}
           <button
-            onClick={isGenerating ? cancel : generate}
+            onClick={async () => {
+              anime({
+                targets: '#workspace-trigger-generation-btn',
+                scale: [0.95, 1],
+                duration: 400,
+                easing: 'easeOutElastic(1, .8)'
+              });
+              isGenerating ? cancel() : generate();
+            }}
             className={`w-full font-black py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-[0_4px_24px_rgba(245,166,35,0.15)] ${
               isGenerating
                  ? 'bg-[hsl(var(--neon-pink))] hover:brightness-110 text-[hsl(var(--foreground))] shadow-[0_4px_24px_rgba(225,29,72,0.15)]'
                 : isColabIncompatible
                   ? 'bg-[hsl(var(--surface-1))] text-[hsl(var(--muted-foreground))] cursor-not-allowed border border-[hsl(var(--border))/0.5]'
-                : 'bg-[hsl(var(--primary))] hover:brightness-110 text-[hsl(var(--surface-0))] active:scale-[0.98]'
+                : 'bg-[hsl(var(--primary))] hover:brightness-110 text-[hsl(var(--surface-0))]'
             }`}
             id="workspace-trigger-generation-btn"
             disabled={isColabIncompatible}
@@ -819,72 +931,51 @@ export default function ThreeDGenerationTab({
       {/* ───────────────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[hsl(var(--surface-0))] relative min-h-[200px] lg:min-h-0" id="workspace-center-section">
         
-        {/* Top Control bar */}
-        <div className="h-14 bg-[hsl(var(--surface-0))] border-b border-[hsl(var(--border))] px-2 sm:px-4 flex items-center justify-between shrink-0 overflow-x-auto gap-2" id="viewer-header-control-bar">
+        {/* 3D Viewer Space — expanded vertically */}
+        <div className="flex-1 relative bg-[hsl(var(--surface-0))] overflow-hidden" id="canvas-workspace">
           
-          {/* FIX: Mobile sidebar toggle buttons */}
-          <div className="flex items-center gap-1 lg:hidden shrink-0">
-            <button onClick={() => { setMobileLeftOpen(true); setMobileRightOpen(false); }} className="p-2 rounded-lg hover:bg-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] active:scale-95" title="Open Settings">
-              <Settings size={16} />
-            </button>
-            <button onClick={() => { setMobileRightOpen(true); setMobileLeftOpen(false); }} className="p-2 rounded-lg hover:bg-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] active:scale-95" title="Open Progress">
-              <Activity size={16} />
-            </button>
-          </div>
+          {/* Floating HUD Control bar — Integrated into viewport */}
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 bg-[hsl(var(--surface-1))/0.8] backdrop-blur-xl border border-[hsl(var(--border))] px-4 py-2 rounded-2xl shadow-2xl" id="viewer-hud-controls">
+            {/* View Mode segmented control */}
+            <div className="flex items-center gap-1 bg-[hsl(var(--surface-2))/0.5] p-1 rounded-xl">
+              {(['Mesh', 'Wireframe', 'Texture'] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => {
+                    setViewMode(m);
+                    if (m === 'Wireframe') setShowWireframe(true);
+                    else setShowWireframe(false);
+                  }}
+                  className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all ${
+                    viewMode === m
+                      ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] shadow-md'
+                      : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-3))]'
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
 
-          {/* View Mode segmented control */}
-          <div className="flex items-center gap-1.5 bg-[hsl(var(--surface-1))] p-1 rounded-xl border border-[hsl(var(--surface-3))]">
-            {(['Mesh', 'Wireframe', 'Texture'] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => {
-                  setViewMode(m);
-                  if (m === 'Wireframe') setShowWireframe(true);
-                  else setShowWireframe(false);
-                }}
-                className={`px-3 py-1.5 text-[11px] font-black tracking-wide rounded-lg transition-all ${
-                  viewMode === m
-                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] shadow-sm font-bold'
-                    : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
-                }`}
-              >
-                {m}
-              </button>
-            ))}
-          </div>
+            <div className="w-[1px] h-4 bg-[hsl(var(--border))] mx-1" />
 
-          <div className="flex items-center gap-4">
             {/* Shading options */}
-            <div className="flex items-center gap-1 bg-[hsl(var(--surface-1))] p-1 rounded-xl border border-[hsl(var(--surface-3))]">
+            <div className="flex items-center gap-1">
               {(['PBR', 'Clay'] as const).map((shade) => (
                 <button
                   key={shade}
                   onClick={() => setShading(shade)}
-                  className={`px-3 py-1.5 text-[11px] font-bold rounded-lg transition-all ${
+                  className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all ${
                     shading === shade
-                      ? 'bg-[hsl(var(--primary))]/20 text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/30 font-extrabold'
-                      : 'text-[hsl(var(--muted-foreground))] border border-transparent hover:text-[hsl(var(--foreground))]'
+                      ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10'
+                      : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
                   }`}
                 >
                   {shade}
                 </button>
               ))}
             </div>
-
-            {/* Custom toolbar buttons on the right */}
-            <div className="flex items-center gap-1 border-l border-[hsl(var(--border))] pl-4 text-[hsl(var(--muted-foreground))]">
-              <button onClick={() => setShowGrid(!showGrid)} className={`p-2 rounded hover:bg-[hsl(var(--surface-0))] hover:text-[hsl(var(--foreground))] transition-all ${showGrid ? 'text-[hsl(var(--primary))]' : ''}`} title="Toggle grid floor">
-                <Grid3X3 size={14} />
-              </button>
-              <button className="p-2 rounded hover:bg-[hsl(var(--surface-0))] hover:text-[hsl(var(--foreground))] transition-all" title="Full screen">
-                <Maximize2 size={14} />
-              </button>
-            </div>
           </div>
-        </div>
-
-        {/* 3D Viewer Space — constrained height so it doesn't consume full viewport */}
-        <div className="flex-1 relative bg-gradient-to-b from-[hsl(var(--surface-1))] via-[hsl(var(--surface-0))] to-[hsl(var(--surface-0))] overflow-hidden max-h-[55vh] lg:max-h-[60vh]" id="canvas-workspace">
           
           {/* Floating left toolbar — hidden on very small screens for space */}
           <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 hidden sm:flex flex-col gap-1.5 bg-[hsl(var(--surface-0))]/90 backdrop-blur-md border border-[hsl(var(--border))] p-1.5 rounded-xl text-[hsl(var(--muted-foreground))]">
@@ -946,17 +1037,6 @@ export default function ThreeDGenerationTab({
                   wireframe={showWireframe} 
                 />
                 
-                {showGrid && (
-                  <Grid 
-                    infiniteGrid 
-                    fadeDistance={30} 
-                     cellColor="hsl(var(--surface-0))"
-                    sectionColor="hsl(var(--primary))" 
-                    cellThickness={0.5} 
-                    sectionThickness={1.0} 
-                    position={[0, -1.05, 0]}
-                  />
-                )}
                 <OrbitControls makeDefault enablePan enableZoom minDistance={1} maxDistance={15} autoRotate={autoRotate} autoRotateSpeed={1.5} />
               </Canvas>
             </Suspense>

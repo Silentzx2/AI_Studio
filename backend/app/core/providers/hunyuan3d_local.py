@@ -172,7 +172,11 @@ class _HunyuanBase(BaseProvider):
 
         _log_gpu_memory(f"before_{self.model_key}_inference")
 
-        if request.mode == "image-to-3d" and request.reference_image_url:
+        if request.mode == "texture-generation" and request.reference_image_url and request.reference_image_url.endswith(".glb"):
+            # Use existing mesh for re-texturing
+            mesh_path = request.reference_image_url
+            await cb(10, "texturing", "Using existing mesh for material synthesis...", "info")
+        elif request.mode == "image-to-3d" and request.reference_image_url:
             mesh_path = await loop.run_in_executor(
                 None, lambda: self._image_to_3d(request, output_dir)
             )

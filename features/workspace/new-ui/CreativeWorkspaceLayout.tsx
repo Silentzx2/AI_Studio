@@ -5,7 +5,8 @@
  */
 
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import anime from 'animejs';
 import {
   Folder, Cpu, RefreshCw, Palette, Bookmark, Layers, Heart, Globe, Code, Settings, Sparkles, HelpCircle, LogOut, Activity
 } from 'lucide-react';
@@ -30,7 +31,7 @@ import ThreeDGenerationTab from './ThreeDGenerationTab';
 // Shared type for shapes
 import { Shape3D, HistoryItem } from '@/types/new-ui';
 import { officeChairShapes } from './data';
-import { useGenerationHistory } from '@/hooks/useBackendData';
+// import { useGenerationHistory } from '@/hooks/useBackendData';
 
 interface CreativeWorkspaceLayoutProps {
   onToggleLayout?: () => void;
@@ -40,48 +41,54 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
   const [activeSidebarItem, setActiveSidebarItem] = useState('Workspace');
   
   // Fetch real history from backend
-  const { history: backendHistory, loading: historyLoading, error: historyError } = useGenerationHistory(20);
+  const { loadHistory, jobHistory, isLoadingHistory, loadingError } = useGenerationStore();
+  
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
 
   // Real generation hooks/stores
   const { generate, cancel, isGenerating, currentJob } = useGeneration();
-  const { prompt, setPrompt, mode, setMode, jobHistory } = useGenerationStore();
+  const { prompt, setPrompt, mode, setMode } = useGenerationStore();
   const { viewer, setViewerMode, toggleAutoRotate, toggleGrid, capabilities } = useUIStore();
   const { setProject, currentProject } = useProjectStore();
 
-  // Dynamically map real generation history jobs and merge them with local demo items
-  const mappedRealHistory: HistoryItem[] = (jobHistory || []).map((job) => ({
-    id: job.id,
-    prompt: job.config?.prompt || 'No Prompt',
-    name: job.config?.prompt 
-      ? (job.config.prompt.split(' ').slice(0, 3).join(' ') || 'Untitled Asset') 
-      : 'Untitled Asset',
-    timestamp: new Date(job.createdAt).toLocaleDateString(),
-    format: 'GLB',
-    shapes: (job as any).result?.shapes || [],
-    color: 'hsl(var(--surface-0))',
-    accentColor: 'hsl(var(--primary))',
-    isFavorite: false,
-  }));
-
-  const backendMappedHistory: HistoryItem[] = (backendHistory || []).map(job => ({
-    id: job.id,
-    prompt: job.prompt,
-    name: job.prompt?.split(' ').slice(0, 4).join(' ') || 'Untitled',
-    timestamp: new Date(job.created_at).toLocaleDateString(),
-    format: 'GLB',
-    shapes: job.result?.shapes || [],
-    color: 'hsl(var(--surface-0))',
-    accentColor: 'hsl(var(--primary))',
-    isFavorite: job.is_favorite || false,
-  }));
-
   const [localDeletions, setLocalDeletions] = useState<Set<string>>(new Set());
 
-  const history: HistoryItem[] | null = historyLoading
-    ? null
-    : [...mappedRealHistory, ...backendMappedHistory].filter(
-        (item) => !localDeletions.has(item.id)
-      );
+  // Dynamically map real generation history jobs
+  const history: HistoryItem[] | null = useMemo(() => {
+    if (isLoadingHistory && jobHistory.length === 0) return null;
+
+    return (jobHistory || [])
+      .filter((job) => !localDeletions.has(job.id))
+      .map((job) => {
+        // History jobs carry backend snake_case fields (prompt, created_at,
+        // shapes, is_favorite, model_url, thumbnail_url) at runtime; the
+        // GenerationJob type only exposes the camelCase subset.
+        const j = job as any;
+        const prompt = j.prompt || j.config?.prompt || 'No Prompt';
+        const result = j.result || {};
+
+        return {
+          id: j.id,
+          prompt,
+          name: prompt.split(' ').slice(0, 4).join(' ') || 'Untitled Asset',
+          timestamp: new Date(j.created_at || j.createdAt || 0).toLocaleDateString(),
+          format: 'GLB' as const,
+          shapes: result.shapes || j.shapes || [],
+          color: 'hsl(var(--surface-0))',
+          accentColor: 'hsl(var(--primary))',
+          isFavorite: j.is_favorite || j.isFavorite || false,
+          modelUrl: j.model_url || result.model_url || null,
+          thumbnailUrl: j.thumbnail_url || result.thumbnail_url || null,
+        };
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.timestamp).getTime();
+        const dateB = new Date(b.timestamp).getTime();
+        return dateB - dateA;
+      });
+  }, [jobHistory, isLoadingHistory, localDeletions]);
 
   const [activeModel, setActiveModel] = useState<any>({
     name: 'Untitled Model',
@@ -111,7 +118,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
     setProject({
       id: item.id,
       name: item.name,
-      modelUrl: null,
+      modelUrl: item.modelUrl || null,
       modelData: { shapes: item.shapes, prompt: item.prompt },
       layers: [],
       metadata: {
@@ -119,6 +126,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
         model: 'unknown',
         quality: 'standard',
         createdAt: new Date(),
+        thumbnailUrl: item.thumbnailUrl,
       },
     });
     setPrompt(item.prompt);
@@ -211,26 +219,41 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
     { label: 'Settings', icon: Settings, visible: true },
   ].filter(item => item.visible);
 
+  useEffect(() => {
+    // Entrance animations for sidebar items
+    anime({
+      targets: '#creative-sidebar-links button',
+      opacity: [0, 1],
+      translateX: [-20, 0],
+      delay: anime.stagger(50),
+      easing: 'easeOutQuad',
+      duration: 600,
+    });
+  }, []);
+
   return (
     <div className="flex flex-1 min-h-0 min-w-0 bg-[hsl(var(--surface-0))] text-[hsl(var(--foreground))]" id="creative-layout-container">
       {/* Sidebar panel */}
-      <aside className="w-[220px] lg:w-[260px] bg-[hsl(var(--surface-1))] border-r border-[hsl(var(--border))] p-4 flex flex-col justify-between flex-shrink-0" id="creative-sidebar">
-        <div className="flex flex-col gap-5">
-          {/* Brand header */}
-          <div className="flex flex-col px-3" id="creative-logo-header">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles size={22} className="text-[hsl(var(--primary))] stroke-[2.5]" />
-                <span className="text-lg font-black tracking-tight uppercase">AI 3D Studio</span>
+      <aside className="w-[240px] lg:w-[280px] bg-[hsl(var(--surface-1))] border-r border-[hsl(var(--border))] flex flex-col justify-between flex-shrink-0 z-20" id="creative-sidebar">
+        <div className="flex flex-col h-full">
+          {/* Minimal Brand Header */}
+          <div className="h-16 flex items-center px-6 border-b border-[hsl(var(--border))]" id="creative-logo-header">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[hsl(var(--primary))] to-[hsl(var(--primary))/0.5] flex items-center justify-center shadow-lg shadow-[hsl(var(--primary))/0.2]">
+                <Sparkles size={18} className="text-white" />
+              </div>
+              <div className="flex flex-col leading-none">
+                <span className="text-sm font-black tracking-tighter uppercase">AI Studio</span>
+                <span className="text-[9px] font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-widest mt-0.5">3D Workspace</span>
               </div>
             </div>
-            <span className="text-[9px] font-bold font-mono text-[hsl(var(--muted-foreground))] tracking-widest uppercase mt-1 pl-0.5">
-              AI Creative Studio
-            </span>
           </div>
 
           {/* Navigation Links */}
-          <div className="flex flex-col gap-1" id="creative-sidebar-links">
+          <div className="flex-1 py-6 px-3 overflow-y-auto space-y-1" id="creative-sidebar-links">
+            <div className="px-3 mb-2">
+              <span className="text-[10px] font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest">Main Menu</span>
+            </div>
             {sidebarItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeSidebarItem === item.label;

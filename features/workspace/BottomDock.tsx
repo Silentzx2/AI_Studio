@@ -54,15 +54,15 @@ function RecentPromptsTab() {
     toast('Loaded prompt', { description: text.length > 50 ? text.slice(0, 50) + '...' : text });
   }, []);
 
-  const fmtTime = (d: Date) => {
-    const diff = Date.now() - new Date(d).getTime();
+  const fmtTime = useCallback((d: Date) => {
+    const diff = new Date().getTime() - new Date(d).getTime();
     const mins = Math.floor(diff / 60000);
     if (mins < 1) return 'just now';
     if (mins < 60) return `${mins} min ago`;
     const hrs = Math.floor(mins / 60);
     if (hrs < 24) return `${hrs} hour${hrs > 1 ? 's' : ''} ago`;
     return `${Math.floor(hrs / 24)}d ago`;
-  };
+  }, []);
 
   return (
     <motion.div className="space-y-0.5" variants={listVariants} initial="hidden" animate="visible">

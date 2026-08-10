@@ -1,6 +1,6 @@
 # AI 3D Studio - Architecture Documentation
 
-> **Version**: 3.4.3 (Reticle Removal + Unified Logger)  
+> **Version**: 3.4.9 (Workspace UI Cleanup)  
 > **Last Updated**: August 9, 2026
 
 ---
@@ -549,9 +549,22 @@ Every API call — frontend or backend — is written to the same backend log ou
 - **Frontend**: `components/ActivityLogger.tsx` (mounted once in `app/layout.tsx`) wraps `window.fetch` to capture all API calls (method, path, status, duration) and listens for button/link clicks. Each event is written to the browser console and fire-and-forget POSTed to `POST /api/v1/system/log`, which forwards it into the same backend log.
 - **Result**: one unified log (`logs/api.log`) showing the whole project — backend requests, frontend API calls, and user clicks.
 
-**Next.js + FastAPI proxy chain**:
-- Frontend (Next.js :3000) proxies API calls via `app/api/v1/[...path]/route.ts` → `BACKEND_URL`
-- Network Tab shows full round-trip: frontend → proxy → FastAPI → response
+### API Proxy & Connectivity (FE-031)
+
+The application uses a robust API proxy pattern to handle communication between the Next.js frontend and the FastAPI backend:
+
+1.  **Direct Proxy**: Requests to `/api/v1/*` are intercepted by the Next.js API route at `app/api/v1/[...path]/route.ts`.
+2.  **Runtime Resolution**: The proxy resolves the `BACKEND_URL` at **request time**. This enables the app to work seamlessly in Docker (targeting `http://api:8000`) or local dev (targeting `http://localhost:8000`) without rebuilds.
+3.  **Environment Sync**: `NEXT_PUBLIC_API_URL` is kept empty by default. `services/apiClient.ts` uses relative paths, ensuring all traffic flows through the proxy, capturing logs and handling CORS server-side.
+
+### Robust History Management (FE-032)
+
+To prevent UI flickering and duplicated items, the workspace uses a multi-layered history sync:
+
+1.  **Zustand Persisted Store**: `jobHistory` is managed in `useAppStore` and persisted in `localStorage`.
+2.  **Server-Side Revalidation**: On mount, the `CreativeWorkspaceLayout` triggers `loadHistory()`, which fetches the latest 50 jobs from the backend.
+3.  **Data Normalization**: The store normalizes varied backend job structures (e.g., flat `prompt` vs. nested `config`) into a stable frontend format.
+4.  **Asset Context**: History items now carry their `modelUrl` and `thumbnailUrl` from the backend, allowing them to be loaded as live 3D projects rather than geometric placeholders.
 
 ---
 

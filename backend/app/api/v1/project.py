@@ -69,15 +69,27 @@ async def export_project(req: ExportRequest):
     try:
         from app.core.blender.pipeline import process_model
         import uuid as uuid_mod
+        from fastapi.responses import FileResponse
 
         job_id = uuid_mod.uuid4().hex[:12]
         out_dir = Path(settings.storage_local_path) / "exports" / job_id
         out_dir.mkdir(parents=True, exist_ok=True)
 
+        if req.format == "zip":
+            # Simple zip of the model and its textures
+            zip_name = f"project_{job_id}"
+            zip_path = Path(settings.storage_local_path) / f"{zip_name}.zip"
+            shutil.make_archive(str(zip_path).replace(".zip", ""), 'zip', model_path.parent)
+            return FileResponse(
+                path=zip_path,
+                filename=f"{zip_name}.zip",
+                media_type="application/zip"
+            )
+
         result = await process_model(
             input_path=str(model_path),
             output_dir=str(out_dir),
-            auto_rig=auto_rig and include_animations,
+            auto_rig=auto_rig,
             generate_texture=generate_texture,
             quality="standard",
         )
@@ -86,15 +98,11 @@ async def export_project(req: ExportRequest):
         if not glb_path or not Path(glb_path).exists():
             raise HTTPException(status_code=500, detail="Export failed: no GLB produced")
 
-        public_name = f"export_{job_id}.glb"
-        public_path = Path(settings.storage_local_path) / public_name
-        shutil.copy2(glb_path, public_path)
-
-        return success({
-            "url": f"/static/{public_name}",
-            "format": "glb",
-            "layers_applied": [l.get("type") for l in req.layers if l.get("enabled")],
-        })
+        return FileResponse(
+            path=glb_path,
+            filename=f"export_{job_id}.glb",
+            media_type="model/gltf-binary"
+        )
 
     except HTTPException:
         raise

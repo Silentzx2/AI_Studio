@@ -18,7 +18,7 @@ settings = get_settings()
 
 MAX_PROMPT_LENGTH = 2000
 
-_VALID_MODES = ('text-to-3d', 'image-to-3d', 'remesh', 'rigging', 'texture-generation')
+_VALID_MODES = ('text-to-3d', 'image-to-3d', 'remesh', 'rigging', 'texture-generation', 'render')
 _VALID_QUALITIES = ('low-poly', 'standard', 'high-poly', 'ultra', 'draft')
 _WORKSPACE_MODE_MAP = {
     'mesh-generation': 'text-to-3d',
@@ -357,6 +357,51 @@ async def get_generation_status(job_id: str):
     except Exception as exc:
         logger.warning("Failed to get job status for %s: %s", job_id, exc)
         return error(f"Failed to retrieve job status: {exc}")
+
+
+@router.get("/{job_id}/stream")
+async def generation_progress_stream(job_id: str):
+    """SSE stream of generation progress for a specific job."""
+    from fastapi.responses import StreamingResponse
+    import redis.asyncio as redis
+    import asyncio
+    import json
+
+    async def _event_generator():
+        r = redis.from_url(settings.redis_url, decode_responses=True)
+        pubsub = r.pubsub()
+        channel = f"job_progress:{job_id}"
+        await pubsub.subscribe(channel)
+        
+        try:
+            # Yield initial state from DB if available
+            from app.database import AsyncSessionLocal
+            from app.models.job import GenerationJob
+            async with AsyncSessionLocal() as session:
+                job = await session.get(GenerationJob, job_id)
+                if job:
+                    yield f"data: {json.dumps({'status': job.status, 'progress': job.progress, 'stage': job.stage, 'message': 'Initial state'})}\n\n"
+                    if job.status in ("completed", "failed", "cancelled"):
+                        return
+
+            while True:
+                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                if message:
+                    data = message["data"]
+                    yield f"data: {data}\n\n"
+                    # Stop if job reaches terminal state
+                    try:
+                        payload = json.loads(data)
+                        if payload.get("status") in ("completed", "failed", "cancelled"):
+                            break
+                    except:
+                        pass
+                await asyncio.sleep(0.1)
+        finally:
+            await pubsub.unsubscribe(channel)
+            await r.close()
+
+    return StreamingResponse(_event_generator(), media_type="text/event-stream")
 
 
 def _get_stage_message(stage: str, progress: int) -> str:

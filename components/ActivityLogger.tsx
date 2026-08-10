@@ -49,32 +49,47 @@ export function ActivityLogger() {
     if (typeof window === 'undefined') return;
 
     // ── 1. API call logging (wrapped fetch) ────────────────────────────────
-    const originalFetch = window.fetch.bind(window);
-    window.fetch = async (input, init) => {
-      const method = (init?.method ?? 'GET').toUpperCase();
-      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-      const start = performance.now();
-      try {
-        const res = await originalFetch(input, init);
-        if (!url.includes(LOG_ENDPOINT)) {
+    let originalFetch: typeof window.fetch;
+    let fetchIntercepted = false;
+
+    try {
+      originalFetch = window.fetch.bind(window);
+      const wrappedFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+        const method = (init?.method ?? 'GET').toUpperCase();
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+        const start = performance.now();
+        try {
+          const res = await originalFetch(input, init);
+          if (!url.includes(LOG_ENDPOINT)) {
+            const durationMs = Math.round(performance.now() - start);
+            const entry: ActivityEntry = {
+              ts: now(),
+              type: 'api',
+              detail: `${method} ${url} → ${res.status} (${durationMs}ms)`,
+            };
+            console.info(`[activity] ${entry.detail}`);
+            postLog(entry);
+          }
+          return res;
+        } catch (err) {
           const durationMs = Math.round(performance.now() - start);
-          const entry: ActivityEntry = {
-            ts: now(),
-            type: 'api',
-            detail: `${method} ${url} → ${res.status} (${durationMs}ms)`,
-          };
-          console.info(`[activity] ${entry.detail}`);
-          postLog(entry);
+          const detail = `${method} ${url} FAILED (${durationMs}ms)`;
+          console.error(`[activity] ${detail}`, err);
+          postLog({ ts: now(), type: 'error', detail });
+          throw err;
         }
-        return res;
-      } catch (err) {
-        const durationMs = Math.round(performance.now() - start);
-        const detail = `${method} ${url} FAILED (${durationMs}ms)`;
-        console.error(`[activity] ${detail}`, err);
-        postLog({ ts: now(), type: 'error', detail });
-        throw err;
-      }
-    };
+      };
+
+      // Attempt to override window.fetch
+      Object.defineProperty(window, 'fetch', {
+        value: wrappedFetch,
+        configurable: true,
+        writable: true,
+      });
+      fetchIntercepted = true;
+    } catch (e) {
+      console.warn('[ActivityLogger] Could not intercept window.fetch:', e);
+    }
 
     // ── 2. Button/link click logging (delegated listener) ───────────────────
     const onClick = (e: MouseEvent) => {
@@ -93,7 +108,18 @@ export function ActivityLogger() {
     document.addEventListener('click', onClick, { capture: true });
 
     return () => {
-      window.fetch = originalFetch;
+      if (fetchIntercepted && originalFetch) {
+        try {
+          Object.defineProperty(window, 'fetch', {
+            value: originalFetch,
+            configurable: true,
+            writable: true,
+          });
+        } catch {
+          // Fallback if defineProperty fails
+          (window as any).fetch = originalFetch;
+        }
+      }
       document.removeEventListener('click', onClick, { capture: true });
     };
   }, []);

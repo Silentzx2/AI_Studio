@@ -323,5 +323,6 @@ export interface ProjectAsset {
     model: string;
     quality: string;
     createdAt: Date;
+    thumbnailUrl?: string | null;
   };
 }

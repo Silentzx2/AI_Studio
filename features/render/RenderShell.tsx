@@ -33,16 +33,26 @@ const LIGHTING_PRESETS = [
   { id: 'dramatic', label: 'Dramatic', description: 'High contrast' },
 ];
 
-export function RenderShell() {  const [quality, setQuality] = useState('high');
+import { Canvas } from '@react-three/fiber';
+import { Suspense } from 'react';
+import { ViewerScene } from '@/features/workspace/viewer/ViewerScene';
+import { useUIStore } from '@/stores/useUIStore';
+
+export function RenderShell() {
+  const [quality, setQuality] = useState('high');
   const [resolution, setResolution] = useState('1920x1080');
   const [samples, setSamples] = useState(128);
   const [denoise, setDenoise] = useState(true);
   const [lighting, setLighting] = useState('studio');
   const [camera, setCamera] = useState('perspective');
   const { reconnectToRunningTasks, registerTask, updateTask, completeTask } = useTaskManager();
+  const { currentJob } = useGenerationStore();
+  const { viewer } = useUIStore();
+
   const renderTasks = useAppStore((s) =>
     Object.values(s.tasks).filter((t) => t.type === 'render').sort((a, b) => b.createdAt - a.createdAt).slice(0, 10)
   );
+
   const RENDER_QUEUE = renderTasks.map((t) => ({
     id: t.id,
     name: t.label,
@@ -58,15 +68,17 @@ export function RenderShell() {  const [quality, setQuality] = useState('high');
   const handleRender = async () => {
     const store = useGenerationStore.getState();
     const prompt = store.prompt || 'Render current 3D scene';
+    const modelUrl = currentJob?.result?.downloadUrls?.glb || currentJob?.result?.modelUrl;
 
     const config: GenerationConfig = {
-      mode: 'text-to-3d',
-      prompt: `${prompt} — render quality: ${quality}, resolution: ${resolution}, lighting: ${lighting}, camera: ${camera}`,
+      mode: 'render' as GenerationConfig['mode'],
+      prompt: `${prompt} — render quality: ${quality}, resolution: ${resolution}, lighting: ${lighting}, camera: ${camera}, samples: ${samples}`,
       negativePrompt: store.negativePrompt,
       quality: store.quality,
       generateTexture: false,
       autoRig: false,
       model: store.selectedModel,
+      referenceImage: modelUrl,
     };
 
     const taskId = `render-${Date.now()}`;
@@ -108,19 +120,31 @@ export function RenderShell() {  const [quality, setQuality] = useState('high');
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
         {/* Preview */}
-        <GlassCard className="lg:col-span-2 p-0 overflow-hidden" delay={0.05}>
-          <div className="relative aspect-video bg-surface-0 flex items-center justify-center">
+        <GlassCard className="lg:col-span-2 p-0 overflow-hidden min-h-[400px]" delay={0.05}>
+          <div className="relative h-full aspect-video bg-surface-0 flex items-center justify-center">
             <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--neon-purple)/0.05)] to-[hsl(var(--neon-blue)/0.05)]" />
-            <div className="relative z-10 flex flex-col items-center gap-3">
-              <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-surface-2/50 border border-[hsl(var(--border)/0.5)]">
-                <ImageIcon className="w-8 h-8 text-muted-foreground/50" />
+            
+            <Canvas camera={{ position: [0, 2, 5], fov: 45 }} shadows gl={{ antialias: true, alpha: true }} className="w-full h-full relative z-10">
+              <Suspense fallback={null}>
+                <ViewerScene />
+              </Suspense>
+            </Canvas>
+
+            {!currentJob?.result && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none">
+                <div className="flex flex-col items-center gap-3 bg-surface-1/50 backdrop-blur-md p-6 rounded-2xl border border-[hsl(var(--border)/0.5)]">
+                  <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-surface-2/50 border border-[hsl(var(--border)/0.5)]">
+                    <ImageIcon className="w-6 h-6 text-muted-foreground/50" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">Generate a model first to setup rendering</p>
+                </div>
               </div>
-              <p className="text-sm text-muted-foreground">Render preview will appear here</p>
-            </div>
-            <div className="absolute top-3 left-3 flex items-center gap-2 px-2.5 py-1 rounded-lg glass border border-[hsl(var(--border)/0.5)]">
+            )}
+
+            <div className="absolute top-3 left-3 z-30 flex items-center gap-2 px-2.5 py-1 rounded-lg glass border border-[hsl(var(--border)/0.5)] pointer-events-none">
               <span className="text-xs font-mono text-muted-foreground">{resolution}</span>
             </div>
-            <div className="absolute top-3 right-3 flex items-center gap-2 px-2.5 py-1 rounded-lg glass border border-[hsl(var(--border)/0.5)]">
+            <div className="absolute top-3 right-3 z-30 flex items-center gap-2 px-2.5 py-1 rounded-lg glass border border-[hsl(var(--border)/0.5)] pointer-events-none">
               <span className="text-xs text-muted-foreground">{samples} samples</span>
             </div>
           </div>

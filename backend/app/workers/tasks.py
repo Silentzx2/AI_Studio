@@ -261,34 +261,72 @@ async def _async_generate(task: Task, job_id: str) -> dict:
 
             # 4. Load provider via RuntimeEngine (enforces VRAM scheduling)
             # FALLBACK (Issue #6): Use direct provider instantiation if engine unavailable
-            if engine:
-                provider = await engine.load_provider(provider_name)
-            else:
-                # Direct provider loading with device from fallback VRAM check
-                logger.info("Loading provider %s directly on device %s", provider_name, device)
-                provider = get_provider(provider_name, device=device or "cuda:0")
+            provider = None
+            if job.mode != "render":
+                if engine:
+                    provider = await engine.load_provider(provider_name)
+                else:
+                    # Direct provider loading with device from fallback VRAM check
+                    logger.info("Loading provider %s directly on device %s", provider_name, device)
+                    provider = get_provider(provider_name, device=device or "cuda:0")
 
-            # 5. AI generation
+            # 5. AI generation (Skip if pure render mode)
             _ensure_not_cancelled(session, job_id)
             out_dir = str(model_output_dir(job_id))
-            provider_result = await provider.generate(request, out_dir, progress_callback)
+            provider_result = None
+            
+            if job.mode == "render":
+                # For render mode, the reference image is the GLB to render
+                glb_to_process = request.reference_image_url
+                if not glb_to_process or not Path(glb_to_process).exists():
+                     # Fallback to current model if URL didn't resolve to local path
+                     glb_to_process = request.reference_image_url
+                
+                from app.core.providers.base import ProviderResult
+                provider_result = ProviderResult(
+                    model_path=glb_to_process,
+                    thumbnail_path="",
+                    polygon_count=0,
+                    vertex_count=0,
+                    has_rig=False,
+                    file_size=0
+                )
+            else:
+                provider_result = await provider.generate(request, out_dir, progress_callback)
 
             # 6. Unload model from VRAM before running Blender
-            if engine and settings.auto_unload_after_job:
-                await engine.unload_provider(provider_name)
-            elif hasattr(provider, "unload"):
-                provider.unload()
+            if provider:
+                if engine and settings.auto_unload_after_job:
+                    await engine.unload_provider(provider_name)
+                elif hasattr(provider, "unload"):
+                    provider.unload()
 
-            # 7. Blender post-processing (optional)
+            # 7. Blender post-processing
             blender_result = {}
             try:
+                # Parse render settings from prompt if in render mode
+                render_res = None
+                render_samples = 128
+                if "render quality:" in job.prompt:
+                    # resolution: 1920x1080
+                    import re
+                    res_match = re.search(r"resolution: (\d+)x(\d+)", job.prompt)
+                    if res_match:
+                        render_res = [int(res_match.group(1)), int(res_match.group(2))]
+                    
+                    samples_match = re.search(r"samples: (\d+)", job.prompt)
+                    if samples_match:
+                        render_samples = int(samples_match.group(1))
+
                 from app.core.blender.pipeline import process_model
                 blender_result = await process_model(
                     input_path=provider_result.model_path,
                     output_dir=out_dir,
-                    auto_rig=job.auto_rig,
-                    generate_texture=job.generate_texture,
+                    auto_rig=job.auto_rig if job.mode != "render" else False,
+                    generate_texture=job.generate_texture if job.mode != "render" else False,
                     quality=job.quality,
+                    render_resolution=render_res,
+                    render_samples=render_samples,
                     progress_callback=progress_callback,
                 )
             except Exception as e:

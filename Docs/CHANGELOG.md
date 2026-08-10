@@ -1,38 +1,39 @@
 # AI 3D Studio — Changelog
 
-## v3.4.8 — Fix TRELLIS Load: `module 'numpy' has no attribute 'long'` (August 9, 2026)
+## v3.5.0 — API Connectivity & History Synchronization (August 9, 2026)
 
-### Problem
+### Fixed
+- **Proxy Header Refinement**: Removed redundant `content-type: application/json` from GET requests in the API proxy, improving compatibility with standard backend expectations.
+- **Job History Deduplication**: Unified generation history management in the `useGenerationStore`. History is now deduplicated by ID and normalized to handle varied backend responses (flat prompt vs nested config) correctly.
+- **Asset Loading Logic**: Fixed a bug where loading a project from history would lose its model URL. `HistoryItem` now carries the `modelUrl`, allowing the workspace to load the actual 3D asset instead of a geometric mockup.
 
-A 3D generation job for the `trellis` provider failed in the Celery worker with:
+### Improved
+- **Store Source of Truth**: Refactored `CreativeWorkspaceLayout` to rely on the centralized `useGenerationStore` for history, ensuring all tabs (`My Assets`, `Favorites`, etc.) stay in sync.
+- **Refresh Capability**: Added `refreshHistory` action to the generation store to allow manual revalidation of the asset list.
 
-```
-RuntimeError: TRELLIS load failed: module 'numpy' has no attribute 'long'
-```
+## v3.4.9 — Workspace UI Cleanup & Layout Optimization (August 9, 2026)
 
-Root cause: the worker runs on the conda `cloudspace` interpreter whose numpy is **1.26.4**
-(`np.long` / `np.ulong` were removed in numpy 1.24). `_add_model_env()` prepends the per-model
-venv (which carries `scipy 1.18.0` / `open3d 0.19.0`, built for numpy 2.x), but its reload list
-omits `numpy`, so the already-cached `cloudspace` numpy wins. When TRELLIS's import chain pulls in
-`scipy.sparse._sputils`, its **module-level** `supported_dtypes = [..., np.long, np.ulong, ...]`
-crashes against the 1.26.4 numpy. (`pandas` already guards this; `open3d` ml3d references `np.long`
-too, only on a path not used by TRELLIS generation.)
+### Fixed
+- **Double Header Issue**: Removed the redundant global `WorkspaceNavbar` from `WorkspaceShell`. The workspace now uses a unified single-header layout where tab-specific toolbars handle secondary actions, reducing vertical clutter.
+- **3D Viewer Expansion**: Removed `max-h` constraints on the 3D viewport in `ThreeDGenerationTab`, allowing the canvas to expand vertically and utilize the full available height.
 
-### Solution
+### Removed
+- **Scene Grid**: Removed the `<Grid />` component and its toggle button from the 3D Generation workspace per user request for a cleaner viewing environment.
 
-- **`backend/app/core/providers/base.py`**: added `_patch_numpy_legacy_aliases()` and call it at
-  the top of `_add_model_env()` (before any model-stack import). It restores the removed
-  `np.long` → `np.int_` and `np.ulong` → `np.uint` aliases on the *active* numpy module when
-  missing. This is a shared guard, so both `trellis` and `hunyuan3d` providers benefit, and it is a
-  safe no-op when the per-model venv's numpy 2.x (which still has `np.long`) is the active one.
+---
 
-### Verification
+## v3.4.8 — UI Polishing & Animation Enhancement (August 9, 2026)
 
-- Reproduced the exact worker traceback: `cloudspace numpy 1.26.4 + trellis venv prepended →
-  import scipy.sparse._sputils` raised `AttributeError: module 'numpy' has no attribute 'long'`
-  at `scipy/sparse/_sputils.py:17`.
-- With the shim applied, `scipy` and its `sparse / special / linalg / optimize / spatial.transform`
-  submodules all import cleanly on numpy 1.26.4.
+### Added
+- **AnimeJS Animations:** Added smooth, spring-based animations to all drag-and-drop file upload zones across `ThreeDGenerationTab`, `TextureGenTab`, `RemeshTab`, and `RiggingAnimationTab`.
+- **Button Feedback:** Implemented a subtle `scale` bounce animation for the "Generate" button in the ThreeD Generation tab when clicked.
+- **Model Auto-load:** After a GLB/GLTF file completes uploading on any workspace tab, a custom `load-glb-model` event is now dispatched. The `ViewerScene` intercepts this and immediately loads the preview of the model in the canvas, improving the UX.
+
+### Fixed
+- **Linter Purity Error:** Fixed a React Hooks purity warning in `BottomDock.tsx` where `Date.now()` was called synchronously inside the component body. Wrapped it inside `useCallback` to stabilize it.
+- **Build Types:** Added missing `@types/animejs` to resolve type-checking errors during the build step.
+
+---
 
 ## v3.4.7 — Fix TRELLIS/Hunyuan3D Load: torch/torchvision Version Mismatch (August 9, 2026)
 

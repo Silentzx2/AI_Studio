@@ -4,7 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import anime from 'animejs';
 import { Search, Folder, Trash2, Heart, Play, Cpu } from 'lucide-react';
 import { HistoryItem } from '@/types/new-ui';
 
@@ -23,7 +24,7 @@ export default function MyAssetsTab({
 }: MyAssetsTabProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [formatFilter, setFormatFilter] = useState<'ALL' | 'GLB' | 'OBJ' | 'FBX'>('ALL');
-
+  
   const filteredHistory = history.filter((item) => {
     const matchesSearch =
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -32,8 +33,37 @@ export default function MyAssetsTab({
     return matchesSearch && matchesFormat;
   });
 
+  useEffect(() => {
+    anime({
+      targets: '#my-assets-grid > div',
+      opacity: [0, 1],
+      translateY: [20, 0],
+      delay: anime.stagger(30),
+      easing: 'easeOutQuad',
+      duration: 500
+    });
+  }, [filteredHistory.length]);
+
   return (
-    <div className="flex-1 p-6 flex flex-col gap-5 animate-fadeIn text-[hsl(var(--foreground))]" id="my-assets-tab-panel">
+    <div className="flex-1 p-8 flex flex-col gap-8 animate-fadeIn text-[hsl(var(--foreground))]" id="my-assets-tab-panel">
+      {/* Intro section with refined Studio layout */}
+      <div className="flex flex-col gap-2 max-w-4xl">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[hsl(var(--primary))]/10 flex items-center justify-center border border-[hsl(var(--primary))]/20">
+            <Folder size={20} className="text-[hsl(var(--primary))]" />
+          </div>
+          <div>
+            <h2 className="text-xl font-black text-[hsl(var(--foreground))] uppercase tracking-tight">Project Library</h2>
+            <div className="flex items-center gap-2 mt-0.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))] animate-pulse" />
+              <p className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-widest">
+                {history.length} Assets Synchronized
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Search and Filters Header */}
       <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-4" id="assets-control-bar">
         {/* Search */}

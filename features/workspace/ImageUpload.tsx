@@ -8,13 +8,14 @@ import { Upload, X, ImageIcon, AlertCircle, ZoomIn } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { useGenerationStore } from '@/stores/useGenerationStore';
-import { validateImageFile, processImageFile } from '@/services/uploadService';
+import { validateImageFile, processImageFile, uploadService } from '@/services/uploadService';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 export function ImageUpload() {
   const { uploadedImage, setUploadedImage, mode, setMode } = useGenerationStore();
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
 
@@ -26,17 +27,29 @@ export function ImageUpload() {
     const validationError = validateImageFile(file);
     if (validationError) { setError(validationError); return; }
     setUploading(true);
+    setUploadProgress(0);
     try {
+      // Create local preview immediately for UX
       const processed = await processImageFile(file);
+      
+      // Perform actual upload with progress
+      const { url } = await uploadService.uploadWithProgress(file, (progress) => {
+        setUploadProgress(progress.percent);
+      }, '/api/v1/upload/image');
+
+      // Swap the preview URL with the server URL so backend can access it
+      processed.preview = url;
       setUploadedImage(processed);
+      
       if (mode !== 'image-to-3d') {
         setMode('image-to-3d');
       }
       toast.success('Image uploaded', { description: `${processed.width}×${processed.height}px` });
     } catch {
-      setError('Failed to process image. Please try again.');
+      setError('Failed to upload image. Please try again.');
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   }, [setUploadedImage, setMode, mode]);
 
@@ -114,9 +127,23 @@ export function ImageUpload() {
         )}>
           {uploading ? <div className="w-5 h-5 border-2 border-[hsl(var(--neon-purple)/0.2)] border-t-[hsl(var(--neon-purple))] rounded-full animate-spin" /> : <Upload className="w-5 h-5 transition-all duration-300" style={{ filter: isDragActive ? 'drop-shadow(0 0 6px hsl(var(--neon-purple)/0.6))' : undefined }} />}
         </div>
-        <div className="text-center relative z-10">
-          <p className="text-sm font-medium text-foreground/80">{isDragActive ? 'Drop to upload' : uploading ? 'Processing...' : 'Click or drag & drop'}</p>
-          <p className="text-[11px] text-muted-foreground/35 mt-1">PNG, JPG, JPEG, WEBP · Max 20MB</p>
+        <div className="text-center relative z-10 w-full px-4">
+          <p className="text-sm font-medium text-foreground/80">{isDragActive ? 'Drop to upload' : uploading ? 'Uploading...' : 'Click or drag & drop'}</p>
+          {uploading ? (
+            <div className="mt-3 w-full flex flex-col items-center gap-1.5">
+              <div className="w-full h-1.5 bg-[hsl(var(--border)/0.3)] rounded-full overflow-hidden">
+                <motion.div 
+                  className="h-full bg-[hsl(var(--neon-purple))] rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${uploadProgress}%` }}
+                  transition={{ ease: "easeOut", duration: 0.2 }}
+                />
+              </div>
+              <span className="text-[10px] text-muted-foreground/70 font-mono">{uploadProgress}%</span>
+            </div>
+          ) : (
+            <p className="text-[11px] text-muted-foreground/35 mt-1">PNG, JPG, JPEG, WEBP · Max 20MB</p>
+          )}
         </div>
       </div>
       {error && (

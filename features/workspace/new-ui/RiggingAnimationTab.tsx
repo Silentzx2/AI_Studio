@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import anime from 'animejs';
 import {
   Activity,
   Upload,
@@ -29,6 +30,8 @@ import {
   Zap,
   Grid3X3,
   Eye,
+  Cpu,
+  Maximize,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Shape3D } from '@/types/new-ui';
@@ -217,6 +220,24 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  useEffect(() => {
+    anime({
+      targets: '#rigging-left-panel > div',
+      opacity: [0, 1],
+      translateX: [-20, 0],
+      delay: anime.stagger(60),
+      easing: 'easeOutQuad',
+      duration: 500
+    });
+    anime({
+      targets: '#rigging-right-stage',
+      opacity: [0, 1],
+      scale: [0.98, 1],
+      easing: 'easeOutQuad',
+      duration: 600
+    });
+  }, []);
+
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -273,7 +294,10 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
     };
   }, [isPlaying, currentPreset, currentDuration, loopAnimation]);
 
-  const validateAndSetModel = useCallback((file: File) => {
+  const [isUploadingModel, setIsUploadingModel] = useState(false);
+  const [modelUploadProgress, setModelUploadProgress] = useState(0);
+
+  const validateAndSetModel = useCallback(async (file: File) => {
     if (!file.name.match(/\.(glb|gltf)$/i)) {
       toast.error('Invalid file format', {
         description: 'Please upload a .glb or .gltf file.',
@@ -286,20 +310,51 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
       });
       return false;
     }
-    setUploadedModel(file);
-    setUploadedModelName(file.name);
-    setUploadedModelSize(file.size);
-    const url = URL.createObjectURL(file);
-    setUploadedModelUrl(url);
-    setStatusMessage(null);
-    setRiggingComplete(false);
-    setRiggingResult(null);
-    setIsPlaying(false);
-    setTimelinePosition(0);
-    toast.success('Model loaded', {
-      description: `${file.name} (${formatFileSize(file.size)})`,
-    });
-    return true;
+
+    setIsUploadingModel(true);
+    setModelUploadProgress(0);
+
+    try {
+      const { uploadService } = await import('@/services/uploadService');
+      const { url } = await uploadService.uploadWithProgress(file, (progress) => {
+        setModelUploadProgress(progress.percent);
+      }, '/api/v1/upload/model');
+      
+      setUploadedModel(file);
+      setUploadedModelName(file.name);
+      setUploadedModelSize(file.size);
+      setUploadedModelUrl(url);
+      setStatusMessage(null);
+      setRiggingComplete(false);
+      setRiggingResult(null);
+      setIsPlaying(false);
+      setTimelinePosition(0);
+      
+      // Load model into viewer
+      window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url } }));
+
+      // AnimeJS animation for successful load
+      anime({
+        targets: '#rigging-upload-area',
+        scale: [1.02, 1],
+        boxShadow: ['0 0 20px hsl(var(--primary)/0.5)', '0 0 0px hsl(var(--primary)/0)'],
+        duration: 800,
+        easing: 'easeOutElastic(1, .8)'
+      });
+
+      toast.success('Model loaded', {
+        description: `${file.name} (${formatFileSize(file.size)})`,
+      });
+      return true;
+    } catch (err: any) {
+      toast.error('Upload failed', {
+        description: err.message || 'Could not upload model.',
+      });
+      return false;
+    } finally {
+      setIsUploadingModel(false);
+      setModelUploadProgress(0);
+    }
   }, []);
 
   const handleModelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -311,19 +366,42 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragOver(true);
+    if (!isDragOver) {
+      setIsDragOver(true);
+      anime({
+        targets: '#rigging-upload-area',
+        scale: 1.02,
+        boxShadow: '0 0 15px hsl(var(--primary)/0.3)',
+        duration: 300,
+        easing: 'easeOutQuad'
+      });
+    }
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
+    anime({
+      targets: '#rigging-upload-area',
+      scale: 1,
+      boxShadow: '0 0 0px hsl(var(--primary)/0)',
+      duration: 300,
+      easing: 'easeOutQuad'
+    });
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
+    anime({
+      targets: '#rigging-upload-area',
+      scale: 1,
+      boxShadow: '0 0 0px hsl(var(--primary)/0)',
+      duration: 300,
+      easing: 'easeOutQuad'
+    });
     const file = e.dataTransfer.files?.[0];
     if (file) validateAndSetModel(file);
   };
@@ -360,34 +438,6 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
     setStatusMessage('Preparing rigging pipeline...');
 
     let modelUrl = uploadedModelUrl;
-
-    // Upload model if user uploaded one
-    if (uploadedModel) {
-      setStatusMessage('Uploading model...');
-      setProgressPercent(5);
-      try {
-        const formData = new FormData();
-        formData.append('file', uploadedModel);
-        const uploadRes = await fetch('/api/v1/upload/model', {
-          method: 'POST',
-          body: formData,
-        });
-        if (!uploadRes.ok) throw new Error('Upload failed');
-        const uploadData = await uploadRes.json();
-        modelUrl = uploadData?.data?.url || uploadData?.url || '';
-        if (!modelUrl) throw new Error('No URL returned from upload');
-        setProgressPercent(15);
-        setStatusMessage('Model uploaded. Submitting rigging job...');
-      } catch (err: any) {
-        toast.error('Upload failed', {
-          description: err.message || 'Could not upload model.',
-        });
-        setStatusMessage(`Upload failed: ${err.message}`);
-        setIsRigging(false);
-        setProgressPercent(0);
-        return;
-      }
-    }
 
     // Submit rigging job
     setStatusMessage('Submitting rigging job...');
@@ -574,722 +624,389 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
       className="flex-1 p-6 flex flex-col lg:flex-row gap-6 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto"
       id="rigging-animation-tab-panel"
     >
-      {/* ==================== LEFT PANEL ==================== */}
-      <div
-        className="w-full lg:w-[380px] flex flex-col gap-6 flex-shrink-0"
-        id="rigging-left-panel"
-      >
-        {/* Main Config Card */}
-        <div
-          className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-6"
-          id="rigging-inputs-box"
-        >
-          {/* Header */}
-          <div>
-            <h2 className="text-lg font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
-              <Activity size={20} className="text-[hsl(var(--primary))]" />
-              3D Rigging & Animation
-            </h2>
-            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
-              Auto-rig your 3D models and preview animations
-            </p>
+      {/* Left Input Configuration Panel */}
+      <div className="w-full lg:w-[360px] flex flex-col gap-6 flex-shrink-0" id="rigging-left-panel">
+        
+        {/* SECTION: ASSET & ENGINE */}
+        <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-5 shadow-sm" id="rigging-engine-box">
+          <div className="flex items-center justify-between border-b border-[hsl(var(--border))] pb-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Rigging Engine</span>
+            <Cpu size={12} className="text-[hsl(var(--primary))]" />
           </div>
 
-          {/* Model Upload / Active Target */}
-          <div
-            className="bg-[hsl(var(--surface-2))] rounded-xl border border-[hsl(var(--border))] p-4 flex flex-col gap-4"
-            id="rigging-upload-area"
-          >
-            <span className="text-[9px] font-bold text-[hsl(var(--primary))] uppercase tracking-wider">
-              Target Model
-            </span>
-
-            {uploadedModelUrl ? (
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded bg-gradient-to-tr from-[hsl(var(--primary))]/20 to-transparent flex items-center justify-center border border-[hsl(var(--primary))]/10">
-                  <Box size={18} className="text-[hsl(var(--primary))]" />
+          <div className="flex flex-col gap-4">
+            {/* Model Upload area */}
+            <div className="flex flex-col gap-2">
+              <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Target Asset</label>
+              
+              {isUploadingModel ? (
+                <div className="w-full flex flex-col items-center gap-2 py-4 bg-[hsl(var(--surface-2))] rounded-xl border border-[hsl(var(--border))]">
+                  <RefreshCw size={16} className="text-[hsl(var(--primary))] animate-spin" />
+                  <div className="w-full max-w-[80%] h-1 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden">
+                    <div className="h-full bg-[hsl(var(--primary))] transition-all duration-200" style={{ width: `${modelUploadProgress}%` }} />
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-[hsl(var(--foreground))] truncate">
-                    {uploadedModelName}
-                  </p>
-                  <p className="text-[10px] text-[hsl(var(--muted-foreground))] truncate font-mono">
-                    {formatFileSize(uploadedModelSize)}
-                  </p>
-                </div>
-                <button
-                  onClick={clearUploadedModel}
-                  className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
-                  aria-label="Remove uploaded model"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded bg-gradient-to-tr from-[hsl(var(--primary))]/20 to-transparent flex items-center justify-center border border-[hsl(var(--primary))]/10">
-                  <Activity size={18} className="text-[hsl(var(--primary))]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-[hsl(var(--foreground))] truncate">
-                    {activeModel.name}
-                  </p>
-                  <p className="text-[10px] text-[hsl(var(--muted-foreground))] truncate font-mono">
-                    {activeModel.complexity}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Drag-and-drop upload zone */}
-            <div
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className={
-                'flex items-center justify-center gap-2 p-3 rounded-lg border border-dashed cursor-pointer transition-all text-[11px] ' +
-                (isDragOver
-                  ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]'
-                  : 'border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/50 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))]')
-              }
-            >
-              <Upload size={14} />
-              <span>Upload 3D Model (.glb / .gltf)</span>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".glb,.gltf"
-                onChange={handleModelUpload}
-                className="hidden"
-              />
-            </div>
-          </div>
-
-          {/* Rigging Options Section */}
-          <div
-            className="flex flex-col gap-5"
-            id="rigging-options-form"
-          >
-            <div className="flex items-center gap-2">
-              <Bone size={14} className="text-[hsl(var(--primary))]" />
-              <span className="text-xs font-bold text-[hsl(var(--foreground))]">Rigging Options</span>
-            </div>
-
-            {/* Rigging Model Selector (workspace-compatible models only) */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
-                  Rigging Model
-                </label>
-                {isLoadingModels ? (
-                  <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">
-                    Loading models…
-                  </span>
-                ) : selectedModel && !selectedModel.installed ? (
-                  <span className="text-[9px] font-bold text-[hsl(var(--neon-amber))] uppercase">
-                    Not installed
-                  </span>
-                ) : null}
-              </div>
-              <div className="relative">
-                <select
-                  value={effectiveModelId}
-                  onChange={(e) => setSelectedModelId(e.target.value)}
-                  disabled={isLoadingModels}
-                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 pr-8 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none disabled:opacity-60 disabled:cursor-wait"
-                  id="rigging-model-select"
-                >
-                  {modelOptions.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.label}{m.installed ? '' : ' — not installed'}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  size={14}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] pointer-events-none"
-                />
-              </div>
-            </div>
-
-            {/* Auto Rig Toggle */}
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col">
-                <span className="text-xs font-bold text-[hsl(var(--foreground))]">Auto Rig</span>
-                <span className="text-[9px] text-[hsl(var(--muted-foreground))] mt-1">
-                  Automatically detect and generate skeleton
-                </span>
-              </div>
-              <input
-                type="checkbox"
-                checked={autoRig}
-                onChange={(e) => setAutoRig(e.target.checked)}
-                className="accent-[hsl(var(--primary))] h-4 w-4 cursor-pointer"
-              />
-            </div>
-
-            {/* Rig Type Selector */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
-                Rig Type
-              </label>
-              <div className="relative">
-                <select
-                  value={rigType}
-                  onChange={(e) => setRigType(e.target.value)}
-                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 pr-8 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none"
-                  id="rig-type-select"
-                >
-                  {RIG_TYPES.map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {r.label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  size={14}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] pointer-events-none"
-                />
-              </div>
-            </div>
-
-            {/* Joint Count Display */}
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
-                Joint Count
-              </span>
-              <span className="text-xs font-bold text-[hsl(var(--muted-foreground))]">Auto-detect</span>
-            </div>
-
-            {/* Bone Structure Selector */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
-                Bone Structure
-              </label>
-              <div className="relative">
-                <select
-                  value={boneStructure}
-                  onChange={(e) => setBoneStructure(e.target.value)}
-                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 pr-8 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none"
-                  id="bone-structure-select"
-                >
-                  {BONE_STRUCTURES.map((b) => (
-                    <option key={b.value} value={b.value}>
-                      {b.label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  size={14}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] pointer-events-none"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div className="border-t border-[hsl(var(--border))]" />
-
-          {/* Animation Presets Section */}
-          <div className="flex flex-col gap-4" id="animation-presets-section">
-            <div className="flex items-center gap-2">
-              <Play size={14} className="text-[hsl(var(--primary))]" />
-              <span className="text-xs font-bold text-[hsl(var(--foreground))]">Animation Presets</span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              {ANIMATION_PRESETS.map((preset) => {
-                const PresetIcon = preset.icon;
-                const isSelected = selectedPreset === preset.id;
-                return (
-                  <button
-                    key={preset.id}
-                    onClick={() => setSelectedPreset(isSelected ? null : preset.id)}
-                    className={
-                      'flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all cursor-pointer ' +
-                      (isSelected
-                        ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/[0.06] shadow-[0_0_12px_rgba(245,166,35,0.1)]'
-                        : 'border-[hsl(var(--border))] bg-[hsl(var(--surface-2))] hover:border-[hsl(var(--primary))]/30 hover:bg-[hsl(var(--primary))]/[0.03]')
-                    }
+              ) : uploadedModelUrl ? (
+                <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--neon-green)/0.3)] rounded-xl p-3 flex items-center gap-3 group">
+                  <div className="w-8 h-8 rounded-lg bg-[hsl(var(--neon-green))/0.1] flex items-center justify-center text-[hsl(var(--neon-green))]">
+                    <PersonStanding size={14} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-black text-[hsl(var(--foreground))] truncate">{uploadedModelName}</p>
+                    <p className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter">Ready for Skeleton</p>
+                  </div>
+                  <button 
+                    onClick={clearUploadedModel} 
+                    className="p-1.5 rounded-lg hover:bg-[hsl(var(--destructive))/0.1] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
                   >
-                    <PresetIcon
-                      size={20}
-                      className={isSelected ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}
-                    />
-                    <span className={
-                      'text-[10px] font-bold ' +
-                      (isSelected ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]')
-                    }>
-                      {preset.label}
-                    </span>
-                    <span className="text-[8px] text-[hsl(var(--muted-foreground))] leading-tight text-center">
-                      {preset.description}
-                    </span>
+                    <X size={14} />
                   </button>
-                );
-              })}
+                </div>
+              ) : (
+                <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-3 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[hsl(var(--primary))/0.1] flex items-center justify-center text-[hsl(var(--primary))]">
+                    <Box size={14} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-black text-[hsl(var(--foreground))] truncate">{activeModel.name}</p>
+                    <p className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter">Active Workspace Mesh</p>
+                  </div>
+                </div>
+              )}
+              
+              <label
+                id="rigging-upload-area"
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`flex flex-col items-center justify-center gap-1.5 py-5 rounded-xl border-2 border-dashed transition-all cursor-pointer text-center group ${
+                  isDragOver
+                    ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5'
+                    : 'border-[hsl(var(--border))] bg-[hsl(var(--surface-1))] hover:border-[hsl(var(--primary))]/50 hover:bg-[hsl(var(--surface-2))]'
+                }`}
+              >
+                <Upload size={16} className="text-[hsl(var(--muted-foreground))] group-hover:scale-110 group-hover:text-[hsl(var(--primary))] transition-all" />
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-[hsl(var(--foreground))]">Import Humanoid Mesh</span>
+                  <span className="text-[8px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter">GLB / FBX Supported</span>
+                </div>
+                <input type="file" accept=".glb,.gltf,.fbx,.obj" onChange={handleModelUpload} className="hidden" ref={fileInputRef} />
+              </label>
+            </div>
+
+          {/* Provider selection */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Compute Provider</label>
+            <div className="relative group">
+              <select
+                value={effectiveModelId}
+                onChange={(e) => setSelectedModelId(e.target.value)}
+                disabled={isLoadingModels}
+                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl px-3 pr-8 py-2.5 text-[11px] font-black text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))] transition-all appearance-none disabled:opacity-60 shadow-sm"
+              >
+                {modelOptions.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}{m.installed ? '' : ' (Not Installed)'}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={14} className="absolute right-3 top-3 text-[hsl(var(--muted-foreground))] pointer-events-none group-hover:text-[hsl(var(--primary))] transition-colors" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION: RIGGING CONFIG */}
+      <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-5 shadow-sm" id="rigging-config-box">
+        <div className="flex items-center justify-between border-b border-[hsl(var(--border))] pb-2">
+          <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Rigging Config</span>
+          <Bone size={12} className="text-[hsl(var(--primary))]" />
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Skeleton Type</label>
+            <div className="relative group">
+              <select
+                value={boneStructure}
+                onChange={(e) => setBoneStructure(e.target.value)}
+                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl px-3 pr-8 py-2.5 text-[11px] font-black text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))] transition-all appearance-none shadow-sm"
+              >
+                {BONE_STRUCTURES.map(s => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+              <ChevronDown size={14} className="absolute right-3 top-3 text-[hsl(var(--muted-foreground))] pointer-events-none group-hover:text-[hsl(var(--primary))] transition-colors" />
             </div>
           </div>
 
-          {/* Divider */}
-          <div className="border-t border-[hsl(var(--border))]" />
-
-          {/* Animation Settings Section */}
-          <div className="flex flex-col gap-4" id="animation-settings-section">
-            <div className="flex items-center gap-2">
-              <Zap size={14} className="text-[hsl(var(--primary))]" />
-              <span className="text-xs font-bold text-[hsl(var(--foreground))]">Animation Settings</span>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Joint Hierarchy</label>
+            <div className="relative group">
+              <select
+                value={rigType}
+                onChange={(e) => setRigType(e.target.value)}
+                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl px-3 pr-8 py-2.5 text-[11px] font-black text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))] transition-all appearance-none shadow-sm"
+              >
+                {RIG_TYPES.map(t => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+              <ChevronDown size={14} className="absolute right-3 top-3 text-[hsl(var(--muted-foreground))] pointer-events-none group-hover:text-[hsl(var(--primary))] transition-colors" />
             </div>
+          </div>
 
-            {/* Loop Toggle */}
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col">
-                <span className="text-xs font-bold text-[hsl(var(--foreground))]">Loop</span>
-                <span className="text-[9px] text-[hsl(var(--muted-foreground))] mt-1">
-                  Repeat animation continuously
-                </span>
-              </div>
-              <input
-                type="checkbox"
-                checked={loopAnimation}
-                onChange={(e) => setLoopAnimation(e.target.checked)}
-                className="accent-[hsl(var(--primary))] h-4 w-4 cursor-pointer"
-              />
+          <div className="flex items-center justify-between pt-2 border-t border-[hsl(var(--border))/40]">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black text-[hsl(var(--foreground))] uppercase">Auto-Rig Pipeline</span>
+              <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase">AI Bone Placement</span>
             </div>
+            <input
+              type="checkbox"
+              checked={autoRig}
+              onChange={(e) => setAutoRig(e.target.checked)}
+              className="accent-[hsl(var(--primary))] h-4 w-4 cursor-pointer"
+            />
+          </div>
 
-            {/* Speed Slider */}
+          <button
+            onClick={handleApplyRigging}
+            disabled={isRigging}
+            className="w-full bg-[hsl(var(--primary))] hover:brightness-110 active:scale-[0.98] text-[hsl(var(--surface-0))] font-black py-3 rounded-xl text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-[0_8px_20px_rgba(245,166,35,0.2)] mt-2"
+          >
+            {isRigging ? (
+              <>
+                <RefreshCw size={14} className="animate-spin text-[hsl(var(--surface-0))]" />
+                Baking Skeleton...
+              </>
+            ) : (
+              <>
+                <Zap size={14} className="fill-current text-[hsl(var(--surface-0))]" />
+                Build Character Rig
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+        {/* SECTION: ANIMATION CONFIG (PRESETS & SETTINGS) */}
+        <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-5 shadow-sm" id="rigging-motion-box">
+          <div className="flex items-center justify-between border-b border-[hsl(var(--border))] pb-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Motion Studio</span>
+            <Play size={12} className="text-[hsl(var(--primary))]" />
+          </div>
+
+          <div className="flex flex-col gap-5">
+            {/* Presets Grid */}
             <div className="flex flex-col gap-2">
-              <div className="flex justify-between items-center text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
-                <span>Speed</span>
-                <span className="text-[hsl(var(--primary))] tabular-nums">{speed.toFixed(1)}x</span>
-              </div>
-              <input
-                type="range"
-                min={0.5}
-                max={2.0}
-                step={0.1}
-                value={speed}
-                onChange={(e) => setSpeed(parseFloat(e.target.value))}
-                className="w-full accent-[hsl(var(--primary))] cursor-pointer"
-                id="speed-slider"
-              />
-              <div className="flex justify-between text-[9px] text-[hsl(var(--muted-foreground))] font-mono">
-                <span>0.5x</span>
-                <span>2.0x</span>
+              <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Animation Presets</label>
+              <div className="grid grid-cols-3 gap-2">
+                {ANIMATION_PRESETS.map((preset) => {
+                  const Icon = preset.icon;
+                  const isSelected = selectedPreset === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      onClick={() => setSelectedPreset(isSelected ? null : preset.id)}
+                      className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all group ${
+                        isSelected
+                          ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/[0.06]'
+                          : 'border-[hsl(var(--border))] bg-[hsl(var(--surface-2))] hover:border-[hsl(var(--primary))]/30'
+                      }`}
+                    >
+                      <Icon size={16} className={isSelected ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))] group-hover:text-[hsl(var(--primary))]'} />
+                      <span className={`text-[9px] font-black uppercase tracking-tighter ${isSelected ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}>
+                        {preset.label}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Blend Mode Selector */}
-            <div className="flex flex-col gap-2">
-              <label className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
-                Blend Mode
-              </label>
-              <div className="relative">
-                <select
-                  value={blendMode}
-                  onChange={(e) => setBlendMode(e.target.value)}
-                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-2.5 pr-8 text-xs text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--primary))] cursor-pointer appearance-none"
-                  id="blend-mode-select"
-                >
-                  {BLEND_MODES.map((b) => (
-                    <option key={b.value} value={b.value}>
-                      {b.label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  size={14}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] pointer-events-none"
+            {/* Animation Settings */}
+            <div className="flex flex-col gap-4 pt-2 border-t border-[hsl(var(--border))/40]">
+              {/* Loop */}
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-[hsl(var(--foreground))] uppercase">Seamless Loop</span>
+                  <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase">Infinite Playback</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={loopAnimation}
+                  onChange={(e) => setLoopAnimation(e.target.checked)}
+                  className="accent-[hsl(var(--primary))] h-4 w-4 cursor-pointer"
                 />
               </div>
+
+              {/* Speed */}
+              <div className="flex flex-col gap-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-black text-[hsl(var(--muted-foreground))] uppercase">Playback Speed</span>
+                  <span className="text-[10px] font-black text-[hsl(var(--primary))] tabular-nums">{speed.toFixed(1)}x</span>
+                </div>
+                <input
+                  type="range"
+                  min={0.5}
+                  max={2.0}
+                  step={0.1}
+                  value={speed}
+                  onChange={(e) => setSpeed(parseFloat(e.target.value))}
+                  className="w-full accent-[hsl(var(--primary))] cursor-pointer h-1.5 bg-[hsl(var(--surface-3))] rounded-lg appearance-none"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-col gap-2 mt-2">
+                <button
+                  onClick={handlePreviewAnimation}
+                  disabled={!riggingComplete || !selectedPreset}
+                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/50 disabled:opacity-40 rounded-xl py-3 text-[10px] font-black uppercase tracking-widest text-[hsl(var(--foreground))] flex items-center justify-center gap-2 transition-all shadow-sm"
+                >
+                  {isPlaying ? (
+                    <>
+                      <Pause size={12} className="text-[hsl(var(--primary))]" />
+                      Pause Motion
+                    </>
+                  ) : (
+                    <>
+                      <Play size={12} className="text-[hsl(var(--primary))]" />
+                      Preview Motion
+                    </>
+                  )}
+                </button>
+
+                {riggingComplete && (
+                  <button
+                    onClick={handleExportRigged}
+                    className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-[hsl(var(--neon-green))]/50 rounded-xl py-3 text-[10px] font-black uppercase tracking-widest text-[hsl(var(--foreground))] flex items-center justify-center gap-2 transition-all shadow-sm"
+                  >
+                    <Download size={12} className="text-[hsl(var(--neon-green))]" />
+                    Export Rigged Asset
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-
-          {/* Divider */}
-          <div className="border-t border-[hsl(var(--border))]" />
-
-          {/* Credit Cost Badge */}
-          <div className="flex items-center justify-between bg-[hsl(var(--surface-2))] border border-[hsl(var(--surface-3))] rounded-lg px-3 py-2">
-            <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono uppercase font-bold">
-              Estimated Cost
-            </span>
-            <span className="text-xs font-bold text-[hsl(var(--primary))] flex items-center gap-1">
-              <Sparkles size={12} className="text-[hsl(var(--primary))]" />
-              50 Credits
-            </span>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col gap-3" id="rigging-action-buttons">
-            <button
-              onClick={handleApplyRigging}
-              disabled={isRigging}
-              className="w-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] hover:brightness-110 active:scale-[0.98] text-[hsl(var(--surface-0))] font-extrabold py-3.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-[0_4px_15px_rgba(245,166,35,0.2)] mt-4"
-              id="apply-rigging-btn"
-            >
-              {isRigging ? (
-                <>
-                  <RefreshCw size={14} className="animate-spin text-[hsl(var(--surface-0))]" />
-                  Rigging...
-                </>
-              ) : (
-                <>
-                  <Bone size={14} className="stroke-[2.5]" />
-                  Apply Rigging
-                </>
-              )}
-            </button>
-
-            <button
-              onClick={handlePreviewAnimation}
-              disabled={!riggingComplete || !selectedPreset}
-              className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/50 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl py-3.5 text-xs font-bold text-[hsl(var(--foreground))] flex items-center justify-center gap-2 transition-all mt-4"
-              id="preview-animation-btn"
-            >
-              {isPlaying ? (
-                <>
-                  <Pause size={14} className="text-[hsl(var(--primary))]" />
-                  Pause Animation
-                </>
-              ) : (
-                <>
-                  <Play size={14} className="text-[hsl(var(--primary))]" />
-                  Preview Animation
-                </>
-              )}
-            </button>
-
-            {riggingComplete && (
-              <button
-                onClick={handleExportRigged}
-                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-emerald-500/50 rounded-xl py-3.5 text-xs font-bold text-[hsl(var(--foreground))] flex items-center justify-center gap-2 transition-all mt-4"
-                id="export-rigged-btn"
-              >
-                <Download size={13} className="text-[hsl(var(--neon-green))]" />
-                Export Rigged Model (FBX)
-              </button>
-            )}
           </div>
         </div>
 
-        {/* Supported Formats Info */}
-        <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-4 flex flex-col gap-3">
-          <span className="text-[10px] font-bold text-[hsl(var(--primary))] uppercase tracking-wider">
-            Supported Model Formats
-          </span>
+        {/* SECTION: FORMATS */}
+        <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-4 flex flex-col gap-3 shadow-sm">
+          <span className="text-[9px] font-black text-[hsl(var(--primary))] uppercase tracking-widest border-b border-[hsl(var(--border))] pb-1">Compatibility</span>
           <div className="grid grid-cols-4 gap-2">
             {SUPPORTED_FORMATS.map((fmt) => (
-              <div
-                key={fmt.label}
-                className="flex flex-col items-center gap-1 p-2 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]"
-              >
-                <Box size={16} className="text-[hsl(var(--muted-foreground))]" />
-                <span className="text-[10px] font-bold text-[hsl(var(--muted-foreground))]">
-                  {fmt.label}
-                </span>
-                <span className="text-[8px] text-[hsl(var(--muted-foreground))] text-center leading-tight">
-                  {fmt.desc}
-                </span>
+              <div key={fmt.label} className="flex flex-col items-center gap-1 p-2 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] text-center">
+                <Box size={14} className="text-[hsl(var(--muted-foreground))]" />
+                <span className="text-[9px] font-black text-[hsl(var(--foreground))] uppercase">{fmt.label}</span>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* ==================== RIGHT PANEL ==================== */}
-      <div
-        className="flex-1 bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-6 flex flex-col gap-6 relative overflow-hidden"
-        id="rigging-right-stage"
-      >
-        {/* Processing Overlay */}
+      {/* Right Viewport Area */}
+      <div className="flex-1 bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl flex flex-col relative overflow-hidden shadow-sm" id="rigging-right-stage">
+        
+        {/* Processing State */}
         {isRigging && (
-          <div className="absolute inset-0 bg-[hsl(var(--surface-0)/0.6)] z-20 flex flex-col items-center justify-center text-center p-6 animate-speed-lines">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] animate-energy-pulse flex items-center justify-center text-[hsl(var(--surface-0))] font-extrabold text-xs">
-              <Bone size={36} className="animate-spin text-[hsl(var(--surface-0))] stroke-[3]" />
+          <div className="absolute inset-0 bg-[hsl(var(--surface-0)/0.8)] backdrop-blur-sm z-30 flex flex-col items-center justify-center text-center p-8 animate-fadeIn">
+            <div className="relative">
+              <div className="w-20 h-20 rounded-full border-4 border-[hsl(var(--primary))/0.1] border-t-[hsl(var(--primary))] animate-spin" />
+              <Bone size={24} className="absolute inset-0 m-auto text-[hsl(var(--primary))] animate-pulse" />
             </div>
-            <h3 className="text-lg font-black text-[hsl(var(--primary))] uppercase tracking-widest mt-6 animate-pulse">
-              Rigging Model...
-            </h3>
-            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-2 max-w-sm leading-relaxed font-mono">
-              {statusMessage}
-            </p>
-            <div className="w-64 h-2 bg-[hsl(var(--surface-2))] rounded-full mt-4 overflow-hidden border border-[hsl(var(--border))]">
-              <div
-                className="h-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${progressPercent}%` }}
-              />
+            <h3 className="text-sm font-black text-[hsl(var(--foreground))] uppercase tracking-widest mt-6">{statusMessage}</h3>
+            <p className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter mt-1">Skeleton Synthesis in Progress</p>
+            
+            <div className="w-48 h-1 bg-[hsl(var(--surface-3))] rounded-full mt-6 overflow-hidden">
+              <div className="h-full bg-[hsl(var(--primary))] transition-all duration-500" style={{ width: `${progressPercent}%` }} />
             </div>
-            <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono mt-1.5 tabular-nums">
-              {progressPercent}%
-            </span>
+            <span className="text-[10px] font-black text-[hsl(var(--primary))] mt-2 tabular-nums">{progressPercent}%</span>
           </div>
         )}
 
-        <div className="flex-1 flex flex-col gap-6 z-10">
-          {/* Header */}
-          <div>
-            <h3 className="text-sm font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
-              <Eye size={16} className="text-[hsl(var(--primary))]" />
-              Preview & Results
-            </h3>
-            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
-              {riggingComplete
-                ? 'Rigging applied. Select an animation preset and preview the result.'
-                : 'Upload a 3D model, configure rigging options, then click "Apply Rigging" to generate a skeleton.'}
+        {/* Viewport Header */}
+        <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between z-20 pointer-events-none">
+          <div className="flex flex-col gap-0.5 bg-[hsl(var(--surface-1))/0.8] backdrop-blur-md px-3 py-2 rounded-xl border border-[hsl(var(--border))] pointer-events-auto shadow-sm">
+            <div className="flex items-center gap-2">
+              <Eye size={12} className="text-[hsl(var(--primary))]" />
+              <span className="text-[10px] font-black text-[hsl(var(--foreground))] uppercase tracking-widest">Viewport</span>
+            </div>
+            <p className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase">
+              {riggingComplete ? 'Rigged Model Active' : 'Waiting for Skeleton'}
             </p>
           </div>
 
-          {/* 3D Viewport Placeholder */}
-          <div
-            className="relative w-full rounded-xl border border-[hsl(var(--border))] overflow-hidden flex-shrink-0"
-            style={{ height: '280px' }}
-            id="rigging-viewport"
-          >
-            {/* Grid pattern background */}
-            <div
-              className="absolute inset-0"
-              style={{
-                backgroundColor: 'hsl(var(--surface-0))',
-                backgroundImage:
-                  'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)',
-                backgroundSize: '24px 24px',
-              }}
-            />
-            {/* Center icon / placeholder content */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
-              {riggingComplete ? (
-                <>
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[hsl(var(--primary))]/20 to-transparent flex items-center justify-center border border-[hsl(var(--primary))]/20 mb-3">
-                    <PersonStanding size={32} className="text-[hsl(var(--primary))]" />
-                  </div>
-                  <p className="text-xs font-bold text-[hsl(var(--foreground))]">
-                    {uploadedModelName || activeModel.name}
-                  </p>
-                  <p className="text-[10px] text-[hsl(var(--neon-green))] mt-1 flex items-center gap-1">
-                    <CheckCircle size={10} />
-                    Rigged — {riggingResult?.boneCount} bones
-                  </p>
-                </>
-              ) : (
-                <>
-                  <Grid3X3
-                    size={40}
-                    className={isRigging ? 'text-[hsl(var(--primary))]/30 animate-pulse' : 'text-[hsl(var(--border))] mb-2'}
-                  />
-                  <p className="text-[11px] text-[hsl(var(--muted-foreground))]">
-                    {isRigging ? 'Processing rigging...' : '3D Viewport'}
-                  </p>
-                </>
-              )}
-            </div>
+          <div className="flex items-center gap-2 pointer-events-auto">
+            <button className="p-2 rounded-xl bg-[hsl(var(--surface-1))/0.8] backdrop-blur-md border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] shadow-sm transition-all">
+              <Maximize size={14} />
+            </button>
           </div>
+        </div>
 
-          {/* Animation Timeline Bar */}
-          {riggingComplete && selectedPreset && (
-            <div
-              className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--surface-3))] rounded-xl p-4 flex flex-col gap-3 animate-fadeIn"
-              id="animation-timeline"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
-                  Timeline
-                </span>
-                <div className="flex items-center gap-2">
-                  {loopAnimation && (
-                    <span className="text-[9px] text-[hsl(var(--primary))] font-mono uppercase font-bold flex items-center gap-1">
-                      <RotateCcw size={9} className="text-[hsl(var(--primary))]" />
-                      Loop
-                    </span>
-                  )}
-                  <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">
-                    {currentPreset?.fps} FPS
-                  </span>
-                </div>
+        {/* Placeholder for 3D Stage */}
+        <div className="flex-1 flex items-center justify-center relative bg-[radial-gradient(circle_at_center,hsl(var(--surface-2))_0%,hsl(var(--surface-1))_100%)] overflow-hidden">
+          
+          {!riggingComplete && !isRigging && (
+            <div className="flex flex-col items-center text-center gap-4 animate-pulse">
+              <div className="w-16 h-16 rounded-full bg-[hsl(var(--surface-3))] flex items-center justify-center text-[hsl(var(--muted-foreground))]">
+                <Box size={32} />
               </div>
-
-              {/* Scrubber */}
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={handlePreviewAnimation}
-                  className="w-8 h-8 rounded-lg bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/20 flex items-center justify-center hover:bg-[hsl(var(--primary))]/20 transition-colors flex-shrink-0"
-                  aria-label={isPlaying ? 'Pause' : 'Play'}
-                >
-                  {isPlaying ? (
-                    <Pause size={14} className="text-[hsl(var(--primary))]" />
-                  ) : (
-                    <Play size={14} className="text-[hsl(var(--primary))] ml-0.5" />
-                  )}
-                </button>
-
-                <div className="flex-1 relative">
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={0.1}
-                    value={timelinePosition}
-                    onChange={handleTimelineScrub}
-                    className="w-full accent-[hsl(var(--primary))] cursor-pointer h-1.5"
-                    id="timeline-scrubber"
-                  />
-                </div>
-
-                <div className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono tabular-nums flex-shrink-0 whitespace-nowrap">
-                  {formatTime(currentTime)} / {formatTime(currentDuration)}
-                </div>
+              <div className="flex flex-col">
+                <span className="text-[11px] font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest">No Active Rig</span>
+                <span className="text-[9px] text-[hsl(var(--muted-foreground))/0.6] font-mono">Upload and build to preview</span>
               </div>
             </div>
           )}
 
-          {/* Results Grid: Rigging Status + Animation Preview */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            {/* Rigging Status Card */}
-            <div
-              className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--surface-3))] rounded-xl p-5 flex flex-col gap-4"
-              id="rigging-status-card"
-            >
-              <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
-                Rigging Status
-              </span>
-
-              {riggingComplete && riggingResult ? (
-                <div className="flex flex-col gap-2.5 animate-fadeIn">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-[hsl(var(--neon-green))]" />
-                    <span className="text-xs font-bold text-[hsl(var(--neon-green))]">Complete</span>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">Bone Count</span>
-                      <span className="text-[10px] text-[hsl(var(--primary))] font-bold tabular-nums">
-                        {riggingResult.boneCount}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">Weight Map</span>
-                      <span className={
-                        'text-[10px] font-bold ' +
-                        (riggingResult.rigWeightMap === 'Complete'
-                          ? 'text-[hsl(var(--neon-green))]'
-                          : riggingResult.rigWeightMap === 'Partial'
-                            ? 'text-[hsl(var(--neon-amber))]'
-                            : 'text-[hsl(var(--destructive))]')
-                      }>
-                        {riggingResult.rigWeightMap}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-1">
-                    <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase">Joint Hierarchy</span>
-                    <p className="text-[9px] text-[hsl(var(--muted-foreground))] mt-1 leading-relaxed">
-                      {riggingResult.jointHierarchy}
-                    </p>
-                  </div>
+          {riggingComplete && !isRigging && (
+            <div className="flex flex-col items-center gap-6">
+              <PersonStanding size={120} className="text-[hsl(var(--primary))/0.2] stroke-[0.5]" />
+              <div className="flex items-center gap-4 bg-[hsl(var(--surface-2))/0.5] backdrop-blur-md px-4 py-2 rounded-full border border-[hsl(var(--border))]">
+                <div className="flex items-center gap-2 border-r border-[hsl(var(--border))] pr-4">
+                  <Activity size={14} className="text-[hsl(var(--primary))]" />
+                  <span className="text-[10px] font-black text-[hsl(var(--foreground))] uppercase">{selectedPreset || 'IDLE'}</span>
                 </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-4 text-center">
-                  <Bone size={24} className="text-[hsl(var(--border))] mb-2" />
-                  <p className="text-[10px] text-[hsl(var(--muted-foreground))]">
-                    {isRigging ? 'Processing...' : 'Not yet rigged'}
-                  </p>
-                  {isRigging && (
-                    <p className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono mt-1">
-                      {progressPercent}%
-                    </p>
-                  )}
+                <div className="flex items-center gap-2">
+                  <RefreshCw size={14} className={`text-[hsl(var(--muted-foreground))] ${isPlaying ? 'animate-spin' : ''}`} />
+                  <span className="text-[10px] font-black text-[hsl(var(--foreground))] uppercase tracking-widest">{isPlaying ? 'Playing' : 'Paused'}</span>
                 </div>
-              )}
+              </div>
             </div>
-
-            {/* Animation Preview Card */}
-            <div
-              className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--surface-3))] rounded-xl p-5 flex flex-col gap-4"
-              id="animation-preview-card"
-            >
-              <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">
-                Animation Preview
-              </span>
-
-              {selectedPreset && currentPreset ? (
-                <div className="flex flex-col gap-2.5 animate-fadeIn">
-                  <div className="flex items-center gap-2">
-                    {(() => {
-                      const IconComp = currentPreset.icon;
-                      return <IconComp size={14} className="text-[hsl(var(--primary))]" />;
-                    })()}
-                    <span className="text-xs font-bold text-[hsl(var(--foreground))]">
-                      {currentPreset.label}
-                    </span>
-                  </div>
-                  <p className="text-[9px] text-[hsl(var(--muted-foreground))] leading-relaxed">
-                    {currentPreset.description}
-                  </p>
-                  <div className="flex flex-col gap-1.5 mt-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">FPS</span>
-                      <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-bold tabular-nums">
-                        {currentPreset.fps}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">Duration</span>
-                      <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-bold tabular-nums">
-                        {currentPreset.duration.toFixed(1)}s
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">Frames</span>
-                      <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-bold tabular-nums">
-                        {currentPreset.frameCount}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">Blend</span>
-                      <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-bold">
-                        {blendMode}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">Speed</span>
-                      <span className="text-[10px] text-[hsl(var(--primary))] font-bold tabular-nums">
-                        {speed.toFixed(1)}x
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-4 text-center">
-                  <Play size={24} className="text-[hsl(var(--border))] mb-2" />
-                  <p className="text-[10px] text-[hsl(var(--muted-foreground))]">
-                    Select a preset to preview
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Bottom Info Notice */}
-          <div className="bg-[hsl(var(--surface-2))] rounded-xl p-4 border border-[hsl(var(--primary))]/10 flex items-start gap-3 mt-auto">
-            <Info size={15} className="text-[hsl(var(--primary))] flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <span className="text-[10px] font-bold text-[hsl(var(--primary))] uppercase tracking-wider">
-                Rigging & Animation Info
-              </span>
-              <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1 leading-relaxed">
-                Auto-rigging detects body segments and generates a bone skeleton
-                with proper weight maps.{' '}
-                <strong className="text-[hsl(var(--foreground))]">Full Body Rig</strong> includes all
-                limbs,{' '}
-                <strong className="text-[hsl(var(--foreground))]">Upper Body</strong> covers torso
-                and arms, and{' '}
-                <strong className="text-[hsl(var(--foreground))]">Lower Body</strong> covers hips
-                and legs. Animation presets are applied after rigging is complete.
-                Export as FBX for use in game engines and 3D software.
-              </p>
-            </div>
-          </div>
+          )}
         </div>
+
+        {/* Timeline Controller */}
+        {riggingComplete && (
+          <div className="p-4 bg-[hsl(var(--surface-1))/0.8] backdrop-blur-md border-t border-[hsl(var(--border))] z-20">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setIsPlaying(!isPlaying)} className="w-8 h-8 rounded-lg bg-[hsl(var(--primary))] text-white flex items-center justify-center hover:brightness-110 active:scale-95 transition-all">
+                    {isPlaying ? <Pause size={14} fill="white" /> : <Play size={14} fill="white" className="translate-x-0.5" />}
+                  </button>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-[hsl(var(--foreground))] uppercase">{selectedPreset || 'Select Preset'}</span>
+                    <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">00:{Math.floor(currentTime).toString().padStart(2, '0')} / 00:{Math.floor(currentDuration).toString().padStart(2, '0')}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-black text-[hsl(var(--muted-foreground))] uppercase">Speed: {speed}x</span>
+                </div>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="0.1"
+                value={timelinePosition}
+                onChange={handleTimelineScrub}
+                className="w-full accent-[hsl(var(--primary))] cursor-pointer h-1 bg-[hsl(var(--surface-3))] rounded-full appearance-none"
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

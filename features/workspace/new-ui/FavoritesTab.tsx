@@ -4,7 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
+import anime from 'animejs';
 import { Heart, Play, Trash2, Cpu } from 'lucide-react';
 import { HistoryItem } from '@/types/new-ui';
 
@@ -23,17 +24,35 @@ export default function FavoritesTab({
 }: FavoritesTabProps) {
   const favoriteItems = history.filter((item) => item.isFavorite);
 
+  React.useEffect(() => {
+    anime({
+      targets: '#favorites-grid > div',
+      opacity: [0, 1],
+      translateY: [20, 0],
+      delay: anime.stagger(40),
+      easing: 'easeOutQuad',
+      duration: 500
+    });
+  }, [favoriteItems.length]);
+
   return (
-    <div className="flex-1 p-6 flex flex-col gap-6 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="favorites-tab-panel">
-      {/* Intro */}
-      <div>
-        <h2 className="text-lg font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
-          <Heart size={20} className="text-[hsl(var(--destructive))] fill-rose-500" />
-          Your Favorite Creations
-        </h2>
-        <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
-          A filtered view of your highest rated 3D models. Click any model to load it inside the workspace render stage!
-        </p>
+    <div className="flex-1 p-8 flex flex-col gap-8 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="favorites-tab-panel">
+      {/* Header section with refined alignment */}
+      <div className="flex flex-col gap-2 max-w-4xl">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center border border-rose-500/20">
+            <Heart size={20} className="text-rose-500 fill-rose-500" />
+          </div>
+          <div>
+            <h2 className="text-xl font-black text-[hsl(var(--foreground))] uppercase tracking-tight">Favorite Creations</h2>
+            <div className="flex items-center gap-2 mt-0.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+              <p className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-widest">
+                {favoriteItems.length} Saved Assets in Vault
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Favorites Cards Grid */}

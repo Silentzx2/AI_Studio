@@ -211,9 +211,10 @@ export async function OPTIONS(
 
 // Helper: Get headers to forward to backend
 function getForwardingHeaders(request: NextRequest): HeadersInit {
-  const headers: HeadersInit = {
-    'content-type': 'application/json',
-  };
+  const headers: HeadersInit = {};
+  
+  const contentType = request.headers.get('content-type');
+  if (contentType) headers['content-type'] = contentType;
   
   const auth = request.headers.get('authorization');
   if (auth) headers['authorization'] = auth;

@@ -139,15 +139,37 @@ export const useGenerationStore = create<GenerationState>()(
     loadHistory: async () => {
       useAppStore.setState({ isLoadingHistory: true, loadingError: null });
       try {
-        // FE-010 FIX: use the same endpoint + shape as useGenerationHistory
-        // (/api/v1/generation/history) so merged histories don't duplicate or mismatch.
-        const res = await fetch('/api/v1/generation/history?limit=20&offset=0');
-        if (!res.ok) {
-          throw new Error(`Failed to load history: ${res.status}`);
-        }
+        const res = await fetch('/api/v1/generation/history?limit=50&offset=0');
+        if (!res.ok) throw new Error(`Failed to load history: ${res.status}`);
+        
         const json = await res.json();
-        const jobs = json?.data?.jobs ?? json?.jobs ?? [];
-        useAppStore.setState({ jobHistory: jobs, isLoadingHistory: false });
+        const rawJobs = json?.data?.jobs ?? json?.jobs ?? json?.history ?? [];
+        
+        // Normalize backend jobs to match GenerationJob type expectations
+        const normalizedJobs = (rawJobs as any[]).map(job => {
+          const config = job.config || {
+            prompt: job.prompt || 'No Prompt',
+            mode: job.mode || 'text-to-3d',
+            quality: job.quality || 'standard',
+            generateTexture: job.generate_texture ?? job.generateTexture ?? true,
+            autoRig: job.auto_rig ?? job.autoRig ?? false,
+          };
+          
+          return {
+            ...job,
+            config,
+            prompt: config.prompt,
+            createdAt: job.created_at ? new Date(job.created_at) : new Date(),
+            updatedAt: job.updated_at ? new Date(job.updated_at) : new Date(),
+            result: job.result || {
+              model_url: job.model_url,
+              thumbnail_url: job.thumbnail_url,
+              has_rig: job.has_rig || false,
+            }
+          };
+        });
+
+        useAppStore.setState({ jobHistory: normalizedJobs, isLoadingHistory: false });
       } catch (error) {
         console.error('Error loading history:', error);
         useAppStore.setState({
@@ -156,6 +178,9 @@ export const useGenerationStore = create<GenerationState>()(
           jobHistory: [],
         });
       }
+    },
+    refreshHistory: async () => {
+      return get().loadHistory();
     },
   }))
 );

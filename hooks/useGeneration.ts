@@ -77,23 +77,33 @@ export function useGeneration() {
 
     try {
       if (mode === 'image-to-3d' && uploadedImage) {
-        updateJobProgress(job.id, 3, 'uploading');
-        addLogEntry(job.id, 'Uploading reference image...', 'info');
-        const uploaded = await uploadService.uploadWithProgress(
-          uploadedImage.file,
-          (progress) => {
-            const uploadPercent = Math.round((progress.loaded / progress.total) * 100);
-            updateJobProgress(job.id, 3 + Math.round(uploadPercent * 0.1), 'uploading');
-            addLogEntry(job.id, `Uploading... ${uploadPercent}%`, 'info');
-          }
-        );
-        config = { ...config, referenceImage: uploaded.url };
+        let referenceImageUrl = uploadedImage.preview;
+        
+        // If it's a local data URL, upload it. (With the new UI, it should already be uploaded, but we keep this as fallback)
+        if (referenceImageUrl.startsWith('data:')) {
+          updateJobProgress(job.id, 3, 'uploading');
+          addLogEntry(job.id, 'Uploading reference image...', 'info');
+          const uploaded = await uploadService.uploadWithProgress(
+            uploadedImage.file,
+            (progress) => {
+              const uploadPercent = Math.round((progress.loaded / progress.total) * 100);
+              updateJobProgress(job.id, 3 + Math.round(uploadPercent * 0.1), 'uploading');
+              addLogEntry(job.id, `Uploading... ${uploadPercent}%`, 'info');
+            }
+          );
+          referenceImageUrl = uploaded.url;
+          addLogEntry(job.id, 'Reference image uploaded', 'success');
+        } else {
+          updateJobProgress(job.id, 10, 'uploading');
+          addLogEntry(job.id, 'Using pre-uploaded reference image', 'info');
+        }
+
+        config = { ...config, referenceImage: referenceImageUrl };
         useGenerationStore.setState((s) => ({
           currentJob: s.currentJob?.id === job.id
             ? { ...s.currentJob, config }
             : s.currentJob,
         }));
-        addLogEntry(job.id, 'Reference image uploaded', 'success');
       }
 
       updateTask(job.id, { status: 'running', progress: 5 });

@@ -26,6 +26,11 @@ const MATERIAL_LAYERS = [
   { id: 'height', label: 'Height', icon: Brush, color: 'text-[hsl(var(--neon-pink))]', enabled: false },
 ];
 
+import { Canvas } from '@react-three/fiber';
+import { Suspense, useMemo } from 'react';
+import { ViewerScene } from '@/features/workspace/viewer/ViewerScene';
+import { useUIStore } from '@/stores/useUIStore';
+
 export function TextureShell() {
   const [selectedLayer, setSelectedLayer] = useState('albedo');
   const [roughness, setRoughness] = useState(50);
@@ -35,6 +40,8 @@ export function TextureShell() {
   const [resolution, setResolution] = useState('2048');
   const [material, setMaterial] = useState('auto');
   const { reconnectToRunningTasks, registerTask, updateTask, completeTask } = useTaskManager();
+  const { currentJob } = useGenerationStore();
+  const { viewer } = useUIStore();
 
   useEffect(() => {
     reconnectToRunningTasks();
@@ -43,6 +50,7 @@ export function TextureShell() {
   const handleGenerate = async () => {
     const store = useGenerationStore.getState();
     const prompt = store.prompt || 'Generate PBR texture set for current model';
+    const modelUrl = currentJob?.result?.downloadUrls?.glb || currentJob?.result?.modelUrl;
 
     const config: GenerationConfig = {
       mode: 'texture-generation' as GenerationConfig['mode'],
@@ -52,6 +60,7 @@ export function TextureShell() {
       generateTexture: true,
       autoRig: false,
       model: store.selectedModel,
+      referenceImage: modelUrl, // Pass model URL as reference image for re-texturing
     };
 
     const taskId = `texture-${Date.now()}`;
@@ -69,16 +78,25 @@ export function TextureShell() {
 
     try {
       updateTask(taskId, { status: 'running', progress: 5 });
-      await generationService.startGeneration(
+      const result = await generationService.startGeneration(
         config,
         (progress, status, log) => {
           updateTask(taskId, { progress, status: status as 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' });
           if (log && log !== `Processing... ${progress}%`) console.debug(log);
         },
-        () => {},
+        (backendId) => {
+          // If we want to switch the UI to the new model immediately
+          // we could update the store here, but typically we wait for completion
+        },
       );
       completeTask(taskId, 'completed');
       toast.success('Texture generation complete');
+      
+      // Update the current job with the new textured model
+      useGenerationStore.setState((s) => ({
+        currentJob: s.currentJob ? { ...s.currentJob, result } : s.currentJob
+      }));
+
     } catch (error) {
       completeTask(taskId, 'failed');
       toast.error('Texture generation failed', { description: error instanceof Error ? error.message : undefined });
@@ -94,19 +112,31 @@ export function TextureShell() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
         {/* Preview */}
-        <GlassCard className="lg:col-span-2 p-0 overflow-hidden" delay={0.05}>
-          <div className="relative aspect-video bg-surface-0 flex items-center justify-center">
+        <GlassCard className="lg:col-span-2 p-0 overflow-hidden min-h-[400px]" delay={0.05}>
+          <div className="relative h-full aspect-video bg-surface-0 flex items-center justify-center">
             <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--neon-purple)/0.05)] to-[hsl(var(--neon-cyan)/0.05)]" />
-            <div className="relative z-10 flex flex-col items-center gap-3">
-              <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-surface-2/50 border border-[hsl(var(--border)/0.5)]">
-                <Palette className="w-8 h-8 text-muted-foreground/50" />
+            
+            <Canvas camera={{ position: [0, 2, 5], fov: 45 }} shadows gl={{ antialias: true, alpha: true }} className="w-full h-full relative z-10">
+              <Suspense fallback={null}>
+                <ViewerScene />
+              </Suspense>
+            </Canvas>
+
+            {!currentJob?.result && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none">
+                <div className="flex flex-col items-center gap-3 bg-surface-1/50 backdrop-blur-md p-6 rounded-2xl border border-[hsl(var(--border)/0.5)]">
+                  <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-surface-2/50 border border-[hsl(var(--border)/0.5)]">
+                    <Palette className="w-6 h-6 text-muted-foreground/50" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">Generate a model first to edit materials</p>
+                </div>
               </div>
-              <p className="text-sm text-muted-foreground">Material preview</p>
-            </div>
-            <div className="absolute top-3 left-3 flex items-center gap-2 px-2.5 py-1 rounded-lg glass border border-[hsl(var(--border)/0.5)]">
+            )}
+
+            <div className="absolute top-3 left-3 z-30 flex items-center gap-2 px-2.5 py-1 rounded-lg glass border border-[hsl(var(--border)/0.5)] pointer-events-none">
               <span className="text-xs font-mono text-muted-foreground">{resolution}×{resolution}</span>
             </div>
-            <div className="absolute top-3 right-3 flex items-center gap-2 px-2.5 py-1 rounded-lg glass border border-[hsl(var(--border)/0.5)]">
+            <div className="absolute top-3 right-3 z-30 flex items-center gap-2 px-2.5 py-1 rounded-lg glass border border-[hsl(var(--border)/0.5)] pointer-events-none">
               <span className="text-xs text-muted-foreground">Layer:</span>
               <span className="text-xs font-medium text-foreground capitalize">{selectedLayer}</span>
             </div>

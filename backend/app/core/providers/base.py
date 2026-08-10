@@ -10,28 +10,6 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-def _patch_numpy_legacy_aliases() -> None:
-    """Restore numpy aliases removed in numpy>=1.24 that per-model deps still use.
-
-    Root cause: the celery worker runs on the conda `cloudspace` interpreter whose
-    numpy is 1.26.4 (np.long/np.ulong removed in 1.24), but _add_model_env prepends
-    the per-model venv (scipy 1.18.0 / open3d 0.19.0, built for numpy 2.x). numpy is
-    already cached from cloudspace, so the venv's numpy never wins and scipy's
-    module-level `supported_dtypes = [..., np.long, np.ulong, ...]` crashes with
-    "module 'numpy' has no attribute 'long'".
-
-    ponytail: this masks a real numpy-2 migration gap. The proper fix is aligning
-    the worker's numpy with the per-model venv (numpy 2.x) via the reload list in
-    _add_model_env; until then we just restore the missing dtype aliases.
-    """
-    import numpy as _np
-
-    if not hasattr(_np, "long"):
-        _np.long = _np.int_
-    if not hasattr(_np, "ulong"):
-        _np.ulong = _np.uint
-
-
 def _add_model_env(repo_name: str) -> None:
     """Make a model repo importable in-process from the backend worker.
 
@@ -40,9 +18,6 @@ def _add_model_env(repo_name: str) -> None:
     We prepend the venv path and reload any conflicting packages that may have
     already been imported by the backend process.
     """
-    # Must run before any model-stack import that touches numpy (e.g. scipy).
-    _patch_numpy_legacy_aliases()
-
     from runtime.storage import get_storage_config
 
     storage = get_storage_config()

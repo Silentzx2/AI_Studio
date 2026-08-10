@@ -57,6 +57,8 @@ async def process_model(
     auto_rig: bool = False,
     generate_texture: bool = True,
     quality: str = "standard",
+    render_resolution: list[int] | None = None,
+    render_samples: int | None = None,
     progress_callback=None,
 ) -> dict:
     """
@@ -88,6 +90,8 @@ async def process_model(
             "auto_rig": auto_rig,
             "generate_texture": generate_texture,
             "quality": quality,
+            "render_resolution": render_resolution,
+            "render_samples": render_samples,
         },
     )
 

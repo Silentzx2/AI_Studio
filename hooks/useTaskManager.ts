@@ -119,6 +119,13 @@ export function useTaskManager() {
     }
   }, [updateTask, completeTask]);
 
+  const stopPolling = useCallback(() => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+  }, []);
+
   const startPolling = useCallback(() => {
     if (pollIntervalRef.current) return;
 
@@ -157,14 +164,7 @@ export function useTaskManager() {
           });
       }
     }, POLL_INTERVAL);
-  }, [updateTask, completeTask]);
-
-  const stopPolling = useCallback(() => {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-      pollIntervalRef.current = null;
-    }
-  }, []);
+  }, [updateTask, completeTask, stopPolling]);
 
   const reconnectToDownload = useCallback(
     (downloadId: string) => {
