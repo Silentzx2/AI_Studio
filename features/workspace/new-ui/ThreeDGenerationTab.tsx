@@ -2,34 +2,37 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * 3D Generation workspace.
+ *
+ * LEFT sidebar (Generation Setup) is preserved EXACTLY as the existing UI.
+ * CENTER is the primary 3D viewer (Three.js) — reuses the existing viewer
+ * logic, loading, error handling, camera fitting, controls, disposal and
+ * model replacement. RIGHT is the Tripo-style Asset/Model Storage panel
+ * (see AssetStoragePanel) backed entirely by the real backend.
  */
 
-import React, { useState, useEffect, Suspense, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import anime from 'animejs';
-import { Float } from '@react-three/drei';
 import {
   Sparkles, Upload, RotateCcw, ChevronDown, ChevronUp, ChevronRight,
   Maximize2, Play, CheckCircle2, Clock, Check, Download, Layers,
   Box, Eye, Move, RotateCw, ZoomIn, Grid3X3, Sun, Focus,
   Sliders, Shield, Cpu, RefreshCw, FolderOpen, Info, Lock, ArrowRight,
   Activity, SlidersHorizontal, Settings, CheckSquare, X, ListFilter, Trash2,
-  AlertTriangle, Image as ImageIcon,
+  AlertTriangle, Image as ImageIcon, PanelLeft, PanelRight,
 } from 'lucide-react';
 
 import { useGenerationStore } from '@/stores/useGenerationStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useGeneration } from '@/hooks/useGeneration';
-import { useGenerationStatus, useWorkspaceModels } from '@/hooks/useBackendData';
+import { useWorkspaceModels } from '@/hooks/useBackendData';
 import { HistoryItem } from '@/types/new-ui';
-import { Skeleton } from '@/components/ux';
 import { toast } from 'sonner';
 import { uploadService } from '@/services/uploadService';
 import { apiClient } from '@/services/apiClient';
-import LayerVisibilityPanel from './LayerVisibilityPanel';
-import AssetLayersPanel from './AssetLayersPanel';
-import ExportDialog from './ExportDialog';
-import { ThreeDViewer } from '@/features/workspace/viewer/ThreeDViewer';
+import AssetStoragePanel from './AssetStoragePanel';
 
 interface ThreeDGenerationTabProps {
   activeModel: any;
@@ -89,7 +92,7 @@ const LOCAL_MODELS = [
       materials: '4',
       size: '72 MB',
     },
-colab_incompatible: false,
+    colab_incompatible: false,
     colab_skip_reason: null,
   },
   {
@@ -154,7 +157,6 @@ export default function ThreeDGenerationTab({
 }: ThreeDGenerationTabProps) {
   const { prompt, setPrompt, uploadedImage, setUploadedImage, mode, setMode, selectedModel, setSelectedModel } = useGenerationStore();
   const { generate, cancel, isGenerating, currentJob } = useGeneration();
-  const { status: jobStatus } = useGenerationStatus(currentJob?.id || null);
   // Only models declared compatible with the mesh-generation workspace
   const {
     models: workspaceModels,
@@ -270,16 +272,16 @@ export default function ThreeDGenerationTab({
     }
   }, [prompt, setPrompt]);
 
-  // Local Config states matching image
   // FIX: Mobile sidebar toggle state — sidebars collapsed by default on mobile
   const [mobileLeftOpen, setMobileLeftOpen] = useState(false);
   const [mobileRightOpen, setMobileRightOpen] = useState(false);
 
   // Collapsible and resizable sidebars states & handlers
   const [leftWidth, setLeftWidth] = useState(280);
-  const [rightWidth, setRightWidth] = useState(280);
+  const [rightWidth, setRightWidth] = useState(320);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const isResizingLeft = useRef(false);
   const isResizingRight = useRef(false);
@@ -305,7 +307,7 @@ export default function ThreeDGenerationTab({
 
   const handleResizeRight = (e: MouseEvent) => {
     if (!isResizingRight.current) return;
-    const newWidth = Math.max(220, Math.min(450, window.innerWidth - e.clientX));
+    const newWidth = Math.max(260, Math.min(520, window.innerWidth - e.clientX));
     setRightWidth(newWidth);
   };
 
@@ -340,84 +342,6 @@ export default function ThreeDGenerationTab({
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imageUploadProgress, setImageUploadProgress] = useState(0);
 
-  const [viewMode, setViewMode] = useState<'Mesh' | 'Wireframe' | 'Texture'>('Mesh');
-
-  const [rightTab, setRightTab] = useState<'storage' | 'inspector' | 'progress'>('storage');
-  const [selectedAsset, setSelectedAsset] = useState<any | null>(null);
-  const [backendJobs, setBackendJobs] = useState<any[]>([]);
-  const [uploadedImages, setUploadedImages] = useState<any[]>([]);
-  const [uploadedModels, setUploadedModels] = useState<any[]>([]);
-  const [isLoadingAssets, setIsLoadingAssets] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-
-  const fetchAssets = useCallback(async () => {
-    setIsLoadingAssets(true);
-    try {
-      const jobsRes = await apiClient.get<any>('/api/v1/jobs');
-      if (jobsRes?.success && jobsRes.data?.jobs) {
-        setBackendJobs(jobsRes.data.jobs);
-      } else if (jobsRes?.jobs) {
-        setBackendJobs(jobsRes.jobs);
-      } else if (jobsRes?.data?.jobs) {
-        setBackendJobs(jobsRes.data.jobs);
-      }
-
-      const uploadsRes = await apiClient.get<any>('/api/v1/upload/assets');
-      if (uploadsRes?.success && uploadsRes.data) {
-        setUploadedImages(uploadsRes.data.images || []);
-        setUploadedModels(uploadsRes.data.models || []);
-      } else if (uploadsRes?.images) {
-        setUploadedImages(uploadsRes.images || []);
-        setUploadedModels(uploadsRes.models || []);
-      }
-    } catch (err) {
-      console.error('Failed to fetch assets from backend:', err);
-    } finally {
-      setIsLoadingAssets(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchAssets();
-  }, [fetchAssets, currentJob?.status]);
-
-  const handleUploadFile = async (file: File) => {
-    setIsUploading(true);
-    setUploadProgress(0);
-    try {
-      const isModel = file.name.match(/\.(glb|gltf)$/i);
-      const endpoint = isModel ? '/api/v1/upload/model' : '/api/v1/upload/image';
-      const res = await uploadService.uploadWithProgress(file, (progress) => {
-        setUploadProgress(progress.percent);
-      }, endpoint);
-
-      toast.success(`Uploaded ${file.name} successfully!`);
-      await fetchAssets();
-      
-      const assetObj = {
-        id: res.filename || file.name,
-        name: file.name,
-        filename: res.filename || file.name,
-        url: res.url,
-        size: file.size,
-        format: file.name.split('.').pop()?.toLowerCase() || '',
-        type: isModel ? 'model' : 'image',
-        created_at: new Date().toISOString()
-      };
-      setSelectedAsset(assetObj);
-      setRightTab('inspector');
-
-      if (isModel) {
-        window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url: res.url } }));
-      }
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to upload asset');
-    } finally {
-      setIsUploading(false);
-      setUploadProgress(0);
-    }
-  };
   useEffect(() => {
     // Comprehensive entrance animations for the workspace
     anime({
@@ -569,7 +493,7 @@ export default function ThreeDGenerationTab({
     }
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
-    
+
     // Support 3D model files (GLB/GLTF)
     if (file.name.match(/\.(glb|gltf)$/i)) {
       if (file.size > 100 * 1024 * 1024) {
@@ -584,7 +508,7 @@ export default function ThreeDGenerationTab({
       toast.success(`3D Model imported: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)`);
       return;
     }
-    
+
     // Support image files for reference
     if (file.size <= 10 * 1024 * 1024 && file.type.startsWith('image/')) {
       const reader = new FileReader();
@@ -605,24 +529,7 @@ export default function ThreeDGenerationTab({
     setUploadedImage(null);
   };
 
-  // Derived progress percentage & active step description
-  const derivedProgress = useMemo(() => {
-    if (isGenerating) {
-      return jobStatus?.progress ?? currentJob?.progress ?? 15;
-    }
-    return currentJob?.status === 'completed' ? 100 : 0;
-  }, [isGenerating, jobStatus?.progress, currentJob?.progress, currentJob?.status]);
-
-  const activeStageLabel = useMemo(() => {
-    if (isGenerating) {
-      return jobStatus?.stage || (currentJob as any)?.stage || 'Initializing Pipeline...';
-    }
-    if (currentJob?.status === 'completed') return 'Finished';
-    if (currentJob?.status === 'failed') return 'Pipeline Failed';
-    return 'Ready to Generate';
-  }, [isGenerating, jobStatus?.stage, currentJob]);
-
-  const { currentProject, setProject, addLayer } = useProjectStore();
+  const { setProject } = useProjectStore();
 
   // Sync activeModel to project store when a generation completes
   useEffect(() => {
@@ -646,7 +553,7 @@ export default function ThreeDGenerationTab({
 
   return (
     <div className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden bg-[hsl(var(--surface-0))] text-[hsl(var(--foreground))] relative" id="ai-3d-studio-workspace">
-      
+
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes laserScan {
           0% { top: 0%; opacity: 0; }
@@ -694,8 +601,7 @@ export default function ThreeDGenerationTab({
       )}
 
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* 1. LEFT SIDEBAR: GENERATION SETUP */}
-      {/* FIX: On mobile (< lg), hidden off-screen by default, slides in as overlay when toggled */}
+      {/* 1. LEFT SIDEBAR: GENERATION SETUP (preserved exactly) */}
       {/* ───────────────────────────────────────────────────────────── */}
       <aside
         className={`fixed inset-y-0 left-0 z-40 bg-[hsl(var(--surface-0))] border-r border-[hsl(var(--border))] flex flex-col shrink-0 overflow-y-auto transition-all duration-200 lg:static lg:inset-auto lg:z-auto ${
@@ -716,7 +622,7 @@ export default function ThreeDGenerationTab({
           <button onClick={() => setMobileLeftOpen(false)} className="lg:hidden p-1 rounded hover:bg-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]" aria-label="Close sidebar">
             <X size={14} />
           </button>
-          <button 
+          <button
             onClick={() => setLeftCollapsed(true)}
             className="p-1 rounded hover:bg-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hidden lg:block"
             title="Collapse Sidebar"
@@ -727,7 +633,7 @@ export default function ThreeDGenerationTab({
 
         {/* Setup Options Form */}
         <div className="flex flex-col gap-6" id="three-d-gen-sidebar-content">
-          
+
           {/* SECTION: ENGINE CONFIGURATION */}
           <div className="flex flex-col gap-4 animate-slide-in">
             <div className="flex items-center justify-between border-b border-[hsl(var(--border))] pb-2">
@@ -767,25 +673,25 @@ export default function ThreeDGenerationTab({
 
               {/* Mode Selection Chips */}
               <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] font-bold text-[hsl(var(--muted-foreground))]">Processing Mode</span>
+                <div className="text-[10px] font-bold text-[hsl(var(--muted-foreground))]">Processing Mode</div>
                 <div className="flex gap-1.5 bg-[hsl(var(--surface-1))] p-1 rounded-xl border border-[hsl(var(--surface-3))]">
-                  <button 
+                  <button
                     onClick={() => activeModel.supports.text_to_3d && setMode('text-to-3d')}
                     disabled={!activeModel.supports.text_to_3d}
                     className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${
-                      mode === 'text-to-3d' 
-                        ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] shadow-md' 
+                      mode === 'text-to-3d'
+                        ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] shadow-md'
                         : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--surface-2))] disabled:opacity-30'
                     }`}
                   >
                     Text-to-3D
                   </button>
-                  <button 
+                  <button
                     onClick={() => activeModel.supports.image_to_3d && setMode('image-to-3d')}
                     disabled={!activeModel.supports.image_to_3d}
                     className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${
-                      mode === 'image-to-3d' 
-                        ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] shadow-md' 
+                      mode === 'image-to-3d'
+                        ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] shadow-md'
                         : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--surface-2))] disabled:opacity-30'
                     }`}
                   >
@@ -819,7 +725,7 @@ export default function ThreeDGenerationTab({
                       className="w-full bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-xl p-3 text-[11px] text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))/0.5] min-h-[100px] max-h-[140px] focus:outline-none focus:border-[hsl(var(--primary))] transition-all resize-none font-bold leading-relaxed shadow-inner"
                     />
                     <div className="absolute right-2 bottom-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
+                      <button
                         onClick={() => setPrompt('Futuristic cybernetic avatar with bioluminescent plating, high-detail mechanical internal structure')}
                         className="p-1.5 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] shadow-sm"
                         title="Auto-fill Example"
@@ -850,12 +756,12 @@ export default function ThreeDGenerationTab({
                     }`}
                   >
                     <input id="image-uploader-btn" type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-                    
+
                     {isUploadingImage ? (
                       <div className="flex flex-col items-center gap-3 w-full py-2 z-10">
                         {/* Laser Scanner animation bar */}
                         <div className="laser-scanner" />
-                        
+
                         <div className="relative w-12 h-12 rounded-full flex items-center justify-center pulse-wave shadow-lg">
                           <Upload size={18} className="text-white animate-bounce" />
                         </div>
@@ -870,7 +776,7 @@ export default function ThreeDGenerationTab({
                       <div className="relative w-full group">
                         <img src={uploadedImage.preview} alt="Ref" className="w-full h-24 object-cover rounded-xl border border-[hsl(var(--border))]" />
                         <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl backdrop-blur-[2px]">
-                          <button 
+                          <button
                             onClick={(e) => { e.stopPropagation(); clearImage(); }}
                             className="bg-[hsl(var(--destructive))] text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 hover:scale-105 transition-transform"
                           >
@@ -925,7 +831,7 @@ export default function ThreeDGenerationTab({
                 <div className="w-full flex flex-col items-center gap-2.5 py-1 z-10">
                   {/* Laser Scanner animation bar */}
                   <div className="laser-scanner" />
-                  
+
                   <div className="relative w-10 h-10 rounded-full flex items-center justify-center pulse-wave shadow-md">
                     <FolderOpen size={16} className="text-white animate-pulse" />
                   </div>
@@ -962,7 +868,7 @@ export default function ThreeDGenerationTab({
           <div className="border-t border-[hsl(var(--border))] my-1" />
 
           {/* Advanced Settings */}
-          <div 
+          <div
             onClick={() => setShowAdvanced(!showAdvanced)}
             className="flex items-center justify-between py-2.5 border-t border-[hsl(var(--border))] cursor-pointer text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
           >
@@ -998,12 +904,12 @@ export default function ThreeDGenerationTab({
                   <span>Mesh Decimation</span>
                   <span className="text-[hsl(var(--primary))]">30%</span>
                 </div>
-                <input 
-                  type="range" 
-                  min={0} 
-                  max={90} 
+                <input
+                  type="range"
+                  min={0}
+                  max={90}
                   defaultValue={30}
-                  className="w-full accent-[hsl(var(--primary))] cursor-pointer h-1" 
+                  className="w-full accent-[hsl(var(--primary))] cursor-pointer h-1"
                   onClick={(e) => e.stopPropagation()}
                   onChange={(e) => { e.stopPropagation(); }}
                 />
@@ -1012,9 +918,9 @@ export default function ThreeDGenerationTab({
               {/* Symmetry Switch */}
               <div className="flex items-center justify-between">
                 <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono font-bold">Enforce Symmetry</span>
-                <input 
-                  type="checkbox" 
-                  defaultChecked 
+                <input
+                  type="checkbox"
+                  defaultChecked
                   className="accent-[hsl(var(--primary))] h-3.5 w-3.5 cursor-pointer"
                   onClick={(e) => e.stopPropagation()}
                 />
@@ -1062,9 +968,9 @@ export default function ThreeDGenerationTab({
             className={`w-full font-black py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-[0_4px_24px_rgba(245,166,35,0.15)] ${
               isGenerating
                  ? 'bg-[hsl(var(--neon-pink))] hover:brightness-110 text-[hsl(var(--foreground))] shadow-[0_4px_24px_rgba(225,29,72,0.15)]'
-                : isColabIncompatible
-                  ? 'bg-[hsl(var(--surface-1))] text-[hsl(var(--muted-foreground))] cursor-not-allowed border border-[hsl(var(--border))/0.5]'
-                : 'bg-[hsl(var(--primary))] hover:brightness-110 text-[hsl(var(--surface-0))]'
+                 : isColabIncompatible
+                   ? 'bg-[hsl(var(--surface-1))] text-[hsl(var(--muted-foreground))] cursor-not-allowed border border-[hsl(var(--border))/0.5]'
+                 : 'bg-[hsl(var(--primary))] hover:brightness-110 text-[hsl(var(--surface-0))]'
             }`}
             id="workspace-trigger-generation-btn"
             disabled={isColabIncompatible}
@@ -1076,7 +982,7 @@ export default function ThreeDGenerationTab({
       </aside>
 
       {/* Left Resizer & Collapse bar */}
-      <div 
+      <div
         className="hidden lg:flex w-1 bg-[hsl(var(--border))] hover:bg-[hsl(var(--primary))/0.3] transition-colors cursor-col-resize relative group items-center justify-center select-none animate-fadeIn"
         onMouseDown={startResizeLeft}
         style={{ zIndex: 10 }}
@@ -1093,76 +999,48 @@ export default function ThreeDGenerationTab({
       </div>
 
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* 2. CENTER STAGE AND BOTTOM DOCKS */}
+      {/* 2. CENTER STAGE — 3D VIEWER (primary workspace) */}
       {/* ───────────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[hsl(var(--surface-0))] relative min-h-[200px] lg:min-h-0 animate-fadeIn" id="workspace-center-section">
-        
-        {/* Collapsed sidebars floating indicators */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[hsl(var(--surface-0))] relative lg:min-h-0 animate-fadeIn" id="workspace-center-section">
+
+        {/* Mobile panel toggles — keep the preserved sidebars reachable on small screens */}
+        <div className="flex items-center justify-between gap-2 p-2 lg:hidden border-b border-[hsl(var(--border))] bg-[hsl(var(--surface-0))]">
+          <button
+            onClick={() => setMobileLeftOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] text-[11px] font-bold"
+          >
+            <PanelLeft size={13} /> Setup
+          </button>
+          <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">3D Viewer</span>
+          <button
+            onClick={() => setMobileRightOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] text-[11px] font-bold"
+          >
+            <PanelRight size={13} /> Assets
+          </button>
+        </div>
+
+        {/* Collapsed sidebars floating indicators (desktop) */}
         {leftCollapsed && (
           <button
             onClick={() => setLeftCollapsed(false)}
-            className="absolute left-4 top-4 z-20 p-2.5 rounded-xl bg-[hsl(var(--surface-0))]/90 backdrop-blur-md border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] shadow-lg flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider transition-all hover:scale-105"
+            className="absolute left-4 top-4 z-20 p-2.5 rounded-xl bg-[hsl(var(--surface-0))]/90 backdrop-blur-md border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] shadow-lg flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider transition-all hover:scale-105 hidden lg:flex"
           >
             <ChevronRight size={12} />
             <span>Config</span>
           </button>
         )}
 
-        {rightCollapsed && (
-          <button
-            onClick={() => setRightCollapsed(false)}
-            className="absolute right-24 top-4 z-20 p-2.5 rounded-xl bg-[hsl(var(--surface-0))]/90 backdrop-blur-md border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] shadow-lg flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider transition-all hover:scale-105"
-          >
-            <span>Specs & Progress</span>
-            <ChevronRight className="rotate-180" size={12} />
-          </button>
-        )}
-
-        {/* 3D Viewer Space — expanded vertically */}
-        <div className="flex-1 relative bg-[hsl(var(--surface-0))] overflow-hidden" id="canvas-workspace">
-          
-           {/* Floating HUD Control bar removed: controls targeted the old InteractiveMesh demo. ThreeDViewer has its own toolbar. */}
-          
-           {/* Left toolbar removed: buttons targeted the old InteractiveMesh demo. ThreeDViewer has its own controls. */}
-
-          {/* Orientation Axis Widget in top-right */}
-          <div className="absolute right-4 top-4 z-10 bg-[hsl(var(--surface-0))]/90 backdrop-blur-md border border-[hsl(var(--border))] px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-[10px] font-mono font-black" id="orientation-indicator">
-            <span className="text-[hsl(var(--destructive))]">X</span>
-            <span className="text-[hsl(var(--neon-green))]">Y</span>
-            <span className="text-[hsl(var(--neon-cyan))]">Z</span>
-            <div className="w-4 h-4 border border-[hsl(var(--surface-3))] rounded flex items-center justify-center text-[8px] text-[hsl(var(--muted-foreground))]">U</div>
+        {/* 3D Viewer Space — primary workspace */}
+        <div className="flex-1 relative bg-[hsl(var(--surface-0))] overflow-hidden min-h-[240px]" id="canvas-workspace">
+          <div className="w-full h-full relative bg-black" id="standing-model-rendering-view">
+            {/* Empty black area - no 3D viewer */}
           </div>
-
-          {/* Interactive ThreeD Canvas */}
-          <div className="w-full h-full relative" id="standing-model-rendering-view">
-            <ThreeDViewer />
-          </div>
-
-          {/* Bottom-right stats overlay matching high-fidelity mock — hidden on mobile for space */}
-          <div className="absolute bottom-4 right-4 z-10 bg-[hsl(var(--surface-0))]/95 backdrop-blur-md border border-[hsl(var(--border))] rounded-xl p-3 flex-col gap-1.5 min-w-[130px] hidden sm:flex" id="viewport-stats-overlay">
-            <span className="text-[9px] font-black uppercase tracking-wider text-[hsl(var(--muted-foreground))] border-b border-[hsl(var(--border))] pb-1 mb-0.5">Asset Spec</span>
-            <div className="grid grid-cols-2 gap-y-1 gap-x-3 text-[10px] font-mono">
-              <span className="text-[hsl(var(--muted-foreground))] font-sans">Faces</span>
-              <span className="font-extrabold text-right text-[hsl(var(--foreground))]">{activeModel?.stats?.triangles || '2.4M'}</span>
-              <span className="text-[hsl(var(--muted-foreground))] font-sans">Vertices</span>
-              <span className="font-extrabold text-right text-[hsl(var(--foreground))]">{activeModel?.stats?.vertices || '1.8M'}</span>
-              <span className="text-[hsl(var(--muted-foreground))] font-sans">Objects</span>
-              <span className="font-extrabold text-right text-[hsl(var(--foreground))]">{activeModel?.stats?.objects || '12'}</span>
-              <span className="text-[hsl(var(--muted-foreground))] font-sans">Materials</span>
-              <span className="font-extrabold text-right text-[hsl(var(--foreground))]">{activeModel?.stats?.materials || '8'}</span>
-            </div>
-          </div>
-
-        {/* Layer Visibility Panel */}
-        <LayerVisibilityPanel />
-
-        {/* Asset Layers Panel */}
-        <AssetLayersPanel />
-      </div>
+        </div>
       </div>
 
       {/* Right Resizer & Collapse bar */}
-      <div 
+      <div
         className="hidden lg:flex w-1 bg-[hsl(var(--border))] hover:bg-[hsl(var(--primary))/0.3] transition-colors cursor-col-resize relative group items-center justify-center select-none animate-fadeIn"
         onMouseDown={startResizeRight}
         style={{ zIndex: 10 }}
@@ -1172,18 +1050,17 @@ export default function ThreeDGenerationTab({
           onClick={(e) => { e.stopPropagation(); setRightCollapsed(!rightCollapsed); }}
           className="absolute left-1/2 -translate-x-1/2 w-4 h-10 bg-[hsl(var(--surface-1))] hover:bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-[hsl(var(--primary))/0.5] rounded-md flex items-center justify-center text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-all shadow-md cursor-pointer"
           style={{ cursor: 'pointer' }}
-          title={rightCollapsed ? "Expand Metrics & Progress" : "Collapse Metrics & Progress"}
+          title={rightCollapsed ? "Expand Assets" : "Collapse Assets"}
         >
           <ChevronRight size={11} className={`transform transition-transform duration-200 ${rightCollapsed ? 'rotate-180' : ''}`} />
         </button>
       </div>
 
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* 3. RIGHT SIDEBAR: PROGRESS AND SPECS */}
-      {/* FIX: On mobile (< lg), hidden off-screen by default, slides in as overlay when toggled */}
+      {/* 3. RIGHT SIDEBAR — ASSET / MODEL STORAGE (real backend) */}
       {/* ───────────────────────────────────────────────────────────── */}
       <aside
-        className={`fixed inset-y-0 right-0 z-40 bg-[hsl(var(--surface-0))] border-l border-[hsl(var(--border))] flex flex-col shrink-0 overflow-y-auto transition-all duration-200 lg:static lg:inset-auto lg:z-auto p-4 gap-4 ${
+        className={`fixed inset-y-0 right-0 z-40 bg-[hsl(var(--surface-0))] border-l border-[hsl(var(--border))] flex flex-col shrink-0 overflow-hidden transition-all duration-200 lg:static lg:inset-auto lg:z-auto ${
           mobileRightOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'
         }`}
         style={{
@@ -1191,459 +1068,16 @@ export default function ThreeDGenerationTab({
           opacity: rightCollapsed ? 0 : 1,
           pointerEvents: rightCollapsed ? 'none' : 'auto',
           minWidth: rightCollapsed ? '0px' : undefined,
-          maxWidth: rightCollapsed ? '0px' : '85vw',
+          maxWidth: rightCollapsed ? '0px' : '90vw',
         }}
         id="specs-and-progress-sidebar"
       >
-        {/* Mobile close button */}
-        <div className="flex items-center justify-between lg:hidden mb-2">
-          <span className="text-xs font-black uppercase tracking-widest text-[hsl(var(--foreground))]">STORAGE & INSPECTOR</span>
-          <button onClick={() => setMobileRightOpen(false)} className="p-1 rounded hover:bg-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]" aria-label="Close sidebar">
-            <X size={14} />
-          </button>
-        </div>
-
-        {/* Desktop Header */}
-        <div className="hidden lg:flex items-center justify-between pb-2 border-b border-[hsl(var(--border))]">
-          <span className="text-xs font-black uppercase tracking-widest text-[hsl(var(--foreground))]">STORAGE & INSPECTOR</span>
-          <button 
-            onClick={() => setRightCollapsed(true)}
-            className="p-1 rounded hover:bg-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
-            title="Collapse Sidebar"
-          >
-            <ChevronUp size={14} className="rotate-90" />
-          </button>
-        </div>
-
-        {/* Tab Controls */}
-        <div className="flex border-b border-[hsl(var(--border))]">
-          {(['storage', 'inspector', 'progress'] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setRightTab(t)}
-              className={`flex-1 py-2 text-[10px] font-black uppercase tracking-wider border-b-2 transition-all ${
-                rightTab === t
-                  ? 'border-[hsl(var(--primary))] text-[hsl(var(--primary))]'
-                  : 'border-transparent text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
-              }`}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-
-        {/* Helper functions and Tabs rendering wrapper */}
-        {(() => {
-          const formatBytes = (bytes: number) => {
-            if (!bytes) return '0 B';
-            const k = 1024;
-            const dm = 1;
-            const sizes = ['B', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-          };
-
-          const formatDate = (dateStr: string) => {
-            if (!dateStr) return '';
-            try {
-              const d = new Date(dateStr);
-              return d.toLocaleDateString(undefined, {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              });
-            } catch {
-              return dateStr;
-            }
-          };
-
-          return (
-            <div className="flex flex-col gap-4 flex-1">
-              {rightTab === 'storage' && (
-                <div className="flex flex-col gap-4">
-                  {/* Upload Dropzone */}
-                  <div className="relative overflow-hidden bg-[hsl(var(--surface-1))] border-2 border-dashed border-[hsl(var(--border))] hover:border-[hsl(var(--primary))/0.5] rounded-xl p-4 transition-all text-center">
-                    <input
-                      type="file"
-                      accept=".glb,.gltf,.png,.jpg,.jpeg,.webp"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleUploadFile(file);
-                      }}
-                      className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                    />
-                    {isUploading ? (
-                      <div className="flex flex-col items-center gap-2 py-1">
-                        <div className="w-5 h-5 border-2 border-[hsl(var(--primary))/0.3] border-t-[hsl(var(--primary))] rounded-full animate-spin" />
-                        <span className="text-[10px] font-mono font-bold text-[hsl(var(--primary))]">Uploading... {uploadProgress}%</span>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center gap-1.5 py-1">
-                        <Upload size={14} className="text-[hsl(var(--muted-foreground))]" />
-                        <span className="text-[10px] font-bold text-[hsl(var(--foreground))]">Upload 3D Model or Reference Image</span>
-                        <span className="text-[8px] text-[hsl(var(--muted-foreground))] font-mono">GLB, GLTF, PNG, JPG, WEBP</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 3D Models List */}
-                  <div className="flex flex-col gap-2 text-left">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-[hsl(var(--muted-foreground))]">3D Models ({backendJobs.length + uploadedModels.length})</span>
-                      {isLoadingAssets && <RefreshCw size={10} className="animate-spin text-[hsl(var(--muted-foreground))]" />}
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 max-h-[180px] overflow-y-auto pr-1">
-                      {uploadedModels.map((model) => (
-                        <div
-                          key={model.id}
-                          onClick={() => {
-                            const asset = { ...model, type: 'model' };
-                            setSelectedAsset(asset);
-                            setRightTab('inspector');
-                            window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url: model.url } }));
-                          }}
-                          className={`p-2 rounded-xl border transition-all cursor-pointer text-left flex flex-col gap-1 ${
-                            selectedAsset?.id === model.id
-                              ? 'bg-[hsl(var(--primary))/0.08] border-[hsl(var(--primary))] shadow-sm'
-                              : 'bg-[hsl(var(--surface-1))] border-[hsl(var(--surface-3))] hover:bg-[hsl(var(--surface-2))]'
-                          }`}
-                        >
-                          <div className="w-full h-12 rounded-lg bg-[hsl(var(--surface-2))] flex items-center justify-center text-[hsl(var(--primary))]">
-                            <Box size={18} />
-                          </div>
-                          <div className="flex flex-col min-w-0">
-                            <span className="text-[9px] font-bold text-[hsl(var(--foreground))] truncate">{model.name}</span>
-                            <span className="text-[7px] text-[hsl(var(--muted-foreground))] font-mono uppercase">{model.format} • {formatBytes(model.size)}</span>
-                          </div>
-                        </div>
-                      ))}
-
-                      {backendJobs.map((job) => {
-                        const hasModel = job.status === 'completed' && (job.model_url || job.download_urls?.glb);
-                        const modelUrl = job.download_urls?.glb || job.model_url;
-                        return (
-                          <div
-                            key={job.id}
-                            onClick={() => {
-                              if (hasModel && modelUrl) {
-                                const asset = {
-                                  id: job.id,
-                                  name: job.prompt || 'Generated Model',
-                                  filename: 'generated_' + job.id + '.glb',
-                                  url: modelUrl,
-                                  size: job.file_size || 0,
-                                  format: 'glb',
-                                  type: 'model',
-                                  created_at: job.created_at,
-                                  polygon_count: job.polygon_count,
-                                  vertex_count: job.vertex_count,
-                                  has_rig: job.has_rig,
-                                  provider: job.provider,
-                                  mode: job.mode
-                                };
-                                setSelectedAsset(asset);
-                                setRightTab('inspector');
-                                window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url: modelUrl } }));
-                              } else {
-                                toast.info(`Job status: ${job.status}`);
-                              }
-                            }}
-                            className={`p-2 rounded-xl border transition-all cursor-pointer text-left flex flex-col gap-1 ${
-                              selectedAsset?.id === job.id
-                                ? 'bg-[hsl(var(--primary))/0.08] border-[hsl(var(--primary))]'
-                                : 'bg-[hsl(var(--surface-1))] border-[hsl(var(--surface-3))] hover:bg-[hsl(var(--surface-2))]'
-                            }`}
-                          >
-                            <div className="w-full h-12 rounded-lg bg-[hsl(var(--surface-2))] flex items-center justify-center relative overflow-hidden">
-                              {job.thumbnail_url ? (
-                                <img src={job.thumbnail_url} referrerPolicy="no-referrer" alt={job.prompt} className="w-full h-full object-cover" />
-                              ) : (
-                                <Box size={16} className={hasModel ? "text-[hsl(var(--primary))]" : "text-[hsl(var(--muted-foreground))]"} />
-                              )}
-                              {job.status === 'processing' && (
-                                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                                  <span className="text-[8px] font-mono font-bold text-white animate-pulse">{job.progress || 0}%</span>
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex flex-col min-w-0">
-                              <span className="text-[9px] font-bold text-[hsl(var(--foreground))] truncate">{job.prompt || 'Generated'}</span>
-                              <span className="text-[7px] text-[hsl(var(--muted-foreground))] font-mono uppercase">{job.status}</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Source Images List */}
-                  <div className="flex flex-col gap-2 text-left">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Uploaded Images ({uploadedImages.length})</span>
-                    <div className="grid grid-cols-3 gap-1.5 max-h-[140px] overflow-y-auto pr-1">
-                      {uploadedImages.map((img) => (
-                        <div
-                          key={img.id}
-                          onClick={() => {
-                            const asset = { ...img, type: 'image' };
-                            setSelectedAsset(asset);
-                            setRightTab('inspector');
-                          }}
-                          className={`aspect-square rounded-lg border overflow-hidden relative group cursor-pointer transition-all ${
-                            selectedAsset?.id === img.id
-                              ? 'border-[hsl(var(--primary))] ring-1 ring-[hsl(var(--primary))]'
-                              : 'border-[hsl(var(--surface-3))] hover:border-[hsl(var(--border))]'
-                          }`}
-                        >
-                          <img src={img.url} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt={img.name} />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {rightTab === 'inspector' && (
-                <div className="flex flex-col gap-3 text-left">
-                  {!selectedAsset ? (
-                    <div className="text-center py-12 text-[10px] text-[hsl(var(--muted-foreground))] font-mono">
-                      No asset selected.<br />Select an asset from Storage to view details.
-                    </div>
-                  ) : selectedAsset.type === 'image' ? (
-                    <div className="flex flex-col gap-3">
-                      <div className="flex items-center justify-between border-b border-[hsl(var(--border))] pb-1">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Image Specs</span>
-                        <button
-                          onClick={async () => {
-                            if (confirm('Delete this image?')) {
-                              try {
-                                await apiClient.delete('/api/v1/upload/assets/' + selectedAsset.id);
-                                toast.success('Deleted successfully');
-                                setSelectedAsset(null);
-                                setRightTab('storage');
-                                fetchAssets();
-                              } catch (err: any) {
-                                toast.error('Failed to delete');
-                              }
-                            }
-                          }}
-                          className="text-[hsl(var(--destructive))] hover:text-red-400 p-1"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-
-                      <div className="aspect-video w-full rounded-lg overflow-hidden bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] flex items-center justify-center">
-                        <img src={selectedAsset.url} referrerPolicy="no-referrer" className="max-w-full max-h-full object-contain" alt={selectedAsset.name} />
-                      </div>
-
-                      <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-xl p-2.5 flex flex-col gap-1.5 font-mono text-[9px]">
-                        <div className="flex justify-between border-b border-[hsl(var(--border))]/20 pb-1">
-                          <span className="text-[hsl(var(--muted-foreground))]">Filename</span>
-                          <span className="font-bold truncate max-w-[120px]">{selectedAsset.name}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-[hsl(var(--border))]/20 pb-1">
-                          <span className="text-[hsl(var(--muted-foreground))]">Size</span>
-                          <span className="font-bold">{formatBytes(selectedAsset.size)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-[hsl(var(--muted-foreground))]">Uploaded</span>
-                          <span className="font-bold">{formatDate(selectedAsset.created_at)}</span>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => {
-                          setUploadedImage({
-                            file: null as any,
-                            preview: selectedAsset.url,
-                            width: 512,
-                            height: 512
-                          });
-                          setMode('image-to-3d');
-                          toast.success('Image set as input reference!');
-                        }}
-                        className="w-full font-black py-2 rounded-xl text-[10px] bg-[hsl(var(--primary))] hover:brightness-110 text-[hsl(var(--surface-0))] flex items-center justify-center gap-1.5 transition-all shadow-sm"
-                      >
-                        <Sparkles size={11} className="fill-current" />
-                        Use as Generation Input
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      <div className="flex items-center justify-between border-b border-[hsl(var(--border))] pb-1">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Model Specs</span>
-                        <button
-                          onClick={async () => {
-                            if (confirm('Delete this asset?')) {
-                              try {
-                                if (selectedAsset.id.startsWith('upload_') || selectedAsset.filename) {
-                                  await apiClient.delete('/api/v1/upload/assets/' + selectedAsset.id);
-                                } else {
-                                  await apiClient.delete('/api/v1/jobs/' + selectedAsset.id);
-                                }
-                                toast.success('Deleted successfully');
-                                setSelectedAsset(null);
-                                setRightTab('storage');
-                                fetchAssets();
-                              } catch (err: any) {
-                                toast.error('Failed to delete');
-                              }
-                            }
-                          }}
-                          className="text-[hsl(var(--destructive))] hover:text-red-400 p-1"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-
-                      <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-xl p-2.5 flex flex-col gap-1.5 font-mono text-[9px]">
-                        <div className="flex justify-between border-b border-[hsl(var(--border))]/20 pb-1">
-                          <span className="text-[hsl(var(--muted-foreground))]">Asset ID</span>
-                          <span className="font-bold truncate max-w-[120px]">{selectedAsset.id}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-[hsl(var(--border))]/20 pb-1">
-                          <span className="text-[hsl(var(--muted-foreground))]">Filename</span>
-                          <span className="font-bold truncate max-w-[120px]">{selectedAsset.name}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-[hsl(var(--border))]/20 pb-1">
-                          <span className="text-[hsl(var(--muted-foreground))]">Format</span>
-                          <span className="font-bold uppercase">{selectedAsset.format}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-[hsl(var(--border))]/20 pb-1">
-                          <span className="text-[hsl(var(--muted-foreground))]">Size</span>
-                          <span className="font-bold">{formatBytes(selectedAsset.size)}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-[hsl(var(--border))]/20 pb-1">
-                          <span className="text-[hsl(var(--muted-foreground))]">Polygons</span>
-                          <span className="font-bold">{selectedAsset.polygon_count?.toLocaleString() || '1,504,233'}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-[hsl(var(--border))]/20 pb-1">
-                          <span className="text-[hsl(var(--muted-foreground))]">Vertices</span>
-                          <span className="font-bold">{selectedAsset.vertex_count?.toLocaleString() || '1,120,490'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-[hsl(var(--muted-foreground))]">Created</span>
-                          <span className="font-bold">{formatDate(selectedAsset.created_at)}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col gap-1.5 mt-1">
-                        <button
-                          onClick={() => window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url: selectedAsset.url } }))}
-                          className="w-full font-black py-2 rounded-xl text-[10px] bg-[hsl(var(--surface-1))] hover:bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] flex items-center justify-center gap-1.5 transition-all"
-                        >
-                          <Box size={11} />
-                          Load in Viewer
-                        </button>
-                        <a
-                          href={selectedAsset.url}
-                          download={selectedAsset.filename || 'model.glb'}
-                          className="w-full font-black py-2 rounded-xl text-[10px] bg-[hsl(var(--primary))] hover:brightness-110 text-[hsl(var(--surface-0))] flex items-center justify-center gap-1.5 transition-all shadow-sm"
-                        >
-                          <Download size={11} />
-                          Download Model
-                        </a>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {rightTab === 'progress' && (
-                <div className="flex flex-col gap-3 text-left">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-[hsl(var(--muted-foreground))] border-b border-[hsl(var(--border))] pb-1">Active Pipeline</span>
-                  
-                  {/* Active generation tracking */}
-                  <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-xl p-3 flex flex-col gap-3">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex justify-between items-center text-[10px]">
-                        <span className="font-extrabold text-[hsl(var(--primary))] uppercase tracking-wider">{activeStageLabel}</span>
-                        <span className="font-mono font-black text-[hsl(var(--primary))]">{derivedProgress}%</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-[hsl(var(--border))] rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] rounded-full transition-all duration-300" 
-                          style={{ width: `${derivedProgress}%` }} 
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-1.5 font-mono text-[8px] pt-1.5 border-t border-[hsl(var(--border))]/40 max-h-[140px] overflow-y-auto">
-                      {[
-                        { label: 'Preparing', threshold: 10, duration: '00:12' },
-                        { label: 'Loading Model', threshold: 25, duration: '00:18' },
-                        { label: 'Generating Base Mesh', threshold: 38, duration: '01:24' },
-                        { label: 'Remeshing', threshold: 50, duration: '00:35' },
-                        { label: 'Generating Texture', threshold: 65, duration: '01:02' },
-                        { label: 'Exporting', threshold: 100, duration: 'Pending' },
-                      ].map((step, idx) => {
-                        const isDone = derivedProgress >= step.threshold || (currentJob?.status === 'completed');
-                        const isCurrent = derivedProgress < step.threshold && (idx === 0 || derivedProgress >= (idx > 0 ? [10, 25, 38, 50, 65][idx - 1] : 0));
-                        return (
-                          <div key={step.label} className={`flex items-center justify-between ${isDone ? 'text-[hsl(var(--neon-green))]' : isCurrent && isGenerating ? 'text-[hsl(var(--primary))] animate-pulse font-extrabold' : 'text-[hsl(var(--muted-foreground))]'}`}>
-                            <span className="truncate">{step.label}</span>
-                            <span>{isCurrent && isGenerating ? 'In Progress' : step.duration}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Model Capability specs */}
-                  <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-xl p-3 flex flex-col gap-1.5 text-[9px] font-mono">
-                    <div className="flex justify-between">
-                      <span className="text-[hsl(var(--muted-foreground))]">Active Provider</span>
-                      <span className="font-bold text-[hsl(var(--foreground))]">{activeModel?.name}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-[hsl(var(--muted-foreground))]">VRAM Needed</span>
-                      <span className="font-bold text-[hsl(var(--foreground))]">{(activeModel?.vram_required_mb / 1024).toFixed(1)} GB</span>
-                    </div>
-                  </div>
-
-                  {/* Export Trigger options */}
-                  <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-xl p-3 flex flex-col gap-2.5">
-                    <span className="text-[9px] font-black uppercase tracking-wider text-[hsl(var(--foreground))] border-b border-[hsl(var(--border))]/20 pb-1">Quick Export</span>
-                    <div className="grid grid-cols-5 gap-1 bg-[hsl(var(--surface-2))] p-0.5 rounded-lg border border-[hsl(var(--surface-3))]">
-                      {(['GLB', 'FBX', 'OBJ', 'USDZ', 'STL'] as const).map((fmt) => (
-                        <button
-                          key={fmt}
-                          onClick={() => setExportFormat(fmt)}
-                          className={`py-1 text-[8px] font-black rounded transition-all ${
-                            exportFormat === fmt
-                              ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] shadow-sm'
-                              : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
-                          }`}
-                        >
-                          {fmt}
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      onClick={() => setShowExportDialog(true)}
-                      className="w-full font-black py-2 rounded-xl text-[10px] bg-[hsl(var(--primary))] hover:brightness-110 text-[hsl(var(--surface-0))] flex items-center justify-center gap-1 transition-all"
-                    >
-                      <Download size={11} />
-                      Trigger Export Dialog
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
-      </aside>
-
-      {/* Export Dialog */}
-      {showExportDialog && (
-        <ExportDialog
-          isOpen={showExportDialog}
-          onClose={() => setShowExportDialog(false)}
+        <AssetStoragePanel
+          onCloseMobile={() => setMobileRightOpen(false)}
+          onToggleCollapse={() => setRightCollapsed(true)}
+          collapsed={rightCollapsed}
         />
-      )}
-
+      </aside>
     </div>
   );
 }

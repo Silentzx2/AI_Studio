@@ -491,7 +491,7 @@ export function ViewerScene() {
         ) : hasModel ? (
           <DemoModel wireframe={viewer.showWireframe} />
         ) : (
-          <PlaceholderModel wireframe={viewer.showWireframe} />
+          <DemoModel wireframe={viewer.showWireframe} />
         )}
       </Center>
       <SceneGrid visible={viewer.showGrid} />

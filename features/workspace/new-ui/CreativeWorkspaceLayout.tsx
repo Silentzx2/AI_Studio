@@ -46,6 +46,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
   const [activeSidebarItem, setActiveSidebarItem] = useState(defaultTab || 'Workspace');
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
   const backendStatus = useBackendStatus();
+  const { mobileMenuOpen, setMobileMenuOpen } = useUIStore();
   const [monitorExpanded, setMonitorExpanded] = useState(true);
   const [gpuExpanded, setGpuExpanded] = useState(false);
 
@@ -276,8 +277,17 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
 
   return (
     <div className="flex flex-1 min-h-0 min-w-0 bg-[hsl(var(--surface-0))] text-[hsl(var(--foreground))]" id="creative-layout-container">
-      {/* Sidebar panel */}
-      <aside className="w-[240px] lg:w-[280px] bg-[hsl(var(--surface-1))] border-r border-[hsl(var(--border))] flex flex-col min-h-0 flex-shrink-0 z-20" id="creative-sidebar">
+      {/* Mobile drawer overlay for the main sidebar */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sidebar panel — responsive: static on desktop, slide-in drawer on mobile */}
+      <aside className={`${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed inset-y-0 left-0 z-50 w-[260px] max-w-[85vw] lg:static lg:z-20 lg:w-[280px] bg-[hsl(var(--surface-1))] border-r border-[hsl(var(--border))] flex flex-col min-h-0 flex-shrink-0 transition-transform duration-200`} id="creative-sidebar">
         {/* Minimal Brand Header */}
         <div className="h-16 flex items-center px-6 border-b border-[hsl(var(--border))] flex-shrink-0" id="creative-logo-header">
           <div className="flex items-center gap-3">
@@ -302,7 +312,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
             return (
               <button
                 key={item.label}
-                onClick={() => setActiveSidebarItem(item.label)}
+                onClick={() => { setActiveSidebarItem(item.label); setMobileMenuOpen(false); }}
                 className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-all text-left border w-full ${
                   isActive
                     ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 border-[hsl(var(--primary))]/25 shadow-sm'

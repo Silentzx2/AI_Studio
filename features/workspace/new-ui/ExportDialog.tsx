@@ -12,9 +12,11 @@ import { toast } from 'sonner';
 interface ExportDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  modelUrl?: string;
+  modelName?: string;
 }
 
-export default function ExportDialog({ isOpen, onClose }: ExportDialogProps) {
+export default function ExportDialog({ isOpen, onClose, modelUrl: modelUrlProp, modelName: modelNameProp }: ExportDialogProps) {
   const { currentProject } = useProjectStore();
   const { currentJob } = useGenerationStore();
   const [exporting, setExporting] = useState(false);
@@ -22,15 +24,19 @@ export default function ExportDialog({ isOpen, onClose }: ExportDialogProps) {
 
   if (!isOpen) return null;
 
-  const hasModel = currentProject?.modelUrl || currentJob?.result?.downloadUrls?.glb;
+  // Prefer an explicitly-selected asset (from the Asset Storage panel); fall
+  // back to the active project / generation job for the legacy flows.
+  const modelUrl = modelUrlProp || currentProject?.modelUrl || currentJob?.result?.downloadUrls?.glb;
+  const modelName = modelNameProp || currentProject?.name || 'model';
+  const hasModel = Boolean(modelUrl);
   const hasLayers = currentProject && currentProject.layers.length > 0;
   const enabledLayers = currentProject ? currentProject.layers.filter((l) => l.enabled) : [];
 
   const handleExportGLB = async () => {
     setExporting(true);
     try {
-      const modelUrl = currentProject?.modelUrl || currentJob?.result?.downloadUrls?.glb;
-      if (!modelUrl) {
+      const exportUrl = modelUrl;
+      if (!exportUrl) {
         toast.error('No model available to export');
         return;
       }
@@ -39,7 +45,7 @@ export default function ExportDialog({ isOpen, onClose }: ExportDialogProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          modelUrl,
+          modelUrl: exportUrl,
           format: 'glb',
           layers: enabledLayers.map((l) => ({
             id: l.id,
@@ -57,7 +63,7 @@ export default function ExportDialog({ isOpen, onClose }: ExportDialogProps) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${currentProject?.name || 'model'}.glb`;
+      link.download = `${modelName}.glb`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -75,8 +81,8 @@ export default function ExportDialog({ isOpen, onClose }: ExportDialogProps) {
   const handleExportZIP = async () => {
     setExporting(true);
     try {
-      const modelUrl = currentProject?.modelUrl || currentJob?.result?.downloadUrls?.glb;
-      if (!modelUrl) {
+      const exportUrl = modelUrl;
+      if (!exportUrl) {
         toast.error('No model available to export');
         return;
       }
@@ -85,7 +91,7 @@ export default function ExportDialog({ isOpen, onClose }: ExportDialogProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          modelUrl,
+          modelUrl: exportUrl,
           format: 'zip',
           layers: enabledLayers.map((l) => ({
             id: l.id,
@@ -103,7 +109,7 @@ export default function ExportDialog({ isOpen, onClose }: ExportDialogProps) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${currentProject?.name || 'project'}.zip`;
+      link.download = `${modelName}.zip`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

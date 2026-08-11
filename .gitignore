@@ -62,3 +62,4 @@ next-env.d.ts
 scripts/.cloudflare_tunnels
 .opencode/opencode.json
 .blackboxcli/
+.kilo
