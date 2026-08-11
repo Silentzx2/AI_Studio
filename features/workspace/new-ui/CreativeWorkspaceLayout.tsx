@@ -8,6 +8,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import anime from 'animejs';
 import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
 import {
   Folder, Cpu, RefreshCw, Palette, Bookmark, Layers, Heart, Globe, Code, Settings, Sparkles, HelpCircle, LogOut, Activity
 } from 'lucide-react';
@@ -334,11 +335,13 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
             </div>
             {sidebarItems.map((item) => {
               const Icon = item.icon;
-              const isActive = activeSidebarItem === item.label;
+              const slug = TAB_TO_SLUG[item.label];
+              const href = slug ? `/workspace/${slug}` : '#';
+              const isActive = pathname === href || (item.label === 'Workspace' && pathname === '/workspace');
               return (
-                <button
+                <Link
                   key={item.label}
-                  onClick={() => setActiveSidebarItem(item.label)}
+                  href={href}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left border ${
                     isActive
                       ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 border-[hsl(var(--primary))]/25 shadow-sm'
@@ -348,7 +351,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
                 >
                   <Icon size={15} className={isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'} />
                   <span>{item.label}</span>
-                </button>
+                </Link>
               );
             })}
           </div>
