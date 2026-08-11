@@ -7,7 +7,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import anime from 'animejs';
-import CursorGlow from '@/components/CursorGlow';
 import {
   Folder, Cpu, RefreshCw, Palette, Bookmark, Layers, Heart, Globe, Code, Settings, Sparkles, HelpCircle, LogOut, Activity
 } from 'lucide-react';
@@ -251,7 +250,6 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
 
   return (
     <div className="flex flex-1 min-h-0 min-w-0 bg-[hsl(var(--surface-0))] text-[hsl(var(--foreground))]" id="creative-layout-container">
-      <CursorGlow />
       {/* Sidebar panel */}
       <aside className="w-[240px] lg:w-[280px] bg-[hsl(var(--surface-1))] border-r border-[hsl(var(--border))] flex flex-col justify-between flex-shrink-0 z-20" id="creative-sidebar">
         <div className="flex flex-col h-full">

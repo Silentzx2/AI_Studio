@@ -2,17 +2,12 @@
 
 
 import { useEffect, useState, useCallback, Suspense } from 'react';
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { WorkspaceNavbar } from './WorkspaceNavbar';
-import { LeftSidebar } from './LeftSidebar';
-import { RightSidebar } from './RightSidebar';
-import { BottomDock } from './BottomDock';
-import { CenterWorkspace } from './CenterWorkspace';
 import { useUIStore } from '@/stores/useUIStore';
 import { Spinner } from '@/components/premium/Spinner';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PanelLeft, PanelRight, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import AnimatedBackground from '@/components/AnimatedBackground';
 import { KeyboardShortcuts } from '@/components/KeyboardShortcuts';
 import { WelcomeOverlay } from '@/components/WelcomeOverlay';
