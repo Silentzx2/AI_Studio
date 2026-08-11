@@ -29,6 +29,8 @@ const nextConfig: NextConfig = {
     '*.trycloudflare.com',
     '*.run.app',
     '*.asia-east1.run.app',
+    '*.cloudspaces.litng.ai',
+    '3000-*.cloudspaces.litng.ai',
   ],
 };
 
