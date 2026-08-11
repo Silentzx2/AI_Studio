@@ -159,7 +159,7 @@ def _resolve_job_vram_mode(job) -> str:
     return getattr(job, "vram_mode", "auto") or "auto"
 
 
-def _can_retry_low_vram(provider_name: str) -> bool:
+def _can_retry_low_vram(job_id: str, provider_name: str) -> bool:
     """Whether a job that OOM'd may be retried in low VRAM mode.
 
     Gated on the provider supporting a low-VRAM footprint so a buggy provider
@@ -355,7 +355,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                     if (
                         _is_oom_error(gen_exc)
                         and vram_mode != "low"
-                        and _can_retry_low_vram(provider_name)
+                        and                         _can_retry_low_vram(job_id, provider_name)
                     ):
                         logger.warning(
                             "Job %s OOM'd in vram_mode=%s — retrying in low VRAM mode", job_id, vram_mode

@@ -37,7 +37,7 @@ step()  { echo -e "\n${BOLD}${BLUE}➜ $*${NC}"; }
 
 # ── Project Root ────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+export PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 # ── Flags ────────────────────────────────────────────────────────────────
@@ -95,12 +95,6 @@ if ! command -v uv &>/dev/null; then
     log "uv installed: $(uv --version)"
 else
     log "uv already available: $(uv --version | head -1)"
-fi
-
-# Ensure python3 venv module is available (Colab has Python 3 but venv may be missing)
-if ! python3 -c "import venv" 2>/dev/null; then
-    warn "venv module missing, installing python3-venv..."
-    sudo apt-get update -qq && sudo apt-get install -y python3-venv 2>/dev/null || true
 fi
 
 # Colab has no systemd — use SQLite for database
@@ -671,6 +665,7 @@ kill_by_pid_file "$PID_DIR/worker.pid"
     $PYTHON_BIN -m celery -A app.workers.celery_app worker \
         --loglevel=info \
         --concurrency=1 \
+        -B \
         -Q generation,images \
         > "$LOG_DIR/worker.log" 2>&1 &
     write_pid "$PID_DIR/worker.pid" $!

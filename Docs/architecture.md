@@ -628,8 +628,10 @@ celery_app = Celery("ai3dstudio", broker=redis_url, backend=redis_result)
 # Task routing
 task_routes = {
     'app.workers.tasks.*': {'queue': 'generation'},
-    'app.workers.image_tasks.*': {'queue': 'images'},
-    'app.workers.download_workers.*': {'queue': 'downloads'},
+    'app.workers.vram_health_worker.*': {'queue': 'generation'},
+    'app.workers.download_workers.*': {'queue': 'images'},
+    'app.workers.health_workers.*': {'queue': 'images'},
+    'app.workers.installation_workers.*': {'queue': 'images'},
 }
 ```
 

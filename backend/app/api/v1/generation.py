@@ -6,20 +6,16 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, field_validator
 
 from app.config import get_settings
 from app.core.capability_matrix import is_compatible_with_workspace
+from app.schemas.generation import GenerationRequest
 from app.utils.response import error, success
 
 router = APIRouter(tags=["Generation"])
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-MAX_PROMPT_LENGTH = 2000
-
-_VALID_MODES = ('text-to-3d', 'image-to-3d', 'remesh', 'rigging', 'texture-generation', 'render')
-_VALID_QUALITIES = ('low-poly', 'standard', 'high-poly', 'ultra', 'draft')
 _WORKSPACE_MODE_MAP = {
     'mesh-generation': 'text-to-3d',
     'texture-generation': 'texture-generation',
@@ -28,53 +24,6 @@ _WORKSPACE_MODE_MAP = {
     'remesh': 'remesh',
     'post-processing': 'texture-generation',
 }
-
-
-class GenerationRequest(BaseModel):
-    prompt: str
-    negative_prompt: str | None = None
-    mode: str = "text-to-3d"
-    quality: str = "standard"
-    style_preset: str | None = None
-    generate_texture: bool = True
-    auto_rig: bool = False
-    provider: str | None = None
-    reference_image_url: str | None = None
-    detail_pass: bool = False
-    detail_guidance: float = 7.5
-    workspace: str | None = None
-    # Low VRAM mode: True forces low-VRAM execution; vram_mode may be
-    # "auto" (default), "normal" or "low".
-    low_vram: bool = False
-    vram_mode: str = "auto"
-
-    @field_validator('prompt')
-    @classmethod
-    def validate_prompt_length(cls, v: str) -> str:
-        if len(v) > MAX_PROMPT_LENGTH:
-            raise ValueError(f"Prompt exceeds maximum length of {MAX_PROMPT_LENGTH} characters")
-        return v
-
-    @field_validator('mode')
-    @classmethod
-    def validate_mode(cls, v: str) -> str:
-        if v not in _VALID_MODES:
-            raise ValueError(f"Invalid mode: {v}")
-        return v
-
-    @field_validator('quality')
-    @classmethod
-    def validate_quality(cls, v: str) -> str:
-        if v not in _VALID_QUALITIES:
-            raise ValueError(f"Invalid quality: {v}")
-        return v
-
-    @field_validator('vram_mode')
-    @classmethod
-    def validate_vram_mode(cls, v: str) -> str:
-        if v not in ("auto", "normal", "low"):
-            raise ValueError(f"Invalid vram_mode: {v}")
-        return v
 
 
 # FIX: Define /history route FIRST before /{job_id}/status

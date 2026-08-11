@@ -1348,7 +1348,7 @@ def download_weights(
                     log_cb(f"Weights directory exists but incomplete ({total_size / (1024**3):.2f}GB / ~{size_gb}GB expected) — re-downloading")
         else:
             if log_cb:
-                log_cb(f"Weights directory exists but empty — re-downloading")
+                log_cb("Weights directory exists but empty — re-downloading")
 
     hf_repo = model_cfg["repo"]
     size_gb = model_cfg["size_estimate_gb"]

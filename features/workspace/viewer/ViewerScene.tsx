@@ -5,9 +5,7 @@ import { useRef, useEffect, useState, useCallback, Suspense } from 'react';
 import { useFrame, useThree, useLoader } from '@react-three/fiber';
 import { OrbitControls, Grid, Environment, Center, Float, Html, useProgress, Preload, Octahedron, useGLTF } from '@react-three/drei';
 import { Mesh, Group, Box3, Vector3 } from 'three';
-import { FBXLoader } from 'three-stdlib/loaders/FBXLoader.js';
-import { OBJLoader } from 'three-stdlib/loaders/OBJLoader.js';
-import { STLLoader } from 'three-stdlib/loaders/STLLoader.js';
+import { FBXLoader, OBJLoader, STLLoader } from 'three-stdlib';
 import { registerResetCamera } from '@/stores/useUIStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { useGenerationStore } from '@/stores/useGenerationStore';
@@ -19,15 +17,15 @@ function disposeObject(object) {
     if (object.material) {
       if (Array.isArray(object.material)) {
         object.material.forEach(material => {
-          if material.map) material.map.dispose();
-          if material.lightMap) material.lightMap.dispose();
-          if material.aoMap) material.aoMap.dispose();
-          if material.emissiveMap) material.emissiveMap.dispose();
-          if material.bumpMap) material.bumpMap.dispose();
-          if material.normalMap) material.normalMap.dispose();
-          if material.roughnessMap) material.roughnessMap.dispose();
-          if material.metalnessMap) material.metalnessMap.dispose();
-          if material.alphaMap) material.alphaMap.dispose();
+          if (material.map) material.map.dispose();
+          if (material.lightMap) material.lightMap.dispose();
+          if (material.aoMap) material.aoMap.dispose();
+          if (material.emissiveMap) material.emissiveMap.dispose();
+          if (material.bumpMap) material.bumpMap.dispose();
+          if (material.normalMap) material.normalMap.dispose();
+          if (material.roughnessMap) material.roughnessMap.dispose();
+          if (material.metalnessMap) material.metalnessMap.dispose();
+          if (material.alphaMap) material.alphaMap.dispose();
           material.dispose();
         });
       } else {
@@ -193,7 +191,7 @@ function PlaceholderModel({ wireframe }: { wireframe: boolean }) {
 }
 
 function FbxModel({ url, wireframe }: { url: string; wireframe: boolean }) {
-  const { scene } = useLoader(FBXLoader, url);
+  const obj = useLoader(FBXLoader, url);
   const groupRef = useRef<Group>(null);
   const { camera } = useThree();
 
@@ -235,7 +233,7 @@ function FbxModel({ url, wireframe }: { url: string; wireframe: boolean }) {
         controls.update();
       }
     }
-  }, [wireframe, scene]);
+  }, [wireframe, obj]);
 
   // Dispose of the previous scene when the component unmounts or before loading a new one
   useEffect(() => {
@@ -246,11 +244,11 @@ function FbxModel({ url, wireframe }: { url: string; wireframe: boolean }) {
     };
   }, []);
 
-  return <group ref={groupRef}><primitive object={scene} /></group>;
+  return <group ref={groupRef}><primitive object={obj} /></group>;
 }
 
 function ObjModel({ url, wireframe }: { url: string; wireframe: boolean }) {
-  const { scene } = useLoader(OBJLoader, url);
+  const obj = useLoader(OBJLoader, url);
   const groupRef = useRef<Group>(null);
   const { camera } = useThree();
 
@@ -292,7 +290,7 @@ function ObjModel({ url, wireframe }: { url: string; wireframe: boolean }) {
         controls.update();
       }
     }
-  }, [wireframe, scene]);
+  }, [wireframe, obj]);
 
   // Dispose of the previous scene when the component unmounts or before loading a new one
   useEffect(() => {
@@ -303,11 +301,11 @@ function ObjModel({ url, wireframe }: { url: string; wireframe: boolean }) {
     };
   }, []);
 
-  return <group ref={groupRef}><primitive object={scene} /></group>;
+  return <group ref={groupRef}><primitive object={obj} /></group>;
 }
 
 function StlModel({ url, wireframe }: { url: string; wireframe: boolean }) {
-  const { scene } = useLoader(STLLoader, url);
+  const geometry = useLoader(STLLoader, url);
   const groupRef = useRef<Group>(null);
   const { camera } = useThree();
 
@@ -349,7 +347,7 @@ function StlModel({ url, wireframe }: { url: string; wireframe: boolean }) {
         controls.update();
       }
     }
-  }, [wireframe, scene]);
+  }, [wireframe, geometry]);
 
   // Dispose of the previous scene when the component unmounts or before loading a new one
   useEffect(() => {
@@ -360,7 +358,13 @@ function StlModel({ url, wireframe }: { url: string; wireframe: boolean }) {
     };
   }, []);
 
-  return <group ref={groupRef}><primitive object={scene} /></group>;
+  return (
+    <group ref={groupRef}>
+      <mesh geometry={geometry}>
+        <meshStandardMaterial color="#cccccc" wireframe={wireframe} />
+      </mesh>
+    </group>
+  );
 }
 
 function CameraController({ autoRotate }: { autoRotate: boolean }) {

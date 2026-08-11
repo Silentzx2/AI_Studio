@@ -425,6 +425,7 @@ step "5/6 Starting Celery Worker..."
     setsid $PYTHON_BIN -m celery -A app.workers.celery_app worker \
         --loglevel=info \
         --concurrency=1 \
+        -B \
         -Q generation,images \
         > "$PROJECT_ROOT/logs/worker.log" 2>&1 &
     write_pid "$WORKER_PID_FILE" $!

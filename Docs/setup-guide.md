@@ -225,17 +225,12 @@ cd backend
 source .venv/bin/activate
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-# Terminal 2: Celery Worker
+# Terminal 2: Celery Worker (with embedded beat scheduler)
 cd backend
 source .venv/bin/activate
-celery -A app.workers.celery_app worker --loglevel=info -Q generation images downloads
+celery -A app.workers.celery_app worker --loglevel=info -B -Q generation,images
 
-# Terminal 3: Celery Beat (Scheduler)
-cd backend
-source .venv/bin/activate
-celery -A app.workers.celery_app beat --loglevel=info
-
-# Terminal 4: Frontend
+# Terminal 3: Frontend
 npm run dev
 ```
 

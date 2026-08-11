@@ -109,12 +109,15 @@ Content-Type: application/json
   "quality": "standard",
   "provider": "hunyuan3d-2.1",
   "generate_texture": true,
-  "reference_image_base64": null,
+  "auto_rig": false,
   "reference_image_url": null,
-  "settings": {
-    "remesh": false,
-    "texture_resolution": 1024
-  }
+  "detail_pass": false,
+  "detail_guidance": 7.5,
+  "workspace": null,
+  "low_vram": false,
+  "vram_mode": "auto",
+  "negative_prompt": null,
+  "style_preset": null
 }
 ```
 
@@ -122,13 +125,20 @@ Content-Type: application/json
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `prompt` | string | ✅ | Text description for generation |
-| `mode` | string | ❌ | `text-to-3d` or `image-to-3d` (default: `text-to-3d`) |
-| `quality` | string | ❌ | `low-poly`, `standard`, or `high-poly` |
+| `prompt` | string | ✅ | Text description for generation (max 2000 chars) |
+| `mode` | string | ❌ | `text-to-3d`, `image-to-3d`, `remesh`, `texture-generation`, `rigging`, or `render` (default: `text-to-3d`) |
+| `quality` | string | ❌ | `low-poly`, `standard`, `high-poly`, `ultra`, or `draft` (default: `standard`) |
 | `provider` | string | ❌ | AI provider to use (auto-selected if omitted) |
-| `generate_texture` | boolean | ❌ | Generate textures for the model |
-| `reference_image_base64` | string | ❌ | Base64 encoded image for image-to-3d |
-| `reference_image_url` | string | ❌ | URL of reference image |
+| `generate_texture` | boolean | ❌ | Generate textures for the model (default: `true`) |
+| `auto_rig` | boolean | ❌ | Auto-rig the generated model (default: `false`) |
+| `reference_image_url` | string | ❌ | URL or data URL of reference image |
+| `detail_pass` | boolean | ❌ | Run DetailGen3D post-processing (default: `false`) |
+| `detail_guidance` | float | ❌ | DetailGen3D guidance scale (default: `7.5`) |
+| `workspace` | string | ❌ | Workspace id used for mode auto-mapping and compatibility checks |
+| `low_vram` | boolean | ❌ | Force low-VRAM execution path (default: `false`) |
+| `vram_mode` | string | ❌ | `auto`, `normal`, or `low` (default: `auto`) |
+| `negative_prompt` | string | ❌ | Negative prompt text |
+| `style_preset` | string | ❌ | Style preset name |
 
 **Response (202):**
 ```json

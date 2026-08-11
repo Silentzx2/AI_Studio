@@ -67,7 +67,13 @@ celery_app = Celery(
     'ai3dstudio',
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
-    includes=['app.workers.tasks', 'app.workers.vram_health_worker'],
+    includes=[
+        'app.workers.tasks',
+        'app.workers.vram_health_worker',
+        'app.workers.download_workers',
+        'app.workers.health_workers',
+        'app.workers.installation_workers',
+    ],
 )
 celery_app.conf.worker_pool = 'solo'
 celery_app.conf.update(
@@ -85,6 +91,9 @@ celery_app.conf.update(
     task_routes={
         'app.workers.tasks.*': {'queue': 'generation'},
         'app.workers.vram_health_worker.*': {'queue': 'generation'},
+        'app.workers.download_workers.*': {'queue': 'images'},
+        'app.workers.health_workers.*': {'queue': 'images'},
+        'app.workers.installation_workers.*': {'queue': 'images'},
     },
     beat_schedule={
         'vram-health-check-30s': {
@@ -109,3 +118,21 @@ try:
     _logger.info("Task module 'app.workers.vram_health_worker' imported successfully")
 except Exception as exc:
     _logger.error('Failed to import app.workers.vram_health_worker: %s', exc)
+
+try:
+    import app.workers.download_workers  # noqa: F401
+    _logger.info("Task module 'app.workers.download_workers' imported successfully")
+except Exception as exc:
+    _logger.error('Failed to import app.workers.download_workers: %s', exc)
+
+try:
+    import app.workers.health_workers  # noqa: F401
+    _logger.info("Task module 'app.workers.health_workers' imported successfully")
+except Exception as exc:
+    _logger.error('Failed to import app.workers.health_workers: %s', exc)
+
+try:
+    import app.workers.installation_workers  # noqa: F401
+    _logger.info("Task module 'app.workers.installation_workers' imported successfully")
+except Exception as exc:
+    _logger.error('Failed to import app.workers.installation_workers: %s', exc)

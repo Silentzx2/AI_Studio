@@ -1,5 +1,24 @@
 # AI 3D Studio — Changelog
 
+## v3.6.1 — Bug Fixes & Hardening (August 11, 2026)
+
+### Fixed
+- **Generation endpoint broken**: `req.provider` and `req.workspace` raised `AttributeError` on every request because the inline `GenerationRequest` in `generation.py` was missing those fields. Consolidated to the schema `GenerationRequest` (single source of truth) with full field coverage and validation.
+- **Celery task registration gap**: `download_workers`, `health_workers`, and `installation_workers` used `@shared_task` but were never imported by `celery_app`, so their tasks (`execute_download`, `get_system_health`, `install_model`, etc.) were dispatched by the API but never executed. Added modules to `includes` + explicit imports + `task_routes` → `images` queue.
+- **OOM retry NameError**: `_can_retry_low_vram` logged `job_id` which was not in scope, crashing the worker exactly when an OOM should be skipped. Added `job_id` parameter and updated the call site.
+- **Celery beat never started**: `beat_schedule` was defined but `celery beat` was never launched in `start.sh` or `colab.sh`. Added embedded `-B` to both worker launch commands so the periodic VRAM health check actually runs.
+- **ViewerScene TypeScript errors**: fixed missing parentheses on `if` conditions, corrected `three-stdlib` imports to use the root package export, and aligned `useLoader` return types (`Group` for FBX/OBJ, `BufferGeometry` for STL).
+
+### Changed
+- **Colab bootstrap**: removed unnecessary `python3-venv` apt install (uv handles venv creation), exported `PROJECT_ROOT` for heredoc/subprocess safety.
+- **Docs**: updated architecture, developer guide, setup guide, API docs, and pipeline status to reflect the actual celery config, worker queues, and generation request schema.
+
+### Files Modified
+- Backend: `backend/app/api/v1/generation.py`, `backend/app/schemas/generation.py`, `backend/app/workers/celery_app.py`, `backend/app/workers/tasks.py`, `backend/runtime/installer.py`, `backend/app/core/providers/trellis_local.py`
+- Frontend: `features/workspace/viewer/ViewerScene.tsx`
+- Scripts: `scripts/start.sh`, `scripts/colab.sh`
+- Docs: `Docs/architecture.md`, `Docs/developer-guide.md`, `Docs/setup-guide.md`, `Docs/api-documentation.md`, `Docs/pipeline-status.md`, `Docs/CHANGELOG.md`
+
 ## v3.6.0 — DetailGen3D (real) + TripoSG Providers (August 10, 2026)
 
 ### Added

@@ -25,6 +25,10 @@ class GenerationRequest(BaseModel):
     # "auto" (default — runtime picks a mode that fits), "normal" or "low".
     low_vram: bool = False
     vram_mode: Literal["auto", "normal", "low"] = "auto"
+    # Optional explicit provider; falls back to settings.ai_provider when unset.
+    provider: str | None = None
+    # Optional workspace id used to auto-map generation mode and stored on the job.
+    workspace: str | None = None
 
 
 

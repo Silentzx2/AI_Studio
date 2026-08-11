@@ -141,7 +141,6 @@ class TRELLISLocalProvider(BaseProvider):
         _log_gpu_memory("after_trellis_inference")
         await cb(70, "generating", "TRELLIS complete.", "success")
 
-        from app.core.mesh_processor import get_mesh_stats
         stats = get_mesh_stats(mesh_path)
 
         return ProviderResult(
