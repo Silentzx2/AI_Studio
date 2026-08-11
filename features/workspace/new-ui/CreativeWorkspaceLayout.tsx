@@ -7,8 +7,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import anime from 'animejs';
-import { useRouter, usePathname } from 'next/navigation';
-import Link from 'next/link';
 import {
   Folder, Cpu, RefreshCw, Palette, Bookmark, Layers, Heart, Globe, Code, Settings, Sparkles, HelpCircle, LogOut, Activity
 } from 'lucide-react';
@@ -37,71 +35,10 @@ import { officeChairShapes } from './data';
 
 interface CreativeWorkspaceLayoutProps {
   onToggleLayout?: () => void;
-  defaultTab?: string;
 }
 
-const SLUG_TO_TAB: Record<string, string> = {
-  '3d-generation': '3D Generation',
-  'rigging': 'Rigging & Animation',
-  'remesh': 'Remesh',
-  'texture': 'Texture Gen',
-  'assets': 'My Assets',
-  'models': 'Models',
-  'favorites': 'Favorites',
-  'community': 'Community',
-  'api': 'API Access',
-  'settings': 'Settings',
-  'workspace': 'Workspace',
-};
-
-const TAB_TO_SLUG: Record<string, string> = {
-  'Workspace': '',
-  '3D Generation': '3d-generation',
-  'Rigging & Animation': 'rigging',
-  'Remesh': 'remesh',
-  'Texture Gen': 'texture',
-  'My Assets': 'assets',
-  'Models': 'models',
-  'Favorites': 'favorites',
-  'Community': 'community',
-  'API Access': 'api',
-  'Settings': 'settings',
-};
-
-export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: CreativeWorkspaceLayoutProps = {}) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const [activeSidebarItem, setActiveSidebarItem] = useState(defaultTab || 'Workspace');
-  const isInitialMount = useRef(true);
-
-  // Sync from prop changes
-  useEffect(() => {
-    if (defaultTab && defaultTab !== activeSidebarItem) {
-      setActiveSidebarItem(defaultTab);
-    }
-  }, [defaultTab]);
-
-  // Sync from URL on mount / path change
-  useEffect(() => {
-    const slug = pathname.split('/').filter(Boolean).pop() || '';
-    const tab = SLUG_TO_TAB[slug];
-    if (tab && tab !== activeSidebarItem) {
-      setActiveSidebarItem(tab);
-    }
-  }, [pathname]);
-
-  // Sync to URL when sidebar changes (skip initial mount)
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-    const slug = TAB_TO_SLUG[activeSidebarItem];
-    const target = activeSidebarItem === 'Workspace' ? '/workspace' : (slug ? `/workspace/${slug}` : null);
-    if (target && pathname !== target) {
-      router.push(target);
-    }
-  }, [activeSidebarItem, pathname, router]);
+export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWorkspaceLayoutProps = {}) {
+  const [activeSidebarItem, setActiveSidebarItem] = useState('Workspace');
   
   // Fetch real history from backend
   const { loadHistory, jobHistory, isLoadingHistory, loadingError } = useGenerationStore();
@@ -336,13 +273,11 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
             </div>
             {sidebarItems.map((item) => {
               const Icon = item.icon;
-              const slug = TAB_TO_SLUG[item.label];
-              const href = item.label === 'Workspace' ? '/workspace' : (slug ? `/workspace/${slug}` : '#');
-              const isActive = pathname === href || (item.label === 'Workspace' && pathname === '/workspace');
+              const isActive = activeSidebarItem === item.label;
               return (
-                <Link
+                <button
                   key={item.label}
-                  href={href}
+                  onClick={() => setActiveSidebarItem(item.label)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left border ${
                     isActive
                       ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 border-[hsl(var(--primary))]/25 shadow-sm'
@@ -352,7 +287,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
                 >
                   <Icon size={15} className={isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'} />
                   <span>{item.label}</span>
-                </Link>
+                </button>
               );
             })}
           </div>
