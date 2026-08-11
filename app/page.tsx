@@ -1,7 +1,5 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { WorkspaceShell } from '@/features/workspace/WorkspaceShell';
-
-export default function HomePage() {
-  return <WorkspaceShell />;
+export default function RootPage() {
+  redirect('/workspace');
 }

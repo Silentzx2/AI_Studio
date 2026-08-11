@@ -7,6 +7,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import anime from 'animejs';
+import { useRouter, usePathname } from 'next/navigation';
 import {
   Folder, Cpu, RefreshCw, Palette, Bookmark, Layers, Heart, Globe, Code, Settings, Sparkles, HelpCircle, LogOut, Activity
 } from 'lucide-react';
@@ -35,10 +36,70 @@ import { officeChairShapes } from './data';
 
 interface CreativeWorkspaceLayoutProps {
   onToggleLayout?: () => void;
+  defaultTab?: string;
 }
 
-export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWorkspaceLayoutProps = {}) {
-  const [activeSidebarItem, setActiveSidebarItem] = useState('Workspace');
+const SLUG_TO_TAB: Record<string, string> = {
+  '3d-generation': '3D Generation',
+  'rigging': 'Rigging & Animation',
+  'remesh': 'Remesh',
+  'texture': 'Texture Gen',
+  'assets': 'My Assets',
+  'models': 'Models',
+  'favorites': 'Favorites',
+  'community': 'Community',
+  'api': 'API Access',
+  'settings': 'Settings',
+  'workspace': 'Workspace',
+};
+
+const TAB_TO_SLUG: Record<string, string> = {
+  'Workspace': 'workspace',
+  '3D Generation': '3d-generation',
+  'Rigging & Animation': 'rigging',
+  'Remesh': 'remesh',
+  'Texture Gen': 'texture',
+  'My Assets': 'assets',
+  'Models': 'models',
+  'Favorites': 'favorites',
+  'Community': 'community',
+  'API Access': 'api',
+  'Settings': 'settings',
+};
+
+export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: CreativeWorkspaceLayoutProps = {}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [activeSidebarItem, setActiveSidebarItem] = useState(defaultTab || 'Workspace');
+  const isInitialMount = useRef(true);
+
+  // Sync from prop changes
+  useEffect(() => {
+    if (defaultTab && defaultTab !== activeSidebarItem) {
+      setActiveSidebarItem(defaultTab);
+    }
+  }, [defaultTab]);
+
+  // Sync from URL on mount / path change
+  useEffect(() => {
+    const slug = pathname.split('/').filter(Boolean).pop() || '';
+    const tab = SLUG_TO_TAB[slug];
+    if (tab && tab !== activeSidebarItem) {
+      setActiveSidebarItem(tab);
+    }
+  }, [pathname]);
+
+  // Sync to URL when sidebar changes (skip initial mount)
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    const slug = TAB_TO_SLUG[activeSidebarItem];
+    if (slug && pathname !== `/workspace/${slug}`) {
+      router.push(`/workspace/${slug}`);
+    }
+  }, [activeSidebarItem, pathname, router]);
   
   // Fetch real history from backend
   const { loadHistory, jobHistory, isLoadingHistory, loadingError } = useGenerationStore();

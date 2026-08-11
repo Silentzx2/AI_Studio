@@ -27,7 +27,7 @@ const ThreeDViewer = dynamic(
   }
 );
 
-function WorkspaceShellContent() {
+function WorkspaceShellContent({ defaultTab }: { defaultTab?: string }) {
   const viewerFullscreen = useUIStore((s) => s.viewer.fullscreen);
   const toggleFullscreen = useUIStore((s) => s.toggleFullscreen);
   const { reconnectToRunningTasks } = useTaskManager();
@@ -74,7 +74,7 @@ function WorkspaceShellContent() {
       <div className="relative z-[3] flex flex-col h-full">
         <WorkspaceNavbar />
         <div className="flex flex-1 min-h-0 overflow-hidden">
-          <CreativeWorkspaceLayout />
+          <CreativeWorkspaceLayout defaultTab={defaultTab} />
         </div>
         <CommandPalette />
       </div>
@@ -85,10 +85,10 @@ function WorkspaceShellContent() {
   );
 }
 
-export function WorkspaceShell() {
+export function WorkspaceShell({ defaultTab }: { defaultTab?: string } = {}) {
   return (
     <Suspense fallback={<div className="flex-1 flex items-center justify-center bg-[hsl(var(--surface-0))]"><div className="text-white">Loading workspace...</div></div>}>
-      <WorkspaceShellContent />
+      <WorkspaceShellContent defaultTab={defaultTab} />
     </Suspense>
   );
 }
