@@ -2,6 +2,6 @@
 
 import { WorkspaceShell } from '@/features/workspace/WorkspaceShell';
 
-export default function Home() {
+export default function WorkspacePage() {
   return <WorkspaceShell defaultTab="Workspace" />;
-} 
+}

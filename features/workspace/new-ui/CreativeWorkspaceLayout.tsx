@@ -55,7 +55,7 @@ const SLUG_TO_TAB: Record<string, string> = {
 };
 
 const TAB_TO_SLUG: Record<string, string> = {
-  'Workspace': 'workspace',
+  'Workspace': '',
   '3D Generation': '3d-generation',
   'Rigging & Animation': 'rigging',
   'Remesh': 'remesh',
@@ -97,8 +97,9 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
       return;
     }
     const slug = TAB_TO_SLUG[activeSidebarItem];
-    if (slug && pathname !== `/workspace/${slug}`) {
-      router.push(`/workspace/${slug}`);
+    const target = activeSidebarItem === 'Workspace' ? '/workspace' : (slug ? `/workspace/${slug}` : null);
+    if (target && pathname !== target) {
+      router.push(target);
     }
   }, [activeSidebarItem, pathname, router]);
   
@@ -336,7 +337,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
             {sidebarItems.map((item) => {
               const Icon = item.icon;
               const slug = TAB_TO_SLUG[item.label];
-              const href = slug ? `/workspace/${slug}` : '#';
+              const href = item.label === 'Workspace' ? '/workspace' : (slug ? `/workspace/${slug}` : '#');
               const isActive = pathname === href || (item.label === 'Workspace' && pathname === '/workspace');
               return (
                 <Link
