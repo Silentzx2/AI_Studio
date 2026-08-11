@@ -189,6 +189,67 @@ async def upload_model(file: UploadFile = File(...)):  # noqa: C901
     })
 
 
+
+
+@router.get("/assets")
+async def list_uploaded_assets():
+    """List all uploaded images and models from real local storage."""
+    try:
+        from datetime import datetime
+        
+        # 1. Image Uploads
+        upload_dir = Path(settings.storage_local_path) / "uploads"
+        images = []
+        if upload_dir.exists():
+            for f in upload_dir.iterdir():
+                if f.is_file() and f.suffix.lower() in SUPPORTED_FORMATS:
+                    stat = f.stat()
+                    images.append({
+                        "id": f.name,
+                        "name": f.name,
+                        "filename": f.name,
+                        "url": f"/api/v1/upload/uploads/{f.name}",
+                        "size": stat.st_size,
+                        "format": f.suffix.lstrip('.'),
+                        "type": "image",
+                        "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat()
+                    })
+        
+        # Sort images by newest first
+        images.sort(key=lambda x: x["created_at"], reverse=True)
+
+        # 2. Model Uploads
+        models_dir = Path(settings.storage_local_path) / "models"
+        models = []
+        if models_dir.exists():
+            for f in models_dir.iterdir():
+                if f.is_file() and f.suffix.lower() in {".glb", ".gltf"}:
+                    stat = f.stat()
+                    models.append({
+                        "id": f.name,
+                        "name": f.name,
+                        "filename": f.name,
+                        "url": f"/static/models/{f.name}",
+                        "size": stat.st_size,
+                        "format": f.suffix.lstrip('.'),
+                        "type": "model",
+                        "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat()
+                    })
+        
+        # Sort models by newest first
+        models.sort(key=lambda x: x["created_at"], reverse=True)
+
+        return success({
+            "images": images,
+            "models": models,
+            "total_images": len(images),
+            "total_models": len(models)
+        })
+    except Exception as exc:
+        logger.exception("Failed to list uploaded assets: %s", exc)
+        return error(f"Failed to list uploaded assets: {exc}")
+
+
 @router.get("/uploads/{filename}")
 async def download_uploaded_image(filename: str):
     """Retrieve an uploaded image by filename."""
@@ -223,3 +284,24 @@ async def download_uploaded_image(filename: str):
     except Exception as exc:
         logger.warning(f"Download error: {exc}")
         raise HTTPException(status_code=500, detail="Download failed")
+
+
+@router.delete("/assets/{filename}")
+async def delete_uploaded_asset(filename: str):
+    """Delete an uploaded image or model file."""
+    try:
+        # Check uploads dir (images)
+        file_path = Path(settings.storage_local_path) / "uploads" / filename
+        if not file_path.exists():
+            # Check models dir (models)
+            file_path = Path(settings.storage_local_path) / "models" / filename
+        
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="File not found")
+            
+        file_path.unlink()
+        return success({"deleted": True, "filename": filename})
+    except Exception as exc:
+        logger.exception("Failed to delete asset: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+

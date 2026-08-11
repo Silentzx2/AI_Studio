@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, Suspense, useRef, useMemo } from 'react';
+import React, { useState, useEffect, Suspense, useRef, useMemo, useCallback } from 'react';
 import anime from 'animejs';
 import { Float } from '@react-three/drei';
 import {
@@ -13,7 +13,7 @@ import {
   Box, Eye, Move, RotateCw, ZoomIn, Grid3X3, Sun, Focus,
   Sliders, Shield, Cpu, RefreshCw, FolderOpen, Info, Lock, ArrowRight,
   Activity, SlidersHorizontal, Settings, CheckSquare, X, ListFilter, Trash2,
-  AlertTriangle,
+  AlertTriangle, Image as ImageIcon,
 } from 'lucide-react';
 
 import { useGenerationStore } from '@/stores/useGenerationStore';
@@ -25,6 +25,7 @@ import { HistoryItem } from '@/types/new-ui';
 import { Skeleton } from '@/components/ux';
 import { toast } from 'sonner';
 import { uploadService } from '@/services/uploadService';
+import { apiClient } from '@/services/apiClient';
 import LayerVisibilityPanel from './LayerVisibilityPanel';
 import AssetLayersPanel from './AssetLayersPanel';
 import ExportDialog from './ExportDialog';
@@ -274,6 +275,62 @@ export default function ThreeDGenerationTab({
   const [mobileLeftOpen, setMobileLeftOpen] = useState(false);
   const [mobileRightOpen, setMobileRightOpen] = useState(false);
 
+  // Collapsible and resizable sidebars states & handlers
+  const [leftWidth, setLeftWidth] = useState(280);
+  const [rightWidth, setRightWidth] = useState(280);
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
+
+  const isResizingLeft = useRef(false);
+  const isResizingRight = useRef(false);
+
+  const handleResizeLeft = (e: MouseEvent) => {
+    if (!isResizingLeft.current) return;
+    const newWidth = Math.max(220, Math.min(450, e.clientX));
+    setLeftWidth(newWidth);
+  };
+
+  const stopResizeLeft = () => {
+    isResizingLeft.current = false;
+    document.removeEventListener('mousemove', handleResizeLeft);
+    document.removeEventListener('mouseup', stopResizeLeft);
+  };
+
+  const startResizeLeft = (e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizingLeft.current = true;
+    document.addEventListener('mousemove', handleResizeLeft);
+    document.addEventListener('mouseup', stopResizeLeft);
+  };
+
+  const handleResizeRight = (e: MouseEvent) => {
+    if (!isResizingRight.current) return;
+    const newWidth = Math.max(220, Math.min(450, window.innerWidth - e.clientX));
+    setRightWidth(newWidth);
+  };
+
+  const stopResizeRight = () => {
+    isResizingRight.current = false;
+    document.removeEventListener('mousemove', handleResizeRight);
+    document.removeEventListener('mouseup', stopResizeRight);
+  };
+
+  const startResizeRight = (e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizingRight.current = true;
+    document.addEventListener('mousemove', handleResizeRight);
+    document.addEventListener('mouseup', stopResizeRight);
+  };
+
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('mousemove', handleResizeLeft);
+      document.removeEventListener('mouseup', stopResizeLeft);
+      document.removeEventListener('mousemove', handleResizeRight);
+      document.removeEventListener('mouseup', stopResizeRight);
+    };
+  }, []);
+
   const [uploadedModel, setUploadedModel] = useState<File | null>(null);
   const [uploadedModelUrl, setUploadedModelUrl] = useState<string | null>(null);
   const [uploadedModelName, setUploadedModelName] = useState<string>('');
@@ -284,6 +341,83 @@ export default function ThreeDGenerationTab({
   const [imageUploadProgress, setImageUploadProgress] = useState(0);
 
   const [viewMode, setViewMode] = useState<'Mesh' | 'Wireframe' | 'Texture'>('Mesh');
+
+  const [rightTab, setRightTab] = useState<'storage' | 'inspector' | 'progress'>('storage');
+  const [selectedAsset, setSelectedAsset] = useState<any | null>(null);
+  const [backendJobs, setBackendJobs] = useState<any[]>([]);
+  const [uploadedImages, setUploadedImages] = useState<any[]>([]);
+  const [uploadedModels, setUploadedModels] = useState<any[]>([]);
+  const [isLoadingAssets, setIsLoadingAssets] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  const fetchAssets = useCallback(async () => {
+    setIsLoadingAssets(true);
+    try {
+      const jobsRes = await apiClient.get<any>('/api/v1/jobs');
+      if (jobsRes?.success && jobsRes.data?.jobs) {
+        setBackendJobs(jobsRes.data.jobs);
+      } else if (jobsRes?.jobs) {
+        setBackendJobs(jobsRes.jobs);
+      } else if (jobsRes?.data?.jobs) {
+        setBackendJobs(jobsRes.data.jobs);
+      }
+
+      const uploadsRes = await apiClient.get<any>('/api/v1/upload/assets');
+      if (uploadsRes?.success && uploadsRes.data) {
+        setUploadedImages(uploadsRes.data.images || []);
+        setUploadedModels(uploadsRes.data.models || []);
+      } else if (uploadsRes?.images) {
+        setUploadedImages(uploadsRes.images || []);
+        setUploadedModels(uploadsRes.models || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch assets from backend:', err);
+    } finally {
+      setIsLoadingAssets(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAssets();
+  }, [fetchAssets, currentJob?.status]);
+
+  const handleUploadFile = async (file: File) => {
+    setIsUploading(true);
+    setUploadProgress(0);
+    try {
+      const isModel = file.name.match(/\.(glb|gltf)$/i);
+      const endpoint = isModel ? '/api/v1/upload/model' : '/api/v1/upload/image';
+      const res = await uploadService.uploadWithProgress(file, (progress) => {
+        setUploadProgress(progress.percent);
+      }, endpoint);
+
+      toast.success(`Uploaded ${file.name} successfully!`);
+      await fetchAssets();
+      
+      const assetObj = {
+        id: res.filename || file.name,
+        name: file.name,
+        filename: res.filename || file.name,
+        url: res.url,
+        size: file.size,
+        format: file.name.split('.').pop()?.toLowerCase() || '',
+        type: isModel ? 'model' : 'image',
+        created_at: new Date().toISOString()
+      };
+      setSelectedAsset(assetObj);
+      setRightTab('inspector');
+
+      if (isModel) {
+        window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url: res.url } }));
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to upload asset');
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  };
   useEffect(() => {
     // Comprehensive entrance animations for the workspace
     anime({
@@ -513,6 +647,44 @@ export default function ThreeDGenerationTab({
   return (
     <div className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden bg-[hsl(var(--surface-0))] text-[hsl(var(--foreground))] relative" id="ai-3d-studio-workspace">
       
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes laserScan {
+          0% { top: 0%; opacity: 0; }
+          15% { opacity: 1; }
+          85% { opacity: 1; }
+          100% { top: 100%; opacity: 0; }
+        }
+        .laser-scanner {
+          position: absolute;
+          left: 0;
+          right: 0;
+          height: 3px;
+          background: linear-gradient(90deg, transparent, hsl(var(--primary)) 20%, #00f0ff 50%, hsl(var(--primary)) 80%, transparent);
+          box-shadow: 0 0 12px 3px rgba(0, 240, 255, 0.7), 0 0 24px 6px rgba(245, 166, 35, 0.4);
+          animation: laserScan 2.5s ease-in-out infinite;
+          pointer-events: none;
+          z-index: 20;
+        }
+        @keyframes gradientPulse {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        .pulse-wave {
+          background: linear-gradient(-45deg, hsl(var(--primary)), #00f0ff, hsl(var(--neon-pink)), #2563eb);
+          background-size: 400% 400%;
+          animation: gradientPulse 3s ease infinite;
+        }
+        @keyframes outlineGlow {
+          0% { border-color: hsl(var(--border)); }
+          50% { border-color: hsl(var(--primary)); box-shadow: 0 0 15px hsl(var(--primary)/0.25); }
+          100% { border-color: hsl(var(--border)); }
+        }
+        .glow-dashed-outline {
+          animation: outlineGlow 1.5s infinite ease-in-out;
+        }
+      `}} />
+
       {/* FIX: Mobile sidebar overlay backdrops */}
       {mobileLeftOpen && (
         <div className="fixed inset-0 z-30 bg-[hsl(var(--surface-0))/0.4] lg:hidden" onClick={() => setMobileLeftOpen(false)} aria-hidden="true" />
@@ -526,9 +698,16 @@ export default function ThreeDGenerationTab({
       {/* FIX: On mobile (< lg), hidden off-screen by default, slides in as overlay when toggled */}
       {/* ───────────────────────────────────────────────────────────── */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-[300px] max-w-[85vw] bg-[hsl(var(--surface-0))] border-r border-[hsl(var(--border))] flex flex-col shrink-0 overflow-y-auto transition-transform duration-200 lg:static lg:inset-auto lg:z-auto lg:w-[280px] lg:max-w-none lg:translate-x-0 lg:transition-none ${
+        className={`fixed inset-y-0 left-0 z-40 bg-[hsl(var(--surface-0))] border-r border-[hsl(var(--border))] flex flex-col shrink-0 overflow-y-auto transition-all duration-200 lg:static lg:inset-auto lg:z-auto ${
           mobileLeftOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
+        style={{
+          width: leftCollapsed ? '0px' : `${leftWidth}px`,
+          opacity: leftCollapsed ? 0 : 1,
+          pointerEvents: leftCollapsed ? 'none' : 'auto',
+          minWidth: leftCollapsed ? '0px' : undefined,
+          maxWidth: leftCollapsed ? '0px' : '85vw',
+        }}
         id="generation-setup-sidebar"
       >
         {/* Sidebar Header */}
@@ -537,7 +716,13 @@ export default function ThreeDGenerationTab({
           <button onClick={() => setMobileLeftOpen(false)} className="lg:hidden p-1 rounded hover:bg-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]" aria-label="Close sidebar">
             <X size={14} />
           </button>
-          <ChevronUp size={14} className="text-[hsl(var(--muted-foreground))] cursor-pointer hover:text-[hsl(var(--foreground))] hidden lg:block" />
+          <button 
+            onClick={() => setLeftCollapsed(true)}
+            className="p-1 rounded hover:bg-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hidden lg:block"
+            title="Collapse Sidebar"
+          >
+            <ChevronUp size={14} className="-rotate-90" />
+          </button>
         </div>
 
         {/* Setup Options Form */}
@@ -658,18 +843,28 @@ export default function ThreeDGenerationTab({
                     onClick={() => document.getElementById('image-uploader-btn')?.click()}
                     className={`border-2 border-dashed rounded-2xl p-5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all text-center relative overflow-hidden group ${
                       isDragOver
-                        ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 scale-[0.98]'
+                        ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 scale-[0.98] glow-dashed-outline'
                         : uploadedImage
                           ? 'border-[hsl(var(--neon-green))]/40 bg-[hsl(var(--neon-green))]/5'
-                          : 'border-[hsl(var(--border))] bg-[hsl(var(--surface-1))] hover:border-[hsl(var(--primary))]/50 hover:bg-[hsl(var(--surface-2))]'
+                          : 'border-[hsl(var(--border))] bg-[hsl(var(--surface-1))] hover:border-[hsl(var(--primary))]/50 hover:bg-[hsl(var(--surface-2))] hover:shadow-[0_0_15px_rgba(245,166,35,0.05)]'
                     }`}
                   >
                     <input id="image-uploader-btn" type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                     
                     {isUploadingImage ? (
-                      <div className="flex flex-col items-center gap-2">
-                        <RefreshCw size={20} className="text-[hsl(var(--primary))] animate-spin" />
-                        <span className="text-[10px] font-black text-[hsl(var(--primary))] uppercase">{imageUploadProgress}% Loaded</span>
+                      <div className="flex flex-col items-center gap-3 w-full py-2 z-10">
+                        {/* Laser Scanner animation bar */}
+                        <div className="laser-scanner" />
+                        
+                        <div className="relative w-12 h-12 rounded-full flex items-center justify-center pulse-wave shadow-lg">
+                          <Upload size={18} className="text-white animate-bounce" />
+                        </div>
+                        <div className="flex flex-col gap-1 w-full px-2">
+                          <span className="text-[10px] font-black text-[hsl(var(--primary))] uppercase tracking-wider">{imageUploadProgress}% Synchronizing</span>
+                          <div className="w-full h-1.5 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden border border-[hsl(var(--border))/0.1]">
+                            <div className="h-full bg-gradient-to-r from-[hsl(var(--primary))] to-[#00f0ff] transition-all duration-300" style={{ width: `${imageUploadProgress}%` }} />
+                          </div>
+                        </div>
                       </div>
                     ) : uploadedImage ? (
                       <div className="relative w-full group">
@@ -677,7 +872,7 @@ export default function ThreeDGenerationTab({
                         <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl backdrop-blur-[2px]">
                           <button 
                             onClick={(e) => { e.stopPropagation(); clearImage(); }}
-                            className="bg-[hsl(var(--destructive))] text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5"
+                            className="bg-[hsl(var(--destructive))] text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 hover:scale-105 transition-transform"
                           >
                             <Trash2 size={10} /> Remove
                           </button>
@@ -685,11 +880,11 @@ export default function ThreeDGenerationTab({
                       </div>
                     ) : (
                       <>
-                        <div className="w-10 h-10 rounded-full bg-[hsl(var(--surface-2))] flex items-center justify-center mb-1 group-hover:scale-110 group-hover:bg-[hsl(var(--surface-3))] transition-all">
-                          <Upload size={18} className="text-[hsl(var(--muted-foreground))]" />
+                        <div className="w-10 h-10 rounded-full bg-[hsl(var(--surface-2))] flex items-center justify-center mb-1 group-hover:scale-110 group-hover:bg-[hsl(var(--surface-3))] transition-all border border-[hsl(var(--border)/0.3)] shadow-inner">
+                          <Upload size={18} className="text-[hsl(var(--muted-foreground))] group-hover:text-[hsl(var(--primary))] transition-colors" />
                         </div>
                         <div className="flex flex-col gap-0.5">
-                          <span className="text-[11px] font-black text-[hsl(var(--foreground))]">Drop reference</span>
+                          <span className="text-[11px] font-black text-[hsl(var(--foreground))]">Drop reference image</span>
                           <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter">PNG, JPG up to 10MB</span>
                         </div>
                       </>
@@ -711,12 +906,12 @@ export default function ThreeDGenerationTab({
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               onClick={() => document.getElementById('model-import-btn')?.click()}
-              className={`border-2 border-dashed rounded-xl p-3 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all text-center ${
+              className={`border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all text-center relative overflow-hidden ${
                 uploadedModelUrl
                   ? 'border-[hsl(var(--neon-green))]/30 bg-[hsl(var(--neon-green))]/5'
                   : isDragOver
-                    ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10'
-                    : 'border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))]/55 hover:bg-[hsl(var(--surface-1))] hover:border-[hsl(var(--primary))]/50'
+                    ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 scale-[0.98] glow-dashed-outline'
+                    : 'border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))]/55 hover:bg-[hsl(var(--surface-1))] hover:border-[hsl(var(--primary))]/50 hover:shadow-[0_0_15px_rgba(245,166,35,0.03)]'
               }`}
             >
               <input
@@ -727,11 +922,18 @@ export default function ThreeDGenerationTab({
                 className="hidden"
               />
               {isUploadingModel ? (
-                <div className="w-full flex flex-col items-center gap-2 py-2">
-                  <div className="w-4 h-4 border-2 border-[hsl(var(--primary)/0.3)] border-t-[hsl(var(--primary))] rounded-full animate-spin" />
-                  <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Uploading... {modelUploadProgress}%</span>
-                  <div className="w-full h-1 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden">
-                    <div className="h-full bg-[hsl(var(--primary))] transition-all duration-200" style={{ width: `${modelUploadProgress}%` }} />
+                <div className="w-full flex flex-col items-center gap-2.5 py-1 z-10">
+                  {/* Laser Scanner animation bar */}
+                  <div className="laser-scanner" />
+                  
+                  <div className="relative w-10 h-10 rounded-full flex items-center justify-center pulse-wave shadow-md">
+                    <FolderOpen size={16} className="text-white animate-pulse" />
+                  </div>
+                  <div className="w-full flex flex-col gap-1">
+                    <span className="text-[10px] font-black text-[hsl(var(--primary))] uppercase tracking-wider">{modelUploadProgress}% Importing Model</span>
+                    <div className="w-full h-1 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden border border-[hsl(var(--border))/0.1]">
+                      <div className="h-full bg-gradient-to-r from-[hsl(var(--primary))] to-[#00f0ff] transition-all duration-300" style={{ width: `${modelUploadProgress}%` }} />
+                    </div>
                   </div>
                 </div>
               ) : uploadedModelUrl ? (
@@ -740,14 +942,18 @@ export default function ThreeDGenerationTab({
                   <span className="text-[10px] font-bold text-[hsl(var(--neon-green))] truncate max-w-full">{uploadedModelName}</span>
                   <button
                     onClick={(e) => { e.stopPropagation(); setUploadedModel(null); setUploadedModelUrl(null); setUploadedModelName(''); toast.info('Model removed'); }}
-                    className="text-[9px] font-bold text-[hsl(var(--destructive))] hover:text-[hsl(var(--destructive))] mt-0.5"
+                    className="text-[9px] font-bold text-[hsl(var(--destructive))] hover:text-[hsl(var(--destructive))/0.8] hover:underline mt-0.5"
                   >Remove</button>
                 </>
               ) : (
                 <>
-                  <FolderOpen size={16} className="text-[hsl(var(--muted-foreground))]" />
-                  <span className="text-[10px] font-bold text-[hsl(var(--muted-foreground))]">Drop GLB/GLTF or click</span>
-                  <span className="text-[8px] text-[hsl(var(--muted-foreground))] font-mono">Import to viewer or remesh</span>
+                  <div className="w-8 h-8 rounded-full bg-[hsl(var(--surface-2))] flex items-center justify-center group-hover:scale-110 transition-all border border-[hsl(var(--border)/0.3)] shadow-inner">
+                    <FolderOpen size={14} className="text-[hsl(var(--muted-foreground))]" />
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[10px] font-bold text-[hsl(var(--muted-foreground))]">Drop GLB/GLTF or click</span>
+                    <span className="text-[8px] text-[hsl(var(--muted-foreground))] font-mono">Import to viewer or remesh</span>
+                  </div>
                 </>
               )}
             </div>
@@ -869,11 +1075,49 @@ export default function ThreeDGenerationTab({
         </div>
       </aside>
 
+      {/* Left Resizer & Collapse bar */}
+      <div 
+        className="hidden lg:flex w-1 bg-[hsl(var(--border))] hover:bg-[hsl(var(--primary))/0.3] transition-colors cursor-col-resize relative group items-center justify-center select-none animate-fadeIn"
+        onMouseDown={startResizeLeft}
+        style={{ zIndex: 10 }}
+      >
+        <div className="absolute inset-y-0 w-2.5 left-1/2 -translate-x-1/2 cursor-col-resize" />
+        <button
+          onClick={(e) => { e.stopPropagation(); setLeftCollapsed(!leftCollapsed); }}
+          className="absolute left-1/2 -translate-x-1/2 w-4 h-10 bg-[hsl(var(--surface-1))] hover:bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-[hsl(var(--primary))/0.5] rounded-md flex items-center justify-center text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-all shadow-md cursor-pointer"
+          style={{ cursor: 'pointer' }}
+          title={leftCollapsed ? "Expand Configuration" : "Collapse Configuration"}
+        >
+          <ChevronRight size={11} className={`transform transition-transform duration-200 ${leftCollapsed ? '' : 'rotate-180'}`} />
+        </button>
+      </div>
+
       {/* ───────────────────────────────────────────────────────────── */}
       {/* 2. CENTER STAGE AND BOTTOM DOCKS */}
       {/* ───────────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[hsl(var(--surface-0))] relative min-h-[200px] lg:min-h-0" id="workspace-center-section">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[hsl(var(--surface-0))] relative min-h-[200px] lg:min-h-0 animate-fadeIn" id="workspace-center-section">
         
+        {/* Collapsed sidebars floating indicators */}
+        {leftCollapsed && (
+          <button
+            onClick={() => setLeftCollapsed(false)}
+            className="absolute left-4 top-4 z-20 p-2.5 rounded-xl bg-[hsl(var(--surface-0))]/90 backdrop-blur-md border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] shadow-lg flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider transition-all hover:scale-105"
+          >
+            <ChevronRight size={12} />
+            <span>Config</span>
+          </button>
+        )}
+
+        {rightCollapsed && (
+          <button
+            onClick={() => setRightCollapsed(false)}
+            className="absolute right-24 top-4 z-20 p-2.5 rounded-xl bg-[hsl(var(--surface-0))]/90 backdrop-blur-md border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] shadow-lg flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider transition-all hover:scale-105"
+          >
+            <span>Specs & Progress</span>
+            <ChevronRight className="rotate-180" size={12} />
+          </button>
+        )}
+
         {/* 3D Viewer Space — expanded vertically */}
         <div className="flex-1 relative bg-[hsl(var(--surface-0))] overflow-hidden" id="canvas-workspace">
           
@@ -917,214 +1161,479 @@ export default function ThreeDGenerationTab({
       </div>
       </div>
 
+      {/* Right Resizer & Collapse bar */}
+      <div 
+        className="hidden lg:flex w-1 bg-[hsl(var(--border))] hover:bg-[hsl(var(--primary))/0.3] transition-colors cursor-col-resize relative group items-center justify-center select-none animate-fadeIn"
+        onMouseDown={startResizeRight}
+        style={{ zIndex: 10 }}
+      >
+        <div className="absolute inset-y-0 w-2.5 left-1/2 -translate-x-1/2 cursor-col-resize" />
+        <button
+          onClick={(e) => { e.stopPropagation(); setRightCollapsed(!rightCollapsed); }}
+          className="absolute left-1/2 -translate-x-1/2 w-4 h-10 bg-[hsl(var(--surface-1))] hover:bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-[hsl(var(--primary))/0.5] rounded-md flex items-center justify-center text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-all shadow-md cursor-pointer"
+          style={{ cursor: 'pointer' }}
+          title={rightCollapsed ? "Expand Metrics & Progress" : "Collapse Metrics & Progress"}
+        >
+          <ChevronRight size={11} className={`transform transition-transform duration-200 ${rightCollapsed ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
+
       {/* ───────────────────────────────────────────────────────────── */}
       {/* 3. RIGHT SIDEBAR: PROGRESS AND SPECS */}
       {/* FIX: On mobile (< lg), hidden off-screen by default, slides in as overlay when toggled */}
       {/* ───────────────────────────────────────────────────────────── */}
       <aside
-        className={`fixed inset-y-0 right-0 z-40 w-[280px] max-w-[85vw] bg-[hsl(var(--surface-0))] border-l border-[hsl(var(--border))] flex flex-col shrink-0 overflow-y-auto transition-transform duration-200 lg:static lg:inset-auto lg:z-auto lg:w-[260px] lg:max-w-none lg:translate-x-0 lg:transition-none p-4 gap-4 ${
+        className={`fixed inset-y-0 right-0 z-40 bg-[hsl(var(--surface-0))] border-l border-[hsl(var(--border))] flex flex-col shrink-0 overflow-y-auto transition-all duration-200 lg:static lg:inset-auto lg:z-auto p-4 gap-4 ${
           mobileRightOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'
         }`}
+        style={{
+          width: rightCollapsed ? '0px' : `${rightWidth}px`,
+          opacity: rightCollapsed ? 0 : 1,
+          pointerEvents: rightCollapsed ? 'none' : 'auto',
+          minWidth: rightCollapsed ? '0px' : undefined,
+          maxWidth: rightCollapsed ? '0px' : '85vw',
+        }}
         id="specs-and-progress-sidebar"
       >
-        {/* FIX: Mobile close button for right sidebar */}
+        {/* Mobile close button */}
         <div className="flex items-center justify-between lg:hidden mb-2">
-          <span className="text-xs font-black uppercase tracking-widest text-[hsl(var(--foreground))]">PROGRESS & SPECS</span>
+          <span className="text-xs font-black uppercase tracking-widest text-[hsl(var(--foreground))]">STORAGE & INSPECTOR</span>
           <button onClick={() => setMobileRightOpen(false)} className="p-1 rounded hover:bg-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]" aria-label="Close sidebar">
             <X size={14} />
           </button>
         </div>
-        
-        {/* CARD 1: GENERATION PROGRESS */}
-        <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-2xl p-4 flex flex-col gap-3" id="progress-container">
-          <div className="flex items-center justify-between border-b border-[hsl(var(--surface-3))] pb-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--foreground))]">GENERATION PROGRESS</span>
-            <ChevronUp size={13} className="text-[hsl(var(--muted-foreground))]" />
-          </div>
 
-          <div className="flex flex-col gap-1">
-            <div className="flex justify-between items-center text-xs">
-              <span className="font-extrabold text-[hsl(var(--primary))] text-[11px] uppercase tracking-wider">{activeStageLabel}</span>
-              <span className="font-mono font-black text-[hsl(var(--primary))]">{derivedProgress}%</span>
-            </div>
-            {/* Progress Bar Fill */}
-            <div className="w-full h-2 bg-[hsl(var(--border))] rounded-full overflow-hidden border border-[hsl(var(--surface-3))]">
-              <div 
-                className="h-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] rounded-full shadow-[0_0_12px_rgba(245,166,35,0.4)] transition-all duration-300" 
-                style={{ width: `${derivedProgress}%` }} 
-              />
-            </div>
-          </div>
-
-          {/* Timeline steps with timestamps matching screenshot */}
-          <div className="flex flex-col gap-2.5 pt-2.5 font-mono text-[10px] border-t border-[hsl(var(--border))]/60">
-            {[
-              { label: 'Preparing', threshold: 10, duration: '00:12' },
-              { label: 'Loading Model', threshold: 25, duration: '00:18' },
-              { label: 'Generating Base Mesh', threshold: 38, duration: '01:24' },
-              { label: 'Remeshing', threshold: 50, duration: '00:35' },
-              { label: 'Generating Texture', threshold: 65, duration: '01:02' },
-              { label: 'Part Separation', threshold: 75, duration: '00:48' },
-              { label: 'Rigging', threshold: 85, duration: 'Pending' },
-              { label: 'Optimization (LOD)', threshold: 95, duration: 'Pending' },
-              { label: 'Exporting', threshold: 100, duration: 'Pending' },
-            ].map((step, idx) => {
-              const isDone = derivedProgress >= step.threshold || (currentJob?.status === 'completed');
-              const isCurrent = derivedProgress < step.threshold && (idx === 0 || derivedProgress >= (idx > 0 ? [10, 25, 38, 50, 65, 75, 85, 95][idx - 1] : 0));
-
-              if (isDone) {
-                return (
-                  <div key={step.label} className="flex items-center justify-between text-[hsl(var(--neon-green))]">
-                    <div className="flex items-center gap-2">
-                      <Check size={11} className="stroke-[3]" />
-                      <span className="font-semibold">{step.label}</span>
-                    </div>
-                    <span className="text-zinc-600 font-bold">{step.duration !== 'Pending' ? step.duration : '00:15'}</span>
-                  </div>
-                );
-              } else if (isCurrent && isGenerating) {
-                return (
-                  <div key={step.label} className="flex items-center justify-between text-[hsl(var(--primary))] font-extrabold animate-pulse">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))] animate-ping shrink-0" />
-                      <span>{step.label}</span>
-                    </div>
-                    <span className="font-bold">In Progress</span>
-                  </div>
-                );
-              } else {
-                return (
-                  <div key={step.label} className="flex items-center justify-between text-[hsl(var(--muted-foreground))]">
-                    <div className="flex items-center gap-2">
-                      <span className="w-1 h-1 rounded-full bg-[hsl(var(--surface-2))]" />
-                      <span>{step.label}</span>
-                    </div>
-                    <span>{step.duration}</span>
-                  </div>
-                );
-              }
-            })}
-          </div>
-        </div>
-
-        {/* CARD 2: MODEL INFORMATION */}
-        <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-2xl p-4 flex flex-col gap-3" id="model-info-container">
-          <div className="flex items-center justify-between border-b border-[hsl(var(--surface-3))] pb-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--foreground))]">MODEL INFORMATION</span>
-            <ChevronUp size={13} className="text-[hsl(var(--muted-foreground))]" />
-          </div>
-
-          <div className="flex flex-col gap-2.5 text-xs font-semibold">
-            <div className="flex justify-between items-center">
-              <span className="text-[hsl(var(--muted-foreground))]">Model</span>
-              <span className="font-extrabold text-[hsl(var(--foreground))] font-mono">{activeModel?.name}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-[hsl(var(--muted-foreground))]">VRAM Usage</span>
-              <span className="font-extrabold text-[hsl(var(--foreground))] font-mono">
-                {activeModel?.id === 'hunyuan3d-2' ? '7.0 / 8 GB' : '4.0 / 8 GB'}
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-[hsl(var(--muted-foreground))]">Triangles</span>
-              <span className="font-extrabold text-[hsl(var(--foreground))] font-mono">{activeModel?.stats?.triangles}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-[hsl(var(--muted-foreground))]">Vertices</span>
-              <span className="font-extrabold text-[hsl(var(--foreground))] font-mono">{activeModel?.stats?.vertices}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-[hsl(var(--muted-foreground))]">Materials</span>
-              <span className="font-extrabold text-[hsl(var(--foreground))] font-mono">{activeModel?.stats?.materials}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-[hsl(var(--muted-foreground))]">Texture Res.</span>
-              <span className="font-extrabold text-[hsl(var(--foreground))] font-mono">{activeModel?.id === 'hunyuan3d-2' ? '4K (PBR)' : '--'}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-[hsl(var(--muted-foreground))]">File Size (Est.)</span>
-              <span className="font-extrabold text-[hsl(var(--primary))] font-mono">{activeModel?.stats?.size}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* CARD 3: EXPORT OPTIONS */}
-        <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-2xl p-4 flex flex-col gap-3" id="export-container">
-          <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--foreground))] border-b border-[hsl(var(--surface-3))] pb-2">EXPORT OPTIONS</span>
-
-          {/* Formats row */}
-          <div className="grid grid-cols-5 gap-1 bg-[hsl(var(--surface-2))] p-1 rounded-xl border border-[hsl(var(--surface-3))]">
-            {(['GLB', 'FBX', 'OBJ', 'USDZ', 'STL'] as const).map((fmt) => (
-              <button
-                key={fmt}
-                onClick={() => setExportFormat(fmt)}
-                className={`py-1.5 text-[10px] font-black rounded-lg transition-all ${
-                  exportFormat === fmt
-                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] shadow-sm'
-                    : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
-                }`}
-              >
-                {fmt}
-              </button>
-            ))}
-          </div>
-
-          {/* Trigger Export Button */}
-          <button
-            onClick={() => setShowExportDialog(true)}
-            className={`w-full font-black py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-[0_4px_16px_rgba(245,166,35,0.2)] ${
-              currentJob?.status === 'completed' || currentJob?.result?.downloadUrls
-                ? 'bg-[hsl(var(--primary))] hover:brightness-110 text-[hsl(var(--surface-0))] cursor-pointer'
-                : 'bg-[hsl(var(--surface-1))] text-[hsl(var(--muted-foreground))] cursor-not-allowed border border-[hsl(var(--border))/0.5]'
-            }`}
+        {/* Desktop Header */}
+        <div className="hidden lg:flex items-center justify-between pb-2 border-b border-[hsl(var(--border))]">
+          <span className="text-xs font-black uppercase tracking-widest text-[hsl(var(--foreground))]">STORAGE & INSPECTOR</span>
+          <button 
+            onClick={() => setRightCollapsed(true)}
+            className="p-1 rounded hover:bg-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+            title="Collapse Sidebar"
           >
-            <Download size={13} className="stroke-[3]" />
-            Export Project
+            <ChevronUp size={14} className="rotate-90" />
           </button>
         </div>
 
-        {/* CARD 4: RECENT PROJECTS / HISTORY */}
-        <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-2xl p-4 flex flex-col gap-3" id="history-container">
-          <div className="flex justify-between items-center border-b border-[hsl(var(--surface-3))] pb-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--foreground))]">HISTORY</span>
-            <span className="text-[9px] font-black text-[hsl(var(--primary))] hover:underline cursor-pointer">View All</span>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            {history && history.slice(0, 4).map((item, idx) => (
-              <div
-                key={item.id || idx}
-                onClick={() => onLoadProject && onLoadProject(item)}
-                className="flex items-center gap-3 p-2 rounded-xl bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-3))] border border-[hsl(var(--surface-3))] cursor-pointer transition-all"
-              >
-                <div className="w-9 h-9 rounded-lg bg-[hsl(var(--surface-3))] flex items-center justify-center text-[hsl(var(--primary))] shrink-0 border border-[hsl(var(--surface-3))]">
-                  <Box size={16} />
-                </div>
-                <div className="flex flex-col min-w-0 flex-1">
-                  <span className="text-xs font-bold text-[hsl(var(--foreground))] truncate">{item.name}</span>
-                  <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">{item.timestamp}</span>
-                </div>
-                <ChevronRight size={12} className="text-[hsl(var(--muted-foreground))]" />
-              </div>
-            ))}
-            {history === null ? (
-              <>
-{Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-3 p-2 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--surface-3))]">
-                  <Skeleton className="w-9 h-9 rounded-lg" />
-                  <div className="flex flex-col gap-1.5 flex-1">
-                    <Skeleton className="h-3 w-2/3 rounded" />
-                    <Skeleton className="h-2 w-1/3 rounded" />
-                  </div>
-                </div>
-              ))}
-</>
-            ) : history.length === 0 ? (
-              <div className="text-[11px] text-[hsl(var(--muted-foreground))] text-center py-4 font-mono">No project history yet.</div>
-            ) : null}
-          </div>
+        {/* Tab Controls */}
+        <div className="flex border-b border-[hsl(var(--border))]">
+          {(['storage', 'inspector', 'progress'] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setRightTab(t)}
+              className={`flex-1 py-2 text-[10px] font-black uppercase tracking-wider border-b-2 transition-all ${
+                rightTab === t
+                  ? 'border-[hsl(var(--primary))] text-[hsl(var(--primary))]'
+                  : 'border-transparent text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
         </div>
 
+        {/* Helper functions and Tabs rendering wrapper */}
+        {(() => {
+          const formatBytes = (bytes: number) => {
+            if (!bytes) return '0 B';
+            const k = 1024;
+            const dm = 1;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+          };
+
+          const formatDate = (dateStr: string) => {
+            if (!dateStr) return '';
+            try {
+              const d = new Date(dateStr);
+              return d.toLocaleDateString(undefined, {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              });
+            } catch {
+              return dateStr;
+            }
+          };
+
+          return (
+            <div className="flex flex-col gap-4 flex-1">
+              {rightTab === 'storage' && (
+                <div className="flex flex-col gap-4">
+                  {/* Upload Dropzone */}
+                  <div className="relative overflow-hidden bg-[hsl(var(--surface-1))] border-2 border-dashed border-[hsl(var(--border))] hover:border-[hsl(var(--primary))/0.5] rounded-xl p-4 transition-all text-center">
+                    <input
+                      type="file"
+                      accept=".glb,.gltf,.png,.jpg,.jpeg,.webp"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleUploadFile(file);
+                      }}
+                      className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                    />
+                    {isUploading ? (
+                      <div className="flex flex-col items-center gap-2 py-1">
+                        <div className="w-5 h-5 border-2 border-[hsl(var(--primary))/0.3] border-t-[hsl(var(--primary))] rounded-full animate-spin" />
+                        <span className="text-[10px] font-mono font-bold text-[hsl(var(--primary))]">Uploading... {uploadProgress}%</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-1.5 py-1">
+                        <Upload size={14} className="text-[hsl(var(--muted-foreground))]" />
+                        <span className="text-[10px] font-bold text-[hsl(var(--foreground))]">Upload 3D Model or Reference Image</span>
+                        <span className="text-[8px] text-[hsl(var(--muted-foreground))] font-mono">GLB, GLTF, PNG, JPG, WEBP</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 3D Models List */}
+                  <div className="flex flex-col gap-2 text-left">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-[hsl(var(--muted-foreground))]">3D Models ({backendJobs.length + uploadedModels.length})</span>
+                      {isLoadingAssets && <RefreshCw size={10} className="animate-spin text-[hsl(var(--muted-foreground))]" />}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 max-h-[180px] overflow-y-auto pr-1">
+                      {uploadedModels.map((model) => (
+                        <div
+                          key={model.id}
+                          onClick={() => {
+                            const asset = { ...model, type: 'model' };
+                            setSelectedAsset(asset);
+                            setRightTab('inspector');
+                            window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url: model.url } }));
+                          }}
+                          className={`p-2 rounded-xl border transition-all cursor-pointer text-left flex flex-col gap-1 ${
+                            selectedAsset?.id === model.id
+                              ? 'bg-[hsl(var(--primary))/0.08] border-[hsl(var(--primary))] shadow-sm'
+                              : 'bg-[hsl(var(--surface-1))] border-[hsl(var(--surface-3))] hover:bg-[hsl(var(--surface-2))]'
+                          }`}
+                        >
+                          <div className="w-full h-12 rounded-lg bg-[hsl(var(--surface-2))] flex items-center justify-center text-[hsl(var(--primary))]">
+                            <Box size={18} />
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[9px] font-bold text-[hsl(var(--foreground))] truncate">{model.name}</span>
+                            <span className="text-[7px] text-[hsl(var(--muted-foreground))] font-mono uppercase">{model.format} • {formatBytes(model.size)}</span>
+                          </div>
+                        </div>
+                      ))}
+
+                      {backendJobs.map((job) => {
+                        const hasModel = job.status === 'completed' && (job.model_url || job.download_urls?.glb);
+                        const modelUrl = job.download_urls?.glb || job.model_url;
+                        return (
+                          <div
+                            key={job.id}
+                            onClick={() => {
+                              if (hasModel && modelUrl) {
+                                const asset = {
+                                  id: job.id,
+                                  name: job.prompt || 'Generated Model',
+                                  filename: 'generated_' + job.id + '.glb',
+                                  url: modelUrl,
+                                  size: job.file_size || 0,
+                                  format: 'glb',
+                                  type: 'model',
+                                  created_at: job.created_at,
+                                  polygon_count: job.polygon_count,
+                                  vertex_count: job.vertex_count,
+                                  has_rig: job.has_rig,
+                                  provider: job.provider,
+                                  mode: job.mode
+                                };
+                                setSelectedAsset(asset);
+                                setRightTab('inspector');
+                                window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url: modelUrl } }));
+                              } else {
+                                toast.info(`Job status: ${job.status}`);
+                              }
+                            }}
+                            className={`p-2 rounded-xl border transition-all cursor-pointer text-left flex flex-col gap-1 ${
+                              selectedAsset?.id === job.id
+                                ? 'bg-[hsl(var(--primary))/0.08] border-[hsl(var(--primary))]'
+                                : 'bg-[hsl(var(--surface-1))] border-[hsl(var(--surface-3))] hover:bg-[hsl(var(--surface-2))]'
+                            }`}
+                          >
+                            <div className="w-full h-12 rounded-lg bg-[hsl(var(--surface-2))] flex items-center justify-center relative overflow-hidden">
+                              {job.thumbnail_url ? (
+                                <img src={job.thumbnail_url} referrerPolicy="no-referrer" alt={job.prompt} className="w-full h-full object-cover" />
+                              ) : (
+                                <Box size={16} className={hasModel ? "text-[hsl(var(--primary))]" : "text-[hsl(var(--muted-foreground))]"} />
+                              )}
+                              {job.status === 'processing' && (
+                                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                                  <span className="text-[8px] font-mono font-bold text-white animate-pulse">{job.progress || 0}%</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-[9px] font-bold text-[hsl(var(--foreground))] truncate">{job.prompt || 'Generated'}</span>
+                              <span className="text-[7px] text-[hsl(var(--muted-foreground))] font-mono uppercase">{job.status}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Source Images List */}
+                  <div className="flex flex-col gap-2 text-left">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Uploaded Images ({uploadedImages.length})</span>
+                    <div className="grid grid-cols-3 gap-1.5 max-h-[140px] overflow-y-auto pr-1">
+                      {uploadedImages.map((img) => (
+                        <div
+                          key={img.id}
+                          onClick={() => {
+                            const asset = { ...img, type: 'image' };
+                            setSelectedAsset(asset);
+                            setRightTab('inspector');
+                          }}
+                          className={`aspect-square rounded-lg border overflow-hidden relative group cursor-pointer transition-all ${
+                            selectedAsset?.id === img.id
+                              ? 'border-[hsl(var(--primary))] ring-1 ring-[hsl(var(--primary))]'
+                              : 'border-[hsl(var(--surface-3))] hover:border-[hsl(var(--border))]'
+                          }`}
+                        >
+                          <img src={img.url} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt={img.name} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {rightTab === 'inspector' && (
+                <div className="flex flex-col gap-3 text-left">
+                  {!selectedAsset ? (
+                    <div className="text-center py-12 text-[10px] text-[hsl(var(--muted-foreground))] font-mono">
+                      No asset selected.<br />Select an asset from Storage to view details.
+                    </div>
+                  ) : selectedAsset.type === 'image' ? (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center justify-between border-b border-[hsl(var(--border))] pb-1">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Image Specs</span>
+                        <button
+                          onClick={async () => {
+                            if (confirm('Delete this image?')) {
+                              try {
+                                await apiClient.delete('/api/v1/upload/assets/' + selectedAsset.id);
+                                toast.success('Deleted successfully');
+                                setSelectedAsset(null);
+                                setRightTab('storage');
+                                fetchAssets();
+                              } catch (err: any) {
+                                toast.error('Failed to delete');
+                              }
+                            }
+                          }}
+                          className="text-[hsl(var(--destructive))] hover:text-red-400 p-1"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+
+                      <div className="aspect-video w-full rounded-lg overflow-hidden bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] flex items-center justify-center">
+                        <img src={selectedAsset.url} referrerPolicy="no-referrer" className="max-w-full max-h-full object-contain" alt={selectedAsset.name} />
+                      </div>
+
+                      <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-xl p-2.5 flex flex-col gap-1.5 font-mono text-[9px]">
+                        <div className="flex justify-between border-b border-[hsl(var(--border))]/20 pb-1">
+                          <span className="text-[hsl(var(--muted-foreground))]">Filename</span>
+                          <span className="font-bold truncate max-w-[120px]">{selectedAsset.name}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-[hsl(var(--border))]/20 pb-1">
+                          <span className="text-[hsl(var(--muted-foreground))]">Size</span>
+                          <span className="font-bold">{formatBytes(selectedAsset.size)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[hsl(var(--muted-foreground))]">Uploaded</span>
+                          <span className="font-bold">{formatDate(selectedAsset.created_at)}</span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setUploadedImage({
+                            file: null as any,
+                            preview: selectedAsset.url,
+                            width: 512,
+                            height: 512
+                          });
+                          setMode('image-to-3d');
+                          toast.success('Image set as input reference!');
+                        }}
+                        className="w-full font-black py-2 rounded-xl text-[10px] bg-[hsl(var(--primary))] hover:brightness-110 text-[hsl(var(--surface-0))] flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                      >
+                        <Sparkles size={11} className="fill-current" />
+                        Use as Generation Input
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center justify-between border-b border-[hsl(var(--border))] pb-1">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Model Specs</span>
+                        <button
+                          onClick={async () => {
+                            if (confirm('Delete this asset?')) {
+                              try {
+                                if (selectedAsset.id.startsWith('upload_') || selectedAsset.filename) {
+                                  await apiClient.delete('/api/v1/upload/assets/' + selectedAsset.id);
+                                } else {
+                                  await apiClient.delete('/api/v1/jobs/' + selectedAsset.id);
+                                }
+                                toast.success('Deleted successfully');
+                                setSelectedAsset(null);
+                                setRightTab('storage');
+                                fetchAssets();
+                              } catch (err: any) {
+                                toast.error('Failed to delete');
+                              }
+                            }
+                          }}
+                          className="text-[hsl(var(--destructive))] hover:text-red-400 p-1"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+
+                      <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-xl p-2.5 flex flex-col gap-1.5 font-mono text-[9px]">
+                        <div className="flex justify-between border-b border-[hsl(var(--border))]/20 pb-1">
+                          <span className="text-[hsl(var(--muted-foreground))]">Asset ID</span>
+                          <span className="font-bold truncate max-w-[120px]">{selectedAsset.id}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-[hsl(var(--border))]/20 pb-1">
+                          <span className="text-[hsl(var(--muted-foreground))]">Filename</span>
+                          <span className="font-bold truncate max-w-[120px]">{selectedAsset.name}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-[hsl(var(--border))]/20 pb-1">
+                          <span className="text-[hsl(var(--muted-foreground))]">Format</span>
+                          <span className="font-bold uppercase">{selectedAsset.format}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-[hsl(var(--border))]/20 pb-1">
+                          <span className="text-[hsl(var(--muted-foreground))]">Size</span>
+                          <span className="font-bold">{formatBytes(selectedAsset.size)}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-[hsl(var(--border))]/20 pb-1">
+                          <span className="text-[hsl(var(--muted-foreground))]">Polygons</span>
+                          <span className="font-bold">{selectedAsset.polygon_count?.toLocaleString() || '1,504,233'}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-[hsl(var(--border))]/20 pb-1">
+                          <span className="text-[hsl(var(--muted-foreground))]">Vertices</span>
+                          <span className="font-bold">{selectedAsset.vertex_count?.toLocaleString() || '1,120,490'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[hsl(var(--muted-foreground))]">Created</span>
+                          <span className="font-bold">{formatDate(selectedAsset.created_at)}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5 mt-1">
+                        <button
+                          onClick={() => window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url: selectedAsset.url } }))}
+                          className="w-full font-black py-2 rounded-xl text-[10px] bg-[hsl(var(--surface-1))] hover:bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] flex items-center justify-center gap-1.5 transition-all"
+                        >
+                          <Box size={11} />
+                          Load in Viewer
+                        </button>
+                        <a
+                          href={selectedAsset.url}
+                          download={selectedAsset.filename || 'model.glb'}
+                          className="w-full font-black py-2 rounded-xl text-[10px] bg-[hsl(var(--primary))] hover:brightness-110 text-[hsl(var(--surface-0))] flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                        >
+                          <Download size={11} />
+                          Download Model
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {rightTab === 'progress' && (
+                <div className="flex flex-col gap-3 text-left">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-[hsl(var(--muted-foreground))] border-b border-[hsl(var(--border))] pb-1">Active Pipeline</span>
+                  
+                  {/* Active generation tracking */}
+                  <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-xl p-3 flex flex-col gap-3">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex justify-between items-center text-[10px]">
+                        <span className="font-extrabold text-[hsl(var(--primary))] uppercase tracking-wider">{activeStageLabel}</span>
+                        <span className="font-mono font-black text-[hsl(var(--primary))]">{derivedProgress}%</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-[hsl(var(--border))] rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] rounded-full transition-all duration-300" 
+                          style={{ width: `${derivedProgress}%` }} 
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5 font-mono text-[8px] pt-1.5 border-t border-[hsl(var(--border))]/40 max-h-[140px] overflow-y-auto">
+                      {[
+                        { label: 'Preparing', threshold: 10, duration: '00:12' },
+                        { label: 'Loading Model', threshold: 25, duration: '00:18' },
+                        { label: 'Generating Base Mesh', threshold: 38, duration: '01:24' },
+                        { label: 'Remeshing', threshold: 50, duration: '00:35' },
+                        { label: 'Generating Texture', threshold: 65, duration: '01:02' },
+                        { label: 'Exporting', threshold: 100, duration: 'Pending' },
+                      ].map((step, idx) => {
+                        const isDone = derivedProgress >= step.threshold || (currentJob?.status === 'completed');
+                        const isCurrent = derivedProgress < step.threshold && (idx === 0 || derivedProgress >= (idx > 0 ? [10, 25, 38, 50, 65][idx - 1] : 0));
+                        return (
+                          <div key={step.label} className={`flex items-center justify-between ${isDone ? 'text-[hsl(var(--neon-green))]' : isCurrent && isGenerating ? 'text-[hsl(var(--primary))] animate-pulse font-extrabold' : 'text-[hsl(var(--muted-foreground))]'}`}>
+                            <span className="truncate">{step.label}</span>
+                            <span>{isCurrent && isGenerating ? 'In Progress' : step.duration}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Model Capability specs */}
+                  <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-xl p-3 flex flex-col gap-1.5 text-[9px] font-mono">
+                    <div className="flex justify-between">
+                      <span className="text-[hsl(var(--muted-foreground))]">Active Provider</span>
+                      <span className="font-bold text-[hsl(var(--foreground))]">{activeModel?.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[hsl(var(--muted-foreground))]">VRAM Needed</span>
+                      <span className="font-bold text-[hsl(var(--foreground))]">{(activeModel?.vram_required_mb / 1024).toFixed(1)} GB</span>
+                    </div>
+                  </div>
+
+                  {/* Export Trigger options */}
+                  <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--surface-3))] rounded-xl p-3 flex flex-col gap-2.5">
+                    <span className="text-[9px] font-black uppercase tracking-wider text-[hsl(var(--foreground))] border-b border-[hsl(var(--border))]/20 pb-1">Quick Export</span>
+                    <div className="grid grid-cols-5 gap-1 bg-[hsl(var(--surface-2))] p-0.5 rounded-lg border border-[hsl(var(--surface-3))]">
+                      {(['GLB', 'FBX', 'OBJ', 'USDZ', 'STL'] as const).map((fmt) => (
+                        <button
+                          key={fmt}
+                          onClick={() => setExportFormat(fmt)}
+                          className={`py-1 text-[8px] font-black rounded transition-all ${
+                            exportFormat === fmt
+                              ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-0))] shadow-sm'
+                              : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+                          }`}
+                        >
+                          {fmt}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => setShowExportDialog(true)}
+                      className="w-full font-black py-2 rounded-xl text-[10px] bg-[hsl(var(--primary))] hover:brightness-110 text-[hsl(var(--surface-0))] flex items-center justify-center gap-1 transition-all"
+                    >
+                      <Download size={11} />
+                      Trigger Export Dialog
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </aside>
 
       {/* Export Dialog */}

@@ -8,12 +8,16 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import anime from 'animejs';
 import {
-  Folder, Cpu, RefreshCw, Palette, Bookmark, Layers, Heart, Globe, Code, Settings, Sparkles, HelpCircle, LogOut, Activity
+  Folder, Cpu, RefreshCw, Palette, Bookmark, Layers, Heart, Globe, Code, Settings, Sparkles, HelpCircle, LogOut, Activity, Zap, Wifi, ChevronDown
 } from 'lucide-react';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useGeneration } from '@/hooks/useGeneration';
+import { runtimeService } from '@/services/runtimeService';
+import type { RuntimeStatus } from '@/types';
+import { StatusDot } from '@/components/premium/StatusDot';
+import { useBackendStatus } from '@/hooks/useBackendData';
 
 // Import our modular redesigned tabs
 import WorkspaceTab from './WorkspaceTab';
@@ -35,10 +39,32 @@ import { officeChairShapes } from './data';
 
 interface CreativeWorkspaceLayoutProps {
   onToggleLayout?: () => void;
+  defaultTab?: string;
 }
 
-export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWorkspaceLayoutProps = {}) {
-  const [activeSidebarItem, setActiveSidebarItem] = useState('Workspace');
+export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: CreativeWorkspaceLayoutProps = {}) {
+  const [activeSidebarItem, setActiveSidebarItem] = useState(defaultTab || 'Workspace');
+  const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
+  const backendStatus = useBackendStatus();
+  const [monitorExpanded, setMonitorExpanded] = useState(true);
+  const [gpuExpanded, setGpuExpanded] = useState(false);
+
+  const vramPercentage = useMemo(() => {
+    if (!runtime || !runtime.vram_total_mb) return 0;
+    return Math.min(100, Math.max(0, (runtime.vram_used_mb / runtime.vram_total_mb) * 100));
+  }, [runtime]);
+
+  useEffect(() => {
+    const tick = async () => {
+      try {
+        const status = await runtimeService.getStatus();
+        if (status) setRuntime(status);
+      } catch { /* silently ignore */ }
+    };
+    tick();
+    const interval = setInterval(tick, 10000);
+    return () => clearInterval(interval);
+  }, []);
   
   // Fetch real history from backend
   const { loadHistory, jobHistory, isLoadingHistory, loadingError } = useGenerationStore();
@@ -251,58 +277,157 @@ export default function CreativeWorkspaceLayout({ onToggleLayout }: CreativeWork
   return (
     <div className="flex flex-1 min-h-0 min-w-0 bg-[hsl(var(--surface-0))] text-[hsl(var(--foreground))]" id="creative-layout-container">
       {/* Sidebar panel */}
-      <aside className="w-[240px] lg:w-[280px] bg-[hsl(var(--surface-1))] border-r border-[hsl(var(--border))] flex flex-col justify-between flex-shrink-0 z-20" id="creative-sidebar">
-        <div className="flex flex-col h-full">
-          {/* Minimal Brand Header */}
-          <div className="h-16 flex items-center px-6 border-b border-[hsl(var(--border))]" id="creative-logo-header">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[hsl(var(--primary))] to-[hsl(var(--primary))/0.5] flex items-center justify-center shadow-lg shadow-[hsl(var(--primary))/0.2]">
-                <Sparkles size={18} className="text-white" />
-              </div>
-              <div className="flex flex-col leading-none">
-                <span className="text-sm font-black tracking-tighter uppercase">AI Studio</span>
-                <span className="text-[9px] font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-widest mt-0.5">3D Workspace</span>
-              </div>
+      <aside className="w-[240px] lg:w-[280px] bg-[hsl(var(--surface-1))] border-r border-[hsl(var(--border))] flex flex-col min-h-0 flex-shrink-0 z-20" id="creative-sidebar">
+        {/* Minimal Brand Header */}
+        <div className="h-16 flex items-center px-6 border-b border-[hsl(var(--border))] flex-shrink-0" id="creative-logo-header">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[hsl(var(--primary))] to-[hsl(var(--primary))/0.5] flex items-center justify-center shadow-lg shadow-[hsl(var(--primary))/0.2]">
+              <Sparkles size={18} className="text-white" />
             </div>
-          </div>
-
-          {/* Navigation Links */}
-          <div className="flex-1 py-6 px-3 overflow-y-auto space-y-1" id="creative-sidebar-links">
-            <div className="px-3 mb-2">
-              <span className="text-[10px] font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest">Main Menu</span>
+            <div className="flex flex-col leading-none">
+              <span className="text-sm font-black tracking-tighter uppercase">AI Studio</span>
+              <span className="text-[9px] font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-widest mt-0.5">3D Workspace</span>
             </div>
-            {sidebarItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeSidebarItem === item.label;
-              return (
-                <button
-                  key={item.label}
-                  onClick={() => setActiveSidebarItem(item.label)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left border ${
-                    isActive
-                      ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 border-[hsl(var(--primary))]/25 shadow-sm'
-                      : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--foreground)/0.02)] border-transparent'
-                  }`}
-                  id={`sidebar-nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-                >
-                  <Icon size={15} className={isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'} />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
           </div>
         </div>
 
+        {/* Navigation Links */}
+        <div className="flex-1 py-4 px-3 overflow-y-auto space-y-1 min-h-0" id="creative-sidebar-links">
+          <div className="px-3 mb-2">
+            <span className="text-[10px] font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest">Main Menu</span>
+          </div>
+          {sidebarItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeSidebarItem === item.label;
+            return (
+              <button
+                key={item.label}
+                onClick={() => setActiveSidebarItem(item.label)}
+                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-all text-left border w-full ${
+                  isActive
+                    ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 border-[hsl(var(--primary))]/25 shadow-sm'
+                    : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--foreground)/0.02)] border-transparent'
+                }`}
+                id={`sidebar-nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+              >
+                <Icon size={15} className={isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'} />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Footer controls */}
-        <div className="pt-4 border-t border-[hsl(var(--border))] flex flex-col gap-2" id="creative-sidebar-footer">
-          <button className="flex items-center gap-3 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--muted-foreground))] transition-all text-left" id="help-docs-btn">
-            <HelpCircle size={14} />
-            <span>Help & Docs</span>
-          </button>
-          <button className="flex items-center gap-3 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-[hsl(var(--destructive))] hover:text-[hsl(var(--destructive)/0.8)] transition-all text-left" id="creative-logout-btn">
-            <LogOut size={14} />
-            <span>Log Out</span>
-          </button>
+        <div className="py-4 border-t border-[hsl(var(--border))] flex flex-col gap-2 flex-shrink-0" id="creative-sidebar-footer">
+          {/* Status indicators */}
+          <div className="px-3 mb-2 flex flex-col gap-2">
+            <div className="px-3 mb-1 flex items-center justify-between">
+              <span className="text-[10px] font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest">System Monitor</span>
+              <button 
+                onClick={() => setMonitorExpanded(!monitorExpanded)}
+                className="p-1 rounded hover:bg-[hsl(var(--foreground)/0.05)] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-all duration-150"
+                title={monitorExpanded ? "Collapse System Monitor" : "Expand System Monitor"}
+                id="system-monitor-toggle-btn"
+              >
+                <ChevronDown size={12} className={`transform transition-transform duration-200 ${monitorExpanded ? '' : '-rotate-90'}`} />
+              </button>
+            </div>
+
+            {monitorExpanded && (
+              <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                {/* GPU Item */}
+                <div className="flex flex-col gap-1.5">
+                  <button 
+                    onClick={() => setGpuExpanded(!gpuExpanded)}
+                    className="flex items-center justify-between w-full px-3 py-2 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border)/0.5)] hover:border-[hsl(var(--border))] transition-all duration-200 text-left cursor-pointer"
+                    id="gpu-status-toggle-btn"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Cpu className="w-3.5 h-3.5 text-[hsl(var(--neon-cyan))]" style={{ filter: 'drop-shadow(0 0 6px hsl(var(--neon-cyan) / 0.6))' }} />
+                      <span className="text-[11px] font-semibold text-[hsl(var(--muted-foreground))]">GPU</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <StatusDot status={runtime?.cuda_available === true ? 'online' : runtime?.cuda_available === false ? 'offline' : 'loading'} size="sm" />
+                      <ChevronDown size={11} className={`text-[hsl(var(--muted-foreground))] transform transition-transform duration-200 ${gpuExpanded ? 'rotate-180' : ''}`} />
+                    </div>
+                  </button>
+
+                  {/* GPU Expanded Stats Sub-widget */}
+                  {gpuExpanded && (
+                    <div className="px-3 py-2 rounded-lg bg-[hsl(var(--surface-3))] border border-[hsl(var(--border)/0.45)] text-[10px] space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-150" id="gpu-expanded-details">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[hsl(var(--muted-foreground))]">Name:</span>
+                        <span className="font-semibold text-right max-w-[130px] truncate" title={runtime?.gpu_name || "Unknown GPU"}>
+                          {runtime?.gpu_name || "NVIDIA GPU"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[hsl(var(--muted-foreground))]">Utilization:</span>
+                        <span className="font-bold text-[hsl(var(--neon-cyan))] font-mono">
+                          {runtime ? `${runtime.gpu_utilization}%` : '—'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[hsl(var(--muted-foreground))]">Temperature:</span>
+                        <span className="font-bold text-[hsl(var(--neon-amber))] font-mono">
+                          {runtime ? `${runtime.gpu_temp}°C` : '—'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[hsl(var(--muted-foreground))]">CUDA Version:</span>
+                        <span className="font-mono">{runtime?.cuda_version || "—"}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[hsl(var(--muted-foreground))]">Driver Version:</span>
+                        <span className="font-mono">{runtime?.driver_version || "—"}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Backend Connection */}
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border)/0.5)] transition-all duration-200">
+                  <div className="flex items-center gap-2">
+                    <Wifi className="w-3.5 h-3.5 text-[hsl(var(--neon-green))]" style={{ filter: 'drop-shadow(0 0 6px hsl(var(--neon-green) / 0.6))' }} />
+                    <span className="text-[11px] font-semibold text-[hsl(var(--muted-foreground))]">Backend</span>
+                  </div>
+                  <StatusDot status={backendStatus === 'online' ? 'online' : backendStatus === 'offline' ? 'offline' : 'loading'} size="sm" />
+                </div>
+                
+                {/* VRAM Metric */}
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border)/0.5)] transition-all duration-200">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-3.5 h-3.5 text-[hsl(var(--neon-amber))]" style={{ filter: 'drop-shadow(0 0 6px hsl(38 92% 50% / 0.6))' }} />
+                    <span className="text-[11px] font-semibold text-[hsl(var(--muted-foreground))]">VRAM</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono text-[hsl(var(--muted-foreground))] font-semibold">
+                      {runtime ? `${(runtime.vram_used_mb / 1024).toFixed(1)}/${(runtime.vram_total_mb / 1024).toFixed(0)}G` : '—'}
+                    </span>
+                    {runtime && (
+                      <div className="w-10 h-1.5 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden border border-[hsl(var(--border))/0.2]">
+                        <div 
+                          className="h-full bg-gradient-to-r from-[hsl(var(--neon-cyan))] to-[hsl(var(--neon-purple))] transition-all duration-300"
+                          style={{ width: `${vramPercentage}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1 px-1">
+            <button className="flex items-center gap-3 px-3 py-2 rounded-lg text-[11px] font-semibold text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--foreground)/0.02)] transition-all text-left" id="help-docs-btn">
+              <HelpCircle size={14} />
+              <span>Help & Docs</span>
+            </button>
+            <button className="flex items-center gap-3 px-3 py-2 rounded-lg text-[11px] font-semibold text-[hsl(var(--destructive))] hover:text-[hsl(var(--destructive)/0.8)] hover:bg-[hsl(var(--destructive)/0.05)] transition-all text-left" id="creative-logout-btn">
+              <LogOut size={14} />
+              <span>Log Out</span>
+            </button>
+          </div>
         </div>
       </aside>
 

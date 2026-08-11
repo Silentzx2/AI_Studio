@@ -49,30 +49,30 @@ export function ThreeDViewer() {
   const { currentJob } = useGenerationStore();
 
   return (
-      <div className={cn('relative flex flex-col bg-surface-0 overflow-hidden', viewer.fullscreen ? 'fixed inset-0 z-50' : 'flex-1 min-h-0')}>
+      <div className={cn('relative flex flex-col bg-[#111115] overflow-hidden', viewer.fullscreen ? 'fixed inset-0 z-50' : 'flex-1 min-h-0')}>
       <div className="relative flex-1 min-h-0">
         <ViewerToolbar />
         <ViewerPlaceholder />
         {/* Camera viewport corner decorations */}
-        <div className="absolute top-2 left-2 w-6 h-6 pointer-events-none z-10" style={{ borderTop: '1.5px solid hsl(var(--neon-purple) / 0.25)', borderLeft: '1.5px solid hsl(var(--neon-purple) / 0.25)', borderRadius: '4px 0 0 0' }} />
-        <div className="absolute top-2 right-2 w-6 h-6 pointer-events-none z-10" style={{ borderTop: '1.5px solid hsl(var(--neon-purple) / 0.25)', borderRight: '1.5px solid hsl(var(--neon-purple) / 0.25)', borderRadius: '0 4px 0 0' }} />
-        <div className="absolute bottom-2 left-2 w-6 h-6 pointer-events-none z-10" style={{ borderBottom: '1.5px solid hsl(var(--neon-purple) / 0.25)', borderLeft: '1.5px solid hsl(var(--neon-purple) / 0.25)', borderRadius: '0 0 0 4px' }} />
-        <div className="absolute bottom-2 right-2 w-6 h-6 pointer-events-none z-10" style={{ borderBottom: '1.5px solid hsl(var(--neon-purple) / 0.25)', borderRight: '1.5px solid hsl(var(--neon-purple) / 0.25)', borderRadius: '0 0 4px 0' }} />
+        <div className="absolute top-2 left-2 w-6 h-6 pointer-events-none z-10" style={{ borderTop: '1.5px solid rgba(255, 255, 255, 0.1)', borderLeft: '1.5px solid rgba(255, 255, 255, 0.1)', borderRadius: '4px 0 0 0' }} />
+        <div className="absolute top-2 right-2 w-6 h-6 pointer-events-none z-10" style={{ borderTop: '1.5px solid rgba(255, 255, 255, 0.1)', borderRight: '1.5px solid rgba(255, 255, 255, 0.1)', borderRadius: '0 4px 0 0' }} />
+        <div className="absolute bottom-2 left-2 w-6 h-6 pointer-events-none z-10" style={{ borderBottom: '1.5px solid rgba(255, 255, 255, 0.1)', borderLeft: '1.5px solid rgba(255, 255, 255, 0.1)', borderRadius: '0 0 0 4px' }} />
+        <div className="absolute bottom-2 right-2 w-6 h-6 pointer-events-none z-10" style={{ borderBottom: '1.5px solid rgba(255, 255, 255, 0.1)', borderRight: '1.5px solid rgba(255, 255, 255, 0.1)', borderRadius: '0 0 4px 0' }} />
         <Canvas camera={{ position: [0, 3, 6], fov: 45 }} shadows gl={{ antialias: true, alpha: true }} className="w-full h-full" style={{ background: 'transparent' }}>
           <Suspense fallback={null}>
             <ViewerScene />
           </Suspense>
           {viewer.showStats && <Stats className="!absolute !top-14 !left-4" />}
         </Canvas>
-        {/* Cinematic animated mesh background */}
-        <div className="absolute inset-0 pointer-events-none -z-10 bg-animated-mesh">
-          <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 40%, hsl(var(--surface-0)) 0%, hsl(var(--surface-1)) 40%, hsl(var(--surface-2)) 70%, hsl(var(--surface-3)) 100%)' }} />
+        {/* Cinematic dark studio gray background */}
+        <div className="absolute inset-0 pointer-events-none -z-10 bg-[#0d0d11]">
+          <div className="absolute inset-0 opacity-80" style={{ background: 'radial-gradient(circle at 50% 50%, #1c1c24 0%, #0d0d11 100%)' }} />
         </div>
-        {/* Vignette / inner shadow effect */}
-        <div className="absolute inset-0 pointer-events-none -z-10" style={{ boxShadow: 'inset 0 0 120px 40px hsl(var(--surface-0)/0.7), inset 0 0 60px 20px hsl(var(--surface-2)/0.5)' }} />
+        {/* Vignette / dark inner shadow effect */}
+        <div className="absolute inset-0 pointer-events-none -z-10" style={{ boxShadow: 'inset 0 0 140px 40px rgba(0,0,0,0.9), inset 0 0 80px 20px rgba(0,0,0,0.6)' }} />
         {/* Fullscreen ambient glow border */}
         {viewer.fullscreen && (
-          <div className="absolute inset-0 pointer-events-none -z-10 rounded-none" style={{ boxShadow: 'inset 0 0 80px 10px hsl(var(--neon-purple)/0.04), inset 0 0 2px 1px hsl(var(--neon-purple)/0.15), inset 0 0 200px 40px hsl(var(--neon-blue)/0.03)' }} />
+          <div className="absolute inset-0 pointer-events-none -z-10 rounded-none" style={{ boxShadow: 'inset 0 0 80px 10px rgba(0,0,0,0.5), inset 0 0 2px 1px rgba(255,255,255,0.05)' }} />
         )}
       </div>
     </div>

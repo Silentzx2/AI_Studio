@@ -176,7 +176,7 @@ const DEFAULT_STATE: AppStateData = {
   mobileMenuOpen: false,
   mobileLeftSidebarOpen: false,
   mobileRightSidebarOpen: false,
-  viewer: { mode: 'solid', autoRotate: false, showGrid: true, showWireframe: false, fullscreen: false, showStats: false },
+  viewer: { mode: 'solid', autoRotate: false, showGrid: false, showWireframe: false, fullscreen: false, showStats: false },
   inspectorTab: 'scene',
   bottomDockTab: 'recent',
   creativeLayoutMode: true,

@@ -1,5 +1,79 @@
 # AI 3D Studio — Changelog
 
+## v3.6.8 — CLI Host Parameter Mapping (August 11, 2026)
+
+### Fixed
+- **Next.js CLI Start Options Mapping**: Implemented a dedicated `scripts/dev.js` script to cleanly intercept and map the unsupported `--host` parameter to Next.js's native `--hostname` option.
+- **Frontend Startup Resolution**: Prevented Node.js from misinterpreting appended arguments as native node options, resolving the `node: bad option: --port` crash on start and restoring normal container routing on port 3000.
+
+## v3.6.7 — Clean JSX Compile & Linter Compliance (August 11, 2026)
+
+### Fixed
+- **JSX Compilation Syntax Error**: Fixed a JSX element matching and closing tag syntax issue in `features/workspace/new-ui/ThreeDGenerationTab.tsx` around line 1320, resolving the `'Expected </', got 'jsx text'` build error.
+- **Verification and Clean Dev Environment**: Recompiled the frontend application and restarted the development server to ensure a 100% clean, error-free runtime.
+
+## v3.6.6 — Workspace Redesign & Centered Search Header (August 11, 2026)
+
+### Added
+- **Centered Header Cleanup**: Removed all side navigation links, brand tags, and notification components from the workspace header, resulting in a single centered, highly responsive commands search input.
+- **Interactive Workspace Tab Redesign**: Completely refactored the project dashboard into a beautiful, fluid bento-grid layout:
+  - **Real-Time Project Querying**: Integrated a responsive file filter search bar alongside format-specific badges (`GLB`, `OBJ`, `FBX`, `All`).
+  - **Diagnostic Load Gauges**: Transformed simple bars into visual hardware monitors with real-time gradient loads.
+  - **Automated Live Node Logs Stream**: Added a real-time reactive activity terminal that automatically documents node activities and file caching status.
+  - **Interactive Tip Carousel**: Added a dynamic tipping guide displaying material, polygon reduction, and light baking parameters.
+
+### Files Modified
+- Frontend: `features/workspace/WorkspaceNavbar.tsx`
+- Frontend: `features/workspace/new-ui/WorkspaceTab.tsx`
+
+## v3.6.5 — Backend & Runtime Live Integration Verification (August 11, 2026)
+
+### Verified
+- **Strict Live Connection Policy**: Verified that the entire System Monitor panel pulls real-time data from native endpoints:
+  - **GPU Engine Metrics**: Fetched dynamically via `apiClient.get('/api/v1/runtime/status')` to bind real CUDA, driver, GPU name, and utilization telemetry.
+  - **Connection/Backend Indicator**: Polled every 5 seconds using `/api/v1/runtime/health` health checks for status detection.
+  - **VRAM Utilization**: Computes percentages based on actual available device memories returned by the container environment.
+- **Zero-Mock Policy Enforcement**: Inspected and verified that no mock states or dummy fallbacks exist in the monitoring footer.
+
+### Files Audited
+- `features/workspace/new-ui/CreativeWorkspaceLayout.tsx`
+- `hooks/useBackendData.ts`
+- `services/runtimeService.ts`
+
+## v3.6.4 — Interactive System Monitor & GPU Accordion (August 11, 2026)
+
+### Added
+- **System Monitor Visibility Toggle**: Integrated a chevron-based collapse/expand button in the "System Monitor" header, allowing users to tuck away the monitor widgets.
+- **Collapsible GPU Engine Details**: Converted the static GPU indicator into an interactive accordion. Clicking the GPU row reveals deep device metrics:
+  - **Name** (e.g., CUDA device model/vendor)
+  - **Utilization** (real-time processing load percentage)
+  - **Temperature** (live thermodynamic reading)
+  - **CUDA & Driver versions**
+
+### Files Modified
+- Frontend: `features/workspace/new-ui/CreativeWorkspaceLayout.tsx`
+
+## v3.6.3 — Layout Zoom Responsiveness & Flex Enhancements (August 11, 2026)
+
+### Fixed
+- **Viewport Layout Zoom Scaling**: Resolved sidebar vertical overflow where footer elements were pushed out of view on 100% default zoom (or smaller screen heights). Removed parent relative `h-full` limits and introduced a flattened `min-h-0` flex sidebar model that scrolls beautifully when compressed while keeping the footer pinned at the bottom.
+
+### Files Modified
+- Frontend: `features/workspace/new-ui/CreativeWorkspaceLayout.tsx`
+
+## v3.6.2 — Persistent GPU & VRAM System Monitoring (August 11, 2026)
+
+### Added
+- **Refined System Monitor Footer Area**: Rebuilt the bottom-left sidebar monitor into 3 flat, clean, and distinct rows matching the native workspace design theme perfectly.
+- **Separated Status Rows & Logic**: Completely decoupled the GPU engine and the backend connection states:
+  - **GPU**: Displays active physical CUDA engine status.
+  - **Backend**: Tracks network connectivity status to the server.
+- **Compact Inline VRAM Monitor**: Embedded a highly responsive, space-efficient, sub-component visual progress bar alongside the VRAM usage metrics.
+- **Clean Section Heading**: Standardized the monitoring zone with a subtle, grey, uppercase uppercase "System Monitor" header consistent with other sidebar elements.
+
+### Files Modified
+- Frontend: `features/workspace/new-ui/CreativeWorkspaceLayout.tsx`, `features/workspace/WorkspaceNavbar.tsx`
+
 ## v3.6.1 — Bug Fixes & Hardening (August 11, 2026)
 
 ### Fixed
