@@ -1,7 +1,7 @@
 # AI 3D Studio - Architecture Documentation
 
-> **Version**: 3.4.9 (Workspace UI Cleanup)  
-> **Last Updated**: August 9, 2026
+> **Version**: 3.6.9 (3D Generation Tripo-Style Workspace Redesign)  
+> **Last Updated**: August 12, 2026
 
 ---
 
@@ -178,6 +178,10 @@ ai-3d-studio/
 │   │       └── AdvancedSection.tsx
 │   ├── texture/                      # Texture shell
 │   ├── workspace/                    # Workspace feature
+│   │   └── new-ui/                   # Tripo-style professional workspace
+│   │       ├── ThreeDGenerationTab.tsx   # Main 3D generation tab (~1080 lines)
+│   │       ├── AssetStoragePanel.tsx      # Right panel asset browser
+│   │       └── ExportDialog.tsx           # GLB/ZIP export dialog
 │   └── model-manager/                # Model management feature
 │       ├── tabs/
 │       │   ├── InstalledModelsTab.tsx
@@ -352,20 +356,38 @@ App Layout
 │
 ├── Workspace Shell
 │   ├── WorkspaceNavbar
-│   ├── LeftSidebar
-│   │   ├── PromptInput
-│   │   ├── ModelSelector
-│   │   ├── QualitySelector
-│   │   ├── ToggleOptions
-│   │   └── ImageUpload
-│   ├── CenterWorkspace
-│   │   └── ThreeDViewer
-│   │       ├── ViewerScene
-│   │       ├── ViewerToolbar
-│   │       └── DownloadArea
-│   ├── RightSidebar
-│   └── BottomDock
-│       └── History Queue
+│   └── ThreeDGenerationTab (Tripo-style professional workspace)
+│       ├── Tool Strip (vertical icon bar)
+│       │   ├── Model Tool
+│       │   ├── Segment Tool
+│       │   ├── Retopology Tool
+│       │   ├── Texture Tool
+│       │   └── Rig/Animate Tool
+│       ├── Tool Panel (context-sensitive, left side)
+│       │   ├── ModelToolPanel
+│       │   │   ├── Text→3D / Image→3D mode switch
+│       │   │   ├── Model selector (with backend metadata + capability badges)
+│       │   │   ├── Prompt input
+│       │   │   ├── Image upload (drag-drop)
+│       │   │   ├── Advanced settings
+│       │   │   ├── 3D model import
+│       │   │   ├── Generate / Cancel button
+│       │   │   └── Job progress monitor
+│       │   ├── SegmentToolPanel (capability-gated)
+│       │   ├── RemeshToolPanel (topology mode, polygon target)
+│       │   ├── TextureToolPanel (capability-gated)
+│       │   └── RigToolPanel (rig status, animation dependency gate)
+│       ├── Central 3D Viewer
+│       │   ├── ThreeDViewer
+│       │   │   ├── ViewerScene
+│       │   │   └── ViewerToolbar
+│       │   └── ViewerDropOverlay (drag-and-drop 3D models)
+│       └── Right Panel (Asset/Inspector/History)
+│           ├── AssetStoragePanel (real backend assets from /api/v1/upload/assets, /api/v1/jobs)
+│           ├── InspectorTab (model metadata display)
+│           ├── HistoryTabContent (generation history from backend)
+│           └── ExportDialog (GLB/ZIP export via /api/v1/project/export)
+│       └── Responsive: mobile tool sheet, mobile right sheet, desktop tool strip+panel
 │
 ├── Admin Shell
 │   ├── AdminSidebar
@@ -819,11 +841,14 @@ The workspace compatibility system prevents users from selecting incompatible mo
 **Hook** (`hooks/useBackendData.ts`):
 - `useWorkspaceModels(workspace)`: Fetches models compatible with a specific workspace from `/api/v1/pipelines/workspace-models`.
 
-**Workspace Tabs**:
-- `ThreeDGenerationTab.tsx` → `useWorkspaceModels('mesh-generation')`
-- `RiggingAnimationTab.tsx` → `useWorkspaceModels('rigging')`
-- `RemeshTab.tsx` → `useWorkspaceModels('remesh')`
-- `TextureGenTab.tsx` → `useWorkspaceModels('texture-generation')`
+**Workspace Tool Panels** (all within `ThreeDGenerationTab.tsx`):
+- **ModelToolPanel** → `useWorkspaceModels('mesh-generation')` — primary generation tool with Text→3D / Image→3D mode switching, model selector with backend metadata and capability badges, prompt input, image upload with drag-drop, advanced settings, 3D model import, generate/cancel button, and job progress.
+- **SegmentToolPanel** → `useWorkspaceModels('mesh-generation')` — capability-gated segmentation.
+- **RemeshToolPanel** → `useWorkspaceModels('remesh')` — topology mode, polygon target, backend API call.
+- **TextureToolPanel** → `useWorkspaceModels('texture-generation')` — capability-gated texture generation.
+- **RigToolPanel** → `useWorkspaceModels('rigging')` — rig status tracking, animation dependency gate.
+
+> **Note**: The old standalone tab files (`TextureGenTab.tsx`, `RiggingAnimationTab.tsx`, `RemeshTab.tsx`) were replaced by inline tool panels within `ThreeDGenerationTab.tsx`. The old workspace UI components (`BottomDock`, `CenterWorkspace`, `GenerateButton`, `GeneratePanel`, `ImageUpload`, `JobProgressMonitor`, `LeftSidebar`, `ModelSelector`, `PromptInput`, `QualitySelector`, `RightSidebar`, `ToggleOptions`) and dead code (`DownloadArea.tsx`, `LayerVisibilityPanel.tsx`, `AssetLayersPanel.tsx`) were removed entirely. The existing ThreeDViewer, ViewerScene, and ViewerToolbar components are preserved and reused in the central viewer area.
 
 **Pipelines API** (`backend/app/api/v1/pipelines.py`):
 - Workspace filter bar with counts per workspace type.
@@ -836,7 +861,7 @@ The workspace compatibility system prevents users from selecting incompatible mo
 
 ### Overview
 
-The texture generation workflow has been enhanced to support production-grade PBR material painting with model selection, resolution control, and material bias parameters.
+The texture generation workflow has been enhanced to support production-grade PBR material painting with model selection, resolution control, and material bias parameters. Texture generation is now accessed via the **Texture Tool** in the 3D Generation tab's tool strip (TextureToolPanel within `ThreeDGenerationTab.tsx`), rather than a standalone tab.
 
 ### Supported Texture Models
 
@@ -886,7 +911,7 @@ Result returned with texture maps:
 Frontend displays PBR Channel Diagnostics
 ```
 
-### Frontend Controls (TextureGenTab)
+### Frontend Controls (TextureToolPanel)
 
 - **Texture Model Selector**: Dropdown populated from `useWorkspaceModels('texture-generation')`.
 - **Resolution Presets**: 512px (Draft), 1024px (Fast), 2048px (Balanced), 4096px (Ultra).

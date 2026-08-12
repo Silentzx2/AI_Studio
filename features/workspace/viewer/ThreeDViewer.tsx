@@ -44,14 +44,14 @@ function ViewerPlaceholder() {
   );
 }
 
-export function ThreeDViewer() {
+export function ThreeDViewer({ showToolbar = true }: { showToolbar?: boolean } = {}) {
   const { viewer } = useUIStore();
   const { currentJob } = useGenerationStore();
 
   return (
       <div className={cn('relative flex flex-col bg-[#111115] overflow-hidden', viewer.fullscreen ? 'fixed inset-0 z-50' : 'flex-1 min-h-0')}>
       <div className="relative flex-1 min-h-0">
-        <ViewerToolbar />
+        {showToolbar && <ViewerToolbar />}
         <ViewerPlaceholder />
         {/* Camera viewport corner decorations */}
         <div className="absolute top-2 left-2 w-6 h-6 pointer-events-none z-10" style={{ borderTop: '1.5px solid rgba(255, 255, 255, 0.1)', borderLeft: '1.5px solid rgba(255, 255, 255, 0.1)', borderRadius: '4px 0 0 0' }} />

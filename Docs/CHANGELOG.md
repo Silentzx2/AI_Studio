@@ -1,5 +1,58 @@
 # AI 3D Studio — Changelog
 
+## v3.6.9 — 3D Generation Page Tripo-Style Redesign (August 12, 2026)
+
+### Changed
+- **3D Generation Page Complete Redesign**: Replaced the old multi-component 3D generation layout with a professional Tripo-style workspace featuring a three-column design: contextual tool strip + panel (left), central 3D viewer (center), and asset/inspector panel (right).
+- **Tool Panel System**: Implemented five contextual tool panels — Model (Text→3D / Image→3D with mode switching, model selector, capability badges, prompt/image input, advanced settings, 3D model import), Segment (capability-gated segmentation), Retopology (topology mode, polygon target slider), Texture (capability-gated texture generation with PBR warning), Rig/Animate (rig status tracking with animation dependency gate).
+- **Viewer Integration**: Preserved and reused the existing Three.js viewer (ThreeDViewer, ViewerScene, ViewerToolbar) without modification. Added drag-and-drop model upload overlay for the central viewport.
+- **Asset / Inspector / History Right Panel**: Replaced the old right sidebar with a tabbed panel containing the real-backend-driven AssetStoragePanel, an InspectorTab for model metadata, and a HistoryTabContent for generation history.
+- **Responsive Design**: Added mobile tool sheet and mobile right sheet overlays for tablet/mobile viewports while keeping the desktop three-column layout.
+
+### Fixed
+- **TypeScript: Invalid `Cube` icon import**: Removed `Cube` from lucide-react imports (not exported by the library).
+- **TypeScript: `apiClient.post` return type**: Fixed five tool panels that incorrectly checked `res?.ok` on the parsed JSON response. The apiClient throws on non-OK HTTP status, so the `.ok` property does not exist on the return type. Changed to try/catch pattern.
+- **TypeScript: `GenerationMode` type mismatch**: Fixed the `setMode` prop type in ModelToolPanel to accept `string` with an explicit cast at the call site where the store's `GenerationMode`-typed setter is passed.
+
+### Removed (Dead Code Cleanup)
+- `features/workspace/viewer/DownloadArea.tsx` — replaced by AssetStoragePanel export functionality.
+- `features/workspace/new-ui/LayerVisibilityPanel.tsx` — zero importers, superseded by AssetStoragePanel.
+- `features/workspace/new-ui/AssetLayersPanel.tsx` — zero importers, superseded by AssetStoragePanel.
+
+### Unused Import Cleanup
+- Removed 20 unused lucide-react icon imports from ThreeDGenerationTab.tsx (Play, EyeOff, ArrowRight, FileDown, Star, Search, Filter, MousePointer2, Hand, Focus, Grid2X2, ChevronRight, Clock, Download, Eye, RotateCcw, ZoomIn, Maximize2, Trash2, Move, Grid3X3).
+- Removed unused `EXPORT_FORMATS` and `SUPPORTED_IMAGE_FORMATS` constant imports.
+
+### Files Modified
+- Frontend: `features/workspace/new-ui/ThreeDGenerationTab.tsx`
+- Documentation: `Docs/architecture.md`, `Docs/CHANGELOG.md`
+
+### Pre-Merge Deletion Checklist
+> These files should be deleted before merging to the main branch. They are already removed from the EXTRACT directory but may still exist in the target branch.
+
+The following files were listed in the original redesign spec (Section 0) for removal. Most were already deleted in prior releases. Verify they do not exist in the target branch:
+
+- `features/workspace/BottomDock.tsx`
+- `features/workspace/CenterWorkspace.tsx`
+- `features/workspace/GenerateButton.tsx`
+- `features/workspace/GeneratePanel.tsx`
+- `features/workspace/ImageUpload.tsx`
+- `features/workspace/JobProgressMonitor.tsx`
+- `features/workspace/LeftSidebar.tsx`
+- `features/workspace/ModelSelector.tsx`
+- `features/workspace/PromptInput.tsx`
+- `features/workspace/QualitySelector.tsx`
+- `features/workspace/RightSidebar.tsx`
+- `features/workspace/ToggleOptions.tsx`
+
+Additionally, these dead-code files were removed in this release:
+
+- `features/workspace/viewer/DownloadArea.tsx`
+- `features/workspace/new-ui/LayerVisibilityPanel.tsx`
+- `features/workspace/new-ui/AssetLayersPanel.tsx`
+
+**Note**: `features/workspace/WorkspaceNavbar.tsx` is NOT deleted — it is the global navigation bar used by WorkspaceShell and is outside the scope of the 3D Generation page redesign.
+
 ## v3.6.8 — CLI Host Parameter Mapping (August 11, 2026)
 
 ### Fixed

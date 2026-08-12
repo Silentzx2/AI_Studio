@@ -15,7 +15,7 @@
 
 <p align="center">
 
-  <img src="https://img.shields.io/badge/Version-3.4.3-8A2BE2?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Version-3.6.9-8A2BE2?style=for-the-badge">
 
   <img src="https://img.shields.io/badge/Pipeline-V2-Complete-success?style=for-the-badge">
 
