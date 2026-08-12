@@ -30,7 +30,6 @@ import CommunityTab from './CommunityTab';
 import { ModelsTab } from '@/features/admin/tabs/ModelsTab';
 import ApiAccessTab from './ApiAccessTab';
 import WorkspaceSettingsTab from './WorkspaceSettingsTab';
-import ThreeDGenerationTab from './ThreeDGenerationTab';
 
 // Shared type for shapes
 import { Shape3D, HistoryItem } from '@/types/new-ui';
@@ -174,7 +173,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
       },
     });
     setPrompt(item.prompt);
-    setActiveSidebarItem('3D Generation');
+    setActiveSidebarItem('Workspace');
   };
 
   const loadTemplateItem = (template: any) => {
@@ -204,7 +203,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
       },
     });
     setPrompt(template.prompt);
-    setActiveSidebarItem('3D Generation');
+    setActiveSidebarItem('Workspace');
   };
 
   const deleteHistoryItem = async (e: React.MouseEvent, id: string) => {
@@ -240,18 +239,17 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
       name,
       prompt,
     });
-    setActiveSidebarItem('3D Generation');
+    setActiveSidebarItem('Workspace');
   };
 
   const handleSendTo3D = (prompt: string) => {
     setPrompt(prompt);
-    setActiveSidebarItem('3D Generation');
+    setActiveSidebarItem('Workspace');
   };
 
   // Sidebar list matching our ported views
   const sidebarItems = [
     { label: 'Workspace', icon: Folder, visible: true },
-    { label: '3D Generation', icon: Cpu, visible: capabilities.threeDGen },
     { label: 'Rigging & Animation', icon: Activity, visible: capabilities.riggingAnimation },
     { label: 'Remesh', icon: RefreshCw, visible: capabilities.remesh },
     { label: 'Texture Gen', icon: Palette, visible: capabilities.textureGen },
@@ -508,17 +506,6 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
         {activeSidebarItem === 'API Access' && <ApiAccessTab />}
 
         {activeSidebarItem === 'Settings' && <WorkspaceSettingsTab />}
-
-        {/* Real-time 3D Viewport Generation tab matching Studio UI */}
-        {/* activeModel/onUpdateModel wiring confirmed: shared state flows correctly between all tabs */}
-        {activeSidebarItem === '3D Generation' && (
-          <ThreeDGenerationTab
-            activeModel={activeModel}
-            onUpdateModel={setActiveModel}
-            history={history}
-            onLoadProject={loadHistoryItem}
-          />
-        )}
       </main>
     </div>
   );

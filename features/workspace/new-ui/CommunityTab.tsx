@@ -99,7 +99,7 @@ export default function CommunityTab({ onCloneProject, onNavigate }: CommunityTa
 
   const handleClone = (item: CommunityModel) => {
     onCloneProject(item.prompt, item.name);
-    onNavigate('3D Generation');
+    onNavigate('Workspace');
   };
 
   return (

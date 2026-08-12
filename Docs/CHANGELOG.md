@@ -1,5 +1,25 @@
 # AI 3D Studio — Changelog
 
+## v3.7.0 — 3D Generation Page Removed (Frontend Teardown) (Pending rebuild)
+
+### Removed (frontend only — backend/API untouched)
+- `features/workspace/new-ui/ThreeDGenerationTab.tsx` — the 3D Generation page (~1634 lines), including all inline sub-components (ModelToolPanel, SegmentToolPanel, RemeshToolPanel, TextureToolPanel, RigToolPanel, ViewerDropOverlay, ViewportTopBar, ViewerRightToolbar, MaterialBar, BottomDock, StatusBar, RightPanelWrapper).
+- `features/workspace/new-ui/AssetStoragePanel.tsx` — right-panel asset browser, only used by the 3D Generation page.
+- `features/workspace/viewer/ThreeDViewer.tsx` — 3D viewer wrapper, only used by the 3D Generation page.
+- `features/workspace/viewer/ViewerToolbar.tsx` — viewer toolbar, only used by `ThreeDViewer`.
+
+### Preserved for reuse
+- `features/workspace/new-ui/ExportDialog.tsx` — GLB/ZIP export dialog (kept deliberately; will be reused by the rebuilt page).
+- `features/workspace/viewer/ViewerScene.tsx` — shared Three.js scene, still used by the Render and Texture features.
+- `features/render/` + `app/render` and `features/texture/` + `app/texture` — standalone render/texture pages (kept; not part of the 3D Generation page).
+
+### Changed
+- `features/workspace/new-ui/CreativeWorkspaceLayout.tsx` — removed the `ThreeDGenerationTab` import, the `3D Generation` sidebar item, and its render block; the four `setActiveSidebarItem('3D Generation')` navigations now land on `Workspace`.
+- `features/workspace/new-ui/WorkspaceTab.tsx` and `CommunityTab.tsx` — "go to 3D Generation" actions now navigate to `Workspace`.
+
+### Notes
+- This is a deliberate teardown: the 3D Generation page will be rebuilt from scratch. No backend provider/API code was modified.
+
 ## v3.6.9 — 3D Generation Page Tripo-Style Redesign (August 12, 2026)
 
 ### Changed
