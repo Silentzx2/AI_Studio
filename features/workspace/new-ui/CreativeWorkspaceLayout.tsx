@@ -31,9 +31,7 @@ import { ModelsTab } from '@/features/admin/tabs/ModelsTab';
 import ApiAccessTab from './ApiAccessTab';
 import WorkspaceSettingsTab from './WorkspaceSettingsTab';
 
-// Shared type for shapes
-import { Shape3D, HistoryItem } from '@/types/new-ui';
-import { officeChairShapes } from './data';
+import { HistoryItem } from '@/types/new-ui';
 // import { useGenerationHistory } from '@/hooks/useBackendData';
 
 interface CreativeWorkspaceLayoutProps {

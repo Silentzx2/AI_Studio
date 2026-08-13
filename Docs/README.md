@@ -287,7 +287,8 @@ chmod +x scripts/*.sh manager.sh
 | **ReDoc Docs** | http://localhost:8000/redoc | 8000 | ReDoc UI |
 | **Admin Panel** | http://localhost:3000/settings?section=monitoring | 3000 | Administration (via Settings) |
 | **Model Manager** | http://localhost:3000/settings | 3000 | V2 Feature (Settings page) |
-| **Workspace** | http://localhost:3000/workspace | 3000 | Generation |
+| **Workspace** | http://localhost:3000/workspace | 3000 | Dashboard & asset library |
+| **3D Generation** | http://localhost:3000/3d | 3000 | Text/Image → 3D generation (3D-SPACE components) |
 
 ### Manual Setup (Development)
 
@@ -697,6 +698,7 @@ ai-3d-studio/
 │   ├── layout.tsx                     # Root layout
 │   ├── page.tsx                       # Landing/workspace page (renders WorkspaceShell)
 │   ├── workspace/page.tsx             # Main generation workspace
+│   ├── 3d/page.tsx                    # 3D Generation page (3D-SPACE components)
 │   ├── generate/page.tsx              # Quick generate page
 │   ├── render/page.tsx                # Render view
 │   ├── texture/page.tsx               # Texture tools

@@ -116,6 +116,7 @@ app/                              # Next.js App Router pages
 ├── layout.tsx                    # Root layout
 ├── page.tsx                      # Landing/workspace page
 ├── workspace/page.tsx            # Main generation workspace
+├── 3d/page.tsx                   # 3D Generation page (3D-SPACE components)
 ├── generate/page.tsx             # Quick generate page
 ├── render/page.tsx               # Render view
 ├── texture/page.tsx              # Texture tools
@@ -126,15 +127,22 @@ app/                              # Next.js App Router pages
 features/                         # Feature modules (ROOT level, NOT under app/)
 ├── landing/                      # Marketing pages
 ├── workspace/                    # Main workspace UI
-│   └── viewer/                   # Three.js 3D viewer
-├── admin/tabs/                   # Admin dashboard tabs (12 tabs)
+│   ├── 3D-SPACE/                 # 3D Generation building blocks (wired into /3d)
+│   │   ├── GenerationControls.tsx
+│   │   ├── Canvas3D.tsx
+│   │   └── AssetPanel.tsx
+│   ├── ThreeDGenWorkspace.tsx     # /3d page — composes the 3D-SPACE components
+│   ├── WorkspaceShell.tsx
+│   ├── WorkspaceNavbar.tsx
+│   ├── viewer/                   # Shared Three.js 3D viewer (ViewerScene)
+│   └── new-ui/                   # Tripo-style professional workspace
+├── admin/tabs/                   # Admin dashboard tabs
 ├── model-manager/                # Model management
 │   ├── tabs/                     # Model tabs
 │   └── components/               # Model components
 ├── settings/sections/            # Settings sections
 ├── render/                       # Render shell
-├── texture/                      # Texture shell
-└── workspace/                    # Workspace feature
+└── texture/                      # Texture shell
 
 components/                       # Reusable components
 ├── ui/                           # shadcn/ui base components

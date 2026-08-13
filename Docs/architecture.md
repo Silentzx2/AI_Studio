@@ -153,6 +153,7 @@ ai-3d-studio/
 │   ├── layout.tsx                    # Root layout
 │   ├── page.tsx                      # Landing/workspace page (renders WorkspaceShell directly)
 │   ├── workspace/page.tsx            # Main generation workspace
+│   ├── 3d/page.tsx                   # 3D Generation page (3D-SPACE components)
 │   ├── generate/page.tsx             # Quick generate page
 │   ├── render/page.tsx               # Render view
 │   ├── texture/page.tsx              # Texture tools
@@ -177,9 +178,17 @@ ai-3d-studio/
 │   │       ├── NetworkSection.tsx
 │   │       └── AdvancedSection.tsx
 │   ├── texture/                      # Texture shell
+│   ├── 3D-SPACE/                     # 3D Generation building blocks (wired into /3d)
+│   │   ├── GenerationControls.tsx    # Model/prompt/settings UI + generate/cancel
+│   │   ├── Canvas3D.tsx              # Three.js 3D viewer (drag-drop, toolbar, states)
+│   │   └── AssetPanel.tsx            # Asset list + inspector + export/download
 │   ├── workspace/                    # Workspace feature
+│   │   ├── ThreeDGenWorkspace.tsx    # /3d page — composes the 3D-SPACE components
+│   │   ├── WorkspaceShell.tsx
+│   │   ├── WorkspaceNavbar.tsx       # Global nav (/, /workspace, /3d, /settings)
+│   │   ├── viewer/ViewerScene.tsx     # Shared Three.js scene (Render/Texture)
 │   │   └── new-ui/                   # Tripo-style professional workspace
-│   │       └── ExportDialog.tsx           # GLB/ZIP export dialog (preserved for reuse; 3D Generation tab was removed)
+│   │       └── ExportDialog.tsx           # GLB/ZIP export dialog (preserved for reuse)
 │   └── model-manager/                # Model management feature
 │       ├── tabs/
 │       │   ├── InstalledModelsTab.tsx
@@ -355,7 +364,7 @@ App Layout
 ├── Workspace Shell
 │   ├── WorkspaceNavbar
 │   └── Sidebar tabs: Workspace, Remesh, Texture Gen, Rigging & Animation, My Assets, Models, Favorites, Community, API Access, Settings
-│       └── (3D Generation tab removed — to be rebuilt from scratch. ExportDialog preserved for reuse.)
+│       └── (3D Generation rebuilt as the `/3d` page using the `3D-SPACE/` components. ExportDialog preserved for reuse.)
 │
 ├── Admin Shell
 │   ├── AdminSidebar
@@ -816,7 +825,7 @@ The workspace compatibility system prevents users from selecting incompatible mo
 - **TextureToolPanel** → `useWorkspaceModels('texture-generation')` — capability-gated texture generation.
 - **RigToolPanel** → `useWorkspaceModels('rigging')` — rig status tracking, animation dependency gate.
 
-> **Note**: The 3D Generation tab (`ThreeDGenerationTab.tsx`) and its exclusive components (`AssetStoragePanel.tsx`, `ThreeDViewer.tsx`, `ViewerToolbar.tsx`) were removed from the frontend to be rebuilt from scratch. The old standalone tab files (`TextureGenTab.tsx`, `RiggingAnimationTab.tsx`, `RemeshTab.tsx`) were replaced by the inline tool panels that lived within `ThreeDGenerationTab.tsx`. The old workspace UI components (`BottomDock`, `CenterWorkspace`, `GenerateButton`, `GeneratePanel`, `ImageUpload`, `JobProgressMonitor`, `LeftSidebar`, `ModelSelector`, `PromptInput`, `QualitySelector`, `RightSidebar`, `ToggleOptions`) and dead code (`DownloadArea.tsx`, `LayerVisibilityPanel.tsx`, `AssetLayersPanel.tsx`) were removed entirely. The shared `ViewerScene` component is preserved and reused by the Render and Texture features; `ExportDialog` is preserved for reuse.
+> **Note**: The 3D Generation tab (`ThreeDGenerationTab.tsx`) and its exclusive components (`AssetStoragePanel.tsx`, `ThreeDViewer.tsx`, `ViewerToolbar.tsx`) were removed from the frontend and **rebuilt as the `/3d` page** (`app/3d/page.tsx` → `features/workspace/ThreeDGenWorkspace.tsx`). That page composes three reusable building blocks in `3D-SPACE/` — `GenerationControls` (left), `Canvas3D` (center), `AssetPanel` (right). These components were newly wired into the app and consume the real generation pipeline (`useGeneration` + `useGenerationStore` + `useRuntimeOptions`) and real backend history; no mock data is shown. The old standalone tab files (`TextureGenTab.tsx`, `RiggingAnimationTab.tsx`, `RemeshTab.tsx`) were replaced by the inline tool panels that lived within `ThreeDGenerationTab.tsx`. The old workspace UI components (`BottomDock`, `CenterWorkspace`, `GenerateButton`, `GeneratePanel`, `ImageUpload`, `JobProgressMonitor`, `LeftSidebar`, `ModelSelector`, `PromptInput`, `QualitySelector`, `RightSidebar`, `ToggleOptions`) and dead code (`DownloadArea.tsx`, `LayerVisibilityPanel.tsx`, `AssetLayersPanel.tsx`, `data.ts`) were removed entirely. The shared `ViewerScene` component is preserved and reused by the Render and Texture features; `ExportDialog` is preserved for reuse.
 
 **Pipelines API** (`backend/app/api/v1/pipelines.py`):
 - Workspace filter bar with counts per workspace type.

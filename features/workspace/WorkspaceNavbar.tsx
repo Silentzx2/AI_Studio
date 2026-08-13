@@ -16,6 +16,7 @@ import { useUIStore } from '@/stores/useUIStore';
 const NAV_LINKS = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/workspace', label: 'Workspace', icon: Box },
+  { href: '/3d', label: '3D Gen', icon: Boxes },
   // ponytail: Changed /models to /settings?section=models - unified model management
   { href: '/settings?section=models', label: 'Models', icon: Boxes },
   { href: '/settings', label: 'Settings', icon: Package },

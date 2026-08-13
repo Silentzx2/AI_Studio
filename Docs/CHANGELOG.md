@@ -1,5 +1,26 @@
 # AI 3D Studio — Changelog
 
+## v3.7.1 — 3D Generation Rebuilt as `/3d` (3D-SPACE components wired) (August 13, 2026)
+
+### Added
+- **`/3d` generation page** — full three-column 3D generation workspace, replacing the removed `ThreeDGenerationTab`.
+- **`features/workspace/ThreeDGenWorkspace.tsx`** — composes the three `3D-SPACE/` building blocks (left `GenerationControls`, center `Canvas3D`, right `AssetPanel`) and feeds them real backend data via `useGenerationStore.loadHistory()`; refreshes the asset list when a generation completes.
+- **`3D-SPACE/` components are now wired into the app**:
+  - `GenerationControls` drives the real generation pipeline (`useGeneration` + `useGenerationStore` + `useRuntimeOptions`).
+  - `Canvas3D` renders `currentJob.result` from `useGenerationStore` and reacts to `load-glb-model` custom events.
+  - `AssetPanel` is fed real `jobHistory` assets with select → canvas (dispatch `load-glb-model`) and delete → backend (`DELETE /api/v1/jobs/:id`).
+- **Nav link** added to `WorkspaceNavbar` (`/3d` — "3D Gen").
+
+### Removed (Dead Code Cleanup)
+- `features/workspace/viewer/DownloadArea.tsx` — zero importers.
+- `features/workspace/new-ui/LayerVisibilityPanel.tsx` — zero importers.
+- `features/workspace/new-ui/AssetLayersPanel.tsx` — zero importers.
+- `features/workspace/new-ui/data.ts` — only exported the unused mock `officeChairShapes`; removed its dead import from `CreativeWorkspaceLayout.tsx`.
+
+### Notes
+- **No mock data**: the new page renders only real backend history; the previous `officeChairShapes` mock geometry is gone.
+- The `viewer/` directory is retained (it still hosts the shared `ViewerScene.tsx` used by the Render and Texture features).
+
 ## v3.7.0 — 3D Generation Page Removed (Frontend Teardown) (Pending rebuild)
 
 ### Removed (frontend only — backend/API untouched)
