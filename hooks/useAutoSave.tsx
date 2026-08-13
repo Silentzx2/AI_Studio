@@ -34,39 +34,40 @@ export function useAutoSave<T>(
       : true;
 
 useEffect(() => {
-  if (skipInitial && initialRender.current) {
-    initialRender.current = false;
-    return;
-  }
+    if (skipInitial && initialRender.current) {
+        initialRender.current = false;
+        return;
+    }
 
-  if (!isAutoSaveEnabled) {
-    setIsModified(true);
-    return;
-  }
+    if (!isAutoSaveEnabled) {
+        setIsModified(true);
+        return;
+    }
 
-  // Handle manual modifications separately
+    // Handle manual modifications separately
 }, [isAutoSaveEnabled]);
 
+useEffect(() => {
     setStatus('saving');
 
     const handler = setTimeout(async () => {
-      try {
-        await saveActionRef.current(data);
-        setStatus('saved');
-      } catch {
-        setStatus('error');
-      } finally {
-        setTimeout(() => {
-          setStatus((current) =>
-            current === 'saved' || current === 'error' ? 'idle' : current
-          );
-        }, 2500);
-      }
+        try {
+            await saveActionRef.current(data);
+            setStatus('saved');
+        } catch {
+            setStatus('error');
+        } finally {
+            setTimeout(() => {
+                setStatus((current) =>
+                    current === 'saved' || current === 'error' ? 'idle' : current
+                );
+            }, 2500);
+        }
     }, delay);
 
     return () => clearTimeout(handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, delay, skipInitial]);
+}, [data, delay, skipInitial]);
 
   const handleManualSave = async () => {
     setStatus('saving');

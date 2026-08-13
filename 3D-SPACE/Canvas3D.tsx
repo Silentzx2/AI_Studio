@@ -370,30 +370,62 @@ export default function Canvas3D({ isGenerating }: Canvas3DProps) {
   const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragOver(true); }, []);
   const handleDragLeave = useCallback(() => setIsDragOver(false), []);
 
-  /* Fullscreen mode */
-  if (viewer.fullscreen) {
-    return (
-      <div ref={containerRef} className="fixed inset-0 z-50 bg-[radial-gradient(circle_at_50%_30%,#3a3e46_0%,#26282e_55%,#16181c_100%)]"
-        onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave}>
-        <ErrorBoundary fallback={<div className="w-full h-full flex items-center justify-center text-[hsl(var(--muted-foreground))]">Canvas error</div>}>
-          <Canvas key={viewer.fullscreen ? 'fs' : 'normal'} camera={{ position: [0, 3, 6], fov: 45 }} gl={{ preserveDrawingBuffer: true, antialias: true }} className="w-full h-full" style={{ position: 'absolute', inset: 0 }}>
-            <InnerScene />
-          </Canvas>
-        </ErrorBoundary>
-        <button onClick={toggleFullscreen} className="absolute top-4 right-4 z-50 p-2 rounded-lg bg-[hsl(var(--surface-1))/0.8] backdrop-blur border border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))] transition-all">
-          <Minimize2 size={16} />
-        </button>
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 p-1.5 rounded-xl bg-[hsl(var(--surface-1))/0.8] backdrop-blur border border-[hsl(var(--border))]">
-          <ToolBtn icon={RotateCcw} label="Reset Camera" onClick={resetCamera} />
-          <ToolBtn icon={Grid3X3} active={viewer.showGrid} label="Grid" onClick={toggleGrid} />
-          <ToolBtn icon={ToggleLeft} active={viewer.showWireframe} label="Wireframe" onClick={toggleWireframe} />
-          <ToolBtn icon={RotateCcw} active={viewer.autoRotate} label="Auto Rotate" onClick={toggleAutoRotate} />
-          <ToolBtn icon={BarChart3} active={viewer.showStats} label="Stats" onClick={toggleStats} />
-        </div>
-        {viewer.showStats && <Stats className="!absolute !bottom-16 !left-4 !z-50" />}
-      </div>
-    );
-  }
+/* Fullscreen mode */
+   if (viewer.fullscreen) {
+     return (
+       <div ref={containerRef} className="fixed inset-0 z-50 bg-[radial-gradient(circle_at_50%_30%,#3a3e46_0%,#26282e_55%,#16181c_100%)]"
+         onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave}>
+         <ErrorBoundary fallback={<div className="w-full h-full flex items-center justify-center text-[hsl(var(--muted-foreground))]">Canvas error</div>}>
+           <Canvas key={viewer.fullscreen ? 'fs' : 'normal'} camera={{ position: [0, 3, 6], fov: 45 }} gl={{ preserveDrawingBuffer: true, antialias: true }} className="w-full h-full" style={{ position: 'absolute', inset: 0 }}>
+             <InnerScene />
+           </Canvas>
+         </ErrorBoundary>
+         
+         {/* Drag/Drop Indicators - same as normal mode */}
+         {isDragOver && (
+           <div className="absolute inset-0 z-40 bg-[hsl(var(--primary))/0.08] border-2 border-dashed border-[hsl(var(--primary))/0.5] flex items-center justify-center backdrop-blur-sm transition-all animate-pulse">
+             <GlowRing className="rounded-2xl">
+               <div className="flex flex-col items-center gap-2 bg-[hsl(var(--surface-1))/0.92] px-7 py-7 rounded-2xl">
+                 <Upload size={30} className="text-[hsl(var(--primary))]" />
+                 <span className="text-xs font-bold text-[hsl(var(--primary))]">Drop 3D model here</span>
+                 <span className="text-[9px] text-[hsl(var(--muted-foreground))]">GLB, GLTF, FBX, OBJ, STL</span>
+               </div>
+             </GlowRing>
+           </div>
+         )}
+
+         {isUploading && (
+           <div className="absolute inset-0 z-30 bg-[hsl(var(--surface-0))/0.7] backdrop-blur-sm flex items-center justify-center">
+             <div className="flex flex-col items-center gap-3">
+               <Loader2 size={24} className="text-[hsl(var(--primary))] animate-spin" />
+               <span className="text-xs font-bold text-[hsl(var(--foreground))]">Uploading model...</span>
+             </div>
+           </div>
+         )}
+
+         {isGenerating && (
+           <div className="absolute inset-0 z-20 bg-[hsl(var(--surface-0))/0.5] backdrop-blur-[2px] flex items-center justify-center pointer-events-none">
+             <div className="flex flex-col items-center gap-3">
+               <Loader2 size={24} className="text-[hsl(var(--primary))] animate-spin" />
+               <span className="text-xs font-bold text-[hsl(var(--foreground))]">Generating...</span>
+             </div>
+           </div>
+         )}
+         
+         <button onClick={toggleFullscreen} className="absolute top-4 right-4 z-50 p-2 rounded-lg bg-[hsl(var(--surface-1))/0.8] backdrop-blur border border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))] transition-all">
+           <Minimize2 size={16} />
+         </button>
+         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 p-1.5 rounded-xl bg-[hsl(var(--surface-1))/0.8] backdrop-blur border border-[hsl(var(--border))]">
+           <ToolBtn icon={RotateCcw} label="Reset Camera" onClick={resetCamera} />
+           <ToolBtn icon={Grid3X3} active={viewer.showGrid} label="Grid" onClick={toggleGrid} />
+           <ToolBtn icon={ToggleLeft} active={viewer.showWireframe} label="Wireframe" onClick={toggleWireframe} />
+           <ToolBtn icon={RotateCcw} active={viewer.autoRotate} label="Auto Rotate" onClick={toggleAutoRotate} />
+           <ToolBtn icon={BarChart3} active={viewer.showStats} label="Stats" onClick={toggleStats} />
+         </div>
+         {viewer.showStats && <Stats className="!absolute !bottom-16 !left-4 !z-50" />}
+       </div>
+     );
+   }
 
   /* Normal mode */
   return (
