@@ -138,8 +138,12 @@ export const useGenerationStore = create<GenerationState>()(
     setIsLoadingHistory: (v) => useAppStore.setState({ isLoadingHistory: v }),
     loadHistory: async () => {
       useAppStore.setState({ isLoadingHistory: true, loadingError: null });
+      const controller = new AbortController();
+      // ponytail: hard timeout so a hanging backend proxy can never leave the
+      // asset panel in a permanent "loading" skeleton (ceiling: 15s, no retry).
+      const timeout = setTimeout(() => controller.abort(), 15000);
       try {
-        const res = await fetch('/api/v1/generation/history?limit=50&offset=0');
+        const res = await fetch('/api/v1/generation/history?limit=50&offset=0', { signal: controller.signal });
         if (!res.ok) throw new Error(`Failed to load history: ${res.status}`);
         
         const json = await res.json();
@@ -177,6 +181,8 @@ export const useGenerationStore = create<GenerationState>()(
           loadingError: error instanceof Error ? error.message : 'Failed to load history',
           jobHistory: [],
         });
+      } finally {
+        clearTimeout(timeout);
       }
     },
     refreshHistory: async () => {

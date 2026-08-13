@@ -69,13 +69,11 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
 
   // Set default texture model to the first installed one (preferred: hunyuan3d-2.1)
   useEffect(() => {
-    if (availableTextureModels.length > 0) {
-      const preferred = availableTextureModels.find((m) => m.id === 'hunyuan3d-2.1' && m.installed)
-        || availableTextureModels.find((m) => m.installed)
-        || availableTextureModels[0];
-      setMaterialModel(preferred.id);
-    }
-  }, [availableTextureModels]);
+  if (availableTextureModels.length > 0) {
+    const preferred = availableTextureModels.find((m) => m.id === 'hunyuan3d-2.1' && m.installed) || availableTextureModels[0];
+    if (preferred.id !== materialModel) setMaterialModel(preferred.id);
+  }
+}, [availableTextureModels, materialModel]);
 
   // Cleanup polling on unmount to prevent state updates on unmounted component
   useEffect(() => {

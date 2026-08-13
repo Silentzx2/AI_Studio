@@ -606,10 +606,32 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
     }
   };
 
-  const handleExportRigged = () => {
-    toast.success('Exporting rigged model as FBX...', {
-      description: `${uploadedModelName || activeModel.name}_rigged.fbx`,
-    });
+  const handleExportRigged = async () => {
+    const url = uploadedModelUrl || currentProject?.modelUrl;
+    if (!url) {
+      toast.error('No rigged model to export', {
+        description: 'Generate or upload a model before exporting.',
+      });
+      return;
+    }
+    try {
+      setStatusMessage('Exporting rigged model...');
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const ext = url.toLowerCase().endsWith('.gltf') ? 'gltf' : 'glb';
+      const base = (uploadedModelName || activeModel.name).replace(/\.(glb|gltf)$/i, '');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${base}_rigged.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
+      toast.success('Rigged model exported', { description: a.download });
+    } catch (err: any) {
+      toast.error('Export failed', { description: err.message });
+    }
   };
 
   const handleTimelineScrub = (e: React.ChangeEvent<HTMLInputElement>) => {

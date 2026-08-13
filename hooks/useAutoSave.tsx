@@ -11,9 +11,14 @@ export function useAutoSave<T>(
   skipInitial: boolean = true
 ) {
   const [status, setStatus] = useState<AutoSaveStatus>('idle');
+  const [isModified, setIsModified] = useState(false);
   const initialRender = useRef(true);
   const saveActionRef = useRef(saveAction);
   const dataRef = useRef(data);
+  const autoSaveEnabled =
+    typeof window !== 'undefined'
+      ? localStorage.getItem('ai3d:settings:autoSaveEnabled') !== 'false'
+      : true;
 
   useEffect(() => {
     saveActionRef.current = saveAction;
@@ -28,16 +33,19 @@ export function useAutoSave<T>(
       ? localStorage.getItem('ai3d:settings:autoSaveEnabled') !== 'false'
       : true;
 
-  useEffect(() => {
-    if (skipInitial && initialRender.current) {
-      initialRender.current = false;
-      return;
-    }
+useEffect(() => {
+  if (skipInitial && initialRender.current) {
+    initialRender.current = false;
+    return;
+  }
 
-    if (!isAutoSaveEnabled) {
-      setStatus('modified');
-      return;
-    }
+  if (!isAutoSaveEnabled) {
+    setIsModified(true);
+    return;
+  }
+
+  // Handle manual modifications separately
+}, [isAutoSaveEnabled]);
 
     setStatus('saving');
 

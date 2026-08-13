@@ -1,5 +1,28 @@
 # AI 3D Studio — Changelog
 
+## v3.8.0 — 3D-SPACE Full Backend Integration (August 13, 2026)
+
+### Changed
+- Canvas3D drag-and-drop now uploads to `POST /api/v1/upload/model` and uses persistent backend URLs (no blob URLs).
+- GenerationControls model upload uses persistent backend URL from upload response.
+- Quality presets and credit estimates now sourced from shared `QUALITY_PRESETS` constant (`@/constants`) instead of hardcoded local arrays.
+- AssetPanel 3D models category filter includes GLTF and STL.
+- Backend upload/model endpoint now accepts `.fbx`, `.obj`, `.stl` in addition to `.glb`, `.gltf`.
+- Backend assets listing endpoint recognizes all 5 3D formats (`.glb`, `.gltf`, `.fbx`, `.obj`, `.stl`).
+
+### Added
+- AssetPanel inspector now shows a delete button wired to real `DELETE /api/v1/jobs/{id}` endpoint.
+- Session-local favorites documented with `ponytail:` annotation in `ThreeDGenWorkspace.tsx`.
+- Proper blob URL cleanup on Canvas3D unmount (revokes only `blob:` URLs, never backend URLs).
+
+### Removed
+- Dead `outputFormat` state and its UI from GenerationControls (was never connected to generation config).
+- Unused imports: `useProjectStore`, `Filter`, `MoreVertical`, `ImageIcon`, `Plus`, `ChevronDown`, `useCallback`.
+
+### Verified
+- All 3D workspace paths verified mock-free.
+- TypeScript and ESLint pass with zero errors.
+
 ## v3.7.1 — 3D Generation Rebuilt as `/3d` (3D-SPACE components wired) (August 13, 2026)
 
 ### Added

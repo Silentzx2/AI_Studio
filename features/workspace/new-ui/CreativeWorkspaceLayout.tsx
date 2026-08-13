@@ -8,12 +8,13 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import anime from 'animejs';
 import {
-  Folder, Cpu, RefreshCw, Palette, Bookmark, Layers, Heart, Globe, Code, Settings, Sparkles, HelpCircle, LogOut, Activity, Zap, Wifi, ChevronDown
+  Folder, Cpu, RefreshCw, Palette, Bookmark, Layers, Heart, Globe, Code, Settings, Sparkles, HelpCircle, LogOut, Activity, Zap, Wifi, ChevronDown, Box
 } from 'lucide-react';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useGeneration } from '@/hooks/useGeneration';
+import { useSearchParams } from 'next/navigation';
 import { runtimeService } from '@/services/runtimeService';
 import type { RuntimeStatus } from '@/types';
 import { StatusDot } from '@/components/premium/StatusDot';
@@ -30,6 +31,7 @@ import CommunityTab from './CommunityTab';
 import { ModelsTab } from '@/features/admin/tabs/ModelsTab';
 import ApiAccessTab from './ApiAccessTab';
 import WorkspaceSettingsTab from './WorkspaceSettingsTab';
+import { ThreeDGenWorkspace } from '@/features/workspace/ThreeDGenWorkspace';
 
 import { HistoryItem } from '@/types/new-ui';
 // import { useGenerationHistory } from '@/hooks/useBackendData';
@@ -40,7 +42,13 @@ interface CreativeWorkspaceLayoutProps {
 }
 
 export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: CreativeWorkspaceLayoutProps = {}) {
-  const [activeSidebarItem, setActiveSidebarItem] = useState(defaultTab || 'Workspace');
+  const searchParams = useSearchParams();
+  const validTabs = ['3D Gen', 'Dashboard', 'Rigging & Animation', 'Remesh', 'Texture Gen', 'My Assets', 'Models', 'Favorites', 'Community', 'API Access', 'Settings'];
+  const requested = searchParams.get('tab') || defaultTab;
+  // ponytail: legacy links/state may still say 'Workspace' — treat as 'Dashboard'.
+  const normalized = requested === 'Workspace' ? 'Dashboard' : requested;
+  const initialTab = validTabs.includes(normalized!) ? normalized! : 'Dashboard';
+  const [activeSidebarItem, setActiveSidebarItem] = useState(initialTab);
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
   const backendStatus = useBackendStatus();
   const { mobileMenuOpen, setMobileMenuOpen } = useUIStore();
@@ -171,7 +179,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
       },
     });
     setPrompt(item.prompt);
-    setActiveSidebarItem('Workspace');
+    setActiveSidebarItem('Dashboard');
   };
 
   const loadTemplateItem = (template: any) => {
@@ -201,7 +209,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
       },
     });
     setPrompt(template.prompt);
-    setActiveSidebarItem('Workspace');
+    setActiveSidebarItem('Dashboard');
   };
 
   const deleteHistoryItem = async (e: React.MouseEvent, id: string) => {
@@ -237,17 +245,18 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
       name,
       prompt,
     });
-    setActiveSidebarItem('Workspace');
+    setActiveSidebarItem('Dashboard');
   };
 
   const handleSendTo3D = (prompt: string) => {
     setPrompt(prompt);
-    setActiveSidebarItem('Workspace');
+    setActiveSidebarItem('Dashboard');
   };
 
   // Sidebar list matching our ported views
   const sidebarItems = [
-    { label: 'Workspace', icon: Folder, visible: true },
+    { label: 'Dashboard', icon: Folder, visible: true },
+    { label: '3D Gen', icon: Box, visible: capabilities.threeDGen },
     { label: 'Rigging & Animation', icon: Activity, visible: capabilities.riggingAnimation },
     { label: 'Remesh', icon: RefreshCw, visible: capabilities.remesh },
     { label: 'Texture Gen', icon: Palette, visible: capabilities.textureGen },
@@ -292,7 +301,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
             </div>
             <div className="flex flex-col leading-none">
               <span className="text-sm font-black tracking-tighter uppercase">AI Studio</span>
-              <span className="text-[9px] font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-widest mt-0.5">3D Workspace</span>
+              <span className="text-[9px] font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-widest mt-0.5">3D Dashboard</span>
             </div>
           </div>
         </div>
@@ -439,7 +448,11 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
 
       {/* Main viewport panels */}
         <main ref={mainRef} className="flex-1 flex flex-col bg-[hsl(var(--surface-0))] overflow-hidden" id="creative-main-viewport">
-        {activeSidebarItem === 'Workspace' && (
+        {activeSidebarItem === '3D Gen' && (
+          <ThreeDGenWorkspace embedded />
+        )}
+
+        {activeSidebarItem === 'Dashboard' && (
           <WorkspaceTab
             history={history ?? []}
             onLoadProject={loadHistoryItem}

@@ -6,14 +6,12 @@
  * Handles: asset list, thumbnails, selection, metadata, export/download, history
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
-  Search, Filter, RefreshCw, Download, FileDown, Eye, MoreVertical,
-  Box, Heart, Clock, Hash, Layers, Image as ImageIcon, Plus, ChevronDown,
+  Search, RefreshCw, Download, FileDown, Eye, Trash2,
+  Box, Heart, Clock, Hash, Layers,
   CheckCircle2, Lock, Package, Grid3X3, Archive
 } from 'lucide-react';
-import { useGenerationStore } from '@/stores/useGenerationStore';
-import { useProjectStore } from '@/stores/useProjectStore';
 import { EXPORT_FORMATS } from '@/constants';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -81,7 +79,7 @@ function AssetThumbnail({ asset, isSelected, onClick }: { asset: AssetItem; isSe
   );
 }
 
-function InspectorPanel({ asset }: { asset: AssetItem }) {
+function InspectorPanel({ asset, onDelete }: { asset: AssetItem; onDelete?: (id: string) => void }) {
   const job = asset.job;
   const result = job?.result;
   const [exportOpen, setExportOpen] = useState(false);
@@ -157,6 +155,14 @@ function InspectorPanel({ asset }: { asset: AssetItem }) {
             className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-[hsl(var(--primary))/0.3] hover:bg-[hsl(var(--primary))/0.05] text-[hsl(var(--foreground))] transition-all"
           >
             <Eye size={12} /> Preview
+          </button>
+        )}
+        {onDelete && (
+          <button
+            onClick={() => onDelete(asset.id)}
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-[hsl(var(--destructive))/0.3] hover:bg-[hsl(var(--destructive))/0.05] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--destructive))] transition-all"
+          >
+            <Trash2 size={12} /> Delete
           </button>
         )}
       </div>
@@ -240,6 +246,7 @@ export default function AssetPanel({
   selectedAssetId,
   onSelectAsset,
   onToggleFavorite,
+  onDeleteAsset,
   loading,
 }: AssetPanelProps) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -254,7 +261,7 @@ export default function AssetPanel({
       const matchesCategory =
         categoryFilter === 'all' ||
         (categoryFilter === 'favorites' && a.isFavorite) ||
-        (categoryFilter === '3d-models' && (a.format === 'GLB' || a.format === 'OBJ' || a.format === 'FBX'));
+        (categoryFilter === '3d-models' && ['GLB', 'GLTF', 'OBJ', 'FBX', 'STL'].includes(a.format));
       return matchesSearch && matchesCategory;
     });
   }, [assets, searchQuery, categoryFilter]);
@@ -372,7 +379,7 @@ export default function AssetPanel({
       {activeTab === 'inspector' && (
         <div className="flex-1 overflow-y-auto min-h-0">
           {selectedAsset ? (
-            <InspectorPanel asset={selectedAsset} />
+            <InspectorPanel asset={selectedAsset} onDelete={onDeleteAsset} />
           ) : (
             <div className="flex flex-col items-center justify-center h-full py-16 text-center px-4">
               <Eye size={24} className="text-[hsl(var(--muted-foreground))]/20 mb-3" />

@@ -43,11 +43,18 @@ function jobToAsset(job: any): AssetItem {
   };
 }
 
-export function ThreeDGenWorkspace() {
+export function ThreeDGenWorkspace({ embedded = false }: { embedded?: boolean }) {
   const { jobHistory, isLoadingHistory, loadHistory } = useGenerationStore();
+  // ponytail: currentJob is deliberately excluded from the useAppStore persist
+  // partialize (Date objects + stale URLs degrade after JSON round-trip).
+  // Job history IS persisted and refreshed from the backend on mount.
+  // To restore a running job after navigation: loadHistory() + useGenerationStatus(jobId).
+  // Full reconnection with progress restore is a future enhancement.
   const { isGenerating, currentJob } = useGeneration();
 
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  // ponytail: favorites are session-local only — no backend persistence endpoint exists.
+  // If a backend favorites API is added, replace this with a real data source.
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const prevStatusRef = useRef<string | null>(null);
 
@@ -100,8 +107,8 @@ export function ThreeDGenWorkspace() {
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-[hsl(var(--surface-0))]">
-      <WorkspaceNavbar />
+    <div className={`flex flex-col overflow-hidden bg-[hsl(var(--surface-0))] ${embedded ? 'h-full' : 'h-screen'}`}>
+      {!embedded && <WorkspaceNavbar />}
       <div className="flex flex-1 min-h-0">
         <div className="w-[340px] max-w-[85vw] shrink-0">
           <GenerationControls />

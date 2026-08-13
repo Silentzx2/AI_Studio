@@ -38,6 +38,15 @@ const CARD_HOVER = ['lift', 'glow', 'border', 'tilt', 'none'] as const;
 const DROPDOWN = ['spring', 'fade', 'slide', 'scale', 'flip'] as const;
 const PROGRESS = ['default', 'shimmer', 'gradient', 'neon'] as const;
 
+const BUTTON_SHAPES = [
+  { value: '0', label: 'Square' },
+  { value: '0.25rem', label: 'Sharp' },
+  { value: '0.5rem', label: 'Rounded' },
+  { value: '0.75rem', label: 'Soft' },
+  { value: '1rem', label: 'Large' },
+  { value: '9999px', label: 'Pill' },
+] as const;
+
 function SectionHeader({ icon: Icon, title, desc }: { icon: React.ComponentType<{ className?: string }>; title: string; desc?: string }) {
   return (
     <CardHeader className="pb-4">
@@ -289,6 +298,26 @@ export function AppearanceSection() {
         <Card>
           <SectionHeader icon={MousePointerClick} title="Buttons" />
           <CardContent className="space-y-1">
+            <Row label="Button Shape" hint="Applies to every button across the studio in one click.">
+              <div className="inline-flex flex-wrap gap-1 p-1 rounded-xl bg-surface-2 border border-border">
+                {BUTTON_SHAPES.map((s) => {
+                  const active = cfg.borderRadius === s.value;
+                  return (
+                    <button
+                      key={s.value}
+                      onClick={() => set('borderRadius', s.value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        active
+                          ? 'bg-primary text-primary-foreground shadow-[0_0_16px_hsl(var(--primary)/0.4)]'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-foreground/5'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </Row>
             <Row label="Glow on Buttons">
               <Switch checked={cfg.buttonGlow} onCheckedChange={(v) => set('buttonGlow', v)} />
             </Row>

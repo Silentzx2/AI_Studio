@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { GlowRing } from '@/components/GlowRing';
 import { 
   Database, HardDrive, Clock, ArrowRight, Sparkles, FolderOpen, 
   Box, Heart, Search, Filter, Activity, Cpu, Code, BookOpen, 
@@ -100,14 +101,16 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
         </div>
 
         {/* Create Project Button */}
-        <button 
-          onClick={() => onNavigate('Workspace')}
-          className="flex items-center gap-2 px-4 py-2 bg-[hsl(var(--primary))] hover:brightness-110 active:scale-95 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-lg shadow-[hsl(var(--primary))/0.2]"
-          id="dashboard-new-session-btn"
-        >
-          <Sparkles size={14} />
-          New Generation
-        </button>
+        <GlowRing className="rounded-xl">
+          <button
+            onClick={() => onNavigate('3D Gen')}
+            className="flex items-center gap-2 px-4 py-2 bg-[hsl(var(--primary))] hover:brightness-110 active:scale-95 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
+            id="dashboard-new-session-btn"
+          >
+            <Sparkles size={14} />
+            New Generation
+          </button>
+        </GlowRing>
       </div>
 
       {/* 2. Interactive Bento Analytics Cards */}
@@ -254,7 +257,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
                 </p>
                 {!localSearch && (
                   <button 
-                    onClick={() => onNavigate('Workspace')} 
+                    onClick={() => onNavigate('3D Gen')} 
                     className="mt-4 px-4 py-2 rounded-xl bg-[hsl(var(--primary))] text-white text-[9px] font-black uppercase tracking-widest hover:brightness-110 transition-all"
                   >
                     Initialize Core

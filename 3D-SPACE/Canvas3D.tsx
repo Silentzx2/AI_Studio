@@ -18,6 +18,7 @@ import { useUIStore, registerResetCamera } from '@/stores/useUIStore';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 import { useThemeStore } from '@/stores/useThemeStore';
 import { uploadService } from '@/services/uploadService';
+import { GlowRing } from '@/components/GlowRing';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -59,6 +60,32 @@ function CanvasLoadingScreen() {
   );
 }
 
+// ponytail: react-three-fiber measures its container once; when the container
+// resizes (fullscreen toggle, flex re-layout) the drawing buffer can keep the
+// old size and the view ends up clipped/offset at the top. This keeps the
+// renderer sized to its wrapper on every resize. Ceiling: no debounce, fires on
+// each resize tick (cheap for a single canvas).
+function CanvasResizeSync() {
+  const gl = useThree((s) => s.gl);
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => {
+    const el = gl.domElement.parentElement;
+    if (!el) return;
+    const sync = () => {
+      const { clientWidth, clientHeight } = el;
+      if (clientWidth && clientHeight) {
+        gl.setSize(clientWidth, clientHeight, false);
+        invalidate();
+      }
+    };
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    sync();
+    return () => ro.disconnect();
+  }, [gl, invalidate]);
+  return null;
+}
+
 function frameModel(groupRef: React.RefObject<Group | null>, camera: any, controls: any) {
   if (!groupRef.current) return;
   const box = new Box3().setFromObject(groupRef.current);
@@ -79,19 +106,7 @@ function setWireframe(obj: any, wireframe: boolean) {
   if (obj.isMesh && obj.material) (obj.material as any).wireframe = wireframe;
 }
 
-function GeneratedModel({ url, wireframe }: { url: string; wireframe: boolean }) {
-  const { scene } = useGLTF(url);
-  const groupRef = useRef<Group>(null);
-  const { camera } = useThree();
-  useEffect(() => {
-    if (!groupRef.current) return;
-    groupRef.current.traverse((c) => setWireframe(c, wireframe));
-    frameModel(groupRef, camera, (window as any).__orbitControls);
-  }, [wireframe, scene, camera]);
-  return <group ref={groupRef}><primitive object={scene} /></group>;
-}
-
-function UserModel({ url, wireframe }: { url: string; wireframe: boolean }) {
+function GLBModel({ url, wireframe }: { url: string; wireframe: boolean }) {
   const { scene } = useGLTF(url);
   const groupRef = useRef<Group>(null);
   const { camera } = useThree();
@@ -166,13 +181,13 @@ function SceneGrid({ visible }: { visible: boolean }) {
 function EmptyStateIndicator() {
   return (
     <Html center>
-      <div className="flex flex-col items-center gap-3 pointer-events-none select-none">
-        <div className="w-16 h-16 rounded-2xl bg-[hsl(var(--surface-2))/0.6] border border-[hsl(var(--border)/0.3)] flex items-center justify-center">
-          <Box size={28} className="text-[hsl(var(--muted-foreground))]/20" />
+      <div className="flex flex-col items-center gap-4 pointer-events-none select-none">
+        <div className="w-20 h-20 rounded-2xl bg-[hsl(var(--surface-2))/0.5] border border-dashed border-[hsl(var(--border)/0.5)] flex items-center justify-center">
+          <Upload size={30} className="text-[hsl(var(--muted-foreground))]/40" />
         </div>
         <div className="text-center">
-          <p className="text-xs font-bold text-[hsl(var(--muted-foreground))/50]">No Model Loaded</p>
-          <p className="text-[10px] text-[hsl(var(--muted-foreground))/30 mt-1">Generate or drag & drop a 3D file</p>
+          <p className="text-sm font-bold text-[hsl(var(--muted-foreground))/80]">Drag &amp; drop karke upload karo</p>
+          <p className="text-[11px] text-[hsl(var(--muted-foreground))/45 mt-1.5">GLB, GLTF, FBX, OBJ ya STL file yahan drop karein</p>
         </div>
       </div>
     </Html>
@@ -205,25 +220,40 @@ function InnerScene() {
   const [userModelUrl, setUserModelUrl] = useState<string | null>(null);
   const [modelError, setModelError] = useState(false);
 
+  // Listen for load-glb-model events (dispatched by asset selection, model uploads, etc.)
+  // URLs here must be real backend URLs — never blob URLs.
   const handleLoadGlb = useCallback((e: CustomEvent) => {
-    setUserModelUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return e.detail.url; });
+    const url: string = e.detail?.url;
+    if (!url) return;
+    // Only revoke blob:// URLs (legacy safety); real backend URLs must not be revoked.
+    setUserModelUrl((prev) => {
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+      return url;
+    });
     setModelError(false);
   }, []);
 
   useEffect(() => {
     window.addEventListener('load-glb-model', handleLoadGlb as EventListener);
-    return () => window.removeEventListener('load-glb-model', handleLoadGlb as EventListener);
+    return () => {
+      window.removeEventListener('load-glb-model', handleLoadGlb as EventListener);
+      // Cleanup: revoke any blob URL on unmount
+      setUserModelUrl((prev) => {
+        if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+        return null;
+      });
+    };
   }, [handleLoadGlb]);
 
   const getExt = (url: string) => { const m = url.match(/\.([^.]+)$/); return m ? m[1].toLowerCase() : ''; };
 
-  const renderModel = (url: string, isUser: boolean) => {
+  const renderModel = (url: string) => {
     const ext = getExt(url);
     return (
       <ErrorBoundary fallback={<ErrorIndicator />} onError={() => setModelError(true)}>
         <Suspense fallback={<CanvasLoadingScreen />}>
           {(ext === 'glb' || ext === 'gltf')
-            ? (isUser ? <UserModel url={url} wireframe={viewer.showWireframe} /> : <GeneratedModel url={url} wireframe={viewer.showWireframe} />)
+            ? <GLBModel url={url} wireframe={viewer.showWireframe} />
             : ext === 'fbx' ? <FbxModel url={url} wireframe={viewer.showWireframe} />
             : ext === 'obj' ? <ObjModel url={url} wireframe={viewer.showWireframe} />
             : ext === 'stl' ? <StlModel url={url} wireframe={viewer.showWireframe} />
@@ -238,17 +268,27 @@ function InnerScene() {
   return (
     <>
       <CameraController autoRotate={viewer.autoRotate} />
-      <ambientLight intensity={1.0} />
-      <directionalLight position={[10, 10, 5]} intensity={2.0} castShadow />
-      <directionalLight position={[-10, -10, -5]} intensity={1.0} color={useThemeStore.getState().accentColor} />
-      <directionalLight position={[0, 5, 8]} intensity={1.2} color="hsl(var(--foreground))" />
-      <Environment preset="studio" />
-      <Center>
+      {/* ponytail: studio 3-point lighting for a clean, depth-rich look on the
+          dark canvas. Concrete hex colors (not CSS-var strings) so three.js
+          Color parses them reliably. */}
+      <ambientLight intensity={0.45} />
+      <directionalLight position={[6, 10, 8]} intensity={2.1} color="#ffffff" castShadow />
+      <directionalLight position={[-8, 5, -4]} intensity={1.1} color="#bcd4ff" />
+      <directionalLight position={[0, 4, -10]} intensity={0.9} color="#ffd9a8" />
+      <pointLight position={[-4, 2, 6]} intensity={0.5} color="#f5a623" />
+        {/* ponytail: studio HDR is fetched from a CDN; if it stalls the whole
+            canvas suspends on the loader forever. Isolate it so a slow/offline
+            env download can never block the scene (falls back to the lights below). */}
+        <Suspense fallback={null}>
+          <Environment preset="studio" />
+        </Suspense>
+        <Center>
         {showModel
-          ? (userModelUrl ? renderModel(userModelUrl, true) : modelUrl ? renderModel(modelUrl, false) : <EmptyStateIndicator />)
+          ? (userModelUrl ? renderModel(userModelUrl) : modelUrl ? renderModel(modelUrl) : <EmptyStateIndicator />)
           : <EmptyStateIndicator />}
       </Center>
       <SceneGrid visible={viewer.showGrid} />
+      <CanvasResizeSync />
       <Preload all />
     </>
   );
@@ -311,9 +351,18 @@ export default function Canvas3D({ isGenerating }: Canvas3DProps) {
       return;
     }
     setIsUploading(true);
-    try { await uploadService.uploadWithProgress(file, () => {}, '/api/v1/upload/model' as any); } catch { /* backend upload best-effort */ } finally {
-      const blobUrl = URL.createObjectURL(file);
-      window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url: blobUrl } }));
+    try {
+      const result = await uploadService.uploadWithProgress(file, () => {}, '/api/v1/upload/model' as any);
+      // Use the real persistent URL from the backend response
+      if (result?.url) {
+        window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url: result.url } }));
+        toast.success(`Model uploaded (${ext.slice(1).toUpperCase()})`);
+      } else {
+        toast.error('Upload succeeded but no URL returned');
+      }
+    } catch (err: any) {
+      toast.error(`Upload failed: ${err?.message || 'Unknown error'}`);
+    } finally {
       setIsUploading(false);
     }
   }, []);
@@ -324,10 +373,10 @@ export default function Canvas3D({ isGenerating }: Canvas3DProps) {
   /* Fullscreen mode */
   if (viewer.fullscreen) {
     return (
-      <div ref={containerRef} className="fixed inset-0 z-50 bg-[hsl(var(--surface-0))]"
+      <div ref={containerRef} className="fixed inset-0 z-50 bg-[radial-gradient(circle_at_50%_30%,#3a3e46_0%,#26282e_55%,#16181c_100%)]"
         onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave}>
         <ErrorBoundary fallback={<div className="w-full h-full flex items-center justify-center text-[hsl(var(--muted-foreground))]">Canvas error</div>}>
-          <Canvas camera={{ position: [0, 3, 6], fov: 45 }} gl={{ preserveDrawingBuffer: true, antialias: true }} className="w-full h-full">
+          <Canvas key={viewer.fullscreen ? 'fs' : 'normal'} camera={{ position: [0, 3, 6], fov: 45 }} gl={{ preserveDrawingBuffer: true, antialias: true }} className="w-full h-full" style={{ position: 'absolute', inset: 0 }}>
             <InnerScene />
           </Canvas>
         </ErrorBoundary>
@@ -349,22 +398,24 @@ export default function Canvas3D({ isGenerating }: Canvas3DProps) {
   /* Normal mode */
   return (
     <div ref={containerRef}
-      className="relative flex-1 min-w-0 min-h-0 bg-[hsl(var(--surface-0))] overflow-hidden"
+      className="relative flex-1 min-w-0 min-h-0 bg-[radial-gradient(circle_at_50%_30%,#3a3e46_0%,#26282e_55%,#16181c_100%)] overflow-hidden"
       onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave}
     >
       <ErrorBoundary fallback={<div className="w-full h-full flex items-center justify-center text-[hsl(var(--muted-foreground))]">Canvas error</div>}>
-        <Canvas camera={{ position: [0, 3, 6], fov: 45 }} gl={{ preserveDrawingBuffer: true, antialias: true }} className="w-full h-full">
+        <Canvas key={viewer.fullscreen ? 'fs' : 'normal'} camera={{ position: [0, 3, 6], fov: 45 }} gl={{ preserveDrawingBuffer: true, antialias: true }} className="w-full h-full" style={{ position: 'absolute', inset: 0 }}>
           <InnerScene />
         </Canvas>
-      </ErrorBoundary>
+        </ErrorBoundary>
 
       {isDragOver && (
-        <div className="absolute inset-0 z-40 bg-[hsl(var(--primary))/0.05] border-2 border-dashed border-[hsl(var(--primary))/0.4] flex items-center justify-center backdrop-blur-sm transition-all">
-          <div className="flex flex-col items-center gap-2">
-            <Upload size={28} className="text-[hsl(var(--primary))]" />
-            <span className="text-xs font-bold text-[hsl(var(--primary))]">Drop 3D model here</span>
-            <span className="text-[9px] text-[hsl(var(--muted-foreground))]">GLB, GLTF, FBX, OBJ, STL</span>
-          </div>
+        <div className="absolute inset-0 z-40 bg-[hsl(var(--primary))/0.08] border-2 border-dashed border-[hsl(var(--primary))/0.5] flex items-center justify-center backdrop-blur-sm transition-all animate-pulse">
+          <GlowRing className="rounded-2xl">
+            <div className="flex flex-col items-center gap-2 bg-[hsl(var(--surface-1))/0.92] px-7 py-7 rounded-2xl">
+              <Upload size={30} className="text-[hsl(var(--primary))]" />
+              <span className="text-xs font-bold text-[hsl(var(--primary))]">Drop 3D model here</span>
+              <span className="text-[9px] text-[hsl(var(--muted-foreground))]">GLB, GLTF, FBX, OBJ, STL</span>
+            </div>
+          </GlowRing>
         </div>
       )}
 
@@ -387,17 +438,17 @@ export default function Canvas3D({ isGenerating }: Canvas3DProps) {
       )}
 
       <div className="absolute top-3 right-3 z-10 flex flex-col gap-1 p-1.5 rounded-xl bg-[hsl(var(--surface-1))/0.6] backdrop-blur-md border border-[hsl(var(--border)/0.5)]">
-        <ToolBtn icon={Sun} label="Lighting" />
-        <ToolBtn icon={Camera} label="Screenshot" />
+        <ToolBtn icon={Sun} label="Lighting" disabled />
+        <ToolBtn icon={Camera} label="Screenshot" disabled />
         <ToolBtn icon={Grid3X3} active={viewer.showGrid} label="Grid" onClick={toggleGrid} />
         <ToolBtn icon={Expand} label="Fullscreen" onClick={toggleFullscreen} />
       </div>
 
       <div className="absolute bottom-3 left-3 right-3 z-10 flex items-center gap-1 p-1.5 rounded-xl bg-[hsl(var(--surface-1))/0.6] backdrop-blur-md border border-[hsl(var(--border)/0.5)]">
-        <ToolBtn icon={MousePointer2} active label="Select" />
-        <ToolBtn icon={RotateCcw} active label="Orbit" />
-        <ToolBtn icon={Move} label="Pan" />
-        <ToolBtn icon={ZoomIn} label="Zoom" />
+        <ToolBtn icon={MousePointer2} active label="Select (not implemented)" disabled />
+        <ToolBtn icon={RotateCcw} active label="Orbit" disabled />
+        <ToolBtn icon={Move} label="Pan" disabled />
+        <ToolBtn icon={ZoomIn} label="Zoom" disabled />
         <div className="w-px h-5 bg-[hsl(var(--border)/0.5)] mx-0.5" />
         <ToolBtn icon={RotateCcw} label="Reset View" onClick={resetCamera} />
         <ToolBtn icon={RotateCcw} active={viewer.autoRotate} label="Auto Rotate" onClick={toggleAutoRotate} />

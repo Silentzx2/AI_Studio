@@ -577,6 +577,30 @@ The current workspace model pickers are backed by the live registry snapshot and
 
 ---
 
+## v3.8.0 — 3D-SPACE Full Backend Integration
+
+### What changed
+
+All 3D workspace components (`3D-SPACE/`) now use real backend endpoints with zero mock paths:
+
+| Area | Before | After |
+|------|--------|-------|
+| **Drag-and-drop upload** | Blob URLs (ephemeral) | `POST /api/v1/upload/model` → persistent backend URL |
+| **Model upload (controls)** | Blob URL passed to viewer | Persistent backend URL from upload response |
+| **Quality presets** | Hardcoded local arrays | Shared `QUALITY_PRESETS` constant from `@/constants` |
+| **Asset delete** | No delete UI | Inspector delete button → `DELETE /api/v1/jobs/{id}` |
+| **3D model filter** | GLB only | GLB, GLTF, STL |
+| **Upload formats** | `.glb`, `.gltf` | `.glb`, `.gltf`, `.fbx`, `.obj`, `.stl` |
+| **Blob cleanup** | None / leaked | Revokes only blob: URLs on unmount; backend URLs untouched |
+| **Dead code** | Unused imports, dead `outputFormat` state | Removed |
+
+### Verification
+
+- TypeScript and ESLint pass with zero errors.
+- All 3D workspace paths verified mock-free.
+
+---
+
 ## v3.2.0 — uv-Only Package Management
 
 ### What changed

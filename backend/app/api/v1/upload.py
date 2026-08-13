@@ -144,9 +144,9 @@ async def upload_image(file: UploadFile = File(...)):
 
 @router.post("/model")
 async def upload_model(file: UploadFile = File(...)):  # noqa: C901
-    """Upload a 3D model file (.glb, .gltf)."""
+    """Upload a 3D model file (.glb, .gltf, .fbx, .obj, .stl)."""
     # Validate file type
-    allowed_extensions = {'.glb', '.gltf'}
+    allowed_extensions = {'.glb', '.gltf', '.fbx', '.obj', '.stl'}
     ext = Path(file.filename or '').suffix.lower()
     if ext not in allowed_extensions:
         raise HTTPException(
@@ -223,7 +223,7 @@ async def list_uploaded_assets():
         models = []
         if models_dir.exists():
             for f in models_dir.iterdir():
-                if f.is_file() and f.suffix.lower() in {".glb", ".gltf"}:
+                if f.is_file() and f.suffix.lower() in {'.glb', '.gltf', '.fbx', '.obj', '.stl'}:
                     stat = f.stat()
                     models.append({
                         "id": f.name,

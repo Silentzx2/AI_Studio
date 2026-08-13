@@ -7,7 +7,6 @@
  */
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import anime from 'animejs';
 import {
   Sparkles, HelpCircle, Upload, X, Image as ImageIcon, Type,
   ChevronDown, ChevronRight, Loader2, Square, CircleDot, Settings2,
@@ -20,6 +19,7 @@ import { useRuntimeOptions } from '@/hooks/useBackendData';
 import { uploadService, validateImageFile, processImageFile } from '@/services/uploadService';
 import { QUALITY_PRESETS, STYLE_PRESETS, SUPPORTED_IMAGE_FORMATS, MAX_IMAGE_SIZE_MB } from '@/constants';
 import { cn } from '@/lib/utils';
+import { GlowRing } from '@/components/GlowRing';
 import type { GenerationMode, QualityPreset, ProviderOption } from '@/types';
 
 /* ------------------------------------------------------------------ */
@@ -99,7 +99,7 @@ export default function GenerationControls({ onModelUploadClick, compact }: Gene
     } catch { (await import('sonner')).toast.error('Failed to process image'); }
   }, [setUploadedImage]);
 
-  // Model file upload handler
+  // Model file upload handler — uploads to backend, then loads the persistent URL into the viewer
   const handleModelUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -110,11 +110,19 @@ export default function GenerationControls({ onModelUploadClick, compact }: Gene
       return;
     }
     try {
-      await uploadService.uploadWithProgress(file, () => {}, '/api/v1/upload/model' as any);
-    } catch { /* best-effort */ }
-    const blobUrl = URL.createObjectURL(file);
-    window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url: blobUrl } }));
-    (await import('sonner')).toast.success('Model loaded');
+      const result = await uploadService.uploadWithProgress(file, () => {}, '/api/v1/upload/model' as any);
+      // Use the real persistent URL from the backend response
+      if (result?.url) {
+        window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url: result.url } }));
+        (await import('sonner')).toast.success(`Model uploaded (${ext.slice(1).toUpperCase()})`);
+      } else {
+        (await import('sonner')).toast.error('Upload succeeded but no URL returned');
+      }
+    } catch (err: any) {
+      (await import('sonner')).toast.error(`Upload failed: ${err?.message || 'Unknown error'}`);
+    }
+    // Reset input so re-uploading the same file triggers onChange
+    e.target.value = '';
   }, []);
 
   // Drag & drop for images
@@ -131,20 +139,13 @@ export default function GenerationControls({ onModelUploadClick, compact }: Gene
     } catch { (await import('sonner')).toast.error('Failed to process image'); }
   }, [setUploadedImage]);
 
-  // Quality presets
-  const qualityOptions: { id: QualityPreset; label: string; desc: string }[] = [
-    { id: 'low-poly', label: 'Low', desc: '~30s' },
-    { id: 'standard', label: 'Medium', desc: '~1 min' },
-    { id: 'high-poly', label: 'High', desc: '~3 min' },
-  ];
-
-  // Output format pills
-  const [outputFormat, setOutputFormat] = useState('mesh');
-  const outputFormats = [
-    { id: 'mesh', label: 'Mesh' },
-    { id: 'texture', label: 'Texture' },
-    { id: 'pbr', label: 'PBR' },
-  ];
+  // Quality presets — driven by the shared QUALITY_PRESETS constant
+  const qualityOptions: { id: QualityPreset; label: string; desc: string; credits: number }[] = QUALITY_PRESETS.map((p) => ({
+    id: p.id,
+    label: p.label,
+    desc: p.time,
+    credits: p.credits,
+  }));
 
   return (
     <div className="flex flex-col h-full bg-[hsl(var(--surface-1))] border-r border-[hsl(var(--border))] overflow-hidden">
@@ -227,31 +228,6 @@ export default function GenerationControls({ onModelUploadClick, compact }: Gene
               )}
             </div>
           )}
-        </div>
-
-        {/* Output format pills */}
-        <div className="space-y-1.5">
-          <label className="text-[9px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Output</label>
-          <div className="flex gap-1.5">
-            {outputFormats.map((f) => (
-              <button
-                key={f.id}
-                onClick={() => setOutputFormat(f.id)}
-                className={cn(
-                  'flex-1 px-2 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border transition-all',
-                  outputFormat === f.id
-                    ? 'bg-[hsl(var(--primary))/0.1] text-[hsl(var(--primary))] border-[hsl(var(--primary))/0.3]'
-                    : 'bg-transparent text-[hsl(var(--muted-foreground))] border-[hsl(var(--border)/0.5)] hover:text-[hsl(var(--foreground))]',
-                  f.id === 'texture' && !supportsTexture && 'opacity-40 cursor-not-allowed',
-                  f.id === 'pbr' && !supportsTexture && 'opacity-40 cursor-not-allowed'
-                )}
-                disabled={f.id !== 'mesh' && !supportsTexture}
-                title={f.id !== 'mesh' && !supportsTexture ? getCapabilityReason(selectedModelData, 'texture') : undefined}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Text → 3D: Prompt */}
@@ -509,34 +485,34 @@ export default function GenerationControls({ onModelUploadClick, compact }: Gene
           </div>
         )}
 
-        {/* Generate button */}
-        <button
-          onClick={() => generate()}
-          disabled={isGenerating || (!prompt.trim() && mode === 'text-to-3d') || (!uploadedImage && mode === 'image-to-3d')}
-          className={cn(
-            'w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all',
-            isGenerating
-              ? 'bg-[hsl(var(--surface-3))] text-[hsl(var(--muted-foreground))] cursor-not-allowed'
-              : 'bg-[hsl(var(--primary))] hover:brightness-110 active:scale-[0.98] text-white shadow-lg shadow-[hsl(var(--primary))/0.2]'
-          )}
-        >
-          {isGenerating ? (
-            <>
-              <Loader2 size={14} className="animate-spin" /> Generating...
-            </>
-          ) : (
-            <>
-              <Sparkles size={14} /> Generate 3D Model
-            </>
-          )}
-        </button>
+        {/* Generate button (wrapped in rotating glow ring) */}
+        <GlowRing className="w-full">
+          <button
+            onClick={() => generate()}
+            disabled={isGenerating || (!prompt.trim() && mode === 'text-to-3d') || (!uploadedImage && mode === 'image-to-3d')}
+            className={cn(
+              'w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all',
+              isGenerating
+                ? 'bg-[hsl(var(--surface-3))] text-[hsl(var(--muted-foreground))] cursor-not-allowed'
+                : 'bg-[hsl(var(--primary))] hover:brightness-110 active:scale-[0.98] text-white shadow-lg shadow-[hsl(var(--primary))/0.2]'
+            )}
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 size={14} className="animate-spin" /> Generating...
+              </>
+            ) : (
+              <>
+                <Sparkles size={14} /> Generate 3D Model
+              </>
+            )}
+          </button>
+        </GlowRing>
 
-        {/* Estimated info */}
+        {/* Estimated info — sourced from QUALITY_PRESETS constant */}
         <div className="flex items-center justify-between text-[8px] text-[hsl(var(--muted-foreground))]/50">
-          <span className="font-mono">Est. {quality === 'low-poly' ? '~30s' : quality === 'standard' ? '~1 min' : '~3 min'}</span>
-          <span className="font-mono">
-            {quality === 'low-poly' ? '~10 credits' : quality === 'standard' ? '~20 credits' : '~50 credits'}
-          </span>
+          <span className="font-mono">Est. {qualityOptions.find((q) => q.id === quality)?.desc ?? '—'}</span>
+          <span className="font-mono">~{qualityOptions.find((q) => q.id === quality)?.credits ?? '—'} credits</span>
         </div>
       </div>
     </div>

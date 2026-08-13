@@ -54,7 +54,7 @@ export function TerminalTab() {
         id: Math.random().toString(36).slice(2),
         command: cmd,
         output: `Error: ${err instanceof Error ? err.message : 'Command failed'}`,
-        // eslint-disable-next-line react-hooks/purity
+         
         timestamp: new Date().toISOString(),
         exit_code: 1,
       };

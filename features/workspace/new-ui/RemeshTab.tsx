@@ -219,36 +219,41 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
           try {
             const statusRes = await fetch(`/api/v1/generation/${jobId}/status`);
             const statusData = await statusRes.json();
-            if (statusData.data?.status === 'completed') {
-               clearInterval(poll);
-               setSuccessResult({
-                 name: `${activeModel.name} (Remeshed)`,
-                 complexity: `${vertexDensity} Optimized Quad-Mesh`,
-                 promptDescription: `Remeshed with ${targetType} topology.`,
-                 oldVertices: 'Original',
-                 newVertices: `~${vertexDensity} Quads`,
-                 reduction: 'Optimized',
-               });
-              addLayer({
-                id: `remesh-${Date.now()}`,
-                type: 'remesh',
-                name: `Remesh (${vertexDensity})`,
-                enabled: true,
-                visible: true,
-                data: {
-                  targetType,
-                  vertexDensity,
-                  symmetry,
-                  keepBoundaries,
-                  model: effectiveModelId,
-                  oldVertices: 'Original',
-                  newVertices: `~${vertexDensity} Quads`,
+             if (statusData.data?.status === 'completed') {
+                clearInterval(poll);
+                const res = statusData.data?.result || {};
+                const inputVerts = res.vertex_count ?? res.polygon_count ?? null;
+                const optimized = inputVerts
+                  ? `~${Math.round(inputVerts)} Vertices`
+                  : `~${vertexDensity} Quads`;
+                setSuccessResult({
+                  name: `${activeModel.name} (Remeshed)`,
+                  complexity: `${vertexDensity} Optimized Quad-Mesh`,
+                  promptDescription: `Remeshed with ${targetType} topology.`,
+                  oldVertices: inputVerts ? `${inputVerts}` : 'Original',
+                  newVertices: optimized,
                   reduction: 'Optimized',
-                },
-                sourceTab: 'Remesh',
-                timestamp: new Date(),
-              });
-               setIsProcessing(false);
+                });
+               addLayer({
+                 id: `remesh-${Date.now()}`,
+                 type: 'remesh',
+                 name: `Remesh (${vertexDensity})`,
+                 enabled: true,
+                 visible: true,
+                 data: {
+                   targetType,
+                   vertexDensity,
+                   symmetry,
+                   keepBoundaries,
+                   model: effectiveModelId,
+                   oldVertices: inputVerts ? `${inputVerts}` : 'Original',
+                   newVertices: optimized,
+                   reduction: 'Optimized',
+                 },
+                 sourceTab: 'Remesh',
+                 timestamp: new Date(),
+               });
+                setIsProcessing(false);
             } else if (statusData.data?.status === 'failed') {
               clearInterval(poll);
               setStatusMessage(`Remesh failed: ${statusData.data?.error_message || 'Unknown error'}`);

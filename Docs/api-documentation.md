@@ -943,6 +943,50 @@ Content-Type: multipart/form-data
 
 ---
 
+### Upload Model
+
+Upload a 3D model file for preview or further processing.
+
+```http
+POST /api/v1/upload/model
+Content-Type: multipart/form-data
+```
+
+**Form Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `file` | file | ✅ | 3D model file |
+
+**Supported Formats:** `.glb`, `.gltf`, `.fbx`, `.obj`, `.stl`
+**Max Size:** 200MB (configurable via `MAX_UPLOAD_SIZE`)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "file_id": "upload_model_xyz",
+    "filename": "character.glb",
+    "url": "/static/uploads/models/character.glb",
+    "size_bytes": 5242880,
+    "content_type": "model/gltf-binary"
+  }
+}
+```
+
+> **Note:** The returned `url` is a persistent backend URL. The frontend uses this URL directly for loading into the 3D viewer — blob URLs are not created.
+
+### List Uploaded Assets
+
+```http
+GET /api/v1/upload/assets
+```
+
+Returns all uploaded assets. The response recognizes files with extensions `.glb`, `.gltf`, `.fbx`, `.obj`, and `.stl` as 3D model assets.
+
+---
+
 ## Admin APIs
 
 Administrative operations.

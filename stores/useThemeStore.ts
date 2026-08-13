@@ -111,7 +111,7 @@ export const DEFAULT_THEME_CONFIG: ThemeConfig = {
 
   // Lighting Effects
   neonGlowEnabled: true,
-  neonGlowIntensity: 0.5,
+  neonGlowIntensity: 0.22,
   ambientGlowEnabled: true,
   spotlightOnCards: false,
 
@@ -144,7 +144,7 @@ export const DEFAULT_THEME_CONFIG: ThemeConfig = {
   theme: 'dark',
 
   // Navbar
-  navbarStyle: 'glass',
+  navbarStyle: 'solid',
 
   // Shadows
   shadowIntensity: 0.5,
@@ -718,7 +718,7 @@ export const useThemeStore = create<ThemeStore>()(
       storage: createJSONStorage(() => localStorage),
       // Only persist the ThemeConfig fields, not the actions
       partialize: (state) => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+         
         const { applyPreset, reset, updateSetting, updateAnimation, ...config } = state;
         return config;
       },

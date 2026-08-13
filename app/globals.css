@@ -1741,9 +1741,9 @@ html.light {
   --glass-bg-opacity: 0.08;
   --glass-enabled: 1;
   --surface-opacity: 0.06;
-  --shadow-intensity: 0.5;
+  --shadow-intensity: 0.4;
   --shadow-color: var(--primary);
-  --neon-glow-intensity: 0.5;
+  --neon-glow-intensity: 0.22;
   --animation-speed: 1;
   --base-font-size: 16px;
   --spacing-multiplier: 1;
@@ -2044,4 +2044,38 @@ html.reduced-animations *::after {
 
 /* ── Stagger Children (gated by data-anim-stagger) ── */
 [data-anim-stagger="false"] .stagger-children > * { transition-delay: 0ms !important; }
+
+/* ── Rotating Glow Ring (Generate button / drag-drop) ── */
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+
+.glow-ring {
+  position: relative;
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 0.9rem;
+  overflow: hidden;
+  isolation: isolate;
+}
+.glow-ring::before {
+  content: "";
+  position: absolute;
+  inset: -75%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    hsl(var(--primary)) 70deg,
+    hsl(var(--neon-cyan)) 150deg,
+    transparent 230deg,
+    transparent 360deg
+  );
+  animation: spin-slow 3.5s linear infinite;
+  z-index: -1;
+}
+.glow-ring > * {
+  position: relative;
+  z-index: 1;
+  border-radius: inherit;
+}
 

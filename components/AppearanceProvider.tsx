@@ -81,10 +81,19 @@ export function applyGlobalTheme(cfg: ThemeConfig): void {
     root.setProperty('--surface-opacity', String(cfg.surfaceOpacity));
   }
 
-  // ── Border Radius ──
-  if (cfg.borderRadius) root.setProperty('--radius', cfg.borderRadius);
-  if (cfg.borderRadiusSm) root.setProperty('--radius-sm', cfg.borderRadiusSm);
-  if (cfg.borderRadiusLg) root.setProperty('--radius-lg', cfg.borderRadiusLg);
+  // ── Border Radius (global corner scale) ──
+  // ponytail: drive every Tailwind rounded-* utility from one value so the
+  // Appearance page reshapes the WHOLE UI (buttons, cards, inputs) in one click.
+  // --radius-full is intentionally left alone so circular/pill elements stay round.
+  if (cfg.borderRadius) {
+    root.setProperty('--radius', cfg.borderRadius);
+    root.setProperty('--radius-sm', cfg.borderRadius);
+    root.setProperty('--radius-md', cfg.borderRadius);
+    root.setProperty('--radius-lg', cfg.borderRadius);
+    root.setProperty('--radius-xl', cfg.borderRadius);
+    root.setProperty('--radius-2xl', cfg.borderRadius);
+    root.setProperty('--radius-3xl', cfg.borderRadius);
+  }
 
   // ── Glass Effect ──
   const glassEnabled = cfg.glassEnabled === true;
