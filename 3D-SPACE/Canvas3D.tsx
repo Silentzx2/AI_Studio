@@ -534,12 +534,14 @@ interface Canvas3DProps {
 const SUPPORTED_3D_EXTS = ['.glb', '.gltf', '.fbx', '.obj', '.stl'];
 
 export default function Canvas3D({ isGenerating }: Canvas3DProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const { viewer, toggleAutoRotate, toggleGrid, toggleWireframe, toggleFullscreen, toggleStats, resetCamera } = useUIStore();
-  const [isDragOver, setIsDragOver] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [hasModelInScene, setHasModelInScene] = useState(false);
-  const [liveStats, setLiveStats] = useState<ModelStats | null>(null);
+   const containerRef = useRef<HTMLDivElement>(null);
+   const { viewer, toggleAutoRotate, toggleGrid, toggleWireframe, toggleFullscreen, toggleStats, resetCamera } = useUIStore();
+   const [isDragOver, setIsDragOver] = useState(false);
+   const [isUploading, setIsUploading] = useState(false);
+   const [uploadProgress, setUploadProgress] = useState<{ loaded: number; total: number; percent: number } | null>(null);
+   const uploadCancelRef = useRef<( () => void ) | null>(null);
+   const [hasModelInScene, setHasModelInScene] = useState(false);
+   const [liveStats, setLiveStats] = useState<ModelStats | null>(null);
 
   // Active Viewport Navigation Tool
   const [activeTool, setActiveTool] = useState<'select' | 'orbit' | 'pan' | 'zoom'>('orbit');
@@ -590,31 +592,61 @@ export default function Canvas3D({ isGenerating }: Canvas3DProps) {
     toast.info('View centered and framed');
   };
 
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault(); e.stopPropagation(); setIsDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (!file) return;
-    const ext = '.' + file.name.split('.').pop()?.toLowerCase();
-    if (!SUPPORTED_3D_EXTS.includes(ext)) {
-      toast.error(`Unsupported format: ${ext}. Use: ${SUPPORTED_3D_EXTS.join(', ')}`);
-      return;
-    }
-    setIsUploading(true);
-    try {
-      const { promise } = uploadService.uploadWithProgress(file, () => {}, '/api/v1/upload/model' as any);
-      const result = await promise;
-      if (result?.url) {
-        window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url: result.url } }));
-        toast.success(`Model loaded (${ext.slice(1).toUpperCase()})`);
-      } else {
-        toast.error('Upload succeeded but no URL returned');
-      }
-    } catch (err: any) {
-      toast.error(`Upload failed: ${err?.message || 'Unknown error'}`);
-    } finally {
-      setIsUploading(false);
-    }
-  }, []);
+const handleDrop = useCallback(async (e: React.DragEvent) => {
+     e.preventDefault(); e.stopPropagation(); setIsDragOver(false);
+     
+     // Check if it's a file drop
+     const file = e.dataTransfer.files[0];
+     if (file) {
+       const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+       if (!SUPPORTED_3D_EXTS.includes(ext)) {
+         toast.error(`Unsupported format: ${ext}. Use: ${SUPPORTED_3D_EXTS.join(', ')}`);
+         return;
+       }
+       setIsUploading(true);
+       setUploadProgress({ loaded: 0, total: file.size, percent: 0 });
+       try {
+         const { promise, cancel } = uploadService.uploadWithProgress(
+           file,
+           (progress) => setUploadProgress(progress),
+           '/api/v1/upload/model' as any
+         );
+         uploadCancelRef.current = cancel;
+         const result = await promise;
+         if (result?.url) {
+           window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url: result.url } }));
+           toast.success(`Model loaded (${ext.slice(1).toUpperCase()})`);
+         } else {
+           toast.error('Upload succeeded but no URL returned');
+         }
+       } catch (err: any) {
+         if (err.message === 'Upload cancelled') {
+           toast.info('Upload cancelled');
+         } else {
+           toast.error(`Upload failed: ${err?.message || 'Unknown error'}`);
+         }
+       } finally {
+         setIsUploading(false);
+         setUploadProgress(null);
+         uploadCancelRef.current = null;
+       }
+       return;
+     }
+     
+     // Check if it's a URL drop (from dragging model asset from asset panel)
+     const url = e.dataTransfer.getData('text/plain');
+     if (url) {
+       // Validate that it's likely a model URL
+       if (url.match(/\.(glb|gltf|fbx|obj|stl)$/i)) {
+         // Directly load the model from URL without re-uploading
+         window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url } }));
+         toast.success('Model loaded from asset panel');
+       } else {
+         toast.error('Invalid model URL');
+       }
+       return;
+     }
+   }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragOver(true); }, []);
   const handleDragLeave = useCallback(() => setIsDragOver(false), []);
@@ -672,28 +704,40 @@ export default function Canvas3D({ isGenerating }: Canvas3DProps) {
               <label className="flex-1 cursor-pointer flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-black text-xs font-black uppercase tracking-widest hover:brightness-90 transition-all shadow-xl active:scale-95">
                 <Upload size={14} />
                 <span>Upload 3D File</span>
-                <input
-                  type="file"
-                  accept=".glb,.gltf,.fbx,.obj,.stl"
-                  className="hidden"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    setIsUploading(true);
-                    try {
-                      const { promise } = uploadService.uploadWithProgress(file, () => {}, '/api/v1/upload/model' as any);
-                      const res = await promise;
-                      if (res?.url) {
-                        window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url: res.url } }));
-                        toast.success('3D model loaded into viewport');
-                      }
-                    } catch (err: any) {
-                      toast.error(`Upload failed: ${err.message}`);
-                    } finally {
-                      setIsUploading(false);
-                    }
-                  }}
-                />
+<input
+                   type="file"
+                   accept=".glb,.gltf,.fbx,.obj,.stl"
+                   className="hidden"
+                   onChange={async (e) => {
+                     const file = e.target.files?.[0];
+                     if (!file) return;
+                     setIsUploading(true);
+                     setUploadProgress({ loaded: 0, total: file.size, percent: 0 });
+                     try {
+                       const { promise, cancel } = uploadService.uploadWithProgress(
+                         file,
+                         (progress) => setUploadProgress(progress),
+                         '/api/v1/upload/model' as any
+                       );
+                       uploadCancelRef.current = cancel;
+                       const res = await promise;
+                       if (res?.url) {
+                         window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url: res.url } }));
+                         toast.success('3D model loaded into viewport');
+                       }
+                     } catch (err: any) {
+                       if (err.message === 'Upload cancelled') {
+                         toast.info('Upload cancelled');
+                       } else {
+                         toast.error(`Upload failed: ${err.message}`);
+                       }
+                     } finally {
+                       setIsUploading(false);
+                       setUploadProgress(null);
+                       uploadCancelRef.current = null;
+                     }
+                   }}
+                 />
               </label>
             </div>
           </div>
@@ -1003,14 +1047,43 @@ export default function Canvas3D({ isGenerating }: Canvas3DProps) {
         </div>
       )}
 
-      {isUploading && (
-        <div className="absolute inset-0 z-30 bg-black/70 backdrop-blur-sm flex items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 size={28} className="text-[hsl(var(--primary))] animate-spin" />
-            <span className="text-xs font-bold text-white">Uploading 3D Model...</span>
-          </div>
-        </div>
-      )}
+{isUploading && (
+         <div className="absolute inset-0 z-30 bg-black/70 backdrop-blur-sm flex items-center justify-center">
+           <div className="flex flex-col items-center gap-4">
+             {uploadProgress ? (
+               <>
+                 <div className="flex items-center justify-between mb-2">
+                   <span className="text-[9px] font-mono text-white/70">Uploading...</span>
+                   <span className="text-[9px] font-mono text-white">{uploadProgress.percent}%</span>
+                 </div>
+                 <div className="w-full h-1.5 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden">
+                   <div
+                     className="h-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-cyan))] rounded-full transition-all duration-300"
+                     style={{ width: `${uploadProgress.percent}%` }}
+                   />
+                 </div>
+                 <button
+                   onClick={() => {
+                     uploadCancelRef.current?.();
+                     setIsUploading(false);
+                     setUploadProgress(null);
+                     uploadCancelRef.current = null;
+                     toast.info('Upload cancelled');
+                   }}
+                   className="text-[8px] font-mono text-[hsl(var(--muted-foreground))]/50 hover:underline"
+                 >
+                   Cancel
+                 </button>
+               </>
+             ) : (
+               <>
+                 <Loader2 size={28} className="text-[hsl(var(--primary))] animate-spin" />
+                 <span className="text-xs font-bold text-white">Uploading 3D Model...</span>
+               </>
+             )}
+           </div>
+         </div>
+       )}
 
       {isGenerating && (
         <div className="absolute inset-0 z-20 bg-black/50 backdrop-blur-[2px] flex items-center justify-center pointer-events-none">

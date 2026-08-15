@@ -66,8 +66,8 @@ useEffect(() => {
     }, delay);
 
     return () => clearTimeout(handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [data, delay, skipInitial]);
+    // setStatus is stable from useState, adding to deps avoids lint warning
+}, [data, delay, skipInitial, setStatus]);
 
   const handleManualSave = async () => {
     setStatus('saving');

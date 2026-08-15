@@ -10,7 +10,8 @@ import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import {
   Sparkles, HelpCircle, Upload, X, Image as ImageIcon, Type,
   ChevronDown, ChevronRight, Loader2, Square, CircleDot, Settings2,
-  RefreshCw, Palette, Activity, Lock, Zap, CheckCircle2
+  RefreshCw, Palette, Activity, Lock, Zap, CheckCircle2,
+  Maximize2, RotateCcw
 } from 'lucide-react';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 import { useUIStore } from '@/stores/useUIStore';
@@ -21,6 +22,7 @@ import { QUALITY_PRESETS, STYLE_PRESETS, SUPPORTED_IMAGE_FORMATS, MAX_IMAGE_SIZE
 import { cn } from '@/lib/utils';
 import { GlowRing } from '@/components/GlowRing';
 import type { GenerationMode, QualityPreset, ProviderOption } from '@/types';
+import { toast } from 'sonner';
 
 /* ------------------------------------------------------------------ */
 /*  Props                                                              */
@@ -57,8 +59,8 @@ export default function GenerationControls({ onModelUploadClick, compact }: Gene
   const { capabilities } = useUIStore();
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showNegPrompt, setShowNegPrompt] = useState(false);
+  const [imgUploadProgress, setImgUploadProgress] = useState<{ loaded: number; total: number; percent: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const modelInputRef = useRef<HTMLInputElement>(null);
 
   // Available 3D models from backend
   const models: ProviderOption[] = useMemo(() => options?.three_d_models ?? [], [options]);
@@ -87,58 +89,76 @@ export default function GenerationControls({ onModelUploadClick, compact }: Gene
   const statusLabel = currentJob?.status ?? 'idle';
   const elapsed = currentJob?.elapsedSeconds ?? 0;
 
-  // Image upload handler
+  // Image upload handler with real progress
   const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const error = validateImageFile(file);
     if (error) { (await import('sonner')).toast.error(error); return; }
+    
+    // Reset progress and start upload
+    setImgUploadProgress({ loaded: 0, total: file.size, percent: 0 });
+    
     try {
-      const img = await processImageFile(file);
-      setUploadedImage(img);
-    } catch { (await import('sonner')).toast.error('Failed to process image'); }
-  }, [setUploadedImage]);
-
-  // Model file upload handler — uploads to backend, then loads the persistent URL into the viewer
-  const handleModelUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const ext = '.' + file.name.split('.').pop()?.toLowerCase();
-    const supported = ['.glb', '.gltf', '.fbx', '.obj', '.stl'];
-    if (!supported.includes(ext)) {
-      (await import('sonner')).toast.error(`Unsupported: ${ext}. Use: ${supported.join(', ')}`);
-      return;
-    }
-    try {
-      const { promise } = uploadService.uploadWithProgress(file, () => {}, '/api/v1/upload/model' as any);
+      const { promise, cancel } = uploadService.uploadWithProgress(
+        file,
+        (progress) => setImgUploadProgress(progress),
+        '/api/v1/upload/image'
+      );
       const result = await promise;
-      // Use the real persistent URL from the backend response
-      if (result?.url) {
-        window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url: result.url } }));
-        (await import('sonner')).toast.success(`Model uploaded (${ext.slice(1).toUpperCase()})`);
-      } else {
-        (await import('sonner')).toast.error('Upload succeeded but no URL returned');
-      }
+      setUploadedImage({ file, preview: URL.createObjectURL(file), width: result.width ?? 0, height: result.height ?? 0 });
+      setImgUploadProgress(null);
+      (await import('sonner')).toast.success('Image uploaded successfully');
     } catch (err: any) {
-      (await import('sonner')).toast.error(`Upload failed: ${err?.message || 'Unknown error'}`);
+      setImgUploadProgress(null);
+      if (err.message === 'Upload cancelled') {
+        (await import('sonner')).toast.info('Upload cancelled');
+      } else {
+        (await import('sonner')).toast.error(`Upload failed: ${err?.message || 'Unknown error'}`);
+      }
     }
-    // Reset input so re-uploading the same file triggers onChange
-    e.target.value = '';
-  }, []);
-
-  // Drag & drop for images
-  const [imgDragOver, setImgDragOver] = useState(false);
-  const handleImgDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault(); e.stopPropagation(); setImgDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (!file) return;
-    const error = validateImageFile(file);
-    if (error) { (await import('sonner')).toast.error(error); return; }
-    try {
-      const img = await processImageFile(file);
-      setUploadedImage(img);
-    } catch { (await import('sonner')).toast.error('Failed to process image'); }
   }, [setUploadedImage]);
+
+// Drag & drop for images
+   const [imgDragOver, setImgDragOver] = useState(false);
+   const handleImgDrop = useCallback(async (e: React.DragEvent) => {
+     e.preventDefault(); e.stopPropagation(); setImgDragOver(false);
+     
+     // Check if it's a file drop
+     const file = e.dataTransfer.files[0];
+     if (file) {
+       const error = validateImageFile(file);
+       if (error) { (await import('sonner')).toast.error(error); return; }
+       try {
+         const img = await processImageFile(file);
+         setUploadedImage(img);
+       } catch { (await import('sonner')).toast.error('Failed to process image'); }
+       return;
+     }
+     
+     // Check if it's a URL drop (from dragging image asset from asset panel)
+     const url = e.dataTransfer.getData('text/plain');
+     if (url) {
+       // Validate that it's likely an image URL
+       if (url.match(/\.(png|jpe?g|webp)$/i)) {
+         try {
+           // Create a temporary File object from the URL for processing
+           const response = await fetch(url);
+           if (!response.ok) throw new Error('Failed to fetch image');
+           const blob = await response.blob();
+           const file = new File([blob], 'asset-image.' + url.split('.').pop(), { type: response.headers.get('content-type') || 'image/png' });
+           const img = await processImageFile(file);
+           setUploadedImage(img);
+} catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            (await import('sonner')).toast.error('Failed to process image from asset: ' + errorMessage);
+          }
+       } else {
+         (await import('sonner')).toast.error('Invalid image URL');
+       }
+       return;
+     }
+   }, [setUploadedImage]);
 
   // Quality presets — driven by the shared QUALITY_PRESETS constant
   const qualityOptions: { id: QualityPreset; label: string; desc: string; credits: number }[] = QUALITY_PRESETS.map((p) => ({
@@ -261,7 +281,21 @@ export default function GenerationControls({ onModelUploadClick, compact }: Gene
                   <CheckCircle2 size={10} /> Loaded
                 </span>
               )}
+              {imgUploadProgress && (
+                <span className="text-[8px] font-mono text-[hsl(var(--neon-blue))] flex items-center gap-1">
+                  <Loader2 size={10} className="animate-spin" /> {imgUploadProgress.percent}%
+                </span>
+              )}
             </div>
+
+            {imgUploadProgress && (
+              <div className="w-full h-1.5 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-[hsl(var(--neon-blue))] to-[hsl(var(--neon-cyan))] rounded-full transition-all duration-300"
+                  style={{ width: `${imgUploadProgress.percent}%` }}
+                />
+              </div>
+            )}
 
             {uploadedImage ? (
               <div className="group relative rounded-xl overflow-hidden border border-[hsl(var(--border))] bg-[hsl(var(--surface-2))] transition-all shadow-inner">
@@ -487,18 +521,7 @@ export default function GenerationControls({ onModelUploadClick, compact }: Gene
           )}
         </div>
 
-        {/* Model Upload */}
-        <div className="space-y-1.5">
-          <label className="text-[9px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Import Model</label>
-          <button
-            onClick={() => modelInputRef.current?.click()}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-[hsl(var(--border)/0.5)] text-[10px] font-bold text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary))/0.3] hover:text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))/0.03] transition-all"
-          >
-            <Upload size={14} /> Upload 3D Model
-          </button>
-          <input ref={modelInputRef} type="file" accept=".glb,.gltf,.fbx,.obj,.stl" className="hidden" onChange={handleModelUpload} />
-          <p className="text-[8px] text-[hsl(var(--muted-foreground))]/40">GLB, GLTF, FBX, OBJ, STL</p>
-        </div>
+      
       </div>
 
       {/* Footer: Generate button + progress */}

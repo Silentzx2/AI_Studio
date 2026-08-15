@@ -51,7 +51,7 @@ export function useGeneration() {
         updatedAt: currentJob.updatedAt.getTime(),
       });
     }
-  }, []);
+  }, [currentJob, registerTask]);
 
   const generate = useCallback(async () => {
     let config = getConfig();

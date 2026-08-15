@@ -302,14 +302,26 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
           </div>
 
           <div className="flex flex-col gap-3">
-            {isUploadingModel ? (
-              <div className="w-full flex flex-col items-center gap-2 py-4 bg-[hsl(var(--surface-2))] rounded-xl border border-[hsl(var(--border))]">
-                <RefreshCw size={16} className="text-[hsl(var(--primary))] animate-spin" />
-                <div className="w-full max-w-[80%] h-1 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden">
-                  <div className="h-full bg-[hsl(var(--primary))] transition-all duration-200" style={{ width: `${modelUploadProgress}%` }} />
-                </div>
-              </div>
-            ) : uploadedModelUrl ? (
+{isUploadingModel ? (
+  <div className="w-full flex flex-col items-center gap-2 py-4 bg-[hsl(var(--surface-2))] rounded-xl border border-[hsl(var(--border))]">
+    <RefreshCw size={16} className="text-[hsl(var(--primary))] animate-spin" />
+    <div className="w-full max-w-[80%] h-1 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden">
+      <div className="h-full bg-[hsl(var(--primary))] transition-all duration-200" style={{ width: `${modelUploadProgress}%` }} />
+    </div>
+    <button
+      onClick={() => {
+        // TODO: Implement actual cancel functionality
+        // For now, just reset state
+        setIsUploadingModel(false);
+        setModelUploadProgress(0);
+        setStatusMessage('Upload cancelled');
+      }}
+      className="text-[8px] font-mono text-[hsl(var(--muted-foreground))]/50 hover:underline"
+    >
+      Cancel
+    </button>
+  </div>
+) : uploadedModelUrl ? (
               <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--neon-green)/0.3)] rounded-xl p-3 flex items-center gap-3 group">
                 <div className="w-8 h-8 rounded-lg bg-[hsl(var(--neon-green))/0.1] flex items-center justify-center text-[hsl(var(--neon-green))]">
                   <Layers size={14} />

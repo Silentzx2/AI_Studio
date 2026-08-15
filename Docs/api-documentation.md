@@ -1487,6 +1487,16 @@ async function generate3D(prompt: string) {
 - `POST /api/v1/runtime/provider` and `get_provider()` now correctly resolve `hunyuan3d-2-mini` and `triposg` (previously `validate_provider_switch()` rejected them and `get_provider()` silently fell back to the mock provider). The provider registry (`app/core/providers/registry.py`) is now in sync with the engine provider map.
 - Low-VRAM model loading: the GPU-placement check after load no longer aborts verified low-VRAM runs. With Accelerate CPU offload / `device_map`, tensors intentionally rest on CPU between steps, so the check now skips the hard assertion for offloaded models and only fails on a genuine silent CPU fallback.
 
+#### Added
+- **Model capability validation**: `POST /api/v1/generation` now validates that the requested model supports the selected mode (`text-to-3d`, `image-to-3d`) before queuing. Returns `400` with clear error if model doesn't support the mode.
+- **Installation guard**: Generation is blocked if the model isn't installed (missing repo/venv/weights), returning a clear error listing missing components with install instructions.
+- **Real image upload progress**: Image uploads now use `uploadWithProgress` showing real upload percentage instead of local preview only.
+- **Consolidated model upload**: 3D model upload moved to Asset Panel (right side) only; removed duplicate from Generation Controls (left side).
+
+#### Removed
+- Simulated/fake data in logs page (terminal prompt, static log entries)
+- Duplicate model upload UI in Generation Controls
+
 ---
 
 ### v3.4.3 (Reticle Removal + Unified Logger)

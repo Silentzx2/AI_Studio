@@ -6,6 +6,10 @@
  * Mounted once in app/layout.tsx to capture API events and user interactions,
  * and exports the interactive <ProjectTimeline /> component for the History tab.
  */
+
+// Module-level fallback time (avoids calling Date.now() during render)
+const FALLBACK_TIMESTAMP = Date.now();
+
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   Clock, CheckCircle2, AlertCircle, Loader2, Play, Heart, Download,
@@ -212,7 +216,7 @@ export function ProjectTimeline({ onLoadProject, className }: ProjectTimelinePro
           ? 'generating'
           : 'queued';
 
-      const createdAt = new Date(job.created_at || job.createdAt || Date.now());
+      const createdAt = new Date(job.created_at || job.createdAt || FALLBACK_TIMESTAMP);
       const durationSeconds = job.elapsedSeconds || job.result?.generation_time_seconds || 24;
 
       items.push({

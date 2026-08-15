@@ -6,7 +6,7 @@
  * Handles: asset list, thumbnails, selection, metadata, export/download, history
  */
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Search, RefreshCw, Download, FileDown, Eye, Trash2,
   Box, Heart, Clock, Hash, Layers,
@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { EXPORT_FORMATS } from '@/constants';
 import { uploadService } from '@/services/uploadService';
+import { apiClient } from '@/services/apiClient';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import ExportDialog from '@/features/workspace/new-ui/ExportDialog';
@@ -33,6 +34,7 @@ export interface AssetItem {
   modelUrl?: string | null;
   isFavorite?: boolean;
   job?: GenerationJob;
+  type?: 'image' | 'model';
 }
 
 interface AssetPanelProps {
@@ -50,9 +52,30 @@ interface AssetPanelProps {
 /* ------------------------------------------------------------------ */
 
 function AssetThumbnail({ asset, isSelected, onClick }: { asset: AssetItem; isSelected: boolean; onClick: () => void }) {
+  const handleDragStart = (e: React.DragEvent) => {
+    // For images, drag the image URL to be dropped onto image upload areas
+    // For 3D models, drag the model URL to be dropped onto 3D canvas
+    if (asset.type === 'image' && asset.thumbnailUrl) {
+      e.dataTransfer.setData('text/plain', asset.thumbnailUrl);
+      e.dataTransfer.effectAllowed = 'copy';
+    } else if (asset.type === 'model' && asset.modelUrl) {
+      e.dataTransfer.setData('text/plain', asset.modelUrl);
+      e.dataTransfer.effectAllowed = 'copy';
+    }
+    // Add visual feedback
+    e.currentTarget.classList.add('drag-active');
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    e.currentTarget.classList.remove('drag-active');
+  };
+
   return (
     <button
       onClick={onClick}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      draggable={asset.type === 'image' || asset.type === 'model'}
       className={cn(
         'group relative rounded-xl overflow-hidden border transition-all duration-300 aspect-square',
         isSelected
@@ -246,11 +269,65 @@ export default function AssetPanel({
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [activeTab, setActiveTab] = useState<'assets' | 'inspector'>('assets');
   const [isUploadingModel, setIsUploadingModel] = useState(false);
+  const [modelUploadProgress, setModelUploadProgress] = useState<{ loaded: number; total: number; percent: number } | null>(null);
   const [isDropZoneActive, setIsDropZoneActive] = useState(false);
+  const [uploadAssets, setUploadAssets] = useState<AssetItem[]>([]);
+  const [isLoadingUploads, setIsLoadingUploads] = useState(false);
   const modelFileInputRef = useRef<HTMLInputElement>(null);
 
-  const filteredAssets = useMemo(() => {
-    return assets.filter((a) => {
+  useEffect(() => {
+    const fetchUploadAssets = async () => {
+      setIsLoadingUploads(true);
+      try {
+        const response = await apiClient.get<any>('/api/v1/upload/assets');
+        const payload = response?.data ?? response ?? {};
+        const images = payload.images || [];
+        const models = payload.models || [];
+        
+        // Convert to AssetItem format
+        const imageAssets: AssetItem[] = images.map((img: any) => ({
+          id: img.id,
+          name: img.name || img.filename || 'Untitled Image',
+          prompt: '',
+          format: img.format?.toUpperCase() || '',
+          timestamp: img.created_at || new Date().toISOString(),
+          thumbnailUrl: img.url,
+          modelUrl: null,
+          isFavorite: false,
+          job: null,
+          type: 'image' as const
+        }));
+        
+        const modelAssets: AssetItem[] = models.map((model: any) => ({
+          id: model.id,
+          name: model.name || model.filename || 'Untitled Model',
+          prompt: '',
+          format: model.format?.toUpperCase() || '',
+          timestamp: model.created_at || new Date().toISOString(),
+          thumbnailUrl: model.thumbnailUrl || null,
+          modelUrl: model.url,
+          isFavorite: false,
+          job: null,
+          type: 'model' as const
+        }));
+        
+        setUploadAssets([...imageAssets, ...modelAssets]);
+      } catch (error) {
+        console.error('Failed to fetch upload assets:', error);
+        // Keep existing uploadAssets if any
+      } finally {
+        setIsLoadingUploads(false);
+      }
+    };
+
+    fetchUploadAssets();
+  }, []);
+
+const filteredAssets = useMemo(() => {
+    // Combine job history assets and upload assets
+    const allAssets = [...assets, ...uploadAssets];
+    
+    return allAssets.filter((a) => {
       const matchesSearch =
         a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (a.prompt && a.prompt.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -260,7 +337,7 @@ export default function AssetPanel({
         (categoryFilter === '3d-models' && ['GLB', 'GLTF', 'OBJ', 'FBX', 'STL'].includes(a.format));
       return matchesSearch && matchesCategory;
     });
-  }, [assets, searchQuery, categoryFilter]);
+  }, [assets, uploadAssets, searchQuery, categoryFilter]);
 
   const selectedAsset = useMemo(
     () => assets.find((a) => a.id === selectedAssetId) || null,
@@ -281,32 +358,52 @@ export default function AssetPanel({
     if (modelFileInputRef.current) modelFileInputRef.current.value = '';
   };
 
-  const processModelUpload = async (file: File) => {
-    const ext = '.' + file.name.split('.').pop()?.toLowerCase();
-    const supportedExts = ['.glb', '.gltf', '.fbx', '.obj', '.stl'];
-    if (!supportedExts.includes(ext)) {
-      toast.error(`Unsupported format: ${ext}. Supported: GLB, GLTF, FBX, OBJ, STL`);
-      return;
-    }
+const processModelUpload = async (file: File) => {
+        const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+        const supportedExts = ['.glb', '.gltf', '.fbx', '.obj', '.stl'];
+        if (!supportedExts.includes(ext)) {
+            toast.error(`Unsupported format: ${ext}. Supported: GLB, GLTF, FBX, OBJ, STL`);
+            return;
+        }
 
-    setIsUploadingModel(true);
-    try {
-      const { promise } = uploadService.uploadWithProgress(file, () => {}, '/api/v1/upload/model' as any);
-      const result = await promise;
-      if (result?.url) {
-        toast.success(`Model uploaded successfully (${ext.slice(1).toUpperCase()})`);
-        // Load into 3D viewer right away
-        window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url: result.url } }));
-        if (onAssetUploaded) onAssetUploaded();
-      } else {
-        toast.error('Upload succeeded but no model URL was returned');
-      }
-    } catch (err: any) {
-      toast.error(`Model upload failed: ${err?.message || 'Unknown error'}`);
-    } finally {
-      setIsUploadingModel(false);
-    }
-  };
+        setIsUploadingModel(true);
+        setModelUploadProgress({ loaded: 0, total: file.size, percent: 0 });
+        let cancelled = false;
+        
+        try {
+            const { promise, cancel } = uploadService.uploadWithProgress(
+                file,
+                (progress) => {
+                    setModelUploadProgress(progress);
+                },
+                '/api/v1/upload/model' as any
+            );
+            
+            // Create a timeout to allow cancellation
+            const timeoutPromise = new Promise<never>((_, reject) => {
+                setTimeout(() => reject(new Error('Upload cancelled')), 300000); // 5 minute timeout
+            });
+            
+            const result = await Promise.race([promise, timeoutPromise]);
+            if (result?.url && !cancelled) {
+                toast.success(`Model uploaded successfully (${ext.slice(1).toUpperCase()})`);
+                // Load into 3D viewer right away
+                window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url: result.url } }));
+                if (onAssetUploaded) onAssetUploaded();
+            } else if (!cancelled) {
+                toast.error('Upload succeeded but no model URL was returned');
+            }
+        } catch (err: any) {
+            if (err.message === 'Upload cancelled') {
+                toast.info('Upload cancelled');
+            } else if (!cancelled) {
+                toast.error(`Model upload failed: ${err?.message || 'Unknown error'}`);
+            }
+        } finally {
+            setIsUploadingModel(false);
+            setModelUploadProgress(null);
+        }
+    };
 
   const categoryPills = [
     { id: 'all', label: 'All' },
@@ -359,8 +456,35 @@ export default function AssetPanel({
             <Upload size={12} />
           )}
           <span>{isUploadingModel ? '...' : 'Upload'}</span>
-        </button>
-      </div>
+</button>
+       </div>
+       {modelUploadProgress && (
+         <div className="mt-2">
+           <div className="flex items-center justify-between mb-1">
+             <span className="text-[9px] font-mono text-white/70">Uploading...</span>
+             <span className="text-[9px] font-mono text-white">{modelUploadProgress.percent}%</span>
+           </div>
+           <div className="w-full h-1.5 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden">
+             <div
+               className="h-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-cyan))] rounded-full transition-all duration-300"
+               style={{ width: `${modelUploadProgress.percent}%` }}
+             />
+           </div>
+           <button
+             onClick={() => {
+               // Cancel upload by calling cancel on the upload service
+               // We need to store the cancel function somewhere accessible
+               // For now, we'll just reset the state and show cancelled toast
+               setIsUploadingModel(false);
+               setModelUploadProgress(null);
+               toast.info('Upload cancelled');
+             }}
+             className="text-[8px] font-mono text-[hsl(var(--muted-foreground))]/50 hover:underline"
+           >
+             Cancel
+           </button>
+         </div>
+       )}
 
       {activeTab === 'assets' && (
         <div className="flex flex-col flex-1 min-h-0">
@@ -415,13 +539,13 @@ export default function AssetPanel({
               if (file) await processModelUpload(file);
             }}
           >
-            {loading ? (
-              <div className="grid grid-cols-2 gap-3">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="aspect-square rounded-2xl bg-white/5 animate-pulse" />
-                ))}
-              </div>
-            ) : filteredAssets.length > 0 ? (
+{loading || isLoadingUploads ? (
+  <div className="grid grid-cols-2 gap-3">
+    {Array.from({ length: 4 }).map((_, i) => (
+      <div key={i} className="aspect-square rounded-2xl bg-white/5 animate-pulse" />
+    ))}
+  </div>
+) : filteredAssets.length > 0 ? (
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-3">
                   {filteredAssets.map((asset) => (

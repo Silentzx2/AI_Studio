@@ -537,11 +537,6 @@ export function LogsTab() {
               </div>
             </div>
           )}
-          {/* Prompt line + blinking cursor */}
-          <div className="flex items-center gap-2 px-1.5 py-1 text-[hsl(var(--neon-green))] select-none">
-            <span className="font-mono text-xs">ai3d@studio:~$</span>
-            <span className="terminal-cursor" />
-          </div>
           <div ref={endRef} />
         </div>
 

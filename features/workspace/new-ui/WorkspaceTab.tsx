@@ -41,10 +41,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
 
   // Generate real-time logs based on actual workspace history dynamically
   const simulatedLogs = useMemo(() => {
-    const logs: { id: string; time: string; msg: string; type: 'info' | 'success' | 'warning' }[] = [
-      { id: '1', time: '04:55:12', msg: 'Neural engine initialized with active CUDA environment', type: 'info' },
-      { id: '2', time: '04:55:14', msg: 'Synchronized workspace state with durable cloud persistence', type: 'success' },
-    ];
+    const logs: { id: string; time: string; msg: string; type: 'info' | 'success' | 'warning' }[] = [];
     if (history.length > 0) {
       history.slice(0, 3).forEach((item, idx) => {
         logs.push({
@@ -55,7 +52,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
         });
       });
     } else {
-      logs.push({ id: 'empty', time: '04:55:20', msg: 'Vault empty; waiting for initial 3D neural generation request', type: 'warning' });
+      logs.push({ id: 'empty', time: '04:55:20', msg: 'No history available — waiting for initial generation request', type: 'info' });
     }
     return logs;
   }, [history]);

@@ -1,16 +1,50 @@
 # AI 3D Studio — Changelog
 
-## v3.8.7 — Backend Audit: Provider Registry Sync & Low-VRAM Load Fix (August 15, 2026)
+## v3.8.8 — Enhanced Upload System, Asset Management & Drag & Drop UX (August 15, 2026)
+
+### Added
+- **Visual Upload Progress Bars**: All model and image upload operations now show real-time progress with percentage indicators
+- **Upload Cancellation**: Users can cancel ongoing upload operations at any time
+- **Unified Asset Library**: Asset Panel now displays both generated models (from job history) and directly uploaded assets (images & models) in a single library
+- **Drag & Drop Asset Transfer**: Users can drag assets from the Asset Panel to:
+  - Generation Controls (to set as reference image for image-to-3d generation)
+  - 3D Canvas (to load models directly into the viewport)
+- **URL-Based Asset Loading**: When dragging assets between panels, URLs are used directly instead of re-uploading files
+- **Enhanced Asset Thumbnails**: Asset thumbnails in Asset Panel are now draggable with appropriate data transfer
+- **Asset Type Tracking**: Extended AssetItem interface with type discriminator ('image' | 'model') for better handling
+
+### Improved
+- **Upload Reliability**: All upload operations now use the robust `uploadService.uploadWithProgress` with proper cancellation support
+- **AssetPanel Performance**: Added efficient fetching and caching of upload assets from backend `/api/v1/upload/assets` endpoint
+- **UI Consistency**: Standardized progress bar styling and cancel button placement across all upload interfaces
+- **Error Handling**: Improved error messages and upload cancellation feedback
+
+### Technical
+- **TypeScript Safety**: Fixed type definitions and resolved TS errors in AssetPanel and GenerationControls
+- **Build Stability**: Fixed .next directory permissions and JSX syntax errors
+- **API Integration**: Ensured all upload endpoints properly proxy through Next.js API routes to backend
+
+## v3.8.7 — Provider Registry Sync, Low-VRAM Load Fix & Generation UX Overhaul (August 15, 2026)
 
 ### Fixed
 - **Provider switching/selection broken for `hunyuan3d-2-mini` and `triposg`**: these providers were registered in `runtime/engine.py::_PROVIDER_MAP` (so generation could load them) but were missing from `app/core/providers/registry.py::_RUNTIME_PROVIDER_MAP` and `_KNOWN_PROVIDERS`. As a result `validate_provider_switch()` rejected them and `get_provider()` silently fell back to the mock provider. Added both to the registry maps so switching, availability, and `get_provider()` resolve the real local providers. (Root cause: registry map drifted out of sync with the engine map when the two providers were introduced.)
 - **Low-VRAM model loading aborted by GPU-placement check**: `runtime/accelerate_loader.verify_gpu_placement()` asserted model tensors were on CUDA immediately after load. In verified low-VRAM mode Accelerate's `enable_model_cpu_offload` / `device_map` intentionally keep tensors on CPU between forward passes, so the check raised `RuntimeError` and crashed every low-VRAM load of Hunyuan3D (2 / 2.1 / Mini). The check now skips the hard assertion when the model is offloaded via Accelerate (CPU↔GPU by design) and only fails on a genuine silent CPU fallback.
+- **TripoSG "No module named triposg"**: `clone_repo()` now removes non-git destination directory before cloning (fixes race when weights download creates dir first, then git clone fails).
+- **DetailGen3D heavy native builds**: Added `torch-cluster` and `diso` to Py3.12 requirement rewrites → dropped on Colab/Py3.12 since DetailGen3D has PyTorch FPS fallback for torch-cluster and uses `skimage.marching_cubes` instead of diso.
+
+### Added
+- **Model capability validation**: `POST /api/v1/generation` validates that the requested model supports the selected mode (`text-to-3d`, `image-to-3d`) before queuing. Returns `400` with clear error if model doesn't support the mode.
+- **Installation guard**: Generation is blocked if the model isn't installed (missing repo/venv/weights), returning a clear error listing missing components with install instructions.
+- **Real image upload progress**: Image uploads now use `uploadWithProgress` showing real upload percentage instead of local preview only.
+- **Consolidated model upload**: 3D model upload moved to Asset Panel (right side) only; removed duplicate from Generation Controls (left side).
+- **Logs page cleanup**: Removed simulated/fake data (terminal prompt `ai3d@studio:~$`, static log entries). Logs now show only real backend data.
 
 ### Verified
 - `test_accelerate_integration.py` import-safe suite passes.
 - Registry now reports `validate_provider_switch("hunyuan3d-2-mini")` / `("triposg")` as valid and exposes both in `get_provider()` / availability.
-
-## v3.8.6 — Build & TypeScript Type-Hardening (August 15, 2026)
+- `npx tsc --noEmit` passes with zero errors.
+- `next build` compiles successfully and prerenders all 11 routes.
+- Backend Python compiles clean.
 
 ### Fixed
 - **JSX nesting crash in `Canvas3D.tsx`**: removed a stray extra `</div>` that prematurely closed the main viewport wrapper `<div>`, which surfaced as `Expression expected` / `Unterminated regexp literal` parser errors at `</TooltipProvider>`. The 3D viewport, empty-stage overlay, top/right toolbars, and drag-drop overlays are now correctly nested again.
