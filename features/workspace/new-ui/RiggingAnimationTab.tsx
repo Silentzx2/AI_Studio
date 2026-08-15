@@ -216,8 +216,8 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
   const [timelinePosition, setTimelinePosition] = useState(0);
   const animationFrameRef = useRef<ReturnType<typeof requestAnimationFrame> | null>(null);
   const lastTimeRef = useRef<number>(0);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cancelUploadRef = React.useRef<(() => void) | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -316,11 +316,12 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
 
     try {
       const { uploadService } = await import('@/services/uploadService');
-      const { promise } = uploadService.uploadWithProgress(file, (progress) => {
+      const { promise, cancel } = uploadService.uploadWithProgress(file, (progress) => {
         setModelUploadProgress(progress.percent);
       }, '/api/v1/upload/model');
+      cancelUploadRef.current = cancel;
       const { url } = await promise;
-      
+
       setUploadedModel(file);
       setUploadedModelName(file.name);
       setUploadedModelSize(file.size);
@@ -330,7 +331,8 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
       setRiggingResult(null);
       setIsPlaying(false);
       setTimelinePosition(0);
-      
+      cancelUploadRef.current = null;
+
       // Load model into viewer
       window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url } }));
 
@@ -348,13 +350,16 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
       });
       return true;
     } catch (err: any) {
-      toast.error('Upload failed', {
-        description: err.message || 'Could not upload model.',
-      });
+      if (err.message !== 'Upload cancelled') {
+        toast.error('Upload failed', {
+          description: err.message || 'Could not upload model.',
+        });
+      }
       return false;
     } finally {
       setIsUploadingModel(false);
       setModelUploadProgress(0);
+      cancelUploadRef.current = null;
     }
   }, []);
 
@@ -670,8 +675,9 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
     </div>
     <button
       onClick={() => {
-        // TODO: Implement actual cancel functionality
-        // For now, just reset state
+        if (cancelUploadRef.current) {
+          cancelUploadRef.current();
+        }
         setIsUploadingModel(false);
         setModelUploadProgress(0);
         setStatusMessage('Upload cancelled');

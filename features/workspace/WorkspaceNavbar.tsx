@@ -51,7 +51,7 @@ export function WorkspaceNavbar() {
 
   return (
     <header
-      className="sticky top-0 z-40 w-full bg-[hsl(var(--surface-1))/0.95] backdrop-blur-xl border-b border-[hsl(var(--border))/0.2] transition-all h-12 shadow-sm"
+      className="sticky top-0 z-40 w-full bg-[hsl(var(--surface-1))/0.95] backdrop-blur-xl border-b border-[hsl(var(--border))/0.15] transition-all h-12"
       id="global-workspace-navbar"
     >
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-full flex items-center justify-between gap-4">
@@ -60,7 +60,7 @@ export function WorkspaceNavbar() {
           {/* Mobile hamburger */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--surface-2))] hover:text-[hsl(var(--foreground))] transition-all btn-icon"
+            className="md:hidden p-2 rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--surface-2))] hover:text-[hsl(var(--foreground))] transition-all"
             aria-label="Toggle navigation"
           >
             {mobileMenuOpen ? <X size={16} /> : <Menu size={16} />}
@@ -68,13 +68,13 @@ export function WorkspaceNavbar() {
 
           {/* Logo & Brand Badge */}
           <Link href="/" className="flex items-center gap-2 group" aria-label="Home">
-            <div className="w-7 h-7 rounded-lg bg-[hsl(var(--primary))] flex items-center justify-center shadow-[0_0_12px_hsl(var(--primary)/0.15)] group-hover:scale-105 transition-transform duration-200">
+            <div className="w-7 h-7 rounded-lg bg-[hsl(var(--primary))] flex items-center justify-center transition-transform duration-200 group-hover:scale-105">
               <Boxes size={16} className="text-[hsl(var(--surface-2))]" />
             </div>
             <div className="flex flex-col hidden sm:flex">
               <div className="flex items-center gap-1.5">
-                <span className="text-sm font-black tracking-tighter text-white uppercase">{APP_NAME}</span>
-                <span className="px-1.5 py-0.5 text-[7px] font-black uppercase tracking-[0.2em] rounded bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/20">
+                <span className="text-sm font-semibold tracking-tight text-white">{APP_NAME}</span>
+                <span className="px-1.5 py-0.5 text-[7px] font-semibold uppercase tracking-wider rounded bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/20">
                   PRO
                 </span>
               </div>
@@ -82,7 +82,7 @@ export function WorkspaceNavbar() {
           </Link>
 
           {/* Primary Nav Links */}
-          <nav className="hidden lg:flex items-center gap-1 ml-2 pl-3 border-l border-[hsl(var(--border))/0.2]" id="top-nav-links">
+          <nav className="hidden lg:flex items-center gap-1 ml-2 pl-3" id="top-nav-links">
             {NAV_LINKS.map((link) => {
               const Icon = link.icon;
               const active = isActive(link.href);
@@ -91,13 +91,13 @@ export function WorkspaceNavbar() {
                   key={link.href}
                   href={link.href}
                   className={cn(
-                    'flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200',
+                    'flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-200',
                     active
-                      ? 'text-[hsl(var(--surface-2))] bg-[hsl(var(--primary))] shadow-[0_0_10px_hsl(var(--primary)/0.15)]'
+                      ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10'
                       : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
                   )}
                 >
-                  <Icon size={12} />
+                  <Icon size={14} />
                   <span>{link.label}</span>
                 </Link>
               );
@@ -117,7 +117,7 @@ export function WorkspaceNavbar() {
               className="w-full h-9 pl-10 pr-4 text-[11px] font-medium text-[hsl(var(--foreground))] bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))/0.3] rounded-lg
                          placeholder:text-[hsl(var(--muted-foreground))/0.4]
                          hover:border-[hsl(var(--border))/0.5]
-                         focus:outline-none focus:bg-[hsl(var(--surface-2))] focus:border-[hsl(var(--primary))] focus:ring-2 focus:ring-[hsl(var(--primary))/0.2]
+                         focus:outline-none focus:bg-[hsl(var(--surface-2))] focus:border-[hsl(var(--border))] focus:ring-2 focus:ring-[hsl(var(--primary))/0.15]
                          transition-all duration-200"
               onClick={() => {
                 document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true, bubbles: true }));
@@ -132,7 +132,7 @@ export function WorkspaceNavbar() {
           {activeBatchCount > 0 && (
             <Link
               href="/workspace?tab=3d-gen"
-              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[hsl(var(--neon-blue))/0.1] border border-[hsl(var(--neon-blue))/0.2] text-[hsl(var(--neon-blue))] text-[9px] font-black uppercase tracking-wider animate-pulse badge-status-info"
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[hsl(var(--surface-3))] border border-[hsl(var(--border))/0.3] text-[hsl(var(--foreground))] text-[9px] font-semibold uppercase tracking-wider"
             >
               <Wand2 size={11} />
               <span>{activeBatchCount} Running</span>
@@ -146,10 +146,10 @@ export function WorkspaceNavbar() {
           <Link
             href="/settings"
             className={cn(
-              'w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 btn-icon',
+              'w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200',
               pathname.startsWith('/settings')
                 ? 'bg-[hsl(var(--primary))/0.1] text-[hsl(var(--primary))]'
-                : ''
+                : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
             )}
             title="Studio Settings"
           >
@@ -160,7 +160,7 @@ export function WorkspaceNavbar() {
 
       {/* Mobile Navigation Dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-[hsl(var(--border))/0.2] bg-[hsl(var(--surface-0))] px-4 py-3 space-y-1 animate-fadeIn">
+        <div className="md:hidden border-t border-[hsl(var(--border))/0.15] bg-[hsl(var(--surface-0))] px-4 py-3 space-y-1">
           {NAV_LINKS.map((link) => {
             const Icon = link.icon;
             const active = isActive(link.href);
@@ -170,9 +170,9 @@ export function WorkspaceNavbar() {
                 href={link.href}
                 onClick={() => setMobileMenuOpen(false)}
                 className={cn(
-                  'flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200',
+                  'flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200',
                   active
-                    ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))/0.1]'
+                    ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10'
                     : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
                 )}
               >

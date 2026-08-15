@@ -182,33 +182,17 @@ async def get_model_health(model_id: str):
 
 @router.get("/{model_id}/benchmark")
 async def run_model_benchmark(model_id: str):
-    """Run benchmark for a specific model.
-    
-    Note: This is a placeholder endpoint. Full implementation would require
-    model-specific benchmarking logic.
-    """
-    
-    # Check if model exists
+    """Run benchmark for a specific model."""
+    from fastapi import HTTPException
+
     manifest = await installer.get_model_manifest(model_id)
     if not manifest:
         raise HTTPException(status_code=404, detail="Model not found")
-    
-    # Return placeholder benchmark data
-    # In production, this would run actual inference benchmarks
-    return {
-        "success": True,
-        "data": {
-            "model_id": model_id,
-            "status": "placeholder",
-            "message": "Benchmarking not yet implemented for this model type",
-            "note": "This feature requires model-specific implementation",
-            "timestamp": None,
-            "inference_time_ms": None,
-            "throughput_samples_per_sec": None,
-            "memory_usage_mb": None,
-            "gpu_utilization_percent": None
-        }
-    }
+
+    raise HTTPException(
+        status_code=501,
+        detail="Benchmarking is not yet implemented for this model type. Model-specific implementation is required."
+    )
 
 
 @router.get("/health/all")

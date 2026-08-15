@@ -47,6 +47,7 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [successResult, setSuccessResult] = useState<any>(null);
+  const cancelUploadRef = React.useRef<(() => void) | null>(null);
 
   React.useEffect(() => {
     anime({
@@ -103,16 +104,18 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
     setModelUploadProgress(0);
     try {
       const { uploadService } = await import('@/services/uploadService');
-      const { promise } = uploadService.uploadWithProgress(file, (progress) => {
+      const { promise, cancel } = uploadService.uploadWithProgress(file, (progress) => {
         setModelUploadProgress(progress.percent);
       }, '/api/v1/upload/model');
+      cancelUploadRef.current = cancel;
       const { url } = await promise;
       setUploadedModel(file);
       setUploadedModelName(file.name);
       setUploadedModelUrl(url);
       setStatusMessage(null);
       setSuccessResult(null);
-      
+      cancelUploadRef.current = null;
+
       // Load model into viewer
       window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url } }));
 
@@ -126,10 +129,13 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
       });
 
     } catch (err: any) {
-      setStatusMessage(`Upload failed: ${err.message}`);
+      if (err.message !== 'Upload cancelled') {
+        setStatusMessage(`Upload failed: ${err.message}`);
+      }
     } finally {
       setIsUploadingModel(false);
       setModelUploadProgress(0);
+      cancelUploadRef.current = null;
     }
   };
 
@@ -310,8 +316,9 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
     </div>
     <button
       onClick={() => {
-        // TODO: Implement actual cancel functionality
-        // For now, just reset state
+        if (cancelUploadRef.current) {
+          cancelUploadRef.current();
+        }
         setIsUploadingModel(false);
         setModelUploadProgress(0);
         setStatusMessage('Upload cancelled');

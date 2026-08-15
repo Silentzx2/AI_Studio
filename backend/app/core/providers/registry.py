@@ -185,7 +185,6 @@ def get_provider(name: str, device: str | None = None):
 
     try:
         return ProviderRegistry.get_provider(normalized)
-    except ValueError:
-        logger.warning("Provider '%s' not in ProviderRegistry; falling back to mock.", name)
-        from app.core.providers.mock import MockProvider
-        return MockProvider()
+    except ValueError as exc:
+        logger.error("Provider '%s' not available: %s", name, exc)
+        raise
