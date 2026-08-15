@@ -19,6 +19,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import GenerationControls from "@/3D-SPACE/GenerationControls";
 import Canvas3D from "@/3D-SPACE/Canvas3D";
 import AssetPanel, { type AssetItem } from "@/3D-SPACE/AssetPanel";
@@ -62,6 +63,28 @@ export function ThreeDGenWorkspace({ embedded = false }: { embedded?: boolean })
     loadHistory();
   }, [loadHistory]);
 
+  const assets = useMemo<AssetItem[]>(
+    () =>
+      (jobHistory ?? []).map(jobToAsset).map((a) =>
+        favorites.has(a.id) ? { ...a, isFavorite: true } : a
+      ),
+    [jobHistory, favorites]
+  );
+
+  // Auto-select latest completed asset if none is selected
+  useEffect(() => {
+    if (!selectedAssetId && assets.length > 0) {
+      const latestCompleted = assets.find((a) => !!a.modelUrl);
+      if (latestCompleted) {
+        setSelectedAssetId(latestCompleted.id);
+        if (latestCompleted.modelUrl) {
+          window.dispatchEvent(new CustomEvent("load-glb-model", { detail: { url: latestCompleted.modelUrl } }));
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assets]);
+
   // Refresh the asset list once a generation finishes so the new model shows up.
   useEffect(() => {
     const status = currentJob?.status ?? null;
@@ -70,14 +93,6 @@ export function ThreeDGenWorkspace({ embedded = false }: { embedded?: boolean })
     }
     prevStatusRef.current = status;
   }, [currentJob?.status, loadHistory]);
-
-  const assets = useMemo<AssetItem[]>(
-    () =>
-      (jobHistory ?? []).map(jobToAsset).map((a) =>
-        favorites.has(a.id) ? { ...a, isFavorite: true } : a
-      ),
-    [jobHistory, favorites]
-  );
 
   const handleSelectAsset = (asset: AssetItem) => {
     setSelectedAssetId(asset.id);
@@ -109,23 +124,39 @@ export function ThreeDGenWorkspace({ embedded = false }: { embedded?: boolean })
   return (
     <div className={`flex flex-col overflow-hidden bg-[hsl(var(--surface-0))] ${embedded ? 'h-full' : 'h-screen'}`}>
       {!embedded && <WorkspaceNavbar />}
-      <div className="flex flex-1 min-h-0">
-        <div className="w-[340px] max-w-[85vw] shrink-0">
+      <div className="flex flex-1 min-h-0 h-full">
+        {/* Left Panel - Generation Controls (Slimmer: 280px) */}
+        <motion.div 
+          initial={{ x: -280, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ type: "spring", damping: 25, stiffness: 200 }}
+          className="w-[280px] max-w-[80vw] shrink-0 h-full border-r border-[hsl(var(--border))]"
+        >
           <GenerationControls />
-        </div>
-        <div className="flex-1 min-w-0 min-h-0">
+        </motion.div>
+
+        {/* Center Panel - Main 3D Canvas (Maximized Viewport) */}
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col relative h-full w-full">
           <Canvas3D isGenerating={isGenerating} />
         </div>
-        <div className="w-[320px] max-w-[85vw] shrink-0">
+
+        {/* Right Panel - Asset Library & Inspector (Slimmer: 260px) */}
+        <motion.div 
+          initial={{ x: 260, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ type: "spring", damping: 25, stiffness: 200, delay: 0.1 }}
+          className="w-[260px] max-w-[80vw] shrink-0 h-full border-l border-[hsl(var(--border))]"
+        >
           <AssetPanel
             assets={assets}
             selectedAssetId={selectedAssetId}
             onSelectAsset={handleSelectAsset}
             onToggleFavorite={handleToggleFavorite}
             onDeleteAsset={handleDeleteAsset}
+            onAssetUploaded={loadHistory}
             loading={isLoadingHistory}
           />
-        </div>
+        </motion.div>
       </div>
     </div>
   );

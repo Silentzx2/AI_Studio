@@ -68,6 +68,19 @@ export interface RecentPrompt {
   createdAt: Date;
 }
 
+export interface BatchQueueItem {
+  id: string;
+  prompt: string;
+  negativePrompt?: string;
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+  progress: number;
+  result?: GenerationResult;
+  error?: string;
+  createdAt: Date;
+  startedAt?: Date;
+  completedAt?: Date;
+}
+
 export interface ViewerState {
   mode: ViewerMode;
   autoRotate: boolean;

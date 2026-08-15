@@ -5,23 +5,27 @@ import { useRuntimeOptions, useSystemSettings } from '@/hooks/useBackendData';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/premium/Spinner';
-import { Cpu, Sliders, Box, Layers, Save, Check } from 'lucide-react';
+import { Cpu, Sliders, Box, Layers, Save, Check, ListOrdered, Sparkles, Zap, CheckCircle2 } from 'lucide-react';
 import { runtimeService } from '@/services/runtimeService';
 import { toast } from 'sonner';
 import { useAutoSave } from '@/hooks/useAutoSave';
+import { useAppStore } from '@/stores/useAppStore';
 
 export function GenerationSection() {
   const { options, loading: optionsLoading, error: optionsError } = useRuntimeOptions();
   const { settings, loading: settingsLoading } = useSystemSettings();
+  const batchGenerationEnabled = useAppStore((s) => s.batchGenerationEnabled);
+  const setBatchGenerationEnabled = useAppStore((s) => s.setBatchGenerationEnabled);
 
   const [provider, setProvider] = useState<string>('');
   const [quality, setQuality] = useState<string>('high');
   const [outputFormat, setOutputFormat] = useState<string>('glb');
   const [resolution, setResolution] = useState<string>('1024');
   const [steps, setSteps] = useState<number>(30);
+  const [batchEnabled, setBatchEnabled] = useState<boolean>(batchGenerationEnabled);
   const [saving, setSaving] = useState(false);
 
-  const { Indicator } = useAutoSave({ provider, quality, outputFormat, resolution, steps }, async (data) => {
+  const { Indicator } = useAutoSave({ provider, quality, outputFormat, resolution, steps, batchEnabled }, async (data) => {
     if (!data.provider) return;
     try {
       const config = {
@@ -31,6 +35,7 @@ export function GenerationSection() {
         resolution: data.resolution,
       };
       localStorage.setItem('generationSettings', JSON.stringify(data));
+      localStorage.setItem('batchGenerationEnabled', JSON.stringify(data.batchEnabled));
       await runtimeService.updateConfig(config);
     } catch {
       // Fallback: just local storage
@@ -44,6 +49,12 @@ export function GenerationSection() {
 
   useEffect(() => {
     const savedGen = localStorage.getItem('generationSettings');
+    const savedBatch = localStorage.getItem('batchGenerationEnabled');
+    if (savedBatch !== null) {
+      const isBatch = JSON.parse(savedBatch);
+      setBatchEnabled(isBatch);
+      setBatchGenerationEnabled(isBatch);
+    }
     if (savedGen) {
       try {
         const parsed = JSON.parse(savedGen);
@@ -52,11 +63,26 @@ export function GenerationSection() {
         if (parsed.outputFormat) setOutputFormat(parsed.outputFormat);
         if (parsed.resolution) setResolution(parsed.resolution);
         if (parsed.steps) setSteps(parsed.steps);
+        if (parsed.batchEnabled !== undefined) {
+          setBatchEnabled(parsed.batchEnabled);
+          setBatchGenerationEnabled(parsed.batchEnabled);
+        }
       } catch { /* ignore */ }
     } else if (settings?.default_provider || options?.active_provider) {
       setProvider(settings?.default_provider || options?.active_provider || '');
     }
-  }, [settings, options]);
+  }, [settings, options, setBatchGenerationEnabled]);
+
+  const handleToggleBatch = (val: boolean) => {
+    setBatchEnabled(val);
+    setBatchGenerationEnabled(val);
+    localStorage.setItem('batchGenerationEnabled', JSON.stringify(val));
+    toast.success(val ? 'Batch Generation Enabled' : 'Batch Generation Disabled', {
+      description: val
+        ? 'Workspace will now support queueing multiple text-to-3D prompts consecutively.'
+        : 'Workspace standard single-generation mode active.'
+    });
+  };
 
   if (optionsLoading || settingsLoading) {
     return (
@@ -183,6 +209,58 @@ export function GenerationSection() {
                 </button>
               ))}
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Batch Generation Mode Card */}
+      <Card className="border-[hsl(var(--border))] bg-[hsl(var(--surface-1))]">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <ListOrdered className="w-5 h-5 text-[hsl(var(--neon-cyan))]" />
+              Batch Generation &amp; Queue Pipelining
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={batchEnabled}
+                onClick={() => handleToggleBatch(!batchEnabled)}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+                  batchEnabled ? 'bg-primary' : 'bg-[hsl(var(--muted))]'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    batchEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+          <CardDescription>
+            Allows the workspace to queue multiple text-to-3D prompts consecutively, showing a real-time progress queue indicator for the entire job set.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="p-4 rounded-xl bg-[hsl(var(--surface-2)/0.6)] border border-[hsl(var(--border)/0.5)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <span className="text-sm font-semibold text-[hsl(var(--foreground))] flex items-center gap-1.5">
+                <Zap className="w-4 h-4 text-[hsl(var(--neon-cyan))]" />
+                Consecutive Job Queueing
+              </span>
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                When active, the prompt input bar in the 3D workspace enables multi-prompt entry, sequential rendering, and total set progress tracking.
+              </p>
+            </div>
+            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap self-start sm:self-auto ${
+              batchEnabled
+                ? 'bg-[hsl(var(--neon-cyan)/0.15)] text-[hsl(var(--neon-cyan))] border border-[hsl(var(--neon-cyan)/0.3)]'
+                : 'bg-[hsl(var(--muted)/0.5)] text-[hsl(var(--muted-foreground))]'
+            }`}>
+              {batchEnabled ? 'Active in Workspace' : 'Standard Mode'}
+            </span>
           </div>
         </CardContent>
       </Card>

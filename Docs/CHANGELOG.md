@@ -1,5 +1,70 @@
 # AI 3D Studio — Changelog
 
+## v3.8.6 — Micro-UX Polish, Actionable Error UX & Tooltip Integration (August 14, 2026)
+
+### Added
+- **Actionable Error Categorization**: Integrated detailed error categorization in `GenerationControls` with domain-specific advice for Quota, Connection, Input, and Pipeline errors, featuring dedicated icons and quick-retry actions.
+- **Global Tooltip Coverage**: Added `TooltipProvider` to `Canvas3D` and `GenerationControls`, providing guidance for all viewport tools (select, orbit, pan, fit, wireframe, rotate, stats), lighting environments, and generation settings.
+- **Smooth Panel Transitions**: Integrated `framer-motion` `AnimatePresence` into `ThreeDGenWorkspace` for refined entrance/exit animations of side panels and UI overlays.
+- **Viewport Tooltips**: Wrapped all central and floating viewport navigation tools in `Canvas3D` with descriptive, non-obtrusive tooltips.
+
+### Fixed
+- **End-to-End API Audit**: Verified and hardened all 3D pipeline integrations (upload, generation, status polling, job deletion, asset loading); confirmed backend `DELETE` route and proxy runtime URL resolution.
+- **Workspace Navbar Cleanup**: Removed the extra legacy navigation bar from the left of the 3D generation workspace to streamline the layout.
+- **Syntax Hardening**: Resolved multiple JSX nesting and expression closure errors in `GenerationControls` identified during the final build audit.
+
+### Changed
+- Refined `rounded-xl` and `rounded-2xl` consistency across `AssetPanel` and `GenerationControls` to match the core design language.
+
+## v3.8.5 — Batch Prompt Queueing, Project Timeline & Storage Pruning (August 14, 2026)
+
+### Added
+- **Batch Generation Queue & Pipelining**: Added consecutive multi-prompt queueing to `GenerationControls`, `useAppStore`, and `GenerationSection` with real-time job set progress calculation and sequential rendering execution.
+- **Visual Project Timeline View**: Integrated `<ProjectTimeline />` into `ActivityLogger` and `MyAssetsTab`, offering chronological milestone tracking, live search/filtering, job detail inspection, and one-click model viewport loading.
+- **Storage Management & Cache Cleanup**: Added `POST /api/v1/system/cache/clear` backend endpoint and storage pruning actions in `StorageTab` for clearing temporary generation artifacts and freeing volume disk space.
+- **Top Navigation Refinements**: Refined `WorkspaceNavbar` with live active batch job counts, global command search handling, and mobile navigation improvements.
+
+### Fixed
+- Resolved duplicate URL-encoded route directory causing Next.js ambiguous route compilation errors.
+- Corrected TypeScript TDZ variable scoping in `ThreeDGenWorkspace.tsx` and status enum mappings in `ActivityLogger.tsx`.
+
+## v3.8.4 — Pure Backend Model Viewport & Live Geometry HUD (August 14, 2026)
+
+### Removed
+- **Procedural Placeholders & Round Pedestal**: Removed procedural robot models and the center round pedestal plate from `Canvas3D.tsx` to provide a clean, unencumbered 3D stage focused exclusively on real user models and backend-generated assets.
+
+### Added
+- **Live Mesh Geometry Stats HUD**: Added real-time scene traversal calculating actual vertex count, triangle face count, and bounding box dimensions ($X \times Y \times Z$ in scene units) from loaded 3D meshes.
+- **Empty-Stage Guide**: Integrated an intuitive empty-stage prompt overlay with one-click model upload and generation guidance when no 3D asset is loaded in the viewport.
+- **Automatic Asset Framing**: Configured automatic selection and framing of the latest completed asset from backend job history upon loading the workspace.
+
+## v3.8.3 — Floating Canvas3D Viewport Overlays, Material Bar & Navigation Tools (August 14, 2026)
+
+### Added
+- **Floating Material / Shading Bar**: Centered 8-preset pill toolbar (PBR Shaded, Matte Clay, Chrome Metal, Wireframe, Normal Map, Polished Gold, Cyberpunk Glow, UV Checker) with quick toggling and live shader material assignment.
+- **10-Tool Centered Viewport Dock**: Integrated Select, Orbit, Pan, Zoom, Fit view, Auto Rotate, Wireframe, Grid, Stats, and Fullscreen tools into a floating glass bottom bar.
+- **Top & Right Viewport Controls**: Added editable project title badge, 3D coordinate axis orientation indicator, lighting environment switcher (Studio, Sunset, Cyberpunk, Ambient), and HD canvas snapshot capture.
+- **Sci-Fi Ground Pedestal**: Integrated a circular glowing multi-ring pedestal stage to elevate and showcase rendered 3D assets.
+
+### Fixed
+- Fixed JSX cylinder geometry rotation attributes by moving transform props to parent mesh containers.
+
+## v3.8.2 — Workspace Layout Refinement, Image Upload Redesign & Asset Store Model Upload (August 14, 2026)
+
+### Changed
+- Slimmed side panel dimensions in `ThreeDGenWorkspace` (Left generation controls: `280px`, Right asset store & inspector: `260px`) to maximize visual focus and space for the central 3D viewport canvas.
+- Redesigned the reference image upload area in `GenerationControls` with a sleek glass card look, interactive hover states, file format badges (`PNG`, `JPG`, `WEBP`), and in-place replace/remove controls.
+
+### Added
+- Direct 3D model upload (`.glb`, `.gltf`, `.fbx`, `.obj`, `.stl`) in `AssetPanel` with top action button, dedicated drag-and-drop dropzone, real-time upload progress, and immediate viewport load dispatch.
+
+## v3.8.1 — 3D Canvas Viewport Layout & Centering Fix (August 14, 2026)
+
+### Fixed
+- Fixed center 3D viewport height and width collapsing in `ThreeDGenWorkspace` by setting `h-full`, `w-full`, and `flex flex-col relative` on the canvas parent and root `Canvas3D` containers.
+- Fixed malformed Tailwind class strings in `Canvas3D` empty and error indicators.
+- Verified Three.js `@react-three/fiber` canvas mounts with full width/height centering in the 3D Gen workspace.
+
 ## v3.8.0 — 3D-SPACE Full Backend Integration (August 13, 2026)
 
 ### Changed

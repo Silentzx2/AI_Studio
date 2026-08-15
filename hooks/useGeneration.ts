@@ -83,7 +83,7 @@ export function useGeneration() {
         if (referenceImageUrl.startsWith('data:')) {
           updateJobProgress(job.id, 3, 'uploading');
           addLogEntry(job.id, 'Uploading reference image...', 'info');
-          const uploaded = await uploadService.uploadWithProgress(
+          const { promise } = uploadService.uploadWithProgress(
             uploadedImage.file,
             (progress) => {
               const uploadPercent = Math.round((progress.loaded / progress.total) * 100);
@@ -91,6 +91,7 @@ export function useGeneration() {
               addLogEntry(job.id, `Uploading... ${uploadPercent}%`, 'info');
             }
           );
+          const uploaded = await promise;
           referenceImageUrl = uploaded.url;
           addLogEntry(job.id, 'Reference image uploaded', 'success');
         } else {

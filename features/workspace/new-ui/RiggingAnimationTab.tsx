@@ -6,6 +6,7 @@
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import anime from 'animejs';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Activity,
   Upload,
@@ -37,6 +38,14 @@ import { toast } from 'sonner';
 import { Shape3D } from '@/types/new-ui';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useWorkspaceModels } from '@/hooks/useBackendData';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface RiggingAnimationTabProps {
   activeModel: {
@@ -316,9 +325,10 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
 
     try {
       const { uploadService } = await import('@/services/uploadService');
-      const { url } = await uploadService.uploadWithProgress(file, (progress) => {
+      const { promise } = uploadService.uploadWithProgress(file, (progress) => {
         setModelUploadProgress(progress.percent);
       }, '/api/v1/upload/model');
+      const { url } = await promise;
       
       setUploadedModel(file);
       setUploadedModelName(file.name);
@@ -642,394 +652,447 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
   const currentTime = (timelinePosition / 100) * currentDuration;
 
   return (
-    <div
-      className="flex-1 min-h-0 p-6 flex flex-col lg:flex-row gap-6 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto"
-      id="rigging-animation-tab-panel"
-    >
-      {/* Left Input Configuration Panel */}
-      <div className="w-full lg:w-[360px] flex flex-col gap-6 flex-shrink-0" id="rigging-left-panel">
-        
-        {/* SECTION: ASSET & ENGINE */}
-        <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-5 shadow-sm" id="rigging-engine-box">
-          <div className="flex items-center justify-between border-b border-[hsl(var(--border))] pb-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Rigging Engine</span>
-            <Cpu size={12} className="text-[hsl(var(--primary))]" />
+    <TooltipProvider delayDuration={400}>
+      <div className="flex-1 flex flex-col lg:flex-row gap-0 bg-black overflow-hidden" id="rigging-animation-tab-panel">
+        {/* Left Settings sidebar — Refined Studio layout */}
+        <aside className="w-full lg:w-[400px] border-r border-white/5 flex flex-col h-full bg-black z-10" id="rigging-left-panel">
+          
+          {/* Header Banner */}
+          <div className="p-8 border-b border-white/[0.03] bg-white/[0.01]">
+            <div className="flex items-center gap-4">
+              <div className="w-11 h-11 rounded-2xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20 shadow-[0_0_20px_rgba(245,158,11,0.1)]">
+                <Bone size={20} className="text-amber-500" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[12px] font-black uppercase tracking-[-0.01em] text-white">Skeletal Studio</span>
+                <span className="text-[9px] text-white/30 font-black uppercase tracking-[0.2em]">Neural Rigging & Motion</span>
+              </div>
+            </div>
           </div>
 
-          <div className="flex flex-col gap-4">
-            {/* Model Upload area */}
-            <div className="flex flex-col gap-2">
-              <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Target Asset</label>
-              
-              {isUploadingModel ? (
-                <div className="w-full flex flex-col items-center gap-2 py-4 bg-[hsl(var(--surface-2))] rounded-xl border border-[hsl(var(--border))]">
-                  <RefreshCw size={16} className="text-[hsl(var(--primary))] animate-spin" />
-                  <div className="w-full max-w-[80%] h-1 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden">
-                    <div className="h-full bg-[hsl(var(--primary))] transition-all duration-200" style={{ width: `${modelUploadProgress}%` }} />
+          <div className="flex-1 min-h-0 overflow-y-auto p-8 space-y-10 scrollbar-thin">
+            {/* SECTION: TARGET ASSET */}
+            <div className="flex flex-col gap-4" id="rigging-target-box">
+              <div className="flex flex-col gap-2">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Target Asset Manifest</span>
+              </div>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    {isUploadingModel ? (
+                      <div className="w-full flex flex-col items-center gap-4 py-8 bg-white/[0.02] rounded-3xl border border-white/5">
+                        <RefreshCw size={20} className="text-amber-500 animate-spin" />
+                        <div className="w-full max-w-[70%] h-1 bg-white/5 rounded-full overflow-hidden">
+                          <div className="h-full bg-amber-500 transition-all duration-300" style={{ width: `${modelUploadProgress}%` }} />
+                        </div>
+                      </div>
+                    ) : uploadedModelUrl ? (
+                      <div className="bg-amber-500/5 border border-amber-500/20 rounded-3xl p-4 flex items-center gap-4 group">
+                        <div className="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 shadow-inner">
+                          <PersonStanding size={18} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-black text-white truncate uppercase tracking-widest">{uploadedModelName}</p>
+                          <p className="text-[9px] text-white/30 font-black uppercase tracking-[0.15em] mt-0.5">Ready for Skeleton</p>
+                        </div>
+                        <button 
+                          onClick={clearUploadedModel} 
+                          className="p-2 rounded-xl hover:bg-rose-500/10 text-white/20 hover:text-rose-500 transition-all"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-4 flex items-center gap-4 group">
+                        <div className="w-10 h-10 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center text-white/40 group-hover:text-white transition-all">
+                          <Box size={18} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-black text-white truncate uppercase tracking-widest">{activeModel.name}</p>
+                          <p className="text-[9px] text-white/20 font-black uppercase tracking-[0.15em] mt-0.5">Active Workspace Mesh</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>Target asset for skeleton generation</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <label
+                    id="rigging-upload-area"
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={cn(
+                      "flex flex-col items-center justify-center gap-3 py-8 rounded-3xl border-2 border-dashed transition-all cursor-pointer text-center group",
+                      isDragOver
+                        ? 'border-amber-500 bg-amber-500/5'
+                        : 'border-white/5 bg-white/[0.01] hover:border-amber-500/30 hover:bg-white/[0.03]'
+                    )}
+                  >
+                    <div className="w-12 h-12 rounded-2xl bg-white/[0.02] flex items-center justify-center mb-1 group-hover:scale-110 group-hover:bg-amber-500/10 transition-all">
+                      <Upload size={20} className="text-white/20 group-hover:text-amber-500 transition-all" />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-black text-white uppercase tracking-widest">Import Humanoid Mesh</span>
+                      <span className="text-[8px] text-white/20 font-black uppercase tracking-[0.2em]">GLB / FBX Supported</span>
+                    </div>
+                    <input type="file" accept=".glb,.gltf,.fbx,.obj" onChange={handleModelUpload} className="hidden" ref={fileInputRef} />
+                  </label>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>Upload a custom 3D model for auto-rigging</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+
+            {/* SECTION: RIGGING CONFIG */}
+            <div className="flex flex-col gap-8" id="rigging-config-box">
+              <div className="flex flex-col gap-2">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Kinematic Engine</span>
+              </div>
+
+              <div className="flex flex-col gap-6">
+                {/* Neural Model */}
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black text-white/30 uppercase tracking-widest">Compute Model</label>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info size={12} className="text-white/20" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-[200px]">
+                        <p className="text-[10px]">AI model specializing in skeletal inference and joint placement.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <select
+                    value={effectiveModelId}
+                    onChange={(e) => setSelectedModelId(e.target.value)}
+                    disabled={isLoadingModels}
+                    className="w-full bg-white/[0.02] border border-white/5 rounded-2xl px-4 py-3.5 text-[11px] font-black text-white/80 cursor-pointer focus:outline-none focus:border-amber-500/30 transition-all appearance-none disabled:opacity-60 uppercase tracking-widest"
+                  >
+                    {modelOptions.map((m) => (
+                      <option key={m.id || 'default'} value={m.id} className="bg-black text-white">
+                        {m.label}{m.installed ? '' : ' (Pending)'}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              ) : uploadedModelUrl ? (
-                <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--neon-green)/0.3)] rounded-xl p-3 flex items-center gap-3 group">
-                  <div className="w-8 h-8 rounded-lg bg-[hsl(var(--neon-green))/0.1] flex items-center justify-center text-[hsl(var(--neon-green))]">
-                    <PersonStanding size={14} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-black text-[hsl(var(--foreground))] truncate">{uploadedModelName}</p>
-                    <p className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter">Ready for Skeleton</p>
+
+                {/* Skeleton Type */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-[10px] font-black text-white/30 uppercase tracking-widest">Skeleton Type</label>
+                  <select
+                    value={boneStructure}
+                    onChange={(e) => setBoneStructure(e.target.value)}
+                    className="w-full bg-white/[0.02] border border-white/5 rounded-2xl px-4 py-3.5 text-[11px] font-black text-white/80 cursor-pointer focus:outline-none focus:border-amber-500/30 transition-all appearance-none uppercase tracking-widest"
+                  >
+                    {BONE_STRUCTURES.map(s => (
+                      <option key={s.value} value={s.value} className="bg-black text-white">{s.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Joint Hierarchy */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-[10px] font-black text-white/30 uppercase tracking-widest">Joint Hierarchy</label>
+                  <select
+                    value={rigType}
+                    onChange={(e) => setRigType(e.target.value)}
+                    className="w-full bg-white/[0.02] border border-white/5 rounded-2xl px-4 py-3.5 text-[11px] font-black text-white/80 cursor-pointer focus:outline-none focus:border-amber-500/30 transition-all appearance-none uppercase tracking-widest"
+                  >
+                    {RIG_TYPES.map(t => (
+                      <option key={t.value} value={t.value} className="bg-black text-white">{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Auto-Rig Toggle */}
+                <div className="flex items-center justify-between pt-4 border-t border-white/[0.03] group">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-black text-white/70 uppercase tracking-widest group-hover:text-white transition-colors">Auto-Rig Pipeline</span>
+                    <span className="text-[9px] text-white/20 font-black uppercase tracking-[0.1em]">AI Joint Placement</span>
                   </div>
                   <button 
-                    onClick={clearUploadedModel} 
-                    className="p-1.5 rounded-lg hover:bg-[hsl(var(--destructive))/0.1] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+                    onClick={() => setAutoRig(!autoRig)}
+                    className={cn(
+                      "w-10 h-5 rounded-full relative transition-all duration-500",
+                      autoRig ? 'bg-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)]' : 'bg-white/10'
+                    )}
                   >
-                    <X size={14} />
+                    <motion.div 
+                      animate={{ x: autoRig ? 22 : 2 }}
+                      className="absolute top-1 left-0 w-3 h-3 rounded-full bg-white shadow-sm"
+                    />
                   </button>
                 </div>
-              ) : (
-                <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-3 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-[hsl(var(--primary))/0.1] flex items-center justify-center text-[hsl(var(--primary))]">
-                    <Box size={14} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-black text-[hsl(var(--foreground))] truncate">{activeModel.name}</p>
-                    <p className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter">Active Workspace Mesh</p>
-                  </div>
-                </div>
-              )}
-              
-              <label
-                id="rigging-upload-area"
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={`flex flex-col items-center justify-center gap-1.5 py-5 rounded-xl border-2 border-dashed transition-all cursor-pointer text-center group ${
-                  isDragOver
-                    ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5'
-                    : 'border-[hsl(var(--border))] bg-[hsl(var(--surface-1))] hover:border-[hsl(var(--primary))]/50 hover:bg-[hsl(var(--surface-2))]'
-                }`}
-              >
-                <Upload size={16} className="text-[hsl(var(--muted-foreground))] group-hover:scale-110 group-hover:text-[hsl(var(--primary))] transition-all" />
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-black text-[hsl(var(--foreground))]">Import Humanoid Mesh</span>
-                  <span className="text-[8px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter">GLB / FBX Supported</span>
-                </div>
-                <input type="file" accept=".glb,.gltf,.fbx,.obj" onChange={handleModelUpload} className="hidden" ref={fileInputRef} />
-              </label>
-            </div>
 
-          {/* Provider selection */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Compute Provider</label>
-            <div className="relative group">
-              <select
-                value={effectiveModelId}
-                onChange={(e) => setSelectedModelId(e.target.value)}
-                disabled={isLoadingModels}
-                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl px-3 pr-8 py-2.5 text-[11px] font-black text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))] transition-all appearance-none disabled:opacity-60 shadow-sm"
-              >
-                {modelOptions.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.label}{m.installed ? '' : ' (Not Installed)'}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={14} className="absolute right-3 top-3 text-[hsl(var(--muted-foreground))] pointer-events-none group-hover:text-[hsl(var(--primary))] transition-colors" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* SECTION: RIGGING CONFIG */}
-      <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-5 shadow-sm" id="rigging-config-box">
-        <div className="flex items-center justify-between border-b border-[hsl(var(--border))] pb-2">
-          <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Rigging Config</span>
-          <Bone size={12} className="text-[hsl(var(--primary))]" />
-        </div>
-
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Skeleton Type</label>
-            <div className="relative group">
-              <select
-                value={boneStructure}
-                onChange={(e) => setBoneStructure(e.target.value)}
-                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl px-3 pr-8 py-2.5 text-[11px] font-black text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))] transition-all appearance-none shadow-sm"
-              >
-                {BONE_STRUCTURES.map(s => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
-                ))}
-              </select>
-              <ChevronDown size={14} className="absolute right-3 top-3 text-[hsl(var(--muted-foreground))] pointer-events-none group-hover:text-[hsl(var(--primary))] transition-colors" />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Joint Hierarchy</label>
-            <div className="relative group">
-              <select
-                value={rigType}
-                onChange={(e) => setRigType(e.target.value)}
-                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl px-3 pr-8 py-2.5 text-[11px] font-black text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))] transition-all appearance-none shadow-sm"
-              >
-                {RIG_TYPES.map(t => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
-              </select>
-              <ChevronDown size={14} className="absolute right-3 top-3 text-[hsl(var(--muted-foreground))] pointer-events-none group-hover:text-[hsl(var(--primary))] transition-colors" />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-2 border-t border-[hsl(var(--border))/40]">
-            <div className="flex flex-col">
-              <span className="text-[10px] font-black text-[hsl(var(--foreground))] uppercase">Auto-Rig Pipeline</span>
-              <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase">AI Bone Placement</span>
-            </div>
-            <input
-              type="checkbox"
-              checked={autoRig}
-              onChange={(e) => setAutoRig(e.target.checked)}
-              className="accent-[hsl(var(--primary))] h-4 w-4 cursor-pointer"
-            />
-          </div>
-
-          <button
-            onClick={handleApplyRigging}
-            disabled={isRigging}
-            className="w-full bg-[hsl(var(--primary))] hover:brightness-110 active:scale-[0.98] text-[hsl(var(--surface-0))] font-black py-3 rounded-xl text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-[0_8px_20px_rgba(245,166,35,0.2)] mt-2"
-          >
-            {isRigging ? (
-              <>
-                <RefreshCw size={14} className="animate-spin text-[hsl(var(--surface-0))]" />
-                Baking Skeleton...
-              </>
-            ) : (
-              <>
-                <Zap size={14} className="fill-current text-[hsl(var(--surface-0))]" />
-                Build Character Rig
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
-        {/* SECTION: ANIMATION CONFIG (PRESETS & SETTINGS) */}
-        <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-5 shadow-sm" id="rigging-motion-box">
-          <div className="flex items-center justify-between border-b border-[hsl(var(--border))] pb-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Motion Studio</span>
-            <Play size={12} className="text-[hsl(var(--primary))]" />
-          </div>
-
-          <div className="flex flex-col gap-5">
-            {/* Presets Grid */}
-            <div className="flex flex-col gap-2">
-              <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Animation Presets</label>
-              <div className="grid grid-cols-3 gap-2">
-                {ANIMATION_PRESETS.map((preset) => {
-                  const Icon = preset.icon;
-                  const isSelected = selectedPreset === preset.id;
-                  return (
-                    <button
-                      key={preset.id}
-                      onClick={() => setSelectedPreset(isSelected ? null : preset.id)}
-                      className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all group ${
-                        isSelected
-                          ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/[0.06]'
-                          : 'border-[hsl(var(--border))] bg-[hsl(var(--surface-2))] hover:border-[hsl(var(--primary))]/30'
-                      }`}
-                    >
-                      <Icon size={16} className={isSelected ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))] group-hover:text-[hsl(var(--primary))]'} />
-                      <span className={`text-[9px] font-black uppercase tracking-tighter ${isSelected ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}>
-                        {preset.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Animation Settings */}
-            <div className="flex flex-col gap-4 pt-2 border-t border-[hsl(var(--border))/40]">
-              {/* Loop */}
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-black text-[hsl(var(--foreground))] uppercase">Seamless Loop</span>
-                  <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase">Infinite Playback</span>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={loopAnimation}
-                  onChange={(e) => setLoopAnimation(e.target.checked)}
-                  className="accent-[hsl(var(--primary))] h-4 w-4 cursor-pointer"
-                />
-              </div>
-
-              {/* Speed */}
-              <div className="flex flex-col gap-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-black text-[hsl(var(--muted-foreground))] uppercase">Playback Speed</span>
-                  <span className="text-[10px] font-black text-[hsl(var(--primary))] tabular-nums">{speed.toFixed(1)}x</span>
-                </div>
-                <input
-                  type="range"
-                  min={0.5}
-                  max={2.0}
-                  step={0.1}
-                  value={speed}
-                  onChange={(e) => setSpeed(parseFloat(e.target.value))}
-                  className="w-full accent-[hsl(var(--primary))] cursor-pointer h-1.5 bg-[hsl(var(--surface-3))] rounded-lg appearance-none"
-                />
-              </div>
-
-              {/* Actions */}
-              <div className="flex flex-col gap-2 mt-2">
-                <button
-                  onClick={handlePreviewAnimation}
-                  disabled={!riggingComplete || !selectedPreset}
-                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/50 disabled:opacity-40 rounded-xl py-3 text-[10px] font-black uppercase tracking-widest text-[hsl(var(--foreground))] flex items-center justify-center gap-2 transition-all shadow-sm"
+                {/* Bake Button */}
+                <Button
+                  onClick={handleApplyRigging}
+                  disabled={isRigging}
+                  variant="premium"
+                  className="w-full h-14 rounded-2xl text-[11px] mt-2"
                 >
-                  {isPlaying ? (
+                  {isRigging ? (
                     <>
-                      <Pause size={12} className="text-[hsl(var(--primary))]" />
-                      Pause Motion
+                      <RefreshCw size={18} className="animate-spin" />
+                      Baking Skeleton...
                     </>
                   ) : (
                     <>
-                      <Play size={12} className="text-[hsl(var(--primary))]" />
-                      Preview Motion
+                      <Zap size={18} className="fill-current" />
+                      Build Character Rig
                     </>
                   )}
-                </button>
+                </Button>
+              </div>
+            </div>
 
-                {riggingComplete && (
-                  <button
-                    onClick={handleExportRigged}
-                    className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-[hsl(var(--neon-green))]/50 rounded-xl py-3 text-[10px] font-black uppercase tracking-widest text-[hsl(var(--foreground))] flex items-center justify-center gap-2 transition-all shadow-sm"
+            {/* SECTION: MOTION STUDIO */}
+            <div className="flex flex-col gap-8" id="rigging-motion-box">
+              <div className="flex flex-col gap-2">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Motion Studio</span>
+              </div>
+
+              {/* Presets Grid */}
+              <div className="flex flex-col gap-3">
+                <label className="text-[10px] font-black text-white/30 uppercase tracking-widest">Kinematic Presets</label>
+                <div className="grid grid-cols-3 gap-2.5">
+                  {ANIMATION_PRESETS.map((preset) => {
+                    const Icon = preset.icon;
+                    const isSelected = selectedPreset === preset.id;
+                    return (
+                      <button
+                        key={preset.id}
+                        onClick={() => setSelectedPreset(isSelected ? null : preset.id)}
+                        className={cn(
+                          "flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all group",
+                          isSelected
+                            ? 'border-amber-500 bg-amber-500/10 text-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.15)]'
+                            : 'border-white/5 bg-white/[0.02] text-white/40 hover:border-white/10 hover:text-white/80'
+                        )}
+                      >
+                        <Icon size={18} className={isSelected ? 'text-amber-500' : 'text-white/40 group-hover:text-white transition-colors'} />
+                        <span className={cn(
+                          "text-[9px] font-black uppercase tracking-wider text-center truncate w-full",
+                          isSelected ? 'text-amber-500' : 'text-white/40 group-hover:text-white'
+                        )}>
+                          {preset.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Motion Settings */}
+              <div className="flex flex-col gap-6 pt-4 border-t border-white/[0.03]">
+                {/* Loop */}
+                <div className="flex items-center justify-between group">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-black text-white/70 uppercase tracking-widest group-hover:text-white transition-colors">Seamless Loop</span>
+                    <span className="text-[9px] text-white/20 font-black uppercase tracking-[0.1em]">Infinite Cyclic Playback</span>
+                  </div>
+                  <button 
+                    onClick={() => setLoopAnimation(!loopAnimation)}
+                    className={cn(
+                      "w-10 h-5 rounded-full relative transition-all duration-500",
+                      loopAnimation ? 'bg-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)]' : 'bg-white/10'
+                    )}
                   >
-                    <Download size={12} className="text-[hsl(var(--neon-green))]" />
-                    Export Rigged Asset
+                    <motion.div 
+                      animate={{ x: loopAnimation ? 22 : 2 }}
+                      className="absolute top-1 left-0 w-3 h-3 rounded-full bg-white shadow-sm"
+                    />
                   </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* SECTION: FORMATS */}
-        <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-4 flex flex-col gap-3 shadow-sm">
-          <span className="text-[9px] font-black text-[hsl(var(--primary))] uppercase tracking-widest border-b border-[hsl(var(--border))] pb-1">Compatibility</span>
-          <div className="grid grid-cols-4 gap-2">
-            {SUPPORTED_FORMATS.map((fmt) => (
-              <div key={fmt.label} className="flex flex-col items-center gap-1 p-2 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] text-center">
-                <Box size={14} className="text-[hsl(var(--muted-foreground))]" />
-                <span className="text-[9px] font-black text-[hsl(var(--foreground))] uppercase">{fmt.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Right Viewport Area */}
-      <div className="flex-1 bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl flex flex-col relative overflow-hidden shadow-sm" id="rigging-right-stage">
-        
-        {/* Processing State */}
-        {isRigging && (
-          <div className="absolute inset-0 bg-[hsl(var(--surface-0)/0.8)] backdrop-blur-sm z-30 flex flex-col items-center justify-center text-center p-8 animate-fadeIn">
-            <div className="relative">
-              <div className="w-20 h-20 rounded-full border-4 border-[hsl(var(--primary))/0.1] border-t-[hsl(var(--primary))] animate-spin" />
-              <Bone size={24} className="absolute inset-0 m-auto text-[hsl(var(--primary))] animate-pulse" />
-            </div>
-            <h3 className="text-sm font-black text-[hsl(var(--foreground))] uppercase tracking-widest mt-6">{statusMessage}</h3>
-            <p className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter mt-1">Skeleton Synthesis in Progress</p>
-            
-            <div className="w-48 h-1 bg-[hsl(var(--surface-3))] rounded-full mt-6 overflow-hidden">
-              <div className="h-full bg-[hsl(var(--primary))] transition-all duration-500" style={{ width: `${progressPercent}%` }} />
-            </div>
-            <span className="text-[10px] font-black text-[hsl(var(--primary))] mt-2 tabular-nums">{progressPercent}%</span>
-          </div>
-        )}
-
-        {/* Viewport Header */}
-        <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between z-20 pointer-events-none">
-          <div className="flex flex-col gap-0.5 bg-[hsl(var(--surface-1))/0.8] backdrop-blur-md px-3 py-2 rounded-xl border border-[hsl(var(--border))] pointer-events-auto shadow-sm">
-            <div className="flex items-center gap-2">
-              <Eye size={12} className="text-[hsl(var(--primary))]" />
-              <span className="text-[10px] font-black text-[hsl(var(--foreground))] uppercase tracking-widest">Viewport</span>
-            </div>
-            <p className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase">
-              {riggingComplete ? 'Rigged Model Active' : 'Waiting for Skeleton'}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 pointer-events-auto">
-            <button className="p-2 rounded-xl bg-[hsl(var(--surface-1))/0.8] backdrop-blur-md border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] shadow-sm transition-all">
-              <Maximize size={14} />
-            </button>
-          </div>
-        </div>
-
-        {/* Placeholder for 3D Stage */}
-        <div className="flex-1 flex items-center justify-center relative bg-[radial-gradient(circle_at_center,hsl(var(--surface-2))_0%,hsl(var(--surface-1))_100%)] overflow-hidden">
-          
-          {!riggingComplete && !isRigging && (
-            <div className="flex flex-col items-center text-center gap-4 animate-pulse">
-              <div className="w-16 h-16 rounded-full bg-[hsl(var(--surface-3))] flex items-center justify-center text-[hsl(var(--muted-foreground))]">
-                <Box size={32} />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[11px] font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest">No Active Rig</span>
-                <span className="text-[9px] text-[hsl(var(--muted-foreground))/0.6] font-mono">Upload and build to preview</span>
-              </div>
-            </div>
-          )}
-
-          {riggingComplete && !isRigging && (
-            <div className="flex flex-col items-center gap-6">
-              <PersonStanding size={120} className="text-[hsl(var(--primary))/0.2] stroke-[0.5]" />
-              <div className="flex items-center gap-4 bg-[hsl(var(--surface-2))/0.5] backdrop-blur-md px-4 py-2 rounded-full border border-[hsl(var(--border))]">
-                <div className="flex items-center gap-2 border-r border-[hsl(var(--border))] pr-4">
-                  <Activity size={14} className="text-[hsl(var(--primary))]" />
-                  <span className="text-[10px] font-black text-[hsl(var(--foreground))] uppercase">{selectedPreset || 'IDLE'}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <RefreshCw size={14} className={`text-[hsl(var(--muted-foreground))] ${isPlaying ? 'animate-spin' : ''}`} />
-                  <span className="text-[10px] font-black text-[hsl(var(--foreground))] uppercase tracking-widest">{isPlaying ? 'Playing' : 'Paused'}</span>
+
+                {/* Speed */}
+                <div className="flex flex-col gap-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black text-white/30 uppercase tracking-widest">Playback Rate</span>
+                    <span className="text-[11px] font-black text-amber-500 tabular-nums">{speed.toFixed(1)}x</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0.5}
+                    max={2.0}
+                    step={0.1}
+                    value={speed}
+                    onChange={(e) => setSpeed(parseFloat(e.target.value))}
+                    className="w-full accent-amber-500 cursor-pointer h-1.5 bg-white/5 rounded-lg appearance-none"
+                  />
+                </div>
+
+                {/* Actions */}
+                <div className="flex flex-col gap-3 pt-2">
+                  <Button
+                    onClick={handlePreviewAnimation}
+                    disabled={!riggingComplete || !selectedPreset}
+                    variant="outline"
+                    className="w-full h-12 rounded-2xl border-white/5 bg-white/[0.02] text-[10px] font-black uppercase tracking-widest text-white/80 hover:text-white hover:bg-white/[0.05] disabled:opacity-30"
+                  >
+                    {isPlaying ? (
+                      <>
+                        <Pause size={14} className="text-amber-500 mr-2" />
+                        Pause Motion
+                      </>
+                    ) : (
+                      <>
+                        <Play size={14} className="text-amber-500 mr-2" />
+                        Preview Motion
+                      </>
+                    )}
+                  </Button>
+
+                  {riggingComplete && (
+                    <Button
+                      onClick={handleExportRigged}
+                      variant="outline"
+                      className="w-full h-12 rounded-2xl border-emerald-500/20 bg-emerald-500/5 text-[10px] font-black uppercase tracking-widest text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/40"
+                    >
+                      <Download size={14} className="text-emerald-400 mr-2" />
+                      Export Rigged Asset
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
-          )}
-        </div>
 
-        {/* Timeline Controller */}
-        {riggingComplete && (
-          <div className="p-4 bg-[hsl(var(--surface-1))/0.8] backdrop-blur-md border-t border-[hsl(var(--border))] z-20">
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <button onClick={() => setIsPlaying(!isPlaying)} className="w-8 h-8 rounded-lg bg-[hsl(var(--primary))] text-white flex items-center justify-center hover:brightness-110 active:scale-95 transition-all">
-                    {isPlaying ? <Pause size={14} fill="white" /> : <Play size={14} fill="white" className="translate-x-0.5" />}
-                  </button>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-[hsl(var(--foreground))] uppercase">{selectedPreset || 'Select Preset'}</span>
-                    <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono">00:{Math.floor(currentTime).toString().padStart(2, '0')} / 00:{Math.floor(currentDuration).toString().padStart(2, '0')}</span>
+            {/* SECTION: FORMATS */}
+            <div className="p-6 rounded-3xl bg-white/[0.01] border border-white/5 flex flex-col gap-4">
+              <span className="text-[9px] font-black text-amber-500 uppercase tracking-[0.2em]">Supported Formats</span>
+              <div className="grid grid-cols-4 gap-2">
+                {SUPPORTED_FORMATS.map((fmt) => (
+                  <div key={fmt.label} className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white/[0.02] border border-white/5 text-center">
+                    <Box size={14} className="text-white/30" />
+                    <span className="text-[9px] font-black text-white/80 uppercase">{fmt.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* Right Viewport Area */}
+        <div className="flex-1 flex flex-col relative overflow-hidden bg-black" id="rigging-right-stage">
+          {/* Subtle Grid Backdrop */}
+          <div className="absolute inset-0 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none" />
+
+          {/* Processing State */}
+          {isRigging && (
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-xl z-30 flex flex-col items-center justify-center text-center p-8 animate-fadeIn">
+              <div className="relative">
+                <div className="w-24 h-24 rounded-full border-4 border-amber-500/10 border-t-amber-500 animate-spin" />
+                <Bone size={28} className="absolute inset-0 m-auto text-amber-500 animate-pulse" />
+              </div>
+              <h3 className="text-sm font-black text-white uppercase tracking-[0.2em] mt-8">{statusMessage}</h3>
+              <p className="text-[10px] text-white/30 font-black uppercase tracking-[0.2em] mt-2">Kinematic Skeleton Synthesis in Progress</p>
+              
+              <div className="w-64 h-1.5 bg-white/5 rounded-full mt-8 overflow-hidden">
+                <div className="h-full bg-amber-500 transition-all duration-500 shadow-[0_0_12px_rgba(245,158,11,0.5)]" style={{ width: `${progressPercent}%` }} />
+              </div>
+              <span className="text-[11px] font-black text-amber-500 mt-3 tabular-nums">{progressPercent}%</span>
+            </div>
+          )}
+
+          {/* Viewport Header */}
+          <div className="absolute top-0 left-0 right-0 p-8 flex items-center justify-between z-20 pointer-events-none">
+            <div className="flex flex-col gap-1 bg-black/60 backdrop-blur-xl px-5 py-3 rounded-2xl border border-white/5 pointer-events-auto shadow-2xl">
+              <div className="flex items-center gap-2.5">
+                <Eye size={14} className="text-amber-500" />
+                <span className="text-[11px] font-black text-white uppercase tracking-widest">Viewport</span>
+              </div>
+              <p className="text-[9px] text-white/30 font-black uppercase tracking-[0.15em]">
+                {riggingComplete ? 'Rigged Model Active' : 'Waiting for Skeleton'}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 pointer-events-auto">
+              <button className="p-3 rounded-2xl bg-black/60 backdrop-blur-xl border border-white/5 text-white/40 hover:text-white shadow-2xl transition-all">
+                <Maximize size={16} />
+              </button>
+            </div>
+          </div>
+
+          {/* Center 3D Stage / Visualization */}
+          <div className="flex-1 flex items-center justify-center relative overflow-hidden">
+            {!riggingComplete && !isRigging && (
+              <div className="flex flex-col items-center text-center gap-5">
+                <div className="w-20 h-20 rounded-3xl bg-white/[0.02] border border-white/5 flex items-center justify-center text-white/20">
+                  <Box size={36} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[12px] font-black text-white/40 uppercase tracking-[0.2em]">No Active Rig</span>
+                  <span className="text-[9px] text-white/20 font-black uppercase tracking-[0.15em]">Upload mesh and build skeleton to preview</span>
+                </div>
+              </div>
+            )}
+
+            {riggingComplete && !isRigging && (
+              <div className="flex flex-col items-center gap-8">
+                <PersonStanding size={140} className="text-amber-500/20 stroke-[0.5]" />
+                <div className="flex items-center gap-6 bg-black/60 backdrop-blur-xl px-6 py-3 rounded-3xl border border-white/5 shadow-2xl">
+                  <div className="flex items-center gap-3 border-r border-white/5 pr-6">
+                    <Activity size={16} className="text-amber-500" />
+                    <span className="text-[11px] font-black text-white uppercase tracking-widest">{selectedPreset || 'IDLE'}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <RefreshCw size={16} className={cn("text-white/40", isPlaying && "animate-spin text-amber-500")} />
+                    <span className="text-[11px] font-black text-white uppercase tracking-widest">{isPlaying ? 'Playing' : 'Paused'}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[9px] font-black text-[hsl(var(--muted-foreground))] uppercase">Speed: {speed}x</span>
-                </div>
               </div>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="0.1"
-                value={timelinePosition}
-                onChange={handleTimelineScrub}
-                className="w-full accent-[hsl(var(--primary))] cursor-pointer h-1 bg-[hsl(var(--surface-3))] rounded-full appearance-none"
-              />
-            </div>
+            )}
           </div>
-        )}
+
+          {/* Timeline Controller */}
+          {riggingComplete && (
+            <div className="p-8 bg-black/80 backdrop-blur-xl border-t border-white/5 z-20">
+              <div className="flex flex-col gap-4 max-w-3xl mx-auto">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <button 
+                      onClick={() => setIsPlaying(!isPlaying)} 
+                      className="w-10 h-10 rounded-2xl bg-amber-500 text-black flex items-center justify-center hover:brightness-110 active:scale-95 transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+                    >
+                      {isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" className="translate-x-0.5" />}
+                    </button>
+                    <div className="flex flex-col">
+                      <span className="text-[11px] font-black text-white uppercase tracking-widest">{selectedPreset || 'Select Preset'}</span>
+                      <span className="text-[9px] text-white/30 font-mono tracking-wider">
+                        00:{Math.floor(currentTime).toString().padStart(2, '0')} / 00:{Math.floor(currentDuration).toString().padStart(2, '0')}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black text-white/30 uppercase tracking-widest bg-white/[0.03] px-3 py-1.5 rounded-xl border border-white/5">
+                      Speed: {speed}x
+                    </span>
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={timelinePosition}
+                  onChange={handleTimelineScrub}
+                  className="w-full accent-amber-500 cursor-pointer h-1 bg-white/5 rounded-full appearance-none"
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

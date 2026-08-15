@@ -322,6 +322,63 @@ async def get_storage_info():
         return {"success": False, "error": str(e)}
 
 
+@router.post("/cache/clear")
+@router.delete("/cache/clear")
+async def clear_system_cache():
+    """Clear temporary generation artifacts, cache directories, and temporary files."""
+    import shutil
+    from pathlib import Path
+    
+    freed_bytes = 0
+    files_removed = 0
+    errors = []
+    
+    # Target directories for temporary artifacts
+    target_dirs = [
+        Path("./storage/exports"),
+        Path("./storage/temp"),
+        Path("./storage/thumbnails/temp"),
+        Path("./.runtime_cache"),
+        Path("/tmp/generation"),
+    ]
+    
+    for dir_path in target_dirs:
+        try:
+            if dir_path.exists():
+                for item in dir_path.iterdir():
+                    try:
+                        if item.is_file():
+                            freed_bytes += item.stat().st_size
+                            item.unlink()
+                            files_removed += 1
+                        elif item.is_dir():
+                            for sub in item.rglob("*"):
+                                if sub.is_file():
+                                    freed_bytes += sub.stat().st_size
+                                    files_removed += 1
+                            shutil.rmtree(item, ignore_errors=True)
+                    except Exception as item_err:
+                        errors.append(str(item_err))
+        except Exception as dir_err:
+            errors.append(str(dir_err))
+            
+    # Also attempt GPU cache purge if torch is available
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:
+        pass
+
+    return {
+        "success": True,
+        "freed_bytes": freed_bytes,
+        "freed_mb": round(freed_bytes / (1024**2), 2),
+        "files_removed": files_removed,
+        "message": f"Cleared {files_removed} temporary artifacts ({round(freed_bytes / (1024**2), 2)} MB freed)."
+    }
+
+
 @router.get("/config")
 async def get_public_config():
     """Get public configuration (non-sensitive)."""

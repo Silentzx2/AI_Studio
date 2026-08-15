@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { useAppStore } from '@/stores/useAppStore';
+import { useAppStore, type AppState } from '@/stores/useAppStore';
 import type { GenerationJob, GenerationConfig, GenerationMode, QualityPreset, RecentPrompt, UploadedImage, LogEntry } from '@/types';
 
 interface GenerationState {
@@ -22,6 +22,15 @@ interface GenerationState {
   loadingError: string | null;
   retryCount: number;
   isLoadingHistory: boolean;
+
+  hdMode: 'hd' | 'smart';
+  multiViewImages: {
+    front: UploadedImage | null;
+    left: UploadedImage | null;
+    right: UploadedImage | null;
+    back: UploadedImage | null;
+  };
+  referenceModel: { file: File | null; name: string; url: string; preview?: string; progress?: number } | null;
 
   setMode: (mode: GenerationMode) => void;
   setPrompt: (prompt: string) => void;
@@ -46,6 +55,10 @@ interface GenerationState {
   setRetryCount: (count: number) => void;
   setIsLoadingHistory: (v: boolean) => void;
   loadHistory: () => Promise<void>;
+
+  setHDMode: (mode: 'hd' | 'smart') => void;
+  setMultiViewImage: (view: 'front' | 'left' | 'right' | 'back', img: UploadedImage | null) => void;
+  setReferenceModel: (model: AppState['referenceModel']) => void;
 }
 
 export const useGenerationStore = create<GenerationState>()(
@@ -68,6 +81,9 @@ export const useGenerationStore = create<GenerationState>()(
     get loadingError() { return useAppStore.getState().loadingError; },
     get retryCount() { return useAppStore.getState().retryCount; },
     get isLoadingHistory() { return useAppStore.getState().isLoadingHistory; },
+    get hdMode() { return useAppStore.getState().hdMode; },
+    get multiViewImages() { return useAppStore.getState().multiViewImages; },
+    get referenceModel() { return useAppStore.getState().referenceModel; },
 
     setMode: (mode) => useAppStore.setState({ mode }),
     setPrompt: (prompt) => useAppStore.setState({ prompt }),
@@ -188,6 +204,10 @@ export const useGenerationStore = create<GenerationState>()(
     refreshHistory: async () => {
       return get().loadHistory();
     },
+
+    setHDMode: (hdMode) => useAppStore.setState({ hdMode }),
+    setMultiViewImage: (view, img) => useAppStore.getState().setMultiViewImage(view, img),
+    setReferenceModel: (model) => useAppStore.setState({ referenceModel: model }),
   }))
 );
 
@@ -213,5 +233,8 @@ useAppStore.subscribe((state) => {
     loadingError: state.loadingError,
     retryCount: state.retryCount,
     isLoadingHistory: state.isLoadingHistory,
+    hdMode: state.hdMode,
+    multiViewImages: state.multiViewImages,
+    referenceModel: state.referenceModel,
   });
 });

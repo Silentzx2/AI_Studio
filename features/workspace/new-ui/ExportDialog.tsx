@@ -3,11 +3,14 @@
 import React, { useState } from 'react';
 import {
   Download, FileDown, Archive, CheckCircle2,
-  AlertTriangle, Loader2,
+  AlertTriangle, Loader2, X
 } from 'lucide-react';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'motion/react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface ExportDialogProps {
   isOpen: boolean;
@@ -125,99 +128,128 @@ export default function ExportDialog({ isOpen, onClose, modelUrl: modelUrlProp, 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" id="export-dialog-overlay">
-      <div className="bg-[hsl(var(--surface-0))] border border-[hsl(var(--border))] rounded-2xl p-6 w-full max-w-md shadow-2xl" id="export-dialog">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-black uppercase tracking-wider text-[hsl(var(--foreground))]">
-            Export Project
-          </h3>
-          <button
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             onClick={onClose}
-            className="p-1 rounded hover:bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+            className="absolute inset-0 bg-black/80 backdrop-blur-md"
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="bg-[hsl(var(--surface-0))] border border-white/5 rounded-3xl p-8 w-full max-w-lg shadow-[0_30px_100px_rgba(0,0,0,0.8)] relative z-10 overflow-hidden"
+            id="export-dialog"
           >
-            <Download size={16} />
-          </button>
-        </div>
+            {/* Background Glow */}
+            <div className="absolute -top-24 -right-24 w-48 h-48 bg-amber-500/10 blur-[80px] rounded-full pointer-events-none" />
+            <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-sky-500/10 blur-[80px] rounded-full pointer-events-none" />
 
-        <div className="flex flex-col gap-3 mb-4">
-          <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <FileDown size={14} className="text-[hsl(var(--primary))]" />
-              <span className="text-xs font-bold text-[hsl(var(--foreground))]">Assembled GLB</span>
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex flex-col gap-1">
+                <h3 className="text-lg font-black uppercase tracking-[-0.02em] text-white">
+                  Export Protocol
+                </h3>
+                <p className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Select Deployment Format</p>
+              </div>
+              <button
+                onClick={onClose}
+                className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/5 text-white/40 hover:text-white hover:bg-white/10 transition-all border border-white/5"
+              >
+                <X size={18} />
+              </button>
             </div>
-            <p className="text-[10px] text-[hsl(var(--muted-foreground))] leading-relaxed">
-              Generates a single GLB file with all enabled modifications (textures, materials, rigging, animations, LODs) embedded. Ready for deployment.
-            </p>
-            <button
-              onClick={handleExportGLB}
-              disabled={exporting || !hasModel}
-              className="mt-3 w-full bg-[hsl(var(--primary))] hover:brightness-110 active:scale-[0.98] disabled:opacity-40 text-[hsl(var(--surface-0))] font-extrabold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-all"
-            >
-              {exporting && exportFormat === 'glb' ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <FileDown size={14} />
-              )}
-              Export GLB
-            </button>
-          </div>
 
-          <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Archive size={14} className="text-[hsl(var(--neon-amber))]" />
-              <span className="text-xs font-bold text-[hsl(var(--foreground))]">Project Package (ZIP)</span>
-            </div>
-            <p className="text-[10px] text-[hsl(var(--muted-foreground))] leading-relaxed">
-              Packages the assembled GLB plus all original assets separately (textures, PBR maps, animation files, rig data, metadata) for manual editing or reuse.
-            </p>
-            <button
-              onClick={handleExportZIP}
-              disabled={exporting || !hasModel}
-              className="mt-3 w-full bg-[hsl(var(--neon-amber))] hover:brightness-110 active:scale-[0.98] disabled:opacity-40 text-[hsl(var(--surface-0))] font-extrabold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-all"
-            >
-              {exporting && exportFormat === 'zip' ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Archive size={14} />
-              )}
-              Export Project Package
-            </button>
-          </div>
-        </div>
-
-        {hasLayers && (
-          <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-xl p-3 mb-4">
-            <span className="text-[9px] font-black uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
-              Layers in Export
-            </span>
-            <div className="flex flex-col gap-1 mt-2">
-              {enabledLayers.map((layer) => (
-                <div key={layer.id} className="flex items-center gap-2 text-[10px] text-[hsl(var(--foreground))]">
-                  <CheckCircle2 size={10} className="text-[hsl(var(--neon-green))]" />
-                  <span className="font-semibold">{layer.name}</span>
-                  <span className="text-[hsl(var(--muted-foreground))] ml-auto font-mono">{layer.type}</span>
+            <div className="flex flex-col gap-4 mb-8">
+              <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 hover:bg-white/[0.04] transition-all group">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
+                    <FileDown size={16} className="text-amber-500" />
+                  </div>
+                  <span className="text-xs font-black uppercase tracking-widest text-white group-hover:text-amber-500 transition-colors">Assembled GLB</span>
                 </div>
-              ))}
+                <p className="text-[10px] text-white/40 leading-relaxed font-medium mb-5">
+                  Unified orchestration of textures, materials, and rigging. Optimized for instant spatial deployment.
+                </p>
+                <Button
+                  onClick={handleExportGLB}
+                  disabled={exporting || !hasModel}
+                  variant="premium"
+                  className="w-full h-11"
+                >
+                  {exporting && exportFormat === 'glb' ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Download size={16} />
+                  )}
+                  Transmit GLB
+                </Button>
+              </div>
+
+              <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 hover:bg-white/[0.04] transition-all group">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-8 h-8 rounded-xl bg-sky-500/10 flex items-center justify-center border border-sky-500/20">
+                    <Archive size={16} className="text-sky-500" />
+                  </div>
+                  <span className="text-xs font-black uppercase tracking-widest text-white group-hover:text-sky-500 transition-colors">Project Archive (ZIP)</span>
+                </div>
+                <p className="text-[10px] text-white/40 leading-relaxed font-medium mb-5">
+                  Complete asset extraction including high-fidelity maps and source rig data for external synthesis.
+                </p>
+                <Button
+                  onClick={handleExportZIP}
+                  disabled={exporting || !hasModel}
+                  variant="outline"
+                  className="w-full h-11 border-sky-500/20 hover:bg-sky-500/10 hover:border-sky-500/40 text-sky-400 font-black uppercase tracking-widest text-[10px] rounded-2xl"
+                >
+                  {exporting && exportFormat === 'zip' ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Archive size={16} />
+                  )}
+                  Compile ZIP Archive
+                </Button>
+              </div>
             </div>
-          </div>
-        )}
 
-        {!hasModel && (
-          <div className="flex items-center gap-2 p-3 bg-[hsl(var(--surface-1))] border border-[hsl(var(--neon-amber)/0.3)] rounded-xl mb-4">
-            <AlertTriangle size={14} className="text-[hsl(var(--neon-amber))]" />
-            <span className="text-[10px] text-[hsl(var(--neon-amber))]">
-              Generate or load a model before exporting
-            </span>
-          </div>
-        )}
+            {hasLayers && (
+              <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 mb-8">
+                <span className="text-[9px] font-black uppercase tracking-[0.25em] text-white/30 mb-4 block">
+                  Archive Composition
+                </span>
+                <div className="grid grid-cols-2 gap-3">
+                  {enabledLayers.map((layer) => (
+                    <div key={layer.id} className="flex items-center gap-2 p-2 rounded-xl bg-white/[0.02] border border-white/[0.03]">
+                      <CheckCircle2 size={10} className="text-green-500/60" />
+                      <span className="text-[9px] font-bold text-white/60 truncate">{layer.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-        <button
-          onClick={onClose}
-          className="w-full bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/50 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] font-bold py-2.5 rounded-xl text-xs transition-all"
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
+            {!hasModel && (
+              <div className="flex items-center gap-3 p-4 bg-amber-500/5 border border-amber-500/20 rounded-2xl mb-8">
+                <AlertTriangle size={16} className="text-amber-500" />
+                <span className="text-[10px] font-bold text-amber-500/80 uppercase tracking-wider">
+                  Synthesis Required: Generate model first
+                </span>
+              </div>
+            )}
+
+            <button
+              onClick={onClose}
+              className="w-full h-11 bg-white/5 border border-white/5 hover:bg-white/10 text-white/30 hover:text-white font-black uppercase tracking-[0.2em] rounded-2xl text-[10px] transition-all"
+            >
+              Abort Protocol
+            </button>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
   );
 }

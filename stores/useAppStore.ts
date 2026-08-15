@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { GenerationConfig, GenerationJob, GenerationMode, QualityPreset, ViewerState, ViewerMode, LogEntry, RecentPrompt, UploadedImage, InstallProgress, AdminJob, ProjectAsset, ProjectLayer } from '@/types';
+import type { GenerationConfig, GenerationJob, GenerationMode, QualityPreset, ViewerState, ViewerMode, LogEntry, RecentPrompt, UploadedImage, InstallProgress, AdminJob, ProjectAsset, ProjectLayer, BatchQueueItem } from '@/types';
 
-interface AppState {
+export interface AppState {
   // ── Generation ──
   mode: GenerationMode;
   prompt: string;
@@ -22,6 +22,20 @@ interface AppState {
   isLoadingHistory: boolean;
   loadingError: string | null;
   retryCount: number;
+
+  // ── Multi-View & References ──
+  hdMode: 'hd' | 'smart';
+  multiViewImages: {
+    front: UploadedImage | null;
+    left: UploadedImage | null;
+    right: UploadedImage | null;
+    back: UploadedImage | null;
+  };
+  referenceModel: { file: File | null; name: string; url: string; preview?: string; progress?: number } | null;
+
+  // ── Batch Generation ──
+  batchGenerationEnabled: boolean;
+  batchQueue: BatchQueueItem[];
 
   // ── UI ──
   leftSidebarCollapsed: boolean;
@@ -111,6 +125,18 @@ interface AppState {
   setLoadingError: (error: string | null) => void;
   resetGeneration: () => void;
 
+  setHDMode: (mode: 'hd' | 'smart') => void;
+  setMultiViewImage: (view: 'front' | 'left' | 'right' | 'back', img: UploadedImage | null) => void;
+  setReferenceModel: (model: AppState['referenceModel']) => void;
+
+  // ── Batch Generation Actions ──
+  setBatchGenerationEnabled: (v: boolean) => void;
+  setBatchQueue: (queue: BatchQueueItem[]) => void;
+  addToBatchQueue: (prompts: string[]) => void;
+  removeFromBatchQueue: (id: string) => void;
+  clearBatchQueue: () => void;
+  updateBatchItem: (id: string, updates: Partial<BatchQueueItem>) => void;
+
   setLeftSidebarCollapsed: (v: boolean) => void;
   setRightSidebarCollapsed: (v: boolean) => void;
   setBottomPanelCollapsed: (v: boolean) => void;
@@ -169,6 +195,18 @@ const DEFAULT_STATE: AppStateData = {
   isLoadingHistory: false,
   loadingError: null,
   retryCount: 0,
+
+  hdMode: 'hd',
+  multiViewImages: {
+    front: null,
+    left: null,
+    right: null,
+    back: null,
+  },
+  referenceModel: null,
+
+  batchGenerationEnabled: false,
+  batchQueue: [],
 
   leftSidebarCollapsed: false,
   rightSidebarCollapsed: false,
@@ -256,6 +294,41 @@ export const useAppStore = create<AppState>()(
           seed: '',
           currentJob: null,
         }),
+
+      setHDMode: (hdMode) => set({ hdMode }),
+      setMultiViewImage: (view, img) =>
+        set((s) => ({
+          multiViewImages: { ...s.multiViewImages, [view]: img },
+        })),
+      setReferenceModel: (referenceModel) => set({ referenceModel }),
+
+      // ── Batch Generation Actions ──
+      setBatchGenerationEnabled: (batchGenerationEnabled) => set({ batchGenerationEnabled }),
+      setBatchQueue: (batchQueue) => set({ batchQueue }),
+      addToBatchQueue: (prompts) =>
+        set((s) => {
+          const newItems: BatchQueueItem[] = prompts
+            .filter((p) => p.trim().length > 0)
+            .map((p) => ({
+              id: 'batch-' + Math.random().toString(36).slice(2, 9),
+              prompt: p.trim(),
+              status: 'queued',
+              progress: 0,
+              createdAt: new Date(),
+            }));
+          return { batchQueue: [...s.batchQueue, ...newItems] };
+        }),
+      removeFromBatchQueue: (id) =>
+        set((s) => ({
+          batchQueue: s.batchQueue.filter((item) => item.id !== id),
+        })),
+      clearBatchQueue: () => set({ batchQueue: [] }),
+      updateBatchItem: (id, updates) =>
+        set((s) => ({
+          batchQueue: s.batchQueue.map((item) =>
+            item.id === id ? { ...item, ...updates } : item
+          ),
+        })),
 
       // ── UI Actions ──
       setLeftSidebarCollapsed: (leftSidebarCollapsed) => set({ leftSidebarCollapsed }),

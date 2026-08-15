@@ -31,14 +31,15 @@ export const uploadService = {
     return 'data' in result ? result.data : result;
   },
 
-  /** Upload with real progress tracking via XMLHttpRequest */
+  /** Upload with real progress tracking via XMLHttpRequest with cancellation support */
   uploadWithProgress(
     file: File,
     onProgress: (progress: UploadProgress) => void,
     endpoint: '/api/v1/upload/image' | '/api/v1/upload/model' = '/api/v1/upload/image'
-  ): Promise<{ url: string; width?: number; height?: number; filename?: string; size?: number; format?: string }> {
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
+  ): { promise: Promise<{ url: string; width?: number; height?: number; filename?: string; size?: number; format?: string }>; cancel: () => void } {
+    let xhr: XMLHttpRequest;
+    const promise = new Promise<{ url: string; width?: number; height?: number; filename?: string; size?: number; format?: string }>((resolve, reject) => {
+      xhr = new XMLHttpRequest();
       const formData = new FormData();
       formData.append('file', file);
 
@@ -79,6 +80,13 @@ export const uploadService = {
       xhr.open('POST', endpoint);
       xhr.send(formData);
     });
+
+    return {
+      promise,
+      cancel: () => {
+        if (xhr) xhr.abort();
+      }
+    };
   },
 
   createPreview(file: File): Promise<string> {
