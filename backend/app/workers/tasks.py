@@ -189,7 +189,6 @@ def generate_3d_model(self: Task, job_id: str) -> dict:
     finally:
         loop.close()
 
-
 async def _async_generate(task: Task, job_id: str) -> dict:
     from app.core.prompt_enhancer import enhance_prompt
     from app.core.providers.registry import get_provider
@@ -279,6 +278,31 @@ async def _async_generate(task: Task, job_id: str) -> dict:
         sync_publish(2, "preparing", "Job started.", "info")
 
         provider_name = job.provider
+
+        # Installation guard in worker (defense in depth)
+        if provider_name != "mock":
+            try:
+                from runtime.installer import get_install_status
+                status = get_install_status()
+                inst = status.get(provider_name, {})
+                if not inst.get("installed", False):
+                    missing = []
+                    if not inst.get("repo_ready", True):
+                        missing.append("repo")
+                    if not inst.get("venv_ready", True):
+                        missing.append("venv")
+                    if not inst.get("weights_ready", True):
+                        missing.append("weights")
+                    raise RuntimeError(
+                        f"Model '{provider_name}' is not installed. "
+                        f"Missing: {', '.join(missing) or 'unknown'}. "
+                        f"Install it first via Model Manager or POST /api/v1/runtime/install."
+                    )
+            except RuntimeError:
+                raise
+            except Exception as exc:
+                logger.warning("Worker install check failed for %s: %s", provider_name, exc)
+
         try:
             # 1. GPU scheduling — select best available provider
             if engine:

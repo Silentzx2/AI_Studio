@@ -161,6 +161,35 @@ async def create_generation(req: GenerationRequest):
     except Exception:
         pass  # Soft fail: never block generation on a capability-check error
 
+    # Installation guard: block generation if the model isn't installed
+    # (repo cloned, venv created, weights downloaded) — otherwise it fails
+    # with cryptic "module not found" or "weights not found" errors.
+    try:
+        from runtime.installer import get_install_status  # noqa: PLC0415
+        status = get_install_status()
+        inst = status.get(provider, {})
+        if not inst.get("installed", False):
+            missing = []
+            if not inst.get("repo_ready", True):
+                missing.append("repo")
+            if not inst.get("venv_ready", True):
+                missing.append("venv")
+            if not inst.get("weights_ready", True):
+                missing.append("weights")
+            detail = (
+                f"Model '{provider}' is not installed. "
+                f"Missing: {', '.join(missing) or 'unknown'}. "
+                f"Please install it first from the Model Manager or run:"
+                f" POST /api/v1/runtime/install with {{\"models\": [\"{provider}\"]}}"
+            )
+            logger.warning("Blocked generation for uninstalled model: provider=%s missing=%s", provider, missing)
+            raise HTTPException(status_code=400, detail=detail)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Installation check failed for %s: %s", provider, exc)
+        pass  # Soft fail: don't block if check itself errors
+
     # Validate workspace/provider compatibility if workspace is specified
     if req.workspace:
         try:
