@@ -1,15 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import {
   Search, Menu, X, Box, LayoutDashboard, Boxes, Settings,
-  Clock, Sparkles, Cpu, HardDrive, Bell, Terminal, ExternalLink,
-  ChevronRight, Layers, Wand2
+  Clock, Wand2, ChevronRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { APP_NAME } from '@/constants';
 import { useUIStore } from '@/stores/useUIStore';
 import { useAppStore } from '@/stores/useAppStore';
 import { BackendStatusPill } from '@/components/BackendStatusPill';
@@ -17,7 +15,7 @@ import { BackendStatusPill } from '@/components/BackendStatusPill';
 const NAV_LINKS = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/workspace?tab=3d-gen', label: '3D Studio', icon: Boxes },
-  { href: '/workspace?tab=My+Assets', label: 'History & Timeline', icon: Clock },
+  { href: '/workspace?tab=My+Assets', label: 'History', icon: Clock },
   { href: '/settings?section=models', label: 'AI Models', icon: Box },
 ];
 
@@ -51,38 +49,30 @@ export function WorkspaceNavbar() {
 
   return (
     <header
-      className="sticky top-0 z-40 w-full bg-[hsl(var(--surface-1))/0.95] backdrop-blur-xl border-b border-[hsl(var(--border))/0.15] transition-all h-12"
+      className="sticky top-0 z-40 w-full bg-[hsl(var(--surface-1))/0.95] backdrop-blur-xl border-b border-[hsl(var(--border))/0.15] transition-all h-10"
       id="global-workspace-navbar"
     >
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-full flex items-center justify-between gap-4">
-        {/* Left Section: Mobile Menu + Brand Logo + Nav Links */}
-        <div className="flex items-center gap-3">
+      <div className="h-full flex items-center justify-between gap-2 px-3 sm:px-4">
+        {/* Left: Hamburger + Logo + Nav Icons */}
+        <div className="flex items-center gap-1">
           {/* Mobile hamburger */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--surface-2))] hover:text-[hsl(var(--foreground))] transition-all"
+            className="md:hidden p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--surface-2))] hover:text-[hsl(var(--foreground))] transition-all"
             aria-label="Toggle navigation"
           >
             {mobileMenuOpen ? <X size={16} /> : <Menu size={16} />}
           </button>
 
-          {/* Logo & Brand Badge */}
-          <Link href="/" className="flex items-center gap-2 group" aria-label="Home">
-            <div className="w-7 h-7 rounded-lg bg-[hsl(var(--primary))] flex items-center justify-center transition-transform duration-200 group-hover:scale-105">
-              <Boxes size={16} className="text-[hsl(var(--surface-2))]" />
-            </div>
-            <div className="flex flex-col hidden sm:flex">
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-semibold tracking-tight text-white">{APP_NAME}</span>
-                <span className="px-1.5 py-0.5 text-[7px] font-semibold uppercase tracking-wider rounded bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/20">
-                  PRO
-                </span>
-              </div>
+          {/* Logo icon only (no text — sidebar already shows AI Studio) */}
+          <Link href="/" className="flex items-center" aria-label="Home">
+            <div className="w-7 h-7 rounded-lg bg-[hsl(var(--primary))] flex items-center justify-center transition-transform duration-200 hover:scale-105">
+              <Boxes size={14} className="text-[hsl(var(--surface-2))]" />
             </div>
           </Link>
 
-          {/* Primary Nav Links */}
-          <nav className="hidden lg:flex items-center gap-1 ml-2 pl-3" id="top-nav-links">
+          {/* Desktop Nav — icon pills */}
+          <nav className="hidden md:flex items-center gap-0.5 ml-1" id="top-nav-links">
             {NAV_LINKS.map((link) => {
               const Icon = link.icon;
               const active = isActive(link.href);
@@ -91,33 +81,34 @@ export function WorkspaceNavbar() {
                   key={link.href}
                   href={link.href}
                   className={cn(
-                    'flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-200',
+                    'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-200',
                     active
                       ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10'
                       : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
                   )}
+                  title={link.label}
                 >
                   <Icon size={14} />
-                  <span>{link.label}</span>
+                  <span className="hidden xl:inline">{link.label}</span>
                 </Link>
               );
             })}
           </nav>
         </div>
 
-        {/* Center: Command / Search Bar */}
-        <div className="flex-1 max-w-lg hidden sm:block mx-2" id="centered-search-container">
+        {/* Center: Search — compact on desktop, hidden on mobile */}
+        <div className="flex-1 max-w-md hidden sm:block mx-2" id="centered-search-container">
           <form onSubmit={handleSearchSubmit} className="relative w-full group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[hsl(var(--muted-foreground))] group-focus-within:text-[hsl(var(--primary))] transition-colors duration-200" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[hsl(var(--muted-foreground))] group-focus-within:text-[hsl(var(--primary))] transition-colors duration-200" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search prompts, assets, models..."
-              className="w-full h-9 pl-10 pr-4 text-[11px] font-medium text-[hsl(var(--foreground))] bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))/0.3] rounded-lg
+              placeholder="Search..."
+              className="w-full h-8 pl-8 pr-3 text-[11px] font-medium text-[hsl(var(--foreground))] bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))/0.3] rounded-md
                          placeholder:text-[hsl(var(--muted-foreground))/0.4]
                          hover:border-[hsl(var(--border))/0.5]
-                         focus:outline-none focus:bg-[hsl(var(--surface-2))] focus:border-[hsl(var(--border))] focus:ring-2 focus:ring-[hsl(var(--primary))/0.15]
+                         focus:outline-none focus:bg-[hsl(var(--surface-2))] focus:border-[hsl(var(--border))] focus:ring-1.5 focus:ring-[hsl(var(--primary))/0.15]
                          transition-all duration-200"
               onClick={() => {
                 document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true, bubbles: true }));
@@ -126,41 +117,50 @@ export function WorkspaceNavbar() {
           </form>
         </div>
 
-        {/* Right Section: Telemetry & Actions */}
-        <div className="flex items-center gap-2" id="top-nav-actions">
-          {/* Active Batch Queue indicator badge */}
+        {/* Right: Actions */}
+        <div className="flex items-center gap-1.5" id="top-nav-actions">
+          {/* Mobile search toggle */}
+          <button
+            onClick={() => {
+              const input = document.querySelector('#centered-search-container input') as HTMLInputElement;
+              input?.focus();
+            }}
+            className="sm:hidden p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--surface-2))] hover:text-[hsl(var(--foreground))] transition-all"
+            aria-label="Search"
+          >
+            <Search size={14} />
+          </button>
+
           {activeBatchCount > 0 && (
             <Link
               href="/workspace?tab=3d-gen"
-              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[hsl(var(--surface-3))] border border-[hsl(var(--border))/0.3] text-[hsl(var(--foreground))] text-[9px] font-semibold uppercase tracking-wider"
+              className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-md bg-[hsl(var(--surface-3))] border border-[hsl(var(--border))/0.3] text-[hsl(var(--foreground))] text-[9px] font-semibold uppercase tracking-wider"
             >
-              <Wand2 size={11} />
-              <span>{activeBatchCount} Running</span>
+              <Wand2 size={10} />
+              <span className="hidden lg:inline">{activeBatchCount} Running</span>
             </Link>
           )}
 
-          {/* Backend Status Live Pill */}
           <BackendStatusPill />
 
-          {/* Settings Button */}
           <Link
             href="/settings"
             className={cn(
-              'w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200',
+              'w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200',
               pathname.startsWith('/settings')
                 ? 'bg-[hsl(var(--primary))/0.1] text-[hsl(var(--primary))]'
                 : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
             )}
             title="Studio Settings"
           >
-            <Settings size={16} />
+            <Settings size={14} />
           </Link>
         </div>
       </div>
 
-      {/* Mobile Navigation Dropdown */}
+      {/* Mobile Navigation Drawer */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-[hsl(var(--border))/0.15] bg-[hsl(var(--surface-0))] px-4 py-3 space-y-1">
+        <div className="md:hidden border-t border-[hsl(var(--border))/0.15] bg-[hsl(var(--surface-0))] px-3 py-2 space-y-0.5">
           {NAV_LINKS.map((link) => {
             const Icon = link.icon;
             const active = isActive(link.href);

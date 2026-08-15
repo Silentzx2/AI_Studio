@@ -121,10 +121,10 @@ export default function MyAssetsTab({
                 <button
                   key={fmt}
                   onClick={() => setFormatFilter(fmt)}
-                  className={`flex-1 md:flex-initial px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  className={`flex-1 md:flex-initial px-4 py-2 rounded-lg text-xs font-medium transition-all border border-transparent ${
                     formatFilter === fmt
-                      ? 'bg-[hsl(var(--neon-amber))] text-[hsl(var(--surface-0))] shadow-[0_2px_8px_rgba(255,90,31,0.2)]'
-                      : 'bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+                      ? 'bg-white/5 text-white'
+                      : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
                   }`}
                   id={`format-filter-btn-${fmt}`}
                 >
@@ -140,16 +140,16 @@ export default function MyAssetsTab({
               <div
                 key={item.id}
                 onClick={() => onLoadProject(item)}
-                className="group bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] hover:border-[hsl(var(--neon-amber))]/50 rounded-2xl p-3 flex flex-col gap-3 cursor-pointer transition-all hover:scale-[1.01]"
+                className="card-minimal p-3 flex flex-col gap-3 cursor-pointer transition-all hover:border-white/10"
                 id={`asset-card-${item.id}`}
               >
                 {/* Visual Box representation of geometric mesh */}
-                <div className="relative aspect-square w-full rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--surface-3))] overflow-hidden flex items-center justify-center" id={`asset-thumb-box-${item.id}`}>
+                <div className="relative aspect-square w-full rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border)/0.2)] overflow-hidden flex items-center justify-center" id={`asset-thumb-box-${item.id}`}>
                   {item.thumbnailUrl ? (
                     <img src={item.thumbnailUrl} alt={item.name} className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-16 h-16 rounded bg-gradient-to-tr from-[hsl(var(--neon-amber))]/20 to-transparent flex items-center justify-center border border-[hsl(var(--neon-amber))]/10 transform group-hover:rotate-6 transition-all" id={`asset-geom-${item.id}`}>
-                      <Cpu size={28} className="text-[hsl(var(--neon-amber))] opacity-80" />
+                    <div className="w-16 h-16 rounded bg-[hsl(var(--surface-1))] border border-[hsl(var(--border)/0.3)] flex items-center justify-center" id={`asset-geom-${item.id}`}>
+                      <Cpu size={28} className="text-[hsl(var(--muted-foreground))]/60" />
                     </div>
                   )}
 
@@ -177,7 +177,7 @@ export default function MyAssetsTab({
 
                   {/* Format Badge */}
                   <div className="absolute bottom-2.5 left-2.5" id={`asset-format-badge-container-${item.id}`}>
-                    <span className="px-2 py-0.5 rounded bg-[hsl(var(--surface-0)/0.9)] text-[9px] font-mono font-bold text-[hsl(var(--foreground))] border border-[hsl(var(--border))] uppercase">
+                    <span className="px-2 py-0.5 rounded bg-[hsl(var(--surface-0)/0.9)] text-[9px] font-medium text-[hsl(var(--foreground))] border border-[hsl(var(--border)/0.3)] uppercase">
                       {item.format}
                     </span>
                   </div>
@@ -186,7 +186,7 @@ export default function MyAssetsTab({
                 {/* Labels */}
                 <div className="flex flex-col gap-1" id={`asset-meta-${item.id}`}>
                   <div className="flex justify-between items-start gap-1">
-                    <span className="text-xs font-bold text-[hsl(var(--foreground))] truncate group-hover:text-[hsl(var(--neon-amber))] transition-colors" id={`asset-title-${item.id}`}>
+                    <span className="text-xs font-medium text-[hsl(var(--foreground))] truncate group-hover:text-white transition-colors" id={`asset-title-${item.id}`}>
                       {item.name}
                     </span>
                     <span className="px-1.5 py-0.5 rounded bg-[hsl(var(--foreground)/0.04)] text-[9px] font-mono text-[hsl(var(--muted-foreground))]">PBR</span>
@@ -194,10 +194,10 @@ export default function MyAssetsTab({
                   <p className="text-[10px] text-[hsl(var(--muted-foreground))] line-clamp-1 truncate" id={`asset-prompt-${item.id}`}>
                     {item.prompt}
                   </p>
-                  
+
                   <div className="flex items-center justify-between text-[10px] text-[hsl(var(--muted-foreground))] font-mono mt-2 pt-2 border-t border-white/[0.03]">
                     <span>🕒 {item.timestamp}</span>
-                    <span className="text-[hsl(var(--neon-amber))] font-sans font-bold flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-[hsl(var(--foreground))] font-sans font-medium flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       Open <Play size={8} />
                     </span>
                   </div>
@@ -205,10 +205,10 @@ export default function MyAssetsTab({
               </div>
             ))}
 
-            {filteredHistory.length === 0 && (
-              <div className="col-span-full bg-[hsl(var(--surface-1))] border border-dashed border-[hsl(var(--border))] rounded-2xl p-12 text-center flex flex-col items-center justify-center text-[hsl(var(--muted-foreground))]" id="assets-empty-placeholder">
+             {filteredHistory.length === 0 && (
+              <div className="col-span-full bg-[hsl(var(--surface-1))] border border-dashed border-[hsl(var(--border)/0.2)] rounded-2xl p-12 text-center flex flex-col items-center justify-center text-[hsl(var(--muted-foreground))]" id="assets-empty-placeholder">
                 <Folder size={40} className="text-[hsl(var(--border))] mb-3" />
-                <p className="text-xs font-semibold text-[hsl(var(--foreground))]">No assets found</p>
+                <p className="text-xs font-medium text-[hsl(var(--foreground))]">No assets found</p>
                 <p className="text-[10px] mt-1">Try tweaking your search terms, changing the format filter, or create a new mesh!</p>
               </div>
             )}

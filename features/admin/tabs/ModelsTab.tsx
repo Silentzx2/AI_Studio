@@ -23,13 +23,13 @@ import { toast } from 'sonner';
 
 // ─── Phase labels for install progress ───────────────────────────────────────
 const PHASE_META: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  repo:     { label: 'Cloning repository',     icon: <Boxes size={13} />,          color: 'text-[hsl(var(--neon-blue))]' },
-  venv:     { label: 'Creating virtualenv',    icon: <Zap size={13} />,            color: 'text-[hsl(var(--neon-amber))]' },
-  deps:     { label: 'Installing dependencies', icon: <Download size={13} />,       color: 'text-[hsl(var(--neon-purple))]' },
-  weights:  { label: 'Downloading weights',    icon: <HardDrive size={13} />,      color: 'text-[hsl(var(--neon-pink))]' },
-  extract:  { label: 'Extracting files',       icon: <Loader2 size={13} />,        color: 'text-[hsl(var(--neon-cyan))]' },
-  verify:   { label: 'Verifying install',      icon: <CheckCircle size={13} />,    color: 'text-[hsl(var(--neon-green))]' },
-  complete: { label: 'Installation complete',  icon: <CheckCircle size={13} />,    color: 'text-[hsl(var(--neon-green))]' },
+  repo:     { label: 'Cloning repository',     icon: <Boxes size={13} />,          color: 'text-[hsl(var(--muted-foreground))]' },
+  venv:     { label: 'Creating virtualenv',    icon: <Zap size={13} />,            color: 'text-[hsl(var(--muted-foreground))]' },
+  deps:     { label: 'Installing dependencies', icon: <Download size={13} />,       color: 'text-[hsl(var(--muted-foreground))]' },
+  weights:  { label: 'Downloading weights',    icon: <HardDrive size={13} />,      color: 'text-[hsl(var(--muted-foreground))]' },
+  extract:  { label: 'Extracting files',       icon: <Loader2 size={13} />,        color: 'text-[hsl(var(--muted-foreground))]' },
+  verify:   { label: 'Verifying install',      icon: <CheckCircle size={13} />,    color: 'text-[hsl(var(--muted-foreground))]' },
+  complete: { label: 'Installation complete',  icon: <CheckCircle size={13} />,    color: 'text-[hsl(var(--muted-foreground))]' },
 };
 
 function fmtBytes(n: number): string {
@@ -95,25 +95,25 @@ function InstallProgressInline({
   const bytesDownloaded = progress.bytes_downloaded ?? 0;
 
   return (
-    <div className="mt-3 space-y-2.5 p-3 rounded-xl bg-gradient-to-br from-violet-500/[0.07] to-purple-500/[0.03] border border-[hsl(var(--neon-purple)/0.15)]">
+    <div className="mt-3 space-y-2.5 p-3 rounded-xl card-minimal">
       {/* Phase + percent */}
       <div className="flex items-center justify-between">
         <div className={cn('flex items-center gap-1.5 text-xs font-medium', phase.color)}>
-          {isDone ? <CheckCircle size={12} className="text-[hsl(var(--neon-green))]" /> :
+          {isDone ? <CheckCircle size={12} className="text-[hsl(var(--muted-foreground))]" /> :
            isFailed ? <AlertCircle size={12} className="text-[hsl(var(--destructive))]" /> :
            phase.icon}
           <span>{isDone ? 'Installation complete' : isFailed ? 'Installation failed' : phase.label}</span>
         </div>
         <span className={cn(
           'text-sm font-bold font-mono',
-          isDone ? 'text-[hsl(var(--neon-green))]' : isFailed ? 'text-[hsl(var(--destructive))]' : 'text-[hsl(var(--primary))]'
+          isDone ? 'text-[hsl(var(--muted-foreground))]' : isFailed ? 'text-[hsl(var(--destructive))]' : 'text-[hsl(var(--primary))]'
         )}>
           {pct.toFixed(1)}%
         </span>
       </div>
 
       {/* Progress bar */}
-      <ProgressBar value={pct} color="purple" size="md" showGlow />
+      <ProgressBar value={pct} color="purple" size="md" />
 
       {/* Stats row */}
       {!isDone && !isFailed && (
@@ -126,7 +126,7 @@ function InstallProgressInline({
           </span>
           <div className="flex items-center gap-3">
             {speedBps > 0 && (
-              <span className="flex items-center gap-1 text-[hsl(var(--neon-amber))]">
+              <span className="flex items-center gap-1 text-[hsl(var(--muted-foreground))]">
                 <Zap size={10} />
                 {fmtSpeed(speedBps)}
               </span>
@@ -352,7 +352,7 @@ export function ModelsTab() {
       <div className="flex flex-col items-center justify-center h-full gap-4 py-20">
         <AlertCircle className="w-10 h-10 text-muted-foreground/50" />
         <p className="text-sm text-muted-foreground">{error}</p>
-        <button onClick={load} className="text-xs text-[hsl(var(--neon-purple))] hover:underline flex items-center gap-1.5">
+        <button onClick={load} className="text-xs text-[hsl(var(--muted-foreground))] hover:underline flex items-center gap-1.5">
           <RefreshCw className="w-3.5 h-3.5" /> Retry
         </button>
       </div>
@@ -365,7 +365,7 @@ export function ModelsTab() {
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Boxes className="w-6 h-6 text-[hsl(var(--neon-purple))]" />
+            <Boxes className="w-6 h-6 text-[hsl(var(--muted-foreground))]" />
             AI Models
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -375,7 +375,7 @@ export function ModelsTab() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => load()}
-            className="p-2 rounded-xl glass border border-[hsl(var(--border)/0.5)] text-muted-foreground hover:text-foreground transition-colors"
+            className="p-2 rounded-xl glass border border-[hsl(var(--border)/0.5)] text-muted-foreground hover:text-[hsl(var(--muted-foreground))] transition-colors"
             title="Refresh models"
           >
             <RefreshCw className="w-4 h-4" />
@@ -386,7 +386,7 @@ export function ModelsTab() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search models..."
-              className="w-64 h-9 pl-9 pr-4 rounded-xl glass text-sm border border-[hsl(var(--border)/0.5)] focus:border-[hsl(var(--neon-purple)/0.4)] focus:outline-none transition-colors"
+              className="w-64 h-9 pl-9 pr-4 rounded-xl glass text-sm border border-[hsl(var(--border)/0.5)] focus:border-[hsl(var(--border))] focus:outline-none transition-colors"
             />
           </div>
         </div>
@@ -402,8 +402,8 @@ export function ModelsTab() {
               className={cn(
                 'px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all border',
                 category === cat
-                  ? 'bg-gradient-to-r from-[hsl(var(--neon-purple)/0.15)] to-[hsl(var(--neon-blue)/0.05)] text-foreground border-[hsl(var(--neon-purple)/0.3)]'
-                  : 'glass text-muted-foreground border-[hsl(var(--border)/0.5)] hover:text-foreground'
+                  ? 'bg-white/5 text-[hsl(var(--muted-foreground))] border-[hsl(var(--border)/0.3)]'
+                  : 'glass text-muted-foreground border-[hsl(var(--border)/0.5)] hover:text-[hsl(var(--muted-foreground))]'
               )}
             >
               {cat}
@@ -416,7 +416,7 @@ export function ModelsTab() {
       <GlassCard className="p-4" hover>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold flex items-center gap-2">
-            <Zap className="w-4 h-4 text-[hsl(var(--neon-amber))]" />
+            <Zap className="w-4 h-4 text-[hsl(var(--muted-foreground))]" />
             Global AI Capabilities
           </h2>
           <span className="text-xs text-muted-foreground">Feature toggles used across the workspace</span>
@@ -465,21 +465,21 @@ export function ModelsTab() {
                       <div className={cn(
                         'flex items-center justify-center w-11 h-11 rounded-xl border relative',
                         model.installed
-                          ? 'bg-[hsl(var(--neon-green)/0.08)] border-[hsl(var(--neon-green)/0.2)]'
+                          ? 'bg-[hsl(var(--surface-3))] border-[hsl(var(--border)/0.3)]'
                           : 'bg-[hsl(var(--surface-2))] border-[hsl(var(--border))]'
                       )}>
-                        <Boxes className={cn('w-5 h-5', model.installed ? 'text-[hsl(var(--neon-green))]' : 'text-muted-foreground')} />
+                        <Boxes className={cn('w-5 h-5', model.installed ? 'text-[hsl(var(--muted-foreground))]' : 'text-muted-foreground')} />
                         {/* Status dot */}
                         <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
                           {isDownloading ? (
                             <>
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[hsl(var(--neon-amber))] opacity-75" />
-                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[hsl(var(--neon-amber))]" />
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[hsl(var(--muted-foreground))] opacity-75" />
+                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[hsl(var(--muted-foreground))]" />
                             </>
                           ) : model.installed ? (
                             <>
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[hsl(var(--neon-green))] opacity-30" />
-                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[hsl(var(--neon-green))]" />
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[hsl(var(--muted-foreground))] opacity-30" />
+                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[hsl(var(--muted-foreground))]" />
                             </>
                           ) : (
                             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-muted-foreground/40" />
@@ -488,7 +488,7 @@ export function ModelsTab() {
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-semibold text-foreground truncate">{model.name}</h3>
+                          <h3 className="text-sm font-semibold text-[hsl(var(--muted-foreground))] truncate">{model.name}</h3>
                           {model.version && (
                             <span className="text-[10px] text-muted-foreground font-mono">v{model.version}</span>
                           )}
@@ -512,18 +512,18 @@ export function ModelsTab() {
                     {model.size_mb > 0 && (
                       <div className="flex flex-col gap-0.5 bg-[hsl(var(--surface-2)/0.4)] p-2 rounded-lg border border-[hsl(var(--border)/0.4)]">
                         <span className="text-[10px] text-muted-foreground uppercase">Size</span>
-                        <span className="font-bold text-foreground text-[11px]">{(model.size_mb / 1024).toFixed(1)} GB</span>
+                        <span className="font-bold text-[hsl(var(--muted-foreground))] text-[11px]">{(model.size_mb / 1024).toFixed(1)} GB</span>
                       </div>
                     )}
                     {model.vram_required_mb ? (
                       <div className="flex flex-col gap-0.5 bg-[hsl(var(--surface-2)/0.4)] p-2 rounded-lg border border-[hsl(var(--border)/0.4)]">
                         <span className="text-[10px] text-muted-foreground uppercase">VRAM</span>
-                        <span className="font-bold text-foreground text-[11px]">{(model.vram_required_mb / 1024).toFixed(1)} GB</span>
+                        <span className="font-bold text-[hsl(var(--muted-foreground))] text-[11px]">{(model.vram_required_mb / 1024).toFixed(1)} GB</span>
                       </div>
                     ) : (
                       <div className="flex flex-col gap-0.5 bg-[hsl(var(--surface-2)/0.4)] p-2 rounded-lg border border-[hsl(var(--border)/0.4)]">
                         <span className="text-[10px] text-muted-foreground uppercase">Category</span>
-                        <span className="font-bold text-foreground text-[11px] capitalize">{model.type || 'N/A'}</span>
+                        <span className="font-bold text-[hsl(var(--muted-foreground))] text-[11px] capitalize">{model.type || 'N/A'}</span>
                       </div>
                     )}
                   </div>
@@ -552,14 +552,14 @@ export function ModelsTab() {
                         {model.loaded ? (
                           <button
                             onClick={() => adminService.modelAction(model.id, 'unload')}
-                            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl glass border border-[hsl(var(--border)/0.5)] text-xs text-muted-foreground hover:text-foreground transition-colors"
+                            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl glass border border-[hsl(var(--border)/0.5)] text-xs text-muted-foreground hover:text-[hsl(var(--muted-foreground))] transition-colors"
                           >
                             <Pause className="w-3.5 h-3.5" /> Unload
                           </button>
                         ) : (
                           <button
                             onClick={() => adminService.modelAction(model.id, 'load')}
-                            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl glass border border-[hsl(var(--neon-green)/0.2)] text-xs text-[hsl(var(--neon-green))] hover:bg-[hsl(var(--neon-green)/0.08)] transition-colors"
+                            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl glass border border-[hsl(var(--border)/0.3)] text-xs text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--surface-3))] transition-colors"
                           >
                             <Play className="w-3.5 h-3.5" /> Load
                           </button>
@@ -581,7 +581,7 @@ export function ModelsTab() {
                           <Download className="w-3.5 h-3.5" />
                           Can&apos;t Install
                         </button>
-                        <p className="text-[10px] text-[hsl(var(--neon-amber))] leading-tight flex items-start gap-1">
+                        <p className="text-[10px] text-[hsl(var(--muted-foreground))] leading-tight flex items-start gap-1">
                           <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
                           <span>
                             Repo &amp; venv not prepared for this runtime
@@ -594,9 +594,9 @@ export function ModelsTab() {
                     ) : (
                       <button
                         onClick={() => handleInstall(model)}
-                        className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl bg-gradient-to-r from-[hsl(var(--neon-purple)/0.12)] to-[hsl(var(--neon-blue)/0.06)] border border-[hsl(var(--neon-purple)/0.2)] text-xs font-medium text-foreground hover:border-[hsl(var(--neon-purple)/0.4)] hover:shadow-[0_0_16px_hsl(var(--neon-purple)/0.15)] transition-all"
+                        className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl bg-white/5 border border-[hsl(var(--border)/0.3)] text-xs font-medium text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--border))] transition-all"
                       >
-                        <Download className="w-3.5 h-3.5 text-[hsl(var(--neon-purple))]" />
+                        <Download className="w-3.5 h-3.5 text-[hsl(var(--muted-foreground))]" />
                         Install
                       </button>
                     )}
@@ -615,7 +615,7 @@ export function ModelsTab() {
           {search && (
             <button
               onClick={() => setSearch('')}
-              className="mt-2 text-xs text-[hsl(var(--neon-purple))] hover:underline"
+              className="mt-2 text-xs text-[hsl(var(--muted-foreground))] hover:underline"
             >
               Clear search
             </button>
