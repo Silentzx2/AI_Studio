@@ -86,10 +86,10 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
     <div className="flex-1 min-h-0 p-6 md:p-8 flex flex-col gap-6 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto bg-[hsl(var(--surface-0))]" id="workspace-dashboard-panel">
       
       {/* 1. Header & Quick Filter Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[hsl(var(--border)/0.2)] pb-4" id="dashboard-header-block">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[hsl(var(--border)/0.15)] pb-4" id="dashboard-header-block">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[hsl(var(--primary))/0.1] to-[hsl(var(--primary))/0.02] flex items-center justify-center border border-[hsl(var(--primary))/0.15]">
-            <FolderOpen size={16} className="text-[hsl(var(--primary))]" />
+          <div className="w-8 h-8 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border)/0.3)] flex items-center justify-center">
+            <FolderOpen size={16} className="text-[hsl(var(--muted-foreground))]" />
           </div>
           <div className="flex flex-col">
             <h1 className="text-page-title text-[hsl(var(--foreground))]">Workspace Central</h1>
@@ -111,25 +111,25 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
       {/* 2. Interactive Bento Analytics Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" id="dashboard-bento-metrics">
         {[
-          { label: 'Total Models', value: totalAssets, sub: 'GLB / OBJ / FBX format', icon: Database, color: 'text-[hsl(var(--primary))]' },
-          { label: 'Favorites', value: favoritesCount, sub: 'Marked for production', icon: Heart, color: 'text-[hsl(var(--destructive))]' },
-          { label: 'Active Memory', value: storageUsed, sub: `of ${storageTotal} limit`, icon: HardDrive, color: 'text-[hsl(var(--neon-amber))]' },
-          { label: 'Avg Duration', value: avgGenerationTime, sub: 'Active cycle efficiency', icon: Clock, color: 'text-[hsl(var(--neon-green))]' },
+          { label: 'Total Models', value: totalAssets, sub: 'GLB / OBJ / FBX format', icon: Database },
+          { label: 'Favorites', value: favoritesCount, sub: 'Marked for production', icon: Heart },
+          { label: 'Active Memory', value: storageUsed, sub: `of ${storageTotal} limit`, icon: HardDrive },
+          { label: 'Avg Duration', value: avgGenerationTime, sub: 'Active cycle efficiency', icon: Clock },
         ].map((stat, idx) => {
           const Icon = stat.icon;
           return (
-            <div 
-              key={idx} 
-              className="card-panel card-panel-hover p-4 transition-all hover:shadow-lg hover:-translate-y-0.5"
+            <div
+              key={idx}
+              className="card-minimal p-4 transition-all hover:border-white/10"
             >
               <div className="flex items-center justify-between mb-2.5">
                 <span className="text-label">{stat.label}</span>
-                <div className={`p-1.5 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border)/0.5)] ${stat.color}`}>
+                <div className={`p-1.5 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border)/0.3)] text-[hsl(var(--muted-foreground))]`}>
                   <Icon size={14} />
                 </div>
               </div>
               <div className="flex flex-col">
-                <span className="text-2xl font-black tracking-tight tabular-nums text-[hsl(var(--foreground))]">{stat.value}</span>
+                <span className="text-2xl font-semibold tracking-tight tabular-nums text-[hsl(var(--foreground))]">{stat.value}</span>
                 <span className="text-[9px] text-[hsl(var(--muted-foreground))] mt-0.5 font-mono uppercase tracking-wider">{stat.sub}</span>
               </div>
             </div>
@@ -267,33 +267,33 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
         <div className="flex flex-col gap-6">
           
           {/* Diagnostic Console Box */}
-          <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border)/0.3)] rounded-xl p-4 flex flex-col gap-4 panel-padding">
-            <div className="flex items-center justify-between pb-2 border-b border-[hsl(var(--border)/0.2)]">
+          <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border)/0.15)] rounded-xl p-4 flex flex-col gap-4">
+            <div className="flex items-center justify-between pb-2 border-b border-[hsl(var(--border)/0.15)]">
               <div className="flex items-center gap-2">
-                <Activity className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
+                <Activity className="w-3.5 h-3.5 text-[hsl(var(--muted-foreground))]" />
                 <h4 className="text-section-title">Hardware Load</h4>
               </div>
-              <span className="badge-status badge-status-success">
-                <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--neon-green))] inline-block mr-1 animate-pulse" />
+              <span className="badge-status badge-status-neutral">
+                <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--muted-foreground))] inline-block mr-1" />
                 Live
               </span>
             </div>
 
             <div className="space-y-3">
               {[
-                { name: 'CUDA Compute Cluster', load: cpuUsage, color: 'bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--primary))/0.6]' },
-                { name: 'VRAM Allocation', load: gpuUsage, color: 'bg-gradient-to-r from-[hsl(var(--neon-blue))] to-[hsl(var(--neon-purple))]' },
-                { name: 'Neural Model Cache', load: memoryUsage, color: 'bg-gradient-to-r from-[hsl(var(--neon-amber))] to-[hsl(var(--neon-amber))/0.6]' },
+                { name: 'CUDA Compute Cluster', load: cpuUsage },
+                { name: 'VRAM Allocation', load: gpuUsage },
+                { name: 'Neural Model Cache', load: memoryUsage },
               ].map((node, i) => (
                 <div key={i} className="space-y-1.5">
-                  <div className="flex justify-between items-center text-[9px] font-black uppercase">
+                  <div className="flex justify-between items-center text-[9px] font-medium uppercase">
                     <span className="text-[hsl(var(--muted-foreground))]">{node.name}</span>
                     <span className="font-mono text-[hsl(var(--foreground))]">{node.load}%</span>
                   </div>
-                  <div className="h-1.5 w-full bg-[hsl(var(--surface-2))] rounded-full overflow-hidden border border-[hsl(var(--border)/0.3)]">
-                    <div 
-                      className={`h-full ${node.color} transition-all duration-1000 ease-out rounded-full`} 
-                      style={{ width: `${node.load}%` }} 
+                  <div className="h-1.5 w-full bg-[hsl(var(--surface-2))] rounded-full overflow-hidden border border-[hsl(var(--border)/0.15)]">
+                    <div
+                      className="h-full bg-[hsl(var(--muted-foreground))] transition-all duration-1000 ease-out rounded-full"
+                      style={{ width: `${node.load}%` }}
                     />
                   </div>
                 </div>
@@ -316,8 +316,8 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
                 <div key={log.id} className="flex gap-2 text-[9px] font-mono leading-normal">
                   <span className="text-[hsl(var(--muted-foreground))] select-none shrink-0">{log.time}</span>
                   <span className={
-                    log.type === 'success' ? 'text-[hsl(var(--neon-green))]' :
-                    log.type === 'warning' ? 'text-[hsl(var(--neon-amber))]' : 'text-[hsl(var(--muted-foreground))]'
+                    log.type === 'success' ? 'text-[hsl(var(--muted-foreground))]' :
+                    log.type === 'warning' ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--muted-foreground))]'
                   }>
                     {log.msg}
                   </span>
@@ -330,7 +330,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
           <div className="bg-gradient-to-br from-[hsl(var(--surface-1))] to-[hsl(var(--surface-2))] border border-[hsl(var(--border)/0.3)] rounded-xl p-4 flex flex-col gap-3 relative overflow-hidden panel-padding">
             <div className="absolute top-0 right-0 w-24 h-24 bg-[hsl(var(--primary))/0.02] rounded-full blur-2xl pointer-events-none" />
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-[10px] font-black text-[hsl(var(--primary))] uppercase tracking-widest">
+              <div className="flex items-center gap-1.5 text-[10px] font-medium text-[hsl(var(--muted-foreground))] uppercase tracking-widest">
                 <Code size={12} />
                 <span>Neural Tip</span>
               </div>
@@ -339,7 +339,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
                   <button 
                     key={i} 
                     onClick={() => setActiveTipIndex(i)}
-                    className={`w-1.5 h-1.5 rounded-full transition-all ${activeTipIndex === i ? 'bg-[hsl(var(--primary))] w-3' : 'bg-[hsl(var(--border))]'}`}
+                    className={"w-1.5 h-1.5 rounded-full transition-all " + (activeTipIndex === i ? "bg-[hsl(var(--muted-foreground))] w-3" : "bg-[hsl(var(--border))]")}
                     title={`View tip ${i + 1}`}
                   />
                 ))}
@@ -347,7 +347,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
             </div>
 
             <div className="space-y-1 animate-in fade-in duration-150">
-              <h4 className="text-xs font-black uppercase tracking-tight text-[hsl(var(--foreground))]">
+              <h4 className="text-xs font-medium uppercase tracking-tight text-[hsl(var(--foreground))]">
                 {tips[activeTipIndex].title}
               </h4>
               <p className="text-[10px] text-[hsl(var(--muted-foreground))] leading-relaxed">
