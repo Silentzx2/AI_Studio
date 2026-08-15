@@ -26,12 +26,12 @@ export function ModelCard({ model, onAction }: { model: any, onAction: (id: stri
   }, [model.status, model.id, status, onAction]);
 
   return (
-    <div className="bg-white/5 border border-white/10 rounded-xl p-5 flex flex-col gap-4">
+    <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]/[0.3] rounded-xl p-5 flex flex-col gap-4">
       <div className="flex justify-between items-start">
         <div>
           <h3 className="font-semibold text-lg text-[hsl(var(--foreground))] mb-1">{model.label}</h3>
           <p className="text-sm text-[hsl(var(--foreground))]/50 mb-2">{model.name}</p>
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-white/10 text-[hsl(var(--foreground))]/80">
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[hsl(var(--surface-2))] text-[hsl(var(--foreground))]/80">
             {model.category}
           </span>
         </div>
@@ -64,7 +64,7 @@ export function ModelCard({ model, onAction }: { model: any, onAction: (id: stri
             </span>
             <span>{Math.round(progress)}%</span>
           </div>
-          <div className="w-full bg-white/10 rounded-full h-1.5">
+          <div className="w-full bg-[hsl(var(--surface-2))] rounded-full h-1.5">
             <div className="bg-[hsl(var(--neon-blue))] h-1.5 rounded-full transition-all"
                  style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}></div>
           </div>
@@ -75,7 +75,7 @@ export function ModelCard({ model, onAction }: { model: any, onAction: (id: stri
         {!model.installed && status !== 'downloading' && (
           <button 
             onClick={() => onAction(model.id, 'install')}
-            className="flex-1 bg-white/10 hover:bg-white/20 text-[hsl(var(--foreground))] py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
+            className="flex-1 bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-2))] text-[hsl(var(--foreground))] py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
           >
             <Download className="w-4 h-4" /> Install
           </button>

@@ -113,14 +113,14 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
             variant="ghost" 
             onClick={handleReset}
             disabled={isRetrying}
-            className="border border-[hsl(var(--border)/0.5)] hover:bg-white/5 hover:border-foreground/20 transition-all duration-300 w-full sm:w-auto"
+            className="border border-[hsl(var(--border)/0.5)] hover:bg-[hsl(var(--surface-2))] hover:border-foreground/20 transition-all duration-300 w-full sm:w-auto"
           >
             <RefreshCw className={`w-4 h-4 mr-2 transition-transform duration-500 ${isRetrying ? 'animate-spin' : ''}`} />
             {isRetrying ? 'Rebooting...' : 'Try Again'}
           </Button>
           
           <Link href="/" className="w-full sm:w-auto group">
-            <Button className="w-full bg-gradient-to-r from-[hsl(var(--neon-purple))] to-[hsl(var(--neon-blue))] text-white border-transparent shadow-[0_0_20px_hsl(var(--neon-purple)/0.3)] hover:shadow-[0_0_40px_hsl(var(--neon-purple)/0.5)] transition-all duration-300 hover:scale-105">
+            <Button className="w-full bg-gradient-to-r from-[hsl(var(--neon-purple))] to-[hsl(var(--neon-blue))] text-[hsl(var(--foreground))] border-transparent shadow-[0_0_20px_hsl(var(--neon-purple)/0.3)] hover:shadow-[0_0_40px_hsl(var(--neon-purple)/0.5)] transition-all duration-300 hover:scale-105">
               <ArrowLeft className="w-4 h-4 mr-2 transition-transform group-hover:-translate-x-1" />
               Abort to Home
             </Button>

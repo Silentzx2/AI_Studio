@@ -615,7 +615,7 @@ useEffect(() => {
                       {sidebarOpen && (
                         <button 
                           onClick={(e) => togglePin(e, section.id)}
-                          className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity ${activeSection === section.id ? 'text-black/70 hover:text-black' : 'text-muted-foreground'}`}
+                          className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-black/10 dark:hover:bg-[hsl(var(--surface-2))] opacity-0 group-hover:opacity-100 transition-opacity ${activeSection === section.id ? 'text-black/70 hover:text-black' : 'text-muted-foreground'}`}
                           title="Unpin section"
                         >
                           <PinOff className="w-3.5 h-3.5" />
@@ -665,7 +665,7 @@ useEffect(() => {
                       {sidebarOpen && (
                         <button 
                           onClick={(e) => togglePin(e, section.id)}
-                          className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-opacity ${isPinned ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} ${activeSection === section.id ? 'text-black/70 hover:text-black' : 'text-muted-foreground'}`}
+                          className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-black/10 dark:hover:bg-[hsl(var(--surface-2))] transition-opacity ${isPinned ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} ${activeSection === section.id ? 'text-black/70 hover:text-black' : 'text-muted-foreground'}`}
                           title={isPinned ? "Unpin section" : "Pin section"}
                         >
                           {isPinned ? <Pin className="w-3.5 h-3.5 fill-current" /> : <Pin className="w-3.5 h-3.5" />}

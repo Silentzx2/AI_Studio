@@ -513,7 +513,7 @@ export function LogsTab() {
                     <div
                       key={`${log.timestamp}-${log.id}-${i}`}
                       className={cn(
-                        "group flex items-start gap-2 px-1.5 py-0.5 rounded hover:bg-white/[0.03] transition-colors",
+                        "group flex items-start gap-2 px-1.5 py-0.5 rounded hover:bg-[hsl(var(--surface-2))]/[0.03] transition-colors",
                         !wrap && "whitespace-nowrap"
                       )}
                       style={{ height: `${ITEM_HEIGHT}px`, boxSizing: "border-box" }}

@@ -315,7 +315,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
         <div className="p-6 border-b border-[hsl(var(--border))]">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr bg-[hsl(var(--surface-2))] flex items-center justify-center shadow-lg shadow-[hsl(var(--primary))]/20">
-              <Palette size={18} className="text-white" />
+              <Palette size={18} className="text-[hsl(var(--foreground))]" />
             </div>
             <div className="flex flex-col">
               <span className="text-[11px] font-black uppercase tracking-tighter">Surface Painter</span>

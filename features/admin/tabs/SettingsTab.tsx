@@ -104,7 +104,7 @@ export function SettingsTab() {
         <div className="flex items-center gap-2 mb-4">
           <Server className="w-4 h-4 text-[hsl(var(--neon-cyan))]" />
           <h3 className="text-sm font-semibold">System Information</h3>
-          <button onClick={load} className="ml-auto p-1.5 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-foreground">
+          <button onClick={load} className="ml-auto p-1.5 rounded-lg hover:bg-[hsl(var(--surface-2))] text-muted-foreground hover:text-foreground">
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
         </div>

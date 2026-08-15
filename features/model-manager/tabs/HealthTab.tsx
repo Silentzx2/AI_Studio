@@ -155,7 +155,7 @@ export function HealthTab({ modelId, autoRefresh = true }: HealthTabProps) {
 
     return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <Card className="bg-white/5 border-white/10 p-4">
+        <Card className="bg-[hsl(var(--surface-2))] border-[hsl(var(--border))]/[0.3] p-4">
           <div className="text-center">
             <p className="text-3xl font-bold text-[hsl(var(--foreground))]">{models.length}</p>
             <p className="text-sm text-[hsl(var(--foreground))]/60">Total Models</p>
@@ -208,7 +208,7 @@ export function HealthTab({ modelId, autoRefresh = true }: HealthTabProps) {
             fetchHealthStatus();
           }}
           disabled={refreshing}
-          className="gap-2 border-[hsl(var(--border))/0.2] text-[hsl(var(--foreground))] hover:bg-white/10"
+          className="gap-2 border-[hsl(var(--border))/0.2] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]"
         >
           <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
           Refresh Now
@@ -223,7 +223,7 @@ export function HealthTab({ modelId, autoRefresh = true }: HealthTabProps) {
         {/* Model List / Selected Model */}
         {modelId && selectedModelHealth ? (
           /* Single Model View */
-          <Card className="md:col-span-2 bg-white/5 border-white/10 p-6">
+          <Card className="md:col-span-2 bg-[hsl(var(--surface-2))] border-[hsl(var(--border))]/[0.3] p-6">
             <SingleModelHealthView health={selectedModelHealth} getCheckIcon={getCheckIcon} getStatusBadge={getStatusBadge} />
           </Card>
         ) : (
@@ -233,10 +233,10 @@ export function HealthTab({ modelId, autoRefresh = true }: HealthTabProps) {
               {Object.entries(healthStatus).map(([id, health]) => (
                 <Card
                   key={id}
-                  className={`bg-white/5 border p-4 cursor-pointer transition-all ${
+                  className={`bg-[hsl(var(--surface-2))] border p-4 cursor-pointer transition-all ${
                     selectedModelHealth?.model_id === id
                       ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary)/0.1)]'
-                      : 'border-white/10 hover:bg-white/[0.08]'
+                      : 'border-[hsl(var(--border))]/[0.3] hover:bg-[hsl(var(--surface-2))]/[0.08]'
                   }`}
                   onClick={() => setSelectedModelHealth({ ...health, model_id: id })}
                 >
@@ -254,7 +254,7 @@ export function HealthTab({ modelId, autoRefresh = true }: HealthTabProps) {
               ))}
               
               {Object.keys(healthStatus).length === 0 && (
-                <Card className="bg-white/5 border-white/10 p-8 text-center">
+                <Card className="bg-[hsl(var(--surface-2))] border-[hsl(var(--border))]/[0.3] p-8 text-center">
                   <Heart className="w-12 h-12 mx-auto mb-4 text-[hsl(var(--foreground))]/40" />
                   <p className="text-[hsl(var(--foreground))]/60">No models found</p>
                 </Card>
@@ -262,7 +262,7 @@ export function HealthTab({ modelId, autoRefresh = true }: HealthTabProps) {
             </div>
 
             {/* Selected Model Details */}
-            <Card className="bg-white/5 border-white/10 p-6 max-h-[600px] overflow-y-auto">
+            <Card className="bg-[hsl(var(--surface-2))] border-[hsl(var(--border))]/[0.3] p-6 max-h-[600px] overflow-y-auto">
               {selectedModelHealth ? (
                 <SingleModelHealthView 
                   health={selectedModelHealth} 
@@ -295,7 +295,7 @@ function SingleModelHealthView({
   return (
     <div className="space-y-4">
       {/* Model Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-white/10">
+      <div className="flex items-center justify-between pb-4 border-b border-[hsl(var(--border))]/[0.3]">
         <div>
           <h4 className="text-xl font-semibold text-[hsl(var(--foreground))]">{health.model_name}</h4>
           <p className="text-sm text-[hsl(var(--foreground))]/40 font-mono">{health.model_id}</p>
@@ -387,7 +387,7 @@ function SingleModelHealthView({
 
       {/* Timestamp */}
       {health.timestamp && (
-        <p className="text-xs text-[hsl(var(--foreground))]/30 pt-4 border-t border-white/10">
+        <p className="text-xs text-[hsl(var(--foreground))]/30 pt-4 border-t border-[hsl(var(--border))]/[0.3]">
           Last checked: {new Date(health.timestamp).toLocaleString()}
         </p>
       )}

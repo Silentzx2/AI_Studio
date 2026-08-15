@@ -126,7 +126,7 @@ export function AvailableModelsTab({ onNavigateToQueue }: { onNavigateToQueue?: 
           placeholder="Search models..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="bg-white/5 border-white/10"
+          className="bg-[hsl(var(--surface-2))] border-[hsl(var(--border))]/[0.3]"
         />
 
         <div className="flex gap-2 flex-wrap">
@@ -158,7 +158,7 @@ export function AvailableModelsTab({ onNavigateToQueue }: { onNavigateToQueue?: 
       )}
 
       {selectedModel && (
-        <Card className="bg-white/5 border-white/10 p-4 space-y-4">
+        <Card className="bg-[hsl(var(--surface-2))] border-[hsl(var(--border))]/[0.3] p-4 space-y-4">
           <div>
             <h3 className="font-semibold text-[hsl(var(--foreground))] mb-1">{selectedModel.name}</h3>
             <p className="text-[hsl(var(--foreground))]/60 text-sm">{selectedModel.description}</p>
@@ -196,7 +196,7 @@ export function AvailableModelsTab({ onNavigateToQueue }: { onNavigateToQueue?: 
         {filteredModels.map(model => (
           <Card
             key={model.id}
-            className="bg-white/5 border-white/10 p-4 hover:bg-white/10 transition cursor-pointer"
+            className="bg-[hsl(var(--surface-2))] border-[hsl(var(--border))]/[0.3] p-4 hover:bg-[hsl(var(--surface-2))] transition cursor-pointer"
             onClick={() => setSelectedModel(model)}
           >
             <div className="space-y-3">
@@ -229,7 +229,7 @@ export function AvailableModelsTab({ onNavigateToQueue }: { onNavigateToQueue?: 
               {(model.tags || model.capabilities || model.supported_formats) && (
                 <div className="flex flex-wrap gap-1">
                   {(model.tags || model.capabilities || []).slice(0, 3).map(tag => (
-                    <span key={tag} className="text-xs bg-white/10 text-[hsl(var(--foreground))]/80 px-2 py-1 rounded">
+                    <span key={tag} className="text-xs bg-[hsl(var(--surface-2))] text-[hsl(var(--foreground))]/80 px-2 py-1 rounded">
                       {tag}
                     </span>
                   ))}

@@ -344,7 +344,7 @@ export function ProjectTimeline({ onLoadProject, className }: ProjectTimelinePro
               className={cn(
                 'px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all whitespace-nowrap',
                 statusFilter === filter
-                  ? 'bg-[hsl(var(--primary))] text-white shadow-sm'
+                  ? 'bg-[hsl(var(--primary))] text-[hsl(var(--foreground))] shadow-sm'
                   : 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] border border-[hsl(var(--border))]'
               )}
             >
@@ -409,7 +409,7 @@ export function ProjectTimeline({ onLoadProject, className }: ProjectTimelinePro
                     )}
 
                     {/* Format pill overlay */}
-                    <span className="absolute bottom-1 right-1 px-1 py-0.2 rounded bg-black/70 text-[7px] font-mono font-bold text-white uppercase">
+                    <span className="absolute bottom-1 right-1 px-1 py-0.2 rounded bg-black/70 text-[7px] font-mono font-bold text-[hsl(var(--foreground))] uppercase">
                       {item.format}
                     </span>
                   </div>
@@ -463,7 +463,7 @@ export function ProjectTimeline({ onLoadProject, className }: ProjectTimelinePro
                 <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
                   <button
                     onClick={() => handleOpenModel(item)}
-                    className="px-3 py-1.5 rounded-xl bg-[hsl(var(--primary))] hover:brightness-110 active:scale-95 text-white text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm"
+                    className="px-3 py-1.5 rounded-xl bg-[hsl(var(--primary))] hover:brightness-110 active:scale-95 text-[hsl(var(--foreground))] text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm"
                   >
                     <Play size={11} /> Open
                   </button>
@@ -540,7 +540,7 @@ export function ProjectTimeline({ onLoadProject, className }: ProjectTimelinePro
               </button>
               <button
                 onClick={() => setSelectedJobDetails(null)}
-                className="px-4 py-1.5 rounded-xl bg-[hsl(var(--primary))] text-white text-xs font-bold"
+                className="px-4 py-1.5 rounded-xl bg-[hsl(var(--primary))] text-[hsl(var(--foreground))] text-xs font-bold"
               >
                 Close
               </button>

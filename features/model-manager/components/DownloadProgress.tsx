@@ -162,7 +162,7 @@ export function DownloadProgress() {
         const timeRemaining = estimateTimeRemaining(download.id, download.downloaded_size, download.total_size);
         
         return (
-          <Card key={download.id} className="bg-white/5 border-white/10 p-4">
+          <Card key={download.id} className="bg-[hsl(var(--surface-2))] border-[hsl(var(--border))]/[0.3] p-4">
             <div className="space-y-3">
               <div className="flex justify-between items-start">
                 <div className="flex-1 min-w-0">

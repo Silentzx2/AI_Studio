@@ -158,7 +158,7 @@ export function RuntimeTab() {
         </div>
         
         {/* Enhanced Hardware Details - Prominent Display */}
-        <div className="mt-4 pt-4 border-t border-white/5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="mt-4 pt-4 border-t border-[hsl(var(--border))]/[0.15] grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* GPU Detail Card */}
           <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-[hsl(var(--primary))/0.1] to-[hsl(var(--primary))/0.05] border border-[hsl(var(--primary))/0.2]">
             <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[hsl(var(--primary)/0.2)]">

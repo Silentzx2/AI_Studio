@@ -114,7 +114,7 @@ export function ModelDetailsModal({
       {/* Modal Content */}
       <div className="relative w-full max-w-3xl max-h-[85vh] overflow-hidden rounded-xl border border-[hsl(var(--border))/0.2] bg-[hsl(var(--surface-0))/0.95] shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/10">
+        <div className="flex items-center justify-between p-6 border-b border-[hsl(var(--border))]/[0.3]">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
               <Package className="w-6 h-6 text-[hsl(var(--foreground))]" />
@@ -144,14 +144,14 @@ export function ModelDetailsModal({
             variant="ghost"
             size="icon"
             onClick={onClose}
-            className="text-[hsl(var(--foreground))]/60 hover:text-[hsl(var(--foreground))] hover:bg-white/10"
+            className="text-[hsl(var(--foreground))]/60 hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]"
           >
             <X className="w-5 h-5" />
           </Button>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 px-6 pt-4 border-b border-white/10">
+        <div className="flex gap-1 px-6 pt-4 border-b border-[hsl(var(--border))]/[0.3]">
           {[
             { id: 'info', label: 'Information', icon: Info },
             { id: 'health', label: 'Health Check', icon: HeartPulse },
@@ -196,11 +196,11 @@ export function ModelDetailsModal({
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-white/10 bg-[hsl(var(--surface-0)/0.2)]">
+        <div className="flex items-center justify-end gap-3 p-6 border-t border-[hsl(var(--border))]/[0.3] bg-[hsl(var(--surface-0)/0.2)]">
           <Button
             variant="outline"
             onClick={onClose}
-            className="border-[hsl(var(--border))/0.2] text-[hsl(var(--foreground))] hover:bg-white/10"
+            className="border-[hsl(var(--border))/0.2] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]"
           >
             Close
           </Button>
@@ -285,7 +285,7 @@ function InfoTab({ manifest, modelId }: { manifest: ModelManifest | null; modelI
           <h4 className="text-sm font-medium text-[hsl(var(--foreground))]/60 mb-3">Capabilities</h4>
           <div className="flex flex-wrap gap-2">
             {manifest.capabilities.map((cap, idx) => (
-              <Badge key={idx} variant="secondary" className="bg-white/10 text-[hsl(var(--foreground))]/80">
+              <Badge key={idx} variant="secondary" className="bg-[hsl(var(--surface-2))] text-[hsl(var(--foreground))]/80">
                 {cap.replace('-', ' ').replace('_', ' ')}
               </Badge>
             ))}
@@ -324,7 +324,7 @@ function HealthTabContent({ health }: { health: any }) {
     <div className="space-y-4">
       {/* Summary */}
       {health.summary && (
-        <Card className="bg-[hsl(var(--surface-0)/0.3)] border-white/10 p-4">
+        <Card className="bg-[hsl(var(--surface-0)/0.3)] border-[hsl(var(--border))]/[0.3] p-4">
           <div className="grid grid-cols-4 gap-4 text-center">
             <div>
               <p className="text-2xl font-bold text-[hsl(var(--foreground))]">{health.summary.total_checks}</p>
@@ -439,7 +439,7 @@ function RequirementsTab({ manifest }: { manifest: ModelManifest | null }) {
               <div 
                 key={idx}
                 className={`flex items-center justify-between px-4 py-2 ${
-                  idx !== pythonPackages.length - 1 ? 'border-b border-white/5' : ''
+                  idx !== pythonPackages.length - 1 ? 'border-b border-[hsl(var(--border))]/[0.15]' : ''
                 }`}
               >
                 <code className="text-sm text-[hsl(var(--neon-blue))]">{pkg.name}</code>

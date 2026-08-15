@@ -61,17 +61,17 @@ function ModelCardSkeleton() {
   return (
     <GlassCard className="p-5 h-full flex flex-col gap-4 animate-pulse">
       <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-xl bg-white/5" />
+        <div className="w-11 h-11 rounded-xl bg-[hsl(var(--surface-2))]" />
         <div className="flex-1 space-y-2">
-          <div className="h-4 w-3/4 rounded bg-white/5" />
-          <div className="h-3 w-1/2 rounded bg-white/5" />
+          <div className="h-4 w-3/4 rounded bg-[hsl(var(--surface-2))]" />
+          <div className="h-3 w-1/2 rounded bg-[hsl(var(--surface-2))]" />
         </div>
       </div>
       <div className="space-y-2">
-        <div className="h-3 w-full rounded bg-white/5" />
-        <div className="h-3 w-2/3 rounded bg-white/5" />
+        <div className="h-3 w-full rounded bg-[hsl(var(--surface-2))]" />
+        <div className="h-3 w-2/3 rounded bg-[hsl(var(--surface-2))]" />
       </div>
-      <div className="mt-auto h-9 rounded-xl bg-white/5" />
+      <div className="mt-auto h-9 rounded-xl bg-[hsl(var(--surface-2))]" />
     </GlassCard>
   );
 }
@@ -332,12 +332,12 @@ export function ModelsTab() {
       <div className="p-4 lg:p-6 space-y-6 max-w-[1600px] mx-auto">
         <div className="flex items-center justify-between">
           <div className="space-y-2">
-            <div className="h-7 w-48 rounded bg-white/5 animate-pulse" />
-            <div className="h-4 w-72 rounded bg-white/5 animate-pulse" />
+            <div className="h-7 w-48 rounded bg-[hsl(var(--surface-2))] animate-pulse" />
+            <div className="h-4 w-72 rounded bg-[hsl(var(--surface-2))] animate-pulse" />
           </div>
-          <div className="h-9 w-9 rounded-xl bg-white/5 animate-pulse" />
+          <div className="h-9 w-9 rounded-xl bg-[hsl(var(--surface-2))] animate-pulse" />
         </div>
-        <div className="h-10 w-full max-w-md rounded-xl bg-white/5 animate-pulse" />
+        <div className="h-10 w-full max-w-md rounded-xl bg-[hsl(var(--surface-2))] animate-pulse" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <ModelCardSkeleton key={i} />
@@ -402,7 +402,7 @@ export function ModelsTab() {
               className={cn(
                 'px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all border',
                 category === cat
-                  ? 'bg-white/5 text-[hsl(var(--muted-foreground))] border-[hsl(var(--border)/0.3)]'
+                  ? 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] border-[hsl(var(--border)/0.3)]'
                   : 'glass text-muted-foreground border-[hsl(var(--border)/0.5)] hover:text-[hsl(var(--muted-foreground))]'
               )}
             >
@@ -537,7 +537,7 @@ export function ModelsTab() {
                   )}
 
                   {/* Actions */}
-                  <div className="mt-auto flex items-center gap-2 pt-3 border-t border-white/[0.04]">
+                  <div className="mt-auto flex items-center gap-2 pt-3 border-t border-[hsl(var(--border))]/[0.04]">
                     {/* isDownloading covers starting / downloading / installing;
                         false when completed or failed → show Install in those cases. */}
                     {!model.installed && isDownloading ? (
@@ -576,7 +576,7 @@ export function ModelsTab() {
                       <div className="flex flex-col gap-1.5 w-full">
                         <button
                           disabled
-                          className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl bg-white/5 border border-[hsl(var(--border)/0.4)] text-xs font-medium text-muted-foreground/50 cursor-not-allowed opacity-60"
+                          className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border)/0.4)] text-xs font-medium text-muted-foreground/50 cursor-not-allowed opacity-60"
                         >
                           <Download className="w-3.5 h-3.5" />
                           Can&apos;t Install
@@ -594,7 +594,7 @@ export function ModelsTab() {
                     ) : (
                       <button
                         onClick={() => handleInstall(model)}
-                        className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl bg-white/5 border border-[hsl(var(--border)/0.3)] text-xs font-medium text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--border))] transition-all"
+                        className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border)/0.3)] text-xs font-medium text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--border))] transition-all"
                       >
                         <Download className="w-3.5 h-3.5 text-[hsl(var(--muted-foreground))]" />
                         Install

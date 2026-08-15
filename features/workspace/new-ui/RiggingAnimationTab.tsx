@@ -1024,7 +1024,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <button onClick={() => setIsPlaying(!isPlaying)} className="w-8 h-8 rounded-lg bg-[hsl(var(--primary))] text-white flex items-center justify-center hover:brightness-110 active:scale-95 transition-all">
+                  <button onClick={() => setIsPlaying(!isPlaying)} className="w-8 h-8 rounded-lg bg-[hsl(var(--primary))] text-[hsl(var(--foreground))] flex items-center justify-center hover:brightness-110 active:scale-95 transition-all">
                     {isPlaying ? <Pause size={14} fill="white" /> : <Play size={14} fill="white" className="translate-x-0.5" />}
                   </button>
                   <div className="flex flex-col">

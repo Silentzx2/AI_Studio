@@ -137,9 +137,9 @@ function CanvasLoadingScreen() {
   return (
     <Html center>
       <div className="flex flex-col items-center gap-4">
-        <div className="w-12 h-12 border-2 border-white/5 border-t-[hsl(var(--primary))] rounded-full animate-spin shadow-[0_0_15px_hsl(var(--primary)/0.2)]" />
-        <div className="px-3 py-1 bg-black/60 backdrop-blur-md rounded-full border border-white/10">
-          <p className="text-[10px] text-white/90 font-black tracking-widest uppercase">{progress.toFixed(0)}%</p>
+        <div className="w-12 h-12 border-2 border-[hsl(var(--border))]/[0.15] border-t-[hsl(var(--primary))] rounded-full animate-spin shadow-[0_0_15px_hsl(var(--primary)/0.2)]" />
+        <div className="px-3 py-1 bg-black/60 backdrop-blur-md rounded-full border border-[hsl(var(--border))]/[0.3]">
+          <p className="text-[10px] text-[hsl(var(--muted-foreground))] font-black tracking-widest uppercase">{progress.toFixed(0)}%</p>
         </div>
       </div>
     </Html>
@@ -692,16 +692,16 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
       {/* Empty Viewport Stage Prompt Overlay */}
       {!hasModelInScene && !isGenerating && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none pb-24">
-          <div className="flex flex-col items-center max-w-sm px-8 py-8 rounded-[2rem] bg-[hsl(var(--surface-2))]/80 backdrop-blur-xl border border-white/5 text-center shadow-[0_20px_50px_rgba(0,0,0,0.5)] pointer-events-auto">
+          <div className="flex flex-col items-center max-w-sm px-8 py-8 rounded-[2rem] bg-[hsl(var(--surface-2))]/80 backdrop-blur-xl border border-[hsl(var(--border))]/[0.15] text-center shadow-[0_20px_50px_rgba(0,0,0,0.5)] pointer-events-auto">
             <div className="w-16 h-16 rounded-2xl bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/20 flex items-center justify-center text-[hsl(var(--primary))] mb-6 shadow-[inset_0_0_20px_hsl(var(--primary)/0.1)]">
               <Sparkles size={28} />
             </div>
-            <h3 className="text-lg font-black text-white mb-2 uppercase tracking-tight">Ready for Generation</h3>
-            <p className="text-xs text-white/40 mb-8 leading-relaxed px-4">
+            <h3 className="text-lg font-black text-[hsl(var(--foreground))] mb-2 uppercase tracking-tight">Ready for Generation</h3>
+            <p className="text-xs text-[hsl(var(--muted-foreground))]/[0.5] mb-8 leading-relaxed px-4">
               Enter a prompt, upload multi-view images, or drop a 3D file to begin your creation.
             </p>
             <div className="flex items-center gap-2 w-full">
-              <label className="flex-1 cursor-pointer flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-black text-xs font-black uppercase tracking-widest hover:brightness-90 transition-all shadow-xl active:scale-95">
+              <label className="flex-1 cursor-pointer flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[hsl(var(--surface-2))] text-black text-xs font-black uppercase tracking-widest hover:brightness-90 transition-all shadow-xl active:scale-95">
                 <Upload size={14} />
                 <span>Upload 3D File</span>
 <input
@@ -749,7 +749,7 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
       {/* ─────────────────────────────────────────────────── */}
       <div className="absolute top-3 left-4 right-4 z-20 flex items-center justify-between pointer-events-none">
         {/* Project Title (Editable) */}
-        <div className="pointer-events-auto flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/40 backdrop-blur-md border border-white/10 text-white shadow-lg">
+        <div className="pointer-events-auto flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/40 backdrop-blur-md border border-[hsl(var(--border))]/[0.3] text-[hsl(var(--foreground))] shadow-lg">
           {isEditingTitle ? (
             <input
               type="text"
@@ -758,26 +758,26 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
               onBlur={() => setIsEditingTitle(false)}
               onKeyDown={(e) => e.key === 'Enter' && setIsEditingTitle(false)}
               autoFocus
-              className="bg-transparent border-b border-[hsl(var(--primary))] text-xs font-bold text-white focus:outline-none w-36"
+              className="bg-transparent border-b border-[hsl(var(--primary))] text-xs font-bold text-[hsl(var(--foreground))] focus:outline-none w-36"
             />
           ) : (
             <button
               onClick={() => setIsEditingTitle(true)}
-              className="flex items-center gap-1.5 text-xs font-semibold text-white/90 hover:text-white transition-colors"
+              className="flex items-center gap-1.5 text-xs font-semibold text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
             >
               <span>{projectName}</span>
-              <Edit2 size={11} className="text-white/50" />
+              <Edit2 size={11} className="text-[hsl(var(--muted-foreground))]/[0.15]0" />
             </button>
           )}
         </div>
 
         {/* Center Viewport Tool Pills */}
-        <div className="pointer-events-auto flex items-center gap-1 p-1 rounded-xl bg-[hsl(var(--surface-2))]/60 backdrop-blur-md border border-white/5 shadow-xl">
+        <div className="pointer-events-auto flex items-center gap-1 p-1 rounded-xl bg-[hsl(var(--surface-2))]/60 backdrop-blur-md border border-[hsl(var(--border))]/[0.15] shadow-xl">
           <button
             onClick={() => setActiveTool('select')}
             className={cn(
               'p-2 rounded-lg transition-all',
-              activeTool === 'select' ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-2))] shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'
+              activeTool === 'select' ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-2))] shadow-lg' : 'text-[hsl(var(--muted-foreground))]/[0.5] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
             )}
             title="Select tool"
           >
@@ -787,7 +787,7 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
             onClick={() => setActiveTool('orbit')}
             className={cn(
               'p-2 rounded-lg transition-all',
-              activeTool === 'orbit' ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-2))] shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'
+              activeTool === 'orbit' ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-2))] shadow-lg' : 'text-[hsl(var(--muted-foreground))]/[0.5] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
             )}
             title="Orbit Camera"
           >
@@ -797,7 +797,7 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
             onClick={() => setActiveTool('pan')}
             className={cn(
               'p-2 rounded-lg transition-all',
-              activeTool === 'pan' ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-2))] shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'
+              activeTool === 'pan' ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-2))] shadow-lg' : 'text-[hsl(var(--muted-foreground))]/[0.5] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
             )}
             title="Pan Camera"
           >
@@ -805,7 +805,7 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
           </button>
           <button
             onClick={handleFitView}
-            className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all"
+            className="p-2 rounded-lg text-[hsl(var(--muted-foreground))]/[0.5] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))] transition-all"
             title="Frame & Center (Fit)"
           >
             <Focus size={14} />
@@ -814,7 +814,7 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
             onClick={toggleWireframe}
             className={cn(
               'p-2 rounded-lg transition-all',
-              viewer.showWireframe ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10' : 'text-white/40 hover:text-white hover:bg-white/5'
+              viewer.showWireframe ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10' : 'text-[hsl(var(--muted-foreground))]/[0.5] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
             )}
             title="Toggle Wireframe"
           >
@@ -825,25 +825,25 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
         {/* Top-Right Real-time Mesh Geometry Stats Badge */}
         <div className="pointer-events-auto flex items-center gap-2">
           {hasModelInScene && liveStats && (
-            <div className="hidden sm:flex items-center gap-4 px-4 py-2 rounded-xl bg-[hsl(var(--surface-2))]/60 backdrop-blur-md border border-white/5 text-white text-[10px] shadow-xl">
+            <div className="hidden sm:flex items-center gap-4 px-4 py-2 rounded-xl bg-[hsl(var(--surface-2))]/60 backdrop-blur-md border border-[hsl(var(--border))]/[0.15] text-[hsl(var(--foreground))] text-[10px] shadow-xl">
               <div className="flex flex-col gap-0.5">
-                <span className="text-[8px] font-black uppercase text-white/20 tracking-widest">Vertices</span>
+                <span className="text-[8px] font-black uppercase text-[hsl(var(--muted-foreground))]/[0.3] tracking-widest">Vertices</span>
                 <span className="font-bold text-[hsl(var(--primary))]">{liveStats.vertices.toLocaleString()}</span>
               </div>
-              <div className="w-px h-6 bg-white/5" />
+              <div className="w-px h-6 bg-[hsl(var(--surface-2))]" />
               <div className="flex flex-col gap-0.5">
-                <span className="text-[8px] font-black uppercase text-white/20 tracking-widest">Polygons</span>
+                <span className="text-[8px] font-black uppercase text-[hsl(var(--muted-foreground))]/[0.3] tracking-widest">Polygons</span>
                 <span className="font-bold text-sky-400">{liveStats.triangles.toLocaleString()}</span>
               </div>
             </div>
           )}
 
           {/* 3D Axis Orientation Indicator */}
-          <div className="w-10 h-10 rounded-xl bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center relative shadow-lg">
+          <div className="w-10 h-10 rounded-xl bg-black/40 backdrop-blur-md border border-[hsl(var(--border))]/[0.3] flex items-center justify-center relative shadow-lg">
             <span className="text-[9px] font-mono font-bold text-emerald-400 absolute top-1">Y</span>
             <span className="text-[9px] font-mono font-bold text-red-500 absolute right-1">X</span>
             <span className="text-[9px] font-mono font-bold text-sky-400 absolute bottom-1 left-1.5">Z</span>
-            <div className="w-1.5 h-1.5 rounded-full bg-white/70 shadow-sm" />
+            <div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--surface-2))] shadow-sm" />
           </div>
         </div>
       </div>
@@ -851,25 +851,25 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
       {/* ─────────────────────────────────────────────────── */}
       {/*  Right Vertical Floating Tool Stack                 */}
       {/* ─────────────────────────────────────────────────── */}
-      <div className="absolute right-4 top-20 z-20 flex flex-col gap-1.5 p-1 rounded-xl bg-black/45 backdrop-blur-md border border-white/10 shadow-xl">
+      <div className="absolute right-4 top-20 z-20 flex flex-col gap-1.5 p-1 rounded-xl bg-black/45 backdrop-blur-md border border-[hsl(var(--border))]/[0.3] shadow-xl">
         {/* Lighting button with menu */}
         <div className="relative">
           <button
             onClick={() => setShowLightingMenu(!showLightingMenu)}
-            className="p-2.5 rounded-xl text-white/40 hover:text-white hover:bg-white/5 transition-all"
+            className="p-2.5 rounded-xl text-[hsl(var(--muted-foreground))]/[0.5] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))] transition-all"
             title="Lighting Environment"
           >
             <Sun size={18} />
           </button>
           {showLightingMenu && (
-            <div className="absolute right-full mr-3 top-0 w-40 p-2 rounded-2xl bg-[hsl(var(--surface-2))]/90 backdrop-blur-xl border border-white/5 shadow-2xl flex flex-col gap-1 z-30">
+            <div className="absolute right-full mr-3 top-0 w-40 p-2 rounded-2xl bg-[hsl(var(--surface-2))]/90 backdrop-blur-xl border border-[hsl(var(--border))]/[0.15] shadow-2xl flex flex-col gap-1 z-30">
               {(['studio', 'sunset', 'cyberpunk', 'ambient'] as const).map((preset) => (
                 <button
                   key={preset}
                   onClick={() => { setLightingPreset(preset); setShowLightingMenu(false); }}
                   className={cn(
                     'px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-left transition-all',
-                    lightingPreset === preset ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-2))]' : 'text-white/40 hover:bg-white/5 hover:text-white'
+                    lightingPreset === preset ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-2))]' : 'text-[hsl(var(--muted-foreground))]/[0.5] hover:bg-[hsl(var(--surface-2))] hover:text-[hsl(var(--foreground))]'
                   )}
                 >
                   {preset}
@@ -882,7 +882,7 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
         {/* Snapshot / Camera capture */}
         <button
           onClick={handleTakeSnapshot}
-          className="p-2.5 rounded-xl text-white/40 hover:text-white hover:bg-white/5 transition-all"
+          className="p-2.5 rounded-xl text-[hsl(var(--muted-foreground))]/[0.5] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))] transition-all"
           title="Take HD Snapshot"
         >
           <Camera size={18} />
@@ -893,7 +893,7 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
           onClick={toggleGrid}
           className={cn(
             'p-2.5 rounded-xl transition-all',
-            viewer.showGrid ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10' : 'text-white/40 hover:text-white hover:bg-white/5'
+            viewer.showGrid ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10' : 'text-[hsl(var(--muted-foreground))]/[0.5] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
           )}
           title="Toggle Ground Grid"
         >
@@ -903,7 +903,7 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
         {/* Shortcuts / Help */}
         <button
           onClick={() => toast.info('Viewport Controls: Left-Click = Orbit, Right-Click = Pan, Scroll = Zoom')}
-          className="p-2.5 rounded-xl text-white/40 hover:text-white hover:bg-white/5 transition-all"
+          className="p-2.5 rounded-xl text-[hsl(var(--muted-foreground))]/[0.5] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))] transition-all"
           title="Controls Guide"
         >
           <HelpCircle size={18} />
@@ -915,7 +915,7 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
       {/* ─────────────────────────────────────────────────── */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2.5 max-w-[95%]">
         {/* Upper Floating Material / Shading Preset Spheres Bar */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-xl border border-white/15 shadow-2xl transition-all hover:border-white/25">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-xl border border-[hsl(var(--border))]/15 shadow-2xl transition-all hover:border-[hsl(var(--border))]/25">
           {materialSpheres.map((s) => (
             <button
               key={s.id}
@@ -929,15 +929,15 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
                   : 'opacity-70 hover:opacity-100'
               )}
             >
-              {shadingMode === s.id && <div className="w-1.5 h-1.5 rounded-full bg-white shadow-sm" />}
+              {shadingMode === s.id && <div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--surface-2))] shadow-sm" />}
             </button>
           ))}
 
-          <div className="w-px h-4 bg-white/20 mx-0.5" />
+          <div className="w-px h-4 bg-[hsl(var(--surface-2))] mx-0.5" />
 
           <button
             onClick={() => setShowShadingMenu(!showShadingMenu)}
-            className="p-1 text-white/60 hover:text-white transition-colors"
+            className="p-1 text-[hsl(var(--muted-foreground))]/[0.7] hover:text-[hsl(var(--foreground))] transition-colors"
             title="More Shading Options"
           >
             <ChevronDown size={14} />
@@ -945,7 +945,7 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
         </div>
 
         {/* Lower Main Viewport 10-Tool Navigation Bar */}
-        <div className="flex items-center gap-1 px-2 py-2 rounded-[1.5rem] bg-[hsl(var(--surface-2))]/60 backdrop-blur-xl border border-white/5 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+        <div className="flex items-center gap-1 px-2 py-2 rounded-[1.5rem] bg-[hsl(var(--surface-2))]/60 backdrop-blur-xl border border-[hsl(var(--border))]/[0.15] shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
           {/* 1. Select */}
           <button
             onClick={() => { setActiveTool('select'); toast.info('Selection mode active'); }}
@@ -953,7 +953,7 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
               'flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all',
               activeTool === 'select'
                 ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-2))] shadow-lg'
-                : 'text-white/40 hover:text-white hover:bg-white/5'
+                : 'text-[hsl(var(--muted-foreground))]/[0.5] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
             )}
           >
             <MousePointer2 size={16} />
@@ -967,7 +967,7 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
               'flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all',
               activeTool === 'orbit'
                 ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-2))] shadow-lg'
-                : 'text-white/40 hover:text-white hover:bg-white/5'
+                : 'text-[hsl(var(--muted-foreground))]/[0.5] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
             )}
           >
             <RotateCcw size={16} />
@@ -981,14 +981,14 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
               'flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all',
               activeTool === 'pan'
                 ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-2))] shadow-lg'
-                : 'text-white/40 hover:text-white hover:bg-white/5'
+                : 'text-[hsl(var(--muted-foreground))]/[0.5] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
             )}
           >
             <Move size={16} />
             <span className="text-[9px] font-black uppercase tracking-widest">Pan</span>
           </button>
 
-          <div className="w-px h-8 bg-white/5 mx-1" />
+          <div className="w-px h-8 bg-[hsl(var(--surface-2))] mx-1" />
 
           {/* 6. Auto Rotate */}
           <button
@@ -997,7 +997,7 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
               'flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all',
               viewer.autoRotate
                 ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10'
-                : 'text-white/40 hover:text-white hover:bg-white/5'
+                : 'text-[hsl(var(--muted-foreground))]/[0.5] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
             )}
           >
             <Play size={16} className={viewer.autoRotate ? 'fill-current' : ''} />
@@ -1011,7 +1011,7 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
               'flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all',
               viewer.showWireframe
                 ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10'
-                : 'text-white/40 hover:text-white hover:bg-white/5'
+                : 'text-[hsl(var(--muted-foreground))]/[0.5] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
             )}
           >
             <Layers size={16} />
@@ -1025,7 +1025,7 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
               'flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all',
               viewer.showStats
                 ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10'
-                : 'text-white/40 hover:text-white hover:bg-white/5'
+                : 'text-[hsl(var(--muted-foreground))]/[0.5] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
             )}
           >
             <BarChart3 size={16} />
@@ -1038,10 +1038,10 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
       {isDragOver && (
         <div className="absolute inset-0 z-40 bg-[hsl(var(--primary))/0.1] border-2 border-dashed border-[hsl(var(--primary))] flex items-center justify-center backdrop-blur-sm transition-all animate-pulse">
           <GlowRing className="rounded-2xl">
-            <div className="flex flex-col items-center gap-2 bg-black/90 px-8 py-8 rounded-2xl border border-white/20">
+            <div className="flex flex-col items-center gap-2 bg-black/90 px-8 py-8 rounded-2xl border border-[hsl(var(--border))]/[0.4]">
               <Upload size={34} className="text-[hsl(var(--primary))]" />
-              <span className="text-sm font-bold text-white">Drop 3D Model Here</span>
-              <span className="text-[10px] text-white/60">GLB, GLTF, FBX, OBJ, STL</span>
+              <span className="text-sm font-bold text-[hsl(var(--foreground))]">Drop 3D Model Here</span>
+              <span className="text-[10px] text-[hsl(var(--muted-foreground))]/[0.7]">GLB, GLTF, FBX, OBJ, STL</span>
             </div>
           </GlowRing>
         </div>
@@ -1053,8 +1053,8 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
              {uploadProgress ? (
                <>
                  <div className="flex items-center justify-between mb-2">
-                   <span className="text-[9px] font-mono text-white/70">Uploading...</span>
-                   <span className="text-[9px] font-mono text-white">{uploadProgress.percent}%</span>
+                   <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]/[0.8]">Uploading...</span>
+                   <span className="text-[9px] font-mono text-[hsl(var(--foreground))]">{uploadProgress.percent}%</span>
                  </div>
                  <div className="w-full h-1.5 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden">
                    <div
@@ -1078,7 +1078,7 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
              ) : (
                <>
                  <Loader2 size={28} className="text-[hsl(var(--primary))] animate-spin" />
-                 <span className="text-xs font-bold text-white">Uploading 3D Model...</span>
+                 <span className="text-xs font-bold text-[hsl(var(--foreground))]">Uploading 3D Model...</span>
                </>
              )}
            </div>
@@ -1087,9 +1087,9 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
 
       {isGenerating && (
         <div className="absolute inset-0 z-20 bg-black/50 backdrop-blur-[2px] flex items-center justify-center pointer-events-none">
-          <div className="flex flex-col items-center gap-3 bg-black/80 px-6 py-4 rounded-2xl border border-white/15 shadow-2xl">
+          <div className="flex flex-col items-center gap-3 bg-black/80 px-6 py-4 rounded-2xl border border-[hsl(var(--border))]/15 shadow-2xl">
             <Loader2 size={24} className="text-[hsl(var(--primary))] animate-spin" />
-            <span className="text-xs font-bold text-white">Generating 3D Mesh...</span>
+            <span className="text-xs font-bold text-[hsl(var(--foreground))]">Generating 3D Mesh...</span>
           </div>
         </div>
       )}

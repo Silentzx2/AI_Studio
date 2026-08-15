@@ -210,7 +210,7 @@ try {
             className={cn(
               'flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all',
               mode === 'text-to-3d'
-                ? 'bg-[hsl(var(--primary))] text-white shadow-lg shadow-[hsl(var(--primary))/0.2]'
+                ? 'bg-[hsl(var(--primary))] text-[hsl(var(--foreground))] shadow-lg shadow-[hsl(var(--primary))/0.2]'
                 : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]',
               !supportsTextTo3D && 'opacity-40 cursor-not-allowed'
             )}
@@ -223,7 +223,7 @@ try {
             className={cn(
               'flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all',
               mode === 'image-to-3d'
-                ? 'bg-[hsl(var(--primary))] text-white shadow-lg shadow-[hsl(var(--primary))/0.2]'
+                ? 'bg-[hsl(var(--primary))] text-[hsl(var(--foreground))] shadow-lg shadow-[hsl(var(--primary))/0.2]'
                 : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]',
               !supportsImageTo3D && 'opacity-40 cursor-not-allowed'
             )}
@@ -323,17 +323,17 @@ try {
                   <div className="flex justify-end">
                     <button
                       onClick={(e) => { e.stopPropagation(); setUploadedImage(null); }}
-                      className="p-1 rounded-md bg-black/60 hover:bg-[hsl(var(--destructive))] text-white transition-all backdrop-blur-sm"
+                      className="p-1 rounded-md bg-black/60 hover:bg-[hsl(var(--destructive))] text-[hsl(var(--foreground))] transition-all backdrop-blur-sm"
                       title="Remove image"
                     >
                       <X size={12} />
                     </button>
                   </div>
-                  <div className="flex items-center justify-between text-[8px] text-white/90">
+                  <div className="flex items-center justify-between text-[8px] text-[hsl(var(--muted-foreground))]">
                     <span className="font-mono truncate max-w-[140px]">{uploadedImage.file?.name || 'reference_image'}</span>
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 backdrop-blur font-bold uppercase transition-all"
+                      className="px-2 py-0.5 rounded bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-2))] backdrop-blur font-bold uppercase transition-all"
                     >
                       Replace
                     </button>
@@ -486,7 +486,7 @@ try {
                   )}
                   title={!supportsTexture ? getCapabilityReason(selectedModelData, 'texture') : undefined}
                 >
-                  <div className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all', generateTexture ? 'left-4.5' : 'left-0.5')} />
+                  <div className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-[hsl(var(--surface-2))] shadow transition-all', generateTexture ? 'left-4.5' : 'left-0.5')} />
                 </button>
               </div>
 
@@ -506,7 +506,7 @@ try {
                   )}
                   title={!capabilities.riggingAnimation ? 'Rigging not available' : undefined}
                 >
-                  <div className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all', autoRig ? 'left-4.5' : 'left-0.5')} />
+                  <div className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-[hsl(var(--surface-2))] shadow transition-all', autoRig ? 'left-4.5' : 'left-0.5')} />
                 </button>
               </div>
 

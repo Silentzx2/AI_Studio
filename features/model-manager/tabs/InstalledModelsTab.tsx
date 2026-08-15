@@ -94,14 +94,14 @@ export function InstalledModelsTab() {
         placeholder="Search installed models..."
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
-        className="bg-white/5 border-white/10"
+        className="bg-[hsl(var(--surface-2))] border-[hsl(var(--border))]/[0.3]"
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredModels.map(model => (
           <Card
             key={model.id}
-            className="bg-white/5 border-white/10 p-4 hover:bg-white/10 transition cursor-pointer"
+            className="bg-[hsl(var(--surface-2))] border-[hsl(var(--border))]/[0.3] p-4 hover:bg-[hsl(var(--surface-2))] transition cursor-pointer"
             onClick={() => setSelectedModel(model.id)}
           >
             <div className="space-y-3">
@@ -131,12 +131,12 @@ export function InstalledModelsTab() {
               {model.capabilities.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {model.capabilities.slice(0, 3).map(cap => (
-                    <span key={cap} className="text-xs bg-white/10 text-[hsl(var(--foreground))]/80 px-2 py-1 rounded">
+                    <span key={cap} className="text-xs bg-[hsl(var(--surface-2))] text-[hsl(var(--foreground))]/80 px-2 py-1 rounded">
                       {cap}
                     </span>
                   ))}
                   {model.capabilities.length > 3 && (
-                    <span className="text-xs bg-white/10 text-[hsl(var(--foreground))]/80 px-2 py-1 rounded">
+                    <span className="text-xs bg-[hsl(var(--surface-2))] text-[hsl(var(--foreground))]/80 px-2 py-1 rounded">
                       +{model.capabilities.length - 3}
                     </span>
                   )}
@@ -150,7 +150,7 @@ export function InstalledModelsTab() {
                 </div>
               )}
 
-              <div className="flex gap-2 pt-2 border-t border-white/10">
+              <div className="flex gap-2 pt-2 border-t border-[hsl(var(--border))]/[0.3]">
                 {model.status === 'error' && (
                   <Button
                     size="sm"

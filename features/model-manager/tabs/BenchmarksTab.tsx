@@ -180,7 +180,7 @@ export function BenchmarksTab({ modelId }: BenchmarksTabProps) {
           variant="outline"
           size="sm"
           onClick={fetchBenchmarks}
-          className="gap-2 border-[hsl(var(--border))/0.2] text-[hsl(var(--foreground))] hover:bg-white/10"
+          className="gap-2 border-[hsl(var(--border))/0.2] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
@@ -190,7 +190,7 @@ export function BenchmarksTab({ modelId }: BenchmarksTabProps) {
       {/* Benchmarks Grid */}
       <div className="grid gap-4">
         {benchmarks.length === 0 ? (
-          <Card className="bg-white/5 border-white/10 p-8 text-center">
+          <Card className="bg-[hsl(var(--surface-2))] border-[hsl(var(--border))]/[0.3] p-8 text-center">
             <MonitorPlay className="w-12 h-12 mx-auto mb-4 text-[hsl(var(--foreground))]/40" />
             <p className="text-[hsl(var(--foreground))]/60">No benchmark data available</p>
             <p className="text-sm text-[hsl(var(--foreground))]/40 mt-2">
@@ -201,7 +201,7 @@ export function BenchmarksTab({ modelId }: BenchmarksTabProps) {
           benchmarks.map((bench) => (
             <Card 
               key={bench.id} 
-              className="bg-white/5 border-white/10 p-4 hover:bg-white/[0.08] transition-colors"
+              className="bg-[hsl(var(--surface-2))] border-[hsl(var(--border))]/[0.3] p-4 hover:bg-[hsl(var(--surface-2))]/[0.08] transition-colors"
             >
               {/* Model Info */}
               <div className="flex justify-between items-start mb-4">

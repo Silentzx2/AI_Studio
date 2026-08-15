@@ -87,7 +87,7 @@ export function KeyboardShortcuts({ open, onOpenChange }: KeyboardShortcutsProps
               <h2 className="text-lg font-semibold text-gradient">Keyboard Shortcuts</h2>
               <button
                 onClick={() => onOpenChange(false)}
-                className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all duration-200"
+                className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-2))] transition-all duration-200"
                 aria-label="Close keyboard shortcuts"
               >
                 <X className="w-4 h-4" />
@@ -110,7 +110,7 @@ export function KeyboardShortcuts({ open, onOpenChange }: KeyboardShortcutsProps
                       {group.shortcuts.map((shortcut, sIdx) => (
                         <div
                           key={`${category}-${sIdx}`}
-                          className="flex items-center justify-between gap-3 py-1.5 px-2 rounded-lg hover:bg-white/[0.03] transition-colors duration-150"
+                          className="flex items-center justify-between gap-3 py-1.5 px-2 rounded-lg hover:bg-[hsl(var(--surface-2))]/[0.03] transition-colors duration-150"
                         >
                           <span className="text-sm text-foreground/80">{shortcut.action}</span>
                           <div className="flex items-center gap-1 shrink-0">

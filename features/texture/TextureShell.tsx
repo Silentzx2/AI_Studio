@@ -249,7 +249,7 @@ export function TextureShell() {
                   <p className="text-sm font-medium text-foreground">{layer.label} Map</p>
                   <p className="text-xs text-muted-foreground">{resolution}×{resolution} · PNG</p>
                 </div>
-                <button className="p-1.5 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-foreground touch-target">
+                <button className="p-1.5 rounded-lg hover:bg-[hsl(var(--surface-2))] text-muted-foreground hover:text-foreground touch-target">
                   <Download className="w-3.5 h-3.5" />
                 </button>
               </motion.div>

@@ -119,7 +119,7 @@ export function CompatibilityChecker({ modelManifest }: { modelManifest: any }) 
       )}
 
       {/* Requirements Breakdown */}
-      <Card className="bg-white/5 border-white/10 p-4 space-y-2">
+      <Card className="bg-[hsl(var(--surface-2))] border-[hsl(var(--border))]/[0.3] p-4 space-y-2">
         <h4 className="font-semibold text-[hsl(var(--foreground))] mb-3">System Requirements:</h4>
         
         <div className="flex justify-between items-center">

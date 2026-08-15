@@ -46,7 +46,7 @@ export default function Loading() {
             <div className="absolute inset-8 rounded-full border border-[hsl(var(--neon-pink)/0.5)] shadow-[0_0_15px_hsl(var(--neon-pink)/0.2)] animate-spin" style={{ animationDuration: '3s' }} />
 
             {/* Core Icon Container */}
-            <div className="relative z-10 flex items-center justify-center w-20 h-20 rounded-xl bg-black/40 backdrop-blur-xl border border-white/10 overflow-hidden shadow-[0_0_50px_hsl(var(--neon-purple)/0.4)]">
+            <div className="relative z-10 flex items-center justify-center w-20 h-20 rounded-xl bg-black/40 backdrop-blur-xl border border-[hsl(var(--border))]/[0.3] overflow-hidden shadow-[0_0_50px_hsl(var(--neon-purple)/0.4)]">
               {/* Scanning line passing over the icon */}
               <div className="absolute left-0 w-full h-px bg-gradient-to-r from-transparent via-[hsl(var(--neon-cyan))] to-transparent" style={{ animation: 'box-scan 2s linear infinite' }} />
               
@@ -75,7 +75,7 @@ export default function Loading() {
         </div>
 
         {/* --- DATA STREAM PROGRESS BAR --- */}
-        <div className="mt-10 w-72 md:w-80 h-1.5 overflow-hidden rounded-full bg-white/5 border border-white/5 relative">
+        <div className="mt-10 w-72 md:w-80 h-1.5 overflow-hidden rounded-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]/[0.15] relative">
           {/* The sliding gradient light */}
           <div 
             className="absolute top-0 left-0 h-full w-1/3 rounded-full bg-gradient-to-r from-transparent via-[hsl(var(--neon-purple))] to-transparent"
@@ -83,7 +83,7 @@ export default function Loading() {
           />
           {/* Glowing head */}
           <div 
-            className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-white shadow-[0_0_10px_hsl(var(--neon-purple)),0_0_20px_hsl(var(--neon-purple))]"
+            className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-[hsl(var(--surface-2))] shadow-[0_0_10px_hsl(var(--neon-purple)),0_0_20px_hsl(var(--neon-purple))]"
             style={{ animation: 'data-stream 1.5s ease-in-out infinite' }}
           />
         </div>
@@ -94,7 +94,7 @@ export default function Loading() {
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
             Sys.Online
           </span>
-          <span className="text-white/20">|</span>
+          <span className="text-[hsl(var(--muted-foreground))]/[0.3]">|</span>
           <span>Loading Assets...</span>
         </div>
       </div>

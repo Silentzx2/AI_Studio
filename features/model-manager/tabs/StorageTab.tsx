@@ -9,14 +9,14 @@ export function StorageTab({ models }: { models: any[] }) {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white/5 border border-white/10 rounded-xl p-8 flex flex-col items-center justify-center">
+      <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]/[0.3] rounded-xl p-8 flex flex-col items-center justify-center">
         <HardDrive className="w-12 h-12 text-[hsl(var(--foreground))]/30 mb-4" />
         <h3 className="text-2xl font-bold text-[hsl(var(--foreground))] mb-2">{totalSize.toFixed(1)} GB Used</h3>
         <p className="text-[hsl(var(--foreground))]/50">By installed model weights and environments</p>
       </div>
 
-      <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-white/10 bg-white/[0.02]">
+      <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]/[0.3] rounded-xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-[hsl(var(--border))]/[0.3] bg-[hsl(var(--surface-2))]/[0.02]">
           <h4 className="font-medium text-[hsl(var(--foreground))]">Storage Breakdown</h4>
         </div>
         <div className="divide-y divide-white/10">

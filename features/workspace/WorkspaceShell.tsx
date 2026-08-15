@@ -59,7 +59,7 @@ function WorkspaceShellContent({ defaultTab }: { defaultTab?: string }) {
 
 export function WorkspaceShell({ defaultTab }: { defaultTab?: string } = {}) {
   return (
-    <Suspense fallback={<div className="flex-1 flex items-center justify-center bg-[hsl(var(--surface-0))]"><div className="text-white">Loading workspace...</div></div>}>
+    <Suspense fallback={<div className="flex-1 flex items-center justify-center bg-[hsl(var(--surface-0))]"><div className="text-[hsl(var(--foreground))]">Loading workspace...</div></div>}>
       <WorkspaceShellContent defaultTab={defaultTab} />
     </Suspense>
   );

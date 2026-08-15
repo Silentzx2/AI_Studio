@@ -119,7 +119,7 @@ export function AdminShell({ activeTab, onTabChange, children }: AdminShellProps
                   'group relative flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all duration-200',
                   isActive
                     ? 'bg-gradient-to-r from-[hsl(var(--neon-purple)/0.15)] to-[hsl(var(--neon-blue)/0.05)] text-foreground border border-[hsl(var(--neon-purple)/0.2)]'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-white/5 border border-transparent',
+                    : 'text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-2))] border border-transparent',
                   collapsed && 'justify-center'
                 )}
               >
@@ -143,7 +143,7 @@ export function AdminShell({ activeTab, onTabChange, children }: AdminShellProps
           <Link
             href="/workspace"
             className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all',
+              'flex items-center gap-3 px-3 py-2.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-2))] transition-all',
               collapsed && 'justify-center'
             )}
           >
@@ -154,7 +154,7 @@ export function AdminShell({ activeTab, onTabChange, children }: AdminShellProps
 
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="hidden lg:flex items-center justify-center h-10 border-t border-[hsl(var(--border)/0.5)] text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+          className="hidden lg:flex items-center justify-center h-10 border-t border-[hsl(var(--border)/0.5)] text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-2))] transition-colors"
         >
           {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>
@@ -165,7 +165,7 @@ export function AdminShell({ activeTab, onTabChange, children }: AdminShellProps
           <div className="flex items-center gap-3 flex-1">
             <button
               onClick={() => setMobileOpen(true)}
-              className="lg:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5"
+              className="lg:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-2))]"
             >
               <Menu className="w-5 h-5" />
             </button>
@@ -210,7 +210,7 @@ export function AdminShell({ activeTab, onTabChange, children }: AdminShellProps
             </button>
 
             <button className="flex items-center gap-2 p-1 pr-3 rounded-xl glass border border-[hsl(var(--border)/0.5)] hover:border-[hsl(var(--neon-purple)/0.3)] transition-colors">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[hsl(var(--neon-purple))] to-[hsl(var(--neon-blue))] flex items-center justify-center text-xs font-bold text-white">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[hsl(var(--neon-purple))] to-[hsl(var(--neon-blue))] flex items-center justify-center text-xs font-bold text-[hsl(var(--foreground))]">
                 AI
               </div>
               <span className="hidden md:block text-xs font-medium text-foreground">Admin</span>

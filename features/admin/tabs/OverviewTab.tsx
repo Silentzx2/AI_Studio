@@ -142,7 +142,7 @@ export function OverviewTab() {
               whileHover={{ scale: 1.02, y: -2 }}
               className={`relative flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-br ${colorMap[action.color]} border cursor-pointer transition-all`}
             >
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/5">
+              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-[hsl(var(--surface-2))]">
                 <Icon className="w-5 h-5" />
               </div>
               <span className="text-sm font-medium text-foreground">{action.label}</span>

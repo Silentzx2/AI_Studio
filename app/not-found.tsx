@@ -53,7 +53,7 @@ export default function NotFound() {
             <Link href="/" className="w-full sm:w-auto group">
               <Button 
                 variant="ghost" 
-                className="w-full border border-[hsl(var(--border)/0.5)] hover:bg-white/5 hover:border-foreground/20 transition-all duration-300 group-hover:-translate-x-1"
+                className="w-full border border-[hsl(var(--border)/0.5)] hover:bg-[hsl(var(--surface-2))] hover:border-foreground/20 transition-all duration-300 group-hover:-translate-x-1"
               >
                 <ArrowLeft className="w-4 h-4 mr-2 transition-transform group-hover:-translate-x-1" />
                 Back to Home
@@ -62,7 +62,7 @@ export default function NotFound() {
             
             <Link href="/workspace" className="w-full sm:w-auto group">
               <Button 
-                className="w-full bg-gradient-to-r from-[hsl(var(--neon-purple))] to-[hsl(var(--neon-blue))] text-white border-transparent shadow-[0_0_20px_hsl(var(--neon-purple)/0.3)] hover:shadow-[0_0_40px_hsl(var(--neon-purple)/0.5)] transition-all duration-300 hover:scale-105"
+                className="w-full bg-gradient-to-r from-[hsl(var(--neon-purple))] to-[hsl(var(--neon-blue))] text-[hsl(var(--foreground))] border-transparent shadow-[0_0_20px_hsl(var(--neon-purple)/0.3)] hover:shadow-[0_0_40px_hsl(var(--neon-purple)/0.5)] transition-all duration-300 hover:scale-105"
               >
                 <Sparkles className="w-4 h-4 mr-2" />
                 Open Workspace

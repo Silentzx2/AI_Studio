@@ -157,7 +157,7 @@ export function WelcomeOverlay() {
             {/* Close button */}
             <button
               onClick={dismiss}
-              className="absolute top-4 right-4 flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all duration-200"
+              className="absolute top-4 right-4 flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-2))] transition-all duration-200"
               aria-label="Close welcome"
             >
               <X className="w-4 h-4" />
@@ -184,7 +184,7 @@ export function WelcomeOverlay() {
               {FEATURES.map((feature) => (
                 <motion.div
                   key={feature.title}
-                  className="flex flex-col items-center gap-2 p-4 rounded-xl bg-white/[0.03] border border-[hsl(var(--border)/0.3)] hover:bg-white/[0.06] transition-colors duration-200"
+                  className="flex flex-col items-center gap-2 p-4 rounded-xl bg-[hsl(var(--surface-2))]/[0.03] border border-[hsl(var(--border)/0.3)] hover:bg-[hsl(var(--surface-2))]/[0.06] transition-colors duration-200"
                   variants={featureCardVariants}
                 >
                   <span className="text-2xl">{feature.emoji}</span>
