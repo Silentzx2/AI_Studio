@@ -30,7 +30,7 @@ import {
   MousePointer2, Move, ZoomIn, RotateCcw, Grid3X3,
   Box, BarChart3, Sun, Camera, Upload, Loader2, AlertCircle,
   Minimize2, Expand, Focus, Play, Layers, Check, ChevronDown,
-  Edit2, HelpCircle, Sparkles, Hash, Package, ShieldCheck
+  Edit2, HelpCircle, Sparkles, Hash, Package, ShieldCheck, Settings2, X
 } from 'lucide-react';
 
 /* ─────────────────────────────────────────────────── */
@@ -400,12 +400,20 @@ function InnerScene({
   activeTool,
   onHasModelChange,
   onStatsUpdate,
+  envSettings,
 }: {
   shadingMode: ShadingPreset;
   lightingPreset: 'studio' | 'sunset' | 'cyberpunk' | 'ambient';
   activeTool: string;
   onHasModelChange?: (hasModel: boolean) => void;
   onStatsUpdate?: (stats: ModelStats) => void;
+  envSettings?: {
+    backgroundColor: string;
+    lightingIntensity: number;
+    showGrid: boolean;
+    showShadows: boolean;
+    autoRotate: boolean;
+  };
 }) {
   const { viewer } = useUIStore();
   const { currentJob } = useGenerationStore();
@@ -475,36 +483,36 @@ function InnerScene({
       {/* Dynamic Lighting Presets */}
       {lightingPreset === 'studio' && (
         <>
-          <ambientLight intensity={0.6} />
-          <directionalLight position={[6, 10, 8]} intensity={2.0} color="#ffffff" />
-          <directionalLight position={[-8, 5, -4]} intensity={1.0} color="#93c5fd" />
-          <directionalLight position={[0, 4, -10]} intensity={0.8} color="#fed7aa" />
-          <pointLight position={[-4, 2, 6]} intensity={0.5} color="#38bdf8" />
+          <ambientLight intensity={0.6 * (envSettings?.lightingIntensity ?? 1)} />
+          <directionalLight position={[6, 10, 8]} intensity={2.0 * (envSettings?.lightingIntensity ?? 1)} color="#ffffff" />
+          <directionalLight position={[-8, 5, -4]} intensity={1.0 * (envSettings?.lightingIntensity ?? 1)} color="#93c5fd" />
+          <directionalLight position={[0, 4, -10]} intensity={0.8 * (envSettings?.lightingIntensity ?? 1)} color="#fed7aa" />
+          <pointLight position={[-4, 2, 6]} intensity={0.5 * (envSettings?.lightingIntensity ?? 1)} color="#38bdf8" />
         </>
       )}
 
       {lightingPreset === 'sunset' && (
         <>
-          <ambientLight intensity={0.5} color="#fdba74" />
-          <directionalLight position={[8, 4, 6]} intensity={2.6} color="#fb923c" />
-          <directionalLight position={[-6, 6, -6]} intensity={1.0} color="#c084fc" />
-          <pointLight position={[0, -1, 4]} intensity={0.7} color="#f43f5e" />
+          <ambientLight intensity={0.5 * (envSettings?.lightingIntensity ?? 1)} color="#fdba74" />
+          <directionalLight position={[8, 4, 6]} intensity={2.6 * (envSettings?.lightingIntensity ?? 1)} color="#fb923c" />
+          <directionalLight position={[-6, 6, -6]} intensity={1.0 * (envSettings?.lightingIntensity ?? 1)} color="#c084fc" />
+          <pointLight position={[0, -1, 4]} intensity={0.7 * (envSettings?.lightingIntensity ?? 1)} color="#f43f5e" />
         </>
       )}
 
       {lightingPreset === 'cyberpunk' && (
         <>
-          <ambientLight intensity={0.4} color="#0f172a" />
-          <directionalLight position={[7, 8, 5]} intensity={2.0} color="#06b6d4" />
-          <directionalLight position={[-7, 5, -4]} intensity={2.0} color="#ec4899" />
-          <pointLight position={[0, 3, 5]} intensity={1.2} color="#8b5cf6" />
+          <ambientLight intensity={0.4 * (envSettings?.lightingIntensity ?? 1)} color="#0f172a" />
+          <directionalLight position={[7, 8, 5]} intensity={2.0 * (envSettings?.lightingIntensity ?? 1)} color="#06b6d4" />
+          <directionalLight position={[-7, 5, -4]} intensity={2.0 * (envSettings?.lightingIntensity ?? 1)} color="#ec4899" />
+          <pointLight position={[0, 3, 5]} intensity={1.2 * (envSettings?.lightingIntensity ?? 1)} color="#8b5cf6" />
         </>
       )}
 
       {lightingPreset === 'ambient' && (
         <>
-          <ambientLight intensity={1.2} color="#ffffff" />
-          <directionalLight position={[0, 10, 0]} intensity={1.0} color="#ffffff" />
+          <ambientLight intensity={1.2 * (envSettings?.lightingIntensity ?? 1)} color="#ffffff" />
+          <directionalLight position={[0, 10, 0]} intensity={1.0 * (envSettings?.lightingIntensity ?? 1)} color="#ffffff" />
         </>
       )}
 
@@ -516,7 +524,7 @@ function InnerScene({
         {showModel && activeUrl ? renderModel(activeUrl) : null}
       </Center>
 
-      <SceneGrid visible={viewer.showGrid} />
+      <SceneGrid visible={viewer.showGrid && (envSettings?.showGrid ?? true)} />
       <CanvasResizeSync />
       <Preload all />
     </>
@@ -553,6 +561,16 @@ export default function Canvas3D({ isGenerating }: Canvas3DProps) {
   // Lighting Preset
   const [lightingPreset, setLightingPreset] = useState<'studio' | 'sunset' | 'cyberpunk' | 'ambient'>('studio');
   const [showLightingMenu, setShowLightingMenu] = useState(false);
+
+  // Environment Settings
+  const [showEnvSettings, setShowEnvSettings] = useState(false);
+  const [envSettings, setEnvSettings] = useState({
+    backgroundColor: '#1a1a1a',
+    lightingIntensity: 1.0,
+    showGrid: true,
+    showShadows: true,
+    autoRotate: false,
+  });
 
   // Project Title
   const [projectName, setProjectName] = useState('Untitled 3D Model');
@@ -665,10 +683,11 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
   return (
     <div
       ref={containerRef}
-      className="relative flex-1 w-full h-full min-w-0 min-h-0 flex flex-col bg-[radial-gradient(circle_at_50%_35%,#262930_0%,#16181d_60%,#0c0d10_100%)] overflow-hidden select-none"
+      className="relative flex-1 w-full h-full min-w-0 min-h-0 flex flex-col overflow-hidden select-none"
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
+      style={{ backgroundColor: envSettings.backgroundColor }}
     >
       {/* 3D Canvas Scene */}
       <ErrorBoundary fallback={<div className="w-full h-full flex items-center justify-center text-[hsl(var(--muted-foreground))]">Canvas error</div>}>
@@ -685,6 +704,7 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
             activeTool={activeTool}
             onHasModelChange={setHasModelInScene}
             onStatsUpdate={setLiveStats}
+            envSettings={envSettings}
           />
         </Canvas>
       </ErrorBoundary>
@@ -700,10 +720,10 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
             <p className="text-xs text-[hsl(var(--muted-foreground))]/[0.5] mb-8 leading-relaxed px-4">
               Enter a prompt, upload multi-view images, or drop a 3D file to begin your creation.
             </p>
-            <div className="flex items-center gap-2 w-full">
-              <label className="flex-1 cursor-pointer flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[hsl(var(--surface-2))] text-black text-xs font-black uppercase tracking-widest hover:brightness-90 transition-all shadow-xl active:scale-95">
-                <Upload size={14} />
-                <span>Upload 3D File</span>
+             <div className="flex items-center gap-2 w-full">
+               <label className="flex-1 cursor-pointer flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[hsl(var(--primary))] text-[hsl(var(--surface-2))] text-[10px] font-bold uppercase tracking-widest hover:brightness-110 active:scale-[0.98] transition-all shadow-lg">
+                 <Upload size={14} />
+                 <span>Upload 3D File</span>
 <input
                    type="file"
                    accept=".glb,.gltf,.fbx,.obj,.stl"
@@ -908,6 +928,91 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
         >
           <HelpCircle size={18} />
         </button>
+
+        {/* Environment Settings */}
+        <div className="relative">
+          <button
+            onClick={() => setShowEnvSettings(!showEnvSettings)}
+            className="p-2.5 rounded-xl text-[hsl(var(--muted-foreground))]/[0.5] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))] transition-all"
+            title="Environment Settings"
+          >
+            <Settings2 size={18} />
+          </button>
+          {showEnvSettings && (
+            <div className="absolute right-full mr-3 top-0 w-56 p-3 rounded-2xl bg-[hsl(var(--surface-2))]/95 backdrop-blur-xl border border-[hsl(var(--border))]/[0.15] shadow-2xl flex flex-col gap-3 z-30">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--foreground))]">Environment</span>
+                <button onClick={() => setShowEnvSettings(false)} className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]">
+                  <X size={12} />
+                </button>
+              </div>
+
+              {/* Background Color */}
+              <div className="space-y-1.5">
+                <span className="text-[9px] font-medium text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Background</span>
+                <div className="flex gap-1.5">
+                  {['#1a1a1a', '#2d2d2d', '#404040', '#f5f5f5', '#ffffff'].map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => setEnvSettings(s => ({ ...s, backgroundColor: color }))}
+                      className={`w-6 h-6 rounded-full border-2 transition-all ${envSettings.backgroundColor === color ? 'border-[hsl(var(--primary))] scale-110' : 'border-transparent hover:scale-105'}`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Lighting Intensity */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-medium text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Light Intensity</span>
+                  <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]">{envSettings.lightingIntensity.toFixed(1)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="2"
+                  step="0.1"
+                  value={envSettings.lightingIntensity}
+                  onChange={(e) => setEnvSettings(s => ({ ...s, lightingIntensity: parseFloat(e.target.value) }))}
+                  className="w-full h-1 bg-[hsl(var(--surface-3))] rounded-full appearance-none cursor-pointer accent-[hsl(var(--primary))]"
+                />
+              </div>
+
+              {/* Toggles */}
+              <div className="space-y-1.5">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-[9px] font-medium text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Grid</span>
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={envSettings.showGrid}
+                      onChange={(e) => setEnvSettings(s => ({ ...s, showGrid: e.target.checked }))}
+                      className="sr-only"
+                    />
+                    <div className={`w-8 h-4 rounded-full transition-all ${envSettings.showGrid ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-3))]'}`}>
+                      <div className={`w-3 h-3 rounded-full bg-white shadow-sm transform transition-transform ${envSettings.showGrid ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </div>
+                  </div>
+                </label>
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-[9px] font-medium text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Shadows</span>
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={envSettings.showShadows}
+                      onChange={(e) => setEnvSettings(s => ({ ...s, showShadows: e.target.checked }))}
+                      className="sr-only"
+                    />
+                    <div className={`w-8 h-4 rounded-full transition-all ${envSettings.showShadows ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-3))]'}`}>
+                      <div className={`w-3 h-3 rounded-full bg-white shadow-sm transform transition-transform ${envSettings.showShadows ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </div>
+                  </div>
+                </label>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ─────────────────────────────────────────────────── */}
