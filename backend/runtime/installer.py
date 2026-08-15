@@ -565,6 +565,12 @@ _PY312_REQ_REWRITES: list[tuple[re.Pattern, str | None]] = [
     # backend in the current uv version.
     (re.compile(r"^flash[-_]attn($|==|>=|<=|!=|~=).*$"), None),
     (re.compile(r"^bpy==.*$"), None),
+    # torch-cluster and diso are CUDA-only native extensions with no cp312 wheels.
+    # DetailGen3D has a PyTorch FPS fallback for torch-cluster and uses
+    # skimage.measure.marching_cubes instead of diso. Drop both on Py3.12+
+    # to avoid heavy native builds (15-60 min) on Colab and similar hosts.
+    (re.compile(r"^torch[-_]cluster($|==|>=|<=|!=|~=).*$"), None),
+    (re.compile(r"^diso($|==|>=|<=|!=|~=).*$"), None),
 ]
 
 
@@ -1241,6 +1247,11 @@ def clone_repo(repo_name: str, log_cb: Callable | None = None) -> dict:
         if code != 0:
             logger.warning("git pull failed for %s, keeping existing.", repo_name)
         return {"success": True, "path": str(dest), "action": "pulled"}
+    # If destination exists but is not a git repo (e.g., weights dir created first),
+    # remove it so git clone can proceed into a clean directory.
+    if dest.exists():
+        logger.info("Removing non-git directory %s before clone", dest)
+        shutil.rmtree(str(dest), ignore_errors=True)
     dest.parent.mkdir(parents=True, exist_ok=True)
     cmd = ["git", "clone", "--depth", "1",
            "--branch", repo_cfg["branch"],
