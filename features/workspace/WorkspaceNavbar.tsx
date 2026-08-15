@@ -21,6 +21,7 @@ const NAV_LINKS = [
 
 export function WorkspaceNavbar() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const { mobileMenuOpen, setMobileMenuOpen } = useUIStore();
   const batchQueue = useAppStore((s) => s.batchQueue);
   const pathname = usePathname();
@@ -53,47 +54,21 @@ export function WorkspaceNavbar() {
       id="global-workspace-navbar"
     >
       <div className="h-full flex items-center justify-between gap-2 px-3 sm:px-4">
-        {/* Left: Hamburger + Logo + Nav Icons */}
+        {/* Left: Hamburger + Logo */}
         <div className="flex items-center gap-1">
-          {/* Mobile hamburger */}
           <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--surface-2))] hover:text-[hsl(var(--foreground))] transition-all"
+            onClick={() => setDrawerOpen(!drawerOpen)}
+            className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--surface-2))] hover:text-[hsl(var(--foreground))] transition-all"
             aria-label="Toggle navigation"
           >
-            {mobileMenuOpen ? <X size={16} /> : <Menu size={16} />}
+            {drawerOpen ? <X size={16} /> : <Menu size={16} />}
           </button>
 
-          {/* Logo icon only (no text — sidebar already shows AI Studio) */}
           <Link href="/" className="flex items-center" aria-label="Home">
             <div className="w-7 h-7 rounded-lg bg-[hsl(var(--primary))] flex items-center justify-center transition-transform duration-200 hover:scale-105">
               <Boxes size={14} className="text-[hsl(var(--surface-2))]" />
             </div>
           </Link>
-
-          {/* Desktop Nav — icon pills */}
-          <nav className="hidden md:flex items-center gap-0.5 ml-1" id="top-nav-links">
-            {NAV_LINKS.map((link) => {
-              const Icon = link.icon;
-              const active = isActive(link.href);
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={cn(
-                    'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-200',
-                    active
-                      ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10'
-                      : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
-                  )}
-                  title={link.label}
-                >
-                  <Icon size={14} />
-                  <span className="hidden xl:inline">{link.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
         </div>
 
         {/* Center: Search — compact on desktop, hidden on mobile */}
@@ -158,9 +133,9 @@ export function WorkspaceNavbar() {
         </div>
       </div>
 
-      {/* Mobile Navigation Drawer */}
-      {mobileMenuOpen && (
-        <div className="md:hidden border-t border-[hsl(var(--border))/0.15] bg-[hsl(var(--surface-0))] px-3 py-2 space-y-0.5">
+      {/* Global Navigation Drawer — visible on all screen sizes when toggled */}
+      {drawerOpen && (
+        <div className="border-t border-[hsl(var(--border))/0.15] bg-[hsl(var(--surface-0))] px-3 py-2 space-y-0.5">
           {NAV_LINKS.map((link) => {
             const Icon = link.icon;
             const active = isActive(link.href);
@@ -168,7 +143,7 @@ export function WorkspaceNavbar() {
               <Link
                 key={link.href}
                 href={link.href}
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={() => setDrawerOpen(false)}
                 className={cn(
                   'flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200',
                   active
