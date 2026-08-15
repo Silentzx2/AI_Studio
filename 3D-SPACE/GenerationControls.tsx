@@ -11,7 +11,7 @@ import {
   Sparkles, HelpCircle, Upload, X, Image as ImageIcon, Type,
   ChevronDown, ChevronRight, Loader2, Square, CircleDot, Settings2,
   RefreshCw, Palette, Activity, Lock, Zap, CheckCircle2,
-  Maximize2, RotateCcw
+  Maximize2, RotateCcw, AlertCircle, Info
 } from 'lucide-react';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 import { useUIStore } from '@/stores/useUIStore';
@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { GlowRing } from '@/components/GlowRing';
 import type { GenerationMode, QualityPreset, ProviderOption } from '@/types';
 import { toast } from 'sonner';
+import anime from 'animejs';
 
 /* ------------------------------------------------------------------ */
 /*  Props                                                              */
@@ -99,24 +100,24 @@ export default function GenerationControls({ onModelUploadClick, compact }: Gene
     // Reset progress and start upload
     setImgUploadProgress({ loaded: 0, total: file.size, percent: 0 });
     
-    try {
-      const { promise, cancel } = uploadService.uploadWithProgress(
-        file,
-        (progress) => setImgUploadProgress(progress),
-        '/api/v1/upload/image'
-      );
-      const result = await promise;
-      setUploadedImage({ file, preview: URL.createObjectURL(file), width: result.width ?? 0, height: result.height ?? 0 });
-      setImgUploadProgress(null);
-      (await import('sonner')).toast.success('Image uploaded successfully');
-    } catch (err: any) {
-      setImgUploadProgress(null);
-      if (err.message === 'Upload cancelled') {
-        (await import('sonner')).toast.info('Upload cancelled');
-      } else {
-        (await import('sonner')).toast.error(`Upload failed: ${err?.message || 'Unknown error'}`);
-      }
-    }
+try {
+       const { promise, cancel } = uploadService.uploadWithProgress(
+         file,
+         (progress) => setImgUploadProgress(progress),
+         '/api/v1/upload/image'
+       );
+       const result = await promise;
+       setUploadedImage({ file, preview: URL.createObjectURL(file), width: result.width ?? 0, height: result.height ?? 0, url: result.url });
+       setImgUploadProgress(null);
+       (await import('sonner')).toast.success('Image uploaded successfully');
+     } catch (err: any) {
+       setImgUploadProgress(null);
+       if (err.message === 'Upload cancelled') {
+         (await import('sonner')).toast.info('Upload cancelled');
+       } else {
+         (await import('sonner')).toast.error(`Upload failed: ${err?.message || 'Unknown error'}`);
+       }
+     }
   }, [setUploadedImage]);
 
 // Drag & drop for images
@@ -129,10 +130,28 @@ export default function GenerationControls({ onModelUploadClick, compact }: Gene
      if (file) {
        const error = validateImageFile(file);
        if (error) { (await import('sonner')).toast.error(error); return; }
+       
+       // Reset progress and start upload
+       setImgUploadProgress({ loaded: 0, total: file.size, percent: 0 });
+       
        try {
-         const img = await processImageFile(file);
-         setUploadedImage(img);
-       } catch { (await import('sonner')).toast.error('Failed to process image'); }
+         const { promise, cancel } = uploadService.uploadWithProgress(
+           file,
+           (progress) => setImgUploadProgress(progress),
+           '/api/v1/upload/image'
+         );
+         const result = await promise;
+         setUploadedImage({ file, preview: URL.createObjectURL(file), width: result.width ?? 0, height: result.height ?? 0 });
+         setImgUploadProgress(null);
+         (await import('sonner')).toast.success('Image uploaded successfully');
+       } catch (err: any) {
+         setImgUploadProgress(null);
+         if (err.message === 'Upload cancelled') {
+           (await import('sonner')).toast.info('Upload cancelled');
+         } else {
+           (await import('sonner')).toast.error(`Upload failed: ${err?.message || 'Unknown error'}`);
+         }
+       }
        return;
      }
      
@@ -149,10 +168,10 @@ export default function GenerationControls({ onModelUploadClick, compact }: Gene
            const file = new File([blob], 'asset-image.' + url.split('.').pop(), { type: response.headers.get('content-type') || 'image/png' });
            const img = await processImageFile(file);
            setUploadedImage(img);
-} catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-            (await import('sonner')).toast.error('Failed to process image from asset: ' + errorMessage);
-          }
+         } catch (err) {
+           const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+           (await import('sonner')).toast.error('Failed to process image from asset: ' + errorMessage);
+         }
        } else {
          (await import('sonner')).toast.error('Invalid image URL');
        }
@@ -215,12 +234,12 @@ export default function GenerationControls({ onModelUploadClick, compact }: Gene
 
         {/* Model selector */}
         <div className="space-y-1.5">
-          <label className="text-[9px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Model</label>
+          <label className="text-label">Model</label>
           <div className="relative">
             <select
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}
-              className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-lg px-3 py-2 text-[11px] text-[hsl(var(--foreground))] appearance-none focus:outline-none focus:border-[hsl(var(--primary))] transition-all cursor-pointer"
+              className="select-field-sm w-full"
             >
               <option value="">Select model...</option>
               {models.map((m) => (
@@ -255,7 +274,7 @@ export default function GenerationControls({ onModelUploadClick, compact }: Gene
         {mode === 'text-to-3d' && (
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-[9px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Prompt</label>
+              <label className="text-label">Prompt</label>
               <span className="text-[8px] font-mono text-[hsl(var(--muted-foreground))]/50">{prompt.length}/1000</span>
             </div>
             <textarea
@@ -264,7 +283,7 @@ export default function GenerationControls({ onModelUploadClick, compact }: Gene
               placeholder="Describe the 3D model you want to generate..."
               rows={4}
               maxLength={1000}
-              className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-lg px-3 py-2 text-[11px] text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))]/40 focus:outline-none focus:border-[hsl(var(--primary))] transition-all resize-none leading-relaxed"
+              className="textarea-field w-full resize-none"
             />
           </div>
         )}
@@ -439,16 +458,16 @@ export default function GenerationControls({ onModelUploadClick, compact }: Gene
               {/* Style preset */}
               <div className="space-y-1.5">
                 <label className="text-[9px] font-bold uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Style</label>
-                <div className="relative">
-                  <select
-                    value={stylePreset}
-                    onChange={(e) => setStylePreset(e.target.value)}
-                    className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-lg px-3 py-1.5 text-[11px] text-[hsl(var(--foreground))] appearance-none focus:outline-none focus:border-[hsl(var(--primary))] transition-all cursor-pointer"
-                  >
-                    {STYLE_PRESETS.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                  <ChevronDown size={10} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] pointer-events-none" />
-                </div>
+<div className="relative">
+              <select
+                value={stylePreset}
+                onChange={(e) => setStylePreset(e.target.value)}
+                className="select-field-sm w-full"
+              >
+                {STYLE_PRESETS.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <ChevronDown size={10} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] pointer-events-none" />
+            </div>
               </div>
 
               {/* Generate Texture toggle */}
@@ -552,28 +571,24 @@ export default function GenerationControls({ onModelUploadClick, compact }: Gene
         )}
 
         {/* Generate button (wrapped in rotating glow ring) */}
-        <GlowRing className="w-full">
-          <button
-            onClick={() => generate()}
-            disabled={isGenerating || (!prompt.trim() && mode === 'text-to-3d') || (!uploadedImage && mode === 'image-to-3d')}
-            className={cn(
-              'w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all',
-              isGenerating
-                ? 'bg-[hsl(var(--surface-3))] text-[hsl(var(--muted-foreground))] cursor-not-allowed'
-                : 'bg-[hsl(var(--primary))] hover:brightness-110 active:scale-[0.98] text-white shadow-lg shadow-[hsl(var(--primary))/0.2]'
-            )}
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 size={14} className="animate-spin" /> Generating...
-              </>
-            ) : (
-              <>
-                <Sparkles size={14} /> Generate 3D Model
-              </>
-            )}
-          </button>
-        </GlowRing>
+        <button
+          onClick={() => generate()}
+          disabled={isGenerating || (!prompt.trim() && mode === 'text-to-3d') || (!uploadedImage && mode === 'image-to-3d')}
+          className={cn(
+            'w-full btn-primary',
+            isGenerating && 'cursor-not-allowed opacity-50'
+          )}
+        >
+          {isGenerating ? (
+            <>
+              <Loader2 size={14} className="animate-spin" /> Generating...
+            </>
+          ) : (
+            <>
+              <Sparkles size={14} /> Generate 3D Model
+            </>
+          )}
+        </button>
 
         {/* Estimated info — sourced from QUALITY_PRESETS constant */}
         <div className="flex items-center justify-between text-[8px] text-[hsl(var(--muted-foreground))]/50">

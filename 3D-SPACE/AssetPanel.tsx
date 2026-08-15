@@ -79,8 +79,8 @@ function AssetThumbnail({ asset, isSelected, onClick }: { asset: AssetItem; isSe
       className={cn(
         'group relative rounded-xl overflow-hidden border transition-all duration-300 aspect-square',
         isSelected
-          ? 'border-[#facc15] shadow-[0_0_15px_rgba(250,204,21,0.2)] scale-[0.98]'
-          : 'border-white/5 hover:border-white/20 bg-[#121214]'
+          ? 'border-[hsl(var(--primary))] shadow-[0_0_15px_hsl(var(--primary)/0.2)] scale-[0.98]'
+          : 'border-white/5 hover:border-white/20 bg-[hsl(var(--surface-2))]'
       )}
     >
       {asset.thumbnailUrl ? (
@@ -97,7 +97,7 @@ function AssetThumbnail({ asset, isSelected, onClick }: { asset: AssetItem; isSe
       </div>
       {asset.isFavorite && (
         <div className="absolute top-2 right-2">
-          <Heart size={10} className="fill-[#facc15] text-[#facc15] drop-shadow-md" />
+          <Heart size={10} className="fill-[hsl(var(--destructive))] text-[hsl(var(--destructive))] drop-shadow-md" />
         </div>
       )}
     </button>
@@ -125,7 +125,7 @@ function InspectorPanel({ asset, onDelete }: { asset: AssetItem; onDelete?: (id:
   return (
     <div className="flex flex-col gap-6 p-5">
       {/* Thumbnail */}
-      <div className="aspect-video rounded-2xl overflow-hidden bg-[#121214] border border-white/5 relative group">
+      <div className="aspect-video rounded-2xl overflow-hidden bg-[hsl(var(--surface-2))] border border-white/5 relative group">
         {asset.thumbnailUrl ? (
           <img src={asset.thumbnailUrl} alt={asset.name} className="w-full h-full object-cover" />
         ) : (
@@ -155,7 +155,7 @@ function InspectorPanel({ asset, onDelete }: { asset: AssetItem; onDelete?: (id:
         ].map((meta, i) => {
           const Icon = meta.icon;
           return (
-            <div key={i} className="flex flex-col gap-1 p-3 rounded-xl bg-[#121214] border border-white/5">
+            <div key={i} className="flex flex-col gap-1 p-3 rounded-xl bg-[hsl(var(--surface-2))] border border-white/5">
               <div className="flex items-center gap-1.5 opacity-40">
                 <Icon size={10} />
                 <span className="text-[8px] font-black uppercase tracking-widest">{meta.label}</span>
@@ -200,7 +200,7 @@ function InspectorPanel({ asset, onDelete }: { asset: AssetItem; onDelete?: (id:
             <span className="text-[10px] font-black uppercase tracking-widest">Export Options</span>
           </div>
           {result && (
-            <span className="px-1.5 py-0.5 rounded bg-[#facc15]/10 text-[#facc15] text-[8px] font-black uppercase">Ready</span>
+            <span className="px-1.5 py-0.5 rounded bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))] text-[8px] font-black uppercase">Ready</span>
           )}
         </div>
 
@@ -210,7 +210,7 @@ function InspectorPanel({ asset, onDelete }: { asset: AssetItem; onDelete?: (id:
           className={cn(
             'w-full flex items-center justify-center gap-2 p-3.5 rounded-xl border transition-all text-[11px] font-bold',
             asset.modelUrl
-              ? 'bg-[#121214] border-white/10 hover:border-[#facc15]/50 text-white'
+              ? 'bg-[hsl(var(--surface-2))] border-white/10 hover:border-[hsl(var(--primary)/0.5)] text-white'
               : 'bg-white/5 border-transparent text-white/20 cursor-not-allowed'
           )}
         >
@@ -230,7 +230,7 @@ function InspectorPanel({ asset, onDelete }: { asset: AssetItem; onDelete?: (id:
                 className={cn(
                   'flex flex-col items-center gap-1 p-3 rounded-xl border transition-all',
                   enabled
-                    ? 'bg-[#121214] border-white/5 hover:border-white/20 text-white'
+                    ? 'bg-[hsl(var(--surface-2))] border-white/5 hover:border-white/20 text-white'
                     : 'bg-white/5 border-transparent text-white/10 cursor-not-allowed'
                 )}
               >
@@ -412,7 +412,7 @@ const processModelUpload = async (file: File) => {
   ];
 
   return (
-    <div className="flex flex-col h-full bg-[#1a1b1e] border-l border-white/5 w-full min-w-0">
+    <div className="flex flex-col h-full bg-[hsl(var(--surface-1))] border-l border-white/5 w-full min-w-0">
       {/* Hidden Model File Input */}
       <input
         ref={modelFileInputRef}
@@ -432,13 +432,13 @@ const processModelUpload = async (file: File) => {
               className={cn(
                 'px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all relative',
                 activeTab === tab
-                  ? 'text-[#facc15]'
+                  ? 'text-[hsl(var(--primary))]'
                   : 'text-white/40 hover:text-white/60'
               )}
             >
               {tab}
               {activeTab === tab && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#facc15] shadow-[0_0_10px_rgba(250,204,21,0.5)]" />
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[hsl(var(--primary))] shadow-[0_0_10px_hsl(var(--primary)/0.5)]" />
               )}
             </button>
           ))}
@@ -497,7 +497,7 @@ const processModelUpload = async (file: File) => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search assets..."
-                className="w-full bg-[#121214] border border-white/5 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder:text-white/10 focus:outline-none focus:border-[#facc15]/30 transition-all"
+                className="w-full bg-[hsl(var(--surface-2))] border border-white/5 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder:text-white/10 focus:outline-none focus:border-[hsl(var(--primary)/0.3)] transition-all"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -508,8 +508,8 @@ const processModelUpload = async (file: File) => {
                   className={cn(
                     'px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all',
                     categoryFilter === pill.id
-                      ? 'bg-[#facc15]/10 text-[#facc15] border-[#facc15]/20'
-                      : 'bg-[#121214] text-white/40 border-white/5 hover:text-white/60'
+                      ? 'bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))] border-[hsl(var(--primary)/0.2)]'
+                      : 'bg-[hsl(var(--surface-2))] text-white/40 border-white/5 hover:text-white/60'
                   )}
                 >
                   {pill.label}
@@ -528,7 +528,7 @@ const processModelUpload = async (file: File) => {
           <div
             className={cn(
               'flex-1 overflow-y-auto p-4 min-h-0 transition-all',
-              isDropZoneActive && 'bg-[#facc15]/5 scale-[0.99] rounded-2xl'
+              isDropZoneActive && 'bg-[hsl(var(--primary)/0.05)] scale-[0.99] rounded-2xl'
             )}
             onDragOver={(e) => { e.preventDefault(); setIsDropZoneActive(true); }}
             onDragLeave={() => setIsDropZoneActive(false)}
@@ -560,7 +560,7 @@ const processModelUpload = async (file: File) => {
                 {/* Subtle upload dropzone at bottom of asset list */}
                 <button
                   onClick={() => modelFileInputRef.current?.click()}
-                  className="w-full flex items-center justify-center gap-2 py-4 px-4 rounded-2xl border border-dashed border-white/5 hover:border-[#facc15]/20 bg-[#121214] hover:bg-[#facc15]/5 text-white/20 hover:text-[#facc15] text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer"
+                  className="w-full flex items-center justify-center gap-2 py-4 px-4 rounded-2xl border border-dashed border-white/5 hover:border-[hsl(var(--primary)/0.2)] bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--primary)/0.05)] text-white/20 hover:text-[hsl(var(--primary))] text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer"
                 >
                   <Upload size={14} />
                   <span>Drop or upload model</span>
@@ -580,7 +580,7 @@ const processModelUpload = async (file: File) => {
                 <button
                   onClick={() => modelFileInputRef.current?.click()}
                   disabled={isUploadingModel}
-                  className="flex items-center gap-2 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-[#facc15] text-[#121214] hover:brightness-110 transition-all shadow-lg disabled:opacity-50"
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-[hsl(var(--primary))] text-white hover:brightness-110 transition-all shadow-lg disabled:opacity-50"
                 >
                   <Upload size={14} />
                   <span>Upload File</span>
@@ -593,7 +593,7 @@ const processModelUpload = async (file: File) => {
 
       {/* Inspector Tab */}
       {activeTab === 'inspector' && (
-        <div className="flex-1 overflow-y-auto min-h-0 bg-[#1a1b1e]">
+        <div className="flex-1 overflow-y-auto min-h-0 bg-[hsl(var(--surface-1))]">
           {selectedAsset ? (
             <InspectorPanel asset={selectedAsset} onDelete={onDeleteAsset} />
           ) : (

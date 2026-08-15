@@ -217,7 +217,7 @@ export default function CommunityTab({ onCloneProject, onNavigate }: CommunityTa
                   }`}
                   id={`like-comm-btn-${item.id}`}
                 >
-                  <Heart size={12} className={item.hasLiked ? 'fill-rose-500' : ''} />
+                  <Heart size={12} className={item.hasLiked ? 'fill-[hsl(var(--destructive))]' : ''} />
                   <span>{item.likes}</span>
                 </button>
                 <div className="flex items-center gap-1">

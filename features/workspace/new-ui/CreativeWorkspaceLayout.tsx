@@ -8,7 +8,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import anime from 'animejs';
 import {
-  Folder, Cpu, RefreshCw, Palette, Bookmark, Layers, Heart, Globe, Code, Settings, Sparkles, HelpCircle, LogOut, Activity, Zap, Wifi, ChevronDown, Box
+  Folder, Cpu, RefreshCw, Palette, Bookmark, Layers, Heart, Globe, Code, Settings,
+  Sparkles, HelpCircle, LogOut, Activity, Zap, Wifi, ChevronDown, Box
 } from 'lucide-react';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 import { useUIStore } from '@/stores/useUIStore';
@@ -35,6 +36,8 @@ import { ThreeDGenWorkspace } from '@/features/workspace/ThreeDGenWorkspace';
 
 import { HistoryItem } from '@/types/new-ui';
 // import { useGenerationHistory } from '@/hooks/useBackendData';
+
+import { cn } from '@/lib/utils';
 
 interface CreativeWorkspaceLayoutProps {
   onToggleLayout?: () => void;
@@ -280,8 +283,44 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
     });
   }, []);
 
+  // ponytail: Refactor sidebar styling for consistency with improved navbar
+  const getSidebarItemClass = (label: string) => {
+    const isActive = activeSidebarItem === label;
+    return cn(
+      'flex items-center gap-3 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-200',
+      'text-left w-full group',
+      isActive
+        ? 'text-[hsl(var(--surface-2))] bg-[hsl(var(--primary))] shadow-[0_0_20px_hsl(var(--primary)/0.2)]'
+        : 'text-white/40 hover:text-white hover:bg-white/5'
+    );
+  };
+
+  const getSidebarIconClass = (isActive: boolean) => {
+    return cn(
+      'w-4 h-4',
+      isActive
+        ? 'text-[hsl(var(--surface-2))]'
+        : 'text-white/20 group-hover:text-[hsl(var(--primary))] transition-colors'
+    );
+  };
+
+  const getSidebarLinksClass = () => {
+    return cn(
+      'flex-1 py-4 px-4 overflow-y-auto space-y-1.5 min-h-0' // Reduced padding from py-6
+    );
+  };
+
+  const getLogoHeaderClass = () => {
+    return cn(
+      'h-14', // Reduced from h-16
+      'flex items-center px-6',
+      'border-b border-white/5',
+      'flex-shrink-0'
+    );
+  };
+
   return (
-    <div className="flex flex-1 min-h-0 min-w-0 bg-[#1a1b1e] text-white" id="creative-layout-container">
+    <div className="flex flex-1 min-h-0 min-w-0 bg-[hsl(var(--surface-1))] text-white" id="creative-layout-container">
       {/* Mobile drawer overlay for the main sidebar */}
       {mobileMenuOpen && (
         <div
@@ -292,12 +331,12 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
       )}
 
       {/* Sidebar panel — responsive: static on desktop, slide-in drawer on mobile */}
-      <aside className={`${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed inset-y-0 left-0 z-50 w-[260px] max-w-[85vw] lg:static lg:z-20 lg:w-[280px] bg-[#121214] border-r border-white/5 flex flex-col min-h-0 flex-shrink-0 transition-transform duration-200`} id="creative-sidebar">
+      <aside className={`${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed inset-y-0 left-0 z-50 w-[260px] max-w-[85vw] lg:static lg:z-20 lg:w-[280px] bg-[hsl(var(--surface-2))] border-r border-white/5 flex flex-col min-h-0 flex-shrink-0 transition-all duration-200`} id="creative-sidebar">
         {/* Minimal Brand Header */}
-        <div className="h-16 flex items-center px-6 border-b border-white/5 flex-shrink-0" id="creative-logo-header">
+        <div className={getLogoHeaderClass()} id="creative-logo-header">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#facc15] flex items-center justify-center shadow-[0_0_15px_rgba(250,204,21,0.2)]">
-              <Sparkles size={18} className="text-[#121214]" />
+            <div className="w-8 h-8 rounded-lg bg-[hsl(var(--primary))] flex items-center justify-center shadow-[0_0_15px_hsl(var(--primary)/0.2)]">
+              <Sparkles size={18} className="text-[hsl(var(--surface-2))]" />
             </div>
             <div className="flex flex-col leading-none">
               <span className="text-[11px] font-black tracking-[0.2em] uppercase text-white">AI Studio</span>
@@ -307,8 +346,8 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
         </div>
 
         {/* Navigation Links */}
-        <div className="flex-1 py-6 px-4 overflow-y-auto space-y-1 min-h-0" id="creative-sidebar-links">
-          <div className="px-3 mb-4">
+        <div className={getSidebarLinksClass()} id="creative-sidebar-links">
+          <div className="px-4 mb-4 mt-6">
             <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Navigation</span>
           </div>
           {sidebarItems.map((item) => {
@@ -318,14 +357,10 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
               <button
                 key={item.label}
                 onClick={() => { setActiveSidebarItem(item.label); setMobileMenuOpen(false); }}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-left w-full group ${
-                  isActive
-                    ? 'text-[#121214] bg-[#facc15] shadow-[0_0_20px_rgba(250,204,21,0.2)]'
-                    : 'text-white/40 hover:text-white hover:bg-white/5'
-                }`}
+                className={getSidebarItemClass(item.label)}
                 id={`sidebar-nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
               >
-                <Icon size={16} className={isActive ? 'text-[#121214]' : 'text-white/20 group-hover:text-[#facc15] transition-colors'} />
+                <Icon className={getSidebarIconClass(isActive)} size={16} />
                 <span>{item.label}</span>
               </button>
             );
@@ -355,7 +390,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
                     className="flex items-center justify-between w-full px-4 py-2.5 rounded-xl bg-white/5 border border-transparent hover:border-white/10 transition-all duration-200 text-left cursor-pointer group"
                   >
                     <div className="flex items-center gap-2">
-                      <Cpu className="w-4 h-4 text-[#facc15]" />
+                      <Cpu className="w-4 h-4 text-[hsl(var(--primary))]" />
                       <span className="text-[10px] font-black uppercase tracking-widest text-white/60">GPU Stats</span>
                     </div>
                     <ChevronDown size={12} className={`text-white/20 transform transition-transform duration-200 ${gpuExpanded ? 'rotate-180' : ''}`} />
@@ -372,7 +407,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-white/40 font-black uppercase tracking-widest">Load</span>
-                        <span className="font-black text-[#facc15]">
+                        <span className="font-black text-[hsl(var(--primary))]">
                           {runtime ? `${runtime.gpu_utilization}%` : '—'}
                         </span>
                       </div>
@@ -400,7 +435,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
                   {runtime && (
                     <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-[#facc15] transition-all duration-300"
+                        className="h-full bg-[hsl(var(--primary))] transition-all duration-300"
                         style={{ width: `${vramPercentage}%` }}
                       />
                     </div>
@@ -409,22 +444,11 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
               </div>
             )}
           </div>
-
-          <div className="flex flex-col gap-1 px-4">
-            <button className="flex items-center gap-3 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white hover:bg-white/5 transition-all text-left">
-              <HelpCircle size={16} />
-              <span>Support</span>
-            </button>
-            <button className="flex items-center gap-3 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-rose-500/60 hover:text-rose-500 hover:bg-rose-500/10 transition-all text-left">
-              <LogOut size={16} />
-              <span>Sign Out</span>
-            </button>
-          </div>
         </div>
       </aside>
 
       {/* Main viewport panels */}
-        <main ref={mainRef} className="flex-1 flex flex-col bg-[#1a1b1e] overflow-hidden" id="creative-main-viewport">
+        <main ref={mainRef} className="flex-1 flex flex-col bg-[hsl(var(--surface-1))] overflow-hidden" id="creative-main-viewport">
         {activeSidebarItem === '3D Gen' && (
           <ThreeDGenWorkspace embedded />
         )}

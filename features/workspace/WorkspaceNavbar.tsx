@@ -46,36 +46,35 @@ export function WorkspaceNavbar() {
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
-    // Dispatch Cmd+K palette search or trigger workspace prompt search
     document.dispatchEvent(new CustomEvent('workspace-search', { detail: { query: searchQuery } }));
   };
 
   return (
     <header
-      className="sticky top-0 z-40 w-full bg-[#121214]/80 backdrop-blur-xl border-b border-white/5 shadow-2xl transition-all"
+      className="sticky top-0 z-40 w-full bg-[hsl(var(--surface-1))/0.95] backdrop-blur-xl border-b border-[hsl(var(--border))/0.2] transition-all h-12 shadow-sm"
       id="global-workspace-navbar"
     >
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-6">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-full flex items-center justify-between gap-4">
         {/* Left Section: Mobile Menu + Brand Logo + Nav Links */}
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-3">
           {/* Mobile hamburger */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-xl text-white/60 hover:bg-white/5 transition-all"
+            className="md:hidden p-2 rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--surface-2))] hover:text-[hsl(var(--foreground))] transition-all btn-icon"
             aria-label="Toggle navigation"
           >
-            {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+            {mobileMenuOpen ? <X size={16} /> : <Menu size={16} />}
           </button>
 
           {/* Logo & Brand Badge */}
-          <Link href="/" className="flex items-center gap-3 group" aria-label="Home">
-            <div className="w-9 h-9 rounded-xl bg-[#facc15] flex items-center justify-center shadow-[0_0_20px_rgba(250,204,21,0.3)] group-hover:scale-105 transition-transform">
-              <Boxes size={20} className="text-[#121214]" />
+          <Link href="/" className="flex items-center gap-2 group" aria-label="Home">
+            <div className="w-7 h-7 rounded-lg bg-[hsl(var(--primary))] flex items-center justify-center shadow-[0_0_12px_hsl(var(--primary)/0.15)] group-hover:scale-105 transition-transform duration-200">
+              <Boxes size={16} className="text-[hsl(var(--surface-2))]" />
             </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <span className="text-base font-black tracking-tighter text-white uppercase">{APP_NAME}</span>
-                <span className="px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.2em] rounded bg-[#facc15]/10 text-[#facc15] border border-[#facc15]/20">
+            <div className="flex flex-col hidden sm:flex">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-black tracking-tighter text-white uppercase">{APP_NAME}</span>
+                <span className="px-1.5 py-0.5 text-[7px] font-black uppercase tracking-[0.2em] rounded bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/20">
                   PRO
                 </span>
               </div>
@@ -83,7 +82,7 @@ export function WorkspaceNavbar() {
           </Link>
 
           {/* Primary Nav Links */}
-          <nav className="hidden lg:flex items-center gap-2 ml-4 pl-6 border-l border-white/5" id="top-nav-links">
+          <nav className="hidden lg:flex items-center gap-1 ml-2 pl-3 border-l border-[hsl(var(--border))/0.2]" id="top-nav-links">
             {NAV_LINKS.map((link) => {
               const Icon = link.icon;
               const active = isActive(link.href);
@@ -92,13 +91,13 @@ export function WorkspaceNavbar() {
                   key={link.href}
                   href={link.href}
                   className={cn(
-                    'flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all',
+                    'flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200',
                     active
-                      ? 'text-[#121214] bg-[#facc15]'
-                      : 'text-white/40 hover:text-white hover:bg-white/5'
+                      ? 'text-[hsl(var(--surface-2))] bg-[hsl(var(--primary))] shadow-[0_0_10px_hsl(var(--primary)/0.15)]'
+                      : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
                   )}
                 >
-                  <Icon size={14} />
+                  <Icon size={12} />
                   <span>{link.label}</span>
                 </Link>
               );
@@ -109,34 +108,33 @@ export function WorkspaceNavbar() {
         {/* Center: Command / Search Bar */}
         <div className="flex-1 max-w-lg hidden sm:block mx-2" id="centered-search-container">
           <form onSubmit={handleSearchSubmit} className="relative w-full group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20 group-focus-within:text-[#facc15] transition-colors" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[hsl(var(--muted-foreground))] group-focus-within:text-[hsl(var(--primary))] transition-colors duration-200" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search prompts, assets, models..."
-              className="w-full h-11 pl-12 pr-16 text-[11px] font-bold text-white bg-white/5 hover:bg-white/10 border border-transparent hover:border-white/10 rounded-2xl focus:outline-none focus:bg-[#1a1b1e] focus:border-[#facc15]/30 transition-all"
+              className="w-full h-9 pl-10 pr-4 text-[11px] font-medium text-[hsl(var(--foreground))] bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))/0.3] rounded-lg
+                         placeholder:text-[hsl(var(--muted-foreground))/0.4]
+                         hover:border-[hsl(var(--border))/0.5]
+                         focus:outline-none focus:bg-[hsl(var(--surface-2))] focus:border-[hsl(var(--primary))] focus:ring-2 focus:ring-[hsl(var(--primary))/0.2]
+                         transition-all duration-200"
               onClick={() => {
                 document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true, bubbles: true }));
               }}
             />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-              <kbd className="text-[9px] font-black tracking-widest px-2 py-1 rounded-lg bg-black/40 text-white/20 border border-white/5">
-                ⌘ K
-              </kbd>
-            </div>
           </form>
         </div>
 
         {/* Right Section: Telemetry & Actions */}
-        <div className="flex items-center gap-3" id="top-nav-actions">
+        <div className="flex items-center gap-2" id="top-nav-actions">
           {/* Active Batch Queue indicator badge */}
           {activeBatchCount > 0 && (
             <Link
               href="/workspace?tab=3d-gen"
-              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 text-[10px] font-black uppercase tracking-widest animate-pulse"
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[hsl(var(--neon-blue))/0.1] border border-[hsl(var(--neon-blue))/0.2] text-[hsl(var(--neon-blue))] text-[9px] font-black uppercase tracking-wider animate-pulse badge-status-info"
             >
-              <Wand2 size={13} />
+              <Wand2 size={11} />
               <span>{activeBatchCount} Running</span>
             </Link>
           )}
@@ -148,21 +146,21 @@ export function WorkspaceNavbar() {
           <Link
             href="/settings"
             className={cn(
-              'w-10 h-10 rounded-xl flex items-center justify-center transition-all',
+              'w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 btn-icon',
               pathname.startsWith('/settings')
-                ? 'bg-[#facc15] text-[#121214]'
-                : 'bg-white/5 text-white/40 hover:text-white hover:bg-white/10'
+                ? 'bg-[hsl(var(--primary))/0.1] text-[hsl(var(--primary))]'
+                : ''
             )}
             title="Studio Settings"
           >
-            <Settings size={18} />
+            <Settings size={16} />
           </Link>
         </div>
       </div>
 
       {/* Mobile Navigation Dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-[hsl(var(--border)/0.6)] bg-[hsl(var(--surface-0))] px-4 py-3 space-y-2 animate-fadeIn">
+        <div className="md:hidden border-t border-[hsl(var(--border))/0.2] bg-[hsl(var(--surface-0))] px-4 py-3 space-y-1 animate-fadeIn">
           {NAV_LINKS.map((link) => {
             const Icon = link.icon;
             const active = isActive(link.href);
@@ -172,17 +170,17 @@ export function WorkspaceNavbar() {
                 href={link.href}
                 onClick={() => setMobileMenuOpen(false)}
                 className={cn(
-                  'flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all',
+                  'flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200',
                   active
-                    ? 'text-white bg-[hsl(var(--primary))]'
+                    ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))/0.1]'
                     : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
                 )}
               >
-                <div className="flex items-center gap-2.5">
-                  <Icon size={16} />
+                <div className="flex items-center gap-2">
+                  <Icon size={14} />
                   <span>{link.label}</span>
                 </div>
-                <ChevronRight size={14} className="opacity-60" />
+                <ChevronRight size={12} className="opacity-60" />
               </Link>
             );
           })}

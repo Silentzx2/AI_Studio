@@ -163,7 +163,7 @@ export default function MyAssetsTab({
                       title="Favorite model"
                       id={`asset-fav-btn-${item.id}`}
                     >
-                      <Heart size={12} className={item.isFavorite ? 'fill-rose-500' : ''} />
+                      <Heart size={12} className={item.isFavorite ? 'fill-[hsl(var(--destructive))]' : ''} />
                     </button>
                     <button
                       onClick={(e) => onDeleteProject(e, item.id)}

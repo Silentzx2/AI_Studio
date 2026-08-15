@@ -26,6 +26,7 @@ import { WorkspaceNavbar } from "./WorkspaceNavbar";
 import { useGenerationStore } from "@/stores/useGenerationStore";
 import { useGeneration } from "@/hooks/useGeneration";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 function jobToAsset(job: any): AssetItem {
   const prompt: string = job?.prompt || job?.config?.prompt || "Untitled";
@@ -122,17 +123,17 @@ export function ThreeDGenWorkspace({ embedded = false }: { embedded?: boolean })
   return (
     <div className={`flex flex-col overflow-hidden bg-[hsl(var(--surface-0))] ${embedded ? 'h-full' : 'h-screen'}`}>
       {!embedded && <WorkspaceNavbar />}
-      <div className="flex flex-1 min-h-0 h-full">
-        {/* Left Panel - Generation Controls (Slimmer: 280px) */}
-        <div className="w-[280px] max-w-[80vw] shrink-0 h-full border-r border-[hsl(var(--border))]">
+      <div className="flex flex-1 min-h-0 h-full relative">
+        {/* Left Panel - Generation Controls (280px) */}
+        <div className="w-[280px] max-w-[80vw] shrink-0 h-full border-r border-[hsl(var(--border)/0.15)] bg-[hsl(var(--surface-1))] transition-all duration-200">
           <GenerationControls />
         </div>
         {/* Center Panel - Main 3D Canvas (Maximized Viewport) */}
         <div className="flex-1 min-w-0 min-h-0 flex flex-col relative h-full w-full">
           <Canvas3D isGenerating={isGenerating} />
         </div>
-        {/* Right Panel - Asset Library & Inspector (Slimmer: 260px) */}
-        <div className="w-[260px] max-w-[80vw] shrink-0 h-full border-l border-[hsl(var(--border))]">
+        {/* Right Panel - Asset Library & Inspector (260px) */}
+        <div className="w-[260px] max-w-[80vw] shrink-0 h-full border-l border-[hsl(var(--border)/0.15)] bg-[hsl(var(--surface-1))] transition-all duration-200 scrollbar-thin">
           <AssetPanel
             assets={assets}
             selectedAssetId={selectedAssetId}

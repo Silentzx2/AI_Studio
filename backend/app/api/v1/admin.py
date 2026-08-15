@@ -88,7 +88,7 @@ def _resolve_log_file() -> Path:
         return _LOG_FILE
     candidates = [
         os.environ.get("STUDIO_LOG_FILE"),
-        str(Path(getattr(settings, "storage_local_path", "backend/storage")).parent.parent / "logs" / "app.log")
+        str(Path(getattr(settings, "storage_local_path", "./storage")).parent.parent / "logs" / "app.log")
         if getattr(settings, "storage_local_path", None)
         else None,
     ]

@@ -32,6 +32,11 @@ scripts/.cloudflare_tunnels/*.url
 .vscode/
 .idea/
 
+# Local runtime artifacts
+*.bak
+*.dir
+*.dat
+
 # OS
 .DS_Store
 Thumbs.db

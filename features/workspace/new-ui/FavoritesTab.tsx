@@ -40,13 +40,13 @@ export default function FavoritesTab({
       {/* Header section with refined alignment */}
       <div className="flex flex-col gap-2 max-w-4xl">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center border border-rose-500/20">
-            <Heart size={20} className="text-rose-500 fill-rose-500" />
+          <div className="w-10 h-10 rounded-xl bg-[hsl(var(--destructive)/0.1)] flex items-center justify-center border border-[hsl(var(--destructive)/0.2)]">
+            <Heart size={20} className="text-[hsl(var(--destructive))] fill-[hsl(var(--destructive))]" />
           </div>
           <div>
             <h2 className="text-xl font-black text-[hsl(var(--foreground))] uppercase tracking-tight">Favorite Creations</h2>
             <div className="flex items-center gap-2 mt-0.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+              <div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--destructive))] animate-pulse" />
               <p className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-widest">
                 {favoriteItems.length} Saved Assets in Vault
               </p>
@@ -61,7 +61,7 @@ export default function FavoritesTab({
           <div
             key={item.id}
             onClick={() => onLoadProject(item)}
-            className="group bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] hover:border-rose-500/30 rounded-2xl p-3 flex flex-col gap-3 cursor-pointer transition-all hover:scale-[1.01]"
+            className="group bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] hover:border-[hsl(var(--destructive)/0.3)] rounded-2xl p-3 flex flex-col gap-3 cursor-pointer transition-all hover:scale-[1.01]"
             id={`favorite-card-${item.id}`}
           >
             {/* Visual Box */}
@@ -78,7 +78,7 @@ export default function FavoritesTab({
                   title="Remove from favorites"
                   id={`remove-fav-btn-${item.id}`}
                 >
-                  <Heart size={12} className="fill-rose-500" />
+                  <Heart size={12} className="fill-[hsl(var(--destructive))]" />
                 </button>
                 <button
                   onClick={(e) => onDeleteProject(e, item.id)}
