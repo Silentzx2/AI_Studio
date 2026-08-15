@@ -1173,7 +1173,19 @@ GET /api/v1/pipelines/workspace-types
 
 ### Supported model ids in the current catalog
 
-`hunyuan3d-2.1`, `trellis`, `unirig`
+All of these are valid `AI_PROVIDER` values and are switchable via `POST /api/v1/runtime/provider` and resolvable via `get_provider()` (the registry was synced with the engine provider map in **v3.8.7**, which also re-enabled `hunyuan3d-2-mini` and `triposg` that were previously rejected by `validate_provider_switch`).
+
+- `hunyuan3d-2.1` — text-to-3D, image-to-3D, texture (16 GB VRAM)
+- `hunyuan3d-2` — text-to-3D, image-to-3D, texture (12 GB VRAM)
+- `hunyuan3d-2-mini` — image-to-3D only, texture via Hunyuan3D-2 paint weights (6 GB VRAM, verified low-VRAM)
+- `trellis` — image-to-3D, texture (8 GB VRAM; native CUDA build — excluded from one-click install)
+- `triposg` — image-to-3D (rectified-flow, no texture; 8 GB VRAM)
+- `anigen` — character rigging/animation (6.2 GB VRAM; native build)
+- `unirig` — rigging/animation (8 GB VRAM; native build)
+- `detailgen3d` — post-processing detail enhancement (4 GB VRAM)
+- `mock` — testing provider (no VRAM)
+
+Aliases `hunyuan3d` and `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`.
 
 
 ## Runtime APIs
@@ -1469,6 +1481,14 @@ async function generate3D(prompt: string) {
 
 ## Changelog
 
+### v3.8.7 (Provider Registry Sync & Low-VRAM Load Fix)
+
+#### Fixed
+- `POST /api/v1/runtime/provider` and `get_provider()` now correctly resolve `hunyuan3d-2-mini` and `triposg` (previously `validate_provider_switch()` rejected them and `get_provider()` silently fell back to the mock provider). The provider registry (`app/core/providers/registry.py`) is now in sync with the engine provider map.
+- Low-VRAM model loading: the GPU-placement check after load no longer aborts verified low-VRAM runs. With Accelerate CPU offload / `device_map`, tensors intentionally rest on CPU between steps, so the check now skips the hard assertion for offloaded models and only fails on a genuine silent CPU fallback.
+
+---
+
 ### v3.4.3 (Reticle Removal + Unified Logger)
 
 #### Added
@@ -1533,7 +1553,7 @@ async function generate3D(prompt: string) {
 
 ---
 
-*Last Updated: August 9, 2026*
+*Last Updated: August 15, 2026*
 
 
 ### Frontend Connectivity Notes

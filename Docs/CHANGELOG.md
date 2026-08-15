@@ -1,5 +1,15 @@
 # AI 3D Studio — Changelog
 
+## v3.8.7 — Backend Audit: Provider Registry Sync & Low-VRAM Load Fix (August 15, 2026)
+
+### Fixed
+- **Provider switching/selection broken for `hunyuan3d-2-mini` and `triposg`**: these providers were registered in `runtime/engine.py::_PROVIDER_MAP` (so generation could load them) but were missing from `app/core/providers/registry.py::_RUNTIME_PROVIDER_MAP` and `_KNOWN_PROVIDERS`. As a result `validate_provider_switch()` rejected them and `get_provider()` silently fell back to the mock provider. Added both to the registry maps so switching, availability, and `get_provider()` resolve the real local providers. (Root cause: registry map drifted out of sync with the engine map when the two providers were introduced.)
+- **Low-VRAM model loading aborted by GPU-placement check**: `runtime/accelerate_loader.verify_gpu_placement()` asserted model tensors were on CUDA immediately after load. In verified low-VRAM mode Accelerate's `enable_model_cpu_offload` / `device_map` intentionally keep tensors on CPU between forward passes, so the check raised `RuntimeError` and crashed every low-VRAM load of Hunyuan3D (2 / 2.1 / Mini). The check now skips the hard assertion when the model is offloaded via Accelerate (CPU↔GPU by design) and only fails on a genuine silent CPU fallback.
+
+### Verified
+- `test_accelerate_integration.py` import-safe suite passes.
+- Registry now reports `validate_provider_switch("hunyuan3d-2-mini")` / `("triposg")` as valid and exposes both in `get_provider()` / availability.
+
 ## v3.8.6 — Build & TypeScript Type-Hardening (August 15, 2026)
 
 ### Fixed

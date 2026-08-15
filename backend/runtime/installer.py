@@ -1501,9 +1501,21 @@ def install_provider(
         sufficient, space_err = _check_disk_space(provider_name)
         if not sufficient:
             return {"success": False, "error": space_err}
-        # ponytail: setup.sh handles repo cloning, venv creation, and dependency
-        # installation. install_provider() now only downloads weights and updates
-        # state. If the runtime is missing, setup.sh must be re-run.
+        # ponytail: this is the single install entry point used by the admin UI
+        # "Install" action, which may be triggered on a model whose repo/venv was
+        # never prepared (e.g. a runtime where setup/colab only prepared a
+        # subset). Ensure the repo is cloned and the per-model venv exists before
+        # pulling weights, so the model can actually load afterward. clone_repo /
+        # install_repo_deps are idempotent (skip if already present).
+        repo_name = meta.get("repo")
+        if repo_name:
+            st = get_install_status().get(provider_name, {})
+            if not st.get("repo_ready"):
+                r = clone_repo(repo_name, log_cb=log_cb)
+                if not r.get("success"):
+                    return {"success": False, "error": r.get("error", "Repo clone failed")}
+            if not st.get("venv_ready"):
+                install_repo_deps(repo_name, log_cb=log_cb)
         weight_key = meta.get("weight_key")
         if weight_key:
             if log_cb:

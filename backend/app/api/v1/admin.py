@@ -954,7 +954,11 @@ async def list_models():
     """List all models/providers — used by ModelsTab."""
     try:
         from runtime.engine import get_engine
-        from runtime.installer import PROVIDER_METADATA, get_install_status
+        from runtime.installer import (
+            PROVIDER_METADATA,
+            HF_MODELS,
+            get_install_status,
+        )
         from runtime.storage import get_storage_config
         from runtime.capability import (
             is_model_preparable_for_colab,
@@ -997,10 +1001,11 @@ async def list_models():
                 # model-tab "can't install on this runtime" gray/warning state.
                 "colab_preparable": is_model_preparable_for_colab(name),
                 "install_block_reason": get_colab_incompatibility_reason(name),
-                "reason": inst.get("reason"),
-                "hf_repo": meta.get("hf_repo"),
-                "size_estimate_gb": meta.get("size_estimate_gb"),
-                "size_mb": int((meta.get("size_estimate_gb") or 0) * 1024),
+                # ponytail: size/repo live in HF_MODELS (keyed by provider id),
+                # NOT PROVIDER_METADATA — the latter only stores the REPOS key.
+                "hf_repo": HF_MODELS.get(name, {}).get("repo"),
+                "size_estimate_gb": HF_MODELS.get(name, {}).get("size_estimate_gb"),
+                "size_mb": int((HF_MODELS.get(name, {}).get("size_estimate_gb") or 0) * 1024),
                 "download_progress": _dl_snapshot(name) if name in _DL_STATE else None,
             })
         return success({"models": models})

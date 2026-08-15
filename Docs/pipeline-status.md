@@ -2,7 +2,7 @@
 
 > **Version**: 3.4.3 (Reticle Removal + Unified Logger)  
 > **Status**: ✅ **COMPLETE**  
-> **Last Updated**: August 9, 2026
+> **Last Updated**: August 15, 2026
 
 ---
 
@@ -535,16 +535,18 @@ The current workspace model pickers are backed by the live registry snapshot and
 
 ### Registered model ids
 
-`hunyuan3d-2-mini`, `hunyuan3d-2.1`, `trellis`, `triposg`, `unirig`, `detailgen3d`
+`hunyuan3d-2.1`, `hunyuan3d-2`, `hunyuan3d-2-mini`, `trellis`, `triposg`, `anigen`, `unirig`, `detailgen3d` (plus `mock` for testing; aliases `hunyuan3d` / `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`). As of v3.8.7 all are switchable via `/runtime/provider` and resolvable via `get_provider()` (the registry map was synced with the engine).
 
 ### Capability summary
 
 | Model | Category | Workspace compatibility | Key capabilities | VRAM |
 |------|----------|------------------------|------------------|------|
 | Hunyuan3D 2.1 | 3D generation | mesh-generation, texture-generation, post-processing | text/image-to-3D, texture generation | 16 GB |
+| Hunyuan3D 2 | 3D generation | mesh-generation, texture-generation, post-processing | text/image-to-3D, texture generation | 12 GB |
 | Hunyuan3D-2 Mini | 3D generation | mesh-generation | image-to-3D (texture via Hunyuan3D-2 paint weights) | 6 GB |
 | Trellis | 3D generation | mesh-generation, texture-generation | image-to-3D, text-to-3D, texture generation | 8 GB |
 | TripoSG | 3D generation | mesh-generation | image-to-3D (no texture) | 8 GB |
+| AniGen | Rigging | rigging, animation | character rigging, animation | 6.2 GB |
 | UniRig | Rigging | rigging, animation | rigging, animation | 8 GB |
 | DetailGen3D | Post-processing | post-processing | detail enhancement | 4 GB |
 

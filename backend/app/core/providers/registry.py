@@ -26,11 +26,15 @@ _RUNTIME_PROVIDER_ALIASES = {
 
 # ponytail: keep this map in sync with runtime/engine.py::_PROVIDER_MAP — it is
 # the availability/selection source of truth used by get_provider() and
-# validate_provider_switch().
+# validate_provider_switch(). (hunyuan3d-2-mini + triposg were previously
+# missing here, so switching to / get_provider() for them silently fell back to
+# mock despite the engine being able to load them.)
 _RUNTIME_PROVIDER_MAP = {
     "hunyuan3d-2.1": ("app.core.providers.hunyuan3d_local", "Hunyuan3D21LocalProvider"),
     "hunyuan3d-2": ("app.core.providers.hunyuan3d_local", "Hunyuan3D2LocalProvider"),
+    "hunyuan3d-2-mini": ("app.core.providers.hunyuan3d_local", "Hunyuan3D2MiniLocalProvider"),
     "trellis": ("app.core.providers.trellis_local", "TRELLISLocalProvider"),
+    "triposg": ("app.core.providers.triposg_local", "TripoSGLocalProvider"),
     "anigen": ("app.core.providers.anigen_provider", "AniGenProvider"),
     "unirig": ("app.core.providers.unirig_provider", "UniRigProvider"),
     "detailgen3d": ("app.core.providers.detailgen3d", "DetailGen3DProvider"),
@@ -87,7 +91,9 @@ _KNOWN_PROVIDERS = [
     "hunyuan3d",
     "hunyuan3d-2",
     "hunyuan3d-2.1",
+    "hunyuan3d-2-mini",
     "trellis",
+    "triposg",
     "unirig",
     "instant-mesh",
     "anigen",

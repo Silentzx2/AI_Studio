@@ -575,13 +575,26 @@ async def verify_runtime():
         inst = RuntimeInstaller()
         env = inst.verify_system()
         install = inst.verify_installation()
+        # ponytail: verify_environment() nests results under python/torch/git
+        # sub-dicts (not flat *_ok keys), and verify_installation() returns
+        # per-provider status plus providers_available/total — not repos_cloned/
+        # weights_downloaded. Map the real shapes here.
+        cuda_available = bool(env.get("torch", {}).get("cuda_available", False))
+        repos_cloned = sum(
+            1 for v in install.values()
+            if isinstance(v, dict) and v.get("repo_ready")
+        )
+        weights_downloaded = sum(
+            1 for v in install.values()
+            if isinstance(v, dict) and v.get("weights_ready")
+        )
         return success({
-            "system_ok": env.get("python_ok", True),
-            "cuda_available": env.get("cuda_available", False),
-            "gpu_available": env.get("gpu_available", False),
+            "system_ok": bool(env.get("python", {}).get("ok", False)),
+            "cuda_available": cuda_available,
+            "gpu_available": cuda_available,
             "blender_available": env.get("blender_available", False),
-            "repos_cloned": install.get("repos_cloned", 0),
-            "weights_downloaded": install.get("weights_downloaded", 0),
+            "repos_cloned": repos_cloned,
+            "weights_downloaded": weights_downloaded,
             "providers_available": install.get("providers_available", 0),
             "providers_total": install.get("providers_total", 0),
             "can_generate": install.get("can_generate", False),

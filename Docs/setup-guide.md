@@ -68,9 +68,16 @@
 
 | Model | VRAM Required | Quality | Speed |
 |-------|---------------|---------|-------|
-| **Trellis** | 12 GB | High quality | ~60 seconds |
+| **DetailGen3D** | 4 GB | Post-processing | ~15 seconds |
+| **Hunyuan3D-2 Mini** | 6 GB | image-to-3D | ~45 seconds |
+| **AniGen** | 6.2 GB | Rigging / animation | ~30 seconds |
+| **Trellis** | 8 GB (12 GB native-build) | High quality | ~60 seconds |
+| **TripoSG** | 8 GB | image-to-3D | ~60 seconds |
 | **UniRig** | 8 GB | Rigging / animation | ~30 seconds |
+| **Hunyuan3D-2** | 12 GB | High quality | ~75 seconds |
 | **Hunyuan3D-2.1** | 16 GB | High quality | ~90 seconds |
+
+> VRAM figures are the verified normal-footprint requirements. Hunyuan3D 2 / 2.1 / 2-Mini also support a verified **low-VRAM** mode (CPU offload) for constrained GPUs; TRELLIS, TripoSG, AniGen, UniRig, and DetailGen3D do not (they require a native CUDA build or have no verified low-VRAM path).
 
 
 ---
@@ -277,7 +284,8 @@ MAX_UPLOAD_SIZE=52428800  # 50MB
 AI_PROVIDER=hunyuan3d-2.1
 RUNTIME_MODE=local
 
-# Options: mock, hunyuan3d-2.1, hunyuan3d-2, trellis, unirig
+# Options: mock, hunyuan3d-2.1, hunyuan3d-2, hunyuan3d-2-mini, trellis, triposg, anigen, unirig, detailgen3d
+# (aliases: hunyuan3d, hunyuan3d-1.0 -> hunyuan3d-2.1)
 
 # ===== GPU SETTINGS =====
 CUDA_DEVICE=auto
@@ -663,5 +671,5 @@ After successful installation:
 - The workspace model pickers read from `GET /api/v1/pipelines/workspace-models`.
 - Runtime status comes from `GET /api/v1/runtime/status` and `GET /api/v1/runtime/health`.
 - Runtime options for the UI come from `GET /api/v1/runtime/options`.
-- The current model ids exposed by the registry are: `hunyuan3d-2.1`, `trellis`, `unirig`.
+- The current model ids exposed by the registry are: `hunyuan3d-2.1`, `hunyuan3d-2`, `hunyuan3d-2-mini`, `trellis`, `triposg`, `anigen`, `unirig`, `detailgen3d` (plus `mock`; aliases `hunyuan3d` / `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`). As of v3.8.7 the registry map is synced with the engine, so `hunyuan3d-2-mini` and `triposg` are also switchable via `/runtime/provider` and resolvable via `get_provider()` (previously these silently fell back to mock).
 - The backend does not expose a bare `GET /api/v1/runtime` route.

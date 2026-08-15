@@ -15,7 +15,7 @@
 
 <p align="center">
 
-  <img src="https://img.shields.io/badge/Version-3.8.6-8A2BE2?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Version-3.8.7-8A2BE2?style=for-the-badge">
 
   <img src="https://img.shields.io/badge/Pipeline-V2-Complete-success?style=for-the-badge">
 
@@ -89,6 +89,7 @@
 | **TripoSG** | 3D generation | ~8 GB | ~60s | image-to-3D (rectified-flow, no texture) |
 | **DetailGen3D** | Post-processing | ~4 GB | ~15s | detail enhancement (mesh refinement, no texture) |
 | **UniRig** | Rigging | ~8 GB | ~30s | skeletal rigging, animation |
+| **AniGen** | Rigging | ~6.2 GB | ~30s | character skeletal rigging, animation |
 
 ### Pipeline & Workspace APIs
 
@@ -374,7 +375,8 @@ CELERY_RESULT_BACKEND=redis://localhost:6379/1
 
 # ===== AI PROVIDER =====
 AI_PROVIDER=hunyuan3d-2.1
-# Options: mock, trellis, hunyuan3d-2, hunyuan3d-2.1, hunyuan3d-2-mini, triposg, detailgen3d, unirig
+# Options: mock, hunyuan3d-2.1, hunyuan3d-2, hunyuan3d-2-mini, trellis, triposg, anigen, unirig, detailgen3d
+# (aliases: hunyuan3d, hunyuan3d-1.0 -> hunyuan3d-2.1)
 
 # ===== GPU SETTINGS =====
 CUDA_DEVICE=auto
@@ -1027,5 +1029,5 @@ See [Pipeline Status Document](docs/pipeline-status.md) for detailed breakdown.
 ---
 
 <p align="center">
-  <sub>Last Updated: August 15, 2026 | Version 3.8.6 | Pipeline V2 Complete</sub>
+  <sub>Last Updated: August 15, 2026 | Version 3.8.7 | Pipeline V2 Complete</sub>
 </p>

@@ -141,6 +141,27 @@ def _safe_exists(p: Path | str) -> bool:
         return False
 
 
+def _is_accelerate_offloaded(model: Any) -> bool:
+    """True when Accelerate has intentionally offloaded the model to CPU.
+
+    Covers both ``enable_model_cpu_offload`` (per-submodule ``_hf_hook``) and
+    ``device_map`` dispatch (top-level ``hf_device_map``). In both cases tensors
+    legitimately rest on CPU between forward passes and move to GPU on demand —
+    this is the verified low-VRAM behavior, not a silent CPU fallback.
+    """
+    try:
+        if getattr(model, "hf_device_map", None):
+            return True
+        from accelerate.hooks import AlignDevicesHook
+        for m in model.modules():
+            hook = getattr(m, "_hf_hook", None)
+            if isinstance(hook, AlignDevicesHook):
+                return True
+    except Exception:
+        pass
+    return False
+
+
 def verify_gpu_placement(
     model: Any, model_name: str, expected_device: str = "cuda"
 ) -> None:
@@ -148,9 +169,20 @@ def verify_gpu_placement(
 
     Prevents silent CPU fallback. Raises RuntimeError if tensors are not on a
     CUDA device. Logs a warning if the model has no parameters to check.
+
+    Skips the hard assertion when the model is intentionally offloaded via
+    Accelerate (low-VRAM mode) — there the CPU placement is by design.
     """
     try:
         import torch
+        if _is_accelerate_offloaded(model):
+            logger.info(
+                "GPU VERIFICATION SKIPPED for %s: model uses Accelerate offload "
+                "(CPU<->GPU). Tensors rest on CPU between steps by design.",
+                model_name,
+            )
+            return
+
         param = None
         try:
             param = next(model.parameters())
