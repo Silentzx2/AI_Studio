@@ -649,11 +649,11 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
 
   return (
     <div
-      className="flex-1 min-h-0 p-6 flex flex-col lg:flex-row gap-6 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto"
+      className="flex-1 min-h-0 p-4 flex flex-col lg:flex-row gap-4 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto"
       id="rigging-animation-tab-panel"
     >
       {/* Left Input Configuration Panel */}
-      <div className="w-full lg:w-[360px] flex flex-col gap-6 flex-shrink-0" id="rigging-left-panel">
+      <div className="w-full lg:w-[360px] flex flex-col gap-4 flex-shrink-0" id="rigging-left-panel">
         
         {/* SECTION: ASSET & ENGINE */}
         <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-5 shadow-sm" id="rigging-engine-box">
@@ -688,8 +688,8 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
     </button>
   </div>
 ) : uploadedModelUrl ? (
-                <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--neon-green)/0.3)] rounded-xl p-3 flex items-center gap-3 group">
-                  <div className="w-8 h-8 rounded-lg bg-[hsl(var(--neon-green))/0.1] flex items-center justify-center text-[hsl(var(--neon-green))]">
+                <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-3 flex items-center gap-3 group">
+                  <div className="w-8 h-8 rounded-lg bg-[hsl(var(--neon-green))/0.1] flex items-center justify-center text-[hsl(var(--muted-foreground))]">
                     <PersonStanding size={14} />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -922,9 +922,9 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
                 {riggingComplete && (
                   <button
                     onClick={handleExportRigged}
-                    className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-[hsl(var(--neon-green))]/50 rounded-xl py-3 text-[10px] font-black uppercase tracking-widest text-[hsl(var(--foreground))] flex items-center justify-center gap-2 transition-all shadow-sm"
+                    className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-[hsl(var(--border))] rounded-xl py-3 text-[10px] font-black uppercase tracking-widest text-[hsl(var(--foreground))] flex items-center justify-center gap-2 transition-all shadow-sm"
                   >
-                    <Download size={12} className="text-[hsl(var(--neon-green))]" />
+                    <Download size={12} className="text-[hsl(var(--muted-foreground))]" />
                     Export Rigged Asset
                   </button>
                 )}
@@ -952,7 +952,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
         
         {/* Processing State */}
         {isRigging && (
-          <div className="absolute inset-0 bg-[hsl(var(--surface-0)/0.8)] backdrop-blur-sm z-30 flex flex-col items-center justify-center text-center p-8 animate-fadeIn">
+          <div className="absolute inset-0 bg-[hsl(var(--surface-0)/0.8)] backdrop-blur-sm z-30 flex flex-col items-center justify-center text-center p-5 animate-fadeIn">
             <div className="relative">
               <div className="w-20 h-20 rounded-full border-4 border-[hsl(var(--primary))/0.1] border-t-[hsl(var(--primary))] animate-spin" />
               <Bone size={24} className="absolute inset-0 m-auto text-[hsl(var(--primary))] animate-pulse" />
@@ -1002,7 +1002,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
           )}
 
           {riggingComplete && !isRigging && (
-            <div className="flex flex-col items-center gap-6">
+            <div className="flex flex-col items-center gap-4">
               <PersonStanding size={120} className="text-[hsl(var(--primary))/0.2] stroke-[0.5]" />
               <div className="flex items-center gap-4 bg-[hsl(var(--surface-2))/0.5] backdrop-blur-md px-4 py-2 rounded-full border border-[hsl(var(--border))]">
                 <div className="flex items-center gap-2 border-r border-[hsl(var(--border))] pr-4">

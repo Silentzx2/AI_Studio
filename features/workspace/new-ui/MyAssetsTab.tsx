@@ -49,7 +49,7 @@ export default function MyAssetsTab({
   }, [filteredHistory.length, viewMode]);
 
   return (
-    <div className="flex-1 min-h-0 p-8 flex flex-col gap-8 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="my-assets-tab-panel">
+    <div className="flex-1 min-h-0 p-5 flex flex-col gap-5 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="my-assets-tab-panel">
       {/* Intro section with refined Studio layout */}
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div className="flex items-center gap-3">
@@ -73,7 +73,7 @@ export default function MyAssetsTab({
             onClick={() => setViewMode('timeline')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               viewMode === 'timeline'
-                ? 'bg-[hsl(var(--primary))] text-white shadow-sm'
+                ? 'bg-[hsl(var(--primary))] text-[hsl(var(--foreground))] shadow-sm'
                 : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
             }`}
           >
@@ -84,7 +84,7 @@ export default function MyAssetsTab({
             onClick={() => setViewMode('grid')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               viewMode === 'grid'
-                ? 'bg-[hsl(var(--primary))] text-white shadow-sm'
+                ? 'bg-[hsl(var(--primary))] text-[hsl(var(--foreground))] shadow-sm'
                 : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
             }`}
           >
@@ -110,7 +110,7 @@ export default function MyAssetsTab({
                 placeholder="Search generated assets..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl py-2.5 pl-10 pr-4 text-xs text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))] focus:outline-none focus:border-[hsl(var(--neon-amber))] transition-all"
+                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl py-2.5 pl-10 pr-4 text-xs text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))] focus:outline-none focus:border-[hsl(var(--border))] transition-all"
                 id="assets-search-input"
               />
             </div>
@@ -123,7 +123,7 @@ export default function MyAssetsTab({
                   onClick={() => setFormatFilter(fmt)}
                   className={`flex-1 md:flex-initial px-4 py-2 rounded-lg text-xs font-medium transition-all border border-transparent ${
                     formatFilter === fmt
-                      ? 'bg-white/5 text-white'
+                      ? 'bg-[hsl(var(--surface-2))] text-[hsl(var(--foreground))]'
                       : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
                   }`}
                   id={`format-filter-btn-${fmt}`}
@@ -140,7 +140,7 @@ export default function MyAssetsTab({
               <div
                 key={item.id}
                 onClick={() => onLoadProject(item)}
-                className="card-minimal p-3 flex flex-col gap-3 cursor-pointer transition-all hover:border-white/10"
+                className="card-minimal p-3 flex flex-col gap-3 cursor-pointer transition-all hover:border-[hsl(var(--border))]/[0.3]"
                 id={`asset-card-${item.id}`}
               >
                 {/* Visual Box representation of geometric mesh */}
@@ -186,7 +186,7 @@ export default function MyAssetsTab({
                 {/* Labels */}
                 <div className="flex flex-col gap-1" id={`asset-meta-${item.id}`}>
                   <div className="flex justify-between items-start gap-1">
-                    <span className="text-xs font-medium text-[hsl(var(--foreground))] truncate group-hover:text-white transition-colors" id={`asset-title-${item.id}`}>
+                    <span className="text-xs font-medium text-[hsl(var(--foreground))] truncate group-hover:text-[hsl(var(--foreground))] transition-colors" id={`asset-title-${item.id}`}>
                       {item.name}
                     </span>
                     <span className="px-1.5 py-0.5 rounded bg-[hsl(var(--foreground)/0.04)] text-[9px] font-mono text-[hsl(var(--muted-foreground))]">PBR</span>
@@ -195,7 +195,7 @@ export default function MyAssetsTab({
                     {item.prompt}
                   </p>
 
-                  <div className="flex items-center justify-between text-[10px] text-[hsl(var(--muted-foreground))] font-mono mt-2 pt-2 border-t border-white/[0.03]">
+                  <div className="flex items-center justify-between text-[10px] text-[hsl(var(--muted-foreground))] font-mono mt-2 pt-2 border-t border-[hsl(var(--border))]/[0.03]">
                     <span>🕒 {item.timestamp}</span>
                     <span className="text-[hsl(var(--foreground))] font-sans font-medium flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       Open <Play size={8} />

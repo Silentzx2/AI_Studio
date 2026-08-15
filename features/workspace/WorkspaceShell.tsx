@@ -2,7 +2,6 @@
 
 
 import { useEffect, useState, Suspense } from 'react';
-import { WorkspaceNavbar } from './WorkspaceNavbar';
 import { useUIStore } from '@/stores/useUIStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import AnimatedBackground from '@/components/AnimatedBackground';
@@ -46,7 +45,6 @@ function WorkspaceShellContent({ defaultTab }: { defaultTab?: string }) {
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-[hsl(var(--surface-1))] relative">
       <div className="relative z-[3] flex flex-col h-full">
-        <WorkspaceNavbar />
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <CreativeWorkspaceLayout defaultTab={defaultTab} />
         </div>

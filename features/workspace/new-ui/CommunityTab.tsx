@@ -103,7 +103,7 @@ export default function CommunityTab({ onCloneProject, onNavigate }: CommunityTa
   };
 
   return (
-    <div className="flex-1 min-h-0 p-6 flex flex-col gap-6 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="community-tab-panel">
+    <div className="flex-1 min-h-0 p-4 flex flex-col gap-4 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="community-tab-panel">
       {/* Tab Header with Banner */}
       <div className="flex justify-between items-center bg-[hsl(var(--surface-1))] border border-[hsl(var(--border)/0.15)] rounded-xl p-4 flex-wrap gap-4" id="community-header">
         <div id="community-title-meta">
@@ -124,7 +124,7 @@ export default function CommunityTab({ onCloneProject, onNavigate }: CommunityTa
               onClick={() => setFilter(f)}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 filter === f
-                  ? 'bg-white/5 text-white'
+                  ? 'bg-[hsl(var(--surface-2))] text-[hsl(var(--foreground))]'
                   : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
               }`}
               id={`comm-filter-btn-${f}`}
@@ -136,11 +136,11 @@ export default function CommunityTab({ onCloneProject, onNavigate }: CommunityTa
       </div>
 
       {/* Grid of Community Models */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" id="community-grid">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="community-grid">
         {communityModels.map((item) => (
           <div
             key={item.id}
-            className="card-minimal flex flex-col gap-4 relative transition-all hover:border-white/10"
+            className="card-minimal flex flex-col gap-4 relative transition-all hover:border-[hsl(var(--border))]/[0.3]"
             id={`comm-card-${item.id}`}
           >
             {/* Model Preview Thumbnail */}
@@ -172,7 +172,7 @@ export default function CommunityTab({ onCloneProject, onNavigate }: CommunityTa
                 <div className="grid grid-cols-2 gap-2 mt-1">
                   <button
                     onClick={() => handleClone(item)}
-                    className="px-3 py-2 bg-white text-[hsl(var(--surface-0))] font-medium text-[10px] rounded-lg flex items-center justify-center gap-1 transition-all"
+                    className="px-3 py-2 bg-[hsl(var(--surface-2))] text-[hsl(var(--surface-0))] font-medium text-[10px] rounded-lg flex items-center justify-center gap-1 transition-all"
                     id={`clone-comm-btn-${item.id}`}
                   >
                     <Sparkles size={10} className="stroke-[3]" />
@@ -202,7 +202,7 @@ export default function CommunityTab({ onCloneProject, onNavigate }: CommunityTa
             {/* Title & Stats */}
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-0.5">
-                <span className="text-xs font-medium text-[hsl(var(--foreground))] group-hover:text-white transition-colors">
+                <span className="text-xs font-medium text-[hsl(var(--foreground))] group-hover:text-[hsl(var(--foreground))] transition-colors">
                   {item.name}
                 </span>
                 <span className="text-[9px] text-[hsl(var(--muted-foreground))] truncate">by @{item.creator}</span>

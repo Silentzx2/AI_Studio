@@ -83,7 +83,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
   ];
 
   return (
-    <div className="flex-1 min-h-0 p-6 md:p-8 flex flex-col gap-6 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto bg-[hsl(var(--surface-0))]" id="workspace-dashboard-panel">
+    <div className="flex-1 min-h-0 p-4 md:p-5 flex flex-col gap-4 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto bg-[hsl(var(--surface-0))]" id="workspace-dashboard-panel">
       
       {/* 1. Header & Quick Filter Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[hsl(var(--border)/0.15)] pb-4" id="dashboard-header-block">
@@ -120,7 +120,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
           return (
             <div
               key={idx}
-              className="card-minimal p-4 transition-all hover:border-white/10"
+              className="card-minimal p-4 transition-all hover:border-[hsl(var(--border))]/[0.3]"
             >
               <div className="flex items-center justify-between mb-2.5">
                 <span className="text-label">{stat.label}</span>
@@ -138,10 +138,10 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
       </div>
 
       {/* 3. Main Workspace Layout Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6" id="dashboard-main-grid">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4" id="dashboard-main-grid">
         
         {/* Left Column (2/3 Width) - Recent Workspace Drafts & Active Filters */}
-        <div className="xl:col-span-2 flex flex-col gap-6">
+        <div className="xl:col-span-2 flex flex-col gap-4">
           
           {/* Controls Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[hsl(var(--surface-1))] border border-[hsl(var(--border)/0.3)] p-4 rounded-xl panel-padding">
@@ -264,7 +264,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
         </div>
 
         {/* Right Column (1/3 Width) - Diagnostics & Interactive Knowledge Hub */}
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4">
           
           {/* Diagnostic Console Box */}
           <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border)/0.15)] rounded-xl p-4 flex flex-col gap-4">

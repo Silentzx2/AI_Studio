@@ -314,7 +314,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
       <aside className="w-full lg:w-[360px] border-r border-[hsl(var(--border))] flex flex-col h-full bg-[hsl(var(--surface-1))] z-10" id="texture-left-panel">
         <div className="p-6 border-b border-[hsl(var(--border))]">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[hsl(var(--primary))] to-[hsl(var(--neon-blue))] flex items-center justify-center shadow-lg shadow-[hsl(var(--primary))]/20">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr bg-[hsl(var(--surface-2))] flex items-center justify-center shadow-lg shadow-[hsl(var(--primary))]/20">
               <Palette size={18} className="text-white" />
             </div>
             <div className="flex flex-col">
@@ -355,8 +355,8 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
     </button>
   </div>
 ) : uploadedModelUrl ? (
-                <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--neon-green)/0.3)] rounded-xl p-3 flex items-center gap-3 group">
-                  <div className="w-8 h-8 rounded-lg bg-[hsl(var(--neon-green))/0.1] flex items-center justify-center text-[hsl(var(--neon-green))]">
+                <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-3 flex items-center gap-3 group">
+                  <div className="w-8 h-8 rounded-lg bg-[hsl(var(--neon-green))/0.1] flex items-center justify-center text-[hsl(var(--muted-foreground))]">
                     <Palette size={14} />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -475,8 +475,8 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
             <div className="flex flex-col gap-3.5 pt-2">
               {[
                 { label: 'Weathering', value: weathering, setter: setWeathering, color: 'accent-[hsl(var(--primary))]' },
-                { label: 'Metalness', value: metalnessBias, setter: setMetalnessBias, color: 'accent-[hsl(var(--neon-amber))]' },
-                { label: 'Roughness', value: roughnessBias, setter: setRoughnessBias, color: 'accent-[hsl(var(--neon-cyan))]' },
+                { label: 'Metalness', value: metalnessBias, setter: setMetalnessBias, color: 'accent-[hsl(var(--muted-foreground))]' },
+                { label: 'Roughness', value: roughnessBias, setter: setRoughnessBias, color: 'accent-[hsl(var(--muted-foreground))]' },
               ].map((s) => (
                 <div key={s.label} className="flex flex-col gap-1.5">
                   <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">
@@ -544,8 +544,8 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
           )}
         </AnimatePresence>
 
-        <div className="flex-1 flex flex-col p-8 z-10 overflow-y-auto">
-          <div className="max-w-4xl w-full mx-auto flex flex-col gap-8">
+        <div className="flex-1 flex flex-col p-5 z-10 overflow-y-auto">
+          <div className="max-w-4xl w-full mx-auto flex flex-col gap-5">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]" />
@@ -560,9 +560,9 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
 
             {/* Interactive display */}
             {successResult ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fadeIn">
-                <div className="col-span-full bg-[hsl(var(--surface-1))] border border-[hsl(var(--neon-green)/0.2)] rounded-2xl p-6 flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-[hsl(var(--neon-green))/0.1] flex items-center justify-center text-[hsl(var(--neon-green))]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fadeIn">
+                <div className="col-span-full bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-4 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-[hsl(var(--neon-green))/0.1] flex items-center justify-center text-[hsl(var(--muted-foreground))]">
                     <CheckCircle size={24} />
                   </div>
                   <div>
@@ -571,7 +571,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
                   </div>
                 </div>
 
-                <div className="bg-[hsl(var(--surface-1))] p-6 rounded-2xl border border-[hsl(var(--border))] flex flex-col gap-4">
+                <div className="bg-[hsl(var(--surface-1))] p-4 rounded-xl border border-[hsl(var(--border))] flex flex-col gap-4">
                   <span className="text-[10px] font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest border-b border-[hsl(var(--border))] pb-2">Material Info</span>
                   <div className="space-y-4">
                     <div className="flex justify-between items-end">
@@ -585,7 +585,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
                   </div>
                 </div>
 
-                <div className="bg-[hsl(var(--surface-1))] p-6 rounded-2xl border border-[hsl(var(--border))] flex flex-col gap-4">
+                <div className="bg-[hsl(var(--surface-1))] p-4 rounded-xl border border-[hsl(var(--border))] flex flex-col gap-4">
                   <span className="text-[10px] font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest border-b border-[hsl(var(--border))] pb-2">AI Interpretation</span>
                   <p className="text-[11px] text-[hsl(var(--foreground))] leading-relaxed">
                     {successResult.texturesDescription}
@@ -609,9 +609,9 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
         {/* Engine Notice Footer */}
         <div className="mt-auto p-6 bg-[hsl(var(--surface-1))] border-t border-[hsl(var(--border))]">
           <div className="max-w-4xl mx-auto flex items-start gap-4">
-            <AlertTriangle size={18} className="text-[hsl(var(--neon-amber))] flex-shrink-0 mt-0.5" />
+            <AlertTriangle size={18} className="text-[hsl(var(--muted-foreground))] flex-shrink-0 mt-0.5" />
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-black text-[hsl(var(--neon-amber))] uppercase tracking-widest">Studio Engine Notice</span>
+              <span className="text-[10px] font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest">Studio Engine Notice</span>
               <p className="text-[10px] text-[hsl(var(--muted-foreground))] leading-relaxed uppercase font-bold tracking-tighter">
                 Generated textures are applied as temporary overrides. Use the &quot;Commit&quot; button in the primary workspace to bake them permanently into your asset history.
               </p>

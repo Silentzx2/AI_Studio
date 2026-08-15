@@ -71,7 +71,7 @@ print(f"Model generated: {response.glb_url}")`,
   };
 
   return (
-    <div className="flex-1 min-h-0 p-6 flex flex-col lg:flex-row gap-6 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="api-access-tab-panel">
+    <div className="flex-1 min-h-0 p-4 flex flex-col lg:flex-row gap-4 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="api-access-tab-panel">
       {/* Left Column: API key and Usage Statistics */}
       <div className="flex-1 flex flex-col gap-5 min-w-0" id="api-left-panel">
         {/* Secret Key Panel */}
@@ -100,7 +100,7 @@ print(f"Model generated: {response.glb_url}")`,
               </button>
               <button
                 onClick={handleCopyKey}
-                className="p-1.5 rounded-lg bg-white text-[hsl(var(--surface-0))] hover:brightness-110 transition-all flex items-center justify-center w-8 h-8"
+                className="p-1.5 rounded-lg bg-[hsl(var(--surface-2))] text-[hsl(var(--surface-0))] hover:brightness-110 transition-all flex items-center justify-center w-8 h-8"
                 title="Copy API key to clipboard"
                 id="copy-key-btn"
               >
@@ -175,7 +175,7 @@ print(f"Model generated: {response.glb_url}")`,
             </svg>
 
             {/* X Axis labels */}
-            <div className="flex justify-between items-center text-[9px] font-mono text-[hsl(var(--muted-foreground))] mt-2 border-t border-white/[0.03] pt-2" id="chart-x-axis">
+            <div className="flex justify-between items-center text-[9px] font-mono text-[hsl(var(--muted-foreground))] mt-2 border-t border-[hsl(var(--border))]/[0.03] pt-2" id="chart-x-axis">
               <span>Mon</span>
               <span>Tue</span>
               <span>Wed</span>
@@ -224,7 +224,7 @@ print(f"Model generated: {response.glb_url}")`,
                   onClick={() => setActiveCodeLang(lang)}
                   className={`px-2 py-1 rounded text-[9px] font-mono font-medium transition-all ${
                     activeCodeLang === lang
-                      ? 'bg-white/5 text-white'
+                      ? 'bg-[hsl(var(--surface-2))] text-[hsl(var(--foreground))]'
                       : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
                   }`}
                   id={`code-lang-btn-${lang}`}
@@ -244,7 +244,7 @@ print(f"Model generated: {response.glb_url}")`,
               onClick={() => {
                 navigator.clipboard.writeText(codeSnippets[activeCodeLang]);
               }}
-              className="absolute top-2.5 right-2.5 p-1.5 rounded-lg bg-[hsl(var(--surface-0))/0.6] hover:bg-black border border-white/[0.04] text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-all flex items-center justify-center"
+              className="absolute top-2.5 right-2.5 p-1.5 rounded-lg bg-[hsl(var(--surface-0))/0.6] hover:bg-black border border-[hsl(var(--border))]/[0.04] text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-all flex items-center justify-center"
               title="Copy code snippet"
               id="copy-snippet-btn"
             >

@@ -36,7 +36,7 @@ export default function FavoritesTab({
   }, [favoriteItems.length]);
 
   return (
-    <div className="flex-1 min-h-0 p-8 flex flex-col gap-8 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="favorites-tab-panel">
+    <div className="flex-1 min-h-0 p-5 flex flex-col gap-5 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="favorites-tab-panel">
       {/* Header section with refined alignment */}
       <div className="flex flex-col gap-2 max-w-4xl">
         <div className="flex items-center gap-3">
@@ -61,7 +61,7 @@ export default function FavoritesTab({
           <div
             key={item.id}
             onClick={() => onLoadProject(item)}
-            className="card-minimal p-3 flex flex-col gap-3 cursor-pointer transition-all hover:border-white/10"
+            className="card-minimal p-3 flex flex-col gap-3 cursor-pointer transition-all hover:border-[hsl(var(--border))]/[0.3]"
             id={`favorite-card-${item.id}`}
           >
             {/* Visual Box */}
@@ -100,14 +100,14 @@ export default function FavoritesTab({
 
             {/* Labels */}
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-[hsl(var(--foreground))] group-hover:text-white transition-colors truncate">
+              <span className="text-xs font-medium text-[hsl(var(--foreground))] group-hover:text-[hsl(var(--foreground))] transition-colors truncate">
                 {item.name}
               </span>
               <p className="text-[10px] text-[hsl(var(--muted-foreground))] line-clamp-1 truncate">
                 {item.prompt}
               </p>
 
-              <div className="flex items-center justify-between text-[10px] text-[hsl(var(--muted-foreground))] font-mono mt-2 pt-2 border-t border-white/[0.03]">
+              <div className="flex items-center justify-between text-[10px] text-[hsl(var(--muted-foreground))] font-mono mt-2 pt-2 border-t border-[hsl(var(--border))]/[0.03]">
                 <span>🕒 {item.timestamp}</span>
                 <span className="text-[hsl(var(--foreground))] font-sans font-medium flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   Load <Play size={8} />

@@ -609,11 +609,6 @@ useEffect(() => {
                             <div className="font-semibold truncate">
                               {highlightText(section.label, searchQuery)}
                             </div>
-                            {section.description && (
-                              <div className={`text-[11px] truncate mt-0.5 ${activeSection === section.id ? 'text-black/75' : 'text-muted-foreground'}`}>
-                                {highlightText(section.description, searchQuery)}
-                              </div>
-                            )}
                           </div>
                         )}
                       </button>
@@ -664,11 +659,6 @@ useEffect(() => {
                             <div className="font-semibold truncate">
                               {highlightText(section.label, searchQuery)}
                             </div>
-                            {section.description && (
-                              <div className={`text-[11px] truncate mt-0.5 ${activeSection === section.id ? 'text-black/75' : 'text-muted-foreground'}`}>
-                                {highlightText(section.description, searchQuery)}
-                              </div>
-                            )}
                           </div>
                         )}
                       </button>

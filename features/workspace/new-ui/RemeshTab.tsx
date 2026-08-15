@@ -292,7 +292,7 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
         {/* SECTION: TARGET ASSET */}
         <div className="p-6 border-b border-[hsl(var(--border))]">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] flex items-center justify-center shadow-lg shadow-[hsl(var(--primary))]/20">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr bg-[hsl(var(--surface-2))] flex items-center justify-center shadow-lg shadow-[hsl(var(--primary))]/20">
               <RefreshCw size={18} className="text-white" />
             </div>
             <div className="flex flex-col">
@@ -329,8 +329,8 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
     </button>
   </div>
 ) : uploadedModelUrl ? (
-              <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--neon-green)/0.3)] rounded-xl p-3 flex items-center gap-3 group">
-                <div className="w-8 h-8 rounded-lg bg-[hsl(var(--neon-green))/0.1] flex items-center justify-center text-[hsl(var(--neon-green))]">
+              <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-3 flex items-center gap-3 group">
+                <div className="w-8 h-8 rounded-lg bg-[hsl(var(--neon-green))/0.1] flex items-center justify-center text-[hsl(var(--muted-foreground))]">
                   <Layers size={14} />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -377,7 +377,7 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
           </div>
         </div>
 
-        <div className="flex flex-col gap-6" id="remesh-pipeline-box">
+        <div className="flex flex-col gap-4" id="remesh-pipeline-box">
           <div className="flex flex-col gap-1.5">
             <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Processing Pipeline</span>
           </div>
@@ -450,7 +450,7 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
             <button
               onClick={handleRemesh}
               disabled={isProcessing}
-              className="w-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-amber))] hover:brightness-110 active:scale-[0.98] text-[hsl(var(--surface-0))] font-black py-3 rounded-xl text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-[0_8px_20px_rgba(245,166,35,0.2)] mt-2"
+              className="w-full bg-gradient-to-r bg-[hsl(var(--surface-2))] hover:brightness-110 active:scale-[0.98] text-[hsl(var(--surface-0))] font-black py-3 rounded-xl text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-[0_8px_20px_rgba(245,166,35,0.2)] mt-2"
             >
               {isProcessing ? (
                 <>
@@ -494,8 +494,8 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
           )}
         </AnimatePresence>
 
-        <div className="flex-1 flex flex-col p-8 z-10 overflow-y-auto">
-          <div className="max-w-4xl w-full mx-auto flex flex-col gap-8">
+        <div className="flex-1 flex flex-col p-5 z-10 overflow-y-auto">
+          <div className="max-w-4xl w-full mx-auto flex flex-col gap-5">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]" />
@@ -510,9 +510,9 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
 
             {/* Interactive display */}
             {successResult ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fadeIn">
-                <div className="col-span-full bg-[hsl(var(--surface-1))] border border-[hsl(var(--neon-green)/0.2)] rounded-2xl p-6 flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-[hsl(var(--neon-green))/0.1] flex items-center justify-center text-[hsl(var(--neon-green))]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fadeIn">
+                <div className="col-span-full bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-4 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-[hsl(var(--neon-green))/0.1] flex items-center justify-center text-[hsl(var(--muted-foreground))]">
                     <CheckCircle size={24} />
                   </div>
                   <div>
@@ -521,7 +521,7 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
                   </div>
                 </div>
 
-                <div className="bg-[hsl(var(--surface-1))] p-6 rounded-2xl border border-[hsl(var(--border))] flex flex-col gap-4">
+                <div className="bg-[hsl(var(--surface-1))] p-4 rounded-xl border border-[hsl(var(--border))] flex flex-col gap-4">
                   <span className="text-[10px] font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest border-b border-[hsl(var(--border))] pb-2">Mesh Statistics</span>
                   <div className="space-y-4">
                     <div className="flex justify-between items-end">
@@ -529,13 +529,13 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
                       <span className="text-xs font-bold text-[hsl(var(--foreground))]">{successResult.oldVertices}</span>
                     </div>
                     <div className="flex justify-between items-end">
-                      <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono text-[hsl(var(--neon-green))]">Optimized Density</span>
-                      <span className="text-xs font-bold text-[hsl(var(--neon-green))]">{successResult.newVertices}</span>
+                      <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono text-[hsl(var(--muted-foreground))]">Optimized Density</span>
+                      <span className="text-xs font-bold text-[hsl(var(--muted-foreground))]">{successResult.newVertices}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-[hsl(var(--surface-1))] p-6 rounded-2xl border border-[hsl(var(--border))] flex flex-col gap-4">
+                <div className="bg-[hsl(var(--surface-1))] p-4 rounded-xl border border-[hsl(var(--border))] flex flex-col gap-4">
                   <span className="text-[10px] font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest border-b border-[hsl(var(--border))] pb-2">Analysis AI</span>
                   <p className="text-[11px] text-[hsl(var(--foreground))] leading-relaxed">
                     {successResult.promptDescription}
@@ -559,9 +559,9 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
         {/* Engine Notice Footer */}
         <div className="mt-auto p-6 bg-[hsl(var(--surface-1))] border-t border-[hsl(var(--border))]">
           <div className="max-w-4xl mx-auto flex items-start gap-4">
-            <AlertTriangle size={18} className="text-[hsl(var(--neon-amber))] flex-shrink-0 mt-0.5" />
+            <AlertTriangle size={18} className="text-[hsl(var(--muted-foreground))] flex-shrink-0 mt-0.5" />
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-black text-[hsl(var(--neon-amber))] uppercase tracking-widest">Studio Engine Notice</span>
+              <span className="text-[10px] font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest">Studio Engine Notice</span>
               <p className="text-[10px] text-[hsl(var(--muted-foreground))] leading-relaxed uppercase font-bold tracking-tighter">
                 Retopology updates are destructive to the local vertex buffer but persistent in the Studio stage. Always export original primitives before committing heavy decimation.
               </p>

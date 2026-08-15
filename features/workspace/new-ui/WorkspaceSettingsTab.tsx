@@ -205,7 +205,7 @@ export default function WorkspaceSettingsTab() {
   };
 
   return (
-    <div className="flex-1 min-h-0 p-6 flex flex-col gap-6 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="settings-tab-panel">
+    <div className="flex-1 min-h-0 p-4 flex flex-col gap-4 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="settings-tab-panel">
       {/* Tab Header */}
       <div>
         <div className="flex items-center gap-3">
@@ -230,7 +230,7 @@ export default function WorkspaceSettingsTab() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" id="settings-grid">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" id="settings-grid">
         {/* Left Card: Core Integration Keys */}
         <div className="card-minimal p-5 flex flex-col gap-5" id="settings-keys-box">
           <h3 className="text-xs font-medium text-[hsl(var(--foreground))] uppercase tracking-wider flex items-center gap-2">
@@ -256,7 +256,7 @@ export default function WorkspaceSettingsTab() {
 
           <div className="flex items-center justify-between p-3 bg-[hsl(var(--foreground)/0.02)] border border-[hsl(var(--foreground)/0.04)] rounded-xl text-[11px]" id="secrets-verification">
             <span className="text-[hsl(var(--muted-foreground))]">Backend Sync Status:</span>
-            <span className={`font-mono font-bold flex items-center gap-1.5 ${backendStatus === 'connected' ? 'text-[hsl(var(--neon-green))]' : 'text-[hsl(var(--destructive))]'}`}>
+            <span className={`font-mono font-bold flex items-center gap-1.5 ${backendStatus === 'connected' ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--destructive))]'}`}>
               <Check size={12} className="stroke-[3]" />
               {backendStatus === 'connected' ? 'Connected to API' : 'Disconnected'}
             </span>
@@ -298,7 +298,7 @@ export default function WorkspaceSettingsTab() {
                   onChange={(e) => setRayTracing(e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-9 h-5 bg-[hsl(var(--surface-2))] border border-[hsl(var(--border)/0.3)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-[hsl(var(--muted-foreground))] after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[hsl(var(--muted-foreground))] peer-checked:after:bg-black" />
+                <div className="w-9 h-5 bg-[hsl(var(--surface-2))] border border-[hsl(var(--border)/0.3)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-[hsl(var(--border))] after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-[hsl(var(--muted-foreground))] after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[hsl(var(--muted-foreground))] peer-checked:after:bg-black" />
               </label>
             </div>
 
@@ -354,7 +354,7 @@ export default function WorkspaceSettingsTab() {
 
             <div className="bg-[hsl(var(--surface-2))] p-3 rounded-xl border border-[hsl(var(--border))] flex flex-col gap-1">
               <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase">GPU Memory</span>
-              <span className="font-bold text-[hsl(var(--neon-green))] text-sm">
+              <span className="font-bold text-[hsl(var(--muted-foreground))] text-sm">
                 {sysSpecs.memoryGB}
               </span>
             </div>
@@ -411,7 +411,7 @@ export default function WorkspaceSettingsTab() {
         <button
           onClick={handleSaveSettings}
           disabled={backendStatus === 'offline'}
-          className="px-6 py-3 rounded-xl bg-gradient-to-r from-[hsl(var(--neon-amber))] to-[hsl(var(--neon-amber))] text-[hsl(var(--surface-0))] font-extrabold text-xs flex items-center gap-2 hover:brightness-110 transition-all shadow-[0_4px_16px_rgba(255,90,31,0.25)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-6 py-3 rounded-xl bg-[hsl(var(--muted-foreground))] text-[hsl(var(--surface-0))] font-extrabold text-xs flex items-center gap-2 hover:brightness-110 transition-all shadow-[0_4px_16px_rgba(255,90,31,0.25)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           id="settings-save-btn"
         >
           {isSaved ? (

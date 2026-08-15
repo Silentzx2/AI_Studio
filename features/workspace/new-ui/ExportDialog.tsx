@@ -164,7 +164,7 @@ export default function ExportDialog({ isOpen, onClose, modelUrl: modelUrlProp, 
 
           <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
-              <Archive size={14} className="text-[hsl(var(--neon-amber))]" />
+              <Archive size={14} className="text-[hsl(var(--muted-foreground))]" />
               <span className="text-xs font-bold text-[hsl(var(--foreground))]">Project Package (ZIP)</span>
             </div>
             <p className="text-[10px] text-[hsl(var(--muted-foreground))] leading-relaxed">
@@ -173,7 +173,7 @@ export default function ExportDialog({ isOpen, onClose, modelUrl: modelUrlProp, 
             <button
               onClick={handleExportZIP}
               disabled={exporting || !hasModel}
-              className="mt-3 w-full bg-[hsl(var(--neon-amber))] hover:brightness-110 active:scale-[0.98] disabled:opacity-40 text-[hsl(var(--surface-0))] font-extrabold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-all"
+              className="mt-3 w-full bg-[hsl(var(--surface-2))] hover:brightness-110 active:scale-[0.98] disabled:opacity-40 text-[hsl(var(--surface-0))] font-extrabold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-all"
             >
               {exporting && exportFormat === 'zip' ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -193,7 +193,7 @@ export default function ExportDialog({ isOpen, onClose, modelUrl: modelUrlProp, 
             <div className="flex flex-col gap-1 mt-2">
               {enabledLayers.map((layer) => (
                 <div key={layer.id} className="flex items-center gap-2 text-[10px] text-[hsl(var(--foreground))]">
-                  <CheckCircle2 size={10} className="text-[hsl(var(--neon-green))]" />
+                  <CheckCircle2 size={10} className="text-[hsl(var(--muted-foreground))]" />
                   <span className="font-semibold">{layer.name}</span>
                   <span className="text-[hsl(var(--muted-foreground))] ml-auto font-mono">{layer.type}</span>
                 </div>
@@ -203,9 +203,9 @@ export default function ExportDialog({ isOpen, onClose, modelUrl: modelUrlProp, 
         )}
 
         {!hasModel && (
-          <div className="flex items-center gap-2 p-3 bg-[hsl(var(--surface-1))] border border-[hsl(var(--neon-amber)/0.3)] rounded-xl mb-4">
-            <AlertTriangle size={14} className="text-[hsl(var(--neon-amber))]" />
-            <span className="text-[10px] text-[hsl(var(--neon-amber))]">
+          <div className="flex items-center gap-2 p-3 bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-xl mb-4">
+            <AlertTriangle size={14} className="text-[hsl(var(--muted-foreground))]" />
+            <span className="text-[10px] text-[hsl(var(--muted-foreground))]">
               Generate or load a model before exporting
             </span>
           </div>
