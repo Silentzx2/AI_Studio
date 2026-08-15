@@ -101,30 +101,32 @@ function GeneratedModel({ url, wireframe }: { url: string; wireframe: boolean })
       });
 
       // Calculate bounding box to center and frame the model
-      const box = new Box3().setFromObject(groupRef.current);
-      const center = box.getCenter(new Vector3());
-      const size = box.getSize(new Vector3());
-      const maxDim = Math.max(size.x, size.y, size.z) || 1;
+      if (groupRef.current) {
+        const box = new Box3().setFromObject(groupRef.current);
+        const center = box.getCenter(new Vector3());
+        const size = box.getSize(new Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
 
-      // Position model to be centered and properly framed
-      groupRef.current.position.sub(center);
-      groupRef.current.position.y += size.y * 0.5; // Sit on "ground"
+        // Position model to be centered and properly framed
+        groupRef.current.position.sub(center);
+        groupRef.current.position.y += size.y * 0.5; // Sit on "ground"
 
-      // Store initial position for potential reset
-      groupRef.current.userData.initialPosition = groupRef.current.position.clone();
+        // Store initial position for potential reset
+        groupRef.current.userData.initialPosition = groupRef.current.position.clone();
 
-      // Auto-frame the camera so the model is visible without manual zoom
-      const fov = (camera as any).fov ?? 45;
-      const distance = (maxDim / 2 / Math.tan((fov * Math.PI) / 360)) * 1.6;
-      camera.position.set(0, size.y * 0.5 + maxDim * 0.2, distance);
-      camera.lookAt(0, size.y * 0.5, 0);
-      const controls = (window as any).__orbitControls;
-      if (controls) {
-        controls.target.set(0, size.y * 0.5, 0);
-        controls.update();
+        // Auto-frame the camera so the model is visible without manual zoom
+        const fov = (camera as any).fov ?? 45;
+        const distance = (maxDim / 2 / Math.tan((fov * Math.PI) / 360)) * 1.6;
+        camera.position.set(0, size.y * 0.5 + maxDim * 0.2, distance);
+        camera.lookAt(0, size.y * 0.5, 0);
+        const controls = (window as any).__orbitControls;
+        if (controls) {
+          controls.target.set(0, size.y * 0.5, 0);
+          controls.update();
+        }
       }
     }
-  }, [wireframe, scene, camera]);
+  }, [wireframe, scene]);
 
   return (
     <group ref={groupRef}>
@@ -409,7 +411,7 @@ export function ViewerScene() {
   const handleLoadGlb = useCallback((e: CustomEvent) => {
     setUserModelUrl((prev) => {
       // FE-015: revoke the previous blob URL so object URLs don't leak.
-      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+      if (prev) URL.revokeObjectURL(prev);
       return e.detail.url;
     });
   }, []);
@@ -426,8 +428,6 @@ export function ViewerScene() {
     return match ? match[1].toLowerCase() : '';
   };
 
-  const { accentColor } = useThemeStore();
-
   return (
     <>
       <CameraController autoRotate={viewer.autoRotate} />
@@ -442,7 +442,7 @@ export function ViewerScene() {
         <directionalLight
           position={[-10, -10, -5]}
           intensity={1.0}
-          color={accentColor}
+          color={useThemeStore.getState().accentColor}
         />
 
         <directionalLight

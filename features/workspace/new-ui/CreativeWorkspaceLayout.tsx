@@ -7,7 +7,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import anime from 'animejs';
-import { motion, AnimatePresence } from 'motion/react';
 import {
   Folder, Cpu, RefreshCw, Palette, Bookmark, Layers, Heart, Globe, Code, Settings, Sparkles, HelpCircle, LogOut, Activity, Zap, Wifi, ChevronDown, Box
 } from 'lucide-react';
@@ -20,7 +19,6 @@ import { runtimeService } from '@/services/runtimeService';
 import type { RuntimeStatus } from '@/types';
 import { StatusDot } from '@/components/premium/StatusDot';
 import { useBackendStatus } from '@/hooks/useBackendData';
-import { cn } from '@/lib/utils';
 
 // Import our modular redesigned tabs
 import WorkspaceTab from './WorkspaceTab';
@@ -294,24 +292,24 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
       )}
 
       {/* Sidebar panel — responsive: static on desktop, slide-in drawer on mobile */}
-      <aside className={`${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed inset-y-0 left-0 z-[60] w-[280px] max-w-[85vw] lg:static lg:z-20 lg:w-[300px] bg-black border-r border-white/5 flex flex-col min-h-0 flex-shrink-0 transition-transform duration-500 ease-in-out shadow-[10px_0_40px_rgba(0,0,0,0.5)]`} id="creative-sidebar">
+      <aside className={`${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed inset-y-0 left-0 z-50 w-[260px] max-w-[85vw] lg:static lg:z-20 lg:w-[280px] bg-[#121214] border-r border-white/5 flex flex-col min-h-0 flex-shrink-0 transition-transform duration-200`} id="creative-sidebar">
         {/* Minimal Brand Header */}
-        <div className="h-16 flex items-center px-8 border-b border-white/[0.03] flex-shrink-0" id="creative-logo-header">
-          <div className="flex items-center gap-4">
-            <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.2)]">
-              <Sparkles size={18} className="text-black" />
+        <div className="h-16 flex items-center px-6 border-b border-white/5 flex-shrink-0" id="creative-logo-header">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-[#facc15] flex items-center justify-center shadow-[0_0_15px_rgba(250,204,21,0.2)]">
+              <Sparkles size={18} className="text-[#121214]" />
             </div>
             <div className="flex flex-col leading-none">
-              <span className="text-[12px] font-black tracking-[-0.01em] uppercase text-white">GENESIS</span>
-              <span className="text-[8px] font-black text-amber-500/50 uppercase tracking-[0.3em] mt-1.5">v2.5 ELITE</span>
+              <span className="text-[11px] font-black tracking-[0.2em] uppercase text-white">AI Studio</span>
+              <span className="text-[8px] font-black text-white/30 uppercase tracking-[0.3em] mt-1">v2.5 PRO</span>
             </div>
           </div>
         </div>
 
         {/* Navigation Links */}
-        <div className="flex-1 py-8 px-5 overflow-y-auto space-y-1.5 min-h-0 scrollbar-thin" id="creative-sidebar-links">
-          <div className="px-4 mb-5 flex items-center justify-between">
-            <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.35em]">Command Center</span>
+        <div className="flex-1 py-6 px-4 overflow-y-auto space-y-1 min-h-0" id="creative-sidebar-links">
+          <div className="px-3 mb-4">
+            <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Navigation</span>
           </div>
           {sidebarItems.map((item) => {
             const Icon = item.icon;
@@ -320,133 +318,110 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
               <button
                 key={item.label}
                 onClick={() => { setActiveSidebarItem(item.label); setMobileMenuOpen(false); }}
-                className={cn(
-                  "flex items-center gap-4 px-5 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] transition-all duration-500 text-left w-full group relative overflow-hidden",
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-left w-full group ${
                   isActive
-                    ? 'text-black bg-amber-500 shadow-[0_10px_30px_rgba(245,158,11,0.2)]'
-                    : 'text-white/30 hover:text-white hover:bg-white/[0.03]'
-                )}
+                    ? 'text-[#121214] bg-[#facc15] shadow-[0_0_20px_rgba(250,204,21,0.2)]'
+                    : 'text-white/40 hover:text-white hover:bg-white/5'
+                }`}
                 id={`sidebar-nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
               >
-                <Icon size={18} className={cn("transition-all duration-500", isActive ? 'text-black scale-110' : 'text-white/10 group-hover:text-amber-500 group-hover:scale-110')} />
-                <span className="relative z-10">{item.label}</span>
-                {isActive && (
-                  <motion.div
-                    layoutId="sidebar-active-glow"
-                    className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent pointer-events-none"
-                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                  />
-                )}
+                <Icon size={16} className={isActive ? 'text-[#121214]' : 'text-white/20 group-hover:text-[#facc15] transition-colors'} />
+                <span>{item.label}</span>
               </button>
             );
           })}
         </div>
 
         {/* Footer controls */}
-        <div className="py-8 border-t border-white/[0.03] bg-white/[0.01] flex flex-col gap-6 flex-shrink-0" id="creative-sidebar-footer">
+        <div className="py-6 border-t border-white/5 flex flex-col gap-4 flex-shrink-0" id="creative-sidebar-footer">
           {/* Status indicators */}
-          <div className="px-5 flex flex-col gap-4">
-            <div className="px-4 mb-1 flex items-center justify-between">
-              <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.35em]">Hardware Telemetry</span>
+          <div className="px-4 flex flex-col gap-3">
+            <div className="px-3 mb-1 flex items-center justify-between">
+              <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Performance</span>
               <button 
                 onClick={() => setMonitorExpanded(!monitorExpanded)}
-                className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-white/5 text-white/20 hover:text-white transition-all duration-300"
+                className="p-1 rounded-lg hover:bg-white/5 text-white/20 hover:text-white transition-all duration-150"
               >
-                <ChevronDown size={14} className={cn("transition-transform duration-500", monitorExpanded ? '' : '-rotate-90')} />
+                <ChevronDown size={14} className={`transform transition-transform duration-200 ${monitorExpanded ? '' : '-rotate-90'}`} />
               </button>
             </div>
 
-            <AnimatePresence initial={false}>
-              {monitorExpanded && (
-                <motion.div 
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="flex flex-col gap-3 overflow-hidden"
-                >
-                  {/* GPU Item */}
-                  <div className="flex flex-col gap-1.5">
-                    <button 
-                      onClick={() => setGpuExpanded(!gpuExpanded)}
-                      className="flex items-center justify-between w-full px-5 py-3.5 rounded-2xl bg-white/[0.02] border border-white/[0.05] hover:border-white/10 hover:bg-white/[0.04] transition-all duration-500 text-left group"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Cpu className={cn("w-4 h-4 transition-colors duration-500", gpuExpanded ? "text-amber-500" : "text-white/20 group-hover:text-amber-500")} />
-                        <span className="text-[10px] font-black uppercase tracking-[0.15em] text-white/40 group-hover:text-white/80 transition-colors">Neural Engine</span>
-                      </div>
-                      <ChevronDown size={12} className={cn("text-white/10 transition-transform duration-500", gpuExpanded ? 'rotate-180' : '')} />
-                    </button>
-
-                    <AnimatePresence>
-                      {gpuExpanded && (
-                        <motion.div 
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="px-5 py-4 mt-1.5 rounded-2xl bg-white/[0.01] border border-white/[0.03] text-[9px] space-y-3 shadow-inner" id="gpu-expanded-details">
-                            <div className="flex justify-between items-center">
-                              <span className="text-white/20 font-black uppercase tracking-widest">Compute Unit</span>
-                              <span className="font-black text-white/60 truncate max-w-[140px]">
-                                {runtime?.gpu_name || "NVIDIA H100 TENSOR"}
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <span className="text-white/20 font-black uppercase tracking-widest">Efficiency</span>
-                              <span className="font-black text-amber-500">
-                                {runtime ? `${runtime.gpu_utilization}%` : '98.4%'}
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <span className="text-white/20 font-black uppercase tracking-widest">Thermal Index</span>
-                              <span className="font-black text-rose-500/60">
-                                {runtime ? `${runtime.gpu_temp}°C` : '42°C'}
-                              </span>
-                            </div>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-
-                  {/* VRAM Metric */}
-                  <div className="flex flex-col gap-3 p-5 rounded-2xl bg-white/[0.02] border border-white/[0.05] hover:border-white/10 transition-all duration-500">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Zap className="w-4 h-4 text-sky-400/80" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.15em] text-white/40">Latent Memory</span>
-                      </div>
-                      <span className="text-[10px] font-black text-white/80 tabular-nums">
-                        {runtime ? `${(runtime.vram_used_mb / 1024).toFixed(1)}GB` : '12.4GB'}
-                      </span>
+            {monitorExpanded && (
+              <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                {/* GPU Item */}
+                <div className="flex flex-col gap-1.5">
+                  <button 
+                    onClick={() => setGpuExpanded(!gpuExpanded)}
+                    className="flex items-center justify-between w-full px-4 py-2.5 rounded-xl bg-white/5 border border-transparent hover:border-white/10 transition-all duration-200 text-left cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Cpu className="w-4 h-4 text-[#facc15]" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-white/60">GPU Stats</span>
                     </div>
-                    <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-                      <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: `${vramPercentage || 65}%` }}
-                        className="h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-1000 shadow-[0_0_10px_rgba(245,158,11,0.3)]"
+                    <ChevronDown size={12} className={`text-white/20 transform transition-transform duration-200 ${gpuExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* GPU Expanded Stats Sub-widget */}
+                  {gpuExpanded && (
+                    <div className="px-4 py-3 rounded-xl bg-white/[0.02] border border-white/5 text-[9px] space-y-2 animate-in fade-in slide-in-from-top-1 duration-150" id="gpu-expanded-details">
+                      <div className="flex justify-between items-center">
+                        <span className="text-white/40 font-black uppercase tracking-widest">Model</span>
+                        <span className="font-bold text-white/80 truncate max-w-[120px]">
+                          {runtime?.gpu_name || "NVIDIA H100"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-white/40 font-black uppercase tracking-widest">Load</span>
+                        <span className="font-black text-[#facc15]">
+                          {runtime ? `${runtime.gpu_utilization}%` : '—'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-white/40 font-black uppercase tracking-widest">Temp</span>
+                        <span className="font-black text-rose-500">
+                          {runtime ? `${runtime.gpu_temp}°C` : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* VRAM Metric */}
+                <div className="flex flex-col gap-2 p-4 rounded-xl bg-white/5 border border-transparent">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-sky-400" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Memory</span>
+                    </div>
+                    <span className="text-[10px] font-black text-white/80">
+                      {runtime ? `${(runtime.vram_used_mb / 1024).toFixed(1)}GB` : '—'}
+                    </span>
+                  </div>
+                  {runtime && (
+                    <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-[#facc15] transition-all duration-300"
+                        style={{ width: `${vramPercentage}%` }}
                       />
                     </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="flex flex-col gap-1 px-5">
-            <button className="flex items-center gap-4 px-5 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-white/20 hover:text-white hover:bg-white/[0.03] transition-all text-left group">
-              <HelpCircle size={18} className="text-white/10 group-hover:text-white/40 transition-colors" />
-              <span>Synthesis Help</span>
+          <div className="flex flex-col gap-1 px-4">
+            <button className="flex items-center gap-3 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white hover:bg-white/5 transition-all text-left">
+              <HelpCircle size={16} />
+              <span>Support</span>
             </button>
-            <button className="flex items-center gap-4 px-5 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-rose-500/40 hover:text-rose-500 hover:bg-rose-500/5 transition-all text-left group">
-              <LogOut size={18} className="text-rose-500/20 group-hover:text-rose-500/40 transition-colors" />
-              <span>Terminate Session</span>
+            <button className="flex items-center gap-3 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-rose-500/60 hover:text-rose-500 hover:bg-rose-500/10 transition-all text-left">
+              <LogOut size={16} />
+              <span>Sign Out</span>
             </button>
           </div>
         </div>
       </aside>
-
 
       {/* Main viewport panels */}
         <main ref={mainRef} className="flex-1 flex flex-col bg-[#1a1b1e] overflow-hidden" id="creative-main-viewport">

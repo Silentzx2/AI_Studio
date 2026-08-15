@@ -7,43 +7,20 @@
  */
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import Image from 'next/image';
 import {
   Sparkles, HelpCircle, Upload, X, Image as ImageIcon, Type,
   ChevronDown, ChevronRight, Loader2, Square, CircleDot, Settings2,
-  RefreshCw, Palette, Activity, Lock, Zap, CheckCircle2, ListOrdered,
-  Plus, Play, Pause, Trash2, AlertCircle, Box, Scissors, Layers,
-  Globe, Info, FileCode, Monitor, Pencil, ImagePlus
+  RefreshCw, Palette, Activity, Lock, Zap, CheckCircle2
 } from 'lucide-react';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 import { useUIStore } from '@/stores/useUIStore';
-import { useAppStore } from '@/stores/useAppStore';
 import { useGeneration } from '@/hooks/useGeneration';
 import { useRuntimeOptions } from '@/hooks/useBackendData';
-import { uploadService, validateImageFile } from '@/services/uploadService';
+import { uploadService, validateImageFile, processImageFile } from '@/services/uploadService';
 import { QUALITY_PRESETS, STYLE_PRESETS, SUPPORTED_IMAGE_FORMATS, MAX_IMAGE_SIZE_MB } from '@/constants';
-import { Button } from '@/components/ui/button';
-import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { GlowRing } from '@/components/GlowRing';
-import type { GenerationMode, QualityPreset, ProviderOption, UploadedImage } from '@/types';
-import { toast } from 'sonner';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
-
-type ViewType = 'front' | 'left' | 'right' | 'back';
-type SidebarTab = 'image' | 'model' | 'segment' | 'retopo' | 'texture' | 'animate';
-
-interface UploadProgressState {
-  view: ViewType | 'model';
-  percent: number;
-  loaded: number;
-  total: number;
-  cancel?: () => void;
-}
+import type { GenerationMode, QualityPreset, ProviderOption } from '@/types';
 
 /* ------------------------------------------------------------------ */
 /*  Props                                                              */
@@ -74,29 +51,12 @@ export default function GenerationControls({ onModelUploadClick, compact }: Gene
   const {
     mode, setMode, prompt, setPrompt, negativePrompt, setNegativePrompt,
     quality, setQuality, generateTexture, setGenerateTexture, autoRig, setAutoRig,
-    selectedModel, setSelectedModel,
+    uploadedImage, setUploadedImage, selectedModel, setSelectedModel,
     stylePreset, setStylePreset, steps, setSteps, cfgScale, setCfgScale,
-    hdMode, setHDMode, multiViewImages, setMultiViewImage, referenceModel, setReferenceModel
   } = useGenerationStore();
-
-  const [activeTab, setActiveTab] = useState<SidebarTab>('model');
-  const [uploading, setUploading] = useState<UploadProgressState | null>(null);
-
-  const batchGenerationEnabled = useAppStore((s) => s.batchGenerationEnabled);
-  const setBatchGenerationEnabled = useAppStore((s) => s.setBatchGenerationEnabled);
-  const batchQueue = useAppStore((s) => s.batchQueue);
-  const addToBatchQueue = useAppStore((s) => s.addToBatchQueue);
-  const removeFromBatchQueue = useAppStore((s) => s.removeFromBatchQueue);
-  const clearBatchQueue = useAppStore((s) => s.clearBatchQueue);
-  const updateBatchItem = useAppStore((s) => s.updateBatchItem);
-
   const { capabilities } = useUIStore();
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showNegPrompt, setShowNegPrompt] = useState(false);
-  const [batchInputText, setBatchInputText] = useState('');
-  const [isBatchRunning, setIsBatchRunning] = useState(false);
-  const [currentBatchIndex, setCurrentBatchIndex] = useState(0);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modelInputRef = useRef<HTMLInputElement>(null);
 
@@ -127,628 +87,477 @@ export default function GenerationControls({ onModelUploadClick, compact }: Gene
   const statusLabel = currentJob?.status ?? 'idle';
   const elapsed = currentJob?.elapsedSeconds ?? 0;
 
-  // Batch queue computation
-  const totalBatchItems = batchQueue.length;
-  const completedBatchItems = batchQueue.filter(i => i.status === 'completed').length;
-  const failedBatchItems = batchQueue.filter(i => i.status === 'failed').length;
-  const pendingBatchItems = batchQueue.filter(i => i.status === 'queued').length;
-  const overallBatchProgress = totalBatchItems > 0
-    ? Math.round(((completedBatchItems + (isGenerating ? (progress / 100) : 0)) / totalBatchItems) * 100)
-    : 0;
-
-  // Handle adding items to batch queue
-  const handleAddPromptToBatch = () => {
-    const raw = batchInputText.trim() || prompt.trim();
-    if (!raw) {
-      toast.error('Please enter at least one prompt to queue');
-      return;
-    }
-    const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-    addToBatchQueue(lines);
-    setBatchInputText('');
-    setPrompt('');
-    toast.success(`Queued ${lines.length} prompt(s) for batch generation`);
-  };
-
-  // Consecutive Batch Runner
-  const runNextBatchItem = useCallback(async () => {
-    if (!isBatchRunning) return;
-    const nextItemIndex = batchQueue.findIndex(item => item.status === 'queued');
-    if (nextItemIndex === -1) {
-      setIsBatchRunning(false);
-      toast.success('Batch generation complete!', {
-        description: `Successfully processed ${completedBatchItems} model(s).`
-      });
-      return;
-    }
-
-    const nextItem = batchQueue[nextItemIndex];
-    setCurrentBatchIndex(nextItemIndex);
-    updateBatchItem(nextItem.id, { status: 'running', startedAt: new Date(), progress: 5 });
-    setPrompt(nextItem.prompt);
-
-    try {
-      await generate();
-      updateBatchItem(nextItem.id, { status: 'completed', progress: 100, completedAt: new Date() });
-    } catch (err: any) {
-      updateBatchItem(nextItem.id, { status: 'failed', error: err?.message || 'Generation failed' });
-    }
-  }, [isBatchRunning, batchQueue, completedBatchItems, generate, setPrompt, updateBatchItem]);
-
-  useEffect(() => {
-    if (isBatchRunning && !isGenerating) {
-      const timer = setTimeout(() => {
-        runNextBatchItem();
-      }, 800);
-      return () => clearTimeout(timer);
-    }
-  }, [isBatchRunning, isGenerating, runNextBatchItem]);
-
-  const handleStartBatch = () => {
-    if (batchQueue.length === 0) {
-      toast.error('Queue is empty. Add prompts to start batch generation.');
-      return;
-    }
-    setIsBatchRunning(true);
-    toast.info('Starting batch queue pipelining...');
-  };
-
-  const handlePauseBatch = () => {
-    setIsBatchRunning(false);
-    toast.info('Batch queue paused');
-  };
-
-  // Improved Image upload handler with real progress
-  const handleViewUpload = useCallback(async (view: ViewType, file: File) => {
+  // Image upload handler
+  const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
     const error = validateImageFile(file);
-    if (error) { toast.error(error); return; }
-
-    const { promise, cancel } = uploadService.uploadWithProgress(
-      file,
-      (p) => setUploading({ view, ...p, cancel }),
-      '/api/v1/upload/image'
-    );
-
+    if (error) { (await import('sonner')).toast.error(error); return; }
     try {
-      const result = await promise;
-      const img: UploadedImage = {
-        file,
-        preview: result.url,
-        width: result.width || 0,
-        height: result.height || 0,
-      };
-      setMultiViewImage(view, img);
-      toast.success(`${view.charAt(0).toUpperCase() + view.slice(1)} view uploaded`);
-    } catch (err: any) {
-      if (err.message !== 'Upload cancelled') {
-        toast.error(`Upload failed: ${err.message}`);
-      }
-    } finally {
-      setUploading(null);
-    }
-  }, [setMultiViewImage]);
+      const img = await processImageFile(file);
+      setUploadedImage(img);
+    } catch { (await import('sonner')).toast.error('Failed to process image'); }
+  }, [setUploadedImage]);
 
-  // Model file upload handler with real progress
-  const handleModelUpload = useCallback(async (file: File) => {
+  // Model file upload handler — uploads to backend, then loads the persistent URL into the viewer
+  const handleModelUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
     const ext = '.' + file.name.split('.').pop()?.toLowerCase();
     const supported = ['.glb', '.gltf', '.fbx', '.obj', '.stl'];
     if (!supported.includes(ext)) {
-      toast.error(`Unsupported: ${ext}. Use: ${supported.join(', ')}`);
+      (await import('sonner')).toast.error(`Unsupported: ${ext}. Use: ${supported.join(', ')}`);
       return;
     }
-
-    const { promise, cancel } = uploadService.uploadWithProgress(
-      file,
-      (p) => setUploading({ view: 'model', ...p, cancel }),
-      '/api/v1/upload/model' as any
-    );
-
     try {
+      const { promise } = uploadService.uploadWithProgress(file, () => {}, '/api/v1/upload/model' as any);
       const result = await promise;
+      // Use the real persistent URL from the backend response
       if (result?.url) {
-        setReferenceModel({
-          file,
-          name: file.name,
-          url: result.url,
-          progress: 100
-        });
         window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url: result.url } }));
-        toast.success(`Model uploaded successfully`);
+        (await import('sonner')).toast.success(`Model uploaded (${ext.slice(1).toUpperCase()})`);
+      } else {
+        (await import('sonner')).toast.error('Upload succeeded but no URL returned');
       }
     } catch (err: any) {
-      if (err.message !== 'Upload cancelled') {
-        toast.error(`Upload failed: ${err.message}`);
-      }
-    } finally {
-      setUploading(null);
+      (await import('sonner')).toast.error(`Upload failed: ${err?.message || 'Unknown error'}`);
     }
-  }, [setReferenceModel]);
+    // Reset input so re-uploading the same file triggers onChange
+    e.target.value = '';
+  }, []);
 
-  const [imgDragOver, setImgDragOver] = useState<ViewType | null>(null);
-
-  const handleDrop = useCallback((e: React.DragEvent, view: ViewType) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setImgDragOver(null);
+  // Drag & drop for images
+  const [imgDragOver, setImgDragOver] = useState(false);
+  const handleImgDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation(); setImgDragOver(false);
     const file = e.dataTransfer.files[0];
-    if (file) handleViewUpload(view, file);
-  }, [handleViewUpload]);
+    if (!file) return;
+    const error = validateImageFile(file);
+    if (error) { (await import('sonner')).toast.error(error); return; }
+    try {
+      const img = await processImageFile(file);
+      setUploadedImage(img);
+    } catch { (await import('sonner')).toast.error('Failed to process image'); }
+  }, [setUploadedImage]);
 
-  // Quality presets
-  const qualityOptions = QUALITY_PRESETS.map((p) => ({
+  // Quality presets — driven by the shared QUALITY_PRESETS constant
+  const qualityOptions: { id: QualityPreset; label: string; desc: string; credits: number }[] = QUALITY_PRESETS.map((p) => ({
     id: p.id,
     label: p.label,
     desc: p.time,
+    credits: p.credits,
   }));
 
-  const pipelineSteps = [
-    { id: 'queued', label: 'Queueing', icon: <CircleDot size={14} /> },
-    { id: 'generating', label: 'Generating', icon: <Sparkles size={14} /> },
-    { id: 'texturing', label: 'Texturing', icon: <Palette size={14} /> },
-    { id: 'refining', label: 'Refining', icon: <Activity size={14} /> },
-    { id: 'completed', label: 'Completed', icon: <CheckCircle2 size={14} /> },
-  ];
-
-  const currentStepIndex = useMemo(() => {
-    if (!currentJob) return -1;
-    if (currentJob.status === 'queued') return 0;
-    if (currentJob.status === 'generating') return 1;
-    if (currentJob.status === 'completed') return 4;
-    // Heuristic for others based on logs or progress
-    if (currentJob.progress > 70) return 3;
-    if (currentJob.progress > 30) return 2;
-    return 1;
-  }, [currentJob]);
-
-  /* ------------------------------------------------------------------ */
-  /*  Actionable Error Categorization                                   */
-  /* ------------------------------------------------------------------ */
-
-  const getErrorDetail = (msg: string) => {
-    const m = msg.toLowerCase();
-    if (m.includes("quota") || m.includes("limit")) return {
-      title: "Quota Exceeded",
-      advice: "Try again later or upgrade your plan to continue generating models.",
-      icon: <Lock size={20} className="text-amber-400" />
-    };
-    if (m.includes("network") || m.includes("fetch") || m.includes("timeout")) return {
-      title: "Connection Lost",
-      advice: "Your internet connection may be unstable. Please check your network and retry.",
-      icon: <Monitor size={20} className="text-sky-400" />
-    };
-    if (m.includes("input") || m.includes("prompt") || m.includes("image")) return {
-      title: "Invalid Input",
-      advice: "The prompt or image provided is invalid. Try a clearer description or a different image.",
-      icon: <Pencil size={20} className="text-purple-400" />
-    };
-    return {
-      title: "Generation Error",
-      advice: "An unexpected error occurred during the 3D generation pipeline.",
-      icon: <AlertCircle size={20} className="text-red-400" />
-    };
-  };
-
   return (
-    <TooltipProvider>
-    <div className="flex flex-col h-full bg-[#1a1b1e] text-white overflow-hidden font-sans">
-      {/* Main Panel */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#1a1b1e]">
-        {/* Header */}
-        <div className="p-5 shrink-0 border-b border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-2xl bg-[#facc15]/10 text-[#facc15] shadow-[inset_0_0_15px_rgba(250,204,21,0.1)] border border-[#facc15]/20">
-                <Sparkles size={20} />
-              </div>
-              <div className="flex flex-col">
-                <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-white">Neural Engine</h2>
-                <span className="text-[8px] font-bold uppercase tracking-widest text-white/20">3D-SPACE Pipeline v4.2</span>
-              </div>
-            </div>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="p-2 text-white/20 hover:text-white transition-all hover:bg-white/5 rounded-xl">
-                  <HelpCircle size={18} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>Generation Help & Documentation</p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
+    <div className="flex flex-col h-full bg-[hsl(var(--surface-1))] border-r border-[hsl(var(--border))] overflow-hidden">
+      {/* Header */}
+      <div className="p-4 pb-3 border-b border-[hsl(var(--border)/0.5)] shrink-0">
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-xs font-black uppercase tracking-widest text-[hsl(var(--foreground))]">Model Generation</h2>
+          <button className="p-1 rounded hover:bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] transition-colors" title="Help">
+            <HelpCircle size={14} />
+          </button>
+        </div>
+        <p className="text-[10px] text-[hsl(var(--muted-foreground))]">Generate 3D model from text or image</p>
+      </div>
 
-          <div className="flex p-1 bg-black/40 backdrop-blur-md rounded-2xl border border-white/5 shadow-inner">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => setHDMode('hd')}
-                  className={cn(
-                    "flex-1 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.15em] transition-all relative overflow-hidden group",
-                    hdMode === 'hd' ? "text-[#121214] font-black" : "text-white/40 hover:text-white/60"
-                  )}
-                >
-                  <span className="relative z-10">HD Model</span>
-                  {hdMode === 'hd' && (
-                    <motion.div layoutId="gen-mode-pill" className="absolute inset-0 bg-[#facc15] shadow-[0_0_15px_rgba(250,204,21,0.3)]" />
-                  )}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <p>High Detail Geometry & Texture</p>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => setHDMode('smart')}
-                  className={cn(
-                    "flex-1 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.15em] transition-all relative overflow-hidden group flex items-center justify-center gap-2",
-                    hdMode === 'smart' ? "text-[#121214] font-black" : "text-white/40 hover:text-white/60"
-                  )}
-                >
-                  <span className="relative z-10">Smart Mesh</span>
-                  <Zap size={10} className={cn("relative z-10", hdMode === 'smart' ? "text-[#121214] fill-[#121214]" : "text-[#facc15] fill-[#facc15]")} />
-                  {hdMode === 'smart' && (
-                    <motion.div layoutId="gen-mode-pill" className="absolute inset-0 bg-[#facc15] shadow-[0_0_15px_rgba(250,204,21,0.3)]" />
-                  )}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <p>Neural Topology Optimization</p>
-              </TooltipContent>
-            </Tooltip>
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+        {/* Mode toggle */}
+        <div className="flex gap-1 p-1 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border)/0.5)]">
+          <button
+            onClick={() => setMode('text-to-3d')}
+            disabled={!supportsTextTo3D}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all',
+              mode === 'text-to-3d'
+                ? 'bg-[hsl(var(--primary))] text-white shadow-lg shadow-[hsl(var(--primary))/0.2]'
+                : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]',
+              !supportsTextTo3D && 'opacity-40 cursor-not-allowed'
+            )}
+          >
+            <Type size={12} /> Text → 3D
+          </button>
+          <button
+            onClick={() => setMode('image-to-3d')}
+            disabled={!supportsImageTo3D}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all',
+              mode === 'image-to-3d'
+                ? 'bg-[hsl(var(--primary))] text-white shadow-lg shadow-[hsl(var(--primary))/0.2]'
+                : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]',
+              !supportsImageTo3D && 'opacity-40 cursor-not-allowed'
+            )}
+          >
+            <ImageIcon size={12} /> Image → 3D
+          </button>
+        </div>
+
+        {/* Model selector */}
+        <div className="space-y-1.5">
+          <label className="text-[9px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Model</label>
+          <div className="relative">
+            <select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-lg px-3 py-2 text-[11px] text-[hsl(var(--foreground))] appearance-none focus:outline-none focus:border-[hsl(var(--primary))] transition-all cursor-pointer"
+            >
+              <option value="">Select model...</option>
+              {models.map((m) => (
+                <option key={m.id} value={m.id} disabled={!m.available}>
+                  {m.label} {!m.available ? '(Not installed)' : ''}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] pointer-events-none" />
+          </div>
+          {selectedModelData && (
+            <div className="flex items-center gap-1.5">
+              {selectedModelData.available ? (
+                <span className="flex items-center gap-1 text-[9px] text-[hsl(var(--neon-green))] font-bold">
+                  <CheckCircle2 size={10} /> Ready
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-[9px] text-[hsl(var(--neon-amber))] font-bold">
+                  <Loader2 size={10} className="animate-spin" /> Not installed
+                </span>
+              )}
+              {selectedModelData.vram_required_mb && (
+                <span className="text-[8px] text-[hsl(var(--muted-foreground))]/60 font-mono">
+                  ~{selectedModelData.vram_required_mb > 1024 ? `${(selectedModelData.vram_required_mb / 1024).toFixed(1)}GB` : `${selectedModelData.vram_required_mb}MB`} VRAM
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Text → 3D: Prompt */}
+        {mode === 'text-to-3d' && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-[9px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Prompt</label>
+              <span className="text-[8px] font-mono text-[hsl(var(--muted-foreground))]/50">{prompt.length}/1000</span>
+            </div>
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="Describe the 3D model you want to generate..."
+              rows={4}
+              maxLength={1000}
+              className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-lg px-3 py-2 text-[11px] text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))]/40 focus:outline-none focus:border-[hsl(var(--primary))] transition-all resize-none leading-relaxed"
+            />
+          </div>
+        )}
+
+        {/* Image → 3D: Image upload */}
+        {mode === 'image-to-3d' && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-[9px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">
+                Reference Image
+              </label>
+              {uploadedImage && (
+                <span className="text-[8px] font-mono text-[hsl(var(--neon-green))] flex items-center gap-1">
+                  <CheckCircle2 size={10} /> Loaded
+                </span>
+              )}
+            </div>
+
+            {uploadedImage ? (
+              <div className="group relative rounded-xl overflow-hidden border border-[hsl(var(--border))] bg-[hsl(var(--surface-2))] transition-all shadow-inner">
+                <img src={uploadedImage.preview} alt="Reference" className="w-full aspect-video object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
+                  <div className="flex justify-end">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setUploadedImage(null); }}
+                      className="p-1 rounded-md bg-black/60 hover:bg-[hsl(var(--destructive))] text-white transition-all backdrop-blur-sm"
+                      title="Remove image"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between text-[8px] text-white/90">
+                    <span className="font-mono truncate max-w-[140px]">{uploadedImage.file?.name || 'reference_image'}</span>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 backdrop-blur font-bold uppercase transition-all"
+                    >
+                      Replace
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div
+                className={cn(
+                  'relative group overflow-hidden rounded-xl border border-dashed transition-all duration-200 cursor-pointer p-4',
+                  imgDragOver
+                    ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))/0.08] shadow-[0_0_20px_hsl(var(--primary)/0.15)] scale-[0.99]'
+                    : 'border-[hsl(var(--border))] hover:border-[hsl(var(--primary)/0.5)] bg-gradient-to-b from-[hsl(var(--surface-2)/0.6)] to-[hsl(var(--surface-2)/0.2)]'
+                )}
+                onClick={() => fileInputRef.current?.click()}
+                onDrop={handleImgDrop}
+                onDragOver={(e) => { e.preventDefault(); setImgDragOver(true); }}
+                onDragLeave={() => setImgDragOver(false)}
+              >
+                <div className="flex flex-col items-center justify-center text-center gap-2">
+                  <div className="w-10 h-10 rounded-xl bg-[hsl(var(--surface-3))] border border-[hsl(var(--border)/0.6)] flex items-center justify-center text-[hsl(var(--muted-foreground))] group-hover:text-[hsl(var(--primary))] group-hover:border-[hsl(var(--primary)/0.4)] group-hover:scale-105 transition-all shadow-sm">
+                    <Upload size={18} />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold text-[hsl(var(--foreground))] group-hover:text-[hsl(var(--primary))] transition-colors">
+                      Choose reference image
+                    </p>
+                    <p className="text-[9px] text-[hsl(var(--muted-foreground))] mt-0.5">
+                      Drag &amp; drop or browse
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 mt-1">
+                    {['PNG', 'JPG', 'WEBP'].map((fmt) => (
+                      <span key={fmt} className="px-1.5 py-0.5 rounded text-[7px] font-mono font-bold bg-[hsl(var(--surface-3))] border border-[hsl(var(--border)/0.5)] text-[hsl(var(--muted-foreground))]">
+                        {fmt}
+                      </span>
+                    ))}
+                    <span className="text-[8px] text-[hsl(var(--muted-foreground))]/60 ml-1">
+                      Max {MAX_IMAGE_SIZE_MB}MB
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+            <input ref={fileInputRef} type="file" accept={SUPPORTED_IMAGE_FORMATS.join(',')} className="hidden" onChange={handleImageUpload} />
+          </div>
+        )}
+
+        {/* Negative prompt (collapsible) */}
+        {mode === 'text-to-3d' && (
+          <div>
+            <button
+              onClick={() => setShowNegPrompt(!showNegPrompt)}
+              className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors w-full"
+            >
+              {showNegPrompt ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+              Negative Prompt
+            </button>
+            {showNegPrompt && (
+              <textarea
+                value={negativePrompt}
+                onChange={(e) => setNegativePrompt(e.target.value)}
+                placeholder="Things to avoid in the generation..."
+                rows={2}
+                maxLength={1000}
+                className="mt-1.5 w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-lg px-3 py-2 text-[11px] text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))]/40 focus:outline-none focus:border-[hsl(var(--primary))] transition-all resize-none"
+              />
+            )}
+          </div>
+        )}
+
+        {/* Quality */}
+        <div className="space-y-1.5">
+          <label className="text-[9px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Quality</label>
+          <div className="flex gap-1.5">
+            {qualityOptions.map((q) => (
+              <button
+                key={q.id}
+                onClick={() => setQuality(q.id)}
+                className={cn(
+                  'flex-1 flex flex-col items-center gap-0.5 px-2 py-2 rounded-lg border transition-all',
+                  quality === q.id
+                    ? 'bg-[hsl(var(--primary))/0.1] text-[hsl(var(--primary))] border-[hsl(var(--primary))/0.3]'
+                    : 'bg-transparent text-[hsl(var(--muted-foreground))] border-[hsl(var(--border)/0.5)] hover:text-[hsl(var(--foreground))]',
+                  isGenerating && 'opacity-50 pointer-events-none'
+                )}
+                disabled={isGenerating}
+              >
+                <span className="text-[10px] font-bold">{q.label}</span>
+                <span className="text-[7px] opacity-60">{q.desc}</span>
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto px-5 space-y-6 pb-24 pt-6 scrollbar-thin scrollbar-thumb-white/5 hover:scrollbar-thumb-white/10">
-          {/* Generation Pipeline Progress Overlay (Active State) */}
-          {isGenerating && (
-            <div className="p-5 bg-[#121214] rounded-[2rem] border border-[#facc15]/20 space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-[#facc15]">Neural Generation</h3>
-                  <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">Pipeline Active • {elapsed}s</p>
-                </div>
-                <div className="text-right">
-                  <span className="text-xl font-black text-white">{progress}%</span>
+        {/* Geometry detail slider */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <label className="text-[9px] font-bold uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Geometry Detail</label>
+            <span className="text-[9px] font-mono text-[hsl(var(--foreground))]">{(cfgScale / 10).toFixed(1)}</span>
+          </div>
+          <input
+            type="range" min="1" max="15" step="1"
+            value={cfgScale}
+            onChange={(e) => setCfgScale(Number(e.target.value))}
+            className="w-full h-1 rounded-full appearance-none cursor-pointer bg-[hsl(var(--surface-3))]
+            [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[hsl(var(--primary))] [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-[hsl(var(--primary))/0.3]"
+          />
+        </div>
+
+        {/* Advanced Settings (collapsible) */}
+        <div>
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors w-full"
+          >
+            {showAdvanced ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+            Advanced Settings
+          </button>
+          {showAdvanced && (
+            <div className="mt-2 space-y-3 p-3 rounded-xl bg-[hsl(var(--surface-2))/0.5] border border-[hsl(var(--border)/0.3)]">
+              {/* Style preset */}
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-bold uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Style</label>
+                <div className="relative">
+                  <select
+                    value={stylePreset}
+                    onChange={(e) => setStylePreset(e.target.value)}
+                    className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-lg px-3 py-1.5 text-[11px] text-[hsl(var(--foreground))] appearance-none focus:outline-none focus:border-[hsl(var(--primary))] transition-all cursor-pointer"
+                  >
+                    {STYLE_PRESETS.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <ChevronDown size={10} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] pointer-events-none" />
                 </div>
               </div>
 
-              {/* Progress Bar */}
-              <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-[#facc15] to-[#fde047] shadow-[0_0_20px_rgba(250,204,21,0.3)] transition-all duration-500 ease-out" 
-                  style={{ width: `${progress}%` }} 
+              {/* Generate Texture toggle */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Palette size={12} className="text-[hsl(var(--muted-foreground))]" />
+                  <span className="text-[10px] font-semibold text-[hsl(var(--foreground))]">Generate Texture</span>
+                </div>
+                <button
+                  onClick={() => setGenerateTexture(!generateTexture)}
+                  disabled={!supportsTexture}
+                  className={cn(
+                    'w-8 h-4 rounded-full transition-all relative',
+                    generateTexture ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-3))]',
+                    !supportsTexture && 'opacity-40 cursor-not-allowed'
+                  )}
+                  title={!supportsTexture ? getCapabilityReason(selectedModelData, 'texture') : undefined}
+                >
+                  <div className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all', generateTexture ? 'left-4.5' : 'left-0.5')} />
+                </button>
+              </div>
+
+              {/* Auto Rig toggle */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Activity size={12} className="text-[hsl(var(--muted-foreground))]" />
+                  <span className="text-[10px] font-semibold text-[hsl(var(--foreground))]">Auto Rig</span>
+                </div>
+                <button
+                  onClick={() => setAutoRig(!autoRig)}
+                  disabled={!capabilities.riggingAnimation}
+                  className={cn(
+                    'w-8 h-4 rounded-full transition-all relative',
+                    autoRig ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-3))]',
+                    !capabilities.riggingAnimation && 'opacity-40 cursor-not-allowed'
+                  )}
+                  title={!capabilities.riggingAnimation ? 'Rigging not available' : undefined}
+                >
+                  <div className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all', autoRig ? 'left-4.5' : 'left-0.5')} />
+                </button>
+              </div>
+
+              {/* Steps */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[9px] font-bold uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Steps</label>
+                  <span className="text-[9px] font-mono text-[hsl(var(--foreground))]">{steps}</span>
+                </div>
+                <input
+                  type="range" min="10" max="100" step="5"
+                  value={steps}
+                  onChange={(e) => setSteps(Number(e.target.value))}
+                  className="w-full h-1 rounded-full appearance-none cursor-pointer bg-[hsl(var(--surface-3))]
+                  [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[hsl(var(--primary))]"
                 />
               </div>
 
-              {/* Steps Indicator */}
-              <div className="flex justify-between items-start pt-2">
-                {pipelineSteps.map((step, idx) => (
-                  <div key={step.id} className="flex flex-col items-center gap-2 w-1/5">
-                    <div className={cn(
-                      "w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-500",
-                      idx < currentStepIndex ? "bg-[#facc15] border-[#facc15] text-[#121214]" :
-                      idx === currentStepIndex ? "bg-[#facc15]/10 border-[#facc15] text-[#facc15] animate-pulse" :
-                      "bg-[#1a1b1e] border-white/5 text-white/10"
-                    )}>
-                      {idx < currentStepIndex ? <CheckCircle2 size={16} /> : step.icon}
-                    </div>
-                    <span className={cn(
-                      "text-[8px] font-black uppercase tracking-widest text-center transition-colors duration-500",
-                      idx <= currentStepIndex ? "text-white/60" : "text-white/10"
-                    )}>
-                      {step.label}
-                    </span>
-                  </div>
-                ))}
+              {/* Seed */}
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-bold uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Seed (optional)</label>
+                <input
+                  type="text"
+                  value={useGenerationStore.getState().seed}
+                  onChange={(e) => useGenerationStore.getState().setSeed(e.target.value)}
+                  placeholder="Random"
+                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-lg px-3 py-1.5 text-[11px] text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))]/40 focus:outline-none focus:border-[hsl(var(--primary))] transition-all font-mono"
+                />
               </div>
-
-              {/* Latest Log Message */}
-              {currentJob?.logs && currentJob.logs.length > 0 && (
-                <div className="p-3 bg-black/20 rounded-xl border border-white/5">
-                  <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest animate-pulse">
-                    {currentJob.logs[currentJob.logs.length - 1].message}
-                  </p>
-                </div>
-              )}
-
-              <button 
-                onClick={cancel}
-                className="w-full py-3 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 text-[10px] font-black uppercase tracking-widest transition-all"
-              >
-                Abort Generation
-              </button>
             </div>
           )}
+        </div>
 
-          {/* Error State (Failed Job) */}
-          {!isGenerating && currentJob?.status === 'failed' && (() => {
-            const errorMsg = currentJob.logs.find(l => l.level === 'error')?.message || "Mesh reconstruction failed.";
-            const detail = getErrorDetail(errorMsg);
-            return (
-              <div className="p-5 bg-red-500/5 rounded-[2rem] border border-red-500/20 space-y-4 animate-in zoom-in-95 duration-300">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-red-500/10 text-red-400">
-                    {detail.icon}
-                  </div>
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-red-400">{detail.title}</h3>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[11px] text-red-100/90 leading-relaxed font-bold">
-                    {errorMsg}
-                  </p>
-                  <p className="text-[9px] text-red-400/50 leading-relaxed font-medium italic">
-                    {detail.advice}
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  <button 
-                    onClick={() => generate()}
-                    className="py-3 rounded-xl bg-red-500/20 text-red-400 hover:bg-red-500/30 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-red-500/20 shadow-lg shadow-red-500/5"
-                  >
-                    <RefreshCw size={14} /> Retry
-                  </button>
-                  <button 
-                    onClick={() => useGenerationStore.getState().setCurrentJob(null)}
-                    className="py-3 rounded-xl bg-white/5 text-white/40 hover:text-white text-[10px] font-black uppercase tracking-widest transition-all border border-white/5"
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              </div>
-            );
-          })()}
+        {/* Model Upload */}
+        <div className="space-y-1.5">
+          <label className="text-[9px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Import Model</label>
+          <button
+            onClick={() => modelInputRef.current?.click()}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-[hsl(var(--border)/0.5)] text-[10px] font-bold text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary))/0.3] hover:text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))/0.03] transition-all"
+          >
+            <Upload size={14} /> Upload 3D Model
+          </button>
+          <input ref={modelInputRef} type="file" accept=".glb,.gltf,.fbx,.obj,.stl" className="hidden" onChange={handleModelUpload} />
+          <p className="text-[8px] text-[hsl(var(--muted-foreground))]/40">GLB, GLTF, FBX, OBJ, STL</p>
+        </div>
+      </div>
 
-          {/* Multi-View Upload Grid */}
-          {!isGenerating && currentJob?.status !== 'failed' && (
-            <div className="relative aspect-square max-w-[400px] mx-auto w-full bg-[#121214] rounded-[2rem] border border-white/5 overflow-hidden group shadow-2xl">
-            {/* View Grid Overlay */}
-            <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 opacity-[0.03] pointer-events-none">
-              <div className="border-r border-b border-white" />
-              <div className="border-b border-white" />
-              <div className="border-r border-white" />
-              <div className="border-white" />
+      {/* Footer: Generate button + progress */}
+      <div className="p-4 pt-3 border-t border-[hsl(var(--border)/0.5)] shrink-0 space-y-3">
+        {/* Progress bar during generation */}
+        {isGenerating && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
+                {statusLabel === 'queued' ? 'Queued' : statusLabel === 'uploading' ? 'Uploading...' : statusLabel === 'generating' ? 'Generating...' : statusLabel === 'texturing' ? 'Texturing...' : statusLabel === 'rigging' ? 'Rigging...' : statusLabel}
+              </span>
+              <span className="text-[9px] font-mono text-[hsl(var(--foreground))]">{Math.round(progress)}%</span>
             </div>
-
-            {/* Top Toolbar */}
-            <div className="absolute top-5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 p-1.5 bg-[#1a1b1e]/80 backdrop-blur-xl rounded-2xl border border-white/10 z-10 shadow-2xl">
-              <button className="p-2 text-[#facc15] bg-[#facc15]/10 rounded-xl transition-all shadow-inner"><ImageIcon size={16} /></button>
-              <button className="p-2 text-white/40 hover:text-white hover:bg-white/5 rounded-xl transition-all"><Box size={16} /></button>
-              <button className="p-2 text-white/40 hover:text-white hover:bg-white/5 rounded-xl transition-all"><Layers size={16} /></button>
-              <button className="p-2 text-white/40 hover:text-white hover:bg-white/5 rounded-xl transition-all"><Pencil size={16} /></button>
+            <div className="w-full h-1.5 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-cyan))] rounded-full transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
             </div>
-
-            {/* Main Front View Upload */}
-            <div
-              className={cn(
-                "absolute inset-0 flex flex-col items-center justify-center transition-all",
-                imgDragOver === 'front' ? "bg-[#facc15]/5" : ""
-              )}
-              onDrop={(e) => handleDrop(e, 'front')}
-              onDragOver={(e) => { e.preventDefault(); setImgDragOver('front'); }}
-              onDragLeave={() => setImgDragOver(null)}
-              onClick={() => {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = 'image/*';
-                input.onchange = (e) => {
-                  const file = (e.target as HTMLInputElement).files?.[0];
-                  if (file) handleViewUpload('front', file);
-                };
-                input.click();
-              }}
-            >
-              {multiViewImages.front ? (
-                <div className="relative w-full h-full p-4">
-                  <Image 
-                    src={multiViewImages.front.preview} 
-                    alt="Front" 
-                    fill
-                    className="object-contain rounded-2xl p-4" 
-                    referrerPolicy="no-referrer"
-                  />
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setMultiViewImage('front', null); }}
-                    className="absolute top-6 right-6 p-1.5 bg-black/60 backdrop-blur-md rounded-full hover:bg-red-500 transition-colors shadow-lg"
-                  ><X size={14} /></button>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-4 cursor-pointer group/upload">
-                  <div className="relative">
-                    <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center group-hover/upload:scale-110 transition-transform duration-500">
-                      <ImagePlus size={32} className="text-white/20 group-hover/upload:text-[#facc15] transition-colors" />
-                    </div>
-                    <div className="absolute inset-0 animate-ping bg-[#facc15]/10 rounded-full scale-110" />
-                  </div>
-                  <div className="text-center space-y-1">
-                    <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">Front View</span>
-                    <p className="text-[9px] text-white/10 font-bold uppercase tracking-widest">Click or Drag to Upload</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Upload Progress Overlay */}
-              {uploading && uploading.view === 'front' && (
-                <div className="absolute inset-0 bg-[#121214]/95 backdrop-blur-md flex flex-col items-center justify-center p-8 z-20">
-                  <div className="w-full max-w-[220px] space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-black text-[#facc15] uppercase tracking-widest">Uploading...</span>
-                      <span className="text-[10px] font-black text-white/40">{uploading.percent}%</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                      <div className="h-full bg-[#facc15] shadow-[0_0_10px_rgba(250,204,21,0.5)] transition-all duration-300" style={{ width: `${uploading.percent}%` }} />
-                    </div>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); uploading.cancel?.(); }}
-                      className="w-full py-2 text-[10px] font-black text-white/20 hover:text-red-400 transition-colors uppercase tracking-widest"
-                    >Cancel</button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Thumbnail Sidebar (Bottom Views) */}
-            <div className="absolute bottom-5 left-0 right-0 flex justify-center gap-3 px-5 z-10">
-              {(['left', 'right', 'back'] as ViewType[]).map((view) => (
-                <div
-                  key={view}
-                  className={cn(
-                    "w-[86px] aspect-square rounded-2xl bg-[#1a1b1e]/80 backdrop-blur-xl border border-white/10 overflow-hidden cursor-pointer hover:border-[#facc15]/30 transition-all flex flex-col items-center justify-center group/thumb shadow-2xl",
-                    imgDragOver === view ? "border-[#facc15] bg-[#facc15]/5" : ""
-                  )}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const input = document.createElement('input');
-                    input.type = 'file';
-                    input.accept = 'image/*';
-                    input.onchange = (ev) => {
-                      const file = (ev.target as HTMLInputElement).files?.[0];
-                      if (file) handleViewUpload(view, file);
-                    };
-                    input.click();
-                  }}
-                  onDrop={(e) => handleDrop(e, view)}
-                  onDragOver={(e) => { e.preventDefault(); setImgDragOver(view); }}
-                  onDragLeave={() => setImgDragOver(null)}
-                >
-                  {multiViewImages[view] ? (
-                    <div className="relative w-full h-full p-2">
-                      <Image 
-                        src={multiViewImages[view]!.preview} 
-                        alt={view} 
-                        fill
-                        className="object-cover rounded-xl p-2" 
-                        referrerPolicy="no-referrer"
-                      />
-                      <button
-                        onClick={(ev) => { ev.stopPropagation(); setMultiViewImage(view, null); }}
-                        className="absolute top-2 right-2 p-1 bg-black/60 backdrop-blur-md rounded-full hover:bg-red-500 transition-colors opacity-0 group-hover/thumb:opacity-100 shadow-lg"
-                      ><X size={10} /></button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-2 text-white/20 group-hover/thumb:text-[#facc15] transition-colors">
-                      <ImagePlus size={20} />
-                      <span className="text-[8px] font-black uppercase tracking-[0.2em]">{view}</span>
-                    </div>
-                  )}
-                  {uploading && uploading.view === view && (
-                    <div className="absolute inset-0 bg-black/90 flex items-center justify-center p-3">
-                      <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
-                        <div className="h-full bg-[#facc15]" style={{ width: `${uploading.percent}%` }} />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+            <div className="flex items-center justify-between">
+              <span className="text-[8px] font-mono text-[hsl(var(--muted-foreground))]/50">Elapsed: {elapsed}s</span>
+              <button
+                onClick={cancel}
+                className="text-[9px] font-bold text-[hsl(var(--destructive))] hover:underline"
+              >Cancel</button>
             </div>
           </div>
         )}
 
-          {/* Prompt Input */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-[10px] font-black uppercase tracking-widest text-white/40">Text Prompt</label>
-              <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">{prompt.length} / 1000</span>
-            </div>
-            <div className="relative group">
-              <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Describe your 3D model (e.g. A futuristic mech warrior with neon accents)..."
-                rows={4}
-                className="w-full bg-[#121214] border border-white/5 rounded-2xl px-5 py-4 text-xs text-white placeholder:text-white/10 focus:outline-none focus:border-[#facc15]/30 focus:bg-black/40 transition-all resize-none leading-relaxed shadow-inner"
-              />
-              <div className="absolute bottom-4 right-4 text-white/10 group-focus-within:text-[#facc15]/30 transition-all transform group-focus-within:scale-110">
-                <Type size={16} />
-              </div>
-            </div>
-          </div>
-
-          {/* Settings Shortcuts */}
-          <div className="grid grid-cols-2 gap-3">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="flex items-center justify-between p-4 bg-[#121214] rounded-2xl border border-white/5 hover:border-[#facc15]/20 transition-all group">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-white/5 text-white/40 group-hover:text-[#facc15] transition-colors">
-                      <Monitor size={14} />
-                    </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Quality</span>
-                  </div>
-                  <ChevronRight size={14} className="text-white/20 group-hover:text-[#facc15]/50 transition-colors" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <p>Adjust mesh density and geometry detail</p>
-              </TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="flex items-center justify-between p-4 bg-[#121214] rounded-2xl border border-white/5 hover:border-[#facc15]/20 transition-all group">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-white/5 text-white/40 group-hover:text-[#facc15] transition-colors">
-                      <Palette size={14} />
-                    </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Texture</span>
-                  </div>
-                  <ChevronRight size={14} className="text-white/20 group-hover:text-[#facc15]/50 transition-colors" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <p>Configure PBR material generation settings</p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-
-          {/* Personal Use Info */}
-          <div className="p-5 bg-[#121214] rounded-[1.5rem] border border-white/5 space-y-3">
-            <div className="flex items-center gap-2 text-white/60">
-              <Info size={14} className="text-[#facc15]" />
-              <span className="text-[10px] font-black uppercase tracking-widest">Personal Use</span>
-            </div>
-            <p className="text-[10px] text-white/20 leading-relaxed font-medium">
-              This generation is free for personal projects. High-fidelity models are optimized for real-time engines and 3D printing.
-            </p>
-          </div>
-        </div>
-
-        {/* Generate Button Container */}
-        <div className="p-5 bg-[#1a1b1e] border-t border-white/5 shrink-0 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
-          <Button
+        {/* Generate button (wrapped in rotating glow ring) */}
+        <GlowRing className="w-full">
+          <button
             onClick={() => generate()}
-            disabled={isGenerating || (Object.values(multiViewImages).every(v => !v) && !prompt.trim())}
-            variant="premium"
-            className="w-full py-8 rounded-2xl text-[11px] font-black uppercase tracking-[0.3em] flex items-center justify-center gap-3 transition-all shadow-[0_15px_40px_rgba(139,92,246,0.3)] border-white/20"
+            disabled={isGenerating || (!prompt.trim() && mode === 'text-to-3d') || (!uploadedImage && mode === 'image-to-3d')}
+            className={cn(
+              'w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all',
+              isGenerating
+                ? 'bg-[hsl(var(--surface-3))] text-[hsl(var(--muted-foreground))] cursor-not-allowed'
+                : 'bg-[hsl(var(--primary))] hover:brightness-110 active:scale-[0.98] text-white shadow-lg shadow-[hsl(var(--primary))/0.2]'
+            )}
           >
             {isGenerating ? (
               <>
-                <Loader2 size={18} className="animate-spin" />
-                <span>Processing Neural Mesh</span>
+                <Loader2 size={14} className="animate-spin" /> Generating...
               </>
             ) : (
               <>
-                <span>Generate 3D Model</span>
-                <Zap size={18} className="fill-current" />
+                <Sparkles size={14} /> Generate 3D Model
               </>
             )}
-          </Button>
+          </button>
+        </GlowRing>
+
+        {/* Estimated info — sourced from QUALITY_PRESETS constant */}
+        <div className="flex items-center justify-between text-[8px] text-[hsl(var(--muted-foreground))]/50">
+          <span className="font-mono">Est. {qualityOptions.find((q) => q.id === quality)?.desc ?? '—'}</span>
+          <span className="font-mono">~{qualityOptions.find((q) => q.id === quality)?.credits ?? '—'} credits</span>
         </div>
       </div>
     </div>
-    </TooltipProvider>
-  );
-}
-
-// Internal helper for multi-view silhouettes
-function UserCircle({ size, className }: { size: number, className?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z" />
-      <path d="M12 14a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z" />
-      <path d="M18.3 18.3a6.5 6.5 0 0 0-12.6 0" />
-    </svg>
   );
 }

@@ -1,20 +1,22 @@
 # AI 3D Studio — Changelog
 
-## v3.8.6 — Micro-UX Polish, Actionable Error UX & Tooltip Integration (August 14, 2026)
-
-### Added
-- **Actionable Error Categorization**: Integrated detailed error categorization in `GenerationControls` with domain-specific advice for Quota, Connection, Input, and Pipeline errors, featuring dedicated icons and quick-retry actions.
-- **Global Tooltip Coverage**: Added `TooltipProvider` to `Canvas3D` and `GenerationControls`, providing guidance for all viewport tools (select, orbit, pan, fit, wireframe, rotate, stats), lighting environments, and generation settings.
-- **Smooth Panel Transitions**: Integrated `framer-motion` `AnimatePresence` into `ThreeDGenWorkspace` for refined entrance/exit animations of side panels and UI overlays.
-- **Viewport Tooltips**: Wrapped all central and floating viewport navigation tools in `Canvas3D` with descriptive, non-obtrusive tooltips.
+## v3.8.6 — Build & TypeScript Type-Hardening (August 15, 2026)
 
 ### Fixed
-- **End-to-End API Audit**: Verified and hardened all 3D pipeline integrations (upload, generation, status polling, job deletion, asset loading); confirmed backend `DELETE` route and proxy runtime URL resolution.
-- **Workspace Navbar Cleanup**: Removed the extra legacy navigation bar from the left of the 3D generation workspace to streamline the layout.
-- **Syntax Hardening**: Resolved multiple JSX nesting and expression closure errors in `GenerationControls` identified during the final build audit.
+- **JSX nesting crash in `Canvas3D.tsx`**: removed a stray extra `</div>` that prematurely closed the main viewport wrapper `<div>`, which surfaced as `Expression expected` / `Unterminated regexp literal` parser errors at `</TooltipProvider>`. The 3D viewport, empty-stage overlay, top/right toolbars, and drag-drop overlays are now correctly nested again.
+- **`uploadService.uploadWithProgress` contract mismatch**: the method returns `{ promise, cancel }`, but 8 call sites `await`-ed it directly and read `.url` off the wrapper object (a TS type error). All call sites now destructure `{ promise }` and `await promise` before reading the resolved fields:
+  - `hooks/useGeneration.ts` (reference-image upload)
+  - `3D-SPACE/AssetPanel.tsx` (model upload)
+  - `3D-SPACE/Canvas3D.tsx` (drag-drop + file-input model uploads)
+  - `3D-SPACE/GenerationControls.tsx` (model upload handler)
+  - `features/workspace/new-ui/{TextureGenTab, RiggingAnimationTab, RemeshTab}.tsx` (model upload)
+- **`AppState` export**: `stores/useAppStore.ts` now exports the `AppState` interface (consumed by `stores/useGenerationStore.ts`).
+- **`UploadedImage.url`**: added optional `url?: string` to the `UploadedImage` type in `types/index.ts` (GenerationControls assigns the resolved backend URL).
+- **Missing component imports**: `AssetPanel.tsx` / `GenerationControls.tsx` import `motion`/`AnimatePresence` from `motion/react`; `CreativeWorkspaceLayout.tsx` imports `cn` from `@/lib/utils`.
 
-### Changed
-- Refined `rounded-xl` and `rounded-2xl` consistency across `AssetPanel` and `GenerationControls` to match the core design language.
+### Verified
+- `npx tsc --noEmit` passes with zero errors.
+- `next build` compiles successfully and prerenders all 11 routes.
 
 ## v3.8.5 — Batch Prompt Queueing, Project Timeline & Storage Pruning (August 14, 2026)
 

@@ -26,8 +26,6 @@ import { uploadService } from '@/services/uploadService';
 import { GlowRing } from '@/components/GlowRing';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { motion } from 'motion/react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   MousePointer2, Move, ZoomIn, RotateCcw, Grid3X3,
   Box, BarChart3, Sun, Camera, Upload, Loader2, AlertCircle,
@@ -633,7 +631,6 @@ export default function Canvas3D({ isGenerating }: Canvas3DProps) {
   ] as const;
 
   return (
-    <TooltipProvider>
     <div
       ref={containerRef}
       className="relative flex-1 w-full h-full min-w-0 min-h-0 flex flex-col bg-[radial-gradient(circle_at_50%_35%,#262930_0%,#16181d_60%,#0c0d10_100%)] overflow-hidden select-none"
@@ -706,9 +703,9 @@ export default function Canvas3D({ isGenerating }: Canvas3DProps) {
       {/* ─────────────────────────────────────────────────── */}
       {/*  Top Floating Viewport Bar                         */}
       {/* ─────────────────────────────────────────────────── */}
-      <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between pointer-events-none">
+      <div className="absolute top-3 left-4 right-4 z-20 flex items-center justify-between pointer-events-none">
         {/* Project Title (Editable) */}
-        <div className="pointer-events-auto flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/10 text-white shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all hover:bg-black/60 hover:border-white/20">
+        <div className="pointer-events-auto flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/40 backdrop-blur-md border border-white/10 text-white shadow-lg">
           {isEditingTitle ? (
             <input
               type="text"
@@ -717,113 +714,92 @@ export default function Canvas3D({ isGenerating }: Canvas3DProps) {
               onBlur={() => setIsEditingTitle(false)}
               onKeyDown={(e) => e.key === 'Enter' && setIsEditingTitle(false)}
               autoFocus
-              className="bg-transparent border-b border-[#facc15] text-[11px] font-black uppercase tracking-widest text-white focus:outline-none w-48"
+              className="bg-transparent border-b border-[hsl(var(--primary))] text-xs font-bold text-white focus:outline-none w-36"
             />
           ) : (
             <button
               onClick={() => setIsEditingTitle(true)}
-              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/90 hover:text-white transition-all group"
+              className="flex items-center gap-1.5 text-xs font-semibold text-white/90 hover:text-white transition-colors"
             >
-              <Box size={14} className="text-[#facc15] opacity-60 group-hover:opacity-100 transition-all duration-300 group-hover:scale-110" />
               <span>{projectName}</span>
-              <Edit2 size={10} className="text-white/20 group-hover:text-[#facc15] transition-colors" />
+              <Edit2 size={11} className="text-white/50" />
             </button>
           )}
         </div>
 
         {/* Center Viewport Tool Pills */}
-        <div className="pointer-events-auto flex items-center gap-1 p-1 rounded-2xl bg-[#121214]/60 backdrop-blur-md border border-white/5 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => setActiveTool('select')}
-                className={cn(
-                  'p-2 rounded-xl transition-all relative group overflow-hidden',
-                  activeTool === 'select' ? 'text-[#121214]' : 'text-white/40 hover:text-white hover:bg-white/5'
-                )}
-              >
-                <span className="relative z-10"><MousePointer2 size={14} /></span>
-                {activeTool === 'select' && (
-                  <motion.div layoutId="viewport-top-tool-active" className="absolute inset-0 bg-[#facc15]" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom"><p>Select tool</p></TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => setActiveTool('orbit')}
-                className={cn(
-                  'p-2 rounded-xl transition-all relative group overflow-hidden',
-                  activeTool === 'orbit' ? 'text-[#121214]' : 'text-white/40 hover:text-white hover:bg-white/5'
-                )}
-              >
-                <span className="relative z-10"><RotateCcw size={14} /></span>
-                {activeTool === 'orbit' && (
-                  <motion.div layoutId="viewport-top-tool-active" className="absolute inset-0 bg-[#facc15]" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom"><p>Orbit Camera</p></TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => setActiveTool('pan')}
-                className={cn(
-                  'p-2 rounded-xl transition-all relative group overflow-hidden',
-                  activeTool === 'pan' ? 'text-[#121214]' : 'text-white/40 hover:text-white hover:bg-white/5'
-                )}
-              >
-                <span className="relative z-10"><Move size={14} /></span>
-                {activeTool === 'pan' && (
-                  <motion.div layoutId="viewport-top-tool-active" className="absolute inset-0 bg-[#facc15]" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom"><p>Pan Camera</p></TooltipContent>
-          </Tooltip>
-
-          <div className="w-px h-4 bg-white/10 mx-1" />
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={handleFitView}
-                className="p-2 rounded-xl text-white/40 hover:text-white hover:bg-white/10 transition-all active:scale-90"
-              >
-                <Focus size={14} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom"><p>Frame & Center (Fit)</p></TooltipContent>
-          </Tooltip>
+        <div className="pointer-events-auto flex items-center gap-1 p-1 rounded-xl bg-[#121214]/60 backdrop-blur-md border border-white/5 shadow-xl">
+          <button
+            onClick={() => setActiveTool('select')}
+            className={cn(
+              'p-2 rounded-lg transition-all',
+              activeTool === 'select' ? 'bg-[#facc15] text-[#121214] shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'
+            )}
+            title="Select tool"
+          >
+            <MousePointer2 size={14} />
+          </button>
+          <button
+            onClick={() => setActiveTool('orbit')}
+            className={cn(
+              'p-2 rounded-lg transition-all',
+              activeTool === 'orbit' ? 'bg-[#facc15] text-[#121214] shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'
+            )}
+            title="Orbit Camera"
+          >
+            <RotateCcw size={14} />
+          </button>
+          <button
+            onClick={() => setActiveTool('pan')}
+            className={cn(
+              'p-2 rounded-lg transition-all',
+              activeTool === 'pan' ? 'bg-[#facc15] text-[#121214] shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'
+            )}
+            title="Pan Camera"
+          >
+            <Move size={14} />
+          </button>
+          <button
+            onClick={handleFitView}
+            className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all"
+            title="Frame & Center (Fit)"
+          >
+            <Focus size={14} />
+          </button>
+          <button
+            onClick={toggleWireframe}
+            className={cn(
+              'p-2 rounded-lg transition-all',
+              viewer.showWireframe ? 'text-[#facc15] bg-[#facc15]/10' : 'text-white/40 hover:text-white hover:bg-white/5'
+            )}
+            title="Toggle Wireframe"
+          >
+            <Layers size={14} />
+          </button>
         </div>
 
         {/* Top-Right Real-time Mesh Geometry Stats Badge */}
-        <div className="pointer-events-auto flex items-center gap-3">
+        <div className="pointer-events-auto flex items-center gap-2">
           {hasModelInScene && liveStats && (
-            <div className="hidden sm:flex items-center gap-5 px-5 py-2.5 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/10 text-white shadow-[0_8px_32px_rgba(0,0,0,0.3)] transition-all hover:bg-black/60">
-              <div className="flex flex-col">
-                <span className="text-[7px] font-bold uppercase text-white/30 tracking-[0.2em] leading-none mb-1">Vertices</span>
-                <span className="text-[11px] font-black text-[#facc15] tabular-nums leading-none">{liveStats.vertices.toLocaleString()}</span>
+            <div className="hidden sm:flex items-center gap-4 px-4 py-2 rounded-xl bg-[#121214]/60 backdrop-blur-md border border-white/5 text-white text-[10px] shadow-xl">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[8px] font-black uppercase text-white/20 tracking-widest">Vertices</span>
+                <span className="font-bold text-[#facc15]">{liveStats.vertices.toLocaleString()}</span>
               </div>
-              <div className="w-px h-6 bg-white/10" />
-              <div className="flex flex-col">
-                <span className="text-[7px] font-bold uppercase text-white/30 tracking-[0.2em] leading-none mb-1">Polygons</span>
-                <span className="text-[11px] font-black text-sky-400 tabular-nums leading-none">{liveStats.triangles.toLocaleString()}</span>
+              <div className="w-px h-6 bg-white/5" />
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[8px] font-black uppercase text-white/20 tracking-widest">Polygons</span>
+                <span className="font-bold text-sky-400">{liveStats.triangles.toLocaleString()}</span>
               </div>
             </div>
           )}
 
           {/* 3D Axis Orientation Indicator */}
-          <div className="w-11 h-11 rounded-2xl bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center relative shadow-lg group hover:bg-black/60 transition-all">
-            <span className="text-[9px] font-mono font-bold text-emerald-400 absolute top-1.5 opacity-60 group-hover:opacity-100">Y</span>
-            <span className="text-[9px] font-mono font-bold text-red-500 absolute right-1.5 opacity-60 group-hover:opacity-100">X</span>
-            <span className="text-[9px] font-mono font-bold text-sky-400 absolute bottom-1.5 left-2 opacity-60 group-hover:opacity-100">Z</span>
-            <div className="w-2 h-2 rounded-full bg-white/30 shadow-[0_0_10px_rgba(255,255,255,0.2)]" />
+          <div className="w-10 h-10 rounded-xl bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center relative shadow-lg">
+            <span className="text-[9px] font-mono font-bold text-emerald-400 absolute top-1">Y</span>
+            <span className="text-[9px] font-mono font-bold text-red-500 absolute right-1">X</span>
+            <span className="text-[9px] font-mono font-bold text-sky-400 absolute bottom-1 left-1.5">Z</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-white/70 shadow-sm" />
           </div>
         </div>
       </div>
@@ -834,17 +810,13 @@ export default function Canvas3D({ isGenerating }: Canvas3DProps) {
       <div className="absolute right-4 top-20 z-20 flex flex-col gap-1.5 p-1 rounded-xl bg-black/45 backdrop-blur-md border border-white/10 shadow-xl">
         {/* Lighting button with menu */}
         <div className="relative">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => setShowLightingMenu(!showLightingMenu)}
-                className="p-2.5 rounded-xl text-white/40 hover:text-white hover:bg-white/5 transition-all"
-              >
-                <Sun size={18} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="left"><p>Lighting Environment</p></TooltipContent>
-          </Tooltip>
+          <button
+            onClick={() => setShowLightingMenu(!showLightingMenu)}
+            className="p-2.5 rounded-xl text-white/40 hover:text-white hover:bg-white/5 transition-all"
+            title="Lighting Environment"
+          >
+            <Sun size={18} />
+          </button>
           {showLightingMenu && (
             <div className="absolute right-full mr-3 top-0 w-40 p-2 rounded-2xl bg-[#121214]/90 backdrop-blur-xl border border-white/5 shadow-2xl flex flex-col gap-1 z-30">
               {(['studio', 'sunset', 'cyberpunk', 'ambient'] as const).map((preset) => (
@@ -864,136 +836,159 @@ export default function Canvas3D({ isGenerating }: Canvas3DProps) {
         </div>
 
         {/* Snapshot / Camera capture */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={handleTakeSnapshot}
-              className="p-2.5 rounded-xl text-white/40 hover:text-white hover:bg-white/5 transition-all"
-            >
-              <Camera size={18} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="left"><p>Take HD Snapshot</p></TooltipContent>
-        </Tooltip>
+        <button
+          onClick={handleTakeSnapshot}
+          className="p-2.5 rounded-xl text-white/40 hover:text-white hover:bg-white/5 transition-all"
+          title="Take HD Snapshot"
+        >
+          <Camera size={18} />
+        </button>
 
         {/* Toggle Grid */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={toggleGrid}
-              className={cn(
-                'p-2.5 rounded-xl transition-all',
-                viewer.showGrid ? 'text-[#facc15] bg-[#facc15]/10' : 'text-white/40 hover:text-white hover:bg-white/5'
-              )}
-            >
-              <Grid3X3 size={18} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="left"><p>Toggle Ground Grid</p></TooltipContent>
-        </Tooltip>
+        <button
+          onClick={toggleGrid}
+          className={cn(
+            'p-2.5 rounded-xl transition-all',
+            viewer.showGrid ? 'text-[#facc15] bg-[#facc15]/10' : 'text-white/40 hover:text-white hover:bg-white/5'
+          )}
+          title="Toggle Ground Grid"
+        >
+          <Grid3X3 size={18} />
+        </button>
 
         {/* Shortcuts / Help */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={() => toast.info('Viewport Controls: Left-Click = Orbit, Right-Click = Pan, Scroll = Zoom')}
-              className="p-2.5 rounded-xl text-white/40 hover:text-white hover:bg-white/5 transition-all"
-            >
-              <HelpCircle size={18} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="left"><p>Controls Guide</p></TooltipContent>
-        </Tooltip>
+        <button
+          onClick={() => toast.info('Viewport Controls: Left-Click = Orbit, Right-Click = Pan, Scroll = Zoom')}
+          className="p-2.5 rounded-xl text-white/40 hover:text-white hover:bg-white/5 transition-all"
+          title="Controls Guide"
+        >
+          <HelpCircle size={18} />
+        </button>
       </div>
 
-{/* ─────────────────────────────────────────────────── */}
-{/*  Center-Bottom Toolbars (Floating Overlay)           */}
-        <div className="flex items-center gap-1 px-1.5 py-1.5 rounded-[2.5rem] bg-black/60 backdrop-blur-xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.6)] pointer-events-auto">
-          {[
-            { id: 'select', label: 'Select', icon: MousePointer2, action: () => { setActiveTool('select'); toast.info('Selection mode active'); } },
-            { id: 'orbit', label: 'Orbit', icon: RotateCcw, action: () => setActiveTool('orbit') },
-            { id: 'pan', label: 'Pan', icon: Move, action: () => setActiveTool('pan') },
-          ].map((tool) => {
-            const Icon = tool.icon;
-            const isActive = activeTool === tool.id;
-            return (
-              <Tooltip key={tool.id}>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={tool.action}
-                    className={cn(
-                      'flex flex-col items-center gap-1 px-5 py-3 rounded-[2rem] transition-all relative overflow-hidden group',
-                      isActive ? 'text-[#121214] font-black' : 'text-white/40 hover:text-white hover:bg-white/5'
-                    )}
-                  >
-                    <Icon size={16} className="relative z-10" />
-                    <span className="text-[8px] font-bold uppercase tracking-[0.2em] relative z-10">{tool.label}</span>
-                    {isActive && (
-                      <motion.div layoutId="viewport-bottom-tool-active" className="absolute inset-0 bg-[#facc15] shadow-[0_0_20px_rgba(250,204,21,0.4)]" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />
-                    )}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top"><p>{tool.label} Camera</p></TooltipContent>
-              </Tooltip>
-            );
-          })}
+      {/* ─────────────────────────────────────────────────── */}
+      {/*  Center-Bottom Toolbars (Floating Overlay)           */}
+      {/* ─────────────────────────────────────────────────── */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2.5 max-w-[95%]">
+        {/* Upper Floating Material / Shading Preset Spheres Bar */}
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-xl border border-white/15 shadow-2xl transition-all hover:border-white/25">
+          {materialSpheres.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setShadingMode(s.id as ShadingPreset)}
+              title={`Shading: ${s.label}`}
+              className={cn(
+                'relative w-6 h-6 rounded-full bg-gradient-to-br transition-all duration-200 transform hover:scale-110 flex items-center justify-center',
+                s.color,
+                shadingMode === s.id
+                  ? 'ring-2 ring-[hsl(var(--primary))] ring-offset-2 ring-offset-black scale-110 shadow-lg'
+                  : 'opacity-70 hover:opacity-100'
+              )}
+            >
+              {shadingMode === s.id && <div className="w-1.5 h-1.5 rounded-full bg-white shadow-sm" />}
+            </button>
+          ))}
 
-          <div className="w-px h-10 bg-white/10 mx-2" />
+          <div className="w-px h-4 bg-white/20 mx-0.5" />
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={toggleAutoRotate}
-                className={cn(
-                  'flex flex-col items-center gap-1 px-5 py-3 rounded-[2rem] transition-all relative overflow-hidden',
-                  viewer.autoRotate
-                    ? 'text-[#facc15] bg-[#facc15]/10 border border-[#facc15]/20 shadow-[inset_0_0_15px_rgba(250,204,21,0.05)]'
-                    : 'text-white/40 hover:text-white hover:bg-white/5 border border-transparent'
-                )}
-              >
-                <Play size={16} className={viewer.autoRotate ? 'fill-current' : ''} />
-                <span className="text-[8px] font-bold uppercase tracking-[0.2em]">Auto Rotate</span>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="top"><p>Cinematic Turn-Table View</p></TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={toggleWireframe}
-                className={cn(
-                  'flex flex-col items-center gap-1 px-5 py-3 rounded-[2rem] transition-all relative overflow-hidden',
-                  viewer.showWireframe
-                    ? 'text-[#facc15] bg-[#facc15]/10 border border-[#facc15]/20 shadow-[inset_0_0_15px_rgba(250,204,21,0.05)]'
-                    : 'text-white/40 hover:text-white hover:bg-white/5 border border-transparent'
-                )}
-              >
-                <Layers size={16} />
-                <span className="text-[8px] font-bold uppercase tracking-[0.2em]">Wireframe</span>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="top"><p>View Underlying Topology</p></TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={toggleStats}
-                className={cn(
-                  'flex flex-col items-center gap-1 px-5 py-3 rounded-[2rem] transition-all relative overflow-hidden',
-                  viewer.showStats
-                    ? 'text-[#facc15] bg-[#facc15]/10 border border-[#facc15]/20 shadow-[inset_0_0_10px_rgba(250,204,21,0.05)]'
-                    : 'text-white/40 hover:text-white hover:bg-white/5 border border-transparent'
-                )}
-              >
-                <BarChart3 size={16} />
-                <span className="text-[8px] font-bold uppercase tracking-[0.2em]">Stats</span>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="top"><p>Performance & Geometry HUD</p></TooltipContent>
-          </Tooltip>
+          <button
+            onClick={() => setShowShadingMenu(!showShadingMenu)}
+            className="p-1 text-white/60 hover:text-white transition-colors"
+            title="More Shading Options"
+          >
+            <ChevronDown size={14} />
+          </button>
         </div>
+
+        {/* Lower Main Viewport 10-Tool Navigation Bar */}
+        <div className="flex items-center gap-1 px-2 py-2 rounded-[1.5rem] bg-[#121214]/60 backdrop-blur-xl border border-white/5 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+          {/* 1. Select */}
+          <button
+            onClick={() => { setActiveTool('select'); toast.info('Selection mode active'); }}
+            className={cn(
+              'flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all',
+              activeTool === 'select'
+                ? 'bg-[#facc15] text-[#121214] shadow-lg'
+                : 'text-white/40 hover:text-white hover:bg-white/5'
+            )}
+          >
+            <MousePointer2 size={16} />
+            <span className="text-[9px] font-black uppercase tracking-widest">Select</span>
+          </button>
+
+          {/* 2. Orbit */}
+          <button
+            onClick={() => setActiveTool('orbit')}
+            className={cn(
+              'flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all',
+              activeTool === 'orbit'
+                ? 'bg-[#facc15] text-[#121214] shadow-lg'
+                : 'text-white/40 hover:text-white hover:bg-white/5'
+            )}
+          >
+            <RotateCcw size={16} />
+            <span className="text-[9px] font-black uppercase tracking-widest">Orbit</span>
+          </button>
+
+          {/* 3. Pan */}
+          <button
+            onClick={() => setActiveTool('pan')}
+            className={cn(
+              'flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all',
+              activeTool === 'pan'
+                ? 'bg-[#facc15] text-[#121214] shadow-lg'
+                : 'text-white/40 hover:text-white hover:bg-white/5'
+            )}
+          >
+            <Move size={16} />
+            <span className="text-[9px] font-black uppercase tracking-widest">Pan</span>
+          </button>
+
+          <div className="w-px h-8 bg-white/5 mx-1" />
+
+          {/* 6. Auto Rotate */}
+          <button
+            onClick={toggleAutoRotate}
+            className={cn(
+              'flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all',
+              viewer.autoRotate
+                ? 'text-[#facc15] bg-[#facc15]/10'
+                : 'text-white/40 hover:text-white hover:bg-white/5'
+            )}
+          >
+            <Play size={16} className={viewer.autoRotate ? 'fill-current' : ''} />
+            <span className="text-[9px] font-black uppercase tracking-widest">Auto Rotate</span>
+          </button>
+
+          {/* 7. Wireframe */}
+          <button
+            onClick={toggleWireframe}
+            className={cn(
+              'flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all',
+              viewer.showWireframe
+                ? 'text-[#facc15] bg-[#facc15]/10'
+                : 'text-white/40 hover:text-white hover:bg-white/5'
+            )}
+          >
+            <Layers size={16} />
+            <span className="text-[9px] font-black uppercase tracking-widest">Wireframe</span>
+          </button>
+
+          {/* 9. Stats */}
+          <button
+            onClick={toggleStats}
+            className={cn(
+              'flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all',
+              viewer.showStats
+                ? 'text-[#facc15] bg-[#facc15]/10'
+                : 'text-white/40 hover:text-white hover:bg-white/5'
+            )}
+          >
+            <BarChart3 size={16} />
+            <span className="text-[9px] font-black uppercase tracking-widest">Stats</span>
+          </button>
+        </div>
+      </div>
 
       {/* Drag & Drop Overlays */}
       {isDragOver && (
@@ -1026,8 +1021,7 @@ export default function Canvas3D({ isGenerating }: Canvas3DProps) {
         </div>
       )}
 
-      {viewer.showStats && <Stats className="absolute bottom-24 left-4 z-50" />}
+      {viewer.showStats && <Stats className="!absolute !bottom-24 !left-4 !z-50" />}
     </div>
-    </TooltipProvider>
   );
 }

@@ -7,19 +7,11 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import anime from 'animejs';
 import { motion, AnimatePresence } from 'motion/react';
-import { Palette, Sparkles, Sliders, CheckCircle, Zap, Image as ImageIcon, Upload, X, Settings, ChevronDown, RefreshCw, AlertTriangle, Cpu, Info } from 'lucide-react';
+import { Palette, Sparkles, Sliders, CheckCircle, Zap, Image as ImageIcon, Upload, X, Settings, ChevronDown, RefreshCw, AlertTriangle, Cpu } from 'lucide-react';
 import { Shape3D } from '@/types/new-ui';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useWorkspaceModels } from '@/hooks/useBackendData';
 import { toast } from 'sonner';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 
 interface TextureGenTabProps {
   activeModel: {
@@ -75,18 +67,13 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
     }));
   }, [textureModels, textureModelsError]);
 
-  const hasInitializedRef = useRef(false);
   // Set default texture model to the first installed one (preferred: hunyuan3d-2.1)
   useEffect(() => {
-    if (!hasInitializedRef.current && availableTextureModels.length > 0) {
-      const preferred = availableTextureModels.find((m) => m.id === 'hunyuan3d-2.1' && m.installed) || availableTextureModels[0];
-      if (preferred && preferred.id !== materialModel) {
-        setMaterialModel(preferred.id);
-        hasInitializedRef.current = true;
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availableTextureModels]);
+  if (availableTextureModels.length > 0) {
+    const preferred = availableTextureModels.find((m) => m.id === 'hunyuan3d-2.1' && m.installed) || availableTextureModels[0];
+    if (preferred.id !== materialModel) setMaterialModel(preferred.id);
+  }
+}, [availableTextureModels, materialModel]);
 
   // Cleanup polling on unmount to prevent state updates on unmounted component
   useEffect(() => {
@@ -316,233 +303,204 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
   };
 
   return (
-    <TooltipProvider delayDuration={400}>
-    <div className="flex-1 flex flex-col lg:flex-row gap-0 bg-black overflow-hidden" id="texture-tab-panel">
+    <div className="flex-1 flex flex-col lg:flex-row gap-0 bg-[hsl(var(--surface-0))] overflow-hidden" id="texture-tab-panel">
       {/* Left Settings sidebar — Refined Studio layout */}
-      <aside className="w-full lg:w-[400px] border-r border-white/5 flex flex-col h-full bg-black z-10" id="texture-left-panel">
-        
-        <div className="p-8 border-b border-white/[0.03] bg-white/[0.01]">
-          <div className="flex items-center gap-4">
-            <div className="w-11 h-11 rounded-2xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20 shadow-[0_0_20px_rgba(245,158,11,0.1)]">
-              <Palette size={20} className="text-amber-500" />
+      <aside className="w-full lg:w-[360px] border-r border-[hsl(var(--border))] flex flex-col h-full bg-[hsl(var(--surface-1))] z-10" id="texture-left-panel">
+        <div className="p-6 border-b border-[hsl(var(--border))]">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[hsl(var(--primary))] to-[hsl(var(--neon-blue))] flex items-center justify-center shadow-lg shadow-[hsl(var(--primary))]/20">
+              <Palette size={18} className="text-white" />
             </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-[12px] font-black uppercase tracking-[-0.01em] text-white">Surface Painter</span>
-              <span className="text-[9px] text-white/30 font-black uppercase tracking-[0.2em]">Neural PBR Synthesis</span>
+            <div className="flex flex-col">
+              <span className="text-[11px] font-black uppercase tracking-tighter">Surface Painter</span>
+              <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase">AI PBR Generation</span>
             </div>
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto p-8 space-y-10 scrollbar-thin" id="texture-engine-box">
-          <div className="flex flex-col gap-2">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Target Asset Manifest</span>
+        <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-8" id="texture-engine-box">
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))] text-left">Target Asset</span>
           </div>
 
           <div className="flex flex-col gap-4">
             {/* Model Upload */}
             <div className="flex flex-col gap-2" id="texture-upload-area">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    {isUploadingModel ? (
-                      <div className="w-full flex flex-col items-center gap-4 py-8 bg-white/[0.02] rounded-3xl border border-white/5">
-                        <RefreshCw size={20} className="text-amber-500 animate-spin" />
-                        <div className="w-full max-w-[70%] h-1 bg-white/5 rounded-full overflow-hidden">
-                          <div className="h-full bg-amber-500 transition-all duration-300" style={{ width: `${modelUploadProgress}%` }} />
-                        </div>
-                      </div>
-                    ) : uploadedModelUrl ? (
-                      <div className="bg-amber-500/5 border border-amber-500/20 rounded-3xl p-4 flex items-center gap-4 group">
-                        <div className="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 shadow-inner">
-                          <Palette size={18} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-black text-white truncate uppercase tracking-widest">{uploadedModelName}</p>
-                          <p className="text-[9px] text-white/30 font-black uppercase tracking-[0.15em] mt-0.5">Asset Synchronized</p>
-                        </div>
-                        <button 
-                          onClick={() => { setUploadedModel(null); setUploadedModelUrl(null); setUploadedModelName(''); }} 
-                          className="p-2 rounded-xl hover:bg-rose-500/10 text-white/20 hover:text-rose-500 transition-all"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    ) : (
-                      <label
-                        id="texture-upload-dropzone"
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                        className={cn(
-                          "flex flex-col items-center justify-center gap-3 py-10 rounded-3xl border-2 border-dashed transition-all cursor-pointer text-center group",
-                          isDragOver
-                            ? 'border-amber-500 bg-amber-500/5'
-                            : 'border-white/5 bg-white/[0.01] hover:border-amber-500/30 hover:bg-white/[0.03]'
-                        )}
-                      >
-                        <div className="w-12 h-12 rounded-2xl bg-white/[0.02] flex items-center justify-center mb-1 group-hover:scale-110 group-hover:bg-amber-500/10 transition-all">
-                          <Upload size={20} className="text-white/20 group-hover:text-amber-500 transition-all" />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[11px] font-black text-white uppercase tracking-widest">Import Custom Mesh</span>
-                          <span className="text-[8px] text-white/20 font-black uppercase tracking-[0.2em]">Automatic UV Unwrap</span>
-                        </div>
-                        <input type="file" accept=".glb,.gltf" onChange={handleModelUpload} className="hidden" />
-                      </label>
-                    )}
+              <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Target Asset</label>
+              
+              {isUploadingModel ? (
+                <div className="w-full flex flex-col items-center gap-2 py-3 bg-[hsl(var(--surface-2))] rounded-xl border border-[hsl(var(--border))]">
+                  <RefreshCw size={16} className="text-[hsl(var(--primary))] animate-spin" />
+                  <div className="w-full max-w-[80%] h-1 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden">
+                    <div className="h-full bg-[hsl(var(--primary))] transition-all duration-200" style={{ width: `${modelUploadProgress}%` }} />
                   </div>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  <p>Target asset for PBR material projection</p>
-                </TooltipContent>
-              </Tooltip>
+                </div>
+              ) : uploadedModelUrl ? (
+                <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--neon-green)/0.3)] rounded-xl p-3 flex items-center gap-3 group">
+                  <div className="w-8 h-8 rounded-lg bg-[hsl(var(--neon-green))/0.1] flex items-center justify-center text-[hsl(var(--neon-green))]">
+                    <Palette size={14} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-black text-[hsl(var(--foreground))] truncate">{uploadedModelName}</p>
+                    <p className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter">Asset Ready</p>
+                  </div>
+                  <button 
+                    onClick={() => { setUploadedModel(null); setUploadedModelUrl(null); setUploadedModelName(''); }} 
+                    className="p-1.5 rounded-lg hover:bg-[hsl(var(--destructive))/0.1] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--destructive))] transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <label
+                  id="texture-upload-dropzone"
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={`flex flex-col items-center justify-center gap-1.5 py-6 rounded-xl border-2 border-dashed transition-all cursor-pointer text-center relative overflow-hidden group ${
+                    isDragOver
+                      ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5'
+                      : 'border-[hsl(var(--border))] bg-[hsl(var(--surface-1))] hover:border-[hsl(var(--primary))]/50 hover:bg-[hsl(var(--surface-2))]'
+                  }`}
+                >
+                  <Upload size={18} className="text-[hsl(var(--muted-foreground))] group-hover:scale-110 group-hover:text-[hsl(var(--primary))] transition-all" />
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-black text-[hsl(var(--foreground))]">Drop GLB Asset</span>
+                    <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter">Automatic UV Unwrap</span>
+                  </div>
+                  <input type="file" accept=".glb,.gltf" onChange={handleModelUpload} className="hidden" />
+                </label>
+              )}
             </div>
 
             {/* Model Selection */}
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <label className="text-[10px] font-black text-white/30 uppercase tracking-widest">Neural Provider</label>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <Info size={12} className="text-white/20" />
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="max-w-[200px]">
-                    <p className="text-[10px]">AI model specializing in 3D surface painting and PBR channel generation.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Provider</label>
               <div className="relative group">
                 <select
                   value={materialModel}
                   onChange={(e) => setMaterialModel(e.target.value)}
                   disabled={isLoadingTextureModels}
-                  className="w-full bg-white/[0.02] border border-white/5 rounded-2xl pl-4 pr-10 py-3.5 text-[11px] font-black text-white/80 cursor-pointer focus:outline-none focus:border-amber-500/30 transition-all appearance-none disabled:opacity-60 uppercase tracking-widest"
+                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl pl-3 pr-8 py-2.5 text-[11px] font-black text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))] transition-all appearance-none disabled:opacity-50 shadow-sm"
                 >
                   {availableTextureModels.map((m: any) => (
-                    <option key={m.id} value={m.id} disabled={m.installed === false} className="bg-black text-white">
-                      {m.label}{m.installed === false ? ' (Pending)' : ''}
+                    <option key={m.id} value={m.id} disabled={m.installed === false}>
+                      {m.label}{m.installed === false ? ' (Not Installed)' : ''}
                     </option>
                   ))}
                 </select>
-                <ChevronDown size={14} className="absolute right-4 top-4 text-white/20 pointer-events-none group-hover:text-amber-500 transition-colors" />
+                <ChevronDown size={14} className="absolute right-3 top-3 text-[hsl(var(--muted-foreground))] pointer-events-none group-hover:text-[hsl(var(--primary))] transition-colors" />
               </div>
             </div>
           </div>
+        </div>
 
-          {/* SECTION: TEXTURE GENERATION */}
-          <div className="flex flex-col gap-8" id="texture-generation-box">
-            <div className="flex flex-col gap-2">
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Material Synthesis</span>
+        {/* SECTION: TEXTURE GENERATION */}
+        <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-5 shadow-sm" id="texture-generation-box">
+          <div className="flex items-center justify-between border-b border-[hsl(var(--border))] pb-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">PBR Painting</span>
+            <Palette size={12} className="text-[hsl(var(--primary))]" />
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
+                <label>Material Prompt</label>
+                <button 
+                  onClick={handleRandomPrompt}
+                  className="text-[hsl(var(--primary))] hover:brightness-110 flex items-center gap-1 transition-all"
+                >
+                  <RefreshCw size={10} />
+                  Shuffle
+                </button>
+              </div>
+              <textarea
+                value={texturePrompt}
+                onChange={(e) => setTexturePrompt(e.target.value)}
+                placeholder="Polished obsidian, gold filigree trim, heavy weathering..."
+                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-3 text-[11px] text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))/0.5] min-h-[90px] max-h-[140px] focus:outline-none focus:border-[hsl(var(--primary))] transition-all resize-none font-bold leading-relaxed shadow-inner"
+              />
             </div>
 
-            <div className="flex flex-col gap-6">
-              <div className="flex flex-col gap-2">
-                <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-black text-white/30 uppercase tracking-widest">Material Prompt</label>
-                  <button 
-                    onClick={handleRandomPrompt}
-                    className="text-[10px] font-black text-amber-500 hover:brightness-110 flex items-center gap-1.5 transition-all uppercase tracking-widest"
-                  >
-                    <RefreshCw size={10} />
-                    Shuffle
-                  </button>
-                </div>
-                <textarea
-                  value={texturePrompt}
-                  onChange={(e) => setTexturePrompt(e.target.value)}
-                  placeholder="Polished obsidian, gold filigree trim, heavy weathering..."
-                  className="w-full bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-[11px] text-white/80 placeholder-white/10 min-h-[100px] max-h-[160px] focus:outline-none focus:border-amber-500/30 transition-all resize-none font-black leading-relaxed shadow-inner"
-                />
+            {/* Baking Parameters */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Resolution</label>
+                <select
+                  value={resolution}
+                  onChange={(e) => setResolution(e.target.value)}
+                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-lg px-2 py-2 text-[10px] font-black text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))]"
+                >
+                  <option value="4096">4K Ultra</option>
+                  <option value="2048">2K High</option>
+                  <option value="1024">1K Standard</option>
+                  <option value="512">512px Draft</option>
+                </select>
               </div>
-
-              {/* Baking Parameters */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-2">
-                  <label className="text-[10px] font-black text-white/30 uppercase tracking-widest">Resolution</label>
-                  <select
-                    value={resolution}
-                    onChange={(e) => setResolution(e.target.value)}
-                    className="w-full bg-white/[0.02] border border-white/5 rounded-xl px-3 py-3 text-[10px] font-black text-white/70 cursor-pointer focus:outline-none focus:border-amber-500/30 transition-all appearance-none uppercase tracking-widest"
-                  >
-                    <option value="4096" className="bg-black text-white">4K Ultra</option>
-                    <option value="2048" className="bg-black text-white">2K High</option>
-                    <option value="1024" className="bg-black text-white">1K Standard</option>
-                    <option value="512" className="bg-black text-white">512px Draft</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-[10px] font-black text-white/30 uppercase tracking-widest">Style</label>
-                  <select
-                    value={themeStyle}
-                    onChange={(e) => setThemeStyle(e.target.value)}
-                    className="w-full bg-white/[0.02] border border-white/5 rounded-xl px-3 py-3 text-[10px] font-black text-white/70 cursor-pointer focus:outline-none focus:border-amber-500/30 transition-all appearance-none uppercase tracking-widest"
-                  >
-                    <option value="photorealistic" className="bg-black text-white">Realistic</option>
-                    <option value="stylized-handpainted" className="bg-black text-white">Handpainted</option>
-                    <option value="anime" className="bg-black text-white">Anime/Cel</option>
-                    <option value="cyberpunk" className="bg-black text-white">Cyberpunk</option>
-                  </select>
-                </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Style</label>
+                <select
+                  value={themeStyle}
+                  onChange={(e) => setThemeStyle(e.target.value)}
+                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-lg px-2 py-2 text-[10px] font-black text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))]"
+                >
+                  <option value="photorealistic">Realistic</option>
+                  <option value="stylized-handpainted">Handpainted</option>
+                  <option value="anime">Anime/Cel</option>
+                  <option value="cyberpunk">Cyberpunk</option>
+                </select>
               </div>
+            </div>
 
-              {/* Physics Sliders */}
-              <div className="flex flex-col gap-6 pt-4 border-t border-white/[0.03]">
-                {[
-                  { label: 'Weathering', value: weathering, setter: setWeathering, color: 'bg-amber-500' },
-                  { label: 'Metalness', value: metalnessBias, setter: setMetalnessBias, color: 'bg-emerald-500' },
-                  { label: 'Roughness', value: roughnessBias, setter: setRoughnessBias, color: 'bg-blue-500' },
-                ].map((s) => (
-                  <div key={s.label} className="flex flex-col gap-3 group">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] group-hover:text-white/50 transition-colors">{s.label}</span>
-                      <span className="text-[10px] font-black text-white/60 tabular-nums">{Math.round(s.value * 100)}%</span>
-                    </div>
-                    <div className="relative h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                      <motion.div 
-                        initial={false}
-                        animate={{ width: `${s.value * 100}%` }}
-                        className={cn("absolute inset-y-0 left-0 rounded-full shadow-[0_0_10px_rgba(255,255,255,0.2)]", s.color)}
-                      />
-                      <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.05"
-                        value={s.value}
-                        onChange={(e) => s.setter(parseFloat(e.target.value))}
-                        className="absolute inset-0 w-full opacity-0 cursor-pointer z-10"
-                      />
-                    </div>
+            {/* Physics Sliders */}
+            <div className="flex flex-col gap-3.5 pt-2">
+              {[
+                { label: 'Weathering', value: weathering, setter: setWeathering, color: 'accent-[hsl(var(--primary))]' },
+                { label: 'Metalness', value: metalnessBias, setter: setMetalnessBias, color: 'accent-[hsl(var(--neon-amber))]' },
+                { label: 'Roughness', value: roughnessBias, setter: setRoughnessBias, color: 'accent-[hsl(var(--neon-cyan))]' },
+              ].map((s) => (
+                <div key={s.label} className="flex flex-col gap-1.5">
+                  <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">
+                    <span>{s.label}</span>
+                    <span className="text-[hsl(var(--foreground))] font-mono">{Math.round(s.value * 100)}%</span>
                   </div>
-                ))}
-              </div>
-
-              <Button
-                onClick={handleTextureGen}
-                disabled={isProcessing || !texturePrompt}
-                variant="premium"
-                className="w-full h-14 rounded-2xl text-[11px] mt-4"
-                id="trigger-texture-btn"
-              >
-                {isProcessing ? (
-                  <>
-                    <Sparkles size={18} className="animate-spin text-amber-500" />
-                    Baking Surface...
-                  </>
-                ) : (
-                  <>
-                    <Palette size={18} className="fill-current" />
-                    Paint Neural Materials
-                  </>
-                )}
-              </Button>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={s.value}
+                    onChange={(e) => s.setter(parseFloat(e.target.value))}
+                    className={`w-full h-1 cursor-pointer transition-all ${s.color}`}
+                  />
+                </div>
+              ))}
             </div>
+
+            <button
+              onClick={handleTextureGen}
+              disabled={isProcessing || !texturePrompt}
+              className="w-full bg-[hsl(var(--primary))] hover:brightness-110 active:scale-[0.98] disabled:opacity-50 text-[hsl(var(--surface-0))] font-black py-3 rounded-xl text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-[0_8px_20px_rgba(245,166,35,0.2)] mt-2"
+              id="trigger-texture-btn"
+            >
+              {isProcessing ? (
+                <>
+                  <Sparkles size={14} className="animate-spin" />
+                  Baking...
+                </>
+              ) : (
+                <>
+                  <Palette size={14} />
+                  Paint Materials
+                </>
+              )}
+            </button>
           </div>
         </div>
       </aside>
 
       {/* Right Result Visualizer Stage — Full Studio Expansion */}
-      <div className="flex-1 bg-[#050505] flex flex-col relative overflow-hidden" id="texture-right-stage">
+      <div className="flex-1 bg-[hsl(var(--surface-0))] flex flex-col relative overflow-hidden" id="texture-right-stage">
         
         {/* Background Aura overlay during baking */}
         <AnimatePresence>
@@ -551,138 +509,97 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/90 backdrop-blur-xl z-30 flex flex-col items-center justify-center text-center p-12"
+              className="absolute inset-0 bg-[hsl(var(--surface-0))/0.8] backdrop-blur-md z-30 flex flex-col items-center justify-center text-center p-12"
             >
               <div className="relative">
-                <div className="w-32 h-32 rounded-full border-4 border-white/5 border-t-amber-500 animate-spin" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Palette size={32} className="text-amber-500 animate-pulse" />
-                </div>
+                <div className="w-24 h-24 rounded-full border-4 border-[hsl(var(--primary))/0.1] border-t-[hsl(var(--primary))] animate-spin" />
+                <Palette size={32} className="absolute inset-0 m-auto text-[hsl(var(--primary))] animate-pulse" />
               </div>
-              <h3 className="text-2xl font-black text-white uppercase tracking-[0.2em] mt-10">Baking PBR Materials</h3>
-              <p className="text-[10px] text-white/30 font-black uppercase tracking-[0.3em] mt-3">{statusMessage}</p>
+              <h3 className="text-xl font-black text-[hsl(var(--foreground))] uppercase tracking-widest mt-8">Baking PBR Materials</h3>
+              <p className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter mt-1">{statusMessage}</p>
               
-              <div className="w-60 h-1.5 bg-white/5 rounded-full mt-12 overflow-hidden border border-white/5">
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: '100%' }}
-                  transition={{ duration: 15, repeat: Infinity }}
-                  className="h-full bg-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)]" 
-                />
+              <div className="w-48 h-1 bg-[hsl(var(--surface-3))] rounded-full mt-8 overflow-hidden">
+                <div className="h-full bg-[hsl(var(--primary))] animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-white/30 to-transparent" />
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        <div className="flex-1 flex flex-col p-12 z-10 overflow-y-auto scrollbar-thin">
-          <div className="max-w-5xl w-full mx-auto flex flex-col gap-12">
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex flex-col gap-3"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" />
-                <h3 className="text-[12px] font-black text-white/80 uppercase tracking-[0.3em]">
+        <div className="flex-1 flex flex-col p-8 z-10 overflow-y-auto">
+          <div className="max-w-4xl w-full mx-auto flex flex-col gap-8">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]" />
+                <h3 className="text-[11px] font-black text-[hsl(var(--foreground))] uppercase tracking-widest">
                   Surface Analysis Pipeline
                 </h3>
               </div>
-              <p className="text-[11px] text-white/30 font-black uppercase tracking-[0.1em] max-w-2xl leading-relaxed">
+              <p className="text-xs text-[hsl(var(--muted-foreground))] max-w-2xl leading-relaxed">
                 Analyze and review AI-generated surface attributes. The Studio automatically applies Albedo, Normal, and Roughness maps to the active workspace.
               </p>
-            </motion.div>
+            </div>
 
             {/* Interactive display */}
             {successResult ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fadeIn">
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="col-span-full bg-white/[0.02] border border-emerald-500/20 rounded-3xl p-10 flex items-center gap-6 shadow-2xl"
-                >
-                  <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shadow-inner">
-                    <CheckCircle size={32} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fadeIn">
+                <div className="col-span-full bg-[hsl(var(--surface-1))] border border-[hsl(var(--neon-green)/0.2)] rounded-2xl p-6 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-[hsl(var(--neon-green))/0.1] flex items-center justify-center text-[hsl(var(--neon-green))]">
+                    <CheckCircle size={24} />
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <span className="text-lg font-black text-white uppercase tracking-tight">Material Synthesis Success</span>
-                    <p className="text-[10px] text-white/30 font-black uppercase tracking-[0.2em]">Full PBR stack generated in {resolution}px</p>
+                  <div>
+                    <span className="text-sm font-black text-[hsl(var(--foreground))] uppercase tracking-tight">Material Synthesis Success</span>
+                    <p className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono uppercase">Full PBR stack generated in {resolution}px</p>
                   </div>
-                </motion.div>
+                </div>
 
-                <motion.div 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                  className="bg-white/[0.02] p-10 rounded-3xl border border-white/5 flex flex-col gap-8 shadow-2xl"
-                >
-                  <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em] border-b border-white/5 pb-4">Material Metrics</span>
-                  <div className="space-y-6">
+                <div className="bg-[hsl(var(--surface-1))] p-6 rounded-2xl border border-[hsl(var(--border))] flex flex-col gap-4">
+                  <span className="text-[10px] font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest border-b border-[hsl(var(--border))] pb-2">Material Info</span>
+                  <div className="space-y-4">
                     <div className="flex justify-between items-end">
-                      <span className="text-[10px] text-white/30 font-black uppercase tracking-widest">Bake Resolution</span>
-                      <span className="text-sm font-black text-white/80 tabular-nums">{resolution}px</span>
+                      <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono">Bake Resolution</span>
+                      <span className="text-xs font-bold text-[hsl(var(--foreground))]">{resolution}px</span>
                     </div>
                     <div className="flex justify-between items-end">
-                      <span className="text-[10px] text-amber-500/60 font-black uppercase tracking-widest">Shader Model</span>
-                      <span className="text-sm font-black text-amber-500 uppercase tracking-widest">{themeStyle}</span>
+                      <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono">Shader Model</span>
+                      <span className="text-xs font-bold text-[hsl(var(--primary))] uppercase">{themeStyle}</span>
                     </div>
                   </div>
-                </motion.div>
+                </div>
 
-                <motion.div 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                  className="bg-white/[0.02] p-10 rounded-3xl border border-white/5 flex flex-col gap-8 shadow-2xl"
-                >
-                  <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em] border-b border-white/5 pb-4">AI Interpretation</span>
-                  <p className="text-[11px] text-white/60 font-black uppercase tracking-[0.1em] leading-relaxed italic">
+                <div className="bg-[hsl(var(--surface-1))] p-6 rounded-2xl border border-[hsl(var(--border))] flex flex-col gap-4">
+                  <span className="text-[10px] font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest border-b border-[hsl(var(--border))] pb-2">AI Interpretation</span>
+                  <p className="text-[11px] text-[hsl(var(--foreground))] leading-relaxed">
                     {successResult.texturesDescription}
                   </p>
-                </motion.div>
+                </div>
               </div>
             ) : (
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex-1 min-h-[500px] flex flex-col items-center justify-center text-center p-20 border-2 border-dashed border-white/5 rounded-[40px] bg-white/[0.01] group hover:bg-white/[0.02] transition-colors duration-700"
-              >
-                <div className="w-24 h-24 rounded-3xl bg-white/[0.02] flex items-center justify-center text-white/5 mb-8 border border-white/5 group-hover:scale-110 group-hover:border-amber-500/20 group-hover:text-amber-500/20 transition-all duration-700">
-                  <Palette size={48} className="animate-pulse" />
+              <div className="flex-1 min-h-[400px] flex flex-col items-center justify-center text-center p-12 border-2 border-dashed border-[hsl(var(--border))] rounded-3xl bg-[hsl(var(--surface-1))]/50">
+                <div className="w-20 h-20 rounded-full bg-[hsl(var(--surface-2))] flex items-center justify-center text-[hsl(var(--border))] mb-6">
+                  <Palette size={40} className="animate-pulse opacity-20" />
                 </div>
-                <h4 className="text-sm font-black text-white/40 uppercase tracking-[0.4em]">Awaiting Surface Projection</h4>
-                <p className="text-[10px] text-white/20 font-black uppercase tracking-[0.2em] mt-5 max-w-sm leading-relaxed">
+                <h4 className="text-sm font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest">Awaiting Surface Projection</h4>
+                <p className="text-[10px] text-[hsl(var(--muted-foreground))] max-w-sm mt-2 leading-relaxed uppercase font-bold tracking-tighter">
                   Describe your material and click &quot;Paint Materials&quot; to begin the AI texture generation process.
                 </p>
-                <div className="mt-12 flex items-center gap-4">
-                  <div className="w-1.5 h-1.5 rounded-full bg-white/10" />
-                  <div className="w-1.5 h-1.5 rounded-full bg-white/10" />
-                  <div className="w-1.5 h-1.5 rounded-full bg-white/10" />
-                </div>
-              </motion.div>
+              </div>
             )}
           </div>
         </div>
 
         {/* Engine Notice Footer */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-auto p-10 bg-black border-t border-white/[0.03]"
-        >
-          <div className="max-w-5xl mx-auto flex items-start gap-6">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/5 flex items-center justify-center border border-amber-500/10 shrink-0">
-              <AlertTriangle size={20} className="text-amber-500" />
-            </div>
-            <div className="flex flex-col gap-2">
-              <span className="text-[11px] font-black text-amber-500 uppercase tracking-[0.3em]">Studio Engine Notice</span>
-              <p className="text-[10px] text-white/30 font-black uppercase tracking-[0.15em] leading-relaxed max-w-3xl">
+        <div className="mt-auto p-6 bg-[hsl(var(--surface-1))] border-t border-[hsl(var(--border))]">
+          <div className="max-w-4xl mx-auto flex items-start gap-4">
+            <AlertTriangle size={18} className="text-[hsl(var(--neon-amber))] flex-shrink-0 mt-0.5" />
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-black text-[hsl(var(--neon-amber))] uppercase tracking-widest">Studio Engine Notice</span>
+              <p className="text-[10px] text-[hsl(var(--muted-foreground))] leading-relaxed uppercase font-bold tracking-tighter">
                 Generated textures are applied as temporary overrides. Use the &quot;Commit&quot; button in the primary workspace to bake them permanently into your asset history.
               </p>
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
-    </TooltipProvider>
   );
 }

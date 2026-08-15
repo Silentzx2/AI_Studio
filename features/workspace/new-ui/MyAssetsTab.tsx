@@ -5,7 +5,6 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import Image from 'next/image';
 import anime from 'animejs';
 import { Search, Folder, Trash2, Heart, Play, Cpu, LayoutGrid, Clock } from 'lucide-react';
 import { HistoryItem } from '@/types/new-ui';
@@ -147,13 +146,7 @@ export default function MyAssetsTab({
                 {/* Visual Box representation of geometric mesh */}
                 <div className="relative aspect-square w-full rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--surface-3))] overflow-hidden flex items-center justify-center" id={`asset-thumb-box-${item.id}`}>
                   {item.thumbnailUrl ? (
-                    <Image 
-                      src={item.thumbnailUrl} 
-                      alt={item.name} 
-                      fill
-                      className="object-cover" 
-                      referrerPolicy="no-referrer"
-                    />
+                    <img src={item.thumbnailUrl} alt={item.name} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-16 h-16 rounded bg-gradient-to-tr from-[hsl(var(--neon-amber))]/20 to-transparent flex items-center justify-center border border-[hsl(var(--neon-amber))]/10 transform group-hover:rotate-6 transition-all" id={`asset-geom-${item.id}`}>
                       <Cpu size={28} className="text-[hsl(var(--neon-amber))] opacity-80" />

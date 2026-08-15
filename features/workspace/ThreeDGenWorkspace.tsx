@@ -19,7 +19,6 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
 import GenerationControls from "@/3D-SPACE/GenerationControls";
 import Canvas3D from "@/3D-SPACE/Canvas3D";
 import AssetPanel, { type AssetItem } from "@/3D-SPACE/AssetPanel";
@@ -82,8 +81,7 @@ export function ThreeDGenWorkspace({ embedded = false }: { embedded?: boolean })
         }
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assets]);
+  }, [assets, selectedAssetId]);
 
   // Refresh the asset list once a generation finishes so the new model shows up.
   useEffect(() => {
@@ -126,27 +124,15 @@ export function ThreeDGenWorkspace({ embedded = false }: { embedded?: boolean })
       {!embedded && <WorkspaceNavbar />}
       <div className="flex flex-1 min-h-0 h-full">
         {/* Left Panel - Generation Controls (Slimmer: 280px) */}
-        <motion.div 
-          initial={{ x: -280, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ type: "spring", damping: 25, stiffness: 200 }}
-          className="w-[280px] max-w-[80vw] shrink-0 h-full border-r border-[hsl(var(--border))]"
-        >
+        <div className="w-[280px] max-w-[80vw] shrink-0 h-full border-r border-[hsl(var(--border))]">
           <GenerationControls />
-        </motion.div>
-
+        </div>
         {/* Center Panel - Main 3D Canvas (Maximized Viewport) */}
         <div className="flex-1 min-w-0 min-h-0 flex flex-col relative h-full w-full">
           <Canvas3D isGenerating={isGenerating} />
         </div>
-
         {/* Right Panel - Asset Library & Inspector (Slimmer: 260px) */}
-        <motion.div 
-          initial={{ x: 260, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ type: "spring", damping: 25, stiffness: 200, delay: 0.1 }}
-          className="w-[260px] max-w-[80vw] shrink-0 h-full border-l border-[hsl(var(--border))]"
-        >
+        <div className="w-[260px] max-w-[80vw] shrink-0 h-full border-l border-[hsl(var(--border))]">
           <AssetPanel
             assets={assets}
             selectedAssetId={selectedAssetId}
@@ -156,7 +142,7 @@ export function ThreeDGenWorkspace({ embedded = false }: { embedded?: boolean })
             onAssetUploaded={loadHistory}
             loading={isLoadingHistory}
           />
-        </motion.div>
+        </div>
       </div>
     </div>
   );

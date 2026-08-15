@@ -7,7 +7,6 @@
  */
 
 import React, { useState, useMemo, useRef } from 'react';
-import Image from 'next/image';
 import {
   Search, RefreshCw, Download, FileDown, Eye, Trash2,
   Box, Heart, Clock, Hash, Layers,
@@ -17,7 +16,6 @@ import { EXPORT_FORMATS } from '@/constants';
 import { uploadService } from '@/services/uploadService';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { motion, AnimatePresence } from 'motion/react';
 import ExportDialog from '@/features/workspace/new-ui/ExportDialog';
 import type { GenerationJob } from '@/types';
 
@@ -49,61 +47,34 @@ interface AssetPanelProps {
 
 /* ------------------------------------------------------------------ */
 /*  Sub-components                                                     */
-/* ------------------------------------------------------------------ */function AssetThumbnail({ asset, isSelected, onClick }: { asset: AssetItem; isSelected: boolean; onClick: () => void }) {
+/* ------------------------------------------------------------------ */
+
+function AssetThumbnail({ asset, isSelected, onClick }: { asset: AssetItem; isSelected: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
       className={cn(
-        'group relative rounded-2xl overflow-hidden border transition-all duration-500 aspect-square outline-none focus-visible:ring-2 focus-visible:ring-[#facc15]/50',
+        'group relative rounded-xl overflow-hidden border transition-all duration-300 aspect-square',
         isSelected
-          ? 'border-[#facc15]/60 shadow-[0_0_30px_rgba(250,204,21,0.1)] bg-[#facc15]/5'
-          : 'border-white/5 hover:border-white/10 bg-white/[0.02] hover:bg-white/[0.04]'
+          ? 'border-[#facc15] shadow-[0_0_15px_rgba(250,204,21,0.2)] scale-[0.98]'
+          : 'border-white/5 hover:border-white/20 bg-[#121214]'
       )}
     >
       {asset.thumbnailUrl ? (
-        <div className="w-full h-full relative overflow-hidden">
-          <Image 
-            src={asset.thumbnailUrl} 
-            alt={asset.name} 
-            fill
-            className="object-cover transition-all duration-1000 ease-out group-hover:scale-110 group-hover:rotate-1" 
-            referrerPolicy="no-referrer"
-          />
-        </div>
+        <img src={asset.thumbnailUrl} alt={asset.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
       ) : (
-        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-white/[0.02] to-transparent">
-          <Box size={24} className="text-white/5 group-hover:text-[#facc15]/30 group-hover:scale-110 transition-all duration-700" />
+        <div className="w-full h-full flex items-center justify-center">
+          <Box size={24} className="text-white/10 group-hover:text-white/30 transition-colors" />
         </div>
       )}
-      
-      {/* Selection Indicator */}
-      <AnimatePresence>
-        {isSelected && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="absolute inset-0 border-2 border-[#facc15] rounded-2xl pointer-events-none z-10" 
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Overlay Info */}
-      <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/90 via-black/40 to-transparent translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out z-20">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[7px] font-bold uppercase tracking-[0.2em] text-white truncate flex-1 leading-none">
-            {asset.name}
-          </span>
-          <span className="px-1 py-0.5 rounded-[4px] text-[6px] font-black uppercase bg-[#facc15] text-[#121214] leading-none">
-            {asset.format}
-          </span>
-        </div>
+      <div className="absolute bottom-2 left-2">
+        <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-black/60 backdrop-blur-md border border-white/10 text-white/90">
+          {asset.format}
+        </span>
       </div>
-
       {asset.isFavorite && (
-        <div className="absolute top-2.5 right-2.5 z-20 animate-in zoom-in-0 duration-500">
-          <div className="w-5 h-5 rounded-full bg-rose-500/10 backdrop-blur-md border border-rose-500/20 flex items-center justify-center">
-            <Heart size={8} className="fill-rose-500 text-rose-500" />
-          </div>
+        <div className="absolute top-2 right-2">
+          <Heart size={10} className="fill-[#facc15] text-[#facc15] drop-shadow-md" />
         </div>
       )}
     </button>
@@ -133,13 +104,7 @@ function InspectorPanel({ asset, onDelete }: { asset: AssetItem; onDelete?: (id:
       {/* Thumbnail */}
       <div className="aspect-video rounded-2xl overflow-hidden bg-[#121214] border border-white/5 relative group">
         {asset.thumbnailUrl ? (
-          <Image 
-            src={asset.thumbnailUrl} 
-            alt={asset.name} 
-            fill
-            className="object-cover" 
-            referrerPolicy="no-referrer"
-          />
+          <img src={asset.thumbnailUrl} alt={asset.name} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <Box size={32} className="text-white/10" />
@@ -361,36 +326,32 @@ export default function AssetPanel({
       />
 
       {/* Tabs: Assets / Inspector */}
-      <div className="flex items-center gap-1 px-4 pt-4 pb-0 shrink-0 border-b border-white/[0.03]">
-        {(['assets', 'inspector'] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={cn(
-              'px-5 py-3 text-[10px] font-bold uppercase tracking-[0.2em] transition-all relative group',
-              activeTab === tab
-                ? 'text-[#facc15]'
-                : 'text-white/40 hover:text-white/60'
-            )}
-          >
-            <span className="relative z-10">{tab}</span>
-            {activeTab === tab && (
-              <motion.div
-                layoutId="asset-panel-tab"
-                className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#facc15] shadow-[0_0_15px_rgba(250,204,21,0.4)]"
-                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-              />
-            )}
-          </button>
-        ))}
-        
-        <div className="flex-1" />
+      <div className="flex items-center justify-between px-4 pt-4 pb-0 shrink-0">
+        <div className="flex items-center gap-1">
+          {(['assets', 'inspector'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={cn(
+                'px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all relative',
+                activeTab === tab
+                  ? 'text-[#facc15]'
+                  : 'text-white/40 hover:text-white/60'
+              )}
+            >
+              {tab}
+              {activeTab === tab && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#facc15] shadow-[0_0_10px_rgba(250,204,21,0.5)]" />
+              )}
+            </button>
+          ))}
+        </div>
 
         {/* Top Model Upload CTA Button */}
         <button
           onClick={() => modelFileInputRef.current?.click()}
           disabled={isUploadingModel}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-white/[0.03] hover:bg-white/10 border border-white/5 text-white/60 hover:text-white transition-all cursor-pointer disabled:opacity-50 mb-2"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 transition-all cursor-pointer disabled:opacity-50"
         >
           {isUploadingModel ? (
             <Loader2 size={12} className="animate-spin" />
@@ -456,11 +417,8 @@ export default function AssetPanel({
           >
             {loading ? (
               <div className="grid grid-cols-2 gap-3">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="aspect-square rounded-2xl bg-white/5 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-shimmer" />
-                    <div className="absolute bottom-2 left-2 right-2 h-3 bg-white/5 rounded-md" />
-                  </div>
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="aspect-square rounded-2xl bg-white/5 animate-pulse" />
                 ))}
               </div>
             ) : filteredAssets.length > 0 ? (

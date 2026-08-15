@@ -95,6 +95,7 @@ export interface UploadedImage {
   preview: string;
   width: number;
   height: number;
+  url?: string;
 }
 
 export interface PromptSuggestion {
