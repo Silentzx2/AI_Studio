@@ -1587,12 +1587,20 @@ def get_install_status() -> dict:
             weight_ok = wp is not None
         else:
             weight_ok = True
+        # ponytail: venv readiness is what the model tab needs to warn when a
+        # repo/venv was skipped (e.g. exceeds Colab limits). Mirrors the check
+        # colab.sh's prepare_model_runtimes does with validate_venv().
+        venv_ok = False
+        if repo_name:
+            venv_python = storage.get_model_venv_path(repo_name) / "bin" / "python"
+            venv_ok = venv_python.exists()
         persisted = state.get("repos", {}).get(name)
         status[name] = {
             "installed": repo_ok and weight_ok,
             "repo_cloned": repo_ok,
             "weights_present": weight_ok,
             "repo_ready": repo_ok,
+            "venv_ready": venv_ok,
             "weights_ready": weight_ok,
             "repo_path": str(storage.get_repo_path(repo_name)) if repo_name else None,
             "weight_path": str(storage.get_weight_path(weight_key)) if (weight_key and weight_ok) else None,

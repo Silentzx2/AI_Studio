@@ -27,6 +27,12 @@ logger = logging.getLogger(__name__)
 # ceiling of 15 GB. VPS/full-GPU hosts are NOT restricted by this value.
 _COLAB_PREP_LIMIT_MB: int = 15_000
 
+# ponytail: low-weight ceiling for auto-install on Colab. The VRAM gate alone
+# is not enough — e.g. hunyuan3d-2 needs only 12 GB VRAM but ships ~24 GB of
+# weights, which overflows Colab's free-tier disk. Auto-prep therefore requires
+# BOTH a low VRAM requirement AND a small weight download.
+_COLAB_PREP_WEIGHT_LIMIT_GB: float = 10.0
+
 
 # ---------------------------------------------------------------------------
 # Environment helpers (delegate to platform_detection to avoid duplication)
@@ -124,6 +130,23 @@ def get_model_vram_required(provider_id: str) -> int:
         return int(meta.get("vram_required_mb", 0))
     except Exception:
         return 0
+
+
+def get_model_weight_size_gb(provider_id: str) -> float:
+    """Return the downloaded weight size of a model in GB.
+
+    Reads from HF_MODELS in runtime.installer (the download source of truth),
+    falling back to PROVIDER_METADATA.size_estimate_gb. Returns 0.0 if unknown.
+    """
+    try:
+        from runtime.installer import HF_MODELS, PROVIDER_METADATA  # noqa: PLC0415
+        cfg = HF_MODELS.get(provider_id)
+        if cfg and cfg.get("size_estimate_gb"):
+            return float(cfg["size_estimate_gb"])
+        meta = PROVIDER_METADATA.get(provider_id, {})
+        return float(meta.get("size_estimate_gb", 0) or 0)
+    except Exception:
+        return 0.0
 
 
 def get_model_metadata(provider_id: str) -> dict[str, Any]:
@@ -271,34 +294,58 @@ def get_colab_prep_limit_mb() -> int:
     return _COLAB_PREP_LIMIT_MB
 
 
+def _colab_prep_forced() -> bool:
+    """True when the dedicated Colab bootstrap (scripts/colab.sh) has opted in.
+
+    ponytail: is_colab() self-detection can misfire on unusual Colab runtimes;
+    colab.sh exports COLAB_PREP_GATE=1 so the preparation policy is applied
+    deterministically rather than depending on environment detection.
+    """
+    return os.environ.get("COLAB_PREP_GATE") == "1"
+
+
 def is_model_preparable_for_colab(provider_id: str) -> bool:
     """Return True if the model can be cloned/installed in Colab.
 
     A model is preparable if:
-    - We are NOT in Colab (VPS/local hosts have no restriction), OR
-    - Its required VRAM is strictly less than the Colab preparation limit (15 GB).
+    - We are NOT in Colab and no Colab gate is forced (VPS/local hosts have no
+      restriction), OR
+    - Its required VRAM is strictly less than the Colab preparation limit (15 GB)
+      AND its downloaded weight size is at or below the low-weight ceiling (10 GB).
     """
-    if not is_colab():
+    if not (is_colab() or _colab_prep_forced()):
         return True
     vram = get_model_vram_required(provider_id)
     if vram == 0:
         return True
-    return vram < _COLAB_PREP_LIMIT_MB
+    if vram >= _COLAB_PREP_LIMIT_MB:
+        return False
+    weight = get_model_weight_size_gb(provider_id)
+    if weight == 0:
+        return True
+    return weight <= _COLAB_PREP_WEIGHT_LIMIT_GB
 
 
 def get_colab_incompatibility_reason(provider_id: str) -> str | None:
     """Return a human-readable reason why a model is incompatible with
     Colab preparation, or None if it is compatible."""
-    if not is_colab():
+    if not (is_colab() or _colab_prep_forced()):
         return None
     vram = get_model_vram_required(provider_id)
-    if vram == 0:
+    if vram == 0 and get_model_weight_size_gb(provider_id) == 0:
         return None
     if vram >= _COLAB_PREP_LIMIT_MB:
         return (
             f"Required VRAM: {vram / 1024:.1f} GB\n"
             f"Colab preparation limit: <{_COLAB_PREP_LIMIT_MB / 1024:.0f} GB\n"
-            f"Reason: exceeds Colab runtime policy"
+            f"Reason: exceeds Colab runtime VRAM policy"
+        )
+    weight = get_model_weight_size_gb(provider_id)
+    if weight > _COLAB_PREP_WEIGHT_LIMIT_GB:
+        return (
+            f"Weight size: {weight:.1f} GB\n"
+            f"Colab low-weight ceiling: ≤{_COLAB_PREP_WEIGHT_LIMIT_GB:.0f} GB\n"
+            f"Reason: exceeds Colab disk/weight policy — repo & venv not prepared"
         )
     return None
 
@@ -324,21 +371,18 @@ def get_runtime_capabilities() -> dict[str, Any]:
         from runtime.installer import PROVIDER_METADATA  # noqa: PLC0415
         for pid, meta in PROVIDER_METADATA.items():
             vram_req = int(meta.get("vram_required_mb", 0))
-            colab_incompat = None
-            if colab and vram_req >= _COLAB_PREP_LIMIT_MB:
-                colab_incompat = (
-                    f"Required VRAM: {vram_req / 1024:.1f} GB — "
-                    f"exceeds Colab preparation limit ({_COLAB_PREP_LIMIT_MB / 1024:.0f} GB)"
-                )
+            weight_req = get_model_weight_size_gb(pid)
+            colab_incompat = get_colab_incompatibility_reason(pid)
             providers[pid] = {
                 "label": meta.get("label", pid),
                 "vram_required_mb": vram_req,
+                "weight_size_gb": weight_req,
                 "low_vram_supported": bool(meta.get("low_vram_supported", False)),
                 "low_vram_required_mb": int(meta.get("low_vram_required_mb", 0)),
                 "low_vram_strategy": list(meta.get("low_vram_strategy", [])),
                 "native_build_required": bool(meta.get("native_build_required", False)),
                 "category": meta.get("category"),
-                "colab_preparable": not colab_incompat,
+                "colab_preparable": colab_incompat is None,
                 "colab_incompatibility_reason": colab_incompat,
             }
     except Exception:

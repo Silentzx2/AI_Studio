@@ -572,6 +572,25 @@ export function ModelsTab() {
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </>
+                    ) : model.colab_preparable === false ? (
+                      <div className="flex flex-col gap-1.5 w-full">
+                        <button
+                          disabled
+                          className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl bg-white/5 border border-[hsl(var(--border)/0.4)] text-xs font-medium text-muted-foreground/50 cursor-not-allowed opacity-60"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          Can&apos;t Install
+                        </button>
+                        <p className="text-[10px] text-[hsl(var(--neon-amber))] leading-tight flex items-start gap-1">
+                          <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                          <span>
+                            Repo &amp; venv not prepared for this runtime
+                            {model.install_block_reason
+                              ? ` — ${model.install_block_reason.replace(/\n/g, '; ')}`
+                              : ' — exceeds device limits, you cannot install this here.'}
+                          </span>
+                        </p>
+                      </div>
                     ) : (
                       <button
                         onClick={() => handleInstall(model)}

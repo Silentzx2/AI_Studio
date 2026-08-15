@@ -99,10 +99,18 @@ fi
 
 # Colab has no systemd — use SQLite for database
 export USE_SQLITE=1
+# ponytail: force the Colab preparation policy (low VRAM + low weight) on, so
+# model gating does not depend on runtime self-detection misfiring.
+export COLAB_PREP_GATE=1
 warn "Running in Colab — using SQLite fallback for database and in-process broker for Celery."
 
 GPU_TYPE=$(detect_gpu)
 log "GPU : ${CYAN}${GPU_TYPE}${NC}"
+
+# Build-time frontend config must be set BEFORE `npm run build` (Next.js embeds
+# NEXT_PUBLIC_* at build time). Export early so both the build and `npm start`
+# inherit the same API URL.
+export NEXT_PUBLIC_API_URL="${BACKEND_URL:-http://localhost:8000}"
 
 # ── Step 2: Configure .env ────────────────────────────────────────────────
 
@@ -264,7 +272,11 @@ logger = logging.getLogger(__name__)
 sys.path.insert(0, str(Path(".").resolve()))
 
 try:
-    from runtime.capability import get_model_vram_required, is_model_preparable_for_colab
+    from runtime.capability import (
+        get_model_vram_required,
+        is_model_preparable_for_colab,
+        get_colab_incompatibility_reason,
+    )
     from runtime.installer import REPOS, clone_repo, install_repo_deps
     from runtime.storage import get_storage_config
 except Exception as exc:
@@ -345,10 +357,8 @@ for repo_name in sorted(REPOS.keys()):
     colab_skip_reason = None
     for prov in providers:
         if not is_model_preparable_for_colab(prov):
-            vram = get_model_vram_required(prov)
-            colab_skip_reason = (
-                f"Required VRAM: {vram / 1024:.1f} GB\n"
-                f"Colab preparation limit: <15 GB\n"
+            colab_skip_reason = get_colab_incompatibility_reason(prov) or (
+                f"Required VRAM: {get_model_vram_required(prov) / 1024:.1f} GB\n"
                 f"Reason: exceeds Colab runtime policy"
             )
             break
@@ -404,10 +414,30 @@ PYEOF
     )
 }
 
+# ── Disk space precheck (Colab free-tier disk is limited) ──────────────────
+# ponytail: abort loud-and-early if there isn't enough room for the largest
+# model we might pull, instead of failing mid-download and leaving a half
+# written weights dir. Single call site before any weight download.
+check_disk_space() {
+    local needed_gb=${1:-40}
+    local avail_gb
+    avail_gb=$(df -P --block-size=1G "$PROJECT_ROOT" 2>/dev/null | awk 'NR==2 {print $4}')
+    avail_gb=${avail_gb:-0}
+    if [[ "$avail_gb" -lt "$needed_gb" ]]; then
+        warn "Only ${avail_gb} GB free on disk; at least ${needed_gb} GB recommended before downloading weights."
+        warn "Weight download may fail or fill the disk. Free space or run with --repos-only."
+        return 1
+    fi
+    log "Disk space OK: ${avail_gb} GB free (need ~${needed_gb} GB)"
+    return 0
+}
+
 download_model_weights() {
     step "Downloading model weights"
     local PYTHONBIN="${PROJECT_ROOT}/backend/.venv/bin/python"
     [[ -x "$PYTHONBIN" ]] || { err "Backend venv missing — run full bootstrap first"; return 1; }
+    # ponytail: gate on disk before pulling multi-GB weights.
+    check_disk_space 40 || warn "Proceeding despite low disk space — download may fail."
     (
         cd backend
         PYTHONPATH=. "$PYTHONBIN" - << 'PYEOF'
@@ -419,7 +449,12 @@ from pathlib import Path
 logging.basicConfig(level=logging.INFO, format="  %(levelname)-5s %(name)s: %(message)s")
 sys.path.insert(0, str(Path(".").resolve()))
 try:
-    from runtime.capability import get_model_vram_required, is_model_preparable_for_colab
+    from runtime.capability import (
+        get_model_vram_required,
+        get_model_weight_size_gb,
+        is_model_preparable_for_colab,
+        get_colab_incompatibility_reason,
+    )
     from runtime.installer import HF_MODELS, download_weights
 except Exception as exc:
     print(f"  [FAIL] Could not import runtime modules: {exc}")
@@ -428,11 +463,12 @@ except Exception as exc:
 token = os.environ.get("HUGGINGFACE_TOKEN") or os.environ.get("HF_TOKEN")
 for key in sorted(HF_MODELS.keys()):
         if not is_model_preparable_for_colab(key):
-            vram = get_model_vram_required(key)
+            reason = get_colab_incompatibility_reason(key) or (
+                f"Required VRAM: {get_model_vram_required(key) / 1024:.1f} GB"
+            )
             print(f"  [COLAB] {key}: skipped")
-            print(f"  Required VRAM: {vram / 1024:.1f} GB")
-            print(f"  Colab preparation limit: <15 GB")
-            print(f"  Reason: exceeds Colab runtime policy")
+            for line in reason.split("\n"):
+                print(f"  {line}")
             continue
         print(f"  [WEIGHTS] {key}: downloading ~{HF_MODELS[key]['size_estimate_gb']}GB ...")
         r = download_weights(key, hf_token=token)
@@ -497,6 +533,7 @@ if ! command -v redis-server &>/dev/null; then
     }
 fi
 
+REDIS_AVAILABLE=false
 if command -v redis-server &>/dev/null; then
     if ! redis-cli ping &>/dev/null 2>&1; then
         info "Starting Redis (daemonized)..."
@@ -504,11 +541,24 @@ if command -v redis-server &>/dev/null; then
     fi
     if redis-cli ping &>/dev/null 2>&1; then
         log "Redis is running"
+        REDIS_AVAILABLE=true
     else
         warn "Redis not responding — Celery will use in-process broker"
     fi
 else
     warn "Redis not available — Celery will use in-process broker (single worker)"
+fi
+
+# ponytail: real fallback for when Redis is unavailable. Without a broker the
+# Celery worker cannot boot, so switch to eager execution (tasks run inline in
+# the API process) and a memory broker so the worker can still start. Generation
+# jobs then execute synchronously instead of queuing — acceptable on Colab where
+# a single user drives the runtime.
+if [[ "$REDIS_AVAILABLE" != "true" ]]; then
+    export CELERY_TASK_ALWAYS_EAGER=1
+    export CELERY_BROKER_URL="memory://"
+    export CELERY_RESULT_BACKEND="cache+memory://"
+    log "Celery fallback active: eager execution + memory broker (no Redis)"
 fi
 
 # ── Run migrations ────────────────────────────────────────────────────────
@@ -660,9 +710,16 @@ JSKEEP
 # ── Start Celery Worker ───────────────────────────────────────────────────
 step "Starting Celery Worker..."
 kill_by_pid_file "$PID_DIR/worker.pid"
+# When Redis is absent the env already points CELERY_BROKER_URL at memory://;
+# pass it explicitly too so the worker boots without a Redis connection.
+CELERY_BROKER_ARG=""
+if [[ "$REDIS_AVAILABLE" != "true" ]]; then
+    CELERY_BROKER_ARG="--broker memory://"
+fi
 (
     cd backend
     $PYTHON_BIN -m celery -A app.workers.celery_app worker \
+        $CELERY_BROKER_ARG \
         --loglevel=info \
         --concurrency=1 \
         -B \

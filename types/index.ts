@@ -260,7 +260,10 @@ export interface AdminModel {
   weight_path?: string;
   repo_path?: string;
   repo_ready?: boolean;
+  venv_ready?: boolean;
   weights_ready?: boolean;
+  colab_preparable?: boolean;
+  install_block_reason?: string | null;
   hf_repo?: string;
   version?: string;
   download_progress?: InstallProgress;

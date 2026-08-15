@@ -956,6 +956,10 @@ async def list_models():
         from runtime.engine import get_engine
         from runtime.installer import PROVIDER_METADATA, get_install_status
         from runtime.storage import get_storage_config
+        from runtime.capability import (
+            is_model_preparable_for_colab,
+            get_colab_incompatibility_reason,
+        )
 
         engine = get_engine()
         storage = get_storage_config()
@@ -987,7 +991,12 @@ async def list_models():
                 "weight_path": weight_path,
                 "repo_path": repo_path,
                 "repo_ready": inst.get("repo_ready", False),
+                "venv_ready": inst.get("venv_ready", False),
                 "weights_ready": inst.get("weights_ready", False),
+                # ponytail: colab_preparable + install_block_reason drive the
+                # model-tab "can't install on this runtime" gray/warning state.
+                "colab_preparable": is_model_preparable_for_colab(name),
+                "install_block_reason": get_colab_incompatibility_reason(name),
                 "reason": inst.get("reason"),
                 "hf_repo": meta.get("hf_repo"),
                 "size_estimate_gb": meta.get("size_estimate_gb"),
