@@ -37,8 +37,10 @@ def _add_model_env(repo_name: str) -> None:
 
     ponytail: the per-model venv's site-packages must take precedence over the
     backend venv's version (e.g., huggingface_hub needs >=0.28 for is_offline_mode).
-    We prepend the venv path and reload any conflicting packages that may have
-    already been imported by the backend process.
+    We prepend the venv path and REMOVE any conflicting packages that may have
+    already been imported by the backend process or another provider's venv.
+    Simply reloading is insufficient because submodules (e.g. diffusers.utils)
+    are not automatically reloaded, and their __file__ attributes don't update.
     """
     # Must run before any model-stack import that touches numpy (e.g. scipy).
     _patch_numpy_legacy_aliases()
@@ -60,19 +62,22 @@ def _add_model_env(repo_name: str) -> None:
                 sys.path.remove(sp)  # remove any existing
             sys.path.insert(0, sp)    # prepend at front
 
-    # Reload any packages that may have been already imported by the backend venv
-    # with potentially incompatible versions.
+    # CRITICAL: Remove all shared packages and their submodules from sys.modules
+    # so they are re-imported fresh from the newly-prepended per-model venv.
+    # Reloading is insufficient because:
+    #   1. Submodules (e.g. diffusers.utils) are not automatically reloaded
+    #   2. Module __file__ attributes don't update on reload
+    #   3. Parent package imports (e.g. diffusers -> diffusers.utils) may
+    #      still reference the old submodule object
     _SHARED_PKGS = [
         "huggingface_hub", "transformers", "diffusers",
         "pydantic", "requests", "httpx", "urllib3",
     ]
-    for pkg in _SHARED_PKGS:
-        if pkg in sys.modules:
-            try:
-                importlib.reload(sys.modules[pkg])
-                logger.debug("Reloaded %s from per-model venv", pkg)
-            except Exception:
-                pass  # Ignore reload failures; let import continue
+    for mod_name in list(sys.modules.keys()):
+        for pkg in _SHARED_PKGS:
+            if mod_name == pkg or mod_name.startswith(pkg + "."):
+                del sys.modules[mod_name]
+                break
 
 
 class DownloadProvider(ABC):

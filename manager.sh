@@ -309,6 +309,206 @@ cmd_clean_logs() {
     read -rp "Press Enter to continue..."
 }
 
+cmd_service() {
+    banner
+    echo -e "${CYAN}Individual Service Management${NC}"
+    echo ""
+    echo "Select a service to manage:"
+    echo "  1) Backend API"
+    echo "  2) Celery Worker"
+    echo "  3) Frontend"
+    echo "  4) PostgreSQL"
+    echo "  5) Redis"
+    echo "  b) Back to main menu"
+    echo ""
+    read -rp "Service choice: " svc_choice
+    echo ""
+
+    case "$svc_choice" in
+        1) _service_submenu "api" "Backend API" "uvicorn app.main:app" "cd backend && source .venv/bin/activate && setsid python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level info > ../logs/api.log 2>&1 &" "$PID_DIR/api.pid" ;;
+        2) _service_submenu "worker" "Celery Worker" "celery -A app.workers.celery_app worker" "cd backend && source .venv/bin/activate && setsid python -m celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 -B -Q generation,images > ../logs/worker.log 2>&1 &" "$PID_DIR/worker.pid" ;;
+        3) _service_submenu "frontend" "Frontend" "next" "NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev > logs/frontend.log 2>&1 &" "$PID_DIR/frontend.pid" ;;
+        4) _systemd_service_submenu "postgresql" "PostgreSQL" ;;
+        5) _systemd_service_submenu "redis-server" "Redis" ;;
+        b|B) return ;;
+        *) echo -e "${RED}Invalid choice${NC}" ;;
+    esac
+    echo ""
+    read -rp "Press Enter to continue..."
+}
+
+_service_submenu() {
+    local svc_name=$1
+    local svc_label=$2
+    local svc_pattern=$3
+    local svc_start_cmd=$4
+    local svc_pid_file=$5
+
+    while true; do
+        banner
+        echo -e "${CYAN}Manage: ${svc_label}${NC}"
+        echo ""
+        _check_service "$svc_label" "$svc_pid_file"
+        echo ""
+        echo "Actions:"
+        echo "  1) Start"
+        echo "  2) Stop"
+        echo "  3) Restart"
+        echo "  4) Status"
+        echo "  5) View Logs (tail -f)"
+        echo "  b) Back"
+        echo ""
+        read -rp "Action: " action
+        echo ""
+
+        case "$action" in
+            1)  # Start
+                if [[ -f "$svc_pid_file" ]] && kill -0 "$(cat "$svc_pid_file" 2>/dev/null)" 2>/dev/null; then
+                    echo -e "${YELLOW}${svc_label} is already running (PID: $(cat "$svc_pid_file"))${NC}"
+                else
+                    echo -e "${CYAN}Starting ${svc_label}...${NC}"
+                    eval "$svc_start_cmd"
+                    local pid=$!
+                    echo "$pid" > "$svc_pid_file"
+                    sleep 2
+                    if kill -0 "$pid" 2>/dev/null; then
+                        echo -e "${GREEN}${svc_label} started (PID: $pid)${NC}"
+                    else
+                        echo -e "${RED}Failed to start ${svc_label}${NC}"
+                        rm -f "$svc_pid_file"
+                    fi
+                fi
+                ;;
+            2)  # Stop
+                if [[ -f "$svc_pid_file" ]]; then
+                    local pid=$(cat "$svc_pid_file" 2>/dev/null || echo "")
+                    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+                        echo -e "${CYAN}Stopping ${svc_label} (PID: $pid)...${NC}"
+                        kill "$pid" 2>/dev/null
+                        local count=0
+                        while kill -0 "$pid" 2>/dev/null && [[ $count -lt 10 ]]; do
+                            sleep 1
+                            count=$((count + 1))
+                        done
+                        if kill -0 "$pid" 2>/dev/null; then
+                            kill -KILL "$pid" 2>/dev/null
+                            echo -e "${YELLOW}Force killed ${svc_label}${NC}"
+                        else
+                            echo -e "${GREEN}${svc_label} stopped gracefully${NC}"
+                        fi
+                    else
+                        echo -e "${YELLOW}${svc_label} not running (stale PID file)${NC}"
+                    fi
+                    rm -f "$svc_pid_file"
+                else
+                    echo -e "${YELLOW}${svc_label} not running (no PID file)${NC}"
+                fi
+                ;;
+            3)  # Restart
+                # Stop first
+                if [[ -f "$svc_pid_file" ]]; then
+                    local pid=$(cat "$svc_pid_file" 2>/dev/null || echo "")
+                    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+                        echo -e "${CYAN}Stopping ${svc_label} (PID: $pid)...${NC}"
+                        kill "$pid" 2>/dev/null
+                        local count=0
+                        while kill -0 "$pid" 2>/dev/null && [[ $count -lt 10 ]]; do
+                            sleep 1
+                            count=$((count + 1))
+                        done
+                        if kill -0 "$pid" 2>/dev/null; then
+                            kill -KILL "$pid" 2>/dev/null
+                        fi
+                    fi
+                    rm -f "$svc_pid_file"
+                fi
+                sleep 1
+                # Start
+                echo -e "${CYAN}Starting ${svc_label}...${NC}"
+                eval "$svc_start_cmd"
+                local new_pid=$!
+                echo "$new_pid" > "$svc_pid_file"
+                sleep 2
+                if kill -0 "$new_pid" 2>/dev/null; then
+                    echo -e "${GREEN}${svc_label} restarted (PID: $new_pid)${NC}"
+                else
+                    echo -e "${RED}Failed to restart ${svc_label}${NC}"
+                    rm -f "$svc_pid_file"
+                fi
+                ;;
+            4)  # Status
+                _check_service "$svc_label" "$svc_pid_file"
+                ;;
+            5)  # View Logs
+                local log_file="logs/${svc_name}.log"
+                if [[ -f "$log_file" ]]; then
+                    echo -e "${CYAN}Tailing ${log_file} (Ctrl+C to exit)${NC}"
+                    tail -f "$log_file"
+                else
+                    echo -e "${YELLOW}Log file not found: ${log_file}${NC}"
+                fi
+                ;;
+            b|B) return ;;
+            *) echo -e "${RED}Invalid action${NC}" ;;
+        esac
+        echo ""
+        read -rp "Press Enter to continue..."
+    done
+}
+
+_systemd_service_submenu() {
+    local svc_name=$1
+    local svc_label=$2
+
+    while true; do
+        banner
+        echo -e "${CYAN}Manage: ${svc_label}${NC}"
+        echo ""
+        if systemctl is-active --quiet "$svc_name" 2>/dev/null; then
+            echo -e "${GREEN}●${NC} ${svc_label} (running via systemd)"
+        else
+            echo -e "${RED}●${NC} ${svc_label} (stopped)"
+        fi
+        echo ""
+        echo "Actions:"
+        echo "  1) Start"
+        echo "  2) Stop"
+        echo "  3) Restart"
+        echo "  4) Status"
+        echo "  5) View Logs (journalctl -f)"
+        echo "  b) Back"
+        echo ""
+        read -rp "Action: " action
+        echo ""
+
+        case "$action" in
+            1)
+                echo -e "${CYAN}Starting ${svc_label}...${NC}"
+                sudo systemctl start "$svc_name" && echo -e "${GREEN}${svc_label} started${NC}" || echo -e "${RED}Failed to start ${svc_label}${NC}"
+                ;;
+            2)
+                echo -e "${CYAN}Stopping ${svc_label}...${NC}"
+                sudo systemctl stop "$svc_name" && echo -e "${GREEN}${svc_label} stopped${NC}" || echo -e "${RED}Failed to stop ${svc_label}${NC}"
+                ;;
+            3)
+                echo -e "${CYAN}Restarting ${svc_label}...${NC}"
+                sudo systemctl restart "$svc_name" && echo -e "${GREEN}${svc_label} restarted${NC}" || echo -e "${RED}Failed to restart ${svc_label}${NC}"
+                ;;
+            4)
+                systemctl status "$svc_name" --no-pager || true
+                ;;
+            5)
+                echo -e "${CYAN}Following journal for ${svc_label} (Ctrl+C to exit)${NC}"
+                sudo journalctl -u "$svc_name" -f
+                ;;
+            b|B) return ;;
+            *) echo -e "${RED}Invalid action${NC}" ;;
+        esac
+        echo ""
+        read -rp "Press Enter to continue..."
+    done
+}
+
 cmd_cf() {
     echo ""
     bash scripts/cloudflare.sh
@@ -373,6 +573,7 @@ _main_menu_() {
         echo "  11) Clean old logs"
         echo "  12) Cloudflare"
         echo "  13) Update / install models"
+        echo "  14) Manage individual service"
         echo "  q)  Quit"
         echo ""
         read -rp "Choice: " choice
@@ -390,6 +591,7 @@ _main_menu_() {
             11) cmd_clean_logs ;;
             12) cmd_cf ;;
             13) cmd_update_models ;;
+            14) cmd_service ;;
             q|Q) echo ""; echo -e "${GREEN}Goodbye!${NC}"; echo ""; exit 0 ;;
             *) echo -e "${RED}Invalid choice${NC}"; sleep 1 ;;
         esac

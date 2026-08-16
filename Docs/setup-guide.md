@@ -652,6 +652,237 @@ ls -la /app/storage/exports/
 
 ---
 
+## 🛠️ Service Manager (`manager.sh`)
+
+AI 3D Studio includes an interactive service manager (`manager.sh`) for controlling individual services without restarting the entire stack. This is useful for development, debugging, or when you only need to restart a specific component.
+
+### Running the Service Manager
+
+```bash
+# Make executable (once)
+chmod +x manager.sh
+
+# Run interactively
+./manager.sh
+```
+
+### Menu Options Overview
+
+| Option | Action | Description |
+|--------|--------|-------------|
+| **1** | First-Time Setup | Runs bootstrap + dependency installation |
+| **2** | Start All Services | Starts PostgreSQL, Redis, Backend, Celery, Frontend |
+| **3** | Stop All Services | Gracefully stops all services (reverse order) |
+| **4** | Restart All Services | Stop → wait 3s → Start |
+| **5** | Service Status | Shows running/stopped status of each service |
+| **6** | View Logs | Tail logs for API, Worker, Frontend, or all |
+| **7** | Health Check | Verifies PostgreSQL, Redis, API, Frontend, GPU |
+| **8** | Database Management | Run migrations or reset database |
+| **9** | View Environment | Shows `.env` variables (secrets filtered) |
+| **10** | Reset PID Files | Clears stale PID files without stopping services |
+| **11** | Clean Old Logs | Removes log files older than 7 days |
+| **12** | Cloudflare | Tunnel management (Colab/remote access) |
+| **13** | Update/Install Models | Model installation and verification |
+| **14** | Manage Individual Service | Start/Stop/Restart/Status/Logs for a specific service |
+| **q** | Quit | Exit the manager |
+
+---
+
+### Managing Individual Services (Built into manager.sh)
+
+**NEW in v3.2+**: Option **14** in the main menu provides an interactive submenu to manage individual services without restarting the entire stack.
+
+```bash
+./manager.sh
+# Press 14 → Select service (1-5) → Choose action (Start/Stop/Restart/Status/Logs)
+```
+
+The submenu supports:
+
+| Service | Type | Capabilities |
+|---------|------|--------------|
+| **1) Backend API** | Process-managed | Start, Stop, Restart, Status, Tail logs |
+| **2) Celery Worker** | Process-managed | Start, Stop, Restart, Status, Tail logs |
+| **3) Frontend** | Process-managed | Start, Stop, Restart, Status, Tail logs |
+| **4) PostgreSQL** | systemd | Start, Stop, Restart, Status, journalctl logs |
+| **5) Redis** | systemd | Start, Stop, Restart, Status, journalctl logs |
+
+Each service submenu provides:
+- **Start** — Launches the service with correct environment and logging
+- **Stop** — Graceful shutdown (SIGTERM → SIGKILL after 10s)
+- **Restart** — Stop + Start with health verification
+- **Status** — Shows PID and running state
+- **View Logs** — `tail -f` for app services, `journalctl -f` for systemd
+
+#### **Manual CLI Commands (Alternative)**
+
+If you prefer direct commands without the interactive menu:
+
+#### **Restart Frontend Only**
+```bash
+# Option 1: Using stop/start scripts (recommended)
+bash scripts/stop.sh         # Stops everything
+# Wait for it to complete
+bash scripts/start.sh        # Starts everything (interactive mode selection)
+
+# Option 2: Manual frontend-only restart (advanced)
+# 1. Find and kill only the frontend process
+pkill -f "next start"        # For production mode
+pkill -f "next dev"          # For dev mode
+pkill -f "next-server"       # Alternative process name
+
+# 2. Remove frontend PID file
+rm -f .pids/frontend.pid
+
+# 3. Restart frontend manually
+cd /path/to/AI_Studio
+NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev > logs/frontend.log 2>&1 &
+echo $! > .pids/frontend.pid
+```
+
+#### **Restart Backend API Only**
+```bash
+# Kill only the uvicorn process
+pkill -f "uvicorn app.main:app"
+
+# Remove backend PID file
+rm -f .pids/api.pid
+
+# Restart backend
+cd /path/to/AI_Studio/backend
+source .venv/bin/activate
+setsid python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level info \
+  > ../logs/api.log 2>&1 &
+echo $! > ../.pids/api.pid
+```
+
+#### **Restart Celery Worker Only**
+```bash
+# Kill only the celery worker
+pkill -f "celery -A app.workers.celery_app worker"
+
+# Remove worker PID file
+rm -f .pids/worker.pid
+
+# Restart worker (with beat scheduler -B)
+cd /path/to/AI_Studio/backend
+source .venv/bin/activate
+setsid python -m celery -A app.workers.celery_app worker \
+  --loglevel=info --concurrency=1 -B -Q generation,images \
+  > ../logs/worker.log 2>&1 &
+echo $! > ../.pids/worker.pid
+```
+
+#### **Restart Database (PostgreSQL) Only**
+```bash
+# Via systemd (requires sudo)
+sudo systemctl restart postgresql
+
+# Or stop/start separately
+sudo systemctl stop postgresql
+sudo systemctl start postgresql
+
+# Verify
+pg_isready -h localhost -U postgres
+```
+
+#### **Restart Redis Only**
+```bash
+# Via systemd (requires sudo)
+sudo systemctl restart redis-server
+
+# Or stop/start separately
+sudo systemctl stop redis-server
+sudo systemctl start redis-server
+
+# Verify
+redis-cli ping
+```
+
+---
+
+### ⚠️ Critical Safety Rules
+
+| Rule | Why It Matters |
+|------|----------------|
+| **Never kill PID files manually without stopping the process first** | Orphaned processes continue running and lock ports |
+| **Stop services in reverse dependency order** | Frontend → Worker → API → Redis → PostgreSQL |
+| **Start services in dependency order** | PostgreSQL → Redis → API → Worker → Frontend |
+| **Always wait for health checks** | API must be healthy before starting Worker/Frontend |
+| **Use `manager.sh` option 10 (Reset PID Files)** | Clears stale PIDs without touching running processes |
+
+---
+
+### 🔧 Service Dependencies (Start/Stop Order)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    START ORDER                              │
+├─────────────────────────────────────────────────────────────┤
+│  1. PostgreSQL  ──┐                                         │
+│  2. Redis         ├──▶  3. Backend API  ──┐                 │
+│                    │                      ├──▶  4. Celery   │
+│                    └──────────────────────┘      Worker      │
+│                                                │             │
+│                                                ▼             │
+│                                          5. Frontend        │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│                    STOP ORDER (REVERSE)                     │
+├─────────────────────────────────────────────────────────────┤
+│  1. Frontend                                                 │
+│  2. Celery Worker                                            │
+│  3. Backend API                                              │
+│  4. Redis                                                    │
+│  5. PostgreSQL                                               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 📋 Log Locations for Debugging
+
+| Service | Log File | Tail Command |
+|---------|----------|--------------|
+| Backend API | `logs/api.log` | `tail -f logs/api.log` |
+| Celery Worker | `logs/worker.log` | `tail -f logs/worker.log` |
+| Frontend | `logs/frontend.log` | `tail -f logs/frontend.log` |
+| PostgreSQL | `/var/log/postgresql/` | `sudo journalctl -u postgresql -f` |
+| Redis | stdout | `redis-cli monitor` |
+
+---
+
+### 🎯 Quick Commands Reference
+
+```bash
+# Full stack restart (safest)
+bash scripts/restart.sh
+
+# Status check (no interaction)
+./manager.sh  # then press 5
+
+# Health check (no interaction)
+./manager.sh  # then press 7
+
+# View all logs at once
+tail -f logs/*.log
+
+# Check what's running on ports
+lsof -i :3000   # Frontend
+lsof -i :8000   # Backend API
+lsof -i :5432   # PostgreSQL
+lsof -i :6379   # Redis
+
+# Emergency kill all AI Studio processes
+pkill -f "uvicorn app.main:app"
+pkill -f "celery -A app.workers.celery_app"
+pkill -f "next"
+rm -rf .pids
+```
+
+---
+
 ## Next Steps
 
 After successful installation:
