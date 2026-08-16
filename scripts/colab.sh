@@ -550,7 +550,7 @@ PYEOF
 if ! command -v redis-server &>/dev/null; then
     info "Installing Redis..."
     sudo apt-get update -qq 2>/dev/null && sudo apt-get install -y redis-server 2>/dev/null || {
-        warn "Could not install Redis — Celery will use in-process broker"
+        warn "Could not install Redis — using in-memory fallback"
     }
 fi
 
@@ -564,10 +564,10 @@ if command -v redis-server &>/dev/null; then
         log "Redis is running"
         REDIS_AVAILABLE=true
     else
-        warn "Redis not responding — Celery will use in-process broker"
+        warn "Redis not responding — using in-memory fallback"
     fi
 else
-    warn "Redis not available — Celery will use in-process broker (single worker)"
+    warn "Redis not available — using in-memory fallback"
 fi
 
 # ponytail: real fallback for when Redis is unavailable. Without a broker the
@@ -579,7 +579,13 @@ if [[ "$REDIS_AVAILABLE" != "true" ]]; then
     export CELERY_TASK_ALWAYS_EAGER=1
     export CELERY_BROKER_URL="memory://"
     export CELERY_RESULT_BACKEND="cache+memory://"
+    export REDIS_URL="memory://"
     log "Celery fallback active: eager execution + memory broker (no Redis)"
+else
+    # Redis is available, use localhost URLs
+    export REDIS_URL="redis://localhost:6379/0"
+    export CELERY_BROKER_URL="redis://localhost:6379/0"
+    export CELERY_RESULT_BACKEND="redis://localhost:6379/1"
 fi
 
 # ── Run migrations ────────────────────────────────────────────────────────
