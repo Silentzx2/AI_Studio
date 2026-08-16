@@ -546,9 +546,10 @@ def _run(
 # is only applied on Py>=3.12. Upgrade path: drop this once repos publish
 # cp312-compatible pins or the stack targets Py3.11.
 _PY312_REQ_REWRITES: list[tuple[re.Pattern, str | None]] = [
-    # numpy 1.22.x builds via distutils (gone in 3.12); keep the already
-    # installed numpy 2.x from the per-model venv base.
-    (re.compile(r"^numpy==1\.22\..*$"), "numpy>=1.26.4"),
+    # numpy 1.22.x builds via distutils (gone in 3.12); rewrite to a cp312
+    # compatible pin that stays <2.0 to match the backend venv's numpy<2.0
+    # constraint and avoid shadowing it with numpy 2.x from the per-model venv.
+    (re.compile(r"^numpy==1\.22\..*$"), "numpy>=1.26.4,<2.0"),
     # open3d 0.18.0 has no cp312 wheel; 0.19.0 is the first with one.
     (re.compile(r"^open3d==0\.18\.0$"), "open3d==0.19.0"),
     # numba 0.53.1 / llvmlite 0.36.0 only support Python <3.10.
@@ -647,9 +648,9 @@ _CUDA_ONLY_PKG_PATTERNS: list[re.Pattern] = [
 # sys.executable) so they resolve regardless of which sys.path the provider uses.
 # Extend per repo as other missing inference libs are discovered.
 EXTRA_DEPS: dict[str, list[str]] = {
-    "Hunyuan3D-2": ["hy3dgen", "accelerate"],
+    "Hunyuan3D-2": ["hy3dgen", "accelerate>=0.34.0"],
     "TRELLIS": ["accelerate"],
-    "TripoSG": ["diffusers==0.21.4", "huggingface_hub>=0.28.0,<1.0.0", "accelerate"],
+    "TripoSG": ["diffusers>=0.22.0", "huggingface_hub>=0.28.0", "accelerate"],
 }
 
 
@@ -814,6 +815,19 @@ def _install_trellis_deps(
     )
     if code != 0:
         logger.warning("TRELLIS utils3d install failed: %s", output[:300])
+
+    extra = EXTRA_DEPS.get("TRELLIS")
+    if extra:
+        code_e, out_e = _run_uv(
+            ["pip", "install", "--python", str(venv_python), *extra],
+            cwd=repo_dir,
+        )
+        if code_e != 0:
+            logger.warning(
+                "TRELLIS extra deps install failed: %s", out_e[:200],
+            )
+        else:
+            logger.info("Installed TRELLIS extra deps %s", extra)
 
     return {"success": True}
 

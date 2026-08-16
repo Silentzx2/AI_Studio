@@ -12,6 +12,8 @@ import { Shape3D } from '@/types/new-ui';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useWorkspaceModels } from '@/hooks/useBackendData';
 import { toast } from 'sonner';
+import { loadModelInViewer } from '@/stores/useViewerStore';
+import AssetPanelHost from '@/features/workspace/AssetPanelHost';
 
 interface TextureGenTabProps {
   activeModel: {
@@ -125,7 +127,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
       cancelUploadRef.current = null;
 
       // Load model into viewer
-      window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url } }));
+      loadModelInViewer(url, file.name);
 
       // AnimeJS animation for successful load
       anime({
@@ -413,6 +415,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
             </div>
           </div>
         </div>
+        <AssetPanelHost className="border-t border-[hsl(var(--border))]" />
 
         {/* SECTION: TEXTURE GENERATION */}
         <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-5 shadow-sm" id="texture-generation-box">

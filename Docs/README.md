@@ -273,7 +273,8 @@ cd ai-3d-studio
 # Make scripts executable
 chmod +x scripts/*.sh manager.sh
 
-# Run setup and start (installs deps, starts all services)
+# Run setup (installs system deps, uv, Python packages, and starts services)
+# uv is a hard dependency and is installed automatically by setup.sh
 ./scripts/setup.sh
 ./scripts/start.sh
 ```

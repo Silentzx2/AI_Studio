@@ -98,7 +98,9 @@ install_system_deps() {
     curl wget git unzip tar ca-certificates gnupg lsb-release \
     build-essential software-properties-common \
     libssl-dev libffi-dev zlib1g-dev libpq-dev \
-    ffmpeg libsm6 libxext6 libxrender-dev libglib2.0-0 || {
+    ffmpeg libsm6 libxext6 libxrender-dev libglib2.0-0 \
+    libgl1 libopengl0 libx11-6 libxcb1 libxkbcommon-x11-0 \
+    libxrender1 libxi6 libxtst6 libdbus-1-3 libfontconfig1 libfreetype6 || {
     err "Failed to install system dependencies"
     return 1
   }
@@ -198,6 +200,14 @@ CUDA_ENV
   # Apply for this session too
   export PATH="/usr/local/cuda/bin:$PATH"
   export LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}"
+
+  # Headless Qt rendering for pymeshlab / PyQt apps on servers without a display.
+  # This must be set globally so background services launched by start.sh inherit it.
+  cat > /etc/profile.d/qt_offscreen.sh << 'QT_ENV'
+export QT_QPA_PLATFORM=offscreen
+QT_ENV
+  chmod +x /etc/profile.d/qt_offscreen.sh
+  export QT_QPA_PLATFORM=offscreen
 }
 
 install_postgresql() {
@@ -580,7 +590,7 @@ build_frontend() {
 
 print_summary() {
   head_ "Setup Complete"
-  echo -e "${GREEN}${BOLD}AI 3D Studio v3.2.0 is ready!${NC}"
+  echo -e "${GREEN}${BOLD}AI 3D Studio v3.9.4 is ready!${NC}"
   echo
   echo -e "  ${CYAN}Database :${NC}  PostgreSQL on localhost:5432"
   echo -e "  ${CYAN}Cache    :${NC}  Redis on localhost:6379"
@@ -636,7 +646,7 @@ main() {
 ╚═╝  ╚═╝╚═╝   ╚═════╝  ╚═════╝      ╚══════╝   ╚═╝    ╚═════╝ ╚═════╝ ╚═╝ ╚═════╝
 
 BANNER
-  echo -e "${NC}  ${BOLD}Automatic Installer v3.2.0${NC}\n"
+  echo -e "${NC}  ${BOLD}Automatic Installer v3.9.4${NC}\n"
 
   # Critical steps — failure aborts setup
   check_root

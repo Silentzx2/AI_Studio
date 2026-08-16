@@ -58,8 +58,12 @@ export const uploadService = {
           try {
             const json = JSON.parse(xhr.responseText);
             const data = json?.data ?? json;
+            let resolvedUrl = data.url;
+            if (typeof resolvedUrl === 'string' && resolvedUrl.startsWith('/static/')) {
+              resolvedUrl = `${window.location.origin}${resolvedUrl}`;
+            }
             resolve({
-              url: data.url,
+              url: resolvedUrl,
               width: data.width,
               height: data.height,
               filename: data.filename,

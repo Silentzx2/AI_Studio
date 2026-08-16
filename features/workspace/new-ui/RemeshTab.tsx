@@ -11,6 +11,8 @@ import { RefreshCw, Play, Settings, AlertTriangle, CheckCircle, Cpu, ShieldCheck
 import { Shape3D } from '@/types/new-ui';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useWorkspaceModels } from '@/hooks/useBackendData';
+import { loadModelInViewer } from '@/stores/useViewerStore';
+import AssetPanelHost from '@/features/workspace/AssetPanelHost';
 
 interface RemeshTabProps {
   activeModel: {
@@ -117,7 +119,7 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
       cancelUploadRef.current = null;
 
       // Load model into viewer
-      window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url } }));
+      loadModelInViewer(url, file.name);
 
       // AnimeJS animation for successful load
       anime({
@@ -376,6 +378,7 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
             </label>
           </div>
         </div>
+        <AssetPanelHost className="border-t border-[hsl(var(--border))]" />
 
         <div className="flex flex-col gap-4" id="remesh-pipeline-box">
           <div className="flex flex-col gap-1.5">

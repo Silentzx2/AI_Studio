@@ -371,6 +371,8 @@ function StlModel({ url, wireframe }: { url: string; wireframe: boolean }) {
 function CameraController({ autoRotate }: { autoRotate: boolean }) {
   const { camera } = useThree();
   const orbitRef = useRef<any>(null);
+  const viewport = useViewerStore((s) => s.viewport);
+  const setViewport = useViewerStore((s) => s.setViewport);
 
   useEffect(() => {
     registerResetCamera(() => {
@@ -389,8 +391,22 @@ function CameraController({ autoRotate }: { autoRotate: boolean }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!viewport || !orbitRef.current) return;
+    camera.position.set(...viewport.cameraPosition);
+    orbitRef.current.target.set(...viewport.target);
+    orbitRef.current.update();
+  }, [viewport, camera]);
+
   return (
-    <OrbitControls ref={orbitRef} autoRotate={autoRotate} autoRotateSpeed={1.5} enableDamping dampingFactor={0.08} minDistance={1.5} maxDistance={15} makeDefault />
+    <OrbitControls ref={orbitRef} autoRotate={autoRotate} autoRotateSpeed={1.5} enableDamping dampingFactor={0.08} minDistance={1.5} maxDistance={15} makeDefault onChange={() => {
+      if (orbitRef.current) {
+        setViewport({
+          cameraPosition: [camera.position.x, camera.position.y, camera.position.z],
+          target: [orbitRef.current.target.x, orbitRef.current.target.y, orbitRef.current.target.z],
+        });
+      }
+    }} />
   );
 }
 

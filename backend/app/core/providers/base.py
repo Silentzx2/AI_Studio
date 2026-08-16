@@ -62,6 +62,15 @@ def _add_model_env(repo_name: str) -> None:
                 sys.path.remove(sp)  # remove any existing
             sys.path.insert(0, sp)    # prepend at front
 
+        # Move the backend .venv to the end of sys.path so that the per-model
+        # venv is the sole source for fresh imports during model loading.
+        # Backend packages already in sys.modules are unaffected.
+        _backend_venv = (Path(__file__).resolve().parent.parent.parent.parent / ".venv").resolve()
+        _backend_sp = str(_backend_venv / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}" / "site-packages")
+        if _backend_sp in sys.path:
+            sys.path.remove(_backend_sp)
+            sys.path.append(_backend_sp)
+
     # CRITICAL: Remove all shared packages and their submodules from sys.modules
     # so they are re-imported fresh from the newly-prepended per-model venv.
     # Reloading is insufficient because:
@@ -70,7 +79,7 @@ def _add_model_env(repo_name: str) -> None:
     #   3. Parent package imports (e.g. diffusers -> diffusers.utils) may
     #      still reference the old submodule object
     _SHARED_PKGS = [
-        "huggingface_hub", "transformers", "diffusers",
+        "accelerate", "huggingface_hub", "transformers", "diffusers",
         "pydantic", "requests", "httpx", "urllib3",
     ]
     for mod_name in list(sys.modules.keys()):

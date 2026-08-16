@@ -20,15 +20,16 @@ interface ViewerState {
   loadedModelUrl: string | null;
   loadedModelName: string | null;
   setLoadedModel: (url: string | null, name?: string | null) => void;
+  viewport: { cameraPosition: [number, number, number]; target: [number, number, number] } | null;
+  setViewport: (viewport: { cameraPosition: [number, number, number]; target: [number, number, number] }) => void;
 }
 
 export const useViewerStore = create<ViewerState>((set, get) => ({
   loadedModelUrl: null,
   loadedModelName: null,
+  viewport: null,
   setLoadedModel: (url, name = null) => {
     const prev = get().loadedModelUrl;
-    // Release any previous object URL so we don't leak blob: handles.
-    // Skip when the URL is unchanged (e.g. re-selecting the same asset).
     if (prev && prev !== url && prev.startsWith('blob:')) {
       try {
         URL.revokeObjectURL(prev);
@@ -38,6 +39,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
     }
     set({ loadedModelUrl: url, loadedModelName: name });
   },
+  setViewport: (viewport) => set({ viewport }),
 }));
 
 /** Single entry point used by panels / drag-drop to load a model everywhere. */

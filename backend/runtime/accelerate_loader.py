@@ -22,17 +22,23 @@ _ACCELERATE_AVAILABLE: bool | None = None
 
 
 def accelerate_available() -> bool:
-    """Return True if the ``accelerate`` package can be imported."""
-    global _ACCELERATE_AVAILABLE
-    if _ACCELERATE_AVAILABLE is None:
-        try:
-            import accelerate  # noqa: F401
-            _ACCELERATE_AVAILABLE = True
-            logger.debug("Accelerate available: %s", getattr(accelerate, "__version__", "?"))
-        except ImportError:
-            _ACCELERATE_AVAILABLE = False
-            logger.debug("Accelerate not installed — using native device management")
-    return _ACCELERATE_AVAILABLE
+    """Return True if the ``accelerate`` package can be imported.
+
+    Import is attempted on every call so that callers running after
+    ``_add_model_env()`` (which clears ``sys.modules`` and rewrites
+    ``sys.path`` for a per-model venv) resolve the *current* environment's
+    ``accelerate`` rather than a stale backend-venv reference cached at
+    module load time.
+    """
+    try:
+        import accelerate  # noqa: F401
+        _ACCELERATE_AVAILABLE = True
+        logger.debug("Accelerate available: %s", getattr(accelerate, "__version__", "?"))
+        return True
+    except ImportError:
+        _ACCELERATE_AVAILABLE = False
+        logger.debug("Accelerate not installed — using native device management")
+        return False
 
 
 # ---------------------------------------------------------------------------

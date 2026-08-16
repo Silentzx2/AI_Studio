@@ -79,7 +79,9 @@ class TripoSGLocalProvider(BaseProvider):
         self.rmbg_weights_dir = self.triposg_weights_dir.parent / "RMBG-1.4"
         try:
             # Load RMBG for background removal
-            self.rmbg_net = BriaRMBG.from_pretrained(str(self.rmbg_weights_dir)).to(self.device)
+            self.rmbg_net = BriaRMBG.from_pretrained(
+                str(self.rmbg_weights_dir), local_files_only=True, trust_remote_code=True
+            ).to(self.device)
             self.rmbg_net.eval()
 
             # Load TripoSG pipeline
@@ -166,6 +168,7 @@ class TripoSGLocalProvider(BaseProvider):
                     generator=torch.Generator(device=self.pipe.device).manual_seed(42),
                     num_inference_steps=50,
                     guidance_scale=7.0,
+                    use_flash_decoder=False,
                 ).samples[0]
 
             if progress_callback:

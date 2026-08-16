@@ -9,9 +9,11 @@ VRAM is tracked via vram_tracker so the runtime engine can schedule correctly.
 import logging
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
+from app.core.config import settings
 from app.core.providers.base import BaseProvider, ProviderResult
 from app.core.managers.vram_tracker import vram_tracker
 from runtime.accelerate_loader import safe_unload, verify_gpu_placement
@@ -32,6 +34,19 @@ def _anigen_python() -> str:
         return str(venv_python)
     logger.warning("AniGen venv python not found; falling back to bare 'python'.")
     return "python"
+
+
+def _resolve_model_path(url: str) -> str | None:
+    if not url:
+        return None
+    p = Path(url)
+    if p.exists():
+        return str(p)
+    if url.startswith("/static/"):
+        candidate = Path(settings.storage_local_path) / url[len("/static/"):]
+        if candidate.exists():
+            return str(candidate)
+    return None
 
 
 ANIGEN_ROOT = _anigen_root()
@@ -126,21 +141,26 @@ class AniGenProvider(BaseProvider):
         if not input_model:
             raise ValueError("AniGen requires an input GLB model path (reference_image_url).")
 
+        resolved_model = _resolve_model_path(input_model)
+        if resolved_model is None:
+            raise ValueError(f"Cannot resolve AniGen input model URL to a local file: {input_model!r}")
+
         if progress_callback:
             await progress_callback(10, "rigging", "Preparing AniGen inference...")
 
         # --- Method 1: In-process Python pipeline (preferred) ---
         if ANIGEN_ROOT.exists() and self._smpl_model is not None:
             try:
-                return await self._run_inprocess(input_model, output_path, rigged_glb, progress_callback)
+                return await self._run_inprocess(resolved_model, output_path, rigged_glb, progress_callback)
             except Exception as e:
                 logger.warning("In-process AniGen failed: %s — falling back to subprocess", e)
 
         # --- Method 2: Subprocess fallback ---
-        return await self._run_subprocess(input_model, output_path, rigged_glb, progress_callback)
+        return await self._run_subprocess(resolved_model, output_path, rigged_glb, progress_callback)
 
     async def _run_inprocess(self, input_model: str, output_path: Path, rigged_glb: Path, progress_callback: Any) -> ProviderResult:
         """Run AniGen rigging in-process using loaded models."""
+        input_model = _resolve_model_path(input_model) or input_model
         import torch
 
         if progress_callback:
@@ -214,6 +234,7 @@ class AniGenProvider(BaseProvider):
 
     async def _run_subprocess(self, input_model: str, output_path: Path, rigged_glb: Path, progress_callback: Any) -> ProviderResult:
         """Fallback: run AniGen as a subprocess."""
+        input_model = _resolve_model_path(input_model) or input_model
         if not ANIGEN_ROOT.exists():
             logger.error("AniGen repo not found — cannot rig. Copying input as-is.")
             shutil.copy2(input_model, rigged_glb)

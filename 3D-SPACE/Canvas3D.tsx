@@ -315,6 +315,8 @@ function StlModel({
 function CameraController({ autoRotate, activeTool }: { autoRotate: boolean; activeTool: string }) {
   const { camera, gl } = useThree();
   const orbitRef = useRef<any>(null);
+  const viewport = useViewerStore((s) => s.viewport);
+  const setViewport = useViewerStore((s) => s.setViewport);
 
   useEffect(() => {
     registerResetCamera(() => {
@@ -336,6 +338,13 @@ function CameraController({ autoRotate, activeTool }: { autoRotate: boolean; act
     };
   }, [gl]);
 
+  useEffect(() => {
+    if (!viewport || !orbitRef.current) return;
+    camera.position.set(...viewport.cameraPosition);
+    orbitRef.current.target.set(...viewport.target);
+    orbitRef.current.update();
+  }, [viewport, camera]);
+
   const mouseButtons = {
     LEFT: activeTool === 'pan' ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE,
     MIDDLE: THREE.MOUSE.DOLLY,
@@ -353,6 +362,14 @@ function CameraController({ autoRotate, activeTool }: { autoRotate: boolean; act
       maxDistance={25}
       mouseButtons={mouseButtons}
       makeDefault
+      onChange={() => {
+        if (orbitRef.current) {
+          setViewport({
+            cameraPosition: [camera.position.x, camera.position.y, camera.position.z],
+            target: [orbitRef.current.target.x, orbitRef.current.target.y, orbitRef.current.target.z],
+          });
+        }
+      }}
     />
   );
 }

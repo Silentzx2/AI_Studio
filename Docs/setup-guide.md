@@ -1,6 +1,6 @@
 # AI 3D Studio - Setup & Installation Guide
 
-> **Version**: 3.4.3 (Reticle Removal + Unified Logger)  
+> **Version**: 3.9.4 (TripoSG Provider Load Fix)  
 > **Difficulty**: Intermediate  
 > **Estimated Time**: 30-60 minutes
 
@@ -260,7 +260,7 @@ cp .env.example .env
 ENVIRONMENT=development
 DEBUG=true
 APP_NAME=AI 3D Studio
-APP_VERSION=3.4.3
+APP_VERSION=3.9.4
 
 # ===== DATABASE =====
 DATABASE_URL=postgresql+asyncpg://ai3dstudio:password@localhost:5432/ai3dstudio
@@ -543,6 +543,61 @@ extension requiring `kaolin`). The installer now clones submodules, but the exte
 built in the per-model venv. Until that is done, TRELLIS import fails at
 `from .flexicubes.flexicubes import FlexiCubes`. This is independent of the torch mismatch above.
 
+#### 11. TRELLIS / Hunyuan3D-2: `accelerate` import picks backend `.venv` first
+
+If generation fails immediately for `trellis` or `hunyuan3d-2` with:
+
+```
+AttributeError: module 'numpy._core' has no attribute 'multiarray'
+```
+
+the per-model venv's `transformers` is importing the **backend** `.venv`'s `accelerate` instead of its own. This happens because the backend `.venv` sits earlier on `sys.path` than the per-model venv.
+
+**Fix (v3.2.2+):** `_add_model_env()` in `backend/app/core/providers/base.py` now moves the backend `.venv` to the **end** of `sys.path` after prepending the per-model venv, so fresh imports resolve to the per-model venv first. Packages already loaded from the backend venv stay in `sys.modules` and continue to work.
+
+To verify:
+
+```bash
+grep -A4 "Move the backend .venv" backend/app/core/providers/base.py
+```
+
+If the issue persists after upgrading, restart the backend to clear stale imports:
+
+```bash
+pkill -f uvicorn
+bash scripts/start.sh
+```
+
+#### 12. TripoSG: `HFValidationError` when loading RMBG-1.4 from local weights
+
+If you see:
+
+```
+huggingface_hub.errors.HFValidationError: Repo id must be in the form 'repo_name' or 'namespace/repo_name': '.../weights/RMBG-1.4'
+```
+
+this is caused by newer `huggingface_hub` versions validating absolute paths as repo IDs. The TripoSG provider now passes `local_files_only=True` and `trust_remote_code=True` to `BriaRMBG.from_pretrained()` so local weight directories load without hub validation.
+
+To verify on a fresh VPS:
+
+```bash
+# Ensure RMBG weights exist
+ls backend/third_party/TripoSG/weights/RMBG-1.4
+
+# Run a TripoSG generation; it should load RMBG without the HFValidationError
+```
+
+#### 13. 3D Viewer: Uploaded models not appearing across tabs
+
+If uploading a `.glb` in one workspace tab leaves the 3D viewer empty:
+
+- **Cause:** the upload response returns a relative `/static/models/...` URL, which the GLTFLoader cannot resolve when the app runs behind a proxy or nested route.
+- **Fix (v3.2.2+):** `services/uploadService.ts` resolves `/static/` URLs to absolute URLs via `window.location.origin` before storing them. All workspace tabs (`TextureGenTab`, `RemeshTab`, `RiggingAnimationTab`) now use `loadModelInViewer()` from the global `useViewerStore`, so the model appears in every mounted viewer immediately.
+
+#### 14. 3D Viewer: Viewport not synced across tabs
+
+Camera position and orbit target are now shared through `useViewerStore.viewport`. Rotating or panning in one tab updates all other tabs' cameras in real time.
+
 
 
 ### Log Locations
@@ -634,6 +689,17 @@ Expected response (if GPU available):
 ```
 
 ### End-to-End Test
+
+After running setup, start services and verify:
+
+```bash
+# Start all services
+bash scripts/start.sh
+
+# Verify all services are healthy
+bash scripts/manager.sh
+# → Select option 7 (Health Check)
+```
 
 ```bash
 # 1. Start a generation job

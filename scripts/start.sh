@@ -414,6 +414,7 @@ fi
 
 # Dev mode: skip build (hot-reload). Prod mode: build first.
 info "Building Next.js for production..."
+rm -rf .next
 npm run build 2>&1 | tail -5
 FRONTEND_RUN_CMD="npm start"
 
