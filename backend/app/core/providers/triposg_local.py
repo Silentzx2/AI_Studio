@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from app.core.providers.base import BaseProvider, ProviderResult
+from app.core.providers.base import BaseProvider, ProviderResult, _add_model_env
 from app.core.managers.vram_tracker import vram_tracker
 from app.core.mesh_processor import write_placeholder_mesh
 from runtime.accelerate_loader import safe_unload, verify_gpu_placement
@@ -21,6 +21,14 @@ TRIPOSG_SCRIPTS = TRIPOSG_REPO / "scripts"
 for p in (TRIPOSG_REPO, TRIPOSG_SCRIPTS):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
+
+# CRITICAL: prepend the per-model venv's site-packages (where diffusers and other
+# inference libs are installed by the installer's EXTRA_DEPS) to sys.path BEFORE
+# the dependency import check below. Without this, `import diffusers` fails at
+# import time and TripoSG permanently reports "deps not available" even though
+# they are installed in the per-model venv. This mirrors hunyuan3d_local /
+# trellis_local, which call _add_model_env() at module level.
+_add_model_env("TripoSG")
 
 try:
     import torch
@@ -102,6 +110,24 @@ class TripoSGLocalProvider(BaseProvider):
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         glb_path = output_path / "model.glb"
+
+        # If the model failed to load (e.g. required inference deps such as
+        # diffusers are missing from the per-model venv), do NOT fall through to a
+        # NameError on `prepare_image`/`self.pipe`. Return an explicit error result
+        # instead of a misleading placeholder mesh.
+        if not self.is_loaded:
+            logger.error("TripoSG generate called but model is not loaded (missing dependencies?)")
+            stats = write_placeholder_mesh(glb_path)
+            return ProviderResult(
+                model_path=str(glb_path),
+                thumbnail_path="",
+                polygon_count=stats["polygon_count"],
+                vertex_count=stats["vertex_count"],
+                texture_resolution="",
+                has_rig=False,
+                file_size=glb_path.stat().st_size,
+                metadata={"provider": "triposg", "device": self.device, "error": "model not loaded"},
+            )
 
         # Resolve reference image
         image_path = getattr(request, "reference_image_url", None)

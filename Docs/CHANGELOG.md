@@ -1,5 +1,15 @@
 # AI 3D Studio — Changelog
 
+## v3.9.4 — TripoSG Provider Load Fix (August 16, 2026)
+
+### Fixed
+- **TripoSG never loaded (`No module named 'diffusers'` / `prepare_image is not defined`)**: `triposg_local.py` performed its dependency import check at **module import time** but only added the repo/scripts dirs to `sys.path` — not the per-model venv's `site-packages` where `diffusers` (and the other inference libs from `EXTRA_DEPS`) are installed. The other in-process providers (`hunyuan3d_local`, `trellis_local`) call `_add_model_env("<Repo>")` at module level *before* their import check, which prepends the venv to `sys.path`. TripoSG did not, so `import diffusers` failed at import time and `_HAS_DEPS` was permanently `False`, causing `load()` to bail and `generate()` to crash on the undefined `prepare_image` (returning a misleading placeholder "success"). Added the same `_add_model_env("TripoSG")` call at module level so the venv's packages resolve.
+- **TripoSG `generate()` no longer masks load failures**: if the model failed to load (deps missing), `generate()` now returns an explicit error result instead of falling through to a `NameError` on `prepare_image`/`self.pipe` and producing a placeholder mesh that reported `succeeded`.
+
+### Note (env, not code)
+- TRELLIS failing with `No module named 'easydict'` is a **stale per-model venv**: `easydict` is already declared in `_TRELLIS_BASIC_DEPS` and installed by `_install_trellis_deps`. Re-running the model install (e.g. `colab.sh`/`setup.sh` or `POST /api/v1/runtime/install` for `trellis`) refreshes the venv and resolves it. No code change required.
+- For Colab/limited-GPU setups, TRELLIS requires a native CUDA build (no toolkit on Colab) — only TripoSG is supported there by design.
+
 ## v3.9.3 — 422 Fixes: Quality Alias & Proxy Multipart (August 16, 2026)
 
 ### Fixed
