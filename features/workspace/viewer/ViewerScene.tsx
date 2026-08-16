@@ -10,6 +10,7 @@ import { registerResetCamera } from '@/stores/useUIStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 import { useThemeStore } from '@/stores/useThemeStore';
+import { useViewerStore } from '@/stores/useViewerStore';
 
 function disposeObject(object) {
   if (object.isMesh) {
@@ -65,7 +66,7 @@ function ErrorBoundary({ fallback, children }) {
   }, []);
 
   if (hasError) {
-    return <div className="text-center py-4">{fallback}</div>;
+    return <>{fallback}</>;
   }
 
   return <>{children}</>;
@@ -404,17 +405,16 @@ function SceneGrid({ visible }: { visible: boolean }) {
 export function ViewerScene() {
   const { viewer } = useUIStore();
   const { currentJob } = useGenerationStore();
+  const loadedModelUrl = useViewerStore((s) => s.loadedModelUrl);
+  const setLoadedModel = useViewerStore((s) => s.setLoadedModel);
   const hasModel = currentJob?.status === 'completed' && currentJob.result;
   const modelUrl = currentJob?.result?.downloadUrls?.glb || currentJob?.result?.modelUrl;
-  const [userModelUrl, setUserModelUrl] = useState<string | null>(null);
 
   const handleLoadGlb = useCallback((e: CustomEvent) => {
-    setUserModelUrl((prev) => {
-      // FE-015: revoke the previous blob URL so object URLs don't leak.
-      if (prev) URL.revokeObjectURL(prev);
-      return e.detail.url;
-    });
-  }, []);
+    const url: string = e.detail?.url;
+    if (!url) return;
+    setLoadedModel(url, e.detail?.name ?? null);
+  }, [setLoadedModel]);
 
   useEffect(() => {
     window.addEventListener('load-glb-model', handleLoadGlb as EventListener);
@@ -450,20 +450,24 @@ export function ViewerScene() {
           intensity={1.2}
           color="hsl(var(--foreground))"
         />
-      <Environment preset="studio" />
+      <ErrorBoundary fallback={null}>
+        <Suspense fallback={null}>
+          <Environment preset="studio" />
+        </Suspense>
+      </ErrorBoundary>
       <Center>
-        {userModelUrl ? (
+        {loadedModelUrl ? (
           <Suspense fallback={<LoadingScreen />}>
-            <ErrorBoundary fallback={<div className="text-center py-4">Failed to load model</div>}>
+            <ErrorBoundary fallback={null}>
               {/* User uploads: use UserModel for GLB/GLTF, and specific loaders for other formats */}
-              {getFileExtension(userModelUrl) === 'glb' || getFileExtension(userModelUrl) === 'gltf' ? (
-                <UserModel url={userModelUrl} wireframe={viewer.showWireframe} />
-              ) : getFileExtension(userModelUrl) === 'fbx' ? (
-                <FbxModel url={userModelUrl} wireframe={viewer.showWireframe} />
-              ) : getFileExtension(userModelUrl) === 'obj' ? (
-                <ObjModel url={userModelUrl} wireframe={viewer.showWireframe} />
-              ) : getFileExtension(userModelUrl) === 'stl' ? (
-                <StlModel url={userModelUrl} wireframe={viewer.showWireframe} />
+              {getFileExtension(loadedModelUrl) === 'glb' || getFileExtension(loadedModelUrl) === 'gltf' ? (
+                <UserModel url={loadedModelUrl} wireframe={viewer.showWireframe} />
+              ) : getFileExtension(loadedModelUrl) === 'fbx' ? (
+                <FbxModel url={loadedModelUrl} wireframe={viewer.showWireframe} />
+              ) : getFileExtension(loadedModelUrl) === 'obj' ? (
+                <ObjModel url={loadedModelUrl} wireframe={viewer.showWireframe} />
+              ) : getFileExtension(loadedModelUrl) === 'stl' ? (
+                <StlModel url={loadedModelUrl} wireframe={viewer.showWireframe} />
               ) : (
                 // Unsupported format - fallback to placeholder
                 <PlaceholderModel wireframe={viewer.showWireframe} />
@@ -472,7 +476,7 @@ export function ViewerScene() {
           </Suspense>
         ) : hasModel && modelUrl ? (
           <Suspense fallback={<LoadingScreen />}>
-            <ErrorBoundary fallback={<div className="text-center py-4">Failed to load model</div>}>
+            <ErrorBoundary fallback={null}>
               {/* Generated models: use GeneratedModel for GLB/GLTF, and specific loaders for other formats */}
               {getFileExtension(modelUrl) === 'glb' || getFileExtension(modelUrl) === 'gltf' ? (
                 <GeneratedModel url={modelUrl} wireframe={viewer.showWireframe} />

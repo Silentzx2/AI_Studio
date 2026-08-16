@@ -14,7 +14,7 @@ from typing import Any
 
 from app.core.providers.base import BaseProvider, ProviderResult
 from app.core.managers.vram_tracker import vram_tracker
-from runtime.accelerate_loader import safe_unload
+from runtime.accelerate_loader import safe_unload, verify_gpu_placement
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +87,7 @@ class AniGenProvider(BaseProvider):
                         num_expression_coeffs=10,
                         use_pca=False,
                     ).to(self.device)
+                    verify_gpu_placement(self._smpl_model, "anigen_smpl", self.device)
                     logger.info("SMPL body model loaded on %s", self.device)
             except ImportError:
                 logger.warning("smplx not installed — AniGen will use subprocess fallback")

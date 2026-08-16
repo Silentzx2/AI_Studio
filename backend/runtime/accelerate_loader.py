@@ -170,11 +170,21 @@ def verify_gpu_placement(
     Prevents silent CPU fallback. Raises RuntimeError if tensors are not on a
     CUDA device. Logs a warning if the model has no parameters to check.
 
-    Skips the hard assertion when the model is intentionally offloaded via
-    Accelerate (low-VRAM mode) — there the CPU placement is by design.
+    Skips the hard assertion when:
+      - CUDA is not available at all (CPU-only host — there is no GPU to use),
+        so callers on CPU hosts degrade gracefully instead of crashing.
+      - The model is intentionally offloaded via Accelerate (low-VRAM mode) —
+        there the CPU placement is by design.
     """
     try:
         import torch
+        if not torch.cuda.is_available():
+            logger.warning(
+                "GPU placement not verifiable for %s: CUDA unavailable (CPU execution)",
+                model_name,
+            )
+            return
+
         if _is_accelerate_offloaded(model):
             logger.info(
                 "GPU VERIFICATION SKIPPED for %s: model uses Accelerate offload "

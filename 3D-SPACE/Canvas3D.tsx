@@ -22,6 +22,7 @@ import { FBXLoader, OBJLoader, STLLoader } from 'three-stdlib';
 import { useUIStore, registerResetCamera } from '@/stores/useUIStore';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 import { useThemeStore } from '@/stores/useThemeStore';
+import { useViewerStore } from '@/stores/useViewerStore';
 import { uploadService } from '@/services/uploadService';
 import { GlowRing } from '@/components/GlowRing';
 import { cn } from '@/lib/utils';
@@ -417,33 +418,27 @@ function InnerScene({
 }) {
   const { viewer } = useUIStore();
   const { currentJob } = useGenerationStore();
+  const loadedModelUrl = useViewerStore((s) => s.loadedModelUrl);
+  const setLoadedModel = useViewerStore((s) => s.setLoadedModel);
   const hasJobModel = currentJob?.status === 'completed' && currentJob.result;
   const modelUrl = currentJob?.result?.downloadUrls?.glb || currentJob?.result?.modelUrl;
-  const [userModelUrl, setUserModelUrl] = useState<string | null>(null);
   const [modelError, setModelError] = useState(false);
 
   const handleLoadGlb = useCallback((e: CustomEvent) => {
     const url: string = e.detail?.url;
     if (!url) return;
-    setUserModelUrl((prev) => {
-      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
-      return url;
-    });
+    setLoadedModel(url, e.detail?.name ?? null);
     setModelError(false);
-  }, []);
+  }, [setLoadedModel]);
 
   useEffect(() => {
     window.addEventListener('load-glb-model', handleLoadGlb as EventListener);
     return () => {
       window.removeEventListener('load-glb-model', handleLoadGlb as EventListener);
-      setUserModelUrl((prev) => {
-        if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
-        return null;
-      });
     };
   }, [handleLoadGlb]);
 
-  const activeUrl = userModelUrl || (hasJobModel && modelUrl ? modelUrl : null);
+  const activeUrl = loadedModelUrl || (hasJobModel && modelUrl ? modelUrl : null);
   const showModel = !!activeUrl && !modelError;
 
   useEffect(() => {
@@ -516,9 +511,11 @@ function InnerScene({
         </>
       )}
 
-      <Suspense fallback={null}>
-        <Environment preset="studio" />
-      </Suspense>
+      <ErrorBoundary fallback={null}>
+        <Suspense fallback={null}>
+          <Environment preset="studio" />
+        </Suspense>
+      </ErrorBoundary>
 
       <Center>
         {showModel && activeUrl ? renderModel(activeUrl) : null}

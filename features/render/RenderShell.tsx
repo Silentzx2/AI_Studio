@@ -37,6 +37,8 @@ import { Canvas } from '@react-three/fiber';
 import { Suspense } from 'react';
 import { ViewerScene } from '@/features/workspace/viewer/ViewerScene';
 import { useUIStore } from '@/stores/useUIStore';
+import { AssetPanelHost } from '@/features/workspace/AssetPanelHost';
+import { useViewerStore } from '@/stores/useViewerStore';
 
 export function RenderShell() {
   const [quality, setQuality] = useState('high');
@@ -48,6 +50,7 @@ export function RenderShell() {
   const { reconnectToRunningTasks, registerTask, updateTask, completeTask } = useTaskManager();
   const { currentJob } = useGenerationStore();
   const { viewer } = useUIStore();
+  const loadedModelUrl = useViewerStore((s) => s.loadedModelUrl);
 
   const renderTasks = useAppStore((s) =>
     Object.values(s.tasks).filter((t) => t.type === 'render').sort((a, b) => b.createdAt - a.createdAt).slice(0, 10)
@@ -112,14 +115,15 @@ export function RenderShell() {
   };
 
   return (
-    <div className="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 max-w-[1600px] mx-auto">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Render Studio</h1>
-        <p className="text-sm text-muted-foreground mt-1">Professional 3D rendering with Cycles & EEVEE</p>
-      </div>
+    <div className="flex gap-4 p-3 sm:p-4 lg:p-6 max-w-[1700px] mx-auto items-start">
+      <div className="flex-1 min-w-0 space-y-4 sm:space-y-6">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Render Studio</h1>
+          <p className="text-sm text-muted-foreground mt-1">Professional 3D rendering with Cycles & EEVEE</p>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
-        {/* Preview */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
+          {/* Preview */}
         <GlassCard className="lg:col-span-2 p-0 overflow-hidden min-h-[400px]" delay={0.05}>
           <div className="relative h-full aspect-video bg-surface-0 flex items-center justify-center">
             <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--neon-purple)/0.05)] to-[hsl(var(--neon-blue)/0.05)]" />
@@ -130,7 +134,7 @@ export function RenderShell() {
               </Suspense>
             </Canvas>
 
-            {!currentJob?.result && (
+            {!currentJob?.result && !loadedModelUrl && (
               <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none">
                 <div className="flex flex-col items-center gap-3 bg-surface-1/50 backdrop-blur-md p-6 rounded-2xl border border-[hsl(var(--border)/0.5)]">
                   <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-surface-2/50 border border-[hsl(var(--border)/0.5)]">
@@ -277,6 +281,10 @@ export function RenderShell() {
           </div>
         </GlassCard>
       </div>
+      </div>
+      <aside className="hidden xl:block w-[260px] shrink-0 sticky top-4 h-[calc(100vh-2rem)]">
+        <AssetPanelHost className="h-full" />
+      </aside>
     </div>
   );
 }

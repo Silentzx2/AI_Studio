@@ -17,6 +17,7 @@ import { uploadService } from '@/services/uploadService';
 import { apiClient } from '@/services/apiClient';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { loadModelInViewer } from '@/stores/useViewerStore';
 import ExportDialog from '@/features/workspace/new-ui/ExportDialog';
 import type { GenerationJob } from '@/types';
 
@@ -45,6 +46,7 @@ interface AssetPanelProps {
   onDeleteAsset?: (id: string) => void;
   onAssetUploaded?: () => void;
   loading?: boolean;
+  className?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -176,7 +178,7 @@ function InspectorPanel({ asset, onDelete }: { asset: AssetItem; onDelete?: (id:
       <div className="flex gap-2">
         {asset.modelUrl && (
           <button
-            onClick={() => window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url: asset.modelUrl } }))}
+            onClick={() => { if (asset.modelUrl) loadModelInViewer(asset.modelUrl, asset.name); }}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest bg-[hsl(var(--surface-2))] text-black hover:bg-[hsl(var(--surface-2))] transition-all shadow-lg active:scale-95"
           >
             <Eye size={14} /> Preview
@@ -264,6 +266,7 @@ export default function AssetPanel({
   onDeleteAsset,
   onAssetUploaded,
   loading,
+  className,
 }: AssetPanelProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -388,7 +391,7 @@ const processModelUpload = async (file: File) => {
             if (result?.url && !cancelled) {
                 toast.success(`Model uploaded successfully (${ext.slice(1).toUpperCase()})`);
                 // Load into 3D viewer right away
-                window.dispatchEvent(new CustomEvent('load-glb-model', { detail: { url: result.url } }));
+                loadModelInViewer(result.url, file.name);
                 if (onAssetUploaded) onAssetUploaded();
             } else if (!cancelled) {
                 toast.error('Upload succeeded but no model URL was returned');
@@ -412,7 +415,7 @@ const processModelUpload = async (file: File) => {
   ];
 
   return (
-    <div className="flex flex-col h-full bg-[hsl(var(--surface-1))] border-l border-[hsl(var(--border))]/[0.15] w-full min-w-0">
+    <div className={cn("flex flex-col h-full bg-[hsl(var(--surface-1))] border-l border-[hsl(var(--border))]/[0.15] w-full min-w-0", className)}>
       {/* Hidden Model File Input */}
       <input
         ref={modelFileInputRef}

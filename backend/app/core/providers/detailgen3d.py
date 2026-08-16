@@ -8,7 +8,7 @@ from typing import Any
 from app.core.providers.base import BaseProvider, ProviderResult
 from app.core.managers.vram_tracker import vram_tracker
 from app.core.mesh_processor import write_placeholder_mesh
-from runtime.accelerate_loader import safe_unload
+from runtime.accelerate_loader import safe_unload, verify_gpu_placement
 from runtime.storage import get_storage_config
 
 logger = logging.getLogger(__name__)
@@ -77,6 +77,7 @@ class DetailGen3DProvider(BaseProvider):
             self.sampled_points = self.sampled_points.unsqueeze(0)  # batch=1
             self.box_min = box_min
             self.is_loaded = True
+            verify_gpu_placement(self.pipeline, "detailgen3d", self.device)
             logger.info("DetailGen3D model loaded into VRAM on device %s", self.device)
             return True
         except Exception as exc:

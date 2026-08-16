@@ -25,6 +25,7 @@ import AssetPanel, { type AssetItem } from "@/3D-SPACE/AssetPanel";
 import { WorkspaceNavbar } from "./WorkspaceNavbar";
 import { useGenerationStore } from "@/stores/useGenerationStore";
 import { useGeneration } from "@/hooks/useGeneration";
+import { loadModelInViewer } from "@/stores/useViewerStore";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -78,7 +79,7 @@ export function ThreeDGenWorkspace({ embedded = false }: { embedded?: boolean })
       if (latestCompleted) {
         setSelectedAssetId(latestCompleted.id);
         if (latestCompleted.modelUrl) {
-          window.dispatchEvent(new CustomEvent("load-glb-model", { detail: { url: latestCompleted.modelUrl } }));
+          loadModelInViewer(latestCompleted.modelUrl, latestCompleted.name);
         }
       }
     }
@@ -89,6 +90,8 @@ export function ThreeDGenWorkspace({ embedded = false }: { embedded?: boolean })
     const status = currentJob?.status ?? null;
     if (prevStatusRef.current && prevStatusRef.current !== "completed" && status === "completed") {
       loadHistory();
+      const url = currentJob?.result?.downloadUrls?.glb || currentJob?.result?.modelUrl;
+      if (url) loadModelInViewer(url);
     }
     prevStatusRef.current = status;
   }, [currentJob?.status, loadHistory]);
@@ -96,7 +99,7 @@ export function ThreeDGenWorkspace({ embedded = false }: { embedded?: boolean })
   const handleSelectAsset = (asset: AssetItem) => {
     setSelectedAssetId(asset.id);
     if (asset.modelUrl) {
-      window.dispatchEvent(new CustomEvent("load-glb-model", { detail: { url: asset.modelUrl } }));
+      loadModelInViewer(asset.modelUrl, asset.name);
     }
   };
 

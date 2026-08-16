@@ -1,5 +1,22 @@
 # AI 3D Studio — Changelog
 
+## v3.9.0 — 3D Viewer Sync, Shared Asset Library & GPU Placement Verification (August 16, 2026)
+
+### Fixed
+- **GLB/models "load then revert to default page" (root cause)**: Both 3D viewers (`Canvas3D` in the workspace and `ViewerScene` in render/texture) fetched an HDRI environment map via `<Environment preset="studio">` from a remote CDN with **no error boundary**. When that fetch hung or failed (offline/flaky network), the thrown error blanked the whole viewer — the model appeared to load, then the viewer fell back to its empty/default state. `Environment` is now wrapped in a `Suspense` + `ErrorBoundary` (null fallback) in **both** viewers, so an HDRI failure can no longer tear down the model view. The model stays visible with scene lighting.
+- **Model state lost on page navigation**: The loaded model URL was held in local component state inside each viewer, so switching pages (workspace ↔ render ↔ texture) discarded it. Introduced a **global `useViewerStore`** (`stores/useViewerStore.ts`) that is the single source of truth for the currently loaded model. Both viewers read from it, so a model loaded on one page stays loaded on all of them.
+- **GPU placement now verified everywhere**: `verify_gpu_placement()` (in `runtime/accelerate_loader.py`) was only called by the TRELLIS and Hunyuan3D providers. The other real model loaders (`triposg`, `detailgen3d`) did `.to(device)` with **no check**, so a silent CPU fallback was invisible. Added `verify_gpu_placement` to `triposg`, `detailgen3d`, and (guarded) `anigen`. If CUDA is available but a model lands on CPU (and is not an intentional Accelerate offload), it now raises loudly instead of silently running on CPU.
+- **`verify_gpu_placement` CPU-host safety**: It previously raised `RuntimeError` even on CPU-only hosts (where there is no GPU to use). It now warns and returns when `torch.cuda.is_available()` is `False`, so CPU-only deployments no longer crash on load.
+
+### Added
+- **Shared Asset Library on all 3D pages**: The Asset Panel (model history + uploads, selection, preview, delete, upload) previously lived only in the workspace. Added `AssetPanelHost` (`features/workspace/AssetPanelHost.tsx`) that centralizes the history fetch + selection→viewer wiring, and embedded it in the **Render** and **Texture** pages (right-hand sidebar). All pages now use the *same* AssetPanel component and the *same* `loadModelInViewer()` entry point, so a model selected anywhere flows through the global store and appears in every viewer.
+- `loadModelInViewer(url, name?)` helper in `useViewerStore` is now the single way to load a model (updates the store + dispatches the legacy `load-glb-model` event for any remaining listeners).
+
+### Technical
+- `AssetPanel` gained an optional `className` prop; the workspace continues to use its own history/selection wiring while render/texture reuse `AssetPanelHost` for identical logic.
+- Generation completion and asset selection now write the new model URL into `useViewerStore`, so the freshly generated model persists across navigation.
+- All Python syntax verified clean; frontend changes keep JSX balanced and remove the now-unused per-viewer `userModelUrl` state.
+
 ## v3.8.9 — Bug Fixes: Model Uninstall, Thumbnails, CSS & Dependencies (August 16, 2026)
 
 ### Fixed

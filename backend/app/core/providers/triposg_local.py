@@ -8,7 +8,7 @@ from typing import Any
 from app.core.providers.base import BaseProvider, ProviderResult
 from app.core.managers.vram_tracker import vram_tracker
 from app.core.mesh_processor import write_placeholder_mesh
-from runtime.accelerate_loader import safe_unload
+from runtime.accelerate_loader import safe_unload, verify_gpu_placement
 from runtime.storage import get_storage_config
 
 logger = logging.getLogger(__name__)
@@ -79,6 +79,7 @@ class TripoSGLocalProvider(BaseProvider):
                 self.device, dtype=torch.float16
             )
             self.is_loaded = True
+            verify_gpu_placement(self.pipe, "triposg", self.device)
             logger.info("TripoSG model loaded into VRAM on device %s", self.device)
             return True
         except Exception as exc:
