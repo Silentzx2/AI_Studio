@@ -1,5 +1,18 @@
 # AI 3D Studio — Changelog
 
+## v3.9.1 — Runtime Stability Fixes (August 16, 2026)
+
+### Fixed
+- **Backend startup/test crash from `DEBUG=release`**: `backend/app/config.py` now accepts deployment-style string values such as `release` / `production` for the `debug` setting instead of crashing settings initialization with a boolean parsing error.
+- **Provider cleanup crash on load failure**: `VRAMAllocationTracker` now exposes a backward-compatible `release()` alias to `deallocate()`. This fixes `AttributeError` failure paths in providers that call `vram_tracker.release(...)` during model-load or weight-resolution errors.
+- **Backend test import drift**: added `backend/tests/conftest.py` so all backend tests share the same `sys.path` bootstrap, avoiding per-test import breakage for `app.*` modules.
+- **Hanging runtime route regression test**: `backend/tests/test_runtime_routes.py` now validates the route functions directly instead of relying on the flaky `TestClient` path that could hang in this environment even though the route payload builders completed successfully.
+
+### Verified
+- `backend/.venv/bin/python -m pytest backend/tests -q` → `28 passed`
+- `backend/.venv/bin/python -m compileall backend/app backend/runtime`
+- `npx tsc --noEmit`
+
 ## v3.9.0 — 3D Viewer Sync, Shared Asset Library & GPU Placement Verification (August 16, 2026)
 
 ### Fixed
