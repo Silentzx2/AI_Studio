@@ -404,7 +404,7 @@ log "Celery Worker started (PID: $(cat $WORKER_PID_FILE))"
 echo ""
 
 # ── Step 6: Start Frontend ────────────────────────────────────────────────
-step "6/6 Starting Frontend (${FRONTEND_LABEL}) — http://localhost:3000..."
+step "6/6 Starting Frontend  — http://localhost:3000..."
 
 # Install deps if needed
 if [[ ! -d node_modules ]]; then
@@ -413,14 +413,9 @@ if [[ ! -d node_modules ]]; then
 fi
 
 # Dev mode: skip build (hot-reload). Prod mode: build first.
-if [[ "$START_MODE" == "production" ]]; then
-    info "Building Next.js for production..."
-    npm run build 2>&1 | tail -5
-    FRONTEND_RUN_CMD="npm start"
-else
-    # Dev mode — no build step, use next dev
-    FRONTEND_RUN_CMD="npm run dev"
-fi
+info "Building Next.js for production..."
+npm run build 2>&1 | tail -5
+FRONTEND_RUN_CMD="npm start"
 
 # Start frontend
 NEXT_PUBLIC_API_URL=http://localhost:8000 setsid $FRONTEND_RUN_CMD \
@@ -436,7 +431,7 @@ echo -e "${CYAN}║${NC}  ${GREEN}✅ All Services Started${NC} — mode"
 echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "  ${BOLD}Endpoints:${NC}"
-echo -e "    Frontend       http://localhost:3000  (${FRONTEND_LABEL})"
+echo -e "    Frontend       http://localhost:3000  "
 echo -e "    Backend API    http://localhost:8000"
 echo -e "    API Docs       http://localhost:8000/docs"
 echo ""
