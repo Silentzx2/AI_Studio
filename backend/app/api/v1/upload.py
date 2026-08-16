@@ -4,11 +4,12 @@ NOTE on upload progress tracking:
 This endpoint consumes the entire file body in one shot (await file.read()),
 so the server cannot report byte-level progress mid-upload.  Real-time upload
 progress bars must be implemented **client-side** using XMLHttpRequest (or
-Axios onUploadProgress) which exposes the native browser progress event.
+Axon onUploadProgress) which exposes the native browser progress event.
 See the frontend upload service for the XHR-based implementation.
 """
 from __future__ import annotations
 
+import asyncio
 import io
 import logging
 import uuid
@@ -19,6 +20,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from PIL import Image
 
 from app.config import get_settings
+from app.core.mesh_processor import render_thumbnail
 from app.utils.response import error, success
 
 router = APIRouter(tags=["Upload"])
@@ -176,6 +178,26 @@ async def upload_model(file: UploadFile = File(...)):  # noqa: C901
     with open(file_path, "wb") as f:
         f.write(contents)
 
+    # Generate thumbnail for GLB/GLTF files
+    thumbnail_url = None
+    if ext in {'.glb', '.gltf'}:
+        try:
+            thumbnails_dir = Path(settings.storage_local_path) / "thumbnails"
+            thumbnails_dir.mkdir(parents=True, exist_ok=True)
+            thumb_filename = f"{uuid.uuid4().hex[:12]}.png"
+            thumb_path = thumbnails_dir / thumb_filename
+            
+            # Run thumbnail generation in background thread to avoid blocking
+            loop = asyncio.get_event_loop()
+            rendered = await loop.run_in_executor(
+                None,
+                lambda: render_thumbnail(str(file_path), str(thumb_path))
+            )
+            if rendered:
+                thumbnail_url = f"/static/thumbnails/{thumb_filename}"
+        except Exception as exc:
+            logger.warning(f"Thumbnail generation failed for {unique_name}: {exc}")
+
     # Return URL
     url = f"/static/models/{unique_name}"
 
@@ -186,6 +208,7 @@ async def upload_model(file: UploadFile = File(...)):  # noqa: C901
         "filename": file.filename,
         "size": len(contents),
         "format": ext.lstrip('.'),
+        "thumbnail_url": thumbnail_url,
     })
 
 
@@ -220,11 +243,26 @@ async def list_uploaded_assets():
 
         # 2. Model Uploads
         models_dir = Path(settings.storage_local_path) / "models"
+        thumbnails_dir = Path(settings.storage_local_path) / "thumbnails"
         models = []
         if models_dir.exists():
             for f in models_dir.iterdir():
                 if f.is_file() and f.suffix.lower() in {'.glb', '.gltf', '.fbx', '.obj', '.stl'}:
                     stat = f.stat()
+                    # Check for existing thumbnail
+                    thumbnail_url = None
+                    if f.suffix.lower() in {'.glb', '.gltf'}:
+                        # Look for matching thumbnail (by filename without extension)
+                        thumb_name = f.stem + ".png"
+                        thumb_path = thumbnails_dir / thumb_name
+                        if thumb_path.exists():
+                            thumbnail_url = f"/static/thumbnails/{thumb_name}"
+                        else:
+                            # Try to find any thumbnail that might match
+                            for thumb_file in thumbnails_dir.glob("*.png"):
+                                thumbnail_url = f"/static/thumbnails/{thumb_file.name}"
+                                break
+                    
                     models.append({
                         "id": f.name,
                         "name": f.name,
@@ -233,6 +271,7 @@ async def list_uploaded_assets():
                         "size": stat.st_size,
                         "format": f.suffix.lstrip('.'),
                         "type": "model",
+                        "thumbnail_url": thumbnail_url,
                         "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat()
                     })
         

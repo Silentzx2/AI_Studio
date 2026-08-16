@@ -36,9 +36,9 @@ export const uploadService = {
     file: File,
     onProgress: (progress: UploadProgress) => void,
     endpoint: '/api/v1/upload/image' | '/api/v1/upload/model' = '/api/v1/upload/image'
-  ): { promise: Promise<{ url: string; width?: number; height?: number; filename?: string; size?: number; format?: string }>; cancel: () => void } {
+  ): { promise: Promise<{ url: string; width?: number; height?: number; filename?: string; size?: number; format?: string; thumbnail_url?: string }>; cancel: () => void } {
     let xhr: XMLHttpRequest;
-    const promise = new Promise<{ url: string; width?: number; height?: number; filename?: string; size?: number; format?: string }>((resolve, reject) => {
+    const promise = new Promise<{ url: string; width?: number; height?: number; filename?: string; size?: number; format?: string; thumbnail_url?: string }>((resolve, reject) => {
       xhr = new XMLHttpRequest();
       const formData = new FormData();
       formData.append('file', file);
@@ -65,6 +65,7 @@ export const uploadService = {
               filename: data.filename,
               size: data.size,
               format: data.format,
+              thumbnail_url: data.thumbnail_url,
             });
           } catch {
             reject(new Error('Invalid response from server'));

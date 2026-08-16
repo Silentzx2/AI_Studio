@@ -304,7 +304,7 @@ export default function AssetPanel({
           prompt: '',
           format: model.format?.toUpperCase() || '',
           timestamp: model.created_at || new Date().toISOString(),
-          thumbnailUrl: model.thumbnailUrl || null,
+          thumbnailUrl: model.thumbnail_url || model.thumbnailUrl || null,
           modelUrl: model.url,
           isFavorite: false,
           job: null,

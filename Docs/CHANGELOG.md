@@ -1,5 +1,18 @@
 # AI 3D Studio — Changelog
 
+## v3.8.9 — Bug Fixes: Model Uninstall, Thumbnails, CSS & Dependencies (August 16, 2026)
+
+### Fixed
+- **Model uninstall now removes weights**: Added `uninstall_provider()` in `runtime/installer.py` that removes model weights from `backend/third_party/<Repo>/weights/` while preserving repo clone and per-model venv for quick re-install. Updated `PluginManager.uninstall_model()` to call it.
+- **Uploaded GLB thumbnails**: `POST /api/v1/upload/model` now generates thumbnails via `render_thumbnail()` and saves to `storage/thumbnails/`. `GET /api/v1/upload/assets` returns `thumbnail_url` for models.
+- **CSS white border artifact**: Fixed `--tripo-white-5` and `--tripo-white-10` color variables to use correct base color (`210 20% 95%`) matching `--tripo-gray-100` for proper alpha blending.
+- **TripoSG missing dependency**: Added `diffusers` to `EXTRA_DEPS` for TripoSG provider to resolve `ModuleNotFoundError: No module named 'diffusers'`.
+
+### Technical
+- Path separation maintained: AI model weights in `backend/third_party/<Repo>/weights/`, user uploads in `storage/models/`, thumbnails in `storage/thumbnails/`.
+- Backend returns `thumbnail_url` (snake_case) alongside `thumbnailUrl` (camelCase) for frontend compatibility.
+- All Python syntax verified clean.
+
 ## v3.8.8 — Enhanced Upload System, Asset Management & Drag & Drop UX (August 15, 2026)
 
 ### Added

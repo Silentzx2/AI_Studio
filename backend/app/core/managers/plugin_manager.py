@@ -1,4 +1,6 @@
 import asyncio
+import os
+import shutil
 
 from app.core.registry.model_registry import ModelRegistry
 
@@ -61,9 +63,15 @@ class PluginManager:
     async def uninstall_model(self, model_id: str):
         # Delete from DB
         await self.registry.delete_model(model_id)
+        # Also delete model weights from backend/third_party (runtime installer uninstall)
+        try:
+            from runtime.installer import uninstall_provider
+            result = uninstall_provider(model_id)
+            if not result.get("success"):
+                logger.warning(f"Weight removal warning for {model_id}: {result.get('error')}")
+        except Exception as e:
+            logger.warning(f"Weight removal failed for {model_id}: {e}")
         # We should also delete files from storage
-        import os
-        import shutil
         path = f"./storage/models/{model_id}"
         if os.path.exists(path):
             shutil.rmtree(path, ignore_errors=True)

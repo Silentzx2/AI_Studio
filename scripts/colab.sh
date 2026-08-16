@@ -97,6 +97,13 @@ else
     log "uv already available: $(uv --version | head -1)"
 fi
 
+# ponytail: some hosted shells (e.g. Colab) wrap `uv` in an alias/function that
+# injects the deprecated `--system` flag, which only `uv venv` complains about
+# ("--system has no effect"). Strip any wrapper so we call the real binary and
+# avoid the noisy, harmless warning. No-op when no wrapper exists.
+unalias uv 2>/dev/null || true
+unset -f uv 2>/dev/null || true
+
 # Colab has no systemd — use SQLite for database
 export USE_SQLITE=1
 # ponytail: force the Colab preparation policy (low VRAM + low weight) on, so
@@ -351,7 +358,15 @@ def repair_venv(repo_name):
 
 repaired = skipped = failed = skipped_colab = 0
 
+# Colab: only prepare these 4 models (skip Hunyuan3D-2, DetailGen3D due to VRAM/size)
+COLAB_ALLOWED_REPOS = {"TRELLIS", "AniGen", "UniRig", "TripoSG"}
+
 for repo_name in sorted(REPOS.keys()):
+    # Only prepare allowed models for Colab
+    if repo_name not in COLAB_ALLOWED_REPOS:
+        print(f"  [COLAB] {repo_name}: skipped (not in allowed list)")
+        skipped_colab += 1
+        continue
     repo_cfg = REPOS.get(repo_name, {})
     providers = repo_cfg.get("providers", [])
     colab_skip_reason = None
@@ -461,7 +476,13 @@ except Exception as exc:
     sys.exit(1)
 
 token = os.environ.get("HUGGINGFACE_TOKEN") or os.environ.get("HF_TOKEN")
+# Colab: only download weights for these 4 models
+COLAB_ALLOWED_PROVIDERS = ("trellis", "anigen", "unirig", "triposg")
 for key in sorted(HF_MODELS.keys()):
+        # Only download allowed models
+        if key not in COLAB_ALLOWED_PROVIDERS:
+            print(f"  [COLAB] {key}: skipped (not in allowed list)")
+            continue
         if not is_model_preparable_for_colab(key):
             reason = get_colab_incompatibility_reason(key) or (
                 f"Required VRAM: {get_model_vram_required(key) / 1024:.1f} GB"

@@ -649,6 +649,7 @@ _CUDA_ONLY_PKG_PATTERNS: list[re.Pattern] = [
 EXTRA_DEPS: dict[str, list[str]] = {
     "Hunyuan3D-2": ["hy3dgen", "accelerate"],
     "TRELLIS": ["accelerate"],
+    "TripoSG": ["diffusers", "accelerate"],
 }
 
 
@@ -1591,6 +1592,94 @@ def install_provider(
     finally:
         for rn in locked_repos:
             _release_install_lock(rn)
+
+
+def uninstall_provider(provider_name: str, log_cb: Callable | None = None) -> dict:
+    """Uninstall a provider by removing ONLY its model weights.
+    
+    Keeps the repo clone and per-model venv intact for quick re-install.
+    This matches the user's requirement to only delete weights, not the repo/venv.
+    """
+    provider_name = _canonical_provider_name(provider_name)
+    meta = PROVIDER_METADATA.get(provider_name)
+    if not meta:
+        return {"success": False, "error": f"Unknown provider: {provider_name}"}
+    
+    weight_key = meta.get("weight_key")
+    if not weight_key:
+        return {"success": True, "message": f"No weights to remove for {provider_name}"}
+    
+    storage = get_storage_config()
+    removed_paths = []
+    errors = []
+    
+    # 1. Remove per-model weights directory (new layout)
+    repo_name = meta.get("repo")
+    if repo_name:
+        per_model_weights = storage.get_repo_path(repo_name) / "weights" / weight_key
+        if per_model_weights.exists():
+            try:
+                shutil.rmtree(str(per_model_weights), ignore_errors=True)
+                removed_paths.append(str(per_model_weights))
+                if log_cb:
+                    log_cb(f"Removed per-model weights: {per_model_weights}")
+            except Exception as exc:
+                errors.append(f"Failed to remove {per_model_weights}: {exc}")
+    
+    # 2. Remove legacy centralized weights directory (fallback)
+    legacy_weights = storage.weights_dir / weight_key
+    if legacy_weights.exists():
+        try:
+            shutil.rmtree(str(legacy_weights), ignore_errors=True)
+            removed_paths.append(str(legacy_weights))
+            if log_cb:
+                log_cb(f"Removed legacy weights: {legacy_weights}")
+        except Exception as exc:
+            errors.append(f"Failed to remove {legacy_weights}: {exc}")
+    
+    # 3. Remove any HF cache entries for this weight_key
+    for cache_dir in storage.hf_cache_dirs:
+        try:
+            for hub_dir in (cache_dir / "hub", cache_dir):
+                if not hub_dir.exists():
+                    continue
+                slug = weight_key.replace("/", "--")
+                for prefix in ("models--", ""):
+                    candidate = hub_dir / f"{prefix}{slug}"
+                    if candidate.exists():
+                        shutil.rmtree(str(candidate), ignore_errors=True)
+                        removed_paths.append(str(candidate))
+                        if log_cb:
+                            log_cb(f"Removed HF cache: {candidate}")
+        except Exception:
+            pass
+    
+    # 4. Clear install state for this provider
+    try:
+        state = _load_state()
+        if "repos" in state and provider_name in state["repos"]:
+            del state["repos"][provider_name]
+            _save_state(state)
+            if log_cb:
+                log_cb(f"Cleared install state for {provider_name}")
+    except Exception as exc:
+        errors.append(f"Failed to clear state: {exc}")
+    
+    # 5. Reset provider registry
+    try:
+        from app.core.providers.registry import reset_provider
+        reset_provider()
+        if log_cb:
+            log_cb("Provider registry refreshed")
+    except Exception:
+        pass
+    
+    if errors:
+        return {"success": False, "error": "; ".join(errors), "removed": removed_paths}
+    
+    if log_cb:
+        log_cb(f"Uninstalled weights for {provider_name}")
+    return {"success": True, "provider": provider_name, "removed": removed_paths}
 
 
 def get_install_status() -> dict:

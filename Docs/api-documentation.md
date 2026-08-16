@@ -966,16 +966,16 @@ Content-Type: multipart/form-data
 {
   "success": true,
   "data": {
-    "file_id": "upload_model_xyz",
+    "url": "/static/models/abc123.glb",
     "filename": "character.glb",
-    "url": "/static/uploads/models/character.glb",
-    "size_bytes": 5242880,
-    "content_type": "model/gltf-binary"
+    "size": 5242880,
+    "format": "glb",
+    "thumbnail_url": "/static/thumbnails/abc123.png"
   }
 }
 ```
 
-> **Note:** The returned `url` is a persistent backend URL. The frontend uses this URL directly for loading into the 3D viewer — blob URLs are not created.
+> **Note:** The returned `url` is a persistent backend URL (`/static/models/...`). For GLB/GLTF files, a thumbnail is automatically generated and returned as `thumbnail_url`. The frontend uses the `url` directly for loading into the 3D viewer via the `load-glb-model` event.
 
 ### List Uploaded Assets
 
@@ -983,7 +983,45 @@ Content-Type: multipart/form-data
 GET /api/v1/upload/assets
 ```
 
-Returns all uploaded assets. The response recognizes files with extensions `.glb`, `.gltf`, `.fbx`, `.obj`, and `.stl` as 3D model assets.
+Returns all uploaded images and models.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "images": [
+      {
+        "id": "upload_abc123.png",
+        "name": "upload_abc123.png",
+        "filename": "upload_abc123.png",
+        "url": "/api/v1/upload/uploads/upload_abc123.png",
+        "size": 102400,
+        "format": "png",
+        "type": "image",
+        "created_at": "2026-08-16T10:30:00"
+      }
+    ],
+    "models": [
+      {
+        "id": "abc123.glb",
+        "name": "abc123.glb",
+        "filename": "abc123.glb",
+        "url": "/static/models/abc123.glb",
+        "size": 5242880,
+        "format": "glb",
+        "type": "model",
+        "thumbnail_url": "/static/thumbnails/abc123.png",
+        "created_at": "2026-08-16T10:30:00"
+      }
+    ],
+    "total_images": 1,
+    "total_models": 1
+  }
+}
+```
+
+For GLB/GLTF models, `thumbnail_url` is returned if a thumbnail exists in `storage/thumbnails/`.
 
 ---
 
