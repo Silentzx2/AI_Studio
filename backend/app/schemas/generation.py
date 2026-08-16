@@ -38,6 +38,27 @@ class GenerationRequest(BaseModel):
             return None
         return v
 
+    @field_validator("quality", mode="before")
+    @classmethod
+    def normalize_quality(cls, v):
+        """Accept common UI aliases the frontend may send.
+
+        The UI quality selector stores plain strings ('low'/'medium'/'high'),
+        while the backend Literal only allows 'low-poly'/'standard'/'high-poly'
+        (+ 'ultra'/'draft'). Normalize the aliases so a mismatched value can't
+        produce a 422 Unprocessable Entity on generation. Unknown values pass
+        through to the Literal check unchanged.
+        """
+        if not isinstance(v, str):
+            return v
+        return {
+            "low": "low-poly",
+            "lowpoly": "low-poly",
+            "medium": "standard",
+            "high": "high-poly",
+            "highpoly": "high-poly",
+        }.get(v.strip().lower(), v)
+
     @model_validator(mode="after")
     def validate_prompt_for_mode(self):
         if self.mode == "text-to-3d" and not self.prompt.strip():

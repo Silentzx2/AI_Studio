@@ -110,9 +110,13 @@ export async function POST(
     if (auth) headers['authorization'] = auth;
     
     if (contentType.includes('multipart/form-data')) {
-      // For multipart/form-data, get the raw body and forward content-type
-      body = await request.arrayBuffer();
-      headers['content-type'] = contentType;
+      // Forward multipart by re-using the parsed FormData. Letting fetch set a
+      // fresh Content-Type (with a correct boundary) avoids the arrayBuffer +
+      // copied-header path, which could arrive at the backend as an empty/malformed
+      // part (yielding 422 "Empty file" for uploads that use a relative URL and
+      // therefore proxy through Next, e.g. model uploads).
+      const formData = await request.formData();
+      body = formData;
     } else {
       // For JSON and other content types
       body = await request.text();

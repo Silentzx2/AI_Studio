@@ -1,5 +1,11 @@
 # AI 3D Studio — Changelog
 
+## v3.9.3 — 422 Fixes: Quality Alias & Proxy Multipart (August 16, 2026)
+
+### Fixed
+- **Generation 422 — quality `Literal` mismatch**: `GenerationRequest.quality` only allowed `low-poly/standard/high-poly/ultra/draft`, but the UI stores quality as plain strings (`'low'`/`'medium'`/`'high'`; `GenerationSection` defaults to `'high'`). A generation with a non-`low-poly` quality therefore failed with `422 Unprocessable Entity`. Added a `field_validator(mode="before")` normalizing `'low'→'low-poly'`, `'medium'→'standard'`, `'high'→'high-poly'` (and `*poly` variants). Complements the v3.9.2 prompt-requirement fix — both generation 422 paths are now covered.
+- **Model upload 422 — proxy multipart**: Model uploads POST with a **relative** URL (XHR) and proxy through the Next.js API route, whereas image uploads use the absolute `API_URL` and hit the backend directly. The proxy forwarded multipart via `request.arrayBuffer()` + a copied `Content-Type`, which could arrive as an empty/malformed part → `HTTPException(422, "Empty file")`. The proxy now forwards multipart with `request.formData()` and lets `fetch` set a fresh boundary, so the file reaches the backend intact.
+
 ## v3.9.2 — Upload & Generation 422 Fixes (August 16, 2026)
 
 ### Fixed
