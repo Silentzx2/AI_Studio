@@ -1474,26 +1474,11 @@ def install_provider(
     meta = PROVIDER_METADATA.get(provider_name)
     if not meta:
         available = list(PROVIDER_METADATA.keys())
-        # Filter out mock/testing provider from suggestions
         available_real = [p for p in available if p != "mock"]
         return {
             "success": False,
             "error": f"Unknown provider '{provider_name}'. Available providers: {available_real}",
             "available_providers": available_real,
-        }
-    # ponytail: native-build guard. Default installs skip models that compile
-    # native extensions (15-60 min, CUDA-toolkit dependent). Explicit
-    # model-specific installs pass allow_native_build=True to skip the guard.
-    if meta.get("native_build_required") and not allow_native_build:
-        return {
-            "success": False,
-            "skipped": True,
-            "native_build_required": True,
-            "error": (
-                f"Model '{provider_name}' requires a native/CUDA build at install "
-                f"time (~15-60 min) and is excluded from default installs. "
-                f"Pass allow_native_build=True on an explicit install to proceed."
-            ),
         }
     # Section 4: concurrency + disk space checks
     repo_name = meta.get("repo")
@@ -1505,21 +1490,12 @@ def install_provider(
                 "error": f"Model {provider_name} is already being installed. Wait for the current install to finish.",
             }
         locked_repos.append(repo_name)
-    # ponytail: the lock is released in the `finally` block below on EVERY
-    # exit path (success, disk-space failure, download failure, exception).
-    # Previously a failed weight download returned without releasing the lock,
-    # which left a permanent stale lock that blocked all future reinstalls.
     try:
         sufficient, space_err = _check_disk_space(provider_name)
         if not sufficient:
             return {"success": False, "error": space_err}
-        # ponytail: this is the single install entry point used by the admin UI
-        # "Install" action, which may be triggered on a model whose repo/venv was
-        # never prepared (e.g. a runtime where setup/colab only prepared a
-        # subset). Ensure the repo is cloned and the per-model venv exists before
-        # pulling weights, so the model can actually load afterward. clone_repo /
-        # install_repo_deps are idempotent (skip if already present).
-        repo_name = meta.get("repo")
+        # ponytail: always try to clone repo and download weights.
+        # For native-build models, deps install is attempted but non-blocking.
         if repo_name:
             st = get_install_status().get(provider_name, {})
             if not st.get("repo_ready"):
@@ -1527,7 +1503,19 @@ def install_provider(
                 if not r.get("success"):
                     return {"success": False, "error": r.get("error", "Repo clone failed")}
             if not st.get("venv_ready"):
-                install_repo_deps(repo_name, log_cb=log_cb)
+                # Attempt deps install; for native-build models, log warning but don't block
+                meta_get = meta.get("native_build_required", False)
+                if meta_get and not allow_native_build:
+                    if log_cb:
+                        log_cb(f"Note: '{provider_name}' requires native CUDA build; skipping deps install. Weights will be downloaded for manual setup.")
+                else:
+                    r = install_repo_deps(repo_name, log_cb=log_cb)
+                    if not r.get("success"):
+                        if meta_get and not allow_native_build:
+                            if log_cb:
+                                log_cb(f"Warning: deps install failed for {provider_name} (native build needed), continuing to weights download: {r.get('error')}")
+                        else:
+                            return {"success": False, "error": r.get("error", "Deps install failed")}
         weight_key = meta.get("weight_key")
         if weight_key:
             if log_cb:
@@ -1869,24 +1857,20 @@ class RuntimeInstaller:
                 continue
             if name not in resolved:
                 continue
-            # ponytail: native-build guard — default installs exclude models
-            # that compile native extensions; explicit installs opt in.
-            if meta.get("native_build_required") and not allow_native_build:
-                results["providers"][name] = {
-                    "success": False,
-                    "skipped": True,
-                    "native_build_required": True,
-                    "error": f"Skipped: '{name}' requires a native/CUDA build (~15-60 min). Pass allow_native_build=True to proceed.",
-                }
-                continue
+            # ponytail: native-build models - attempt deps but don't block weights
             repo_name = meta.get("repo")
+            native_req = meta.get("native_build_required", False)
             if repo_name:
                 r = clone_repo(repo_name, log_cb=cb)
                 if not r["success"]:
                     results["success"] = False
                     results["providers"][name] = r
                     continue
-                install_repo_deps(repo_name, log_cb=cb)
+                if native_req and not allow_native_build:
+                    if cb:
+                        cb(f"Note: '{name}' requires native CUDA build; skipping deps install. Weights will be downloaded.")
+                else:
+                    install_repo_deps(repo_name, log_cb=cb)
             if not skip_weights and meta.get("weight_key"):
                 r = download_weights(
                     meta["weight_key"], hf_token=self._hf_token, log_cb=cb
