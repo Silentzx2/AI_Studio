@@ -1,5 +1,16 @@
 # AI 3D Studio — Changelog
 
+## v3.9.2 — Upload & Generation 422 Fixes (August 16, 2026)
+
+### Fixed
+- **`POST /api/v1/generation` returned `422` for image-to-3d without a text prompt**: `GenerationRequest` now only requires a non-empty prompt for `text-to-3d`. Image-driven flows can submit with just `reference_image_url`, which matches the frontend workflow.
+- **Over-strict GLB upload rejection**: `POST /api/v1/upload/model` no longer hard-fails a user upload purely because `trimesh` validation dislikes the file. The upload is preserved and the validator now logs a warning instead of returning `422` for that class of validation mismatch.
+- **Opaque upload errors in the UI**: the XHR upload helper now parses backend JSON error payloads and surfaces the actual `detail` / `message` instead of the generic `Unprocessable Entity`.
+
+### Verified
+- `backend/.venv/bin/python -m pytest backend/tests -q`
+- `npx tsc --noEmit`
+
 ## v3.9.1 — Runtime Stability Fixes (August 16, 2026)
 
 ### Fixed

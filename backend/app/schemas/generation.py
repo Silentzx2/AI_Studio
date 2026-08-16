@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # ── Request schemas ────────────────────────────────────────────────────────────
@@ -12,7 +12,7 @@ class GenerationRequest(BaseModel):
         "text-to-3d", "image-to-3d", "remesh", "texture-generation",
         "rigging", "render",
     ] = "text-to-3d"
-    prompt: str = Field(..., min_length=1, max_length=2000)
+    prompt: str = Field("", max_length=2000)
     negative_prompt: str | None = Field(None, max_length=500)
     # ponytail: Extended quality options for texture/remesh workflows
     quality: Literal["low-poly", "standard", "high-poly", "ultra", "draft"] = "standard"
@@ -37,6 +37,12 @@ class GenerationRequest(BaseModel):
         if v == "":
             return None
         return v
+
+    @model_validator(mode="after")
+    def validate_prompt_for_mode(self):
+        if self.mode == "text-to-3d" and not self.prompt.strip():
+            raise ValueError("prompt is required for text-to-3d generation")
+        return self
 
 
 # ── Response schemas ───────────────────────────────────────────────────────────

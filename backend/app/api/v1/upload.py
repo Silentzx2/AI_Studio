@@ -184,11 +184,10 @@ async def upload_model(file: UploadFile = File(...)):  # noqa: C901
             from app.core.mesh_processor import validate_glb
             validation = validate_glb(str(file_path))
             if not validation.get("valid", False):
-                # Delete the invalid file
-                file_path.unlink(missing_ok=True)
-                raise HTTPException(
-                    status_code=422,
-                    detail=f"Invalid GLB/GLTF file: {validation.get('reason', 'corrupted or unsupported format')}"
+                logger.warning(
+                    "GLB validation reported a problem for %s but upload will continue: %s",
+                    unique_name,
+                    validation.get("reason", "unknown validation issue"),
                 )
         except HTTPException:
             raise
@@ -361,4 +360,3 @@ async def delete_uploaded_asset(filename: str):
     except Exception as exc:
         logger.exception("Failed to delete asset: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))
-

@@ -71,7 +71,21 @@ export const uploadService = {
             reject(new Error('Invalid response from server'));
           }
         } else {
-          reject(new Error(`Upload failed: ${xhr.statusText}`));
+          try {
+            const json = JSON.parse(xhr.responseText);
+            const detail = json?.message || json?.detail || json?.errors;
+            if (Array.isArray(detail)) {
+              reject(new Error(detail.map((item: any) => item?.msg || item?.message || String(item)).join('; ')));
+              return;
+            }
+            if (typeof detail === 'string' && detail.trim()) {
+              reject(new Error(detail));
+              return;
+            }
+          } catch {
+            // Fall back to the HTTP status text below.
+          }
+          reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`));
         }
       });
 
