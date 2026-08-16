@@ -104,6 +104,17 @@ class VRAMAllocationTracker:
         except Exception as exc:
             logger.error("Failed to deallocate %s from Redis: %s", model_name, exc)
 
+    def release(self, model_name: str, reason: str | None = None,
+                mode: str | None = None, attempt: int = 1, oom_retried: bool = False) -> None:
+        """Backward-compatible alias used by older provider cleanup paths."""
+        self.deallocate(
+            model_name,
+            reason=reason,
+            mode=mode,
+            attempt=attempt,
+            oom_retried=oom_retried,
+        )
+
     def predict_can_load(self, model_name: str, size_gb: float) -> tuple[bool, float, str | None]:
         """Predict if model can be loaded, and what needs to be unloaded if so.
         

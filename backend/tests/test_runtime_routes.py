@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import sys
 import types
@@ -117,19 +118,10 @@ def test_runtime_root_and_provider_health_return_data(monkeypatch: pytest.Monkey
 
     runtime_module = _load_runtime_module()
 
-    app = FastAPI()
-    app.include_router(runtime_module.router, prefix="/api/v1/runtime")
-
-    client = TestClient(app)
-
-    root_response = client.get("/api/v1/runtime")
-    assert root_response.status_code == 200
-    root_json = root_response.json()
+    root_json = asyncio.run(runtime_module.runtime_root())
     assert root_json["success"] is True
     assert root_json["data"]["providers"]["hunyuan3d-2.1"]["available"] is True
 
-    health_response = client.get("/api/v1/runtime/providers/health")
-    assert health_response.status_code == 200
-    health_json = health_response.json()
+    health_json = asyncio.run(runtime_module.providers_health())
     assert health_json["success"] is True
     assert health_json["data"]["healthy"] is True

@@ -4,6 +4,7 @@ GPU-ONLY MODE: This application requires an NVIDIA GPU.
 Configuration defaults reflect GPU-first architecture.
 """
 from functools import lru_cache
+from typing import Any
 from typing import Literal
 
 from pydantic import field_validator
@@ -61,6 +62,17 @@ class Settings(BaseSettings):
     offline_mode: bool = False
     huggingface_token: str = ""
     allow_mock_provider: bool = False
+
+    @field_validator("debug", mode="before")
+    @classmethod
+    def parse_debug(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"release", "production", "prod"}:
+                return False
+            if normalized in {"debug", "development", "dev"}:
+                return True
+        return value
 
     @property
     def sync_database_url(self) -> str:
