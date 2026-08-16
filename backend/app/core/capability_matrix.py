@@ -153,6 +153,8 @@ def build_pipeline_snapshot(
             "notes": model.get("notes") or [],
             "colab_incompatible": bool(model.get("colab_incompatible")),
             "colab_skip_reason": model.get("colab_skip_reason"),
+            "low_vram_supported": bool(model.get("low_vram_supported") or model.get("manifest", {}).get("low_vram_supported", False)),
+            "low_vram_required_mb": int(model.get("low_vram_required_mb") or model.get("manifest", {}).get("low_vram_required_mb", 0)),
         })
 
     features = compute_enabled_features(model_list, enabled_map)

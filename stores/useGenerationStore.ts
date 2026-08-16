@@ -10,6 +10,7 @@ interface GenerationState {
   quality: QualityPreset;
   generateTexture: boolean;
   autoRig: boolean;
+  lowVram: boolean;
   uploadedImage: UploadedImage | null;
   stylePreset: string;
   selectedModel: string;
@@ -38,6 +39,7 @@ interface GenerationState {
   setQuality: (quality: QualityPreset) => void;
   setGenerateTexture: (v: boolean) => void;
   setAutoRig: (v: boolean) => void;
+  setLowVram: (v: boolean) => void;
   setUploadedImage: (img: UploadedImage | null) => void;
   setStylePreset: (s: string) => void;
   setSelectedModel: (m: string) => void;
@@ -69,6 +71,7 @@ export const useGenerationStore = create<GenerationState>()(
     get quality() { return useAppStore.getState().quality; },
     get generateTexture() { return useAppStore.getState().generateTexture; },
     get autoRig() { return useAppStore.getState().autoRig; },
+    get lowVram() { return useAppStore.getState().lowVram; },
     get uploadedImage() { return useAppStore.getState().uploadedImage; },
     get stylePreset() { return useAppStore.getState().stylePreset; },
     get selectedModel() { return useAppStore.getState().selectedModel; },
@@ -91,6 +94,7 @@ export const useGenerationStore = create<GenerationState>()(
     setQuality: (quality) => useAppStore.setState({ quality }),
     setGenerateTexture: (generateTexture) => useAppStore.setState({ generateTexture }),
     setAutoRig: (autoRig) => useAppStore.setState({ autoRig }),
+    setLowVram: (lowVram) => useAppStore.setState({ lowVram }),
     setUploadedImage: (uploadedImage) => useAppStore.setState({ uploadedImage }),
     setStylePreset: (stylePreset) => useAppStore.setState({ stylePreset }),
     setSelectedModel: (selectedModel) => useAppStore.setState({ selectedModel }),
@@ -125,6 +129,7 @@ export const useGenerationStore = create<GenerationState>()(
         quality: s.quality,
         generateTexture: s.generateTexture,
         autoRig: s.autoRig,
+        low_vram: s.lowVram,
         referenceImage: s.uploadedImage?.preview,
         stylePreset: s.stylePreset,
         model: s.selectedModel || undefined,
@@ -221,6 +226,7 @@ useAppStore.subscribe((state) => {
     quality: state.quality,
     generateTexture: state.generateTexture,
     autoRig: state.autoRig,
+    lowVram: state.lowVram,
     uploadedImage: state.uploadedImage,
     stylePreset: state.stylePreset,
     selectedModel: state.selectedModel,

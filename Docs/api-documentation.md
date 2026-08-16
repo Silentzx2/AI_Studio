@@ -1093,16 +1093,16 @@ GET /api/v1/pipelines
         "installed": false,
         "enabled": false,
         "available": true,
-        "vram_required_mb": 12000,
-        "speed_seconds": 45,
+        "vram_required_mb": 29000,
+        "speed_seconds": 90,
         "supports": {
-          "texture_generation": false,
+          "texture_generation": true,
           "rigging_animation": false,
-          "detail_enhancement": true,
-          "text_to_3d": false,
+          "detail_enhancement": false,
+          "text_to_3d": true,
           "image_to_3d": true
         },
-        "workspace_compatibility": ["mesh-generation"]
+        "workspace_compatibility": ["mesh-generation", "texture-generation", "post-processing"]
       }
     ],
     "computed_features": {
@@ -1165,7 +1165,7 @@ GET /api/v1/pipelines/workspace-models?workspace=<type>&installed_only=<bool>
         "label": "Hunyuan3D 2.1",
         "installed": true,
         "status": "ready",
-        "vram_required_mb": 16000,
+        "vram_required_mb": 29000,
         "supports": {
           "text_to_3d": true,
           "image_to_3d": true,
@@ -1213,8 +1213,8 @@ GET /api/v1/pipelines/workspace-types
 
 All of these are valid `AI_PROVIDER` values and are switchable via `POST /api/v1/runtime/provider` and resolvable via `get_provider()` (the registry was synced with the engine provider map in **v3.8.7**, which also re-enabled `hunyuan3d-2-mini` and `triposg` that were previously rejected by `validate_provider_switch`).
 
-- `hunyuan3d-2.1` — text-to-3D, image-to-3D, texture (16 GB VRAM)
-- `hunyuan3d-2` — text-to-3D, image-to-3D, texture (12 GB VRAM)
+- `hunyuan3d-2.1` — text-to-3D, image-to-3D, texture (29 GB VRAM peak / 21 GB low-VRAM combined)
+- `hunyuan3d-2` — text-to-3D, image-to-3D, texture (24.5 GB VRAM peak / 16 GB low-VRAM combined)
 - `hunyuan3d-2-mini` — image-to-3D only, texture via Hunyuan3D-2 paint weights (6 GB VRAM, verified low-VRAM)
 - `trellis` — image-to-3D, texture (8 GB VRAM; native CUDA build — excluded from one-click install)
 - `triposg` — image-to-3D (rectified-flow, no texture; 8 GB VRAM)

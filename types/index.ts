@@ -27,6 +27,7 @@ export interface GenerationConfig {
   cfgScale?: number;
   seed?: string;
   workspace?: WorkspaceType;
+  low_vram?: boolean;
 }
 
 export interface GenerationResult {
@@ -126,6 +127,8 @@ export interface ProviderOption {
   vram_required_mb?: number;
   supports_text_to_3d?: boolean;
   supports_image_to_3d?: boolean;
+  low_vram_supported?: boolean;
+  low_vram_required_mb?: number;
   workspace_compatibility?: WorkspaceType[];
   colab_incompatible?: boolean;
   colab_skip_reason?: string | null;

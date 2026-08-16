@@ -13,6 +13,7 @@ import { useProjectStore } from '@/stores/useProjectStore';
 import { useWorkspaceModels } from '@/hooks/useBackendData';
 import { toast } from 'sonner';
 import { loadModelInViewer } from '@/stores/useViewerStore';
+import { cn } from '@/lib/utils';
 import AssetPanelHost from '@/features/workspace/AssetPanelHost';
 
 interface TextureGenTabProps {
@@ -48,6 +49,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [successResult, setSuccessResult] = useState<any>(null);
+  const [lowVram, setLowVram] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cancelUploadRef = React.useRef<(() => void) | null>(null);
 
@@ -58,15 +60,17 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
   const availableTextureModels = useMemo(() => {
     if (textureModelsError || !textureModels || textureModels.length === 0) {
       return [
-        { id: 'hunyuan3d-2.1', label: 'Hunyuan3D 2.1 (recommended)', installed: true },
-        { id: 'hunyuan3d-2', label: 'Hunyuan3D 2', installed: true },
-        { id: 'trellis', label: 'TRELLIS', installed: true },
+        { id: 'hunyuan3d-2.1', label: 'Hunyuan3D 2.1 (recommended)', installed: true, low_vram_supported: true, low_vram_required_mb: 10240 },
+        { id: 'hunyuan3d-2', label: 'Hunyuan3D 2', installed: true, low_vram_supported: true, low_vram_required_mb: 16384 },
+        { id: 'trellis', label: 'TRELLIS', installed: true, low_vram_supported: false, low_vram_required_mb: 0 },
       ];
     }
     return textureModels.map((m: any) => ({
       id: m.id,
       label: m.label,
       installed: m.installed,
+      low_vram_supported: m.low_vram_supported,
+      low_vram_required_mb: m.low_vram_required_mb,
     }));
   }, [textureModels, textureModelsError]);
 
@@ -223,6 +227,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
         quality: resolution === '4096' ? 'ultra' : resolution === '2048' ? 'high-poly' : resolution === '1024' ? 'standard' : 'draft',
         style_preset: themeStyle,
         generate_texture: true,
+        low_vram: lowVram,
         provider: materialModel,
         workspace: 'texture-generation',
         processing_metadata: {
@@ -411,9 +416,30 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
                   ))}
                 </select>
                 <ChevronDown size={14} className="absolute right-3 top-3 text-[hsl(var(--muted-foreground))] pointer-events-none group-hover:text-[hsl(var(--primary))] transition-colors" />
-              </div>
             </div>
+
+            {/* Low VRAM toggle */}
+            {materialModel && (availableTextureModels.find((m: any) => m.id === materialModel)?.low_vram_supported) && (
+              <div className="flex items-center justify-between bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl px-3 py-2">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-[hsl(var(--foreground))] uppercase">Low VRAM Mode</span>
+                  <span className="text-[8px] text-[hsl(var(--muted-foreground))] font-mono">
+                    ~{((availableTextureModels.find((m: any) => m.id === materialModel)?.low_vram_required_mb || 0) / 1024).toFixed(1)} GB min
+                  </span>
+                </div>
+                <button
+                  onClick={() => setLowVram(!lowVram)}
+                  className={cn(
+                    'w-8 h-4 rounded-full transition-all relative',
+                    lowVram ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-3))]',
+                  )}
+                >
+                  <div className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-[hsl(var(--surface-2))] shadow transition-all', lowVram ? 'left-4.5' : 'left-0.5')} />
+                </button>
+              </div>
+            )}
           </div>
+        </div>
         </div>
         <AssetPanelHost className="border-t border-[hsl(var(--border))]" />
 

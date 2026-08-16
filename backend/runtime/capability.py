@@ -28,9 +28,9 @@ logger = logging.getLogger(__name__)
 _COLAB_PREP_LIMIT_MB: int = 15_000
 
 # ponytail: low-weight ceiling for auto-install on Colab. The VRAM gate alone
-# is not enough — e.g. hunyuan3d-2 needs only 12 GB VRAM but ships ~24 GB of
-# weights, which overflows Colab's free-tier disk. Auto-prep therefore requires
-# BOTH a low VRAM requirement AND a small weight download.
+# is not enough — e.g. hunyuan3d-2 ships ~24 GB of weights, which overflows
+# Colab's free-tier disk. Auto-prep therefore requires BOTH a low VRAM
+# requirement AND a small weight download.
 _COLAB_PREP_WEIGHT_LIMIT_GB: float = 10.0
 
 

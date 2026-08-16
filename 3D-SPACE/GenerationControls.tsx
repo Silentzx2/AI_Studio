@@ -54,6 +54,7 @@ export default function GenerationControls({ onModelUploadClick, compact }: Gene
   const {
     mode, setMode, prompt, setPrompt, negativePrompt, setNegativePrompt,
     quality, setQuality, generateTexture, setGenerateTexture, autoRig, setAutoRig,
+    lowVram, setLowVram,
     uploadedImage, setUploadedImage, selectedModel, setSelectedModel,
     stylePreset, setStylePreset, steps, setSteps, cfgScale, setCfgScale,
   } = useGenerationStore();
@@ -507,6 +508,30 @@ try {
                   title={!capabilities.riggingAnimation ? 'Rigging not available' : undefined}
                 >
                   <div className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-[hsl(var(--surface-2))] shadow transition-all', autoRig ? 'left-4.5' : 'left-0.5')} />
+                </button>
+              </div>
+
+              {/* Low VRAM toggle */}
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-semibold text-[hsl(var(--foreground))]">Low VRAM Mode</span>
+                  <span className="text-[8px] text-[hsl(var(--muted-foreground))] font-mono">
+                    {selectedModelData?.low_vram_supported
+                      ? `~${((selectedModelData?.low_vram_required_mb || 0) / 1024).toFixed(1)} GB min`
+                      : 'Not supported'}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setLowVram(!lowVram)}
+                  disabled={!selectedModelData?.low_vram_supported}
+                  className={cn(
+                    'w-8 h-4 rounded-full transition-all relative',
+                    lowVram ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-3))]',
+                    !selectedModelData?.low_vram_supported && 'opacity-40 cursor-not-allowed'
+                  )}
+                  title={!selectedModelData?.low_vram_supported ? 'Selected model does not support low-VRAM mode' : undefined}
+                >
+                  <div className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-[hsl(var(--surface-2))] shadow transition-all', lowVram ? 'left-4.5' : 'left-0.5')} />
                 </button>
               </div>
 

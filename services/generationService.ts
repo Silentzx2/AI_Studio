@@ -27,6 +27,7 @@ function toBackendPayload(config: GenerationConfig) {
     style_preset: config.stylePreset,
     generate_texture: config.generateTexture,
     auto_rig: config.autoRig,
+    low_vram: config.low_vram ?? false,
     provider: config.model,
     reference_image_url: config.referenceImage,
   };

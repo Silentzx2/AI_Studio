@@ -74,10 +74,10 @@
 | **Trellis** | 8 GB (12 GB native-build) | High quality | ~60 seconds |
 | **TripoSG** | 8 GB | image-to-3D | ~60 seconds |
 | **UniRig** | 8 GB | Rigging / animation | ~30 seconds |
-| **Hunyuan3D-2** | 12 GB | High quality | ~75 seconds |
-| **Hunyuan3D-2.1** | 16 GB | High quality | ~90 seconds |
+| **Hunyuan3D-2** | 16 GB (24.5 GB normal peak) | High quality | ~75 seconds |
+| **Hunyuan3D-2.1** | 21 GB texture / 29 GB combined | High quality | ~90 seconds |
 
-> VRAM figures are the verified normal-footprint requirements. Hunyuan3D 2 / 2.1 / 2-Mini also support a verified **low-VRAM** mode (CPU offload) for constrained GPUs; TRELLIS, TripoSG, AniGen, UniRig, and DetailGen3D do not (they require a native CUDA build or have no verified low-VRAM path).
+> VRAM figures are the verified normal-footprint requirements. Hunyuan3D-2 (24.5 GB peak / 16 GB low-VRAM combined) and Hunyuan3D-2.1 (29 GB peak / 21 GB low-VRAM combined) also support a verified **low-VRAM** mode (CPU offload) for constrained GPUs; Hunyuan3D-2-Mini (6 GB peak) uses the same low-VRAM machinery. TRELLIS, TripoSG, AniGen, UniRig, and DetailGen3D do not support low-VRAM mode (they require a native CUDA build or have no verified low-VRAM path).
 
 
 ---
@@ -597,6 +597,20 @@ If uploading a `.glb` in one workspace tab leaves the 3D viewer empty:
 #### 14. 3D Viewer: Viewport not synced across tabs
 
 Camera position and orbit target are now shared through `useViewerStore.viewport`. Rotating or panning in one tab updates all other tabs' cameras in real time.
+
+#### 15. Fresh VPS: Re-run model install to pick up corrected dependency pins
+
+After updating `backend/runtime/installer.py` (dependency pins for `huggingface_hub` and `accelerate`), a fresh VPS or an existing install must re-run model installation so the new pins take effect in each per-model venv:
+
+```bash
+# Reinstall affected models to pick up corrected dependency pins
+bash manager.sh
+# or POST /api/v1/runtime/install with models=["trellis","hunyuan3d-2","triposg"]
+```
+
+This is required because per-model `.venv/` directories are created at install time and are **not** automatically updated when `EXTRA_DEPS` changes in code. Skipping this step leaves the old (broken) pins in place and the runtime errors persist.
+
+---
 
 
 

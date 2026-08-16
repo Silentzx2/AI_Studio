@@ -12,6 +12,7 @@ import { Shape3D } from '@/types/new-ui';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useWorkspaceModels } from '@/hooks/useBackendData';
 import { loadModelInViewer } from '@/stores/useViewerStore';
+import { cn } from '@/lib/utils';
 import AssetPanelHost from '@/features/workspace/AssetPanelHost';
 
 interface RemeshTabProps {
@@ -31,8 +32,8 @@ interface RemeshTabProps {
 }
 
 // Offline fallback: used only when the workspace-models endpoint is unreachable
-const LOCAL_MODELS: { id: string; label: string; installed: boolean }[] = [
-  { id: '', label: 'Default remesh pipeline', installed: true },
+const LOCAL_MODELS: { id: string; label: string; installed: boolean; low_vram_supported: boolean; low_vram_required_mb: number }[] = [
+  { id: '', label: 'Default remesh pipeline', installed: true, low_vram_supported: false, low_vram_required_mb: 0 },
 ];
 
 export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: RemeshTabProps) {
@@ -49,6 +50,7 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [successResult, setSuccessResult] = useState<any>(null);
+  const [lowVram, setLowVram] = useState(false);
   const cancelUploadRef = React.useRef<(() => void) | null>(null);
 
   React.useEffect(() => {
@@ -85,6 +87,8 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
       id: String(m.id ?? ''),
       label: String(m.label ?? m.name ?? m.id ?? 'Unknown model'),
       installed: Boolean(m.installed ?? m.status === 'ready'),
+      low_vram_supported: Boolean(m.low_vram_supported),
+      low_vram_required_mb: Number(m.low_vram_required_mb || 0),
     }));
   }, [workspaceModels, modelsError]);
 
@@ -203,6 +207,7 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
         prompt: `Remesh model with ${targetType} topology, ${vertexDensity} vertex density`,
         mode: 'remesh',
         quality: 'standard',
+        low_vram: lowVram,
         workspace: 'remesh',
       };
       if (effectiveModelId) {
@@ -429,6 +434,27 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
                 <option value="100K">100K High-Poly (Raw)</option>
               </select>
             </div>
+
+            {/* Low VRAM toggle */}
+            {effectiveModelId && (modelOptions.find((m) => m.id === effectiveModelId)?.low_vram_supported) && (
+              <div className="flex items-center justify-between bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl px-3 py-2">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-[hsl(var(--foreground))] uppercase">Low VRAM Mode</span>
+                  <span className="text-[8px] text-[hsl(var(--muted-foreground))] font-mono">
+                    ~{((modelOptions.find((m) => m.id === effectiveModelId)?.low_vram_required_mb || 0) / 1024).toFixed(1)} GB min
+                  </span>
+                </div>
+                <button
+                  onClick={() => setLowVram(!lowVram)}
+                  className={cn(
+                    'w-8 h-4 rounded-full transition-all relative',
+                    lowVram ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-3))]',
+                  )}
+                >
+                  <div className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-[hsl(var(--surface-2))] shadow transition-all', lowVram ? 'left-4.5' : 'left-0.5')} />
+                </button>
+              </div>
+            )}
 
             <div className="flex flex-col gap-3 pt-2 border-t border-[hsl(var(--border))/40]">
               {[

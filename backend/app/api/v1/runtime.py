@@ -172,6 +172,8 @@ async def get_runtime_options():
                 "supports_text_to_3d": meta.get("supports_text_to_3d", False),
                 "supports_image_to_3d": meta.get("supports_image_to_3d", False),
                 "workspace_compatibility": meta.get("workspace_compatibility", []),
+                "low_vram_supported": meta.get("low_vram_supported", False),
+                "low_vram_required_mb": meta.get("low_vram_required_mb", 0),
                 "supports": {
                     "text_to_3d": meta.get("supports_text_to_3d", False),
                     "image_to_3d": meta.get("supports_image_to_3d", False),
@@ -213,6 +215,8 @@ async def get_runtime_options():
                     "supports_text_to_3d": bool(caps.get("text_to_3d")),
                     "supports_image_to_3d": bool(caps.get("image_to_3d")),
                     "workspace_compatibility": ws_compat,
+                    "low_vram_supported": bool(m.get("low_vram_supported") or caps.get("low_vram_supported") or manifest.get("low_vram_supported", False)),
+                    "low_vram_required_mb": int(m.get("low_vram_required_mb") or manifest.get("low_vram_required_mb", 0)),
                     "supports": {
                         "text_to_3d": bool(caps.get("text_to_3d")),
                         "image_to_3d": bool(caps.get("image_to_3d")),

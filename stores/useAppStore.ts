@@ -10,6 +10,7 @@ export interface AppState {
   quality: QualityPreset;
   generateTexture: boolean;
   autoRig: boolean;
+  lowVram: boolean;
   uploadedImage: UploadedImage | null;
   stylePreset: string;
   selectedModel: string;
@@ -109,6 +110,7 @@ export interface AppState {
   setQuality: (quality: QualityPreset) => void;
   setGenerateTexture: (v: boolean) => void;
   setAutoRig: (v: boolean) => void;
+  setLowVram: (v: boolean) => void;
   setUploadedImage: (img: UploadedImage | null) => void;
   setStylePreset: (s: string) => void;
   setSelectedModel: (m: string) => void;
@@ -183,6 +185,7 @@ const DEFAULT_STATE: AppStateData = {
   quality: 'standard',
   generateTexture: true,
   autoRig: false,
+  lowVram: false,
   uploadedImage: null,
   stylePreset: 'Realistic',
   selectedModel: '',
@@ -250,6 +253,7 @@ export const useAppStore = create<AppState>()(
       setQuality: (quality) => set({ quality }),
       setGenerateTexture: (generateTexture) => set({ generateTexture }),
       setAutoRig: (autoRig) => set({ autoRig }),
+      setLowVram: (lowVram) => set({ lowVram }),
       setUploadedImage: (uploadedImage) => set({ uploadedImage }),
       setStylePreset: (stylePreset) => set({ stylePreset }),
       setSelectedModel: (selectedModel) => set({ selectedModel }),
@@ -286,6 +290,7 @@ export const useAppStore = create<AppState>()(
           quality: 'standard',
           generateTexture: true,
           autoRig: false,
+          lowVram: false,
           uploadedImage: null,
           stylePreset: 'Realistic',
           selectedModel: '',
@@ -516,6 +521,7 @@ export const useAppStore = create<AppState>()(
         quality: state.quality,
         generateTexture: state.generateTexture,
         autoRig: state.autoRig,
+        lowVram: state.lowVram,
         stylePreset: state.stylePreset,
         selectedModel: state.selectedModel,
         steps: state.steps,

@@ -94,6 +94,8 @@ def _models_from_installer() -> list[dict[str, Any]]:
             "supports_texture": meta.get("supports_texture", False),
             "workspace_compatibility": meta.get("workspace_compatibility"),
             "vram_required_mb": meta.get("vram_required_mb", 0),
+            "low_vram_supported": meta.get("low_vram_supported", False),
+            "low_vram_required_mb": meta.get("low_vram_required_mb", 0),
             "weight_key": meta.get("weight_key"),
             "repo": meta.get("repo"),
         })

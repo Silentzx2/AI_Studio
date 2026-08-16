@@ -1,5 +1,16 @@
 # AI 3D Studio — Changelog
 
+## v3.9.5 — Hunyuan3D VRAM Requirements Corrected (August 16, 2026)
+
+### Fixed
+- **Hunyuan3D-2 `vram_required_mb` was 12000 MB**: official modelzoo states 24.5 GB normal-mode peak for the full shape+texture pipeline (16 GB is the low-VRAM combined footprint). Updated to 24500 MB so the VRAM planner correctly routes to low-VRAM mode on cards under 24 GB.
+- **Hunyuan3D-2.1 `vram_required_mb` was 16000 MB**: the official README states 10 GB shape-only, 21 GB texture-only, 29 GB shape+texture combined. The 16000 MB value matched the texture-only requirement, not the normal-mode peak. Updated to 29000 MB.
+- **Hunyuan3D-2.1 `low_vram_required_mb` was 8192 MB**: the official README states 10 GB VRAM for shape generation (low-VRAM mode floor). Updated to 10240 MB.
+
+### Verification
+- Values sourced from official upstream READMEs: `Tencent-Hunyuan/Hunyuan3D-2` (modelzoo readthedocs) and `Tencent-Hunyuan/Hunyuan3D-2.1` (VRAM table in README).
+- HF repo IDs, subfolder paths, and the mini paint-pipeline reuse pattern confirmed against upstream `gradio_app.py` usage.
+
 ## v3.9.4 — TripoSG Provider Load Fix (August 16, 2026)
 
 ### Fixed

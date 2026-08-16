@@ -1,8 +1,8 @@
 """
 Hunyuan3D local providers — wraps third_party/Hunyuan3D-2 without modifying it.
 
-Hunyuan3D21LocalProvider  — primary   (Hunyuan3D-2.1, ~16 GB VRAM)
-Hunyuan3D2LocalProvider   — fallback  (Hunyuan3D-2,   ~12 GB VRAM)
+Hunyuan3D21LocalProvider  — primary   (Hunyuan3D-2.1, ~29 GB VRAM peak / 21 GB low-VRAM)
+Hunyuan3D2LocalProvider   — fallback  (Hunyuan3D-2,   ~24.5 GB VRAM peak / 16 GB low-VRAM)
 Hunyuan3D2MiniLocalProvider — fast    (Hunyuan3D-2 Mini 0.6B, image-to-shape only,
                                       loads its dit from the hunyuan3d-dit-v2-mini
                                       subfolder of the tencent/Hunyuan3D-2mini snapshot)

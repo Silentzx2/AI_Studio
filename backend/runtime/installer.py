@@ -124,9 +124,13 @@ PROVIDER_METADATA = {
         "supports_text_to_3d": True,
         "supports_image_to_3d": True,
         "supports_texture": True,
-        "vram_required_mb": 16000,
+        # ponytail: official README states 10 GB shape, 21 GB texture, 29 GB
+        # shape+texture combined. vram_required_mb is the normal-mode peak used
+        # by the VRAM planner. low_vram_required_mb is the verified low-VRAM
+        # combined footprint (official low_vram_mode combined peak).
+        "vram_required_mb": 29000,
         "low_vram_supported": True,
-        "low_vram_required_mb": 8192,
+        "low_vram_required_mb": 10240,
         "low_vram_strategy": ["cpu_offload", "attention_slicing", "vae_cpu_offload"],
         "native_build_required": False,
         "install_method": "uv_requirements",
@@ -159,9 +163,14 @@ PROVIDER_METADATA = {
         "supports_text_to_3d": True,
         "supports_image_to_3d": True,
         "supports_texture": True,
-        "vram_required_mb": 12000,
+        # ponytail: official modelzoo (readthedocs) states 6 GB for shape and
+        # 16 GB for shape+texture (low-VRAM combined). Normal-mode peak for the
+        # full shape+texture pipeline is 24.5 GB. vram_required_mb is the
+        # normal-mode ceiling used by the VRAM planner; low_vram_required_mb
+        # below is the verified low-VRAM combined footprint.
+        "vram_required_mb": 24500,
         "low_vram_supported": True,
-        "low_vram_required_mb": 6144,
+        "low_vram_required_mb": 16384,
         "low_vram_strategy": ["cpu_offload", "sequential_offload", "attention_slicing", "vae_cpu_offload"],
         "native_build_required": False,
         "install_method": "uv_requirements",
@@ -648,9 +657,9 @@ _CUDA_ONLY_PKG_PATTERNS: list[re.Pattern] = [
 # sys.executable) so they resolve regardless of which sys.path the provider uses.
 # Extend per repo as other missing inference libs are discovered.
 EXTRA_DEPS: dict[str, list[str]] = {
-    "Hunyuan3D-2": ["hy3dgen", "accelerate>=0.34.0"],
-    "TRELLIS": ["accelerate"],
-    "TripoSG": ["diffusers>=0.22.0", "huggingface_hub>=0.28.0", "accelerate"],
+    "Hunyuan3D-2": ["hy3dgen", "accelerate>=0.34.0", "huggingface_hub==0.27.1"],
+    "TRELLIS": ["accelerate>=0.34.0"],
+    "TripoSG": ["diffusers>=0.22.0", "huggingface_hub==0.27.1", "accelerate"],
 }
 
 
