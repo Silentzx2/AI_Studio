@@ -168,36 +168,6 @@ set -a
 source .env
 set +a
 
-# ── Interactive Mode Selection ───────────────────────────────────────────────
-# Dev: npm run dev, ENVIRONMENT=development, hot-reload
-# Prod: npm run build + start, ENVIRONMENT=production
-echo -e "\n${BOLD}${CYAN}┌─────────────────────────────────────────────┐${NC}"
-echo -e "${BOLD}${CYAN}│  AI 3D Studio — Startup Mode Selection     │${NC}"
-echo -e "${BOLD}${CYAN}└─────────────────────────────────────────────┘${NC}"
-echo ""
-echo -e "  ${BOLD}1)${NC} Dev Mode   — npm run dev, hot-reload"
-echo -e "  ${BOLD}2)${NC} Prod Mode  — npm run build + start, optimized"
-echo ""
-read -rp "Choose mode [1/2] (default: 1): " MODE_CHOICE
-case "$MODE_CHOICE" in
-    2|prod|Prod|PROD)
-        START_MODE="production"
-        export ENVIRONMENT="production"
-        export NODE_ENV="production"
-        FRONTEND_CMD="npm run build && npm start"
-        FRONTEND_LABEL="Prod build + start"
-        ;;
-    *)
-        START_MODE="development"
-        export ENVIRONMENT="development"
-        export NODE_ENV="development"
-        FRONTEND_CMD="npm run dev"
-        FRONTEND_LABEL="Dev (hot-reload)"
-        ;;
-esac
-echo ""
-info "Mode: ${START_MODE} | Frontend: ${FRONTEND_LABEL}"
-echo ""
 
 # ── PID file directory ─────────────────────────────────────────────────────
 PID_DIR="${PROJECT_ROOT}/.pids"
@@ -462,7 +432,7 @@ echo ""
 
 # ── Summary ────────────────────────────────────────────────────────────────
 echo -e "${CYAN}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║${NC}  ${GREEN}✅ All Services Started${NC} — ${START_MODE} mode"
+echo -e "${CYAN}║${NC}  ${GREEN}✅ All Services Started${NC} — mode"
 echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "  ${BOLD}Endpoints:${NC}"

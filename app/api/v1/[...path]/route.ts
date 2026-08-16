@@ -75,7 +75,7 @@ export async function GET(
     const response = await fetch(targetUrl, {
       method: 'GET',
       headers: getForwardingHeaders(request),
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(60000),
     });
     
     return createProxyResponse(response);
@@ -259,6 +259,9 @@ function createProxyResponse(response: Response): NextResponse {
 // Helper: Handle SSE streaming
 async function streamResponse(targetUrl: string, request: NextRequest): Promise<NextResponse> {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 min timeout for SSE
+    
     const response = await fetch(targetUrl, {
       method: 'GET',
       headers: {
@@ -266,7 +269,10 @@ async function streamResponse(targetUrl: string, request: NextRequest): Promise<
         'cache-control': 'no-cache',
         ...getAuthHeader(request),
       },
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeoutId);
     
     if (!response.ok) {
       return NextResponse.json(
