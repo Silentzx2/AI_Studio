@@ -178,6 +178,24 @@ async def upload_model(file: UploadFile = File(...)):  # noqa: C901
     with open(file_path, "wb") as f:
         f.write(contents)
 
+    # Validate GLB/GLTF file integrity
+    if ext in {'.glb', '.gltf'}:
+        try:
+            from app.core.mesh_processor import validate_glb
+            validation = validate_glb(str(file_path))
+            if not validation.get("valid", False):
+                # Delete the invalid file
+                file_path.unlink(missing_ok=True)
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Invalid GLB/GLTF file: {validation.get('reason', 'corrupted or unsupported format')}"
+                )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.warning(f"GLB validation failed for {unique_name}: {exc}")
+            # Don't block upload on validation error, just log
+
     # Generate thumbnail for GLB/GLTF files
     thumbnail_url = None
     if ext in {'.glb', '.gltf'}:

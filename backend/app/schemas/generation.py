@@ -1,7 +1,8 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
 
 # ── Request schemas ────────────────────────────────────────────────────────────
 
@@ -30,6 +31,12 @@ class GenerationRequest(BaseModel):
     # Optional workspace id used to auto-map generation mode and stored on the job.
     workspace: str | None = None
 
+    @field_validator("reference_image_url", mode="before")
+    @classmethod
+    def empty_str_to_none(cls, v):
+        if v == "":
+            return None
+        return v
 
 
 # ── Response schemas ───────────────────────────────────────────────────────────
