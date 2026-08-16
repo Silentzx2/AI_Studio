@@ -358,8 +358,8 @@ def repair_venv(repo_name):
 
 repaired = skipped = failed = skipped_colab = 0
 
-# Colab: only prepare these 3 models (skip Hunyuan3D-2, DetailGen3D, AniGen due to VRAM/size)
-COLAB_ALLOWED_REPOS = {"TRELLIS", "UniRig", "TripoSG"}
+# Colab: only prepare TripoSG (skip TRELLIS/UniRig - native CUDA build required, no toolkit on Colab)
+COLAB_ALLOWED_REPOS = {"TripoSG"}
 
 for repo_name in sorted(REPOS.keys()):
     # Only prepare allowed models for Colab
@@ -476,8 +476,8 @@ except Exception as exc:
     sys.exit(1)
 
 token = os.environ.get("HUGGINGFACE_TOKEN") or os.environ.get("HF_TOKEN")
-# Colab: only download weights for these 3 models
-COLAB_ALLOWED_PROVIDERS = ("trellis", "unirig", "triposg")
+# Colab: only download weights for TripoSG (TRELLIS/UniRig need native CUDA build)
+COLAB_ALLOWED_PROVIDERS = ("triposg",)
 for key in sorted(HF_MODELS.keys()):
         # Only download allowed models
         if key not in COLAB_ALLOWED_PROVIDERS:
