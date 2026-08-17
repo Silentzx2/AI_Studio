@@ -993,7 +993,7 @@ State: BLOCKED
 Reason: Required auxiliary weight(s) missing: RMBG-1.4
 ```
 
-Fix: Download RMBG-1.4 weights manually or via the repair endpoint (when implemented):
+Fix: Download RMBG-1.4 weights via the repair endpoint:
 ```bash
 curl -X POST /api/v1/repair/triposg
 ```

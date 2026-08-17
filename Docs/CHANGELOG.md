@@ -27,7 +27,7 @@
 - **installer.py**: Native-build lock now tracks `owner_type` (`api`/`celery`) for race-safety across API→Celery
 - **models/registry.py**: Added `ProviderInstallState` DB model for component-level state persistence
 - **installer.py**: Added `persist_provider_state`, `load_provider_state_from_db`, `get_persisted_install_status` for DB persistence
-- **admin.py**: `/repair/{provider_name}` endpoint now implements manifest-driven repair flow
+- **admin.py**: `/repair/{provider_name}` endpoint now implements manifest-driven repair flow via `BackgroundTasks` + `install_provider()`, returning `state`, `components`, and `blocking_reason`
 - **admin.py**: `/runtime` endpoint now serves DB-cached install status via `get_persisted_install_status`
 
 ## v4.0.0 — Installation Contract Refactor (August 2025)

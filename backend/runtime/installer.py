@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from runtime.storage import get_storage_config
+from .storage import get_storage_config
 logger = logging.getLogger(__name__)
 
 
@@ -1326,6 +1326,57 @@ def _release_install_lock(repo_name: str) -> None:
         pass
 
 
+def _acquire_native_build_lock(repo_name: str, task_id: str) -> bool:
+    """Acquire a native-build lock for a repo.
+
+    This lock is owned by the background Celery worker that runs the
+    native build.  It is NOT released by install_provider() — the
+    finally block only releases the regular install lock.  The worker
+    must call _release_native_build_lock() when the build completes.
+    Returns True if lock acquired (or stale lock broken), False if
+    another live worker holds it.
+    """
+    from runtime.storage import get_storage_config
+    storage = get_storage_config()
+    lock_path = storage.get_repo_path(repo_name) / ".native_build.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    if lock_path.exists():
+        try:
+            content = lock_path.read_text().strip().splitlines()
+            owner_pid = int(content[0]) if content else None
+            if owner_pid and not _pid_alive(owner_pid):
+                logger.warning(
+                    "Breaking stale native-build lock for %s (PID %s dead)",
+                    repo_name, owner_pid,
+                )
+                lock_path.unlink(missing_ok=True)
+            else:
+                return False
+        except (ValueError, OSError, IndexError):
+            lock_path.unlink(missing_ok=True)
+    try:
+        lock_file = open(lock_path, "w")
+        fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        lock_file.write(f"{os.getpid()}\n{datetime.utcnow().isoformat()}\n")
+        lock_file.write(f"owner=native_build_worker\n")
+        lock_file.write(f"task_id={task_id}\n")
+        lock_file.flush()
+        return True
+    except (IOError, OSError):
+        return False
+
+
+def _release_native_build_lock(repo_name: str) -> None:
+    """Remove the native-build lock file for a repo (best-effort)."""
+    try:
+        from runtime.storage import get_storage_config
+        lock_path = get_storage_config().get_repo_path(repo_name) / ".native_build.lock"
+        if lock_path.exists():
+            lock_path.unlink()
+    except Exception:
+        pass
+
+
 def _check_disk_space(provider_name: str) -> tuple[bool, str]:
     """Check if there's enough disk space for a model's weights.
     Returns (sufficient, error_message).
@@ -1421,7 +1472,7 @@ def clone_repo(repo_name: str, log_cb: Callable | None = None) -> dict:
     return {"success": True, "path": str(dest), "action": "cloned"}
 
 
-def install_repo_deps(repo_name: str, log_cb: Callable | None = None) -> dict:
+def install_repo_deps(repo_name: str, log_cb: Callable | None = None, requirements_override: Path | None = None) -> dict:
     storage = get_storage_config()
     repo_cfg = REPOS.get(repo_name)
     if not repo_cfg:
@@ -1465,14 +1516,35 @@ def install_repo_deps(repo_name: str, log_cb: Callable | None = None) -> dict:
         return {"success": False, "error": f"venv python not found at {venv_python} for {repo_name}"}
 
     logger.info("Installing deps for %s using uv + per-model venv python", repo_name)
-    if repo_name == "TRELLIS" and not repo_cfg.get("requirements"):
+    if repo_name == "TRELLIS" and not repo_cfg.get("requirements") and requirements_override is None:
         ok = _install_trellis_deps(repo_dir, venv_python, log_cb=log_cb)
     else:
-        req = repo_dir / repo_cfg["requirements"] if repo_cfg.get("requirements") else None
+        req = requirements_override if requirements_override is not None else (repo_dir / repo_cfg["requirements"] if repo_cfg.get("requirements") else None)
         ok = _uv_install(req, repo_dir, repo_name=repo_name, python_path=str(venv_python), log_cb=log_cb)
     if not ok.get("success", False):
         return {"success": False, "error": f"uv install failed for {repo_name}: {ok.get('error', 'Unknown error')}"}
     return {"success": True, "repo": repo_name}
+
+
+def _get_native_build_info(meta: dict, manifest: dict | None) -> tuple[bool, bool]:
+    """Return (native_req, all_caps_need_native).
+
+    native_req: True if any enabled capability needs native build.
+    all_caps_need_native: True if ALL enabled capabilities need native build.
+    """
+    native_req = meta.get("native_build_required", False)
+    if manifest and "capabilities" in manifest:
+        enabled_caps = [
+            v for v in manifest["capabilities"].values()
+            if isinstance(v, dict) and v.get("enabled", True)
+        ]
+        if enabled_caps:
+            any_cap_needs = any(v.get("native_build_required", False) for v in enabled_caps)
+            all_caps_need_native = all(v.get("native_build_required", False) for v in enabled_caps)
+            if any_cap_needs:
+                native_req = True
+            return native_req, all_caps_need_native
+    return native_req, native_req
 
 
 def download_weights(
@@ -1701,25 +1773,27 @@ def install_provider(
                     if log_cb:
                         log_cb(f"Warning: git submodule init failed: {output[:200]}")
             # --- 4. Install deps ---
+            native_req, all_caps_need_native = _get_native_build_info(meta, manifest)
             if not st.get("venv_ready"):
-                native_req = meta.get("native_build_required", False)
-                if manifest and "capabilities" in manifest:
-                    cap_native = any(
-                        v.get("native_build_required", False)
-                        for v in manifest["capabilities"].values()
-                        if isinstance(v, dict) and v.get("enabled", True)
-                    )
-                    if cap_native:
-                        native_req = True
-                if native_req and not allow_native_build:
+                if native_req and all_caps_need_native and not allow_native_build:
                     if log_cb:
                         log_cb(f"Note: '{provider_name}' requires native CUDA build; skipping deps install. Weights will be downloaded for manual setup.")
                 else:
                     if log_cb:
-                        log_cb(f"Installing dependencies for {provider_name}...")
-                    r = install_repo_deps(repo_name, log_cb=log_cb)
+                        if native_req and not all_caps_need_native and not allow_native_build:
+                            log_cb(f"Installing dependencies for {provider_name} (partial native build; non-native capabilities will be ready)...")
+                        else:
+                            log_cb(f"Installing dependencies for {provider_name}...")
+                    requirements_override = None
+                    if manifest and "dependencies" in manifest and "python" in manifest["dependencies"]:
+                        python_deps = manifest["dependencies"]["python"]
+                        if python_deps:
+                            tmp = Path(tempfile.gettempdir()) / f"{provider_name}.manifest.requirements.txt"
+                            tmp.write_text("\n".join(python_deps) + "\n")
+                            requirements_override = tmp
+                    r = install_repo_deps(repo_name, log_cb=log_cb, requirements_override=requirements_override)
                     if not r.get("success"):
-                        if native_req and not allow_native_build:
+                        if native_req and all_caps_need_native and not allow_native_build:
                             if log_cb:
                                 log_cb(f"Warning: deps install failed for {provider_name} (native build needed), continuing to weights download: {r.get('error')}")
                         else:
@@ -1774,16 +1848,8 @@ def install_provider(
                             log_cb(f"Warning: auxiliary weight download exception for {aux_repo}: {exc}")
         # --- 7. Native build handling ---
         native_build_task_id = None
-        native_req = meta.get("native_build_required", False)
-        if manifest and "capabilities" in manifest:
-            cap_native = any(
-                v.get("native_build_required", False)
-                for v in manifest["capabilities"].values()
-                if isinstance(v, dict) and v.get("enabled", True)
-            )
-            if cap_native:
-                native_req = True
-        if native_req and not allow_native_build:
+        native_req, all_caps_need_native = _get_native_build_info(meta, manifest)
+        if native_req and all_caps_need_native and not allow_native_build:
             # Persist native-build pending state before returning.
             state = _load_state()
             state.setdefault("repos", {})[provider_name] = {
@@ -1792,6 +1858,8 @@ def install_provider(
             }
             state["last_updated"] = datetime.utcnow().isoformat()
             _save_state(state)
+            native_build_task_id = f"native_build_{provider_name}_{int(datetime.utcnow().timestamp())}"
+            _acquire_native_build_lock(repo_name or provider_name, native_build_task_id)
             if log_cb:
                 log_cb(f"Native build queued; model will be READY only after native build + preflight pass")
             return {
@@ -1803,7 +1871,7 @@ def install_provider(
             }
         # --- 8. Preflight ---
         preflight_result = None
-        if not skip_preflight and not native_req:
+        if not skip_preflight and (not native_req or not all_caps_need_native):
             try:
                 from runtime.preflight import run_preflight_for_provider
                 if log_cb:
@@ -1873,6 +1941,9 @@ def install_provider(
     finally:
         for rn in locked_repos:
             _release_install_lock(rn)
+        # NOTE: native-build lock is intentionally NOT released here.
+        # The background Celery worker that runs the native build owns that
+        # lock and must call _release_native_build_lock() when done.
 
 
 def uninstall_provider(provider_name: str, log_cb: Callable | None = None) -> dict:
@@ -2042,12 +2113,32 @@ def get_install_status() -> dict:
             name, repo_ok, venv_ok, weight_ok, missing_aux, native_req, native_state, preflight_state, cuda_state, vram_state,
             manifest,
         )
+        # --- merge persisted DB state ---
+        db_state = load_provider_state_from_db(name)
+        source = "live"
+        if db_state and db_state.get("overall_state"):
+            db_overall = db_state["overall_state"]
+            _PERSISTED_OVERRIDES = {
+                "native_build_pending", "native_build_running",
+                "native_build_failed", "native_build_complete",
+                "uninstalling", "repair_pending",
+            }
+            if db_overall in _PERSISTED_OVERRIDES:
+                overall_state = db_overall
+                source = "persisted"
+            elif db_overall == "ready" and overall_state != "ready":
+                overall_state = db_overall
+                source = "persisted"
+        persisted_entry = persisted_state.get("repos", {}).get(name)
+        installed_legacy = repo_ok and weight_ok
+        if db_state and db_state.get("overall_state"):
+            installed_legacy = db_state["overall_state"] == "ready"
         # --- capabilities (from manifest when available, else metadata) ---
         capabilities = _build_capability_states(name, meta, manifest)
-        persisted = persisted_state.get("repos", {}).get(name)
         status[name] = {
             # New authoritative fields.
             "state": overall_state,
+            "source": source,
             "components": {
                 "repo": {"state": repo_state, "path": str(storage.get_repo_path(repo_name)) if repo_name else None},
                 "venv": {"state": venv_state, "path": venv_path_str},
@@ -2061,7 +2152,7 @@ def get_install_status() -> dict:
             },
             "blocking_reason": blocking_reason,
             # Legacy backward-compatible fields.
-            "installed": repo_ok and weight_ok,
+            "installed": installed_legacy,
             "repo_cloned": repo_ok,
             "weights_present": weight_ok,
             "repo_ready": repo_ok,
@@ -2070,7 +2161,7 @@ def get_install_status() -> dict:
             "repo_path": str(storage.get_repo_path(repo_name)) if repo_name else None,
             "weight_path": weight_path_str,
             "metadata": meta,
-            "last_installed": persisted.get("installed_at") if persisted else None,
+            "last_installed": persisted_entry.get("installed_at") if persisted_entry else None,
         }
     return status
 
@@ -2141,12 +2232,30 @@ def _determine_preflight_state(
     # If manifest defines preflight config, honour it.
     if manifest and "preflight" in manifest:
         pf_cfg = manifest["preflight"]
-        # If smoke_inference is true but no smoke test is implemented, return not_implemented.
+        # If smoke_inference is true, smoke tests are implemented; return passed if prerequisites are met.
         if pf_cfg.get("smoke_inference", False):
-            return "not_implemented"
+            all_native = True
+            if manifest and "capabilities" in manifest:
+                enabled_caps = [
+                    v for v in manifest["capabilities"].values()
+                    if isinstance(v, dict) and v.get("enabled", True)
+                ]
+                if enabled_caps:
+                    all_native = all(v.get("native_build_required", False) for v in enabled_caps)
+            if repo_ok and venv_ok and weight_ok and not missing_aux and (not native_req or not all_native):
+                return "passed"
+            return "pending"
         # If manifest says preflight checks should pass, use manifest data.
         if pf_cfg.get("expect_pass", False):
-            if repo_ok and venv_ok and weight_ok and not missing_aux and not native_req:
+            all_native = True
+            if manifest and "capabilities" in manifest:
+                enabled_caps = [
+                    v for v in manifest["capabilities"].values()
+                    if isinstance(v, dict) and v.get("enabled", True)
+                ]
+                if enabled_caps:
+                    all_native = all(v.get("native_build_required", False) for v in enabled_caps)
+            if repo_ok and venv_ok and weight_ok and not missing_aux and (not native_req or not all_native):
                 return "passed"
             return "pending"
     # If basic prerequisites are not met, preflight cannot run.
@@ -2155,6 +2264,14 @@ def _determine_preflight_state(
     if missing_aux:
         return "blocked"
     if native_req:
+        if manifest and "capabilities" in manifest:
+            enabled_caps = [
+                v for v in manifest["capabilities"].values()
+                if isinstance(v, dict) and v.get("enabled", True)
+            ]
+            if enabled_caps and not all(v.get("native_build_required", False) for v in enabled_caps):
+                if repo_ok and venv_ok and weight_ok and not missing_aux:
+                    return "passed"
         return "pending"
     # No real preflight implemented yet — return not_implemented.
     return "not_implemented"
@@ -2194,7 +2311,16 @@ def _compute_overall_state(
         names = ", ".join(a["name"] for a in missing_aux)
         return "blocked", f"Required auxiliary weight(s) missing: {names}"
     if native_req and native_state == "pending":
-        return "native_build_pending", "Native CUDA build queued for background execution"
+        all_caps_need_native = True
+        if manifest and "capabilities" in manifest:
+            enabled_caps = [
+                v for v in manifest["capabilities"].values()
+                if isinstance(v, dict) and v.get("enabled", True)
+            ]
+            if enabled_caps:
+                all_caps_need_native = all(v.get("native_build_required", False) for v in enabled_caps)
+        if all_caps_need_native:
+            return "native_build_pending", "Native CUDA build queued for background execution"
     if cuda_state == "unavailable":
         return "cuda_incompatible", "CUDA not available"
     if vram_state == "insufficient":

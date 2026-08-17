@@ -36,6 +36,109 @@ print("ok")
 """,
 }
 
+_CAPABILITY_SMOKE_TESTS: dict[str, dict[str, str]] = {
+    "hunyuan3d-2.1": {
+        "shape": """
+import torch
+import numpy as np
+from hy3dgen.pipelines import Hunyuan3DPipeline
+pipe = Hunyuan3DPipeline.from_pretrained("tencent/Hunyuan3D-2.1")
+point_cloud = torch.randn(1, 3, 32, 32)
+mesh = pipe(point_cloud)
+print("ok")
+""",
+        "texture_pbr": """
+import torch
+import numpy as np
+from PIL import Image
+from hy3dgen.pipelines import Hunyuan3DPipeline
+pipe = Hunyuan3DPipeline.from_pretrained("tencent/Hunyuan3D-2.1")
+img = Image.new("RGB", (256, 256))
+mesh = pipe(img)
+print("ok")
+""",
+    },
+    "trellis": {
+        "shape": """
+import torch
+from trellis.pipelines import TrellisPipeline
+pipe = TrellisPipeline.from_pretrained("microsoft/TRELLIS")
+dummy = torch.randn(1, 3, 32, 32)
+pipe(dummy)
+print("ok")
+""",
+        "texture": """
+import torch
+from PIL import Image
+from trellis.pipelines import TrellisImageTo3DPipeline
+pipe = TrellisImageTo3DPipeline.from_pretrained("microsoft/TRELLIS")
+img = Image.new("RGB", (256, 256))
+pipe(img)
+print("ok")
+""",
+    },
+    "hunyuan3d-2": {
+        "shape": """
+from hy3dgen.pipelines import Hunyuan3DPipeline
+pipe = Hunyuan3DPipeline.from_pretrained("tencent/Hunyuan3D-2")
+print("ok")
+""",
+        "texture_pbr": """
+from hy3dgen.pipelines import Hunyuan3DPipeline
+pipe = Hunyuan3DPipeline.from_pretrained("tencent/Hunyuan3D-2")
+print("ok")
+""",
+    },
+    "hunyuan3d-2-mini": {
+        "shape": """
+from hy3dgen.pipelines import Hunyuan3DPipeline
+pipe = Hunyuan3DPipeline.from_pretrained("tencent/Hunyuan3D-2mini")
+print("ok")
+""",
+        "texture_pbr": """
+from hy3dgen.pipelines import Hunyuan3DPipeline
+pipe = Hunyuan3DPipeline.from_pretrained("tencent/Hunyuan3D-2mini")
+print("ok")
+""",
+    },
+    "anigen": {
+        "shape": """
+from apps.inference.infer import infer_single
+print("ok")
+""",
+        "rigging": """
+from apps.inference.infer import infer_single
+print("ok")
+""",
+    },
+    "unirig": {
+        "shape": """
+import unirig
+print("ok")
+""",
+        "rigging": """
+import unirig
+print("ok")
+""",
+    },
+    "triposg": {
+        "shape": """
+from triposg.pipelines.pipeline_triposg import TripoSGPipeline
+print("ok")
+""",
+    },
+    "detailgen3d": {
+        "shape": """
+from detailgen3d.pipelines.pipeline_detailgen3d import DetailGen3DPipeline
+print("ok")
+""",
+        "detail_enhancement": """
+from detailgen3d.pipelines.pipeline_detailgen3d import DetailGen3DPipeline
+print("ok")
+""",
+    },
+}
+
 
 @dataclass
 class PreflightResult:
@@ -165,9 +268,9 @@ def run_preflight_for_provider(
 
     Checks run INSIDE the target model's venv, not the backend interpreter.
     """
-    from runtime.installer import PROVIDER_METADATA
-    from runtime.storage import get_storage_config
-    from runtime.manifest_loader import load_manifest
+    from .installer import PROVIDER_METADATA
+    from .storage import get_storage_config
+    from .manifest_loader import load_manifest
     meta = PROVIDER_METADATA.get(provider_name)
     if not meta:
         return PreflightResult(
@@ -267,23 +370,36 @@ def run_preflight_for_provider(
         }
         if not ok:
             all_passed = False
-    # --- Capability smoke test (runs inside model venv alongside model_load) ---
-    capability_code = _PROVIDER_SMOKE_TESTS.get(provider_name)
-    if not capability_code:
+    # --- Capability smoke tests (runs inside model venv) ---
+    if has_manifest:
+        manifest_caps = manifest.get("capabilities", {})
+        enabled_caps = {name: cfg for name, cfg in manifest_caps.items() if cfg.get("enabled", False)}
+    else:
+        enabled_caps = {}
+    if not enabled_caps:
         checks["capability_smoke"] = {
             "passed": False,
-            "detail": "Smoke test not implemented for this provider",
+            "detail": "No capabilities defined in manifest",
         }
         all_passed = False
     else:
-        cap_r, cap_output = _run_in_venv(venv_python, capability_code, timeout_sec=120)
-        cap_ok = cap_r == 0 and "ok" in cap_output
-        checks["capability_smoke"] = {
-            "passed": cap_ok,
-            "detail": cap_output[:500] if cap_output else "No output",
-        }
-        if not cap_ok:
-            all_passed = False
+        for cap_name, cap_cfg in enabled_caps.items():
+            cap_code = _CAPABILITY_SMOKE_TESTS.get(provider_name, {}).get(cap_name)
+            if not cap_code:
+                checks[f"capability_smoke.{cap_name}"] = {
+                    "passed": False,
+                    "detail": "No smoke test implemented",
+                }
+                all_passed = False
+            else:
+                cap_r, cap_output = _run_in_venv(venv_python, cap_code, timeout_sec=120)
+                cap_ok = cap_r == 0 and "ok" in cap_output
+                checks[f"capability_smoke.{cap_name}"] = {
+                    "passed": cap_ok,
+                    "detail": cap_output[:500] if cap_output else "No output",
+                }
+                if not cap_ok:
+                    all_passed = False
     return PreflightResult(
         passed=all_passed,
         checks=checks,
@@ -293,6 +409,8 @@ def run_preflight_for_provider(
 
 if __name__ == "__main__":
     import sys as _sys
+    from pathlib import Path
+    _sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     result = run_preflight_for_provider("hunyuan3d-2.1")
     _sys.exit(0 if result.passed else 1)

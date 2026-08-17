@@ -1648,8 +1648,13 @@ async def storage_info():
 
 @router.get("/install/status")
 async def install_status():
-    from runtime.installer import get_install_status
-    return success(get_install_status())
+    from runtime.installer import get_persisted_install_status, get_install_status
+    persisted = get_persisted_install_status()
+    live = get_install_status()
+    for provider_name, live_entry in live.items():
+        if provider_name not in persisted:
+            persisted[provider_name] = live_entry
+    return success(persisted)
 
 
 @router.post("/install/provider")
@@ -1699,13 +1704,48 @@ async def install_provider_endpoint(
 
 
 @router.post("/repair/{provider_name}")
-async def repair_provider_endpoint(provider_name: str):
-    """Stub endpoint for future repair functionality.
+async def repair_provider_endpoint(
+    provider_name: str,
+    background_tasks: BackgroundTasks,
+    hf_token: str | None = Query(None),
+):
+    from runtime.installer import install_provider
 
-    Will identify the failing component via manifest lookup,
-    repair the exact component, revalidate, and run preflight.
-    """
-    return success({"message": "not yet implemented", "provider": provider_name})
+    _dl_init(provider_name)
+
+    def _run() -> None:
+        def _log_cb(msg) -> None:
+            if isinstance(msg, dict) and "__progress__" in msg:
+                _dl_update(provider_name, **msg["__progress__"])
+                return
+            logger.info("[repair:%s] %s", provider_name, msg)
+            _parse_log_for_progress(provider_name, msg)
+
+        result = install_provider(
+            provider_name,
+            hf_token=hf_token,
+            allow_native_build=False,
+            skip_preflight=False,
+        )
+        if result.get("state") and result["state"] != "ready":
+            blocking = result.get("blocking_reason", "")
+            _dl_update(provider_name, status="completed", percent=100,
+                       log=f"Repair complete. State: {result['state']}. {blocking}")
+            logger.info(
+                "Provider %s repair finished. state=%s blocking=%s",
+                provider_name, result.get("state"), blocking,
+            )
+        elif result.get("success"):
+            _dl_update(provider_name, status="completed", percent=100,
+                       log="Repair complete")
+            logger.info("Provider %s repaired.", provider_name)
+        else:
+            err = result.get("error", "Unknown error")
+            _dl_update(provider_name, status="failed", error=err, log=f"Repair failed: {err}")
+            logger.error("Provider %s repair failed: %s", provider_name, err)
+
+    background_tasks.add_task(_run)
+    return success({"message": f"Repair of {provider_name} started.", "provider": provider_name})
 
 
 # ---------------------------------------------------------------------------

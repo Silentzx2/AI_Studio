@@ -147,7 +147,12 @@ Component-level install state is persisted to the database via the `ProviderInst
 
 ### Manifest-driven repair
 
-The `/repair/{provider_name}` endpoint is now manifest-driven: it loads the provider's manifest, identifies the failing component, and delegates to `install_provider()` to repair just that component — no longer a stub.
+`POST /repair/{provider_name}` delegates to `install_provider()` in `runtime/installer.py`. The endpoint:
+1. Loads the provider's YAML manifest
+2. Calls `install_provider(provider_name, hf_token, allow_native_build=False, skip_preflight=False)` as a background task
+3. Returns `state`, `components`, and `blocking_reason` via `GET /install/status`
+
+Repair is manifest-driven rather than a hard-coded re-clone/re-install: it re-runs the full install pipeline (repo, env, weights, preflight) and surfaces the exact blocking component if the provider still cannot reach READY.
 
 ### Race-safe lock ownership
 
