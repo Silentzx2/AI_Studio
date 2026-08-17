@@ -41,7 +41,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
 
   // Generate real-time logs based on actual workspace history dynamically
   const simulatedLogs = useMemo(() => {
-    const logs: { id: string; time: string; msg: string; type: 'info' | 'success' | 'warning' }[] = [];
+    const logs: { id: string; time: string; msg: string; type: 'info' | 'success' | 'warning' | 'error' }[] = [];
     if (history.length > 0) {
       history.slice(0, 3).forEach((item, idx) => {
         logs.push({

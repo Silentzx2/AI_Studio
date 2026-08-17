@@ -1516,11 +1516,16 @@ def install_repo_deps(repo_name: str, log_cb: Callable | None = None, requiremen
         return {"success": False, "error": f"venv python not found at {venv_python} for {repo_name}"}
 
     logger.info("Installing deps for %s using uv + per-model venv python", repo_name)
-    if repo_name == "TRELLIS" and not repo_cfg.get("requirements") and requirements_override is None:
+    if requirements_override is not None:
+        req = requirements_override
+    elif repo_name == "TRELLIS" and not repo_cfg.get("requirements"):
         ok = _install_trellis_deps(repo_dir, venv_python, log_cb=log_cb)
+        if not ok.get("success", False):
+            return {"success": False, "error": f"uv install failed for {repo_name}: {ok.get('error', 'Unknown error')}"}
+        return {"success": True, "repo": repo_name}
     else:
-        req = requirements_override if requirements_override is not None else (repo_dir / repo_cfg["requirements"] if repo_cfg.get("requirements") else None)
-        ok = _uv_install(req, repo_dir, repo_name=repo_name, python_path=str(venv_python), log_cb=log_cb)
+        req = repo_dir / repo_cfg["requirements"] if repo_cfg.get("requirements") else None
+    ok = _uv_install(req, repo_dir, repo_name=repo_name, python_path=str(venv_python), log_cb=log_cb)
     if not ok.get("success", False):
         return {"success": False, "error": f"uv install failed for {repo_name}: {ok.get('error', 'Unknown error')}"}
     return {"success": True, "repo": repo_name}
@@ -2102,8 +2107,24 @@ def get_install_status() -> dict:
             vram_required = manifest["hardware"].get("minimum_vram_mb", meta.get("vram_required_mb", 0))
         else:
             vram_required = meta.get("vram_required_mb", 0)
+        # --- preflight result from persisted state ---
+        db_preflight_state = load_provider_state_from_db(name)
+        try:
+            from runtime.preflight import PreflightResult
+        except ImportError:
+            from preflight import PreflightResult
+        preflight_result_for_state = None
+        if db_preflight_state:
+            if db_preflight_state.get("preflight_passed") is True:
+                preflight_result_for_state = PreflightResult(passed=True)
+            elif db_preflight_state.get("preflight_passed") is False:
+                preflight_result_for_state = PreflightResult(passed=False, error_detail="Preflight did not pass")
+            else:
+                last_result = db_preflight_state.get("last_preflight_result")
+                if isinstance(last_result, dict) and "passed" in last_result:
+                    preflight_result_for_state = PreflightResult(**last_result)
         # --- preflight ---
-        preflight_state = _determine_preflight_state(name, repo_ok, venv_ok, weight_ok, native_req, missing_aux, manifest)
+        preflight_state = _determine_preflight_state(name, repo_ok, venv_ok, weight_ok, native_req, missing_aux, manifest, preflight_result=preflight_result_for_state)
         # --- cuda ---
         cuda_state, cuda_version = _check_cuda_status()
         # --- vram ---
@@ -2134,7 +2155,7 @@ def get_install_status() -> dict:
         if db_state and db_state.get("overall_state"):
             installed_legacy = db_state["overall_state"] == "ready"
         # --- capabilities (from manifest when available, else metadata) ---
-        capabilities = _build_capability_states(name, meta, manifest)
+        capabilities = _build_capability_states(name, meta, manifest, native_state=native_state)
         status[name] = {
             # New authoritative fields.
             "state": overall_state,
@@ -2167,18 +2188,11 @@ def get_install_status() -> dict:
 
 
 def _check_auxiliary_weights(provider_name: str, storage, manifest: dict | None = None) -> list[dict]:
-    """Return auxiliary weight status list from manifest or hardcoded known deps."""
+    """Return auxiliary weight status list from manifest (authoritative source)."""
     aux: list[dict] = []
-    entries: list[dict] = []
-    if manifest and "weights" in manifest:
-        entries = manifest["weights"].get("auxiliary", [])
-    else:
-        _KNOWN_AUX: dict[str, list[dict]] = {
-            "triposg": [
-                {"name": "RMBG-1.4", "repo": "briaai/RMBG-1.4", "required": True},
-            ],
-        }
-        entries = _KNOWN_AUX.get(provider_name, [])
+    if not manifest or "weights" not in manifest:
+        return aux
+    entries = manifest["weights"].get("auxiliary", [])
     for entry in entries:
         aux_repo = entry.get("repo", "")
         wp = storage.get_weight_path(aux_repo) if (storage and aux_repo) else None
@@ -2223,27 +2237,25 @@ def _determine_preflight_state(
     native_req: bool,
     missing_aux: list[dict],
     manifest: dict | None = None,
+    preflight_result: PreflightResult | None = None,
 ) -> str:
     """Determine preflight state.
 
     READY is never granted from a stub preflight.
     Until real validation is implemented, state stays NOT_IMPLEMENTED.
     """
+    # If actual preflight result is provided, use it directly.
+    if preflight_result is not None:
+        if preflight_result.passed:
+            return "passed"
+        return "blocked"
     # If manifest defines preflight config, honour it.
     if manifest and "preflight" in manifest:
         pf_cfg = manifest["preflight"]
-        # If smoke_inference is true, smoke tests are implemented; return passed if prerequisites are met.
+        # If smoke_inference is true, preflight is required but not yet run.
         if pf_cfg.get("smoke_inference", False):
-            all_native = True
-            if manifest and "capabilities" in manifest:
-                enabled_caps = [
-                    v for v in manifest["capabilities"].values()
-                    if isinstance(v, dict) and v.get("enabled", True)
-                ]
-                if enabled_caps:
-                    all_native = all(v.get("native_build_required", False) for v in enabled_caps)
-            if repo_ok and venv_ok and weight_ok and not missing_aux and (not native_req or not all_native):
-                return "passed"
+            if repo_ok and venv_ok and weight_ok and not missing_aux and not native_req:
+                return "pending"
             return "pending"
         # If manifest says preflight checks should pass, use manifest data.
         if pf_cfg.get("expect_pass", False):
@@ -2256,7 +2268,7 @@ def _determine_preflight_state(
                 if enabled_caps:
                     all_native = all(v.get("native_build_required", False) for v in enabled_caps)
             if repo_ok and venv_ok and weight_ok and not missing_aux and (not native_req or not all_native):
-                return "passed"
+                return "pending"
             return "pending"
     # If basic prerequisites are not met, preflight cannot run.
     if not repo_ok or not weight_ok:
@@ -2271,7 +2283,7 @@ def _determine_preflight_state(
             ]
             if enabled_caps and not all(v.get("native_build_required", False) for v in enabled_caps):
                 if repo_ok and venv_ok and weight_ok and not missing_aux:
-                    return "passed"
+                    return "pending"
         return "pending"
     # No real preflight implemented yet — return not_implemented.
     return "not_implemented"
@@ -2321,6 +2333,10 @@ def _compute_overall_state(
                 all_caps_need_native = all(v.get("native_build_required", False) for v in enabled_caps)
         if all_caps_need_native:
             return "native_build_pending", "Native CUDA build queued for background execution"
+    if native_req and native_state == "pending_partial":
+        if preflight_state == "passed":
+            return "partial", "Some capabilities ready; native build pending for other capabilities"
+        return "blocked", "Partial native build required; preflight not passed"
     if cuda_state == "unavailable":
         return "cuda_incompatible", "CUDA not available"
     if vram_state == "insufficient":
@@ -2337,7 +2353,7 @@ def _compute_overall_state(
     return "blocked", f"Preflight state: {preflight_state}"
 
 
-def _build_capability_states(provider_name: str, meta: dict, manifest: dict | None = None) -> dict:
+def _build_capability_states(provider_name: str, meta: dict, manifest: dict | None = None, native_state: str | None = None) -> dict:
     """Build per-capability state dict.
 
     Supports READY, PARTIAL, BLOCKED at capability level.
@@ -2353,7 +2369,10 @@ def _build_capability_states(provider_name: str, meta: dict, manifest: dict | No
                 caps[cap_name] = {"state": "disabled", "reason": "Disabled in manifest"}
                 continue
             if cap_info.get("native_build_required", False):
-                caps[cap_name] = {"state": "blocked", "reason": "Native build required"}
+                if native_state == "pending_partial":
+                    caps[cap_name] = {"state": "blocked", "reason": "Native build pending (partial)"}
+                else:
+                    caps[cap_name] = {"state": "blocked", "reason": "Native build required"}
                 continue
             caps[cap_name] = {"state": "pending", "reason": "Awaiting smoke test"}
         return caps

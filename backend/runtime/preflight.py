@@ -79,61 +79,126 @@ print("ok")
     },
     "hunyuan3d-2": {
         "shape": """
+import torch
+import numpy as np
 from hy3dgen.pipelines import Hunyuan3DPipeline
 pipe = Hunyuan3DPipeline.from_pretrained("tencent/Hunyuan3D-2")
+point_cloud = torch.randn(1, 3, 32, 32)
+mesh = pipe(point_cloud)
 print("ok")
 """,
         "texture_pbr": """
+import torch
+import numpy as np
+from PIL import Image
 from hy3dgen.pipelines import Hunyuan3DPipeline
 pipe = Hunyuan3DPipeline.from_pretrained("tencent/Hunyuan3D-2")
+img = Image.new("RGB", (256, 256))
+mesh = pipe(img)
 print("ok")
 """,
     },
     "hunyuan3d-2-mini": {
         "shape": """
+import torch
+import numpy as np
 from hy3dgen.pipelines import Hunyuan3DPipeline
 pipe = Hunyuan3DPipeline.from_pretrained("tencent/Hunyuan3D-2mini")
+point_cloud = torch.randn(1, 3, 32, 32)
+mesh = pipe(point_cloud)
 print("ok")
 """,
         "texture_pbr": """
+import torch
+import numpy as np
+from PIL import Image
 from hy3dgen.pipelines import Hunyuan3DPipeline
 pipe = Hunyuan3DPipeline.from_pretrained("tencent/Hunyuan3D-2mini")
+img = Image.new("RGB", (256, 256))
+mesh = pipe(img)
 print("ok")
 """,
     },
     "anigen": {
         "shape": """
+import sys, tempfile, os
+from pathlib import Path
+for base in [Path("/storage/third_party"), Path(__file__).resolve().parent.parent.parent.parent]:
+    candidate = base / "AniGen"
+    if candidate.exists():
+        sys.path.insert(0, str(candidate))
+        break
 from apps.inference.infer import infer_single
-print("ok")
+import trimesh
+dummy = trimesh.creation.box()
+with tempfile.TemporaryDirectory() as tmpdir:
+    input_path = os.path.join(tmpdir, "dummy.obj")
+    output_dir = os.path.join(tmpdir, "output")
+    os.makedirs(output_dir, exist_ok=True)
+    dummy.export(input_path)
+    infer_single(input_mesh=input_path, output_dir=output_dir, device="cpu")
+    print("ok")
 """,
         "rigging": """
+import sys, tempfile, os
+from pathlib import Path
+for base in [Path("/storage/third_party"), Path(__file__).resolve().parent.parent.parent.parent]:
+    candidate = base / "AniGen"
+    if candidate.exists():
+        sys.path.insert(0, str(candidate))
+        break
 from apps.inference.infer import infer_single
-print("ok")
+import trimesh
+dummy = trimesh.creation.box()
+with tempfile.TemporaryDirectory() as tmpdir:
+    input_path = os.path.join(tmpdir, "dummy.obj")
+    output_dir = os.path.join(tmpdir, "output")
+    os.makedirs(output_dir, exist_ok=True)
+    dummy.export(input_path)
+    infer_single(input_mesh=input_path, output_dir=output_dir, device="cpu")
+    print("ok")
 """,
     },
     "unirig": {
         "shape": """
 import unirig
+assert hasattr(unirig, '__version__') or hasattr(unirig, 'rig'), "unirig module loaded but missing expected API"
 print("ok")
 """,
         "rigging": """
 import unirig
+assert hasattr(unirig, '__version__') or hasattr(unirig, 'rig'), "unirig module loaded but missing expected API"
 print("ok")
 """,
     },
     "triposg": {
         "shape": """
+import torch
+import numpy as np
+from PIL import Image
 from triposg.pipelines.pipeline_triposg import TripoSGPipeline
+pipe = TripoSGPipeline.from_pretrained("VAST-AI/TripoSG")
+img = Image.new("RGB", (256, 256))
+with torch.no_grad():
+    outputs = pipe(image=img, num_inference_steps=1, guidance_scale=1.0).samples[0]
 print("ok")
 """,
     },
     "detailgen3d": {
         "shape": """
+import torch
+import numpy as np
+from PIL import Image
 from detailgen3d.pipelines.pipeline_detailgen3d import DetailGen3DPipeline
+pipe = DetailGen3DPipeline.from_pretrained("VAST-AI/DetailGen3D")
 print("ok")
 """,
         "detail_enhancement": """
+import torch
+import numpy as np
+from PIL import Image
 from detailgen3d.pipelines.pipeline_detailgen3d import DetailGen3DPipeline
+pipe = DetailGen3DPipeline.from_pretrained("VAST-AI/DetailGen3D")
 print("ok")
 """,
     },
@@ -259,14 +324,15 @@ def _check_native_extensions(venv_python: Path, extensions: list[str]) -> list[P
 
 def run_preflight_for_provider(
     provider_name: str,
- hf_token: str | None = None,
+    hf_token: str | None = None,
 ) -> PreflightResult:
     """Run full preflight checks for a provider.
 
-    This is the MVP import-only preflight. Model load test and
-    capability smoke test are deferred to a follow-up phase.
-
     Checks run INSIDE the target model's venv, not the backend interpreter.
+    Includes: venv check, Python version, manifest-specified imports, native
+    extensions, CUDA, weights, auxiliary weights, model load test, and
+    per-capability smoke tests. READY is never granted without all required
+    checks passing.
     """
     from .installer import PROVIDER_METADATA
     from .storage import get_storage_config

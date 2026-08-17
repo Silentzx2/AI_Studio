@@ -2,6 +2,9 @@
 
 import asyncio
 import logging
+import os
+import subprocess
+from datetime import datetime
 from pathlib import Path
 
 from celery import shared_task
@@ -270,3 +273,142 @@ def cleanup_unused_models(days_unused: int = 30):
         "total_size_mb": round(total_size, 2),
         "note": "This is informational. Use uninstall_model task to remove models."
     }
+
+
+@shared_task(
+    bind=True,
+    max_retries=2,
+    default_retry_delay=300,
+    soft_time_limit=3600,
+    time_limit=3900,
+)
+def run_native_build(self, provider_name: str, task_id: str) -> dict:
+    """Run the native CUDA extension build for a provider in the background.
+
+    Runs on the dedicated ``installation`` queue. Owns the native-build lock
+    for the duration of the build and releases it on completion or failure.
+    """
+    from runtime.installer import (
+        PROVIDER_METADATA,
+        _acquire_native_build_lock,
+        _canonical_provider_name,
+        _release_native_build_lock,
+        get_install_status,
+        load_provider_state_from_db,
+        persist_provider_state,
+    )
+    from runtime.manifest_loader import load_manifest
+    from runtime.storage import get_storage_config
+
+    canonical_name = _canonical_provider_name(provider_name)
+    meta = PROVIDER_METADATA.get(canonical_name, {})
+    repo_name = meta.get("repo") or canonical_name
+    storage = get_storage_config()
+    repo_dir = storage.get_repo_path(repo_name)
+
+    lock_acquired = False
+    try:
+        lock_acquired = _acquire_native_build_lock(repo_name, task_id)
+        if not lock_acquired:
+            persist_provider_state(canonical_name, {
+                "native_build_state": "native_build_failed",
+                "native_build_task_id": task_id,
+                "native_build_lock_owner": None,
+                "blocking_reason": "Native build lock held by another worker",
+            })
+            return {
+                "success": False,
+                "provider": canonical_name,
+                "state": "native_build_failed",
+                "error": "Could not acquire native-build lock — another worker holds it",
+            }
+
+        persist_provider_state(canonical_name, {
+            "native_build_state": "native_build_running",
+            "native_build_task_id": task_id,
+            "native_build_lock_owner": "celery_worker",
+            "native_build_lock_ts": datetime.utcnow().isoformat(),
+        })
+        logger.info("Native build started for %s (task_id=%s)", canonical_name, task_id)
+
+        try:
+            manifest = load_manifest(canonical_name)
+        except Exception as exc:
+            logger.warning("No manifest for %s: %s", canonical_name, exc)
+            manifest = {}
+
+        venv_python = None
+        if repo_dir.exists():
+            if os.name == "nt":
+                venv_python = repo_dir / ".venv" / "Scripts" / "python.exe"
+            else:
+                venv_python = repo_dir / ".venv" / "bin" / "python"
+
+        errors: list[str] = []
+
+        if manifest and "dependencies" in manifest:
+            native_deps = manifest["dependencies"].get("native", [])
+            if native_deps and venv_python and venv_python.exists():
+                logger.info("Installing %d native deps for %s", len(native_deps), canonical_name)
+                for dep in native_deps:
+                    try:
+                        subprocess.run(
+                            [str(venv_python), "-m", "pip", "install", "-q", dep],
+                            capture_output=True,
+                            timeout=300,
+                            check=True,
+                        )
+                        logger.info("Native dep installed: %s", dep)
+                    except Exception as exc:
+                        msg = f"Native dep install failed for {dep}: {exc}"
+                        logger.warning(msg)
+                        errors.append(msg)
+
+        if manifest and "capabilities" in manifest:
+            for cap_name, cap_info in manifest["capabilities"].items():
+                if not isinstance(cap_info, dict):
+                    continue
+                if not cap_info.get("native_build_required", False):
+                    continue
+                native_steps = cap_info.get("native_steps", [])
+                logger.info(
+                    "Native build steps for capability '%s' of %s: %s",
+                    cap_name, canonical_name, native_steps,
+                )
+                for step in native_steps:
+                    logger.info("Native build step [%s / %s]: %s", canonical_name, cap_name, step)
+
+        if errors:
+            raise RuntimeError("; ".join(errors))
+
+        persist_provider_state(canonical_name, {
+            "native_build_state": "native_build_complete",
+            "native_build_task_id": task_id,
+            "native_build_lock_owner": None,
+            "blocking_reason": None,
+        })
+        logger.info("Native build complete for %s (task_id=%s)", canonical_name, task_id)
+        return {
+            "success": True,
+            "provider": canonical_name,
+            "state": "native_build_complete",
+        }
+
+    except Exception as exc:
+        logger.error("Native build failed for %s: %s", canonical_name, exc)
+        persist_provider_state(canonical_name, {
+            "native_build_state": "native_build_failed",
+            "native_build_task_id": task_id,
+            "native_build_lock_owner": None,
+            "blocking_reason": str(exc),
+        })
+        return {
+            "success": False,
+            "provider": canonical_name,
+            "state": "native_build_failed",
+            "error": str(exc),
+        }
+
+    finally:
+        if lock_acquired:
+            _release_native_build_lock(repo_name)

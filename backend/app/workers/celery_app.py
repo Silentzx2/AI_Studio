@@ -93,7 +93,7 @@ celery_app.conf.update(
         'app.workers.vram_health_worker.*': {'queue': 'generation'},
         'app.workers.download_workers.*': {'queue': 'images'},
         'app.workers.health_workers.*': {'queue': 'images'},
-        'app.workers.installation_workers.*': {'queue': 'images'},
+        'app.workers.installation_workers.*': {'queue': 'installation'},
     },
     beat_schedule={
         'vram-health-check-30s': {
