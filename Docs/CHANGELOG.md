@@ -3,7 +3,21 @@
 ## [Unreleased]
 
 ### Added
-- Manifest-driven installation: YAML manifests are now the source of truth for dependencies, weights, hardware, and preflight
+- Tripo AI Studio-inspired design system: global navbar, workspace sidebar, control panels, and asset panels
+- New Tailwind color palette: `tripo-gray-*`, `tripo-yellow-1`, `tripo-white-*`
+- Custom spacing utility `w-62` (248px) for Tripo-style panel widths
+- Custom font size utilities `text-2.5` (10px), `text-3` (12px), `text-3.5` (14px)
+
+### Changed
+- **WorkspaceNavbar**: Redesigned to Tripo-style pill header (h-12) with icon+label nav links, active yellow accent, and glow CTA
+- **CreativeWorkspaceLayout**: Sidebar restyled with tripo-gray-3 background, yellow-1 active states, rounded-l-5 corners
+- **TextureGenTab**: Left panel reduced to 248px (w-62), tripo-gray-4 controls, tripo-yellow-1 accents, compact typography
+- **RemeshTab**: Left panel reduced to 248px (w-62), tripo-gray-4 controls, tripo-yellow-1 accents, compact typography
+- **ThreeDGenWorkspace**: Side panels standardized to 248px (w-62), tripo-gray-4, rounded corners, shadow
+- **tailwind.config.ts**: Extended with tripo color palette, custom spacing, and font sizes
+
+### Fixed
+- WorkspaceNavbar missing ChevronDown import after navbar redesign
 - Component-level installation state persisted to database via ProviderInstallState model
 - Real model load and capability smoke tests in preflight (not stubs)
 - Per-capability native_build_required enforcement (e.g., hunyuan3d-2.1 texture_pbr)

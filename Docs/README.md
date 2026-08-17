@@ -418,10 +418,11 @@ For complete configuration options, see [Setup Guide - Configuration](docs/setup
 
 ### Workspace Features
 
-- **Left Panel**: Input controls with model and quality selection
-- **Center Area**: Live 3D preview with interactive rotation
-- **Right Panel**: Output options and generation metadata
-- **Bottom Dock**: Generation history with thumbnail previews
+- **Global Navbar**: Tripo-style pill header (h-12) with icon+label nav links, active yellow accent, and glow CTA
+- **Left Sidebar**: Tripo-inspired workspace navigation (tripo-gray-3) with icon items and GPU/VRAM diagnostics
+- **Center Control Panel**: Tripo-style 248px panel (tripo-gray-4) with compact 12px/10px typography scale
+- **Right Asset Panel**: 248px asset library with Tripo-style shadows and rounded corners
+- **Center Viewer**: Full-height 3D canvas with Tripo gray background
 - **Workspace Compatibility**: Each model declares which workspaces it supports. The UI only shows compatible models in each workspace tab, preventing invalid selections.
 
 ### Workspace Types
@@ -712,6 +713,19 @@ ai-3d-studio/
 │       └── v1/[...path]/route.ts      # Backend API proxy
 │
 ├── features/                          # Feature modules (ROOT level, NOT under app/)
+│   ├── workspace/                     # Workspace layout & navigation
+│   │   ├── new-ui/                    # Tab-based workspace UI (Tripo-style)
+│   │   │   ├── CreativeWorkspaceLayout.tsx  # Main workspace shell with sidebar
+│   │   │   ├── WorkspaceTab.tsx             # Dashboard / project files
+│   │   │   ├── TextureGenTab.tsx            # PBR texture generation (Tripo-style)
+│   │   │   ├── RemeshTab.tsx                # Retopology / mesh optimization
+│   │   │   ├── RiggingAnimationTab.tsx      # Auto-rigging & animation
+│   │   │   ├── MyAssetsTab.tsx              # Asset library
+│   │   │   ├── FavoritesTab.tsx             # Favorited assets
+│   │   │   ├── ApiAccessTab.tsx             # API key management
+│   │   │   └── WorkspaceSettingsTab.tsx     # Workspace preferences
+│   │   ├── WorkspaceNavbar.tsx       # Global Tripo-style top navbar
+│   │   └── ThreeDGenWorkspace.tsx    # 3D generation workspace (3D-SPACE)
 │   ├── admin/tabs/                    # Admin dashboard tabs
 │   │   ├── ConnectionsTab.tsx
 │   │   ├── HealthTab.tsx
@@ -1030,5 +1044,5 @@ See [Pipeline Status Document](docs/pipeline-status.md) for detailed breakdown.
 ---
 
 <p align="center">
-  <sub>Last Updated: August 15, 2026 | Version 3.8.7 | Pipeline V2 Complete</sub>
+  <sub>Last Updated: August 17, 2026 | Version 3.8.8 | Tripo-style UI Redesign</sub>
 </p>
