@@ -95,3 +95,62 @@ Each model is self-contained under `third_party/<RepoName>/`: its own `.venv/`
 (created by `uv`, torch pinned to the backend's exact build), `weights/`, and
 `cache/`. `storage.StorageConfig` resolves weight paths with a legacy fallback.
 Install state is mirrored in `runtime/installer.py::get_install_status()`.
+
+## Installation States
+
+YAML manifests are the installation-contract authority. Component-level state is persisted to the database. Preflight runs real model load + smoke tests. Repair is manifest-driven.
+
+Models now report detailed component status instead of binary "installed".
+
+### State flow
+
+```text
+DISCOVERED -> REPO_READY -> ENV_READY -> WEIGHTS_READY -> PREFLIGHT_RUNNING -> READY
+```
+
+Blocking states: `NATIVE_BUILD_PENDING`, `BLOCKED`, `AUXILIARY_WEIGHTS_MISSING`, `FAILED`, `CUDA_INCOMPATIBLE`, `VRAM_INSUFFICIENT`
+
+### Key components
+
+Each provider reports status for: Repository, Environment, Main weights, Auxiliary weights, Native build, CUDA, VRAM, Preflight, Capabilities.
+
+### Manifest-driven installation
+
+Each model has a YAML manifest in `backend/runtime/manifests/` that defines:
+- Source repository + submodules
+- Environment requirements (Python, PyTorch, CUDA versions)
+- Dependencies (python packages, import checks, native extensions)
+- Primary and auxiliary weights
+- Hardware requirements (VRAM)
+- Per-capability settings (including per-capability native build requirements)
+- Preflight checks
+
+### Preflight (real tests, not stubs)
+
+`preflight.py` now implements **real** `model_load` and `capability_smoke` tests inside the target model's venv (not the backend interpreter). The previous `NOT_IMPLEMENTED` stubs have been replaced with actual validation, so a provider that fails preflight stays blocked until the issue is resolved.
+
+### VRAM enforcement
+
+Manifest `minimum_vram_mb` (from the `hardware` section) is now a **hard preflight/READY gate** — not just an informational display. During preflight the reported available VRAM is compared against the manifest value; if insufficient the provider transitions to `VRAM_INSUFFICIENT` and cannot reach `READY`.
+
+### Per-capability native builds
+
+Capabilities can declare `native_build_required: true` in their manifest section (e.g., Hunyuan3D 2.1's `texture_pbr`). This triggers a capability-level build step during installation, tracked via a per-capability `native_build_pending` state so other capabilities (e.g., `shape`) remain unblocked.
+
+### Auxiliary weight enforcement
+
+Auxiliary weights marked `required: true` in the manifest produce an `AUXILIARY_WEIGHTS_MISSING` blocking state when the download is missing — even if the primary weights and environment are fine.
+
+### Component-level install state persistence
+
+Component-level install state is persisted to the database via the `ProviderInstallState` model (`backend/app/models/registry.py`). The installer calls `persist_provider_state()` after status changes, and the runtime API serves cached status via `get_persisted_install_status()`.
+
+### Manifest-driven repair
+
+The `/repair/{provider_name}` endpoint is now manifest-driven: it loads the provider's manifest, identifies the failing component, and delegates to `install_provider()` to repair just that component — no longer a stub.
+
+### Race-safe lock ownership
+
+The native-build lock now tracks `owner_type` (`api` or `celery`) so that an API-initiated install can safely hand off to a Celery worker without deadlocking or stale lock claims.
+
+See `Docs/INSTALLATION_STATES.md` for full reference.

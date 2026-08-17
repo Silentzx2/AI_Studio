@@ -1,0 +1,46 @@
+name: anigen
+label: "AniGen"
+source:
+  repo: "https://github.com/VAST-AI-Research/AniGen.git"
+  ref: "main"
+  submodules: false
+environment:
+  python: "3.10"
+  torch: "2.5.1"
+  cuda: "12.4"
+dependencies:
+  python:
+    - "accelerate>=0.34.0"
+  imports:
+    - "torch"
+    - "transformers"
+  native: []
+weights:
+  primary:
+    repo: "VAST-AI/AniGen_Weights"
+  auxiliary: []
+hardware:
+  minimum_vram_mb: 6200
+  recommended_vram_mb: 6200
+capabilities:
+  shape:
+    enabled: true
+    native_build_required: true
+    vram_required_mb: 6200
+  texture_pbr:
+    enabled: false
+    native_build_required: false
+    vram_required_mb: 0
+  rigging:
+    enabled: true
+    native_build_required: true
+    vram_required_mb: 6200
+preflight:
+  check_model_venv: true
+  import_packages:
+    - "torch"
+    - "transformers"
+  check_weights: true
+  check_cuda: true
+  load_weights: true
+  smoke_inference: true

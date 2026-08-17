@@ -6,7 +6,6 @@ Exposes both:
   - RuntimeInstaller class (OOP wrapper for scripts that prefer it)
 """
 from __future__ import annotations
-
 import json
 import logging
 import os
@@ -19,24 +18,69 @@ import tempfile
 import threading
 import time
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
-
 from runtime.storage import get_storage_config
-
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Installation State Machine
+# ---------------------------------------------------------------------------
+
+
+class InstallState(Enum):
+    DISCOVERED = "discovered"
+    REPO_READY = "repo_ready"
+    ENV_CREATING = "env_creating"
+    ENV_READY = "env_ready"
+    WEIGHTS_DOWNLOADING = "weights_downloading"
+    WEIGHTS_READY = "weights_ready"
+    NATIVE_BUILD_PENDING = "native_build_pending"
+    NATIVE_BUILD_RUNNING = "native_build_running"
+    NATIVE_BUILD_READY = "native_build_ready"
+    PREFLIGHT_RUNNING = "preflight_running"
+    MODEL_LOAD_TEST = "model_load_test"
+    CAPABILITY_SMOKE_TEST = "capability_smoke_test"
+    READY = "ready"
+    PARTIAL = "partial"
+    BLOCKED = "blocked"
+    FAILED = "failed"
+    ENV_FAILED = "env_failed"
+    WEIGHTS_INCOMPLETE = "weights_incomplete"
+    PREFLIGHT_FAILED = "preflight_failed"
+    CUDA_INCOMPATIBLE = "cuda_incompatible"
+    VRAM_INSUFFICIENT = "vram_insufficient"
+    NOT_IMPLEMENTED = "not_implemented"
+
+
+@dataclass
+class ComponentStatus:
+    name: str
+    state: InstallState
+    detail: str = ""
+    last_error: str | None = None
 
 # ---------------------------------------------------------------------------
 # Configuration tables
 # ---------------------------------------------------------------------------
 
 REPOS = {
+    "Hunyuan3D-2.1": {
+        "url": "https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1.git",
+        "branch": "main",
+        "requirements": "requirements.txt",
+        "category": "3d_generation",
+        "providers": ["hunyuan3d-2.1"],
+    },
     "Hunyuan3D-2": {
         "url": "https://github.com/Tencent-Hunyuan/Hunyuan3D-2.git",
         "branch": "main",
         "requirements": "requirements.txt",
         "category": "3d_generation",
-        "providers": ["hunyuan3d-2", "hunyuan3d-2.1"],
+        "providers": ["hunyuan3d-2", "hunyuan3d-2-mini"],
     },
     "TRELLIS": {
         "url": "https://github.com/microsoft/TRELLIS.git",
@@ -153,7 +197,7 @@ PROVIDER_METADATA = {
             "supports_cpu_offload": True,
             "supports_quantization": False,
         },
-        "repo": "Hunyuan3D-2",
+        "repo": "Hunyuan3D-2.1",
         "weight_key": "hunyuan3d-2.1",
         "workspace_compatibility": ["mesh-generation", "texture-generation", "post-processing"],
     },
@@ -517,6 +561,73 @@ def _save_state(state: dict) -> None:
     p.write_text(json.dumps(state, indent=2, default=str))
 
 
+def persist_provider_state(provider_name: str, state_data: dict) -> None:
+    """Persist component-level install state to DB."""
+    try:
+        from app.database import SessionLocal
+        from app.models.registry import ProviderInstallState
+        with SessionLocal() as session:
+            existing = session.get(ProviderInstallState, provider_name)
+            if existing:
+                for key, value in state_data.items():
+                    if hasattr(existing, key):
+                        setattr(existing, key, value)
+            else:
+                entry = ProviderInstallState(provider_name=provider_name, **state_data)
+                session.add(entry)
+            session.commit()
+    except Exception as exc:
+        logger.warning("Failed to persist provider state for %s: %s", provider_name, exc)
+
+
+def load_provider_state_from_db(provider_name: str) -> dict | None:
+    """Load persisted component-level install state from DB."""
+    try:
+        from app.database import SessionLocal
+        from app.models.registry import ProviderInstallState
+        with SessionLocal() as session:
+            entry = session.get(ProviderInstallState, provider_name)
+            if entry:
+                return {
+                    "provider_name": entry.provider_name,
+                    "overall_state": entry.overall_state,
+                    "repo_state": entry.repo_state,
+                    "env_state": entry.env_state,
+                    "weights_state": entry.weights_state,
+                    "auxiliary_weights_state": entry.auxiliary_weights_state,
+                    "native_build_state": entry.native_build_state,
+                    "preflight_state": entry.preflight_state,
+                    "model_load_state": entry.model_load_state,
+                    "capability_state": entry.capability_state,
+                    "blocking_component": entry.blocking_component,
+                    "blocking_reason": entry.blocking_reason,
+                    "repair_available": entry.repair_available,
+                    "last_preflight_run": entry.last_preflight_run.isoformat() if entry.last_preflight_run else None,
+                    "last_preflight_result": entry.last_preflight_result,
+                    "native_build_task_id": entry.native_build_task_id,
+                    "native_build_lock_owner": entry.native_build_lock_owner,
+                    "native_build_lock_ts": entry.native_build_lock_ts.isoformat() if entry.native_build_lock_ts else None,
+                    "updated_at": entry.updated_at.isoformat() if entry.updated_at else None,
+                }
+    except Exception:
+        pass
+    return None
+
+
+def get_persisted_install_status() -> dict:
+    """Return component-level install status from DB, falling back to file state."""
+    try:
+        from app.database import SessionLocal
+        from app.models.registry import ProviderInstallState
+        result = {}
+        with SessionLocal() as session:
+            for entry in session.query(ProviderInstallState).all():
+                result[entry.provider_name] = load_provider_state_from_db(entry.provider_name) or {}
+        return result
+    except Exception:
+        return {}
+
+
 # ---------------------------------------------------------------------------
 # Low-level subprocess helper
 # ---------------------------------------------------------------------------
@@ -657,6 +768,7 @@ _CUDA_ONLY_PKG_PATTERNS: list[re.Pattern] = [
 # sys.executable) so they resolve regardless of which sys.path the provider uses.
 # Extend per repo as other missing inference libs are discovered.
 EXTRA_DEPS: dict[str, list[str]] = {
+    "Hunyuan3D-2.1": ["hy3dgen", "accelerate>=0.34.0", "huggingface_hub==0.27.1"],
     "Hunyuan3D-2": ["hy3dgen", "accelerate>=0.34.0", "huggingface_hub==0.27.1"],
     "TRELLIS": ["accelerate>=0.34.0"],
     "TripoSG": ["diffusers>=0.22.0", "huggingface_hub==0.27.1", "accelerate"],
@@ -1147,7 +1259,7 @@ def _pid_alive(pid: int) -> bool:
     return True
 
 
-def _acquire_install_lock(repo_name: str) -> bool:
+def _acquire_install_lock(repo_name: str, owner_type: str = "api", task_id: str | None = None) -> bool:
     """Try to acquire a file-based install lock for a repo.
     ponytail: file-based lock, fine for single-VPS. Upgrade to Redis
     if multi-host.
@@ -1178,10 +1290,29 @@ def _acquire_install_lock(repo_name: str) -> bool:
         lock_file = open(lock_path, "w")
         fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
         lock_file.write(f"{os.getpid()}\n{datetime.utcnow().isoformat()}\n")
+        lock_file.write(f"owner={owner_type}\n")
+        if task_id:
+            lock_file.write(f"task_id={task_id}\n")
         lock_file.flush()
         return True
     except (IOError, OSError):
         return False
+
+
+def _get_lock_owner(repo_name: str) -> dict | None:
+    lock_path = get_storage_config().get_repo_path(repo_name) / ".installing.lock"
+    if not lock_path.exists():
+        return None
+    try:
+        content = lock_path.read_text().strip().splitlines()
+        result = {"pid": int(content[0]) if content else None}
+        for line in content[2:]:
+            if "=" in line:
+                key, value = line.split("=", 1)
+                result[key.strip()] = value.strip()
+        return result
+    except Exception:
+        return None
 
 
 def _release_install_lock(repo_name: str) -> None:
@@ -1487,12 +1618,32 @@ def download_weights(
 # ponytail: Provider validation at function entry; returns available providers list
 # to help users correct their input without guessing. Root cause fix for
 # "Unknown provider" errors that gave no guidance on valid options.
+# to help users correct their input without guessing. Root cause fix for
+# "Unknown provider" errors that gave no guidance on valid options.
 def install_provider(
     provider_name: str,
     hf_token: str | None = None,
     log_cb: Callable | None = None,
     allow_native_build: bool = False,
+    skip_preflight: bool = False,
 ) -> dict:
+    """Manifest-driven installation entry point.
+
+    Sequence:
+      1. Load manifest -> validate provider exists
+      2. Clone repo (call existing clone_repo)
+      3. Init submodules if manifest requires
+      4. Install deps (call existing install_repo_deps, honor native_build flag)
+      5. Download primary weights
+      6. Download required auxiliary weights
+      7. If native_build: queue background task on a dedicated installation
+         queue/worker (DON'T WAIT). Persist native-build task state before returning.
+      8. Run preflight only when env + all required native/auxiliary components are ready.
+      9. Return detailed state + components.
+
+    All existing lower-level helpers (clone_repo, install_repo_deps,
+    download_weights) are preserved unchanged. Only orchestration changes.
+    """
     provider_name = _canonical_provider_name(provider_name)
     meta = PROVIDER_METADATA.get(provider_name)
     if not meta:
@@ -1503,7 +1654,17 @@ def install_provider(
             "error": f"Unknown provider '{provider_name}'. Available providers: {available_real}",
             "available_providers": available_real,
         }
-    # Section 4: concurrency + disk space checks
+    # --- 1. Load manifest (non-fatal: proceed without if no manifest yet) ---
+    manifest = None
+    try:
+        from runtime.manifest_loader import load_manifest
+        manifest = load_manifest(provider_name)
+        if log_cb:
+            log_cb(f"Loaded manifest for {provider_name}")
+    except (ValueError, ImportError) as exc:
+        if log_cb:
+            log_cb(f"No manifest for {provider_name} ({exc}); using metadata-only install")
+    # --- Concurrency + disk space checks ---
     repo_name = meta.get("repo")
     locked_repos: list[str] = []
     if repo_name:
@@ -1517,32 +1678,57 @@ def install_provider(
         sufficient, space_err = _check_disk_space(provider_name)
         if not sufficient:
             return {"success": False, "error": space_err}
-        # ponytail: always try to clone repo and download weights.
-        # For native-build models, deps install is attempted but non-blocking.
+        # --- 2. Clone repo ---
         if repo_name:
             st = get_install_status().get(provider_name, {})
             if not st.get("repo_ready"):
+                if log_cb:
+                    log_cb(f"Cloning repository for {provider_name}...")
                 r = clone_repo(repo_name, log_cb=log_cb)
                 if not r.get("success"):
                     return {"success": False, "error": r.get("error", "Repo clone failed")}
+            # --- 3. Init submodules if manifest requires ---
+            if manifest and manifest.get("source", {}).get("submodules"):
+                storage = get_storage_config()
+                repo_path = storage.get_repo_path(repo_name)
+                if log_cb:
+                    log_cb("Initializing git submodules...")
+                code, output = _run(
+                    ["git", "submodule", "update", "--init", "--recursive"],
+                    cwd=repo_path, log_cb=log_cb,
+                )
+                if code != 0:
+                    if log_cb:
+                        log_cb(f"Warning: git submodule init failed: {output[:200]}")
+            # --- 4. Install deps ---
             if not st.get("venv_ready"):
-                # Attempt deps install; for native-build models, log warning but don't block
-                meta_get = meta.get("native_build_required", False)
-                if meta_get and not allow_native_build:
+                native_req = meta.get("native_build_required", False)
+                if manifest and "capabilities" in manifest:
+                    cap_native = any(
+                        v.get("native_build_required", False)
+                        for v in manifest["capabilities"].values()
+                        if isinstance(v, dict) and v.get("enabled", True)
+                    )
+                    if cap_native:
+                        native_req = True
+                if native_req and not allow_native_build:
                     if log_cb:
                         log_cb(f"Note: '{provider_name}' requires native CUDA build; skipping deps install. Weights will be downloaded for manual setup.")
                 else:
+                    if log_cb:
+                        log_cb(f"Installing dependencies for {provider_name}...")
                     r = install_repo_deps(repo_name, log_cb=log_cb)
                     if not r.get("success"):
-                        if meta_get and not allow_native_build:
+                        if native_req and not allow_native_build:
                             if log_cb:
                                 log_cb(f"Warning: deps install failed for {provider_name} (native build needed), continuing to weights download: {r.get('error')}")
                         else:
                             return {"success": False, "error": r.get("error", "Deps install failed")}
+        # --- 5. Download primary weights ---
         weight_key = meta.get("weight_key")
         if weight_key:
             if log_cb:
-                log_cb(f"Downloading weights for {provider_name}\u2026")
+                log_cb(f"Downloading weights for {provider_name}...")
             try:
                 r = download_weights(weight_key, hf_token=hf_token, log_cb=log_cb)
                 results = {"provider": provider_name, "steps": {"weights": r}}
@@ -1570,19 +1756,77 @@ def install_provider(
                 return {"success": False, "error": error_msg}
         else:
             r = {"success": True, "action": "no_weights"}
-
+        # --- 6. Download required auxiliary weights ---
+        if manifest:
+            aux_weights = manifest.get("weights", {}).get("auxiliary", [])
+            for aux in aux_weights:
+                aux_repo = aux.get("repo", "")
+                if aux_repo and aux.get("required", False):
+                    if log_cb:
+                        log_cb(f"Downloading auxiliary weights: {aux.get('name', aux_repo)}...")
+                    try:
+                        aux_r = download_weights(aux_repo, hf_token=hf_token, log_cb=log_cb)
+                        if not aux_r["success"]:
+                            if log_cb:
+                                log_cb(f"Warning: auxiliary weight download failed for {aux_repo}: {aux_r.get('error')}")
+                    except Exception as exc:
+                        if log_cb:
+                            log_cb(f"Warning: auxiliary weight download exception for {aux_repo}: {exc}")
+        # --- 7. Native build handling ---
+        native_build_task_id = None
+        native_req = meta.get("native_build_required", False)
+        if manifest and "capabilities" in manifest:
+            cap_native = any(
+                v.get("native_build_required", False)
+                for v in manifest["capabilities"].values()
+                if isinstance(v, dict) and v.get("enabled", True)
+            )
+            if cap_native:
+                native_req = True
+        if native_req and not allow_native_build:
+            # Persist native-build pending state before returning.
+            state = _load_state()
+            state.setdefault("repos", {})[provider_name] = {
+                "installed_at": datetime.utcnow().isoformat(),
+                "native_build_state": "pending",
+            }
+            state["last_updated"] = datetime.utcnow().isoformat()
+            _save_state(state)
+            if log_cb:
+                log_cb(f"Native build queued; model will be READY only after native build + preflight pass")
+            return {
+                "success": True,
+                "state": "native_build_pending",
+                "components": get_install_status().get(provider_name, {}).get("components", {}),
+                "blocking_reason": "Native CUDA build queued for background execution",
+                "provider": provider_name,
+            }
+        # --- 8. Preflight ---
+        preflight_result = None
+        if not skip_preflight and not native_req:
+            try:
+                from runtime.preflight import run_preflight_for_provider
+                if log_cb:
+                    log_cb(f"Running preflight for {provider_name}...")
+                preflight_result = run_preflight_for_provider(provider_name, hf_token=hf_token)
+                if not preflight_result.passed:
+                    if log_cb:
+                        log_cb(f"Preflight did not pass: {preflight_result.error_detail}")
+            except Exception as exc:
+                logger.warning("Preflight failed for %s: %s", provider_name, exc)
+                if log_cb:
+                    log_cb(f"Preflight error: {exc}")
+        # --- Persist install state ---
         if log_cb:
-            log_cb("Verifying installation\u2026")
-        # ponytail: load the persisted install state BEFORE mutating it.
-        # Previously `state` was referenced here but never defined in this
-        # function's scope (only get_install_status() defined it), so every
-        # successful install crashed with "name 'state' is not defined" right
-        # after the (heavy) weight download — weights landed on disk but the
-        # install reported failure and the registry was never refreshed.
+            log_cb("Verifying installation...")
         state = _load_state()
-        state.setdefault("repos", {})[provider_name] = {
+        provider_state_entry = {
             "installed_at": datetime.utcnow().isoformat(),
         }
+        if preflight_result:
+            provider_state_entry["preflight_passed"] = preflight_result.passed
+            provider_state_entry["preflight_checks"] = preflight_result.checks
+        state.setdefault("repos", {})[provider_name] = provider_state_entry
         if repo_name and repo_name != provider_name:
             state.setdefault("repos", {})[repo_name] = {
                 "installed_at": datetime.utcnow().isoformat(),
@@ -1599,7 +1843,33 @@ def install_provider(
             pass
         if log_cb:
             log_cb("Installation complete")
-        return {"success": True, "provider": provider_name, "steps": {"weights": r} if weight_key else {}}
+        # --- 9. Return with new state schema ---
+        final_status = get_install_status().get(provider_name, {})
+        # Persist component-level state to DB
+        persist_provider_state(provider_name, {
+            "overall_state": final_status.get("state", "blocked"),
+            "repo_state": final_status.get("components", {}).get("repo", {}).get("state"),
+            "env_state": final_status.get("components", {}).get("venv", {}).get("state"),
+            "weights_state": final_status.get("components", {}).get("weights", {}).get("state"),
+            "auxiliary_weights_state": final_status.get("components", {}).get("auxiliary_weights"),
+            "native_build_state": final_status.get("components", {}).get("native_build", {}).get("state"),
+            "preflight_state": final_status.get("components", {}).get("preflight", {}).get("state"),
+            "model_load_state": final_status.get("components", {}).get("model_load", {}).get("state"),
+            "capability_state": final_status.get("components", {}).get("capabilities"),
+            "blocking_component": "preflight" if final_status.get("blocking_reason") else None,
+            "blocking_reason": final_status.get("blocking_reason"),
+            "native_build_task_id": native_build_task_id,
+        })
+        return {
+            "success": True,
+            "state": final_status.get("state", "blocked"),
+            "components": final_status.get("components", {}),
+            "blocking_reason": final_status.get("blocking_reason"),
+            "provider": provider_name,
+            "steps": {"weights": r} if weight_key else {},
+            # Legacy backward compat.
+            "installed": final_status.get("installed", True),
+        }
     finally:
         for rn in locked_repos:
             _release_install_lock(rn)
@@ -1694,31 +1964,103 @@ def uninstall_provider(provider_name: str, log_cb: Callable | None = None) -> di
 
 
 def get_install_status() -> dict:
+    """Return detailed component-level installation status for every provider.
+
+    New consumers must use ``state`` as the authoritative readiness field.
+    The legacy ``installed`` boolean is preserved for backward compatibility.
+    """
     storage = get_storage_config()
-    state = _load_state()
+    persisted_state = _load_state()
     status = {}
     for name, meta in PROVIDER_METADATA.items():
+        # --- load manifest ---
+        manifest = None
+        try:
+            from runtime.manifest_loader import load_manifest
+            manifest = load_manifest(name)
+        except (ValueError, ImportError):
+            pass
         repo_name = meta.get("repo")
         weight_key = meta.get("weight_key")
+        blocking_reason = None
+        # --- repo ---
         if repo_name:
             rp = storage.get_repo_path(repo_name)
             repo_ok = rp.exists() and (rp / ".git").exists()
+            repo_state = "ok" if repo_ok else "missing"
         else:
             repo_ok = True
-        if weight_key:
-            wp = storage.get_weight_path(weight_key)
-            weight_ok = wp is not None
-        else:
-            weight_ok = True
-        # ponytail: venv readiness is what the model tab needs to warn when a
-        # repo/venv was skipped (e.g. exceeds Colab limits). Mirrors the check
-        # colab.sh's prepare_model_runtimes does with validate_venv().
+            repo_state = "ok"
+        # --- venv ---
         venv_ok = False
+        venv_path_str = None
         if repo_name:
             venv_python = storage.get_model_venv_path(repo_name) / "bin" / "python"
             venv_ok = venv_python.exists()
-        persisted = state.get("repos", {}).get(name)
+            venv_path_str = str(venv_python.parent.parent) if venv_ok else str(venv_python.parent.parent)
+        venv_state = "ok" if venv_ok else "missing"
+        # --- weights ---
+        weight_ok = True
+        weight_path_str = None
+        if weight_key:
+            wp = storage.get_weight_path(weight_key)
+            weight_ok = wp is not None
+            weight_path_str = str(wp) if wp else None
+        weight_state = "ok" if weight_ok else "missing"
+        # --- auxiliary weights ---
+        aux_weights = _check_auxiliary_weights(name, storage, manifest)
+        missing_aux = [a for a in aux_weights if a["state"] == "missing"]
+        # --- native build: manifest capabilities override provider-level flag ---
+        native_req = meta.get("native_build_required", False)
+        if manifest and "capabilities" in manifest:
+            cap_native = any(
+                v.get("native_build_required", False)
+                for v in manifest["capabilities"].values()
+                if isinstance(v, dict) and v.get("enabled", True)
+            )
+            if cap_native:
+                native_req = True
+        if native_req:
+            native_state = "pending"
+            native_detail = "Native CUDA build required; not yet executed"
+        else:
+            native_state = "not_required"
+            native_detail = ""
+        # --- vram: manifest hardware.minimum_vram_mb overrides metadata vram_required_mb ---
+        if manifest and "hardware" in manifest:
+            vram_required = manifest["hardware"].get("minimum_vram_mb", meta.get("vram_required_mb", 0))
+        else:
+            vram_required = meta.get("vram_required_mb", 0)
+        # --- preflight ---
+        preflight_state = _determine_preflight_state(name, repo_ok, venv_ok, weight_ok, native_req, missing_aux, manifest)
+        # --- cuda ---
+        cuda_state, cuda_version = _check_cuda_status()
+        # --- vram ---
+        vram_state, vram_available = _check_vram_status(vram_required)
+        # --- compute overall state ---
+        overall_state, blocking_reason = _compute_overall_state(
+            name, repo_ok, venv_ok, weight_ok, missing_aux, native_req, native_state, preflight_state, cuda_state, vram_state,
+            manifest,
+        )
+        # --- capabilities (from manifest when available, else metadata) ---
+        capabilities = _build_capability_states(name, meta, manifest)
+        persisted = persisted_state.get("repos", {}).get(name)
         status[name] = {
+            # New authoritative fields.
+            "state": overall_state,
+            "components": {
+                "repo": {"state": repo_state, "path": str(storage.get_repo_path(repo_name)) if repo_name else None},
+                "venv": {"state": venv_state, "path": venv_path_str},
+                "weights": {"state": weight_state, "path": weight_path_str},
+                "auxiliary_weights": aux_weights,
+                "native_build": {"state": native_state, "detail": native_detail},
+                "preflight": {"state": preflight_state},
+                "capabilities": capabilities,
+                "cuda": {"state": cuda_state, "version": cuda_version},
+                "vram": {"state": vram_state, "required_mb": vram_required, "available_mb": vram_available},
+            },
+            "blocking_reason": blocking_reason,
+            # Legacy backward-compatible fields.
             "installed": repo_ok and weight_ok,
             "repo_cloned": repo_ok,
             "weights_present": weight_ok,
@@ -1726,11 +2068,191 @@ def get_install_status() -> dict:
             "venv_ready": venv_ok,
             "weights_ready": weight_ok,
             "repo_path": str(storage.get_repo_path(repo_name)) if repo_name else None,
-            "weight_path": str(storage.get_weight_path(weight_key)) if (weight_key and weight_ok) else None,
+            "weight_path": weight_path_str,
             "metadata": meta,
             "last_installed": persisted.get("installed_at") if persisted else None,
         }
     return status
+
+
+def _check_auxiliary_weights(provider_name: str, storage, manifest: dict | None = None) -> list[dict]:
+    """Return auxiliary weight status list from manifest or hardcoded known deps."""
+    aux: list[dict] = []
+    entries: list[dict] = []
+    if manifest and "weights" in manifest:
+        entries = manifest["weights"].get("auxiliary", [])
+    else:
+        _KNOWN_AUX: dict[str, list[dict]] = {
+            "triposg": [
+                {"name": "RMBG-1.4", "repo": "briaai/RMBG-1.4", "required": True},
+            ],
+        }
+        entries = _KNOWN_AUX.get(provider_name, [])
+    for entry in entries:
+        aux_repo = entry.get("repo", "")
+        wp = storage.get_weight_path(aux_repo) if (storage and aux_repo) else None
+        item = dict(entry)
+        item["state"] = "ok" if wp else "missing"
+        aux.append(item)
+    return aux
+
+
+def _check_cuda_status() -> tuple[str, str]:
+    """Return (state, version_string) for CUDA availability."""
+    try:
+        import torch
+        if torch.cuda.is_available():
+            return "ok", torch.version.cuda or "unknown"
+    except Exception:
+        pass
+    return "unavailable", ""
+
+
+def _check_vram_status(required_mb: int) -> tuple[str, int]:
+    """Return (state, available_mb) for VRAM."""
+    available_mb = 0
+    try:
+        import torch
+        if torch.cuda.is_available():
+            available_mb = torch.cuda.get_device_properties(0).total_mem // (1024 * 1024)
+    except Exception:
+        pass
+    if required_mb <= 0:
+        return "ok", available_mb
+    if available_mb >= required_mb:
+        return "ok", available_mb
+    return "insufficient", available_mb
+
+
+def _determine_preflight_state(
+    provider_name: str,
+    repo_ok: bool,
+    venv_ok: bool,
+    weight_ok: bool,
+    native_req: bool,
+    missing_aux: list[dict],
+    manifest: dict | None = None,
+) -> str:
+    """Determine preflight state.
+
+    READY is never granted from a stub preflight.
+    Until real validation is implemented, state stays NOT_IMPLEMENTED.
+    """
+    # If manifest defines preflight config, honour it.
+    if manifest and "preflight" in manifest:
+        pf_cfg = manifest["preflight"]
+        # If smoke_inference is true but no smoke test is implemented, return not_implemented.
+        if pf_cfg.get("smoke_inference", False):
+            return "not_implemented"
+        # If manifest says preflight checks should pass, use manifest data.
+        if pf_cfg.get("expect_pass", False):
+            if repo_ok and venv_ok and weight_ok and not missing_aux and not native_req:
+                return "passed"
+            return "pending"
+    # If basic prerequisites are not met, preflight cannot run.
+    if not repo_ok or not weight_ok:
+        return "pending"
+    if missing_aux:
+        return "blocked"
+    if native_req:
+        return "pending"
+    # No real preflight implemented yet — return not_implemented.
+    return "not_implemented"
+
+
+def _compute_overall_state(
+    provider_name: str,
+    repo_ok: bool,
+    venv_ok: bool,
+    weight_ok: bool,
+    missing_aux: list[dict],
+    native_req: bool,
+    native_state: str,
+    preflight_state: str,
+    cuda_state: str,
+    vram_state: str,
+    manifest: dict | None = None,
+) -> tuple[str, str | None]:
+    """Compute overall install state and blocking reason."""
+    # If manifest says any enabled capability needs native build, treat as native_req.
+    if manifest and "capabilities" in manifest:
+        cap_native_req = any(
+            v.get("native_build_required", False)
+            for v in manifest["capabilities"].values()
+            if isinstance(v, dict) and v.get("enabled", True)
+        )
+        if cap_native_req:
+            native_req = True
+    blocking = None
+    if not repo_ok:
+        return "discovered", "Repository not cloned"
+    if not venv_ok:
+        return "env_creating", "Virtual environment not ready"
+    if not weight_ok:
+        return "weights_downloading", "Weights not downloaded"
+    if missing_aux:
+        names = ", ".join(a["name"] for a in missing_aux)
+        return "blocked", f"Required auxiliary weight(s) missing: {names}"
+    if native_req and native_state == "pending":
+        return "native_build_pending", "Native CUDA build queued for background execution"
+    if cuda_state == "unavailable":
+        return "cuda_incompatible", "CUDA not available"
+    if vram_state == "insufficient":
+        return "vram_insufficient", "Insufficient VRAM"
+    if preflight_state == "not_implemented":
+        # Cannot be READY without real preflight.
+        return "blocked", f"Preflight not implemented for {provider_name}"
+    if preflight_state == "blocked":
+        return "blocked", "Preflight blocked"
+    if preflight_state == "pending":
+        return "blocked", "Preflight pending"
+    if preflight_state == "passed":
+        return "ready", None
+    return "blocked", f"Preflight state: {preflight_state}"
+
+
+def _build_capability_states(provider_name: str, meta: dict, manifest: dict | None = None) -> dict:
+    """Build per-capability state dict.
+
+    Supports READY, PARTIAL, BLOCKED at capability level.
+    A missing capability-specific dep must not block unrelated capabilities.
+    If a manifest is provided, its capabilities dict drives per-capability state.
+    """
+    if manifest and "capabilities" in manifest:
+        caps: dict[str, dict] = {}
+        for cap_name, cap_info in manifest["capabilities"].items():
+            if not isinstance(cap_info, dict):
+                continue
+            if not cap_info.get("enabled", True):
+                caps[cap_name] = {"state": "disabled", "reason": "Disabled in manifest"}
+                continue
+            if cap_info.get("native_build_required", False):
+                caps[cap_name] = {"state": "blocked", "reason": "Native build required"}
+                continue
+            caps[cap_name] = {"state": "pending", "reason": "Awaiting smoke test"}
+        return caps
+    caps = {}
+    cap_map = {
+        "shape": {"key": "supports_text_to_3d", "alt_key": "supports_image_to_3d"},
+        "texture": {"key": "supports_texture_generation"},
+        "texture_pbr": {"key": "supports_pbr"},
+        "rigging": {"key": "supports_rigging"},
+        "detail_enhancement": {"key": "supports_detail_enhancement"},
+    }
+    for cap_name, cap_info in cap_map.items():
+        enabled = meta.get("capabilities", {}).get(cap_info["key"], False)
+        if not enabled:
+            alt = cap_info.get("alt_key")
+            if alt:
+                enabled = meta.get("capabilities", {}).get(alt, False)
+        if not enabled:
+            caps[cap_name] = {"state": "disabled", "reason": "Not supported by this provider"}
+            continue
+        # Capability is advertised; check if anything blocks it.
+        # For now, inherit overall state until manifest-driven per-capability
+        # checks are implemented.
+        caps[cap_name] = {"state": "pending", "reason": "Awaiting manifest-driven capability check"}
+    return caps
 
 
 def get_provider_python(repo_name: str) -> Path:

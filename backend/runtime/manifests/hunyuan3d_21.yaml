@@ -1,0 +1,52 @@
+name: hunyuan3d-2.1
+label: "Hunyuan3D 2.1"
+source:
+  repo: "https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1.git"
+  ref: "main"
+  submodules: false
+environment:
+  python: "3.10"
+  torch: "2.5.1"
+  cuda: "12.4"
+dependencies:
+  python:
+    # From upstream Hunyuan3D-2.1 repository requirements.
+    # The actual requirements.txt is read at install time;
+    # these are the critical packages validated by preflight.
+    - "hy3dgen"
+    - "accelerate>=0.34.0"
+    - "huggingface_hub==0.27.1"
+  imports:
+    - "torch"
+    - "diffusers"
+    - "transformers"
+    - "accelerate"
+  native: []
+weights:
+  primary:
+    repo: "tencent/Hunyuan3D-2.1"
+  auxiliary: []
+hardware:
+  minimum_vram_mb: 10240
+  recommended_vram_mb: 29000
+capabilities:
+  shape:
+    enabled: true
+    native_build_required: false
+    vram_required_mb: 10240
+  texture_pbr:
+    enabled: true
+    native_build_required: true
+    native_steps:
+      - "upstream texture/custom rasterizer setup"
+    vram_required_mb: 29000
+preflight:
+  check_model_venv: true
+  import_packages:
+    - "torch"
+    - "diffusers"
+    - "transformers"
+  check_weights: true
+  check_cuda: true
+  load_weights: true
+  smoke_inference: true

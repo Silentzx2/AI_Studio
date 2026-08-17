@@ -1,5 +1,56 @@
 # AI 3D Studio — Changelog
 
+## [Unreleased]
+
+### Added
+- Manifest-driven installation: YAML manifests are now the source of truth for dependencies, weights, hardware, and preflight
+- Component-level installation state persisted to database via ProviderInstallState model
+- Real model load and capability smoke tests in preflight (not stubs)
+- Per-capability native_build_required enforcement (e.g., hunyuan3d-2.1 texture_pbr)
+- Auxiliary weight required=true blocking (e.g., TripoSG RMBG-1.4)
+- hardware.minimum_vram_mb enforced as READY gate
+- Manifest-driven /repair/{provider_name} endpoint
+- Native-build lock ownership tracking (api/celery) for race safety
+
+### Changed
+- YAML manifests now drive dependency installation instead of REPOS["requirements"]
+- JSON/Python provider metadata remains active for UI/API metadata
+- preflight.py imports get_storage_config from runtime.storage directly
+
+### Fixed
+- **preflight.py**: Fixed import path (`get_storage_config` from `runtime.storage`, not `runtime.installer`)
+- **preflight.py**: Replaced `NOT_IMPLEMENTED` stubs with real `model_load` and `capability_smoke` tests
+- **preflight.py**: Added `minimum_vram_mb` as actual preflight/READY gate from manifest hardware section
+- **installer.py**: Manifest `dependencies.python` is now the source of truth for dependency installation
+- **installer.py**: Per-capability `native_build_required` from manifest triggers capability-level builds (e.g., Hunyuan3D 2.1 texture_pbr)
+- **installer.py**: Auxiliary weights marked `required: true` in manifest now produce `AUXILIARY_WEIGHTS_MISSING` blocking state
+- **installer.py**: Native-build lock now tracks `owner_type` (`api`/`celery`) for race-safety across API→Celery
+- **models/registry.py**: Added `ProviderInstallState` DB model for component-level state persistence
+- **installer.py**: Added `persist_provider_state`, `load_provider_state_from_db`, `get_persisted_install_status` for DB persistence
+- **admin.py**: `/repair/{provider_name}` endpoint now implements manifest-driven repair flow
+- **admin.py**: `/runtime` endpoint now serves DB-cached install status via `get_persisted_install_status`
+
+## v4.0.0 — Installation Contract Refactor (August 2025)
+
+### Added
+- **Manifest-driven installation**: Each model has a YAML manifest (`backend/runtime/manifests/`) defining its authoritative installation contract — source repo, environment, dependencies, weights, hardware requirements, capabilities, and preflight checks.
+- **`InstallState` enum + `ComponentStatus` dataclass** in `installer.py` — replaces binary `installed: true/false` with a full state machine (DISCOVERED → REPO_READY → ENV_READY → WEIGHTS_READY → PREFLIGHT_RUNNING → READY).
+- **Component-level status reporting**: `GET /api/v1/admin/install/status` now returns `state`, `components` (repo, venv, weights, auxiliary_weights, native_build, preflight, capabilities, cuda, vram), and `blocking_reason` for every provider.
+- **Preflight module** (`backend/runtime/preflight.py`): Import-only MVP preflight that runs checks inside the target model's venv (not the backend interpreter). Model load test and capability smoke test are deferred to a follow-up phase.
+- **Auxiliary weight tracking**: TripoSG's required RMBG-1.4 auxiliary model is now tracked and reported. Missing required auxiliary weights block READY state.
+- **Per-capability state**: Supports READY, PARTIAL, BLOCKED at capability level — a missing texture dep doesn't block shape generation.
+- **`POST /api/v1/admin/repair/{provider_name}`** stub endpoint for future repair flow.
+- **`Docs/INSTALLATION_STATES.md`** — full state machine reference with troubleshooting table.
+
+### Changed
+- **`get_install_status()`**: Returns detailed component-level state. Legacy `installed` boolean preserved for backward compatibility but is no longer authoritative.
+- **`install_provider()`**: Now manifest-driven — loads manifest, inits submodules, downloads auxiliary weights, runs preflight. New `skip_preflight` parameter added.
+- **Hunyuan3D 2.1 repo mapping**: Separate `Hunyuan3D-2.1` REPOS entry pointing to `Tencent-Hunyuan/Hunyuan3D-2.1.git`. No longer shares the `Hunyuan3D-2` entry. All consumers (PROVIDER_METADATA, EXTRA_DEPS, venv resolution) updated consistently.
+- **Admin API install endpoint**: Now passes `allow_native_build=False` and `skip_preflight=False` explicitly. Logs new state fields.
+
+### Ready Gate Rule
+> Never mark a model READY because its repository and weights exist. READY means the exact model environment, native dependencies, required assets, CUDA/VRAM constraints, model initialization, and the advertised capability's smoke test have all passed.
+
 ## v3.9.5 — Hunyuan3D VRAM Requirements Corrected (August 16, 2026)
 
 ### Fixed

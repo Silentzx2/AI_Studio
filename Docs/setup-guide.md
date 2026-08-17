@@ -973,6 +973,82 @@ After successful installation:
 4. **Download Models**: Use the model manager to install AI models
 5. **Customize**: Modify settings to fit your workflow
 
+## Models Not Ready
+
+If a model shows `BLOCKED` or `PARTIAL`:
+- **AUXILIARY_WEIGHTS_MISSING**: Required auxiliary weights (e.g., RMBG-1.4 for TripoSG) are missing. Run repair.
+- **NATIVE_BUILD_PENDING**: Native CUDA build is queued. Wait for background build to complete.
+- **PREFLIGHT_NOT_IMPLEMENTED**: Preflight checks are pending. Run install again.
+- **VRAM_INSUFFICIENT**: GPU does not meet minimum VRAM requirement. Check hardware.
+
+## Troubleshooting Models Not Ready
+
+Since v4.0, models report detailed component-level installation status.
+Use `GET /api/v1/admin/install/status` to see the full state.
+
+### TripoSG blocked on auxiliary weights
+
+```text
+State: BLOCKED
+Reason: Required auxiliary weight(s) missing: RMBG-1.4
+```
+
+Fix: Download RMBG-1.4 weights manually or via the repair endpoint (when implemented):
+```bash
+curl -X POST /api/v1/repair/triposg
+```
+
+### Hunyuan3D 2.1 points to wrong repository
+
+Verify the REPOS table has a separate `Hunyuan3D-2.1` entry pointing to `Tencent-Hunyuan/Hunyuan3D-2.1.git`.
+
+### Model shows BLOCKED with "Preflight not implemented"
+
+The preflight validation has not been written for this provider yet.
+This is expected during the v4.0 rollout. The model will become READY once its preflight is implemented and passes.
+
+> **Note**: As of the latest fixes, preflight now runs real `model_load` and `capability_smoke` tests (not stubs). If preflight still fails, check `components.preflight` for the specific test that failed.
+
+### Model shows BLOCKED with AUXILIARY_WEIGHTS_MISSING
+
+A required auxiliary weight (marked `required: true` in the manifest) is missing.
+
+```text
+State: BLOCKED
+Reason: Required auxiliary weight(s) missing: <weight-id>
+```
+
+Fix: Download the missing auxiliary weights via the repair endpoint:
+```bash
+curl -X POST /api/v1/admin/repair/<provider_name>
+```
+Or install the weight manually into `third_party/<RepoName>/weights/<weight-id>/`.
+
+### Model shows VRAM_INSUFFICIENT during preflight
+
+The GPU does not meet the manifest's `minimum_vram_mb` requirement. This is now a **hard gate** — the model cannot reach READY.
+
+Fix:
+1. Check actual GPU VRAM: `nvidia-smi --query-gpu=memory.total --format=csv-noheader`
+2. Compare against the manifest's `hardware.minimum_vram_mb` for the provider
+3. Use a GPU with sufficient VRAM, or enable low-VRAM mode if the provider supports it
+
+### texture_pbr capability shows native_build_pending
+
+Some capabilities (e.g., Hunyuan3D 2.1's `texture_pbr`) require a native CUDA build. The capability-level build must complete before that capability becomes available.
+
+Fix: Run install with native builds allowed:
+```bash
+curl -X POST "/api/v1/admin/install/<provider_name>?allow_native_build=true"
+```
+Note: Other capabilities (e.g., `shape`) remain usable while `texture_pbr` is building.
+
+### Native build models show NATIVE_BUILD_PENDING
+
+Models requiring CUDA compilation (TRELLIS, AniGen, UniRig) will report this state until the native build completes on a dedicated installation worker.
+
+See `Docs/INSTALLATION_STATES.md` for the full state reference.
+
 ---
 
 *Need help? Check the troubleshooting section or open an issue on GitHub.*

@@ -114,3 +114,26 @@ class ModelDependency(Base):
     package_name = Column(String)
     version_requirement = Column(String)
     installation_status = Column(String)
+
+class ProviderInstallState(Base):
+    __tablename__ = "provider_install_state"
+
+    provider_name = Column(String, primary_key=True)
+    overall_state = Column(String, default="discovered")
+    repo_state = Column(String)
+    env_state = Column(String)
+    weights_state = Column(String)
+    auxiliary_weights_state = Column(_DB_JSON, nullable=True)
+    native_build_state = Column(String)
+    preflight_state = Column(String)
+    model_load_state = Column(String)
+    capability_state = Column(_DB_JSON, nullable=True)
+    blocking_component = Column(String, nullable=True)
+    blocking_reason = Column(String, nullable=True)
+    repair_available = Column(String, nullable=True)
+    last_preflight_run = Column(DateTime, nullable=True)
+    last_preflight_result = Column(_DB_JSON, nullable=True)
+    native_build_task_id = Column(String, nullable=True)
+    native_build_lock_owner = Column(String, nullable=True)
+    native_build_lock_ts = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

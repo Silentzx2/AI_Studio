@@ -1127,21 +1127,30 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
                 clone_repo,
                 download_weights,
                 install_repo_deps,
+                get_install_status,
+                persist_provider_state,
             )
             from runtime.storage import get_storage_config
+            from runtime.manifest_loader import load_manifest
+
             storage = get_storage_config()
             meta = PROVIDER_METADATA.get(model_id, {})
             repo_name = meta.get("repo")
+
+            # Load manifest for repair guidance
+            manifest = None
+            try:
+                manifest = load_manifest(model_id)
+            except Exception:
+                pass
+
             if not repo_name or repo_name not in REPOS:
                 _dl_update(model_id, status="failed", error="No repo to repair",
                            log="Repair failed: model has no repo")
                 return
+
             repo_path = storage.get_repo_path(repo_name)
             if repo_path.exists():
-                # ponytail: rmtree removes the whole repo INCLUDING its
-                # per-model weights dir. We must re-download weights after
-                # re-cloning, otherwise repair silently leaves the model
-                # uninstalled (weights gone, selector shows "not installed").
                 shutil.rmtree(str(repo_path), ignore_errors=True)
             _dl_update(model_id, log="Re-cloning repository...")
 
@@ -1158,20 +1167,52 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
                 r = install_repo_deps(repo_name, log_cb=_repair_log)
                 if not r.get("success"):
                     raise RuntimeError(r.get("error", "dependency install failed"))
+
                 weight_key = meta.get("weight_key")
                 if weight_key:
                     _dl_update(model_id, phase="weights", log="Re-downloading weights...")
                     r = download_weights(weight_key, log_cb=_repair_log)
                     if not r.get("success"):
                         raise RuntimeError(r.get("error", "weight download failed"))
+
+                # Download required auxiliary weights from manifest
+                if manifest:
+                    aux_weights = manifest.get("weights", {}).get("auxiliary", [])
+                    for aux in aux_weights:
+                        aux_repo = aux.get("repo", "")
+                        if aux_repo and aux.get("required", False):
+                            _dl_update(model_id, log=f"Re-downloading auxiliary weights: {aux.get('name', aux_repo)}...")
+                            try:
+                                aux_r = download_weights(aux_repo, log_cb=_repair_log)
+                                if not aux_r["success"]:
+                                    raise RuntimeError(f"Auxiliary weight {aux_repo} download failed: {aux_r.get('error')}")
+                            except Exception as exc:
+                                raise RuntimeError(f"Auxiliary weight {aux_repo} error: {exc}")
+
+                # Run preflight after repair
+                _dl_update(model_id, log="Running preflight...")
+                try:
+                    from runtime.preflight import run_preflight_for_provider
+                    preflight_result = run_preflight_for_provider(model_id)
+                    _dl_update(model_id, log=f"Preflight: {'passed' if preflight_result.passed else 'failed'}")
+                except Exception as exc:
+                    _dl_update(model_id, log=f"Preflight error: {exc}")
+
+                # Get final status
+                final_status = get_install_status().get(model_id, {})
                 _dl_update(model_id, status="completed", percent=100,
-                           log="Repair complete")
+                           state=final_status.get("state", "ready"),
+                           log=f"Repair complete. State: {final_status.get('state')}")
             except Exception as exc:
                 _dl_update(model_id, status="failed", error=str(exc),
                            log=f"Repair failed: {exc}")
 
         background_tasks.add_task(_run_repair)
-        return success({"model_id": model_id, "action": "repair_started"})
+        return success({
+            "model_id": model_id,
+            "action": "repair_started",
+            "state": final_status.get("state") if 'final_status' in locals() else "unknown"
+        })
 
     elif action in ("delete", "uninstall"):
         try:
@@ -1632,8 +1673,19 @@ async def install_provider_endpoint(
             req.provider,
             hf_token=req.hf_token,
             log_cb=_log_cb,
+            allow_native_build=False,
+            skip_preflight=False,
         )
-        if result.get("success"):
+        # Log new state fields if present.
+        if result.get("state") and result["state"] != "ready":
+            blocking = result.get("blocking_reason", "")
+            _dl_update(req.provider, status="completed", percent=100,
+                       log=f"Install complete. State: {result['state']}. {blocking}")
+            logger.info(
+                "Provider %s install finished. state=%s blocking=%s",
+                req.provider, result.get("state"), blocking,
+            )
+        elif result.get("success"):
             _dl_update(req.provider, status="completed", percent=100,
                        log="Installation complete")
             logger.info("Provider %s installed.", req.provider)
@@ -1644,6 +1696,16 @@ async def install_provider_endpoint(
 
     background_tasks.add_task(_run)
     return success({"message": f"Installation of {req.provider} started."})
+
+
+@router.post("/repair/{provider_name}")
+async def repair_provider_endpoint(provider_name: str):
+    """Stub endpoint for future repair functionality.
+
+    Will identify the failing component via manifest lookup,
+    repair the exact component, revalidate, and run preflight.
+    """
+    return success({"message": "not yet implemented", "provider": provider_name})
 
 
 # ---------------------------------------------------------------------------

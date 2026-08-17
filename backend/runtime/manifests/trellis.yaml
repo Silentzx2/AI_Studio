@@ -1,0 +1,73 @@
+name: trellis
+label: "TRELLIS"
+source:
+  repo: "https://github.com/microsoft/TRELLIS.git"
+  ref: "main"
+  submodules: true
+environment:
+  python: "3.10"
+  torch: "2.5.1"
+  cuda: "12.1"
+dependencies:
+  python:
+    # Core runtime deps from upstream setup.sh --basic.
+    # Native CUDA deps (spconv, kaolin, etc.) handled separately.
+    - "pillow"
+    - "imageio"
+    - "imageio-ffmpeg"
+    - "tqdm"
+    - "easydict"
+    - "opencv-python-headless"
+    - "scipy"
+    - "ninja"
+    - "rembg"
+    - "onnxruntime"
+    - "trimesh"
+    - "open3d"
+    - "xatlas"
+    - "pymeshfix"
+    - "igraph"
+    - "transformers"
+    - "git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8"
+  imports:
+    - "torch"
+    - "diffusers"
+    - "transformers"
+    - "trimesh"
+  native:
+    # FlexiCubes is a CUDA extension built at install time.
+    - "FlexiCubes"
+  attention_backend:
+    one_of:
+      - "flash-attn"
+      - "xformers"
+weights:
+  primary:
+    repo: "microsoft/TRELLIS-image-large"
+  auxiliary: []
+hardware:
+  minimum_vram_mb: 8000
+  # Studio recommended target for generation, not upstream hard minimum.
+  recommended_vram_mb: 24000
+capabilities:
+  shape:
+    enabled: true
+    native_build_required: true
+    vram_required_mb: 8000
+  texture:
+    enabled: true
+    native_build_required: false
+    vram_required_mb: 16000
+preflight:
+  check_model_venv: true
+  import_packages:
+    - "torch"
+    - "diffusers"
+    - "transformers"
+    - "trimesh"
+  check_weights: true
+  check_cuda: true
+  check_native_extensions:
+    - "FlexiCubes"
+  load_weights: true
+  smoke_inference: true
