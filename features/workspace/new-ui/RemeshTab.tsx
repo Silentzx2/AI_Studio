@@ -292,34 +292,34 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
   };
 
   return (
-    <div className="flex-1 flex flex-col lg:flex-row gap-0 bg-[hsl(var(--surface-0))] overflow-hidden" id="remesh-tab-panel">
+    <div className="flex-1 flex flex-col lg:flex-row gap-0 bg-tripo-gray-3 overflow-hidden" id="remesh-tab-panel">
       {/* Left Settings sidebar — Refined Studio layout */}
-      <aside className="w-full lg:w-[360px] border-r border-[hsl(var(--border))] flex flex-col h-full bg-[hsl(var(--surface-1))] z-10" id="remesh-left-panel">
+      <aside className="w-full lg:w-62 border-r border-tripo-white-5 flex flex-col h-full bg-tripo-gray-4 z-10 rounded-r-5" id="remesh-left-panel">
         
         {/* SECTION: TARGET ASSET */}
-        <div className="p-6 border-b border-[hsl(var(--border))]">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr bg-[hsl(var(--surface-2))] flex items-center justify-center shadow-lg shadow-[hsl(var(--primary))]/20">
-              <RefreshCw size={18} className="text-[hsl(var(--foreground))]" />
+        <div className="p-4 border-b border-tripo-white-5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-tripo-yellow-1/10 flex items-center justify-center">
+              <RefreshCw size={16} className="text-tripo-yellow-1" />
             </div>
             <div className="flex flex-col">
-              <span className="text-[11px] font-black uppercase tracking-tighter">Retopology Flow</span>
-              <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase">Topology Optimization</span>
+              <span className="text-3 font-medium text-tripo-gray-100">Retopology Flow</span>
+              <span className="text-2.5 text-tripo-gray-300">Topology Optimization</span>
             </div>
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-8" id="remesh-target-box">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4" id="remesh-target-box">
           <div className="flex flex-col gap-1.5">
-            <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Target Asset</span>
+            <span className="text-2.5 font-medium text-tripo-gray-300 uppercase tracking-wider">Target Asset</span>
           </div>
 
           <div className="flex flex-col gap-3">
 {isUploadingModel ? (
-  <div className="w-full flex flex-col items-center gap-2 py-4 bg-[hsl(var(--surface-2))] rounded-xl border border-[hsl(var(--border))]">
-    <RefreshCw size={16} className="text-[hsl(var(--primary))] animate-spin" />
-    <div className="w-full max-w-[80%] h-1 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden">
-      <div className="h-full bg-[hsl(var(--primary))] transition-all duration-200" style={{ width: `${modelUploadProgress}%` }} />
+  <div className="w-full flex flex-col items-center gap-2 py-4 bg-tripo-gray-3 rounded-xl border border-tripo-white-5">
+    <RefreshCw size={16} className="text-tripo-yellow-1 animate-spin" />
+    <div className="w-full max-w-[80%] h-1 bg-tripo-gray-3 rounded-full overflow-hidden">
+      <div className="h-full bg-tripo-yellow-1 transition-all duration-200" style={{ width: `${modelUploadProgress}%` }} />
     </div>
     <button
       onClick={() => {
@@ -330,74 +330,74 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
         setModelUploadProgress(0);
         setStatusMessage('Upload cancelled');
       }}
-      className="text-[8px] font-mono text-[hsl(var(--muted-foreground))]/50 hover:underline"
+      className="text-2.5 font-mono text-tripo-gray-300 hover:underline"
     >
       Cancel
     </button>
   </div>
 ) : uploadedModelUrl ? (
-              <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-3 flex items-center gap-3 group">
-                <div className="w-8 h-8 rounded-lg bg-[hsl(var(--neon-green))/0.1] flex items-center justify-center text-[hsl(var(--muted-foreground))]">
-                  <Layers size={14} />
+                <div className="bg-tripo-gray-3 border border-tripo-white-5 rounded-xl p-3 flex items-center gap-3 group">
+                  <div className="w-8 h-8 rounded-lg bg-tripo-yellow-1/10 flex items-center justify-center text-tripo-gray-300">
+                    <Layers size={14} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-3 font-medium text-tripo-gray-100 truncate">{uploadedModelName}</p>
+                    <p className="text-2.5 text-tripo-gray-300">Ready to Remesh</p>
+                  </div>
+                  <button 
+                    onClick={() => { setUploadedModel(null); setUploadedModelUrl(null); setUploadedModelName(''); }} 
+                    className="p-1.5 rounded-lg hover:bg-tripo-white-10 text-tripo-gray-300 hover:text-tripo-gray-100"
+                  >
+                    <X size={14} />
+                  </button>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-black text-[hsl(var(--foreground))] truncate">{uploadedModelName}</p>
-                  <p className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter">Ready to Remesh</p>
+              ) : (
+                <div className="bg-tripo-gray-3 border border-tripo-white-5 rounded-xl p-3 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-tripo-yellow-1/10 flex items-center justify-center text-tripo-yellow-1">
+                    <Box size={14} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-3 font-medium text-tripo-gray-100 truncate">{activeModel.name}</p>
+                    <p className="text-2.5 text-tripo-gray-300">Active Workspace Mesh</p>
+                  </div>
                 </div>
-                <button 
-                  onClick={() => { setUploadedModel(null); setUploadedModelUrl(null); setUploadedModelName(''); }} 
-                  className="p-1.5 rounded-lg hover:bg-[hsl(var(--destructive))/0.1] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ) : (
-              <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-3 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-[hsl(var(--primary))/0.1] flex items-center justify-center text-[hsl(var(--primary))]">
-                  <Box size={14} />
+              )}
+              
+              <label
+                id="remesh-upload-dropzone"
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`flex flex-col items-center justify-center gap-1.5 py-5 rounded-xl border-2 border-dashed transition-all cursor-pointer text-center group ${
+                  isDragOver
+                    ? 'border-tripo-yellow-1 bg-tripo-yellow-1/5'
+                    : 'border-tripo-white-5 bg-tripo-gray-3 hover:border-tripo-yellow-1/50 hover:bg-tripo-gray-4'
+                }`}
+              >
+                <Upload size={16} className="text-tripo-gray-300 group-hover:scale-110 group-hover:text-tripo-yellow-1 transition-all" />
+                <div className="flex flex-col">
+                  <span className="text-3 font-medium text-tripo-gray-100">Import Custom Mesh</span>
+                  <span className="text-2.5 text-tripo-gray-300">GLB / GLTF Only</span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-black text-[hsl(var(--foreground))] truncate">{activeModel.name}</p>
-                  <p className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter">Active Workspace Mesh</p>
-                </div>
-              </div>
-            )}
-            
-            <label
-              id="remesh-upload-dropzone"
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              className={`flex flex-col items-center justify-center gap-1.5 py-5 rounded-xl border-2 border-dashed transition-all cursor-pointer text-center group ${
-                isDragOver
-                  ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5'
-                  : 'border-[hsl(var(--border))] bg-[hsl(var(--surface-1))] hover:border-[hsl(var(--primary))]/50 hover:bg-[hsl(var(--surface-2))]'
-              }`}
-            >
-              <Upload size={16} className="text-[hsl(var(--muted-foreground))] group-hover:scale-110 group-hover:text-[hsl(var(--primary))] transition-all" />
-              <div className="flex flex-col">
-                <span className="text-[10px] font-black text-[hsl(var(--foreground))]">Import Custom Mesh</span>
-                <span className="text-[8px] text-[hsl(var(--muted-foreground))] font-mono uppercase">GLB / GLTF Only</span>
-              </div>
-              <input type="file" accept=".glb,.gltf" onChange={handleModelUpload} className="hidden" />
-            </label>
+                <input type="file" accept=".glb,.gltf" onChange={handleModelUpload} className="hidden" />
+              </label>
+            </div>
           </div>
-        </div>
-        <AssetPanelHost className="border-t border-[hsl(var(--border))]" />
+        <AssetPanelHost className="border-t border-tripo-white-5" />
 
         <div className="flex flex-col gap-4" id="remesh-pipeline-box">
           <div className="flex flex-col gap-1.5">
-            <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Processing Pipeline</span>
+            <span className="text-2.5 font-medium text-tripo-gray-300 uppercase tracking-wider">Processing Pipeline</span>
           </div>
 
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Remesh Algorithm</label>
+              <label className="text-3 font-medium text-tripo-gray-300 uppercase">Remesh Algorithm</label>
               <select
                 value={effectiveModelId}
                 onChange={(e) => setSelectedModelId(e.target.value)}
                 disabled={isLoadingModels}
-                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl px-3 py-2.5 text-[11px] font-black text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))] transition-all appearance-none disabled:opacity-60 shadow-sm"
+                className="w-full bg-tripo-gray-3 border-tripo-white-5 rounded-xl px-3 py-2 text-3 font-medium text-tripo-gray-100 cursor-pointer focus:outline-none focus:border-tripo-yellow-1 transition-all appearance-none disabled:opacity-60 shadow-sm"
               >
                 {modelOptions.map((m) => (
                   <option key={m.id || 'default'} value={m.id}>
@@ -408,11 +408,11 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Target Topology</label>
+              <label className="text-3 font-medium text-tripo-gray-300 uppercase">Target Topology</label>
               <select
                 value={targetType}
                 onChange={(e) => setTargetType(e.target.value)}
-                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl px-3 py-2.5 text-[11px] font-black text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))]"
+                className="w-full bg-tripo-gray-3 border-tripo-white-5 rounded-xl px-3 py-2 text-3 font-medium text-tripo-gray-100 cursor-pointer focus:outline-none focus:border-tripo-yellow-1"
               >
                 <option value="quad-dominant">Quad-Dominant Flow</option>
                 <option value="uniform-triangles">Uniform Triangulation</option>
@@ -422,11 +422,11 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Vertex Density</label>
+              <label className="text-3 font-medium text-tripo-gray-300 uppercase">Vertex Density</label>
               <select
                 value={vertexDensity}
                 onChange={(e) => setVertexDensity(e.target.value)}
-                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl px-3 py-2.5 text-[11px] font-black text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))]"
+                className="w-full bg-tripo-gray-3 border-tripo-white-5 rounded-xl px-3 py-2 text-3 font-medium text-tripo-gray-100 cursor-pointer focus:outline-none focus:border-tripo-yellow-1"
               >
                 <option value="10K">10K Low-Poly (Mobile)</option>
                 <option value="20K">20K Optimized (Game)</option>
@@ -437,10 +437,10 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
 
             {/* Low VRAM toggle */}
             {effectiveModelId && (modelOptions.find((m) => m.id === effectiveModelId)?.low_vram_supported) && (
-              <div className="flex items-center justify-between bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl px-3 py-2">
+              <div className="flex items-center justify-between bg-tripo-gray-3 border border-tripo-white-5 rounded-xl px-3 py-2">
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-bold text-[hsl(var(--foreground))] uppercase">Low VRAM Mode</span>
-                  <span className="text-[8px] text-[hsl(var(--muted-foreground))] font-mono">
+                  <span className="text-3 font-medium text-tripo-gray-300 uppercase">Low VRAM Mode</span>
+                  <span className="text-2.5 text-tripo-gray-300">
                     ~{((modelOptions.find((m) => m.id === effectiveModelId)?.low_vram_required_mb || 0) / 1024).toFixed(1)} GB min
                   </span>
                 </div>
@@ -448,29 +448,29 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
                   onClick={() => setLowVram(!lowVram)}
                   className={cn(
                     'w-8 h-4 rounded-full transition-all relative',
-                    lowVram ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-3))]',
+                    lowVram ? 'bg-tripo-yellow-1' : 'bg-tripo-gray-3',
                   )}
                 >
-                  <div className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-[hsl(var(--surface-2))] shadow transition-all', lowVram ? 'left-4.5' : 'left-0.5')} />
+                  <div className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-tripo-gray-4 shadow transition-all', lowVram ? 'left-4.5' : 'left-0.5')} />
                 </button>
               </div>
             )}
 
-            <div className="flex flex-col gap-3 pt-2 border-t border-[hsl(var(--border))/40]">
+            <div className="flex flex-col gap-3 pt-2 border-t border-tripo-white-5/40">
               {[
                 { label: 'Preserve Symmetry', state: symmetry, setter: setSymmetry, desc: 'Sync mirror planes' },
                 { label: 'Retain Hard Edges', state: keepBoundaries, setter: setKeepBoundaries, desc: 'Protect sharp splits' },
               ].map((t) => (
                 <div key={t.label} className="flex items-center justify-between">
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-[hsl(var(--foreground))] uppercase">{t.label}</span>
-                    <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase">{t.desc}</span>
+                    <span className="text-3 font-medium text-tripo-gray-100 uppercase">{t.label}</span>
+                    <span className="text-2.5 text-tripo-gray-300">{t.desc}</span>
                   </div>
                   <input
                     type="checkbox"
                     checked={t.state}
                     onChange={(e) => t.setter(e.target.checked)}
-                    className="accent-[hsl(var(--primary))] h-4 w-4 cursor-pointer"
+                    className="accent-tripo-yellow-1 h-4 w-4 cursor-pointer"
                   />
                 </div>
               ))}
@@ -479,7 +479,7 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
             <button
               onClick={handleRemesh}
               disabled={isProcessing}
-              className="w-full bg-gradient-to-r bg-[hsl(var(--surface-2))] hover:brightness-110 active:scale-[0.98] text-[hsl(var(--surface-0))] font-black py-3 rounded-xl text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-[0_8px_20px_rgba(245,166,35,0.2)] mt-2"
+              className="w-full bg-tripo-yellow-1 text-tripo-gray-3 font-bold py-3 rounded-full text-3.5 flex items-center justify-center gap-2 transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-50 mt-2"
             >
               {isProcessing ? (
                 <>
@@ -498,7 +498,7 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
       </aside>
 
       {/* Right Result Visualizer Stage — Full Studio Expansion */}
-      <div className="flex-1 bg-[hsl(var(--surface-0))] flex flex-col relative overflow-hidden" id="remesh-right-stage">
+      <div className="flex-1 bg-tripo-gray-3 flex flex-col relative overflow-hidden" id="remesh-right-stage">
         
         {/* Background Aura overlay during baking */}
         <AnimatePresence>
@@ -507,17 +507,17 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-[hsl(var(--surface-0))/0.8] backdrop-blur-md z-30 flex flex-col items-center justify-center text-center p-12"
+              className="absolute inset-0 bg-tripo-gray-3/80 backdrop-blur-md z-30 flex flex-col items-center justify-center text-center p-12"
             >
               <div className="relative">
-                <div className="w-24 h-24 rounded-full border-4 border-[hsl(var(--primary))/0.1] border-t-[hsl(var(--primary))] animate-spin" />
-                <RefreshCw size={32} className="absolute inset-0 m-auto text-[hsl(var(--primary))] animate-pulse" />
+                <div className="w-24 h-24 rounded-full border-4 border-tripo-white-5 border-t-tripo-yellow-1 animate-spin" />
+                <RefreshCw size={32} className="absolute inset-0 m-auto text-tripo-yellow-1 animate-pulse" />
               </div>
-              <h3 className="text-xl font-black text-[hsl(var(--foreground))] uppercase tracking-widest mt-8">Synthesizing Topology</h3>
-              <p className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter mt-1">{statusMessage}</p>
+              <h3 className="text-xl font-black text-tripo-gray-100 uppercase tracking-widest mt-8">Synthesizing Topology</h3>
+              <p className="text-3 text-tripo-gray-300 font-mono uppercase tracking-tighter mt-1">{statusMessage}</p>
               
-              <div className="w-48 h-1 bg-[hsl(var(--surface-3))] rounded-full mt-8 overflow-hidden">
-                <div className="h-full bg-[hsl(var(--primary))] animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+              <div className="w-48 h-1 bg-tripo-gray-4 rounded-full mt-8 overflow-hidden">
+                <div className="h-full bg-tripo-yellow-1 animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-white/30 to-transparent" />
               </div>
             </motion.div>
           )}
@@ -527,12 +527,12 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
           <div className="max-w-4xl w-full mx-auto flex flex-col gap-5">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]" />
-                <h3 className="text-[11px] font-black text-[hsl(var(--foreground))] uppercase tracking-widest">
+                <div className="w-1.5 h-1.5 rounded-full bg-tripo-yellow-1" />
+                <h3 className="text-3 font-medium text-tripo-gray-300 uppercase tracking-widest">
                   Topology Pipeline Diagnostics
                 </h3>
               </div>
-              <p className="text-xs text-[hsl(var(--muted-foreground))] max-w-2xl leading-relaxed">
+              <p className="text-3 text-tripo-gray-300 max-w-2xl leading-relaxed">
                 Analyze and review isomorphic mesh distribution. The Studio engine automatically maps these baked attributes to the primary render stage.
               </p>
             </div>
@@ -540,45 +540,45 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
             {/* Interactive display */}
             {successResult ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fadeIn">
-                <div className="col-span-full bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-4 flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-[hsl(var(--neon-green))/0.1] flex items-center justify-center text-[hsl(var(--muted-foreground))]">
+                <div className="col-span-full bg-tripo-gray-4 border border-tripo-white-5 rounded-2xl p-4 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-tripo-yellow-1/10 flex items-center justify-center text-tripo-gray-300">
                     <CheckCircle size={24} />
                   </div>
                   <div>
-                    <span className="text-sm font-black text-[hsl(var(--foreground))] uppercase tracking-tight">Optimization Success</span>
-                    <p className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono uppercase">Mesh retopologized with {successResult.reduction} reduction</p>
+                    <span className="text-3.5 font-black text-tripo-gray-100 uppercase tracking-tight">Optimization Success</span>
+                    <p className="text-2.5 text-tripo-gray-300">Mesh retopologized with {successResult.reduction} reduction</p>
                   </div>
                 </div>
 
-                <div className="bg-[hsl(var(--surface-1))] p-4 rounded-xl border border-[hsl(var(--border))] flex flex-col gap-4">
-                  <span className="text-[10px] font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest border-b border-[hsl(var(--border))] pb-2">Mesh Statistics</span>
+                <div className="bg-tripo-gray-4 p-4 rounded-xl border border-tripo-white-5 flex flex-col gap-4">
+                  <span className="text-2.5 font-bold text-tripo-gray-300 uppercase tracking-widest border-b border-tripo-white-5 pb-2">Mesh Statistics</span>
                   <div className="space-y-4">
                     <div className="flex justify-between items-end">
-                      <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono">Input Density</span>
-                      <span className="text-xs font-bold text-[hsl(var(--foreground))]">{successResult.oldVertices}</span>
+                      <span className="text-2.5 text-tripo-gray-300 uppercase">Input Density</span>
+                      <span className="text-3 font-bold text-tripo-gray-100">{successResult.oldVertices}</span>
                     </div>
                     <div className="flex justify-between items-end">
-                      <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono text-[hsl(var(--muted-foreground))]">Optimized Density</span>
-                      <span className="text-xs font-bold text-[hsl(var(--muted-foreground))]">{successResult.newVertices}</span>
+                      <span className="text-2.5 text-tripo-gray-300 uppercase">Optimized Density</span>
+                      <span className="text-3 font-bold text-tripo-gray-300">{successResult.newVertices}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-[hsl(var(--surface-1))] p-4 rounded-xl border border-[hsl(var(--border))] flex flex-col gap-4">
-                  <span className="text-[10px] font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest border-b border-[hsl(var(--border))] pb-2">Analysis AI</span>
-                  <p className="text-[11px] text-[hsl(var(--foreground))] leading-relaxed">
+                <div className="bg-tripo-gray-4 p-4 rounded-xl border border-tripo-white-5 flex flex-col gap-4">
+                  <span className="text-2.5 font-bold text-tripo-gray-300 uppercase tracking-widest border-b border-tripo-white-5 pb-2">Analysis AI</span>
+                  <p className="text-3 text-tripo-gray-100 leading-relaxed">
                     {successResult.promptDescription}
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="flex-1 min-h-[400px] flex flex-col items-center justify-center text-center p-12 border-2 border-dashed border-[hsl(var(--border))] rounded-3xl bg-[hsl(var(--surface-1))]/50">
-                <div className="w-20 h-20 rounded-full bg-[hsl(var(--surface-2))] flex items-center justify-center text-[hsl(var(--border))] mb-6">
+              <div className="flex-1 min-h-[400px] flex flex-col items-center justify-center text-center p-12 border-2 border-dashed border-tripo-white-5 rounded-3xl bg-tripo-gray-4/50">
+                <div className="w-20 h-20 rounded-full bg-tripo-gray-4 flex items-center justify-center text-tripo-white-5 mb-6">
                   <Settings size={40} className="animate-spin-slow opacity-20" />
                 </div>
-                <h4 className="text-sm font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest">Awaiting Stage Trigger</h4>
-                <p className="text-[10px] text-[hsl(var(--muted-foreground))] max-w-sm mt-2 leading-relaxed uppercase font-bold tracking-tighter">
-                  Select a model source and click &quot;Bake Topology&quot; to initiate the Studio retopology pipeline.
+                <h4 className="text-3 font-medium text-tripo-gray-300 uppercase tracking-wider">Awaiting Stage Trigger</h4>
+                <p className="text-2.5 text-tripo-gray-300 max-w-sm mt-2 leading-relaxed">
+                  Select a model source and click "Bake Topology" to initiate the Studio retopology pipeline.
                 </p>
               </div>
             )}
@@ -586,12 +586,14 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate }: Re
         </div>
 
         {/* Engine Notice Footer */}
-        <div className="mt-auto p-6 bg-[hsl(var(--surface-1))] border-t border-[hsl(var(--border))]">
+        <div className="mt-auto p-6 bg-tripo-gray-4 border-t border-tripo-white-5">
           <div className="max-w-4xl mx-auto flex items-start gap-4">
-            <AlertTriangle size={18} className="text-[hsl(var(--muted-foreground))] flex-shrink-0 mt-0.5" />
+            <div className="w-5 h-5 rounded-full bg-tripo-yellow-1/10 flex items-center justify-center text-tripo-yellow-1 flex-shrink-0 mt-0.5">
+              <span className="text-2.5 font-bold">i</span>
+            </div>
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest">Studio Engine Notice</span>
-              <p className="text-[10px] text-[hsl(var(--muted-foreground))] leading-relaxed uppercase font-bold tracking-tighter">
+              <span className="text-2.5 font-bold text-tripo-gray-300 uppercase tracking-widest">Studio Engine Notice</span>
+              <p className="text-2.5 text-tripo-gray-300 leading-relaxed">
                 Retopology updates are destructive to the local vertex buffer but persistent in the Studio stage. Always export original primitives before committing heavy decimation.
               </p>
             </div>

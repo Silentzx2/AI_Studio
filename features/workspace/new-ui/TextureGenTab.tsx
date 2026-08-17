@@ -316,36 +316,36 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
   };
 
   return (
-    <div className="flex-1 flex flex-col lg:flex-row gap-0 bg-[hsl(var(--surface-0))] overflow-hidden" id="texture-tab-panel">
+    <div className="flex-1 flex flex-col lg:flex-row gap-0 bg-tripo-gray-3 overflow-hidden" id="texture-tab-panel">
       {/* Left Settings sidebar — Refined Studio layout */}
-      <aside className="w-full lg:w-[360px] border-r border-[hsl(var(--border))] flex flex-col h-full bg-[hsl(var(--surface-1))] z-10" id="texture-left-panel">
-        <div className="p-6 border-b border-[hsl(var(--border))]">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr bg-[hsl(var(--surface-2))] flex items-center justify-center shadow-lg shadow-[hsl(var(--primary))]/20">
-              <Palette size={18} className="text-[hsl(var(--foreground))]" />
+      <aside className="w-full lg:w-62 border-r border-tripo-white-5 flex flex-col h-full bg-tripo-gray-4 z-10 rounded-r-5" id="texture-left-panel">
+        <div className="p-4 border-b border-tripo-white-5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-tripo-yellow-1/10 flex items-center justify-center">
+              <Palette size={16} className="text-tripo-yellow-1" />
             </div>
             <div className="flex flex-col">
-              <span className="text-sm font-medium">Surface Painter</span>
-              <span className="text-xs text-white/60">AI PBR Generation</span>
+              <span className="text-3 font-medium text-tripo-gray-100">Surface Painter</span>
+              <span className="text-2.5 text-tripo-gray-300">AI PBR Generation</span>
             </div>
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-8" id="texture-engine-box">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4" id="texture-engine-box">
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-white/60 text-left">Target Asset</span>
+            <span className="text-2.5 font-medium text-tripo-gray-300 uppercase tracking-wider">Target Asset</span>
           </div>
 
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
             {/* Model Upload */}
             <div className="flex flex-col gap-2" id="texture-upload-area">
-              <label className="text-xs font-medium text-white/60">Target Asset</label>
+              <label className="text-3 font-medium text-tripo-gray-300">Target Asset</label>
               
 {isUploadingModel ? (
-  <div className="w-full flex flex-col items-center gap-2 py-3 bg-[hsl(var(--surface-2))] rounded-xl border border-white/5">
-    <RefreshCw size={16} className="text-[hsl(var(--primary))] animate-spin" />
-    <div className="w-full max-w-[80%] h-1 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden">
-      <div className="h-full bg-[hsl(var(--primary))] transition-all duration-200" style={{ width: `${modelUploadProgress}%` }} />
+  <div className="w-full flex flex-col items-center gap-2 py-3 bg-tripo-gray-3 rounded-xl border border-tripo-white-5">
+    <RefreshCw size={16} className="text-tripo-yellow-1 animate-spin" />
+    <div className="w-full max-w-[80%] h-1 bg-tripo-gray-3 rounded-full overflow-hidden">
+      <div className="h-full bg-tripo-yellow-1 transition-all duration-200" style={{ width: `${modelUploadProgress}%` }} />
     </div>
     <button
       onClick={() => {
@@ -356,23 +356,23 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
         setModelUploadProgress(0);
         setStatusMessage('Upload cancelled');
       }}
-      className="text-[8px] font-mono text-[hsl(var(--muted-foreground))]/50 hover:underline"
+      className="text-2.5 font-mono text-tripo-gray-300 hover:underline"
     >
       Cancel
     </button>
   </div>
 ) : uploadedModelUrl ? (
-                <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-3 flex items-center gap-3 group">
-                  <div className="w-8 h-8 rounded-lg bg-[hsl(var(--neon-green))/0.1] flex items-center justify-center text-[hsl(var(--muted-foreground))]">
+                <div className="bg-tripo-gray-3 border border-tripo-white-5 rounded-xl p-3 flex items-center gap-3 group">
+                  <div className="w-8 h-8 rounded-lg bg-tripo-yellow-1/10 flex items-center justify-center text-tripo-gray-300">
                     <Palette size={14} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-white/80 truncate">{uploadedModelName}</p>
-                    <p className="text-xs text-white/40">Asset ready</p>
+                    <p className="text-3 font-medium text-tripo-gray-100 truncate">{uploadedModelName}</p>
+                    <p className="text-2.5 text-tripo-gray-300">Asset ready</p>
                   </div>
                   <button 
                     onClick={() => { setUploadedModel(null); setUploadedModelUrl(null); setUploadedModelName(''); }} 
-                    className="p-1.5 rounded-lg hover:bg-[hsl(var(--destructive))/0.1] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--destructive))] transition-colors"
+                    className="p-1.5 rounded-lg hover:bg-tripo-white-10 text-tripo-gray-300 hover:text-tripo-gray-100 transition-colors"
                   >
                     <X size={14} />
                   </button>
@@ -383,16 +383,16 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
-                  className={`flex flex-col items-center justify-center gap-1.5 py-6 rounded-xl border-2 border-dashed transition-all cursor-pointer text-center relative overflow-hidden group ${
+                  className={`flex flex-col items-center justify-center gap-1.5 py-5 rounded-xl border-2 border-dashed transition-all cursor-pointer text-center relative overflow-hidden group ${
                     isDragOver
-                      ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5'
-                      : 'border-[hsl(var(--border))] bg-[hsl(var(--surface-1))] hover:border-[hsl(var(--primary))]/50 hover:bg-[hsl(var(--surface-2))]'
+                      ? 'border-tripo-yellow-1 bg-tripo-yellow-1/5'
+                      : 'border-tripo-white-5 bg-tripo-gray-3 hover:border-tripo-yellow-1/50 hover:bg-tripo-gray-4'
                   }`}
                 >
-                  <Upload size={18} className="text-[hsl(var(--muted-foreground))] group-hover:scale-110 group-hover:text-[hsl(var(--primary))] transition-all" />
+                  <Upload size={16} className="text-tripo-gray-300 group-hover:scale-110 group-hover:text-tripo-yellow-1 transition-all" />
                   <div className="flex flex-col">
-                    <span className="text-xs font-medium text-white/80">Drop your 3D model</span>
-                    <span className="text-xs text-white/40">Supports .glb and .gltf</span>
+                    <span className="text-3 font-medium text-tripo-gray-100">Drop your 3D model</span>
+                    <span className="text-2.5 text-tripo-gray-300">Supports .glb and .gltf</span>
                   </div>
                   <input type="file" accept=".glb,.gltf" onChange={handleModelUpload} className="hidden" />
                 </label>
@@ -401,13 +401,13 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
 
             {/* Model Selection */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-white/60">Provider</label>
+              <label className="text-3 font-medium text-tripo-gray-300">Provider</label>
               <div className="relative group">
                 <select
                   value={materialModel}
                   onChange={(e) => setMaterialModel(e.target.value)}
                   disabled={isLoadingTextureModels}
-                  className="w-full bg-[hsl(var(--surface-3))] border border-white/10 rounded-xl pl-3 pr-8 py-2.5 text-xs font-medium text-white/80 cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))] transition-all appearance-none disabled:opacity-50"
+                  className="w-full bg-tripo-gray-3 border-tripo-white-5 rounded-xl pl-3 pr-8 py-2 text-3 font-medium text-tripo-gray-100 cursor-pointer focus:outline-none focus:border-tripo-yellow-1 transition-all appearance-none disabled:opacity-50"
                 >
                   {availableTextureModels.map((m: any) => (
                     <option key={m.id} value={m.id} disabled={m.installed === false}>
@@ -415,15 +415,15 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
                     </option>
                   ))}
                 </select>
-                <ChevronDown size={14} className="absolute right-3 top-3 text-[hsl(var(--muted-foreground))] pointer-events-none group-hover:text-[hsl(var(--primary))] transition-colors" />
-            </div>
+                <ChevronDown size={14} className="absolute right-3 top-3 text-tripo-gray-300 pointer-events-none group-hover:text-tripo-yellow-1 transition-colors" />
+              </div>
 
             {/* Low VRAM toggle */}
             {materialModel && (availableTextureModels.find((m: any) => m.id === materialModel)?.low_vram_supported) && (
-              <div className="flex items-center justify-between bg-[hsl(var(--surface-2))] border border-white/5 rounded-xl px-3 py-2">
+              <div className="flex items-center justify-between bg-tripo-gray-3 border border-tripo-white-5 rounded-xl px-3 py-2">
                 <div className="flex flex-col">
-                  <span className="text-xs font-medium text-white/60">Low VRAM mode</span>
-                  <span className="text-[10px] text-white/30">
+                  <span className="text-3 font-medium text-tripo-gray-300">Low VRAM mode</span>
+                  <span className="text-2.5 text-tripo-gray-300">
                     ~{((availableTextureModels.find((m: any) => m.id === materialModel)?.low_vram_required_mb || 0) / 1024).toFixed(1)} GB min
                   </span>
                 </div>
@@ -431,32 +431,32 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
                   onClick={() => setLowVram(!lowVram)}
                   className={cn(
                     'w-8 h-4 rounded-full transition-all relative',
-                    lowVram ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-3))]',
+                    lowVram ? 'bg-tripo-yellow-1' : 'bg-tripo-gray-3',
                   )}
                 >
-                  <div className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-[hsl(var(--surface-2))] shadow transition-all', lowVram ? 'left-4.5' : 'left-0.5')} />
+                  <div className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-tripo-gray-4 shadow transition-all', lowVram ? 'left-4.5' : 'left-0.5')} />
                 </button>
               </div>
             )}
           </div>
         </div>
         </div>
-        <AssetPanelHost className="border-t border-[hsl(var(--border))]" />
+        <AssetPanelHost className="border-t border-tripo-white-5" />
 
         {/* SECTION: TEXTURE GENERATION */}
-        <div className="bg-[hsl(var(--surface-2))] border border-white/5 rounded-2xl p-5 flex flex-col gap-5" id="texture-generation-box">
-          <div className="flex items-center justify-between border-b border-[hsl(var(--border))] pb-2">
-            <span className="text-xs font-medium text-white/60">PBR Painting</span>
-            <Palette size={12} className="text-[hsl(var(--primary))]" />
+        <div className="bg-tripo-gray-3 border border-tripo-white-5 rounded-2xl p-4 flex flex-col gap-4" id="texture-generation-box">
+          <div className="flex items-center justify-between border-b border-tripo-white-5 pb-2">
+            <span className="text-2.5 font-medium text-tripo-gray-300">PBR Painting</span>
+            <Palette size={12} className="text-tripo-yellow-1" />
           </div>
 
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between items-center text-xs font-medium text-white/60">
+              <div className="flex justify-between items-center text-3 font-medium text-tripo-gray-300">
                 <label>Material prompt</label>
                 <button 
                   onClick={handleRandomPrompt}
-                  className="text-[hsl(var(--primary))] hover:brightness-110 flex items-center gap-1 transition-all"
+                  className="text-tripo-yellow-1 hover:brightness-110 flex items-center gap-1 transition-all"
                 >
                   <RefreshCw size={10} />
                   Shuffle
@@ -466,18 +466,18 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
                 value={texturePrompt}
                 onChange={(e) => setTexturePrompt(e.target.value)}
                 placeholder="Polished obsidian, gold filigree trim, heavy weathering..."
-                className="w-full bg-[hsl(var(--surface-3))] border border-white/10 rounded-xl p-3 text-sm text-white/80 placeholder-white/30 min-h-[90px] max-h-[140px] focus:outline-none focus:border-[hsl(var(--primary))] transition-all resize-none leading-relaxed"
+                className="w-full bg-tripo-gray-3 border-tripo-white-5 rounded-xl p-3 text-3 text-tripo-gray-100 placeholder:text-tripo-gray-300 min-h-[90px] max-h-[140px] focus:outline-none focus:border-tripo-yellow-1 transition-all resize-none leading-relaxed"
               />
             </div>
 
             {/* Baking Parameters */}
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-white/60">Resolution</label>
+                <label className="text-2.5 font-medium text-tripo-gray-300">Resolution</label>
                 <select
                   value={resolution}
                   onChange={(e) => setResolution(e.target.value)}
-                  className="w-full bg-[hsl(var(--surface-3))] border border-white/10 rounded-xl px-2 py-2 text-xs font-medium text-white/80 cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))]"
+                  className="w-full bg-tripo-gray-3 border-tripo-white-5 rounded-xl px-2 py-2 text-3 font-medium text-tripo-gray-100 cursor-pointer focus:outline-none focus:border-tripo-yellow-1"
                 >
                   <option value="4096">4K Ultra</option>
                   <option value="2048">2K High</option>
@@ -486,11 +486,11 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
                 </select>
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-white/60">Style</label>
+                <label className="text-2.5 font-medium text-tripo-gray-300">Style</label>
                 <select
                   value={themeStyle}
                   onChange={(e) => setThemeStyle(e.target.value)}
-                  className="w-full bg-[hsl(var(--surface-3))] border border-white/10 rounded-xl px-2 py-2 text-xs font-medium text-white/80 cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))]"
+                  className="w-full bg-tripo-gray-3 border-tripo-white-5 rounded-xl px-2 py-2 text-3 font-medium text-tripo-gray-100 cursor-pointer focus:outline-none focus:border-tripo-yellow-1"
                 >
                   <option value="photorealistic">Realistic</option>
                   <option value="stylized-handpainted">Handpainted</option>
@@ -503,14 +503,14 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
             {/* Physics Sliders */}
             <div className="flex flex-col gap-3.5 pt-2">
               {[
-                { label: 'Weathering', value: weathering, setter: setWeathering, color: 'accent-[hsl(var(--primary))]' },
-                { label: 'Metalness', value: metalnessBias, setter: setMetalnessBias, color: 'accent-[hsl(var(--muted-foreground))]' },
-                { label: 'Roughness', value: roughnessBias, setter: setRoughnessBias, color: 'accent-[hsl(var(--muted-foreground))]' },
+                { label: 'Weathering', value: weathering, setter: setWeathering },
+                { label: 'Metalness', value: metalnessBias, setter: setMetalnessBias },
+                { label: 'Roughness', value: roughnessBias, setter: setRoughnessBias },
               ].map((s) => (
                 <div key={s.label} className="flex flex-col gap-1.5">
-                  <div className="flex justify-between items-center text-xs font-medium text-white/50">
+                  <div className="flex justify-between items-center text-3 font-medium text-tripo-gray-300">
                     <span>{s.label}</span>
-                    <span className="text-white/80 font-mono">{Math.round(s.value * 100)}%</span>
+                    <span className="text-tripo-gray-100 font-mono">{Math.round(s.value * 100)}%</span>
                   </div>
                   <input
                     type="range"
@@ -519,7 +519,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
                     step="0.05"
                     value={s.value}
                     onChange={(e) => s.setter(parseFloat(e.target.value))}
-                    className={`w-full h-1 cursor-pointer transition-all ${s.color}`}
+                    className="w-full h-1 cursor-pointer transition-all accent-tripo-yellow-1"
                   />
                 </div>
               ))}
@@ -528,7 +528,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
             <button
               onClick={handleTextureGen}
               disabled={isProcessing || !texturePrompt}
-              className="w-full bg-[hsl(var(--primary))] text-black font-medium py-3 rounded-full text-sm flex items-center justify-center gap-2 transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-50 mt-2"
+              className="w-full bg-tripo-yellow-1 text-tripo-gray-3 font-bold py-3 rounded-full text-3.5 flex items-center justify-center gap-2 transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-50 mt-2"
               id="trigger-texture-btn"
             >
               {isProcessing ? (
@@ -548,7 +548,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
       </aside>
 
       {/* Right Result Visualizer Stage — Full Studio Expansion */}
-      <div className="flex-1 bg-[hsl(var(--surface-0))] flex flex-col relative overflow-hidden" id="texture-right-stage">
+      <div className="flex-1 bg-tripo-gray-3 flex flex-col relative overflow-hidden" id="texture-right-stage">
         
         {/* Background Aura overlay during baking */}
         <AnimatePresence>
@@ -557,17 +557,17 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-[hsl(var(--surface-0))/0.8] backdrop-blur-md z-30 flex flex-col items-center justify-center text-center p-12"
+              className="absolute inset-0 bg-tripo-gray-3/80 backdrop-blur-md z-30 flex flex-col items-center justify-center text-center p-12"
             >
               <div className="relative">
-                <div className="w-24 h-24 rounded-full border-4 border-[hsl(var(--primary))/0.1] border-t-[hsl(var(--primary))] animate-spin" />
-                <Palette size={32} className="absolute inset-0 m-auto text-[hsl(var(--primary))] animate-pulse" />
+                <div className="w-24 h-24 rounded-full border-4 border-tripo-white-5 border-t-tripo-yellow-1 animate-spin" />
+                <Palette size={32} className="absolute inset-0 m-auto text-tripo-yellow-1 animate-pulse" />
               </div>
-              <h3 className="text-xl font-medium text-white/80 mt-8">Baking PBR materials</h3>
-              <p className="text-xs text-white/40 mt-1">{statusMessage}</p>
+              <h3 className="text-xl font-medium text-tripo-gray-100 mt-8">Baking PBR materials</h3>
+              <p className="text-3 text-tripo-gray-300 mt-1">{statusMessage}</p>
               
-              <div className="w-48 h-1 bg-[hsl(var(--surface-3))] rounded-full mt-8 overflow-hidden">
-                <div className="h-full bg-[hsl(var(--primary))] animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+              <div className="w-48 h-1 bg-tripo-gray-4 rounded-full mt-8 overflow-hidden">
+                <div className="h-full bg-tripo-yellow-1 animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-white/30 to-transparent" />
               </div>
             </motion.div>
           )}
@@ -577,12 +577,12 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
           <div className="max-w-4xl w-full mx-auto flex flex-col gap-5">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]" />
-                <h3 className="text-xs font-medium text-white/60">
+                <div className="w-1.5 h-1.5 rounded-full bg-tripo-yellow-1" />
+                <h3 className="text-3 font-medium text-tripo-gray-300">
                   Surface Analysis Pipeline
                 </h3>
               </div>
-              <p className="text-xs text-[hsl(var(--muted-foreground))] max-w-2xl leading-relaxed">
+              <p className="text-3 text-tripo-gray-300 max-w-2xl leading-relaxed">
                 Analyze and review AI-generated surface attributes. The Studio automatically applies Albedo, Normal, and Roughness maps to the active workspace.
               </p>
             </div>
@@ -590,45 +590,45 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
             {/* Interactive display */}
             {successResult ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fadeIn">
-                <div className="col-span-full bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-4 flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-[hsl(var(--neon-green))/0.1] flex items-center justify-center text-[hsl(var(--muted-foreground))]">
+                <div className="col-span-full bg-tripo-gray-4 border border-tripo-white-5 rounded-2xl p-4 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-tripo-yellow-1/10 flex items-center justify-center text-tripo-gray-300">
                     <CheckCircle size={24} />
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-white/80">Material synthesis success</span>
-                    <p className="text-xs text-white/40">Full PBR stack generated in {resolution}px</p>
+                    <span className="text-3.5 font-medium text-tripo-gray-100">Material synthesis success</span>
+                    <p className="text-2.5 text-tripo-gray-300">Full PBR stack generated in {resolution}px</p>
                   </div>
                 </div>
 
-                <div className="bg-[hsl(var(--surface-1))] p-4 rounded-xl border border-[hsl(var(--border))] flex flex-col gap-4">
-                  <span className="text-xs font-medium text-white/60 border-b border-white/5 pb-2">Material info</span>
+                <div className="bg-tripo-gray-4 p-4 rounded-xl border border-tripo-white-5 flex flex-col gap-4">
+                  <span className="text-2.5 font-medium text-tripo-gray-300 border-b border-tripo-white-5 pb-2">Material info</span>
                   <div className="space-y-4">
                     <div className="flex justify-between items-end">
-                      <span className="text-xs text-white/40">Bake resolution</span>
-                      <span className="text-xs font-medium text-white/80">{resolution}px</span>
+                      <span className="text-2.5 text-tripo-gray-300">Bake resolution</span>
+                      <span className="text-3 font-medium text-tripo-gray-100">{resolution}px</span>
                     </div>
                     <div className="flex justify-between items-end">
-                      <span className="text-xs text-white/40">Shader model</span>
-                      <span className="text-xs font-medium text-[hsl(var(--primary))]">{themeStyle}</span>
+                      <span className="text-2.5 text-tripo-gray-300">Shader model</span>
+                      <span className="text-3 font-medium text-tripo-yellow-1">{themeStyle}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-[hsl(var(--surface-1))] p-4 rounded-xl border border-[hsl(var(--border))] flex flex-col gap-4">
-                  <span className="text-[10px] font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest border-b border-[hsl(var(--border))] pb-2">AI Interpretation</span>
-                  <p className="text-[11px] text-[hsl(var(--foreground))] leading-relaxed">
+                <div className="bg-tripo-gray-4 p-4 rounded-xl border border-tripo-white-5 flex flex-col gap-4">
+                  <span className="text-2.5 font-bold text-tripo-gray-300 uppercase tracking-widest border-b border-tripo-white-5 pb-2">AI Interpretation</span>
+                  <p className="text-3 text-tripo-gray-100 leading-relaxed">
                     {successResult.texturesDescription}
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="flex-1 min-h-[400px] flex flex-col items-center justify-center text-center p-12 border-2 border-dashed border-[hsl(var(--border))] rounded-3xl bg-[hsl(var(--surface-1))]/50">
-                <div className="w-20 h-20 rounded-full bg-[hsl(var(--surface-2))] flex items-center justify-center text-[hsl(var(--border))] mb-6">
+              <div className="flex-1 min-h-[400px] flex flex-col items-center justify-center text-center p-12 border-2 border-dashed border-tripo-white-5 rounded-3xl bg-tripo-gray-4/50">
+                <div className="w-20 h-20 rounded-full bg-tripo-gray-4 flex items-center justify-center text-tripo-white-5 mb-6">
                   <Palette size={40} className="animate-pulse opacity-20" />
                 </div>
-                <h4 className="text-sm font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest">Awaiting Surface Projection</h4>
-                <p className="text-[10px] text-[hsl(var(--muted-foreground))] max-w-sm mt-2 leading-relaxed uppercase font-bold tracking-tighter">
-                  Describe your material and click &quot;Paint Materials&quot; to begin the AI texture generation process.
+                <h4 className="text-3 font-medium text-tripo-gray-300 uppercase tracking-wider">Awaiting Surface Projection</h4>
+                <p className="text-2.5 text-tripo-gray-300 max-w-sm mt-2 leading-relaxed">
+                  Describe your material and click "Generate Textures" to begin the AI texture generation process.
                 </p>
               </div>
             )}
@@ -636,13 +636,15 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
         </div>
 
         {/* Engine Notice Footer */}
-        <div className="mt-auto p-6 bg-[hsl(var(--surface-1))] border-t border-[hsl(var(--border))]">
+        <div className="mt-auto p-6 bg-tripo-gray-4 border-t border-tripo-white-5">
           <div className="max-w-4xl mx-auto flex items-start gap-4">
-            <AlertTriangle size={18} className="text-[hsl(var(--muted-foreground))] flex-shrink-0 mt-0.5" />
+            <div className="w-5 h-5 rounded-full bg-tripo-yellow-1/10 flex items-center justify-center text-tripo-yellow-1 flex-shrink-0 mt-0.5">
+              <span className="text-2.5 font-bold">i</span>
+            </div>
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest">Studio Engine Notice</span>
-              <p className="text-[10px] text-[hsl(var(--muted-foreground))] leading-relaxed uppercase font-bold tracking-tighter">
-                Generated textures are applied as temporary overrides. Use the &quot;Commit&quot; button in the primary workspace to bake them permanently into your asset history.
+              <span className="text-2.5 font-bold text-tripo-gray-300 uppercase tracking-widest">Studio Engine Notice</span>
+              <p className="text-2.5 text-tripo-gray-300 leading-relaxed">
+                Generated textures are applied as temporary overrides. Use the "Commit" button in the primary workspace to bake them permanently into your asset history.
               </p>
             </div>
           </div>

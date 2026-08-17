@@ -285,20 +285,20 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
   const getSidebarItemClass = (label: string) => {
     const isActive = activeSidebarItem === label;
     return cn(
-      'flex items-center gap-3 px-3 py-2 rounded-full text-sm font-medium transition-all duration-150',
+      'flex items-center gap-3 px-3 py-2 rounded-full text-3 font-medium transition-all duration-150',
       'text-left w-full',
       isActive
-        ? 'bg-[hsl(var(--primary))/0.08] text-[hsl(var(--primary))]'
-        : 'text-white/50 hover:text-white/80 hover:bg-white/5'
+        ? 'bg-tripo-gray-4 text-tripo-yellow-1'
+        : 'text-tripo-gray-300 hover:text-tripo-gray-100 hover:bg-tripo-white-5'
     );
   };
 
   const getSidebarIconClass = (isActive: boolean) => {
     return cn(
-      'w-4 h-4',
+      'size-4',
       isActive
-        ? 'text-[hsl(var(--primary))]'
-        : 'text-white/30 group-hover:text-white/60 transition-colors'
+        ? 'text-tripo-yellow-1'
+        : 'text-tripo-gray-300 group-hover:text-tripo-gray-100 transition-colors'
     );
   };
 
@@ -317,8 +317,8 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
     );
   };
 
-  return (
-    <div className="flex flex-1 min-h-0 min-w-0 bg-[#0a0a0a] text-[hsl(var(--foreground))]" id="creative-layout-container">
+   return (
+    <div className="flex flex-1 min-h-0 min-w-0 bg-tripo-gray-3 text-[hsl(var(--foreground))]" id="creative-layout-container">
       {/* Mobile drawer overlay for the main sidebar */}
       {mobileMenuOpen && (
         <div
@@ -329,12 +329,12 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
       )}
 
       {/* Sidebar panel — responsive: static on desktop, slide-in drawer on mobile */}
-      <aside className={`${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed inset-y-0 left-0 z-50 w-[260px] max-w-[85vw] lg:static lg:z-20 lg:w-[280px] bg-black/40 backdrop-blur-[40px] border-r border-white/5 flex flex-col min-h-0 flex-shrink-0 transition-all duration-200`} id="creative-sidebar">
-        {/* Minimal Brand Header */}
-        <div className={getLogoHeaderClass()} id="creative-logo-header">
+      <aside className={`${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed inset-y-0 left-0 z-50 w-[260px] max-w-[85vw] lg:static lg:z-20 lg:w-[280px] bg-tripo-gray-3 border-r border-tripo-white-5 flex flex-col min-h-0 flex-shrink-0 transition-all duration-200 rounded-l-5`} id="creative-sidebar">
+         {/* Minimal Brand Header */}
+        <div className="h-12 flex items-center px-4 border-b border-tripo-white-5 flex-shrink-0" id="creative-logo-header">
           <div className="flex items-center">
-            <div className="w-7 h-7 rounded-full bg-[hsl(var(--primary))]/10 flex items-center justify-center">
-              <Sparkles size={16} className="text-[hsl(var(--primary))]" />
+            <div className="w-8 h-8 rounded-full bg-tripo-yellow-1 flex items-center justify-center">
+              <Sparkles size={16} className="text-tripo-gray-3" />
             </div>
           </div>
         </div>
@@ -342,7 +342,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
         {/* Navigation Links */}
         <div className={getSidebarLinksClass()} id="creative-sidebar-links">
           <div className="px-4 mb-3 mt-5">
-            <span className="text-[11px] font-medium text-white/20">Navigation</span>
+            <span className="text-2.5 font-medium text-tripo-gray-300">Navigation</span>
           </div>
           {sidebarItems.map((item) => {
             const Icon = item.icon;
@@ -362,87 +362,87 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
         </div>
 
         {/* Footer controls */}
-        <div className="py-5 border-t border-white/5 flex flex-col gap-3 flex-shrink-0" id="creative-sidebar-footer">
-          {/* Status indicators */}
-          <div className="px-4 flex flex-col gap-2.5">
-            <div className="px-3 mb-0.5 flex items-center justify-between">
-              <span className="text-[11px] text-white/20">Performance</span>
-              <button
-                onClick={() => setMonitorExpanded(!monitorExpanded)}
-                className="p-1 rounded-md hover:bg-white/5 text-white/30 hover:text-white/60 transition-all duration-150"
-              >
-                <ChevronDown size={14} className={`transform transition-transform duration-200 ${monitorExpanded ? '' : '-rotate-90'}`} />
-              </button>
-            </div>
-
-            {monitorExpanded && (
-              <div className="flex flex-col gap-2">
-                {/* GPU Item */}
-                <div className="flex flex-col gap-1.5">
-                  <button
-                    onClick={() => setGpuExpanded(!gpuExpanded)}
-                    className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-lg bg-white/[0.03] border border-transparent hover:border-white/10 transition-all duration-200 text-left cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Cpu className="w-4 h-4 text-white/50" />
-                      <span className="text-[11px] font-medium uppercase tracking-wider text-white/50">GPU Stats</span>
-                    </div>
-                    <ChevronDown size={12} className={`text-white/30 transform transition-transform duration-200 ${gpuExpanded ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  {/* GPU Expanded Stats Sub-widget */}
-                  {gpuExpanded && (
-                    <div className="px-3.5 py-2.5 rounded-lg bg-white/[0.02] border border-white/5 text-[11px] space-y-2" id="gpu-expanded-details">
-                      <div className="flex justify-between items-center">
-                        <span className="text-white/30 font-medium uppercase tracking-wider text-[10px]">Model</span>
-                        <span className="font-medium text-white/80 truncate max-w-[120px]">
-                          {runtime?.gpu_name || "NVIDIA H100"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-white/30 font-medium uppercase tracking-wider text-[10px]">Load</span>
-                        <span className="font-medium text-white/80">
-                          {runtime ? `${runtime.gpu_utilization}%` : '—'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-white/30 font-medium uppercase tracking-wider text-[10px]">Temp</span>
-                        <span className="font-medium text-rose-400">
-                          {runtime ? `${runtime.gpu_temp}°C` : '—'}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* VRAM Metric */}
-                <div className="flex flex-col gap-2 p-3.5 rounded-lg bg-white/[0.03] border border-transparent">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Zap className="w-4 h-4 text-white/30" />
-                      <span className="text-[11px] font-medium uppercase tracking-wider text-white/50">Memory</span>
-                    </div>
-                    <span className="text-[11px] font-medium text-white/80">
-                      {runtime ? `${(runtime.vram_used_mb / 1024).toFixed(1)}GB` : '—'}
-                    </span>
-                  </div>
-                  {runtime && (
-                    <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-[hsl(var(--primary))] transition-all duration-300"
-                        style={{ width: `${vramPercentage}%` }}
-                      />
-                    </div>
-                  )}
-                </div>
+        <div className="py-5 border-t border-tripo-white-5 flex flex-col gap-3 flex-shrink-0" id="creative-sidebar-footer">
+            {/* Status indicators */}
+            <div className="px-4 flex flex-col gap-2.5">
+              <div className="px-3 mb-0.5 flex items-center justify-between">
+                <span className="text-2.5 text-tripo-gray-300">Performance</span>
+                <button
+                  onClick={() => setMonitorExpanded(!monitorExpanded)}
+                  className="p-1 rounded-md hover:bg-tripo-white-5 text-tripo-gray-300 hover:text-tripo-gray-100 transition-all duration-150"
+                >
+                  <ChevronDown size={14} className={`transform transition-transform duration-200 ${monitorExpanded ? '' : '-rotate-90'}`} />
+                </button>
               </div>
-            )}
-          </div>
+
+              {monitorExpanded && (
+                <div className="flex flex-col gap-2">
+                  {/* GPU Item */}
+                  <div className="flex flex-col gap-1.5">
+                    <button
+                      onClick={() => setGpuExpanded(!gpuExpanded)}
+                      className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-lg bg-tripo-gray-4 border border-tripo-white-5 hover:border-tripo-white-10 transition-all duration-200 text-left cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Cpu className="w-4 h-4 text-tripo-gray-300" />
+                        <span className="text-3 font-medium uppercase tracking-wider text-tripo-gray-300">GPU Stats</span>
+                      </div>
+                      <ChevronDown size={12} className={`text-tripo-gray-300 transform transition-transform duration-200 ${gpuExpanded ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {/* GPU Expanded Stats Sub-widget */}
+                    {gpuExpanded && (
+                      <div className="px-3.5 py-2.5 rounded-lg bg-tripo-gray-4 border border-tripo-white-5 text-3 space-y-2" id="gpu-expanded-details">
+                        <div className="flex justify-between items-center">
+                          <span className="text-tripo-gray-300 font-medium uppercase tracking-wider text-2.5">Model</span>
+                          <span className="font-medium text-tripo-gray-100 truncate max-w-[120px]">
+                            {runtime?.gpu_name || "NVIDIA H100"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-tripo-gray-300 font-medium uppercase tracking-wider text-2.5">Load</span>
+                          <span className="font-medium text-tripo-gray-100">
+                            {runtime ? `${runtime.gpu_utilization}%` : '—'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-tripo-gray-300 font-medium uppercase tracking-wider text-2.5">Temp</span>
+                          <span className="font-medium text-rose-400">
+                            {runtime ? `${runtime.gpu_temp}°C` : '—'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* VRAM Metric */}
+                  <div className="flex flex-col gap-2 p-3.5 rounded-lg bg-tripo-gray-4 border border-tripo-white-5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-tripo-gray-300" />
+                        <span className="text-3 font-medium uppercase tracking-wider text-tripo-gray-300">Memory</span>
+                      </div>
+                      <span className="text-3 font-medium text-tripo-gray-100">
+                        {runtime ? `${(runtime.vram_used_mb / 1024).toFixed(1)}GB` : '—'}
+                      </span>
+                    </div>
+                    {runtime && (
+                      <div className="w-full h-1 bg-tripo-gray-3 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-tripo-yellow-1 transition-all duration-300"
+                          style={{ width: `${vramPercentage}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
         </div>
       </aside>
 
       {/* Main viewport panels */}
-        <main ref={mainRef} className="flex-1 flex flex-col bg-[#0a0a0a] overflow-hidden" id="creative-main-viewport">
+        <main ref={mainRef} className="flex-1 flex flex-col bg-tripo-gray-3 overflow-hidden" id="creative-main-viewport">
         {activeSidebarItem === '3D Gen' && (
           <ThreeDGenWorkspace embedded />
         )}

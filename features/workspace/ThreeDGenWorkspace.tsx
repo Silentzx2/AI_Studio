@@ -124,19 +124,19 @@ export function ThreeDGenWorkspace({ embedded = false }: { embedded?: boolean })
   };
 
   return (
-    <div className={`flex flex-col overflow-hidden bg-[hsl(var(--surface-0))] ${embedded ? 'h-full' : 'h-screen'}`}>
+    <div className={`flex flex-col overflow-hidden bg-tripo-gray-3 ${embedded ? 'h-full' : 'h-screen'}`}>
       {!embedded && <WorkspaceNavbar />}
       <div className="flex flex-1 min-h-0 h-full relative">
-        {/* Left Panel - Generation Controls (280px) */}
-        <div className="w-[280px] max-w-[80vw] shrink-0 h-full border-r border-[hsl(var(--border)/0.15)] bg-[hsl(var(--surface-1))] transition-all duration-200">
+        {/* Left Panel - Generation Controls (248px) */}
+        <div className="w-62 max-w-[80vw] shrink-0 h-full border-r border-tripo-white-5 bg-tripo-gray-4 transition-all duration-200 rounded-r-5">
           <GenerationControls />
         </div>
         {/* Center Panel - Main 3D Canvas (Maximized Viewport) */}
         <div className="flex-1 min-w-0 min-h-0 flex flex-col relative h-full w-full">
           <Canvas3D isGenerating={isGenerating} />
         </div>
-        {/* Right Panel - Asset Library & Inspector (260px) */}
-        <div className="w-[260px] max-w-[80vw] shrink-0 h-full border-l border-[hsl(var(--border)/0.15)] bg-[hsl(var(--surface-1))] transition-all duration-200 scrollbar-thin">
+        {/* Right Panel - Asset Library & Inspector (248px) */}
+        <div className="w-62 max-w-[80vw] shrink-0 h-full border-l border-tripo-white-5 bg-tripo-gray-4 transition-all duration-200 scrollbar-thin rounded-l-5 shadow-[0_0_20px_rgba(0,0,0,0.3)]">
           <AssetPanel
             assets={assets}
             selectedAssetId={selectedAssetId}

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import {
-  Search, Menu, X, Boxes, Settings, Wand2, ChevronRight, LayoutDashboard, Clock, Box
+  Search, Menu, X, Boxes, Settings, Wand2, ChevronRight, ChevronDown, LayoutDashboard, Clock, Box
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/stores/useUIStore';
@@ -49,78 +49,82 @@ export function WorkspaceNavbar() {
 
   return (
     <header
-      className="fixed top-0 left-0 right-0 z-50 w-full bg-[hsl(var(--surface-0))] border-b border-[hsl(var(--border))/0.08] transition-all h-7"
+      className="fixed top-0 left-0 right-0 z-50 w-full bg-tripo-gray-3 border-b border-tripo-white-5 transition-all h-12"
       id="global-workspace-navbar"
     >
-      <div className="h-full flex items-center justify-between gap-1 px-2 sm:px-3">
-        {/* Left: Hamburger + Logo */}
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => setDrawerOpen(!drawerOpen)}
-            className="p-1 rounded text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--surface-2))] hover:text-[hsl(var(--foreground))] transition-all"
-            aria-label="Toggle navigation"
-          >
-            {drawerOpen ? <X size={13} /> : <Menu size={13} />}
-          </button>
-
+      <div className="h-full flex items-center justify-between gap-1 px-3 sm:px-4 max-w-7xl mx-auto">
+        {/* Left: Logo + Brand */}
+        <div className="flex items-center gap-2">
           <Link href="/" className="flex items-center" aria-label="Home">
-            <div className="w-5 h-5 rounded bg-[hsl(var(--primary))] flex items-center justify-center">
-              <Boxes size={10} className="text-[hsl(var(--surface-2))]" />
+            <div className="w-8 h-8 rounded-full bg-tripo-yellow-1 flex items-center justify-center">
+              <Boxes size={16} className="text-tripo-gray-3" />
             </div>
           </Link>
+          <span className="text-3.5 font-bold text-tripo-gray-100 hidden sm:block">AI Studio</span>
         </div>
 
-        {/* Center: Search */}
-        <div className="flex-1 max-w-[180px] hidden sm:block mx-1" id="centered-search-container">
-          <form onSubmit={handleSearchSubmit} className="relative w-full group">
-            <Search className="absolute left-1.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 text-[hsl(var(--muted-foreground))] group-focus-within:text-[hsl(var(--primary))] transition-colors" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search..."
-              className="w-full h-5 pl-4 pr-1.5 text-[10px] font-medium text-[hsl(var(--foreground))] bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))/0.15] rounded-sm
-                         placeholder:text-[hsl(var(--muted-foreground))/0.4]
-                         focus:outline-none focus:border-[hsl(var(--border))] focus:ring-1 focus:ring-[hsl(var(--primary))/0.1]
-                         transition-all"
-              onClick={() => {
-                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true, bubbles: true }));
-              }}
-            />
-          </form>
-        </div>
+        {/* Center: Nav Links */}
+        <nav className="hidden md:flex items-center gap-1" id="centered-nav-links">
+          {NAV_LINKS.map((link) => {
+            const Icon = link.icon;
+            const active = isActive(link.href);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-2 rounded-full text-3.5 font-medium transition-all duration-150',
+                  active
+                    ? 'bg-tripo-gray-4 text-tripo-yellow-1'
+                    : 'text-tripo-gray-300 hover:text-tripo-gray-100 hover:bg-tripo-white-5'
+                )}
+              >
+                <Icon size={16} />
+                <span>{link.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-0.5" id="top-nav-actions">
+        <div className="flex items-center gap-2" id="top-nav-actions">
           <button
             onClick={() => {
               const input = document.querySelector('#centered-search-container input') as HTMLInputElement;
               input?.focus();
             }}
-            className="sm:hidden p-1 rounded text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--surface-2))] hover:text-[hsl(var(--foreground))] transition-all"
+            className="sm:hidden p-2 rounded-full text-tripo-gray-300 hover:text-tripo-gray-100 hover:bg-tripo-white-5 transition-all"
             aria-label="Search"
           >
-            <Search size={12} />
+            <Search size={16} />
           </button>
 
           {activeBatchCount > 0 && (
             <Link
               href="/workspace?tab=3d-gen"
-              className="hidden sm:flex items-center gap-0.5 px-1 py-px rounded-sm bg-[hsl(var(--surface-3))] border border-[hsl(var(--border))/0.15] text-[hsl(var(--foreground))] text-[8px] font-semibold uppercase tracking-wider"
+              className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-tripo-gray-4 border border-tripo-white-10 text-tripo-gray-100 text-3 font-medium"
             >
-              <Wand2 size={8} />
+              <Wand2 size={14} />
               <span className="hidden lg:inline">{activeBatchCount}</span>
             </Link>
           )}
 
           <BackendStatusPill />
 
+          <button className="hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-full bg-tripo-yellow-1 text-tripo-gray-3 font-bold text-3.5 shadow-[0_0_15px_hsl(var(--tripo-yellow-1)/0.4)] hover:brightness-110 active:scale-[0.98] transition-all">
+            Get Started
+          </button>
+
+          <button className="hidden lg:flex items-center gap-1 px-2 py-1.5 rounded-full text-tripo-gray-300 hover:text-tripo-gray-100 hover:bg-tripo-white-5 transition-all text-3">
+            EN <ChevronDown size={12} />
+          </button>
+
           <button
             onClick={() => setDrawerOpen(!drawerOpen)}
-            className="p-1 rounded text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--surface-2))] hover:text-[hsl(var(--foreground))] transition-all"
+            className="p-2 rounded-full text-tripo-gray-300 hover:text-tripo-gray-100 hover:bg-tripo-white-5 transition-all"
             aria-label="Menu"
           >
-            {drawerOpen ? <X size={13} /> : <Menu size={13} />}
+            {drawerOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
         </div>
       </div>
@@ -132,13 +136,13 @@ export function WorkspaceNavbar() {
             className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
             onClick={() => setDrawerOpen(false)}
           />
-          <div className="fixed top-0 right-0 bottom-0 z-50 w-[260px] bg-[hsl(var(--surface-0))] border-l border-[hsl(var(--border))/0.1] shadow-2xl transform transition-transform duration-200 ease-out translate-x-0">
+          <div className="fixed top-0 right-0 bottom-0 z-50 w-[280px] bg-tripo-gray-3 border-l border-tripo-white-5 shadow-2xl">
             <div className="flex flex-col h-full">
-              <div className="flex items-center justify-between p-3 border-b border-[hsl(var(--border))/0.08]">
-                <span className="text-[10px] font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Menu</span>
+              <div className="flex items-center justify-between p-3 border-b border-tripo-white-5">
+                <span className="text-3 font-semibold text-tripo-gray-100 uppercase tracking-wider">Menu</span>
                 <button
                   onClick={() => setDrawerOpen(false)}
-                  className="p-1 rounded text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--surface-2))] hover:text-[hsl(var(--foreground))] transition-all"
+                  className="p-1 rounded text-tripo-gray-300 hover:text-tripo-gray-100 hover:bg-tripo-white-5 transition-all"
                 >
                   <X size={14} />
                 </button>
@@ -153,10 +157,10 @@ export function WorkspaceNavbar() {
                       href={link.href}
                       onClick={() => setDrawerOpen(false)}
                       className={cn(
-                        'flex items-center gap-2.5 px-2.5 py-2 rounded-md text-xs font-medium transition-all duration-200',
+                        'flex items-center gap-2.5 px-2.5 py-2 rounded-md text-3.5 font-medium transition-all duration-200',
                         active
-                          ? 'text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10'
-                          : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
+                          ? 'text-tripo-yellow-1 bg-tripo-gray-4'
+                          : 'text-tripo-gray-300 hover:text-tripo-gray-100 hover:bg-tripo-white-5'
                       )}
                     >
                       <Icon size={14} />
@@ -166,11 +170,11 @@ export function WorkspaceNavbar() {
                   );
                 })}
               </div>
-              <div className="p-3 border-t border-[hsl(var(--border))/0.08]">
+              <div className="p-3 border-t border-tripo-white-5">
                 <Link
                   href="/settings"
                   onClick={() => setDrawerOpen(false)}
-                  className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-xs font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))] transition-all duration-200"
+                  className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-3.5 font-medium text-tripo-gray-300 hover:text-tripo-gray-100 hover:bg-tripo-white-5 transition-all duration-200"
                 >
                   <Settings size={14} />
                   <span>Settings</span>
