@@ -800,7 +800,7 @@ const handleDrop = useCallback(async (e: React.DragEvent) => {
               className="flex items-center gap-1.5 text-xs font-semibold text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
             >
               <span>{projectName}</span>
-              <Edit2 size={11} className="text-[hsl(var(--muted-foreground))]/[0.15]0" />
+              <Edit2 size={11} className="text-[hsl(var(--muted-foreground))]/[0.15]" />
             </button>
           )}
         </div>

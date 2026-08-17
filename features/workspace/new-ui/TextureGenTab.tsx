@@ -325,24 +325,24 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
               <Palette size={18} className="text-[hsl(var(--foreground))]" />
             </div>
             <div className="flex flex-col">
-              <span className="text-[11px] font-black uppercase tracking-tighter">Surface Painter</span>
-              <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase">AI PBR Generation</span>
+              <span className="text-sm font-medium">Surface Painter</span>
+              <span className="text-xs text-white/60">AI PBR Generation</span>
             </div>
           </div>
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-8" id="texture-engine-box">
           <div className="flex flex-col gap-1.5">
-            <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))] text-left">Target Asset</span>
+            <span className="text-xs font-medium text-white/60 text-left">Target Asset</span>
           </div>
 
           <div className="flex flex-col gap-4">
             {/* Model Upload */}
             <div className="flex flex-col gap-2" id="texture-upload-area">
-              <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Target Asset</label>
+              <label className="text-xs font-medium text-white/60">Target Asset</label>
               
 {isUploadingModel ? (
-  <div className="w-full flex flex-col items-center gap-2 py-3 bg-[hsl(var(--surface-2))] rounded-xl border border-[hsl(var(--border))]">
+  <div className="w-full flex flex-col items-center gap-2 py-3 bg-[hsl(var(--surface-2))] rounded-xl border border-white/5">
     <RefreshCw size={16} className="text-[hsl(var(--primary))] animate-spin" />
     <div className="w-full max-w-[80%] h-1 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden">
       <div className="h-full bg-[hsl(var(--primary))] transition-all duration-200" style={{ width: `${modelUploadProgress}%` }} />
@@ -367,8 +367,8 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
                     <Palette size={14} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-black text-[hsl(var(--foreground))] truncate">{uploadedModelName}</p>
-                    <p className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter">Asset Ready</p>
+                    <p className="text-xs font-medium text-white/80 truncate">{uploadedModelName}</p>
+                    <p className="text-xs text-white/40">Asset ready</p>
                   </div>
                   <button 
                     onClick={() => { setUploadedModel(null); setUploadedModelUrl(null); setUploadedModelName(''); }} 
@@ -391,8 +391,8 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
                 >
                   <Upload size={18} className="text-[hsl(var(--muted-foreground))] group-hover:scale-110 group-hover:text-[hsl(var(--primary))] transition-all" />
                   <div className="flex flex-col">
-                    <span className="text-[11px] font-black text-[hsl(var(--foreground))]">Drop GLB Asset</span>
-                    <span className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter">Automatic UV Unwrap</span>
+                    <span className="text-xs font-medium text-white/80">Drop your 3D model</span>
+                    <span className="text-xs text-white/40">Supports .glb and .gltf</span>
                   </div>
                   <input type="file" accept=".glb,.gltf" onChange={handleModelUpload} className="hidden" />
                 </label>
@@ -401,13 +401,13 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
 
             {/* Model Selection */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Provider</label>
+              <label className="text-xs font-medium text-white/60">Provider</label>
               <div className="relative group">
                 <select
                   value={materialModel}
                   onChange={(e) => setMaterialModel(e.target.value)}
                   disabled={isLoadingTextureModels}
-                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl pl-3 pr-8 py-2.5 text-[11px] font-black text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))] transition-all appearance-none disabled:opacity-50 shadow-sm"
+                  className="w-full bg-[hsl(var(--surface-3))] border border-white/10 rounded-xl pl-3 pr-8 py-2.5 text-xs font-medium text-white/80 cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))] transition-all appearance-none disabled:opacity-50"
                 >
                   {availableTextureModels.map((m: any) => (
                     <option key={m.id} value={m.id} disabled={m.installed === false}>
@@ -420,10 +420,10 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
 
             {/* Low VRAM toggle */}
             {materialModel && (availableTextureModels.find((m: any) => m.id === materialModel)?.low_vram_supported) && (
-              <div className="flex items-center justify-between bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl px-3 py-2">
+              <div className="flex items-center justify-between bg-[hsl(var(--surface-2))] border border-white/5 rounded-xl px-3 py-2">
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-bold text-[hsl(var(--foreground))] uppercase">Low VRAM Mode</span>
-                  <span className="text-[8px] text-[hsl(var(--muted-foreground))] font-mono">
+                  <span className="text-xs font-medium text-white/60">Low VRAM mode</span>
+                  <span className="text-[10px] text-white/30">
                     ~{((availableTextureModels.find((m: any) => m.id === materialModel)?.low_vram_required_mb || 0) / 1024).toFixed(1)} GB min
                   </span>
                 </div>
@@ -444,16 +444,16 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
         <AssetPanelHost className="border-t border-[hsl(var(--border))]" />
 
         {/* SECTION: TEXTURE GENERATION */}
-        <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-5 shadow-sm" id="texture-generation-box">
+        <div className="bg-[hsl(var(--surface-2))] border border-white/5 rounded-2xl p-5 flex flex-col gap-5" id="texture-generation-box">
           <div className="flex items-center justify-between border-b border-[hsl(var(--border))] pb-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">PBR Painting</span>
+            <span className="text-xs font-medium text-white/60">PBR Painting</span>
             <Palette size={12} className="text-[hsl(var(--primary))]" />
           </div>
 
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
-                <label>Material Prompt</label>
+              <div className="flex justify-between items-center text-xs font-medium text-white/60">
+                <label>Material prompt</label>
                 <button 
                   onClick={handleRandomPrompt}
                   className="text-[hsl(var(--primary))] hover:brightness-110 flex items-center gap-1 transition-all"
@@ -466,18 +466,18 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
                 value={texturePrompt}
                 onChange={(e) => setTexturePrompt(e.target.value)}
                 placeholder="Polished obsidian, gold filigree trim, heavy weathering..."
-                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-3 text-[11px] text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))/0.5] min-h-[90px] max-h-[140px] focus:outline-none focus:border-[hsl(var(--primary))] transition-all resize-none font-bold leading-relaxed shadow-inner"
+                className="w-full bg-[hsl(var(--surface-3))] border border-white/10 rounded-xl p-3 text-sm text-white/80 placeholder-white/30 min-h-[90px] max-h-[140px] focus:outline-none focus:border-[hsl(var(--primary))] transition-all resize-none leading-relaxed"
               />
             </div>
 
             {/* Baking Parameters */}
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Resolution</label>
+                <label className="text-xs font-medium text-white/60">Resolution</label>
                 <select
                   value={resolution}
                   onChange={(e) => setResolution(e.target.value)}
-                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-lg px-2 py-2 text-[10px] font-black text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))]"
+                  className="w-full bg-[hsl(var(--surface-3))] border border-white/10 rounded-xl px-2 py-2 text-xs font-medium text-white/80 cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))]"
                 >
                   <option value="4096">4K Ultra</option>
                   <option value="2048">2K High</option>
@@ -486,11 +486,11 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
                 </select>
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Style</label>
+                <label className="text-xs font-medium text-white/60">Style</label>
                 <select
                   value={themeStyle}
                   onChange={(e) => setThemeStyle(e.target.value)}
-                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-lg px-2 py-2 text-[10px] font-black text-[hsl(var(--foreground))] cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))]"
+                  className="w-full bg-[hsl(var(--surface-3))] border border-white/10 rounded-xl px-2 py-2 text-xs font-medium text-white/80 cursor-pointer focus:outline-none focus:border-[hsl(var(--primary))]"
                 >
                   <option value="photorealistic">Realistic</option>
                   <option value="stylized-handpainted">Handpainted</option>
@@ -508,9 +508,9 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
                 { label: 'Roughness', value: roughnessBias, setter: setRoughnessBias, color: 'accent-[hsl(var(--muted-foreground))]' },
               ].map((s) => (
                 <div key={s.label} className="flex flex-col gap-1.5">
-                  <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">
+                  <div className="flex justify-between items-center text-xs font-medium text-white/50">
                     <span>{s.label}</span>
-                    <span className="text-[hsl(var(--foreground))] font-mono">{Math.round(s.value * 100)}%</span>
+                    <span className="text-white/80 font-mono">{Math.round(s.value * 100)}%</span>
                   </div>
                   <input
                     type="range"
@@ -528,7 +528,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
             <button
               onClick={handleTextureGen}
               disabled={isProcessing || !texturePrompt}
-              className="w-full bg-[hsl(var(--primary))] hover:brightness-110 active:scale-[0.98] disabled:opacity-50 text-[hsl(var(--surface-0))] font-black py-3 rounded-xl text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-[0_8px_20px_rgba(245,166,35,0.2)] mt-2"
+              className="w-full bg-[hsl(var(--primary))] text-black font-medium py-3 rounded-full text-sm flex items-center justify-center gap-2 transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-50 mt-2"
               id="trigger-texture-btn"
             >
               {isProcessing ? (
@@ -539,7 +539,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
               ) : (
                 <>
                   <Palette size={14} />
-                  Paint Materials
+                  Generate Textures
                 </>
               )}
             </button>
@@ -563,8 +563,8 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
                 <div className="w-24 h-24 rounded-full border-4 border-[hsl(var(--primary))/0.1] border-t-[hsl(var(--primary))] animate-spin" />
                 <Palette size={32} className="absolute inset-0 m-auto text-[hsl(var(--primary))] animate-pulse" />
               </div>
-              <h3 className="text-xl font-black text-[hsl(var(--foreground))] uppercase tracking-widest mt-8">Baking PBR Materials</h3>
-              <p className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter mt-1">{statusMessage}</p>
+              <h3 className="text-xl font-medium text-white/80 mt-8">Baking PBR materials</h3>
+              <p className="text-xs text-white/40 mt-1">{statusMessage}</p>
               
               <div className="w-48 h-1 bg-[hsl(var(--surface-3))] rounded-full mt-8 overflow-hidden">
                 <div className="h-full bg-[hsl(var(--primary))] animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-white/30 to-transparent" />
@@ -578,7 +578,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]" />
-                <h3 className="text-[11px] font-black text-[hsl(var(--foreground))] uppercase tracking-widest">
+                <h3 className="text-xs font-medium text-white/60">
                   Surface Analysis Pipeline
                 </h3>
               </div>
@@ -595,21 +595,21 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate }
                     <CheckCircle size={24} />
                   </div>
                   <div>
-                    <span className="text-sm font-black text-[hsl(var(--foreground))] uppercase tracking-tight">Material Synthesis Success</span>
-                    <p className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono uppercase">Full PBR stack generated in {resolution}px</p>
+                    <span className="text-sm font-medium text-white/80">Material synthesis success</span>
+                    <p className="text-xs text-white/40">Full PBR stack generated in {resolution}px</p>
                   </div>
                 </div>
 
                 <div className="bg-[hsl(var(--surface-1))] p-4 rounded-xl border border-[hsl(var(--border))] flex flex-col gap-4">
-                  <span className="text-[10px] font-black text-[hsl(var(--muted-foreground))] uppercase tracking-widest border-b border-[hsl(var(--border))] pb-2">Material Info</span>
+                  <span className="text-xs font-medium text-white/60 border-b border-white/5 pb-2">Material info</span>
                   <div className="space-y-4">
                     <div className="flex justify-between items-end">
-                      <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono">Bake Resolution</span>
-                      <span className="text-xs font-bold text-[hsl(var(--foreground))]">{resolution}px</span>
+                      <span className="text-xs text-white/40">Bake resolution</span>
+                      <span className="text-xs font-medium text-white/80">{resolution}px</span>
                     </div>
                     <div className="flex justify-between items-end">
-                      <span className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase font-mono">Shader Model</span>
-                      <span className="text-xs font-bold text-[hsl(var(--primary))] uppercase">{themeStyle}</span>
+                      <span className="text-xs text-white/40">Shader model</span>
+                      <span className="text-xs font-medium text-[hsl(var(--primary))]">{themeStyle}</span>
                     </div>
                   </div>
                 </div>

@@ -33,8 +33,10 @@ const LIGHTING_PRESETS = [
   { id: 'dramatic', label: 'Dramatic', description: 'High contrast' },
 ];
 
-import { Canvas } from '@react-three/fiber';
+import dynamic from 'next/dynamic';
 import { Suspense } from 'react';
+
+const Canvas = dynamic(() => import('@react-three/fiber').then(m => m.Canvas), { ssr: false })
 import { ViewerScene } from '@/features/workspace/viewer/ViewerScene';
 import { useUIStore } from '@/stores/useUIStore';
 import { AssetPanelHost } from '@/features/workspace/AssetPanelHost';

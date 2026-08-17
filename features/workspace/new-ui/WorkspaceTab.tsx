@@ -113,7 +113,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
         {[
           { label: 'Total Models', value: totalAssets, sub: 'GLB / OBJ / FBX format', icon: Database },
           { label: 'Favorites', value: favoritesCount, sub: 'Marked for production', icon: Heart },
-          { label: 'Active Memory', value: storageUsed, sub: `of ${storageTotal} limit`, icon: HardDrive },
+          { label: 'Active Memory', value: storageTotal === '0 GB' ? '—' : storageUsed, sub: storageTotal === '0 GB' ? 'Storage limit' : `of ${storageTotal} limit`, icon: HardDrive },
           { label: 'Avg Duration', value: avgGenerationTime, sub: 'Active cycle efficiency', icon: Clock },
         ].map((stat, idx) => {
           const Icon = stat.icon;
@@ -147,7 +147,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[hsl(var(--surface-1))] border border-[hsl(var(--border)/0.3)] p-4 rounded-xl panel-padding">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-4 bg-[hsl(var(--primary))] rounded-full" />
-              <h3 className="text-section-title text-[hsl(var(--foreground))]">Project Files</h3>
+              <h2 className="text-section-title text-[hsl(var(--foreground))]">Project Files</h2>
               <span className="text-[9px] bg-[hsl(var(--surface-2))] border border-[hsl(var(--border)/0.5)] text-[hsl(var(--muted-foreground))] px-1.5 py-0.5 rounded font-mono badge-status-neutral">
                 {filteredHistory.length}
               </span>
@@ -246,7 +246,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
                 <div className="w-12 h-12 rounded-xl bg-[hsl(var(--surface-2))] flex items-center justify-center mb-4 border border-[hsl(var(--border)/0.3)]">
                   <Sparkles size={20} className="text-[hsl(var(--muted-foreground))]/30" />
                 </div>
-                <h3 className="text-xs font-black uppercase tracking-widest text-[hsl(var(--foreground))]">No Projects Found</h3>
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-[hsl(var(--foreground))]">No Projects Found</h2>
                 <p className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono mt-1.5 max-w-[220px]">
                   {localSearch ? "Try refining your search terms or filters." : "Start generating 3D models to populate your pipeline."}
                 </p>
@@ -255,7 +255,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
                     onClick={() => onNavigate('3D Gen')} 
                     className="mt-4 btn-primary shadow-[0_0_10px_hsl(var(--primary))/0.2]"
                   >
-                    Initialize Core
+                    Create First Model
                   </button>
                 )}
               </div>
@@ -271,7 +271,7 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
             <div className="flex items-center justify-between pb-2 border-b border-[hsl(var(--border)/0.15)]">
               <div className="flex items-center gap-2">
                 <Activity className="w-3.5 h-3.5 text-[hsl(var(--muted-foreground))]" />
-                <h4 className="text-section-title">Hardware Load</h4>
+                <h2 className="text-section-title">Hardware Load</h2>
               </div>
               <span className="badge-status badge-status-neutral">
                 <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--muted-foreground))] inline-block mr-1" />
@@ -316,8 +316,9 @@ export default function WorkspaceTab({ history, onLoadProject, onNavigate }: Wor
                 <div key={log.id} className="flex gap-2 text-[9px] font-mono leading-normal">
                   <span className="text-[hsl(var(--muted-foreground))] select-none shrink-0">{log.time}</span>
                   <span className={
-                    log.type === 'success' ? 'text-[hsl(var(--muted-foreground))]' :
-                    log.type === 'warning' ? 'text-[hsl(var(--muted-foreground))]' : 'text-[hsl(var(--muted-foreground))]'
+                    log.type === 'success' ? 'text-emerald-400' :
+                    log.type === 'warning' ? 'text-amber-400' :
+                    log.type === 'error' ? 'text-red-400' : 'text-sky-400'
                   }>
                     {log.msg}
                   </span>

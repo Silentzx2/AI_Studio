@@ -215,7 +215,7 @@ export function GeneralSection() {
             </div>
             <div className="space-y-1">
               <p className="text-sm font-medium text-muted-foreground">GPU Hardware</p>
-              <p className="text-base font-semibold">
+              <p className={`text-base font-semibold ${systemInfo?.gpu?.available ? '' : 'text-amber-400'}`}>
                 {systemInfo?.gpu?.available
                   ? `${systemInfo.gpu.name || systemInfo.gpu.gpus?.[0]?.name || 'NVIDIA GPU'} (${systemInfo.gpu.memory_total || (systemInfo.gpu.gpus?.[0]?.total_memory_mb ? `${systemInfo.gpu.gpus[0].total_memory_mb} MB` : 'Available')})`
                   : 'No GPU Detected'}

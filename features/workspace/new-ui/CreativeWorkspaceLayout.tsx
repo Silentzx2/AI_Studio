@@ -8,7 +8,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import anime from 'animejs';
 import {
-  Folder, Cpu, RefreshCw, Palette, Bookmark, Layers, Heart, Globe, Code, Settings,
+  Folder, Cpu, RefreshCw, Palette, Bookmark, Layers, Heart, Code, Settings,
   Sparkles, HelpCircle, LogOut, Activity, Zap, Wifi, ChevronDown, Box
 } from 'lucide-react';
 import { useGenerationStore } from '@/stores/useGenerationStore';
@@ -28,7 +28,6 @@ import TextureGenTab from './TextureGenTab';
 import RiggingAnimationTab from './RiggingAnimationTab';
 import MyAssetsTab from './MyAssetsTab';
 import FavoritesTab from './FavoritesTab';
-import CommunityTab from './CommunityTab';
 import { ModelsTab } from '@/features/admin/tabs/ModelsTab';
 import ApiAccessTab from './ApiAccessTab';
 import WorkspaceSettingsTab from './WorkspaceSettingsTab';
@@ -46,7 +45,7 @@ interface CreativeWorkspaceLayoutProps {
 
 export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: CreativeWorkspaceLayoutProps = {}) {
   const searchParams = useSearchParams();
-  const validTabs = ['3D Gen', 'Dashboard', 'Rigging & Animation', 'Remesh', 'Texture Gen', 'My Assets', 'Models', 'Favorites', 'Community', 'API Access', 'Settings'];
+  const validTabs = ['3D Gen', 'Dashboard', 'Rigging & Animation', 'Remesh', 'Texture Gen', 'My Assets', 'Models', 'Favorites', 'API Access', 'Settings'];
   const requested = searchParams.get('tab') || defaultTab;
   // ponytail: legacy links/state may still say 'Workspace' — treat as 'Dashboard'.
   const normalized = requested === 'Workspace' ? 'Dashboard' : requested;
@@ -266,7 +265,6 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
     { label: 'My Assets', icon: Bookmark, visible: true },
     { label: 'Models', icon: Layers, visible: true },
     { label: 'Favorites', icon: Heart, visible: true },
-    { label: 'Community', icon: Globe, visible: true },
     { label: 'API Access', icon: Code, visible: true },
     { label: 'Settings', icon: Settings, visible: true },
   ].filter(item => item.visible);
@@ -287,11 +285,11 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
   const getSidebarItemClass = (label: string) => {
     const isActive = activeSidebarItem === label;
     return cn(
-      'flex items-center gap-3 px-4 py-3 rounded-xl text-[11px] font-medium transition-all duration-200',
+      'flex items-center gap-3 px-3 py-2 rounded-full text-sm font-medium transition-all duration-150',
       'text-left w-full',
       isActive
-        ? 'bg-[hsl(var(--surface-2))] text-[hsl(var(--foreground))]'
-        : 'text-[hsl(var(--muted-foreground))]/[0.15]0 hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
+        ? 'bg-[hsl(var(--primary))/0.08] text-[hsl(var(--primary))]'
+        : 'text-white/50 hover:text-white/80 hover:bg-white/5'
     );
   };
 
@@ -299,8 +297,8 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
     return cn(
       'w-4 h-4',
       isActive
-        ? 'text-[hsl(var(--foreground))]'
-        : 'text-[hsl(var(--muted-foreground))]/[0.4] group-hover:text-[hsl(var(--muted-foreground))]/[0.9] transition-colors'
+        ? 'text-[hsl(var(--primary))]'
+        : 'text-white/30 group-hover:text-white/60 transition-colors'
     );
   };
 
@@ -314,13 +312,13 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
     return cn(
       'h-14',
       'flex items-center px-6',
-      'border-b border-[hsl(var(--border))]/[0.15]',
+      'border-b border-white/5',
       'flex-shrink-0'
     );
   };
 
   return (
-    <div className="flex flex-1 min-h-0 min-w-0 bg-[hsl(var(--surface-1))] text-[hsl(var(--foreground))]" id="creative-layout-container">
+    <div className="flex flex-1 min-h-0 min-w-0 bg-[#0a0a0a] text-[hsl(var(--foreground))]" id="creative-layout-container">
       {/* Mobile drawer overlay for the main sidebar */}
       {mobileMenuOpen && (
         <div
@@ -331,12 +329,12 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
       )}
 
       {/* Sidebar panel — responsive: static on desktop, slide-in drawer on mobile */}
-      <aside className={`${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed inset-y-0 left-0 z-50 w-[260px] max-w-[85vw] lg:static lg:z-20 lg:w-[280px] bg-[hsl(var(--surface-2))] border-r border-[hsl(var(--border))]/[0.15] flex flex-col min-h-0 flex-shrink-0 transition-all duration-200`} id="creative-sidebar">
+      <aside className={`${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed inset-y-0 left-0 z-50 w-[260px] max-w-[85vw] lg:static lg:z-20 lg:w-[280px] bg-black/40 backdrop-blur-[40px] border-r border-white/5 flex flex-col min-h-0 flex-shrink-0 transition-all duration-200`} id="creative-sidebar">
         {/* Minimal Brand Header */}
         <div className={getLogoHeaderClass()} id="creative-logo-header">
           <div className="flex items-center">
-            <div className="w-8 h-8 rounded-lg bg-[hsl(var(--primary))] flex items-center justify-center">
-              <Sparkles size={18} className="text-[hsl(var(--surface-2))]" />
+            <div className="w-7 h-7 rounded-full bg-[hsl(var(--primary))]/10 flex items-center justify-center">
+              <Sparkles size={16} className="text-[hsl(var(--primary))]" />
             </div>
           </div>
         </div>
@@ -344,7 +342,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
         {/* Navigation Links */}
         <div className={getSidebarLinksClass()} id="creative-sidebar-links">
           <div className="px-4 mb-3 mt-5">
-            <span className="text-[10px] font-medium text-[hsl(var(--muted-foreground))]/[0.35] uppercase tracking-wider">Navigation</span>
+            <span className="text-[11px] font-medium text-white/20">Navigation</span>
           </div>
           {sidebarItems.map((item) => {
             const Icon = item.icon;
@@ -364,14 +362,14 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
         </div>
 
         {/* Footer controls */}
-        <div className="py-5 border-t border-[hsl(var(--border))]/[0.15] flex flex-col gap-3 flex-shrink-0" id="creative-sidebar-footer">
+        <div className="py-5 border-t border-white/5 flex flex-col gap-3 flex-shrink-0" id="creative-sidebar-footer">
           {/* Status indicators */}
           <div className="px-4 flex flex-col gap-2.5">
             <div className="px-3 mb-0.5 flex items-center justify-between">
-              <span className="text-[10px] font-medium text-[hsl(var(--muted-foreground))]/[0.35] uppercase tracking-wider">Performance</span>
+              <span className="text-[11px] text-white/20">Performance</span>
               <button
                 onClick={() => setMonitorExpanded(!monitorExpanded)}
-                className="p-1 rounded-md hover:bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))]/[0.3] hover:text-[hsl(var(--foreground))] transition-all duration-150"
+                className="p-1 rounded-md hover:bg-white/5 text-white/30 hover:text-white/60 transition-all duration-150"
               >
                 <ChevronDown size={14} className={`transform transition-transform duration-200 ${monitorExpanded ? '' : '-rotate-90'}`} />
               </button>
@@ -383,32 +381,32 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
                 <div className="flex flex-col gap-1.5">
                   <button
                     onClick={() => setGpuExpanded(!gpuExpanded)}
-                    className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-lg bg-[hsl(var(--surface-2))] border border-transparent hover:border-[hsl(var(--border))]/[0.3] transition-all duration-200 text-left cursor-pointer group"
+                    className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-lg bg-white/[0.03] border border-transparent hover:border-white/10 transition-all duration-200 text-left cursor-pointer group"
                   >
                     <div className="flex items-center gap-2">
-                      <Cpu className="w-4 h-4 text-[hsl(var(--muted-foreground))]/[0.7]" />
-                      <span className="text-[11px] font-medium uppercase tracking-wider text-[hsl(var(--muted-foreground))]/[0.7]">GPU Stats</span>
+                      <Cpu className="w-4 h-4 text-white/50" />
+                      <span className="text-[11px] font-medium uppercase tracking-wider text-white/50">GPU Stats</span>
                     </div>
-                    <ChevronDown size={12} className={`text-[hsl(var(--muted-foreground))]/[0.3] transform transition-transform duration-200 ${gpuExpanded ? 'rotate-180' : ''}`} />
+                    <ChevronDown size={12} className={`text-white/30 transform transition-transform duration-200 ${gpuExpanded ? 'rotate-180' : ''}`} />
                   </button>
 
                   {/* GPU Expanded Stats Sub-widget */}
                   {gpuExpanded && (
-                    <div className="px-3.5 py-2.5 rounded-lg bg-[hsl(var(--surface-2))]/[0.02] border border-[hsl(var(--border))]/[0.15] text-[11px] space-y-2" id="gpu-expanded-details">
+                    <div className="px-3.5 py-2.5 rounded-lg bg-white/[0.02] border border-white/5 text-[11px] space-y-2" id="gpu-expanded-details">
                       <div className="flex justify-between items-center">
-                        <span className="text-[hsl(var(--muted-foreground))]/[0.5] font-medium uppercase tracking-wider text-[10px]">Model</span>
-                        <span className="font-medium text-[hsl(var(--muted-foreground))]/[0.8] truncate max-w-[120px]">
+                        <span className="text-white/30 font-medium uppercase tracking-wider text-[10px]">Model</span>
+                        <span className="font-medium text-white/80 truncate max-w-[120px]">
                           {runtime?.gpu_name || "NVIDIA H100"}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-[hsl(var(--muted-foreground))]/[0.5] font-medium uppercase tracking-wider text-[10px]">Load</span>
-                        <span className="font-medium text-[hsl(var(--muted-foreground))]/[0.9]">
+                        <span className="text-white/30 font-medium uppercase tracking-wider text-[10px]">Load</span>
+                        <span className="font-medium text-white/80">
                           {runtime ? `${runtime.gpu_utilization}%` : '—'}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-[hsl(var(--muted-foreground))]/[0.5] font-medium uppercase tracking-wider text-[10px]">Temp</span>
+                        <span className="text-white/30 font-medium uppercase tracking-wider text-[10px]">Temp</span>
                         <span className="font-medium text-rose-400">
                           {runtime ? `${runtime.gpu_temp}°C` : '—'}
                         </span>
@@ -418,20 +416,20 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
                 </div>
 
                 {/* VRAM Metric */}
-                <div className="flex flex-col gap-2 p-3.5 rounded-lg bg-[hsl(var(--surface-2))] border border-transparent">
+                <div className="flex flex-col gap-2 p-3.5 rounded-lg bg-white/[0.03] border border-transparent">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Zap className="w-4 h-4 text-[hsl(var(--muted-foreground))]/[0.15]0" />
-                      <span className="text-[11px] font-medium uppercase tracking-wider text-[hsl(var(--muted-foreground))]/[0.7]">Memory</span>
+                      <Zap className="w-4 h-4 text-white/30" />
+                      <span className="text-[11px] font-medium uppercase tracking-wider text-white/50">Memory</span>
                     </div>
-                    <span className="text-[11px] font-medium text-[hsl(var(--muted-foreground))]/[0.9]">
+                    <span className="text-[11px] font-medium text-white/80">
                       {runtime ? `${(runtime.vram_used_mb / 1024).toFixed(1)}GB` : '—'}
                     </span>
                   </div>
                   {runtime && (
-                    <div className="w-full h-1 bg-[hsl(var(--surface-2))] rounded-full overflow-hidden">
+                    <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-[hsl(var(--surface-2))] transition-all duration-300"
+                        className="h-full bg-[hsl(var(--primary))] transition-all duration-300"
                         style={{ width: `${vramPercentage}%` }}
                       />
                     </div>
@@ -444,7 +442,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
       </aside>
 
       {/* Main viewport panels */}
-        <main ref={mainRef} className="flex-1 flex flex-col bg-[hsl(var(--surface-1))] overflow-hidden" id="creative-main-viewport">
+        <main ref={mainRef} className="flex-1 flex flex-col bg-[#0a0a0a] overflow-hidden" id="creative-main-viewport">
         {activeSidebarItem === '3D Gen' && (
           <ThreeDGenWorkspace embedded />
         )}
@@ -501,13 +499,6 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
             onLoadProject={loadHistoryItem}
             onRemoveFavorite={toggleFavoriteItem}
             onDeleteProject={deleteHistoryItem}
-          />
-        )}
-
-        {activeSidebarItem === 'Community' && (
-          <CommunityTab
-            onCloneProject={handleCloneProject}
-            onNavigate={setActiveSidebarItem}
           />
         )}
 

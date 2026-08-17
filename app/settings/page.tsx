@@ -580,7 +580,7 @@ useEffect(() => {
           {pinnedSections.length > 0 && (
             <div>
               {sidebarOpen && (
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-2">
+                <h3 className="text-xs font-semibold text-[hsl(var(--muted-foreground))]/80 uppercase tracking-wider mb-3 px-2">
                   Quick Actions
                 </h3>
               )}
@@ -597,7 +597,7 @@ useEffect(() => {
                           transition-all duration-200 border-l-[4px] pr-8
                           ${
                             activeSection === section.id
-                               ? 'bg-primary text-primary-foreground shadow-md border-l-black'
+                               ? 'bg-primary text-black shadow-md border-l-black'
                               : 'text-foreground hover:bg-accent hover:text-accent-foreground border-l-transparent'
                           }
                         `}
@@ -631,7 +631,7 @@ useEffect(() => {
           {Object.entries(groupedSections).map(([groupId, sections]) => (
             <div key={groupId}>
               {sidebarOpen && (
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-2">
+                <h3 className="text-xs font-semibold text-[hsl(var(--muted-foreground))]/80 uppercase tracking-wider mb-3 px-2">
                   {GROUP_LABELS[groupId as keyof typeof GROUP_LABELS]}
                 </h3>
               )}
@@ -647,7 +647,7 @@ useEffect(() => {
                           transition-all duration-200 border-l-[4px] pr-8
                           ${
                             activeSection === section.id
-                               ? 'bg-primary text-primary-foreground shadow-md border-l-black'
+                               ? 'bg-primary text-black shadow-md border-l-black'
                               : 'text-foreground hover:bg-accent hover:text-accent-foreground border-l-transparent'
                           }
                         `}
