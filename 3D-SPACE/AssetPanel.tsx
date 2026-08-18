@@ -10,7 +10,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Search, RefreshCw, Download, FileDown, Eye, Trash2,
   Box, Heart, Clock, Hash, Layers,
-  CheckCircle2, Lock, Package, Grid3X3, Archive, Upload, Loader2
+  CheckCircle2, Lock, Package, Grid3X3, Archive, Upload, Loader2, Image as ImageIcon
 } from 'lucide-react';
 import { EXPORT_FORMATS } from '@/constants';
 import { uploadService } from '@/services/uploadService';
@@ -55,8 +55,6 @@ interface AssetPanelProps {
 
 function AssetThumbnail({ asset, isSelected, onClick }: { asset: AssetItem; isSelected: boolean; onClick: () => void }) {
   const handleDragStart = (e: React.DragEvent) => {
-    // For images, drag the image URL to be dropped onto image upload areas
-    // For 3D models, drag the model URL to be dropped onto 3D canvas
     if (asset.type === 'image' && asset.thumbnailUrl) {
       e.dataTransfer.setData('text/plain', asset.thumbnailUrl);
       e.dataTransfer.effectAllowed = 'copy';
@@ -64,7 +62,6 @@ function AssetThumbnail({ asset, isSelected, onClick }: { asset: AssetItem; isSe
       e.dataTransfer.setData('text/plain', asset.modelUrl);
       e.dataTransfer.effectAllowed = 'copy';
     }
-    // Add visual feedback
     e.currentTarget.classList.add('drag-active');
   };
 
@@ -79,26 +76,26 @@ function AssetThumbnail({ asset, isSelected, onClick }: { asset: AssetItem; isSe
       onDragEnd={handleDragEnd}
       draggable={asset.type === 'image' || asset.type === 'model'}
       className={cn(
-        'group relative rounded-xl overflow-hidden border transition-all duration-300 aspect-square',
+        'group relative rounded-lg overflow-hidden border transition-all duration-300 aspect-[4/3]',
         isSelected
-          ? 'border-[hsl(var(--primary))] shadow-[0_0_15px_hsl(var(--primary)/0.2)] scale-[0.98]'
-          : 'border-[hsl(var(--border))]/[0.15] hover:border-[hsl(var(--border))]/[0.4] bg-[hsl(var(--surface-2))]'
+          ? 'border-[hsl(var(--primary))] shadow-[0_0_12px_hsl(var(--primary)/0.15)] scale-[0.98]'
+          : 'border-[hsl(var(--border))]/[0.12] hover:border-[hsl(var(--border))]/[0.3] bg-[hsl(var(--surface-2))]'
       )}
     >
       {asset.thumbnailUrl ? (
         <img src={asset.thumbnailUrl} alt={asset.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
       ) : (
         <div className="w-full h-full flex items-center justify-center">
-          <Box size={24} className="text-[hsl(var(--muted-foreground))]/[0.2] group-hover:text-[hsl(var(--muted-foreground))]/[0.4] transition-colors" />
+          <Box size={20} className="text-[hsl(var(--muted-foreground))]/[0.15] group-hover:text-[hsl(var(--muted-foreground))]/[0.3] transition-colors" />
         </div>
       )}
-      <div className="absolute bottom-2 left-2">
-        <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-black/60 backdrop-blur-md border border-[hsl(var(--border))]/[0.3] text-[hsl(var(--muted-foreground))]">
+      <div className="absolute bottom-1.5 left-1.5">
+        <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-black/50 backdrop-blur-sm border border-[hsl(var(--border))]/[0.25] text-[hsl(var(--muted-foreground))]">
           {asset.format}
         </span>
       </div>
       {asset.isFavorite && (
-        <div className="absolute top-2 right-2">
+        <div className="absolute top-1.5 right-1.5">
           <Heart size={10} className="fill-[hsl(var(--destructive))] text-[hsl(var(--destructive))] drop-shadow-md" />
         </div>
       )}
@@ -125,30 +122,27 @@ function InspectorPanel({ asset, onDelete }: { asset: AssetItem; onDelete?: (id:
   };
 
   return (
-    <div className="flex flex-col gap-6 p-5">
-      {/* Thumbnail */}
-      <div className="aspect-video rounded-2xl overflow-hidden bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]/[0.15] relative group">
+    <div className="flex flex-col gap-3 p-3">
+      <div className="aspect-video rounded-lg overflow-hidden bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]/[0.12] relative">
         {asset.thumbnailUrl ? (
           <img src={asset.thumbnailUrl} alt={asset.name} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <Box size={32} className="text-[hsl(var(--muted-foreground))]/[0.2]" />
+            <Box size={28} className="text-[hsl(var(--muted-foreground))]/[0.15]" />
           </div>
         )}
       </div>
 
-      {/* Info Header */}
       <div className="space-y-1">
-        <h3 className="text-sm font-bold text-[hsl(var(--foreground))] truncate" title={asset.name}>
+        <h3 className="text-[11px] font-bold text-[hsl(var(--foreground))] truncate" title={asset.name}>
           {asset.name}
         </h3>
-        <p className="text-[10px] text-[hsl(var(--muted-foreground))]/[0.5] font-medium leading-relaxed italic" title={asset.prompt}>
+        <p className="text-[10px] text-[hsl(var(--muted-foreground))]/[0.4] font-medium leading-relaxed italic line-clamp-2" title={asset.prompt}>
           "{asset.prompt || 'No prompt'}"
         </p>
       </div>
 
-      {/* Metadata grid */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-1.5">
         {[
           { label: 'Format', value: asset.format || 'N/A', icon: FileDown },
           { label: 'Vertices', value: result?.vertexCount ? result.vertexCount.toLocaleString() : '—', icon: Hash },
@@ -157,29 +151,27 @@ function InspectorPanel({ asset, onDelete }: { asset: AssetItem; onDelete?: (id:
         ].map((meta, i) => {
           const Icon = meta.icon;
           return (
-            <div key={i} className="flex flex-col gap-1 p-3 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]/[0.15]">
-              <div className="flex items-center gap-1.5 opacity-40">
+            <div key={i} className="flex flex-col gap-0.5 p-2 rounded-md bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]/[0.1]">
+              <div className="flex items-center gap-1 opacity-40">
                 <Icon size={10} />
-                <span className="text-[8px] font-black uppercase tracking-widest">{meta.label}</span>
+                <span className="text-[8px] font-black uppercase tracking-wider">{meta.label}</span>
               </div>
-              <span className="text-xs font-bold text-[hsl(var(--muted-foreground))] tabular-nums">{meta.value}</span>
+              <span className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] tabular-nums">{meta.value}</span>
             </div>
           );
         })}
       </div>
 
-      {/* Timestamp */}
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-[hsl(var(--surface-2))] rounded-full w-fit">
-        <Clock size={10} className="text-[hsl(var(--muted-foreground))]/[0.5]" />
-        <span className="text-[9px] font-bold text-[hsl(var(--muted-foreground))]/[0.7]">{asset.timestamp}</span>
+      <div className="flex items-center gap-2 px-2 py-1 bg-[hsl(var(--surface-2))] rounded-full w-fit border border-[hsl(var(--border))]/[0.1]">
+        <Clock size={10} className="text-[hsl(var(--muted-foreground))]/[0.4]" />
+        <span className="text-[9px] font-bold text-[hsl(var(--muted-foreground))]/[0.6]">{asset.timestamp}</span>
       </div>
 
-      {/* Actions */}
-      <div className="flex gap-2">
+      <div className="flex gap-1.5">
         {asset.modelUrl && (
           <button
             onClick={() => { if (asset.modelUrl) loadModelInViewer(asset.modelUrl, asset.name); }}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest bg-[hsl(var(--surface-2))] text-black hover:bg-[hsl(var(--surface-2))] transition-all shadow-lg active:scale-95"
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-[10px] font-black uppercase tracking-widest bg-[hsl(var(--surface-2))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-3))] transition-all border border-[hsl(var(--border))]/[0.12] active:scale-95"
           >
             <Eye size={14} /> Preview
           </button>
@@ -187,17 +179,16 @@ function InspectorPanel({ asset, onDelete }: { asset: AssetItem; onDelete?: (id:
         {onDelete && (
           <button
             onClick={() => onDelete(asset.id)}
-            className="p-3 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]/[0.15] text-[hsl(var(--muted-foreground))]/[0.5] hover:text-red-400 hover:border-red-400/20 hover:bg-red-400/5 transition-all"
+            className="p-2 rounded-md bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]/[0.1] text-[hsl(var(--muted-foreground))]/[0.5] hover:text-red-400 hover:border-red-400/20 hover:bg-red-400/5 transition-all"
           >
-            <Trash2 size={16} />
+            <Trash2 size={14} />
           </button>
         )}
       </div>
 
-      {/* Export Section */}
-      <div className="pt-6 border-t border-[hsl(var(--border))]/[0.15] space-y-4">
+      <div className="pt-3 border-t border-[hsl(var(--border))]/[0.1] space-y-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]/[0.5]">
+          <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]/[0.4]">
             <Download size={14} />
             <span className="text-[10px] font-black uppercase tracking-widest">Export Options</span>
           </div>
@@ -210,9 +201,9 @@ function InspectorPanel({ asset, onDelete }: { asset: AssetItem; onDelete?: (id:
           onClick={() => setExportOpen(true)}
           disabled={!asset.modelUrl}
           className={cn(
-            'w-full flex items-center justify-center gap-2 p-3.5 rounded-xl border transition-all text-[11px] font-bold',
+            'w-full flex items-center justify-center gap-2 p-2.5 rounded-md border transition-all text-[10px] font-bold',
             asset.modelUrl
-              ? 'bg-[hsl(var(--surface-2))] border-[hsl(var(--border))]/[0.3] hover:border-[hsl(var(--primary)/0.5)] text-[hsl(var(--foreground))]'
+              ? 'bg-[hsl(var(--surface-2))] border-[hsl(var(--border))]/[0.15] hover:border-[hsl(var(--primary)/0.3)] text-[hsl(var(--foreground))]'
               : 'bg-[hsl(var(--surface-2))] border-transparent text-[hsl(var(--muted-foreground))]/[0.3] cursor-not-allowed'
           )}
         >
@@ -220,7 +211,7 @@ function InspectorPanel({ asset, onDelete }: { asset: AssetItem; onDelete?: (id:
           Package Export (GLB / ZIP)
         </button>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-1.5">
           {EXPORT_FORMATS.map((format) => {
             const url = result?.downloadUrls?.[format.id] || result?.modelUrl;
             const enabled = !!url && !!result;
@@ -230,14 +221,14 @@ function InspectorPanel({ asset, onDelete }: { asset: AssetItem; onDelete?: (id:
                 onClick={() => enabled && handleDownload(format.id, url)}
                 disabled={!enabled}
                 className={cn(
-                  'flex flex-col items-center gap-1 p-3 rounded-xl border transition-all',
+                  'flex flex-col items-center gap-1 p-2 rounded-md border transition-all',
                   enabled
-                    ? 'bg-[hsl(var(--surface-2))] border-[hsl(var(--border))]/[0.15] hover:border-[hsl(var(--border))]/[0.4] text-[hsl(var(--foreground))]'
+                    ? 'bg-[hsl(var(--surface-2))] border-[hsl(var(--border))]/[0.1] hover:border-[hsl(var(--border))]/[0.25] text-[hsl(var(--foreground))]'
                     : 'bg-[hsl(var(--surface-2))] border-transparent text-[hsl(var(--muted-foreground))]/[0.2] cursor-not-allowed'
                 )}
               >
-                <FileDown size={14} className={enabled ? 'text-[hsl(var(--muted-foreground))]/[0.7]' : 'text-[hsl(var(--muted-foreground))]/[0.2]'} />
-                <span className="text-[10px] font-bold">{format.label}</span>
+                <FileDown size={14} className={enabled ? 'text-[hsl(var(--muted-foreground))]/[0.6]' : 'text-[hsl(var(--muted-foreground))]/[0.2]'} />
+                <span className="text-[9px] font-bold">{format.label}</span>
               </button>
             );
           })}
@@ -270,6 +261,7 @@ export default function AssetPanel({
 }: AssetPanelProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [assetTypeFilter, setAssetTypeFilter] = useState<'all' | 'model' | 'image'>('all');
   const [activeTab, setActiveTab] = useState<'assets' | 'inspector'>('assets');
   const [isUploadingModel, setIsUploadingModel] = useState(false);
   const [modelUploadProgress, setModelUploadProgress] = useState<{ loaded: number; total: number; percent: number } | null>(null);
@@ -287,7 +279,6 @@ export default function AssetPanel({
         const images = payload.images || [];
         const models = payload.models || [];
         
-        // Convert to AssetItem format
         const imageAssets: AssetItem[] = images.map((img: any) => ({
           id: img.id,
           name: img.name || img.filename || 'Untitled Image',
@@ -317,7 +308,6 @@ export default function AssetPanel({
         setUploadAssets([...imageAssets, ...modelAssets]);
       } catch (error) {
         console.error('Failed to fetch upload assets:', error);
-        // Keep existing uploadAssets if any
       } finally {
         setIsLoadingUploads(false);
       }
@@ -326,28 +316,30 @@ export default function AssetPanel({
     fetchUploadAssets();
   }, []);
 
-const filteredAssets = useMemo(() => {
-    // Combine job history assets and upload assets
+  const filteredAssets = useMemo(() => {
     const allAssets = [...assets, ...uploadAssets];
     
     return allAssets.filter((a) => {
       const matchesSearch =
         a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (a.prompt && a.prompt.toLowerCase().includes(searchQuery.toLowerCase()));
+      const matchesType =
+        assetTypeFilter === 'all' ||
+        a.type === assetTypeFilter ||
+        (assetTypeFilter === 'model' && ['GLB', 'GLTF', 'OBJ', 'FBX', 'STL'].includes(a.format));
       const matchesCategory =
         categoryFilter === 'all' ||
         (categoryFilter === 'favorites' && a.isFavorite) ||
         (categoryFilter === '3d-models' && ['GLB', 'GLTF', 'OBJ', 'FBX', 'STL'].includes(a.format));
-      return matchesSearch && matchesCategory;
+      return matchesSearch && matchesType && matchesCategory;
     });
-  }, [assets, uploadAssets, searchQuery, categoryFilter]);
+  }, [assets, uploadAssets, searchQuery, categoryFilter, assetTypeFilter]);
 
   const selectedAsset = useMemo(
     () => assets.find((a) => a.id === selectedAssetId) || null,
     [assets, selectedAssetId]
   );
 
-  // Auto-switch to inspector when an asset is selected
   const prevIdRef = React.useRef(selectedAssetId);
   React.useEffect(() => {
     if (selectedAssetId !== prevIdRef.current && selectedAsset) setActiveTab('inspector');
@@ -361,62 +353,55 @@ const filteredAssets = useMemo(() => {
     if (modelFileInputRef.current) modelFileInputRef.current.value = '';
   };
 
-const processModelUpload = async (file: File) => {
-        const ext = '.' + file.name.split('.').pop()?.toLowerCase();
-        const supportedExts = ['.glb', '.gltf', '.fbx', '.obj', '.stl'];
-        if (!supportedExts.includes(ext)) {
-            toast.error(`Unsupported format: ${ext}. Supported: GLB, GLTF, FBX, OBJ, STL`);
-            return;
-        }
+  const processModelUpload = async (file: File) => {
+    const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+    const supportedExts = ['.glb', '.gltf', '.fbx', '.obj', '.stl'];
+    if (!supportedExts.includes(ext)) {
+      toast.error(`Unsupported format: ${ext}. Supported: GLB, GLTF, FBX, OBJ, STL`);
+      return;
+    }
 
-        setIsUploadingModel(true);
-        setModelUploadProgress({ loaded: 0, total: file.size, percent: 0 });
-        let cancelled = false;
-        
-        try {
-            const { promise, cancel } = uploadService.uploadWithProgress(
-                file,
-                (progress) => {
-                    setModelUploadProgress(progress);
-                },
-                '/api/v1/upload/model' as any
-            );
-            
-            // Create a timeout to allow cancellation
-            const timeoutPromise = new Promise<never>((_, reject) => {
-                setTimeout(() => reject(new Error('Upload cancelled')), 300000); // 5 minute timeout
-            });
-            
-            const result = await Promise.race([promise, timeoutPromise]);
-            if (result?.url && !cancelled) {
-                toast.success(`Model uploaded successfully (${ext.slice(1).toUpperCase()})`);
-                // Load into 3D viewer right away
-                loadModelInViewer(result.url, file.name);
-                if (onAssetUploaded) onAssetUploaded();
-            } else if (!cancelled) {
-                toast.error('Upload succeeded but no model URL was returned');
-            }
-        } catch (err: any) {
-            if (err.message === 'Upload cancelled') {
-                toast.info('Upload cancelled');
-            } else if (!cancelled) {
-                toast.error(`Model upload failed: ${err?.message || 'Unknown error'}`);
-            }
-        } finally {
-            setIsUploadingModel(false);
-            setModelUploadProgress(null);
-        }
-    };
+    setIsUploadingModel(true);
+    setModelUploadProgress({ loaded: 0, total: file.size, percent: 0 });
+    let cancelled = false;
+    
+    try {
+      const { promise, cancel } = uploadService.uploadWithProgress(
+        file,
+        (progress) => {
+          setModelUploadProgress(progress);
+        },
+        '/api/v1/upload/model' as any
+      );
+      
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Upload cancelled')), 300000);
+      });
+      
+      const result = await Promise.race([promise, timeoutPromise]);
+      if (result?.url && !cancelled) {
+        toast.success(`Model uploaded successfully (${ext.slice(1).toUpperCase()})`);
+        loadModelInViewer(result.url, file.name);
+        if (onAssetUploaded) onAssetUploaded();
+      } else if (!cancelled) {
+        toast.error('Upload succeeded but no model URL was returned');
+      }
+    } catch (err: any) {
+      if (err.message === 'Upload cancelled') {
+        toast.info('Upload cancelled');
+      } else if (!cancelled) {
+        toast.error(`Model upload failed: ${err?.message || 'Unknown error'}`);
+      }
+    } finally {
+      setIsUploadingModel(false);
+      setModelUploadProgress(null);
+    }
+  };
 
-  const categoryPills = [
-    { id: 'all', label: 'All' },
-    { id: '3d-models', label: '3D Models' },
-    { id: 'favorites', label: 'Favorites' },
-  ];
+  const isEmpty = !loading && !isLoadingUploads && filteredAssets.length === 0;
 
   return (
-    <div className={cn("flex flex-col h-full bg-[hsl(var(--surface-1))] border-l border-[hsl(var(--border))]/[0.15] w-full min-w-0", className)}>
-      {/* Hidden Model File Input */}
+    <div className={cn("flex flex-col h-full bg-[hsl(var(--surface-1))] border-l border-[hsl(var(--border))]/[0.12] w-full min-w-0", className)}>
       <input
         ref={modelFileInputRef}
         type="file"
@@ -425,188 +410,182 @@ const processModelUpload = async (file: File) => {
         onChange={handleModelFileUpload}
       />
 
-      {/* Tabs: Assets / Inspector */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-0 shrink-0">
-        <div className="flex items-center gap-1">
-          {(['assets', 'inspector'] as const).map((tab) => (
+      {/* Model / Image top tabs */}
+      <div className="flex items-center justify-center pt-3 pb-0 shrink-0">
+        <div className="flex items-center gap-8">
+          {(['model', 'image'] as const).map((type) => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
+              key={type}
+              onClick={() => setAssetTypeFilter(type)}
               className={cn(
-                'px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all relative',
-                activeTab === tab
-                  ? 'text-[hsl(var(--primary))]'
-                  : 'text-[hsl(var(--muted-foreground))]/[0.5] hover:text-[hsl(var(--muted-foreground))]/[0.7]'
+                'relative text-[0.75rem] font-medium transition-all pb-2',
+                assetTypeFilter === type
+                  ? 'text-[hsl(var(--foreground))]'
+                  : 'text-[hsl(var(--muted-foreground))]/[0.4] hover:text-[hsl(var(--muted-foreground))]/[0.6]'
               )}
             >
-              {tab}
-              {activeTab === tab && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[hsl(var(--primary))] shadow-[0_0_10px_hsl(var(--primary)/0.5)]" />
+              {type === 'model' ? 'Model' : 'Image'}
+              {assetTypeFilter === type && (
+                <div className="absolute -bottom-0 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-[hsl(var(--foreground))]" />
               )}
             </button>
           ))}
         </div>
+      </div>
 
-        {/* Top Model Upload CTA Button */}
-        <button
-          onClick={() => modelFileInputRef.current?.click()}
-          disabled={isUploadingModel}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]/[0.3] text-[hsl(var(--muted-foreground))]/[0.9] transition-all cursor-pointer disabled:opacity-50"
-        >
-          {isUploadingModel ? (
-            <Loader2 size={12} className="animate-spin" />
-          ) : (
-            <Upload size={12} />
-          )}
-          <span>{isUploadingModel ? '...' : 'Upload'}</span>
-</button>
-       </div>
-       {modelUploadProgress && (
-         <div className="mt-2">
-           <div className="flex items-center justify-between mb-1">
-             <span className="text-[9px] font-mono text-[hsl(var(--muted-foreground))]/[0.8]">Uploading...</span>
-             <span className="text-[9px] font-mono text-[hsl(var(--foreground))]">{modelUploadProgress.percent}%</span>
-           </div>
-           <div className="w-full h-1.5 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden">
-             <div
-               className="h-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-cyan))] rounded-full transition-all duration-300"
-               style={{ width: `${modelUploadProgress.percent}%` }}
-             />
-           </div>
-           <button
-             onClick={() => {
-               // Cancel upload by calling cancel on the upload service
-               // We need to store the cancel function somewhere accessible
-               // For now, we'll just reset the state and show cancelled toast
-               setIsUploadingModel(false);
-               setModelUploadProgress(null);
-               toast.info('Upload cancelled');
-             }}
-             className="text-[8px] font-mono text-[hsl(var(--muted-foreground))]/50 hover:underline"
-           >
-             Cancel
-           </button>
-         </div>
-       )}
-
-      {activeTab === 'assets' && (
-        <div className="flex flex-col flex-1 min-h-0">
-          {/* Search + Filter */}
-          <div className="p-4 space-y-4 shrink-0">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[hsl(var(--muted-foreground))]/[0.3]" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search assets..."
-                className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]/[0.15] rounded-xl pl-10 pr-4 py-2.5 text-xs text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))]/[0.2] focus:outline-none focus:border-[hsl(var(--primary)/0.3)] transition-all"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              {categoryPills.map((pill) => (
-                <button
-                  key={pill.id}
-                  onClick={() => setCategoryFilter(pill.id)}
-                  className={cn(
-                    'px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all',
-                    categoryFilter === pill.id
-                      ? 'bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))] border-[hsl(var(--primary)/0.2)]'
-                      : 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))]/[0.5] border-[hsl(var(--border))]/[0.15] hover:text-[hsl(var(--muted-foreground))]/[0.7]'
-                  )}
-                >
-                  {pill.label}
-                </button>
-              ))}
-              <button
-                onClick={() => { setSearchQuery(''); setCategoryFilter('all'); }}
-                className="ml-auto p-2 rounded-lg bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))]/[0.5] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))] transition-all"
-              >
-                <RefreshCw size={14} />
-              </button>
-            </div>
-          </div>
-
-          {/* Asset Grid / Upload Drop Zone */}
-          <div
-            className={cn(
-              'flex-1 overflow-y-auto p-4 min-h-0 transition-all',
-              isDropZoneActive && 'bg-[hsl(var(--primary)/0.05)] scale-[0.99] rounded-2xl'
-            )}
-            onDragOver={(e) => { e.preventDefault(); setIsDropZoneActive(true); }}
-            onDragLeave={() => setIsDropZoneActive(false)}
-            onDrop={async (e) => {
-              e.preventDefault();
-              setIsDropZoneActive(false);
-              const file = e.dataTransfer.files[0];
-              if (file) await processModelUpload(file);
-            }}
-          >
-{loading || isLoadingUploads ? (
-  <div className="grid grid-cols-2 gap-3">
-    {Array.from({ length: 4 }).map((_, i) => (
-      <div key={i} className="aspect-square rounded-2xl bg-[hsl(var(--surface-2))] animate-pulse" />
-    ))}
-  </div>
-) : filteredAssets.length > 0 ? (
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-3">
-                  {filteredAssets.map((asset) => (
-                    <AssetThumbnail
-                      key={asset.id}
-                      asset={asset}
-                      isSelected={asset.id === selectedAssetId}
-                      onClick={() => onSelectAsset(asset)}
-                    />
-                  ))}
-                </div>
-                {/* Subtle upload dropzone at bottom of asset list */}
-                <button
-                  onClick={() => modelFileInputRef.current?.click()}
-                  className="w-full flex items-center justify-center gap-2 py-4 px-4 rounded-2xl border border-dashed border-[hsl(var(--border))]/[0.15] hover:border-[hsl(var(--primary)/0.2)] bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--primary)/0.05)] text-[hsl(var(--muted-foreground))]/[0.3] hover:text-[hsl(var(--primary))] text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer"
-                >
-                  <Upload size={14} />
-                  <span>Drop or upload model</span>
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-16 text-center px-4 space-y-4">
-                <div className="w-16 h-16 rounded-full bg-[hsl(var(--surface-2))] flex items-center justify-center">
-                  <Grid3X3 size={32} className="text-[hsl(var(--muted-foreground))]/[0.2]" />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[hsl(var(--muted-foreground))]/[0.5]">No Assets Found</p>
-                  <p className="text-[9px] text-[hsl(var(--muted-foreground))]/[0.3]">
-                    {searchQuery ? 'Try a different search term' : 'Generate or upload your first 3D model'}
-                  </p>
-                </div>
-                <button
-                  onClick={() => modelFileInputRef.current?.click()}
-                  disabled={isUploadingModel}
-                  className="flex items-center gap-2 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-[hsl(var(--primary))] text-[hsl(var(--foreground))] hover:brightness-110 transition-all shadow-lg disabled:opacity-50"
-                >
-                  <Upload size={14} />
-                  <span>Upload File</span>
-                </button>
-              </div>
-            )}
-          </div>
+      {/* My Assets / Collected sub tabs + Manage */}
+      <div className="flex items-center justify-between px-4 py-0 shrink-0">
+        <div className="flex items-center gap-5">
+          <button className="text-[0.75rem] font-medium text-[hsl(var(--foreground))] transition-colors">
+            My Assets
+          </button>
+          <button className="text-[0.75rem] font-medium text-[hsl(var(--muted-foreground))]/[0.4] hover:text-[hsl(var(--muted-foreground))]/[0.6] transition-colors">
+            Collected
+          </button>
         </div>
-      )}
+        <button className="px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/15 text-[0.75rem] font-medium flex gap-1.5 items-center transition-colors">
+          <span>Manage</span>
+        </button>
+      </div>
 
-      {/* Inspector Tab */}
+      {/* Filter chips */}
+      <div className="flex items-center gap-2 overflow-x-auto px-4 py-3 shrink-0">
+        {[
+          { id: 'all', label: 'All', icon: Grid3X3 },
+          { id: 'model', label: 'Model', icon: Box },
+          { id: 'image', label: 'Image', icon: ImageIcon },
+        ].map((filter) => {
+          const Icon = filter.icon;
+          const isActive = assetTypeFilter === filter.id;
+          return (
+            <button
+              key={filter.id}
+              onClick={() => setAssetTypeFilter(filter.id as any)}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 border rounded-md transition-all whitespace-nowrap',
+                isActive
+                  ? 'border-[hsl(var(--primary)/0.2)] bg-[hsl(var(--primary)/0.08)] text-[hsl(var(--primary))]'
+                  : 'border-[hsl(var(--border))]/[0.12] bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))]/[0.5] hover:bg-white/5'
+              )}
+            >
+              <Icon size={14} className="v-mid" />
+              <span className="text-[0.75rem] font-medium whitespace-nowrap">{filter.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Search + Upload row */}
+      <div className="px-4 pb-3 pt-1 shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[hsl(var(--muted-foreground))]/[0.3]" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search assets..."
+              className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]/[0.1] rounded-md pl-9 pr-4 py-2 text-[0.75rem] text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))]/[0.3] focus:outline-none focus:border-[hsl(var(--primary)/0.2)] transition-all"
+            />
+          </div>
+          <button
+            onClick={() => modelFileInputRef.current?.click()}
+            disabled={isUploadingModel}
+            className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/15 text-[0.75rem] font-medium transition-colors disabled:opacity-50 shrink-0"
+          >
+            {isUploadingModel ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Upload size={14} />
+            )}
+            <span>Upload</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Asset list or empty state */}
+      <div
+        className={cn(
+          'flex-1 overflow-y-auto px-4 min-h-0 transition-all',
+          isDropZoneActive && 'bg-[hsl(var(--primary)/0.02)]'
+        )}
+        onDragOver={(e) => { e.preventDefault(); setIsDropZoneActive(true); }}
+        onDragLeave={() => setIsDropZoneActive(false)}
+        onDrop={async (e) => {
+          e.preventDefault();
+          setIsDropZoneActive(false);
+          const file = e.dataTransfer.files[0];
+          if (file) await processModelUpload(file);
+        }}
+      >
+        {loading || isLoadingUploads ? (
+          <div className="grid grid-cols-2 gap-3 pb-6">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="aspect-[4/3] rounded-lg bg-[hsl(var(--surface-2))] animate-pulse" />
+            ))}
+          </div>
+        ) : filteredAssets.length > 0 ? (
+          <div className="space-y-3 pb-6">
+            <div className="grid grid-cols-2 gap-3">
+              {filteredAssets.map((asset) => (
+                <AssetThumbnail
+                  key={asset.id}
+                  asset={asset}
+                  isSelected={asset.id === selectedAssetId}
+                  onClick={() => onSelectAsset(asset)}
+                />
+              ))}
+            </div>
+            <button
+              onClick={() => modelFileInputRef.current?.click()}
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg border border-dashed border-[hsl(var(--border))]/[0.15] hover:border-[hsl(var(--primary)/0.2)] bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--primary)/0.03)] text-[hsl(var(--muted-foreground))]/[0.4] hover:text-[hsl(var(--primary))] text-[0.75rem] font-medium transition-all cursor-pointer"
+            >
+              <Upload size={14} />
+              <span>Drop or upload model</span>
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center pt-32 pb-10 text-center px-4 space-y-5">
+            <div className="w-24 h-24 rounded-full bg-[hsl(var(--surface-2))] flex items-center justify-center border border-[hsl(var(--border))]/[0.1]">
+              <Grid3X3 size={40} className="text-[hsl(var(--muted-foreground))]/[0.12]" />
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-[0.875rem] font-medium text-[hsl(var(--muted-foreground))]/[0.5]">
+                {searchQuery ? 'No matching assets' : 'Sign up to generate assets for free'}
+              </p>
+              {!searchQuery && (
+                <p className="text-[0.75rem] text-[hsl(var(--muted-foreground))]/[0.35]">
+                  Generate or upload your first 3D model
+                </p>
+              )}
+            </div>
+            {!searchQuery && (
+              <button
+                onClick={() => modelFileInputRef.current?.click()}
+                disabled={isUploadingModel}
+                className="flex items-center gap-2 px-5 py-2 rounded-full bg-white/10 hover:bg-white/15 text-[0.875rem] font-medium transition-all disabled:opacity-50"
+              >
+                <Upload size={14} />
+                <span>Generate Model</span>
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Inspector tab */}
       {activeTab === 'inspector' && (
         <div className="flex-1 overflow-y-auto min-h-0 bg-[hsl(var(--surface-1))]">
           {selectedAsset ? (
             <InspectorPanel asset={selectedAsset} onDelete={onDeleteAsset} />
           ) : (
             <div className="flex flex-col items-center justify-center h-full py-16 text-center px-4 space-y-4">
-              <div className="w-16 h-16 rounded-full bg-[hsl(var(--surface-2))] flex items-center justify-center">
-                <Eye size={32} className="text-[hsl(var(--muted-foreground))]/[0.2]" />
+              <div className="w-16 h-16 rounded-full bg-[hsl(var(--surface-2))] flex items-center justify-center border border-[hsl(var(--border))]/[0.1]">
+                <Eye size={28} className="text-[hsl(var(--muted-foreground))]/[0.12]" />
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[hsl(var(--muted-foreground))]/[0.5]">No Asset Selected</p>
-                <p className="text-[9px] text-[hsl(var(--muted-foreground))]/[0.3]">Select an asset from the list to view details</p>
+                <p className="text-[0.75rem] font-medium text-[hsl(var(--muted-foreground))]/[0.4]">No Asset Selected</p>
+                <p className="text-[0.75rem] text-[hsl(var(--muted-foreground))]/[0.25]">Select an asset from the list to view details</p>
               </div>
             </div>
           )}
