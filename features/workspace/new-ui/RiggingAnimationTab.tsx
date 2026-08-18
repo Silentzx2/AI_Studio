@@ -55,6 +55,7 @@ interface RiggingAnimationTabProps {
   };
   onUpdateModel: (updatedModel: any) => void;
   onNavigate: (tab: string) => void;
+  controlsOnly?: boolean;
 }
 
 interface AnimationPreset {
@@ -161,7 +162,7 @@ const LOCAL_MODELS: { id: string; label: string; installed: boolean; low_vram_su
   { id: 'anigen', label: 'AniGen', installed: false, low_vram_supported: false, low_vram_required_mb: 0 },
 ];
 
-export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavigate }: RiggingAnimationTabProps) {
+export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavigate, controlsOnly }: RiggingAnimationTabProps & { controlsOnly?: boolean }) {
   const { addLayer, currentProject } = useProjectStore();
   const [uploadedModel, setUploadedModel] = useState<File | null>(null);
   const [uploadedModelUrl, setUploadedModelUrl] = useState<string | null>(null);
@@ -654,94 +655,88 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
 
   const currentTime = (timelinePosition / 100) * currentDuration;
 
-  return (
-    <div
-      className="flex-1 min-h-0 p-4 flex flex-col lg:flex-row gap-4 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto"
-      id="rigging-animation-tab-panel"
-    >
-      {/* Left Input Configuration Panel */}
-      <div className="w-full lg:w-[360px] flex flex-col gap-4 flex-shrink-0" id="rigging-left-panel">
-        
-        {/* SECTION: ASSET & ENGINE */}
-        <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-5 shadow-sm" id="rigging-engine-box">
-          <div className="flex items-center justify-between border-b border-[hsl(var(--border))] pb-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Rigging Engine</span>
-            <Cpu size={12} className="text-[hsl(var(--primary))]" />
-          </div>
+  const leftPanel = (
+    <div className="w-full lg:w-[360px] flex flex-col gap-4 flex-shrink-0" id="rigging-left-panel">
+      {/* SECTION: ASSET & ENGINE */}
+      <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-5 shadow-sm" id="rigging-engine-box">
+        <div className="flex items-center justify-between border-b border-[hsl(var(--border))] pb-2">
+          <span className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Rigging Engine</span>
+          <Cpu size={12} className="text-[hsl(var(--primary))]" />
+        </div>
 
-          <div className="flex flex-col gap-4">
-            {/* Model Upload area */}
-            <div className="flex flex-col gap-2">
-              <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Target Asset</label>
-              
-{isUploadingModel ? (
-  <div className="w-full flex flex-col items-center gap-2 py-4 bg-[hsl(var(--surface-2))] rounded-xl border border-[hsl(var(--border))]">
-    <RefreshCw size={16} className="text-[hsl(var(--primary))] animate-spin" />
-    <div className="w-full max-w-[80%] h-1 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden">
-      <div className="h-full bg-[hsl(var(--primary))] transition-all duration-200" style={{ width: `${modelUploadProgress}%` }} />
-    </div>
-    <button
-      onClick={() => {
-        if (cancelUploadRef.current) {
-          cancelUploadRef.current();
-        }
-        setIsUploadingModel(false);
-        setModelUploadProgress(0);
-        setStatusMessage('Upload cancelled');
-      }}
-      className="text-[8px] font-mono text-[hsl(var(--muted-foreground))]/50 hover:underline"
-    >
-      Cancel
-    </button>
-  </div>
-) : uploadedModelUrl ? (
-                <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-3 flex items-center gap-3 group">
-                  <div className="w-8 h-8 rounded-lg bg-[hsl(var(--neon-green))/0.1] flex items-center justify-center text-[hsl(var(--muted-foreground))]">
-                    <PersonStanding size={14} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-black text-[hsl(var(--foreground))] truncate">{uploadedModelName}</p>
-                    <p className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter">Ready for Skeleton</p>
-                  </div>
-                  <button 
-                    onClick={clearUploadedModel} 
-                    className="p-1.5 rounded-lg hover:bg-[hsl(var(--destructive))/0.1] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
-                  >
-                    <X size={14} />
-                  </button>
+        <div className="flex flex-col gap-4">
+          {/* Model Upload area */}
+          <div className="flex flex-col gap-2">
+            <label className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase">Target Asset</label>
+            
+            {isUploadingModel ? (
+              <div className="w-full flex flex-col items-center gap-2 py-4 bg-[hsl(var(--surface-2))] rounded-xl border border-[hsl(var(--border))]">
+                <RefreshCw size={16} className="text-[hsl(var(--primary))] animate-spin" />
+                <div className="w-full max-w-[80%] h-1 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden">
+                  <div className="h-full bg-[hsl(var(--primary))] transition-all duration-200" style={{ width: `${modelUploadProgress}%` }} />
                 </div>
-              ) : (
-                <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-3 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-[hsl(var(--primary))/0.1] flex items-center justify-center text-[hsl(var(--primary))]">
-                    <Box size={14} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-black text-[hsl(var(--foreground))] truncate">{activeModel.name}</p>
-                    <p className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter">Active Workspace Mesh</p>
-                  </div>
+                <button
+                  onClick={() => {
+                    if (cancelUploadRef.current) {
+                      cancelUploadRef.current();
+                    }
+                    setIsUploadingModel(false);
+                    setModelUploadProgress(0);
+                    setStatusMessage('Upload cancelled');
+                  }}
+                  className="text-[8px] font-mono text-[hsl(var(--muted-foreground))]/50 hover:underline"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : uploadedModelUrl ? (
+              <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-3 flex items-center gap-3 group">
+                <div className="w-8 h-8 rounded-lg bg-[hsl(var(--neon-green))/0.1] flex items-center justify-center text-[hsl(var(--muted-foreground))]">
+                  <PersonStanding size={14} />
                 </div>
-              )}
-              
-              <label
-                id="rigging-upload-area"
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={`flex flex-col items-center justify-center gap-1.5 py-5 rounded-xl border-2 border-dashed transition-all cursor-pointer text-center group ${
-                  isDragOver
-                    ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5'
-                    : 'border-[hsl(var(--border))] bg-[hsl(var(--surface-1))] hover:border-[hsl(var(--primary))]/50 hover:bg-[hsl(var(--surface-2))]'
-                }`}
-              >
-                <Upload size={16} className="text-[hsl(var(--muted-foreground))] group-hover:scale-110 group-hover:text-[hsl(var(--primary))] transition-all" />
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-black text-[hsl(var(--foreground))]">Import Humanoid Mesh</span>
-                  <span className="text-[8px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter">GLB / FBX Supported</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-black text-[hsl(var(--foreground))] truncate">{uploadedModelName}</p>
+                  <p className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter">Ready for Skeleton</p>
                 </div>
-                <input type="file" accept=".glb,.gltf,.fbx,.obj" onChange={handleModelUpload} className="hidden" ref={fileInputRef} />
-              </label>
-            </div>
+                <button 
+                  onClick={clearUploadedModel} 
+                  className="p-1.5 rounded-lg hover:bg-[hsl(var(--destructive))/0.1] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-xl p-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-[hsl(var(--primary))/0.1] flex items-center justify-center text-[hsl(var(--primary))]">
+                  <Box size={14} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-black text-[hsl(var(--foreground))] truncate">{activeModel.name}</p>
+                  <p className="text-[9px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter">Active Workspace Mesh</p>
+                </div>
+              </div>
+            )}
+            
+            <label
+              id="rigging-upload-area"
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              className={`flex flex-col items-center justify-center gap-1.5 py-5 rounded-xl border-2 border-dashed transition-all cursor-pointer text-center group ${
+                isDragOver
+                  ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5'
+                  : 'border-[hsl(var(--border))] bg-[hsl(var(--surface-1))] hover:border-[hsl(var(--primary))]/50 hover:bg-[hsl(var(--surface-2))]'
+              }`}
+            >
+              <Upload size={16} className="text-[hsl(var(--muted-foreground))] group-hover:scale-110 group-hover:text-[hsl(var(--primary))] transition-all" />
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-[hsl(var(--foreground))]">Import Humanoid Mesh</span>
+                <span className="text-[8px] text-[hsl(var(--muted-foreground))] font-mono uppercase tracking-tighter">GLB / FBX Supported</span>
+              </div>
+              <input type="file" accept=".glb,.gltf,.fbx,.obj" onChange={handleModelUpload} className="hidden" ref={fileInputRef} />
+            </label>
+          </div>
 
           {/* Provider selection */}
           <div className="flex flex-col gap-1.5">
@@ -785,7 +780,6 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
           )}
         </div>
       </div>
-      <AssetPanelHost className="border-t border-[hsl(var(--border))]" />
 
       {/* SECTION: RIGGING CONFIG */}
       <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl p-5 flex flex-col gap-5 shadow-sm" id="rigging-config-box">
@@ -975,6 +969,19 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
           </div>
         </div>
       </div>
+  );
+
+  if (controlsOnly) {
+    return leftPanel;
+  }
+
+  return (
+    <div
+      className="flex-1 min-h-0 p-4 flex flex-col lg:flex-row gap-4 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto"
+      id="rigging-animation-tab-panel"
+    >
+      {leftPanel}
+      <AssetPanelHost className="border-t border-[hsl(var(--border))]" />
 
       {/* Right Viewport Area */}
       <div className="flex-1 bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl flex flex-col relative overflow-hidden shadow-sm" id="rigging-right-stage">

@@ -1804,7 +1804,7 @@ def install_provider(
                         else:
                             return {"success": False, "error": r.get("error", "Deps install failed")}
         # --- 5. Download primary weights ---
-        weight_key = meta.get("weight_key")
+        weight_key = _resolve_weight_key(meta, manifest)
         if weight_key:
             if log_cb:
                 log_cb(f"Downloading weights for {provider_name}...")
@@ -1962,7 +1962,7 @@ def uninstall_provider(provider_name: str, log_cb: Callable | None = None) -> di
     if not meta:
         return {"success": False, "error": f"Unknown provider: {provider_name}"}
     
-    weight_key = meta.get("weight_key")
+    weight_key = _resolve_weight_key(meta, manifest)
     if not weight_key:
         return {"success": True, "message": f"No weights to remove for {provider_name}"}
     
@@ -2057,7 +2057,7 @@ def get_install_status() -> dict:
         except (ValueError, ImportError):
             pass
         repo_name = meta.get("repo")
-        weight_key = meta.get("weight_key")
+        weight_key = _resolve_weight_key(meta, manifest)
         blocking_reason = None
         # --- repo ---
         if repo_name:
@@ -2185,6 +2185,18 @@ def get_install_status() -> dict:
             "last_installed": persisted_entry.get("installed_at") if persisted_entry else None,
         }
     return status
+
+
+def _resolve_weight_key(meta: dict, manifest: dict | None = None) -> str | None:
+    """Primary weight key: manifest `weights.primary.repo` is authoritative when
+    present, else fall back to existing JSON/Python PROVIDER_METADATA.weight_key.
+    """
+    if manifest and "weights" in manifest:
+        primary = manifest["weights"].get("primary") or {}
+        repo = primary.get("repo")
+        if repo:
+            return repo
+    return meta.get("weight_key")
 
 
 def _check_auxiliary_weights(provider_name: str, storage, manifest: dict | None = None) -> list[dict]:

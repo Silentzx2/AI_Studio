@@ -323,7 +323,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate, 
 
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4" id="texture-engine-box">
         <div className="flex flex-col gap-1.5">
-          <span className="text-2.5 font-medium text-tripo-gray-300 uppercase tracking-wider">Target Asset</span>
+          <span className="text-2.5 font-medium text-tripo-gray-300">Target Asset</span>
         </div>
 
         <div className="flex flex-col gap-3">
@@ -506,7 +506,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate, 
           <button
             onClick={handleTextureGen}
             disabled={isProcessing || !texturePrompt}
-            className="w-full bg-tripo-yellow-1 text-tripo-gray-3 font-bold py-3 rounded-full text-3.5 flex items-center justify-center gap-2 transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-50 mt-2"
+            className="w-full bg-tripo-yellow-1 text-tripo-gray-3 font-medium py-3 rounded-full text-3.5 flex items-center justify-center gap-2 transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-50 mt-2"
             id="trigger-texture-btn"
           >
             {isProcessing ? (
@@ -598,7 +598,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate, 
                 </div>
 
                 <div className="bg-tripo-gray-4 p-4 rounded-xl border border-tripo-white-5 flex flex-col gap-4">
-                  <span className="text-2.5 font-bold text-tripo-gray-300 uppercase tracking-widest border-b border-tripo-white-5 pb-2">AI Interpretation</span>
+                  <span className="text-2.5 font-medium text-tripo-gray-300 border-b border-tripo-white-5 pb-2">AI Interpretation</span>
                   <p className="text-3 text-tripo-gray-100 leading-relaxed">
                     {successResult.texturesDescription}
                   </p>
@@ -609,7 +609,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate, 
                 <div className="w-20 h-20 rounded-full bg-tripo-gray-4 flex items-center justify-center text-tripo-white-5 mb-6">
                   <Palette size={40} className="animate-pulse opacity-20" />
                 </div>
-                <h4 className="text-3 font-medium text-tripo-gray-300 uppercase tracking-wider">Awaiting Surface Projection</h4>
+                <h4 className="text-3 font-medium text-tripo-gray-300">Awaiting surface projection</h4>
                 <p className="text-2.5 text-tripo-gray-300 max-w-sm mt-2 leading-relaxed">
                   Describe your material and click "Generate Textures" to begin the AI texture generation process.
                 </p>
@@ -624,7 +624,7 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate, 
               <span className="text-2.5 font-bold">i</span>
             </div>
             <div className="flex flex-col gap-1">
-              <span className="text-2.5 font-bold text-tripo-gray-300 uppercase tracking-widest">Studio Engine Notice</span>
+              <span className="text-2.5 font-medium text-tripo-gray-300">Studio engine notice</span>
               <p className="text-2.5 text-tripo-gray-300 leading-relaxed">
                 Generated textures are applied as temporary overrides. Use the "Commit" button in the primary workspace to bake them permanently into your asset history.
               </p>

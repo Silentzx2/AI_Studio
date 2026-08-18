@@ -1531,41 +1531,41 @@ input[type="radio"], [role="switch"], [role="checkbox"],
 html.dark {
   color-scheme: dark;
 
-  --background: 250 15% 3%;
-  --foreground: 210 20% 95%;
-  --card: 250 12% 6%;
-  --card-foreground: 210 20% 95%;
-  --popover: 250 12% 7%;
-  --popover-foreground: 210 20% 95%;
-  --secondary: 250 10% 10%;
-  --secondary-foreground: 210 20% 95%;
-  --muted: 250 8% 8%;
-  --muted-foreground: 215 15% 55%;
+  --background: 0 0% 0%;
+  --foreground: 0 0% 98%;
+  --card: 0 0% 5%;
+  --card-foreground: 0 0% 98%;
+  --popover: 0 0% 6%;
+  --popover-foreground: 0 0% 98%;
+  --secondary: 0 0% 10%;
+  --secondary-foreground: 0 0% 95%;
+  --muted: 0 0% 8%;
+  --muted-foreground: 0 0% 50%;
   --destructive: 0 72% 56%;
   --destructive-foreground: 0 0% 100%;
-  --border: 250 10% 13%;
-  --input: 250 10% 12%;
+  --border: 0 0% 14%;
+  --input: 0 0% 10%;
 
-  --surface-0: 250 15% 3%;
-  --surface-1: 250 12% 6%;
-  --surface-2: 250 10% 9%;
-  --surface-3: 250 8% 13%;
-  --surface-4: 250 6% 17%;
+  --surface-0: 0 0% 0%;
+  --surface-1: 0 0% 4%;
+  --surface-2: 0 0% 7%;
+  --surface-3: 0 0% 11%;
+  --surface-4: 0 0% 15%;
 
-  --primary: 265 85% 65%;
-  --ring: 265 85% 65%;
-  --accent: 265 80% 60%;
+  --primary: 48 96% 50%;
+  --ring: 48 96% 50%;
+  --accent: 262 83% 58%;
 
-  --tripo-gray-1: 250 15% 3%;
-  --tripo-gray-2: 250 12% 6%;
-  --tripo-gray-3: 250 10% 9%;
-  --tripo-gray-4: 250 8% 13%;
-  --tripo-gray-100: 210 20% 95%;
-  --tripo-gray-200: 210 15% 88%;
-  --tripo-gray-300: 210 12% 70%;
+  --tripo-gray-1: 220 8% 5%;
+  --tripo-gray-2: 220 8% 8%;
+  --tripo-gray-3: 220 6% 11%;
+  --tripo-gray-4: 220 5% 15%;
+  --tripo-gray-100: 0 0% 95%;
+  --tripo-gray-200: 0 0% 85%;
+  --tripo-gray-300: 0 0% 65%;
   --tripo-yellow-1: 48 96% 50%;
-  --tripo-white-5: 210 20% 95% / 0.05;
-  --tripo-white-10: 210 20% 95% / 0.1;
+  --tripo-white-5: 0 0% 100% / 0.05;
+  --tripo-white-10: 0 0% 100% / 0.1;
 }
 
 html.light {
