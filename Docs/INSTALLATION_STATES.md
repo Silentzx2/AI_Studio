@@ -91,7 +91,7 @@ The `GET /api/v1/admin/install/status` endpoint returns detailed component-level
 A model is only marked `READY` when:
 
 1. Repository is cloned and valid
-2. Virtual environment exists with all dependencies
+2. Virtual environment exists with all dependencies **installed from the YAML manifest** (`dependencies.python` + `dependencies.native`), with `environment.python` pinning the venv Python version and the backend-matching torch stack pre-installed
 3. Primary weights are downloaded
 4. All required auxiliary weights are present
 5. Native builds (if required) are complete
@@ -102,6 +102,20 @@ A model is only marked `READY` when:
 10. Capability smoke test has passed
 
 **Never mark a model READY because its repository and weights exist.**
+
+## Dependency Installation
+
+Dependency installation is **manifest-driven**. `install_repo_deps()` in `runtime/installer.py`
+reads the provider's YAML manifest (`backend/runtime/manifests/<provider>.yaml`) and uses:
+
+- `manifest["environment"]["python"]` → pins the venv Python version (`uv venv --python`)
+- `manifest["dependencies"]["python"]` + `manifest["dependencies"]["native"]` → combined into a
+  requirements file installed via `_uv_install`
+- `_install_torch_stack()` → installs the backend-matching torch/torchvision/torchaudio build
+
+The `REPOS[*]["requirements"]` field is only used when no manifest exists (backward-compat
+fallback). The TRELLIS upstream conda-based setup (`_install_trellis_deps`) is preserved as
+the no-manifest fallback when TRELLIS has no manifest.
 
 ## Repair
 

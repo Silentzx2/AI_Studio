@@ -1495,6 +1495,18 @@ def install_repo_deps(repo_name: str, log_cb: Callable | None = None, requiremen
         venv_python = venv_dir / "Scripts" / "python.exe"
     else:
         venv_python = venv_dir / "bin" / "python"
+
+    # ponytail: resolve manifest for authoritative deps path; falls back to
+    # REPOS if no manifest exists (preserves backward-compat for repos without
+    # manifests or during manifest rollout).
+    provider_name = repo_cfg["providers"][0]
+    manifest = None
+    try:
+        from runtime.manifest_loader import load_manifest
+        manifest = load_manifest(provider_name)
+    except (ValueError, ImportError):
+        pass
+
     if not venv_dir.exists():
         uv_path = shutil.which("uv")
         if not uv_path:
@@ -1505,7 +1517,12 @@ def install_repo_deps(repo_name: str, log_cb: Callable | None = None, requiremen
                     "uv is a hard dependency. Install: https://docs.astral.sh/uv/getting-started/installation/"
                 ),
             }
-        code, output = _run([uv_path, "venv", str(venv_dir)], cwd=repo_dir, log_cb=log_cb)
+        venv_args = [uv_path, "venv"]
+        # Authoritative python pin from manifest when available.
+        if manifest and "environment" in manifest and "python" in manifest["environment"]:
+            venv_args += ["--python", manifest["environment"]["python"]]
+        venv_args.append(str(venv_dir))
+        code, output = _run(venv_args, cwd=repo_dir, log_cb=log_cb)
         if code != 0:
             return {"success": False, "error": f"uv venv creation failed for {repo_name}: {output}"}
         logger.info("Created uv venv for %s at %s", repo_name, venv_dir)
@@ -1518,6 +1535,22 @@ def install_repo_deps(repo_name: str, log_cb: Callable | None = None, requiremen
     logger.info("Installing deps for %s using uv + per-model venv python", repo_name)
     if requirements_override is not None:
         req = requirements_override
+    elif manifest is not None:
+        # ponytail: manifest is the single source of truth for deps.
+        # Build combined python + native specs; do NOT consult REPOS[*]["requirements"].
+        py_deps = manifest.get("dependencies", {}).get("python", []) or []
+        native_deps = manifest.get("dependencies", {}).get("native", []) or []
+        combined = py_deps + native_deps
+        # Install backend-matching torch stack into the per-model venv.
+        code, output = _install_torch_stack(venv_python, repo_dir, log_cb=log_cb)
+        if code != 0:
+            return {"success": False, "error": f"torch stack install failed for {repo_name}: {output[:300]}"}
+        if combined:
+            tmp = Path(tempfile.gettempdir()) / f"{provider_name}.manifest.requirements.txt"
+            tmp.write_text("\n".join(combined) + "\n")
+            req = tmp
+        else:
+            req = None
     elif repo_name == "TRELLIS" and not repo_cfg.get("requirements"):
         ok = _install_trellis_deps(repo_dir, venv_python, log_cb=log_cb)
         if not ok.get("success", False):
@@ -1789,14 +1822,7 @@ def install_provider(
                             log_cb(f"Installing dependencies for {provider_name} (partial native build; non-native capabilities will be ready)...")
                         else:
                             log_cb(f"Installing dependencies for {provider_name}...")
-                    requirements_override = None
-                    if manifest and "dependencies" in manifest and "python" in manifest["dependencies"]:
-                        python_deps = manifest["dependencies"]["python"]
-                        if python_deps:
-                            tmp = Path(tempfile.gettempdir()) / f"{provider_name}.manifest.requirements.txt"
-                            tmp.write_text("\n".join(python_deps) + "\n")
-                            requirements_override = tmp
-                    r = install_repo_deps(repo_name, log_cb=log_cb, requirements_override=requirements_override)
+                    r = install_repo_deps(repo_name, log_cb=log_cb)
                     if not r.get("success"):
                         if native_req and all_caps_need_native and not allow_native_build:
                             if log_cb:

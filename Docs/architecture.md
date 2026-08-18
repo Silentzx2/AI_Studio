@@ -96,6 +96,31 @@ Each model is self-contained under `third_party/<RepoName>/`: its own `.venv/`
 `cache/`. `storage.StorageConfig` resolves weight paths with a legacy fallback.
 Install state is mirrored in `runtime/installer.py::get_install_status()`.
 
+## Manifest authority for dependency installation
+
+YAML manifests in `backend/runtime/manifests/` are the **authoritative installation contract**
+for dependency installation. `install_repo_deps()` in `runtime/installer.py` now consumes
+`manifest["environment"]` and `manifest["dependencies"]` directly:
+
+- **Python version pin**: `environment.python` is passed to `uv venv --python <version>` when
+  creating the per-model venv (only when a manifest exists; existing behavior is preserved
+  otherwise).
+- **Dependency source**: `dependencies.python` + `dependencies.native` are combined into a
+  temporary requirements file and installed via `_uv_install`. `REPOS[*]["requirements"]` is
+  **not consulted** when a manifest is present — the manifest is the single source of truth.
+- **Torch stack**: `_install_torch_stack()` is called to mirror the backend's exact
+  torch/torchvision/torchaudio build into each per-model venv.
+- **Backward-compat fallback**: When no manifest exists for a provider, `install_repo_deps`
+  falls back to `REPOS[*]["requirements"]`. The TRELLIS upstream conda-based setup
+  (`_install_trellis_deps`) is preserved as the no-manifest fallback for TRELLIS.
+- **External caller compat**: The `requirements_override` parameter on `install_repo_deps()`
+  is retained for backward-compatible callers that still pass it (e.g.
+  `RuntimeInstaller.install_repo_deps_for_models`).
+
+JSON/Python provider metadata tables (`REPOS`, `HF_MODELS`, `PROVIDER_METADATA`) remain
+authoritative only for **catalog/UI/API identity** (repo URLs, VRAM estimates, provider
+aliases, weight keys). They no longer drive dependency installation.
+
 ## Installation States
 
 YAML manifests are the installation-contract authority. Component-level state is persisted to the database. Preflight runs real model load + smoke tests. Repair is manifest-driven.

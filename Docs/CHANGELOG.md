@@ -29,6 +29,7 @@
 - Native-build lock ownership now held across the full pipeline (start → preflight → model load → capability smoke) and released only after the complete workflow succeeds or fails
 
 ### Changed
+- **`install_repo_deps()` is now manifest-authoritative**: reads `manifest["environment"]["python"]` to pin venv Python, `manifest["dependencies"]["python"]` + `manifest["dependencies"]["native"]` for requirements, and calls `_install_torch_stack()` for backend-matching torch. `REPOS[*]["requirements"]` is no longer consulted when a manifest exists. TRELLIS `_install_trellis_deps` is preserved as the no-manifest fallback.
 - YAML manifests now drive dependency installation instead of REPOS["requirements"]
 - JSON/Python provider metadata remains active for UI/API metadata
 - preflight.py imports get_storage_config from runtime.storage directly
