@@ -116,34 +116,6 @@ export function useHardwareStatus(): HardwareStatus {
   return hw;
 }
 
-  const [history, setHistory] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        setLoading(true);
-        const data = await apiClient.get<any>(
-          `/api/v1/generation/history?limit=${limit}&offset=0`
-        );
-        const payload = data?.data ?? data ?? {};
-        setHistory(payload.jobs || payload.history || []);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch history');
-        setHistory([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchHistory();
-  }, [limit]);
-
-  return { history, loading, error };
-}
-
 // Hook for available 3D generation models
 // Fetches from /api/v1/runtime/options which returns pipeline-aware three_d_models
 export function useAvailableModels() {

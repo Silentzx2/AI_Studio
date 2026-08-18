@@ -11,7 +11,7 @@ import {
   Sparkles, HelpCircle, Upload, X, Image as ImageIcon, Type,
   ChevronDown, ChevronRight, Loader2, Square, CircleDot, Settings2,
   RefreshCw, Palette, Activity, Lock, Zap, CheckCircle2,
-  Maximize2, RotateCcw, AlertCircle, Info
+  Maximize2, RotateCcw, AlertCircle, Info, Layers
 } from 'lucide-react';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 import { useUIStore } from '@/stores/useUIStore';

@@ -875,7 +875,7 @@ export default function RiggingAnimationTab({ activeModel, onUpdateModel, onNavi
         </div>
       </div>
     </aside>
-  ););
+  );
 
   if (controlsOnly) {
     return leftPanel;

@@ -38,7 +38,6 @@ import { HistoryItem } from '@/types/new-ui';
 import Canvas3D from '@/3D-SPACE/Canvas3D';
 import GenerationControls from '@/3D-SPACE/GenerationControls';
 import AssetPanel, { type AssetItem } from '@/3D-SPACE/AssetPanel';
-import DynamicToolPanel from './DynamicToolPanel';
 import RightContextPanel from './RightContextPanel';
 import { useGeneration } from '@/hooks/useGeneration';
 import { loadModelInViewer, useViewerStore } from '@/stores/useViewerStore';
