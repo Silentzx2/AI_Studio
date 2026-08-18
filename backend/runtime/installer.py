@@ -2172,26 +2172,10 @@ def get_install_status() -> dict:
             name, repo_ok, venv_ok, weight_ok, missing_aux, native_req, native_state, preflight_state, cuda_state, vram_state,
             manifest,
         )
-        # --- merge persisted DB state ---
-        db_state = load_provider_state_from_db(name)
+        # live state is authoritative: do not resurrect stale DB READY
         source = "live"
-        if db_state and db_state.get("overall_state"):
-            db_overall = db_state["overall_state"]
-            _PERSISTED_OVERRIDES = {
-                "native_build_pending", "native_build_running",
-                "native_build_failed", "native_build_complete",
-                "uninstalling", "repair_pending",
-            }
-            if db_overall in _PERSISTED_OVERRIDES:
-                overall_state = db_overall
-                source = "persisted"
-            elif db_overall == "ready" and overall_state != "ready":
-                overall_state = db_overall
-                source = "persisted"
         persisted_entry = persisted_state.get("repos", {}).get(name)
         installed_legacy = repo_ok and weight_ok
-        if db_state and db_state.get("overall_state"):
-            installed_legacy = db_state["overall_state"] == "ready"
         # --- capabilities (from manifest when available, else metadata) ---
         capabilities = _build_capability_states(name, meta, manifest, native_state=native_state, preflight_checks=preflight_checks)
         status[name] = {

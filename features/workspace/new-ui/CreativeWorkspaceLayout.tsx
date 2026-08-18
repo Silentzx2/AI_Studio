@@ -409,7 +409,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
        <div className="flex-shrink-0 border-b border-tripo-white-5 bg-tripo-gray-3 z-20" id="creative-top-bar">
          <div className="flex items-center h-10 px-4 gap-2">
            <span className="text-[10px] font-black uppercase tracking-widest text-tripo-gray-300">AI Studio</span>
-           <span className="text-tripo-gray-300">/</</span>
+            <span className="text-tripo-gray-300">{'\u002F'}</span>
            <span className="text-xs font-bold text-tripo-gray-100">
              {sidebarItems.find((i) => i.label === activeSidebarItem)?.label ?? 'Dashboard'}
            </span>

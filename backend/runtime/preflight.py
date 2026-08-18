@@ -418,7 +418,6 @@ def run_preflight_for_provider(
         )
     storage = get_storage_config()
     repo_name = meta.get("repo")
-    weight_key = meta.get("weight_key")
     checks: dict[str, dict] = {}
     all_passed = True
     # Try to load manifest for detailed checks.
@@ -428,6 +427,12 @@ def run_preflight_for_provider(
     except (ValueError, ImportError):
         manifest = None
         has_manifest = False
+    # --- manifest authority: weight_key from manifest weights.primary.repo, fallback to metadata ---
+    weight_key = None
+    if manifest and "weights" in manifest and "primary" in manifest["weights"]:
+        weight_key = manifest["weights"]["primary"].get("repo")
+    if not weight_key:
+        weight_key = meta.get("weight_key")
     # --- Check model venv exists ---
     if not repo_name:
         return PreflightResult(

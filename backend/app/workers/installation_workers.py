@@ -298,6 +298,7 @@ def run_native_build(self, provider_name: str, task_id: str) -> dict:
         persist_provider_state,
     )
     from runtime.manifest_loader import load_manifest
+    from runtime.preflight import run_provider_preflight
     from runtime.storage import get_storage_config
 
     canonical_name = _canonical_provider_name(provider_name)
@@ -402,17 +403,52 @@ def run_native_build(self, provider_name: str, task_id: str) -> dict:
         if errors:
             raise RuntimeError("; ".join(errors))
 
+        # --- native build succeeded: persist intermediate state ---
         persist_provider_state(canonical_name, {
             "native_build_state": "native_build_complete",
             "native_build_task_id": task_id,
             "native_build_lock_owner": None,
             "blocking_reason": None,
         })
-        logger.info("Native build complete for %s (task_id=%s)", canonical_name, task_id)
+        # --- auto-run full preflight in the model venv ---
+        try:
+            preflight_result = run_provider_preflight(canonical_name)
+            persist_provider_state(canonical_name, {
+                "preflight_passed": preflight_result.passed,
+                "last_preflight_result": {
+                    "passed": preflight_result.passed,
+                    "error_detail": preflight_result.error_detail,
+                    "checks": preflight_result.checks or {},
+                },
+            })
+        except Exception as exc:
+            logger.error("Preflight failed for %s: %s", canonical_name, exc)
+            persist_provider_state(canonical_name, {
+                "preflight_passed": False,
+                "last_preflight_result": {
+                    "passed": False,
+                    "error_detail": str(exc),
+                    "checks": {},
+                },
+            })
+        # --- compute authoritative final state from current live checks ---
+        final_status = get_install_status()
+        final_state = final_status.get(canonical_name, {}).get("state", "blocked")
+        blocking_reason = final_status.get(canonical_name, {}).get("blocking_reason")
+        persist_provider_state(canonical_name, {
+            "overall_state": final_state,
+            "blocking_reason": blocking_reason,
+        })
+        logger.info(
+            "Native build + preflight complete for %s: state=%s (task_id=%s)",
+            canonical_name, final_state, task_id,
+        )
         return {
             "success": True,
             "provider": canonical_name,
-            "state": "native_build_complete",
+            "state": final_state,
+            "native_build_complete": True,
+            "preflight_passed": load_provider_state_from_db(canonical_name).get("preflight_passed"),
         }
 
     except Exception as exc:
