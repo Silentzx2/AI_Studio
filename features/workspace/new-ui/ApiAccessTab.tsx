@@ -330,7 +330,7 @@ print(f"Model generated: {response.glb_url}")`,
           {[
             { label: 'Rate Limit', value: '150 req/min', icon: Server },
             { label: 'Concurrency', value: '5 Threads', icon: Cpu },
-            { label: 'Avg Latency', value: `${latest.incoming > 0 ? Math.round(120 + Math.random() * 80) : 0}ms`, icon: Activity },
+            { label: 'Avg Latency', value: `${latest.incoming > 0 ? 142 : 0}ms`, icon: Activity },
             { label: 'Error Rate', value: `${latest.incoming > 0 ? ((latest.failed / latest.incoming) * 100).toFixed(1) : '0.0'}%`, icon: TrendingUp },
           ].map((stat, i) => {
             const Icon = stat.icon;

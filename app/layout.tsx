@@ -1,13 +1,20 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import { Providers } from "@/lib/providers";
 import { AppearanceProvider } from "@/components/AppearanceProvider";
 import { ActivityLogger } from "@/components/ActivityLogger";
 import "./globals.css";
 
-const geistMono = JetBrains_Mono({
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-geist-mono",
+  variable: "--font-sans",
+  display: "swap",
+  weight: ["300", "400", "500", "600", "700", "800"],
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
   display: "swap",
 });
 
@@ -40,7 +47,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className="dark scroll-smooth">
       <body
-        className={`${geistMono.variable} font-sans antialiased bg-background text-foreground relative overflow-x-hidden`}
+        className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased bg-background text-foreground relative overflow-x-hidden`}
       >
         {/* Global app background (solid / gradient / wallpaper) — sits behind all UI */}
         <div

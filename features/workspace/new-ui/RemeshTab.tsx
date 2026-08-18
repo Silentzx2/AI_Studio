@@ -287,69 +287,65 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate, cont
   };
 
   const leftPanel = (
-    <aside className="w-full lg:w-62 border-r border-tripo-white-5 flex flex-col h-full bg-tripo-gray-4 z-10 rounded-r-5" id="remesh-left-panel">
-      <div className="p-3 border-b border-tripo-white-5">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-tripo-yellow-1/10 flex items-center justify-center">
-            <RefreshCw size={16} className="text-tripo-yellow-1" />
+    <aside className="w-full lg:w-72 xl:w-80 border-r border-tripo-white-5 flex flex-col h-full bg-tripo-gray-2 z-10" id="remesh-left-panel">
+      <div className="px-3 py-2 border-b border-tripo-white-5 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-lg bg-tripo-yellow-1/10 flex items-center justify-center">
+            <RefreshCw size={13} className="text-tripo-yellow-1" />
           </div>
           <div className="flex flex-col">
-            <span className="text-3 font-medium text-tripo-gray-100">Retopology Flow</span>
-            <span className="text-2.5 text-tripo-gray-300">Topology Optimization</span>
+            <span className="text-xs font-semibold text-white">Retopology Flow</span>
+            <span className="text-[10px] text-tripo-gray-400">Mesh Optimization</span>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4" id="remesh-target-box">
-        <div className="flex flex-col gap-1.5">
-          <span className="text-2.5 font-medium text-tripo-gray-300 uppercase tracking-wider">Target Asset</span>
-        </div>
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3 scrollbar-thin" id="remesh-target-box">
+        <div className="flex flex-col gap-2.5">
+          <label className="text-[11px] font-medium text-tripo-gray-300">Target Asset</label>
 
-        <div className="flex flex-col gap-3">
           {isUploadingModel ? (
-            <div className="w-full flex flex-col items-center gap-2 py-4 bg-tripo-gray-3 rounded-xl border border-tripo-white-5">
-              <RefreshCw size={16} className="text-tripo-yellow-1 animate-spin" />
-              <div className="w-full max-w-[80%] h-1 bg-tripo-gray-3 rounded-full overflow-hidden">
+            <div className="w-full flex flex-col items-center gap-1.5 py-2.5 bg-tripo-gray-3 rounded-lg border border-tripo-white-5">
+              <RefreshCw size={14} className="text-tripo-yellow-1 animate-spin" />
+              <div className="w-full max-w-[80%] h-1 bg-tripo-gray-4 rounded-full overflow-hidden">
                 <div className="h-full bg-tripo-yellow-1 transition-all duration-200" style={{ width: `${modelUploadProgress}%` }} />
               </div>
               <button
                 onClick={() => {
-                  if (cancelUploadRef.current) {
-                    cancelUploadRef.current();
-                  }
+                  if (cancelUploadRef.current) cancelUploadRef.current();
                   setIsUploadingModel(false);
                   setModelUploadProgress(0);
                   setStatusMessage('Upload cancelled');
                 }}
-                className="text-2.5 font-mono text-tripo-gray-300 hover:underline"
+                className="text-[10px] font-mono text-tripo-gray-400 hover:underline cursor-pointer"
               >
                 Cancel
               </button>
             </div>
           ) : uploadedModelUrl ? (
-            <div className="bg-tripo-gray-3 border border-tripo-white-5 rounded-xl p-3 flex items-center gap-3 group">
-              <div className="w-8 h-8 rounded-lg bg-tripo-yellow-1/10 flex items-center justify-center text-tripo-gray-300">
-                <Layers size={14} />
+            <div className="bg-tripo-gray-3 border border-tripo-white-5 rounded-lg p-2 flex items-center gap-2 group">
+              <div className="w-6 h-6 rounded-md bg-tripo-yellow-1/10 flex items-center justify-center text-tripo-yellow-1">
+                <Layers size={12} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-3 font-medium text-tripo-gray-100 truncate">{uploadedModelName}</p>
-                <p className="text-2.5 text-tripo-gray-300">Ready to Remesh</p>
+                <p className="text-xs font-medium text-white truncate">{uploadedModelName}</p>
+                <p className="text-[10px] text-emerald-400 font-medium">Ready to Remesh</p>
               </div>
               <button
                 onClick={() => { setUploadedModel(null); setUploadedModelUrl(null); setUploadedModelName(''); }}
-                className="p-1.5 rounded-lg hover:bg-tripo-white-10 text-tripo-gray-300 hover:text-tripo-gray-100"
+                className="p-1 rounded-md hover:bg-tripo-white-10 text-tripo-gray-400 hover:text-white transition-colors cursor-pointer"
               >
-                <X size={14} />
+                <X size={12} />
               </button>
             </div>
           ) : (
-            <div className="bg-tripo-gray-3 border border-tripo-white-5 rounded-xl p-3 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-tripo-yellow-1/10 flex items-center justify-center text-tripo-yellow-1">
-                <Box size={14} />
+            <div className="bg-tripo-gray-3 border border-tripo-white-5 rounded-lg p-2 flex items-center gap-2">
+              <div className="w-6 h-6 rounded-md bg-tripo-yellow-1/10 flex items-center justify-center text-tripo-yellow-1">
+                <Box size={12} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-3 font-medium text-tripo-gray-100 truncate">{activeModel.name}</p>
-                <p className="text-2.5 text-tripo-gray-300">Active Workspace Mesh</p>
+                <p className="text-xs font-medium text-white truncate">{activeModel.name}</p>
+                <p className="text-[10px] text-tripo-gray-400">Active Workspace Mesh</p>
               </div>
             </div>
           )}
@@ -359,37 +355,29 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate, cont
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`flex flex-col items-center justify-center gap-1.5 py-5 rounded-xl border-2 border-dashed transition-all cursor-pointer text-center group ${
+            className={`flex flex-col items-center justify-center gap-1 py-3.5 rounded-lg border border-dashed transition-all cursor-pointer text-center group ${
               isDragOver
                 ? 'border-tripo-yellow-1 bg-tripo-yellow-1/5'
-                : 'border-tripo-white-5 bg-tripo-gray-3 hover:border-tripo-yellow-1/50 hover:bg-tripo-gray-4'
+                : 'border-tripo-white-10 bg-tripo-gray-3 hover:border-tripo-yellow-1/50 hover:bg-tripo-gray-3/80'
             }`}
           >
-            <Upload size={16} className="text-tripo-gray-300 group-hover:scale-110 group-hover:text-tripo-yellow-1 transition-all" />
+            <Upload size={14} className="text-tripo-gray-400 group-hover:scale-110 group-hover:text-tripo-yellow-1 transition-all" />
             <div className="flex flex-col">
-              <span className="text-3 font-medium text-tripo-gray-100">Import Custom Mesh</span>
-              <span className="text-2.5 text-tripo-gray-300">GLB / GLTF Only</span>
+              <span className="text-xs font-medium text-tripo-gray-200">Import Custom Mesh</span>
+              <span className="text-[10px] text-tripo-gray-500">GLB / GLTF Only</span>
             </div>
             <input type="file" accept=".glb,.gltf" onChange={handleModelUpload} className="hidden" />
           </label>
         </div>
-      </div>
 
-      {!controlsOnly && <AssetPanelHost className="border-t border-tripo-white-5" />}
-
-      <div className="flex flex-col gap-4 p-4" id="remesh-pipeline-box">
-        <div className="flex flex-col gap-1.5">
-          <span className="text-2.5 font-medium text-tripo-gray-300 uppercase tracking-wider">Processing Pipeline</span>
-        </div>
-
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-3 font-medium text-tripo-gray-300 uppercase">Remesh Algorithm</label>
+        <div className="flex flex-col gap-2.5 pt-2 border-t border-tripo-white-5" id="remesh-pipeline-box">
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-medium text-tripo-gray-300">Remesh Algorithm</label>
             <select
               value={effectiveModelId}
               onChange={(e) => setSelectedModelId(e.target.value)}
               disabled={isLoadingModels}
-              className="w-full bg-tripo-gray-3 border-tripo-white-5 rounded-xl px-3 py-2 text-3 font-medium text-tripo-gray-100 cursor-pointer focus:outline-none focus:border-tripo-yellow-1 transition-all appearance-none disabled:opacity-60 shadow-sm"
+              className="w-full bg-tripo-gray-3 border border-tripo-white-5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-tripo-gray-200 cursor-pointer focus:outline-none focus:border-tripo-yellow-1 transition-all appearance-none disabled:opacity-60"
             >
               {modelOptions.map((m) => (
                 <option key={m.id || 'default'} value={m.id}>
@@ -399,87 +387,89 @@ export default function RemeshTab({ activeModel, onUpdateModel, onNavigate, cont
             </select>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-3 font-medium text-tripo-gray-300 uppercase">Target Topology</label>
-            <select
-              value={targetType}
-              onChange={(e) => setTargetType(e.target.value)}
-              className="w-full bg-tripo-gray-3 border-tripo-white-5 rounded-xl px-3 py-2 text-3 font-medium text-tripo-gray-100 cursor-pointer focus:outline-none focus:border-tripo-yellow-1"
-            >
-              <option value="quad-dominant">Quad-Dominant Flow</option>
-              <option value="uniform-triangles">Uniform Triangulation</option>
-              <option value="decimate">Fast Decimation</option>
-              <option value="voronoi">Voronoi Concept</option>
-            </select>
-          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-medium text-tripo-gray-400">Topology Type</label>
+              <select
+                value={targetType}
+                onChange={(e) => setTargetType(e.target.value)}
+                className="w-full bg-tripo-gray-3 border border-tripo-white-5 rounded-lg px-2 py-1 text-xs font-medium text-tripo-gray-200 cursor-pointer focus:outline-none focus:border-tripo-yellow-1"
+              >
+                <option value="quad-dominant">Quad-Dominant</option>
+                <option value="uniform-triangles">Triangles</option>
+                <option value="decimate">Decimate</option>
+                <option value="voronoi">Voronoi</option>
+              </select>
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-3 font-medium text-tripo-gray-300 uppercase">Vertex Density</label>
-            <select
-              value={vertexDensity}
-              onChange={(e) => setVertexDensity(e.target.value)}
-              className="w-full bg-tripo-gray-3 border-tripo-white-5 rounded-xl px-3 py-2 text-3 font-medium text-tripo-gray-100 cursor-pointer focus:outline-none focus:border-tripo-yellow-1"
-            >
-              <option value="10K">10K Low-Poly (Mobile)</option>
-              <option value="20K">20K Optimized (Game)</option>
-              <option value="50K">50K Mid-Poly (CGI)</option>
-              <option value="100K">100K High-Poly (Raw)</option>
-            </select>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-medium text-tripo-gray-400">Target Density</label>
+              <select
+                value={vertexDensity}
+                onChange={(e) => setVertexDensity(e.target.value)}
+                className="w-full bg-tripo-gray-3 border border-tripo-white-5 rounded-lg px-2 py-1 text-xs font-medium text-tripo-gray-200 cursor-pointer focus:outline-none focus:border-tripo-yellow-1"
+              >
+                <option value="10K">10K (Mobile)</option>
+                <option value="20K">20K (Game)</option>
+                <option value="50K">50K (CGI)</option>
+                <option value="100K">100K (Raw)</option>
+              </select>
+            </div>
           </div>
 
           {effectiveModelId && (modelOptions.find((m) => m.id === effectiveModelId)?.low_vram_supported) && (
-            <div className="flex items-center justify-between bg-tripo-gray-3 border border-tripo-white-5 rounded-xl px-3 py-2">
+            <div className="flex items-center justify-between bg-tripo-gray-3 border border-tripo-white-5 rounded-lg px-2.5 py-1.5">
               <div className="flex flex-col">
-                <span className="text-3 font-medium text-tripo-gray-300 uppercase">Low VRAM Mode</span>
-                <span className="text-2.5 text-tripo-gray-300">
+                <span className="text-xs font-medium text-tripo-gray-300">Low VRAM Mode</span>
+                <span className="text-[9.5px] text-tripo-gray-500">
                   ~{((modelOptions.find((m) => m.id === effectiveModelId)?.low_vram_required_mb || 0) / 1024).toFixed(1)} GB min
                 </span>
               </div>
               <button
                 onClick={() => setLowVram(!lowVram)}
                 className={cn(
-                  'w-8 h-4 rounded-full transition-all relative',
-                  lowVram ? 'bg-tripo-yellow-1' : 'bg-tripo-gray-3',
+                  'w-7 h-3.5 rounded-full transition-all relative cursor-pointer',
+                  lowVram ? 'bg-tripo-yellow-1' : 'bg-tripo-gray-4',
                 )}
               >
-                <div className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-tripo-gray-4 shadow transition-all', lowVram ? 'left-4.5' : 'left-0.5')} />
+                <div className={cn('absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white shadow transition-all', lowVram ? 'left-4' : 'left-0.5')} />
               </button>
             </div>
           )}
 
-          <div className="flex flex-col gap-3 pt-2 border-t border-tripo-white-5/40">
+          <div className="flex flex-col gap-1.5 pt-1 border-t border-tripo-white-5">
             {[
               { label: 'Preserve Symmetry', state: symmetry, setter: setSymmetry, desc: 'Sync mirror planes' },
               { label: 'Retain Hard Edges', state: keepBoundaries, setter: setKeepBoundaries, desc: 'Protect sharp splits' },
             ].map((t) => (
-              <div key={t.label} className="flex items-center justify-between">
+              <label key={t.label} className="flex items-center justify-between cursor-pointer">
                 <div className="flex flex-col">
-                  <span className="text-3 font-medium text-tripo-gray-100 uppercase">{t.label}</span>
-                  <span className="text-2.5 text-tripo-gray-300">{t.desc}</span>
+                  <span className="text-xs font-medium text-tripo-gray-200">{t.label}</span>
+                  <span className="text-[9.5px] text-tripo-gray-400">{t.desc}</span>
                 </div>
                 <input
                   type="checkbox"
                   checked={t.state}
                   onChange={(e) => t.setter(e.target.checked)}
-                  className="accent-tripo-yellow-1 h-4 w-4 cursor-pointer"
+                  className="accent-tripo-yellow-1 h-3.5 w-3.5 cursor-pointer rounded"
                 />
-              </div>
+              </label>
             ))}
           </div>
 
           <button
             onClick={handleRemesh}
             disabled={isProcessing}
-            className="w-full bg-tripo-yellow-1 text-tripo-gray-3 font-bold py-3 rounded-full text-3.5 flex items-center justify-center gap-2 transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-50 mt-2"
+            className="w-full bg-tripo-yellow-1 hover:bg-yellow-400 text-black font-bold py-2 rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-[0.98] disabled:opacity-50 cursor-pointer mt-1"
           >
             {isProcessing ? (
               <>
-                <RefreshCw size={14} className="animate-spin" />
+                <RefreshCw size={13} className="animate-spin" />
                 Remeshing...
               </>
             ) : (
               <>
-                <Zap size={14} className="fill-current" />
+                <Zap size={13} className="fill-current" />
                 Bake Topology
               </>
             )}

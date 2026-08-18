@@ -36,6 +36,9 @@ export interface HistoryItem {
   color: string;
   accentColor: string;
   isFavorite?: boolean;
+  favorite?: boolean;
+  date?: string;
+  tags?: string[];
   modelUrl?: string | null;
   thumbnailUrl?: string | null;
 }

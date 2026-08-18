@@ -9,7 +9,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import anime from 'animejs';
 import {
   Folder, Cpu, RefreshCw, Palette, Bookmark, Layers, Heart, Code, Settings,
-  Sparkles, HelpCircle, LogOut, Activity, Zap, Wifi, ChevronDown, Box
+  Sparkles, HelpCircle, LogOut, Activity, Zap, Wifi, ChevronDown, Box,
+  Menu, X, Plus, Grid3x3
 } from 'lucide-react';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 import { useUIStore } from '@/stores/useUIStore';
@@ -37,8 +38,10 @@ import { HistoryItem } from '@/types/new-ui';
 import Canvas3D from '@/3D-SPACE/Canvas3D';
 import GenerationControls from '@/3D-SPACE/GenerationControls';
 import AssetPanel, { type AssetItem } from '@/3D-SPACE/AssetPanel';
+import DynamicToolPanel from './DynamicToolPanel';
+import RightContextPanel from './RightContextPanel';
 import { useGeneration } from '@/hooks/useGeneration';
-import { loadModelInViewer } from '@/stores/useViewerStore';
+import { loadModelInViewer, useViewerStore } from '@/stores/useViewerStore';
 import { toast } from 'sonner';
 import AssetPanelHost from '@/features/workspace/AssetPanelHost';
 
@@ -51,7 +54,7 @@ interface CreativeWorkspaceLayoutProps {
 
 export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: CreativeWorkspaceLayoutProps = {}) {
   const searchParams = useSearchParams();
-  const validTabs = ['3D Gen', 'Dashboard', 'Rigging & Animation', 'Remesh', 'Texture Gen', 'My Assets', 'Models', 'Favorites', 'API Access', 'Settings'];
+  const validTabs = ['3D Gen', 'Dashboard', 'Rigging', 'Animation', 'Rigging & Animation', 'Remesh', 'Texture Gen', 'My Assets', 'Models', 'Favorites', 'API Access', 'Settings'];
   const requested = searchParams.get('tab') || defaultTab;
   // ponytail: legacy links/state may still say 'Workspace' — treat as 'Dashboard'.
   const normalized = requested === 'Workspace' ? 'Dashboard' : requested;
@@ -60,8 +63,25 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
   const backendStatus = useBackendStatus();
   const { mobileMenuOpen, setMobileMenuOpen } = useUIStore();
+  const { setActiveContextTab } = useViewerStore();
   const [monitorExpanded, setMonitorExpanded] = useState(true);
   const [gpuExpanded, setGpuExpanded] = useState(false);
+
+  const handleSwitchTab = (tab: string) => {
+    setActiveSidebarItem(tab);
+    setMobileMenuOpen(false);
+    if (tab === 'Texture Gen') {
+      setActiveContextTab('materials');
+    } else if (tab === 'Rigging') {
+      setActiveContextTab('rig');
+    } else if (tab === 'Animation') {
+      setActiveContextTab('animation');
+    } else if (tab === 'Remesh') {
+      setActiveContextTab('inspector');
+    } else if (tab === '3D Gen') {
+      setActiveContextTab('assets');
+    }
+  };
 
   const vramPercentage = useMemo(() => {
     if (!runtime || !runtime.vram_total_mb) return 0;
@@ -267,7 +287,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
       },
     });
     setPrompt(item.prompt);
-    setActiveSidebarItem('Dashboard');
+    handleSwitchTab('Dashboard');
   };
 
   const loadTemplateItem = (template: any) => {
@@ -297,7 +317,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
       },
     });
     setPrompt(template.prompt);
-    setActiveSidebarItem('Dashboard');
+    handleSwitchTab('Dashboard');
   };
 
   const deleteHistoryItem = async (e: React.MouseEvent, id: string) => {
@@ -333,311 +353,383 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
       name,
       prompt,
     });
-    setActiveSidebarItem('Dashboard');
+    handleSwitchTab('3D Gen');
   };
 
   const handleSendTo3D = (prompt: string) => {
     setPrompt(prompt);
-    setActiveSidebarItem('Dashboard');
+    handleSwitchTab('3D Gen');
   };
 
-  // Sidebar list matching our ported views
-  const sidebarItems = [
-    { label: 'Dashboard', icon: Folder, visible: true },
-    { label: '3D Gen', icon: Box, visible: capabilities.threeDGen },
-    { label: 'Rigging & Animation', icon: Activity, visible: capabilities.riggingAnimation },
-    { label: 'Remesh', icon: RefreshCw, visible: capabilities.remesh },
-    { label: 'Texture Gen', icon: Palette, visible: capabilities.textureGen },
-    { label: 'My Assets', icon: Bookmark, visible: true },
-    { label: 'Models', icon: Layers, visible: true },
-    { label: 'Favorites', icon: Heart, visible: true },
-    { label: 'API Access', icon: Code, visible: true },
-    { label: 'Settings', icon: Settings, visible: true },
-  ].filter(item => item.visible);
+  // Primary Studio Tools (Tripo Style Slim Rail)
+  interface StudioNavItem {
+    id: string;
+    label: string;
+    icon: any;
+  }
+
+  const primaryStudioTools: StudioNavItem[] = [
+    { id: 'Dashboard', label: 'Home', icon: Folder },
+    { id: '3D Gen', label: '3D Gen', icon: Box },
+    { id: 'Texture Gen', label: 'Texture', icon: Palette },
+    { id: 'Rigging & Animation', label: 'Rigging', icon: Activity },
+    { id: 'Remesh', label: 'Remesh', icon: RefreshCw },
+  ];
+
+  const bottomStudioTools: StudioNavItem[] = [
+    { id: 'My Assets', label: 'Assets', icon: Bookmark },
+    { id: 'Models', label: 'Models', icon: Layers },
+    { id: 'Favorites', label: 'Favorites', icon: Heart },
+    { id: 'API Access', label: 'API', icon: Code },
+    { id: 'Settings', label: 'Settings', icon: Settings },
+  ];
+
+  // Quick navigation items for top bar
+  const topNavItems = [
+    { label: 'Dashboard', tab: 'Dashboard' },
+    { label: '3D Studio', tab: '3D Gen' },
+    { label: 'Texture', tab: 'Texture Gen' },
+    { label: 'Rigging', tab: 'Rigging & Animation' },
+    { label: 'Remesh', tab: 'Remesh' },
+    { label: 'Assets', tab: 'My Assets' },
+  ];
 
   useEffect(() => {
     // Entrance animations for sidebar items
     anime({
-      targets: '#creative-sidebar-links button',
+      targets: '#tripo-slim-rail button',
       opacity: [0, 1],
-      translateX: [-20, 0],
-      delay: anime.stagger(50),
+      translateY: [-6, 0],
+      delay: anime.stagger(15),
       easing: 'easeOutQuad',
-      duration: 600,
+      duration: 250,
     });
   }, []);
 
-  // Tripo-style sidebar: clean minimal with subtle hover
-  const getSidebarItemClass = (label: string) => {
-    const isActive = activeSidebarItem === label;
-    return cn(
-      'flex items-center gap-3 px-3 py-2 rounded-full text-3 font-medium transition-all duration-150',
-      'text-left w-full',
-      isActive
-        ? 'bg-tripo-gray-4 text-tripo-yellow-1'
-        : 'text-tripo-gray-300 hover:text-tripo-gray-100 hover:bg-tripo-white-5'
-    );
-  };
+  return (
+    <div className="flex flex-col flex-1 min-h-0 min-w-0 bg-tripo-gray-1 text-foreground" id="creative-layout-container">
+      {/* ── Clean & Minimal Top Navigation Bar ── */}
+      <header className="h-10 border-b border-tripo-white-5 bg-tripo-gray-1/95 backdrop-blur-md z-30 flex items-center justify-between px-3 gap-3 select-none flex-shrink-0" id="creative-top-bar">
+        {/* Left Section: Brand & Breadcrumb */}
+        <div className="flex items-center gap-2.5">
+          {/* Mobile menu trigger */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-1 rounded-md text-tripo-gray-300 hover:text-white hover:bg-tripo-white-5 transition-colors cursor-pointer"
+            aria-label="Toggle menu"
+            id="mobile-menu-toggle-btn"
+          >
+            {mobileMenuOpen ? <X size={15} /> : <Menu size={15} />}
+          </button>
 
-  const getSidebarIconClass = (isActive: boolean) => {
-    return cn(
-      'size-4',
-      isActive
-        ? 'text-tripo-yellow-1'
-        : 'text-tripo-gray-300 group-hover:text-tripo-gray-100 transition-colors'
-    );
-  };
-
-  const getSidebarLinksClass = () => {
-    return cn(
-      'flex-1 py-4 px-4 overflow-y-auto space-y-1 min-h-0'
-    );
-  };
-
-  const getLogoHeaderClass = () => {
-    return cn(
-      'h-14',
-      'flex items-center px-6',
-      'border-b border-white/5',
-      'flex-shrink-0'
-    );
-  };
-
-   return (
-    <div className="flex flex-1 min-h-0 min-w-0 bg-tripo-gray-3 text-[hsl(var(--foreground))]" id="creative-layout-container">
-       {/* Top Bar — unified global nav showing active tab (Tripo-style) */}
-       <div className="flex-shrink-0 border-b border-tripo-white-5 bg-tripo-gray-3 z-20" id="creative-top-bar">
-         <div className="flex items-center h-10 px-4 gap-2">
-           <span className="text-[10px] font-black uppercase tracking-widest text-tripo-gray-300">AI Studio</span>
-            <span className="text-tripo-gray-300">{'\u002F'}</span>
-           <span className="text-xs font-bold text-tripo-gray-100">
-             {sidebarItems.find((i) => i.label === activeSidebarItem)?.label ?? 'Dashboard'}
-           </span>
-         </div>
-       </div>
-
-      {/* Mobile drawer overlay for the main sidebar */}
-      {mobileMenuOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm lg:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* Sidebar panel — responsive: static on desktop, slide-in drawer on mobile */}
-      <aside className={`${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed inset-y-0 left-0 z-50 w-[260px] max-w-[85vw] lg:static lg:z-20 lg:w-[280px] bg-tripo-gray-3 border-r border-tripo-white-5 flex flex-col min-h-0 flex-shrink-0 transition-all duration-200 rounded-l-5`} id="creative-sidebar">
-         {/* Minimal Brand Header */}
-        <div className="h-12 flex items-center px-4 border-b border-tripo-white-5 flex-shrink-0" id="creative-logo-header">
-          <div className="flex items-center">
-            <div className="w-8 h-8 rounded-full bg-tripo-yellow-1 flex items-center justify-center">
-              <Sparkles size={16} className="text-tripo-gray-3" />
+          {/* Brand Mark */}
+          <div className="flex items-center gap-1.5 cursor-pointer" onClick={() => handleSwitchTab('Dashboard')}>
+            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-tripo-yellow-1 to-amber-500 flex items-center justify-center shadow-[0_0_8px_rgba(250,204,21,0.25)]">
+              <Sparkles size={13} className="text-black fill-black" />
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-xs font-black tracking-tight text-white">TRIPO</span>
+              <span className="text-[9.5px] font-bold text-tripo-yellow-1">Studio</span>
             </div>
           </div>
+
+          <span className="text-tripo-white-10 hidden sm:inline">/</span>
+
+          {/* Active Tab Breadcrumb */}
+          <span className="text-xs font-medium text-tripo-gray-300 hidden sm:inline">
+            {activeSidebarItem === 'Rigging & Animation' ? 'Rigging & Animation' : activeSidebarItem}
+          </span>
         </div>
 
-        {/* Navigation Links */}
-        <div className={getSidebarLinksClass()} id="creative-sidebar-links">
-          <div className="px-4 mb-3 mt-5">
-            <span className="text-2.5 font-medium text-tripo-gray-300">Navigation</span>
-          </div>
-          {sidebarItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeSidebarItem === item.label;
+        {/* Center Section: Navigation Links */}
+        <nav className="hidden lg:flex items-center gap-0.5 bg-tripo-gray-2/80 p-0.5 rounded-lg border border-tripo-white-5">
+          {topNavItems.map((item) => {
+            const isActive = activeSidebarItem === item.tab || (item.tab === 'Rigging & Animation' && (activeSidebarItem === 'Rigging' || activeSidebarItem === 'Animation'));
             return (
               <button
-                key={item.label}
-                onClick={() => { setActiveSidebarItem(item.label); setMobileMenuOpen(false); }}
-                className={getSidebarItemClass(item.label)}
-                id={`sidebar-nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+                key={item.tab}
+                onClick={() => handleSwitchTab(item.tab)}
+                className={cn(
+                  'px-2.5 py-0.5 rounded-md text-xs font-medium transition-all duration-150 cursor-pointer',
+                  isActive
+                    ? 'bg-tripo-yellow-1 text-black font-bold shadow-xs'
+                    : 'text-tripo-gray-300 hover:text-white hover:bg-tripo-white-5'
+                )}
+                id={`top-nav-item-${item.tab.toLowerCase().replace(/\s+/g, '-')}`}
               >
-                <Icon className={getSidebarIconClass(isActive)} size={16} />
-                <span>{item.label}</span>
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Right Section: Clean Actions */}
+        <div className="flex items-center gap-2">
+          {/* New 3D Generation CTA */}
+          <button
+            onClick={() => handleSwitchTab('3D Gen')}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-tripo-yellow-1 hover:bg-yellow-400 text-black font-bold text-xs shadow-xs transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+            id="top-bar-new-model-btn"
+          >
+            <Plus size={12} className="stroke-[3]" />
+            <span>New Model</span>
+          </button>
+
+          {/* Settings Icon */}
+          <button
+            onClick={() => handleSwitchTab('Settings')}
+            className="p-1.5 rounded-md text-tripo-gray-400 hover:text-white hover:bg-tripo-white-5 transition-colors cursor-pointer"
+            title="Settings"
+          >
+            <Settings size={15} />
+          </button>
+
+          {/* User Profile Avatar */}
+          <div
+            className="w-6 h-6 rounded-md bg-tripo-gray-3 border border-tripo-white-10 flex items-center justify-center text-[10px] font-bold text-white shadow-inner cursor-pointer"
+            onClick={() => handleSwitchTab('Settings')}
+            title="Account"
+          >
+            AI
+          </div>
+        </div>
+      </header>
+
+      {/* ── Mobile Menu Dropdown ── */}
+      {mobileMenuOpen && (
+        <div className="md:hidden bg-tripo-gray-2 border-b border-tripo-white-5 p-2 flex flex-col gap-0.5 z-40 animate-fadeIn shadow-xl">
+          {[...primaryStudioTools, ...bottomStudioTools].map((tool) => {
+            const Icon = tool.icon;
+            const isActive = activeSidebarItem === tool.id || (tool.id === 'Rigging & Animation' && (activeSidebarItem === 'Rigging' || activeSidebarItem === 'Animation'));
+            return (
+              <button
+                key={tool.id}
+                onClick={() => handleSwitchTab(tool.id)}
+                className={cn(
+                  'flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer',
+                  isActive
+                    ? 'bg-tripo-yellow-1 text-black font-bold'
+                    : 'text-tripo-gray-300 hover:text-white hover:bg-tripo-white-5'
+                )}
+              >
+                <Icon size={15} />
+                <span>{tool.label}</span>
               </button>
             );
           })}
         </div>
+      )}
 
-        {/* Footer controls */}
-        <div className="py-5 border-t border-tripo-white-5 flex flex-col gap-3 flex-shrink-0" id="creative-sidebar-footer">
-            {/* Status indicators */}
-            <div className="px-4 flex flex-col gap-2.5">
-              <div className="px-3 mb-0.5 flex items-center justify-between">
-                <span className="text-2.5 text-tripo-gray-300">Performance</span>
+      {/* ── Main Workspace Body: Slim Icon Rail + Viewport ── */}
+      <div className="flex flex-1 min-h-0 min-w-0 bg-tripo-gray-1" id="creative-layout-body">
+        {/* ── Compact Tripo Left Navigation Rail (w-14 / 56px) ── */}
+        <aside
+          className="w-14 shrink-0 bg-tripo-gray-2 border-r border-tripo-white-5 flex flex-col justify-between items-center py-1.5 select-none z-20 min-h-0"
+          id="tripo-slim-rail"
+        >
+          {/* Top Primary 3D Generation Tools */}
+          <div className="flex flex-col items-center gap-0.5 w-full px-1">
+            {primaryStudioTools.map((tool) => {
+              const Icon = tool.icon;
+              const isActive = activeSidebarItem === tool.id || (tool.id === 'Rigging & Animation' && (activeSidebarItem === 'Rigging' || activeSidebarItem === 'Animation'));
+              return (
                 <button
-                  onClick={() => setMonitorExpanded(!monitorExpanded)}
-                  className="p-1 rounded-md hover:bg-tripo-white-5 text-tripo-gray-300 hover:text-tripo-gray-100 transition-all duration-150"
+                  key={tool.id}
+                  onClick={() => handleSwitchTab(tool.id)}
+                  className={cn(
+                    'group relative w-full flex flex-col items-center justify-center py-1.5 rounded-lg transition-all duration-150 cursor-pointer',
+                    isActive
+                      ? 'bg-tripo-yellow-1/10 text-tripo-yellow-1 shadow-xs'
+                      : 'text-tripo-gray-400 hover:text-white hover:bg-tripo-white-5'
+                  )}
+                  title={tool.label}
+                  id={`rail-btn-${tool.id.toLowerCase().replace(/\s+/g, '-')}`}
                 >
-                  <ChevronDown size={14} className={`transform transition-transform duration-200 ${monitorExpanded ? '' : '-rotate-90'}`} />
+                  {/* Left active indicator bar */}
+                  {isActive && (
+                    <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-r-full bg-tripo-yellow-1 shadow-[0_0_5px_rgba(250,204,21,0.8)]" />
+                  )}
+                  <Icon
+                    size={15}
+                    className={cn(
+                      'transition-transform group-hover:scale-105 duration-150',
+                      isActive ? 'text-tripo-yellow-1 stroke-[2.2]' : 'text-tripo-gray-400 group-hover:text-white'
+                    )}
+                  />
+                  <span className={cn(
+                    'text-[8px] mt-0.5 font-semibold tracking-tight transition-colors leading-tight',
+                    isActive ? 'text-tripo-yellow-1 font-bold' : 'text-tripo-gray-400 group-hover:text-tripo-200'
+                  )}>
+                    {tool.label}
+                  </span>
                 </button>
+              );
+            })}
+          </div>
+
+          {/* Divider */}
+          <div className="w-6 h-px bg-tripo-white-5 my-0.5" />
+
+          {/* Bottom Utility & Library Tools */}
+          <div className="flex flex-col items-center gap-0.5 w-full px-1">
+            {bottomStudioTools.map((tool) => {
+              const Icon = tool.icon;
+              const isActive = activeSidebarItem === tool.id;
+              return (
+                <button
+                  key={tool.id}
+                  onClick={() => handleSwitchTab(tool.id)}
+                  className={cn(
+                    'group relative w-full flex flex-col items-center justify-center py-1.5 rounded-lg transition-all duration-150 cursor-pointer',
+                    isActive
+                      ? 'bg-tripo-yellow-1/10 text-tripo-yellow-1 shadow-xs'
+                      : 'text-tripo-gray-400 hover:text-white hover:bg-tripo-white-5'
+                  )}
+                  title={tool.label}
+                  id={`rail-btn-${tool.id.toLowerCase().replace(/\s+/g, '-')}`}
+                >
+                  {isActive && (
+                    <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-r-full bg-tripo-yellow-1 shadow-[0_0_5px_rgba(250,204,21,0.8)]" />
+                  )}
+                  <Icon
+                    size={15}
+                    className={cn(
+                      'transition-transform group-hover:scale-105 duration-150',
+                      isActive ? 'text-tripo-yellow-1 stroke-[2.2]' : 'text-tripo-gray-400 group-hover:text-white'
+                    )}
+                  />
+                  <span className={cn(
+                    'text-[8px] mt-0.5 font-semibold tracking-tight transition-colors leading-tight',
+                    isActive ? 'text-tripo-yellow-1 font-bold' : 'text-tripo-gray-400 group-hover:text-tripo-200'
+                  )}>
+                    {tool.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </aside>
+
+        {/* ── Main Viewport: Render the exact active tab component cleanly ── */}
+        <main ref={mainRef} className="flex-1 flex flex-col min-w-0 bg-tripo-gray-1 overflow-hidden relative" id="creative-main-viewport">
+          {/* 1. 3D Gen Mode: GenerationControls + Canvas3D + RightContextPanel */}
+          {activeSidebarItem === '3D Gen' && (
+            <div className="flex-1 flex flex-col lg:flex-row gap-0 min-h-0 h-full w-full" id="persistent-3d-studio-container">
+              {/* Left Generation Controls Panel */}
+              <div className="w-full lg:w-72 xl:w-80 shrink-0 h-full border-r border-tripo-white-5 bg-tripo-gray-2 transition-all duration-200 overflow-y-auto">
+                <GenerationControls />
               </div>
 
-              {monitorExpanded && (
-                <div className="flex flex-col gap-2">
-                  {/* GPU Item */}
-                  <div className="flex flex-col gap-1.5">
-                    <button
-                      onClick={() => setGpuExpanded(!gpuExpanded)}
-                      className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-lg bg-tripo-gray-4 border border-tripo-white-5 hover:border-tripo-white-10 transition-all duration-200 text-left cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Cpu className="w-4 h-4 text-tripo-gray-300" />
-                        <span className="text-3 font-medium uppercase tracking-wider text-tripo-gray-300">GPU Stats</span>
-                      </div>
-                      <ChevronDown size={12} className={`text-tripo-gray-300 transform transition-transform duration-200 ${gpuExpanded ? 'rotate-180' : ''}`} />
-                    </button>
+              {/* Center: 3D Viewport Canvas */}
+              <div className="flex-1 min-w-0 min-h-0 flex flex-col relative h-full w-full bg-black/60" id="persistent-3d-canvas-wrapper">
+                <Canvas3D isGenerating={isGenerating} />
+              </div>
 
-                    {/* GPU Expanded Stats Sub-widget */}
-                    {gpuExpanded && (
-                      <div className="px-3.5 py-2.5 rounded-lg bg-tripo-gray-4 border border-tripo-white-5 text-3 space-y-2" id="gpu-expanded-details">
-                        <div className="flex justify-between items-center">
-                          <span className="text-tripo-gray-300 font-medium uppercase tracking-wider text-2.5">Model</span>
-                          <span className="font-medium text-tripo-gray-100 truncate max-w-[120px]">
-                            {runtime?.gpu_name || "NVIDIA H100"}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-tripo-gray-300 font-medium uppercase tracking-wider text-2.5">Load</span>
-                          <span className="font-medium text-tripo-gray-100">
-                            {runtime ? `${runtime.gpu_utilization}%` : '—'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-tripo-gray-300 font-medium uppercase tracking-wider text-2.5">Temp</span>
-                          <span className="font-medium text-rose-400">
-                            {runtime ? `${runtime.gpu_temp}°C` : '—'}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* VRAM Metric */}
-                  <div className="flex flex-col gap-2 p-3.5 rounded-lg bg-tripo-gray-4 border border-tripo-white-5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Zap className="w-4 h-4 text-tripo-gray-300" />
-                        <span className="text-3 font-medium uppercase tracking-wider text-tripo-gray-300">Memory</span>
-                      </div>
-                      <span className="text-3 font-medium text-tripo-gray-100">
-                        {runtime ? `${(runtime.vram_used_mb / 1024).toFixed(1)}GB` : '—'}
-                      </span>
-                    </div>
-                    {runtime && (
-                      <div className="w-full h-1 bg-tripo-gray-3 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-tripo-yellow-1 transition-all duration-300"
-                          style={{ width: `${vramPercentage}%` }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+              {/* Right: Contextual Tabs Panel */}
+              <div className="hidden lg:flex w-72 xl:w-80 shrink-0 h-full border-l border-tripo-white-5 bg-tripo-gray-2 transition-all duration-200 scrollbar-thin">
+                <RightContextPanel
+                  assets={assets}
+                  selectedAssetId={selectedAssetId}
+                  onSelectAsset={handleSelectAsset}
+                  onToggleFavorite={handleToggleFavorite}
+                  onDeleteAsset={handleDeleteAsset}
+                  onAssetUploaded={loadHistory}
+                  loading={isLoadingHistory}
+                />
+              </div>
             </div>
-        </div>
-      </aside>
+          )}
 
-      {/* Main viewport: persistent 3D canvas + dynamic left/right panels */}
-        <main ref={mainRef} className="flex-1 flex flex-col bg-tripo-gray-3 overflow-hidden" id="creative-main-viewport">
-         {/* Left function/tool panel — dynamically swapped based on active tab */}
-         <div className="flex-1 flex flex-col lg:flex-row gap-0 min-h-0">
-           {/* Left: Function / Tool Panel */}
-           <div className="w-full lg:w-62 max-w-[80vw] shrink-0 h-full border-r border-tripo-white-5 bg-tripo-gray-4 transition-all duration-200 rounded-r-5">
-             {activeSidebarItem === '3D Gen' && <GenerationControls />}
-             {activeSidebarItem === 'Remesh' && (
-               <RemeshTab
-                 activeModel={activeModel}
-                 onUpdateModel={setActiveModel}
-                 onNavigate={setActiveSidebarItem}
-                 controlsOnly
-               />
-             )}
-             {activeSidebarItem === 'Texture Gen' && (
-               <TextureGenTab
-                 activeModel={activeModel}
-                 onUpdateModel={setActiveModel}
-                 onNavigate={setActiveSidebarItem}
-                 controlsOnly
-               />
-             )}
-             {activeSidebarItem === 'Rigging & Animation' && (
-               <RiggingAnimationTab
-                 activeModel={activeModel}
-                 onUpdateModel={setActiveModel}
-                 onNavigate={setActiveSidebarItem}
-                 controlsOnly
-               />
-             )}
-             {activeSidebarItem === 'Dashboard' && (
-               <div className="flex-1 min-h-0 p-5 flex flex-col gap-4 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="dashboard-left-panel">
-                 <WorkspaceTab
-                   history={history ?? []}
-                   onLoadProject={loadHistoryItem}
-                   onNavigate={setActiveSidebarItem}
-                 />
-               </div>
-             )}
-             {activeSidebarItem === 'My Assets' && (
-               <div className="flex-1 min-h-0 overflow-y-auto" id="my-assets-left-panel">
-                 <MyAssetsTab
-                   history={history ?? []}
-                   onLoadProject={loadHistoryItem}
-                   onDeleteProject={deleteHistoryItem}
-                   onToggleFavorite={toggleFavoriteItem}
-                 />
-               </div>
-             )}
-             {activeSidebarItem === 'Models' && (
-               <div className="flex-1 min-h-0 overflow-y-auto" id="models-left-panel">
-                 <ModelsTab />
-               </div>
-             )}
-             {activeSidebarItem === 'Favorites' && (
-               <div className="flex-1 min-h-0 overflow-y-auto" id="favorites-left-panel">
-                 <FavoritesTab
-                   history={history ?? []}
-                   onLoadProject={loadHistoryItem}
-                   onRemoveFavorite={toggleFavoriteItem}
-                   onDeleteProject={deleteHistoryItem}
-                 />
-               </div>
-             )}
-             {activeSidebarItem === 'API Access' && (
-               <div className="flex-1 min-h-0 overflow-y-auto" id="api-access-left-panel">
-                 <ApiAccessTab />
-               </div>
-             )}
-             {activeSidebarItem === 'Settings' && (
-               <div className="flex-1 min-h-0 overflow-y-auto" id="settings-left-panel">
-                 <WorkspaceSettingsTab />
-               </div>
-             )}
-           </div>
+          {/* 2. Dashboard Tab */}
+          {activeSidebarItem === 'Dashboard' && (
+            <div className="flex-1 min-h-0 w-full overflow-y-auto bg-tripo-gray-1 p-4 sm:p-6 lg:p-8 animate-fadeIn" id="dashboard-full-view">
+              <WorkspaceTab
+                history={history ?? []}
+                onLoadProject={loadHistoryItem}
+                onNavigate={handleSwitchTab}
+              />
+            </div>
+          )}
 
-           {/* Center: PERSISTENT 3D Canvas — always mounted, never destroyed */}
-           <div className="flex-1 min-w-0 min-h-0 flex flex-col relative h-full w-full">
-             <Canvas3D isGenerating={isGenerating} />
-           </div>
+          {/* 3. Texture Gen Tab */}
+          {activeSidebarItem === 'Texture Gen' && (
+            <div className="flex-1 min-h-0 w-full h-full animate-fadeIn" id="texture-gen-full-view">
+              <TextureGenTab
+                activeModel={activeModel}
+                onUpdateModel={setActiveModel}
+                onNavigate={handleSwitchTab}
+              />
+            </div>
+          )}
 
-           {/* Right: Contextual Assets / Inspector / History Panel */}
-           <div className="hidden lg:flex w-62 max-w-[80vw] shrink-0 h-full border-l border-tripo-white-5 bg-tripo-gray-4 transition-all duration-200 scrollbar-thin rounded-l-5 shadow-[0px_1px_10px_0px] shadow-black/40">
-             {activeSidebarItem === '3D Gen' || activeSidebarItem === 'Remesh' || activeSidebarItem === 'Texture Gen' || activeSidebarItem === 'Rigging & Animation' ? (
-               <AssetPanel
-                 assets={assets}
-                 selectedAssetId={selectedAssetId}
-                 onSelectAsset={handleSelectAsset}
-                 onToggleFavorite={handleToggleFavorite}
-                 onDeleteAsset={handleDeleteAsset}
-                 onAssetUploaded={loadHistory}
-                 loading={isLoadingHistory}
-               />
-             ) : (
-               <AssetPanelHost />
-             )}
-           </div>
-         </div>
-       </main>
-     </div>
-   );
- }
+          {/* 4. Rigging & Animation Tab */}
+          {(activeSidebarItem === 'Rigging & Animation' || activeSidebarItem === 'Rigging' || activeSidebarItem === 'Animation') && (
+            <div className="flex-1 min-h-0 w-full h-full animate-fadeIn" id="rigging-anim-full-view">
+              <RiggingAnimationTab
+                activeModel={activeModel}
+                onUpdateModel={setActiveModel}
+                onNavigate={handleSwitchTab}
+              />
+            </div>
+          )}
+
+          {/* 5. Remesh Tab */}
+          {activeSidebarItem === 'Remesh' && (
+            <div className="flex-1 min-h-0 w-full h-full animate-fadeIn" id="remesh-full-view">
+              <RemeshTab
+                activeModel={activeModel}
+                onUpdateModel={setActiveModel}
+                onNavigate={handleSwitchTab}
+              />
+            </div>
+          )}
+
+          {/* 6. My Assets Tab */}
+          {activeSidebarItem === 'My Assets' && (
+            <div className="flex-1 min-h-0 w-full overflow-y-auto bg-tripo-gray-1 p-4 sm:p-6 lg:p-8 animate-fadeIn" id="my-assets-full-view">
+              <MyAssetsTab
+                history={history ?? []}
+                onLoadProject={loadHistoryItem}
+                onDeleteProject={deleteHistoryItem}
+                onToggleFavorite={toggleFavoriteItem}
+              />
+            </div>
+          )}
+
+          {/* 7. Models Tab */}
+          {activeSidebarItem === 'Models' && (
+            <div className="flex-1 min-h-0 w-full overflow-y-auto bg-tripo-gray-1 p-4 sm:p-6 lg:p-8 animate-fadeIn" id="models-full-view">
+              <ModelsTab />
+            </div>
+          )}
+
+          {/* 8. Favorites Tab */}
+          {activeSidebarItem === 'Favorites' && (
+            <div className="flex-1 min-h-0 w-full overflow-y-auto bg-tripo-gray-1 p-4 sm:p-6 lg:p-8 animate-fadeIn" id="favorites-full-view">
+              <FavoritesTab
+                history={history ?? []}
+                onLoadProject={loadHistoryItem}
+                onRemoveFavorite={toggleFavoriteItem}
+                onDeleteProject={deleteHistoryItem}
+              />
+            </div>
+          )}
+
+          {/* 9. API Access Tab */}
+          {activeSidebarItem === 'API Access' && (
+            <div className="flex-1 min-h-0 w-full overflow-y-auto bg-tripo-gray-1 p-4 sm:p-6 lg:p-8 animate-fadeIn" id="api-access-full-view">
+              <ApiAccessTab />
+            </div>
+          )}
+
+          {/* 10. Settings Tab */}
+          {activeSidebarItem === 'Settings' && (
+            <div className="flex-1 min-h-0 w-full overflow-y-auto bg-tripo-gray-1 p-4 sm:p-6 lg:p-8 animate-fadeIn" id="settings-full-view">
+              <WorkspaceSettingsTab />
+            </div>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}

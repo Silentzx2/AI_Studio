@@ -308,62 +308,56 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate, 
   };
 
   const leftPanel = (
-    <aside className="w-full lg:w-62 border-r border-tripo-white-5 flex flex-col h-full bg-tripo-gray-4 z-10 rounded-r-5" id="texture-left-panel">
-      <div className="p-3 border-b border-tripo-white-5">
+    <aside className="w-full lg:w-72 xl:w-80 border-r border-tripo-white-5 flex flex-col h-full bg-tripo-gray-2 z-10" id="texture-left-panel">
+      <div className="px-3 py-2 border-b border-tripo-white-5 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-tripo-yellow-1/10 flex items-center justify-center">
-            <Palette size={16} className="text-tripo-yellow-1" />
+          <div className="w-6 h-6 rounded-lg bg-tripo-yellow-1/10 flex items-center justify-center">
+            <Palette size={13} className="text-tripo-yellow-1" />
           </div>
           <div className="flex flex-col">
-            <span className="text-3 font-medium text-tripo-gray-100">Surface Painter</span>
-            <span className="text-2.5 text-tripo-gray-300">AI PBR Generation</span>
+            <span className="text-xs font-semibold text-white">Surface Painter</span>
+            <span className="text-[10px] text-tripo-gray-400">AI PBR Generation</span>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4" id="texture-engine-box">
-        <div className="flex flex-col gap-1.5">
-          <span className="text-2.5 font-medium text-tripo-gray-300">Target Asset</span>
-        </div>
-
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-2" id="texture-upload-area">
-            <label className="text-3 font-medium text-tripo-gray-300">Target Asset</label>
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3 scrollbar-thin" id="texture-engine-box">
+        <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-1.5" id="texture-upload-area">
+            <label className="text-[11px] font-medium text-tripo-gray-300">Target 3D Model</label>
 
             {isUploadingModel ? (
-              <div className="w-full flex flex-col items-center gap-2 py-3 bg-tripo-gray-3 rounded-xl border border-tripo-white-5">
-                <RefreshCw size={16} className="text-tripo-yellow-1 animate-spin" />
-                <div className="w-full max-w-[80%] h-1 bg-tripo-gray-3 rounded-full overflow-hidden">
+              <div className="w-full flex flex-col items-center gap-1.5 py-2.5 bg-tripo-gray-3 rounded-lg border border-tripo-white-5">
+                <RefreshCw size={14} className="text-tripo-yellow-1 animate-spin" />
+                <div className="w-full max-w-[80%] h-1 bg-tripo-gray-4 rounded-full overflow-hidden">
                   <div className="h-full bg-tripo-yellow-1 transition-all duration-200" style={{ width: `${modelUploadProgress}%` }} />
                 </div>
                 <button
                   onClick={() => {
-                    if (cancelUploadRef.current) {
-                      cancelUploadRef.current();
-                    }
+                    if (cancelUploadRef.current) cancelUploadRef.current();
                     setIsUploadingModel(false);
                     setModelUploadProgress(0);
                     setStatusMessage('Upload cancelled');
                   }}
-                  className="text-2.5 font-mono text-tripo-gray-300 hover:underline"
+                  className="text-[10px] font-mono text-tripo-gray-400 hover:underline cursor-pointer"
                 >
                   Cancel
                 </button>
               </div>
             ) : uploadedModelUrl ? (
-              <div className="bg-tripo-gray-3 border border-tripo-white-5 rounded-xl p-3 flex items-center gap-3 group">
-                <div className="w-8 h-8 rounded-lg bg-tripo-yellow-1/10 flex items-center justify-center text-tripo-gray-300">
-                  <Palette size={14} />
+              <div className="bg-tripo-gray-3 border border-tripo-white-5 rounded-lg p-2 flex items-center gap-2 group">
+                <div className="w-6 h-6 rounded-md bg-tripo-yellow-1/10 flex items-center justify-center text-tripo-yellow-1">
+                  <Palette size={12} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-3 font-medium text-tripo-gray-100 truncate">{uploadedModelName}</p>
-                  <p className="text-2.5 text-tripo-gray-300">Asset ready</p>
+                  <p className="text-xs font-medium text-white truncate">{uploadedModelName}</p>
+                  <p className="text-[10px] text-emerald-400 font-medium">Ready for texturing</p>
                 </div>
                 <button
                   onClick={() => { setUploadedModel(null); setUploadedModelUrl(null); setUploadedModelName(''); }}
-                  className="p-1.5 rounded-lg hover:bg-tripo-white-10 text-tripo-gray-300 hover:text-tripo-gray-100 transition-colors"
+                  className="p-1 rounded-md hover:bg-tripo-white-10 text-tripo-gray-400 hover:text-white transition-colors cursor-pointer"
                 >
-                  <X size={14} />
+                  <X size={12} />
                 </button>
               </div>
             ) : (
@@ -372,30 +366,30 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate, 
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                className={`flex flex-col items-center justify-center gap-1.5 py-5 rounded-xl border-2 border-dashed transition-all cursor-pointer text-center relative overflow-hidden group ${
+                className={`flex flex-col items-center justify-center gap-1 py-3.5 rounded-lg border border-dashed transition-all cursor-pointer text-center relative overflow-hidden group ${
                   isDragOver
                     ? 'border-tripo-yellow-1 bg-tripo-yellow-1/5'
-                    : 'border-tripo-white-5 bg-tripo-gray-3 hover:border-tripo-yellow-1/50 hover:bg-tripo-gray-4'
+                    : 'border-tripo-white-10 bg-tripo-gray-3 hover:border-tripo-yellow-1/50 hover:bg-tripo-gray-3/80'
                 }`}
               >
-                <Upload size={16} className="text-tripo-gray-300 group-hover:scale-110 group-hover:text-tripo-yellow-1 transition-all" />
+                <Upload size={14} className="text-tripo-gray-400 group-hover:scale-110 group-hover:text-tripo-yellow-1 transition-all" />
                 <div className="flex flex-col">
-                  <span className="text-3 font-medium text-tripo-gray-100">Drop your 3D model</span>
-                  <span className="text-2.5 text-tripo-gray-300">Supports .glb and .gltf</span>
+                  <span className="text-xs font-medium text-tripo-gray-200">Drop 3D model or browse</span>
+                  <span className="text-[10px] text-tripo-gray-500">Supports .glb, .gltf</span>
                 </div>
                 <input type="file" accept=".glb,.gltf" onChange={handleModelUpload} className="hidden" />
               </label>
             )}
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-3 font-medium text-tripo-gray-300">Provider</label>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-medium text-tripo-gray-300">Provider Model</label>
             <div className="relative group">
               <select
                 value={materialModel}
                 onChange={(e) => setMaterialModel(e.target.value)}
                 disabled={isLoadingTextureModels}
-                className="w-full bg-tripo-gray-3 border-tripo-white-5 rounded-xl pl-3 pr-8 py-2 text-3 font-medium text-tripo-gray-100 cursor-pointer focus:outline-none focus:border-tripo-yellow-1 transition-all appearance-none disabled:opacity-50"
+                className="w-full bg-tripo-gray-3 border border-tripo-white-5 rounded-lg pl-2.5 pr-7 py-1.5 text-xs font-medium text-tripo-gray-200 cursor-pointer focus:outline-none focus:border-tripo-yellow-1 transition-all appearance-none disabled:opacity-50"
               >
                 {availableTextureModels.map((m: any) => (
                   <option key={m.id} value={m.id} disabled={m.installed === false}>
@@ -403,25 +397,25 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate, 
                   </option>
                 ))}
               </select>
-              <ChevronDown size={14} className="absolute right-3 top-3 text-tripo-gray-300 pointer-events-none group-hover:text-tripo-yellow-1 transition-colors" />
+              <ChevronDown size={13} className="absolute right-2.5 top-2 text-tripo-gray-400 pointer-events-none group-hover:text-tripo-yellow-1 transition-colors" />
             </div>
 
             {materialModel && (availableTextureModels.find((m: any) => m.id === materialModel)?.low_vram_supported) && (
-              <div className="flex items-center justify-between bg-tripo-gray-3 border border-tripo-white-5 rounded-xl px-3 py-2">
+              <div className="flex items-center justify-between bg-tripo-gray-3 border border-tripo-white-5 rounded-lg px-2.5 py-1.5 mt-1">
                 <div className="flex flex-col">
-                  <span className="text-3 font-medium text-tripo-gray-300">Low VRAM mode</span>
-                  <span className="text-2.5 text-tripo-gray-300">
+                  <span className="text-xs font-medium text-tripo-gray-300">Low VRAM mode</span>
+                  <span className="text-[9.5px] text-tripo-gray-500">
                     ~{((availableTextureModels.find((m: any) => m.id === materialModel)?.low_vram_required_mb || 0) / 1024).toFixed(1)} GB min
                   </span>
                 </div>
                 <button
                   onClick={() => setLowVram(!lowVram)}
                   className={cn(
-                    'w-8 h-4 rounded-full transition-all relative',
-                    lowVram ? 'bg-tripo-yellow-1' : 'bg-tripo-gray-3',
+                    'w-7 h-3.5 rounded-full transition-all relative cursor-pointer',
+                    lowVram ? 'bg-tripo-yellow-1' : 'bg-tripo-gray-4',
                   )}
                 >
-                  <div className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-tripo-gray-4 shadow transition-all', lowVram ? 'left-4.5' : 'left-0.5')} />
+                  <div className={cn('absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white shadow transition-all', lowVram ? 'left-4' : 'left-0.5')} />
                 </button>
               </div>
             )}
@@ -429,99 +423,98 @@ export default function TextureGenTab({ activeModel, onUpdateModel, onNavigate, 
         </div>
       </div>
 
-      <div className="p-4 border-t border-tripo-white-5">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <div className="flex justify-between items-center text-3 font-medium text-tripo-gray-300">
-              <label>Material prompt</label>
-              <button
-                onClick={handleRandomPrompt}
-                className="text-tripo-yellow-1 hover:brightness-110 flex items-center gap-1 transition-all"
-              >
-                <RefreshCw size={10} />
-                Shuffle
-              </button>
-            </div>
-            <textarea
-              value={texturePrompt}
-              onChange={(e) => setTexturePrompt(e.target.value)}
-              placeholder="Polished obsidian, gold filigree trim, heavy weathering..."
-              className="w-full bg-tripo-gray-3 border-tripo-white-5 rounded-xl p-3 text-3 text-tripo-gray-100 placeholder:text-tripo-gray-300 min-h-[90px] max-h-[140px] focus:outline-none focus:border-tripo-yellow-1 transition-all resize-none leading-relaxed"
-            />
+      <div className="p-3 border-t border-tripo-white-5 space-y-2.5 bg-tripo-gray-2/60">
+        <div className="flex flex-col gap-1">
+          <div className="flex justify-between items-center text-[11px] font-medium text-tripo-gray-300">
+            <label>Material Prompt</label>
+            <button
+              onClick={handleRandomPrompt}
+              className="text-tripo-yellow-1 hover:brightness-110 flex items-center gap-1 text-[10px] font-medium cursor-pointer"
+            >
+              <RefreshCw size={9} />
+              Shuffle
+            </button>
           </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-2.5 font-medium text-tripo-gray-300">Resolution</label>
-              <select
-                value={resolution}
-                onChange={(e) => setResolution(e.target.value)}
-                className="w-full bg-tripo-gray-3 border-tripo-white-5 rounded-xl px-2 py-2 text-3 font-medium text-tripo-gray-100 cursor-pointer focus:outline-none focus:border-tripo-yellow-1"
-              >
-                <option value="4096">4K Ultra</option>
-                <option value="2048">2K High</option>
-                <option value="1024">1K Standard</option>
-                <option value="512">512px Draft</option>
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-2.5 font-medium text-tripo-gray-300">Style</label>
-              <select
-                value={themeStyle}
-                onChange={(e) => setThemeStyle(e.target.value)}
-                className="w-full bg-tripo-gray-3 border-tripo-white-5 rounded-xl px-2 py-2 text-3 font-medium text-tripo-gray-100 cursor-pointer focus:outline-none focus:border-tripo-yellow-1"
-              >
-                <option value="photorealistic">Realistic</option>
-                <option value="stylized-handpainted">Handpainted</option>
-                <option value="anime">Anime/Cel</option>
-                <option value="cyberpunk">Cyberpunk</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3.5 pt-2">
-            {[
-              { label: 'Weathering', value: weathering, setter: setWeathering },
-              { label: 'Metalness', value: metalnessBias, setter: setMetalnessBias },
-              { label: 'Roughness', value: roughnessBias, setter: setRoughnessBias },
-            ].map((s) => (
-              <div key={s.label} className="flex flex-col gap-1.5">
-                <div className="flex justify-between items-center text-3 font-medium text-tripo-gray-300">
-                  <span>{s.label}</span>
-                  <span className="text-tripo-gray-100 font-mono">{Math.round(s.value * 100)}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={s.value}
-                  onChange={(e) => s.setter(parseFloat(e.target.value))}
-                  className="w-full h-1 cursor-pointer transition-all accent-tripo-yellow-1"
-                />
-              </div>
-            ))}
-          </div>
-
-          <button
-            onClick={handleTextureGen}
-            disabled={isProcessing || !texturePrompt}
-            className="w-full bg-tripo-yellow-1 text-tripo-gray-3 font-medium py-3 rounded-full text-3.5 flex items-center justify-center gap-2 transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-50 mt-2"
-            id="trigger-texture-btn"
-          >
-            {isProcessing ? (
-              <>
-                <Sparkles size={14} className="animate-spin" />
-                Baking...
-              </>
-            ) : (
-              <>
-                <Palette size={14} />
-                Generate Textures
-              </>
-            )}
-          </button>
+          <textarea
+            value={texturePrompt}
+            onChange={(e) => setTexturePrompt(e.target.value)}
+            placeholder="Polished obsidian, gold filigree trim, heavy weathering..."
+            rows={3}
+            className="w-full bg-tripo-gray-3 border border-tripo-white-5 rounded-lg p-2 text-xs text-white placeholder:text-tripo-gray-500 focus:outline-none focus:border-tripo-yellow-1 transition-all resize-none leading-normal"
+          />
         </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-medium text-tripo-gray-400">Resolution</label>
+            <select
+              value={resolution}
+              onChange={(e) => setResolution(e.target.value)}
+              className="w-full bg-tripo-gray-3 border border-tripo-white-5 rounded-lg px-2 py-1 text-xs font-medium text-tripo-gray-200 cursor-pointer focus:outline-none focus:border-tripo-yellow-1"
+            >
+              <option value="4096">4K Ultra</option>
+              <option value="2048">2K High</option>
+              <option value="1024">1K Standard</option>
+              <option value="512">512px Draft</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-medium text-tripo-gray-400">Style</label>
+            <select
+              value={themeStyle}
+              onChange={(e) => setThemeStyle(e.target.value)}
+              className="w-full bg-tripo-gray-3 border border-tripo-white-5 rounded-lg px-2 py-1 text-xs font-medium text-tripo-gray-200 cursor-pointer focus:outline-none focus:border-tripo-yellow-1"
+            >
+              <option value="photorealistic">Realistic</option>
+              <option value="stylized-handpainted">Handpainted</option>
+              <option value="anime">Anime/Cel</option>
+              <option value="cyberpunk">Cyberpunk</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5 pt-1">
+          {[
+            { label: 'Weathering', value: weathering, setter: setWeathering },
+            { label: 'Metalness', value: metalnessBias, setter: setMetalnessBias },
+            { label: 'Roughness', value: roughnessBias, setter: setRoughnessBias },
+          ].map((s) => (
+            <div key={s.label} className="flex flex-col gap-0.5">
+              <div className="flex justify-between items-center text-[10px] font-medium text-tripo-gray-400">
+                <span>{s.label}</span>
+                <span className="text-tripo-gray-200 font-mono text-[10px]">{Math.round(s.value * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={s.value}
+                onChange={(e) => s.setter(parseFloat(e.target.value))}
+                className="w-full h-1 cursor-pointer transition-all accent-tripo-yellow-1"
+              />
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={handleTextureGen}
+          disabled={isProcessing || !texturePrompt}
+          className="w-full bg-tripo-yellow-1 hover:bg-yellow-400 text-black font-bold py-2 rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-[0.98] disabled:opacity-50 cursor-pointer mt-1"
+          id="trigger-texture-btn"
+        >
+          {isProcessing ? (
+            <>
+              <Sparkles size={13} className="animate-spin" />
+              Baking PBR...
+            </>
+          ) : (
+            <>
+              <Palette size={13} />
+              Generate Textures
+            </>
+          )}
+        </button>
       </div>
     </aside>
   );

@@ -189,437 +189,353 @@ try {
   }));
 
   return (
-    <div className="flex flex-col h-full bg-[hsl(var(--surface-1))] border-r border-[hsl(var(--border))] overflow-hidden">
-      {/* Header */}
-      <div className="p-4 pb-3 border-b border-[hsl(var(--border)/0.5)] shrink-0">
-        <div className="flex items-center justify-between mb-1">
-          <h2 className="text-xs font-black uppercase tracking-widest text-[hsl(var(--foreground))]">Model Generation</h2>
-          <button className="p-1 rounded hover:bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] transition-colors" title="Help">
+    <div className="flex flex-col h-full bg-tripo-gray-2 text-white overflow-hidden text-xs">
+      {/* Tripo Header */}
+      <div className="p-3.5 pb-2.5 border-b border-tripo-white-5 shrink-0">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5">
+            <Sparkles size={14} className="text-tripo-yellow-1 fill-tripo-yellow-1" />
+            <h2 className="text-xs font-bold tracking-tight text-white">Generate Model</h2>
+          </div>
+          <button className="p-1 rounded-lg hover:bg-tripo-white-5 text-tripo-gray-400 hover:text-white transition-colors" title="Generation Guide">
             <HelpCircle size={14} />
           </button>
         </div>
-        <p className="text-[10px] text-[hsl(var(--muted-foreground))]">Generate 3D model from text or image</p>
+
+        {/* HD Model / Smart Mesh Pill Toggle */}
+        <div className="flex p-0.5 rounded-xl bg-tripo-gray-3 border border-tripo-white-5">
+          <button
+            onClick={() => setMode('image-to-3d')}
+            className={cn(
+              "flex-1 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+              mode === 'image-to-3d'
+                ? "bg-white text-black shadow-sm"
+                : "text-tripo-gray-300 hover:text-white"
+            )}
+          >
+            HD Model
+          </button>
+          <button
+            onClick={() => setMode('text-to-3d')}
+            className={cn(
+              "flex-1 py-1 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1 cursor-pointer",
+              mode === 'text-to-3d'
+                ? "bg-white text-black font-bold shadow-sm"
+                : "text-tripo-gray-300 hover:text-white"
+            )}
+          >
+            <span>Smart Mesh</span>
+            <Zap size={11} className="text-tripo-yellow-1 fill-tripo-yellow-1" />
+          </button>
+        </div>
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
-        {/* Mode toggle */}
-        <div className="flex gap-1 p-1 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border)/0.5)]">
-          <button
-            onClick={() => setMode('text-to-3d')}
-            disabled={!supportsTextTo3D}
-            className={cn(
-              'flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all',
-              mode === 'text-to-3d'
-                ? 'bg-[hsl(var(--primary))] text-[hsl(var(--foreground))] shadow-lg shadow-[hsl(var(--primary))/0.2]'
-                : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]',
-              !supportsTextTo3D && 'opacity-40 cursor-not-allowed'
-            )}
-          >
-            <Type size={12} /> Text → 3D
-          </button>
-          <button
-            onClick={() => setMode('image-to-3d')}
-            disabled={!supportsImageTo3D}
-            className={cn(
-              'flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all',
-              mode === 'image-to-3d'
-                ? 'bg-[hsl(var(--primary))] text-[hsl(var(--foreground))] shadow-lg shadow-[hsl(var(--primary))/0.2]'
-                : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]',
-              !supportsImageTo3D && 'opacity-40 cursor-not-allowed'
-            )}
-          >
-            <ImageIcon size={12} /> Image → 3D
-          </button>
+      <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0">
+        {/* Upload & Prompt Container Card with Purple Glow */}
+        <div className="rounded-2xl p-2.5 bg-tripo-gray-3/80 border border-purple-500/40 shadow-[0_0_15px_rgba(168,85,247,0.12)] flex flex-col gap-2.5">
+          {/* Mode Sub-Icons Bar (Image, 3D, Multi-view, Text) */}
+          <div className="flex items-center gap-1 p-0.5 rounded-xl bg-tripo-gray-4 border border-tripo-white-5">
+            <button
+              onClick={() => setMode('image-to-3d')}
+              className={cn(
+                "flex-1 py-1 rounded-lg flex items-center justify-center gap-1 text-[11px] font-semibold transition-all cursor-pointer",
+                mode === 'image-to-3d'
+                  ? "bg-white text-black shadow font-bold"
+                  : "text-tripo-gray-300 hover:text-white"
+              )}
+              title="Image to 3D"
+            >
+              <ImageIcon size={13} />
+              <span>Image</span>
+            </button>
+            <button
+              onClick={() => setMode('text-to-3d')}
+              className={cn(
+                "flex-1 py-1 rounded-lg flex items-center justify-center gap-1 text-[11px] font-semibold transition-all cursor-pointer",
+                mode === 'text-to-3d'
+                  ? "bg-white text-black shadow font-bold"
+                  : "text-tripo-gray-300 hover:text-white"
+              )}
+              title="Text to 3D"
+            >
+              <Type size={13} />
+              <span>Text</span>
+            </button>
+            <button
+              onClick={() => {
+                setMode('image-to-3d');
+                toast.info('Multi-view mode active');
+              }}
+              className="flex-1 py-1 rounded-lg flex items-center justify-center gap-1 text-[11px] text-tripo-gray-400 hover:text-white transition-colors cursor-pointer"
+              title="Multi-view 3D"
+            >
+              <Layers size={13} />
+              <span>Multi-view</span>
+            </button>
+          </div>
+
+          {/* Mode Content: Text Prompt */}
+          {mode === 'text-to-3d' && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-bold text-tripo-gray-300 uppercase tracking-wider">Prompt</label>
+                <span className="text-[9px] font-mono text-tripo-gray-500">{prompt.length}/1000</span>
+              </div>
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="Describe your 3D model (e.g. Cyberpunk samurai helmet, realistic details)..."
+                rows={3}
+                maxLength={1000}
+                className="w-full bg-tripo-gray-4 border border-tripo-white-10 rounded-xl px-3 py-2 text-xs text-white placeholder:text-tripo-gray-500 focus:outline-none focus:border-tripo-yellow-1 transition-all resize-none"
+              />
+            </div>
+          )}
+
+          {/* Mode Content: Image Upload */}
+          {mode === 'image-to-3d' && (
+            <div className="space-y-2">
+              {imgUploadProgress && (
+                <div className="w-full h-1.5 bg-tripo-gray-4 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-tripo-yellow-1 to-amber-400 rounded-full transition-all duration-300"
+                    style={{ width: `${imgUploadProgress.percent}%` }}
+                  />
+                </div>
+              )}
+
+              {uploadedImage ? (
+                <div className="group relative rounded-xl overflow-hidden border border-tripo-white-10 bg-tripo-gray-4 transition-all">
+                  <img src={uploadedImage.preview} alt="Reference" className="w-full aspect-video object-cover" />
+                  <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
+                    <div className="flex justify-end">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setUploadedImage(null); }}
+                        className="p-1 rounded-md bg-black/80 hover:bg-red-500 text-white transition-all"
+                        title="Remove image"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-tripo-gray-300">
+                      <span className="font-mono truncate max-w-[130px]">{uploadedImage.file?.name || 'reference'}</span>
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-2 py-0.5 rounded bg-tripo-yellow-1 text-black font-bold text-[10px]"
+                      >
+                        Replace
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className={cn(
+                    'relative group overflow-hidden rounded-xl border border-dashed transition-all duration-200 cursor-pointer p-4',
+                    imgDragOver
+                      ? 'border-tripo-yellow-1 bg-tripo-yellow-1/10 scale-[0.99]'
+                      : 'border-tripo-white-10 hover:border-purple-400/60 bg-tripo-gray-4/50'
+                  )}
+                  onClick={() => fileInputRef.current?.click()}
+                  onDrop={handleImgDrop}
+                  onDragOver={(e) => { e.preventDefault(); setImgDragOver(true); }}
+                  onDragLeave={() => setImgDragOver(false)}
+                >
+                  <div className="flex flex-col items-center justify-center text-center gap-1.5">
+                    <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-300 group-hover:scale-105 transition-all shadow-sm">
+                      <Upload size={16} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-white group-hover:text-tripo-yellow-1 transition-colors">
+                        Upload
+                      </p>
+                      <p className="text-[9.5px] text-tripo-gray-400 mt-0.5">
+                        JPG, PNG, WEBP Size ≤ 20MB
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <input ref={fileInputRef} type="file" accept={SUPPORTED_IMAGE_FORMATS.join(',')} className="hidden" onChange={handleImageUpload} />
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('text-to-3d');
+                  toast.info('Switched to prompt generation mode');
+                }}
+                className="w-full text-center text-[10px] text-purple-300 hover:text-purple-200 font-medium py-1 transition-colors"
+              >
+                Generate Image for 3D &gt;
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Model selector */}
-        <div className="space-y-1.5">
-          <label className="text-label">Model</label>
+        {/* General Settings Accordion */}
+        <div className="rounded-xl bg-tripo-gray-3 border border-tripo-white-5 p-2.5">
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex items-center justify-between w-full text-xs font-bold text-tripo-gray-200 hover:text-white transition-colors"
+          >
+            <span className="flex items-center gap-1.5">
+              <Settings2 size={13} className="text-tripo-yellow-1" />
+              General Settings
+            </span>
+            <span className="text-[10px] font-normal text-tripo-gray-400 flex items-center gap-1">
+              Geometry &amp; Texture &gt;
+            </span>
+          </button>
+
+          {showAdvanced && (
+            <div className="mt-2.5 pt-2.5 border-t border-tripo-white-5 space-y-2.5">
+              {/* Quality options */}
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold uppercase tracking-wider text-tripo-gray-400">Quality Preset</label>
+                <div className="grid grid-cols-3 gap-1">
+                  {qualityOptions.map((q) => (
+                    <button
+                      key={q.id}
+                      onClick={() => setQuality(q.id)}
+                      className={cn(
+                        'py-1 px-1 rounded-lg text-center text-[10px] font-bold border transition-all cursor-pointer',
+                        quality === q.id
+                          ? 'bg-tripo-yellow-1 text-black border-tripo-yellow-1'
+                          : 'bg-tripo-gray-4 text-tripo-gray-300 border-tripo-white-5 hover:text-white'
+                      )}
+                    >
+                      {q.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Geometry detail slider */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="text-tripo-gray-400">Geometry Detail</span>
+                  <span className="font-mono text-tripo-yellow-1 font-bold">{(cfgScale / 10).toFixed(1)}</span>
+                </div>
+                <input
+                  type="range" min="1" max="15" step="1"
+                  value={cfgScale}
+                  onChange={(e) => setCfgScale(Number(e.target.value))}
+                  className="w-full h-1 bg-tripo-gray-4 rounded-full appearance-none cursor-pointer accent-tripo-yellow-1"
+                />
+              </div>
+
+              {/* Texture & Rigging toggles */}
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[10px] text-tripo-gray-300 font-medium">Generate Texture</span>
+                <button
+                  onClick={() => setGenerateTexture(!generateTexture)}
+                  className={cn(
+                    'w-7 h-4 rounded-full transition-colors relative cursor-pointer',
+                    generateTexture ? 'bg-tripo-yellow-1' : 'bg-tripo-gray-4'
+                  )}
+                >
+                  <div className={cn(
+                    'w-3 h-3 rounded-full transition-all absolute top-0.5',
+                    generateTexture ? 'right-0.5 bg-black' : 'left-0.5 bg-tripo-gray-300'
+                  )} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Members Only Features Card */}
+        <div className="rounded-xl bg-tripo-gray-3 border border-tripo-white-5 p-2.5 space-y-2">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
+            <Sparkles size={12} className="fill-amber-300" />
+            <span>Members Only</span>
+          </div>
+
+          <div className="space-y-1.5 text-[10px]">
+            <div className="flex items-center justify-between text-tripo-gray-300">
+              <span>Generate in Parts</span>
+              <span className="text-[9px] text-amber-300 font-semibold bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20">Trial x1</span>
+            </div>
+            <div className="flex items-center justify-between text-tripo-gray-300">
+              <span>8K Texture</span>
+              <span className="text-[9px] text-amber-300 font-semibold bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20">Trial x1</span>
+            </div>
+            <div className="flex items-center justify-between text-tripo-gray-300">
+              <span>Privacy</span>
+              <span className="text-[9px] text-tripo-gray-400">Public</span>
+            </div>
+          </div>
+        </div>
+
+        {/* AI Model Selector */}
+        <div className="space-y-1">
+          <label className="text-[10px] font-bold text-tripo-gray-400 uppercase tracking-wider">AI Model</label>
           <div className="relative">
             <select
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}
-              className="select-field-sm w-full"
+              className="w-full bg-tripo-gray-3 border border-tripo-white-10 rounded-xl px-3 py-2 text-xs text-white appearance-none cursor-pointer focus:outline-none focus:border-tripo-yellow-1"
             >
-              <option value="">Select model...</option>
               {models.map((m) => (
                 <option key={m.id} value={m.id} disabled={!m.available}>
-                  {m.label} {!m.available ? '(Not installed)' : ''}
+                  👍 {m.label} {m.available ? '(Best Quality)' : '(Not installed)'}
                 </option>
               ))}
             </select>
-            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] pointer-events-none" />
-          </div>
-          {selectedModelData && (
-            <div className="flex items-center gap-1.5">
-              {selectedModelData.available ? (
-                <span className="flex items-center gap-1 text-[9px] text-[hsl(var(--neon-green))] font-bold">
-                  <CheckCircle2 size={10} /> Ready
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-[9px] text-[hsl(var(--neon-amber))] font-bold">
-                  <Loader2 size={10} className="animate-spin" /> Not installed
-                </span>
-              )}
-              {selectedModelData.vram_required_mb && (
-                <span className="text-[8px] text-[hsl(var(--muted-foreground))]/60 font-mono">
-                  ~{selectedModelData.vram_required_mb > 1024 ? `${(selectedModelData.vram_required_mb / 1024).toFixed(1)}GB` : `${selectedModelData.vram_required_mb}MB`} VRAM
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Text → 3D: Prompt */}
-        {mode === 'text-to-3d' && (
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-label">Prompt</label>
-              <span className="text-[8px] font-mono text-[hsl(var(--muted-foreground))]/50">{prompt.length}/1000</span>
-            </div>
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Describe the 3D model you want to generate..."
-              rows={4}
-              maxLength={1000}
-              className="textarea-field w-full resize-none"
-            />
-          </div>
-        )}
-
-        {/* Image → 3D: Image upload */}
-        {mode === 'image-to-3d' && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-[9px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">
-                Reference Image
-              </label>
-              {uploadedImage && (
-                <span className="text-[8px] font-mono text-[hsl(var(--neon-green))] flex items-center gap-1">
-                  <CheckCircle2 size={10} /> Loaded
-                </span>
-              )}
-              {imgUploadProgress && (
-                <span className="text-[8px] font-mono text-[hsl(var(--neon-blue))] flex items-center gap-1">
-                  <Loader2 size={10} className="animate-spin" /> {imgUploadProgress.percent}%
-                </span>
-              )}
-            </div>
-
-            {imgUploadProgress && (
-              <div className="w-full h-1.5 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-[hsl(var(--neon-blue))] to-[hsl(var(--neon-cyan))] rounded-full transition-all duration-300"
-                  style={{ width: `${imgUploadProgress.percent}%` }}
-                />
-              </div>
-            )}
-
-            {uploadedImage ? (
-              <div className="group relative rounded-xl overflow-hidden border border-[hsl(var(--border))] bg-[hsl(var(--surface-2))] transition-all shadow-inner">
-                <img src={uploadedImage.preview} alt="Reference" className="w-full aspect-video object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
-                  <div className="flex justify-end">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setUploadedImage(null); }}
-                      className="p-1 rounded-md bg-black/60 hover:bg-[hsl(var(--destructive))] text-[hsl(var(--foreground))] transition-all backdrop-blur-sm"
-                      title="Remove image"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between text-[8px] text-[hsl(var(--muted-foreground))]">
-                    <span className="font-mono truncate max-w-[140px]">{uploadedImage.file?.name || 'reference_image'}</span>
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="px-2 py-0.5 rounded bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-2))] backdrop-blur font-bold uppercase transition-all"
-                    >
-                      Replace
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div
-                className={cn(
-                  'relative group overflow-hidden rounded-xl border border-dashed transition-all duration-200 cursor-pointer p-4',
-                  imgDragOver
-                    ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))/0.08] shadow-[0_0_20px_hsl(var(--primary)/0.15)] scale-[0.99]'
-                    : 'border-[hsl(var(--border))] hover:border-[hsl(var(--primary)/0.5)] bg-gradient-to-b from-[hsl(var(--surface-2)/0.6)] to-[hsl(var(--surface-2)/0.2)]'
-                )}
-                onClick={() => fileInputRef.current?.click()}
-                onDrop={handleImgDrop}
-                onDragOver={(e) => { e.preventDefault(); setImgDragOver(true); }}
-                onDragLeave={() => setImgDragOver(false)}
-              >
-                <div className="flex flex-col items-center justify-center text-center gap-2">
-                  <div className="w-10 h-10 rounded-xl bg-[hsl(var(--surface-3))] border border-[hsl(var(--border)/0.6)] flex items-center justify-center text-[hsl(var(--muted-foreground))] group-hover:text-[hsl(var(--primary))] group-hover:border-[hsl(var(--primary)/0.4)] group-hover:scale-105 transition-all shadow-sm">
-                    <Upload size={18} />
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-bold text-[hsl(var(--foreground))] group-hover:text-[hsl(var(--primary))] transition-colors">
-                      Choose reference image
-                    </p>
-                    <p className="text-[9px] text-[hsl(var(--muted-foreground))] mt-0.5">
-                      Drag &amp; drop or browse
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1 mt-1">
-                    {['PNG', 'JPG', 'WEBP'].map((fmt) => (
-                      <span key={fmt} className="px-1.5 py-0.5 rounded text-[7px] font-mono font-bold bg-[hsl(var(--surface-3))] border border-[hsl(var(--border)/0.5)] text-[hsl(var(--muted-foreground))]">
-                        {fmt}
-                      </span>
-                    ))}
-                    <span className="text-[8px] text-[hsl(var(--muted-foreground))]/60 ml-1">
-                      Max {MAX_IMAGE_SIZE_MB}MB
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-            <input ref={fileInputRef} type="file" accept={SUPPORTED_IMAGE_FORMATS.join(',')} className="hidden" onChange={handleImageUpload} />
-          </div>
-        )}
-
-        {/* Negative prompt (collapsible) */}
-        {mode === 'text-to-3d' && (
-          <div>
-            <button
-              onClick={() => setShowNegPrompt(!showNegPrompt)}
-              className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors w-full"
-            >
-              {showNegPrompt ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
-              Negative Prompt
-            </button>
-            {showNegPrompt && (
-              <textarea
-                value={negativePrompt}
-                onChange={(e) => setNegativePrompt(e.target.value)}
-                placeholder="Things to avoid in the generation..."
-                rows={2}
-                maxLength={1000}
-                className="mt-1.5 w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-lg px-3 py-2 text-[11px] text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))]/40 focus:outline-none focus:border-[hsl(var(--primary))] transition-all resize-none"
-              />
-            )}
-          </div>
-        )}
-
-        {/* Quality */}
-        <div className="space-y-1.5">
-          <label className="text-[9px] font-black uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Quality</label>
-          <div className="flex gap-1.5">
-            {qualityOptions.map((q) => (
-              <button
-                key={q.id}
-                onClick={() => setQuality(q.id)}
-                className={cn(
-                  'flex-1 flex flex-col items-center gap-0.5 px-2 py-2 rounded-lg border transition-all',
-                  quality === q.id
-                    ? 'bg-[hsl(var(--primary))/0.1] text-[hsl(var(--primary))] border-[hsl(var(--primary))/0.3]'
-                    : 'bg-transparent text-[hsl(var(--muted-foreground))] border-[hsl(var(--border)/0.5)] hover:text-[hsl(var(--foreground))]',
-                  isGenerating && 'opacity-50 pointer-events-none'
-                )}
-                disabled={isGenerating}
-              >
-                <span className="text-[10px] font-bold">{q.label}</span>
-                <span className="text-[7px] opacity-60">{q.desc}</span>
-              </button>
-            ))}
+            <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-tripo-gray-400 pointer-events-none" />
           </div>
         </div>
-
-        {/* Geometry detail slider */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <label className="text-[9px] font-bold uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Geometry Detail</label>
-            <span className="text-[9px] font-mono text-[hsl(var(--foreground))]">{(cfgScale / 10).toFixed(1)}</span>
-          </div>
-          <input
-            type="range" min="1" max="15" step="1"
-            value={cfgScale}
-            onChange={(e) => setCfgScale(Number(e.target.value))}
-            className="w-full h-1 rounded-full appearance-none cursor-pointer bg-[hsl(var(--surface-3))]
-            [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[hsl(var(--primary))] [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-[hsl(var(--primary))/0.3]"
-          />
-        </div>
-
-        {/* Advanced Settings (collapsible) */}
-        <div>
-          <button
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors w-full"
-          >
-            {showAdvanced ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
-            Advanced Settings
-          </button>
-          {showAdvanced && (
-            <div className="mt-2 space-y-3 p-3 rounded-xl bg-[hsl(var(--surface-2))/0.5] border border-[hsl(var(--border)/0.3)]">
-              {/* Style preset */}
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-bold uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Style</label>
-<div className="relative">
-              <select
-                value={stylePreset}
-                onChange={(e) => setStylePreset(e.target.value)}
-                className="select-field-sm w-full"
-              >
-                {STYLE_PRESETS.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-              <ChevronDown size={10} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] pointer-events-none" />
-            </div>
-              </div>
-
-              {/* Generate Texture toggle */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <Palette size={12} className="text-[hsl(var(--muted-foreground))]" />
-                  <span className="text-[10px] font-semibold text-[hsl(var(--foreground))]">Generate Texture</span>
-                </div>
-                <button
-                  onClick={() => setGenerateTexture(!generateTexture)}
-                  disabled={!supportsTexture}
-                  className={cn(
-                    'w-8 h-4 rounded-full transition-all relative',
-                    generateTexture ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-3))]',
-                    !supportsTexture && 'opacity-40 cursor-not-allowed'
-                  )}
-                  title={!supportsTexture ? getCapabilityReason(selectedModelData, 'texture') : undefined}
-                >
-                  <div className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-[hsl(var(--surface-2))] shadow transition-all', generateTexture ? 'left-4.5' : 'left-0.5')} />
-                </button>
-              </div>
-
-              {/* Auto Rig toggle */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <Activity size={12} className="text-[hsl(var(--muted-foreground))]" />
-                  <span className="text-[10px] font-semibold text-[hsl(var(--foreground))]">Auto Rig</span>
-                </div>
-                <button
-                  onClick={() => setAutoRig(!autoRig)}
-                  disabled={!capabilities.riggingAnimation}
-                  className={cn(
-                    'w-8 h-4 rounded-full transition-all relative',
-                    autoRig ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-3))]',
-                    !capabilities.riggingAnimation && 'opacity-40 cursor-not-allowed'
-                  )}
-                  title={!capabilities.riggingAnimation ? 'Rigging not available' : undefined}
-                >
-                  <div className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-[hsl(var(--surface-2))] shadow transition-all', autoRig ? 'left-4.5' : 'left-0.5')} />
-                </button>
-              </div>
-
-              {/* Low VRAM toggle */}
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-semibold text-[hsl(var(--foreground))]">Low VRAM Mode</span>
-                  <span className="text-[8px] text-[hsl(var(--muted-foreground))] font-mono">
-                    {selectedModelData?.low_vram_supported
-                      ? `~${((selectedModelData?.low_vram_required_mb || 0) / 1024).toFixed(1)} GB min`
-                      : 'Not supported'}
-                  </span>
-                </div>
-                <button
-                  onClick={() => setLowVram(!lowVram)}
-                  disabled={!selectedModelData?.low_vram_supported}
-                  className={cn(
-                    'w-8 h-4 rounded-full transition-all relative',
-                    lowVram ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-3))]',
-                    !selectedModelData?.low_vram_supported && 'opacity-40 cursor-not-allowed'
-                  )}
-                  title={!selectedModelData?.low_vram_supported ? 'Selected model does not support low-VRAM mode' : undefined}
-                >
-                  <div className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-[hsl(var(--surface-2))] shadow transition-all', lowVram ? 'left-4.5' : 'left-0.5')} />
-                </button>
-              </div>
-
-              {/* Steps */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-[9px] font-bold uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Steps</label>
-                  <span className="text-[9px] font-mono text-[hsl(var(--foreground))]">{steps}</span>
-                </div>
-                <input
-                  type="range" min="10" max="100" step="5"
-                  value={steps}
-                  onChange={(e) => setSteps(Number(e.target.value))}
-                  className="w-full h-1 rounded-full appearance-none cursor-pointer bg-[hsl(var(--surface-3))]
-                  [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[hsl(var(--primary))]"
-                />
-              </div>
-
-              {/* Seed */}
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-bold uppercase tracking-widest text-[hsl(var(--muted-foreground))]">Seed (optional)</label>
-                <input
-                  type="text"
-                  value={useGenerationStore.getState().seed}
-                  onChange={(e) => useGenerationStore.getState().setSeed(e.target.value)}
-                  placeholder="Random"
-                  className="w-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded-lg px-3 py-1.5 text-[11px] text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))]/40 focus:outline-none focus:border-[hsl(var(--primary))] transition-all font-mono"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-      
       </div>
 
-      {/* Footer: Generate button + progress */}
-      <div className="p-4 pt-3 border-t border-[hsl(var(--border)/0.5)] shrink-0 space-y-3">
+      {/* Footer: Big Yellow Generate Button + Live Progress */}
+      <div className="p-3 pt-2 border-t border-tripo-white-5 shrink-0 space-y-2 bg-tripo-gray-2">
         {/* Progress bar during generation */}
         {isGenerating && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[9px] font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
-                {statusLabel === 'queued' ? 'Queued' : statusLabel === 'uploading' ? 'Uploading...' : statusLabel === 'generating' ? 'Generating...' : statusLabel === 'texturing' ? 'Texturing...' : statusLabel === 'rigging' ? 'Rigging...' : statusLabel}
+          <div className="space-y-1.5 bg-tripo-gray-3 p-2 rounded-xl border border-tripo-white-5">
+            <div className="flex items-center justify-between text-[10px]">
+              <span className="font-bold text-tripo-yellow-1 uppercase tracking-wider">
+                {statusLabel === 'queued' ? 'Queued...' : statusLabel === 'generating' ? 'Generating 3D...' : statusLabel}
               </span>
-              <span className="text-[9px] font-mono text-[hsl(var(--foreground))]">{Math.round(progress)}%</span>
+              <span className="font-mono text-white font-bold">{Math.round(progress)}%</span>
             </div>
-            <div className="w-full h-1.5 bg-[hsl(var(--surface-3))] rounded-full overflow-hidden">
+            <div className="w-full h-1.5 bg-tripo-gray-4 rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-cyan))] rounded-full transition-all duration-300"
+                className="h-full bg-gradient-to-r from-tripo-yellow-1 to-amber-400 rounded-full transition-all duration-300"
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[8px] font-mono text-[hsl(var(--muted-foreground))]/50">Elapsed: {elapsed}s</span>
-              <button
-                onClick={cancel}
-                className="text-[9px] font-bold text-[hsl(var(--destructive))] hover:underline"
-              >Cancel</button>
+            <div className="flex items-center justify-between text-[9px] text-tripo-gray-400">
+              <span>Time: {elapsed}s</span>
+              <button onClick={cancel} className="text-red-400 hover:underline font-bold">Cancel</button>
             </div>
           </div>
         )}
 
-        {/* Generate button (wrapped in rotating glow ring) */}
+        {/* Tripo-style Bright Yellow Generate Button */}
         <button
           onClick={() => generate()}
           disabled={isGenerating || (!prompt.trim() && mode === 'text-to-3d') || (!uploadedImage && mode === 'image-to-3d')}
           className={cn(
-            'w-full btn-primary',
-            isGenerating && 'cursor-not-allowed opacity-50'
+            'w-full py-2.5 px-4 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer shadow-lg active:scale-[0.98]',
+            isGenerating || (!prompt.trim() && mode === 'text-to-3d') || (!uploadedImage && mode === 'image-to-3d')
+              ? 'bg-tripo-yellow-1/40 text-black/50 cursor-not-allowed'
+              : 'bg-tripo-yellow-1 hover:bg-yellow-400 text-black shadow-yellow-500/20 hover:scale-[1.01]'
           )}
+          id="btn-generate-3d-model"
         >
           {isGenerating ? (
             <>
-              <Loader2 size={14} className="animate-spin" /> Generating...
+              <Loader2 size={15} className="animate-spin text-black" />
+              <span>Generating...</span>
             </>
           ) : (
             <>
-              <Sparkles size={14} /> Generate 3D Model
+              <Zap size={14} className="fill-black text-black" />
+              <span>Generate ⚡ 55</span>
             </>
           )}
         </button>
-
-        {/* Estimated info — sourced from QUALITY_PRESETS constant */}
-        <div className="flex items-center justify-between text-[8px] text-[hsl(var(--muted-foreground))]/50">
-          <span className="font-mono">Est. {qualityOptions.find((q) => q.id === quality)?.desc ?? '—'}</span>
-          <span className="font-mono">~{qualityOptions.find((q) => q.id === quality)?.credits ?? '—'} credits</span>
-        </div>
       </div>
     </div>
   );
