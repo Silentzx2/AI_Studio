@@ -25,6 +25,8 @@
 - hardware.minimum_vram_mb enforced as READY gate
 - Manifest-driven /repair/{provider_name} endpoint
 - Native-build lock ownership tracking (api/celery) for race safety
+- `GET /install/status` is now live-authoritative via `get_install_status()`; persisted DB status no longer overrides live `BLOCKED`/`PARTIAL`/`FAILED` or resurrects a stale `READY`
+- Native-build lock ownership now held across the full pipeline (start → preflight → model load → capability smoke) and released only after the complete workflow succeeds or fails
 
 ### Changed
 - YAML manifests now drive dependency installation instead of REPOS["requirements"]

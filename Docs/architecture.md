@@ -143,7 +143,7 @@ Auxiliary weights marked `required: true` in the manifest produce an `AUXILIARY_
 
 ### Component-level install state persistence
 
-Component-level install state is persisted to the database via the `ProviderInstallState` model (`backend/app/models/registry.py`). The installer calls `persist_provider_state()` after status changes, and the runtime API serves cached status via `get_persisted_install_status()`.
+Component-level install state is persisted to the database via the `ProviderInstallState` model (`backend/app/models/registry.py`). The installer calls `persist_provider_state()` after status changes. The `GET /api/v1/admin/install/status` endpoint is **live-authoritative**: it calls `get_install_status()` at request time and treats the runtime result as the source of truth for `state`, `blocking_reason`, and `components`. Persisted DB state only supplies historical/task details (e.g. last task id, timestamps) and is never used to override a live `BLOCKED`/`PARTIAL`/`FAILED` state or to resurrect a stale `READY`.
 
 ### Manifest-driven repair
 
@@ -156,7 +156,7 @@ Repair is manifest-driven rather than a hard-coded re-clone/re-install: it re-ru
 
 ### Race-safe lock ownership
 
-The native-build lock now tracks `owner_type` (`api` or `celery`) so that an API-initiated install can safely hand off to a Celery worker without deadlocking or stale lock claims.
+The native-build lock now tracks `owner_type` (`api` or `celery`) so that an API-initiated install can safely hand off to a Celery worker without deadlocking or stale lock claims. Lock ownership is held across the **entire** native-build workflow — from start through preflight, model load, and capability smoke tests — and is released **only** after the complete workflow succeeds or fails. The owner is mutated as part of overall completion/failure, never on native-build completion alone.
 
 See `Docs/INSTALLATION_STATES.md` for full reference.
 

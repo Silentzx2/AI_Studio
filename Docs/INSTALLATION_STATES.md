@@ -46,7 +46,7 @@ READY
 
 ## Component Status
 
-The `GET /api/v1/admin/install/status` endpoint now returns detailed component-level status:
+The `GET /api/v1/admin/install/status` endpoint returns detailed component-level status. The runtime status from `get_install_status()` is **live-authoritative** for `state`, `blocking_reason`, and `components`; persisted DB state only supplies historical/task detail and is never used to override a live `BLOCKED`/`PARTIAL`/`FAILED` or resurrect a stale `READY`.
 
 ```json
 {
@@ -71,7 +71,7 @@ The `GET /api/v1/admin/install/status` endpoint now returns detailed component-l
 }
 ```
 
-> **Note**: Component-level install states are persisted to the database via the `ProviderInstallState` model (`backend/app/models/registry.py`). The installer calls `persist_provider_state()` after status changes, and the runtime API serves cached status via `get_persisted_install_status()`.
+> **Note**: Component-level install states are persisted to the database via the `ProviderInstallState` model (`backend/app/models/registry.py`). The installer calls `persist_provider_state()` after status changes to record historical and in-flight task details. The `GET /api/v1/admin/install/status` endpoint is **live-authoritative**: it computes readiness from `get_install_status()` at request time. Persisted DB state only fills in task/locking detail and is never used to override a live `BLOCKED`/`PARTIAL`/`FAILED` or resurrect a stale `READY`.
 
 ## Troubleshooting
 

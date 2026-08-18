@@ -1649,12 +1649,40 @@ async def storage_info():
 @router.get("/install/status")
 async def install_status():
     from runtime.installer import get_persisted_install_status, get_install_status
-    persisted = get_persisted_install_status()
     live = get_install_status()
+    persisted = get_persisted_install_status()
+    # Live checks are authoritative for readiness. Persisted DB state may supply
+    # historical and in-flight task details (lock owner, task id, last preflight
+    # result, timestamps) but must never override a live BLOCKED/PARTIAL/FAILED
+    # state or resurrect a stale READY.
+    result: dict = {}
     for provider_name, live_entry in live.items():
-        if provider_name not in persisted:
-            persisted[provider_name] = live_entry
-    return success(persisted)
+        entry = dict(live_entry)
+        db_entry = persisted.get(provider_name)
+        if db_entry:
+            for key, value in db_entry.items():
+                if key == "overall_state":
+                    continue
+                entry.setdefault(key, value)
+        result[provider_name] = entry
+    # Backward-compat: preserve DB-only providers, but never resurrect a stale
+    # READY when no live check confirms the provider is actually ready.
+    for provider_name, db_entry in persisted.items():
+        if provider_name in result:
+            continue
+        entry = dict(db_entry)
+        overall = entry.pop("overall_state", None)
+        blocking_reason = entry.pop("blocking_reason", None)
+        if overall == "ready":
+            entry["state"] = "blocked"
+            entry["blocking_reason"] = blocking_reason or "No live readiness confirmation"
+        else:
+            entry["state"] = overall or "blocked"
+            entry["blocking_reason"] = blocking_reason
+        entry.setdefault("source", "persisted")
+        entry.setdefault("installed", False)
+        result[provider_name] = entry
+    return success(result)
 
 
 @router.post("/install/provider")

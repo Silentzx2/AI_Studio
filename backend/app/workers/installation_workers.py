@@ -407,7 +407,6 @@ def run_native_build(self, provider_name: str, task_id: str) -> dict:
         persist_provider_state(canonical_name, {
             "native_build_state": "native_build_complete",
             "native_build_task_id": task_id,
-            "native_build_lock_owner": None,
             "blocking_reason": None,
         })
         # --- auto-run full preflight in the model venv ---
@@ -456,7 +455,6 @@ def run_native_build(self, provider_name: str, task_id: str) -> dict:
         persist_provider_state(canonical_name, {
             "native_build_state": "native_build_failed",
             "native_build_task_id": task_id,
-            "native_build_lock_owner": None,
             "blocking_reason": str(exc),
         })
         return {
@@ -469,3 +467,9 @@ def run_native_build(self, provider_name: str, task_id: str) -> dict:
     finally:
         if lock_acquired:
             _release_native_build_lock(repo_name)
+            # The complete build -> preflight -> final-state workflow has
+            # finished (success or failure): release the native-build lock owner
+            # only now, never when native build merely completes.
+            persist_provider_state(canonical_name, {
+                "native_build_lock_owner": None,
+            })
