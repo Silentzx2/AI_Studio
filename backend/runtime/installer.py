@@ -1534,10 +1534,10 @@ def install_repo_deps(repo_name: str, log_cb: Callable | None = None, requiremen
 def _get_native_build_info(meta: dict, manifest: dict | None) -> tuple[bool, bool]:
     """Return (native_req, all_caps_need_native).
 
-    native_req: True if any enabled capability needs native build.
-    all_caps_need_native: True if ALL enabled capabilities need native build.
+    When a manifest with capabilities is present, the manifest is the AUTHORITATIVE
+    source and metadata is ignored (no conflicting fallback). Metadata is used only
+    when no manifest capabilities exist.
     """
-    native_req = meta.get("native_build_required", False)
     if manifest and "capabilities" in manifest:
         enabled_caps = [
             v for v in manifest["capabilities"].values()
@@ -1546,9 +1546,9 @@ def _get_native_build_info(meta: dict, manifest: dict | None) -> tuple[bool, boo
         if enabled_caps:
             any_cap_needs = any(v.get("native_build_required", False) for v in enabled_caps)
             all_caps_need_native = all(v.get("native_build_required", False) for v in enabled_caps)
-            if any_cap_needs:
-                native_req = True
-            return native_req, all_caps_need_native
+            return bool(any_cap_needs), all_caps_need_native
+    # No manifest capabilities: fall back to metadata only.
+    native_req = meta.get("native_build_required", False)
     return native_req, native_req
 
 
@@ -1852,9 +1852,15 @@ def install_provider(
                         if log_cb:
                             log_cb(f"Warning: auxiliary weight download exception for {aux_repo}: {exc}")
         # --- 7. Native build handling ---
+        # If a native CUDA build is required and not performed inline, DISPATCH the
+        # real Celery task on the dedicated `installation` queue. The worker owns the
+        # native-build lock for the build duration and releases it on completion/failure.
+        # We persist the REAL task ID + logical lock ownership here, before returning,
+        # so status reflects the queued build. (The fcntl lock is acquired/released by
+        # the worker process, not this API thread.)
         native_build_task_id = None
         native_req, all_caps_need_native = _get_native_build_info(meta, manifest)
-        if native_req and all_caps_need_native and not allow_native_build:
+        if native_req and not allow_native_build:
             # Persist native-build pending state before returning.
             state = _load_state()
             state.setdefault("repos", {})[provider_name] = {
@@ -1864,12 +1870,26 @@ def install_provider(
             state["last_updated"] = datetime.utcnow().isoformat()
             _save_state(state)
             native_build_task_id = f"native_build_{provider_name}_{int(datetime.utcnow().timestamp())}"
-            _acquire_native_build_lock(repo_name or provider_name, native_build_task_id)
+            # Dispatch the ACTUAL Celery task (real task ID, dedicated queue).
+            from app.workers.installation_workers import run_native_build
+            run_native_build.apply_async(
+                args=[provider_name, native_build_task_id],
+                queue="installation",
+                task_id=native_build_task_id,
+            )
+            # Persist the real task ID + logical lock ownership before returning.
+            persist_provider_state(provider_name, {
+                "native_build_state": "native_build_pending",
+                "native_build_task_id": native_build_task_id,
+                "native_build_lock_owner": f"celery_worker:{native_build_task_id}",
+                "native_build_lock_ts": datetime.utcnow().isoformat(),
+            })
             if log_cb:
-                log_cb(f"Native build queued; model will be READY only after native build + preflight pass")
+                log_cb(f"Native build queued (task={native_build_task_id}); READY only after build + preflight pass")
             return {
                 "success": True,
                 "state": "native_build_pending",
+                "native_build_task_id": native_build_task_id,
                 "components": get_install_status().get(provider_name, {}).get("components", {}),
                 "blocking_reason": "Native CUDA build queued for background execution",
                 "provider": provider_name,
@@ -2086,22 +2106,37 @@ def get_install_status() -> dict:
         # --- auxiliary weights ---
         aux_weights = _check_auxiliary_weights(name, storage, manifest)
         missing_aux = [a for a in aux_weights if a["state"] == "missing"]
-        # --- native build: manifest capabilities override provider-level flag ---
-        native_req = meta.get("native_build_required", False)
+        # --- native build: manifest capabilities are the AUTHORITATIVE source ---
+        # (no conflicting metadata fallback).
         if manifest and "capabilities" in manifest:
-            cap_native = any(
+            native_req = any(
                 v.get("native_build_required", False)
                 for v in manifest["capabilities"].values()
                 if isinstance(v, dict) and v.get("enabled", True)
             )
-            if cap_native:
-                native_req = True
-        if native_req:
-            native_state = "pending"
-            native_detail = "Native CUDA build required; not yet executed"
         else:
-            native_state = "not_required"
-            native_detail = ""
+            native_req = meta.get("native_build_required", False)
+        # Reflect the ACTUAL persisted native-build state (running/complete/failed),
+        # not a hardcoded "pending". DB is authoritative, falling back to install_state.json.
+        native_state = "not_required"
+        native_detail = ""
+        if native_req:
+            persisted_native = None
+            db_s = load_provider_state_from_db(name)
+            if db_s and db_s.get("native_build_state"):
+                persisted_native = db_s["native_build_state"]
+            else:
+                persisted_entry = persisted_state.get("repos", {}).get(name)
+                if persisted_entry and persisted_entry.get("native_build_state"):
+                    persisted_native = persisted_entry["native_build_state"]
+            if persisted_native == "native_build_running":
+                native_state, native_detail = "running", "Native CUDA build in progress"
+            elif persisted_native == "native_build_complete":
+                native_state, native_detail = "complete", "Native CUDA build complete; awaiting preflight"
+            elif persisted_native == "native_build_failed":
+                native_state, native_detail = "failed", "Native CUDA build failed"
+            else:
+                native_state, native_detail = "pending", "Native CUDA build required; queued for background execution"
         # --- vram: manifest hardware.minimum_vram_mb overrides metadata vram_required_mb ---
         if manifest and "hardware" in manifest:
             vram_required = manifest["hardware"].get("minimum_vram_mb", meta.get("vram_required_mb", 0))
@@ -2123,6 +2158,9 @@ def get_install_status() -> dict:
                 last_result = db_preflight_state.get("last_preflight_result")
                 if isinstance(last_result, dict) and "passed" in last_result:
                     preflight_result_for_state = PreflightResult(**last_result)
+        preflight_checks = None
+        if db_preflight_state and isinstance(db_preflight_state.get("last_preflight_result"), dict):
+            preflight_checks = db_preflight_state["last_preflight_result"].get("checks")
         # --- preflight ---
         preflight_state = _determine_preflight_state(name, repo_ok, venv_ok, weight_ok, native_req, missing_aux, manifest, preflight_result=preflight_result_for_state)
         # --- cuda ---
@@ -2155,7 +2193,7 @@ def get_install_status() -> dict:
         if db_state and db_state.get("overall_state"):
             installed_legacy = db_state["overall_state"] == "ready"
         # --- capabilities (from manifest when available, else metadata) ---
-        capabilities = _build_capability_states(name, meta, manifest, native_state=native_state)
+        capabilities = _build_capability_states(name, meta, manifest, native_state=native_state, preflight_checks=preflight_checks)
         status[name] = {
             # New authoritative fields.
             "state": overall_state,
@@ -2334,21 +2372,27 @@ def _compute_overall_state(
     if missing_aux:
         names = ", ".join(a["name"] for a in missing_aux)
         return "blocked", f"Required auxiliary weight(s) missing: {names}"
-    if native_req and native_state == "pending":
-        all_caps_need_native = True
-        if manifest and "capabilities" in manifest:
-            enabled_caps = [
-                v for v in manifest["capabilities"].values()
-                if isinstance(v, dict) and v.get("enabled", True)
-            ]
-            if enabled_caps:
-                all_caps_need_native = all(v.get("native_build_required", False) for v in enabled_caps)
-        if all_caps_need_native:
-            return "native_build_pending", "Native CUDA build queued for background execution"
-    if native_req and native_state == "pending_partial":
-        if preflight_state == "passed":
-            return "partial", "Some capabilities ready; native build pending for other capabilities"
-        return "blocked", "Partial native build required; preflight not passed"
+    if native_req:
+        if native_state == "running":
+            return "native_build_running", "Native CUDA build in progress"
+        if native_state == "failed":
+            return "native_build_failed", "Native CUDA build failed"
+        if native_state == "pending":
+            all_caps_need_native = True
+            if manifest and "capabilities" in manifest:
+                enabled_caps = [
+                    v for v in manifest["capabilities"].values()
+                    if isinstance(v, dict) and v.get("enabled", True)
+                ]
+                if enabled_caps:
+                    all_caps_need_native = all(v.get("native_build_required", False) for v in enabled_caps)
+            if all_caps_need_native:
+                return "native_build_pending", "Native CUDA build queued for background execution"
+        if native_state == "pending_partial":
+            if preflight_state == "passed":
+                return "partial", "Some capabilities ready; native build pending for other capabilities"
+            return "blocked", "Partial native build required; preflight not passed"
+        # native_state == "complete" → fall through to preflight gating below
     if cuda_state == "unavailable":
         return "cuda_incompatible", "CUDA not available"
     if vram_state == "insufficient":
@@ -2365,12 +2409,23 @@ def _compute_overall_state(
     return "blocked", f"Preflight state: {preflight_state}"
 
 
-def _build_capability_states(provider_name: str, meta: dict, manifest: dict | None = None, native_state: str | None = None) -> dict:
+def _build_capability_states(
+    provider_name: str,
+    meta: dict,
+    manifest: dict | None = None,
+    native_state: str | None = None,
+    preflight_checks: dict | None = None,
+) -> dict:
     """Build per-capability state dict.
 
     Supports READY, PARTIAL, BLOCKED at capability level.
     A missing capability-specific dep must not block unrelated capabilities.
     If a manifest is provided, its capabilities dict drives per-capability state.
+
+    A capability with ``native_build_required`` is NEVER permanently ``blocked``:
+    it is ``native_build_pending``/``native_build_running`` until the build finishes,
+    then becomes READY only after both the native build and its capability smoke
+    test have passed.
     """
     if manifest and "capabilities" in manifest:
         caps: dict[str, dict] = {}
@@ -2381,10 +2436,18 @@ def _build_capability_states(provider_name: str, meta: dict, manifest: dict | No
                 caps[cap_name] = {"state": "disabled", "reason": "Disabled in manifest"}
                 continue
             if cap_info.get("native_build_required", False):
-                if native_state == "pending_partial":
-                    caps[cap_name] = {"state": "blocked", "reason": "Native build pending (partial)"}
+                if native_state == "running":
+                    caps[cap_name] = {"state": "native_build_running", "reason": "Native build in progress"}
+                elif native_state == "failed":
+                    caps[cap_name] = {"state": "blocked", "reason": "Native build failed"}
+                elif native_state == "complete":
+                    cap_check = (preflight_checks or {}).get(f"capability_smoke.{cap_name}")
+                    if cap_check and cap_check.get("passed"):
+                        caps[cap_name] = {"state": "ready", "reason": "Native build + capability smoke test passed"}
+                    else:
+                        caps[cap_name] = {"state": "pending", "reason": "Native build complete; capability smoke test pending"}
                 else:
-                    caps[cap_name] = {"state": "blocked", "reason": "Native build required"}
+                    caps[cap_name] = {"state": "native_build_pending", "reason": "Native build required; queued for background execution"}
                 continue
             caps[cap_name] = {"state": "pending", "reason": "Awaiting smoke test"}
         return caps
@@ -2561,7 +2624,13 @@ class RuntimeInstaller:
                 continue
             # ponytail: native-build models - attempt deps but don't block weights
             repo_name = meta.get("repo")
-            native_req = meta.get("native_build_required", False)
+            _manifest = None
+            try:
+                from runtime.manifest_loader import load_manifest
+                _manifest = load_manifest(name)
+            except (ValueError, ImportError):
+                pass
+            native_req, _ = _get_native_build_info(meta, _manifest)
             if repo_name:
                 r = clone_repo(repo_name, log_cb=cb)
                 if not r["success"]:

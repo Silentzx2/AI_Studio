@@ -30,7 +30,6 @@ import FavoritesTab from './FavoritesTab';
 import { ModelsTab } from '@/features/admin/tabs/ModelsTab';
 import ApiAccessTab from './ApiAccessTab';
 import WorkspaceSettingsTab from './WorkspaceSettingsTab';
-import { WorkspaceNavbar } from '@/features/workspace/WorkspaceNavbar';
 
 import { HistoryItem } from '@/types/new-ui';
 
@@ -41,6 +40,7 @@ import AssetPanel, { type AssetItem } from '@/3D-SPACE/AssetPanel';
 import { useGeneration } from '@/hooks/useGeneration';
 import { loadModelInViewer } from '@/stores/useViewerStore';
 import { toast } from 'sonner';
+import AssetPanelHost from '@/features/workspace/AssetPanelHost';
 
 import { cn } from '@/lib/utils';
 
@@ -405,6 +405,17 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
 
    return (
     <div className="flex flex-1 min-h-0 min-w-0 bg-tripo-gray-3 text-[hsl(var(--foreground))]" id="creative-layout-container">
+       {/* Top Bar — unified global nav showing active tab (Tripo-style) */}
+       <div className="flex-shrink-0 border-b border-tripo-white-5 bg-tripo-gray-3 z-20" id="creative-top-bar">
+         <div className="flex items-center h-10 px-4 gap-2">
+           <span className="text-[10px] font-black uppercase tracking-widest text-tripo-gray-300">AI Studio</span>
+           <span className="text-tripo-gray-300">/</</span>
+           <span className="text-xs font-bold text-tripo-gray-100">
+             {sidebarItems.find((i) => i.label === activeSidebarItem)?.label ?? 'Dashboard'}
+           </span>
+         </div>
+       </div>
+
       {/* Mobile drawer overlay for the main sidebar */}
       {mobileMenuOpen && (
         <div
@@ -527,98 +538,106 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
         </div>
       </aside>
 
-      {/* Main viewport panels */}
+      {/* Main viewport: persistent 3D canvas + dynamic left/right panels */}
         <main ref={mainRef} className="flex-1 flex flex-col bg-tripo-gray-3 overflow-hidden" id="creative-main-viewport">
-        <WorkspaceNavbar />
+         {/* Left function/tool panel — dynamically swapped based on active tab */}
+         <div className="flex-1 flex flex-col lg:flex-row gap-0 min-h-0">
+           {/* Left: Function / Tool Panel */}
+           <div className="w-full lg:w-62 max-w-[80vw] shrink-0 h-full border-r border-tripo-white-5 bg-tripo-gray-4 transition-all duration-200 rounded-r-5">
+             {activeSidebarItem === '3D Gen' && <GenerationControls />}
+             {activeSidebarItem === 'Remesh' && (
+               <RemeshTab
+                 activeModel={activeModel}
+                 onUpdateModel={setActiveModel}
+                 onNavigate={setActiveSidebarItem}
+                 controlsOnly
+               />
+             )}
+             {activeSidebarItem === 'Texture Gen' && (
+               <TextureGenTab
+                 activeModel={activeModel}
+                 onUpdateModel={setActiveModel}
+                 onNavigate={setActiveSidebarItem}
+                 controlsOnly
+               />
+             )}
+             {activeSidebarItem === 'Rigging & Animation' && (
+               <RiggingAnimationTab
+                 activeModel={activeModel}
+                 onUpdateModel={setActiveModel}
+                 onNavigate={setActiveSidebarItem}
+                 controlsOnly
+               />
+             )}
+             {activeSidebarItem === 'Dashboard' && (
+               <div className="flex-1 min-h-0 p-5 flex flex-col gap-4 animate-fadeIn text-[hsl(var(--foreground))] overflow-y-auto" id="dashboard-left-panel">
+                 <WorkspaceTab
+                   history={history ?? []}
+                   onLoadProject={loadHistoryItem}
+                   onNavigate={setActiveSidebarItem}
+                 />
+               </div>
+             )}
+             {activeSidebarItem === 'My Assets' && (
+               <div className="flex-1 min-h-0 overflow-y-auto" id="my-assets-left-panel">
+                 <MyAssetsTab
+                   history={history ?? []}
+                   onLoadProject={loadHistoryItem}
+                   onDeleteProject={deleteHistoryItem}
+                   onToggleFavorite={toggleFavoriteItem}
+                 />
+               </div>
+             )}
+             {activeSidebarItem === 'Models' && (
+               <div className="flex-1 min-h-0 overflow-y-auto" id="models-left-panel">
+                 <ModelsTab />
+               </div>
+             )}
+             {activeSidebarItem === 'Favorites' && (
+               <div className="flex-1 min-h-0 overflow-y-auto" id="favorites-left-panel">
+                 <FavoritesTab
+                   history={history ?? []}
+                   onLoadProject={loadHistoryItem}
+                   onRemoveFavorite={toggleFavoriteItem}
+                   onDeleteProject={deleteHistoryItem}
+                 />
+               </div>
+             )}
+             {activeSidebarItem === 'API Access' && (
+               <div className="flex-1 min-h-0 overflow-y-auto" id="api-access-left-panel">
+                 <ApiAccessTab />
+               </div>
+             )}
+             {activeSidebarItem === 'Settings' && (
+               <div className="flex-1 min-h-0 overflow-y-auto" id="settings-left-panel">
+                 <WorkspaceSettingsTab />
+               </div>
+             )}
+           </div>
 
-        {['3D Gen', 'Remesh', 'Texture Gen', 'Rigging & Animation'].includes(activeSidebarItem) ? (
-          <div className="flex-1 flex flex-col lg:flex-row gap-0 min-h-0">
-            {/* Left function panel */}
-            <div className="w-full lg:w-62 max-w-[80vw] shrink-0 h-full border-r border-tripo-white-5 bg-tripo-gray-4 transition-all duration-200 rounded-r-5">
-              {activeSidebarItem === '3D Gen' && <GenerationControls />}
-              {activeSidebarItem === 'Remesh' && (
-                <RemeshTab
-                  activeModel={activeModel}
-                  onUpdateModel={setActiveModel}
-                  onNavigate={setActiveSidebarItem}
-                  controlsOnly
-                />
-              )}
-              {activeSidebarItem === 'Texture Gen' && (
-                <TextureGenTab
-                  activeModel={activeModel}
-                  onUpdateModel={setActiveModel}
-                  onNavigate={setActiveSidebarItem}
-                  controlsOnly
-                />
-              )}
-              {activeSidebarItem === 'Rigging & Animation' && (
-                <RiggingAnimationTab
-                  activeModel={activeModel}
-                  onUpdateModel={setActiveModel}
-                  onNavigate={setActiveSidebarItem}
-                  controlsOnly
-                />
-              )}
-            </div>
+           {/* Center: PERSISTENT 3D Canvas — always mounted, never destroyed */}
+           <div className="flex-1 min-w-0 min-h-0 flex flex-col relative h-full w-full">
+             <Canvas3D isGenerating={isGenerating} />
+           </div>
 
-            {/* Center: persistent 3D canvas */}
-            <div className="flex-1 min-w-0 min-h-0 flex flex-col relative h-full w-full">
-              <Canvas3D isGenerating={isGenerating} />
-            </div>
-
-            {/* Right: global asset panel */}
-            <div className="hidden lg:flex w-62 max-w-[80vw] shrink-0 h-full border-l border-tripo-white-5 bg-tripo-gray-4 transition-all duration-200 scrollbar-thin rounded-l-5 shadow-[0px_1px_10px_0px] shadow-black/40">
-              <AssetPanel
-                assets={assets}
-                selectedAssetId={selectedAssetId}
-                onSelectAsset={handleSelectAsset}
-                onToggleFavorite={handleToggleFavorite}
-                onDeleteAsset={handleDeleteAsset}
-                onAssetUploaded={loadHistory}
-                loading={isLoadingHistory}
-              />
-            </div>
-          </div>
-        ) : (
-          <>
-            {activeSidebarItem === 'Dashboard' && (
-              <WorkspaceTab
-                history={history ?? []}
-                onLoadProject={loadHistoryItem}
-                onNavigate={setActiveSidebarItem}
-              />
-            )}
-
-            {activeSidebarItem === 'My Assets' && (
-              <MyAssetsTab
-                history={history ?? []}
-                onLoadProject={loadHistoryItem}
-                onDeleteProject={deleteHistoryItem}
-                onToggleFavorite={toggleFavoriteItem}
-              />
-            )}
-
-            {activeSidebarItem === 'Models' && (
-              <ModelsTab
-              />
-            )}
-
-            {activeSidebarItem === 'Favorites' && (
-              <FavoritesTab
-                history={history ?? []}
-                onLoadProject={loadHistoryItem}
-                onRemoveFavorite={toggleFavoriteItem}
-                onDeleteProject={deleteHistoryItem}
-              />
-            )}
-
-            {activeSidebarItem === 'API Access' && <ApiAccessTab />}
-
-            {activeSidebarItem === 'Settings' && <WorkspaceSettingsTab />}
-          </>
-        )}
-      </main>
-    </div>
-  );
-}
+           {/* Right: Contextual Assets / Inspector / History Panel */}
+           <div className="hidden lg:flex w-62 max-w-[80vw] shrink-0 h-full border-l border-tripo-white-5 bg-tripo-gray-4 transition-all duration-200 scrollbar-thin rounded-l-5 shadow-[0px_1px_10px_0px] shadow-black/40">
+             {activeSidebarItem === '3D Gen' || activeSidebarItem === 'Remesh' || activeSidebarItem === 'Texture Gen' || activeSidebarItem === 'Rigging & Animation' ? (
+               <AssetPanel
+                 assets={assets}
+                 selectedAssetId={selectedAssetId}
+                 onSelectAsset={handleSelectAsset}
+                 onToggleFavorite={handleToggleFavorite}
+                 onDeleteAsset={handleDeleteAsset}
+                 onAssetUploaded={loadHistory}
+                 loading={isLoadingHistory}
+               />
+             ) : (
+               <AssetPanelHost />
+             )}
+           </div>
+         </div>
+       </main>
+     </div>
+   );
+ }

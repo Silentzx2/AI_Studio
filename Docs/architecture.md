@@ -159,3 +159,46 @@ Repair is manifest-driven rather than a hard-coded re-clone/re-install: it re-ru
 The native-build lock now tracks `owner_type` (`api` or `celery`) so that an API-initiated install can safely hand off to a Celery worker without deadlocking or stale lock claims.
 
 See `Docs/INSTALLATION_STATES.md` for full reference.
+
+## Frontend Architecture
+
+### Persistent Workspace Layout
+
+The frontend follows a Tripo Studio-style persistent workspace: ONE global 3D canvas that never unmounts, with dynamic left/right panels that swap based on the active sidebar tab.
+
+#### Routing
+- `app/page.tsx` and `app/workspace/page.tsx` both render `WorkspaceShell`.
+- `WorkspaceShell` wraps `CreativeWorkspaceLayout` (single entry point).
+
+#### Layout Structure
+```
+┌─────────────────────────────────────────────────────┐
+│  #creative-top-bar  (app name + active tab label)   │
+├───────────┬─────────────────────────────────┬──────┤
+│           │                                 │      │
+│ #creative-│    CENTER: Canvas3D             │ Right│
+│ sidebar   │    (persistent 3D canvas —      │panel │
+│ (tabs)    │     NEVER unmounts)             │      │
+│           │                                 │      │
+│ Left panel│         (R3F Canvas)            │      │
+│ (dynamic) │                                 │      │
+│           │                                 │      │
+└───────────┴─────────────────────────────────┴──────┘
+```
+
+#### Component Flow
+- **Left sidebar** (`#creative-sidebar`): Tab navigation. Tabs: Dashboard, 3D Gen, Rigging & Animation, Remesh, Texture Gen, My Assets, Models, Favorites, API Access, Settings. Collapsible, mobile drawer.
+- **Left panel (dynamic)**: Swaps content based on active tab — `GenerationControls`, `RemeshTab`, `TextureGenTab`, `RiggingAnimationTab`, or tab-specific content.
+- **Center**: `Canvas3D` (`3D-SPACE/Canvas3D.tsx`) — persistent, wraps R3F `<Canvas>`, handles GLB/GLTF/FBX/OBJ/STL loading, drag-drop, shading presets, lighting presets, snapshot capture.
+- **Right panel (contextual)**: `AssetPanel` for 3D-related tabs (3D Gen, Remesh, Texture Gen, Rigging), `AssetPanelHost` for other tabs.
+
+#### Global State
+- `useViewerStore`: Single source of truth for loaded model URL + name. Updated via `loadModelInViewer()`. Survives tab switches because Canvas3D stays mounted.
+- `useUIStore`: Viewer mode, fullscreen, grid, wireframe, stats, capabilities flags, mobile menu.
+- `useGenerationStore`: Prompt, mode, quality, currentJob, jobHistory.
+- `useProjectStore`: Project/layer state.
+- `useAppStore`: Main global Zustand store with persistence.
+
+#### Dead Code Removed
+- `WorkspaceNavbar.tsx`: Never imported. The sidebar in `CreativeWorkspaceLayout` handles all tab navigation.
+- `features/workspace/viewer/ViewerScene.tsx`: Not imported by any page.

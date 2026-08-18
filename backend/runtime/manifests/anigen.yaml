@@ -26,6 +26,9 @@ capabilities:
   shape:
     enabled: true
     native_build_required: true
+    # Build the CUBVH CUDA extension (extensions/CUBVH) shipped in the repo.
+    native_steps:
+      - "pip install -e ./extensions/CUBVH"
     vram_required_mb: 6200
   texture_pbr:
     enabled: false
@@ -34,6 +37,8 @@ capabilities:
   rigging:
     enabled: true
     native_build_required: true
+    native_steps:
+      - "pip install -e ./extensions/CUBVH"
     vram_required_mb: 6200
 preflight:
   check_model_venv: true

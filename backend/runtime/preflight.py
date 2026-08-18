@@ -34,6 +34,45 @@ dummy = torch.randn(1, 3, 32, 32)
 pipe(dummy)
 print("ok")
 """,
+    "anigen": """
+import sys
+from pathlib import Path
+for base in [Path("/storage/third_party"), Path(__file__).resolve().parent.parent.parent.parent]:
+    c = base / "AniGen"
+    if c.exists():
+        sys.path.insert(0, str(c))
+        break
+from anigen.pipelines import AnigenImageTo3DPipeline
+pipe = AnigenImageTo3DPipeline.from_pretrained(device="cpu")
+print("ok")
+""",
+    "unirig": """
+import sys, yaml, torch
+from pathlib import Path
+repo = None
+for base in [Path("/storage/third_party"), Path(__file__).resolve().parent.parent.parent.parent]:
+    c = base / "UniRig"
+    if c.exists():
+        repo = c
+        sys.path.insert(0, str(c))
+        break
+from box import Box
+from src.tokenizer.parse import get_tokenizer, TokenizerConfig
+from src.model.parse import get_model
+from src.inference.download import download
+tok = get_tokenizer(config=TokenizerConfig.parse(Box(yaml.safe_load(open(repo / "configs" / "tokenizer" / "tokenizer_parts_articulationxl_256.yaml")))))
+model = get_model(tokenizer=tok, __target__="unirig_ar", **yaml.safe_load(open(repo / "configs" / "model" / "unirig_ar_350m_1024_81920_float32.yaml")))
+ckpt = torch.load(download("experiments/skeleton/articulation-xl_quantization_256/model.ckpt"), map_location="cpu")
+model.load_state_dict(ckpt["state_dict"])
+model.eval()
+print("ok")
+""",
+    "detailgen3d": """
+import torch
+from detailgen3d.pipelines.pipeline_detailgen3d import DetailGen3DPipeline
+pipe = DetailGen3DPipeline.from_pretrained("VAST-AI/DetailGen3D").to("cpu")
+print("ok")
+""",
 }
 
 _CAPABILITY_SMOKE_TESTS: dict[str, dict[str, str]] = {
@@ -121,53 +160,81 @@ print("ok")
     },
     "anigen": {
         "shape": """
-import sys, tempfile, os
+import sys
 from pathlib import Path
 for base in [Path("/storage/third_party"), Path(__file__).resolve().parent.parent.parent.parent]:
-    candidate = base / "AniGen"
-    if candidate.exists():
-        sys.path.insert(0, str(candidate))
+    c = base / "AniGen"
+    if c.exists():
+        sys.path.insert(0, str(c))
         break
-from apps.inference.infer import infer_single
-import trimesh
-dummy = trimesh.creation.box()
-with tempfile.TemporaryDirectory() as tmpdir:
-    input_path = os.path.join(tmpdir, "dummy.obj")
-    output_dir = os.path.join(tmpdir, "output")
-    os.makedirs(output_dir, exist_ok=True)
-    dummy.export(input_path)
-    infer_single(input_mesh=input_path, output_dir=output_dir, device="cpu")
-    print("ok")
+from PIL import Image
+from anigen.pipelines import AnigenImageTo3DPipeline
+pipe = AnigenImageTo3DPipeline.from_pretrained(device="cpu")
+out = pipe.run(Image.new("RGB", (256, 256)), seed=0, output_glb="/tmp/anigen_smoke.glb")
+print("ok")
 """,
         "rigging": """
-import sys, tempfile, os
+import sys
 from pathlib import Path
 for base in [Path("/storage/third_party"), Path(__file__).resolve().parent.parent.parent.parent]:
-    candidate = base / "AniGen"
-    if candidate.exists():
-        sys.path.insert(0, str(candidate))
+    c = base / "AniGen"
+    if c.exists():
+        sys.path.insert(0, str(c))
         break
-from apps.inference.infer import infer_single
-import trimesh
-dummy = trimesh.creation.box()
-with tempfile.TemporaryDirectory() as tmpdir:
-    input_path = os.path.join(tmpdir, "dummy.obj")
-    output_dir = os.path.join(tmpdir, "output")
-    os.makedirs(output_dir, exist_ok=True)
-    dummy.export(input_path)
-    infer_single(input_mesh=input_path, output_dir=output_dir, device="cpu")
-    print("ok")
+from PIL import Image
+from anigen.pipelines import AnigenImageTo3DPipeline
+pipe = AnigenImageTo3DPipeline.from_pretrained(device="cpu")
+out = pipe.run(Image.new("RGB", (256, 256)), seed=0, output_glb="/tmp/anigen_smoke_rig.glb")
+print("ok")
 """,
     },
     "unirig": {
         "shape": """
-import unirig
-assert hasattr(unirig, '__version__') or hasattr(unirig, 'rig'), "unirig module loaded but missing expected API"
+import sys, yaml, torch
+from pathlib import Path
+repo = None
+for base in [Path("/storage/third_party"), Path(__file__).resolve().parent.parent.parent.parent]:
+    c = base / "UniRig"
+    if c.exists():
+        repo = c
+        sys.path.insert(0, str(c))
+        break
+from box import Box
+from src.tokenizer.parse import get_tokenizer, TokenizerConfig
+from src.model.parse import get_model
+from src.inference.download import download
+tok = get_tokenizer(config=TokenizerConfig.parse(Box(yaml.safe_load(open(repo / "configs" / "tokenizer" / "tokenizer_parts_articulationxl_256.yaml")))))
+model = get_model(tokenizer=tok, __target__="unirig_ar", **yaml.safe_load(open(repo / "configs" / "model" / "unirig_ar_350m_1024_81920_float32.yaml")))
+ckpt = torch.load(download("experiments/skeleton/articulation-xl_quantization_256/model.ckpt"), map_location="cpu")
+model.load_state_dict(ckpt["state_dict"])
+model.eval()
+v = torch.randn(1, 100, 3)
+n = torch.randn(1, 100, 3)
+out = model.generate(vertices=v, normals=n, cls=None)
 print("ok")
 """,
         "rigging": """
-import unirig
-assert hasattr(unirig, '__version__') or hasattr(unirig, 'rig'), "unirig module loaded but missing expected API"
+import sys, yaml, torch
+from pathlib import Path
+repo = None
+for base in [Path("/storage/third_party"), Path(__file__).resolve().parent.parent.parent.parent]:
+    c = base / "UniRig"
+    if c.exists():
+        repo = c
+        sys.path.insert(0, str(c))
+        break
+from box import Box
+from src.tokenizer.parse import get_tokenizer, TokenizerConfig
+from src.model.parse import get_model
+from src.inference.download import download
+tok = get_tokenizer(config=TokenizerConfig.parse(Box(yaml.safe_load(open(repo / "configs" / "tokenizer" / "tokenizer_parts_articulationxl_256.yaml")))))
+model = get_model(tokenizer=tok, __target__="unirig_ar", **yaml.safe_load(open(repo / "configs" / "model" / "unirig_ar_350m_1024_81920_float32.yaml")))
+ckpt = torch.load(download("experiments/skeleton/articulation-xl_quantization_256/model.ckpt"), map_location="cpu")
+model.load_state_dict(ckpt["state_dict"])
+model.eval()
+v = torch.randn(1, 100, 3)
+n = torch.randn(1, 100, 3)
+out = model.generate(vertices=v, normals=n, cls=None)
 print("ok")
 """,
     },
@@ -187,18 +254,24 @@ print("ok")
     "detailgen3d": {
         "shape": """
 import torch
-import numpy as np
 from PIL import Image
 from detailgen3d.pipelines.pipeline_detailgen3d import DetailGen3DPipeline
-pipe = DetailGen3DPipeline.from_pretrained("VAST-AI/DetailGen3D")
+pipe = DetailGen3DPipeline.from_pretrained("VAST-AI/DetailGen3D").to("cpu")
+img = Image.new("RGB", (512, 512))
+cfg = pipe.transformer.config
+latents = torch.randn(1, cfg.in_channels, cfg.width)
+out = pipe(img, latents=latents, num_inference_steps=2, output_type="latent")
 print("ok")
 """,
         "detail_enhancement": """
 import torch
-import numpy as np
 from PIL import Image
 from detailgen3d.pipelines.pipeline_detailgen3d import DetailGen3DPipeline
-pipe = DetailGen3DPipeline.from_pretrained("VAST-AI/DetailGen3D")
+pipe = DetailGen3DPipeline.from_pretrained("VAST-AI/DetailGen3D").to("cpu")
+img = Image.new("RGB", (512, 512))
+cfg = pipe.transformer.config
+latents = torch.randn(1, cfg.in_channels, cfg.width)
+out = pipe(img, latents=latents, num_inference_steps=2, output_type="latent")
 print("ok")
 """,
     },
@@ -393,7 +466,18 @@ def run_preflight_for_provider(
                 if not r.passed:
                     all_passed = False
     # --- CUDA check ---
-    if meta.get("native_build_required", False) or (has_manifest and manifest.get("preflight", {}).get("check_cuda")):
+    # CUDA requirement is derived from the manifest (capability native_build_required
+    # or preflight.check_cuda), NOT from conflicting PROVIDER_METADATA.
+    if has_manifest:
+        cap_native = any(
+            v.get("native_build_required", False)
+            for v in manifest.get("capabilities", {}).values()
+            if isinstance(v, dict) and v.get("enabled", True)
+        )
+        needs_cuda = bool(cap_native) or manifest.get("preflight", {}).get("check_cuda", False)
+    else:
+        needs_cuda = meta.get("native_build_required", False)
+    if needs_cuda:
         cuda_result = _check_torch_cuda(venv_python)
         checks["cuda"] = {"passed": cuda_result.passed, "detail": cuda_result.detail}
         if not cuda_result.passed:
@@ -418,6 +502,26 @@ def run_preflight_for_provider(
                 "required": aux.get("required", False),
             }
             if not aux_result.passed and aux.get("required", False):
+                all_passed = False
+    # --- VRAM gate (manifest hardware.minimum_vram_mb is authoritative) ---
+    # READY is impossible without enough VRAM; this is a hard preflight gate.
+    if has_manifest and "hardware" in manifest:
+        vram_required = manifest["hardware"].get("minimum_vram_mb", 0)
+        if vram_required and vram_required > 0:
+            try:
+                import torch
+                available_mb = 0
+                if torch.cuda.is_available():
+                    available_mb = torch.cuda.get_device_properties(0).total_mem // (1024 * 1024)
+                vram_ok = available_mb >= vram_required
+                checks["vram"] = {
+                    "passed": vram_ok,
+                    "detail": f"required={vram_required}MB available={available_mb}MB",
+                }
+                if not vram_ok:
+                    all_passed = False
+            except Exception as exc:
+                checks["vram"] = {"passed": False, "detail": f"VRAM check error: {exc}"}
                 all_passed = False
     # --- Model load test ---
     smoke_code = _PROVIDER_SMOKE_TESTS.get(provider_name)

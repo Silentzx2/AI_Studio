@@ -37,8 +37,9 @@ capabilities:
   texture_pbr:
     enabled: true
     native_build_required: true
+    # Build the custom differentiable rasterizer shipped in the repo.
     native_steps:
-      - "upstream texture/custom rasterizer setup"
+      - "pip install -e ./hy3dpaint/custom_rasterizer"
     vram_required_mb: 29000
 preflight:
   check_model_venv: true

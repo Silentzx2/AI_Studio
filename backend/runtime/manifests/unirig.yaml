@@ -26,6 +26,9 @@ capabilities:
   shape:
     enabled: true
     native_build_required: true
+    # Build the geometric CUDA extensions required for rigging inference.
+    native_steps:
+      - "pip install spconv torch_scatter torch_cluster pytorch3d"
     vram_required_mb: 8000
   texture_pbr:
     enabled: false
@@ -34,6 +37,8 @@ capabilities:
   rigging:
     enabled: true
     native_build_required: true
+    native_steps:
+      - "pip install spconv torch_scatter torch_cluster pytorch3d"
     vram_required_mb: 8000
 preflight:
   check_model_venv: true

@@ -364,19 +364,40 @@ def run_native_build(self, provider_name: str, task_id: str) -> dict:
                         logger.warning(msg)
                         errors.append(msg)
 
+        # Execute the manifest-defined native build steps for every capability that
+        # requires a native build. Steps are REAL shell commands run inside the model
+        # venv (venv python on PATH) from the repo directory. The task FAILS if any
+        # step fails — we never mark native_build_complete on logging alone.
         if manifest and "capabilities" in manifest:
+            seen_steps: set[str] = set()
             for cap_name, cap_info in manifest["capabilities"].items():
                 if not isinstance(cap_info, dict):
                     continue
                 if not cap_info.get("native_build_required", False):
                     continue
-                native_steps = cap_info.get("native_steps", [])
-                logger.info(
-                    "Native build steps for capability '%s' of %s: %s",
-                    cap_name, canonical_name, native_steps,
-                )
-                for step in native_steps:
-                    logger.info("Native build step [%s / %s]: %s", canonical_name, cap_name, step)
+                for step in cap_info.get("native_steps", []) or []:
+                    if step in seen_steps:
+                        continue
+                    seen_steps.add(step)
+                    logger.info("Running native build step [%s / %s]: %s", canonical_name, cap_name, step)
+                    env = dict(os.environ)
+                    if venv_python and venv_python.exists():
+                        venv_bin = str(venv_python.parent)
+                        env["PATH"] = venv_bin + os.pathsep + env.get("PATH", "")
+                        env["VIRTUAL_ENV"] = str(venv_python.parent.parent)
+                    try:
+                        proc = subprocess.run(
+                            step, shell=True, cwd=str(repo_dir), env=env,
+                            capture_output=True, text=True, timeout=3600,
+                        )
+                    except subprocess.TimeoutExpired:
+                        raise RuntimeError(f"Native build step timed out after 3600s: {step}")
+                    if proc.returncode != 0:
+                        raise RuntimeError(
+                            f"Native build step failed (exit {proc.returncode}): {step}\n"
+                            f"STDOUT:\n{proc.stdout[-2000:]}\nSTDERR:\n{proc.stderr[-2000:]}"
+                        )
+                    logger.info("Native build step succeeded: %s", step)
 
         if errors:
             raise RuntimeError("; ".join(errors))
