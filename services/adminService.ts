@@ -201,6 +201,15 @@ export const adminService = {
     }
   },
 
+  async getInstallStatus(): Promise<Record<string, any> | null> {
+    try {
+      const res = await apiClient.get<{ data: Record<string, any> }>('/api/v1/admin/install/status');
+      return res?.data || null;
+    } catch {
+      return null;
+    }
+  },
+
   /**
    * Stream installation progress via SSE.
    * Normalises the raw backend payload (bytes/bps) into the

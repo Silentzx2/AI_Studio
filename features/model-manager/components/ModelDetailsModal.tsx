@@ -18,7 +18,9 @@ import {
   Shield,
   ExternalLink,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 
 interface ModelManifest {
@@ -63,7 +65,8 @@ export function ModelDetailsModal({
   const [manifest, setManifest] = useState<ModelManifest | null>(null);
   const [health, setHealth] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'info' | 'health' | 'requirements'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'health' | 'requirements' | 'native_build'>('info');
+  const [installStatus, setInstallStatus] = useState<any>(null);
 
   // Fetch model details when modal opens
   useEffect(() => {
@@ -78,14 +81,15 @@ export function ModelDetailsModal({
     setLoading(true);
     
     try {
-      // Fetch manifest and health in parallel
-      const [manifestRes, healthRes] = await Promise.all([
+      const [manifestRes, healthRes, statusRes] = await Promise.all([
         fetch(`/api/v1/models/${modelId}`),
-        fetch(`/api/v1/models/${modelId}/health`)
+        fetch(`/api/v1/models/${modelId}/health`),
+        fetch(`/api/v1/admin/install/status`).catch(() => null),
       ]);
 
-      const manifestData = await manifestRes.json();
-      const healthData = await healthRes.json();
+      const manifestData = manifestRes.ok ? await manifestRes.json() : {};
+      const healthData = healthRes.ok ? await healthRes.json() : {};
+      const statusData = statusRes?.ok ? await statusRes.json() : {};
 
       if (manifestData.success) {
         setManifest(manifestData.data?.manifest || manifestData.data);
@@ -93,6 +97,10 @@ export function ModelDetailsModal({
 
       if (healthData.success) {
         setHealth(healthData.data);
+      }
+
+      if (statusData?.data?.[modelId]) {
+        setInstallStatus(statusData.data[modelId]);
       }
     } catch (error) {
       console.error('Failed to fetch model details:', error);
@@ -155,7 +163,8 @@ export function ModelDetailsModal({
           {[
             { id: 'info', label: 'Information', icon: Info },
             { id: 'health', label: 'Health Check', icon: HeartPulse },
-            { id: 'requirements', label: 'Requirements', icon: Settings }
+            { id: 'requirements', label: 'Requirements', icon: Settings },
+            { id: 'native_build', label: 'Native Build', icon: Cpu }
           ].map(tab => (
             <button
               key={tab.id}
@@ -190,6 +199,70 @@ export function ModelDetailsModal({
               
               {activeTab === 'requirements' && (
                 <RequirementsTab manifest={manifest} />
+              )}
+              
+              {activeTab === 'native_build' && (
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium text-[hsl(var(--foreground))]/60">Native Build Status</h4>
+                  {installStatus?.components?.native_build ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          'text-xs font-medium px-2 py-1 rounded-md',
+                          installStatus.components.native_build.state === 'not_required' && 'bg-[hsl(var(--muted-foreground)/0.08)] text-[hsl(var(--muted-foreground))]',
+                          installStatus.components.native_build.state === 'pending' && 'bg-[hsl(var(--amber-500)/0.15)] text-[hsl(var(--amber-500))]',
+                          installStatus.components.native_build.state === 'running' && 'bg-[hsl(var(--blue-500)/0.15)] text-[hsl(var(--blue-500))]',
+                          installStatus.components.native_build.state === 'complete' && 'bg-[hsl(var(--green-500)/0.15)] text-[hsl(var(--green-500))]',
+                          installStatus.components.native_build.state === 'failed' && 'bg-[hsl(var(--red-500)/0.15)] text-[hsl(var(--red-500))]',
+                        )}>
+                          {installStatus.components.native_build.state}
+                        </span>
+                        {installStatus.components.native_build.task_id && (
+                          <span className="text-[10px] font-mono text-muted-foreground">
+                            Task: {installStatus.components.native_build.task_id}
+                          </span>
+                        )}
+                      </div>
+                      {installStatus.components.native_build.current_step && (
+                        <div className="text-xs text-[hsl(var(--foreground))]/70 bg-[hsl(var(--surface-2)/0.4)] p-3 rounded-lg">
+                          <span className="font-medium">Current step:</span> {installStatus.components.native_build.current_step}
+                        </div>
+                      )}
+                      {installStatus.components.native_build.output && (
+                        <div className="text-xs text-[hsl(var(--foreground))]/60 bg-[hsl(var(--surface-2)/0.2)] p-3 rounded-lg font-mono whitespace-pre-wrap max-h-40 overflow-y-auto">
+                          {installStatus.components.native_build.output}
+                        </div>
+                      )}
+                      {installStatus.components.native_build.detail && (
+                        <p className="text-xs text-[hsl(var(--foreground))]/70 bg-[hsl(var(--surface-2)/0.4)] p-3 rounded-lg">
+                          {installStatus.components.native_build.detail}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-2">
+                        {installStatus.components.native_build.state === 'failed' && onRepair && (
+                          <Button
+                            variant="outline"
+                            onClick={() => onRepair(modelId)}
+                            className="border-[hsl(var(--neon-amber)/0.5)] text-[hsl(var(--neon-amber))] hover:bg-[hsl(var(--neon-amber)/0.1)]"
+                          >
+                            <Settings className="w-4 h-4 mr-2" />
+                            Repair Model
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => window.open('/settings', '_blank')}
+                          className="text-[hsl(var(--foreground))]/60 hover:text-[hsl(var(--foreground))]"
+                        >
+                          View Logs
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-[hsl(var(--foreground))]/40">No native build information available.</p>
+                  )}
+                </div>
               )}
             </>
           )}

@@ -415,6 +415,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import datetime
 from pathlib import Path
 
 logging.basicConfig(
@@ -516,6 +517,56 @@ def repair_venv(repo_name):
     return install_repo_deps(repo_name)
 
 
+def queue_native_build_if_needed(repo_name):
+    try:
+        from runtime.manifest_loader import load_manifest
+        from runtime.installer import PROVIDER_METADATA, _get_native_build_info, get_persisted_install_status, persist_provider_state
+        from celery import Celery
+        from app.workers.celery_app import celery_app
+        from app.workers.installation_workers import run_native_build
+
+        Celery.set_default(celery_app)
+        meta = PROVIDER_METADATA.get(repo_name, {})
+        provider_name = meta.get("providers", [repo_name])[0]
+        manifest = load_manifest(provider_name)
+        native_req, _ = _get_native_build_info(meta, manifest)
+        if not native_req:
+            return None
+
+        # Idempotency: if a native build is already queued or running, don't
+        # re-queue a duplicate task. Return the existing task ID.
+        persisted = get_persisted_install_status()
+        existing = persisted.get(provider_name, {})
+        existing_state = existing.get("native_build_state", "")
+        existing_task_id = existing.get("native_build_task_id")
+        if existing_state in ("native_build_pending", "native_build_running") and existing_task_id:
+            print(f"  [NATIVE] {repo_name}: native build already {existing_state} (task={existing_task_id})")
+            return existing_task_id
+
+        task_id = f"native_build_{provider_name}_{int(datetime.datetime.utcnow().timestamp())}"
+        try:
+            run_native_build.apply_async(
+                args=[provider_name, task_id],
+                queue="installation",
+                task_id=task_id,
+            )
+        except Exception as broker_exc:
+            # Broker unavailable: persist failed state so the UI can surface it.
+            persist_provider_state(provider_name, {
+                "native_build_state": "native_build_failed",
+                "native_build_task_id": task_id,
+                "blocking_reason": f"Celery broker unavailable: {broker_exc}",
+            })
+            print(f"  [FAIL] {repo_name}: native build failed (Celery broker unavailable)")
+            return None
+
+        print(f"  [NATIVE] {repo_name}: native build queued (task={task_id})")
+        return task_id
+    except Exception as exc:
+        print(f"  [WARN] {repo_name}: could not queue native build: {exc}")
+    return None
+
+
 repaired = 0
 skipped = 0
 failed = 0
@@ -558,7 +609,8 @@ for repo_name in sorted(REPOS.keys()):
             continue
         print(f"    [OK  ] {repo_name} dependencies ready")
 
-    print(f"  [DONE] {repo_name}: repaired")
+    print(f"  [OK  ] {repo_name}: repaired")
+    queue_native_build_if_needed(repo_name)
     repaired += 1
 
 print(f"\nRuntime preparation complete: {repaired} repaired, {skipped} skipped, {failed} failed")

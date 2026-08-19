@@ -20,6 +20,11 @@ truth for how a generation job reaches a model on the GPU.
 │    - runs provider.generate()                                │
 │    - OOM retry once in low-VRAM mode                         │
 │    - unloads after job / on failure                          │
+│  app/workers/installation_workers.py :: run_native_build()   │
+│    - executes manifest native_steps inside per-model venv    │
+│    - owns native-build lock for build + preflight + smoke    │
+│    - auto-triggers preflight on success                      │
+│    - queues on dedicated `installation` queue                │
 └───────────────────────────────┬─────────────────────────────┘
                                  │
 ┌───────────────────────────────▼─────────────────────────────┐

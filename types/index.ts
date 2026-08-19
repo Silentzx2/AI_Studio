@@ -270,6 +270,13 @@ export interface AdminModel {
   hf_repo?: string;
   version?: string;
   download_progress?: InstallProgress;
+  native_build?: {
+    state: 'not_required' | 'pending' | 'running' | 'complete' | 'failed';
+    task_id?: string;
+    detail?: string;
+    current_step?: string;
+    output?: string;
+  };
 }
 
 export interface QueueStatus {

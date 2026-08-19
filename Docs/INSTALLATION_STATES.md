@@ -15,7 +15,7 @@ WEIGHTS_DOWNLOADING
     |
 WEIGHTS_READY
     |
-NATIVE_BUILD_PENDING / RUNNING / READY
+NATIVE_BUILD_PENDING / RUNNING / COMPLETE / FAILED
     |
 PREFLIGHT_RUNNING
     |
@@ -26,6 +26,8 @@ CAPABILITY_SMOKE_TEST
 READY
 ```
 
+> **Note**: `NATIVE_BUILD_PENDING/RUNNING/COMPLETE/FAILED` are blocking states for models that require CUDA compilation. Models without native build requirements skip directly from `WEIGHTS_READY` to `PREFLIGHT_RUNNING`.
+
 ## Blocking / Failure States
 
 | State | Meaning |
@@ -34,8 +36,10 @@ READY
 | `env_creating` | Virtual environment is being created |
 | `env_failed` | Virtual environment creation or dependency install failed |
 | `weights_incomplete` | Primary or required auxiliary weights are missing |
-| `native_build_pending` | Native CUDA compilation queued but not started (may be per-capability, e.g. `texture_pbr`) |
-| `native_build_running` | Native CUDA compilation in progress |
+| `native_build_pending` | CUDA compilation queued but not started (may be per-capability, e.g. `texture_pbr`) |
+| `native_build_running` | CUDA compilation in progress |
+| `native_build_complete` | CUDA compilation finished successfully |
+| `native_build_failed` | CUDA compilation failed — blocking_reason contains the error |
 | `blocked` | A required component is missing or failed |
 | `auxiliary_weights_missing` | A required auxiliary weight (`required: true` in manifest) is not downloaded |
 | `cuda_incompatible` | CUDA not available on the host |

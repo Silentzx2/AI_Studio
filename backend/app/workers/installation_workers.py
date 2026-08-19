@@ -293,6 +293,8 @@ def run_native_build(self, provider_name: str, task_id: str) -> dict:
         _acquire_native_build_lock,
         _canonical_provider_name,
         _release_native_build_lock,
+        _load_state,
+        _save_state,
         get_install_status,
         load_provider_state_from_db,
         persist_provider_state,
@@ -369,6 +371,15 @@ def run_native_build(self, provider_name: str, task_id: str) -> dict:
         # requires a native build. Steps are REAL shell commands run inside the model
         # venv (venv python on PATH) from the repo directory. The task FAILS if any
         # step fails — we never mark native_build_complete on logging alone.
+        def _update_build_progress(step: str, output: str | None = None) -> None:
+            st = _load_state()
+            st.setdefault("repos", {}).setdefault(canonical_name, {})
+            st["repos"][canonical_name]["native_build_current_step"] = step
+            if output is not None:
+                st["repos"][canonical_name]["native_build_output"] = output[-4000:]
+            st["last_updated"] = datetime.utcnow().isoformat()
+            _save_state(st)
+
         if manifest and "capabilities" in manifest:
             seen_steps: set[str] = set()
             for cap_name, cap_info in manifest["capabilities"].items():
@@ -380,6 +391,7 @@ def run_native_build(self, provider_name: str, task_id: str) -> dict:
                     if step in seen_steps:
                         continue
                     seen_steps.add(step)
+                    _update_build_progress(step)
                     logger.info("Running native build step [%s / %s]: %s", canonical_name, cap_name, step)
                     env = dict(os.environ)
                     if venv_python and venv_python.exists():
@@ -392,12 +404,16 @@ def run_native_build(self, provider_name: str, task_id: str) -> dict:
                             capture_output=True, text=True, timeout=3600,
                         )
                     except subprocess.TimeoutExpired:
+                        _update_build_progress(step, f"Timeout after 3600s: {step}")
                         raise RuntimeError(f"Native build step timed out after 3600s: {step}")
                     if proc.returncode != 0:
+                        combined = f"STDOUT:\n{proc.stdout[-2000:]}\nSTDERR:\n{proc.stderr[-2000:]}"
+                        _update_build_progress(step, combined)
                         raise RuntimeError(
                             f"Native build step failed (exit {proc.returncode}): {step}\n"
-                            f"STDOUT:\n{proc.stdout[-2000:]}\nSTDERR:\n{proc.stderr[-2000:]}"
+                            f"{combined}"
                         )
+                    _update_build_progress(step, f"OK\nSTDOUT:\n{proc.stdout[-1000:]}")
                     logger.info("Native build step succeeded: %s", step)
 
         if errors:

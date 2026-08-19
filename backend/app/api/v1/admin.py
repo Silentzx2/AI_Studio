@@ -997,6 +997,7 @@ async def list_models():
                 "repo_ready": inst.get("repo_ready", False),
                 "venv_ready": inst.get("venv_ready", False),
                 "weights_ready": inst.get("weights_ready", False),
+                "native_build": inst.get("components", {}).get("native_build", {"state": "not_required"}),
                 # ponytail: colab_preparable + install_block_reason drive the
                 # model-tab "can't install on this runtime" gray/warning state.
                 "colab_preparable": is_model_preparable_for_colab(name),

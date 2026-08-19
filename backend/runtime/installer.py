@@ -1774,6 +1774,8 @@ def install_provider(
     except (ValueError, ImportError) as exc:
         if log_cb:
             log_cb(f"No manifest for {provider_name} ({exc}); using metadata-only install")
+    # Determine native-build requirement early (used by deps + later dispatch).
+    native_req, all_caps_need_native = _get_native_build_info(meta, manifest)
     # --- Concurrency + disk space checks ---
     repo_name = meta.get("repo")
     locked_repos: list[str] = []
@@ -1811,24 +1813,22 @@ def install_provider(
                     if log_cb:
                         log_cb(f"Warning: git submodule init failed: {output[:200]}")
             # --- 4. Install deps ---
-            native_req, all_caps_need_native = _get_native_build_info(meta, manifest)
+            # Always create the venv and install deps. Native CUDA compilation
+            # is deferred to the Celery worker when allow_native_build=False;
+            # the worker owns the native-build lock and runs manifest steps.
             if not st.get("venv_ready"):
-                if native_req and all_caps_need_native and not allow_native_build:
-                    if log_cb:
-                        log_cb(f"Note: '{provider_name}' requires native CUDA build; skipping deps install. Weights will be downloaded for manual setup.")
-                else:
-                    if log_cb:
-                        if native_req and not all_caps_need_native and not allow_native_build:
-                            log_cb(f"Installing dependencies for {provider_name} (partial native build; non-native capabilities will be ready)...")
-                        else:
-                            log_cb(f"Installing dependencies for {provider_name}...")
-                    r = install_repo_deps(repo_name, log_cb=log_cb)
-                    if not r.get("success"):
-                        if native_req and all_caps_need_native and not allow_native_build:
-                            if log_cb:
-                                log_cb(f"Warning: deps install failed for {provider_name} (native build needed), continuing to weights download: {r.get('error')}")
-                        else:
-                            return {"success": False, "error": r.get("error", "Deps install failed")}
+                if log_cb:
+                    log_cb(f"Installing dependencies for {provider_name}...")
+                r = install_repo_deps(repo_name, log_cb=log_cb)
+                if not r.get("success"):
+                    # For native-build models the worker will finish native
+                    # dependency install inside the venv with CUDA available,
+                    # so we tolerate deps failure here and continue to weights.
+                    if native_req and not allow_native_build:
+                        if log_cb:
+                            log_cb(f"Warning: deps install had issues for {provider_name} (native build needed), continuing to weights: {r.get('error')}")
+                    else:
+                        return {"success": False, "error": r.get("error", "Deps install failed")}
         # --- 5. Download primary weights ---
         weight_key = _resolve_weight_key(meta, manifest)
         if weight_key:
@@ -1885,7 +1885,6 @@ def install_provider(
         # so status reflects the queued build. (The fcntl lock is acquired/released by
         # the worker process, not this API thread.)
         native_build_task_id = None
-        native_req, all_caps_need_native = _get_native_build_info(meta, manifest)
         if native_req and not allow_native_build:
             # Persist native-build pending state before returning.
             state = _load_state()
@@ -2146,11 +2145,15 @@ def get_install_status() -> dict:
         # not a hardcoded "pending". DB is authoritative, falling back to install_state.json.
         native_state = "not_required"
         native_detail = ""
+        native_task_id = None
+        native_current_step = None
+        native_output = None
         if native_req:
             persisted_native = None
             db_s = load_provider_state_from_db(name)
             if db_s and db_s.get("native_build_state"):
                 persisted_native = db_s["native_build_state"]
+                native_task_id = db_s.get("native_build_task_id")
             else:
                 persisted_entry = persisted_state.get("repos", {}).get(name)
                 if persisted_entry and persisted_entry.get("native_build_state"):
@@ -2163,6 +2166,10 @@ def get_install_status() -> dict:
                 native_state, native_detail = "failed", "Native CUDA build failed"
             else:
                 native_state, native_detail = "pending", "Native CUDA build required; queued for background execution"
+            # Read transient build progress from file state (not DB columns).
+            file_entry = persisted_state.get("repos", {}).get(name, {})
+            native_current_step = file_entry.get("native_build_current_step")
+            native_output = file_entry.get("native_build_output")
         # --- vram: manifest hardware.minimum_vram_mb overrides metadata vram_required_mb ---
         if manifest and "hardware" in manifest:
             vram_required = manifest["hardware"].get("minimum_vram_mb", meta.get("vram_required_mb", 0))
@@ -2213,7 +2220,7 @@ def get_install_status() -> dict:
                 "venv": {"state": venv_state, "path": venv_path_str},
                 "weights": {"state": weight_state, "path": weight_path_str},
                 "auxiliary_weights": aux_weights,
-                "native_build": {"state": native_state, "detail": native_detail},
+                "native_build": {"state": native_state, "detail": native_detail, "task_id": native_task_id, "current_step": native_current_step, "output": native_output},
                 "preflight": {"state": preflight_state},
                 "capabilities": capabilities,
                 "cuda": {"state": cuda_state, "version": cuda_version},

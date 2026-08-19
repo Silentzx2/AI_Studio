@@ -396,7 +396,7 @@ step "5/6 Starting Celery Worker..."
         --loglevel=info \
         --concurrency=1 \
         -B \
-        -Q generation,images \
+        -Q generation,images,installation \
         > "$PROJECT_ROOT/logs/worker.log" 2>&1 &
     write_pid "$WORKER_PID_FILE" $!
 )

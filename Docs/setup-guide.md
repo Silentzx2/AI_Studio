@@ -1045,7 +1045,12 @@ Note: Other capabilities (e.g., `shape`) remain usable while `texture_pbr` is bu
 
 ### Native build models show NATIVE_BUILD_PENDING
 
-Models requiring CUDA compilation (TRELLIS, AniGen, UniRig) will report this state until the native build completes on a dedicated installation worker.
+Models requiring CUDA compilation (TRELLIS, AniGen, UniRig) queue a background build task when installed. The build runs asynchronously on the dedicated `installation` Celery queue and does not block the install API response.
+
+- The Admin UI shows `Pending` → `Building` → `Complete` / `Failed` on the model card.
+- Native build logs and task ID are visible via `GET /api/v1/admin/install/status`.
+- After native build succeeds, preflight runs automatically and the model transitions to `READY` if all checks pass.
+- If the Celery broker is unavailable, the model stays in `NATIVE_BUILD_PENDING` until the worker connects.
 
 See `Docs/INSTALLATION_STATES.md` for the full state reference.
 

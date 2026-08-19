@@ -182,6 +182,7 @@ export function ModelsTab() {
   const [categories, setCategories] = useState<string[]>(['All']);
   const { reconnectToInstall } = useTaskManager();
   const streamCleanups = useRef<Record<string, () => void>>({});
+  const pollCleanup = useRef<(() => void) | null>(null);
   const { capabilities, setCapability } = useUIStore();
 
   const load = useCallback(async () => {
@@ -203,6 +204,27 @@ export function ModelsTab() {
   }, []);
 
   useEffect(() => { setTimeout(() => load(), 0); }, [load]);
+
+  // Poll install status for native-build updates
+  useEffect(() => {
+    if (models.length === 0) return;
+    pollCleanup.current = setInterval(async () => {
+      try {
+        const status = await adminService.getInstallStatus();
+        if (!status) return;
+        setModels(prev => prev.map(m => {
+          const entry = status[m.id];
+          if (!entry || !entry.components?.native_build) return m;
+          return { ...m, native_build: entry.components.native_build };
+        }));
+      } catch {
+        // ignore poll errors
+      }
+    }, 5000);
+    return () => {
+      if (pollCleanup.current) clearInterval(pollCleanup.current);
+    };
+  }, [models.length]);
 
   // Cleanup SSE streams on unmount
   useEffect(() => {
@@ -486,24 +508,55 @@ export function ModelsTab() {
                           )}
                         </span>
                       </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-semibold text-[hsl(var(--muted-foreground))] truncate">{model.name}</h3>
-                          {model.version && (
-                            <span className="text-[10px] text-muted-foreground font-mono">v{model.version}</span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-semibold text-[hsl(var(--muted-foreground))] truncate">{model.name}</h3>
+                            {model.version && (
+                              <span className="text-[10px] text-muted-foreground font-mono">v{model.version}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <Badge variant={model.installed ? 'success' : 'default'} size="sm" dot>
+                              {model.installed ? 'Installed' : 'Available'}
+                            </Badge>
+                            {model.native_build && (
+                              <span className={cn(
+                                'text-[10px] font-medium px-1.5 py-0.5 rounded-md flex items-center gap-1',
+                                model.native_build.state === 'not_required' && 'bg-[hsl(var(--muted-foreground)/0.08)] text-[hsl(var(--muted-foreground))]',
+                                model.native_build.state === 'pending' && 'bg-[hsl(var(--amber-500)/0.15)] text-[hsl(var(--amber-500))]',
+                                model.native_build.state === 'running' && 'bg-[hsl(var(--blue-500)/0.15)] text-[hsl(var(--blue-500))]',
+                                model.native_build.state === 'complete' && 'bg-[hsl(var(--green-500)/0.15)] text-[hsl(var(--green-500))]',
+                                model.native_build.state === 'failed' && 'bg-[hsl(var(--red-500)/0.15)] text-[hsl(var(--red-500))]',
+                              )}>
+                                {model.native_build.state === 'not_required' && <span className="text-[9px]">N/A</span>}
+                                {model.native_build.state === 'not_required' && 'Not Required'}
+                                {model.native_build.state === 'pending' && <Clock size={9} />}
+                                {model.native_build.state === 'pending' && 'Pending'}
+                                {model.native_build.state === 'running' && <Loader2 size={9} className="animate-spin" />}
+                                {model.native_build.state === 'running' && 'Building'}
+                                {model.native_build.state === 'complete' && <CheckCircle size={9} />}
+                                {model.native_build.state === 'complete' && 'Complete'}
+                                {model.native_build.state === 'failed' && <AlertCircle size={9} />}
+                                {model.native_build.state === 'failed' && 'Failed'}
+                              </span>
+                            )}
+                            {model.native_build?.state === 'running' && model.native_build.current_step && (
+                              <span className="text-[10px] text-muted-foreground truncate max-w-[200px]" title={model.native_build.current_step}>
+                                {model.native_build.current_step}
+                              </span>
+                            )}
+                            {model.type && (
+                              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                <Tag size={9} /> {model.type}
+                              </span>
+                            )}
+                          </div>
+                          {model.native_build?.state === 'failed' && model.native_build.detail && (
+                            <p className="text-[10px] text-[hsl(var(--destructive))] mt-1 truncate" title={model.native_build.detail}>
+                              {model.native_build.detail}
+                            </p>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <Badge variant={model.installed ? 'success' : 'default'} size="sm" dot>
-                            {model.installed ? 'Installed' : 'Available'}
-                          </Badge>
-                          {model.type && (
-                            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                              <Tag size={9} /> {model.type}
-                            </span>
-                          )}
-                        </div>
-                      </div>
                     </div>
                   </div>
 
