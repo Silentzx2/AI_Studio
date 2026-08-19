@@ -419,6 +419,7 @@ For complete configuration options, see [Setup Guide - Configuration](docs/setup
 ### Workspace Features
 
 - **Global Navbar**: Tripo-style pill header (h-12) with icon+label nav links, active yellow accent, and glow CTA
+- **Live Header Monitor**: dedicated backend connectivity pill (separated by a divider from the GPU cluster), two per-GPU status pills (green=active, red=offline, gray=loading/absent), and a realtime VRAM sparkline — all polled from `/api/v1/runtime/status`
 - **Left Sidebar**: Tripo-inspired workspace navigation (tripo-gray-3) with icon items and GPU/VRAM diagnostics
 - **Center Control Panel**: Tripo-style 248px panel (tripo-gray-4) with compact 12px/10px typography scale
 - **Right Asset Panel**: 248px asset library with Tripo-style shadows and rounded corners

@@ -188,6 +188,7 @@ export interface RuntimeStatus {
   scheduler_running: boolean;
   workers: number;
   loaded_providers: string[];
+  gpus: GpuInfo[];
 }
 
 export interface SystemVerification {

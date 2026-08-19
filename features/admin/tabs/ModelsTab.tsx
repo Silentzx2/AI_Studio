@@ -182,7 +182,7 @@ export function ModelsTab() {
   const [categories, setCategories] = useState<string[]>(['All']);
   const { reconnectToInstall } = useTaskManager();
   const streamCleanups = useRef<Record<string, () => void>>({});
-  const pollCleanup = useRef<(() => void) | null>(null);
+  const pollCleanup = useRef<ReturnType<typeof setInterval> | null>(null);
   const { capabilities, setCapability } = useUIStore();
 
   const load = useCallback(async () => {

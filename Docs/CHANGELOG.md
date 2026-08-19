@@ -7,6 +7,8 @@
 - New Tailwind color palette: `tripo-gray-*`, `tripo-yellow-1`, `tripo-white-*`
 - Custom spacing utility `w-62` (248px) for Tripo-style panel widths
 - Custom font size utilities `text-2.5` (10px), `text-3` (12px), `text-3.5` (14px)
+- Workspace header live GPU/VRAM monitor: dedicated backend connectivity pill (kept visually separate from the GPU cluster via a divider), two per-GPU status pills, and a realtime VRAM sparkline — all fed from `/api/v1/runtime/status`
+- Colab-safe preflight validation step in `scripts/colab.sh` (runs `run_preflight_for_provider` for prepared Colab models after startup; native builds intentionally skipped)
 
 ### Changed
 - **WorkspaceNavbar**: Redesigned to Tripo-style pill header (h-12) with icon+label nav links, active yellow accent, and glow CTA
@@ -15,6 +17,8 @@
 - **RemeshTab**: Left panel reduced to 248px (w-62), tripo-gray-4 controls, tripo-yellow-1 accents, compact typography
 - **ThreeDGenWorkspace**: Side panels standardized to 248px (w-62), tripo-gray-4, rounded corners, shadow
 - **tailwind.config.ts**: Extended with tripo color palette, custom spacing, and font sizes
+- **CreativeWorkspaceLayout**: Backend status pill now visually separated from the new GPU/VRAM cluster (divider); GPU/platform env parity in `colab.sh` (`CUDA_DEVICE=auto`, `PLATFORM_MODE=gpu`, `CPU_FALLBACK=false`) preserving multi-GPU auto-detection
+- **runtimeService.normalizeRuntimeStatus**: now exposes `gpus: GpuInfo[]` (per-device VRAM used/total, utilization, temperature) for the header GPU pills
 
 ### Fixed
 - WorkspaceNavbar missing ChevronDown import after navbar redesign
@@ -27,6 +31,7 @@
 - Native-build lock ownership tracking (api/celery) for race safety
 - `GET /install/status` is now live-authoritative via `get_install_status()`; persisted DB status no longer overrides live `BLOCKED`/`PARTIAL`/`FAILED` or resurrects a stale `READY`
 - Native-build lock ownership now held across the full pipeline (start → preflight → model load → capability smoke) and released only after the complete workflow succeeds or fails
+- TypeScript compile errors: `ModelsTab` `pollCleanup` ref typing (`ReturnType<typeof setInterval>`), missing `cn` import in `ModelDetailsModal`, missing `GpuInfo` import in `runtimeService`
 
 ### Changed
 - **`install_repo_deps()` is now manifest-authoritative**: reads `manifest["environment"]["python"]` to pin venv Python, `manifest["dependencies"]["python"]` + `manifest["dependencies"]["native"]` for requirements, and calls `_install_torch_stack()` for backend-matching torch. `REPOS[*]["requirements"]` is no longer consulted when a manifest exists. TRELLIS `_install_trellis_deps` is preserved as the no-manifest fallback.

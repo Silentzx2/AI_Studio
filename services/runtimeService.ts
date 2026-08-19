@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import type { ApiResponse, RuntimeOptions, RuntimeStatus, SystemVerification, ProviderOption } from '@/types';
+import type { ApiResponse, RuntimeOptions, RuntimeStatus, SystemVerification, ProviderOption, GpuInfo } from '@/types';
 
 export type { ProviderOption } from '@/types';
 
@@ -81,6 +81,19 @@ function normalizeRuntimeStatus(raw: unknown): RuntimeStatus {
   const devices = gpu.devices ?? [];
   const firstDevice = devices[0] ?? {};
 
+  const gpus: GpuInfo[] = (Array.isArray(gpu.devices) ? gpu.devices : []).map((d: any) => {
+    const devVramMb = asNumber(d.vram_mb);
+    const devFreeMb = asNumber(d.free_vram_mb, devVramMb);
+    return {
+      index: asNumber(d.index),
+      name: String(d.name ?? ''),
+      vram_mb: devVramMb,
+      vram_used_mb: Math.max(0, devVramMb - devFreeMb),
+      utilization: asNumber(d.utilization),
+      temperature: asNumber(d.temperature),
+    };
+  });
+
   const totalVram = asNumber(data.vram_total_mb ?? gpu.total_vram_mb ?? firstDevice.vram_mb);
   const freeVram = asNumber(data.vram_free_mb ?? gpu.free_vram_mb ?? firstDevice.free_vram_mb, totalVram);
   const usedVram = asNumber(data.vram_used_mb, Math.max(0, totalVram - freeVram));
@@ -114,6 +127,7 @@ function normalizeRuntimeStatus(raw: unknown): RuntimeStatus {
     scheduler_running: Boolean(data.scheduler_running ?? services.redis?.available),
     workers: asNumber(data.workers),
     loaded_providers: data.loaded_providers ?? engine.loaded_providers ?? [],
+    gpus,
   };
 }
 

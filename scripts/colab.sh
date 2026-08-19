@@ -157,6 +157,16 @@ export BACKEND_URL="http://localhost:8000"
 
 log "Environment configured (SQLite mode)"
 
+# ── GPU / platform parity with setup.sh ────────────────────────────────────
+# Mirror setup.sh's GPU block, but keep GPU auto-detection intact so multi-GPU
+# Colab VMs (e.g. 2× A100) expose every device to the engine and the UI's
+# 2-GPU pills. Do NOT hardcode CUDA_VISIBLE_DEVICES — leave it unset so the
+# runtime enumerates all available GPUs.
+export CUDA_DEVICE="auto"
+export PLATFORM_MODE="gpu"
+export CPU_FALLBACK="false"
+log "GPU mode: ${CYAN}${GPU_TYPE}${NC} (auto-detect, all devices)"
+
 # ── Step 3: Create storage directories ────────────────────────────────────
 
 step "3/6 Creating project directory structure"
@@ -506,6 +516,7 @@ PYEOF
 if [[ "$WEIGHTS_ONLY" == "true" ]]; then
     prepare_model_runtimes || warn "Model runtime prep had issues — check output above"
     download_model_weights || warn "Weight download had issues — check output above"
+    run_preflight || warn "Preflight validation had issues — check output above"
     log "Weights-only setup complete. Start services with: bash scripts/colab.sh"
     exit 0
 fi
@@ -786,6 +797,66 @@ for i in {1..15}; do
     echo -n "."
     sleep 2
 done
+
+# ── Preflight validation (Colab-safe) ─────────────────────────────────────
+# Validates the prepared Colab models AFTER startup using the same layered
+# checks the backend runs (venv, imports, native exts, CUDA, weights, smoke
+# test). Invoked via the backend interpreter directly — no native builds
+# (Colab has no toolkit) and no re-clone/re-download. Mirrors setup.sh's
+# post-prepare quality gate without its native-build queueing.
+run_preflight() {
+    step "Running preflight validation for prepared models"
+    local PYTHONBIN="${PROJECT_ROOT}/backend/.venv/bin/python"
+    [[ -x "$PYTHONBIN" ]] || { warn "Backend venv missing — skipping preflight"; return 0; }
+    (
+        cd backend
+        PYTHONPATH=. "$PYTHONBIN" - << 'PYEOF'
+import logging
+import sys
+from pathlib import Path
+
+logging.basicConfig(level=logging.INFO, format="  %(levelname)-5s %(name)s: %(message)s")
+sys.path.insert(0, str(Path(".").resolve()))
+try:
+    from runtime.installer import REPOS, PROVIDER_METADATA
+    from runtime.storage import get_storage_config
+    from runtime.preflight import run_preflight_for_provider
+except Exception as exc:
+    print(f"  [FAIL] Could not import runtime modules: {exc}")
+    sys.exit(1)
+
+storage = get_storage_config()
+# Colab only prepares TripoSG — keep the gate aligned with prepare_model_runtimes.
+COLAB_ALLOWED_REPOS = {"TripoSG"}
+ran = skipped = 0
+
+for repo_name in sorted(REPOS.keys()):
+    if repo_name not in COLAB_ALLOWED_REPOS:
+        continue
+    meta = PROVIDER_METADATA.get(repo_name, {})
+    providers = meta.get("providers", [repo_name])
+    provider = providers[0] if providers else repo_name
+    venv_python = storage.get_model_venv_path(repo_name) / "bin" / "python"
+    if not venv_python.exists():
+        print(f"  [SKIP] {provider}: venv not prepared")
+        skipped += 1
+        continue
+    print(f"  [PREFLIGHT] {provider}: running checks...")
+    try:
+        result = run_preflight_for_provider(provider)
+        passed = bool(getattr(result, "passed", False))
+        print(f"    [{'OK  ' if passed else 'FAIL'}] {provider}: {'PASSED' if passed else 'FAILED'}")
+    except Exception as exc:
+        print(f"    [FAIL] {provider}: {exc}")
+    ran += 1
+
+print(f"\nPreflight complete: {ran} checked, {skipped} skipped (venv not prepared)")
+PYEOF
+    )
+}
+
+# ── Post-startup preflight validation (Colab-safe) ─────────────────────────
+run_preflight || warn "Preflight validation had issues — see output above"
 
 # ── Cloudflare Tunnel ──────────────────────────────────────────────────────
 step "Setting up Cloudflare Tunnel for external access..."

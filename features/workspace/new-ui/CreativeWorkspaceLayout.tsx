@@ -16,10 +16,10 @@ import { useGenerationStore } from '@/stores/useGenerationStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useSearchParams } from 'next/navigation';
-import { runtimeService } from '@/services/runtimeService';
-import type { RuntimeStatus } from '@/types';
-import { StatusDot } from '@/components/premium/StatusDot';
-import { useBackendStatus } from '@/hooks/useBackendData';
+import { useGpuMonitor } from '@/hooks/useGpuMonitor';
+import { BackendStatusPill } from '@/components/BackendStatusPill';
+import { GpuStatusPill } from '@/components/GpuStatusPill';
+import { VramMonitor } from '@/components/VramMonitor';
 
 // Import our modular redesigned tabs
 import WorkspaceTab from './WorkspaceTab';
@@ -59,8 +59,7 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
   const normalized = requested === 'Workspace' ? 'Dashboard' : requested;
   const initialTab = validTabs.includes(normalized!) ? normalized! : 'Dashboard';
   const [activeSidebarItem, setActiveSidebarItem] = useState(initialTab);
-  const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
-  const backendStatus = useBackendStatus();
+  const gpuMonitor = useGpuMonitor();
   const { mobileMenuOpen, setMobileMenuOpen } = useUIStore();
   const { setActiveContextTab } = useViewerStore();
   const [monitorExpanded, setMonitorExpanded] = useState(true);
@@ -82,23 +81,6 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
     }
   };
 
-  const vramPercentage = useMemo(() => {
-    if (!runtime || !runtime.vram_total_mb) return 0;
-    return Math.min(100, Math.max(0, (runtime.vram_used_mb / runtime.vram_total_mb) * 100));
-  }, [runtime]);
-
-  useEffect(() => {
-    const tick = async () => {
-      try {
-        const status = await runtimeService.getStatus();
-        if (status) setRuntime(status);
-      } catch { /* silently ignore */ }
-    };
-    tick();
-    const interval = setInterval(tick, 10000);
-    return () => clearInterval(interval);
-  }, []);
-  
   // Fetch real history from backend
   const { loadHistory, jobHistory, isLoadingHistory, loadingError } = useGenerationStore();
   
@@ -464,6 +446,15 @@ export default function CreativeWorkspaceLayout({ onToggleLayout, defaultTab }: 
 
         {/* Right Section: Clean Actions */}
         <div className="flex items-center gap-2">
+          {/* Backend connectivity pill — kept visually separate from the GPU cluster */}
+          <BackendStatusPill />
+          <span className="hidden sm:block w-px h-5 bg-tripo-white-10 mx-0.5" aria-hidden />
+
+          {/* Live GPU + VRAM cluster */}
+          <GpuStatusPill index={0} gpu={gpuMonitor.gpus[0]} status={gpuMonitor.status} />
+          <GpuStatusPill index={1} gpu={gpuMonitor.gpus[1]} status={gpuMonitor.status} />
+          <VramMonitor monitor={gpuMonitor} />
+
           {/* New 3D Generation CTA */}
           <button
             onClick={() => handleSwitchTab('3D Gen')}
