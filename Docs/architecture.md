@@ -186,7 +186,7 @@ Repair is manifest-driven rather than a hard-coded re-clone/re-install: it re-ru
 
 ### Race-safe lock ownership
 
-The native-build lock now tracks `owner_type` (`api` or `celery`) so that an API-initiated install can safely hand off to a Celery worker without deadlocking or stale lock claims. Lock ownership is held across the **entire** native-build workflow — from start through preflight, model load, and capability smoke tests — and is released **only** after the complete workflow succeeds or fails. The owner is mutated as part of overall completion/failure, never on native-build completion alone.
+The install lock tracks `owner_type` (`api` or `celery`) so that an API-initiated install can safely hand off to a Celery worker without deadlocking or stale lock claims. The native-build lock is held by the `native_build_worker` owner for the entire native-build workflow — from start through preflight, model load, and capability smoke tests — and is released only after the complete workflow succeeds or fails. Lock ownership is held across the entire install/native-build workflow and is released only after the complete workflow succeeds or fails.
 
 See `Docs/INSTALLATION_STATES.md` for full reference.
 
@@ -217,7 +217,7 @@ The frontend follows a Tripo Studio-style persistent workspace: ONE global 3D ca
 ```
 
 #### Component Flow
-- **Left sidebar** (`#creative-sidebar`): Tab navigation. Tabs: Dashboard, 3D Gen, Rigging & Animation, Remesh, Texture Gen, My Assets, Models, Favorites, API Access, Settings. Collapsible, mobile drawer.
+- **Left sidebar** (`#creative-sidebar`): Tab navigation. Tabs: Dashboard, 3D Gen, Rigging, Animation, Rigging & Animation, Remesh, Texture Gen, My Assets, Models, Favorites, API Access, Settings. Collapsible, mobile drawer.
 - **Left panel (dynamic)**: Swaps content based on active tab — `GenerationControls`, `RemeshTab`, `TextureGenTab`, `RiggingAnimationTab`, or tab-specific content.
 - **Center**: `Canvas3D` (`3D-SPACE/Canvas3D.tsx`) — persistent, wraps R3F `<Canvas>`, handles GLB/GLTF/FBX/OBJ/STL loading, drag-drop, shading presets, lighting presets, snapshot capture.
 - **Right panel (contextual)**: `AssetPanel` for 3D-related tabs (3D Gen, Remesh, Texture Gen, Rigging), `AssetPanelHost` for other tabs.

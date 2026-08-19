@@ -522,6 +522,7 @@ if [[ "$WEIGHTS_ONLY" == "true" ]]; then
 fi
 
 prepare_model_runtimes || warn "Model runtime prep had issues — check output above"
+download_model_weights || warn "Weight download had issues — check output above"
 
 if [[ "$REPOS_ONLY" == "true" ]]; then
     log "Repos-only setup complete. Start services with: bash scripts/colab.sh"
@@ -850,7 +851,7 @@ for repo_name in sorted(REPOS.keys()):
         print(f"    [FAIL] {provider}: {exc}")
     ran += 1
 
-print(f"\nPreflight complete: {ran} checked, {skipped} skipped (venv not prepared)")
+print(f"\nPreflight complete: {ran} checked, {skipped} skipped")
 PYEOF
     )
 }

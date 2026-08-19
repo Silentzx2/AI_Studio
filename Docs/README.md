@@ -100,7 +100,7 @@ The backend pipelines API drives workspace model pickers and feature gating (the
 - `GET /api/v1/pipelines/workspace-models?workspace=<type>&installed_only=<bool>` returns models compatible with a specific workspace.
 - `GET /api/v1/pipelines/workspace-types` lists all supported workspace/task types with descriptions.
 - Runtime health and provider data come from `/api/v1/runtime/status`, `/api/v1/runtime/health`, and `/api/v1/runtime/options`.
-- The backend does **not** register a bare `GET /api/v1/runtime` route; use the sub-routes above.
+- The backend also registers a bare `GET /api/v1/runtime` route (returns the same payload as `/status`).
 
 
 ### Download Sources (Pipeline V2)
@@ -247,7 +247,7 @@ The backend pipelines API drives workspace model pickers and feature gating (the
 | **Backend** | FastAPI, Python 3.12+, SQLAlchemy 2 | REST API |
 | **Task Queue** | Celery + Redis | Async Tasks |
 | **Database** | PostgreSQL 16 | Persistent Storage |
-| **ML/AI** | PyTorch, CUDA, Diffusers | AI Models |
+| **ML/AI** | PyTorch, CUDA (Diffusers loaded per-model in isolated venvs) | AI Models |
 | **Download** | aiohttp, asyncio | Async Downloads |
 | **Deployment** | Native (shell scripts) | No Docker |
 
@@ -701,17 +701,15 @@ ai-3d-studio/
 │
 ├── app/                               # Frontend (Next.js 16 App Router)
 │   ├── layout.tsx                     # Root layout
-│   ├── page.tsx                       # Landing/workspace page (renders WorkspaceShell)
-│   ├── workspace/page.tsx             # Main generation workspace
-│   ├── 3d/page.tsx                    # 3D Generation page (3D-SPACE components)
-│   ├── generate/page.tsx              # Quick generate page
-│   ├── render/page.tsx                # Render view
-│   ├── texture/page.tsx               # Texture tools
+│   ├── page.tsx                       # Landing page (renders WorkspaceShell)
+│   ├── workspace/page.tsx             # Main generation workspace (tabbed shell)
 │   ├── settings/page.tsx              # Unified settings (includes former admin tabs)
-│   ├── admin/page.tsx                 # DEPRECATED — redirects to /settings?section=monitoring
+│   ├── error.tsx / loading.tsx / not-found.tsx
+│   ├── static/[...path]/route.ts      # Static asset proxy
 │   │
 │   └── api/                           # Next.js API proxy routes
-│       └── v1/[...path]/route.ts      # Backend API proxy
+│       ├── v1/[...path]/route.ts      # Backend API proxy
+│       └── v1/settings/route.ts       # Settings proxy
 │
 ├── features/                          # Feature modules (ROOT level, NOT under app/)
 │   ├── workspace/                     # Workspace layout & navigation

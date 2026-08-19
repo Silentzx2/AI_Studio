@@ -5,10 +5,10 @@
 ### Architecture Overview
 The project follows a layered architecture with clear separation:
 
-1. **Frontend**: React with TypeScript, using Next.js 16.3
+1. **Frontend**: React with TypeScript, using Next.js 16
 2. **State Management**: Custom hooks with `useRef`-based patterns
 3. **Backend Integration**: API proxy at `/api/v1/*` with runtime BACKEND_URL
-4. **Build**: Turbopack optimized, TypeScript strict mode enabled
+4. **Build**: TypeScript strict mode enabled; dev server uses Turbopack (Next.js 16)
 
 ### Component Guidelines
 
@@ -41,8 +41,8 @@ useEffect(() => {
 ```bash
 npm run build    # Production build
 npm run dev      # Development with Turbopack
-npm run lint     # Lint check
-npm run typecheck # TypeScript verification
+npm run lint     # Lint check (eslint)
+# Type-check via: npx tsc --noEmit   (no dedicated npm script)
 ```
 
 ### Adding New Features
@@ -50,4 +50,4 @@ npm run typecheck # TypeScript verification
 2. Add corresponding hook in `hooks/`
 3. Implement component in `features/`
 4. Update docs in `Docs/`
-5. Run typecheck + lint
+ 5. Run `npx tsc --noEmit` + `npm run lint`

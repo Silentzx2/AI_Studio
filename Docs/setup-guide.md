@@ -77,7 +77,7 @@
 | **Hunyuan3D-2** | 16 GB (24.5 GB normal peak) | High quality | ~75 seconds |
 | **Hunyuan3D-2.1** | 21 GB texture / 29 GB combined | High quality | ~90 seconds |
 
-> VRAM figures are the verified normal-footprint requirements. Hunyuan3D-2 (24.5 GB peak / 16 GB low-VRAM combined) and Hunyuan3D-2.1 (29 GB peak / 21 GB low-VRAM combined) also support a verified **low-VRAM** mode (CPU offload) for constrained GPUs; Hunyuan3D-2-Mini (6 GB peak) uses the same low-VRAM machinery. TRELLIS, TripoSG, AniGen, UniRig, and DetailGen3D do not support low-VRAM mode (they require a native CUDA build or have no verified low-VRAM path).
+> VRAM figures are the verified normal-footprint requirements. Hunyuan3D-2 (24.5 GB peak / 16 GB low-VRAM combined) and Hunyuan3D-2.1 (29 GB peak / 10 GB low-VRAM combined) also support a verified **low-VRAM** mode (CPU offload) for constrained GPUs; Hunyuan3D-2-Mini (6 GB peak) uses the same low-VRAM machinery. TRELLIS, TripoSG, AniGen, UniRig, and DetailGen3D do not support low-VRAM mode (they require a native CUDA build or have no verified low-VRAM path).
 
 
 ---
@@ -269,13 +269,16 @@ SYNC_DATABASE_URL=postgresql://ai3dstudio:password@localhost:5432/ai3dstudio
 # ===== REDIS & CELERY =====
 REDIS_URL=redis://localhost:6379/0
 CELERY_BROKER_URL=redis://localhost:6379/0
-CELERY_RESULT_BACKEND=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/1
 
 # ===== API SETTINGS =====
+BACKEND_URL=http://localhost:8000   # Used by the Next.js API proxy at request time
 API_V1_PREFIX=/api/v1
 CORS_ORIGINS=["http://localhost:3000","http://localhost:8000"]
 MAX_UPLOAD_SIZE=52428800  # 50MB
 ```
+
+> **Database**: The full install uses PostgreSQL (`DATABASE_URL=postgresql+asyncpg://…`). Colab and other container/SQLite environments set `USE_SQLITE=1` and `DATABASE_URL=sqlite:///…/studio.db` instead — no PostgreSQL required.
 
 ### AI Provider Settings
 
@@ -976,9 +979,9 @@ After successful installation:
 ## Models Not Ready
 
 If a model shows `BLOCKED` or `PARTIAL`:
-- **AUXILIARY_WEIGHTS_MISSING**: Required auxiliary weights (e.g., RMBG-1.4 for TripoSG) are missing. Run repair.
+- **BLOCKED** (auxiliary weights): Required auxiliary weights (e.g., RMBG-1.4 for TripoSG) are missing. Run repair.
 - **NATIVE_BUILD_PENDING**: Native CUDA build is queued. Wait for background build to complete.
-- **PREFLIGHT_NOT_IMPLEMENTED**: Preflight checks are pending. Run install again.
+- **NOT_IMPLEMENTED**: Preflight/installation checks are not implemented for this provider. Run install again.
 - **VRAM_INSUFFICIENT**: GPU does not meet minimum VRAM requirement. Check hardware.
 
 ## Troubleshooting Models Not Ready

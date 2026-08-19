@@ -42,8 +42,6 @@ core/providers/
   ✅ huggingface_provider.py    - HuggingFace Hub provider
   ✅ hunyuan3d.py               - Hunyuan3D generation provider
   ✅ trellis.py                 - TRELLIS generation provider
-  ✅ sdxl.py                    - SDXL image generation
-  ✅ prompt_enhancer.py         - Optional prompt enhancement
   ✅ instant_mesh.py            - Instant Mesh provider
   ✅ mock.py                    - Mock/testing provider
 
@@ -175,7 +173,7 @@ RESTful API endpoints for all new functionality.
 
 | File | Prefix | Endpoints Count |
 |------|--------|----------------|
-| `models_api.py` | `/api/v1/models` | 8 endpoints |
+| `models_api.py` | `/api/v1/models` | 9 endpoints |
 | `discover.py` | `/api/v1/discover` | 6 endpoints |
 | `download.py` | `/api/v1/download` | 12 endpoints |
 | `system.py` | `/api/v1/system` | 9 endpoints |

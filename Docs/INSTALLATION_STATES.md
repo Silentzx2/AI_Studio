@@ -15,7 +15,7 @@ WEIGHTS_DOWNLOADING
     |
 WEIGHTS_READY
     |
-NATIVE_BUILD_PENDING / RUNNING / COMPLETE / FAILED
+NATIVE_BUILD_PENDING / RUNNING / READY / FAILED
     |
 PREFLIGHT_RUNNING
     |
@@ -38,10 +38,8 @@ READY
 | `weights_incomplete` | Primary or required auxiliary weights are missing |
 | `native_build_pending` | CUDA compilation queued but not started (may be per-capability, e.g. `texture_pbr`) |
 | `native_build_running` | CUDA compilation in progress |
-| `native_build_complete` | CUDA compilation finished successfully |
-| `native_build_failed` | CUDA compilation failed — blocking_reason contains the error |
-| `blocked` | A required component is missing or failed |
-| `auxiliary_weights_missing` | A required auxiliary weight (`required: true` in manifest) is not downloaded |
+| `native_build_ready` | CUDA compilation finished successfully |
+| `blocked` | A required component is missing or failed (e.g. auxiliary weights not downloaded) |
 | `cuda_incompatible` | CUDA not available on the host |
 | `vram_insufficient` | GPU does not meet manifest `minimum_vram_mb` — enforced as hard gate during preflight, not just displayed |
 | `preflight_failed` | Preflight validation failed |
@@ -83,7 +81,7 @@ The `GET /api/v1/admin/install/status` endpoint returns detailed component-level
 |---------|-------------|--------|
 | Model shows `discovered` | Repo not cloned | Run install for the provider |
 | Model shows `blocked` with preflight reason | Preflight failing (real tests) | Check `components.preflight` for details — preflight now runs real model_load and capability_smoke tests |
-| Model shows `auxiliary_weights_missing` | Required aux weight missing | Run repair endpoint to download missing weight |
+| Model shows `blocked` (auxiliary weights) | Required aux weight missing | Run repair endpoint to download missing weight |
 | Model shows `native_build_pending` | CUDA compilation needed | Start native build or wait for background worker |
 | Model shows `cuda_incompatible` | No GPU/CUDA | Install on a GPU-enabled host |
 | Model shows `vram_insufficient` | GPU too small | Use a GPU with more VRAM or enable low-VRAM mode |
@@ -123,7 +121,7 @@ the no-manifest fallback when TRELLIS has no manifest.
 
 ## Repair
 
-The `POST /api/v1/admin/repair/{provider_name}` endpoint (future) will:
+The `POST /api/v1/admin/repair/{provider_name}` endpoint is manifest-driven: it:
 
 1. Identify the failing component via manifest lookup
 2. Repair the exact component

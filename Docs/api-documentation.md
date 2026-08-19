@@ -1,6 +1,6 @@
 # AI 3D Studio - Complete API Documentation
 
-> **Version**: 3.4.3 (Reticle Removal + Unified Logger)  
+> **Version**: 3.0.0  
 > **Base URL**: `http://localhost:8000` (Backend API)  
 > **API Prefix**: `/api/v1`  
 > **Documentation**: Interactive docs at `/docs` (Swagger UI)
@@ -19,11 +19,9 @@
 8. [Upload APIs](#upload-apis)
 9. [Admin APIs](#admin-apis)
 10. [Pipelines APIs](#pipelines-apis)
-11. [Runtime APIs](#runtime-apis)
-12. [Image Generation APIs](#image-generation-apis)
-13. [Error Handling](#error-handling)
-14. [Rate Limiting](#rate-limiting)
-15. [WebSocket/SSE Events](#websocketsse-events)
+ 11. [Runtime APIs](#runtime-apis)
+ 12. [Error Handling](#error-handling)
+ 13. [WebSocket/SSE Events](#websocketsse-events)
 
 ---
 
@@ -195,7 +193,7 @@ GET /api/v1/generation/{job_id}/status
 List past generation jobs.
 
 ```http
-GET /api/v1/generation/history?limit=20&offset=0&status=completed
+GET /api/v1/generation/history?limit=20&offset=0
 ```
 
 **Query Parameters:**
@@ -204,7 +202,6 @@ GET /api/v1/generation/history?limit=20&offset=0&status=completed
 |-----------|------|---------|-------------|
 | `limit` | integer | 20 | Number of results |
 | `offset` | integer | 0 | Pagination offset |
-| `status` | string | all | Filter by status |
 
 ---
 
@@ -341,7 +338,7 @@ GET /api/v1/models/{model_id}/health
 Execute performance benchmark for a model.
 
 ```http
-POST /api/v1/models/{model_id}/benchmark
+GET /api/v1/models/{model_id}/benchmark
 ```
 
 **Response:**
@@ -1230,7 +1227,7 @@ Aliases `hunyuan3d` and `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`.
 
 GPU runtime management, provider discovery, and HuggingFace token helpers.
 
-> The backend exposes runtime sub-routes such as `/status`, `/health`, `/options`, and HuggingFace token helpers under `/api/v1/runtime/*`. The root path `GET /api/v1/runtime` is **not** registered in this build.
+> The backend exposes the bare `GET /api/v1/runtime` root (returns the same payload as `/status`) plus sub-routes such as `/status`, `/health`, `/options`, and HuggingFace token helpers under `/api/v1/runtime/*`.
 
 ### Runtime Status
 
@@ -1312,112 +1309,6 @@ Server-sent events stream installation progress for the active model installer.
   "models": ["hunyuan3d-2.1", "trellis"]
 }
 ```
-
-## Image Generation APIs
-
-SDXL-based 2D image generation.
-
-### Generate Image
-
-Create an image from text prompt.
-
-```http
-POST /api/v1/image-generation/generate
-Content-Type: application/json
-```
-
-**Request Body:**
-```json
-{
-  "prompt": "A futuristic cityscape at sunset",
-  "negative_prompt": "blurry, low quality",
-  "width": 1024,
-  "height": 1024,
-  "steps": 30,
-  "cfg_scale": 7.5,
-  "sampler": "euler_a",
-  "seed": 42
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "job_id": "img_gen_xyz",
-    "status": "processing",
-    "preview_url": null
-  }
-}
-```
-
----
-
-### Get Image Job Status
-
-```http
-GET /api/v1/image-generation/jobs/{job_id}
-```
-
----
-
-### List Available Models
-
-```http
-GET /api/v1/image-generation/models
-```
-
----
-
-## Error Handling
-
-### Standard Error Response
-
-All errors follow this format:
-
-```json
-{
-  "success": false,
-  "error": "Human-readable error message",
-  "code": "ERROR_CODE",
-  "details": { ... }
-}
-```
-
-### Common Error Codes
-
-| Code | HTTP Status | Description |
-|------|-------------|-------------|
-| `MODEL_NOT_FOUND` | 404 | Model ID doesn't exist |
-| `DOWNLOAD_FAILED` | 500 | Download could not complete |
-| `INSUFFICIENT_VRAM` | 400 | Not enough GPU memory |
-| `PROVIDER_UNAVAILABLE` | 503 | AI provider not ready |
-| `INVALID_MANIFEST` | 400 | Model manifest validation failed |
-| `CHECKSUM_MISMATCH` | 500 | File integrity check failed |
-| `QUEUE_FULL` | 503 | Download queue at capacity |
-| `RATE_LIMITED` | 429 | Too many requests |
-
----
-
-## Rate Limiting
-
-| Endpoint | Limit | Window |
-|----------|-------|--------|
-| Generation | 10 requests | per minute |
-| Download start | 5 requests | per minute |
-| Discovery | 60 requests | per minute |
-| System info | 30 requests | per minute |
-| Default | 100 requests | per minute |
-
-Headers returned:
-```
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 95
-X-RateLimit-Reset: 1705949000
-```
-
----
 
 ## WebSocket/SSE Events
 

@@ -6,7 +6,8 @@ Create Date: 2024-08-17
 """
 from alembic import op
 import sqlalchemy as sa
-from app.database import Base, _DB_JSON, _DB_UUID
+from app.database import Base
+from app.models.registry import _DB_JSON, _DB_UUID
 
 
 revision = "0003"
