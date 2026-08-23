@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { GenerationConfig, GenerationJob, GenerationMode, QualityPreset, ViewerState, ViewerMode, LogEntry, RecentPrompt, UploadedImage, InstallProgress, AdminJob, ProjectAsset, ProjectLayer, BatchQueueItem } from '@/types';
+import type { GenerationConfig, GenerationJob, GenerationMode, QualityPreset, ViewerState, ViewerMode, LogEntry, RecentPrompt, UploadedImage, InstallProgress, AdminJob, ProjectAsset, ProjectLayer, BatchQueueItem, GenerationResult } from '@/types';
 
 export interface AppState {
   // ── Generation ──
@@ -23,6 +23,7 @@ export interface AppState {
   isLoadingHistory: boolean;
   loadingError: string | null;
   retryCount: number;
+  loadHistory: () => Promise<void>;
 
   // ── Multi-View & References ──
   hdMode: 'hd' | 'smart';
@@ -282,6 +283,29 @@ export const useAppStore = create<AppState>()(
       setJobHistory: (jobHistory) => set({ jobHistory }),
       setIsLoadingHistory: (isLoadingHistory) => set({ isLoadingHistory }),
       setLoadingError: (loadingError) => set({ loadingError }),
+      loadHistory: async () => {
+        set({ isLoadingHistory: true, loadingError: null });
+        try {
+          const res = await fetch('/api/v1/generation/history?limit=50');
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json() as { jobs?: Array<Record<string, unknown>> };
+          const jobs: GenerationJob[] = (data.jobs ?? []).map((j) => ({
+            id: (j.id ?? j.job_id ?? '') as string,
+            status: (j.status ?? 'unknown') as GenerationJob['status'],
+            config: (j.config ?? {}) as GenerationConfig,
+            progress: (j.progress ?? 0) as number,
+            estimatedSeconds: (j.estimated_seconds ?? 0) as number,
+            elapsedSeconds: (j.elapsed_seconds ?? 0) as number,
+            logs: (j.logs ?? []) as LogEntry[],
+            result: (j.result_urls ?? j.result ?? {}) as GenerationResult | undefined,
+            createdAt: (j.created_at ?? j.created ?? new Date()) as unknown as Date,
+            updatedAt: (j.updated_at ?? j.updated ?? new Date()) as unknown as Date,
+          }));
+          set({ jobHistory: jobs, isLoadingHistory: false });
+        } catch (err) {
+          set({ loadingError: err instanceof Error ? err.message : 'Failed to load history', isLoadingHistory: false });
+        }
+      },
       resetGeneration: () =>
         set({
           mode: 'text-to-3d',

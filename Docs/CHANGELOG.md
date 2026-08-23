@@ -1,5 +1,35 @@
 # AI 3D Studio — Changelog
 
+## [v3.9.0] - 2026-08-23 - Workspace UI Migration
+
+### Added
+- **New workspace UI structure** at `/features/new-workspace/` with modular component organization
+- **WorkspaceContext** (React Context) for UI state management, bridged to Zustand stores via `lib/storeAdapter.ts`
+- **MeshViewer** component using Three.js for 3D viewport rendering
+- **LeftNavigation** tool rail with 10+ tool buttons (Model, Image, Segment, Retopo, Remesh, Texture, Animate, Rigging, Nodes, Settings)
+- **RightAssetsPanel**, **RightPropertyPanel**, **RightPromptPanel** for contextual right-side tools
+- **StudioDashboard**, **SystemPage**, **OutputsPage** for dashboard views
+- **ProgressOverlay** for real-time generation progress feedback
+- **SettingsModal** for backend configuration
+
+### Changed
+- **Migrated** from `/features/workspace/new-ui/` and `/3D-SPACE/` to `/features/new-workspace/`
+- **Replaced** `CreativeWorkspaceLayout` with new `WorkspaceShell` component
+- **Replaced** `Canvas3D` (R3F) with `MeshViewer` (Three.js direct)
+- **Replaced** `AssetPanel` with `RightAssetsPanel`
+- **Removed** all ComfyUI dependencies — all API calls now target `/api/v1/*` FastAPI endpoints
+- **Updated** routing: `app/page.tsx` and `app/workspace/page.tsx` now use new `WorkspaceShell`
+- **State management**: New `WorkspaceContext` bridges to existing Zustand stores (`useAppStore`, `useViewerStore`)
+
+### Removed
+- `/features/workspace/` directory (old workspace UI)
+- `/3D-SPACE/` directory (old 3D components)
+- All ComfyUI-specific code and dependencies
+- `react-router-dom` dependency from workspace (using Next.js App Router)
+
+### Backend
+- **No changes** — all existing `/api/v1/*` endpoints remain unchanged
+
 ## [Unreleased]
 
 ### Added

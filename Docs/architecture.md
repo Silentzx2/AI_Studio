@@ -192,43 +192,57 @@ See `Docs/INSTALLATION_STATES.md` for full reference.
 
 ## Frontend Architecture
 
-### Persistent Workspace Layout
+### Persistent Workspace Layout (v2 - Refactored)
 
-The frontend follows a Tripo Studio-style persistent workspace: ONE global 3D canvas that never unmounts, with dynamic left/right panels that swap based on the active sidebar tab.
+The frontend uses a modern persistent workspace: ONE global 3D viewport (`MeshViewer`) that never unmounts, with dynamic left/right panels that swap based on the active sidebar tab.
 
 #### Routing
-- `app/page.tsx` and `app/workspace/page.tsx` both render `WorkspaceShell`.
-- `WorkspaceShell` wraps `CreativeWorkspaceLayout` (single entry point).
+- `app/page.tsx` and `app/workspace/page.tsx` both render `WorkspaceShell` (wrapped in `WorkspaceProvider`).
+- `WorkspaceShell` wraps the new modular layout structure from `/features/new-workspace/`.
 
 #### Layout Structure
 ```
 ┌─────────────────────────────────────────────────────┐
-│  #creative-top-bar  (app name + active tab label)   │
+│  #persistent-top-header  (brand + nav + status)     │
 ├───────────┬─────────────────────────────────┬──────┤
 │           │                                 │      │
-│ #creative-│    CENTER: Canvas3D             │ Right│
-│ sidebar   │    (persistent 3D canvas —      │panel │
-│ (tabs)    │     NEVER unmounts)             │      │
+│ #left-    │    CENTER: MeshViewer           │ Right│
+│ tool-rail │    (persistent 3D viewport —   │panel │
+│ (tools)   │     NEVER unmounts)             │      │
 │           │                                 │      │
-│ Left panel│         (R3F Canvas)            │      │
+│ Left panel│         (Three.js Canvas)       │      │
 │ (dynamic) │                                 │      │
 │           │                                 │      │
 └───────────┴─────────────────────────────────┴──────┘
 ```
 
-#### Component Flow
-- **Left sidebar** (`#creative-sidebar`): Tab navigation. Tabs: Dashboard, 3D Gen, Rigging, Animation, Rigging & Animation, Remesh, Texture Gen, My Assets, Models, Favorites, API Access, Settings. Collapsible, mobile drawer.
-- **Left panel (dynamic)**: Swaps content based on active tab — `GenerationControls`, `RemeshTab`, `TextureGenTab`, `RiggingAnimationTab`, or tab-specific content.
-- **Center**: `Canvas3D` (`3D-SPACE/Canvas3D.tsx`) — persistent, wraps R3F `<Canvas>`, handles GLB/GLTF/FBX/OBJ/STL loading, drag-drop, shading presets, lighting presets, snapshot capture.
-- **Right panel (contextual)**: `AssetPanel` for 3D-related tabs (3D Gen, Remesh, Texture Gen, Rigging), `AssetPanelHost` for other tabs.
+#### New Component Organization (`/features/new-workspace/`)
+- **WorkspaceShell**: Entry point — renders TopHeader, LeftNavigation, tool panels, MeshViewer, right panels, modals
+- **Viewport/MeshViewer.tsx**: Full Three.js viewport with 3-point lighting, floor grid, turntable auto-rotation, camera presets, drag-and-drop asset loading
+- **Navigation/LeftNavigation.tsx**: Vertical icon rail with 10 tool buttons
+- **Panels/**: Tool-specific panels (GeneratePanel, TexturePanel, RiggingPanel, AnimatePanel, RemeshPanel, SegmentationPanel, NodesPanel)
+- **RightPanel/**: Contextual panels (RightAssetsPanel, RightPropertyPanel, RightPromptPanel)
+- **Header/TopHeader.tsx**: Brand logo, workspace mode switcher, navigation links, backend status pill
+- **Modals/**: ExportModal, SettingsModal, DccBridgeModal
+- **Notifications/ProgressOverlay.tsx**: Real-time generation progress overlay
+- **Dashboard/**: StudioDashboard, SystemPage, OutputsPage
+- **store/WorkspaceContext.tsx**: React Context for UI state, bridged to Zustand via `lib/storeAdapter.ts`
+- **lib/api.ts**: API client targeting `/api/v1/*` FastAPI endpoints
 
 #### Global State
-- `useViewerStore`: Single source of truth for loaded model URL + name. Updated via `loadModelInViewer()`. Survives tab switches because Canvas3D stays mounted.
-- `useUIStore`: Viewer mode, fullscreen, grid, wireframe, stats, capabilities flags, mobile menu.
-- `useGenerationStore`: Prompt, mode, quality, currentJob, jobHistory.
-- `useProjectStore`: Project/layer state.
-- `useAppStore`: Main global Zustand store with persistence.
+- `useAppStore`: Primary persisted Zustand store (localStorage) — generation params, UI state, tasks, downloads, project
+- `useViewerStore`: Independent store — loaded model URL/name, shading mode, model stats, rig/animation info
+- `useGenerationStore`: Proxy store — mirrors generation state from `useAppStore` with `subscribeWithSelector`
+- `useUIStore`: Proxy store — mirrors UI state from `useAppStore`
+- `useProjectStore`: Proxy store — project/layer management
+- `WorkspaceContext`: New React Context for workspace UI state (tool selection, assets, execution status), synced with Zustand via `lib/storeAdapter.ts`
+
+#### API Layer
+- All frontend API calls target `/api/v1/*` FastAPI endpoints
+- No ComfyUI backend required; existing FastAPI handles all generation
+- API client in `features/new-workspace/lib/api.ts` provides system stats, history, job management
 
 #### Dead Code Removed
-- `WorkspaceNavbar.tsx`: Never imported. The sidebar in `CreativeWorkspaceLayout` handles all tab navigation.
-- `features/workspace/viewer/ViewerScene.tsx`: Not imported by any page.
+- `/features/workspace/` — old workspace UI (backed up to `/tmp/workspace-ui-old-backup.tar.gz`)
+- `/3D-SPACE/` — old 3D components (Canvas3D, AssetPanel, GenerationControls)
+- All ComfyUI-specific code and `react-router-dom` dependency from workspace

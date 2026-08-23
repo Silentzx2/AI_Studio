@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
-import { Providers } from "@/lib/providers";
 import { AppearanceProvider } from "@/components/AppearanceProvider";
 import { ActivityLogger } from "@/components/ActivityLogger";
 import "./globals.css";
@@ -77,11 +76,9 @@ export default function RootLayout({
         />
         <AppearanceProvider>
           <ActivityLogger />
-          <Providers>
-            <div className="relative z-10 min-h-screen flex flex-col">
-              {children}
-            </div>
-          </Providers>
+          <div className="relative z-10 min-h-screen flex flex-col">
+            {children}
+          </div>
         </AppearanceProvider>
       </body>
     </html>

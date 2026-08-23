@@ -17,7 +17,6 @@ import {
   RefreshCw, Terminal, Eye, FileCode, Check, Copy
 } from 'lucide-react';
 import { API_URL } from '@/services/apiClient';
-import { useGenerationStore } from '@/stores/useGenerationStore';
 import { useAppStore } from '@/stores/useAppStore';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -157,7 +156,7 @@ interface ProjectTimelineProps {
 }
 
 export function ProjectTimeline({ onLoadProject, className }: ProjectTimelineProps) {
-  const { jobHistory, loadHistory, isLoadingHistory } = useGenerationStore();
+  const { jobHistory, loadHistory, isLoadingHistory } = useAppStore();
   const batchQueue = useAppStore((s) => s.batchQueue);
 
   const [searchQuery, setSearchQuery] = useState('');

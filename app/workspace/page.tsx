@@ -1,7 +1,13 @@
 'use client';
 
-import { WorkspaceShell } from '@/features/workspace/WorkspaceShell';
+import React from 'react';
+import { WorkspaceProvider } from '@/features/new-workspace/store/WorkspaceContext';
+import { WorkspaceShell } from '@/features/new-workspace/WorkspaceShell';
 
-export default function Home() {
-  return <WorkspaceShell />;
-} 
+export default function WorkspacePage() {
+  return (
+    <WorkspaceProvider>
+      <WorkspaceShell />
+    </WorkspaceProvider>
+  );
+}

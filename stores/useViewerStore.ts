@@ -1,5 +1,17 @@
 import { create } from 'zustand';
-import type { AssetItem } from '@/3D-SPACE/AssetPanel';
+
+export interface AssetItem {
+  id: string;
+  name: string;
+  prompt: string;
+  format: string;
+  timestamp: string;
+  thumbnailUrl?: string | null;
+  modelUrl?: string | null;
+  isFavorite?: boolean;
+  job?: { id: string; status: string; prompt: string; result?: { downloadUrls?: { glb?: string; obj?: string } } };
+  type?: 'image' | 'model';
+}
 
 export type ShadingPreset = 'default' | 'clay' | 'metallic' | 'wireframe' | 'normal' | 'gold' | 'cyberpunk' | 'uv';
 
@@ -103,5 +115,4 @@ export function loadModelInViewer(url: string, name?: string | null, asset?: Ass
   }
 }
 
-export type { AssetItem };
 

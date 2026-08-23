@@ -99,12 +99,6 @@ export interface UploadedImage {
   url?: string;
 }
 
-export interface PromptSuggestion {
-  text: string;
-  category: string;
-  icon: string;
-}
-
 export interface Feature {
   title: string;
   description: string;
@@ -312,21 +306,6 @@ export interface InstallProgress {
   status: 'idle' | 'starting' | 'downloading' | 'extracting' | 'installing' | 'completed' | 'failed' | 'error';
   log?: string;
   error?: string;
-}
-
-export interface GenerationRequest {
-  prompt: string;
-  provider: string;
-  quality?: string;
-  timeout?: number;
-}
-
-export interface AdminSettings {
-  hfToken?: string;
-  openaiKey?: string;
-  cudaDevice: string;
-  maxVramMb: number;
-  autoUnload: boolean;
 }
 
 export interface ProjectLayer {

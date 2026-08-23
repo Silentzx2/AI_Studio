@@ -1,5 +1,6 @@
 import type { ApiResponse } from '@/types';
-import { getCacheService } from './cacheService';
+
+function getCacheService(): { get: <T>(k: string) => T | null; set: <T>(k: string, v: T) => void; keys: () => string[]; delete: (k: string) => void; clear: () => void } | null { return null; }
 
 /**
  * API Client for backend communication
@@ -138,12 +139,12 @@ export const apiClient = {
   get: <T>(path: string, useCache: boolean = true) => {
     const cache = getCacheService();
     const cacheKey = `GET:${path}`;
-    if (useCache) {
+    if (useCache && cache) {
       const cached = cache.get<T>(cacheKey);
       if (cached !== null) return Promise.resolve(cached);
     }
     return requestWithRetry<T>(path).then((data) => {
-      if (useCache) cache.set(cacheKey, data);
+      if (useCache && cache) cache.set(cacheKey, data);
       return data;
     });
   },
@@ -225,6 +226,7 @@ export const apiClient = {
   // Invalidate cache for a given path prefix
   invalidateCache: (pathPrefix?: string) => {
     const cache = getCacheService();
+    if (!cache) return;
     if (pathPrefix) {
       const prefix = `GET:${pathPrefix}`;
       for (const key of cache.keys()) {
