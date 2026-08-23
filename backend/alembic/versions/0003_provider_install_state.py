@@ -1,7 +1,7 @@
 """provider_install_state
 
 Revision ID: 0003
-Revises: 0002
+Revises: 0002_low_vram_columns
 Create Date: 2024-08-17
 """
 from alembic import op
@@ -11,7 +11,7 @@ from app.models.registry import _DB_JSON, _DB_UUID
 
 
 revision = "0003"
-down_revision = "0002"
+down_revision = "0002_low_vram_columns"
 branch_labels = None
 depends_on = None
 
