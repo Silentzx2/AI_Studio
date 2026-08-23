@@ -17,14 +17,13 @@ import { ToolType } from '../types';
 export const LeftNavigation: React.FC = () => {
   const { 
     activeTool, 
-    setActiveTool, 
+    navigateToTool,
     setIsSettingsOpen,
     setIsLeftPanelOpen
   } = useWorkspace();
 
   const handleToolClick = (tool: ToolType) => {
-    setActiveTool(tool);
-    setIsLeftPanelOpen(true);
+    navigateToTool(tool);
   };
 
   return (

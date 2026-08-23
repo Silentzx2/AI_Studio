@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useCallback } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import React, { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { useWorkspace } from './store/WorkspaceContext';
 import { TopHeader } from './Header/TopHeader';
 import { LeftNavigation } from './Navigation/LeftNavigation';
@@ -60,8 +60,6 @@ const TOOL_TO_ROUTE: Record<ToolType, string> = {
 
 export const WorkspaceShell: React.FC = () => {
   const pathname = usePathname();
-  const router = useRouter();
-  const searchParams = useSearchParams();
 
   const {
     mainNav, setMainNav, activeTool, setActiveTool,
@@ -87,14 +85,6 @@ export const WorkspaceShell: React.FC = () => {
     const matchedTool = ROUTE_TO_TOOL[pathnameLower] || 'model';
     if (matchedTool !== activeTool) setActiveTool(matchedTool);
   }, [pathname]);
-
-  useEffect(() => {
-    if (mainNav === 'dashboard') { if (pathname !== '/dashboard') router.replace('/dashboard'); return; }
-    if (mainNav === 'assets') { if (pathname !== '/outputs') router.replace('/outputs'); return; }
-    if (mainNav === 'system') { if (pathname !== '/system') router.replace('/system'); return; }
-    const expectedRoute = TOOL_TO_ROUTE[activeTool] || '/workspace/generate';
-    if (pathname !== expectedRoute) router.replace(expectedRoute);
-  }, [activeTool, mainNav]);
 
   const renderToolPanel = () => {
     switch (activeTool) {

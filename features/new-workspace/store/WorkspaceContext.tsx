@@ -21,6 +21,7 @@ import { apiClient } from '../lib/api';
 import { useAppStore } from '@/stores/useAppStore';
 import { useViewerStore } from '@/stores/useViewerStore';
 import { shadingModeToPreset, presetToShadingMode } from '@/lib/storeAdapter';
+import { useRouter, usePathname } from 'next/navigation';
 
 interface WorkspaceContextType {
   activeTool: ToolType;
@@ -113,13 +114,32 @@ interface WorkspaceContextType {
   runRiggingGeneration: () => Promise<void>;
   runSegmentationGeneration: () => Promise<void>;
   queueWorkflow: (workflow: Record<string, unknown>, type: ActiveTask['type'], title: string) => Promise<void>;
+  navigateToTool: (tool: ToolType) => void;
+  navigateToMain: (nav: MainNavRoute) => void;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
 
+const TOOL_TO_ROUTE: Record<ToolType, string> = {
+  model: '/workspace/generate',
+  image: '/workspace/pre-process',
+  segment: '/workspace/segment',
+  retopo: '/workspace/retopo',
+  remesh: '/workspace/remesh',
+  texture: '/workspace/texture',
+  edit: '/workspace/edit',
+  upscale: '/workspace/upscale',
+  pbr: '/workspace/pbr',
+  animate: '/workspace/animate',
+  rigging: '/workspace/rigging',
+  nodes: '/workspace/nodes',
+};
+
 export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const appStore = useAppStore();
   const viewerStore = useViewerStore();
+  const router = useRouter();
+  const pathname = usePathname();
 
   const [activeTool, setActiveToolState] = useState<ToolType>('model');
   const [mainNav, setMainNavState] = useState<MainNavRoute>('workspace');
@@ -482,6 +502,20 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setExecutionStep('Workflow queued');
   }, [startTask]);
 
+  const navigateToTool = useCallback((tool: ToolType) => {
+    setActiveTool(tool);
+    setIsLeftPanelOpen(true);
+    const route = TOOL_TO_ROUTE[tool] || '/workspace/generate';
+    if (pathname !== route) router.push(route);
+  }, [pathname, router]);
+
+  const navigateToMain = useCallback((nav: MainNavRoute) => {
+    setMainNav(nav);
+    if (nav === 'dashboard') router.push('/dashboard');
+    else if (nav === 'assets') router.push('/outputs');
+    else if (nav === 'system') router.push('/system');
+  }, [router]);
+
   const value = {
     activeTool, setActiveTool, mainNav, setMainNav,
     assets, selectedAssetId, currentAsset, selectAsset, updateAssetProperties, updateMaterialConfig, deleteAsset, addAsset,
@@ -504,7 +538,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     currentFrame, setCurrentFrame, isPlaying, setIsPlaying, totalFrames, fps, tracks,
     generate3DModel, generateTextTo3D, generateImageTo3D, runModelGeneration: generate3DModel,
     runRemeshGeneration, runTextureGeneration, runAnimateGeneration, runRiggingGeneration, runSegmentationGeneration,
-    queueWorkflow,
+    queueWorkflow, navigateToTool, navigateToMain,
   };
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

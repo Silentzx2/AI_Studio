@@ -18,9 +18,9 @@ import { useWorkspace } from '../store/WorkspaceContext';
 export const TopHeader: React.FC = () => {
   const {
     mainNav,
-    setMainNav,
+    navigateToMain,
     activeTool,
-    setActiveTool,
+    navigateToTool,
     systemStats,
     setIsSettingsOpen,
     setIsDccBridgeOpen
@@ -37,7 +37,7 @@ export const TopHeader: React.FC = () => {
       <div className="flex items-center gap-6">
         {/* Brand Studio Logo (NEXUS 3D) matching Reference Image */}
         <div 
-          onClick={() => setMainNav('dashboard')}
+          onClick={() => navigateToMain('dashboard')}
           className="flex items-center gap-2 cursor-pointer group"
         >
           <div className="w-6 h-6 rounded-md bg-[#f5c518] flex items-center justify-center shadow-md shadow-[#f5c518]/20 group-hover:scale-105 transition-transform">
@@ -62,42 +62,42 @@ export const TopHeader: React.FC = () => {
           {workspaceMenuOpen && (
             <div className="absolute top-full left-0 mt-1.5 w-52 py-1.5 rounded-xl bg-[#181a20] border border-[#303542] shadow-2xl z-50">
               <button
-                onClick={() => { setMainNav('workspace'); setActiveTool('model'); setWorkspaceMenuOpen(false); }}
+                onClick={() => { navigateToTool('model'); setWorkspaceMenuOpen(false); }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-[#e5e7eb] hover:bg-[#232731]"
               >
                 <Box className="w-4 h-4 text-[#f5c518]" />
                 <span>3D Model Studio</span>
               </button>
               <button
-                onClick={() => { setMainNav('workspace'); setActiveTool('retopo'); setWorkspaceMenuOpen(false); }}
+                onClick={() => { navigateToTool('retopo'); setWorkspaceMenuOpen(false); }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-[#e5e7eb] hover:bg-[#232731]"
               >
                 <Hexagon className="w-4 h-4 text-[#f5c518]" />
                 <span>Quad Retopology</span>
               </button>
               <button
-                onClick={() => { setMainNav('workspace'); setActiveTool('texture'); setWorkspaceMenuOpen(false); }}
+                onClick={() => { navigateToTool('texture'); setWorkspaceMenuOpen(false); }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-[#e5e7eb] hover:bg-[#232731]"
               >
                 <Layers className="w-4 h-4 text-[#f5c518]" />
                 <span>PBR Texture Studio</span>
               </button>
               <button
-                onClick={() => { setMainNav('workspace'); setActiveTool('segment'); setWorkspaceMenuOpen(false); }}
+                onClick={() => { navigateToTool('segment'); setWorkspaceMenuOpen(false); }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-[#e5e7eb] hover:bg-[#232731]"
               >
                 <Sliders className="w-4 h-4 text-[#f5c518]" />
                 <span>Segmentation</span>
               </button>
               <button
-                onClick={() => { setMainNav('workspace'); setActiveTool('rigging'); setWorkspaceMenuOpen(false); }}
+                onClick={() => { navigateToTool('rigging'); setWorkspaceMenuOpen(false); }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-[#e5e7eb] hover:bg-[#232731]"
               >
                 <Hexagon className="w-4 h-4 text-[#f5c518]" />
                 <span>Rigging</span>
               </button>
               <button
-                onClick={() => { setMainNav('workspace'); setActiveTool('nodes'); setWorkspaceMenuOpen(false); }}
+                onClick={() => { navigateToTool('nodes'); setWorkspaceMenuOpen(false); }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-[#e5e7eb] hover:bg-[#232731]"
               >
                 <GitBranch className="w-4 h-4 text-[#f5c518]" />
@@ -111,7 +111,7 @@ export const TopHeader: React.FC = () => {
         <nav className="flex items-center gap-2 text-xs font-medium">
           <button
             id="nav-link-home"
-            onClick={() => setMainNav('dashboard')}
+            onClick={() => navigateToMain('dashboard')}
             className={`px-3 py-1.5 rounded-lg transition-colors ${
               mainNav === 'dashboard'
                 ? 'text-[#f5c518] font-bold'
@@ -123,7 +123,7 @@ export const TopHeader: React.FC = () => {
 
           <button
             id="nav-link-assets"
-            onClick={() => setMainNav('assets')}
+            onClick={() => navigateToMain('assets')}
             className={`px-3 py-1.5 rounded-lg transition-colors ${
               mainNav === 'assets'
                 ? 'text-[#f5c518] font-bold'
@@ -135,7 +135,7 @@ export const TopHeader: React.FC = () => {
 
           <button
             id="nav-link-system"
-            onClick={() => setMainNav('system')}
+            onClick={() => navigateToMain('system')}
             className={`px-3 py-1.5 rounded-lg transition-colors ${mainNav === 'system' ? 'text-[#f5c518] font-bold' : 'text-[#9ca3af] hover:text-[#f3f4f6]'}`}
           >
             System
@@ -143,10 +143,7 @@ export const TopHeader: React.FC = () => {
 
           <button
             id="nav-link-pipeline"
-            onClick={() => {
-              setMainNav('workspace');
-              setActiveTool('nodes');
-            }}
+            onClick={() => navigateToTool('nodes')}
             className={`px-3 py-1.5 rounded-lg transition-colors ${
               activeTool === 'nodes'
                 ? 'text-[#f5c518] font-bold'
