@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bone, Sparkles, Upload, Wand2 } from 'lucide-react';
+import { Bone, Sparkles, Upload, Wand2, AlertCircle } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 
 export const RiggingPanel: React.FC = () => {
@@ -10,7 +10,8 @@ export const RiggingPanel: React.FC = () => {
     isExecuting,
     bones,
     selectedBoneId,
-    setSelectedBoneId
+    setSelectedBoneId,
+    systemStats
   } = useWorkspace();
 
   return (
@@ -62,6 +63,13 @@ export const RiggingPanel: React.FC = () => {
       >
         <Wand2 className="w-4 h-4 text-[#f5c518]" /> Auto Rig
       </button>
+
+      {systemStats.status !== 'online' && (
+        <div className="p-2.5 rounded-xl bg-[#1a1214] border border-[#ef4444]/30 text-[10px] text-[#fca5a5] flex items-center gap-2">
+          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>Backend offline — rigging requires a running FastAPI server.</span>
+        </div>
+      )}
 
       <div className="p-3 rounded-xl bg-[#14161c] border border-[#232731] space-y-3">
         <label className="flex items-center justify-between gap-3">
@@ -120,17 +128,25 @@ export const RiggingPanel: React.FC = () => {
           <span className="text-[10px] text-[#6b7280]">{bones.length} bones</span>
         </div>
         <div className="rounded-xl border border-[#232731] bg-[#14161c] max-h-44 overflow-y-auto p-2 space-y-1">
-          {bones.map(bone => (
-            <button
-              key={bone.id}
-              onClick={() => setSelectedBoneId(bone.id)}
-              className={`w-full text-left px-2 py-1.5 rounded-lg text-[10px] transition-colors ${
-                selectedBoneId === bone.id ? 'bg-[#f5c518]/15 text-[#f5c518]' : 'text-[#cbd5e1] hover:bg-[#1e222c]'
-              }`}
-            >
-              {bone.name}
-            </button>
-          ))}
+          {bones.length === 0 ? (
+            <div className="py-6 text-center text-[10px] text-[#6b7280]">
+              {systemStats.status === 'online'
+                ? 'No bones detected — run Auto Rig or generate a rig to populate the hierarchy.'
+                : 'Connect to backend to load bone hierarchy.'}
+            </div>
+          ) : (
+            bones.map(bone => (
+              <button
+                key={bone.id}
+                onClick={() => setSelectedBoneId(bone.id)}
+                className={`w-full text-left px-2 py-1.5 rounded-lg text-[10px] transition-colors ${
+                  selectedBoneId === bone.id ? 'bg-[#f5c518]/15 text-[#f5c518]' : 'text-[#cbd5e1] hover:bg-[#1e222c]'
+                }`}
+              >
+                {bone.name}
+              </button>
+            ))
+          )}
         </div>
       </div>
 
@@ -138,11 +154,8 @@ export const RiggingPanel: React.FC = () => {
         <button className="w-full py-2.5 rounded-xl bg-[#14161c] border border-[#252834] text-[#cbd5e1] hover:border-[#f5c518]/40 flex items-center justify-center gap-2">
           <Upload className="w-3.5 h-3.5" /> Reference / Rig File
         </button>
-        <div className="text-[10px] text-[#6b7280] leading-relaxed">
-          The rigging controls are prepared for a real generation workflow and do not simulate successful rig generation.
-        </div>
         <button
-          disabled={isExecuting}
+          disabled={isExecuting || systemStats.status !== 'online'}
           onClick={() => void runRiggingGeneration()}
           className="w-full py-3 rounded-xl bg-[#f5c518] hover:bg-[#eab308] disabled:opacity-50 text-[#111216] font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#f5c518]/20"
         >

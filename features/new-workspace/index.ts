@@ -9,8 +9,6 @@ export { RiggingPanel } from './Panels/RiggingPanel';
 export { AnimatePanel } from './Panels/AnimatePanel';
 export { RemeshPanel } from './Panels/RemeshPanel';
 export { SegmentationPanel } from './Panels/SegmentationPanel';
-export { NodesPanel } from './Panels/NodesPanel';
-export { NodeList } from './Panels/NodeList';
 export { SecondaryPanel } from './Panels/SecondaryPanels';
 export { RightAssetsPanel } from './RightPanel/RightAssetsPanel';
 export { RightPropertyPanel } from './RightPanel/RightPropertyPanel';

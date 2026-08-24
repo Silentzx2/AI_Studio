@@ -25,7 +25,8 @@ export const AnimatePanel: React.FC = () => {
     setCurrentFrame,
     totalFrames,
     fps,
-    tracks
+    tracks,
+    systemStats
   } = useWorkspace();
 
   const presets = [
@@ -177,17 +178,31 @@ export const AnimatePanel: React.FC = () => {
           </div>
         </div>
 
+        {systemStats.status !== 'online' && (
+          <div className="p-2 rounded-lg bg-[#1a1214] border border-[#ef4444]/30 text-[10px] text-[#fca5a5]">
+            Backend offline — timeline will populate after a successful animation generation.
+          </div>
+        )}
+
+        {tracks.length === 0 && systemStats.status === 'online' && (
+          <div className="p-2 rounded-lg bg-[#14161c] border border-[#232731] text-[10px] text-[#6b7280] text-center">
+            No animation tracks yet — generate an animation to populate the timeline.
+          </div>
+        )}
+
         {/* Transport Controls */}
         <div className="flex items-center justify-center gap-2 p-1.5 rounded-xl bg-[#111216] border border-[#232731]">
           <button
             onClick={() => setCurrentFrame(0)}
-            className="p-1.5 rounded-lg text-[#9ca3af] hover:text-[#f3f4f6] hover:bg-[#20232c]"
+            disabled={totalFrames === 0}
+            className="p-1.5 rounded-lg text-[#9ca3af] hover:text-[#f3f4f6] hover:bg-[#20232c] disabled:opacity-40"
           >
             <SkipBack className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => setIsPlaying(!isPlaying)}
-            className={`px-4 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition-all ${
+            disabled={totalFrames === 0}
+            className={`px-4 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition-all disabled:opacity-40 ${
               isPlaying ? 'bg-[#ef4444] text-white' : 'bg-[#f5c518] text-[#111216]'
             }`}
           >
@@ -196,7 +211,8 @@ export const AnimatePanel: React.FC = () => {
           </button>
           <button
             onClick={() => setCurrentFrame(totalFrames)}
-            className="p-1.5 rounded-lg text-[#9ca3af] hover:text-[#f3f4f6] hover:bg-[#20232c]"
+            disabled={totalFrames === 0}
+            className="p-1.5 rounded-lg text-[#9ca3af] hover:text-[#f3f4f6] hover:bg-[#20232c] disabled:opacity-40"
           >
             <SkipForward className="w-3.5 h-3.5" />
           </button>
@@ -206,24 +222,27 @@ export const AnimatePanel: React.FC = () => {
         <input
           type="range"
           min="0"
-          max={totalFrames}
+          max={totalFrames || 100}
           value={currentFrame}
           onChange={(e) => setCurrentFrame(parseInt(e.target.value))}
+          disabled={totalFrames === 0}
           className="w-full"
         />
 
         {/* Tracks List */}
-        <div className="space-y-1 pt-1">
-          {tracks.map((tr) => (
-            <div key={tr.id} className="flex items-center justify-between p-1.5 rounded-lg bg-[#14161c] border border-[#232731]">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: tr.color }} />
-                <span className="text-[11px] text-[#cbd5e1]">{tr.name}</span>
+        {tracks.length > 0 && (
+          <div className="space-y-1 pt-1">
+            {tracks.map((tr) => (
+              <div key={tr.id} className="flex items-center justify-between p-1.5 rounded-lg bg-[#14161c] border border-[#232731]">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: tr.color }} />
+                  <span className="text-[11px] text-[#cbd5e1]">{tr.name}</span>
+                </div>
+                <span className="text-[10px] text-[#6b7280] font-mono">{tr.keyframes.length} keys</span>
               </div>
-              <span className="text-[10px] text-[#6b7280] font-mono">{tr.keyframes.length} keys</span>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

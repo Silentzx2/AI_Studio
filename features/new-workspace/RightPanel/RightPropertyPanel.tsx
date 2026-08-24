@@ -13,7 +13,6 @@ import {
   Sparkles,
   Palette,
   Activity,
-  GitBranch,
   Eye,
   RefreshCw,
   Lock,
@@ -501,7 +500,7 @@ export const RightPropertyPanel: React.FC = () => {
         )}
 
         {/* CASE D: Tool is 3D Generation / Model */}
-        {(activeTool === 'model' || activeTool === 'image') && (
+        {activeTool === 'model' && (
           <div className="space-y-3 p-3 rounded-xl bg-[#13151b] border border-[#222632]">
             <span className="font-bold text-[11px] text-[#8e95a5] uppercase tracking-wider flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-[#f5c518]" />
@@ -527,33 +526,8 @@ export const RightPropertyPanel: React.FC = () => {
               </div>
             </div>
           </div>
-        )}
-
-        {/* CASE E: Tool is Nodes Visual Graph */}
-        {activeTool === 'nodes' && (
-          <div className="space-y-3 p-3 rounded-xl bg-[#13151b] border border-[#222632]">
-            <span className="font-bold text-[11px] text-[#8e95a5] uppercase tracking-wider flex items-center gap-1.5">
-              <GitBranch className="w-3.5 h-3.5 text-[#f5c518]" />
-              FastAPI Pipeline Status
-            </span>
-
-            <div className="space-y-1.5 text-[11px]">
-              <div className="flex justify-between text-[#cbd5e1]">
-                <span>Backend Status</span>
-                <span className="font-mono text-[#22c55e] capitalize">{systemStats.status}</span>
-              </div>
-              <div className="flex justify-between text-[#cbd5e1]">
-                <span>GPU Device</span>
-                <span className="font-mono text-[#cbd5e1] truncate">{systemStats.gpu}</span>
-              </div>
-              <div className="flex justify-between text-[#cbd5e1]">
-                <span>VRAM Allocation</span>
-                <span className="font-mono text-[#f5c518]">{systemStats.vramUsedGb != null && systemStats.vramTotalGb != null ? `${systemStats.vramUsedGb} / ${systemStats.vramTotalGb} GB` : 'Unavailable'}</span>
-              </div>
-            </div>
-          </div>
-        )}
-
+         )}
+        
         {/* 4. Shading & Render Viewport Overrides */}
         <div className="space-y-2 pt-1">
           <span className="font-bold text-[11px] text-[#8e95a5] uppercase tracking-wider flex items-center gap-1.5">

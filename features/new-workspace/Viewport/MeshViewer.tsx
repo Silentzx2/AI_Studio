@@ -99,7 +99,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.15;
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
@@ -153,10 +153,11 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     currentMeshGroupRef.current = meshGroup;
 
     // 8. Animation & Render Loop
-    let clock = new THREE.Clock();
+    const timer = new THREE.Timer();
     const animate = () => {
       animFrameIdRef.current = requestAnimationFrame(animate);
-      const delta = clock.getDelta();
+      timer.update();
+      const delta = timer.getDelta();
 
       if (isTurntable && meshGroup) {
         meshGroup.rotation.y += delta * 0.45;
@@ -442,14 +443,14 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
       {/* Drag & Drop Visual Dropzone Overlay */}
       {isDragOver && (
-        <div className="absolute inset-0 bg-[#0f1015]/85 border-2 border-dashed border-[#f5c518] backdrop-blur-md flex flex-col items-center justify-center z-40 transition-all pointer-events-none">
+        <div className="absolute inset-0 bg-[var(--ws-panel,#0f1015)]/85 border-2 border-dashed border-[#f5c518] backdrop-blur-md flex flex-col items-center justify-center z-40 transition-all pointer-events-none">
           <div className="w-16 h-16 rounded-2xl bg-[#f5c518]/15 border border-[#f5c518]/40 flex items-center justify-center text-[#f5c518] shadow-2xl animate-bounce mb-3">
             <UploadCloud className="w-8 h-8" />
           </div>
-          <span className="text-base font-bold text-[#f3f4f6] tracking-wide">
+          <span className="text-base font-bold text-[var(--ws-text,#f3f4f6)] tracking-wide">
             Drop 3D Asset to Load into Viewport
           </span>
-          <span className="text-xs text-[#9ca3af] mt-1">
+          <span className="text-xs text-[var(--ws-text-muted,#9ca3af)] mt-1">
             Loads geometry, textures, topology & material configs instantly
           </span>
         </div>
@@ -457,7 +458,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
       {/* Drop Notification Toast */}
       {dropToastMessage && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl bg-[#181a22]/95 border border-[#f5c518]/40 backdrop-blur-md shadow-2xl flex items-center gap-2 text-xs font-semibold text-[#f3f4f6] animate-in fade-in slide-in-from-top-2 duration-300">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl bg-[var(--ws-dropdown-bg,#181a22)]/95 border border-[#f5c518]/40 backdrop-blur-md shadow-2xl flex items-center gap-2 text-xs font-semibold text-[var(--ws-text,#f3f4f6)] animate-in fade-in slide-in-from-top-2 duration-300">
           <Sparkles className="w-4 h-4 text-[#f5c518]" />
           <span>{dropToastMessage}</span>
         </div>
@@ -465,17 +466,17 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
       {/* Loading Overlay */}
       {(isLoading || isExecuting) && (
-        <div className="absolute inset-0 bg-[#0f1015]/60 backdrop-blur-sm flex flex-col items-center justify-center z-20 pointer-events-none transition-all">
+        <div className="absolute inset-0 bg-[var(--ws-panel,#0f1015)]/60 backdrop-blur-sm flex flex-col items-center justify-center z-20 pointer-events-none transition-all">
           <div className="relative flex items-center justify-center">
-            <div className="w-14 h-14 rounded-full border-2 border-[#2b3140] border-t-[#f5c518] animate-spin" />
+            <div className="w-14 h-14 rounded-full border-2 border-[var(--ws-border,#2b3140)] border-t-[#f5c518] animate-spin" />
             <Sparkles className="w-5 h-5 text-[#f5c518] absolute" />
           </div>
           <div className="mt-3 text-center">
-            <span className="text-xs font-bold text-[#f3f4f6] tracking-wide block">
+            <span className="text-xs font-bold text-[var(--ws-text,#f3f4f6)] tracking-wide block">
               {isExecuting ? 'FastAPI 3D Engine Processing...' : 'Compiling 3D Mesh Shaders...'}
             </span>
             {isExecuting && (
-              <div className="mt-2 w-44 h-1.5 rounded-full bg-[#1e2330] overflow-hidden">
+              <div className="mt-2 w-44 h-1.5 rounded-full bg-[var(--ws-active-bg,#1e2330)] overflow-hidden">
                 <div 
                   className="h-full bg-[#f5c518] transition-all duration-300 rounded-full"
                   style={{ width: `${executionProgress || 45}%` }}
@@ -491,21 +492,21 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         <>
           {/* Top-Right Topology & Orientation HUD (Reference Image) */}
           <div className="absolute top-4 right-4 z-10 flex items-center gap-3">
-            <div className="bg-[#12141a]/90 backdrop-blur-md border border-[#232733] rounded-xl px-3.5 py-2 shadow-xl space-y-1 text-xs font-mono">
+            <div className="bg-[var(--ws-hud-bg,#12141a)]/90 backdrop-blur-md border border-[var(--ws-hud-border,#232733)] rounded-xl px-3.5 py-2 shadow-xl space-y-1 text-xs font-mono">
               <div className="flex items-center justify-between gap-4">
-                <span className="text-[#8e95a5] text-[11px]">Topology</span>
-                <span className="text-[#f3f4f6] font-semibold text-[11px] flex items-center gap-1">
+                <span className="text-[var(--ws-text-muted,#8e95a5)] text-[11px]">Topology</span>
+                <span className="text-[var(--ws-text,#f3f4f6)] font-semibold text-[11px] flex items-center gap-1">
                   {currentAsset?.statsAvailable ? currentAsset.topology : '—'} <ChevronDown className="w-3 h-3 text-[#6b7280]" />
                 </span>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <span className="text-[#8e95a5] text-[11px]">Faces</span>
+                <span className="text-[var(--ws-text-muted,#8e95a5)] text-[11px]">Faces</span>
                 <span className="text-[#22c55e] font-semibold text-[11px]">
                   {currentAsset?.statsAvailable ? `${currentAsset.faces.toLocaleString()} / ${currentAsset.faces.toLocaleString()}` : '—'}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <span className="text-[#8e95a5] text-[11px]">Vertices</span>
+                <span className="text-[var(--ws-text-muted,#8e95a5)] text-[11px]">Vertices</span>
                 <span className="text-[#22c55e] font-semibold text-[11px]">
                   {currentAsset?.statsAvailable ? `${currentAsset.vertices.toLocaleString()} / ${currentAsset.vertices.toLocaleString()}` : '—'}
                 </span>
@@ -515,7 +516,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             {/* 3D Axis Orientation Widget / Gizmo */}
             <div 
               onClick={resetCamera}
-              className="w-11 h-11 rounded-xl bg-[#12141a]/90 backdrop-blur-md border border-[#232733] flex items-center justify-center cursor-pointer hover:border-[#f5c518] shadow-xl group transition-all"
+              className="w-11 h-11 rounded-xl bg-[var(--ws-hud-bg,#12141a)]/90 backdrop-blur-md border border-[var(--ws-hud-border,#232733)] flex items-center justify-center cursor-pointer hover:border-[#f5c518] shadow-xl group transition-all"
               title="Reset Orbit Camera"
             >
               <div className="relative w-6 h-6 flex items-center justify-center">
@@ -528,14 +529,14 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           </div>
 
           {/* Right Floating Tool Rail (Hand, Camera, Grid, Help, Turntable) */}
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-1.5 bg-[#12141a]/90 backdrop-blur-md border border-[#232733] p-1.5 rounded-2xl shadow-2xl">
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-1.5 bg-[var(--ws-hud-bg,#12141a)]/90 backdrop-blur-md border border-[var(--ws-hud-border,#232733)] p-1.5 rounded-2xl shadow-2xl">
             <button
               onClick={() => setInteractionMode(interactionMode === 'orbit' ? 'pan' : 'orbit')}
               title={interactionMode === 'orbit' ? 'Switch to Pan Mode' : 'Switch to Orbit Mode'}
               className={`p-2 rounded-xl transition-all ${
                 interactionMode === 'pan' 
                   ? 'bg-[#f5c518] text-[#111216]' 
-                  : 'text-[#8e95a5] hover:text-[#f3f4f6] hover:bg-[#1f232e]'
+                  : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
               }`}
             >
               <Hand className="w-4 h-4" />
@@ -544,7 +545,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             <button
               onClick={handleScreenshot}
               title="Capture 3D Viewport Screenshot"
-              className="p-2 rounded-xl text-[#8e95a5] hover:text-[#f3f4f6] hover:bg-[#1f232e] transition-all"
+              className="p-2 rounded-xl text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)] transition-all"
             >
               <Camera className="w-4 h-4" />
             </button>
@@ -554,8 +555,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               title={showGrid ? 'Hide Floor Grid' : 'Show Floor Grid'}
               className={`p-2 rounded-xl transition-all ${
                 showGrid 
-                  ? 'text-[#f5c518] bg-[#1a1d26]' 
-                  : 'text-[#8e95a5] hover:text-[#f3f4f6] hover:bg-[#1f232e]'
+                  ? 'text-[#f5c518] bg-[var(--ws-active-bg,#1a1d26)]' 
+                  : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
               }`}
             >
               <GridIcon className="w-4 h-4" />
@@ -567,7 +568,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               className={`p-2 rounded-xl transition-all ${
                 isTurntable 
                   ? 'bg-[#f5c518] text-[#111216]' 
-                  : 'text-[#8e95a5] hover:text-[#f3f4f6] hover:bg-[#1f232e]'
+                  : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
               }`}
             >
               <RotateCw className="w-4 h-4" />
@@ -576,7 +577,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             <button
               onClick={resetCamera}
               title="Reset Camera (Hotkey: F)"
-              className="p-2 rounded-xl text-[#8e95a5] hover:text-[#f3f4f6] hover:bg-[#1f232e] transition-all"
+              className="p-2 rounded-xl text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)] transition-all"
             >
               <RotateCcw className="w-4 h-4" />
             </button>
@@ -584,7 +585,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
           {/* Shading Material Swatches Bar (Bottom Center - Exact Match to Screenshot) */}
           <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-[#12141a]/95 backdrop-blur-md border border-[#232733] shadow-2xl">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-[var(--ws-hud-bg,#12141a)]/95 backdrop-blur-md border border-[var(--ws-hud-border,#232733)] shadow-2xl">
               {/* Textured / PBR */}
               <button
                 onClick={() => setShadingMode('textured')}
@@ -593,12 +594,16 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                   shadingMode === 'textured' ? 'border-[#f5c518] scale-110 shadow-md' : 'border-transparent hover:scale-105'
                 }`}
               >
-                <img 
-                  src={currentAsset?.thumbnail || ''} 
-                  alt="Textured" 
-                  className="w-full h-full object-cover"
-                  crossOrigin="anonymous" 
-                />
+                {currentAsset?.thumbnail ? (
+                  <img 
+                    src={currentAsset.thumbnail} 
+                    alt="Textured" 
+                    className="w-full h-full object-cover"
+                    crossOrigin="anonymous" 
+                  />
+                ) : (
+                  <div className="w-full h-full bg-[#2a2f3a]" />
+                )}
               </button>
 
               {/* Clay */}
@@ -677,27 +682,27 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             </div>
           </div>
 
-          {/* Bottom Transport Control Bar (Matching Reference Image) */}
+           {/* Bottom Transport Control Bar (Matching Reference Image) */}
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2">
             {/* Free Orbit / Camera Presets Dropdown */}
             <div className="relative">
               <button
                 onClick={() => setCameraMenuOpen(!cameraMenuOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#12141a]/95 backdrop-blur-md border border-[#232733] text-xs font-semibold text-[#f3f4f6] hover:border-[#f5c518]/50 shadow-xl transition-all"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[var(--ws-hud-bg,#12141a)]/95 backdrop-blur-md border border-[var(--ws-hud-border,#232733)] text-xs font-semibold text-[var(--ws-text,#f3f4f6)] hover:border-[#f5c518]/50 shadow-xl transition-all"
               >
                 <RotateCw className="w-3.5 h-3.5 text-[#f5c518]" />
                 <span className="capitalize">{cameraPreset} View</span>
-                <ChevronDown className="w-3 h-3 text-[#8e95a5]" />
+                <ChevronDown className="w-3 h-3 text-[var(--ws-text-muted,#8e95a5)]" />
               </button>
 
               {cameraMenuOpen && (
-                <div className="absolute bottom-full left-0 mb-1.5 w-40 py-1 rounded-xl bg-[#181a22] border border-[#2b3040] shadow-2xl z-50 text-xs">
+                <div className="absolute bottom-full left-0 mb-1.5 w-40 py-1 rounded-xl bg-[var(--ws-dropdown-bg,#181a22)] border border-[var(--ws-border,#2b3040)] shadow-2xl z-50 text-xs">
                   {(['perspective', 'front', 'back', 'top', 'bottom', 'left', 'right'] as CameraViewPreset[]).map((p) => (
                     <button
                       key={p}
                       onClick={() => applyCameraPreset(p)}
-                      className={`w-full text-left px-3 py-1.5 capitalize hover:bg-[#232734] transition-colors flex items-center justify-between ${
-                        cameraPreset === p ? 'text-[#f5c518] font-bold' : 'text-[#cbd5e1]'
+                      className={`w-full text-left px-3 py-1.5 capitalize hover:bg-[var(--ws-hover-bg,#232734)] transition-colors flex items-center justify-between ${
+                        cameraPreset === p ? 'text-[#f5c518] font-bold' : 'text-[var(--ws-text-muted,#cbd5e1)]'
                       }`}
                     >
                       <span>{p}</span>
@@ -717,7 +722,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                   controlsRef.current.update();
                 }
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#12141a]/95 backdrop-blur-md border border-[#232733] text-xs font-semibold text-[#8e95a5] hover:text-[#f3f4f6] hover:border-[#3a4152] shadow-xl transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--ws-hud-bg,#12141a)]/95 backdrop-blur-md border border-[var(--ws-hud-border,#232733)] text-xs font-semibold text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:border-[var(--ws-border,#3a4152)] shadow-xl transition-all"
             >
               <span>Snap</span>
             </button>
@@ -725,7 +730,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             {/* 3D Print Preparation */}
             <button
               onClick={() => setIsExportModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#12141a]/95 backdrop-blur-md border border-[#232733] text-xs font-semibold text-[#8e95a5] hover:text-[#f3f4f6] hover:border-[#3a4152] shadow-xl transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--ws-hud-bg,#12141a)]/95 backdrop-blur-md border border-[var(--ws-hud-border,#232733)] text-xs font-semibold text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:border-[var(--ws-border,#3a4152)] shadow-xl transition-all"
             >
               <Printer className="w-3.5 h-3.5 text-[#a855f7]" />
               <span>3D Print</span>

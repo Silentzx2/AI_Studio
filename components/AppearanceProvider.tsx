@@ -122,6 +122,22 @@ export function applyGlobalTheme(cfg: ThemeConfig): void {
   // ── Neon Glow ──
   root.setProperty('--neon-glow-intensity', String(cfg.neonGlowIntensity ?? 0.5));
 
+  // ── Workspace Colors ──
+  if (cfg.workspaceBackground) root.setProperty('--ws-bg', cfg.workspaceBackground);
+  if (cfg.workspacePanel) root.setProperty('--ws-panel', cfg.workspacePanel);
+  if (cfg.workspaceViewport) root.setProperty('--ws-viewport', cfg.workspaceViewport);
+  if (cfg.workspaceText) root.setProperty('--ws-text', cfg.workspaceText);
+  if (cfg.workspaceTextMuted) root.setProperty('--ws-text-muted', cfg.workspaceTextMuted);
+  if (cfg.workspaceBorder) root.setProperty('--ws-border', cfg.workspaceBorder);
+  if (cfg.workspaceActiveBg) root.setProperty('--ws-active-bg', cfg.workspaceActiveBg);
+  if (cfg.workspaceHoverBg) root.setProperty('--ws-hover-bg', cfg.workspaceHoverBg);
+  if (cfg.workspaceTabActiveBg) root.setProperty('--ws-tab-active-bg', cfg.workspaceTabActiveBg);
+  if (cfg.workspaceTabBarBg) root.setProperty('--ws-tab-bar-bg', cfg.workspaceTabBarBg);
+  if (cfg.workspaceNavBg) root.setProperty('--ws-nav-bg', cfg.workspaceNavBg);
+  if (cfg.workspaceDropdownBg) root.setProperty('--ws-dropdown-bg', cfg.workspaceDropdownBg);
+  if (cfg.workspaceHudBg) root.setProperty('--ws-hud-bg', cfg.workspaceHudBg);
+  if (cfg.workspaceHudBorder) root.setProperty('--ws-hud-border', cfg.workspaceHudBorder);
+
   // ── Animation Speed ──
   if (cfg.animationSpeed !== undefined) {
     root.setProperty('--animation-speed', String(cfg.animationSpeed));

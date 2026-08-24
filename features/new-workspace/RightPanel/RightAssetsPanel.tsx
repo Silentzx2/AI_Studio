@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { 
   Plus, 
   MoreVertical, 
@@ -14,7 +14,8 @@ import {
   Upload,
   Info,
   SlidersHorizontal,
-  FolderOpen
+  FolderOpen,
+  AlertCircle
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { ModelAsset } from '../types';
@@ -36,6 +37,80 @@ export const RightAssetsPanel: React.FC = () => {
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [activeMenuAssetId, setActiveMenuAssetId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const MAX_MODEL_SIZE = 150 * 1024 * 1024; // 150MB
+  const ACCEPTED_MODEL_EXTS = ['glb', 'gltf', 'obj', 'fbx', 'stl', 'ply'];
+  const ITEMS_PER_PAGE = 8;
+
+  const processModelFile = useCallback((file: File) => {
+    setUploadError(null);
+
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (!ext || !ACCEPTED_MODEL_EXTS.includes(ext)) {
+      setUploadError('Invalid file type. Use GLB, GLTF, OBJ, FBX, STL, or PLY.');
+      return;
+    }
+
+    if (file.size > MAX_MODEL_SIZE) {
+      setUploadError('File too large. Maximum size is 150MB.');
+      return;
+    }
+
+    const newAsset: ModelAsset = {
+      id: `user-upload-${Date.now()}`,
+      name: file.name.replace(/\.[^/.]+$/, ""),
+      category: 'mesh',
+      meshType: 'custom',
+      thumbnail: '',
+      faces: 0,
+      vertices: 0,
+      triangles: 0,
+      statsAvailable: false,
+      source: { filename: file.name, subfolder: '', type: 'input', localUrl: URL.createObjectURL(file) },
+      topology: 'Triangle',
+      format: (() => {
+        if (ext === 'obj') return 'OBJ';
+        if (ext === 'ply') return 'PLY';
+        if (ext === 'glb' || ext === 'gltf') return 'GLB';
+        if (ext === 'fbx') return 'FBX';
+        if (ext === 'stl') return 'STL';
+        return 'FILE';
+      })(),
+      dateCreated: '',
+      tags: ['Custom', 'User-Upload', 'Mesh']
+    };
+    addAsset(newAsset);
+    setCurrentAsset(newAsset);
+  }, [addAsset, setCurrentAsset]);
+
+  const handleModelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processModelFile(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) processModelFile(file);
+  };
 
   const filteredAssets = assets.filter(a => {
     if (showFavoritesOnly && !a.isFavorite) return false;
@@ -47,35 +122,9 @@ export const RightAssetsPanel: React.FC = () => {
     return true;
   });
 
-  const handleModelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const newAsset: ModelAsset = {
-        id: `user-upload-${Date.now()}`,
-        name: file.name.replace(/\.[^/.]+$/, ""),
-        category: 'mesh',
-        meshType: 'custom',
-        thumbnail: '',
-        faces: 0,
-        vertices: 0,
-        triangles: 0,
-        statsAvailable: false,
-        source: { filename: file.name, subfolder: '', type: 'input', localUrl: URL.createObjectURL(file) },
-        topology: 'Triangle',
-        format: (() => {
-          const ext = file.name.split('.').pop()?.toLowerCase();
-          if (ext === 'obj') return 'OBJ';
-          if (ext === 'ply') return 'PLY';
-          if (ext === 'glb' || ext === 'gltf') return 'GLB';
-          return 'FILE';
-        })(),
-        dateCreated: '',
-        tags: ['Custom', 'User-Upload', 'Mesh']
-      };
-      addAsset(newAsset);
-      setCurrentAsset(newAsset);
-    }
-  };
+  const totalPages = Math.max(1, Math.ceil(filteredAssets.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(activePage, totalPages);
+  const paginatedAssets = filteredAssets.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
 
   return (
     <div id="panel-assets-library" className="flex flex-col h-full bg-[#101115] text-xs select-none">
@@ -83,7 +132,7 @@ export const RightAssetsPanel: React.FC = () => {
       <input 
         ref={fileInputRef}
         type="file" 
-        accept=".glb,.gltf,.obj,.fbx,.stl" 
+        accept=".glb,.gltf,.obj,.fbx,.stl,.ply" 
         className="hidden" 
         onChange={handleModelUpload}
       />
@@ -180,14 +229,23 @@ export const RightAssetsPanel: React.FC = () => {
           {/* Upload 3D Model Card (Matching Reference Image) */}
           <div
             id="btn-upload-3d-model-card"
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className="group relative rounded-xl border border-dashed border-[#2f3545] hover:border-[#f5c518]/60 bg-[#12141a] hover:bg-[#161922] cursor-pointer p-3 flex flex-col items-center justify-center text-center aspect-square transition-all"
+            className={`group relative rounded-xl border border-dashed cursor-pointer p-3 flex flex-col items-center justify-center text-center aspect-square transition-all ${
+              isDragOver
+                ? 'border-[#f5c518] bg-[#f5c518]/10 scale-105'
+                : 'border-[#2f3545] hover:border-[#f5c518]/60 bg-[#12141a] hover:bg-[#161922]'
+            }`}
           >
-            <div className="w-8 h-8 rounded-full bg-[#1b1e28] border border-[#282d3b] flex items-center justify-center text-[#8e95a5] group-hover:text-[#f5c518] group-hover:scale-105 transition-all mb-1.5">
+            <div className={`w-8 h-8 rounded-full bg-[#1b1e28] border border-[#282d3b] flex items-center justify-center transition-all mb-1.5 ${
+              isDragOver ? 'text-[#f5c518] border-[#f5c518] scale-110' : 'text-[#8e95a5] group-hover:text-[#f5c518] group-hover:scale-105'
+            }`}>
               <Box className="w-4 h-4" />
             </div>
             <span className="text-[11px] font-bold text-[#e5e7eb] leading-tight block">
-              Upload 3D Model
+              {isDragOver ? 'Drop model here' : 'Upload 3D Model'}
             </span>
             <span className="text-[9px] text-[#717786] mt-0.5 block">
               OBJ, FBX, STL, GLB
@@ -197,8 +255,15 @@ export const RightAssetsPanel: React.FC = () => {
             </span>
           </div>
 
+          {uploadError && (
+            <div className="flex items-center gap-1 text-[10px] text-[#ef4444] px-1">
+              <AlertCircle className="w-3 h-3" />
+              <span>{uploadError}</span>
+            </div>
+          )}
+
           {/* Asset Items */}
-          {filteredAssets.map((asset) => {
+          {paginatedAssets.map((asset) => {
             const isSelected = currentAsset?.id === asset.id;
 
             return (
@@ -303,33 +368,29 @@ export const RightAssetsPanel: React.FC = () => {
       {/* Pagination Footer */}
       <div className="p-2.5 border-t border-[#21242c] flex items-center justify-center gap-1 text-xs text-[#8e95a5]">
         <button
-          onClick={() => setActivePage(Math.max(1, activePage - 1))}
-          className="p-1 rounded hover:text-[#f3f4f6] hover:bg-[#181a20]"
+          onClick={() => setActivePage(Math.max(1, safePage - 1))}
+          disabled={safePage <= 1}
+          className="p-1 rounded hover:text-[#f3f4f6] hover:bg-[#181a20] disabled:opacity-40"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
         </button>
 
-        <button
-          onClick={() => setActivePage(1)}
-          className={`w-5 h-5 rounded flex items-center justify-center text-xs font-bold ${
-            activePage === 1 ? 'bg-[#f5c518] text-[#111216]' : 'hover:text-[#f3f4f6] hover:bg-[#181a20]'
-          }`}
-        >
-          1
-        </button>
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+          <button
+            key={page}
+            onClick={() => setActivePage(page)}
+            className={`w-5 h-5 rounded flex items-center justify-center text-xs font-bold ${
+              safePage === page ? 'bg-[#f5c518] text-[#111216]' : 'hover:text-[#f3f4f6] hover:bg-[#181a20]'
+            }`}
+          >
+            {page}
+          </button>
+        ))}
 
         <button
-          onClick={() => setActivePage(2)}
-          className={`w-5 h-5 rounded flex items-center justify-center text-xs ${
-            activePage === 2 ? 'bg-[#f5c518] text-[#111216]' : 'hover:text-[#f3f4f6] hover:bg-[#181a20]'
-          }`}
-        >
-          2
-        </button>
-
-        <button
-          onClick={() => setActivePage(Math.min(2, activePage + 1))}
-          className="p-1 rounded hover:text-[#f3f4f6] hover:bg-[#181a20]"
+          onClick={() => setActivePage(Math.min(totalPages, safePage + 1))}
+          disabled={safePage >= totalPages}
+          className="p-1 rounded hover:text-[#f3f4f6] hover:bg-[#181a20] disabled:opacity-40"
         >
           <ChevronRight className="w-3.5 h-3.5" />
         </button>

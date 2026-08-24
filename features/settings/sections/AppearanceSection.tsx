@@ -4,7 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import {
   Check, Sun, Moon, Monitor, Palette, Type, Square, LayoutTemplate, Sparkles,
-  Plus, Droplet, Layers, MousePointerClick, Zap, Wand2, RefreshCw, Image, Paintbrush,
+  Plus, Droplet, Layers, MousePointerClick, Zap, Wand2, RefreshCw, Image, Paintbrush, MonitorCheck,
 } from 'lucide-react';
 import { hexToHSLString } from '@/components/AppearanceProvider';
 import { useThemeStore, type ThemeConfig } from '@/stores/useThemeStore';
@@ -17,6 +17,15 @@ import { cn } from '@/lib/utils';
 
 const ACCENT_PRESETS = [
   '#F5A623', '#A855F7', '#06B6D4', '#10B981', '#F43F5E', '#3B82F6', '#EC4899', '#EAB308',
+];
+
+const WORKSPACE_COLOR_PRESETS = [
+  { key: 'default', label: 'Default Dark', colors: { background: '#0d0e12', panel: '#101115', viewport: '#0a0b0e', text: '#f3f4f6', textMuted: '#8e95a5', border: '#21242c' } },
+  { key: 'midnight', label: 'Midnight', colors: { background: '#0a0b10', panel: '#0f1016', viewport: '#08090c', text: '#e8eaed', textMuted: '#7a8290', border: '#1a1d26' } },
+  { key: 'charcoal', label: 'Charcoal', colors: { background: '#1a1c22', panel: '#20222a', viewport: '#181a20', text: '#eceef2', textMuted: '#8a9099', border: '#2e3138' } },
+  { key: 'navy', label: 'Deep Navy', colors: { background: '#0a0e1a', panel: '#0f1422', viewport: '#080c16', text: '#e0e4ec', textMuted: '#6e7a8e', border: '#1a2236' } },
+  { key: 'forest', label: 'Forest', colors: { background: '#0a100c', panel: '#0f1612', viewport: '#080c0a', text: '#dfe6e2', textMuted: '#7a8a80', border: '#1a2620' } },
+  { key: 'warm', label: 'Warm Dark', colors: { background: '#14110e', panel: '#1a1612', viewport: '#100e0c', text: '#ece8e4', textMuted: '#8e8a82', border: '#2a2620' } },
 ];
 
 const MASTER_PRESETS = [
@@ -180,6 +189,154 @@ export function AppearanceSection() {
               className="h-9 w-16 rounded-lg cursor-pointer bg-transparent border border-border"
             />
           </Row>
+        </CardContent>
+      </Card>
+
+      {/* ── Workspace Colors ── */}
+      <Card>
+        <SectionHeader icon={MonitorCheck} title="Workspace Colors" desc="Customize the 3D workspace background, panels, text, and borders. Changes apply live." />
+        <CardContent className="space-y-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {WORKSPACE_COLOR_PRESETS.map((preset) => (
+              <button
+                key={preset.key}
+                onClick={() => {
+                  set('workspaceBackground', preset.colors.background);
+                  set('workspacePanel', preset.colors.panel);
+                  set('workspaceViewport', preset.colors.viewport);
+                  set('workspaceText', preset.colors.text);
+                  set('workspaceTextMuted', preset.colors.textMuted);
+                  set('workspaceBorder', preset.colors.border);
+                }}
+                className="flex items-center gap-2 p-2 rounded-lg border border-border bg-card/50 hover:border-primary/40 transition-all text-left"
+              >
+                <div className="flex gap-0.5 shrink-0">
+                  <span className="w-3 h-6 rounded-l-sm" style={{ backgroundColor: preset.colors.background }} />
+                  <span className="w-3 h-6" style={{ backgroundColor: preset.colors.panel }} />
+                  <span className="w-3 h-6 rounded-r-sm" style={{ backgroundColor: preset.colors.border }} />
+                </div>
+                <span className="text-xs font-medium">{preset.label}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Surfaces</p>
+              <div className="space-y-2">
+                {([
+                  ['workspaceBackground', 'Background', cfg.workspaceBackground],
+                  ['workspacePanel', 'Panel', cfg.workspacePanel],
+                  ['workspaceViewport', 'Viewport', cfg.workspaceViewport],
+                ] as const).map(([key, label, value]) => (
+                  <div key={key} className="flex items-center justify-between gap-2">
+                    <span className="text-sm text-foreground">{label}</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={value}
+                        onChange={(e) => set(key, e.target.value)}
+                        className="h-8 w-12 rounded cursor-pointer bg-transparent border border-border"
+                      />
+                      <input
+                        value={value}
+                        onChange={(e) => set(key, e.target.value)}
+                        className="h-8 w-24 rounded-lg text-xs font-mono border border-border bg-background px-2"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Text & Borders</p>
+              <div className="space-y-2">
+                {([
+                  ['workspaceText', 'Text', cfg.workspaceText],
+                  ['workspaceTextMuted', 'Muted Text', cfg.workspaceTextMuted],
+                  ['workspaceBorder', 'Border', cfg.workspaceBorder],
+                ] as const).map(([key, label, value]) => (
+                  <div key={key} className="flex items-center justify-between gap-2">
+                    <span className="text-sm text-foreground">{label}</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={value}
+                        onChange={(e) => set(key, e.target.value)}
+                        className="h-8 w-12 rounded cursor-pointer bg-transparent border border-border"
+                      />
+                      <input
+                        value={value}
+                        onChange={(e) => set(key, e.target.value)}
+                        className="h-8 w-24 rounded-lg text-xs font-mono border border-border bg-background px-2"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Interactive States</p>
+              <div className="space-y-2">
+                {([
+                  ['workspaceActiveBg', 'Active Background', cfg.workspaceActiveBg],
+                  ['workspaceHoverBg', 'Hover Background', cfg.workspaceHoverBg],
+                  ['workspaceTabActiveBg', 'Tab Active', cfg.workspaceTabActiveBg],
+                  ['workspaceTabBarBg', 'Tab Bar', cfg.workspaceTabBarBg],
+                ] as const).map(([key, label, value]) => (
+                  <div key={key} className="flex items-center justify-between gap-2">
+                    <span className="text-sm text-foreground">{label}</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={value}
+                        onChange={(e) => set(key, e.target.value)}
+                        className="h-8 w-12 rounded cursor-pointer bg-transparent border border-border"
+                      />
+                      <input
+                        value={value}
+                        onChange={(e) => set(key, e.target.value)}
+                        className="h-8 w-24 rounded-lg text-xs font-mono border border-border bg-background px-2"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">UI Elements</p>
+              <div className="space-y-2">
+                {([
+                  ['workspaceNavBg', 'Navigation', cfg.workspaceNavBg],
+                  ['workspaceDropdownBg', 'Dropdown', cfg.workspaceDropdownBg],
+                  ['workspaceHudBg', 'HUD Background', cfg.workspaceHudBg],
+                  ['workspaceHudBorder', 'HUD Border', cfg.workspaceHudBorder],
+                ] as const).map(([key, label, value]) => (
+                  <div key={key} className="flex items-center justify-between gap-2">
+                    <span className="text-sm text-foreground">{label}</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={value}
+                        onChange={(e) => set(key, e.target.value)}
+                        className="h-8 w-12 rounded cursor-pointer bg-transparent border border-border"
+                      />
+                      <input
+                        value={value}
+                        onChange={(e) => set(key, e.target.value)}
+                        className="h-8 w-24 rounded-lg text-xs font-mono border border-border bg-background px-2"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

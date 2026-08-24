@@ -346,16 +346,20 @@ Colab mode automatically:
 - Starts API, Celery worker, and frontend via Cloudflare Tunnel
 - Stage B (weights) is deferred — download via UI or `download-weights` API after startup
 
-**Colab VRAM Preparation Policy**: Models requiring **15 GB or more** VRAM are **not** automatically cloned or prepared by `colab.sh`. They remain visible in the UI but are marked as Colab-incompatible. This prevents GPU OOM crashes during setup on Colab T4/P100 runtimes (~16 GB VRAM). On VPS/full-GPU hosts, all models are available without this restriction.
+**Colab Preparation Policy**: Models are automatically prepared on Colab only if they pass BOTH criteria:
+- VRAM < 15 GB (Colab T4/P100 have ~16 GB)
+- Weight download ≤ 10 GB (Colab free-tier disk limit)
+
+Models requiring native CUDA builds (TRELLIS, UniRig) are also skipped on Colab since the CUDA toolkit is unavailable. On VPS/full-GPU hosts, all models are available without these restrictions.
 
 | Model | VRAM Required | Colab Prep |
 |-------|--------------|------------|
 | Hunyuan3D 2.1 | 16 GB | Skipped |
 | Hunyuan3D 2 | 24 GB | Skipped |
 | Hunyuan3D-2mini | 6 GB | Prepared |
-| TRELLIS | 8 GB | Prepared |
-| AniGen | 6.2 GB | Prepared |
-| UniRig | 8 GB | Prepared |
+| TRELLIS | 8 GB | Skipped (native CUDA build) |
+| AniGen | 6.2 GB | Skipped (23 GB weight >10 GB ceiling) |
+| UniRig | 8 GB | Skipped (native CUDA build) |
 | DetailGen3D | 4 GB | Prepared |
 | TripoSG | 8 GB | Prepared |
 

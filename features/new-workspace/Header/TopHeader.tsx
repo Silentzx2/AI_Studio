@@ -1,21 +1,22 @@
 import React, { useState } from 'react';
-import { 
-  Box, 
-  ChevronDown, 
-  Layers, 
-  Sliders, 
-  Activity, 
-  Bell, 
-  User, 
-  Cable, 
-  GitBranch,
+import {
+  Box,
+  ChevronDown,
+  Layers,
+  Sliders,
+  Activity,
+  Bell,
+  User,
+  Cable,
   Sun,
   Hexagon,
   Image as ImageIcon
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useWorkspace } from '../store/WorkspaceContext';
 
 export const TopHeader: React.FC = () => {
+  const router = useRouter();
   const {
     mainNav,
     navigateToMain,
@@ -96,13 +97,6 @@ export const TopHeader: React.FC = () => {
                 <Hexagon className="w-4 h-4 text-[#f5c518]" />
                 <span>Rigging</span>
               </button>
-              <button
-                onClick={() => { navigateToTool('nodes'); setWorkspaceMenuOpen(false); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-[#e5e7eb] hover:bg-[#232731]"
-              >
-                <GitBranch className="w-4 h-4 text-[#f5c518]" />
-                <span>FastAPI Node Graph</span>
-              </button>
             </div>
           )}
         </div>
@@ -140,18 +134,6 @@ export const TopHeader: React.FC = () => {
           >
             System
           </button>
-
-          <button
-            id="nav-link-pipeline"
-            onClick={() => navigateToTool('nodes')}
-            className={`px-3 py-1.5 rounded-lg transition-colors ${
-              activeTool === 'nodes'
-                ? 'text-[#f5c518] font-bold'
-                : 'text-[#9ca3af] hover:text-[#f3f4f6]'
-            }`}
-          >
-            Pipeline
-          </button>
         </nav>
       </div>
 
@@ -185,7 +167,7 @@ export const TopHeader: React.FC = () => {
 
         {/* Brightness / Theme Icon */}
         <button
-          onClick={() => setIsSettingsOpen(true)}
+          onClick={() => router.push('/settings')}
           className="p-1.5 rounded-lg text-[#9ca3af] hover:text-[#f3f4f6] hover:bg-[#1c1e24] transition-colors"
           title="Settings"
         >
@@ -201,8 +183,8 @@ export const TopHeader: React.FC = () => {
         </button>
 
         {/* Profile Avatar */}
-        <div 
-          onClick={() => setIsSettingsOpen(true)}
+        <div
+          onClick={() => router.push('/settings')}
           className="w-7 h-7 rounded-full bg-[#242732] border border-[#3c4252] flex items-center justify-center text-xs font-bold text-[#f5c518] cursor-pointer hover:border-[#f5c518] transition-colors"
         >
           <User className="w-4 h-4 text-[#cbd5e1]" />

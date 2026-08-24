@@ -295,8 +295,11 @@ except Exception as exc:
     print(f"  [FAIL] Could not import runtime modules: {exc}")
     sys.exit(1)
 
-# Colab: only prepare TripoSG (skip TRELLIS/UniRig - native CUDA build required, no toolkit on Colab)
-COLAB_ALLOWED_REPOS = {"TripoSG"}
+# Colab: only prepare models that pass the Colab prep policy (VRAM < 15 GB, weight <= 10 GB).
+# DetailGen3D (4 GB), Hunyuan3D-2mini (6 GB), TripoSG (8 GB) qualify.
+# AniGen is filtered out by is_model_preparable_for_colab() (23 GB weight > 10 GB ceiling).
+# TRELLIS/UniRig require native CUDA build (no toolkit on Colab).
+COLAB_ALLOWED_REPOS = {"DetailGen3D", "Hunyuan3D-2mini", "TripoSG"}
 
 # Map repos to their providers for Colab gating
 repos_to_prepare = []
@@ -393,8 +396,8 @@ except Exception as exc:
     sys.exit(1)
 
 token = os.environ.get("HUGGINGFACE_TOKEN") or os.environ.get("HF_TOKEN")
-# Colab: only download weights for TripoSG (TRELLIS/UniRig need native CUDA build)
-COLAB_ALLOWED_PROVIDERS = ("triposg",)
+# Colab: only download weights for models that pass the prep policy
+COLAB_ALLOWED_PROVIDERS = ("detailgen3d", "hunyuan3d-2-mini", "triposg")
 for key in sorted(HF_MODELS.keys()):
         # Only download allowed models
         if key not in COLAB_ALLOWED_PROVIDERS:
@@ -734,8 +737,8 @@ except Exception as exc:
     sys.exit(1)
 
 storage = get_storage_config()
-# Colab only prepares TripoSG — keep the gate aligned with prepare_model_runtimes.
-COLAB_ALLOWED_REPOS = {"TripoSG"}
+# Colab: only preflight models that were prepared
+COLAB_ALLOWED_REPOS = {"DetailGen3D", "Hunyuan3D-2mini", "TripoSG"}
 ran = skipped = 0
 
 for repo_name in sorted(REPOS.keys()):
@@ -754,8 +757,19 @@ for repo_name in sorted(REPOS.keys()):
         result = run_preflight_for_provider(provider)
         passed = bool(getattr(result, "passed", False))
         print(f"    [{'OK  ' if passed else 'FAIL'}] {provider}: {'PASSED' if passed else 'FAILED'}")
+        if not passed:
+            checks = getattr(result, "checks", {})
+            for check_name, check_result in checks.items():
+                if isinstance(check_result, dict) and not check_result.get("passed", True):
+                    detail = check_result.get("detail", "")
+                    print(f"      [FAIL] {check_name}: {detail}")
+            error_detail = getattr(result, "error_detail", "")
+            if error_detail:
+                print(f"      Error: {error_detail}")
     except Exception as exc:
         print(f"    [FAIL] {provider}: {exc}")
+        import traceback
+        traceback.print_exc()
     ran += 1
 
 print(f"\nPreflight complete: {ran} checked, {skipped} skipped")

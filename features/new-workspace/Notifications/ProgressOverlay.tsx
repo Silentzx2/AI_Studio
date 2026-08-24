@@ -223,7 +223,7 @@ export const ProgressOverlay: React.FC = () => {
                 </button>
               )}
 
-              {isCompleted && (
+               {isCompleted && (
                 <div className="w-full flex items-center justify-between">
                   <span className="text-[11px] text-[#22c55e] font-semibold flex items-center gap-1">
                     <CheckCircle2 className="w-3.5 h-3.5" />
@@ -240,16 +240,6 @@ export const ProgressOverlay: React.FC = () => {
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
-              )}
-
-              {isRunning && (
-                <button
-                  onClick={() => setActiveTool('nodes')}
-                  className="ml-auto flex items-center gap-1 text-[11px] text-[#8e95a5] hover:text-[#f5c518] transition-colors"
-                >
-                  <span>Inspect Visual Node Graph</span>
-                  <ChevronRight className="w-3 h-3" />
-                </button>
               )}
             </div>
           </div>

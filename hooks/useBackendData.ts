@@ -10,14 +10,17 @@ export function useBackendStatus(): BackendStatus {
     let active = true;
     const check = async () => {
       try {
-        await apiClient.get('/api/v1/runtime/health');
+        await apiClient.get('/api/v1/runtime/health', false, false);
         if (active) setStatus('online');
       } catch {
         if (active) setStatus('offline');
       }
     };
     check();
-    const interval = setInterval(check, 5000);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      check();
+    }, 30000);
     return () => { active = false; clearInterval(interval); };
   }, []);
 

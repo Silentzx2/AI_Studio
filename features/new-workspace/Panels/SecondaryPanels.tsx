@@ -1,11 +1,10 @@
 import React from 'react';
-import { 
-  Sparkles, 
-  Hexagon, 
-  Pencil, 
-  Maximize, 
+import {
+  Sparkles,
+  Hexagon,
+  Pencil,
+  Maximize,
   Palette,
-  Image as ImageIcon,
   Wand2,
   Layers,
   ArrowRight
@@ -14,53 +13,14 @@ import { useWorkspace } from '../store/WorkspaceContext';
 import { ToolType } from '../types';
 
 export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
-  const { isExecuting, currentAsset, setActiveTool } = useWorkspace();
-
-  if (tool === 'image') {
-    return (
-      <div className="flex flex-col h-full overflow-y-auto px-4 py-3.5 space-y-4 text-xs select-none">
-        <div className="flex items-center gap-2 pb-1">
-          <div className="w-6 h-6 rounded-md bg-[#6366f1]/20 flex items-center justify-center text-[#818cf8]">
-            <ImageIcon className="w-3.5 h-3.5" />
-          </div>
-          <div>
-            <h2 className="text-sm font-bold text-[#f3f4f6]">GPT Image 3 Pre-processor</h2>
-            <p className="text-[10px] text-[#9ca3af]">AI Multi-view Concept & Silhouette Extraction</p>
-          </div>
-        </div>
-
-        <p className="text-[#9ca3af] leading-relaxed">
-          Generate reference projections before sending the asset to an installed FastAPI 3D reconstruction workflow.
-        </p>
-
-        <div className="p-3 rounded-xl bg-[#14161c] border border-[#232731] space-y-2">
-          <span className="font-semibold text-[#cbd5e1]">Multi-View Projection</span>
-          <div className="grid grid-cols-2 gap-2 text-[11px]">
-            <div className="p-2 rounded-lg bg-[#1a1d25] border border-[#282c37] text-center font-mono text-[#cbd5e1]">
-              Front: 0° Elevation
-            </div>
-            <div className="p-2 rounded-lg bg-[#1a1d25] border border-[#282c37] text-center font-mono text-[#cbd5e1]">
-              Right: 90° Azimuth
-            </div>
-            <div className="p-2 rounded-lg bg-[#1a1d25] border border-[#282c37] text-center font-mono text-[#cbd5e1]">
-              Back: 180° Azimuth
-            </div>
-            <div className="p-2 rounded-lg bg-[#1a1d25] border border-[#282c37] text-center font-mono text-[#cbd5e1]">
-              Left: 270° Azimuth
-            </div>
-          </div>
-        </div>
-
-        <button
-          onClick={() => setActiveTool('model')}
-          className="w-full py-3 rounded-xl bg-[#f5c518] hover:bg-[#eab308] text-[#111216] font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#f5c518]/25 transition-all"
-        >
-          <span>Proceed to 3D Generation</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
-      </div>
-    );
-  }
+  const {
+    isExecuting,
+    currentAsset,
+    setActiveTool,
+    runRemeshGeneration,
+    runTextureGeneration,
+    systemStats,
+  } = useWorkspace();
 
   if (tool === 'retopo') {
     return (
@@ -101,9 +61,16 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
           </div>
         </div>
 
+        {systemStats.status !== 'online' && (
+          <div className="p-2.5 rounded-xl bg-[#1a1214] border border-[#ef4444]/30 text-[10px] text-[#fca5a5]">
+            Backend offline — retopology requires a running FastAPI server.
+          </div>
+        )}
+
         <button
-          disabled={isExecuting}
-          className="w-full py-3 rounded-xl bg-[#f5c518] hover:bg-[#eab308] text-[#111216] font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#f5c518]/25 transition-all"
+          onClick={() => void runRemeshGeneration()}
+          disabled={isExecuting || systemStats.status !== 'online'}
+          className="w-full py-3 rounded-xl bg-[#f5c518] hover:bg-[#eab308] text-[#111216] font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#f5c518]/25 transition-all disabled:opacity-50"
         >
           <Hexagon className="w-4 h-4" />
           <span>Execute Quad Retopo</span>
@@ -154,8 +121,9 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
           </div>
         </div>
         <button
-          disabled={isExecuting}
-          className="w-full py-3 rounded-xl bg-[#f5c518] hover:bg-[#eab308] text-[#111216] font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#f5c518]/25 transition-all"
+          onClick={() => void runRemeshGeneration()}
+          disabled={isExecuting || systemStats.status !== 'online'}
+          className="w-full py-3 rounded-xl bg-[#f5c518] hover:bg-[#eab308] text-[#111216] font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#f5c518]/25 transition-all disabled:opacity-50"
         >
           <Maximize className="w-4 h-4" />
           <span>Execute 3D Upscale</span>
@@ -175,8 +143,9 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
         </div>
         <p className="text-[#9ca3af]">Bake physically based rendering channels (Albedo, Normal, Roughness, Metallic, Height, AO) using 3D Generation Pipeline nodes.</p>
         <button
-          disabled={isExecuting}
-          className="w-full py-3 rounded-xl bg-[#f5c518] hover:bg-[#eab308] text-[#111216] font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#f5c518]/25 transition-all"
+          onClick={() => void runTextureGeneration()}
+          disabled={isExecuting || systemStats.status !== 'online'}
+          className="w-full py-3 rounded-xl bg-[#f5c518] hover:bg-[#eab308] text-[#111216] font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#f5c518]/25 transition-all disabled:opacity-50"
         >
           <Palette className="w-4 h-4" />
           <span>Bake PBR Texture Set</span>

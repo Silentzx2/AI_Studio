@@ -1,6 +1,5 @@
 export type ToolType = 
   | 'model' 
-  | 'image'
   | 'segment'
   | 'retopo' 
   | 'remesh' 
@@ -9,8 +8,7 @@ export type ToolType =
   | 'upscale' 
   | 'pbr' 
   | 'animate' 
-  | 'rigging'
-  | 'nodes';
+  | 'rigging';
 
 export interface ActiveTask {
   id: string;
@@ -28,7 +26,7 @@ export interface ActiveTask {
   estimatedRemainingSec?: number;
 }
 
-export type MainNavRoute = 'workspace' | 'dashboard' | 'assets' | 'nodes' | 'system';
+export type MainNavRoute = 'workspace' | 'dashboard' | 'assets' | 'system' | 'settings';
 
 export type ShadingMode = 
   | 'textured' 
@@ -59,7 +57,7 @@ export interface ModelAsset {
   triangles: number;
   statsAvailable?: boolean;
   topology: 'Triangle' | 'Quad' | 'Adaptive';
-  format: 'GLB' | 'OBJ' | 'PLY' | 'IMAGE' | 'FILE';
+  format: 'GLB' | 'OBJ' | 'PLY' | 'FBX' | 'STL' | 'IMAGE' | 'FILE';
   dateCreated: string;
   tags: string[];
   isFavorite?: boolean;
@@ -122,56 +120,6 @@ export interface SystemStats {
   lastPingMs: number;
 }
 
-export interface NodeDef {
-  id: string;
-  name: string;
-  displayName?: string;
-  category: string;
-  description: string;
-  inputs: {
-    name: string;
-    type: string;
-    required?: boolean;
-    default?: unknown;
-    options?: string[];
-    min?: number;
-    max?: number;
-    step?: number;
-    multiline?: boolean;
-    forceInput?: boolean;
-    raw?: unknown;
-  }[];
-  outputs: { name: string; type: string }[];
-  parameters?: { name: string; type: string; default?: unknown; options?: string[]; min?: number; max?: number; step?: number }[];
-  outputNode?: boolean;
-}
-
-export interface GraphNodeInstance {
-  id: string;
-  type: string;
-  title: string;
-  category: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  inputs: Record<string, unknown>;
-  inputSpecs?: NodeDef['inputs'];
-  outputs: Record<string, unknown>;
-  status?: 'idle' | 'executing' | 'completed' | 'error';
-  error?: string;
-  progress?: number;
-}
-
-export interface GraphConnection {
-  id: string;
-  fromNodeId: string;
-  fromOutput: string;
-  toNodeId: string;
-  toInput: string;
-}
-
-
 export interface SegmentationSettings {
   mode: 'auto' | 'manual';
   target: 'full' | 'character' | 'part';
@@ -214,7 +162,7 @@ export interface GenerationSettings {
   mode: 'image-to-3d' | 'text-to-3d';
   image: string | null;
   prompt: string;
-  aiModel: 'hd' | 'fast' | 'triposr' | 'instantmesh' | 'large3d';
+  aiModel: string;
   meshQuality: 'low' | 'medium' | 'high' | 'ultra';
   textureQuality: 'low' | 'medium' | 'high' | '8k';
   quadTopology: boolean;

@@ -4,7 +4,6 @@ import {
   Sparkles, 
   Layers, 
   Sliders, 
-  GitBranch, 
   Activity, 
   Plus, 
   Server, 
@@ -62,14 +61,6 @@ export const StudioDashboard: React.FC = () => {
           >
             <Sparkles className="w-4 h-4 fill-current" />
             <span>New 3D Generation</span>
-          </button>
-
-          <button
-            onClick={() => handleLaunchTool('nodes')}
-            className="px-4 py-2.5 rounded-xl bg-[#1e222c] hover:bg-[#282d3b] text-[#cbd5e1] font-semibold text-xs border border-[#303646] flex items-center gap-2 transition-colors"
-          >
-            <GitBranch className="w-4 h-4 text-[#f5c518]" />
-            <span>FastAPI Nodes</span>
           </button>
         </div>
       </div>
@@ -218,12 +209,18 @@ export const StudioDashboard: React.FC = () => {
               className="p-3 rounded-2xl bg-[#14161c] border border-[#242834] hover:border-[#f5c518] hover:bg-[#181a22] transition-all cursor-pointer group flex flex-col"
             >
               <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-[#0a0b0e] border border-[#222633] mb-2.5">
-                <img 
-                  src={asset.thumbnail} 
-                  alt={asset.name} 
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                  crossOrigin="anonymous"
-                />
+                {asset.thumbnail ? (
+                  <img 
+                    src={asset.thumbnail} 
+                    alt={asset.name} 
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                    crossOrigin="anonymous"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Box className="w-8 h-8 text-[#414754]" />
+                  </div>
+                )}
                 <span className="absolute bottom-1.5 right-1.5 text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/80 text-[#f5c518] font-bold">
                   {asset.format}
                 </span>

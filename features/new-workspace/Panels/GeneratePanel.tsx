@@ -15,67 +15,30 @@ import {
   RefreshCw,
   FileText,
   Dices,
-  Trash2,
+  Trash2, 
   Lock,
   Unlock,
   AlertCircle,
   Info,
   X,
-  ArrowRight
+  ArrowRight,
+  Loader2
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
+import { useRuntimeOptions } from '@/hooks/useBackendData';
 
-interface ModelArchitecture {
-  id: 'hd' | 'triposr' | 'instantmesh' | 'large3d';
-  name: string;
-  sub: string;
-  badge: string;
-  supportsTextTo3D: boolean;
-  supportsImageTo3D: boolean;
-  description: string;
-  lockReason?: string;
+interface ProviderOption {
+  id: string;
+  label: string;
+  available?: boolean;
+  installed?: boolean;
+  status?: string;
+  vram_required_mb?: number;
+  supports_text_to_3d?: boolean;
+  supports_image_to_3d?: boolean;
+  workspace_compatibility?: string[];
+  low_vram_supported?: boolean;
 }
-
-const AI_MODELS: ModelArchitecture[] = [
-  { 
-    id: 'hd', 
-    name: 'Hunyuan3D 2.0', 
-    sub: 'High-Fidelity SOTA', 
-    badge: 'Ultra', 
-    supportsTextTo3D: true, 
-    supportsImageTo3D: true,
-    description: 'DiT Multi-View diffusion supporting both text prompts and reference images'
-  },
-  { 
-    id: 'triposr', 
-    name: 'TripoSR Fast', 
-    sub: 'Instant ~1.5s', 
-    badge: 'Fast', 
-    supportsTextTo3D: false, 
-    supportsImageTo3D: true,
-    description: 'Feed-forward single-image reconstruction engine',
-    lockReason: 'Requires reference image (Image-to-3D only)'
-  },
-  { 
-    id: 'instantmesh', 
-    name: 'InstantMesh', 
-    sub: 'Multi-View LRM', 
-    badge: 'Mesh', 
-    supportsTextTo3D: false, 
-    supportsImageTo3D: true,
-    description: 'Large Reconstruction Model for high-density neural mesh extraction',
-    lockReason: 'Requires reference image (Image-to-3D only)'
-  },
-  { 
-    id: 'large3d', 
-    name: 'Large-3D', 
-    sub: 'High Polycount', 
-    badge: 'Pro', 
-    supportsTextTo3D: true, 
-    supportsImageTo3D: true,
-    description: 'Dense multi-view transformer for complex text prompts and multi-angle images'
-  }
-];
 
 export const GeneratePanel: React.FC = () => {
   const { 
@@ -88,9 +51,14 @@ export const GeneratePanel: React.FC = () => {
     setGenerationSettings
   } = useWorkspace();
 
+  const { options: runtimeOptions, loading: optionsLoading } = useRuntimeOptions();
+  const providersList: ProviderOption[] = runtimeOptions?.three_d_models || [];
+
   const [generalSettingsOpen, setGeneralSettingsOpen] = useState(true);
   const [subAction, setSubAction] = useState<'upload' | 'crop' | 'wand' | 'edit'>('upload');
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   
   // Toggles & Settings
   const [ultraMeshQuality, setUltraMeshQuality] = useState(true);
@@ -108,43 +76,95 @@ export const GeneratePanel: React.FC = () => {
   ];
 
   const currentMode = generationSettings.mode || 'text-to-3d';
-  const activeModelId = generationSettings.aiModel || 'hd';
-  const activeModelObj = AI_MODELS.find(m => m.id === activeModelId) || AI_MODELS[0];
+  const activeModelId = generationSettings.aiModel || '';
+  const activeModelObj = providersList.find(m => m.id === activeModelId) || providersList[0];
   
-  // Check if current selected model does NOT support Text-to-3D
-  const isCurrentModelTextTo3DLocked = !activeModelObj.supportsTextTo3D;
+  const isCurrentModelTextTo3DLocked = activeModelObj ? !activeModelObj.supports_text_to_3d : false;
 
-  // If user is on text-to-3d mode but active model does not support it, auto-resolve to Hunyuan3D 2.0
   useEffect(() => {
     if (currentMode === 'text-to-3d' && isCurrentModelTextTo3DLocked) {
-      setGenerationSettings(prev => ({ ...prev, aiModel: 'hd' }));
-      setNoticeMessage(`${activeModelObj.name} does not support Text-to-3D. Switched to Hunyuan3D 2.0.`);
+      const firstTextCapable = providersList.find(m => m.supports_text_to_3d);
+      if (firstTextCapable) {
+        setGenerationSettings(prev => ({ ...prev, aiModel: firstTextCapable.id }));
+        setNoticeMessage(`${activeModelObj?.label || 'Model'} does not support Text-to-3D. Switched to ${firstTextCapable.label}.`);
+      }
     }
-  }, [currentMode, isCurrentModelTextTo3DLocked, activeModelObj.name, setGenerationSettings]);
+  }, [currentMode, isCurrentModelTextTo3DLocked, activeModelObj?.label, setGenerationSettings, providersList]);
+
+  useEffect(() => {
+    if (!activeModelId && providersList.length > 0) {
+      const firstAvailable = providersList.find(m => m.installed) || providersList[0];
+      setGenerationSettings(prev => ({ ...prev, aiModel: firstAvailable.id }));
+    }
+  }, [providersList, activeModelId, setGenerationSettings]);
+
+  const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20MB
+  const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+  const processImageFile = (file: File) => {
+    setUploadError(null);
+
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      setUploadError('Invalid file type. Use JPG, PNG, or WEBP.');
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      setUploadError('File too large. Maximum size is 20MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setGenerationSettings(prev => ({
+        ...prev,
+        image: reader.result as string
+      }));
+    };
+    reader.onerror = () => {
+      setUploadError('Failed to read file.');
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setGenerationSettings(prev => ({
-          ...prev,
-          image: reader.result as string
-        }));
-      };
-      reader.readAsDataURL(file);
-    }
+    if (file) processImageFile(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) processImageFile(file);
   };
 
   const handleTextTo3DTabClick = () => {
     if (isCurrentModelTextTo3DLocked) {
-      // Auto-unlock by switching architecture to Hunyuan3D 2.0
-      setGenerationSettings(prev => ({ 
-        ...prev, 
-        mode: 'text-to-3d', 
-        aiModel: 'hd' 
-      }));
-      setNoticeMessage('Switched architecture to Hunyuan3D 2.0 to unlock Text-to-3D prompt mode.');
+      const firstTextCapable = providersList.find(m => m.supports_text_to_3d);
+      if (firstTextCapable) {
+        setGenerationSettings(prev => ({ 
+          ...prev, 
+          mode: 'text-to-3d', 
+          aiModel: firstTextCapable.id 
+        }));
+        setNoticeMessage(`Switched to ${firstTextCapable.label} to unlock Text-to-3D prompt mode.`);
+      }
     } else {
       setGenerationSettings(prev => ({ ...prev, mode: 'text-to-3d' }));
     }
@@ -154,15 +174,14 @@ export const GeneratePanel: React.FC = () => {
     setGenerationSettings(prev => ({ ...prev, mode: 'image-to-3d' }));
   };
 
-  const handleModelSelect = (model: ModelArchitecture) => {
-    if (currentMode === 'text-to-3d' && !model.supportsTextTo3D) {
-      // Model doesn't support text-to-3d: offer switch to image-to-3d or alert
+  const handleModelSelect = (model: ProviderOption) => {
+    if (currentMode === 'text-to-3d' && !model.supports_text_to_3d) {
       setGenerationSettings(prev => ({
         ...prev,
         aiModel: model.id,
         mode: 'image-to-3d'
       }));
-      setNoticeMessage(`${model.name} is an Image-to-3D model. Switched to Image to 3D mode.`);
+      setNoticeMessage(`${model.label} is an Image-to-3D model. Switched to Image to 3D mode.`);
       return;
     }
 
@@ -172,7 +191,7 @@ export const GeneratePanel: React.FC = () => {
   const handleGenerate = () => {
     if (currentMode === 'text-to-3d') {
       if (isCurrentModelTextTo3DLocked) {
-        setNoticeMessage(`${activeModelObj.name} does not support Text-to-3D. Please switch model or use Image-to-3D.`);
+        setNoticeMessage(`${activeModelObj?.label || 'Model'} does not support Text-to-3D. Please switch model or use Image-to-3D.`);
         return;
       }
       generateTextTo3D(generationSettings.prompt);
@@ -223,7 +242,7 @@ export const GeneratePanel: React.FC = () => {
               onClick={handleTextTo3DTabClick}
               title={
                 isCurrentModelTextTo3DLocked
-                  ? `${activeModelObj.name} does not support Text-to-3D. Click to switch to Hunyuan3D 2.0 & unlock.`
+                  ? `${activeModelObj?.label || 'Model'} does not support Text-to-3D. Click to switch models & unlock.`
                   : 'Generate 3D from Text Prompt'
               }
               className={`flex-1 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all relative ${
@@ -268,7 +287,7 @@ export const GeneratePanel: React.FC = () => {
           {isCurrentModelTextTo3DLocked && (
             <div className="px-1 flex items-center gap-1 text-[10px] text-[#ef4444]">
               <Lock className="w-2.5 h-2.5 flex-shrink-0" />
-              <span>{activeModelObj.name} is Image-to-3D only. Click 'Text to 3D' to switch to Hunyuan3D.</span>
+              <span>{activeModelObj?.label || 'Model'} is Image-to-3D only. Click 'Text to 3D' to switch models.</span>
             </div>
           )}
         </div>
@@ -388,14 +407,21 @@ export const GeneratePanel: React.FC = () => {
             <input 
               ref={fileInputRef}
               type="file" 
-              accept="image/*" 
+              accept="image/jpeg,image/png,image/webp" 
               className="hidden" 
               onChange={handleFileUpload} 
             />
             
             <div 
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className="relative w-full aspect-video rounded-2xl border-2 border-dashed border-[#2f3442] hover:border-[#f5c518]/60 cursor-pointer overflow-hidden group transition-all flex flex-col items-center justify-center p-3"
+              className={`relative w-full aspect-video rounded-2xl border-2 border-dashed cursor-pointer overflow-hidden group transition-all flex flex-col items-center justify-center p-3 ${
+                isDragOver
+                  ? 'border-[#f5c518] bg-[#f5c518]/10'
+                  : 'border-[#2f3442] hover:border-[#f5c518]/60'
+              }`}
               style={{
                 backgroundImage: `
                   linear-gradient(45deg, #151821 25%, transparent 25%), 
@@ -421,14 +447,25 @@ export const GeneratePanel: React.FC = () => {
                 </div>
               ) : (
                 <div className="text-center space-y-1.5">
-                  <div className="w-9 h-9 mx-auto rounded-full bg-[#1b1e27] border border-[#2b303d] flex items-center justify-center text-[#8e95a5] group-hover:text-[#f5c518] transition-colors">
+                  <div className={`w-9 h-9 mx-auto rounded-full bg-[#1b1e27] border border-[#2b303d] flex items-center justify-center transition-colors ${
+                    isDragOver ? 'text-[#f5c518] border-[#f5c518]' : 'text-[#8e95a5] group-hover:text-[#f5c518]'
+                  }`}>
                     <Upload className="w-4 h-4" />
                   </div>
-                  <div className="font-semibold text-xs text-[#cbd5e1]">Upload JPG, PNG, WEBP</div>
+                  <div className="font-semibold text-xs text-[#cbd5e1]">
+                    {isDragOver ? 'Drop image here' : 'Upload JPG, PNG, WEBP'}
+                  </div>
                   <div className="text-[10px] text-[#6b7280]">Drag reference image or click to browse</div>
                 </div>
               )}
             </div>
+
+            {uploadError && (
+              <div className="flex items-center gap-1 text-[10px] text-[#ef4444]">
+                <AlertCircle className="w-3 h-3" />
+                <span>{uploadError}</span>
+              </div>
+            )}
 
             {/* Auto Remove Background Toggle */}
             <div className="p-2.5 rounded-xl bg-[#14161d] border border-[#242834] flex items-center justify-between">
@@ -463,62 +500,78 @@ export const GeneratePanel: React.FC = () => {
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-1.5">
-            {AI_MODELS.map(m => {
-              const isSelected = activeModelId === m.id;
-              const isLockedInCurrentMode = currentMode === 'text-to-3d' && !m.supportsTextTo3D;
+          {optionsLoading ? (
+            <div className="flex items-center justify-center p-4 text-[#8e95a5]">
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              <span className="text-[10px]">Loading models...</span>
+            </div>
+          ) : providersList.length === 0 ? (
+            <div className="p-3 rounded-xl bg-[#181a22] border border-[#262a36] text-[10px] text-[#8e95a5] text-center">
+              No models available. Install models via Settings.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-1.5">
+              {providersList.map(m => {
+                const isSelected = activeModelId === m.id;
+                const isLockedInCurrentMode = currentMode === 'text-to-3d' && !m.supports_text_to_3d;
+                const isInstalled = m.installed || m.status === 'ready';
+                const vramGb = m.vram_required_mb ? (m.vram_required_mb / 1024).toFixed(0) : '?';
 
-              return (
-                <button
-                  key={m.id}
-                  onClick={() => handleModelSelect(m)}
-                  title={
-                    isLockedInCurrentMode
-                      ? `${m.name} does not support Text-to-3D. Click to switch to Image-to-3D mode.`
-                      : m.description
-                  }
-                  className={`p-2 rounded-xl text-left border transition-all relative ${
-                    isLockedInCurrentMode
-                      ? 'bg-[#181316] border-[#3f2127] text-[#8e95a5] hover:border-[#ef4444]/60'
-                      : isSelected
-                      ? 'bg-[#1e2230] border-[#f5c518] shadow-sm ring-1 ring-[#f5c518]/30'
-                      : 'bg-[#14161d] border-[#252936] hover:border-[#3b4356] text-[#8e95a5]'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1 min-w-0">
-                      {isLockedInCurrentMode && (
-                        <Lock className="w-3 h-3 text-[#ef4444] flex-shrink-0" />
-                      )}
-                      <span className={`font-bold text-xs truncate ${
-                        isLockedInCurrentMode 
-                          ? 'text-[#fca5a5]' 
-                          : isSelected 
-                          ? 'text-[#f5c518]' 
-                          : 'text-[#e5e7eb]'
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => handleModelSelect(m)}
+                    title={
+                      isLockedInCurrentMode
+                        ? `${m.label} does not support Text-to-3D. Click to switch to Image-to-3D mode.`
+                        : `${m.label} — ${vramGb} GB VRAM`
+                    }
+                    className={`p-2 rounded-xl text-left border transition-all relative ${
+                      isLockedInCurrentMode
+                        ? 'bg-[#181316] border-[#3f2127] text-[#8e95a5] hover:border-[#ef4444]/60'
+                        : isSelected
+                        ? 'bg-[#1e2230] border-[#f5c518] shadow-sm ring-1 ring-[#f5c518]/30'
+                        : 'bg-[#14161d] border-[#252936] hover:border-[#3b4356] text-[#8e95a5]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1 min-w-0">
+                        {isLockedInCurrentMode && (
+                          <Lock className="w-3 h-3 text-[#ef4444] flex-shrink-0" />
+                        )}
+                        {!isInstalled && (
+                          <span className="w-2 h-2 rounded-full bg-[#f5c518] flex-shrink-0" title="Not installed" />
+                        )}
+                        <span className={`font-bold text-xs truncate ${
+                          isLockedInCurrentMode 
+                            ? 'text-[#fca5a5]' 
+                            : isSelected 
+                            ? 'text-[#f5c518]' 
+                            : 'text-[#e5e7eb]'
+                        }`}>
+                          {m.label}
+                        </span>
+                      </div>
+
+                      <span className={`text-[8px] font-mono px-1 rounded ${
+                        isLockedInCurrentMode
+                          ? 'bg-[#ef4444]/20 text-[#ef4444]'
+                          : isSelected
+                          ? 'bg-[#f5c518]/20 text-[#f5c518]'
+                          : 'bg-[#232733] text-[#f3f4f6]'
                       }`}>
-                        {m.name}
+                        {isLockedInCurrentMode ? 'Img-Only' : `${vramGb}GB`}
                       </span>
                     </div>
 
-                    <span className={`text-[8px] font-mono px-1 rounded ${
-                      isLockedInCurrentMode
-                        ? 'bg-[#ef4444]/20 text-[#ef4444]'
-                        : isSelected
-                        ? 'bg-[#f5c518]/20 text-[#f5c518]'
-                        : 'bg-[#232733] text-[#f3f4f6]'
-                    }`}>
-                      {isLockedInCurrentMode ? 'Img-Only' : m.badge}
+                    <span className="text-[10px] text-[#6b7280] block mt-0.5 truncate">
+                      {isLockedInCurrentMode ? 'Requires Image Input' : (m.low_vram_supported ? 'Low-VRAM supported' : `Image Reconstruction`)}
                     </span>
-                  </div>
-
-                  <span className="text-[10px] text-[#6b7280] block mt-0.5 truncate">
-                    {isLockedInCurrentMode ? 'Requires Image Input' : m.sub}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Accordion 1: General Settings */}

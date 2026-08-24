@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layers3, Sparkles, MousePointer2, Wand2 } from 'lucide-react';
+import { Layers3, Sparkles, MousePointer2, Wand2, AlertCircle } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 
 export const SegmentationPanel: React.FC = () => {
@@ -8,7 +8,8 @@ export const SegmentationPanel: React.FC = () => {
     setSegmentationSettings,
     runSegmentationGeneration,
     isExecuting,
-    currentAsset
+    currentAsset,
+    systemStats
   } = useWorkspace();
 
   const parts = ['Whole Character', 'Head', 'Torso', 'Left Arm', 'Right Arm', 'Legs', 'Accessory'];
@@ -36,6 +37,13 @@ export const SegmentationPanel: React.FC = () => {
           </button>
         ))}
       </div>
+
+      {systemStats.status !== 'online' && (
+        <div className="p-2.5 rounded-xl bg-[#1a1214] border border-[#ef4444]/30 text-[10px] text-[#fca5a5] flex items-center gap-2">
+          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>Backend offline — segmentation requires a running FastAPI server.</span>
+        </div>
+      )}
 
       <div className="space-y-2">
         <span className="font-medium text-[#cbd5e1]">Target</span>
@@ -110,11 +118,13 @@ export const SegmentationPanel: React.FC = () => {
       </div>
 
       <div className="mt-auto space-y-2 pt-2">
-        <div className="text-[10px] text-[#6b7280] leading-relaxed">
-          This panel is connected to the real generation workflow layer once a segmentation workflow is configured; it never simulates execution.
-        </div>
+        {systemStats.status !== 'online' && (
+          <div className="text-[10px] text-[#6b7280] leading-relaxed">
+            Connect to a running FastAPI backend to run segmentation workflows.
+          </div>
+        )}
         <button
-          disabled={isExecuting}
+          disabled={isExecuting || systemStats.status !== 'online'}
           onClick={() => void runSegmentationGeneration()}
           className="w-full py-3 rounded-xl bg-[#f5c518] hover:bg-[#eab308] disabled:opacity-50 text-[#111216] font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#f5c518]/20"
         >

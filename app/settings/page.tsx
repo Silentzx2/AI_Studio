@@ -34,6 +34,7 @@ import {
   Pin,
   PinOff,
   AlertTriangle,
+  Server,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -76,6 +77,8 @@ import {
   NetworkSection,
   AdvancedSection,
 } from '@/features/settings/sections';
+
+import { apiClient } from '@/services/apiClient';
 
 interface SettingsSection {
   id: string;
@@ -283,6 +286,15 @@ function SettingsContent() {
   const [error, setError] = useState<Error | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [pinnedSections, setPinnedSections] = useState<string[]>([]);
+  const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+
+  useEffect(() => {
+    let cancelled = false;
+    apiClient.get('/api/v1/system/info')
+      .then(() => { if (!cancelled) setBackendStatus('online'); })
+      .catch(() => { if (!cancelled) setBackendStatus('offline'); });
+    return () => { cancelled = true; };
+  }, []);
 
 const highlightText = (text: string, query: string) => {
   if (!query) return <span>{text}</span>;
@@ -690,6 +702,31 @@ useEffect(() => {
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto flex flex-col">
+        {/* Backend Status Banner */}
+        {backendStatus === 'offline' && (
+          <div className="px-6 py-3 bg-destructive/10 border-b border-destructive/20 flex items-center gap-3">
+            <Server className="w-5 h-5 text-destructive flex-shrink-0" />
+            <div className="flex-1">
+              <span className="text-sm font-medium text-destructive">Backend unavailable</span>
+              <span className="text-sm text-muted-foreground ml-2">— Connection to FastAPI backend failed. Some sections may show limited data.</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setBackendStatus('checking');
+                apiClient.get('/api/v1/system/info')
+                  .then(() => setBackendStatus('online'))
+                  .catch(() => setBackendStatus('offline'));
+              }}
+              className="gap-2"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Retry
+            </Button>
+          </div>
+        )}
+
         {/* Content header */}
         <div className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-20">
           <div className="p-6 flex items-center justify-between">

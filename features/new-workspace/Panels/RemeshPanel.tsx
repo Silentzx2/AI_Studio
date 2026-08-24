@@ -6,7 +6,8 @@ import {
   ChevronRight, 
   Check, 
   Sparkles,
-  ArrowLeft
+  ArrowLeft,
+  AlertCircle
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 
@@ -16,7 +17,9 @@ export const RemeshPanel: React.FC = () => {
     setRemeshSettings, 
     runRemeshGeneration, 
     isExecuting, 
-    setActiveTool 
+    setActiveTool,
+    currentAsset,
+    systemStats
   } = useWorkspace();
 
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -265,10 +268,16 @@ export const RemeshPanel: React.FC = () => {
 
       {/* Primary Action Button (Screenshot 1) */}
       <div className="pt-2 space-y-1.5">
+        {systemStats.status !== 'online' && (
+          <div className="p-2.5 rounded-xl bg-[#1a1214] border border-[#ef4444]/30 text-[10px] text-[#fca5a5] flex items-center gap-2">
+            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>Backend offline — remeshing requires a running FastAPI server.</span>
+          </div>
+        )}
         <button
           id="btn-action-generate-remesh"
           onClick={runRemeshGeneration}
-          disabled={isExecuting}
+          disabled={isExecuting || systemStats.status !== 'online'}
           className="w-full py-3 rounded-xl bg-[#f5c518] hover:bg-[#eab308] text-[#111216] font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#f5c518]/25 transition-all active:scale-[0.98] disabled:opacity-50"
         >
           <Sliders className="w-4 h-4" />

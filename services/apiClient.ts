@@ -136,14 +136,15 @@ async function requestWithCircuitBreaker<T>(
 }
 
 export const apiClient = {
-  get: <T>(path: string, useCache: boolean = true) => {
+  get: <T>(path: string, useCache: boolean = true, retry: boolean = true) => {
     const cache = getCacheService();
     const cacheKey = `GET:${path}`;
     if (useCache && cache) {
       const cached = cache.get<T>(cacheKey);
       if (cached !== null) return Promise.resolve(cached);
     }
-    return requestWithRetry<T>(path).then((data) => {
+    const makeRequest = retry ? requestWithRetry : request;
+    return makeRequest<T>(path).then((data) => {
       if (useCache && cache) cache.set(cacheKey, data);
       return data;
     });

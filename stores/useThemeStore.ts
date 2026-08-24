@@ -10,6 +10,22 @@ export interface ThemeConfig {
   accentColorSecondary: string;
   surfaceOpacity: number;
 
+  // Workspace Colors
+  workspaceBackground: string;
+  workspacePanel: string;
+  workspaceViewport: string;
+  workspaceText: string;
+  workspaceTextMuted: string;
+  workspaceBorder: string;
+  workspaceActiveBg: string;
+  workspaceHoverBg: string;
+  workspaceTabActiveBg: string;
+  workspaceTabBarBg: string;
+  workspaceNavBg: string;
+  workspaceDropdownBg: string;
+  workspaceHudBg: string;
+  workspaceHudBorder: string;
+
   // Border Radius
   borderRadius: string;
   borderRadiusSm: string;
@@ -87,6 +103,22 @@ export const DEFAULT_THEME_CONFIG: ThemeConfig = {
   accentColor: '#F5A623',
   accentColorSecondary: '#FF5A1F',
   surfaceOpacity: 0.06,
+
+  // Workspace Colors (default dark theme)
+  workspaceBackground: '#0d0e12',
+  workspacePanel: '#101115',
+  workspaceViewport: '#0a0b0e',
+  workspaceText: '#f3f4f6',
+  workspaceTextMuted: '#8e95a5',
+  workspaceBorder: '#21242c',
+  workspaceActiveBg: '#1e2230',
+  workspaceHoverBg: '#181a20',
+  workspaceTabActiveBg: '#1c1f28',
+  workspaceTabBarBg: '#0f1014',
+  workspaceNavBg: '#0f1015',
+  workspaceDropdownBg: '#181a22',
+  workspaceHudBg: '#12141a',
+  workspaceHudBorder: '#232733',
 
   // Border Radius
   borderRadius: '0.75rem',

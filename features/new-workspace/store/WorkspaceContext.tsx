@@ -16,7 +16,6 @@ import {
   SegmentationSettings,
   ActiveTask,
 } from '../types';
-import { DEFAULT_HUMANOID_SKELETON } from '../lib/geometry';
 import { apiClient } from '../lib/api';
 import { useAppStore } from '@/stores/useAppStore';
 import { useViewerStore } from '@/stores/useViewerStore';
@@ -116,13 +115,13 @@ interface WorkspaceContextType {
   queueWorkflow: (workflow: Record<string, unknown>, type: ActiveTask['type'], title: string) => Promise<void>;
   navigateToTool: (tool: ToolType) => void;
   navigateToMain: (nav: MainNavRoute) => void;
+  navigateToMainNav: (nav: MainNavRoute) => void;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
 
 const TOOL_TO_ROUTE: Record<ToolType, string> = {
   model: '/workspace/generate',
-  image: '/workspace/pre-process',
   segment: '/workspace/segment',
   retopo: '/workspace/retopo',
   remesh: '/workspace/remesh',
@@ -132,7 +131,6 @@ const TOOL_TO_ROUTE: Record<ToolType, string> = {
   pbr: '/workspace/pbr',
   animate: '/workspace/animate',
   rigging: '/workspace/rigging',
-  nodes: '/workspace/nodes',
 };
 
 export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -180,8 +178,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [generationSettings, setGenerationSettings] = useState<GenerationSettings>({
     mode: 'text-to-3d',
     image: null,
-    prompt: appStore.prompt || 'A stylized medieval fantasy goblin warrior',
-    aiModel: 'hd', meshQuality: 'high', textureQuality: 'high',
+    prompt: appStore.prompt || '',
+    aiModel: '', meshQuality: 'high', textureQuality: 'high',
     quadTopology: false, seed: 42891, guidanceScale: 7.5, removeBackground: true,
   });
 
@@ -194,12 +192,12 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [textureSettings, setTextureSettings] = useState<TextureSettings>({
     workflow: 'texture', mode: 'ai', style: 'realistic', resolution: '4K',
     referenceImage: null,
-    prompt: 'Weathered mechanical steampunk plating with rusted edges',
+    prompt: '',
     maps: { albedo: true, normal: true, roughness: true, metallic: true, ao: true, height: false },
   });
 
   const [animateSettings, setAnimateSettings] = useState<AnimateSettings>({
-    mode: 'animation', type: 'presets', prompt: 'Combat ready aggressive idle',
+    mode: 'animation', type: 'presets', prompt: '',
     preset: 'idle', intensity: 1.0, speed: 1.0, loop: true,
   });
 
@@ -215,19 +213,12 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [currentFrame, setCurrentFrame] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const totalFrames = 120;
-  const fps = 30;
+  const [totalFrames, setTotalFrames] = useState(0);
+  const [fps, setFps] = useState(30);
+  const [tracks, setTracks] = useState<AnimationTrack[]>([]);
 
-  const tracks: AnimationTrack[] = useMemo(() => [
-    { id: 't_root', name: 'Root Motion', type: 'root', color: '#f5c518', keyframes: [{ frame: 0, value: 0 }, { frame: 30, value: 0.2 }, { frame: 60, value: 0 }, { frame: 90, value: -0.1 }, { frame: 120, value: 0 }] },
-    { id: 't_hips', name: 'Hips / Pelvis', type: 'bone', color: '#60a5fa', keyframes: [{ frame: 0, value: 0 }, { frame: 30, value: 0.15 }, { frame: 60, value: 0 }, { frame: 90, value: 0.15 }, { frame: 120, value: 0 }] },
-    { id: 't_spine', name: 'Spine & Chest', type: 'bone', color: '#34d399', keyframes: [{ frame: 0, value: 0 }, { frame: 45, value: 0.3 }, { frame: 75, value: -0.1 }, { frame: 120, value: 0 }] },
-    { id: 't_arms', name: 'Upper Limbs (Arms)', type: 'bone', color: '#f472b6', keyframes: [{ frame: 0, value: 0 }, { frame: 30, value: 0.5 }, { frame: 60, value: 0 }, { frame: 90, value: -0.5 }, { frame: 120, value: 0 }] },
-    { id: 't_legs', name: 'Lower Limbs (Legs)', type: 'bone', color: '#a78bfa', keyframes: [{ frame: 0, value: 0 }, { frame: 30, value: -0.4 }, { frame: 60, value: 0 }, { frame: 90, value: 0.4 }, { frame: 120, value: 0 }] },
-  ], []);
-
-  const [bones, setBones] = useState<BoneNode[]>(DEFAULT_HUMANOID_SKELETON);
-  const [selectedBoneId, setSelectedBoneId] = useState<string | null>('spine');
+  const [bones, setBones] = useState<BoneNode[]>([]);
+  const [selectedBoneId, setSelectedBoneId] = useState<string | null>(null);
 
   const currentAsset = useMemo(
     () => selectedAssetId ? (assets.find(a => a.id === selectedAssetId) ?? null) : null,
@@ -296,9 +287,13 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     void refreshSystemStats();
     void refreshHistory();
-    const interval = setInterval(() => { void refreshSystemStats(); void refreshHistory(); }, 5000);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      void refreshSystemStats();
+      void refreshHistory();
+    }, systemStats.status === 'offline' ? 60000 : 30000);
     return () => clearInterval(interval);
-  }, [refreshSystemStats, refreshHistory]);
+  }, [refreshSystemStats, refreshHistory, systemStats.status]);
 
   useEffect(() => {
     const onProgress = (data: unknown) => {
@@ -405,7 +400,17 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const res = await fetch('/api/v1/generation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: promptToUse, mode: 'text-to-3d', model: generationSettings.aiModel }),
+        body: JSON.stringify({
+          mode: 'text-to-3d',
+          prompt: promptToUse,
+          provider: generationSettings.aiModel,
+          quality: generationSettings.meshQuality,
+          guidance_scale: generationSettings.guidanceScale,
+          seed: generationSettings.seed,
+          generate_texture: true,
+          auto_rig: false,
+          workspace: 'mesh-generation',
+        }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json() as { job_id?: string; id?: string };
@@ -415,13 +420,32 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setExecutionStep(e instanceof Error ? e.message : 'Failed to submit generation');
       setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: 'Submission failed' } : prev);
     }
-  }, [generationSettings.prompt, generationSettings.aiModel, startTask]);
+  }, [generationSettings.prompt, generationSettings.aiModel, generationSettings.meshQuality, generationSettings.guidanceScale, generationSettings.seed, startTask]);
 
   const generateImageTo3D = useCallback(async (customImage?: string) => {
-    if (!customImage && !generationSettings.image) { setExecutionStep('Upload an image first'); return; }
+    const imageToUse = customImage ?? generationSettings.image;
+    if (!imageToUse) { setExecutionStep('Upload an image first'); return; }
     startTask('image-to-3d', 'Image-to-3D generation');
-    setExecutionStep('Image-to-3D generation submitted');
-  }, [generationSettings.image, startTask]);
+    try {
+      const res = await fetch('/api/v1/generation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'image-to-3d',
+          provider: generationSettings.aiModel,
+          reference_image_url: imageToUse,
+          quality: generationSettings.meshQuality,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as { job_id?: string; id?: string };
+      setActiveTask(prev => prev ? { ...prev, id: data.job_id ?? data.id ?? prev.id, status: 'running', currentStep: 'Processing' } : prev);
+      setExecutionStep('Image-to-3D generation submitted');
+    } catch (e) {
+      setExecutionStep(e instanceof Error ? e.message : 'Failed to submit generation');
+      setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: 'Submission failed' } : prev);
+    }
+  }, [generationSettings.image, generationSettings.aiModel, generationSettings.meshQuality, startTask]);
 
   const generate3DModel = useCallback(async () => {
     if (generationSettings.mode === 'text-to-3d') return generateTextTo3D();
@@ -434,15 +458,22 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const res = await fetch('/api/v1/generation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'remesh', target_faces: remeshSettings.targetFaces, preserve_uvs: remeshSettings.preserveUVs }),
+        body: JSON.stringify({
+          mode: 'remesh',
+          quality: 'standard',
+          preserve_uvs: remeshSettings.preserveUVs,
+          workspace: 'remesh',
+        }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as { job_id?: string; id?: string };
+      setActiveTask(prev => prev ? { ...prev, id: data.job_id ?? data.id ?? prev.id, status: 'running', currentStep: 'Processing' } : prev);
       setExecutionStep('Remesh submitted');
     } catch (e) {
       setExecutionStep(e instanceof Error ? e.message : 'Remesh failed');
-      setActiveTask(prev => prev ? { ...prev, status: 'failed' } : prev);
+      setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: 'Submission failed' } : prev);
     }
-  }, [remeshSettings.targetFaces, remeshSettings.preserveUVs, startTask]);
+  }, [remeshSettings.preserveUVs, startTask]);
 
   const runTextureGeneration = useCallback(async () => {
     startTask('texture', 'Texture generation');
@@ -450,15 +481,23 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const res = await fetch('/api/v1/generation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'texture-generation', style: textureSettings.style, resolution: textureSettings.resolution, prompt: textureSettings.prompt }),
+        body: JSON.stringify({
+          mode: 'texture-generation',
+          quality: 'standard',
+          style_preset: textureSettings.style,
+          prompt: textureSettings.prompt,
+          workspace: 'texture-generation',
+        }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as { job_id?: string; id?: string };
+      setActiveTask(prev => prev ? { ...prev, id: data.job_id ?? data.id ?? prev.id, status: 'running', currentStep: 'Processing' } : prev);
       setExecutionStep('Texture generation submitted');
     } catch (e) {
       setExecutionStep(e instanceof Error ? e.message : 'Texture failed');
-      setActiveTask(prev => prev ? { ...prev, status: 'failed' } : prev);
+      setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: 'Submission failed' } : prev);
     }
-  }, [textureSettings.style, textureSettings.resolution, textureSettings.prompt, startTask]);
+  }, [textureSettings.style, textureSettings.prompt, startTask]);
 
   const runAnimateGeneration = useCallback(async () => {
     startTask('animate', 'Animation generation');
@@ -466,13 +505,20 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const res = await fetch('/api/v1/generation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'animation', preset: animateSettings.preset, prompt: animateSettings.prompt }),
+        body: JSON.stringify({
+          mode: 'rigging',
+          quality: 'standard',
+          prompt: animateSettings.prompt || animateSettings.preset,
+          workspace: 'rigging',
+        }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as { job_id?: string; id?: string };
+      setActiveTask(prev => prev ? { ...prev, id: data.job_id ?? data.id ?? prev.id, status: 'running', currentStep: 'Processing' } : prev);
       setExecutionStep('Animation submitted');
     } catch (e) {
       setExecutionStep(e instanceof Error ? e.message : 'Animation failed');
-      setActiveTask(prev => prev ? { ...prev, status: 'failed' } : prev);
+      setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: 'Submission failed' } : prev);
     }
   }, [animateSettings.preset, animateSettings.prompt, startTask]);
 
@@ -482,24 +528,67 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const res = await fetch('/api/v1/generation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'rigging', rig_type: riggingSettings.rigType, auto_rig: riggingSettings.autoRig }),
+        body: JSON.stringify({
+          mode: 'rigging',
+          quality: 'standard',
+          auto_rig: riggingSettings.autoRig,
+          workspace: 'rigging',
+        }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as { job_id?: string; id?: string };
+      setActiveTask(prev => prev ? { ...prev, id: data.job_id ?? data.id ?? prev.id, status: 'running', currentStep: 'Processing' } : prev);
       setExecutionStep('Rigging submitted');
     } catch (e) {
       setExecutionStep(e instanceof Error ? e.message : 'Rigging failed');
-      setActiveTask(prev => prev ? { ...prev, status: 'failed' } : prev);
+      setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: 'Submission failed' } : prev);
     }
-  }, [riggingSettings.rigType, riggingSettings.autoRig, startTask]);
+  }, [riggingSettings.autoRig, startTask]);
 
   const runSegmentationGeneration = useCallback(async () => {
     startTask('segment', 'Segmentation');
-    setExecutionStep('Segmentation submitted (stub)');
-  }, [startTask]);
+    try {
+      const res = await fetch('/api/v1/generation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'render',
+          quality: 'standard',
+          workspace: 'post-processing',
+          prompt: `segment:${segmentationSettings.target}:${segmentationSettings.selectedPart}`,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as { job_id?: string; id?: string };
+      setActiveTask(prev => prev ? { ...prev, id: data.job_id ?? data.id ?? prev.id, status: 'running', currentStep: 'Processing' } : prev);
+      setExecutionStep('Segmentation submitted');
+    } catch (e) {
+      setExecutionStep(e instanceof Error ? e.message : 'Segmentation failed');
+      setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: 'Submission failed' } : prev);
+    }
+  }, [segmentationSettings.target, segmentationSettings.selectedPart, startTask]);
 
   const queueWorkflow = useCallback(async (workflow: Record<string, unknown>, type: ActiveTask['type'], title: string) => {
     startTask(type, title);
-    setExecutionStep('Workflow queued');
+    try {
+      const res = await fetch('/api/v1/generation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'text-to-3d',
+          quality: 'standard',
+          prompt: `workflow:${Object.keys(workflow).join(',')}`,
+          workspace: 'mesh-generation',
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as { job_id?: string; id?: string };
+      setActiveTask(prev => prev ? { ...prev, id: data.job_id ?? data.id ?? prev.id, status: 'running', currentStep: 'Processing' } : prev);
+      setExecutionStep('Workflow queued');
+    } catch (e) {
+      setExecutionStep(e instanceof Error ? e.message : 'Workflow failed');
+      setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: 'Submission failed' } : prev);
+    }
   }, [startTask]);
 
   const navigateToTool = useCallback((tool: ToolType) => {
@@ -514,6 +603,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (nav === 'dashboard') router.push('/dashboard');
     else if (nav === 'assets') router.push('/outputs');
     else if (nav === 'system') router.push('/system');
+    else if (nav === 'settings') router.push('/settings');
   }, [router]);
 
   const value = {
@@ -538,7 +628,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     currentFrame, setCurrentFrame, isPlaying, setIsPlaying, totalFrames, fps, tracks,
     generate3DModel, generateTextTo3D, generateImageTo3D, runModelGeneration: generate3DModel,
     runRemeshGeneration, runTextureGeneration, runAnimateGeneration, runRiggingGeneration, runSegmentationGeneration,
-    queueWorkflow, navigateToTool, navigateToMain,
+    queueWorkflow, navigateToTool, navigateToMain, navigateToMainNav: navigateToMain,
   };
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

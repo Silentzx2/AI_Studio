@@ -23,6 +23,12 @@ import { toast } from 'sonner';
 
 const LOG_ENDPOINT = '/api/v1/system/log';
 
+const POLLING_ENDPOINTS = ['/system/info', '/system/gpu', '/runtime/status', '/generation/history'];
+
+function isPollingEndpoint(url: string): boolean {
+  return POLLING_ENDPOINTS.some(ep => url.includes(ep));
+}
+
 export interface ActivityEntry {
   ts: string;
   type: 'api' | 'click' | 'error' | 'generation';
@@ -77,7 +83,7 @@ export function ActivityLogger() {
         const start = performance.now();
         try {
           const res = await originalFetch(input, init);
-          if (!url.includes(LOG_ENDPOINT)) {
+          if (!url.includes(LOG_ENDPOINT) && !isPollingEndpoint(url)) {
             const durationMs = Math.round(performance.now() - start);
             const entry: ActivityEntry = {
               ts: now(),

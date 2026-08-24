@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { 
   Sparkles, 
   Upload, 
@@ -7,7 +7,8 @@ import {
   ChevronRight, 
   Layers,
   Palette,
-  Check
+  Check,
+  AlertCircle
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 
@@ -16,10 +17,75 @@ export const TexturePanel: React.FC = () => {
     textureSettings, 
     setTextureSettings, 
     runTextureGeneration, 
-    isExecuting 
+    isExecuting,
+    systemStats
   } = useWorkspace();
 
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [referenceError, setReferenceError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+  const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+  const processImageFile = useCallback((file: File) => {
+    setReferenceError(null);
+
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      setReferenceError('Invalid file type. Use JPG, PNG, or WEBP.');
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      setReferenceError('File too large. Maximum size is 10MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setTextureSettings(prev => ({
+        ...prev,
+        referenceImage: reader.result as string
+      }));
+    };
+    reader.onerror = () => {
+      setReferenceError('Failed to read file.');
+    };
+    reader.readAsDataURL(file);
+  }, [setTextureSettings]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processImageFile(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) processImageFile(file);
+  };
+
+  const clearReference = () => {
+    setTextureSettings(prev => ({ ...prev, referenceImage: null }));
+    setReferenceError(null);
+  };
 
   // Style cards matching screenshot 2
   const styles = [
@@ -173,13 +239,59 @@ export const TexturePanel: React.FC = () => {
 
       {/* Reference Image (Optional) */}
       <div className="space-y-1.5">
-        <span className="font-medium text-[#cbd5e1]">Reference (Optional)</span>
-        <label className="flex flex-col items-center justify-center h-24 rounded-xl border border-dashed border-[#2f3442] hover:border-[#f5c518]/60 bg-[#14161b] hover:bg-[#181a22] cursor-pointer transition-colors p-3 text-center">
-          <Upload className="w-5 h-5 text-[#9ca3af] mb-1" />
-          <span className="text-[#e5e7eb] font-medium text-[11px]">Drag & drop an image here</span>
-          <span className="text-[10px] text-[#6b7280]">JPG, PNG up to 10MB</span>
-          <input type="file" accept="image/*" className="hidden" />
-        </label>
+        <div className="flex items-center justify-between">
+          <span className="font-medium text-[#cbd5e1]">Reference (Optional)</span>
+          {textureSettings.referenceImage && (
+            <button
+              onClick={clearReference}
+              className="text-[10px] text-[#6b7280] hover:text-[#ef4444] transition-colors"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={`flex flex-col items-center justify-center h-24 rounded-xl border border-dashed cursor-pointer transition-colors p-3 text-center ${
+            isDragOver
+              ? 'border-[#f5c518] bg-[#f5c518]/10'
+              : textureSettings.referenceImage
+              ? 'border-[#f5c518]/60 bg-[#181a22]'
+              : 'border-[#2f3442] hover:border-[#f5c518]/60 bg-[#14161b] hover:bg-[#181a22]'
+          }`}
+        >
+          {textureSettings.referenceImage ? (
+            <img
+              src={textureSettings.referenceImage}
+              alt="Reference"
+              className="w-full h-full object-contain rounded-lg"
+            />
+          ) : (
+            <>
+              <Upload className={`w-5 h-5 mb-1 ${isDragOver ? 'text-[#f5c518]' : 'text-[#9ca3af]'}`} />
+              <span className="text-[#e5e7eb] font-medium text-[11px]">
+                {isDragOver ? 'Drop image here' : 'Drag & drop an image here'}
+              </span>
+              <span className="text-[10px] text-[#6b7280]">JPG, PNG up to 10MB</span>
+            </>
+          )}
+        </div>
+        {referenceError && (
+          <div className="flex items-center gap-1 text-[10px] text-[#ef4444]">
+            <AlertCircle className="w-3 h-3" />
+            <span>{referenceError}</span>
+          </div>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={handleFileChange}
+        />
       </div>
 
       {/* Texture Settings: Resolution & Map Types */}
@@ -260,10 +372,16 @@ export const TexturePanel: React.FC = () => {
 
       {/* Primary Action Button (Screenshot 2) */}
       <div className="pt-2">
+        {systemStats.status !== 'online' && (
+          <div className="mb-2 p-2.5 rounded-xl bg-[#1a1214] border border-[#ef4444]/30 text-[10px] text-[#fca5a5] flex items-center gap-2">
+            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>Backend offline — texture generation requires a running FastAPI server.</span>
+          </div>
+        )}
         <button
           id="btn-action-generate-texture"
           onClick={runTextureGeneration}
-          disabled={isExecuting}
+          disabled={isExecuting || systemStats.status !== 'online'}
           className="w-full py-3 rounded-xl bg-[#f5c518] hover:bg-[#eab308] text-[#111216] font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#f5c518]/25 transition-all active:scale-[0.98] disabled:opacity-50"
         >
           <Sparkles className="w-4 h-4 fill-current" />

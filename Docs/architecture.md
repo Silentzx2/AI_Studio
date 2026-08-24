@@ -277,8 +277,8 @@ The frontend uses a modern persistent workspace: ONE global 3D viewport (`MeshVi
 #### New Component Organization (`/features/new-workspace/`)
 - **WorkspaceShell**: Entry point — renders TopHeader, LeftNavigation, tool panels, MeshViewer, right panels, modals
 - **Viewport/MeshViewer.tsx**: Full Three.js viewport with 3-point lighting, floor grid, turntable auto-rotation, camera presets, drag-and-drop asset loading
-- **Navigation/LeftNavigation.tsx**: Vertical icon rail with 10 tool buttons
-- **Panels/**: Tool-specific panels (GeneratePanel, TexturePanel, RiggingPanel, AnimatePanel, RemeshPanel, SegmentationPanel, NodesPanel)
+- **Navigation/LeftNavigation.tsx**: Vertical icon rail with 8 tool buttons
+- **Panels/**: Tool-specific panels (GeneratePanel, TexturePanel, RiggingPanel, AnimatePanel, RemeshPanel, SegmentationPanel, SecondaryPanels)
 - **RightPanel/**: Contextual panels (RightAssetsPanel, RightPropertyPanel, RightPromptPanel)
 - **Header/TopHeader.tsx**: Brand logo, workspace mode switcher, navigation links, backend status pill
 - **Modals/**: ExportModal, SettingsModal, DccBridgeModal
@@ -302,5 +302,15 @@ The frontend uses a modern persistent workspace: ONE global 3D viewport (`MeshVi
 
 #### Dead Code Removed
 - `/features/workspace/` — old workspace UI (backed up to `/tmp/workspace-ui-old-backup.tar.gz`)
+- `NodesPanel.tsx` / `NodeList.tsx` — ComfyUI-style node graph editor (not needed, FastAPI handles all generation)
+- `SecondaryPanels.tsx` image pre-processor — GPT-Img tab removed (image-to-3D still available in GeneratePanel)
+
+#### Theme System
+- `stores/useThemeStore.ts` — Zustand store for workspace colors (14 color properties)
+- `components/AppearanceProvider.tsx` — Outputs CSS custom properties for all workspace colors
+- `features/settings/sections/AppearanceSection.tsx` — Color pickers + preset swatches in Settings → Appearance
+- All workspace components use `var(--ws-*, fallback)` for colors
+- Default theme preserved (dark with gold accent) — user can customize via Appearance settings
+- Settings persist to localStorage and apply live without page reload
 - `/3D-SPACE/` — old 3D components (Canvas3D, AssetPanel, GenerationControls)
 - All ComfyUI-specific code and `react-router-dom` dependency from workspace

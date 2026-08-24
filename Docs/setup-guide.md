@@ -210,6 +210,23 @@ This reduces install time and CUDA build failures, especially on Python 3.12.
 
 > **Note**: `Hunyuan3D-2mini` is a **separate repo entry** from `Hunyuan3D-2`. They share the same GitHub URL (`Tencent-Hunyuan/Hunyuan3D-2.git`) but have independent manifests, weights paths, and venvs. This allows the mini variant to be installed and updated independently.
 
+### Colab Preparation Policy
+
+Models are automatically prepared on Colab only if they pass BOTH criteria:
+- VRAM < 15 GB (Colab T4/P100 have ~16 GB)
+- Weight download ≤ 10 GB (Colab free-tier disk limit)
+
+| Model | VRAM | Weight | Colab Prep | Reason |
+|-------|------|--------|------------|--------|
+| DetailGen3D | 4 GB | 2 GB | ✅ Prepared | Passes both gates |
+| Hunyuan3D-2mini | 6 GB | 4 GB | ✅ Prepared | Passes both gates |
+| TripoSG | 8 GB | 2 GB | ✅ Prepared | Passes both gates |
+| AniGen | 6.2 GB | 23 GB | ❌ Skipped | Weight exceeds 10 GB ceiling |
+| TRELLIS | 8 GB | 3 GB | ❌ Skipped | Requires native CUDA build (no toolkit on Colab) |
+| UniRig | 8 GB | 2 GB | ❌ Skipped | Requires native CUDA build (no toolkit on Colab) |
+| Hunyuan3D 2 | 24 GB | 24 GB | ❌ Skipped | VRAM exceeds 15 GB limit |
+| Hunyuan3D 2.1 | 29 GB | 14 GB | ❌ Skipped | VRAM exceeds 15 GB limit |
+
 ---
 
 ## Manual Installation
@@ -1110,7 +1127,25 @@ rm -rf .pids
 
 ---
 
-## Next Steps
+## Customizing Workspace Appearance
+
+The workspace theme can be customized via **Settings → Appearance → Workspace Colors**.
+
+### Theme Controls
+
+- **Preset Swatches**: Choose from 6 presets (Default Dark, Midnight, Charcoal, Deep Navy, Forest, Warm Dark)
+- **Color Pickers**: Customize 14 individual color properties:
+  - **Surfaces**: Background, panel, viewport colors
+  - **Text & Borders**: Primary text, muted text, border colors
+  - **Interactive States**: Active button, hover background, accent color
+  - **UI Elements**: Navigation bar, tab bar, dropdown, HUD colors
+
+### How It Works
+
+- Colors apply **live** to the workspace (no page reload)
+- Settings persist to `localStorage` automatically
+- Use **Reset** to restore the default dark theme
+- Default theme: dark background (#0d0e12) with gold accent (#f5c518)
 
 After successful installation:
 
