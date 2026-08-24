@@ -303,7 +303,6 @@ setup_folders() {
     backend/storage/thumbnails \
     backend/storage/exports \
     backend/storage/images \
-    backend/third_party/weights \
     backend/third_party/.hf_cache \
     backend/.runtime_cache \
     logs; do
@@ -427,7 +426,7 @@ logger = logging.getLogger(__name__)
 sys.path.insert(0, str(Path(".").resolve()))
 
 try:
-    from runtime.installer import REPOS, clone_repo, install_repo_deps
+    from runtime.installer import REPOS, prepare_runtime, PROVIDER_METADATA
     from runtime.storage import get_storage_config
 except Exception as exc:
     print(f"  [FAIL] Could not import runtime modules: {exc}")
@@ -505,6 +504,7 @@ def repair_repo(repo_name):
     repo_path = storage.get_repo_path(repo_name)
     if repo_path.exists():
         shutil.rmtree(str(repo_path), ignore_errors=True)
+    from runtime.installer import clone_repo
     return clone_repo(repo_name)
 
 
@@ -514,18 +514,16 @@ def repair_venv(repo_name):
         shutil.rmtree(str(venv_dir), ignore_errors=True)
         if venv_dir.is_symlink():
             venv_dir.unlink()
+    from runtime.installer import install_repo_deps
     return install_repo_deps(repo_name)
 
 
 def queue_native_build_if_needed(repo_name):
     try:
         from runtime.manifest_loader import load_manifest
-        from runtime.installer import PROVIDER_METADATA, _get_native_build_info, get_persisted_install_status, persist_provider_state
-        from celery import Celery
-        from app.workers.celery_app import celery_app
+        from runtime.installer import _get_native_build_info, get_persisted_install_status, persist_provider_state
         from app.workers.installation_workers import run_native_build
 
-        Celery.set_default(celery_app)
         meta = PROVIDER_METADATA.get(repo_name, {})
         provider_name = meta.get("providers", [repo_name])[0]
         manifest = load_manifest(provider_name)
@@ -614,6 +612,8 @@ for repo_name in sorted(REPOS.keys()):
     repaired += 1
 
 print(f"\nRuntime preparation complete: {repaired} repaired, {skipped} skipped, {failed} failed")
+print("\nNOTE: Weights are NOT downloaded during runtime preparation.")
+print("      Use the UI 'Download Weights' action or the API /download-weights endpoint.")
 PYEOF
   )
 }

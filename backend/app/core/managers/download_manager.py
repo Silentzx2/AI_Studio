@@ -1,4 +1,9 @@
-"""Download Manager for managing model downloads with queue, resume, and validation."""
+"""Download Manager for managing model downloads with queue, resume, and validation.
+
+Weight storage contract: all downloads target the canonical per-model location
+(third_party/<repo>/weights/) via storage.get_model_weights_dir(repo).
+No fallback to legacy third_party/weights/ for new downloads.
+"""
 
 import uuid
 from collections.abc import Callable
@@ -15,7 +20,7 @@ from app.models.registry import DownloadQueue
 
 class DownloadManager:
     """Manages model downloads with queue, resume, and validation."""
-    
+
     def __init__(self, db: Session, storage_path: str = None):
         from runtime.storage import get_storage_config
         self.db = db
@@ -23,7 +28,7 @@ class DownloadManager:
         self.storage_path = Path(storage_path) if storage_path else storage.storage_dir
         self.smart_downloader = SmartDownloader()
         self.mirror_fallback = MirrorFallback()
-    
+
     async def start_download(
         self,
         model_id: str,
@@ -34,9 +39,12 @@ class DownloadManager:
         checksum: str | None = None,
         provider: str = "direct"
     ) -> str:
-        """Start new download and return download_id."""
+        """Start new download and return download_id.
+
+        Destination always resolves to the canonical per-model weights directory.
+        """
         download_id = str(uuid.uuid4())
-        
+
         # Check if already downloading this model
         existing = (
             self.db.query(DownloadQueue)
@@ -48,12 +56,12 @@ class DownloadManager:
             ]))
             .first()
         )
-        
+
         if existing:
             return str(existing.id)
-        
+
         from runtime.storage import get_storage_config
-        
+
         storage = get_storage_config()
         try:
             from runtime.installer import PROVIDER_METADATA
@@ -61,12 +69,13 @@ class DownloadManager:
             repo = meta.get("repo")
         except ImportError:
             repo = None
-            
+
+        # Canonical per-model weights directory (third_party/<repo>/weights/)
         if repo:
             target_dir = storage.get_model_weights_dir(repo)
         else:
             target_dir = storage.storage_dir / "models"
-            
+
         target_dir.mkdir(parents=True, exist_ok=True)
         file_path = str(target_dir / filename)
         

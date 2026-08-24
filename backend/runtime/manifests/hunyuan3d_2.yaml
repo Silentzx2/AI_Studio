@@ -10,8 +10,24 @@ environment:
   cuda: "12.4"
 dependencies:
   python:
+    # From upstream requirements.txt
+    - "ninja"
+    - "pybind11"
+    - "diffusers"
+    - "einops"
+    - "opencv-python"
+    - "numpy"
+    - "transformers"
+    - "tqdm"
+    - "trimesh"
+    - "pymeshlab"
+    - "pygltflib"
+    - "xatlas"
+    - "accelerate"
+    - "rembg"
+    - "onnxruntime"
+    # Inference library (not in upstream requirements.txt)
     - "hy3dgen"
-    - "accelerate>=0.34.0"
     - "huggingface_hub==0.27.1"
   imports:
     - "torch"

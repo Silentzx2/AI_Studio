@@ -271,21 +271,17 @@ log "Frontend dependencies ready"
 # regress on Py3.12 / no-CUDA hosts.
 
 prepare_model_runtimes() {
-    step "Preparing model runtimes (clone + venvs)"
+    step "Preparing model runtimes (clone + venvs + deps)"
     local PYTHONBIN="${PROJECT_ROOT}/backend/.venv/bin/python"
     [[ -x "$PYTHONBIN" ]] || { err "Backend venv missing — run full bootstrap first"; return 1; }
     (
         cd backend
         PYTHONPATH=. "$PYTHONBIN" - << 'PYEOF'
 import logging
-import platform
-import shutil
-import subprocess
 import sys
 from pathlib import Path
 
 logging.basicConfig(level=logging.INFO, format="  %(levelname)-5s %(name)s: %(message)s")
-logger = logging.getLogger(__name__)
 sys.path.insert(0, str(Path(".").resolve()))
 
 try:
@@ -294,88 +290,19 @@ try:
         is_model_preparable_for_colab,
         get_colab_incompatibility_reason,
     )
-    from runtime.installer import REPOS, clone_repo, install_repo_deps
-    from runtime.storage import get_storage_config
+    from runtime.installer import REPOS, prepare_runtime, get_install_status
 except Exception as exc:
     print(f"  [FAIL] Could not import runtime modules: {exc}")
     sys.exit(1)
 
-storage = get_storage_config()
-
-
-def _run(cmd, cwd=None):
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
-    return result.returncode, result.stdout, result.stderr
-
-
-def validate_repo(repo_name):
-    repo_path = storage.get_repo_path(repo_name)
-    repo_cfg = REPOS.get(repo_name)
-    if not repo_path.exists():
-        return False, "missing"
-    if not (repo_path / ".git").exists():
-        return False, "not_a_git_repo"
-    if repo_cfg:
-        req = repo_cfg.get("requirements")
-        if req and not (repo_path / req).exists():
-            if not (repo_path / "pyproject.toml").exists() and not (repo_path / "setup.py").exists():
-                return False, "missing_requirements"
-    code, _, _ = _run(["git", "status", "--porcelain"], cwd=repo_path)
-    if code != 0:
-        return False, "git_status_failed"
-    return True, "ok"
-
-
-def validate_venv(repo_name):
-    venv_dir = storage.get_model_venv_path(repo_name)
-    venv_python = (venv_dir / "Scripts" / "python.exe") if platform.system() == "Windows" else (venv_dir / "bin" / "python")
-    if not venv_dir.exists() or not venv_python.exists():
-        return False, "missing"
-    code, _, _ = _run([str(venv_python), "--version"], cwd=venv_dir.parent)
-    if code != 0:
-        return False, "broken"
-    return True, "ok"
-
-
-def validate_deps(repo_name):
-    venv_dir = storage.get_model_venv_path(repo_name)
-    venv_python = (venv_dir / "Scripts" / "python.exe") if platform.system() == "Windows" else (venv_dir / "bin" / "python")
-    if not venv_python.exists():
-        return False, ["python_missing"]
-    missing = []
-    for pkg in ["torch", "huggingface_hub"]:
-        code, _, _ = _run([str(venv_python), "-c", f"import {pkg}"], cwd=venv_dir.parent)
-        if code != 0:
-            missing.append(pkg)
-    return len(missing) == 0, missing
-
-
-def repair_repo(repo_name):
-    repo_path = storage.get_repo_path(repo_name)
-    if repo_path.exists():
-        shutil.rmtree(str(repo_path), ignore_errors=True)
-    return clone_repo(repo_name)
-
-
-def repair_venv(repo_name):
-    venv_dir = storage.get_model_venv_path(repo_name)
-    if venv_dir.exists() or venv_dir.is_symlink():
-        shutil.rmtree(str(venv_dir), ignore_errors=True)
-        if venv_dir.is_symlink():
-            venv_dir.unlink()
-    return install_repo_deps(repo_name)
-
-
-repaired = skipped = failed = skipped_colab = 0
-
 # Colab: only prepare TripoSG (skip TRELLIS/UniRig - native CUDA build required, no toolkit on Colab)
 COLAB_ALLOWED_REPOS = {"TripoSG"}
 
+# Map repos to their providers for Colab gating
+repos_to_prepare = []
 for repo_name in sorted(REPOS.keys()):
-    # Only prepare allowed models for Colab
     if repo_name not in COLAB_ALLOWED_REPOS:
         print(f"  [COLAB] {repo_name}: skipped (not in allowed list)")
-        skipped_colab += 1
         continue
     repo_cfg = REPOS.get(repo_name, {})
     providers = repo_cfg.get("providers", [])
@@ -391,50 +318,30 @@ for repo_name in sorted(REPOS.keys()):
         print(f"  [COLAB] {repo_name}: skipped")
         for line in colab_skip_reason.split("\n"):
             print(f"  {line}")
-        skipped_colab += 1
         continue
+    repos_to_prepare.append(repo_name)
 
-    repo_ok, repo_reason = validate_repo(repo_name)
-    venv_ok, venv_reason = validate_venv(repo_name)
-    deps_ok, deps_missing = validate_deps(repo_name)
+if not repos_to_prepare:
+    print("  [SKIP] No models to prepare for Colab")
+    sys.exit(0)
 
-    if repo_ok and venv_ok and deps_ok:
-        print(f"  [SKIP] {repo_name}: runtime OK")
-        skipped += 1
-        continue
+# Use new Stage A: prepare_runtime (clone + venv + deps, NO weights)
+for repo_name in repos_to_prepare:
+    providers = REPOS.get(repo_name, {}).get("providers", [])
+    for provider in providers:
+        print(f"  [PREPARE] {provider}: preparing runtime...")
+        r = prepare_runtime(provider)
+        state = r.get("state", "unknown")
+        if state == "runtime_ready":
+            print(f"    [OK  ] {provider}: runtime ready")
+        elif state == "runtime_partial":
+            print(f"    [WARN] {provider}: runtime partial (some deps may be missing)")
+        else:
+            print(f"    [FAIL] {provider}: {r.get('error', 'unknown error')}")
 
-    print(f"  [FIX ] {repo_name}: repairing (repo={repo_reason}, venv={venv_reason}, deps={deps_missing})")
-
-    if not repo_ok:
-        print(f"    -> Re-cloning {repo_name}...")
-        r = repair_repo(repo_name)
-        if not r.get("success"):
-            print(f"    [FAIL] clone failed: {r.get('error')}")
-            failed += 1
-            continue
-        print(f"    [OK  ] {repo_name} cloned")
-
-    if not venv_ok:
-        print(f"    -> Recreating venv for {repo_name}...")
-        r = repair_venv(repo_name)
-        if not r.get("success"):
-            print(f"    [FAIL] venv creation failed: {r.get('error')}")
-            failed += 1
-            continue
-        print(f"    [OK  ] {repo_name} venv ready")
-    elif not deps_ok:
-        print(f"    -> Repairing dependencies for {repo_name}...")
-        r = repair_venv(repo_name)
-        if not r.get("success"):
-            print(f"    [FAIL] dependency repair failed: {r.get('error')}")
-            failed += 1
-            continue
-        print(f"    [OK  ] {repo_name} dependencies ready")
-
-    print(f"  [DONE] {repo_name}: repaired")
-    repaired += 1
-
-print(f"\nRuntime preparation complete: {repaired} repaired, {skipped} skipped, {skipped_colab} skipped (Colab VRAM), {failed} failed")
+print("\nRuntime preparation complete.")
+print("NOTE: Weights are NOT downloaded during runtime preparation.")
+print("      Use the UI 'Download Weights' action or the API /download-weights endpoint.")
 PYEOF
     )
 }
@@ -480,7 +387,7 @@ try:
         is_model_preparable_for_colab,
         get_colab_incompatibility_reason,
     )
-    from runtime.installer import HF_MODELS, download_weights
+    from runtime.installer import HF_MODELS, download_model_weights
 except Exception as exc:
     print(f"  [FAIL] Could not import runtime modules: {exc}")
     sys.exit(1)
@@ -502,7 +409,7 @@ for key in sorted(HF_MODELS.keys()):
                 print(f"  {line}")
             continue
         print(f"  [WEIGHTS] {key}: downloading ~{HF_MODELS[key]['size_estimate_gb']}GB ...")
-        r = download_weights(key, hf_token=token)
+        r = download_model_weights(key, hf_token=token)
         if r.get("success"):
             print(f"    [OK  ] {key}: {r.get('action', 'done')}")
         else:

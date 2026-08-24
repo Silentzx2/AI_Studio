@@ -10,11 +10,32 @@ environment:
   cuda: "12.4"
 dependencies:
   python:
+    # From upstream requirements.txt
+    - "transformers==4.51.3"
+    - "python-box"
+    - "einops"
+    - "omegaconf"
+    - "pytorch_lightning"
+    - "lightning"
+    - "addict"
+    - "timm"
+    - "fast-simplification"
+    - "trimesh"
+    - "open3d"
+    - "pyrender"
+    - "huggingface_hub"
     - "accelerate>=0.34.0"
   imports:
     - "torch"
     - "transformers"
-  native: []
+  native:
+    # CUDA extensions — handled by native resolver (wheel-first)
+    - "flash_attn"
+    - "bpy==4.2"
+    - "spconv"
+    - "torch_scatter"
+    - "torch_cluster"
+    - "pytorch3d"
 weights:
   primary:
     repo: "VAST-AI/UniRig"

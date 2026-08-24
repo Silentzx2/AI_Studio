@@ -1,4 +1,10 @@
-"""Unified storage configuration — ONE source of truth for all paths."""
+"""Unified storage configuration — ONE source of truth for all paths.
+
+Weight storage contract (Refactor.md TASK 1, 16):
+  - CANONICAL: third_party/<repo>/weights/  (per-model, via get_model_weights_dir)
+  - LEGACY:     third_party/weights/         (centralized, deprecated — detect + deprecate only)
+  - HF CACHE:   third_party/.hf_cache/       (shared cache, NOT final storage)
+"""
 from __future__ import annotations
 
 import logging
@@ -107,8 +113,72 @@ class StorageConfig:
         return None
 
     def get_model_weights_dir(self, repo_name: str) -> Path:
-        """Return the per-model weights directory (inside repo folder)."""
+        """Return the per-model weights directory (inside repo folder).
+
+        This is the ONLY canonical location for final model weights.
+        """
         return self.get_repo_path(repo_name) / "weights"
+
+    # ------------------------------------------------------------------
+    # Legacy weight detection (TASK 1 — deprecate, don't use for new downloads)
+    # ------------------------------------------------------------------
+
+    def detect_legacy_weights(self) -> list[dict]:
+        """Scan legacy third_party/weights/ for weight sets not in per-model location.
+
+        Returns list of dicts with:
+          - weight_key: the model/weight identifier
+          - legacy_path: current location (third_party/weights/<key>)
+          - per_model_path: where it SHOULD be (third_party/<repo>/weights/<key>)
+          - repo: the repo this weight belongs to
+          - size_gb: total size in GB
+
+        Read-only detection — does NOT move or modify files.
+        """
+        legacy: list[dict] = []
+        if not _safe_exists(self.weights_dir):
+            return legacy
+        try:
+            from runtime.installer import PROVIDER_METADATA
+            # Build reverse map: weight_key -> repo_name
+            wk_to_repo: dict[str, str] = {}
+            for _pname, meta in PROVIDER_METADATA.items():
+                wk = meta.get("weight_key")
+                repo = meta.get("repo")
+                if wk and repo:
+                    wk_to_repo[wk] = repo
+        except Exception:
+            wk_to_repo = {}
+
+        try:
+            for child in self.weights_dir.iterdir():
+                if not child.is_dir() or child.name.startswith("."):
+                    continue
+                weight_key = child.name
+                if not self._has_real_weight_files(child):
+                    continue
+                total_bytes = sum(
+                    f.stat().st_size for f in child.rglob("*") if f.is_file()
+                )
+                repo = wk_to_repo.get(weight_key)
+                per_model_path = (
+                    self.get_repo_path(repo) / "weights" / weight_key if repo else None
+                )
+                # Only report if NOT already in per-model location
+                already_migrated = (
+                    per_model_path and self._has_real_weight_files(per_model_path)
+                )
+                if not already_migrated:
+                    legacy.append({
+                        "weight_key": weight_key,
+                        "legacy_path": str(child),
+                        "per_model_path": str(per_model_path) if per_model_path else None,
+                        "repo": repo,
+                        "size_gb": round(total_bytes / (1024 ** 3), 2),
+                    })
+        except (PermissionError, OSError):
+            pass
+        return legacy
 
     # ------------------------------------------------------------------
     # Weight path helpers
@@ -142,12 +212,16 @@ class StorageConfig:
         Search all known locations for model weights.
         Returns the first non-empty directory found, or None.
 
-        ponytail: Section 2 — checks per-model location first (new),
-        then falls back to old centralized weights_dir (migration safety net).
-        Uses _has_real_weight_files to avoid false positives on partial downloads.
+        Order:
+          1. CANONICAL: third_party/<repo>/weights/<weight_key> (per-model)
+          2. CANONICAL: third_party/<repo>/weights (flat, top-level only)
+          3. LEGACY:    third_party/weights/<weight_key> (deprecated, read-only fallback)
+          4. HF CACHE:   third_party/.hf_cache/ (cache, NOT final storage)
+
+        ponytail: legacy fallback is for migration safety only. New downloads
+        NEVER target the legacy location.
         """
-        # 1. New per-model location: third_party/<repo_name>/weights/<weight_key>
-        #    We need to map weight_key -> repo_name. Try all repos.
+        # 1. CANONICAL per-model location: third_party/<repo_name>/weights/<weight_key>
         try:
             from runtime.installer import PROVIDER_METADATA
             for _pname, meta in PROVIDER_METADATA.items():
@@ -156,24 +230,27 @@ class StorageConfig:
                     if _safe_exists(per_model_dir) and self._has_real_weight_files(per_model_dir):
                         return per_model_dir
                     # ponytail: legacy flat fallback — weights directly in
-                    # repo/weights (no per-model subdir). TOP-LEVEL check only:
-                    # a shared root whose only files live under a sibling
-                    # model's subdir must not be claimed as this model's weights.
+                    # repo/weights (no per-model subdir). TOP-LEVEL check only.
                     per_model_dir2 = self.get_repo_path(meta["repo"]) / "weights"
                     if _safe_exists(per_model_dir2) and self._has_real_weight_files(per_model_dir2, recursive=False):
                         return per_model_dir2
         except Exception:
             pass
 
-        # 2. Old centralized location: weights_dir / weight_key (migration safety net)
+        # 2. LEGACY centralized location (deprecated — read-only fallback)
         try:
             direct = self.weights_dir / weight_key
             if _safe_exists(direct) and self._has_real_weight_files(direct):
+                logger.info(
+                    "Using legacy weight path for %s (deprecated: %s). "
+                    "Consider migrating to per-model location.",
+                    weight_key, direct,
+                )
                 return direct
         except PermissionError:
             pass
 
-        # 3. HuggingFace cache locations (unchanged)
+        # 3. HuggingFace cache locations (cache, NOT final storage)
         slug = weight_key.replace("/", "--")
         for cache_dir in self.hf_cache_dirs:
             try:

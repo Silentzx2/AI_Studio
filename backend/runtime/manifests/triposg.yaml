@@ -10,22 +10,33 @@ environment:
   cuda: "12.4"
 dependencies:
   python:
-    - "diffusers>=0.22.0"
-    - "huggingface_hub==0.27.1"
+    # From upstream requirements.txt
+    - "diffusers"
+    - "transformers"
+    - "einops"
+    - "huggingface_hub"
+    - "opencv-python"
+    - "trimesh"
+    - "omegaconf"
+    - "scikit-image"
+    - "numpy==1.22.3"
+    - "peft"
+    - "jaxtyping"
+    - "typeguard"
+    - "pymeshlab"
     - "accelerate"
   imports:
     - "torch"
     - "diffusers"
     - "transformers"
     - "accelerate"
-  native: []
+  native:
+    # CUDA extension — handled by native resolver (wheel-first)
+    - "diso"
 weights:
   primary:
     repo: "VAST-AI/TripoSG"
-  auxiliary:
-    - name: RMBG-1.4
-      repo: briaai/RMBG-1.4
-      required: true
+  auxiliary: []
 hardware:
   minimum_vram_mb: 8192
   recommended_vram_mb: 8192

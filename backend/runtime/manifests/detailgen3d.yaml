@@ -10,11 +10,26 @@ environment:
   cuda: "12.4"
 dependencies:
   python:
+    # From upstream requirements.txt
+    - "diffusers"
+    - "transformers"
+    - "einops"
+    - "huggingface_hub"
+    - "opencv-python"
+    - "trimesh"
+    - "omegaconf"
+    - "scikit-image"
+    - "numpy==1.22.3"
+    - "jaxtyping"
+    - "typeguard"
     - "accelerate>=0.34.0"
   imports:
     - "torch"
     - "transformers"
-  native: []
+  native:
+    # CUDA extensions — handled by native resolver (wheel-first)
+    - "diso"
+    - "torch-cluster"
 weights:
   primary:
     repo: "VAST-AI/DetailGen3D"

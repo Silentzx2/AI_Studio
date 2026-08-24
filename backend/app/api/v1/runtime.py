@@ -486,6 +486,105 @@ async def install_runtime(req: InstallRequest, background_tasks: BackgroundTasks
     return success({"started": True}, "Installation started in background.")
 
 
+@router.post("/prepare-runtime")
+async def prepare_runtime(req: InstallRequest, background_tasks: BackgroundTasks):
+    """Stage A: prepare model runtimes only. No weights downloaded.
+
+    Clones repos, creates per-model venvs, installs dependencies,
+    resolves native dependencies via wheel-first logic.
+    """
+    from runtime.installer import RuntimeInstaller, resolve_install_targets
+
+    targets = req.models if req.models else None
+    if not targets:
+        return error(
+            "No models specified. Pass a 'models' list with specific model IDs."
+        )
+
+    def _run() -> None:
+        RuntimeInstaller().prepare_runtime(
+            models=targets,
+            allow_native_build=False,
+        )
+
+    background_tasks.add_task(_run)
+    return success({"started": True}, "Runtime preparation started in background.")
+
+
+@router.post("/download-weights")
+async def download_weights(req: InstallRequest, background_tasks: BackgroundTasks):
+    """Stage B: download model weights only. Runtime must be ready first.
+
+    Checks that each model's runtime is ready before downloading.
+    If runtime is not ready, returns an error for that model directing
+    the caller to /prepare-runtime first.
+    """
+    from runtime.installer import RuntimeInstaller, resolve_install_targets
+
+    targets = req.models if req.models else None
+    if not targets:
+        return error(
+            "No models specified. Pass a 'models' list with specific model IDs."
+        )
+
+    def _run() -> None:
+        RuntimeInstaller().download_weights(models=targets)
+
+    background_tasks.add_task(_run)
+    return success({"started": True}, "Weight download started in background.")
+
+
+@router.get("/legacy-weights")
+async def list_legacy_weights():
+    """List weights in legacy third_party/weights/ location for migration UI."""
+    from runtime.storage import get_storage_config
+
+    storage = get_storage_config()
+    legacy = storage.detect_legacy_weights()
+    return success({
+        "legacy_weights": legacy,
+        "count": len(legacy),
+        "message": f"{len(legacy)} weight set(s) in legacy location",
+    })
+
+
+@router.post("/migrate-legacy-weights")
+async def migrate_legacy_weights():
+    """Copy legacy weights to per-model location. Idempotent, read-only on source."""
+    import shutil
+
+    from runtime.storage import get_storage_config
+
+    storage = get_storage_config()
+    legacy = storage.detect_legacy_weights()
+    migrated = []
+    errors = []
+
+    for entry in legacy:
+        src = Path(entry["legacy_path"])
+        dst = Path(entry["per_model_path"]) if entry["per_model_path"] else None
+        if not dst:
+            errors.append(f"No per-model path for {entry['weight_key']}")
+            continue
+        if dst.exists() and storage._has_real_weight_files(dst):
+            continue
+        try:
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            if src.is_dir():
+                shutil.copytree(str(src), str(dst))
+            else:
+                shutil.copy2(str(src), str(dst))
+            migrated.append(entry["weight_key"])
+        except Exception as exc:
+            errors.append(f"Failed to migrate {entry['weight_key']}: {exc}")
+
+    return success({
+        "migrated": migrated,
+        "errors": errors,
+        "message": f"{len(migrated)} weight set(s) migrated",
+    })
+
+
 class RepoActionRequest(BaseModel):
     repo: str
 

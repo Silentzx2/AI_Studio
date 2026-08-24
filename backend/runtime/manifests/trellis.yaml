@@ -10,8 +10,7 @@ environment:
   cuda: "12.1"
 dependencies:
   python:
-    # Core runtime deps from upstream setup.sh --basic.
-    # Native CUDA deps (spconv, kaolin, etc.) handled separately.
+    # Core runtime deps from upstream setup.sh --basic
     - "pillow"
     - "imageio"
     - "imageio-ffmpeg"
@@ -25,6 +24,7 @@ dependencies:
     - "trimesh"
     - "open3d"
     - "xatlas"
+    - "pyvista"
     - "pymeshfix"
     - "igraph"
     - "transformers"
@@ -34,7 +34,14 @@ dependencies:
     - "diffusers"
     - "transformers"
     - "trimesh"
-  native: []
+  native:
+    # Optional CUDA extensions — handled by native resolver (wheel-first)
+    - "flash-attn"
+    - "xformers"
+    - "diffoctreerast"
+    - "spconv"
+    - "kaolin"
+    - "nvdiffrast"
   attention_backend:
     one_of:
       - "flash-attn"

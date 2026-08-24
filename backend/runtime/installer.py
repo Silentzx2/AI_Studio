@@ -63,6 +63,63 @@ class ComponentStatus:
     detail: str = ""
     last_error: str | None = None
 
+
+# ---------------------------------------------------------------------------
+# Component-level state enums (Refactor.md TASK 6)
+# Fine-grained states for UI status reporting and readiness gating.
+# ---------------------------------------------------------------------------
+
+
+class RepoState(Enum):
+    MISSING = "missing"
+    READY = "ready"
+    FAILED = "failed"
+
+
+class EnvState(Enum):
+    MISSING = "missing"
+    CREATING = "creating"
+    READY = "ready"
+    FAILED = "failed"
+
+
+class DepsState(Enum):
+    PENDING = "pending"
+    INSTALLING = "installing"
+    READY = "ready"
+    PARTIAL = "partial"
+    FAILED = "failed"
+
+
+class NativeState(Enum):
+    NOT_REQUIRED = "not_required"
+    PENDING = "pending"
+    CHECKING_WHEEL = "checking_wheel"
+    WHEEL_FOUND = "wheel_found"
+    WHEEL_INSTALLED = "wheel_installed"
+    BUILD_PENDING = "build_pending"
+    BUILD_RUNNING = "build_running"
+    READY = "ready"
+    SKIPPED = "skipped"
+    FAILED = "failed"
+
+
+class WeightsState(Enum):
+    MISSING = "missing"
+    DOWNLOADING = "downloading"
+    VERIFYING = "verifying"
+    READY = "ready"
+    INCOMPLETE = "incomplete"
+    FAILED = "failed"
+
+
+class ModelState(Enum):
+    NOT_READY = "not_ready"
+    PARTIAL = "partial"
+    READY = "ready"
+    BLOCKED = "blocked"
+    FAILED = "failed"
+
 # ---------------------------------------------------------------------------
 # Configuration tables
 # ---------------------------------------------------------------------------
@@ -80,7 +137,17 @@ REPOS = {
         "branch": "main",
         "requirements": "requirements.txt",
         "category": "3d_generation",
-        "providers": ["hunyuan3d-2", "hunyuan3d-2-mini"],
+        "providers": ["hunyuan3d-2"],
+    },
+    "Hunyuan3D-2mini": {
+        # ponytail: mini shares the same GitHub repo as Hunyuan3D-2 (the
+        # weights live in a subfolder). Separate repo entry so each weight
+        # provider maps to exactly one code repo.
+        "url": "https://github.com/Tencent-Hunyuan/Hunyuan3D-2.git",
+        "branch": "main",
+        "requirements": "requirements.txt",
+        "category": "3d_generation",
+        "providers": ["hunyuan3d-2-mini"],
     },
     "TRELLIS": {
         "url": "https://github.com/microsoft/TRELLIS.git",
@@ -284,7 +351,7 @@ PROVIDER_METADATA = {
             "supports_cpu_offload": True,
             "supports_quantization": False,
         },
-        "repo": "Hunyuan3D-2",
+        "repo": "Hunyuan3D-2mini",
         "weight_key": "hunyuan3d-2-mini",
         "workspace_compatibility": ["mesh-generation"],
     },
@@ -1725,6 +1792,357 @@ def download_weights(
         return {"success": False, "error": str(exc)}
 
 
+# ---------------------------------------------------------------------------
+# Stage A: Runtime preparation (Refactor.md TASK 4)
+# Clones repo, creates venv, installs deps, resolves native — NO weights.
+# ---------------------------------------------------------------------------
+
+
+def prepare_runtime(
+    provider_name: str,
+    hf_token: str | None = None,
+    log_cb=None,
+    allow_native_build: bool = False,
+) -> dict:
+    """Prepare model runtime: clone repo, create venv, install dependencies.
+
+    This is Stage A — does NOT download weights. Weight download is a separate
+    step (download_model_weights) that requires runtime to be ready first.
+
+    Returns dict with:
+      - success: bool
+      - state: "runtime_ready" | "runtime_partial" | "runtime_blocked" | "runtime_failed"
+      - components: dict of component states
+    """
+    provider_name = _canonical_provider_name(provider_name)
+    meta = PROVIDER_METADATA.get(provider_name)
+    if not meta:
+        available = [p for p in PROVIDER_METADATA.keys() if p != "mock"]
+        return {
+            "success": False,
+            "state": "runtime_failed",
+            "error": f"Unknown provider '{provider_name}'. Available: {available}",
+        }
+
+    # Load manifest
+    manifest = None
+    try:
+        from runtime.manifest_loader import load_manifest
+        manifest = load_manifest(provider_name)
+        if log_cb:
+            log_cb(f"Loaded manifest for {provider_name}")
+    except (ValueError, ImportError) as exc:
+        if log_cb:
+            log_cb(f"No manifest for {provider_name} ({exc}); using metadata-only")
+
+    # Determine native-build requirement
+    native_req, all_caps_need_native = _get_native_build_info(meta, manifest)
+
+    repo_name = meta.get("repo")
+    components: dict[str, dict] = {}
+
+    # Acquire install lock
+    if repo_name:
+        if not _acquire_install_lock(repo_name):
+            return {
+                "success": False,
+                "state": "runtime_blocked",
+                "error": f"Model {provider_name} is already being installed.",
+            }
+
+    try:
+        # 1. Clone repo
+        if repo_name:
+            if log_cb:
+                log_cb(f"Cloning repository for {provider_name}...")
+            r = clone_repo(repo_name, log_cb=log_cb)
+            if not r.get("success"):
+                components["repo"] = {"state": RepoState.FAILED.value, "error": r.get("error")}
+                return {
+                    "success": False,
+                    "state": "runtime_failed",
+                    "error": r.get("error", "Repo clone failed"),
+                    "components": components,
+                }
+            components["repo"] = {"state": RepoState.READY.value}
+
+            # Init submodules if manifest requires
+            if manifest and manifest.get("source", {}).get("submodules"):
+                repo_path = get_storage_config().get_repo_path(repo_name)
+                if log_cb:
+                    log_cb("Initializing git submodules...")
+                code, output = _run(
+                    ["git", "submodule", "update", "--init", "--recursive"],
+                    cwd=repo_path, log_cb=log_cb,
+                )
+                if code != 0 and log_cb:
+                    log_cb(f"Warning: git submodule init failed: {output[:200]}")
+        else:
+            components["repo"] = {"state": RepoState.READY.value, "detail": "No repo (internal provider)"}
+
+        # 2. Create venv + install deps
+        if repo_name:
+            if log_cb:
+                log_cb(f"Preparing virtual environment for {provider_name}...")
+            r = _prepare_runtime_venv(repo_name, manifest, native_req, allow_native_build, log_cb=log_cb)
+            components["venv"] = r.get("venv", {})
+            components["deps"] = r.get("deps", {})
+            components["native"] = r.get("native", {})
+
+            if not r.get("success"):
+                # For native-build models, continue even if deps had issues
+                if native_req and not allow_native_build:
+                    if log_cb:
+                        log_cb(f"Note: deps install had issues (native build needed), continuing: {r.get('error')}")
+                else:
+                    return {
+                        "success": False,
+                        "state": "runtime_failed",
+                        "error": r.get("error", "Deps install failed"),
+                        "components": components,
+                    }
+
+        # 3. Native build decision (if required and not done inline)
+        native_state = components.get("native", {}).get("state", NativeState.NOT_REQUIRED.value)
+        if native_req and native_state not in (NativeState.READY.value, NativeState.WHEEL_INSTALLED.value):
+            if not allow_native_build:
+                # Queue background native build
+                task_id = f"native_build_{provider_name}_{int(datetime.utcnow().timestamp())}"
+                try:
+                    from app.workers.installation_workers import run_native_build
+                    run_native_build.apply_async(
+                        args=[provider_name, task_id],
+                        queue="installation",
+                        task_id=task_id,
+                    )
+                    components["native"] = {
+                        "state": NativeState.BUILD_PENDING.value,
+                        "task_id": task_id,
+                        "detail": "Native CUDA build queued for background execution",
+                    }
+                    if log_cb:
+                        log_cb(f"Native build queued (task={task_id})")
+                except Exception as exc:
+                    components["native"] = {
+                        "state": NativeState.FAILED.value,
+                        "error": f"Failed to queue native build: {exc}",
+                    }
+
+        # 4. Run prelight (without weights check)
+        if log_cb:
+            log_cb("Running preflight checks (runtime only)...")
+        try:
+            from runtime.preflight import run_preflight_for_provider
+            preflight_result = run_preflight_for_provider(provider_name, hf_token=hf_token)
+            components["preflight"] = {
+                "state": "passed" if preflight_result.passed else "failed",
+                "checks": preflight_result.checks,
+            }
+        except Exception as exc:
+            logger.warning("Preflight failed for %s: %s", provider_name, exc)
+            components["preflight"] = {"state": "failed", "error": str(exc)}
+
+        # Determine runtime state
+        venv_ok = components.get("venv", {}).get("state") == EnvState.READY.value
+        deps_ok = components.get("deps", {}).get("state") in (DepsState.READY.value, DepsState.PARTIAL.value)
+        native_ok = components.get("native", {}).get("state") in (
+            NativeState.NOT_REQUIRED.value,
+            NativeState.READY.value,
+            NativeState.WHEEL_INSTALLED.value,
+            NativeState.BUILD_PENDING.value,
+        )
+        preflight_ok = components.get("preflight", {}).get("state") == "passed"
+
+        if venv_ok and deps_ok and native_ok and preflight_ok:
+            runtime_state = "runtime_ready"
+        elif venv_ok and deps_ok:
+            runtime_state = "runtime_partial"
+        else:
+            runtime_state = "runtime_failed"
+
+        return {
+            "success": True,
+            "state": runtime_state,
+            "components": components,
+            "provider": provider_name,
+        }
+
+    finally:
+        if repo_name:
+            _release_install_lock(repo_name)
+
+
+def _prepare_runtime_venv(
+    repo_name: str,
+    manifest: dict | None,
+    native_req: bool,
+    allow_native_build: bool,
+    log_cb=None,
+) -> dict:
+    """Create venv and install deps for a repo. Returns component states."""
+    storage = get_storage_config()
+    repo_dir = storage.get_repo_path(repo_name)
+    venv_dir = repo_dir / ".venv"
+    venv_python = venv_dir / "bin" / "python"
+
+    # Create venv if needed
+    if not venv_dir.exists():
+        uv_path = shutil.which("uv")
+        if not uv_path:
+            return {"success": False, "error": "uv not found"}
+        venv_args = [uv_path, "venv"]
+        if manifest and "environment" in manifest and "python" in manifest["environment"]:
+            venv_args += ["--python", manifest["environment"]["python"]]
+        venv_args.append(str(venv_dir))
+        code, output = _run(venv_args, cwd=repo_dir, log_cb=log_cb)
+        if code != 0:
+            return {
+                "success": False,
+                "error": f"uv venv creation failed: {output}",
+                "venv": {"state": EnvState.FAILED.value},
+            }
+
+    if not venv_python.exists():
+        return {
+            "success": False,
+            "error": f"venv python not found at {venv_python}",
+            "venv": {"state": EnvState.FAILED.value},
+        }
+
+    components: dict[str, dict] = {
+        "venv": {"state": EnvState.READY.value, "path": str(venv_dir)},
+    }
+
+    # Install torch stack first (mirror backend build)
+    code, output = _install_torch_stack(venv_python, repo_dir, log_cb=log_cb)
+    if code != 0:
+        return {
+            "success": False,
+            "error": f"torch stack install failed: {output[:300]}",
+            "venv": {"state": EnvState.READY.value},
+            "deps": {"state": DepsState.FAILED.value},
+        }
+
+    # Use new dependency resolver for non-TRELLIS repos
+    if repo_name != "TRELLIS":
+        try:
+            from runtime.dependency_resolver import resolve_dependencies, install_resolved_deps
+            deps = resolve_dependencies(repo_dir, manifest)
+            result = install_resolved_deps(
+                deps, venv_python, repo_dir,
+                allow_build=allow_native_build,
+                interactive=True,
+                log_cb=log_cb,
+            )
+            components["deps"] = {
+                "state": DepsState.READY.value if result["success"] else DepsState.PARTIAL.value,
+                "installed": result.get("installed", []),
+                "skipped": result.get("skipped", []),
+                "failed": result.get("failed", []),
+            }
+            native_state = result.get("native_state", "not_required")
+            if native_state == "ready":
+                components["native"] = {"state": NativeState.READY.value}
+            elif native_state == "skipped":
+                components["native"] = {"state": NativeState.SKIPPED.value}
+            elif native_state == "failed":
+                components["native"] = {"state": NativeState.FAILED.value}
+            else:
+                components["native"] = {"state": NativeState.NOT_REQUIRED.value}
+
+            if not result["success"] and result.get("failed"):
+                return {
+                    "success": False,
+                    "error": f"Some dependencies failed to install: {result['failed']}",
+                    **components,
+                }
+        except ImportError:
+            # Fallback: use legacy _uv_install
+            if log_cb:
+                log_cb("Warning: new resolver unavailable, using legacy install path")
+            repo_cfg = REPOS.get(repo_name)
+            req = repo_dir / repo_cfg["requirements"] if repo_cfg and repo_cfg.get("requirements") else None
+            if req:
+                ok = _uv_install(req, repo_dir, repo_name=repo_name, python_path=str(venv_python), log_cb=log_cb)
+                if not ok.get("success"):
+                    return {
+                        "success": False,
+                        "error": ok.get("error", "uv install failed"),
+                        **components,
+                    }
+                components["deps"] = {"state": DepsState.READY.value}
+    else:
+        # TRELLIS special path (no requirements.txt, uses setup.sh-style deps)
+        ok = _install_trellis_deps(repo_dir, venv_python, log_cb=log_cb)
+        if not ok.get("success"):
+            return {
+                "success": False,
+                "error": ok.get("error", "TRELLIS deps install failed"),
+                **components,
+            }
+        components["deps"] = {"state": DepsState.READY.value}
+        components["native"] = {"state": NativeState.NOT_REQUIRED.value}
+
+    # Install EXTRA_DEPS (inference libs omitted from repo requirements)
+    extra = EXTRA_DEPS.get(repo_name)
+    if extra:
+        uv_path = shutil.which("uv")
+        if uv_path:
+            code, output = _run(
+                [uv_path, "pip", "install", "--python", str(venv_python), *extra],
+                cwd=repo_dir,
+            )
+            if code != 0:
+                logger.warning("Extra deps install failed for %s: %s", repo_name, output[:200])
+
+    return {"success": True, **components}
+
+
+# ---------------------------------------------------------------------------
+# Stage B: Weight download (Refactor.md TASK 5)
+# Downloads weights ONLY. Requires runtime to be ready.
+# ---------------------------------------------------------------------------
+
+
+def download_model_weights(
+    provider_name: str,
+    hf_token: str | None = None,
+    log_cb=None,
+) -> dict:
+    """Download model weights ONLY. Runtime must be ready first.
+
+    This is Stage B — does NOT clone repos, create venvs, or install deps.
+    If runtime is not ready, returns an error directing the caller to
+    prepare_runtime() first.
+    """
+    provider_name = _canonical_provider_name(provider_name)
+    meta = PROVIDER_METADATA.get(provider_name)
+    if not meta:
+        return {"success": False, "error": f"Unknown provider: {provider_name}"}
+
+    # Check runtime status first
+    storage = get_storage_config()
+    repo_name = meta.get("repo")
+    if repo_name:
+        venv_python = storage.get_model_venv_path(repo_name) / "bin" / "python"
+        if not venv_python.exists():
+            return {
+                "success": False,
+                "state": "weights_failed",
+                "error": (
+                    f"Runtime not ready for {provider_name}. "
+                    f"Prepare/install the model runtime first."
+                ),
+            }
+
+    # Delegate to existing download_weights logic
+    if log_cb:
+        log_cb(f"Downloading weights for {provider_name}...")
+    result = download_weights(provider_name, hf_token=hf_token, log_cb=log_cb)
+    result["state"] = "weights_ready" if result.get("success") else "weights_failed"
+    return result
+
+
 # ponytail: Provider validation at function entry; returns available providers list
 # to help users correct their input without guessing. Root cause fix for
 # "Unknown provider" errors that gave no guidance on valid options.
@@ -2620,7 +3038,30 @@ class RuntimeInstaller:
                 results[name] = {"success": False, "error": f"Unknown model: {name}"}
                 self._cb(f"[WARN] Unknown model '{name}'. Available: {list(HF_MODELS.keys())}")
                 continue
-            results[name] = download_weights(name, hf_token=self._hf_token, log_cb=cb)
+            results[name] = download_model_weights(name, hf_token=self._hf_token, log_cb=cb)
+        return results
+
+    def prepare_runtime(
+        self,
+        models: list[str] | None = None,
+        log_cb: Callable | None = None,
+        allow_native_build: bool = False,
+    ) -> dict:
+        """Stage A: prepare model runtimes only. No weights downloaded."""
+        cb = log_cb or self._cb
+        resolved = resolve_install_targets(models)
+        results: dict = {"success": True, "providers": {}}
+        self.create_folders()
+        for name, meta in PROVIDER_METADATA.items():
+            if name == "mock":
+                continue
+            if name not in resolved:
+                continue
+            cb(f"Preparing runtime for {name}...")
+            r = prepare_runtime(name, hf_token=self._hf_token, log_cb=cb, allow_native_build=allow_native_build)
+            results["providers"][name] = r
+            if not r.get("success"):
+                results["success"] = False
         return results
 
     def full_install(

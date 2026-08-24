@@ -101,6 +101,64 @@ Each model is self-contained under `third_party/<RepoName>/`: its own `.venv/`
 `cache/`. `storage.StorageConfig` resolves weight paths with a legacy fallback.
 Install state is mirrored in `runtime/installer.py::get_install_status()`.
 
+## Two-Stage Model Setup (v3.9+)
+
+Model installation is split into two strictly separated stages:
+
+### Stage A — Runtime Installation
+`prepare_runtime(provider_name)` in `runtime/installer.py`:
+1. Clone repo into `third_party/<repo>/` (idempotent: reuse if valid)
+2. Create `third_party/<repo>/.venv` (idempotent: reuse if valid)
+3. Discover dependency files (requirements.txt, pyproject.toml, manifest)
+4. Install normal dependencies into model venv
+5. Resolve native dependencies via **wheel-first** logic:
+   - Check static `WHEEL_COMPAT_TABLE` for prebuilt wheel
+   - Wheel found → install wheel (no compilation)
+   - No wheel → interactive prompt "build from source? [y/N]"
+     - YES → build inside model venv
+     - NO → skip, mark SKIPPED, continue
+6. Run preflight (without weights check)
+7. Return: `runtime_ready` | `runtime_partial` | `runtime_blocked` | `runtime_failed`
+
+**Does NOT download weights.**
+
+### Stage B — Weight Download
+`download_model_weights(provider_name)` in `runtime/installer.py`:
+1. Check runtime status → if not ready, return error "Runtime not ready"
+2. Resolve weight manifest
+3. Download to `third_party/<repo>/weights/<provider>` (canonical location)
+4. Verify checksum + completeness
+5. Return: `weights_ready` | `weights_failed`
+
+**Does NOT clone repos, create venvs, or install deps.**
+
+### Entry Points
+- `scripts/setup.sh` → Stage A only (no weights)
+- `scripts/colab.sh` → Stage A + Stage B (separate steps)
+- `POST /api/v1/runtime/prepare-runtime` → Stage A
+- `POST /api/v1/runtime/download-weights` → Stage B
+- `POST /api/v1/runtime/install` → Stage A + B (backward compat)
+
+### Wheel-First Dependency Resolver
+`runtime/dependency_resolver.py` classifies dependencies into:
+- **NORMAL** — standard pip install
+- **NATIVE** — compiles CUDA/C++ (diso, torch-cluster, flash-attn, pytorch3d, spconv, etc.)
+- **BUILD_ONLY** — only needed at build time
+- **OPTIONAL** — platform-specific optional
+
+Static `WHEEL_COMPAT_TABLE` maps native packages to wheel availability per (py_ver, cuda_ver, platform). No network calls — deterministic, works offline.
+
+### Component-Level State Machine
+Fine-grained states for UI status:
+- `RepoState`: missing | ready | failed
+- `EnvState`: missing | creating | ready | failed
+- `DepsState`: pending | installing | ready | partial | failed
+- `NativeState`: not_required | pending | checking_wheel | wheel_found | wheel_installed | build_pending | build_running | ready | skipped | failed
+- `WeightsState`: missing | downloading | verifying | ready | incomplete | failed
+- `ModelState`: not_ready | partial | ready | blocked | failed
+
+MODEL_READY requires: repo=ready AND env=ready AND deps=ready AND (native=ready OR wheel_installed OR not_required) AND weights=ready AND preflight=passed.
+
 ## Manifest authority for dependency installation
 
 YAML manifests in `backend/runtime/manifests/` are the **authoritative installation contract**
