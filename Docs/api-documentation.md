@@ -1303,10 +1303,154 @@ Server-sent events stream installation progress for the active model installer.
 
 > **v3.1.0+ breaking change**: The underlying `POST /api/v1/runtime/install` endpoint now **requires** a `models` list in the request body. Passing no models or `null` will return a validation error. Use `resolve_install_targets()` to validate the list before installing.
 
+> **v3.9.0+**: `POST /api/v1/runtime/install` now executes **both** stages sequentially — it calls `prepare-runtime` (Stage A: clone repos, create venvs, install dependencies) followed by `download-weights` (Stage B: fetch model weights). Use the individual stage endpoints below to run them independently.
+
 ```json
 // POST /api/v1/runtime/install — request body (models is now REQUIRED)
 {
   "models": ["hunyuan3d-2.1", "trellis"]
+}
+```
+
+---
+
+### Prepare Runtime (Stage A)
+
+Clone repositories, create virtual environments, and install dependencies for the specified models. This stage does **not** download model weights.
+
+```http
+POST /api/v1/runtime/prepare-runtime
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "models": ["hunyuan3d-2.1", "trellis"]
+}
+```
+
+**Parameters:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `models` | string[] | ✅ | List of model identifiers to prepare |
+
+**Response (202):**
+```json
+{
+  "success": true,
+  "data": {
+    "task_id": "prepare_abc123",
+    "models": ["hunyuan3d-2.1", "trellis"],
+    "status": "started"
+  }
+}
+```
+
+---
+
+### Download Weights (Stage B)
+
+Download model weights for models whose runtimes are already prepared. Returns an error if the runtime is not ready.
+
+```http
+POST /api/v1/runtime/download-weights
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "models": ["hunyuan3d-2.1", "trellis"]
+}
+```
+
+**Parameters:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `models` | string[] | ✅ | List of model identifiers to download weights for |
+
+**Response (202):**
+```json
+{
+  "success": true,
+  "data": {
+    "task_id": "weights_abc123",
+    "models": ["hunyuan3d-2.1", "trellis"],
+    "status": "started"
+  }
+}
+```
+
+**Errors:**
+
+| Code | Condition |
+|------|-----------|
+| `400` | Runtime not prepared for one or more models |
+
+---
+
+### List Legacy Weights
+
+List model weights stored in the legacy shared location that are candidates for migration to per-model storage.
+
+```http
+GET /api/v1/runtime/legacy-weights
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "weights": [
+      {
+        "model_id": "hunyuan3d-2.1",
+        "legacy_path": "/shared/weights/hunyuan3d-2.1",
+        "size_bytes": 17179869184,
+        "ready": true
+      }
+    ],
+    "count": 1
+  }
+}
+```
+
+---
+
+### Migrate Legacy Weights
+
+Copy model weights from the legacy shared location to the per-model storage path (`third_party/<RepoName>/weights/`).
+
+```http
+POST /api/v1/runtime/migrate-legacy-weights
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "models": ["hunyuan3d-2.1"]
+}
+```
+
+**Parameters:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `models` | string[] | ✅ | List of model identifiers to migrate |
+
+**Response (202):**
+```json
+{
+  "success": true,
+  "data": {
+    "task_id": "migrate_abc123",
+    "models": ["hunyuan3d-2.1"],
+    "status": "started"
+  }
 }
 ```
 
@@ -1410,7 +1554,15 @@ async function generate3D(prompt: string) {
 
 ## Changelog
 
-### v3.8.7 (Provider Registry Sync & Low-VRAM Load Fix)
+### v3.9.0 (Two-Stage Runtime Installation)
+
+#### Added
+- **Stage A — Prepare Runtime**: `POST /api/v1/runtime/prepare-runtime` — clones repos, creates venvs, and installs dependencies without downloading weights.
+- **Stage B — Download Weights**: `POST /api/v1/runtime/download-weights` — downloads model weights for already-prepared runtimes.
+- **Legacy Weight Migration**: `GET /api/v1/runtime/legacy-weights` and `POST /api/v1/runtime/migrate-legacy-weights` — list and migrate weights from the shared legacy location to per-model storage.
+
+#### Changed
+- `POST /api/v1/runtime/install` now executes both stages sequentially (Stage A → Stage B) instead of requiring a single monolithic call.
 
 #### Fixed
 - `POST /api/v1/runtime/provider` and `get_provider()` now correctly resolve `hunyuan3d-2-mini` and `triposg` (previously `validate_provider_switch()` rejected them and `get_provider()` silently fell back to the mock provider). The provider registry (`app/core/providers/registry.py`) is now in sync with the engine provider map.
@@ -1492,7 +1644,7 @@ async function generate3D(prompt: string) {
 
 ---
 
-*Last Updated: August 15, 2026*
+*Last Updated: August 24, 2026*
 
 
 ### Frontend Connectivity Notes

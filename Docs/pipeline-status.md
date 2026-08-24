@@ -1,8 +1,8 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 3.4.3 (Reticle Removal + Unified Logger)  
+> **Version**: 4.1.0 (Two-Stage Model Setup Refactor)  
 > **Status**: ✅ **COMPLETE**  
-> **Last Updated**: August 15, 2026
+> **Last Updated**: August 24, 2026
 
 ---
 
@@ -19,7 +19,8 @@ This document tracks the implementation status of **Pipeline V2** for AI 3D Stud
 | **Phase 3** | Celery Workers | ✅ Complete | 3 | ~600 |
 | **Phase 4** | API Endpoints | ✅ Complete | 4 | ~1200 |
 | **Phase 5** | Frontend Components | ✅ Complete | 4 | ~1000 |
-| **Total** | | **✅ COMPLETE** | **~34** | **~6600** |
+| **Phase 6** | Two-Stage Model Setup | ✅ Complete | 5 | ~1500 |
+| **Total** | | **✅ COMPLETE** | **~39** | **~8100** |
 
 ---
 
@@ -50,21 +51,34 @@ core/downloader/
   ✅ checksum_validator.py     - SHA256 integrity validation
 
 core/installer/
-  ✅ dependency_resolver.py     - Resolve model dependencies
+  ✅ dependency_resolver.py     - Wheel-first native dependency resolution (NEW in v4.1)
   ✅ plugin_installer.py        - Model installation/uninstallation (per-model venvs)
 
 core/registry/
   ✅ model_registry.py          - Model registration tracking
+
+core/managers/
+  ✅ compatibility_manager.py   - System compatibility checking
+  ✅ download_manager.py        - Queue-based download management
+  ✅ environment_manager.py     - System environment info
+  ✅ health_manager.py          - Model health diagnostics
+  ✅ vram_tracker.py            - VRAM monitoring
 
 scripts/
   ✅ migrate_weights_to_per_model.py - Weight migration (copy-then-verify)
 
 models/
   ✅ job.py                    - Generation job ORM model
-  ✅ registry.py               - Model registration tracking
+  ✅ registry.py               - Model registration tracking (ProviderInstallState added in v4.1)
 
 schemas/
   ✅ manifest.py                - Model manifest schema
+
+runtime/
+  ✅ installer.py               - Stage-aware orchestrator (prepare_runtime, download_weights)
+  ✅ dependency_resolver.py     - Wheel-first resolution with WHEEL_COMPAT_TABLE
+  ✅ preflight.py               - Real model load + capability smoke tests
+  ✅ manifests/                 - YAML manifests per provider
 ```
 
 #### Frontend Files (6 files)
@@ -177,6 +191,8 @@ RESTful API endpoints for all new functionality.
 | `discover.py` | `/api/v1/discover` | 6 endpoints |
 | `download.py` | `/api/v1/download` | 12 endpoints |
 | `system.py` | `/api/v1/system` | 9 endpoints |
+| `runtime.py` | `/api/v1/runtime` | 7 endpoints (including 2-stage) |
+| `admin.py` | `/api/v1/admin` | 6 endpoints (including install/repair) |
 
 #### Models API (`/api/v1/models/*`)
 
@@ -230,6 +246,29 @@ RESTful API endpoints for all new functionality.
 | GET | `/storage` | Storage/disk info |
 | GET | `/config` | Public configuration |
 | POST | `/test/connection` | Test all connections |
+
+#### Runtime API (`/api/v1/runtime/*`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/install` | Full install (Stage A + B, backward compat) |
+| POST | `/prepare-runtime` | **Stage A only** — clone repos, create venvs, install deps |
+| POST | `/download-weights` | **Stage B only** — download weights for prepared runtimes |
+| GET | `/legacy-weights` | List weights in legacy location |
+| POST | `/migrate-legacy-weights` | Copy legacy weights to per-model location |
+| GET | `/status` | Runtime status |
+| GET | `/options` | Runtime options |
+
+#### Admin API (`/api/v1/admin/*`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/install/status` | Live-authoritative component-level install status |
+| POST | `/repair/{provider_name}` | Manifest-driven repair flow |
+| POST | `/prepare-runtime` | Stage A via admin endpoint |
+| POST | `/download-weights` | Stage B via admin endpoint |
+| GET | `/runtime` | DB-cached install status |
+| GET | `/settings` | Admin settings |
 
 ---
 
@@ -285,6 +324,51 @@ React UI components for new functionality.
 - [x] Action buttons (Download/Repair/Uninstall)
 - [x] Beautiful dark theme UI
 
+### Phase 6: Two-Stage Model Setup ⚙️ → ✅
+
+Split model installation into two independently retryable and reportable stages.
+
+#### Files Created/Modified
+
+| File | Purpose | Key Functions |
+|------|---------|---------------|
+| `installer.py` | Stage-aware orchestrator | `prepare_runtime()`, `download_weights()` |
+| `dependency_resolver.py` | Wheel-first native dep resolution | `resolve_native()`, `install_with_wheel_first()` |
+| `preflight.py` | Real model load + capability smoke tests | `run_preflight_for_provider()` |
+| `registry.py` (models) | Component-level state persistence | `ProviderInstallState` DB model |
+| `runtime.py` (API) | New stage endpoints | `/prepare-runtime`, `/download-weights` |
+
+#### Two-Stage Contract
+
+- **Stage A — Runtime**: Clone repos, create per-model venvs, install Python deps, resolve native deps via wheel-first logic. Does NOT download weights.
+- **Stage B — Weights**: Download primary + auxiliary weights, verify checksums. Requires Stage A complete.
+
+#### Component-Level State Machine
+
+Each model's installation progress is tracked per component with explicit states:
+
+| Component | States |
+|-----------|--------|
+| **repo** | `missing` → `ready` / `failed` |
+| **venv** | `missing` → `creating` → `ready` / `failed` |
+| **deps** | `pending` → `installing` → `ready` / `partial` / `failed` |
+| **native** | `not_required` → `checking_wheel` → `wheel_found` → `wheel_installed` / `build_pending` → `build_running` → `ready` / `skipped` / `failed` |
+| **weights** | `missing` → `downloading` → `verifying` → `ready` / `incomplete` / `failed` |
+| **auxiliary_weights** | `missing` → `downloading` → `ready` / `incomplete` |
+| **preflight** | `pending` → `running` → `passed` / `failed` |
+| **capabilities** | Per-capability: `pending` → `ready` / `blocked` |
+
+Derived model state: `not_ready` → `partial` → `ready` / `blocked` / `failed`.
+
+#### Wheel-First Dependency Resolution
+
+Native dependencies use a wheel-first resolution strategy:
+1. Check static `WHEEL_COMPAT_TABLE` for pre-built wheel per (py_ver, cuda_ver, platform)
+2. Wheel found → install directly (no compilation, deterministic, works offline)
+3. No wheel → source build (`build_pending` → `build_running` → `ready`/`failed`)
+
+Reduces install time and CUDA build failures on Colab/Py3.12.
+
 ---
 
 ## Integration Checklist
@@ -297,6 +381,9 @@ React UI components for new functionality.
 - [x] Database models created/migrated
 - [x] No circular imports
 - [x] Type hints complete
+- [x] Two-stage endpoints (`/prepare-runtime`, `/download-weights`) registered
+- [x] Component-level state persistence via `ProviderInstallState`
+- [x] Wheel-first resolver integrated into install pipeline
 
 ### Frontend Integration
 
@@ -316,11 +403,15 @@ from app.api.v1.models_api import router as models_router
 from app.api.v1.discover import router as discover_router
 from app.api.v1.download import router as download_router
 from app.api.v1.system import router as system_router
+from app.api.v1.runtime import router as runtime_router
+from app.api.v1.admin import router as admin_router
 
 router.include_router(models_router)
 router.include_router(discover_router)
 router.include_router(download_router)
 router.include_router(system_router)
+router.include_router(runtime_router)
+router.include_router(admin_router)
 ```
 
 ---
@@ -351,6 +442,27 @@ CREATE TABLE benchmark_results (
     timestamp TIMESTAMP DEFAULT NOW(),
     FOREIGN KEY (model_id) REFERENCES models(id)
 );
+
+-- Provider Install State (v4.1+)
+-- Component-level installation state persistence
+CREATE TABLE provider_install_state (
+    id VARCHAR PRIMARY KEY,
+    provider_name VARCHAR NOT NULL UNIQUE,
+    state VARCHAR NOT NULL,
+    blocking_reason VARCHAR,
+    repo_state VARCHAR,
+    env_state VARCHAR,
+    weights_state VARCHAR,
+    auxiliary_weights_state VARCHAR,
+    native_build_state VARCHAR,
+    preflight_state VARCHAR,
+    model_load_state VARCHAR,
+    capability_state VARCHAR,
+    components JSONB,
+    last_task_id VARCHAR,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
 ```
 
 ---
@@ -372,7 +484,10 @@ THIRD_PARTY_DIR=/app/storage/third_party  # Per-model repos, venvs, and weights 
 # API Limits
 API_MAX_DOWNLOAD_SIZE_MB=50000
 API_MAX_CONCURRENT_DOWNLOADS=4
-```
+
+# Two-Stage Setup (v4.1+)
+SETUP_STAGE=A  # A=runtime only, B=weights only, AB=both (setup.sh mode)
+WEIGHTS_AUTO_DOWNLOAD=false  # If true, Stage B runs automatically after Stage A
 
 ---
 
@@ -413,6 +528,7 @@ Agent Browser Test: PASSED
 2. **Inference Tests**: Not fully implemented (requires actual model loading)
 3. **Celery Beat**: Configuration documented but may need Redis setup
 4. **Authentication**: Not yet added to new endpoints
+5. **Stage B Auto-Download**: Weights are not downloaded during setup; must be triggered via UI/API
 
 ### Future Enhancements (V3.0 Roadmap)
 
@@ -450,32 +566,42 @@ backend/app/workers/
 └── vram_health_worker.py           [NEW]
 
 backend/app/api/v1/
-├── __init__.py                     [MODIFIED — 15 routers registered]
-├── admin_router.py                 [EXISTING]
-├── generation_router.py            [EXISTING]
-├── models_api.py                   [NEW]
-├── discover_router.py              [NEW]
-├── download_router.py              [NEW]
-├── pipelines_router.py             [NEW]
-├── system_router.py                [NEW]
-├── settings_router.py              [NEW]
-├── rigging_router.py               [NEW]
-└── project_router.py               [NEW]
+  ├── __init__.py                     [MODIFIED — 15 routers registered]
+  ├── admin_router.py                 [EXISTING]
+  ├── generation_router.py            [EXISTING]
+  ├── models_api.py                   [NEW]
+  ├── discover_router.py              [NEW]
+  ├── download_router.py              [NEW]
+  ├── pipelines_router.py             [NEW]
+  ├── system_router.py                [NEW]
+  ├── settings_router.py              [NEW]
+  ├── rigging_router.py               [NEW]
+  ├── project_router.py               [NEW]
+  ├── runtime.py                      [NEW — 2-stage endpoints: /prepare-runtime, /download-weights]
+  └── admin.py                        [NEW — /install/status, /repair/{provider}]
 
 backend/app/core/
-├── providers/                      [EXISTING — 12+ providers]
-├── managers/                       [NEW — 5 managers]
-├── downloader/                     [NEW — mirror_fallback, checksum_validator]
-├── installer/                      [MODIFIED — per-model venvs]
-└── registry/
-    └── model_registry.py           [NEW]
+  ├── providers/                      [EXISTING — 12+ providers]
+  ├── managers/                       [NEW — 5 managers]
+  ├── downloader/                     [NEW — mirror_fallback, checksum_validator]
+  ├── installer/                      [MODIFIED — per-model venvs, dependency_resolver]
+  └── registry/
+      └── model_registry.py           [NEW]
 
 backend/runtime/
-├── installer.py                    [MODIFIED — resolve_install_targets(), full_install()]
-└── storage.py                      [MODIFIED — StorageConfig per-model paths]
+  ├── installer.py                    [MODIFIED — prepare_runtime(), download_weights(), 2-stage orchestrator]
+  ├── dependency_resolver.py          [NEW — wheel-first resolution, WHEEL_COMPAT_TABLE]
+  ├── preflight.py                    [MODIFIED — real model load + capability smoke tests]
+  ├── manifests/                      [NEW — YAML manifests per provider]
+  └── storage.py                      [MODIFIED — StorageConfig per-model paths]
+
+backend/models/
+  └── registry.py                     [MODIFIED — ProviderInstallState DB model]
 
 backend/scripts/
-└── update-models.sh                [EXISTING — supports --migrate flag]
+  ├── update-models.sh                [EXISTING — supports --migrate flag]
+  ├── setup.sh                        [MODIFIED — Stage A then Stage B sequentially]
+  └── colab.sh                        [MODIFIED — Stage A at bootstrap, Stage B on-demand]
 
 features/model-manager/
 ├── tabs/
@@ -491,12 +617,13 @@ features/model-manager/
 │   └── ModelDetailsModal.tsx        [NEW]
 
 Docs/
-├── api-documentation.md             [NEW]
-├── architecture.md                 [NEW]
-├── setup-guide.md                  [NEW]
-├── developer-guide.md              [NEW]
-├── pipeline-status.md              [NEW]
-└── CHANGELOG.md                    [NEW]
+  ├── api-documentation.md             [NEW]
+  ├── architecture.md                 [NEW]
+  ├── setup-guide.md                  [NEW]
+  ├── developer-guide.md              [NEW]
+  ├── pipeline-status.md              [NEW]
+  ├── INSTALLATION_STATES.md          [NEW — component-level state machine reference]
+  └── CHANGELOG.md                    [NEW]
 
 README.md                           [MODIFIED]
 ```
@@ -512,8 +639,9 @@ All phases have been successfully implemented:
 - ✅ **Phase 1**: Base components ready
 - ✅ **Phase 2**: Core managers operational
 - ✅ **Phase 3**: Background workers functional
-- ✅ **Phase 4**: REST APIs available
+- ✅ **Phase 4**: REST APIs available (including 2-stage runtime endpoints)
 - ✅ **Phase 5**: Frontend UI complete
+- ✅ **Phase 6**: Two-Stage Model Setup (Stage A runtime + Stage B weights, component-level state machine, wheel-first dependency resolution)
 
 The system is ready for:
 - Model downloading from multiple sources
@@ -522,6 +650,8 @@ The system is ready for:
 - System compatibility checking
 - Performance benchmarking
 - Admin dashboard integration
+- Two-stage model installation (runtime preparation → weight download)
+- Component-level install status tracking with live-authoritative reporting
 
 ---
 
@@ -574,6 +704,9 @@ The current workspace model pickers are backed by the live registry snapshot and
 - Backend workspace API: `GET /api/v1/pipelines/workspace-models?workspace=<type>`
 - Backend workspace types: `GET /api/v1/pipelines/workspace-types`
 - Backend runtime APIs: `GET /api/v1/runtime/status`, `GET /api/v1/runtime/health`, `GET /api/v1/runtime/options`
+- Backend install status: `GET /api/v1/admin/install/status` (live-authoritative component-level)
+- Backend stage endpoints: `POST /api/v1/runtime/prepare-runtime`, `POST /api/v1/runtime/download-weights`
+- Backend repair: `POST /api/v1/admin/repair/{provider_name}`
 
 ---
 
@@ -615,3 +748,69 @@ All 3D workspace components (`3D-SPACE/`) now use real backend endpoints with ze
 | **.gitignore** | N/A | Excludes `third_party/`, `storage/`, `.runtime_cache/` |
 | **Migration** | N/A | `./scripts/update-models.sh --migrate` |
 | **Disk space** | No pre-check | Checked before weight download |
+
+---
+
+## v4.1.0 — Two-Stage Model Setup Refactor
+
+### What changed
+
+Model installation is split into two strictly separated stages, each independently retryable and reportable:
+
+| Area | Before | After |
+|------|--------|-------|
+| **Installation flow** | Single monolithic `full_install()` | Two-stage: `prepare_runtime()` (Stage A) + `download_weights()` (Stage B) |
+| **Setup script** | `setup.sh` installs everything | `setup.sh` runs Stage A then Stage B sequentially |
+| **Colab bootstrap** | Installs all at once | `colab.sh` runs Stage A at bootstrap, defers Stage B to on-demand/`--weights-only` |
+| **Dependency resolution** | Drop-from-requirements pattern | Wheel-first resolver (`dependency_resolver.py`) with `WHEEL_COMPAT_TABLE` |
+| **Install state tracking** | Binary `installed: true/false` | Component-level state machine (repo, venv, deps, native, weights, auxiliary_weights, preflight, capabilities) |
+| **State persistence** | None | `ProviderInstallState` DB model via `persist_provider_state()` |
+| **Status endpoint** | Coarse status | `GET /api/v1/admin/install/status` — live-authoritative component-level reporting |
+| **Repair endpoint** | Stub | `POST /api/v1/admin/repair/{provider_name}` — manifest-driven repair flow |
+| **Native builds** | Always source compile | Wheel-first: check `WHEEL_COMPAT_TABLE` → install wheel if available, else source build |
+
+### New API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/runtime/prepare-runtime` | Stage A only — clone repos, create venvs, install deps |
+| POST | `/api/v1/runtime/download-weights` | Stage B only — download weights for prepared runtimes |
+| POST | `/api/v1/admin/prepare-runtime` | Stage A via admin endpoint |
+| POST | `/api/v1/admin/download-weights` | Stage B via admin endpoint |
+
+### Component-Level State Machine
+
+Each provider reports fine-grained component status:
+
+- **RepoState**: `missing` → `ready` / `failed`
+- **EnvState**: `missing` → `creating` → `ready` / `failed`
+- **DepsState**: `pending` → `installing` → `ready` / `partial` / `failed`
+- **NativeState**: `not_required` → `checking_wheel` → `wheel_found` → `wheel_installed` / `build_pending` → `build_running` → `ready` / `skipped` / `failed`
+- **WeightsState**: `missing` → `downloading` → `verifying` → `ready` / `incomplete` / `failed`
+- **ModelState** (derived): `not_ready` → `partial` → `ready` / `blocked` / `failed`
+
+### Wheel-First Dependency Resolution
+
+Native dependencies (e.g., `torch-cluster`, `diso`, FlexiCubes) use a wheel-first strategy:
+
+1. Check static `WHEEL_COMPAT_TABLE` for prebuilt wheel per (Python version, CUDA version, platform)
+2. Wheel found → install directly (deterministic, works offline, no compilation)
+3. No wheel → queue source build (`build_pending` → `build_running`)
+
+Reduces install time and CUDA build failures on Colab/Python 3.12.
+
+### Key Files
+
+- `backend/runtime/installer.py` — `prepare_runtime()`, `download_weights()`, 2-stage orchestrator
+- `backend/runtime/dependency_resolver.py` — wheel-first resolution, `WHEEL_COMPAT_TABLE`
+- `backend/runtime/preflight.py` — real model load + capability smoke tests
+- `backend/app/models/registry.py` — `ProviderInstallState` DB model
+- `backend/app/api/v1/runtime.py` — `/prepare-runtime`, `/download-weights` endpoints
+- `backend/app/api/v1/admin.py` — `/install/status`, `/repair/{provider_name}` endpoints
+
+### Verification
+
+- TypeScript and ESLint pass with zero errors.
+- All 2-stage endpoints verified via curl.
+- Component-level state machine tested for all providers.
+- Wheel-first resolver tested for native dependencies with and without prebuilt wheels.

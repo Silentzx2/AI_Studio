@@ -1,5 +1,20 @@
 # AI 3D Studio — Changelog
 
+## [v4.1.0] - 2026-08-24 - Two-Stage Model Setup Refactor
+
+### Added
+- **Two-stage model installation**: Installation is now split into Stage A (runtime — repo clone, venv, native deps, torch stack) and Stage B (weights — model weights, auxiliary weights). Each stage is independently retryable and reportable.
+- **`dependency_resolver.py`**: New module with wheel-first resolution logic — prefers pre-built wheels for native dependencies (e.g., `torch-cluster`, `diso`, FlexiCubes) and falls back to source builds only when no compatible wheel exists. Reduces install time and CUDA build failures on Colab/Py3.12.
+- **Component-level state machine**: Each model's installation progress is tracked per component (repo, venv, torch_stack, native_deps, weights, auxiliary_weights, preflight) with explicit state transitions. Replaces the coarse-grained install flag.
+- **`POST /api/v1/admin/prepare-runtime`** — new endpoint that runs Stage A only (runtime preparation) and returns component-level status without downloading weights.
+- **`POST /api/v1/admin/download-weights`** — new endpoint that runs Stage B only (weight download) for models whose runtime is already prepared.
+- **Hunyuan3D-2mini as separate repo entry**: Added `Hunyuan3D-2mini` as a distinct REPOS entry with its own manifest, weights path, and venv — no longer shares the `Hunyuan3D-2` installation.
+
+### Changed
+- **Updated manifests**: All YAML manifests now include full dependency lists (python packages, native build requirements, torch stack pins) under `dependencies.python`, `dependencies.native`, and `dependencies.torch_stack`. Manifests are the single source of truth for both stages.
+- **`setup.sh` / `colab.sh`**: Updated to use the new two-stage contract — `setup.sh` runs Stage A then Stage B sequentially; `colab.sh` runs Stage A at bootstrap and defers Stage B to on-demand or `--weights-only` invocation. Both scripts now call `prepare-runtime` and `download-weights` endpoints directly.
+- **`install_provider()`**: Refactored to dispatch through the two-stage pipeline — `prepare_runtime()` and `download_weights()` are now separate callables invoked by the stage-aware orchestrator.
+
 ## [v3.9.0] - 2026-08-23 - Workspace UI Migration
 
 ### Added

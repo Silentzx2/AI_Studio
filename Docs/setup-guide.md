@@ -1,8 +1,8 @@
 # AI 3D Studio - Setup & Installation Guide
 
-> **Version**: 3.9.4 (TripoSG Provider Load Fix)  
+> **Version**: 4.1.0 (Two-Stage Model Setup Refactor)  
 > **Difficulty**: Intermediate  
-> **Estimated Time**: 30-60 minutes
+> **Estimated Time**: 15-30 minutes (runtime only; weights are on-demand)
 
 ---
 
@@ -11,11 +11,12 @@
 1. [Prerequisites](#prerequisites)
 2. [Hardware Requirements](#hardware-requirements)
 3. [Quick Start (Native)](#quick-start-native)
-4. [Manual Installation](#manual-installation)
-5. [Environment Configuration](#environment-configuration)
-6. [GPU Setup](#gpu-setup)
-7. [Troubleshooting](#troubleshooting)
-8. [Verification](#verification)
+4. [Two-Stage Installation](#two-stage-installation)
+5. [Manual Installation](#manual-installation)
+6. [Environment Configuration](#environment-configuration)
+7. [GPU Setup](#gpu-setup)
+8. [Troubleshooting](#troubleshooting)
+9. [Verification](#verification)
 
 ---
 
@@ -94,10 +95,14 @@ cd ai-3d-studio
 # Make scripts executable
 chmod +x scripts/*.sh manager.sh
 
-# Run setup and start
+# Run Stage A setup (runtime only — no weights downloaded)
 ./scripts/setup.sh
+
+# Start services
 ./scripts/start.sh
 ```
+
+> **Important**: `setup.sh` performs **Stage A only** — it clones repos, creates per-model venvs, and installs dependencies. Weights are **not** downloaded during setup. After startup, download weights via the UI or API (see [Two-Stage Installation](#two-stage-installation)).
 
 ### Access Points After Startup
 
@@ -122,6 +127,88 @@ The whole project — backend requests, frontend API calls, and user clicks — 
    tail -f logs/api.log
    ```
 3. Browser console also shows live `[activity]` lines for every click and API call.
+
+---
+
+## Two-Stage Installation
+
+Since v4.1, model installation is split into two independent stages:
+
+### Stage A: Runtime Preparation
+
+Clones repos, creates per-model venvs, installs Python dependencies, and resolves native dependencies via wheel-first logic. This is what `setup.sh` runs.
+
+**Via setup script:**
+```bash
+./scripts/setup.sh
+```
+
+**Via API:**
+```bash
+curl -X POST http://localhost:8000/api/v1/runtime/prepare-runtime \
+  -H "Content-Type: application/json" \
+  -d '{"models": ["hunyuan3d-2.1", "trellis", "triposg"]}'
+```
+
+### Stage B: Weight Download
+
+Downloads model weights and auxiliary weights. Requires Stage A to be complete for each model.
+
+**Via UI:**
+- Navigate to the Model Manager in the web UI
+- Click "Download Weights" for each model you want to use
+
+**Via API:**
+```bash
+curl -X POST http://localhost:8000/api/v1/runtime/download-weights \
+  -H "Content-Type: application/json" \
+  -d '{"models": ["hunyuan3d-2.1", "trellis", "triposg"]}'
+```
+
+### Component-Level State Machine
+
+Each model's installation progress is tracked per component with explicit states:
+
+| Component | States |
+|-----------|--------|
+| **repo** | `missing` → `ready` / `failed` |
+| **venv** | `missing` → `creating` → `ready` / `failed` |
+| **deps** | `pending` → `installing` → `ready` / `partial` / `failed` |
+| **native** | `not_required` → `checking_wheel` → `wheel_found` → `wheel_installed` / `build_pending` → `build_running` → `ready` / `skipped` / `failed` |
+| **weights** | `missing` → `downloading` → `ready` / `incomplete` |
+| **preflight** | `pending` → `running` → `passed` / `failed` |
+
+**Check status:**
+```bash
+curl http://localhost:8000/api/v1/admin/install/status
+```
+
+### Dependency Resolver (Wheel-First)
+
+The new `dependency_resolver.py` uses wheel-first logic for native packages:
+
+1. Discovers dependency files (requirements.txt, pyproject.toml, setup.py, manifest)
+2. Classifies each dependency (NORMAL, NATIVE, BUILD_ONLY, OPTIONAL)
+3. For NATIVE deps: checks `WHEEL_COMPAT_TABLE` for prebuilt wheel availability
+4. If wheel exists → install it (no compilation)
+5. If no wheel → prompt for source build or skip
+
+This reduces install time and CUDA build failures, especially on Python 3.12.
+
+### Available Models (v4.1)
+
+| Model ID | Repo Entry | Category |
+|----------|------------|----------|
+| `hunyuan3d-2.1` | `Hunyuan3D-2.1` | 3D Generation |
+| `hunyuan3d-2` | `Hunyuan3D-2` | 3D Generation |
+| `hunyuan3d-2-mini` | `Hunyuan3D-2mini` | 3D Generation |
+| `trellis` | `TRELLIS` | 3D Generation |
+| `triposg` | `TripoSG` | 3D Generation |
+| `anigen` | `AniGen` | Rigging |
+| `unirig` | `UniRig` | Rigging |
+| `detailgen3d` | `DetailGen3D` | Post-processing |
+
+> **Note**: `Hunyuan3D-2mini` is a **separate repo entry** from `Hunyuan3D-2`. They share the same GitHub URL (`Tencent-Hunyuan/Hunyuan3D-2.git`) but have independent manifests, weights paths, and venvs. This allows the mini variant to be installed and updated independently.
 
 ---
 
@@ -241,6 +328,17 @@ celery -A app.workers.celery_app worker --loglevel=info -B -Q generation,images
 npm run dev
 ```
 
+### 7. Download Weights (After Services Start)
+
+```bash
+# Download weights for specific models
+curl -X POST http://localhost:8000/api/v1/runtime/download-weights \
+  -H "Content-Type: application/json" \
+  -d '{"models": ["hunyuan3d-2.1"]}'
+
+# Or use the UI: navigate to Model Manager → Download Weights
+```
+
 ---
 
 ## Environment Configuration
@@ -260,7 +358,7 @@ cp .env.example .env
 ENVIRONMENT=development
 DEBUG=true
 APP_NAME=AI 3D Studio
-APP_VERSION=3.9.4
+APP_VERSION=4.1.0
 
 # ===== DATABASE =====
 DATABASE_URL=postgresql+asyncpg://ai3dstudio:password@localhost:5432/ai3dstudio
@@ -310,7 +408,7 @@ EXPORT_DIR=/app/storage/exports
 THUMBNAIL_DIR=/app/storage/thumbnails
 ```
 
-> **Per-model layout (v3.2)**: Each model is fully self-contained under `third_party/<RepoName>/` with its own `.venv/` (created by `uv`), `weights/`, `cache/`, `logs/`, and `metadata.json`. The old centralized `third_party/weights/` is deprecated. `.runtime_cache/` holds shared install state. Run `./scripts/update-models.sh --migrate` if upgrading from an earlier version.
+> **Per-model layout (v3.2+)**: Each model is fully self-contained under `third_party/<RepoName>/` with its own `.venv/` (created by `uv`), `weights/`, `cache/`, `logs/`, and `metadata.json`. The old centralized `third_party/weights/` is deprecated. `.runtime_cache/` holds shared install state. Run `./scripts/update-models.sh --migrate` if upgrading from an earlier version.
 
 ### Optional Features
 
@@ -471,7 +569,9 @@ curl -I https://huggingface.co
 df -h ./backend/third_party/
 
 # Retry failed downloads via API
-POST /api/v1/download/process-queue
+curl -X POST http://localhost:8000/api/v1/runtime/download-weights \
+  -H "Content-Type: application/json" \
+  -d '{"models": ["hunyuan3d-2.1"]}'
 ```
 
 #### 7. Migrating Weights from Old Layout
@@ -608,10 +708,53 @@ After updating `backend/runtime/installer.py` (dependency pins for `huggingface_
 ```bash
 # Reinstall affected models to pick up corrected dependency pins
 bash manager.sh
-# or POST /api/v1/runtime/install with models=["trellis","hunyuan3d-2","triposg"]
+# or via API:
+curl -X POST http://localhost:8000/api/v1/runtime/prepare-runtime \
+  -H "Content-Type: application/json" \
+  -d '{"models": ["trellis","hunyuan3d-2","triposg"]}'
 ```
 
-This is required because per-model `.venv/` directories are created at install time and are **not** automatically updated when `EXTRA_DEPS` changes in code. Skipping this step leaves the old (broken) pins in place and the runtime errors persist.
+This is required because per-model `.venv/` directories are created at install time and are **not** automatically updated when dependency pins change in code. Skipping this step leaves the old (broken) pins in place and the runtime errors persist.
+
+#### 16. Native Dependency Wheel Resolution Failures
+
+If a native dependency fails to install during Stage A:
+
+```bash
+# Check which component failed
+curl http://localhost:8000/api/v1/admin/install/status
+
+# Look for "native" component state = "failed" or "checking_wheel"
+```
+
+The wheel-first resolver checks a static compatibility table (`WHEEL_COMPAT_TABLE`) for prebuilt wheels. If no wheel is available for your Python/CUDA combination, it falls back to source build or skips.
+
+To force a source build for a specific package:
+
+```bash
+# Enter the per-model venv
+source backend/third_party/<RepoName>/.venv/bin/activate
+
+# Install the native dependency from source
+pip install <package> --no-binary :all:
+```
+
+Common native packages and their wheel availability:
+
+| Package | Wheel Available | Index |
+|---------|-----------------|-------|
+| `torch-cluster` | ✅ Yes | `data.pyg.org/whl` |
+| `torch-scatter` | ✅ Yes | `data.pyg.org/whl` |
+| `torch-sparse` | ✅ Yes | `data.pyg.org/whl` |
+| `flash-attn` | ❌ No (source only) | - |
+| `pytorch3d` | ✅ Yes | PyTorch index |
+| `xformers` | ✅ Yes | PyTorch index |
+| `kaolin` | ✅ Yes | NVIDIA S3 |
+| `spconv` | ✅ Yes | PyPI |
+| `cupy-cuda12x` | ✅ Yes | PyPI |
+| `nvdiffrast` | ❌ No (git install) | - |
+| `torchmcubes` | ❌ No (source only) | - |
+| `diso` | ❌ No (source only) | - |
 
 ---
 
@@ -705,18 +848,19 @@ Expected response (if GPU available):
 }
 ```
 
-### End-to-End Test
-
-After running setup, start services and verify:
+### Runtime Status Verification
 
 ```bash
-# Start all services
-bash scripts/start.sh
+# Check runtime preparation status
+curl http://localhost:8000/api/v1/runtime/status
 
-# Verify all services are healthy
-bash scripts/manager.sh
-# → Select option 7 (Health Check)
+# Check component-level install status
+curl http://localhost:8000/api/v1/admin/install/status
 ```
+
+### End-to-End Test
+
+After running setup, downloading weights, and starting services:
 
 ```bash
 # 1. Start a generation job
@@ -753,7 +897,7 @@ chmod +x manager.sh
 
 | Option | Action | Description |
 |--------|--------|-------------|
-| **1** | First-Time Setup | Runs bootstrap + dependency installation |
+| **1** | First-Time Setup | Runs Stage A (runtime preparation only) |
 | **2** | Start All Services | Starts PostgreSQL, Redis, Backend, Celery, Frontend |
 | **3** | Stop All Services | Gracefully stops all services (reverse order) |
 | **4** | Restart All Services | Stop → wait 3s → Start |
@@ -970,10 +1114,10 @@ rm -rf .pids
 
 After successful installation:
 
-1. **Read Architecture Documentation**: `docs/architecture.md`
-2. **Read API Documentation**: `docs/api-documentation.md`
-3. **Configure AI Providers**: Set up HuggingFace token for model downloads
-4. **Download Models**: Use the model manager to install AI models
+1. **Download Model Weights**: Use the UI or API to download weights for your desired models
+2. **Read Architecture Documentation**: `docs/architecture.md`
+3. **Read API Documentation**: `docs/api-documentation.md`
+4. **Configure AI Providers**: Set up HuggingFace token for model downloads
 5. **Customize**: Modify settings to fit your workflow
 
 ## Models Not Ready
@@ -1005,6 +1149,15 @@ curl -X POST /api/v1/repair/triposg
 
 Verify the REPOS table has a separate `Hunyuan3D-2.1` entry pointing to `Tencent-Hunyuan/Hunyuan3D-2.1.git`.
 
+### Hunyuan3D-2mini: separate repo entry
+
+As of v4.1, `Hunyuan3D-2mini` is a **separate repo entry** from `Hunyuan3D-2`. Both point to `Tencent-Hunyuan/Hunyuan3D-2.git` but have independent:
+- Manifests (`hunyuan3d_2_mini.yaml` vs `hunyuan3d_2.yaml`)
+- Weights paths (`third_party/Hunyuan3D-2mini/weights/` vs `third_party/Hunyuan3D-2/weights/`)
+- Virtual environments
+
+This allows the mini variant (6 GB VRAM) to be installed independently from the full model (16+ GB VRAM).
+
 ### Model shows BLOCKED with "Preflight not implemented"
 
 The preflight validation has not been written for this provider yet.
@@ -1032,7 +1185,7 @@ Or install the weight manually into `third_party/<RepoName>/weights/<weight-id>/
 The GPU does not meet the manifest's `minimum_vram_mb` requirement. This is now a **hard gate** — the model cannot reach READY.
 
 Fix:
-1. Check actual GPU VRAM: `nvidia-smi --query-gpu=memory.total --format=csv-noheader`
+1. Check actual GPU VRAM: `nvidia-smi --query-gpu=memory.total --format=csv,noheader`
 2. Compare against the manifest's `hardware.minimum_vram_mb` for the provider
 3. Use a GPU with sufficient VRAM, or enable low-VRAM mode if the provider supports it
 

@@ -84,12 +84,14 @@
 | Name | Category | VRAM Required | Speed | Key Capabilities |
 |------|----------|--------------|-------|------------------|
 | **Hunyuan3D 2.1** | 3D generation | ~16 GB | ~90s | text-to-3D, image-to-3D, texture generation |
-| **Hunyuan3D-2 Mini** | 3D generation | ~6 GB | ~45s | image-to-3D (texture via Hunyuan3D-2 paint weights) |
+| **Hunyuan3D-2mini** | 3D generation | ~6 GB | ~45s | image-to-3D (texture via Hunyuan3D-2 paint weights); separate repo, manifest, weights path, and venv |
 | **Trellis** | 3D generation | ~12 GB | ~60s | image-to-3D, text-to-3D, texture generation |
 | **TripoSG** | 3D generation | ~8 GB | ~60s | image-to-3D (rectified-flow, no texture) |
 | **DetailGen3D** | Post-processing | ~4 GB | ~15s | detail enhancement (mesh refinement, no texture) |
 | **UniRig** | Rigging | ~8 GB | ~30s | skeletal rigging, animation |
 | **AniGen** | Rigging | ~6.2 GB | ~30s | character skeletal rigging, animation |
+
+> **Note**: `Hunyuan3D-2mini` is a **separate repo entry** from `Hunyuan3D-2`. They share the same GitHub URL but have independent manifests, weights paths, and venvs — allowing the mini variant to be installed and updated independently.
 
 ### Pipeline & Workspace APIs
 
@@ -265,6 +267,11 @@ The backend pipelines API drives workspace model pickers and feature gating (the
 
 ### Quick Start (Native)
 
+Model installation uses a **two-stage** pipeline:
+
+- **Stage A — Runtime**: clones repos, creates per-model venvs, installs Python deps and torch stack.
+- **Stage B — Weights**: downloads model weights and auxiliary weights for prepared runtimes.
+
 ```bash
 # Clone the repository
 git clone https://github.com/your-org/ai-3d-studio.git
@@ -273,11 +280,19 @@ cd ai-3d-studio
 # Make scripts executable
 chmod +x scripts/*.sh manager.sh
 
-# Run setup (installs system deps, uv, Python packages, and starts services)
+# Run Stage A setup (runtime only — repos, venvs, deps; NO weights)
 # uv is a hard dependency and is installed automatically by setup.sh
 ./scripts/setup.sh
+
+# Start services
 ./scripts/start.sh
+
+# Download weights via UI (Settings → Model Manager) or API:
+# curl -X POST http://localhost:8000/api/v1/runtime/download-weights \
+#   -H 'Content-Type: application/json' -d '{"providers":["hunyuan3d-2-mini"]}'
 ```
+
+> **Note**: `setup.sh` performs **Stage A only** — it does not download weights. After startup, download weights through the UI or the `download-weights` API endpoint.
 
 ### Access Points
 
@@ -327,8 +342,9 @@ Colab mode automatically:
 - Detects the Colab environment and available GPU
 - Forces SQLite mode (no PostgreSQL/Redis systemd)
 - Installs backend venv + PyTorch (CUDA 12.1 if GPU detected)
-- Clones and prepares model runtimes
+- Runs **Stage A** (runtime preparation: clone repos, create venvs, install deps)
 - Starts API, Celery worker, and frontend via Cloudflare Tunnel
+- Stage B (weights) is deferred — download via UI or `download-weights` API after startup
 
 **Colab VRAM Preparation Policy**: Models requiring **15 GB or more** VRAM are **not** automatically cloned or prepared by `colab.sh`. They remain visible in the UI but are marked as Colab-incompatible. This prevents GPU OOM crashes during setup on Colab T4/P100 runtimes (~16 GB VRAM). On VPS/full-GPU hosts, all models are available without this restriction.
 
@@ -336,7 +352,7 @@ Colab mode automatically:
 |-------|--------------|------------|
 | Hunyuan3D 2.1 | 16 GB | Skipped |
 | Hunyuan3D 2 | 24 GB | Skipped |
-| Hunyuan3D-2 Mini | 6 GB | Prepared |
+| Hunyuan3D-2mini | 6 GB | Prepared |
 | TRELLIS | 8 GB | Prepared |
 | AniGen | 6.2 GB | Prepared |
 | UniRig | 8 GB | Prepared |
@@ -430,7 +446,7 @@ For complete configuration options, see [Setup Guide - Configuration](docs/setup
 
 | Workspace | Purpose | Compatible Models |
 |-----------|---------|-------------------|
-| **Mesh Generation** | Create 3D meshes from text or images | Hunyuan3D 2.1, Hunyuan3D 2, Hunyuan3D-2 Mini, TRELLIS, TripoSG |
+| **Mesh Generation** | Create 3D meshes from text or images | Hunyuan3D 2.1, Hunyuan3D 2, Hunyuan3D-2mini, TRELLIS, TripoSG |
 | **Texture Generation** | Generate PBR textures and materials | Hunyuan3D 2.1, Hunyuan3D 2, TRELLIS |
 | **Rigging** | Auto-rig 3D character meshes | AniGen, UniRig |
 | **Animation** | Generate skeletal animations | AniGen, UniRig |
@@ -551,6 +567,16 @@ GET    /api/v1/system/info                           - System specs
 POST   /api/v1/system/compatibility                  - Check compatibility
 GET    /api/v1/system/health                         - Overall health status
 GET    /api/v1/system/benchmark/{model_id}          - Get benchmarks
+```
+
+#### **Runtime Installation (Two-Stage)**
+```
+POST   /api/v1/runtime/prepare-runtime               - Stage A: clone repos, create venvs, install deps (no weights)
+POST   /api/v1/runtime/download-weights              - Stage B: download model weights for prepared runtimes
+POST   /api/v1/runtime/install                       - Stage A + B (backward compat; runs both stages sequentially)
+GET    /api/v1/runtime/status                        - Runtime health and provider status
+GET    /api/v1/runtime/health                        - Runtime health check
+GET    /api/v1/runtime/options                       - Available runtime options
 ```
 
 #### **Pipelines & Workspace**
@@ -1043,5 +1069,5 @@ See [Pipeline Status Document](docs/pipeline-status.md) for detailed breakdown.
 ---
 
 <p align="center">
-  <sub>Last Updated: August 17, 2026 | Version 3.8.8 | Tripo-style UI Redesign</sub>
+  <sub>Last Updated: August 24, 2026 | Version 4.1.0 | Two-Stage Model Setup</sub>
 </p>
