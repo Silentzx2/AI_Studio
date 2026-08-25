@@ -785,13 +785,16 @@ kill_by_pid_file "$PID_DIR/worker.pid"
 # When Redis is absent the env already points CELERY_BROKER_URL at memory://;
 # pass it explicitly too so the worker boots without a Redis connection.
 CELERY_BROKER_ARG=""
+CELERY_RESULT_ARG=""
 if [[ "$REDIS_AVAILABLE" != "true" ]]; then
     CELERY_BROKER_ARG="--broker memory://"
+    CELERY_RESULT_ARG="--result-backend cache+memory://"
 fi
 (
     cd backend
     $PYTHON_BIN -m celery -A app.workers.celery_app worker \
         $CELERY_BROKER_ARG \
+        $CELERY_RESULT_ARG \
         --loglevel=info \
         --concurrency=1 \
         -B \

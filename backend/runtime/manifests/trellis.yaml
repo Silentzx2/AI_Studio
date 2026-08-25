@@ -28,6 +28,11 @@ dependencies:
     - "pymeshfix"
     - "igraph"
     - "transformers"
+    - "diffusers"
+    - "omegaconf"
+    - "numpy"
+    - "accelerate"
+    - "huggingface_hub"
     - "git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8"
   imports:
     - "torch"
@@ -36,7 +41,7 @@ dependencies:
     - "trimesh"
   native:
     # Optional CUDA extensions — handled by native resolver (wheel-first)
-    - "flash-attn"
+    - "flash_attn"
     - "xformers"
     - "diffoctreerast"
     - "spconv"

@@ -553,17 +553,16 @@ def install_resolved_deps(
             has_cuda = _cuda_available()
             has_toolkit = shutil.which("nvcc") is not None
 
-            # Auto-detect: build if CUDA+toolkit present
+            # Decision flow:
+            # 1. If allow_build flag is set (CI/non-interactive), auto-build
+            # 2. If interactive, ask the user
+            # 3. Otherwise skip
             should_build = allow_build
             if not should_build:
-                if has_cuda and has_toolkit:
-                    # Auto-build on GPU machines with toolkit
-                    should_build = True
-                    _log(f"Auto-building {dep.name} (CUDA toolkit detected)...")
-                elif interactive and _is_interactive():
-                    # Interactive prompt
+                if interactive and _is_interactive():
+                    # Interactive prompt — ask user
                     prompt = (
-                        f"\nNo compatible prebuilt build found for '{dep.name}'.\n"
+                        f"\nNo compatible prebuilt wheel found for '{dep.name}'.\n"
                         f"CUDA: {'yes' if has_cuda else 'no'}, toolkit: {'yes' if has_toolkit else 'no'}\n"
                         f"Do you want to build this dependency from source? [y/N] "
                     )
@@ -572,8 +571,12 @@ def install_resolved_deps(
                         should_build = choice == "y"
                     except (EOFError, KeyboardInterrupt):
                         should_build = False
+                elif has_cuda and has_toolkit:
+                    # Non-interactive with toolkit: auto-build
+                    should_build = True
+                    _log(f"Auto-building {dep.name} (CUDA toolkit detected, non-interactive mode)...")
                 else:
-                    # Non-interactive: skip if no toolkit
+                    # Non-interactive without toolkit: skip
                     should_build = False
                     _log(f"Skipping {dep.name} (no CUDA toolkit in non-interactive mode)")
 
