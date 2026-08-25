@@ -1314,7 +1314,7 @@ def _uv_install(
             output = ""
     else:
         code, output = _run_uv(
-            ["pip", "install", "--python", str(venv_python), "-r", str(install_requirements), *build_iso_args, *cuda_exclude_args],
+            ["pip", "install", "--python", str(venv_python), "-r", str(install_requirements), "--reinstall", *build_iso_args, *cuda_exclude_args],
             cwd=repo_dir,
             extra_env=cmake_env,
         )
@@ -1335,7 +1335,9 @@ def _uv_install(
             cwd=repo_dir,
         )
 
-    # ponytail: install EXTRA_DEPS (inference libs omitted from the repo's own
+    # Verify critical packages are importable, force-reinstall if not
+    # ponytail: packages can be corrupted from previous failed installs
+    _verify_and_fix_critical_packages(venv_python, repo_dir, req_blob)
     # requirements.txt, e.g. hy3dgen) into the per-model venv. In-process local
     # providers append this venv's site-packages to sys.path, so the inference
     # libraries resolve without needing to pollute the backend venv (which
@@ -1354,7 +1356,38 @@ def _uv_install(
         else:
             logger.info("Installed extra deps %s into %s (per-model venv)", extra, repo_name)
 
+    # Verify critical packages are importable, force-reinstall if corrupted
+    _verify_and_fix_critical_packages(venv_python, repo_dir, req_blob)
+
     return {"success": True}
+
+
+def _verify_and_fix_critical_packages(venv_python: Path, repo_dir: Path, req_blob: str) -> None:
+    """Verify critical packages can be imported, force-reinstall if corrupted.
+
+    ponytail: packages from previous failed installs can be partially
+    extracted or missing C extensions. This checks the key packages and
+    force-reinstalls any that fail to import.
+    """
+    critical = ["torch", "transformers", "diffusers", "numpy", "PIL"]
+    uv_path = shutil.which("uv")
+    for pkg in critical:
+        if not re.search(rf"\b{re.escape(pkg)}\b", req_blob):
+            continue
+        import_name = "PIL" if pkg == "PIL" else pkg
+        code, output = _run(
+            [str(venv_python), "-c", f"import {import_name}; print('ok')"],
+            cwd=str(repo_dir),
+        )
+        if code != 0 or "ok" not in output:
+            logger.warning("Package %s failed import check, force-reinstalling...", pkg)
+            pkg_name = "pillow" if pkg == "PIL" else pkg
+            if uv_path:
+                _run(
+                    [uv_path, "pip", "install", "--python", str(venv_python),
+                     "--force-reinstall", "--no-cache-dir", pkg_name],
+                    cwd=str(repo_dir),
+                )
 
 
 # ---------------------------------------------------------------------------
