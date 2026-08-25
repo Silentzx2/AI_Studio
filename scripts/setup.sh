@@ -59,6 +59,7 @@ detect_gpu() {
   head_ "GPU Detection"
   GPU_AVAILABLE=false
   GPU_NAME=""
+  CUDA_VERSION=""
 
   if command -v nvidia-smi &>/dev/null; then
     GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 || true)
@@ -68,6 +69,32 @@ detect_gpu() {
       log "GPU detected : ${CYAN}${GPU_NAME}${NC}"
       log "Driver       : $DRIVER_VER"
     fi
+  fi
+
+  # Detect CUDA version from nvcc or driver
+  if command -v nvcc &>/dev/null; then
+    CUDA_FULL=$(nvcc --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
+    if [[ -n "$CUDA_FULL" ]]; then
+      CUDA_VERSION=$(echo "$CUDA_FULL" | awk -F. '{print $1$2}')
+      log "CUDA toolkit : ${CYAN}${CUDA_FULL}${NC}"
+    fi
+  fi
+
+  # Fallback: map driver version to CUDA version
+  if [[ "$GPU_AVAILABLE" == "true" && -z "$CUDA_VERSION" ]]; then
+    # Extract major driver version
+    DRIVER_MAJOR=$(echo "$DRIVER_VER" | awk -F. '{print $1}')
+    # Driver version to CUDA version mapping (approximate)
+    if [[ "$DRIVER_MAJOR" -ge 550 ]]; then
+      CUDA_VERSION="124"  # CUDA 12.4+
+    elif [[ "$DRIVER_MAJOR" -ge 535 ]]; then
+      CUDA_VERSION="121"  # CUDA 12.1
+    elif [[ "$DRIVER_MAJOR" -ge 525 ]]; then
+      CUDA_VERSION="118"  # CUDA 11.8
+    else
+      CUDA_VERSION="121"  # Default fallback
+    fi
+    log "CUDA (from driver): cu${CUDA_VERSION}"
   fi
 
   if [[ "$GPU_AVAILABLE" == "false" ]]; then
@@ -384,9 +411,11 @@ install_python_deps() {
 
     # Install PyTorch once — GPU or CPU depending on hardware
     if [[ "$GPU_AVAILABLE" == "true" ]]; then
-      log "Installing PyTorch with CUDA 12.1 via uv..."
+      # Use detected CUDA version, default to cu121
+      CUDA_INDEX="${CUDA_VERSION:-121}"
+      log "Installing PyTorch with CUDA ${CUDA_INDEX} via uv..."
       uv pip install --python .venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
-        --index-url https://download.pytorch.org/whl/cu121 -q
+        --index-url "https://download.pytorch.org/whl/cu${CUDA_INDEX}" -q
     else
       log "Installing PyTorch CPU-only via uv..."
       uv pip install --python .venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \

@@ -895,11 +895,29 @@ def _backend_torch_stack() -> tuple[str, list[str]]:
         tv, tvv, tav = "2.5.1", "0.20.1", "2.5.1"
     # The +cuXXX / +cpu local version tag selects the matching PyTorch wheel
     # index (e.g. 2.5.1+cu121 -> https://download.pytorch.org/whl/cu121).
-    cuda = "cu121"
+    cuda = ""
     if "+" in tv:
         tag = tv.split("+", 1)[1]
         if tag.startswith("cu") or tag == "cpu":
             cuda = tag
+    if not cuda:
+        # Fallback: detect CUDA version from torch.version.cuda
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["python", "-c", "import torch; print(torch.version.cuda or 'cpu')"],
+                capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                cuda_ver = result.stdout.strip()
+                if cuda_ver and cuda_ver != "cpu":
+                    cuda = f"cu{cuda_ver.replace('.', '')}"
+                elif cuda_ver == "cpu":
+                    cuda = "cpu"
+        except Exception:
+            pass
+    if not cuda:
+        cuda = "cu121"  # Final fallback
     index = f"https://download.pytorch.org/whl/{cuda}"
     # Pin the FULL version including the +cuXXX local tag. The per-model venv may
     # already hold a mismatched build (e.g. 2.13/0.28 from an unpinned install),

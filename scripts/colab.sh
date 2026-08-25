@@ -77,6 +77,34 @@ detect_gpu() {
     echo "cpu"
 }
 
+detect_cuda_version() {
+    # Check nvcc first
+    if command -v nvcc &>/dev/null; then
+        local cuda_full
+        cuda_full=$(nvcc --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
+        if [[ -n "$cuda_full" ]]; then
+            echo "$cuda_full" | awk -F. '{print $1$2}'
+            return
+        fi
+    fi
+    # Fallback: map driver version to CUDA version
+    if command -v nvidia-smi &>/dev/null; then
+        local driver_ver
+        driver_ver=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 | awk -F. '{print $1}')
+        if [[ "$driver_ver" -ge 550 ]]; then
+            echo "124"
+        elif [[ "$driver_ver" -ge 535 ]]; then
+            echo "121"
+        elif [[ "$driver_ver" -ge 525 ]]; then
+            echo "118"
+        else
+            echo "121"
+        fi
+        return
+    fi
+    echo "121"
+}
+
 # ── Step 1: Environment Setup ─────────────────────────────────────────────
 
 step "1/6 Google Colab environment setup"
@@ -112,7 +140,9 @@ export COLAB_PREP_GATE=1
 warn "Running in Colab — using SQLite fallback for database and in-process broker for Celery."
 
 GPU_TYPE=$(detect_gpu)
+CUDA_VERSION=$(detect_cuda_version)
 log "GPU : ${CYAN}${GPU_TYPE}${NC}"
+log "CUDA: ${CYAN}cu${CUDA_VERSION}${NC}"
 
 # Build-time frontend config must be set BEFORE `npm run build` (Next.js embeds
 # NEXT_PUBLIC_* at build time). Export early so both the build and `npm start`
@@ -205,9 +235,9 @@ fi
 
 # Install PyTorch (GPU or CPU depending on hardware)
 if [[ "$GPU_TYPE" == "gpu" ]]; then
-    info "Installing PyTorch with CUDA 12.1 via uv..."
+    info "Installing PyTorch with CUDA ${CUDA_VERSION} via uv..."
     uv pip install --python backend/.venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
-        --index-url https://download.pytorch.org/whl/cu121 -q 2>/dev/null || {
+        --index-url "https://download.pytorch.org/whl/cu${CUDA_VERSION}" -q 2>/dev/null || {
         warn "PyTorch CUDA install failed, trying CPU fallback..."
         uv pip install --python backend/.venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
             --index-url https://download.pytorch.org/whl/cpu -q 2>/dev/null || true
