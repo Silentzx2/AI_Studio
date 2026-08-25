@@ -882,7 +882,8 @@ _TRELLIS_BASIC_DEPS = [
     "pillow", "imageio", "imageio-ffmpeg", "tqdm", "easydict",
     "opencv-python-headless", "scipy", "ninja", "rembg", "onnxruntime",
     "trimesh", "open3d", "xatlas", "pyvista", "pymeshfix", "igraph",
-    "transformers",
+    "transformers", "diffusers", "omegaconf", "numpy", "accelerate",
+    "huggingface_hub",
 ]
 _TRELLIS_GIT_DEPS = [
     "git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8",
