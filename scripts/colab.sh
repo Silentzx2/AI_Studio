@@ -778,8 +778,9 @@ ran = skipped = 0
 for repo_name in sorted(REPOS.keys()):
     if repo_name not in COLAB_ALLOWED_REPOS:
         continue
-    meta = PROVIDER_METADATA.get(repo_name, {})
-    providers = meta.get("providers", [repo_name])
+    # Get provider name from REPOS config (not PROVIDER_METADATA)
+    repo_cfg = REPOS.get(repo_name, {})
+    providers = repo_cfg.get("providers", [repo_name])
     provider = providers[0] if providers else repo_name
     venv_python = storage.get_model_venv_path(repo_name) / "bin" / "python"
     if not venv_python.exists():
