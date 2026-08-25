@@ -78,7 +78,22 @@ detect_gpu() {
 }
 
 detect_cuda_version() {
-    # Check nvcc first
+    # Check driver version first (more reliable than nvcc on Colab)
+    if command -v nvidia-smi &>/dev/null; then
+        local driver_ver
+        driver_ver=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 | awk -F. '{print $1}')
+        if [[ "$driver_ver" -ge 550 ]]; then
+            echo "124"
+        elif [[ "$driver_ver" -ge 535 ]]; then
+            echo "121"
+        elif [[ "$driver_ver" -ge 525 ]]; then
+            echo "118"
+        else
+            echo "121"
+        fi
+        return
+    fi
+    # Fallback: check nvcc if available
     if command -v nvcc &>/dev/null; then
         local cuda_full
         cuda_full=$(nvcc --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
@@ -93,21 +108,6 @@ detect_cuda_version() {
             fi
             return
         fi
-    fi
-    # Fallback: map driver version to CUDA version
-    if command -v nvidia-smi &>/dev/null; then
-        local driver_ver
-        driver_ver=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 | awk -F. '{print $1}')
-        if [[ "$driver_ver" -ge 550 ]]; then
-            echo "124"
-        elif [[ "$driver_ver" -ge 535 ]]; then
-            echo "121"
-        elif [[ "$driver_ver" -ge 525 ]]; then
-            echo "118"
-        else
-            echo "121"
-        fi
-        return
     fi
     echo "121"
 }
