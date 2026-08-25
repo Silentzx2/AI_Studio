@@ -314,3 +314,11 @@ The frontend uses a modern persistent workspace: ONE global 3D viewport (`MeshVi
 - Settings persist to localStorage and apply live without page reload
 - `/3D-SPACE/` — old 3D components (Canvas3D, AssetPanel, GenerationControls)
 - All ComfyUI-specific code and `react-router-dom` dependency from workspace
+
+#### Dependency Installation
+- **Manifest-based**: Each model's `manifest.yaml` is the single source of truth for dependencies
+- **EXTRA_DEPS**: Packages not in the repo's requirements.txt (e.g., `hy3dgen` for Hunyuan3D) are installed separately
+- **Pillow fix**: Force-reinstalls Pillow if C extension (`_imaging`) is missing or corrupted
+- **CUDA 12.x support**: All CUDA 12.0-12.8 versions supported with automatic wheel selection
+- **CPU fallback**: On CPU-only machines, installs CPU wheels and marks models as PARTIAL
+- **Preflight**: Stage A skips weights check (weights are Stage B)
