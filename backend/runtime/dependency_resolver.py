@@ -53,29 +53,36 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "wheel_available": True,
         "index": "https://data.pyg.org/whl/torch-{torch_ver}+{cuda_ver}.html",
         "python": ["3.10", "3.11", "3.12"],
-        "cuda": ["121"],
+        "cuda": ["121", "124", "cpu"],
         "pattern": re.compile(r"^torch[-_]cluster($|==|>=|<=|!=|~=)"),
     },
     "torch-scatter": {
         "wheel_available": True,
         "index": "https://data.pyg.org/whl/torch-{torch_ver}+{cuda_ver}.html",
         "python": ["3.10", "3.11", "3.12"],
-        "cuda": ["121"],
+        "cuda": ["121", "124", "cpu"],
         "pattern": re.compile(r"^torch[-_]scatter($|==|>=|<=|!=|~=)"),
     },
     "torch-sparse": {
         "wheel_available": True,
         "index": "https://data.pyg.org/whl/torch-{torch_ver}+{cuda_ver}.html",
         "python": ["3.10", "3.11", "3.12"],
-        "cuda": ["121"],
+        "cuda": ["121", "124", "cpu"],
         "pattern": re.compile(r"^torch[-_]sparse($|==|>=|<=|!=|~=)"),
+    },
+    "pyg_lib": {
+        "wheel_available": True,
+        "index": "https://data.pyg.org/whl/torch-{torch_ver}+{cuda_ver}.html",
+        "python": ["3.10", "3.11", "3.12"],
+        "cuda": ["121", "124", "cpu"],
+        "pattern": re.compile(r"^pyg_lib($|==|>=|<=|!=|~=)"),
     },
     "flash-attn": {
         # flash-attn publishes no PyPI wheel — always built from source
         "wheel_available": False,
         "index": None,
         "python": ["3.10", "3.11", "3.12"],
-        "cuda": ["121"],
+        "cuda": ["121", "124"],
         "pattern": re.compile(r"^flash[-_]attn($|==|>=|<=|!=|~=)"),
     },
     "pytorch3d": {
@@ -83,29 +90,29 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "wheel_available": True,
         "index": None,
         "python": ["3.10", "3.11", "3.12"],
-        "cuda": ["121"],
+        "cuda": ["121", "124"],
         "pattern": re.compile(r"^pytorch3d($|==|>=|<=|!=|~=)"),
     },
     "xformers": {
         "wheel_available": True,
         "index": None,
         "python": ["3.10", "3.11", "3.12"],
-        "cuda": ["121"],
+        "cuda": ["121", "124"],
         "pattern": re.compile(r"^xformers($|==|>=|<=|!=|~=)"),
     },
     "torchmcubes": {
         "wheel_available": False,
         "index": None,
         "python": ["3.10", "3.11"],
-        "cuda": ["121"],
+        "cuda": ["121", "124"],
         "pattern": re.compile(r"^(git\+)?.*torchmcubes"),
     },
     "diso": {
         # diso has no prebuilt wheel — source build only
         "wheel_available": False,
         "index": None,
-        "python": ["3.10", "3.11"],
-        "cuda": ["121"],
+        "python": ["3.10", "3.11", "3.12"],
+        "cuda": ["121", "124", "cpu"],
         "pattern": re.compile(r"^diso($|==|>=|<=|!=|~=)"),
     },
     "spconv": {
@@ -113,14 +120,14 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "wheel_available": True,
         "index": None,
         "python": ["3.10", "3.11", "3.12"],
-        "cuda": ["121"],
+        "cuda": ["121", "124"],
         "pattern": re.compile(r"^spconv($|==|>=|<=|!=|~=)"),
     },
     "cupy-cuda12x": {
         "wheel_available": True,
         "index": None,
         "python": ["3.10", "3.11", "3.12"],
-        "cuda": ["121"],
+        "cuda": ["121", "124"],
         "pattern": re.compile(r"^cupy[-_]cuda12x($|==|>=|<=|!=|~=)"),
     },
     "nvdiffrast": {
@@ -128,15 +135,15 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "wheel_available": False,
         "index": None,
         "python": ["3.10", "3.11"],
-        "cuda": ["121"],
+        "cuda": ["121", "124"],
         "pattern": re.compile(r"^nvdiffrast($|==|>=|<=|!=|~=)"),
     },
     "kaolin": {
         # kaolin wheels via nvidia-kaolin S3
         "wheel_available": True,
-        "index": "https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-{torch_ver}_cu{cuda_ver_short}.html",
+        "index": "https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-{torch_ver}_cu{cuda_ver}.html",
         "python": ["3.10", "3.11"],
-        "cuda": ["121"],
+        "cuda": ["121", "124"],
         "pattern": re.compile(r"^kaolin($|==|>=|<=|!=|~=)"),
     },
 }
@@ -332,7 +339,9 @@ def check_wheel_available(
             # Build the wheel source/index URL
             index = info.get("index")
             if index and torch_ver:
-                index = index.replace("{torch_ver}", torch_ver).replace("{cuda_ver}", cuda_ver)
+                # Replace cuda_ver placeholder (handle both "121" and "cpu")
+                cv = cuda_ver if cuda_ver == "cpu" else f"cu{cuda_ver}"
+                index = index.replace("{torch_ver}", torch_ver).replace("{cuda_ver}", cv).replace("{cuda_ver_short}", cuda_ver)
             return index or "pypi"
 
     return None
