@@ -76,6 +76,10 @@ detect_gpu() {
     CUDA_FULL=$(nvcc --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
     if [[ -n "$CUDA_FULL" ]]; then
       CUDA_VERSION=$(echo "$CUDA_FULL" | awk -F. '{print $1$2}')
+      # Cap at cu124 (latest PyTorch 2.5.1 supports)
+      if [[ "$CUDA_VERSION" -gt 124 ]]; then
+        CUDA_VERSION="124"
+      fi
       log "CUDA toolkit : ${CYAN}${CUDA_FULL}${NC}"
     fi
   fi

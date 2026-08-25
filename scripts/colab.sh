@@ -83,7 +83,14 @@ detect_cuda_version() {
         local cuda_full
         cuda_full=$(nvcc --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
         if [[ -n "$cuda_full" ]]; then
-            echo "$cuda_full" | awk -F. '{print $1$2}'
+            local ver
+            ver=$(echo "$cuda_full" | awk -F. '{print $1$2}')
+            # Cap at cu124 (latest PyTorch 2.5.1 supports)
+            if [[ "$ver" -gt 124 ]]; then
+                echo "124"
+            else
+                echo "$ver"
+            fi
             return
         fi
     fi
@@ -605,6 +612,10 @@ if [[ "$REDIS_AVAILABLE" != "true" ]]; then
     export CELERY_BROKER_URL="memory://"
     export CELERY_RESULT_BACKEND="cache+memory://"
     export REDIS_URL="memory://"
+    # Update .env so Celery worker reads the correct config
+    sed -i 's|^REDIS_URL=.*|REDIS_URL=memory://|' .env 2>/dev/null || true
+    sed -i 's|^CELERY_BROKER_URL=.*|CELERY_BROKER_URL=memory://|' .env 2>/dev/null || true
+    sed -i 's|^CELERY_RESULT_BACKEND=.*|CELERY_RESULT_BACKEND=cache+memory://|' .env 2>/dev/null || true
     log "Celery fallback active: eager execution + memory broker (no Redis)"
 else
     # Redis is available, use localhost URLs
