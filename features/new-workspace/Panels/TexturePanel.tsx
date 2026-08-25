@@ -8,9 +8,11 @@ import {
   Layers,
   Palette,
   Check,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
+import { useUploadProgress } from '@/hooks/useUploadProgress';
 
 export const TexturePanel: React.FC = () => {
   const { 
@@ -24,12 +26,13 @@ export const TexturePanel: React.FC = () => {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [referenceError, setReferenceError] = useState<string | null>(null);
+  const { progress: uploadProgress, readFileWithProgress } = useUploadProgress();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
   const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
-  const processImageFile = useCallback((file: File) => {
+  const processImageFile = useCallback(async (file: File) => {
     setReferenceError(null);
 
     if (!ACCEPTED_TYPES.includes(file.type)) {
@@ -42,18 +45,16 @@ export const TexturePanel: React.FC = () => {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
+    try {
+      const dataUrl = await readFileWithProgress(file);
       setTextureSettings(prev => ({
         ...prev,
-        referenceImage: reader.result as string
+        referenceImage: dataUrl
       }));
-    };
-    reader.onerror = () => {
+    } catch (err) {
       setReferenceError('Failed to read file.');
-    };
-    reader.readAsDataURL(file);
-  }, [setTextureSettings]);
+    }
+  }, [setTextureSettings, readFileWithProgress]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -263,7 +264,20 @@ export const TexturePanel: React.FC = () => {
               : 'border-[#2f3442] hover:border-[#f5c518]/60 bg-[#14161b] hover:bg-[#181a22]'
           }`}
         >
-          {textureSettings.referenceImage ? (
+          {uploadProgress.active ? (
+            <div className="flex flex-col items-center justify-center space-y-1.5 w-full">
+              <Loader2 className="w-6 h-6 animate-spin text-[#f5c518]" />
+              <div className="w-full bg-[#1b1e27] rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="bg-[#f5c518] h-full rounded-full transition-all duration-200"
+                  style={{ width: `${uploadProgress.percent}%` }}
+                />
+              </div>
+              <span className="text-[10px] text-[#6b7280]">
+                {uploadProgress.percent}% ({(uploadProgress.loadedBytes / 1024 / 1024).toFixed(1)}/{(uploadProgress.totalBytes / 1024 / 1024).toFixed(1)} MB)
+              </span>
+            </div>
+          ) : textureSettings.referenceImage ? (
             <img
               src={textureSettings.referenceImage}
               alt="Reference"

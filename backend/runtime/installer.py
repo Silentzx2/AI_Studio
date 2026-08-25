@@ -837,6 +837,7 @@ _CUDA_ONLY_PKG_PATTERNS: list[re.Pattern] = [
 EXTRA_DEPS: dict[str, list[str]] = {
     "Hunyuan3D-2.1": ["hy3dgen", "accelerate>=0.34.0", "huggingface_hub==0.27.1"],
     "Hunyuan3D-2": ["hy3dgen", "accelerate>=0.34.0", "huggingface_hub==0.27.1"],
+    "Hunyuan3D-2mini": ["hy3dgen", "accelerate>=0.34.0", "huggingface_hub==0.27.1"],
     "TRELLIS": ["accelerate>=0.34.0"],
     "TripoSG": ["diffusers>=0.22.0", "huggingface_hub==0.27.1", "accelerate"],
 }

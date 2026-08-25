@@ -15,10 +15,12 @@ import {
   Info,
   SlidersHorizontal,
   FolderOpen,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { ModelAsset } from '../types';
+import { useUploadProgress } from '@/hooks/useUploadProgress';
 
 export const RightAssetsPanel: React.FC = () => {
   const { 
@@ -39,12 +41,13 @@ export const RightAssetsPanel: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const { progress: uploadProgress, readFileWithProgress, startUpload, updateProgress, finishUpload } = useUploadProgress();
 
   const MAX_MODEL_SIZE = 150 * 1024 * 1024; // 150MB
   const ACCEPTED_MODEL_EXTS = ['glb', 'gltf', 'obj', 'fbx', 'stl', 'ply'];
   const ITEMS_PER_PAGE = 8;
 
-  const processModelFile = useCallback((file: File) => {
+  const processModelFile = useCallback(async (file: File) => {
     setUploadError(null);
 
     const ext = file.name.split('.').pop()?.toLowerCase();
@@ -57,6 +60,11 @@ export const RightAssetsPanel: React.FC = () => {
       setUploadError('File too large. Maximum size is 150MB.');
       return;
     }
+
+    // Show progress while processing
+    startUpload(file.name, file.size);
+    updateProgress(file.size);
+    finishUpload();
 
     const newAsset: ModelAsset = {
       id: `user-upload-${Date.now()}`,
@@ -239,20 +247,37 @@ export const RightAssetsPanel: React.FC = () => {
                 : 'border-[#2f3545] hover:border-[#f5c518]/60 bg-[#12141a] hover:bg-[#161922]'
             }`}
           >
-            <div className={`w-8 h-8 rounded-full bg-[#1b1e28] border border-[#282d3b] flex items-center justify-center transition-all mb-1.5 ${
-              isDragOver ? 'text-[#f5c518] border-[#f5c518] scale-110' : 'text-[#8e95a5] group-hover:text-[#f5c518] group-hover:scale-105'
-            }`}>
-              <Box className="w-4 h-4" />
-            </div>
-            <span className="text-[11px] font-bold text-[#e5e7eb] leading-tight block">
-              {isDragOver ? 'Drop model here' : 'Upload 3D Model'}
-            </span>
-            <span className="text-[9px] text-[#717786] mt-0.5 block">
-              OBJ, FBX, STL, GLB
-            </span>
-            <span className="text-[9px] text-[#555a68] block">
-              Size ≤150MB
-            </span>
+            {uploadProgress.active ? (
+              <div className="flex flex-col items-center justify-center space-y-1 w-full">
+                <Loader2 className="w-6 h-6 animate-spin text-[#f5c518]" />
+                <div className="w-full bg-[#1b1e28] rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="bg-[#f5c518] h-full rounded-full transition-all duration-200"
+                    style={{ width: `${uploadProgress.percent}%` }}
+                  />
+                </div>
+                <span className="text-[9px] text-[#6b7280]">
+                  {uploadProgress.percent}% ({(uploadProgress.loadedBytes / 1024 / 1024).toFixed(1)}/{(uploadProgress.totalBytes / 1024 / 1024).toFixed(1)} MB)
+                </span>
+              </div>
+            ) : (
+              <>
+                <div className={`w-8 h-8 rounded-full bg-[#1b1e28] border border-[#282d3b] flex items-center justify-center transition-all mb-1.5 ${
+                  isDragOver ? 'text-[#f5c518] border-[#f5c518] scale-110' : 'text-[#8e95a5] group-hover:text-[#f5c518] group-hover:scale-105'
+                }`}>
+                  <Box className="w-4 h-4" />
+                </div>
+                <span className="text-[11px] font-bold text-[#e5e7eb] leading-tight block">
+                  {isDragOver ? 'Drop model here' : 'Upload 3D Model'}
+                </span>
+                <span className="text-[9px] text-[#717786] mt-0.5 block">
+                  OBJ, FBX, STL, GLB
+                </span>
+                <span className="text-[9px] text-[#555a68] block">
+                  Size ≤150MB
+                </span>
+              </>
+            )}
           </div>
 
           {uploadError && (

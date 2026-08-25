@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { useRuntimeOptions } from '@/hooks/useBackendData';
+import { useUploadProgress } from '@/hooks/useUploadProgress';
 
 interface ProviderOption {
   id: string;
@@ -59,6 +60,7 @@ export const GeneratePanel: React.FC = () => {
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const { progress: uploadProgress, readFileWithProgress } = useUploadProgress();
   
   // Toggles & Settings
   const [ultraMeshQuality, setUltraMeshQuality] = useState(true);
@@ -101,7 +103,7 @@ export const GeneratePanel: React.FC = () => {
   const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20MB
   const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
-  const processImageFile = (file: File) => {
+  const processImageFile = async (file: File) => {
     setUploadError(null);
 
     if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
@@ -114,17 +116,15 @@ export const GeneratePanel: React.FC = () => {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
+    try {
+      const dataUrl = await readFileWithProgress(file);
       setGenerationSettings(prev => ({
         ...prev,
-        image: reader.result as string
+        image: dataUrl
       }));
-    };
-    reader.onerror = () => {
+    } catch (err) {
       setUploadError('Failed to read file.');
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -434,7 +434,21 @@ export const GeneratePanel: React.FC = () => {
                 backgroundColor: '#0e1015'
               }}
             >
-              {generationSettings.image ? (
+              {uploadProgress.active ? (
+                <div className="text-center space-y-2 w-full px-3">
+                  <Loader2 className="w-8 h-8 mx-auto animate-spin text-[#f5c518]" />
+                  <div className="font-semibold text-xs text-[#cbd5e1]">Uploading...</div>
+                  <div className="w-full bg-[#1b1e27] rounded-full h-2 overflow-hidden">
+                    <div
+                      className="bg-[#f5c518] h-full rounded-full transition-all duration-200"
+                      style={{ width: `${uploadProgress.percent}%` }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-[#6b7280]">
+                    {uploadProgress.percent}% ({(uploadProgress.loadedBytes / 1024 / 1024).toFixed(1)}/{(uploadProgress.totalBytes / 1024 / 1024).toFixed(1)} MB)
+                  </div>
+                </div>
+              ) : generationSettings.image ? (
                 <div className="relative w-full h-full">
                   <img 
                     src={generationSettings.image} 
