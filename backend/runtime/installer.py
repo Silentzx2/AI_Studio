@@ -813,14 +813,13 @@ def _normalize_requirements_for_py312(requirements_file: Path) -> Path:
 # ponytail: source extensions that compile a CUDA kernel at build time. They
 # cannot be built on a host without a CUDA toolkit (no cuda_runtime.h / nvcc),
 # and the install must not hard-fail the whole setup on such hosts — the stack
-# already warns that inference is unavailable without a GPU. On GPU hosts this
-# is a no-op. Upgrade path: narrow the list if a package gains a cp312 wheel
-# that installs header-less.
+# ponytail: packages that cannot be compiled without a CUDA toolkit AND have
+# no pre-built wheels available. These are dropped on CPU-only hosts.
+# NOTE: torch-scatter, torch-cluster, torch-sparse are NOT in this list — they
+# have pre-built wheels on PyG (data.pyg.org/whl) and are handled by the
+# pre-built wheel logic earlier in the install flow.
 _CUDA_ONLY_PKG_PATTERNS: list[re.Pattern] = [
     re.compile(r"^diso($|==)"),
-    re.compile(r"^torch-cluster($|==)"),
-    re.compile(r"^torch-scatter($|==)"),
-    re.compile(r"^torch-sparse($|==)"),
     re.compile(r"^(git\+)?.*torchmcubes"),
     re.compile(r"^flash[-_]attn($|==)"),
     re.compile(r"^xformers($|==)"),
@@ -844,7 +843,14 @@ EXTRA_DEPS: dict[str, list[str]] = {
 
 
 def _cuda_available() -> bool:
-    """Best-effort detection of a usable CUDA toolkit on the build host."""
+    """Best-effort detection of a usable CUDA toolkit or GPU on the build host.
+
+    Returns True if EITHER a CUDA toolkit (nvcc) OR a NVIDIA GPU driver is
+    present. Preferring pre-built wheels means we can install CUDA extensions
+    without the toolkit, so a GPU without nvcc should still be treated as
+    CUDA-capable.
+    """
+    # Check for CUDA toolkit (nvcc, CUDA_HOME, etc.)
     if os.environ.get("CUDA_HOME") or os.environ.get("CUDA_PATH"):
         return True
     if shutil.which("nvcc"):
@@ -852,6 +858,19 @@ def _cuda_available() -> bool:
     for cand in ("/usr/local/cuda", "/opt/cuda"):
         if Path(cand).exists():
             return True
+    # Check for NVIDIA GPU driver (nvidia-smi) — GPU present, toolkit may not be
+    # installed but pre-built wheels can still be used.
+    if shutil.which("nvidia-smi"):
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return True
+        except Exception:
+            pass
     return False
 
 

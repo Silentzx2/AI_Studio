@@ -161,6 +161,9 @@ NATIVE_PKG_PATTERNS: list[re.Pattern] = [
 
 # Py3.12 incompatible pins — these specific versions have no cp312 wheel.
 # The resolver upgrades them to compatible versions instead of dropping.
+# Note: torch-cluster, torch-scatter, diso are NOT dropped here — they have
+# pre-built wheels available from the PyG index (data.pyg.org/whl) and are
+# handled by the installer's pre-built wheel logic.
 PY312_PIN_REWRITES: list[tuple[re.Pattern, str | None]] = [
     (re.compile(r"^numpy==1\.22\..*$"), "numpy>=1.26.4,<2.0"),
     (re.compile(r"^open3d==0\.18\.0$"), "open3d==0.19.0"),
@@ -168,8 +171,6 @@ PY312_PIN_REWRITES: list[tuple[re.Pattern, str | None]] = [
     (re.compile(r"^llvmlite==0\.36\.0$"), "llvmlite>=0.43"),
     (re.compile(r"^flash[-_]attn($|==|>=|<=|!=|~=).*$"), None),
     (re.compile(r"^bpy==.*$"), None),
-    (re.compile(r"^torch[-_]cluster($|==|>=|<=|!=|~=).*$"), None),
-    (re.compile(r"^diso($|==|>=|<=|!=|~=).*$"), None),
 ]
 
 
