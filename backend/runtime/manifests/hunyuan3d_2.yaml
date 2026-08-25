@@ -26,6 +26,10 @@ dependencies:
     - "accelerate"
     - "rembg"
     - "onnxruntime"
+    - "omegaconf"
+    - "scipy"
+    - "pillow"
+    - "imageio"
     # Inference library (not in upstream requirements.txt)
     - "hy3dgen"
     - "huggingface_hub==0.27.1"

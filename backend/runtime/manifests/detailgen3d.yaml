@@ -23,6 +23,13 @@ dependencies:
     - "jaxtyping"
     - "typeguard"
     - "accelerate>=0.34.0"
+    - "scipy"
+    - "pillow"
+    - "imageio"
+    - "tqdm"
+    # Native CUDA extensions (also listed in native section for wheel-first)
+    - "diso"
+    - "torch-cluster"
   imports:
     - "torch"
     - "transformers"

@@ -25,6 +25,15 @@ dependencies:
     - "pyrender"
     - "huggingface_hub"
     - "accelerate>=0.34.0"
+    - "scipy"
+    - "pillow"
+    - "numpy"
+    - "tqdm"
+    - "pyyaml"
+    # Native CUDA extensions (also in native section for wheel-first)
+    - "torch_scatter"
+    - "torch_cluster"
+    - "spconv"
   imports:
     - "torch"
     - "transformers"

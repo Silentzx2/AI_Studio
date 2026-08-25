@@ -25,6 +25,12 @@ dependencies:
     - "typeguard"
     - "pymeshlab"
     - "accelerate"
+    - "scipy"
+    - "pillow"
+    - "imageio"
+    - "tqdm"
+    # Native CUDA extension (also in native section for wheel-first)
+    - "diso"
   imports:
     - "torch"
     - "diffusers"

@@ -42,6 +42,9 @@ dependencies:
     - "pydantic==2.10.6"
     - "timm"
     - "torchdiffeq"
+    - "pillow"
+    - "basicsr==1.4.2"
+    - "configargparse==1.7"
     # Inference library (not in upstream requirements.txt)
     - "hy3dgen"
   imports:
