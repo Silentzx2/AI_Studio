@@ -455,6 +455,75 @@ PYEOF
     )
 }
 
+# ── Preflight validation ──────────────────────────────────────────────────
+# Validates the prepared Colab models AFTER startup using the same layered
+# checks the backend runs (venv, imports, native exts, CUDA, weights, smoke
+# test). Invoked via the backend interpreter directly — no native builds
+# (Colab has no toolkit) and no re-clone/re-download. Mirrors setup.sh's
+# post-prepare quality gate without its native-build queueing.
+run_preflight() {
+    step "Running preflight validation for prepared models"
+    local PYTHONBIN="${PROJECT_ROOT}/backend/.venv/bin/python"
+    [[ -x "$PYTHONBIN" ]] || { warn "Backend venv missing — skipping preflight"; return 0; }
+    (
+        cd backend
+        PYTHONPATH=. "$PYTHONBIN" - << 'PYEOF'
+import logging
+import sys
+from pathlib import Path
+
+logging.basicConfig(level=logging.INFO, format="  %(levelname)-5s %(name)s: %(message)s")
+sys.path.insert(0, str(Path(".").resolve()))
+try:
+    from runtime.installer import REPOS, PROVIDER_METADATA
+    from runtime.storage import get_storage_config
+    from runtime.preflight import run_preflight_for_provider
+except Exception as exc:
+    print(f"  [FAIL] Could not import runtime modules: {exc}")
+    sys.exit(1)
+
+storage = get_storage_config()
+# Colab: only preflight models that were prepared
+COLAB_ALLOWED_REPOS = {"TripoSG", "TRELLIS", "Hunyuan3D-2mini"}
+ran = skipped = 0
+
+for repo_name in sorted(REPOS.keys()):
+    if repo_name not in COLAB_ALLOWED_REPOS:
+        continue
+    # Get provider name from REPOS config (not PROVIDER_METADATA)
+    repo_cfg = REPOS.get(repo_name, {})
+    providers = repo_cfg.get("providers", [repo_name])
+    provider = providers[0] if providers else repo_name
+    venv_python = storage.get_model_venv_path(repo_name) / "bin" / "python"
+    if not venv_python.exists():
+        print(f"  [SKIP] {provider}: venv not prepared")
+        skipped += 1
+        continue
+    print(f"  [PREFLIGHT] {provider}: running checks...")
+    try:
+        result = run_preflight_for_provider(provider)
+        passed = bool(getattr(result, "passed", False))
+        print(f"    [{'OK  ' if passed else 'FAIL'}] {provider}: {'PASSED' if passed else 'FAILED'}")
+        if not passed:
+            checks = getattr(result, "checks", {})
+            for check_name, check_result in checks.items():
+                if isinstance(check_result, dict) and not check_result.get("passed", True):
+                    detail = check_result.get("detail", "")
+                    print(f"      [FAIL] {check_name}: {detail}")
+            error_detail = getattr(result, "error_detail", "")
+            if error_detail:
+                print(f"      Error: {error_detail}")
+    except Exception as exc:
+        print(f"    [FAIL] {provider}: {exc}")
+        import traceback
+        traceback.print_exc()
+    ran += 1
+
+print(f"\nPreflight complete: {ran} checked, {skipped} skipped")
+PYEOF
+    )
+}
+
 # ── Flags: --weights-only / --repos-only ──────────────────────────────────
 
 if [[ "$WEIGHTS_ONLY" == "true" ]]; then
@@ -743,74 +812,6 @@ for i in {1..15}; do
     sleep 2
 done
 
-# ── Preflight validation (Colab-safe) ─────────────────────────────────────
-# Validates the prepared Colab models AFTER startup using the same layered
-# checks the backend runs (venv, imports, native exts, CUDA, weights, smoke
-# test). Invoked via the backend interpreter directly — no native builds
-# (Colab has no toolkit) and no re-clone/re-download. Mirrors setup.sh's
-# post-prepare quality gate without its native-build queueing.
-run_preflight() {
-    step "Running preflight validation for prepared models"
-    local PYTHONBIN="${PROJECT_ROOT}/backend/.venv/bin/python"
-    [[ -x "$PYTHONBIN" ]] || { warn "Backend venv missing — skipping preflight"; return 0; }
-    (
-        cd backend
-        PYTHONPATH=. "$PYTHONBIN" - << 'PYEOF'
-import logging
-import sys
-from pathlib import Path
-
-logging.basicConfig(level=logging.INFO, format="  %(levelname)-5s %(name)s: %(message)s")
-sys.path.insert(0, str(Path(".").resolve()))
-try:
-    from runtime.installer import REPOS, PROVIDER_METADATA
-    from runtime.storage import get_storage_config
-    from runtime.preflight import run_preflight_for_provider
-except Exception as exc:
-    print(f"  [FAIL] Could not import runtime modules: {exc}")
-    sys.exit(1)
-
-storage = get_storage_config()
-# Colab: only preflight models that were prepared
-COLAB_ALLOWED_REPOS = {"TripoSG", "TRELLIS", "Hunyuan3D-2mini"}
-ran = skipped = 0
-
-for repo_name in sorted(REPOS.keys()):
-    if repo_name not in COLAB_ALLOWED_REPOS:
-        continue
-    # Get provider name from REPOS config (not PROVIDER_METADATA)
-    repo_cfg = REPOS.get(repo_name, {})
-    providers = repo_cfg.get("providers", [repo_name])
-    provider = providers[0] if providers else repo_name
-    venv_python = storage.get_model_venv_path(repo_name) / "bin" / "python"
-    if not venv_python.exists():
-        print(f"  [SKIP] {provider}: venv not prepared")
-        skipped += 1
-        continue
-    print(f"  [PREFLIGHT] {provider}: running checks...")
-    try:
-        result = run_preflight_for_provider(provider)
-        passed = bool(getattr(result, "passed", False))
-        print(f"    [{'OK  ' if passed else 'FAIL'}] {provider}: {'PASSED' if passed else 'FAILED'}")
-        if not passed:
-            checks = getattr(result, "checks", {})
-            for check_name, check_result in checks.items():
-                if isinstance(check_result, dict) and not check_result.get("passed", True):
-                    detail = check_result.get("detail", "")
-                    print(f"      [FAIL] {check_name}: {detail}")
-            error_detail = getattr(result, "error_detail", "")
-            if error_detail:
-                print(f"      Error: {error_detail}")
-    except Exception as exc:
-        print(f"    [FAIL] {provider}: {exc}")
-        import traceback
-        traceback.print_exc()
-    ran += 1
-
-print(f"\nPreflight complete: {ran} checked, {skipped} skipped")
-PYEOF
-    )
-}
 
 # ── Post-startup preflight validation (Colab-safe) ─────────────────────────
 run_preflight || warn "Preflight validation had issues — see output above"

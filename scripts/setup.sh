@@ -665,7 +665,7 @@ build_frontend() {
 
 
     npm run build || {
-        error "Frontend build failed"
+        err "Frontend build failed"
         return 1
     }
 

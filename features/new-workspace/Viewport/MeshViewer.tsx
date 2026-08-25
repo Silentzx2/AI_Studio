@@ -70,6 +70,12 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const currentMeshGroupRef = useRef<THREE.Group | null>(null);
   const gridHelperRef = useRef<THREE.GridHelper | null>(null);
   const animFrameIdRef = useRef<number | null>(null);
+  const isTurntableRef = useRef(isTurntable);
+
+  // Keep turntable ref in sync with prop
+  useEffect(() => {
+    isTurntableRef.current = isTurntable;
+  }, [isTurntable]);
 
   // Initialize Three.js Scene once
   useEffect(() => {
@@ -159,7 +165,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
       timer.update();
       const delta = timer.getDelta();
 
-      if (isTurntable && meshGroup) {
+      if (isTurntableRef.current && meshGroup) {
         meshGroup.rotation.y += delta * 0.45;
       }
 

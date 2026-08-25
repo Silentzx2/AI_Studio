@@ -187,7 +187,7 @@ def _cuda_ver_short() -> str:
             ver = torch.version.cuda
             if ver:
                 parts = ver.split(".")
-                return f"cuh{parts[0]}{parts[1]}"
+                return f"cu{parts[0]}{parts[1]}"
     except Exception:
         pass
     return "cpu"

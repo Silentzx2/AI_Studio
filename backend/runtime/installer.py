@@ -1141,6 +1141,7 @@ def _uv_install(
     # from PyG wheels index. This avoids needing the CUDA toolkit (nvcc) for
     # packages that publish pre-built binaries for common PyTorch+CUDA combos.
     # ponytail: best-effort; falls back to source build if wheels unavailable.
+    pyg_needed: list[str] = []
     try:
         torch_version = ""
         cuda_version = ""
@@ -1175,18 +1176,7 @@ def _uv_install(
                 )
                 if code == 0:
                     logger.info("Installed pre-built PyG wheels for %s", ", ".join(pyg_needed))
-                    # Remove from requirements so main install doesn't rebuild
-                    if install_requirements and install_requirements.exists():
-                        req_text = install_requirements.read_text(errors="ignore")
-                        new_lines = []
-                        for line in req_text.splitlines():
-                            pkg_name = line.strip().split("==")[0].split(">=")[0].split("<")[0].strip()
-                            if pkg_name in pyg_pkgs:
-                                continue
-                            new_lines.append(line)
-                        install_requirements.write_text("\n".join(new_lines) + "\n")
-                else:
-                    logger.warning("Pre-built PyG wheels failed (will try source build): %s", output[:200])
+                    # Note: removal from requirements happens after install_requirements is assigned below
     except Exception as exc:
         logger.warning("PyG wheel pre-install check failed: %s", exc)
 
@@ -1246,6 +1236,17 @@ def _uv_install(
         install_requirements = _normalize_requirements_for_py312(requirements_file)
     else:
         install_requirements = None
+
+    # Remove successfully installed PyG wheels from requirements to avoid rebuild
+    if pyg_needed and install_requirements and install_requirements.exists():
+        req_text = install_requirements.read_text(errors="ignore")
+        new_lines = []
+        for line in req_text.splitlines():
+            pkg_name = re.split(r"[><=!~\[]", line.strip(), 1)[0].strip()
+            if pkg_name in pyg_needed:
+                continue
+            new_lines.append(line)
+        install_requirements.write_text("\n".join(new_lines) + "\n")
 
     # No CUDA toolkit on this host: CUDA-only source extensions (diso,
     # torch-cluster, torchmcubes, …) cannot be compiled. Drop them so the venv
@@ -2549,7 +2550,15 @@ def uninstall_provider(provider_name: str, log_cb: Callable | None = None) -> di
     meta = PROVIDER_METADATA.get(provider_name)
     if not meta:
         return {"success": False, "error": f"Unknown provider: {provider_name}"}
-    
+
+    # Load manifest for weight key resolution
+    manifest = None
+    try:
+        from runtime.manifest_loader import load_manifest
+        manifest = load_manifest(provider_name)
+    except (ValueError, ImportError):
+        pass
+
     weight_key = _resolve_weight_key(meta, manifest)
     if not weight_key:
         return {"success": True, "message": f"No weights to remove for {provider_name}"}

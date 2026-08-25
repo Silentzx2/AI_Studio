@@ -97,7 +97,7 @@ interface WorkspaceContextType {
   setSelectedBoneId: (id: string | null) => void;
   updateBone: (id: string, updates: Partial<BoneNode>) => void;
   currentFrame: number;
-  setCurrentFrame: (frame: number) => void;
+  setCurrentFrame: (frame: number | ((prev: number) => number)) => void;
   isPlaying: boolean;
   setIsPlaying: (playing: boolean) => void;
   totalFrames: number;

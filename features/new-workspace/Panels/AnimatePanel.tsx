@@ -39,6 +39,21 @@ export const AnimatePanel: React.FC = () => {
     { id: 'wave', label: 'Wave Hello' }
   ] as const;
 
+  // Animation playback: advance frames when playing
+  React.useEffect(() => {
+    if (!isPlaying || totalFrames === 0) return;
+    const interval = setInterval(() => {
+      setCurrentFrame(prev => {
+        if (prev >= totalFrames) {
+          setIsPlaying(false);
+          return 0;
+        }
+        return prev + 1;
+      });
+    }, 1000 / fps);
+    return () => clearInterval(interval);
+  }, [isPlaying, totalFrames, fps, setCurrentFrame, setIsPlaying]);
+
   return (
     <div id="panel-animate" className="flex flex-col h-full overflow-y-auto px-4 py-3.5 space-y-4 text-xs select-none">
       {/* Title Header */}
