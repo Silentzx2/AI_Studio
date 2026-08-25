@@ -302,8 +302,10 @@ except Exception as exc:
 # Colab: only prepare models that pass the Colab prep policy (VRAM < 15 GB, weight <= 10 GB).
 # DetailGen3D (4 GB), Hunyuan3D-2mini (6 GB), TripoSG (8 GB) qualify.
 # AniGen is filtered out by is_model_preparable_for_colab() (23 GB weight > 10 GB ceiling).
-# TRELLIS/UniRig require native CUDA build (no toolkit on Colab).
-COLAB_ALLOWED_REPOS = {"DetailGen3D", "Hunyuan3D-2mini", "TripoSG"}
+# TRELLIS/UniRig/Hunyuan3D-2/Hunyuan3D-2.1 require native CUDA build — included here
+# because pre-built wheels (torch-scatter etc.) may allow install without toolkit.
+# If native build fails, the model will be marked PARTIAL and skipped at runtime.
+COLAB_ALLOWED_REPOS = {"DetailGen3D", "Hunyuan3D-2mini", "TripoSG", "TRELLIS", "UniRig", "Hunyuan3D-2", "Hunyuan3D-2.1"}
 
 # Map repos to their providers for Colab gating
 repos_to_prepare = []
@@ -401,7 +403,7 @@ except Exception as exc:
 
 token = os.environ.get("HUGGINGFACE_TOKEN") or os.environ.get("HF_TOKEN")
 # Colab: only download weights for models that pass the prep policy
-COLAB_ALLOWED_PROVIDERS = ("detailgen3d", "hunyuan3d-2-mini", "triposg")
+COLAB_ALLOWED_PROVIDERS = ("detailgen3d", "hunyuan3d-2-mini", "triposg", "trellis", "unirig", "hunyuan3d-2", "hunyuan3d-2.1")
 for key in sorted(HF_MODELS.keys()):
         # Only download allowed models
         if key not in COLAB_ALLOWED_PROVIDERS:
@@ -742,7 +744,7 @@ except Exception as exc:
 
 storage = get_storage_config()
 # Colab: only preflight models that were prepared
-COLAB_ALLOWED_REPOS = {"DetailGen3D", "Hunyuan3D-2mini", "TripoSG"}
+COLAB_ALLOWED_REPOS = {"DetailGen3D", "Hunyuan3D-2mini", "TripoSG", "TRELLIS", "UniRig", "Hunyuan3D-2", "Hunyuan3D-2.1"}
 ran = skipped = 0
 
 for repo_name in sorted(REPOS.keys()):

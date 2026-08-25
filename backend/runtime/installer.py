@@ -1099,6 +1099,59 @@ def _uv_install(
     if code != 0:
         logger.warning("Pre-install of torch stack failed for %s: %s", repo_name, output[:300])
 
+    # Try pre-built wheels for torch-scatter/torch-cluster/torch-sparse/pyg_lib
+    # from PyG wheels index. This avoids needing the CUDA toolkit (nvcc) for
+    # packages that publish pre-built binaries for common PyTorch+CUDA combos.
+    # ponytail: best-effort; falls back to source build if wheels unavailable.
+    try:
+        torch_version = ""
+        cuda_version = ""
+        ver_code, ver_out = _run([str(venv_python), "-c",
+            "import torch; print(torch.__version__.rsplit('+',1)[0]); print(torch.version.cuda or 'cpu')"],
+            cwd=str(repo_dir))
+        if ver_code == 0:
+            parts = ver_out.strip().split("\n")
+            if len(parts) >= 2:
+                torch_version = parts[0].strip()
+                cuda_version = parts[1].strip()
+        if torch_version and cuda_version:
+            # Build PyG wheel index URL (e.g. torch-2.5.0+cu121)
+            torch_short = torch_version.rsplit(".", 1)[0]  # 2.5.0 -> 2.5
+            cuda_short = cuda_version.replace(".", "")  # 12.1 -> 121
+            pyg_index = f"https://data.pyg.org/whl/torch-{torch_short}.0+cu{cuda_short}.html"
+            if cuda_version == "cpu":
+                pyg_index = f"https://data.pyg.org/whl/torch-{torch_short}.0+cpu.html"
+            pyg_pkgs = ["torch-scatter", "torch-cluster", "torch-sparse", "pyg_lib"]
+            req_blob_check = ""
+            for _f in (requirements_file, repo_dir / "pyproject.toml", repo_dir / "setup.py"):
+                if _f and _f.exists():
+                    req_blob_check += "\n" + _f.read_text(errors="ignore")
+            pyg_needed = [p for p in pyg_pkgs if re.search(rf"\b{re.escape(p)}\b", req_blob_check)]
+            if pyg_needed:
+                if log_cb:
+                    log_cb(f"Trying pre-built wheels from PyG index: {pyg_index} for {', '.join(pyg_needed)}")
+                code, output = _run_uv(
+                    ["pip", "install", "--python", str(venv_python),
+                     "-f", pyg_index, *pyg_needed],
+                    cwd=repo_dir,
+                )
+                if code == 0:
+                    logger.info("Installed pre-built PyG wheels for %s", ", ".join(pyg_needed))
+                    # Remove from requirements so main install doesn't rebuild
+                    if install_requirements and install_requirements.exists():
+                        req_text = install_requirements.read_text(errors="ignore")
+                        new_lines = []
+                        for line in req_text.splitlines():
+                            pkg_name = line.strip().split("==")[0].split(">=")[0].split("<")[0].strip()
+                            if pkg_name in pyg_pkgs:
+                                continue
+                            new_lines.append(line)
+                        install_requirements.write_text("\n".join(new_lines) + "\n")
+                else:
+                    logger.warning("Pre-built PyG wheels failed (will try source build): %s", output[:200])
+    except Exception as exc:
+        logger.warning("PyG wheel pre-install check failed: %s", exc)
+
     # Packages whose build step imports torch (diso, torch-cluster, …) must
     # compile inside the venv — which now has torch pre-installed — instead of
     # an empty isolated build env, otherwise they fail with
