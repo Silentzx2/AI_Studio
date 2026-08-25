@@ -50,33 +50,36 @@ class Dependency:
 # Upgrade path: add entries as packages gain wheels for new Py/CUDA versions.
 # ---------------------------------------------------------------------------
 
+# All CUDA 12.x versions (forward-compatible within 12.x series)
+_CUDA12_ALL = ["121", "122", "123", "124", "125", "126", "127", "128", "cpu"]
+
 WHEEL_COMPAT_TABLE: dict[str, dict] = {
     "torch-cluster": {
         "wheel_available": True,
         "index": "https://data.pyg.org/whl/torch-{torch_ver}+{cuda_ver}.html",
         "python": ["3.10", "3.11", "3.12"],
-        "cuda": ["121", "124", "cpu"],
+        "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^torch[-_]cluster($|==|>=|<=|!=|~=)"),
     },
     "torch-scatter": {
         "wheel_available": True,
         "index": "https://data.pyg.org/whl/torch-{torch_ver}+{cuda_ver}.html",
         "python": ["3.10", "3.11", "3.12"],
-        "cuda": ["121", "124", "cpu"],
+        "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^torch[-_]scatter($|==|>=|<=|!=|~=)"),
     },
     "torch-sparse": {
         "wheel_available": True,
         "index": "https://data.pyg.org/whl/torch-{torch_ver}+{cuda_ver}.html",
         "python": ["3.10", "3.11", "3.12"],
-        "cuda": ["121", "124", "cpu"],
+        "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^torch[-_]sparse($|==|>=|<=|!=|~=)"),
     },
     "pyg_lib": {
         "wheel_available": True,
         "index": "https://data.pyg.org/whl/torch-{torch_ver}+{cuda_ver}.html",
         "python": ["3.10", "3.11", "3.12"],
-        "cuda": ["121", "124", "cpu"],
+        "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^pyg_lib($|==|>=|<=|!=|~=)"),
     },
     "flash-attn": {
@@ -84,7 +87,7 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "wheel_available": False,
         "index": None,
         "python": ["3.10", "3.11", "3.12"],
-        "cuda": ["121", "124"],
+        "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^flash[-_]attn($|==|>=|<=|!=|~=)"),
     },
     "pytorch3d": {
@@ -92,21 +95,21 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "wheel_available": True,
         "index": None,
         "python": ["3.10", "3.11", "3.12"],
-        "cuda": ["121", "124"],
+        "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^pytorch3d($|==|>=|<=|!=|~=)"),
     },
     "xformers": {
         "wheel_available": True,
         "index": None,
         "python": ["3.10", "3.11", "3.12"],
-        "cuda": ["121", "124"],
+        "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^xformers($|==|>=|<=|!=|~=)"),
     },
     "torchmcubes": {
         "wheel_available": False,
         "index": None,
         "python": ["3.10", "3.11"],
-        "cuda": ["121", "124"],
+        "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^(git\+)?.*torchmcubes"),
     },
     "diso": {
@@ -114,7 +117,7 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "wheel_available": False,
         "index": None,
         "python": ["3.10", "3.11", "3.12"],
-        "cuda": ["121", "124", "cpu"],
+        "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^diso($|==|>=|<=|!=|~=)"),
     },
     "spconv": {
@@ -122,14 +125,14 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "wheel_available": True,
         "index": None,
         "python": ["3.10", "3.11", "3.12"],
-        "cuda": ["121", "124"],
+        "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^spconv($|==|>=|<=|!=|~=)"),
     },
     "cupy-cuda12x": {
         "wheel_available": True,
         "index": None,
         "python": ["3.10", "3.11", "3.12"],
-        "cuda": ["121", "124"],
+        "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^cupy[-_]cuda12x($|==|>=|<=|!=|~=)"),
     },
     "nvdiffrast": {
@@ -137,7 +140,7 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "wheel_available": False,
         "index": None,
         "python": ["3.10", "3.11"],
-        "cuda": ["121", "124"],
+        "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^nvdiffrast($|==|>=|<=|!=|~=)"),
     },
     "kaolin": {
@@ -145,7 +148,7 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "wheel_available": True,
         "index": "https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-{torch_ver}_cu{cuda_ver}.html",
         "python": ["3.10", "3.11"],
-        "cuda": ["121", "124"],
+        "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^kaolin($|==|>=|<=|!=|~=)"),
     },
 }
@@ -349,6 +352,9 @@ def check_wheel_available(
     if cuda_ver is None:
         cuda_ver = _cuda_ver_short()
 
+    # Normalize CUDA version: "12.2" -> "122", "12.0" -> "120"
+    _cuda_normalized = cuda_ver.replace(".", "") if cuda_ver != "cpu" else "cpu"
+
     for pkg_name, info in WHEEL_COMPAT_TABLE.items():
         pat = info.get("pattern")
         if pat and pat.match(dep.spec):
@@ -358,16 +364,16 @@ def check_wheel_available(
             supported_py = info.get("python", [])
             if supported_py and py_ver not in supported_py:
                 return None
-            # Check CUDA compatibility
+            # Check CUDA compatibility (try both normalized and original)
             supported_cuda = info.get("cuda", [])
-            if supported_cuda and cuda_ver not in supported_cuda:
+            if supported_cuda and _cuda_normalized not in supported_cuda and cuda_ver not in supported_cuda:
                 return None
             # Build the wheel source/index URL
             index = info.get("index")
             if index and torch_ver:
                 # Replace cuda_ver placeholder (handle both "121" and "cpu")
-                cv = cuda_ver if cuda_ver == "cpu" else f"cu{cuda_ver}"
-                index = index.replace("{torch_ver}", torch_ver).replace("{cuda_ver}", cv).replace("{cuda_ver_short}", cuda_ver)
+                cv = cuda_ver if cuda_ver == "cpu" else f"cu{_cuda_normalized}"
+                index = index.replace("{torch_ver}", torch_ver).replace("{cuda_ver}", cv).replace("{cuda_ver_short}", _cuda_normalized)
             return index or "pypi"
 
     return None

@@ -242,9 +242,18 @@ fi
 
 # Install PyTorch (GPU or CPU depending on hardware)
 if [[ "$GPU_TYPE" == "gpu" ]]; then
-    info "Installing PyTorch with CUDA ${CUDA_VERSION} via uv..."
+    # Normalize CUDA version for PyTorch wheel index
+    # PyTorch 2.5.1 supports: cu118, cu121, cu124
+    CUDA_INDEX="${CUDA_VERSION:-121}"
+    # Map any CUDA 12.x to nearest compatible wheel
+    if [[ "$CUDA_INDEX" == "120" || "$CUDA_INDEX" == "121" ]]; then
+        CUDA_INDEX="121"
+    elif [[ "$CUDA_INDEX" == "125" || "$CUDA_INDEX" == "126" || "$CUDA_INDEX" == "127" || "$CUDA_INDEX" == "128" ]]; then
+        CUDA_INDEX="124"
+    fi
+    info "Installing PyTorch with CUDA ${CUDA_INDEX} via uv..."
     uv pip install --python backend/.venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
-        --index-url "https://download.pytorch.org/whl/cu${CUDA_VERSION}" -q 2>/dev/null || {
+        --index-url "https://download.pytorch.org/whl/cu${CUDA_INDEX}" -q 2>/dev/null || {
         warn "PyTorch CUDA install failed, trying CPU fallback..."
         uv pip install --python backend/.venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
             --index-url https://download.pytorch.org/whl/cpu -q 2>/dev/null || true

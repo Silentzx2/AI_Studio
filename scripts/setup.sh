@@ -415,8 +415,14 @@ install_python_deps() {
 
     # Install PyTorch once — GPU or CPU depending on hardware
     if [[ "$GPU_AVAILABLE" == "true" ]]; then
-      # Use detected CUDA version, default to cu121
+      # Normalize CUDA version for PyTorch wheel index
       CUDA_INDEX="${CUDA_VERSION:-121}"
+      # Map any CUDA 12.x to nearest compatible wheel (PyTorch 2.5.1)
+      if [[ "$CUDA_INDEX" == "120" || "$CUDA_INDEX" == "121" ]]; then
+        CUDA_INDEX="121"
+      elif [[ "$CUDA_INDEX" == "125" || "$CUDA_INDEX" == "126" || "$CUDA_INDEX" == "127" || "$CUDA_INDEX" == "128" ]]; then
+        CUDA_INDEX="124"
+      fi
       log "Installing PyTorch with CUDA ${CUDA_INDEX} via uv..."
       uv pip install --python .venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
         --index-url "https://download.pytorch.org/whl/cu${CUDA_INDEX}" -q

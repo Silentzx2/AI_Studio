@@ -937,6 +937,15 @@ def _backend_torch_stack() -> tuple[str, list[str]]:
             pass
     if not cuda:
         cuda = "cu121"  # Final fallback
+    # Normalize CUDA version: extract digits only for comparison
+    _cuda_digits = cuda.replace("cu", "").replace("cpu", "")
+    # Map any CUDA 12.x to nearest compatible wheel (PyTorch 2.5.1)
+    if _cuda_digits and _cuda_digits != "cpu":
+        _cuda_num = int(_cuda_digits) if _cuda_digits.isdigit() else 121
+        if _cuda_num >= 120 and _cuda_num <= 121:
+            cuda = "cu121"
+        elif _cuda_num >= 122:
+            cuda = "cu124"
     index = f"https://download.pytorch.org/whl/{cuda}"
     # Pin the FULL version including the +cuXXX local tag. The per-model venv may
     # already hold a mismatched build (e.g. 2.13/0.28 from an unpinned install),
