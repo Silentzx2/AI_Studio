@@ -10,6 +10,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 _MANIFEST_DIR = Path(__file__).resolve().parent / "manifests"
 # Canonical provider_name -> manifest filename mapping.
+# All keys are lowercase for case-insensitive lookup.
 _PROVIDER_MANIFEST_MAP: dict[str, str] = {
     "hunyuan3d-2.1": "hunyuan3d_21.yaml",
     "hunyuan3d-2": "hunyuan3d_2.yaml",
@@ -26,10 +27,15 @@ _REQUIRED_KEYS = {"name", "source", "environment", "dependencies", "weights", "h
 
 def _provider_to_filename(provider_name: str) -> str:
     """Convert a provider name like 'hunyuan3d-2.1' to a manifest filename."""
+    # Case-insensitive lookup
+    lookup_key = provider_name.lower()
+    if lookup_key in _PROVIDER_MANIFEST_MAP:
+        return _PROVIDER_MANIFEST_MAP[lookup_key]
+    # Also check original case
     if provider_name in _PROVIDER_MANIFEST_MAP:
         return _PROVIDER_MANIFEST_MAP[provider_name]
-    # Fallback: replace dots/hyphens with underscores, append .yaml
-    safe = re.sub(r"[^a-zA-Z0-9]", "_", provider_name)
+    # Fallback: lowercase, replace dots/hyphens with underscores, append .yaml
+    safe = re.sub(r"[^a-z0-9]", "_", lookup_key)
     return f"{safe}.yaml"
 
 
@@ -73,11 +79,12 @@ def load_manifest(provider_name: str) -> dict:
             f"Manifest {manifest_path} is missing required keys: {sorted(missing)}. "
             f"Required: {sorted(_REQUIRED_KEYS)}"
         )
-    # Validate name matches provider_name.
-    if data.get("name") != provider_name:
+    # Validate name matches provider_name (case-insensitive).
+    manifest_name = data.get("name", "")
+    if manifest_name.lower() != provider_name.lower():
         logger.warning(
             "Manifest name '%s' does not match provider_name '%s'",
-            data.get("name"), provider_name,
+            manifest_name, provider_name,
         )
     return data
 

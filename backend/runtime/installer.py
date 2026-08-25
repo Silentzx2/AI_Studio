@@ -1160,10 +1160,15 @@ def _uv_install(
     # torch-cluster, torchmcubes, …) cannot be compiled. Drop them so the venv
     # still installs its pure-Python deps instead of failing the whole setup.
     # Inference is already flagged as unavailable without a GPU.
+    cuda_exclude_args: list[str] = []
     if not _cuda_available():
         install_requirements = _drop_cuda_only_packages(install_requirements)
         if install_requirements and log_cb and install_requirements.name.endswith(".nocuda.requirements.txt"):
             log_cb("No CUDA toolkit detected — skipping CUDA-only build packages (CPU mode)")
+        # Also exclude CUDA-only packages that might be pulled in as transitive deps
+        for pkg_pat in _CUDA_ONLY_PKG_PATTERNS:
+            pkg_name = pkg_pat.pattern.strip("^").split("($|==)")[0]
+            cuda_exclude_args += ["--exclude", pkg_name]
 
     # torchmcubes (used by some 3D-gen repos) builds with scikit-build-core but
     # doesn't declare it as a build dependency. Because we build it with
@@ -1186,14 +1191,14 @@ def _uv_install(
         if pyproject.exists():
             logger.info("No requirements.txt for %s, using uv pip install -e .", repo_name)
             code, output = _run_uv(
-                ["pip", "install", "--python", str(venv_python), "-e", ".", *build_iso_args],
+                ["pip", "install", "--python", str(venv_python), "-e", ".", *build_iso_args, *cuda_exclude_args],
                 cwd=repo_dir,
                 extra_env=cmake_env,
             )
         elif setup_py.exists():
             logger.info("No requirements.txt for %s, using uv pip install -e .", repo_name)
             code, output = _run_uv(
-                ["pip", "install", "--python", str(venv_python), "-e", ".", *build_iso_args],
+                ["pip", "install", "--python", str(venv_python), "-e", ".", *build_iso_args, *cuda_exclude_args],
                 cwd=repo_dir,
                 extra_env=cmake_env,
             )
@@ -1205,7 +1210,7 @@ def _uv_install(
             return {"success": True}
     else:
         code, output = _run_uv(
-            ["pip", "install", "--python", str(venv_python), "-r", str(install_requirements), *build_iso_args],
+            ["pip", "install", "--python", str(venv_python), "-r", str(install_requirements), *build_iso_args, *cuda_exclude_args],
             cwd=repo_dir,
             extra_env=cmake_env,
         )
@@ -1596,8 +1601,22 @@ def install_repo_deps(repo_name: str, log_cb: Callable | None = None, requiremen
     else:
         logger.info("venv already exists for %s at %s", repo_name, venv_dir)
 
-    if not (venv_python.exists()):
-        return {"success": False, "error": f"venv python not found at {venv_python} for {repo_name}"}
+    if not venv_python.exists():
+        # Corrupted venv — remove and recreate
+        logger.warning("Corrupted venv detected for %s — removing and recreating", repo_name)
+        import shutil as _shutil
+        _shutil.rmtree(venv_dir, ignore_errors=True)
+        uv_path = shutil.which("uv")
+        if not uv_path:
+            return {"success": False, "error": f"uv not found — cannot recreate venv for {repo_name}"}
+        venv_args = [uv_path, "venv"]
+        if manifest and "environment" in manifest and "python" in manifest["environment"]:
+            venv_args += ["--python", manifest["environment"]["python"]]
+        venv_args.append(str(venv_dir))
+        code, output = _run(venv_args, cwd=repo_dir, log_cb=log_cb)
+        if code != 0:
+            return {"success": False, "error": f"uv venv recreation failed for {repo_name}: {output}"}
+        logger.info("Recreated uv venv for %s at %s", repo_name, venv_dir)
 
     logger.info("Installing deps for %s using uv + per-model venv python", repo_name)
     if requirements_override is not None:
