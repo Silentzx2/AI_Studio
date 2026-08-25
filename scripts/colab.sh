@@ -299,13 +299,11 @@ except Exception as exc:
     print(f"  [FAIL] Could not import runtime modules: {exc}")
     sys.exit(1)
 
-# Colab: only prepare models that pass the Colab prep policy (VRAM < 15 GB, weight <= 10 GB).
-# DetailGen3D (4 GB), Hunyuan3D-2mini (6 GB), TripoSG (8 GB) qualify.
-# AniGen is filtered out by is_model_preparable_for_colab() (23 GB weight > 10 GB ceiling).
-# TRELLIS/UniRig/Hunyuan3D-2/Hunyuan3D-2.1 require native CUDA build — included here
-# because pre-built wheels (torch-scatter etc.) may allow install without toolkit.
-# If native build fails, the model will be marked PARTIAL and skipped at runtime.
-COLAB_ALLOWED_REPOS = {"DetailGen3D", "Hunyuan3D-2mini", "TripoSG", "TRELLIS", "UniRig", "Hunyuan3D-2", "Hunyuan3D-2.1"}
+# Colab: only lightweight models that don't need native CUDA builds.
+# TripoSG (8 GB), TRELLIS (8 GB), Hunyuan3D-2mini (6 GB) — pure Python, no nvcc needed.
+# AniGen skipped (23 GB weight > 10 GB ceiling).
+# DetailGen3D, Hunyuan3D-2, Hunyuan3D-2.1, UniRig require native CUDA toolkit — excluded.
+COLAB_ALLOWED_REPOS = {"TripoSG", "TRELLIS", "Hunyuan3D-2mini"}
 
 # Map repos to their providers for Colab gating
 repos_to_prepare = []
@@ -403,7 +401,7 @@ except Exception as exc:
 
 token = os.environ.get("HUGGINGFACE_TOKEN") or os.environ.get("HF_TOKEN")
 # Colab: only download weights for models that pass the prep policy
-COLAB_ALLOWED_PROVIDERS = ("detailgen3d", "hunyuan3d-2-mini", "triposg", "trellis", "unirig", "hunyuan3d-2", "hunyuan3d-2.1")
+COLAB_ALLOWED_PROVIDERS = ("triposg", "trellis", "hunyuan3d-2-mini")
 for key in sorted(HF_MODELS.keys()):
         # Only download allowed models
         if key not in COLAB_ALLOWED_PROVIDERS:
@@ -744,7 +742,7 @@ except Exception as exc:
 
 storage = get_storage_config()
 # Colab: only preflight models that were prepared
-COLAB_ALLOWED_REPOS = {"DetailGen3D", "Hunyuan3D-2mini", "TripoSG", "TRELLIS", "UniRig", "Hunyuan3D-2", "Hunyuan3D-2.1"}
+COLAB_ALLOWED_REPOS = {"TripoSG", "TRELLIS", "Hunyuan3D-2mini"}
 ran = skipped = 0
 
 for repo_name in sorted(REPOS.keys()):

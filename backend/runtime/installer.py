@@ -1260,7 +1260,9 @@ def _uv_install(
             logger.info(msg)
             if log_cb:
                 log_cb(msg)
-            return {"success": True}
+            # Nothing installed — skip post-install steps
+            code = 0
+            output = ""
     else:
         code, output = _run_uv(
             ["pip", "install", "--python", str(venv_python), "-r", str(install_requirements), *build_iso_args, *cuda_exclude_args],
@@ -1270,6 +1272,19 @@ def _uv_install(
 
     if code != 0:
         return {"success": False, "error": output}
+
+    # ponytail: Pillow C extension (_imaging) can be missing or corrupted
+    # after dependency resolution. Force-reinstall pillow to ensure the
+    # native C extension is properly built. Fixes:
+    #   "cannot import name '_imaging' from 'PIL'"
+    if re.search(r"\bpillow\b", req_blob) or re.search(r"\bPillow\b", req_blob):
+        if log_cb:
+            log_cb("Ensuring Pillow C extension is properly installed...")
+        _run_uv(
+            ["pip", "install", "--python", str(venv_python),
+             "--force-reinstall", "--no-cache-dir", "pillow"],
+            cwd=repo_dir,
+        )
 
     # ponytail: install EXTRA_DEPS (inference libs omitted from the repo's own
     # requirements.txt, e.g. hy3dgen) into the per-model venv. In-process local
