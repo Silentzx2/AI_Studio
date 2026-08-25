@@ -372,9 +372,13 @@ install_python_deps() {
     cd backend
 
     # Create venv using uv (replaces python3.12-venv entirely).
-    # Idempotent: skip if venv already exists so re-runs don't fail.
+    # Idempotent: clear and recreate if venv is corrupted (missing bin/python).
     log "Creating virtual environment with uv..."
     if [[ ! -x .venv/bin/python ]]; then
+        if [[ -d .venv ]]; then
+            log "Existing .venv is corrupted — removing..."
+            rm -rf .venv
+        fi
         uv venv --python 3.12 .venv
     fi
 

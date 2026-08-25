@@ -187,8 +187,12 @@ log "Project directories created"
 
 step "4/6 Setting up backend Python environment"
 
-# Ensure backend venv exists
+# Ensure backend venv exists (clear and recreate if corrupted)
 if [[ ! -x backend/.venv/bin/python ]]; then
+    if [[ -d backend/.venv ]]; then
+        info "Existing backend/.venv is corrupted — removing..."
+        rm -rf backend/.venv
+    fi
     info "Creating backend virtual environment with uv..."
     uv venv --python 3.12 backend/.venv || {
         err "Failed to create backend venv"

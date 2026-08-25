@@ -102,8 +102,12 @@ auto_bootstrap() {
         warn "${env_type} detected — using SQLite fallback for database and in-process broker for Celery."
     fi
 
-    # Ensure backend venv exists
+    # Ensure backend venv exists (clear and recreate if corrupted)
     if [[ ! -x backend/.venv/bin/python ]]; then
+        if [[ -d backend/.venv ]]; then
+            warn "Existing backend/.venv is corrupted — removing..."
+            rm -rf backend/.venv
+        fi
         info "Creating backend virtual environment..."
         uv venv --python 3.12 backend/.venv || {
             err "Failed to create backend venv"
