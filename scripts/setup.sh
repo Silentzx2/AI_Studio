@@ -71,8 +71,25 @@ detect_gpu() {
     fi
   fi
 
-  # Detect CUDA version from nvcc or driver
-  if command -v nvcc &>/dev/null; then
+  # Detect CUDA version: driver first (more reliable), nvcc fallback
+  if command -v nvidia-smi &>/dev/null; then
+    DRIVER_MAJOR=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 | awk -F. '{print $1}')
+    if [[ -n "$DRIVER_MAJOR" ]]; then
+      if [[ "$DRIVER_MAJOR" -ge 550 ]]; then
+        CUDA_VERSION="124"
+      elif [[ "$DRIVER_MAJOR" -ge 535 ]]; then
+        CUDA_VERSION="121"
+      elif [[ "$DRIVER_MAJOR" -ge 525 ]]; then
+        CUDA_VERSION="118"
+      else
+        CUDA_VERSION="121"
+      fi
+      log "CUDA (from driver): cu${CUDA_VERSION}"
+    fi
+  fi
+
+  # Fallback: check nvcc if driver detection failed
+  if [[ -z "$CUDA_VERSION" ]] && command -v nvcc &>/dev/null; then
     CUDA_FULL=$(nvcc --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
     if [[ -n "$CUDA_FULL" ]]; then
       CUDA_VERSION=$(echo "$CUDA_FULL" | awk -F. '{print $1$2}')
@@ -82,23 +99,6 @@ detect_gpu() {
       fi
       log "CUDA toolkit : ${CYAN}${CUDA_FULL}${NC}"
     fi
-  fi
-
-  # Fallback: map driver version to CUDA version
-  if [[ "$GPU_AVAILABLE" == "true" && -z "$CUDA_VERSION" ]]; then
-    # Extract major driver version
-    DRIVER_MAJOR=$(echo "$DRIVER_VER" | awk -F. '{print $1}')
-    # Driver version to CUDA version mapping (approximate)
-    if [[ "$DRIVER_MAJOR" -ge 550 ]]; then
-      CUDA_VERSION="124"  # CUDA 12.4+
-    elif [[ "$DRIVER_MAJOR" -ge 535 ]]; then
-      CUDA_VERSION="121"  # CUDA 12.1
-    elif [[ "$DRIVER_MAJOR" -ge 525 ]]; then
-      CUDA_VERSION="118"  # CUDA 11.8
-    else
-      CUDA_VERSION="121"  # Default fallback
-    fi
-    log "CUDA (from driver): cu${CUDA_VERSION}"
   fi
 
   if [[ "$GPU_AVAILABLE" == "false" ]]; then
