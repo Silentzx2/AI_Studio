@@ -65,8 +65,8 @@ except Exception as e:
 
 celery_app = Celery(
     'ai3dstudio',
-    broker=settings.celery_broker_url,
-    backend=settings.celery_result_backend,
+    broker=_os.environ.get("CELERY_BROKER_URL", settings.celery_broker_url),
+    backend=_os.environ.get("CELERY_RESULT_BACKEND", settings.celery_result_backend),
     includes=[
         'app.workers.tasks',
         'app.workers.vram_health_worker',
@@ -76,6 +76,11 @@ celery_app = Celery(
     ],
 )
 celery_app.conf.worker_pool = 'solo'
+# Allow eager execution via environment variable (for Colab/no-Redis)
+if _os.environ.get("CELERY_TASK_ALWAYS_EAGER") == "1":
+    celery_app.conf.task_always_eager = True
+    celery_app.conf.task_eager_propagates = True
+    _logger.info("Eager execution enabled (CELERY_TASK_ALWAYS_EAGER=1)")
 celery_app.conf.update(
     task_serializer='json',
     accept_content=['json'],

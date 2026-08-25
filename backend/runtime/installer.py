@@ -2102,7 +2102,7 @@ def prepare_runtime(
             log_cb("Running preflight checks (runtime only)...")
         try:
             from runtime.preflight import run_preflight_for_provider
-            preflight_result = run_preflight_for_provider(provider_name, hf_token=hf_token)
+            preflight_result = run_preflight_for_provider(provider_name, hf_token=hf_token, skip_weights_check=True)
             components["preflight"] = {
                 "state": "passed" if preflight_result.passed else "failed",
                 "checks": preflight_result.checks,

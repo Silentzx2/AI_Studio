@@ -402,6 +402,7 @@ def _check_native_extensions(venv_python: Path, extensions: list[str]) -> list[P
 def run_preflight_for_provider(
     provider_name: str,
     hf_token: str | None = None,
+    skip_weights_check: bool = False,
 ) -> PreflightResult:
     """Run full preflight checks for a provider.
 
@@ -492,13 +493,16 @@ def run_preflight_for_provider(
         # CUDA failure is a soft gate — model is PARTIAL, not FAILED
         # (CPU-only environments like Colab can't satisfy this)
     # --- Weights check ---
-    weights_path = storage.get_weight_path(weight_key) if weight_key else None
-    w_result = _check_weights(weights_path)
-    checks["weights"] = {"passed": w_result.passed, "detail": w_result.detail}
-    if not w_result.passed:
-        all_passed = False
+    if not skip_weights_check:
+        weights_path = storage.get_weight_path(weight_key) if weight_key else None
+        w_result = _check_weights(weights_path)
+        checks["weights"] = {"passed": w_result.passed, "detail": w_result.detail}
+        if not w_result.passed:
+            all_passed = False
+    else:
+        checks["weights"] = {"passed": True, "detail": "Skipped (Stage A)"}
     # --- Auxiliary weights check ---
-    if has_manifest:
+    if has_manifest and not skip_weights_check:
         aux_weights = manifest.get("weights", {}).get("auxiliary", [])
         for aux in aux_weights:
             aux_name = aux.get("name", aux.get("repo", "unknown"))
