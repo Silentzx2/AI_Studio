@@ -1105,6 +1105,7 @@ def _uv_install(
     repo_name: str | None = None,
     python_path: str | None = None,
     log_cb: Callable | None = None,
+    manifest: dict | None = None,
 ) -> dict:
     """Install dependencies using uv. No pip fallback.
 
@@ -1326,7 +1327,13 @@ def _uv_install(
     # after dependency resolution. Force-reinstall pillow to ensure the
     # native C extension is properly built. Fixes:
     #   "cannot import name '_imaging' from 'PIL'"
-    if re.search(r"\bpillow\b", req_blob) or re.search(r"\bPillow\b", req_blob):
+    # Check both req_blob (from repo files) and manifest dependencies
+    manifest_py_deps = (manifest or {}).get("dependencies", {}).get("python", []) or []
+    has_pillow = (
+        re.search(r"\bpillow\b", req_blob, re.IGNORECASE)
+        or any("pillow" in d.lower() for d in manifest_py_deps)
+    )
+    if has_pillow:
         if log_cb:
             log_cb("Ensuring Pillow C extension is properly installed...")
         _run_uv(
@@ -1794,7 +1801,7 @@ def install_repo_deps(repo_name: str, log_cb: Callable | None = None, requiremen
         return {"success": True, "repo": repo_name}
     else:
         req = repo_dir / repo_cfg["requirements"] if repo_cfg.get("requirements") else None
-    ok = _uv_install(req, repo_dir, repo_name=repo_name, python_path=str(venv_python), log_cb=log_cb)
+    ok = _uv_install(req, repo_dir, repo_name=repo_name, python_path=str(venv_python), log_cb=log_cb, manifest=manifest)
     if not ok.get("success", False):
         return {"success": False, "error": f"uv install failed for {repo_name}: {ok.get('error', 'Unknown error')}"}
     return {"success": True, "repo": repo_name}
@@ -2232,7 +2239,7 @@ def _prepare_runtime_venv(
             repo_cfg = REPOS.get(repo_name)
             req = repo_dir / repo_cfg["requirements"] if repo_cfg and repo_cfg.get("requirements") else None
             if req:
-                ok = _uv_install(req, repo_dir, repo_name=repo_name, python_path=str(venv_python), log_cb=log_cb)
+                ok = _uv_install(req, repo_dir, repo_name=repo_name, python_path=str(venv_python), log_cb=log_cb, manifest=manifest)
                 if not ok.get("success"):
                     return {
                         "success": False,
@@ -2253,16 +2260,23 @@ def _prepare_runtime_venv(
         components["native"] = {"state": NativeState.NOT_REQUIRED.value}
 
     # Install EXTRA_DEPS (inference libs omitted from repo requirements)
+    # ponytail: hy3dgen, diffusers, etc. are NOT in the repo's requirements.txt
+    # but are needed for inference. Install with --reinstall to ensure they
+    # are present even if a previous install was corrupted.
     extra = EXTRA_DEPS.get(repo_name)
     if extra:
         uv_path = shutil.which("uv")
         if uv_path:
             code, output = _run(
-                [uv_path, "pip", "install", "--python", str(venv_python), *extra],
+                [uv_path, "pip", "install", "--python", str(venv_python), "--reinstall", *extra],
                 cwd=repo_dir,
             )
             if code != 0:
                 logger.warning("Extra deps install failed for %s: %s", repo_name, output[:200])
+            else:
+                logger.info("Installed extra deps %s for %s", extra, repo_name)
+        else:
+            logger.error("uv not found - cannot install extra deps for %s", repo_name)
 
     return {"success": True, **components}
 
