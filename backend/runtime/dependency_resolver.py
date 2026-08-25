@@ -12,8 +12,10 @@ Replaces the old "drop from requirements" pattern with a wheel-first resolver:
 from __future__ import annotations
 
 import logging
+import os
 import platform
 import re
+import shutil
 import sys
 from dataclasses import dataclass, field
 from enum import Enum
@@ -198,6 +200,30 @@ def _cuda_ver_short() -> str:
     except Exception:
         pass
     return "cpu"
+
+
+def _cuda_available() -> bool:
+    """Check if CUDA is available (GPU driver present)."""
+    if os.environ.get("CUDA_HOME") or os.environ.get("CUDA_PATH"):
+        return True
+    if shutil.which("nvcc"):
+        return True
+    for cand in ("/usr/local/cuda", "/opt/cuda"):
+        if Path(cand).exists():
+            return True
+    # Check for NVIDIA GPU driver
+    if shutil.which("nvidia-smi"):
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return True
+        except Exception:
+            pass
+    return False
 
 
 def classify_dependency(raw_spec: str) -> Dependency:
@@ -471,12 +497,14 @@ def install_resolved_deps(
                 installed.extend(normal_specs)
 
     # Resolve native deps with wheel-first logic
+    # Collect all native deps that need decisions
+    pending_builds: list[Dependency] = []
     for dep in native_deps:
         wheel_source = check_wheel_available(dep, py_ver, cuda_ver, torch_ver)
         dep.wheel_source = wheel_source
 
         if wheel_source:
-            # Wheel available — install it
+            # Wheel available — install it directly
             _log(f"Wheel found for {dep.name} (source: {wheel_source})")
             install_args = ["pip", "install", "--python", str(venv_python), dep.spec]
             if wheel_source != "pypi" and wheel_source.startswith("http"):
@@ -493,28 +521,65 @@ def install_resolved_deps(
                 # Wheel install failed — fall through to build decision
                 _log(f"Wheel install failed for {dep.name}: {output[:200]}")
                 dep.wheel_source = None
+                pending_builds.append(dep)
+        else:
+            # No wheel available — needs build decision
+            pending_builds.append(dep)
 
-        if not dep.wheel_source:
-            # No wheel available — ask user or skip
+    # Handle pending builds
+    if pending_builds:
+        # Show summary
+        _log(f"\n{'='*60}")
+        _log(f"Native builds needed for {len(pending_builds)} package(s):")
+        for dep in pending_builds:
+            has_cuda = _cuda_available()
+            has_toolkit = shutil.which("nvcc") is not None
+            if has_cuda and has_toolkit:
+                reason = "CUDA toolkit found — can build"
+            elif has_cuda:
+                reason = "GPU found but no toolkit — may fail"
+            else:
+                reason = "No GPU — skipping"
+            _log(f"  - {dep.name}: {reason}")
+        _log(f"{'='*60}\n")
+
+        for dep in pending_builds:
+            has_cuda = _cuda_available()
+            has_toolkit = shutil.which("nvcc") is not None
+
+            # Auto-detect: build if CUDA+toolkit present
             should_build = allow_build
-            if not allow_build and interactive and _is_interactive():
-                prompt = (
-                    f"\nNo compatible prebuilt build found for '{dep.name}'.\n"
-                    f"Do you want to build this dependency from source? [y/N] "
-                )
-                try:
-                    choice = input(prompt).strip().lower()
-                    should_build = choice == "y"
-                except (EOFError, KeyboardInterrupt):
+            if not should_build:
+                if has_cuda and has_toolkit:
+                    # Auto-build on GPU machines with toolkit
+                    should_build = True
+                    _log(f"Auto-building {dep.name} (CUDA toolkit detected)...")
+                elif interactive and _is_interactive():
+                    # Interactive prompt
+                    prompt = (
+                        f"\nNo compatible prebuilt build found for '{dep.name}'.\n"
+                        f"CUDA: {'yes' if has_cuda else 'no'}, toolkit: {'yes' if has_toolkit else 'no'}\n"
+                        f"Do you want to build this dependency from source? [y/N] "
+                    )
+                    try:
+                        choice = input(prompt).strip().lower()
+                        should_build = choice == "y"
+                    except (EOFError, KeyboardInterrupt):
+                        should_build = False
+                else:
+                    # Non-interactive: skip if no toolkit
                     should_build = False
+                    _log(f"Skipping {dep.name} (no CUDA toolkit in non-interactive mode)")
 
             if should_build:
                 _log(f"Building {dep.name} from source in {venv_python}...")
                 dep.state = "build_running"
-                code, output = _run_uv(
-                    ["pip", "install", "--python", str(venv_python), dep.spec, "--no-build-isolation"],
-                    cwd=repo_dir,
-                )
+                build_args = ["pip", "install", "--python", str(venv_python), dep.spec, "--no-build-isolation"]
+                # Add build dependencies for known packages
+                if dep.name in ("torch-cluster", "torch-scatter", "torch-sparse", "pyg_lib"):
+                    # These need torch to be installed first
+                    pass
+                code, output = _run_uv(build_args, cwd=repo_dir)
                 if code == 0:
                     dep.state = "ready"
                     installed.append(dep.name)
