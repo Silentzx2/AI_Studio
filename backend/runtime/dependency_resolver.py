@@ -192,14 +192,14 @@ def _py_ver_str() -> str:
 
 
 def _cuda_ver_short() -> str:
-    """Return CUDA version as '121' for cu121, or 'cpu'."""
+    """Return CUDA version as '121' for CUDA 12.1, or 'cpu'."""
     try:
         import torch
         if torch.cuda.is_available():
             ver = torch.version.cuda
             if ver:
                 parts = ver.split(".")
-                return f"cu{parts[0]}{parts[1]}"
+                return f"{parts[0]}{parts[1]}"
     except Exception:
         pass
     return "cpu"
