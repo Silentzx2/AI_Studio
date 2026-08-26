@@ -83,9 +83,9 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "pattern": re.compile(r"^pyg_lib($|==|>=|<=|!=|~=)"),
     },
     "flash-attn": {
-        # flash-attn publishes no PyPI wheel — always built from source
-        "wheel_available": False,
-        "index": None,
+        # flash-attn: prebuilt wheels from third-party
+        "wheel_available": True,
+        "index": "https://github.com/mjun0812/flash-attention-prebuild-wheels/releases",
         "python": ["3.10", "3.11", "3.12"],
         "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^flash[-_]attn($|==|>=|<=|!=|~=)"),
@@ -141,7 +141,7 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "index": "https://miropsota.github.io/torch_packages_builder",
         "python": ["3.10", "3.11", "3.12"],
         "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^nvdiffrast($|==|>=|<=|!=|~=)"),
+        "pattern": re.compile(r"^(git\+)?.*nvdiffrast"),
     },
     "diffoctreerast": {
         # diffoctreerast has no PyPI wheel — prebuilt wheels from third-party
@@ -149,7 +149,7 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "index": "https://github.com/iiiytn1k/sd-webui-some-stuff/releases",
         "python": ["3.10", "3.11"],
         "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^diffoctreerast($|==|>=|<=|!=|~=)"),
+        "pattern": re.compile(r"^(git\+)?.*diffoctreerast"),
     },
     "bpy": {
         # bpy has prebuilt wheels on PyPI
