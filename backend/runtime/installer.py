@@ -1665,7 +1665,8 @@ def install_repo_deps(repo_name: str, log_cb: Callable | None = None, requiremen
         if manifest and "environment" in manifest and "python" in manifest["environment"]:
             venv_args += ["--python", manifest["environment"]["python"]]
         venv_args.append(str(venv_dir))
-        code, output = _run(venv_args, cwd=repo_dir, log_cb=log_cb)
+        # Clear cached venv if it exists (uv uses centralized cache)
+        code, output = _run(venv_args, cwd=repo_dir, log_cb=log_cb, env={"UV_VENV_CLEAR": "1"})
         if code != 0:
             return {"success": False, "error": f"uv venv creation failed for {repo_name}: {output}"}
         logger.info("Created uv venv for %s at %s", repo_name, venv_dir)
