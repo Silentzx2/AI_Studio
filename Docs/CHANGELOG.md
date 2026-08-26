@@ -1,5 +1,42 @@
 # AI 3D Studio — Changelog
 
+## [v4.1.6] - 2026-08-26 - Comprehensive Bug Fixes
+
+### Summary
+Fixed 20+ critical bugs across database, weight download, upload progress, 3D viewer, and package installation.
+
+### Database & Services
+- **SQLite fallback**: Updated `.env` file when falling back to SQLite/memory broker
+- **Process persistence**: Added `nohup` to backend, Celery worker, and Frontend start commands
+- **Redis fallback**: Configure in-memory broker when Redis unavailable
+
+### Weight Download
+- **Provider name fix**: `_resolve_weight_key()` now returns provider name (HF_MODELS key) instead of repo name
+- **Auxiliary weights**: Fixed to use provider name for HF_MODELS lookup
+- **Reverse lookup**: Added `_repo_to_provider_name()` helper
+
+### Upload Progress Bar
+- **Real-time progress**: Replaced `fetch` with `XMLHttpRequest` in `apiClient.uploadFile()`
+- **Progress callback**: Added `onProgress` parameter to track upload progress
+- **Component wiring**: Updated `RightAssetsPanel.tsx` and `GeneratePanel.tsx` to use progress callback
+
+### 3D Mesh Viewer
+- **URL storage**: Changed `localUrl` to `viewUrl` for uploaded models
+- **URL resolution**: Resolve relative `/static/` URLs to absolute using `API_URL`
+- **GLB validation**: Added GLB magic number check in `mesh_processor.py`
+- **Thumbnail generation**: Fixed URL resolution for thumbnails
+
+### Package Installation
+- **Wheel sources**: Added prebuilt wheel sources for chumpy-fixed, torch-scatter, torch-cluster, pytorch3d, flash-attn, diffoctreerast, nvdiffrast, bpy
+- **CUDA testing**: Added `CUDA_FORCE_PRESENT=1` and `CUDA_FORCE_VERSION=124` for testing
+- **uv venv creation**: Use `UV_VENV_CLEAR=1` to clear cached venvs
+- **Preflight checks**: Fixed git+ URL import syntax errors
+
+### Scripts
+- **Sudo check**: Added sudo check at start of setup.sh
+- **Test mode**: Added `TEST_MODE=1` to simulate CUDA presence
+- **Frontend permissions**: Fix `.next` directory permissions before building
+
 ## [v4.1.5] - 2026-08-26 - PLAN-2: Remove Celery Dependency from Setup
 
 ### Summary
