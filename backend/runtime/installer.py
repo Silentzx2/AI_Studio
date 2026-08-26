@@ -2443,10 +2443,12 @@ def install_provider(
             for aux in aux_weights:
                 aux_repo = aux.get("repo", "")
                 if aux_repo and aux.get("required", False):
+                    # Convert repo name to provider name for HF_MODELS lookup
+                    aux_provider = _repo_to_provider_name(aux_repo) or aux_repo
                     if log_cb:
                         log_cb(f"Downloading auxiliary weights: {aux.get('name', aux_repo)}...")
                     try:
-                        aux_r = download_weights(aux_repo, hf_token=hf_token, log_cb=log_cb)
+                        aux_r = download_weights(aux_provider, hf_token=hf_token, log_cb=log_cb)
                         if not aux_r["success"]:
                             if log_cb:
                                 log_cb(f"Warning: auxiliary weight download failed for {aux_repo}: {aux_r.get('error')}")
@@ -2826,16 +2828,38 @@ def get_install_status() -> dict:
     return status
 
 
+def _repo_to_provider_name(repo: str) -> str | None:
+    """Convert a HuggingFace repo name to a provider name (HF_MODELS key)."""
+    for provider_name, model_cfg in HF_MODELS.items():
+        if model_cfg.get("repo") == repo:
+            return provider_name
+    return None
+
+
 def _resolve_weight_key(meta: dict, manifest: dict | None = None) -> str | None:
     """Primary weight key: manifest `weights.primary.repo` is authoritative when
     present, else fall back to existing JSON/Python PROVIDER_METADATA.weight_key.
+
+    Returns a valid HF_MODELS key (provider name), not the HF repo name.
     """
+    # First try the metadata weight_key (always a valid HF_MODELS key)
+    weight_key = meta.get("weight_key")
+    if weight_key and weight_key in HF_MODELS:
+        return weight_key
+
+    # Try to find a matching provider by repo name from manifest
     if manifest and "weights" in manifest:
         primary = manifest["weights"].get("primary") or {}
         repo = primary.get("repo")
         if repo:
+            # Reverse lookup: find provider name for this repo
+            provider = _repo_to_provider_name(repo)
+            if provider:
+                return provider
+            # If not found in HF_MODELS, use the repo name as-is
             return repo
-    return meta.get("weight_key")
+
+    return weight_key
 
 
 def _check_auxiliary_weights(provider_name: str, storage, manifest: dict | None = None) -> list[dict]:

@@ -192,6 +192,13 @@ export DATABASE_URL="sqlite:///$(pwd)/backend/storage/studio.db"
 export DATABASE_SYNC_URL="sqlite:///$(pwd)/backend/storage/studio.db"
 export BACKEND_URL="http://localhost:8000"
 
+# Update .env file to match (prevents Celery worker from reading stale URLs)
+sed -i 's|^DATABASE_URL=.*|DATABASE_URL=sqlite:///'"$(pwd)"'/backend/storage/studio.db|' .env 2>/dev/null || true
+sed -i 's|^DATABASE_SYNC_URL=.*|DATABASE_SYNC_URL=sqlite:///'"$(pwd)"'/backend/storage/studio.db|' .env 2>/dev/null || true
+sed -i 's|^REDIS_URL=.*|REDIS_URL=memory://|' .env 2>/dev/null || true
+sed -i 's|^CELERY_BROKER_URL=.*|CELERY_BROKER_URL=memory://|' .env 2>/dev/null || true
+sed -i 's|^CELERY_RESULT_BACKEND=.*|CELERY_RESULT_BACKEND=cache+memory://|' .env 2>/dev/null || true
+
 log "Environment configured (SQLite mode)"
 
 # ── GPU / platform parity with setup.sh ────────────────────────────────────

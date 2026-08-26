@@ -782,6 +782,13 @@ BANNER
     warn "sudo requires password. You may be prompted during setup."
   fi
 
+  # Testing mode: simulate CUDA presence for testing all models
+  if [[ "${TEST_MODE:-}" == "1" ]]; then
+    warn "TEST MODE: Simulating CUDA presence (CUDA_FORCE_PRESENT=1)"
+    export CUDA_FORCE_PRESENT=1
+    export CUDA_FORCE_VERSION="${CUDA_FORCE_VERSION:-124}"
+  fi
+
   # Critical steps — failure aborts setup
   check_root
   check_os

@@ -306,6 +306,9 @@ if [[ "${USE_SQLITE:-}" != "1" ]]; then
     export USE_SQLITE=1
     export DATABASE_URL="sqlite:///$(pwd)/backend/storage/studio.db"
     export DATABASE_SYNC_URL="sqlite:///$(pwd)/backend/storage/studio.db"
+    # Update .env file to match
+    sed -i 's|^DATABASE_URL=.*|DATABASE_URL=sqlite:///'"$(pwd)"'/backend/storage/studio.db|' .env 2>/dev/null || true
+    sed -i 's|^DATABASE_SYNC_URL=.*|DATABASE_SYNC_URL=sqlite:///'"$(pwd)"'/backend/storage/studio.db|' .env 2>/dev/null || true
   fi
 fi
 
@@ -345,6 +348,10 @@ if ! redis-cli ping &>/dev/null; then
     export CELERY_BROKER_URL="memory://"
     export CELERY_RESULT_BACKEND="cache+memory://"
     export REDIS_URL="memory://"
+    # Update .env file to match (prevents Celery worker from reading stale URLs)
+    sed -i 's|^REDIS_URL=.*|REDIS_URL=memory://|' .env 2>/dev/null || true
+    sed -i 's|^CELERY_BROKER_URL=.*|CELERY_BROKER_URL=memory://|' .env 2>/dev/null || true
+    sed -i 's|^CELERY_RESULT_BACKEND=.*|CELERY_RESULT_BACKEND=cache+memory://|' .env 2>/dev/null || true
     log "Celery fallback active: eager execution + memory broker (no Redis)"
 else
     log "Redis ready"
