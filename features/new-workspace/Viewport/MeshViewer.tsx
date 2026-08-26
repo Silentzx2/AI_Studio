@@ -51,7 +51,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     executionProgress,
     activeTool,
     setIsExportModalOpen,
-    generate3DModel
+    generate3DModel,
+    viewportResetTrigger,
   } = useWorkspace();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -313,7 +314,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [currentAsset?.id, currentAsset?.source?.viewUrl, currentAsset?.source?.localUrl, currentAsset?.format, shadingMode]);
+  }, [currentAsset?.id, currentAsset?.source?.viewUrl, currentAsset?.source?.localUrl, currentAsset?.format, shadingMode, viewportResetTrigger]);
 
   // Camera preset switcher
   const applyCameraPreset = useCallback((preset: CameraViewPreset) => {
