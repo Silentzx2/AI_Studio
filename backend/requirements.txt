@@ -28,7 +28,7 @@ kombu==5.4.2
 
 # HTTP client
 httpx==0.28.1
-aiohttp==3.9.1
+aiohttp>=3.10.0
 aiofiles==24.1.0
 
 # Image processing
@@ -60,7 +60,7 @@ pytest-asyncio==0.24.0
 # Per-model venvs also receive it via EXTRA_DEPS in runtime/installer.py.
 accelerate>=0.34.0
 
-# NOTE: PyTorch is installed separately in the Dockerfile with CUDA support:
+# NOTE: PyTorch is installed separately by scripts/setup.sh with CUDA support:
 # uv pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cu121
 # NOTE: xformers is optional — install separately if needed:
 # uv pip install xformers==0.0.24

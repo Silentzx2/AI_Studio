@@ -85,18 +85,20 @@ export const useUIStore = create<UIState>()((set) => ({
 }));
 
 // Mirror app store data into this proxy store so subscribers re-render.
+// Only update fields that actually changed to avoid unnecessary re-renders.
 useAppStore.subscribe((state) => {
-  useUIStore.setState({
-    leftSidebarCollapsed: state.leftSidebarCollapsed,
-    rightSidebarCollapsed: state.rightSidebarCollapsed,
-    bottomPanelCollapsed: state.bottomPanelCollapsed,
-    mobileMenuOpen: state.mobileMenuOpen,
-    mobileLeftSidebarOpen: state.mobileLeftSidebarOpen,
-    mobileRightSidebarOpen: state.mobileRightSidebarOpen,
-    viewer: state.viewer,
-    inspectorTab: state.inspectorTab as InspectorTab,
-    bottomDockTab: state.bottomDockTab as BottomDockTab,
-    creativeLayoutMode: state.creativeLayoutMode,
-    capabilities: state.capabilities as UIState['capabilities'],
-  });
+  const cur = useUIStore.getState();
+  const next: Partial<UIState> = {};
+  if (cur.leftSidebarCollapsed !== state.leftSidebarCollapsed) next.leftSidebarCollapsed = state.leftSidebarCollapsed;
+  if (cur.rightSidebarCollapsed !== state.rightSidebarCollapsed) next.rightSidebarCollapsed = state.rightSidebarCollapsed;
+  if (cur.bottomPanelCollapsed !== state.bottomPanelCollapsed) next.bottomPanelCollapsed = state.bottomPanelCollapsed;
+  if (cur.mobileMenuOpen !== state.mobileMenuOpen) next.mobileMenuOpen = state.mobileMenuOpen;
+  if (cur.mobileLeftSidebarOpen !== state.mobileLeftSidebarOpen) next.mobileLeftSidebarOpen = state.mobileLeftSidebarOpen;
+  if (cur.mobileRightSidebarOpen !== state.mobileRightSidebarOpen) next.mobileRightSidebarOpen = state.mobileRightSidebarOpen;
+  if (cur.viewer !== state.viewer) next.viewer = state.viewer;
+  if (cur.inspectorTab !== state.inspectorTab) next.inspectorTab = state.inspectorTab as InspectorTab;
+  if (cur.bottomDockTab !== state.bottomDockTab) next.bottomDockTab = state.bottomDockTab as BottomDockTab;
+  if (cur.creativeLayoutMode !== state.creativeLayoutMode) next.creativeLayoutMode = state.creativeLayoutMode;
+  if (cur.capabilities !== state.capabilities) next.capabilities = state.capabilities as UIState['capabilities'];
+  if (Object.keys(next).length > 0) useUIStore.setState(next);
 });

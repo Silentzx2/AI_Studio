@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 import redis as redis_sync
 from app.config import get_settings
 from app.core.managers.vram_tracker import vram_tracker
@@ -16,7 +16,8 @@ def check_vram_health() -> dict:
     r = redis_sync.from_url(settings.redis_url, decode_responses=True)
     
     # 1. Check current VRAM usage
-    total_gb = vram_tracker.total_vram_gb
+    from runtime.gpu import get_gpu_info
+    total_gb = get_gpu_info().total_vram_mb / 1024
     allocated = vram_tracker.get_allocated_models()
     used_gb = sum(allocated.values())
     
@@ -62,7 +63,7 @@ def check_vram_health() -> dict:
     r.set("vram:latest:used_gb", str(used_gb))
     r.set("vram:latest:total_gb", str(total_gb))
     r.set("vram:latest:pressure", str(pressure))
-    r.set("vram:latest:timestamp", datetime.utcnow().isoformat())
+    r.set("vram:latest:timestamp", datetime.now(timezone.utc).replace(tzinfo=None).isoformat())
 
     return {
         "status": status,

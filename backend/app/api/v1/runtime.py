@@ -476,6 +476,7 @@ async def install_runtime(req: InstallRequest, background_tasks: BackgroundTasks
             "Pass a 'models' list with specific model IDs."
         )
 
+    # TODO: Dispatch to Celery for long-running operations to avoid blocking event loop
     def _run() -> None:
         RuntimeInstaller().full_install(
             skip_weights=req.skip_weights,

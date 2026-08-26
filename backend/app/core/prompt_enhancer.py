@@ -38,6 +38,7 @@ async def enhance_prompt(prompt: str) -> str:
             ],
             max_tokens=300,
             temperature=0.7,
+            timeout=30.0,
         )
         enhanced = response.choices[0].message.content
         if enhanced:

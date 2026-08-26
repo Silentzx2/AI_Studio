@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException
 
@@ -111,7 +111,7 @@ async def create_generation(req: GenerationRequest):
     """Submit a new 3D generation job."""
     job_id = str(uuid.uuid4())
     provider = req.provider or settings.ai_provider
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     # Colab VRAM guard: block generation for models that exceed the Colab
     # preparation limit so we don't silently OOM and crash the runtime.
@@ -261,7 +261,7 @@ async def create_generation(req: GenerationRequest):
                     job.status = "failed"
                     job.stage = "failed"
                     job.error_message = f"Failed to enqueue worker task: {exc}"
-                    job.updated_at = datetime.utcnow()
+                    job.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
                     await session.commit()
         except Exception:
             logger.exception("Could not mark generation job %s as failed after enqueue error", job_id)
@@ -307,7 +307,7 @@ async def cancel_generation(job_id: str):
                 return success({"job_id": job_id, "status": job.status})
             job.status = "cancelled"
             job.stage = "cancelled"
-            job.updated_at = datetime.utcnow()
+            job.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
             await session.commit()
         logger.info("Generation job %s cancelled", job_id)
         return success({"job_id": job_id, "status": "cancelled"})
@@ -379,7 +379,7 @@ async def get_generation_status(job_id: str):
         raise
     except Exception as exc:
         logger.warning("Failed to get job status for %s: %s", job_id, exc)
-        return error(f"Failed to retrieve job status: {exc}")
+        return error("Failed to retrieve job status")
 
 
 @router.get("/{job_id}/stream")
@@ -406,6 +406,8 @@ async def generation_progress_stream(job_id: str):
                     yield f"data: {json.dumps({'status': job.status, 'progress': job.progress, 'stage': job.stage, 'message': 'Initial state'})}\n\n"
                     if job.status in ("completed", "failed", "cancelled"):
                         return
+        except Exception as exc:
+            logger.warning("SSE initial state fetch failed for %s: %s", job_id, exc)
 
             while True:
                 # Check for client disconnect

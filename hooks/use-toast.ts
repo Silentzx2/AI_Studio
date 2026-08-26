@@ -184,11 +184,11 @@ function useToast() {
     }
   }, [])
 
-  return {
+  return React.useMemo(() => ({
     ...state,
     toast,
     dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
-  }
+  }), [state])
 }
 
 export { useToast, toast }

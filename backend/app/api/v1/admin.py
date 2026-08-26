@@ -12,6 +12,7 @@ FIXES APPLIED:
 from __future__ import annotations
 
 import asyncio
+import atexit
 import json
 import logging
 import os
@@ -22,7 +23,7 @@ import shutil
 import subprocess
 import threading
 from collections.abc import AsyncGenerator
-from datetime import datetime
+from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -124,6 +125,7 @@ def init_log_file_handler() -> RotatingFileHandler | None:
         # logging stops swallowing the root handler.
         h = open(str(log_path), "a", encoding="utf-8", buffering=1)
         _LOG_FILE_HANDLER = h
+        atexit.register(lambda: (_LOG_FILE_HANDLER.close() if _LOG_FILE_HANDLER else None))
         logger.info("Admin persistent log file opened: %s", log_path)
     except Exception as exc:
         logger.warning("Failed to open log file: %s", exc)
@@ -177,7 +179,7 @@ def read_log_file(limit: int = 500, level: str = "", search: str = "") -> list[d
 
 _LOG_BUFFER: list[dict] = []
 _LOG_BUFFER_MAX = 2000
-_LOG_SUBSCRIBERS: list[asyncio.Queue] = []
+_LOG_SUBSCRIBERS: set[asyncio.Queue] = set()
 _LOG_EVENT_LOOP: asyncio.AbstractEventLoop | None = None
 _LOG_LOCK = threading.Lock()
 
@@ -219,7 +221,7 @@ class _AdminLogHandler(logging.Handler):
         global _LOG_FILE_HANDLER
         msg = self.format(record)
         entry = {
-            "ts": datetime.utcnow().isoformat(),
+            "ts": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": msg,
@@ -259,11 +261,14 @@ class _AdminLogHandler(logging.Handler):
         if loop is None:
             return
 
-        for q in list(_LOG_SUBSCRIBERS):
+        with _LOG_LOCK:
+            subscribers = list(_LOG_SUBSCRIBERS)
+        for q in subscribers:
             try:
                 loop.call_soon_threadsafe(q.put_nowait, entry)
             except asyncio.QueueFull:
-                _LOG_SUBSCRIBERS.remove(q)
+                with _LOG_LOCK:
+                    _LOG_SUBSCRIBERS.discard(q)
             except Exception:
                 pass
 
@@ -307,7 +312,7 @@ def _execute_command(command: str) -> dict:
     """Execute a shell command and return the result."""
     import uuid
     cmd_id = str(uuid.uuid4())[:8]
-    timestamp = datetime.utcnow().isoformat()
+    timestamp = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
 
     # Security: reject shell metacharacters outright (allowlist-style).
     # A blocklist (rm -rf /, curl|sh, ...) is trivially bypassable via nested
@@ -338,7 +343,7 @@ def _execute_command(command: str) -> dict:
             capture_output=True,
             text=True,
             timeout=30,
-            cwd="/app",
+            cwd=os.environ.get("TERMINAL_CWD", "/app"),
             env={**os.environ, "TERM": "xterm"},
         )
         output = result.stdout + result.stderr
@@ -395,6 +400,39 @@ _DL_STATE: dict[str, dict] = {}  # model_id -> progress dict
 _DL_LOCK = threading.Lock()
 # ponytail: _DL_STATE/_DL_LOCK are per-process. Multi-worker deployments
 # (gunicorn --workers >1, Celery) need Redis-backed shared state instead.
+
+
+def _dl_get(model_id: str) -> dict | None:
+    """Thread-safe read of a single model's download state."""
+    with _DL_LOCK:
+        return _DL_STATE.get(model_id)
+
+
+def _dl_get_all() -> dict[str, dict]:
+    """Thread-safe shallow copy of the full download state."""
+    with _DL_LOCK:
+        return dict(_DL_STATE)
+
+
+def _dl_set(model_id: str, state: dict) -> None:
+    """Thread-safe write of a single model's download state."""
+    with _DL_LOCK:
+        _DL_STATE[model_id] = state
+
+
+def _dl_update_field(model_id: str, **fields) -> bool:
+    """Thread-safe partial update of a single model's download state."""
+    with _DL_LOCK:
+        if model_id not in _DL_STATE:
+            return False
+        _DL_STATE[model_id].update(fields)
+        return True
+
+
+def _dl_contains(model_id: str) -> bool:
+    """Thread-safe membership check."""
+    with _DL_LOCK:
+        return model_id in _DL_STATE
 
 
 def _dl_state_path() -> Path:
@@ -1473,17 +1511,18 @@ async def stream_logs(last_n: int = Query(50, ge=0)):
         for entry in initial:
             yield f"data: {json.dumps(entry)}\n\n"
         q: asyncio.Queue = asyncio.Queue(maxsize=500)
-        _LOG_SUBSCRIBERS.append(q)
+        with _LOG_LOCK:
+            _LOG_SUBSCRIBERS.add(q)
         try:
             while True:
                 try:
                     entry = await asyncio.wait_for(q.get(), timeout=30.0)
                     yield f"data: {json.dumps(entry)}\n\n"
                 except asyncio.TimeoutError:
-                    yield f"data: {json.dumps({'level': 'HEARTBEAT', 'ts': datetime.utcnow().isoformat(), 'logger': 'keepalive', 'message': ''})}\n\n"
+                    yield f"data: {json.dumps({'level': 'HEARTBEAT', 'ts': datetime.now(timezone.utc).replace(tzinfo=None).isoformat(), 'logger': 'keepalive', 'message': ''})}\n\n"
         finally:
-            if q in _LOG_SUBSCRIBERS:
-                _LOG_SUBSCRIBERS.remove(q)
+            with _LOG_LOCK:
+                _LOG_SUBSCRIBERS.discard(q)
 
     return StreamingResponse(
         _generate(),

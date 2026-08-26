@@ -16,11 +16,10 @@ def execute_download(self, download_id: str):
     from app.core.managers.download_manager import DownloadManager
     from app.database import SessionLocal
     
-    db = SessionLocal()
-    
     try:
+        db = SessionLocal()
         manager = DownloadManager(db, "./storage")
-        
+
         async def progress_callback(progress: float):
             """Update bytes_downloaded in DB so frontend polling shows real progress."""
             try:
@@ -36,16 +35,16 @@ def execute_download(self, download_id: str):
                     db.commit()
             except Exception as e:
                 logger.debug("Progress update for %s failed: %s", download_id, e)
-        
+
         # Run the async download function
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        
+
         try:
             result = loop.run_until_complete(
                 manager.execute_download(download_id, progress_callback)
             )
-            
+
             if result:
                 logger.info(f"Download {download_id} completed successfully")
                 return {
@@ -57,7 +56,7 @@ def execute_download(self, download_id: str):
                 # Bug 1 fix: use canonical model from app.models.registry
                 from app.models.registry import DownloadQueue
                 download = db.query(DownloadQueue).filter_by(id=download_id).first()
-                
+
                 if download and download.retry_count < 3:
                     raise Exception(f"Download failed, retrying ({download.retry_count}/3)")
                 else:
@@ -68,11 +67,11 @@ def execute_download(self, download_id: str):
                     }
         finally:
             loop.close()
-    
+
     except Exception as exc:
         logger.error(f"Download task error for {download_id}: {exc}")
         raise self.retry(exc=exc)
-    
+
     finally:
         db.close()
 
@@ -243,12 +242,12 @@ def cleanup_completed_downloads(older_than_hours: int = 24):
     db = SessionLocal()
     
     try:
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, timezone
 
         # Bug 1 fix: use canonical model from app.models.registry
         from app.models.registry import DownloadQueue
         
-        cutoff = datetime.utcnow() - timedelta(hours=older_than_hours)
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=older_than_hours)
         
         deleted = (
             db.query(DownloadQueue)

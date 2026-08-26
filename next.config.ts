@@ -24,14 +24,20 @@ const nextConfig: NextConfig = {
   turbopack: { root: path.resolve(__dirname) },
 
   // Allow dev server access from non-localhost hosts (e.g. Docker, tunnel, LAN)
-  allowedDevOrigins: [
-    '*',
-    '*.trycloudflare.com',
-    '*.run.app',
-    '*.asia-east1.run.app',
-    '*.cloudspaces.litng.ai',
-    '3000-*.cloudspaces.litng.ai',
-  ],
+  // Only applied in development — production builds don't use the dev server.
+  ...(process.env.NODE_ENV === "development"
+    ? {
+        allowedDevOrigins: [
+          '*',
+          '*.trycloudflare.com',
+          '*.run.app',
+          '*.asia-east1.run.app',
+          '*.cloudspaces.litng.ai',
+          '3000-*.cloudspaces.litng.ai',
+        ],
+      }
+    : {}),
+  } : {}),
 };
 
 export default nextConfig;

@@ -260,21 +260,21 @@ if [[ "$GPU_TYPE" == "gpu" ]]; then
     fi
     info "Installing PyTorch with CUDA ${CUDA_INDEX} via uv..."
     uv pip install --python backend/.venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
-        --index-url "https://download.pytorch.org/whl/cu${CUDA_INDEX}" -q 2>/dev/null || {
+        --index-url "https://download.pytorch.org/whl/cu${CUDA_INDEX}" -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || {
         warn "PyTorch CUDA install failed, trying CPU fallback..."
         uv pip install --python backend/.venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
-            --index-url https://download.pytorch.org/whl/cpu -q 2>/dev/null || true
+            --index-url https://download.pytorch.org/whl/cpu -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || true
     }
 else
     info "Installing PyTorch CPU-only via uv..."
     uv pip install --python backend/.venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
-        --index-url https://download.pytorch.org/whl/cpu -q 2>/dev/null || true
+        --index-url https://download.pytorch.org/whl/cpu -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || true
 fi
 
 # Install backend deps
 if [[ -f backend/requirements.txt ]]; then
     info "Installing backend dependencies..."
-    uv pip install --python backend/.venv/bin/python -r backend/requirements.txt -q 2>/dev/null || {
+    uv pip install --python backend/.venv/bin/python -r backend/requirements.txt -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || {
         warn "Some backend dependencies may have failed to install"
     }
     log "Backend dependencies installed"
@@ -305,7 +305,7 @@ log "Node.js available: $(node --version 2>/dev/null || echo 'unknown')"
 # Install frontend deps
 if [[ ! -d node_modules ]]; then
     info "Installing npm dependencies..."
-    npm ci --prefer-offline --no-audit 2>/dev/null || npm install --no-audit 2>/dev/null || {
+    npm ci --prefer-offline --no-audit 2>>"$PROJECT_ROOT/logs/bootstrap.log" || npm install --no-audit 2>>"$PROJECT_ROOT/logs/bootstrap.log" || {
         warn "Frontend dependency installation had issues"
     }
 fi
@@ -313,7 +313,7 @@ fi
 # Build Next.js if needed
 if [[ ! -d .next ]]; then
     info "Building Next.js..."
-    npm run build 2>/dev/null || warn "Next.js build failed — will retry on start"
+    npm run build 2>>"$PROJECT_ROOT/logs/bootstrap.log" || warn "Next.js build failed — will retry on start"
 fi
 
 log "Frontend dependencies ready"
@@ -894,7 +894,7 @@ KEEPALIVE_PID_FILE="$PID_DIR/colab_keepalive.pid"
 if [[ -f "$KEEPALIVE_PID_FILE" ]]; then
     kill_by_pid_file "$KEEPALIVE_PID_FILE"
 fi
-nohup bash -c 'trap "exit 0" TERM; while true; do curl -sf http://localhost:8000/api/v1/health >/dev/null 2>&1 || true; sleep 45; done' \
+nohup bash -c 'trap "exit 0" TERM INT; while true; do curl -sf http://localhost:8000/api/v1/health >/dev/null 2>&1 || true; sleep 45; done' \
     > "$LOG_DIR/keepalive.log" 2>&1 &
 echo $! > "$KEEPALIVE_PID_FILE"
 log "Colab keep-alive started (PID: $(cat "$KEEPALIVE_PID_FILE"))"

@@ -49,6 +49,7 @@ async def save_hf_token(req: HFTokenRequest):
     p = _find_token_file()
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(token)
+    os.chmod(p, 0o600)
     os.environ["HUGGINGFACE_TOKEN"] = token
     return success({"saved": True})
 

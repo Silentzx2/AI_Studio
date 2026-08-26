@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { apiClient, API_URL } from '@/services/apiClient';
+import { apiClient, getApiUrl } from '@/services/apiClient';
 import { 
   Plus, 
   MoreVertical, 
@@ -82,8 +82,8 @@ export const RightAssetsPanel: React.FC = () => {
       // Resolve relative URLs to absolute
       const resolveUrl = (url: string | undefined) => {
         if (!url) return '';
-        if (url.startsWith('/static/') && API_URL) {
-          return `${API_URL}${url}`;
+        if (url.startsWith('/static/') && getApiUrl()) {
+          return `${getApiUrl()}${url}`;
         }
         return url;
       };
@@ -117,7 +117,7 @@ export const RightAssetsPanel: React.FC = () => {
       failUpload();
       setUploadError(err instanceof Error ? err.message : 'Failed to upload file.');
     }
-  }, [addAsset, setCurrentAsset, startUpload, finishUpload, failUpload]);
+  }, [addAsset, setCurrentAsset, startUpload, updateProgress, finishUpload, failUpload]);
 
   const handleModelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -419,8 +419,8 @@ export const RightAssetsPanel: React.FC = () => {
       {/* Pagination Footer */}
       <div className="p-2.5 border-t border-[#21242c] flex items-center justify-center gap-1 text-xs text-[#8e95a5]">
         <button
-          onClick={() => setActivePage(Math.max(1, safePage - 1))}
-          disabled={safePage <= 1}
+          onClick={() => setActivePage(Math.max(1, activePage - 1))}
+          disabled={activePage <= 1}
           className="p-1 rounded hover:text-[#f3f4f6] hover:bg-[#181a20] disabled:opacity-40"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
@@ -439,8 +439,8 @@ export const RightAssetsPanel: React.FC = () => {
         ))}
 
         <button
-          onClick={() => setActivePage(Math.min(totalPages, safePage + 1))}
-          disabled={safePage >= totalPages}
+          onClick={() => setActivePage(Math.min(totalPages, activePage + 1))}
+          disabled={activePage >= totalPages}
           className="p-1 rounded hover:text-[#f3f4f6] hover:bg-[#181a20] disabled:opacity-40"
         >
           <ChevronRight className="w-3.5 h-3.5" />

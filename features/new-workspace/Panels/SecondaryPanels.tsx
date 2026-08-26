@@ -20,6 +20,8 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
     runRemeshGeneration,
     runTextureGeneration,
     systemStats,
+    remeshSettings,
+    setRemeshSettings,
   } = useWorkspace();
 
   if (tool === 'retopo') {
@@ -42,9 +44,21 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
         <div className="space-y-1.5">
           <span className="font-medium text-[#cbd5e1]">Target Polycount</span>
           <div className="grid grid-cols-3 gap-1.5">
-            {['2.5K Low', '10K Mid', '25K High'].map((q) => (
-              <button key={q} className="p-2 rounded-lg bg-[#181a20] border border-[#282c37] text-[#cbd5e1] font-medium hover:text-[#f5c518] hover:border-[#f5c518]/40 transition-colors">
-                {q}
+            {([
+              { label: '2.5K Low', faces: 2500 },
+              { label: '10K Mid', faces: 10000 },
+              { label: '25K High', faces: 25000 },
+            ]).map((q) => (
+              <button
+                key={q.label}
+                onClick={() => setRemeshSettings(prev => ({ ...prev, targetFaces: q.faces }))}
+                className={`p-2 rounded-lg border font-medium transition-colors ${
+                  remeshSettings.targetFaces === q.faces
+                    ? 'bg-[#f5c518]/15 border-[#f5c518]/60 text-[#f5c518]'
+                    : 'bg-[#181a20] border-[#282c37] text-[#cbd5e1] hover:text-[#f5c518] hover:border-[#f5c518]/40'
+                }`}
+              >
+                {q.label}
               </button>
             ))}
           </div>

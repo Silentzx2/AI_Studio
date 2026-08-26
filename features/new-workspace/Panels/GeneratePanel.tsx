@@ -92,7 +92,7 @@ export const GeneratePanel: React.FC = () => {
         setNoticeMessage(`${activeModelObj?.label || 'Model'} does not support Text-to-3D. Switched to ${firstTextCapable.label}.`);
       }
     }
-  }, [currentMode, isCurrentModelTextTo3DLocked, activeModelObj?.label, setGenerationSettings, providersList]);
+  }, [currentMode, isCurrentModelTextTo3DLocked, activeModelId, setGenerationSettings, providersList]);
 
   useEffect(() => {
     if (!activeModelId && providersList.length > 0) {

@@ -86,7 +86,7 @@ else
 fi
 
 # ── Clean up stale PID files ──────────────────────────────────────
-rm -rf "${PROJECT_ROOT}/.pids" 2>/dev/null || true
+rm -f "${PROJECT_ROOT}/.pids"/*.pid 2>/dev/null || true
 
 echo ""
 log "All services stopped"

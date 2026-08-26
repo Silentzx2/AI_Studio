@@ -227,8 +227,15 @@ cmd_database() {
             read -rp "Type 'reset' to confirm: " confirm
             if [[ "$confirm" == "reset" ]]; then
                 echo "Dropping and recreating database..."
-                PGPASSWORD=postgres psql -h localhost -U postgres -c "DROP DATABASE IF EXISTS ai3dstudio;"
-                PGPASSWORD=postgres psql -h localhost -U postgres -c "CREATE DATABASE ai3dstudio;"
+                # shellcheck disable=SC1091
+                set -a; source .env 2>/dev/null || true; set +a
+                _DB_PASS="${POSTGRES_PASSWORD:-postgres}"
+                if [[ -n "${DATABASE_URL:-}" ]]; then
+                    _DB_PASS="$(echo "$DATABASE_URL" | sed -n 's|^postgresql[+]*://[^:]*:\([^@]*\)@.*$|\1|p')"
+                    [[ -z "$_DB_PASS" ]] && _DB_PASS="postgres"
+                fi
+                PGPASSWORD="$_DB_PASS" psql -h localhost -U postgres -c "DROP DATABASE IF EXISTS ai3dstudio;"
+                PGPASSWORD="$_DB_PASS" psql -h localhost -U postgres -c "CREATE DATABASE ai3dstudio;"
                 echo "Running migrations..."
                 cd backend
                 backend/.venv/bin/python -m alembic upgrade head
@@ -327,7 +334,7 @@ cmd_service() {
     case "$svc_choice" in
         1) _service_submenu "api" "Backend API" "uvicorn app.main:app" "cd backend && source .venv/bin/activate && setsid python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level info > ../logs/api.log 2>&1 &" "$PID_DIR/api.pid" ;;
         2) _service_submenu "worker" "Celery Worker" "celery -A app.workers.celery_app worker" "cd backend && source .venv/bin/activate && setsid python -m celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 -B -Q generation,images > ../logs/worker.log 2>&1 &" "$PID_DIR/worker.pid" ;;
-        3) _service_submenu "frontend" "Frontend" "next" "NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev > logs/frontend.log 2>&1 &" "$PID_DIR/frontend.pid" ;;
+        3) _service_submenu "frontend" "Frontend" "next" "NEXT_PUBLIC_API_URL=http://localhost:8000 npm start > logs/frontend.log 2>&1 &" "$PID_DIR/frontend.pid" ;;
         4) _systemd_service_submenu "postgresql" "PostgreSQL" ;;
         5) _systemd_service_submenu "redis-server" "Redis" ;;
         b|B) return ;;
@@ -511,7 +518,11 @@ _systemd_service_submenu() {
 
 cmd_cf() {
     echo ""
-    bash scripts/cloudflare.sh
+    if [[ -f scripts/cloudflare.sh ]]; then
+        bash scripts/cloudflare.sh
+    else
+        echo -e "${RED}scripts/cloudflare.sh not found${NC}"
+    fi
 }
 
 cmd_update_models() {
@@ -528,10 +539,34 @@ cmd_update_models() {
     read -rp "Choice: " choice
     echo ""
     case "$choice" in
-        1) bash scripts/update-models.sh ;;
-        2) bash scripts/update-models.sh --repos-only ;;
-        3) bash scripts/update-models.sh --weights-only ;;
-        4) bash scripts/update-models.sh --verify ;;
+        1)
+            if [[ -f scripts/update-models.sh ]]; then
+                bash scripts/update-models.sh
+            else
+                echo -e "${RED}scripts/update-models.sh not found${NC}"
+            fi
+            ;;
+        2)
+            if [[ -f scripts/update-models.sh ]]; then
+                bash scripts/update-models.sh --repos-only
+            else
+                echo -e "${RED}scripts/update-models.sh not found${NC}"
+            fi
+            ;;
+        3)
+            if [[ -f scripts/update-models.sh ]]; then
+                bash scripts/update-models.sh --weights-only
+            else
+                echo -e "${RED}scripts/update-models.sh not found${NC}"
+            fi
+            ;;
+        4)
+            if [[ -f scripts/update-models.sh ]]; then
+                bash scripts/update-models.sh --verify
+            else
+                echo -e "${RED}scripts/update-models.sh not found${NC}"
+            fi
+            ;;
         b|B) return ;;
         *) echo -e "${RED}Invalid choice${NC}" ;;
     esac

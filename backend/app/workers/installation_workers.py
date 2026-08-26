@@ -4,7 +4,7 @@ import asyncio
 import logging
 import os
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from celery import shared_task
@@ -330,7 +330,7 @@ def run_native_build(self, provider_name: str, task_id: str) -> dict:
             "native_build_state": "native_build_running",
             "native_build_task_id": task_id,
             "native_build_lock_owner": "celery_worker",
-            "native_build_lock_ts": datetime.utcnow().isoformat(),
+            "native_build_lock_ts": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         })
         logger.info("Native build started for %s (task_id=%s)", canonical_name, task_id)
 
@@ -377,7 +377,7 @@ def run_native_build(self, provider_name: str, task_id: str) -> dict:
             st["repos"][canonical_name]["native_build_current_step"] = step
             if output is not None:
                 st["repos"][canonical_name]["native_build_output"] = output[-4000:]
-            st["last_updated"] = datetime.utcnow().isoformat()
+            st["last_updated"] = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
             _save_state(st)
 
         if manifest and "capabilities" in manifest:

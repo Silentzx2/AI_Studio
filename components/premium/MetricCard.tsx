@@ -161,7 +161,8 @@ export function MetricCard({
 }: MetricCardProps) {
   const ic = ICON_COLORS[color];
   const numericValue = typeof value === 'number' ? value : parseFloat(String(value));
-  const animatedValue = useCountUp(numericValue, 1200, delay + 0.3);
+  const safeNumericValue = isNaN(numericValue) ? 0 : numericValue;
+  const animatedValue = useCountUp(safeNumericValue, 1200, delay + 0.3);
   const displayValue = typeof value === 'number' ? animatedValue : value;
 
   return (

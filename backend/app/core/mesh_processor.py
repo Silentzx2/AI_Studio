@@ -46,7 +46,7 @@ def write_placeholder_mesh(glb_path: str, seed: int | None = None) -> dict[str, 
     return {
         "polygon_count": len(mesh.faces),
         "vertex_count": len(mesh.vertices),
-        "file_size": Path(glb_path).stat().st_size,
+        "output_path": output_path,
     }
 
 
@@ -84,6 +84,7 @@ def clean_mesh(input_path: str, output_path: str, target_faces: int | None = Non
     return {
         "polygon_count": len(mesh.faces),
         "vertex_count": len(mesh.vertices),
+        "output_path": output_path,
     }
 
 

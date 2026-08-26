@@ -58,8 +58,10 @@ export const RiggingPanel: React.FC = () => {
       </div>
 
       <button
-        className="w-full py-3 rounded-xl bg-[#181a20] border border-[#282c37] text-[#cbd5e1] hover:border-[#f5c518]/40 flex items-center justify-center gap-2"
+        className="w-full py-3 rounded-xl bg-[#181a20] border border-[#282c37] text-[#cbd5e1] hover:border-[#f5c518]/40 flex items-center justify-center gap-2 disabled:opacity-50"
         type="button"
+        disabled={isExecuting || systemStats.status !== 'online'}
+        onClick={() => void runRiggingGeneration()}
       >
         <Wand2 className="w-4 h-4 text-[#f5c518]" /> Auto Rig
       </button>
@@ -151,9 +153,18 @@ export const RiggingPanel: React.FC = () => {
       </div>
 
       <div className="mt-auto space-y-2 pt-2">
-        <button className="w-full py-2.5 rounded-xl bg-[#14161c] border border-[#252834] text-[#cbd5e1] hover:border-[#f5c518]/40 flex items-center justify-center gap-2">
+        <label className="w-full py-2.5 rounded-xl bg-[#14161c] border border-[#252834] text-[#cbd5e1] hover:border-[#f5c518]/40 flex items-center justify-center gap-2 cursor-pointer">
           <Upload className="w-3.5 h-3.5" /> Reference / Rig File
-        </button>
+          <input
+            type="file"
+            accept=".fbx,.bvh,.glb"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) setRiggingSettings(prev => ({ ...prev, referenceFile: file.name }));
+            }}
+          />
+        </label>
         <button
           disabled={isExecuting || systemStats.status !== 'online'}
           onClick={() => void runRiggingGeneration()}

@@ -1,7 +1,7 @@
 """Health check endpoint with comprehensive service status."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any
 
@@ -24,7 +24,7 @@ async def health() -> Dict[str, Any]:
         "status": "ok",
         "version": settings.app_version,
         "environment": settings.environment,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         "services": {}
     }
 

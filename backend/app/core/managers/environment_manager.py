@@ -171,12 +171,14 @@ class EnvironmentManager:
     async def uninstall_package(self, package: str) -> dict[str, Any]:
         """Uninstall a Python package."""
         try:
-            result = subprocess.run(
-                [sys.executable, "-m", "pip", "uninstall", "-y", package],
-                capture_output=True,
-                text=True,
-                timeout=120
-            )
+            def _run():
+                return subprocess.run(
+                    [sys.executable, "-m", "pip", "uninstall", "-y", package],
+                    capture_output=True,
+                    text=True,
+                    timeout=120
+                )
+            result = await asyncio.to_thread(_run)
             
             return {
                 "success": result.returncode == 0,
@@ -185,6 +187,12 @@ class EnvironmentManager:
                 "stderr": result.stderr[-500:] if result.stderr else ""
             }
             
+        except subprocess.TimeoutExpired:
+            return {
+                "success": False,
+                "package": package,
+                "error": "Uninstall timed out after 120 seconds"
+            }
         except Exception as e:
             return {
                 "success": False,

@@ -20,7 +20,7 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from .storage import get_storage_config
@@ -723,9 +723,16 @@ def _run(
         proc.wait()
         return proc.returncode, ""
     try:
+        _deadline = time.monotonic() + timeout if timeout else None
         while True:
-            # Wait up to `timeout` seconds for data to be ready
-            ready, _, _ = select.select([proc.stdout], [], [], timeout or 1.0)
+            _remaining = None
+            if _deadline is not None:
+                _remaining = _deadline - time.monotonic()
+                if _remaining <= 0:
+                    proc.kill()
+                    proc.wait()
+                    return -1, "\n".join(lines)
+            ready, _, _ = select.select([proc.stdout], [], [], min(_remaining, 1.0) if _remaining is not None else 1.0)
             if ready:
                 chunk = proc.stdout.read(4096)
                 if not chunk:
@@ -1432,7 +1439,7 @@ def _acquire_install_lock(repo_name: str, owner_type: str = "api", task_id: str 
     try:
         lock_file = open(lock_path, "w")
         fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        lock_file.write(f"{os.getpid()}\n{datetime.utcnow().isoformat()}\n")
+        lock_file.write(f"{os.getpid()}\n{datetime.now(timezone.utc).replace(tzinfo=None).isoformat()}\n")
         lock_file.write(f"owner={owner_type}\n")
         if task_id:
             lock_file.write(f"task_id={task_id}\n")
@@ -1500,7 +1507,7 @@ def _acquire_native_build_lock(repo_name: str, task_id: str) -> bool:
     try:
         lock_file = open(lock_path, "w")
         fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        lock_file.write(f"{os.getpid()}\n{datetime.utcnow().isoformat()}\n")
+        lock_file.write(f"{os.getpid()}\n{datetime.now(timezone.utc).replace(tzinfo=None).isoformat()}\n")
         lock_file.write(f"owner=native_build_worker\n")
         lock_file.write(f"task_id={task_id}\n")
         lock_file.flush()
@@ -2468,12 +2475,12 @@ def install_provider(
             # Persist native-build pending state before returning.
             state = _load_state()
             state.setdefault("repos", {})[provider_name] = {
-                "installed_at": datetime.utcnow().isoformat(),
+                "installed_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
                 "native_build_state": "pending",
             }
-            state["last_updated"] = datetime.utcnow().isoformat()
+            state["last_updated"] = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
             _save_state(state)
-            native_build_task_id = f"native_build_{provider_name}_{int(datetime.utcnow().timestamp())}"
+            native_build_task_id = f"native_build_{provider_name}_{int(datetime.now(timezone.utc).replace(tzinfo=None).timestamp())}"
             # Dispatch the ACTUAL Celery task (real task ID, dedicated queue).
             from app.workers.installation_workers import run_native_build
             run_native_build.apply_async(
@@ -2486,7 +2493,7 @@ def install_provider(
                 "native_build_state": "native_build_pending",
                 "native_build_task_id": native_build_task_id,
                 "native_build_lock_owner": f"celery_worker:{native_build_task_id}",
-                "native_build_lock_ts": datetime.utcnow().isoformat(),
+                "native_build_lock_ts": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             })
             if log_cb:
                 log_cb(f"Native build queued (task={native_build_task_id}); READY only after build + preflight pass")
@@ -2518,7 +2525,7 @@ def install_provider(
             log_cb("Verifying installation...")
         state = _load_state()
         provider_state_entry = {
-            "installed_at": datetime.utcnow().isoformat(),
+            "installed_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         }
         if preflight_result:
             provider_state_entry["preflight_passed"] = preflight_result.passed
@@ -2526,10 +2533,10 @@ def install_provider(
         state.setdefault("repos", {})[provider_name] = provider_state_entry
         if repo_name and repo_name != provider_name:
             state.setdefault("repos", {})[repo_name] = {
-                "installed_at": datetime.utcnow().isoformat(),
+                "installed_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
                 "installed_via": provider_name,
             }
-        state["last_updated"] = datetime.utcnow().isoformat()
+        state["last_updated"] = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         _save_state(state)
         try:
             from app.core.providers.registry import reset_provider

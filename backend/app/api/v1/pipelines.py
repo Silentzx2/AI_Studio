@@ -7,7 +7,7 @@ It keeps install state, feature gating, and user-facing status in one place.
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -54,7 +54,7 @@ def _load_enabled_map() -> dict[str, bool]:
 def _save_enabled_map(enabled_map: dict[str, bool]) -> None:
     payload = {
         "enabled": enabled_map,
-        "updated_at": datetime.utcnow().isoformat(),
+        "updated_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
     }
     p = _state_file()
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -164,7 +164,7 @@ async def list_pipelines() -> dict[str, Any]:
         {
             **snapshot,
             "workspace_types": list(WORKSPACE_TYPES),
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         }
     )
 

@@ -9,7 +9,7 @@ import asyncio
 import uuid
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -120,7 +120,7 @@ class DownloadManager:
         try:
             # Update status to downloading
             download.status = "downloading"
-            download.started_at = datetime.utcnow()
+            download.started_at = datetime.now(timezone.utc).replace(tzinfo=None)
             await self._run_db(self.db.commit)
             
             output_path = Path(download.file_path)
@@ -172,7 +172,7 @@ class DownloadManager:
             
             # Mark as completed
             download.status = "completed"
-            download.completed_at = datetime.utcnow()
+            download.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
             download.bytes_downloaded = download.total_bytes
             await self._run_db(self.db.commit)
             
@@ -208,10 +208,11 @@ class DownloadManager:
         if download:
             download.status = "cancelled"
             
-            # Cleanup partial file
+            # Cleanup partial file and any temp files
             path = Path(download.file_path)
-            if path.exists():
-                path.unlink()
+            for p in [path, path.with_suffix(path.suffix + ".part"), path.with_suffix(path.suffix + ".tmp")]:
+                if p.exists():
+                    p.unlink()
             
             self.db.commit()
             return True

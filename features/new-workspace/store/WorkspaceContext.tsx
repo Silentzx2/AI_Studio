@@ -290,8 +290,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       dateCreated: '', tags: ['Generated'], materials: [],
     }));
     setAssets(prev => {
+      const existingIds = new Set(prev.map(a => a.id));
+      const newParsed = parsed.filter(a => !existingIds.has(a.id));
       const local = prev.filter(a => a.source?.localUrl);
-      return [...parsed, ...local];
+      return [...newParsed, ...local];
     });
   }, []);
 
@@ -369,7 +371,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     const onProgress = (data: unknown) => {
       const d = data as { value?: number; max?: number; node?: string };
-      const progress = d.max > 0 ? Math.min(100, Math.round(((d.value ?? 0) / d.max) * 100)) : 0;
+      const progress = (d.max && d.max > 0) ? Math.min(100, Math.round(((d.value ?? 0) / d.max) * 100)) : 0;
       setExecutionProgress(progress);
       setActiveTask(prev => prev ? { ...prev, status: 'running', progress, activeNode: d.node ?? prev.activeNode, currentStep: d.node ? `Executing ${d.node}` : prev.currentStep } : prev);
     };

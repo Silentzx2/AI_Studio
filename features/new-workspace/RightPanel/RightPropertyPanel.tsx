@@ -49,7 +49,7 @@ export const RightPropertyPanel: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [exportSuccess, setExportSuccess] = useState(false);
 
-  // 3D Object Transform States
+  // ponytail: transforms are display-only — not applied to the 3D scene
   const [transform, setTransform] = useState({
     posX: 0,
     posY: 0,

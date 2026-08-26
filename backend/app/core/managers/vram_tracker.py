@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 import redis as redis_sync
 from app.config import get_settings
 from app.database import SessionLocal
@@ -46,7 +46,7 @@ class VRAMAllocationTracker:
                     action=action,
                     size_gb=size_gb,
                     reason=reason,
-                    timestamp=datetime.utcnow(),
+                    timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
                     provider=provider or model_name,
                     mode=mode,
                     attempt=attempt,
@@ -78,7 +78,7 @@ class VRAMAllocationTracker:
             try:
                 # Save eviction/load timestamp for LRU in redis
                 self.redis.hset(self.redis_key, model_name, str(size_gb))
-                self.redis.set(f"vram:timestamp:{model_name}", datetime.utcnow().isoformat())
+                self.redis.set(f"vram:timestamp:{model_name}", datetime.now(timezone.utc).replace(tzinfo=None).isoformat())
                 self.log_audit(model_name, "load", size_gb, reason or "allocation_success",
                                mode=mode, attempt=attempt, oom_retried=oom_retried)
                 logger.info("Allocated %s GB for model %s. Total allocated: %s GB", size_gb, model_name, current_sum + size_gb)

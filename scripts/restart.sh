@@ -13,8 +13,13 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 bash "$SCRIPT_DIR/stop.sh"
 
 echo ""
-echo "Waiting 3 seconds before restart..."
-sleep 3
+info "Waiting for services to stop..."
+for i in {1..15}; do
+    if ! curl -sf http://localhost:8000/api/v1/health &>/dev/null; then
+        break
+    fi
+    sleep 1
+done
 echo ""
 
 # Start services

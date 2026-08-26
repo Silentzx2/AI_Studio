@@ -15,7 +15,7 @@ export function useAutoSave<T>(
   const initialRender = useRef(true);
   const saveActionRef = useRef(saveAction);
   const dataRef = useRef(data);
-  const autoSaveEnabled =
+  const isAutoSaveEnabled =
     typeof window !== 'undefined'
       ? localStorage.getItem('ai3d:settings:autoSaveEnabled') !== 'false'
       : true;
@@ -27,11 +27,6 @@ export function useAutoSave<T>(
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
-
-  const isAutoSaveEnabled =
-    typeof window !== 'undefined'
-      ? localStorage.getItem('ai3d:settings:autoSaveEnabled') !== 'false'
-      : true;
 
 useEffect(() => {
     if (skipInitial && initialRender.current) {

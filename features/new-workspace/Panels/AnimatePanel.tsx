@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { 
   Activity, 
   Play, 
@@ -30,7 +30,7 @@ export const AnimatePanel: React.FC = () => {
   } = useWorkspace();
 
   const totalFramesRef = useRef(totalFrames);
-  totalFramesRef.current = totalFrames;
+  useEffect(() => { totalFramesRef.current = totalFrames; }, [totalFrames]);
 
   const presets = [
     { id: 'idle', label: 'Idle Breathing' },
@@ -134,7 +134,10 @@ export const AnimatePanel: React.FC = () => {
           <label className="flex flex-col items-center justify-center h-24 rounded-xl border border-dashed border-[#2f3442] hover:border-[#f5c518]/60 bg-[#14161b] hover:bg-[#181a22] cursor-pointer transition-colors p-3 text-center">
             <Upload className="w-5 h-5 text-[#9ca3af] mb-1" />
             <span className="text-[#e5e7eb] font-medium text-[11px]">Upload BVH or FBX mocap</span>
-            <input type="file" accept=".bvh,.fbx" className="hidden" />
+            <input type="file" accept=".bvh,.fbx" className="hidden" onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) setAnimateSettings(prev => ({ ...prev, mocapFile: file.name }));
+            }} />
           </label>
         </div>
       )}

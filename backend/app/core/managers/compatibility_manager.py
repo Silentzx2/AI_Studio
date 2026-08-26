@@ -21,7 +21,10 @@ class CompatibilityManager:
         # CPU Architecture
         arch = platform.machine().lower()
         supported_archs = manifest.get("supported_architectures", ["x86_64"])
-        if arch not in supported_archs and ("arm64" not in supported_archs or arch not in ["aarch64", "arm64"]):
+        # Normalize arm64/aarch64 equivalence
+        if arch == "aarch64":
+            arch = "arm64"
+        if arch not in supported_archs:
             results["issues"].append(f"Unsupported architecture: {arch}. Required: {supported_archs}")
             results["compatible"] = False
             

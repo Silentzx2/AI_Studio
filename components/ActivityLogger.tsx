@@ -16,10 +16,12 @@ import {
   Trash2, Search, Filter, Sparkles, Layers, Box, Cpu, ChevronRight,
   RefreshCw, Terminal, Eye, FileCode, Check, Copy
 } from 'lucide-react';
-import { API_URL } from '@/services/apiClient';
+import { getApiUrl } from '@/services/apiClient';
 import { useAppStore } from '@/stores/useAppStore';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+
+const ORIGINAL_FETCH = window.fetch;
 
 const LOG_ENDPOINT = '/api/v1/system/log';
 
@@ -40,8 +42,8 @@ function now(): string {
 }
 
 function postLog(entry: ActivityEntry): void {
-  try {
-    fetch(`${API_URL}${LOG_ENDPOINT}`, {
+    try {
+      fetch(`${getApiUrl()}${LOG_ENDPOINT}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(entry),
@@ -72,17 +74,15 @@ export function ActivityLogger() {
     if (typeof window === 'undefined') return;
 
     // ── 1. API call logging (wrapped fetch) ────────────────────────────────
-    let originalFetch: typeof window.fetch;
     let fetchIntercepted = false;
 
     try {
-      originalFetch = window.fetch.bind(window);
       const wrappedFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
         const method = (init?.method ?? 'GET').toUpperCase();
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
         const start = performance.now();
         try {
-          const res = await originalFetch(input, init);
+          const res = await ORIGINAL_FETCH(input, init);
           if (!url.includes(LOG_ENDPOINT) && !isPollingEndpoint(url)) {
             const durationMs = Math.round(performance.now() - start);
             const entry: ActivityEntry = {
@@ -134,15 +134,15 @@ export function ActivityLogger() {
     document.addEventListener('click', onClick, { capture: true });
 
     return () => {
-      if (fetchIntercepted && originalFetch) {
+      if (fetchIntercepted) {
         try {
           Object.defineProperty(window, 'fetch', {
-            value: originalFetch,
+            value: ORIGINAL_FETCH,
             configurable: true,
             writable: true,
           });
         } catch {
-          (window as any).fetch = originalFetch;
+          (window as any).fetch = ORIGINAL_FETCH;
         }
       }
       document.removeEventListener('click', onClick, { capture: true });

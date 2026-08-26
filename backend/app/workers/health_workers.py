@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from celery import shared_task
 
@@ -38,7 +38,7 @@ def run_health_check(model_id: str):
             "status": "error",
             "model_id": model_id,
             "error": str(e),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         }
 
 
@@ -93,7 +93,7 @@ def run_all_health_checks():
         return {
             "status": "error",
             "error": str(e),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         }
 
 
@@ -105,7 +105,7 @@ def get_system_health():
     health_manager = HealthManager("./storage/models")
     
     system_info = {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         "system": {},
         "python": {},
         "gpu": {},
@@ -240,7 +240,7 @@ def verify_dependencies():
                 "all_critical_satisfied": all_critical_ok,
                 "critical": critical_results,
                 "optional": optional_results,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
             }
             
         finally:

@@ -37,6 +37,9 @@ function normalizeApiUrl(value: string | undefined): string {
 // Base URL for API calls - mutable for runtime updates
 let API_URL = normalizeApiUrl(process.env.NEXT_PUBLIC_API_URL);
 
+// Export for use in components that need to resolve URLs
+export const getApiUrl = () => API_URL;
+
 async function parseErrorMessage(res: Response): Promise<string> {
   const contentType = res.headers.get('content-type') || '';
   if (contentType.includes('application/json')) {

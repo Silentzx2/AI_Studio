@@ -12,7 +12,7 @@ import base64
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -48,7 +48,7 @@ def _update_job(session: Session, job_id: str, **kwargs) -> None:
         return
     for k, v in kwargs.items():
         setattr(job, k, v)
-    job.updated_at = datetime.utcnow()
+    job.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     session.commit()
 
 
@@ -266,7 +266,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 "progress": progress,
                 "message": message,
                 "level": level,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             })
             _update_job(session, job_id, progress=progress, stage=stage)
 
@@ -274,7 +274,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             sync_publish(progress, stage, message, level)
 
         _ensure_not_cancelled(session, job_id)
-        _update_job(session, job_id, status="processing", stage="preparing", started_at=datetime.utcnow())
+        _update_job(session, job_id, status="processing", stage="preparing", started_at=datetime.now(timezone.utc).replace(tzinfo=None))
         sync_publish(2, "preparing", "Job started.", "info")
 
         provider_name = job.provider
@@ -532,7 +532,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 status="completed",
                 stage="completed",
                 progress=100,
-                completed_at=datetime.utcnow(),
+                completed_at=datetime.now(timezone.utc).replace(tzinfo=None),
                 # BUG-13 FIX: was to_url(os.path.basename(glb_path)) — to_url() already calls
                 # os.path.basename() internally, so this double-applied it on an already-bare
                 # filename, making model_url inconsistent with download_urls.glb.
@@ -553,7 +553,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 "progress": 100,
                 "message": "Generation complete! Model is ready for download.",
                 "level": "success",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             })
 
             return {"status": "completed", "job_id": job_id}
@@ -572,7 +572,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 "progress": 0,
                 "message": "Generation cancelled.",
                 "level": "warning",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             })
             return {"status": "cancelled", "job_id": job_id}
 
@@ -592,7 +592,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 "progress": 0,
                 "message": f"Generation failed: {exc}",
                 "level": "error",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             })
             raise
 

@@ -271,7 +271,12 @@ echo ""
 # ── Step 1: Verify PostgreSQL ──────────────────────────────────────────────
 step "1/6 Checking PostgreSQL..."
 if [[ "${USE_SQLITE:-}" != "1" ]]; then
-  if ! systemctl is-active --quiet postgresql; then
+  if ! command -v systemctl &>/dev/null; then
+    warn "systemctl not available — falling back to SQLite"
+    export USE_SQLITE=1
+    export DATABASE_URL="sqlite:///$(pwd)/backend/storage/studio.db"
+    export DATABASE_SYNC_URL="sqlite:///$(pwd)/backend/storage/studio.db"
+  elif ! systemctl is-active --quiet postgresql; then
     info "Starting PostgreSQL..."
     sudo systemctl start postgresql || {
       err "Failed to start PostgreSQL — will fall back to SQLite"
@@ -288,13 +293,21 @@ _DB_NAME="${POSTGRES_DB:-ai3dstudio}"
 
 # Try to parse DATABASE_URL if set
 if [[ -n "${DATABASE_URL:-}" ]]; then
-  _DB_URL_PARSE="$(echo "$DATABASE_URL" | sed -n 's|^postgresql[+]asyncpg://\([^:]*\):\([^@]*\)@\([^:/]*\):\([0-9]*\)/.*$|\1 \2 \3 \4|p')"
+  _DB_URL_PARSE="$(python3 -c "
+import sys
+from urllib.parse import urlparse
+u = urlparse(sys.argv[1])
+if u.username: print(u.username)
+if u.password: print(u.password)
+if u.hostname: print(u.hostname)
+if u.port: print(u.port)
+" "$DATABASE_URL" 2>/dev/null)"
   if [[ -n "$_DB_URL_PARSE" ]]; then
-    set -- $_DB_URL_PARSE
-    _DB_USER="${1:-$_DB_USER}"
-    _DB_PASS="${2:-$_DB_PASS}"
-    _DB_HOST="${3:-$_DB_HOST}"
-    _DB_PORT="${4:-$_DB_PORT}"
+    mapfile -t _DB_PARTS <<< "$_DB_URL_PARSE"
+    _DB_USER="${_DB_PARTS[0]:-$_DB_USER}"
+    _DB_PASS="${_DB_PARTS[1]:-$_DB_PASS}"
+    _DB_HOST="${_DB_PARTS[2]:-$_DB_HOST}"
+    _DB_PORT="${_DB_PARTS[3]:-$_DB_PORT}"
   fi
 fi
 
@@ -325,6 +338,11 @@ fi
 
 # Create database if it doesn't exist (only when PostgreSQL is ready)
 if [[ "$_PG_READY" == "true" ]]; then
+  # Validate database name to prevent SQL injection
+  if [[ ! "$_DB_NAME" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]]; then
+    err "Invalid database name '$_DB_NAME' — must match [a-zA-Z_][a-zA-Z0-9_]*"
+    exit 1
+  fi
   PGPASSWORD="$_DB_PASS" psql -h "$_DB_HOST" -p "$_DB_PORT" -U "$_DB_USER" -d postgres 2>/dev/null << EOF || true
 DO \$\$
 BEGIN
@@ -383,6 +401,7 @@ echo ""
 
 # ── Step 4: Start Backend API ──────────────────────────────────────────────
 step "4/6 Starting Backend API (http://localhost:8000)..."
+: > "$PROJECT_ROOT/logs/api.log"
 (
     cd backend
     setsid $PYTHON_BIN -m uvicorn app.main:app \
@@ -401,6 +420,9 @@ for i in {1..30}; do
         log "API is healthy"
         break
     fi
+    if [[ "$i" -eq 30 ]]; then
+        err "Health check timed out after 60s"
+    fi
     echo -n "."
     sleep 2
 done
@@ -410,11 +432,16 @@ echo ""
 # Fail loudly if the API never came up (don't leave a half-started stack).
 if ! curl -sf http://localhost:8000/api/v1/health &>/dev/null; then
     err "Backend API failed to become healthy. See logs/api.log"
+    if [[ -f "$API_PID_FILE" ]]; then
+        kill "$(cat "$API_PID_FILE")" 2>/dev/null || true
+        rm -f "$API_PID_FILE"
+    fi
     exit 1
 fi
 
 # ── Step 5: Start Celery Worker ────────────────────────────────────────────
 step "5/6 Starting Celery Worker..."
+: > "$PROJECT_ROOT/logs/worker.log"
 (
     cd backend
     # Source .env to ensure Celery worker gets correct config
@@ -424,7 +451,7 @@ step "5/6 Starting Celery Worker..."
         --concurrency=1 \
         -B \
         -Q generation,images,installation \
-        > "$PROJECT_ROOT/logs/worker.log" 2>&1 &
+        >> "$PROJECT_ROOT/logs/worker.log" 2>&1 &
     write_pid "$WORKER_PID_FILE" $!
 )
 log "Celery Worker started (PID: $(cat $WORKER_PID_FILE))"
@@ -434,7 +461,11 @@ echo ""
 step "6/6 Starting Frontend  — http://localhost:3000..."
 
 # Install deps if needed
-if [[ ! -d node_modules ]]; then
+if [[ ! -d node_modules ]] || [[ ! -d node_modules/next ]]; then
+    if [[ -d node_modules ]] && [[ ! -d node_modules/next ]]; then
+        warn "node_modules appears corrupted (missing next) — removing and reinstalling"
+        rm -rf node_modules
+    fi
     info "Installing npm dependencies..."
     npm ci --prefer-offline --no-audit 2>&1 | grep -E '(added|up to date)' || true
 fi

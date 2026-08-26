@@ -79,7 +79,7 @@ export const WorkspaceShell: React.FC = () => {
     if (mainNav !== 'workspace') setMainNav('workspace');
     const matchedTool = ROUTE_TO_TOOL[pathnameLower] || 'model';
     if (matchedTool !== activeTool) setActiveTool(matchedTool);
-  }, [pathname, mainNav, activeTool]);
+  }, [pathname, mainNav, activeTool, setMainNav, setActiveTool]);
 
   const renderToolPanel = () => {
     switch (activeTool) {

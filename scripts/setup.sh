@@ -114,7 +114,11 @@ detect_gpu() {
   if [[ "$GPU_AVAILABLE" == "false" ]]; then
     warn "No NVIDIA GPU detected — AI inference requires CUDA-capable hardware."
     warn "The stack will start, but generation jobs will fail without a GPU."
-    if [[ -t 0 ]]; then
+    if [[ "${REQUIRE_GPU:-}" == "1" ]]; then
+      err "REQUIRE_GPU=1 is set — aborting without GPU."
+      exit 1
+    fi
+    if [[ -t 0 ]] && [[ "${CI:-}" != "true" ]] && [[ "${NONINTERACTIVE:-}" != "1" ]]; then
       read -rp "Continue without GPU? [y/N] " choice
       if [[ "${choice,,}" != "y" ]]; then
         err "Aborting. Install an NVIDIA GPU + driver and re-run."
@@ -258,11 +262,14 @@ install_postgresql() {
     return 0
   fi
   
-  apt-get update -qq
-  apt-get install -y postgresql postgresql-contrib postgresql-16-pgvector || {
-    err "Failed to install PostgreSQL"
-    return 1
-  }
+   apt-get update -qq
+   apt-get install -y postgresql postgresql-contrib postgresql-16-pgvector || {
+     warn "postgresql-16-pgvector not available — installing pgvector from source may be required"
+     apt-get install -y postgresql postgresql-contrib || {
+       err "Failed to install PostgreSQL"
+       return 1
+     }
+   }
   
   systemctl enable postgresql --now
   log "PostgreSQL installed and started"
@@ -272,8 +279,9 @@ install_postgresql() {
   local hba
   hba="$(sudo -u postgres psql -t -c 'SHOW hba_file;' | xargs)"
   if [[ -f "$hba" ]]; then
-    sudo sed -i -E "s|^(host\\s+all\\s+all\\s+(127\\.0\\.0\\.1/32|::1/128)\\s+)scram-sha-256$|\\1trust|" "$hba"
-    sudo pg_ctlcluster "$(ls /etc/postgresql)" main reload 2>/dev/null \
+    sudo sed -i -E "s|^(host\\s+all\\s+all\\s+(127\\.0\\.0\\.1/32|::1/128)\\s+)(scram-sha-256|md5|peer)$|\\1trust|" "$hba"
+    PG_VER=$(ls /etc/postgresql | sort -V | tail -1)
+    sudo pg_ctlcluster "$PG_VER" main reload 2>/dev/null \
       || sudo systemctl reload postgresql
     log "Local PostgreSQL auth set to trust (no password needed)"
   fi
@@ -287,9 +295,12 @@ install_redis() {
   fi
   
   apt-get update -qq
-  apt-get install -y redis-server || {
-    err "Failed to install Redis"
-    return 1
+  apt-get install -y postgresql postgresql-contrib postgresql-16-pgvector || {
+    warn "postgresql-16-pgvector not available — trying pgvector package"
+    apt-get install -y postgresql postgresql-contrib pgvector || {
+      err "Failed to install PostgreSQL"
+      return 1
+    }
   }
   
   systemctl enable redis-server --now
@@ -383,7 +394,7 @@ HF_HOME=./backend/third_party/.hf_cache
 HUGGINGFACE_HUB_CACHE=./backend/third_party/.hf_cache/hub
 TRANSFORMERS_CACHE=./backend/third_party/.hf_cache/transformers
 TORCH_HOME=./backend/third_party/.hf_cache/torch
-WEIGHTS_DIR=./backend/third_party/<Repo>/weights/
+WEIGHTS_DIR=./backend/third_party/<REPO_NAME>/weights/  # Replace <REPO_NAME> with the actual repository name
 
 # ── GPU ───────────────────────────────────────────────────
 CUDA_VISIBLE_DEVICES=0
@@ -393,7 +404,7 @@ CPU_FALLBACK=false
 
 # ── Dev ────────────────────────────────────────────────────
 DEBUG=false
-PYTHONPATH=/app
+PYTHONPATH=./backend
 ENVEOF
     log "Created default .env"
   fi
@@ -430,6 +441,8 @@ install_python_deps() {
       # Map any CUDA 12.x to nearest compatible wheel (PyTorch 2.5.1)
       if [[ "$CUDA_INDEX" == "120" || "$CUDA_INDEX" == "121" ]]; then
         CUDA_INDEX="121"
+      elif [[ "$CUDA_INDEX" == "122" || "$CUDA_INDEX" == "123" ]]; then
+        CUDA_INDEX="124"
       elif [[ "$CUDA_INDEX" == "125" || "$CUDA_INDEX" == "126" || "$CUDA_INDEX" == "127" || "$CUDA_INDEX" == "128" ]]; then
         CUDA_INDEX="124"
       fi
@@ -708,9 +721,9 @@ build_frontend() {
     # Fix .next permissions if it exists (prevents EACCES errors)
     if [[ -d .next ]]; then
         if command -v sudo &>/dev/null; then
-            sudo chmod -R 777 .next 2>/dev/null || true
+            sudo chmod -R 755 .next 2>/dev/null || true
         else
-            chmod -R 777 .next 2>/dev/null || true
+            chmod -R 755 .next 2>/dev/null || true
         fi
     fi
 
@@ -833,8 +846,7 @@ BANNER
   if [[ -n "${SUDO_USER:-}" ]]; then
     log "Returning project ownership to $SUDO_USER..."
     chown -R "${SUDO_USER}:$(id -gn "$SUDO_USER")" \
-      backend/.venv backend/storage backend/third_party backend/.runtime_cache \
-      node_modules .env logs .pids 2>/dev/null || true
+      "${PROJECT_ROOT}" 2>/dev/null || true
   fi
 
 
@@ -847,7 +859,7 @@ BANNER
     log "Setup complete — launching services..."
     echo ""
     if [[ -n "${SUDO_USER:-}" ]] && [[ "$(id -un)" == "root" ]]; then
-      su - "${SUDO_USER}" -c "cd '${PROJECT_ROOT}' && bash scripts/start.sh"
+      sudo -u "${SUDO_USER}" bash -c "cd '${PROJECT_ROOT}' && bash scripts/start.sh"
     else
       bash scripts/start.sh
     fi

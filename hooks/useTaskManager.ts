@@ -48,7 +48,7 @@ export function useTaskManager() {
   const setCurrentJob = useAppStore((s) => s.setCurrentJob);
   const updateJobProgress = useAppStore((s) => s.updateJobProgress);
   const addLogEntry = useAppStore((s) => s.addLogEntry);
-  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const activeJobIdRef = useRef<string | null>(null);
   const pollTickCountRef = useRef(0);
@@ -134,7 +134,7 @@ export function useTaskManager() {
     const scheduleNext = () => {
       pollTickCountRef.current++;
       const backoff = Math.min(pollTickCountRef.current, 6);
-      const interval = POLL_INTERVAL * Math.pow(2, backoff - 1);
+      const interval = Math.min(POLL_INTERVAL * Math.pow(2, backoff - 1), 10000);
 
       pollIntervalRef.current = setTimeout(() => {
         const state = useAppStore.getState();
@@ -172,7 +172,7 @@ export function useTaskManager() {
         }
 
         scheduleNext();
-      }, interval) as unknown as ReturnType<typeof setInterval>;
+      }, interval);
     };
 
     scheduleNext();

@@ -18,7 +18,25 @@ export const DccBridgeModal: React.FC = () => {
   if (!isDccBridgeOpen) return null;
 
   const handleCopyScript = (app: string, script: string) => {
-    navigator.clipboard.writeText(script);
+    const fallbackCopy = (text: string) => {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    };
+    try {
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(script).catch(() => fallbackCopy(script));
+      } else {
+        fallbackCopy(script);
+      }
+    } catch {
+      fallbackCopy(script);
+    }
     setCopiedApp(app);
     setTimeout(() => setCopiedApp(null), 2000);
   };

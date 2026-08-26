@@ -246,9 +246,12 @@ class RuntimeEngine:
             logger.info("Loading provider '%s' on %s (vram_mode=%s)...", name, device, resolved_mode)
             try:
                 loop = asyncio.get_running_loop()
-                provider = await loop.run_in_executor(
-                    None,
-                    lambda: _instantiate_provider(name, device, low_vram=(resolved_mode == "low")),
+                provider = await asyncio.wait_for(
+                    loop.run_in_executor(
+                        None,
+                        lambda: _instantiate_provider(name, device, low_vram=(resolved_mode == "low")),
+                    ),
+                    timeout=300.0,
                 )
                 # Safe: assignment happens inside `async with self._lock` after
                 # the executor future resolves, so no concurrent mutation is possible.

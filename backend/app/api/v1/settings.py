@@ -7,6 +7,7 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 
 # In-memory store (replace with DB-backed store if persistence across restarts needed)
 # ponytail: per-process — multi-worker deployments need a shared backend (DB/Redis).
+# TODO: Migrate to DB-backed storage for persistence and multi-worker consistency
 _appearance_store: dict = {
     "theme": "dark",
     "accentColor": "#f97316",

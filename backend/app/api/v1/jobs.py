@@ -21,11 +21,12 @@ async def list_jobs(limit: int = 50, status: str = ""):
         from app.models.job import GenerationJob
 
         async with AsyncSessionLocal() as session:
-            q = select(GenerationJob).order_by(desc(GenerationJob.created_at)).limit(limit)
+            q = select(GenerationJob).order_by(desc(GenerationJob.created_at))
+            if status:
+                q = q.where(GenerationJob.status == status)
+            q = q.limit(limit)
             result = await session.execute(q)
             jobs = result.scalars().all()
-            if status:
-                jobs = [j for j in jobs if j.status == status]
             return success(
                 {
                     "jobs": [

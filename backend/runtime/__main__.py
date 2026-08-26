@@ -13,7 +13,7 @@ import asyncio
 import json
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 logging.basicConfig(
     level=logging.INFO,
@@ -105,7 +105,7 @@ def cmd_status(args) -> int:
         "status": overall,
         "gpu": health.get("gpu", {}).get("message"),
         "providers_available": available_count,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
     }
     if getattr(args, "json", False):
         print(json.dumps(status, indent=2))

@@ -1,8 +1,9 @@
 """Health Manager for model health checks and diagnostics."""
 
+import asyncio
 import json
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -31,7 +32,7 @@ class HealthManager:
         results = {
             "model_id": model_id,
             "model_name": manifest.get("name", model_id),
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "checks": {}
         }
         
@@ -158,7 +159,8 @@ class HealthManager:
                 }
             
             # Get installed packages
-            result = subprocess.run(
+            result = await asyncio.to_thread(
+                subprocess.run,
                 ["pip", "list", "--format=json"],
                 capture_output=True,
                 text=True,
@@ -437,7 +439,7 @@ class HealthManager:
             installed_models = await self.installer.get_installed_models()
             
             results = {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
                 "total_models": len(installed_models),
                 "health_summary": {
                     "healthy": 0,
@@ -486,7 +488,7 @@ class HealthManager:
         
         results = {
             "model_id": model_id,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "checks": {}
         }
         

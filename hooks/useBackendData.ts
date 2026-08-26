@@ -5,6 +5,8 @@
  * WorkspaceContext. WorkspaceContext already polls system stats, history, and
  * runtime options — using these hooks inside a WorkspaceContext subtree will
  * duplicate polling. Prefer reading from the WorkspaceContext when available.
+ *
+ * @WARNING Using this hook inside WorkspaceContext subtree duplicates polling.
  */
 import { useEffect, useState } from 'react';
 import { apiClient } from '@/services/apiClient';
