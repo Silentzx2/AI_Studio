@@ -270,6 +270,15 @@ class RuntimeEngine:
                 except Exception as exc:
                     logger.warning("Error unloading '%s': %s", name, exc)
             self.gpu.release(name)
+            # Explicit CUDA cleanup to prevent memory leaks between models
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                    import gc
+                    gc.collect()
+            except Exception:
+                pass
             logger.info("Provider '%s' unloaded", name)
 
     def health(self) -> dict:

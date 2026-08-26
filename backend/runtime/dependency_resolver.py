@@ -270,11 +270,29 @@ def resolve_dependencies(repo_dir: Path, manifest: dict | None = None) -> list[D
 
     # 1. Manifest is authoritative when present
     if manifest:
+        # Collect one_of alternatives (packages where only one should be installed)
+        one_of_specs: set[str] = set()
+        for alt in manifest.get("attention_backend", {}).get("one_of", []) or []:
+            if isinstance(alt, str):
+                # Normalize package name for comparison
+                one_of_specs.add(alt.lower().replace("-", "_"))
+        
         for spec in manifest.get("dependencies", {}).get("python", []) or []:
             _add(classify_dependency(spec))
         for spec in manifest.get("dependencies", {}).get("native", []) or []:
             dep = classify_dependency(spec)
             dep.kind = DependencyKind.NATIVE
+            # Skip native deps that are in one_of (handled separately below)
+            if dep.name and dep.name.lower() in one_of_specs:
+                continue
+            _add(dep)
+        # Handle one_of: only install the first available alternative
+        if one_of_specs:
+            # Add the first one_of alternative as optional
+            first_alt = list(one_of_specs)[0]
+            dep = classify_dependency(first_alt)
+            dep.kind = DependencyKind.NATIVE
+            dep.optional = True
             _add(dep)
         return deps
 

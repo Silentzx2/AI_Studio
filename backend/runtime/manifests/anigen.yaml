@@ -35,6 +35,8 @@ dependencies:
     - "transformers>=4.40"
     - "utils3d @ git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8"
     - "accelerate>=0.34.0"
+    - "smplx"
+    - "chumpy"
   imports:
     - "torch"
     - "transformers"
