@@ -622,6 +622,24 @@ for repo_name in sorted(REPOS.keys()):
         skipped += 1
         continue
 
+    # Fresh install: repo doesn't exist yet
+    if not repo_ok and repo_reason == "missing":
+        print(f"  [INSTALL] {repo_name}: fresh install...")
+        providers = REPOS.get(repo_name, {}).get("providers", [])
+        for provider in providers:
+            print(f"    [PREPARE] {provider}: preparing runtime...")
+            r = prepare_runtime(provider, allow_native_build=False)
+            state = r.get("state", "unknown")
+            if state == "runtime_ready":
+                print(f"      [OK  ] {provider}: runtime ready")
+            elif state == "runtime_partial":
+                print(f"      [WARN] {provider}: runtime partial (some deps may be missing)")
+            else:
+                print(f"      [FAIL] {provider}: {r.get('error', 'unknown error')}")
+                failed += 1
+        repaired += 1
+        continue
+
     print(f"  [FIX ] {repo_name}: repairing (repo={repo_reason}, venv={venv_reason}, deps={deps_missing})")
 
     if not repo_ok:
