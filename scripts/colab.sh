@@ -552,6 +552,7 @@ fi
 
 
 
+
 # ── Interactive Model Selection ──────────────────────────────────────────
 # ponytail: smart prompt that asks user which models to install.
 # Shows VRAM, weight size, deps count, disk space, and warnings.
@@ -726,6 +727,7 @@ else
     prepare_model_runtimes || warn "Model runtime prep had issues - check output above"
 fi
 
+download_model_weights || warn "Weight download had issues - check output above"
 download_model_weights || warn "Weight download had issues - check output above"
 
 
@@ -969,6 +971,8 @@ if [[ "$REDIS_AVAILABLE" != "true" ]]; then
 fi
 (
     cd backend
+    # Source .env to ensure Celery worker gets correct config
+    set -a; source ../.env 2>/dev/null || true; set +a
     $PYTHON_BIN -m celery -A app.workers.celery_app worker \
         $CELERY_BROKER_ARG \
         $CELERY_BACKEND_ARG \

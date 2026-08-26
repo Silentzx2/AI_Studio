@@ -399,6 +399,8 @@ fi
 step "5/6 Starting Celery Worker..."
 (
     cd backend
+    # Source .env to ensure Celery worker gets correct config
+    set -a; source ../.env 2>/dev/null || true; set +a
     setsid $PYTHON_BIN -m celery -A app.workers.celery_app worker \
         --loglevel=info \
         --concurrency=1 \
