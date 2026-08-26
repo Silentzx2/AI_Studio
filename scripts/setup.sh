@@ -765,9 +765,10 @@ BANNER
   # Project setup
   setup_folders
   setup_env
-  install_python_deps    || { err "Python dependency installation failed — aborting"; exit 1; }
+   install_python_deps    || { err "Python dependency installation failed — aborting"; exit 1; }
+   prepare_model_runtimes || warn "Model runtime preparation had issues — check output above"
 
-  # Non-critical project steps
+   # Non-critical project steps
   install_frontend_deps  || warn "Frontend deps had issues — check npm output above"
   build_frontend || warn "Frontend build had issues — check npm output above"
 
