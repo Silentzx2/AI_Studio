@@ -27,6 +27,7 @@ import {
 import { useWorkspace } from '../store/WorkspaceContext';
 import { useRuntimeOptions } from '@/hooks/useBackendData';
 import { useUploadProgress } from '@/hooks/useUploadProgress';
+import { apiClient } from '@/services/apiClient';
 
 interface ProviderOption {
   id: string;
@@ -60,7 +61,7 @@ export const GeneratePanel: React.FC = () => {
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const { progress: uploadProgress, readFileWithProgress } = useUploadProgress();
+  const { progress: uploadProgress, startUpload, finishUpload, failUpload } = useUploadProgress();
   
   // Toggles & Settings
   const [ultraMeshQuality, setUltraMeshQuality] = useState(true);
@@ -117,13 +118,16 @@ export const GeneratePanel: React.FC = () => {
     }
 
     try {
-      const dataUrl = await readFileWithProgress(file);
+      startUpload(file.name, file.size);
+      const res = await apiClient.uploadFile<{ data: { url: string } }>('/api/v1/upload/image', file);
+      finishUpload();
       setGenerationSettings(prev => ({
         ...prev,
-        image: dataUrl
+        image: res.data.url
       }));
     } catch (err) {
-      setUploadError('Failed to read file.');
+      failUpload();
+      setUploadError('Failed to upload image.');
     }
   };
 

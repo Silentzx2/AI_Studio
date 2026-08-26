@@ -201,7 +201,7 @@ async def upload_model(file: UploadFile = File(...)):  # noqa: C901
         try:
             thumbnails_dir = Path(settings.storage_local_path) / "thumbnails"
             thumbnails_dir.mkdir(parents=True, exist_ok=True)
-            thumb_filename = f"{uuid.uuid4().hex[:12]}.png"
+            thumb_filename = f"{Path(unique_name).stem}.png"
             thumb_path = thumbnails_dir / thumb_filename
             
             # Run thumbnail generation in background thread to avoid blocking
@@ -269,16 +269,10 @@ async def list_uploaded_assets():
                     # Check for existing thumbnail
                     thumbnail_url = None
                     if f.suffix.lower() in {'.glb', '.gltf'}:
-                        # Look for matching thumbnail (by filename without extension)
                         thumb_name = f.stem + ".png"
                         thumb_path = thumbnails_dir / thumb_name
                         if thumb_path.exists():
                             thumbnail_url = f"/static/thumbnails/{thumb_name}"
-                        else:
-                            # Try to find any thumbnail that might match
-                            for thumb_file in thumbnails_dir.glob("*.png"):
-                                thumbnail_url = f"/static/thumbnails/{thumb_file.name}"
-                                break
                     
                     models.append({
                         "id": f.name,

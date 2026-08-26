@@ -253,6 +253,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                 child.receiveShadow = true;
               }
             });
+            frameCamera(gltf.scene);
           }
         } else if (format === 'obj') {
           const loader = new OBJLoader();
@@ -273,6 +274,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               }
             });
             group.add(object);
+            frameCamera(object);
           }
         } else if (format === 'ply') {
           const response = await fetch(sourceUrl);
@@ -291,6 +293,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           mesh.castShadow = true;
           mesh.receiveShadow = true;
           group.add(mesh);
+          frameCamera(mesh);
         } else {
           throw new Error(`No browser preview is available for ${currentAsset.format}.`);
         }
@@ -353,6 +356,32 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const resetCamera = useCallback(() => {
     applyCameraPreset('perspective');
   }, [applyCameraPreset]);
+
+  const frameCamera = useCallback((object: THREE.Object3D) => {
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (!camera || !controls) return;
+
+    const box = new THREE.Box3().setFromObject(object);
+    const center = box.getCenter(new THREE.Vector3());
+    const sphere = box.getBoundingSphere(new THREE.Sphere());
+    const radius = sphere.radius;
+
+    if (radius === 0 || !isFinite(radius)) return;
+
+    const fov = camera.fov * (Math.PI / 180);
+    const distance = radius / Math.sin(fov / 2);
+
+    const dir = new THREE.Vector3(1, 0.4, 1).normalize();
+    camera.position.copy(center).add(dir.multiplyScalar(distance * 1.1));
+
+    camera.near = Math.max(0.01, distance / 100);
+    camera.far = distance * 100;
+    camera.updateProjectionMatrix();
+
+    controls.target.copy(center);
+    controls.update();
+  }, []);
 
   // Take screenshot
   const handleScreenshot = () => {
