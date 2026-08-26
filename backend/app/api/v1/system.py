@@ -166,7 +166,7 @@ async def check_compatibility(request: CompatibilityCheckRequest):
         requirements["python"] = {
             "required": py_min,
             "current": py_current,
-            "ok": py_current >= py_min
+            "ok": tuple(map(int, py_current.split("."))) >= tuple(map(int, py_min.split(".")))
         }
         
         if not requirements["python"]["ok"]:

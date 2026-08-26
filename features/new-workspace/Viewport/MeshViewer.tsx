@@ -196,6 +196,21 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
       }
+      scene.traverse((obj) => {
+        if (obj instanceof THREE.Mesh) {
+          obj.geometry?.dispose();
+          const material = obj.material;
+          if (Array.isArray(material)) {
+            material.forEach((m) => {
+              Object.values(m).forEach((v) => { if (v instanceof THREE.Texture) v.dispose(); });
+              m.dispose();
+            });
+          } else if (material) {
+            Object.values(material).forEach((v) => { if (v instanceof THREE.Texture) v.dispose(); });
+            material.dispose();
+          }
+        }
+      });
     };
   }, []);
 

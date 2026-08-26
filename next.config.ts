@@ -17,7 +17,7 @@ const nextConfig: NextConfig = {
     ],
   },
   output: 'standalone',
-  transpilePackages: ['motion'],
+  transpilePackages: ['motion', 'three'],
 
   // Prevents turbopack from resolving workspace root to a parent directory
   // that contains a different lockfile, which causes dev server instability.

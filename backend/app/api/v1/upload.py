@@ -105,9 +105,15 @@ async def upload_image(file: UploadFile = File(...)):
 
             # Validate image dimensions
             if width < 256 or height < 256:
-                return error("Image must be at least 256x256 pixels")
+                return JSONResponse(
+                    status_code=422,
+                    content=error("Image must be at least 256x256 pixels")
+                )
             if width > 8192 or height > 8192:
-                return error("Image must not exceed 8192x8192 pixels")
+                return JSONResponse(
+                    status_code=422,
+                    content=error("Image must not exceed 8192x8192 pixels")
+                )
         except Exception as e:
             logger.warning(f"Invalid image file: {e}")
             return JSONResponse(
@@ -304,18 +310,18 @@ async def list_uploaded_assets():
 async def download_uploaded_image(filename: str):
     """Retrieve an uploaded image by filename."""
     try:
-        file_path = Path(settings.storage_local_path) / "uploads" / filename
+        upload_dir = Path(settings.storage_local_path) / "uploads"
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        upload_dir_real = upload_dir.resolve()
 
-        # Security: prevent directory traversal
+        file_path = (upload_dir / filename).resolve()
+
+        # Security: prevent directory traversal - validate BEFORE any fs operation
+        if not str(file_path).startswith(str(upload_dir_real) + "/") and file_path != upload_dir_real:
+            raise HTTPException(status_code=403, detail="Access denied")
+
         if not file_path.exists():
             raise HTTPException(status_code=404, detail="File not found")
-
-        # Verify it's actually in uploads directory
-        upload_dir = Path(settings.storage_local_path) / "uploads"
-        try:
-            file_path.resolve().relative_to(upload_dir.resolve())
-        except ValueError:
-            raise HTTPException(status_code=403, detail="Access denied")
 
         # Determine MIME type
         ext = file_path.suffix.lower()
@@ -340,17 +346,25 @@ async def download_uploaded_image(filename: str):
 async def delete_uploaded_asset(filename: str):
     """Delete an uploaded image or model file."""
     try:
+        storage_dir = Path(settings.storage_local_path).resolve()
+
         # Check uploads dir (images)
-        file_path = Path(settings.storage_local_path) / "uploads" / filename
+        file_path = (Path(settings.storage_local_path) / "uploads" / filename).resolve()
         if not file_path.exists():
             # Check models dir (models)
-            file_path = Path(settings.storage_local_path) / "models" / filename
-        
+            file_path = (Path(settings.storage_local_path) / "models" / filename).resolve()
+
+        # Security: prevent directory traversal - validate BEFORE any fs operation
+        if not str(file_path).startswith(str(storage_dir) + "/") and file_path != storage_dir:
+            raise HTTPException(status_code=403, detail="Access denied")
+
         if not file_path.exists():
             raise HTTPException(status_code=404, detail="File not found")
-            
+
         file_path.unlink()
         return success({"deleted": True, "filename": filename})
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.exception("Failed to delete asset: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))

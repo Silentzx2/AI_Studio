@@ -510,7 +510,7 @@ def _dl_update(model_id: str, **fields) -> None:
             if speed > 0 and total > new_bytes:
                 fields["eta_seconds"] = max(0, int((total - new_bytes) / speed))
             if total > 0 and "percent" not in fields:
-                fields["percent"] = round(new_bytes / total * 100, 1)
+                fields["percent"] = round(new_bytes / total * 100, 1) if total > 0 else 0
 
         state.update(fields)
         state["updated_at"] = now
@@ -651,6 +651,11 @@ async def admin_overview():
             redis_ok = True
         except Exception:
             pass
+        finally:
+            try:
+                r.close()
+            except Exception:
+                pass
 
         active_tasks = 0
         queued_tasks = 0
@@ -1160,6 +1165,7 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
                 if isinstance(msg, str):
                     _dl_update(model_id, log=msg)
 
+            final_status = {}
             try:
                 r = clone_repo(repo_name, log_cb=_repair_log)
                 if not r.get("success"):
@@ -1212,7 +1218,7 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
         return success({
             "model_id": model_id,
             "action": "repair_started",
-            "state": final_status.get("state") if 'final_status' in locals() else "unknown"
+            "state": final_status.get("state") if final_status is not None else "unknown"
         })
 
     elif action in ("delete", "uninstall"):

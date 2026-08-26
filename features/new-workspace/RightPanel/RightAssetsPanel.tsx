@@ -42,7 +42,7 @@ export const RightAssetsPanel: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const { progress: uploadProgress, readFileWithProgress, startUpload, updateProgress, finishUpload } = useUploadProgress();
+  const { progress: uploadProgress, readFileWithProgress, startUpload, updateProgress, finishUpload, failUpload } = useUploadProgress();
 
   const MAX_MODEL_SIZE = 150 * 1024 * 1024; // 150MB
   const ACCEPTED_MODEL_EXTS = ['glb', 'gltf', 'obj', 'fbx', 'stl', 'ply'];
@@ -100,10 +100,10 @@ export const RightAssetsPanel: React.FC = () => {
       addAsset(newAsset);
       setCurrentAsset(newAsset);
     } catch (err) {
-      finishUpload();
+      failUpload();
       setUploadError(err instanceof Error ? err.message : 'Failed to upload file.');
     }
-  }, [addAsset, setCurrentAsset]);
+  }, [addAsset, setCurrentAsset, startUpload, finishUpload, failUpload]);
 
   const handleModelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

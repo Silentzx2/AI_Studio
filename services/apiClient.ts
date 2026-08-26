@@ -165,20 +165,28 @@ export const apiClient = {
     const formData = new FormData();
     formData.append('file', file);
 
-    const res = await fetch(`${API_URL}${path}`, {
-      method: 'POST',
-      body: formData,
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-    if (!res.ok) throw new Error(await parseErrorMessage(res));
+    try {
+      const res = await fetch(`${API_URL}${path}`, {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal,
+      });
 
-    const text = await res.text();
-    if (!text) return {} as T;
-    const json = JSON.parse(text);
-    if (json?.success === false) {
-      throw new Error(json?.message || 'Upload failed');
+      if (!res.ok) throw new Error(await parseErrorMessage(res));
+
+      const text = await res.text();
+      if (!text) return {} as T;
+      const json = JSON.parse(text);
+      if (json?.success === false) {
+        throw new Error(json?.message || 'Upload failed');
+      }
+      return json;
+    } finally {
+      clearTimeout(timeoutId);
     }
-    return json;
   },
 
   // streamEvents: SSE via API proxy route

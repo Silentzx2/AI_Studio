@@ -263,8 +263,7 @@ if [[ "${USE_SQLITE:-}" != "1" ]]; then
   if ! systemctl is-active --quiet postgresql; then
     info "Starting PostgreSQL..."
     sudo systemctl start postgresql || {
-      err "Failed to start PostgreSQL"
-      exit 1
+      err "Failed to start PostgreSQL — will fall back to SQLite"
     }
   fi
 fi
@@ -312,18 +311,18 @@ fi
 
 # Create database if it doesn't exist (only when PostgreSQL is ready)
 if [[ "$_PG_READY" == "true" ]]; then
-  PGPASSWORD="$_DB_PASS" psql -h "$_DB_HOST" -p "$_DB_PORT" -U "$_DB_USER" -d postgres << 'SQL' 2>/dev/null || true
-DO $$
+  PGPASSWORD="$_DB_PASS" psql -h "$_DB_HOST" -p "$_DB_PORT" -U "$_DB_USER" -d postgres 2>/dev/null << EOF || true
+DO \$\$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'ai3dstudio') THEN
-    CREATE DATABASE ai3dstudio;
-    RAISE NOTICE 'Created ai3dstudio database';
+  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = '$_DB_NAME') THEN
+    CREATE DATABASE $_DB_NAME;
+    RAISE NOTICE 'Created $_DB_NAME database';
   ELSE
-    RAISE NOTICE 'Database ai3dstudio already exists';
+    RAISE NOTICE 'Database $_DB_NAME already exists';
   END IF;
 END
-$$;
-SQL
+\$\$;
+EOF
   log "PostgreSQL ready"
 else
   info "Using SQLite for database (no PostgreSQL credentials available)"
@@ -336,16 +335,20 @@ step "2/6 Checking Redis..."
 if ! systemctl is-active --quiet redis-server; then
     info "Starting Redis..."
     sudo systemctl start redis-server || {
-        err "Failed to start Redis"
-        exit 1
+        warn "Failed to start Redis — will configure in-memory broker fallback"
     }
 fi
 
 if ! redis-cli ping &>/dev/null; then
-    warn "Redis not responding — Celery will run with degraded in-process broker (single worker)."
+    warn "Redis not responding — configuring in-memory broker fallback for Celery."
+    export CELERY_TASK_ALWAYS_EAGER=1
+    export CELERY_BROKER_URL="memory://"
+    export CELERY_RESULT_BACKEND="cache+memory://"
+    export REDIS_URL="memory://"
+    log "Celery fallback active: eager execution + memory broker (no Redis)"
+else
+    log "Redis ready"
 fi
-
-log "Redis ready"
 echo ""
 
 # ── Step 3: Run Migrations ────────────────────────────────────────────────
@@ -418,6 +421,7 @@ fi
 
 # Dev mode: skip build (hot-reload). Prod mode: build first.
 info "Building Next.js for production..."
+export NEXT_PUBLIC_API_URL=http://localhost:8000
 npm run build 2>&1 | tail -5
 FRONTEND_RUN_CMD="npm start"
 

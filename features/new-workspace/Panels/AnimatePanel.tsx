@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { 
   Activity, 
   Play, 
@@ -29,6 +29,9 @@ export const AnimatePanel: React.FC = () => {
     systemStats
   } = useWorkspace();
 
+  const totalFramesRef = useRef(totalFrames);
+  totalFramesRef.current = totalFrames;
+
   const presets = [
     { id: 'idle', label: 'Idle Breathing' },
     { id: 'walk', label: 'Walk Forward' },
@@ -41,10 +44,12 @@ export const AnimatePanel: React.FC = () => {
 
   // Animation playback: advance frames when playing
   React.useEffect(() => {
-    if (!isPlaying || totalFrames === 0) return;
+    if (!isPlaying) return;
     const interval = setInterval(() => {
       setCurrentFrame(prev => {
-        if (prev >= totalFrames) {
+        const total = totalFramesRef.current;
+        if (total === 0) return prev;
+        if (prev >= total) {
           setIsPlaying(false);
           return 0;
         }
@@ -52,7 +57,7 @@ export const AnimatePanel: React.FC = () => {
       });
     }, 1000 / fps);
     return () => clearInterval(interval);
-  }, [isPlaying, totalFrames, fps, setCurrentFrame, setIsPlaying]);
+  }, [isPlaying, fps, setCurrentFrame, setIsPlaying]);
 
   return (
     <div id="panel-animate" className="flex flex-col h-full overflow-y-auto px-4 py-3.5 space-y-4 text-xs select-none">

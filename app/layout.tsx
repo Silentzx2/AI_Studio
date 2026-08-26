@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { AppearanceProvider } from "@/components/AppearanceProvider";
 import { ActivityLogger } from "@/components/ActivityLogger";
+import { WorkspaceProvider } from "@/features/new-workspace/store/WorkspaceContext";
 import "./globals.css";
 
 const inter = Inter({
@@ -76,9 +77,11 @@ export default function RootLayout({
         />
         <AppearanceProvider>
           <ActivityLogger />
-          <div className="relative z-10 min-h-screen flex flex-col">
-            {children}
-          </div>
+          <WorkspaceProvider>
+            <div className="relative z-10 min-h-screen flex flex-col">
+              {children}
+            </div>
+          </WorkspaceProvider>
         </AppearanceProvider>
       </body>
     </html>
