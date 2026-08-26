@@ -767,11 +767,6 @@ BANNER
   setup_env
   install_python_deps    || { err "Python dependency installation failed — aborting"; exit 1; }
 
-
-download_model_weights || warn "Weight download had issues - check output above"
-
-
-
   # Non-critical project steps
   install_frontend_deps  || warn "Frontend deps had issues — check npm output above"
   build_frontend || warn "Frontend build had issues — check npm output above"

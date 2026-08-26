@@ -448,12 +448,17 @@ except Exception as exc:
     sys.exit(1)
 
 token = os.environ.get("HUGGINGFACE_TOKEN") or os.environ.get("HF_TOKEN")
-# Colab: only download weights for models that pass the prep policy
-COLAB_ALLOWED_PROVIDERS = ("triposg", "trellis", "hunyuan3d-2-mini")
+# Use user-selected repos if set via interactive prompt, else fall back to default
+_selected = os.environ.get("COLAB_SELECTED_REPOS", "").strip()
+if _selected:
+    _selected_providers = set(_selected.split(","))
+else:
+    _selected_providers = None
 for key in sorted(HF_MODELS.keys()):
-        # Only download allowed models
-        if key not in COLAB_ALLOWED_PROVIDERS:
-            print(f"  [COLAB] {key}: skipped (not in allowed list)")
+        # Skip models not selected by user
+        if _selected_providers is not None and key not in _selected_providers:
+            print(f"  [SKIP] {key}: not selected by user")
+            continue
             continue
         if not is_model_preparable_for_colab(key):
             reason = get_colab_incompatibility_reason(key) or (
