@@ -695,6 +695,14 @@ install_frontend_deps() {
 build_frontend() {
     head_ "Building Frontend"
 
+    # Fix .next permissions if it exists (prevents EACCES errors)
+    if [[ -d .next ]]; then
+        if command -v sudo &>/dev/null; then
+            sudo chmod -R 777 .next 2>/dev/null || true
+        else
+            chmod -R 777 .next 2>/dev/null || true
+        fi
+    fi
 
     npm run build || {
         err "Frontend build failed"
@@ -764,6 +772,15 @@ main() {
 
 BANNER
   echo -e "${NC}  ${BOLD}Automatic Installer v3.9.4${NC}\n"
+
+  # Check for sudo - required for .next permissions and system services
+  if ! command -v sudo &>/dev/null; then
+    err "sudo is required but not available. Please install sudo and re-run."
+    exit 1
+  fi
+  if ! sudo -n true 2>/dev/null; then
+    warn "sudo requires password. You may be prompted during setup."
+  fi
 
   # Critical steps — failure aborts setup
   check_root
