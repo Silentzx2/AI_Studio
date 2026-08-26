@@ -1716,6 +1716,86 @@ def install_repo_deps(repo_name: str, log_cb: Callable | None = None, requiremen
     return {"success": True, "repo": repo_name}
 
 
+def _run_native_build_sync(provider_name: str, manifest: dict | None, log_cb=None) -> dict:
+    """Run native CUDA extension build synchronously (no Celery).
+
+    This is used during setup when allow_native_build=True.
+    It installs native deps and executes manifest-defined build steps.
+    """
+    from runtime.manifest_loader import load_manifest
+    from runtime.storage import get_storage_config
+
+    canonical_name = _canonical_provider_name(provider_name)
+    meta = PROVIDER_METADATA.get(canonical_name, {})
+    repo_name = meta.get("repo") or canonical_name
+    storage = get_storage_config()
+    repo_dir = storage.get_repo_path(repo_name)
+
+    # Load manifest if not provided
+    if manifest is None:
+        try:
+            manifest = load_manifest(canonical_name)
+        except Exception:
+            manifest = {}
+
+    venv_python = None
+    if repo_dir.exists():
+        venv_python = repo_dir / ".venv" / "bin" / "python"
+
+    errors: list[str] = []
+
+    # Install native deps from manifest
+    if manifest and "dependencies" in manifest:
+        native_deps = manifest["dependencies"].get("native", [])
+        if native_deps and venv_python and venv_python.exists():
+            if log_cb:
+                log_cb(f"Installing {len(native_deps)} native deps for {canonical_name}...")
+            for dep in native_deps:
+                try:
+                    subprocess.run(
+                        [str(venv_python), "-m", "pip", "install", "-q", dep],
+                        capture_output=True,
+                        timeout=600,
+                        check=True,
+                    )
+                    if log_cb:
+                        log_cb(f"  Native dep installed: {dep}")
+                except Exception as exc:
+                    msg = f"Native dep install failed for {dep}: {exc}"
+                    logger.warning(msg)
+                    errors.append(msg)
+
+    # Execute manifest-defined native build steps
+    if manifest and "capabilities" in manifest:
+        for cap_name, cap_cfg in manifest["capabilities"].items():
+            if isinstance(cap_cfg, dict) and cap_cfg.get("native_build_required"):
+                native_steps = cap_cfg.get("native_steps", [])
+                if native_steps and venv_python and venv_python.exists():
+                    if log_cb:
+                        log_cb(f"Running native build steps for {cap_name}...")
+                    for step in native_steps:
+                        try:
+                            subprocess.run(
+                                step,
+                                shell=True,
+                                cwd=str(repo_dir),
+                                env={**os.environ, "PATH": f"{venv_python.parent}:{os.environ.get('PATH', '')}"},
+                                capture_output=True,
+                                timeout=3600,
+                                check=True,
+                            )
+                            if log_cb:
+                                log_cb(f"  Build step OK: {step}")
+                        except Exception as exc:
+                            msg = f"Build step failed: {step}: {exc}"
+                            logger.warning(msg)
+                            errors.append(msg)
+
+    if errors:
+        return {"native": {"state": NativeState.FAILED.value, "error": "; ".join(errors)}}
+    return {"native": {"state": NativeState.READY.value, "detail": "Native build completed"}}
+
+
 def _get_native_build_info(meta: dict, manifest: dict | None) -> tuple[bool, bool]:
     """Return (native_req, all_caps_need_native).
 
@@ -1991,26 +2071,24 @@ def prepare_runtime(
         native_state = components.get("native", {}).get("state", NativeState.NOT_REQUIRED.value)
         if native_req and native_state not in (NativeState.READY.value, NativeState.WHEEL_INSTALLED.value):
             if not allow_native_build:
-                # Queue background native build
-                task_id = f"native_build_{provider_name}_{int(datetime.utcnow().timestamp())}"
+                # Skip native build during setup - user can build later via UI
+                components["native"] = {
+                    "state": NativeState.SKIPPED.value,
+                    "detail": "Native CUDA build skipped during setup (can be built later via UI)",
+                }
+                if log_cb:
+                    log_cb(f"Native build skipped for {provider_name} (can be built later via UI)")
+            else:
+                # Run native build synchronously (only when explicitly allowed)
+                if log_cb:
+                    log_cb(f"Running native build for {provider_name}...")
                 try:
-                    from app.workers.installation_workers import run_native_build
-                    run_native_build.apply_async(
-                        args=[provider_name, task_id],
-                        queue="installation",
-                        task_id=task_id,
-                    )
-                    components["native"] = {
-                        "state": NativeState.BUILD_PENDING.value,
-                        "task_id": task_id,
-                        "detail": "Native CUDA build queued for background execution",
-                    }
-                    if log_cb:
-                        log_cb(f"Native build queued (task={task_id})")
+                    r = _run_native_build_sync(provider_name, manifest, log_cb=log_cb)
+                    components["native"] = r.get("native", {})
                 except Exception as exc:
                     components["native"] = {
                         "state": NativeState.FAILED.value,
-                        "error": f"Failed to queue native build: {exc}",
+                        "error": f"Native build failed: {exc}",
                     }
 
         # 4. Run prelight (without weights check)
