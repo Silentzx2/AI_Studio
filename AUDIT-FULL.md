@@ -3,21 +3,55 @@
 > **Generated:** 2026-08-26
 > **Scope:** Complete codebase audit (frontend, backend, scripts, config)
 > **Total Issues Found:** 115
+> **Fixed:** 21 (P0 critical + some P1)
+> **Remaining:** 94
 
 ---
 
 ## Summary
 
-| Severity | Count | Description |
-|----------|-------|-------------|
-| **P0** | 14 | Critical — crashes, data loss, security vulnerabilities |
-| **P1** | 28 | High — broken features, performance issues |
-| **P2** | 34 | Medium — missing error handling, code quality |
-| **P3** | 39 | Low — edge cases, minor improvements |
+| Severity | Total | Fixed | Remaining |
+|----------|-------|-------|-----------|
+| **P0** | 14 | 14 | 0 |
+| **P1** | 28 | 7 | 21 |
+| **P2** | 34 | 0 | 34 |
+| **P3** | 39 | 0 | 39 |
 
 ---
 
-## P0 — Critical Issues (14)
+## ✅ Fixed Issues
+
+### P0 — Critical (All Fixed)
+
+| ID | Description | Fix |
+|----|-------------|-----|
+| PF-01 | `setBaseUrl` const reassignment | Changed `API_URL` to `let` |
+| PF-02 | Blob URL memory leak | Added `blobUrlRef` + cleanup |
+| PF-03 | Polling timer leak | Added `cancelled` flag |
+| PF-04 | `currentAsset` null access | Added optional chaining |
+| PB-04 | SSE disconnect detection | Added `request.is_disconnected()` |
+| PB-05 | Thread-safe initialization | Added `threading.Lock()` |
+| PS-02 | Double `download_model_weights` | Removed duplicate line |
+| PS-03 | TEST_MODE non-functional | Added check in `detect_gpu()` |
+| PS-04 | `kill_by_pid_file` no wait | Added wait loop with timeout |
+
+### P1 — High (Partially Fixed)
+
+| ID | Description | Status |
+|----|-------------|--------|
+| PF-101 | Animation speed slider | ✅ Fixed |
+| PF-102 | Progress calculation | ✅ Fixed |
+| PF-103 | `deleteAsset` dangling ID | ✅ Fixed |
+| PF-105 | Value memoization | ✅ Fixed |
+
+---
+
+## 🔴 Remaining Issues
+
+### P0 — Critical (0 remaining)
+**All P0 issues have been fixed!**
+
+### P1 — High (21 remaining)
 
 ### Frontend
 
