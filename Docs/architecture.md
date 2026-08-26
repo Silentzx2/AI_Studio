@@ -317,8 +317,16 @@ The frontend uses a modern persistent workspace: ONE global 3D viewport (`MeshVi
 
 #### Dependency Installation
 - **Manifest-based**: Each model's `manifest.yaml` is the single source of truth for dependencies
-- **EXTRA_DEPS**: Packages not in the repo's requirements.txt (e.g., `hy3dgen` for Hunyuan3D) are installed separately
-- **Pillow fix**: Force-reinstalls Pillow if C extension (`_imaging`) is missing or corrupted
+- **EXTRA_DEPS**: Packages not in the repo's requirements.txt (e.g., `hy3dgen` for Hunyuan3D) are installed separately with `--reinstall`
+- **one_of / alternatives**: `attention_backend.one_of` in manifest is respected (only first alternative installed)
+- **Pillow fix**: Force-reinstalls Pillow if C extension (`_imaging`) is missing or corrupted (detects from manifest or repo files)
 - **CUDA 12.x support**: All CUDA 12.0-12.8 versions supported with automatic wheel selection
 - **CPU fallback**: On CPU-only machines, installs CPU wheels and marks models as PARTIAL
 - **Preflight**: Stage A skips weights check (weights are Stage B)
+- **GPU cleanup**: Explicit `torch.cuda.empty_cache()` + `gc.collect()` on model unload
+
+#### 3D Model Upload
+- **Endpoint**: `POST /api/v1/upload/model` handles GLB, GLTF, FBX, OBJ, STL
+- **Storage**: Files saved to `storage_local_path/models/`
+- **Thumbnails**: Generated server-side for GLB/GLTF, stored in `storage_local_path/thumbnails/`
+- **Frontend**: `RightAssetsPanel.tsx` uploads via `apiClient.uploadFile()` and uses backend-returned URLs
