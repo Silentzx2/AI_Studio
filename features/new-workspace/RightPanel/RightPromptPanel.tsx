@@ -41,7 +41,7 @@ export const RightPromptPanel: React.FC = () => {
     try {
       await apiClient.deleteHistory(promptId);
       setHistoryItem(null);
-      window.dispatchEvent(new CustomEvent('nexus:history-refresh'));
+      void load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unable to delete prompt history.');
     } finally {

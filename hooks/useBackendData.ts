@@ -1,3 +1,11 @@
+/**
+ * Standalone backend data hooks.
+ *
+ * NOTE: These make their own API calls and are intended for use OUTSIDE of
+ * WorkspaceContext. WorkspaceContext already polls system stats, history, and
+ * runtime options — using these hooks inside a WorkspaceContext subtree will
+ * duplicate polling. Prefer reading from the WorkspaceContext when available.
+ */
 import { useEffect, useState } from 'react';
 import { apiClient } from '@/services/apiClient';
 

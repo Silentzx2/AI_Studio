@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   ToolType,
   MainNavRoute,
@@ -146,6 +146,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
   const [assets, setAssets] = useState<ModelAsset[]>([]);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  const selectedAssetIdRef = useRef(selectedAssetId);
+  const mainNavRef = useRef(mainNav);
   const [assetFilter, setAssetFilter] = useState<string>('all');
 
   const [shadingMode, setShadingModeState] = useState<ShadingMode>('textured');
@@ -161,8 +163,9 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     vramUsedGb: null, vramTotalGb: null, ramUsedGb: null, ramTotalGb: null,
     torchVramUsedGb: null, torchVramTotalGb: null, gpuType: null, gpuIndex: null,
     pythonVersion: null, torchVersion: null, apiVersion: null,
-    queueRunning: 0, queuePending: 0, activePromptId: null, activeNode: null, lastPingMs: 0,
+    queueRunning: 0, queuePending: 0, activePromptId: null, activeNode: null,     lastPingMs: 0,
   });
+  const systemStatsStatusRef = useRef(systemStats.status);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -224,6 +227,14 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     () => selectedAssetId ? (assets.find(a => a.id === selectedAssetId) ?? null) : null,
     [assets, selectedAssetId]
   );
+  const currentAssetRef = useRef(currentAsset);
+
+  useEffect(() => {
+    selectedAssetIdRef.current = selectedAssetId;
+    currentAssetRef.current = currentAsset;
+    mainNavRef.current = mainNav;
+    systemStatsStatusRef.current = systemStats.status;
+  }, [selectedAssetId, currentAsset, mainNav, systemStats.status]);
 
   useEffect(() => {
     if (activeTool === 'rigging' || activeTool === 'animate') setShowBonesState(true);
@@ -284,6 +295,11 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
   }, []);
 
+  const refreshHistoryRef = useRef(refreshHistory);
+  useEffect(() => {
+    refreshHistoryRef.current = refreshHistory;
+  }, [refreshHistory]);
+
   // Fetch uploaded assets from backend on mount (persistence across refresh)
   useEffect(() => {
     const fetchUploadedAssets = async () => {
@@ -335,13 +351,17 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     void refreshSystemStats();
     void refreshHistory();
-    const interval = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return;
-      void refreshSystemStats();
-      void refreshHistory();
-    }, systemStats.status === 'offline' ? 60000 : 30000);
-    return () => clearInterval(interval);
-  }, [refreshSystemStats, refreshHistory, systemStats.status]);
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const poll = () => {
+      if (typeof document === 'undefined' || !document.hidden) {
+        void refreshSystemStats();
+        void refreshHistory();
+      }
+      timeoutId = setTimeout(poll, systemStatsStatusRef.current === 'offline' ? 60000 : 30000);
+    };
+    timeoutId = setTimeout(poll, systemStatsStatusRef.current === 'offline' ? 60000 : 30000);
+    return () => clearTimeout(timeoutId);
+  }, [refreshSystemStats, refreshHistory]);
 
   useEffect(() => {
     const onProgress = (data: unknown) => {
@@ -360,7 +380,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setExecutionProgress(100);
       setExecutionStep('Completed');
       setActiveTask(prev => prev ? { ...prev, status: 'completed', progress: 100, currentStep: 'Completed' } : prev);
-      void refreshHistory();
+      void refreshHistoryRef.current();
     };
     const onError = (data: unknown) => {
       const d = data as { exception_message?: string; message?: string };
@@ -374,7 +394,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const off3 = apiClient.on('executed', onExecuted);
     const off4 = apiClient.on('execution_error', onError);
     return () => { off1(); off2(); off3(); off4(); };
-  }, [refreshHistory]);
+  }, []);
 
   const selectAsset = useCallback((id: string) => {
     setSelectedAssetId(id);
@@ -399,18 +419,19 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
 
   const updateMaterialConfig = useCallback((updates: Partial<MaterialConfig>) => {
-    if (!currentAsset) return;
-    const cur = currentAsset.materialConfig || { roughness: 0.5, metalness: 0.5, color: '#888888', wireframe: false, wireframeColor: '#222222', normalScale: 1.0, aoIntensity: 0.8, style: 'realistic' };
-    updateAssetProperties(currentAsset.id, { materialConfig: { ...cur, ...updates } });
-  }, [currentAsset, updateAssetProperties]);
+    const asset = currentAssetRef.current;
+    if (!asset) return;
+    const cur = asset.materialConfig || { roughness: 0.5, metalness: 0.5, color: '#888888', wireframe: false, wireframeColor: '#222222', normalScale: 1.0, aoIntensity: 0.8, style: 'realistic' };
+    updateAssetProperties(asset.id, { materialConfig: { ...cur, ...updates } });
+  }, [updateAssetProperties]);
 
   const deleteAsset = useCallback((id: string) => {
     setAssets(prev => {
       const next = prev.filter(a => a.id !== id);
-      if (id === selectedAssetId && next.length > 0) setSelectedAssetId(next[0].id);
+      if (id === selectedAssetIdRef.current && next.length > 0) setSelectedAssetId(next[0].id);
       return next;
     });
-  }, [selectedAssetId]);
+  }, []);
 
   const addAsset = useCallback((asset: ModelAsset) => {
     setAssets(prev => [asset, ...prev]);
@@ -649,6 +670,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [pathname, router]);
 
   const navigateToMain = useCallback((nav: MainNavRoute) => {
+    if (mainNavRef.current === nav) return;
     setMainNav(nav);
     if (nav === 'dashboard') router.push('/dashboard');
     else if (nav === 'assets') router.push('/outputs');

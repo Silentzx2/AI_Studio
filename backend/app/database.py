@@ -92,6 +92,15 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 
+async def get_db_readonly() -> AsyncGenerator[AsyncSession, None]:
+    """Read-only DB session — no COMMIT issued on close."""
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
+
+
 def get_sync_db() -> Generator[Session, None, None]:
     with SessionLocal() as session:
         try:

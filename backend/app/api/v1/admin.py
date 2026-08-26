@@ -259,11 +259,11 @@ class _AdminLogHandler(logging.Handler):
         if loop is None:
             return
 
-        for q in _LOG_SUBSCRIBERS:
+        for q in list(_LOG_SUBSCRIBERS):
             try:
                 loop.call_soon_threadsafe(q.put_nowait, entry)
             except asyncio.QueueFull:
-                pass
+                _LOG_SUBSCRIBERS.remove(q)
             except Exception:
                 pass
 
@@ -312,7 +312,7 @@ def _execute_command(command: str) -> dict:
     # Security: reject shell metacharacters outright (allowlist-style).
     # A blocklist (rm -rf /, curl|sh, ...) is trivially bypassable via nested
     # shells, command substitution, newlines, etc. — so no metacharacters, period.
-    if re.search(r'[;&|><`$\n\r\\]', command):
+    if re.search(r'[;&|><`$\n\r\\()]', command):
         return {
             "id": cmd_id,
             "command": command,
@@ -393,6 +393,8 @@ async def get_terminal_history():
 
 _DL_STATE: dict[str, dict] = {}  # model_id -> progress dict
 _DL_LOCK = threading.Lock()
+# ponytail: _DL_STATE/_DL_LOCK are per-process. Multi-worker deployments
+# (gunicorn --workers >1, Celery) need Redis-backed shared state instead.
 
 
 def _dl_state_path() -> Path:
@@ -594,6 +596,8 @@ def _parse_log_for_progress(model_id: str, msg: str) -> None:
     elif any(k in lmsg for k in ("error:", "failed:", "exception:", "traceback")):
         _dl_update(model_id, status="failed", error=msg.strip(), log=msg.strip())
     else:
+        # Only update log, not status — prevents overwriting a valid status
+        # (e.g. "failed") with a generic line like "Continuing..."
         _dl_update(model_id, log=msg.strip())
 
 
@@ -1300,7 +1304,7 @@ async def install_stream(model_id: str) -> StreamingResponse:
         last_update = 0.0
         timeout_counter = 0
 
-        while timeout_counter < 1800:  # 30 minute timeout
+        while timeout_counter < 3600:  # 60 minute timeout
             try:
                 # Get current progress state
                 with _DL_LOCK:

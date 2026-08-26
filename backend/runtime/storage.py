@@ -21,7 +21,7 @@ class StorageConfig:
     """Centralized storage configuration — single source of truth."""
 
     backend_root: Path = field(default_factory=lambda: Path(__file__).resolve().parent.parent)
-    third_party_dir: Path = field(default_factory=lambda: None)   # type: ignore
+    third_party_dir: Path = field(default_factory=lambda: Path(__file__).resolve().parent.parent / "third_party")
     weights_dir: Path = field(default_factory=lambda: None)        # type: ignore
     hf_cache_dirs: list[Path] = field(default_factory=list)
     runtime_cache_dir: Path = field(default_factory=lambda: None)  # type: ignore

@@ -51,6 +51,7 @@ export function useTaskManager() {
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const activeJobIdRef = useRef<string | null>(null);
+  const pollTickCountRef = useRef(0);
 
   const registerTask = useCallback(
     (task: Task) => {
@@ -121,49 +122,60 @@ export function useTaskManager() {
 
   const stopPolling = useCallback(() => {
     if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
+      clearTimeout(pollIntervalRef.current);
       pollIntervalRef.current = null;
     }
   }, []);
 
   const startPolling = useCallback(() => {
     if (pollIntervalRef.current) return;
+    pollTickCountRef.current = 0;
 
-    pollIntervalRef.current = setInterval(() => {
-      const state = useAppStore.getState();
-      const runningTasks = Object.values(state.tasks).filter(
-        (t) => (t.status === 'running' || t.status === 'queued') && isPollableGenerationTask(t)
-      );
+    const scheduleNext = () => {
+      pollTickCountRef.current++;
+      const backoff = Math.min(pollTickCountRef.current, 6);
+      const interval = POLL_INTERVAL * Math.pow(2, backoff - 1);
 
-      if (runningTasks.length === 0) {
-        stopPolling();
-        return;
-      }
+      pollIntervalRef.current = setTimeout(() => {
+        const state = useAppStore.getState();
+        const runningTasks = Object.values(state.tasks).filter(
+          (t) => (t.status === 'running' || t.status === 'queued') && isPollableGenerationTask(t)
+        );
 
-      for (const task of runningTasks) {
-        fetch(`/api/v1/generation/${task.id}/status`)
-          .then((res) => {
-            if (!res.ok) return;
-            return res.json();
-          })
-          .then((data) => {
-            if (!data) return;
-            const status = data?.data || data;
-            updateTask(task.id, {
-              status: (status.status || 'running') as Task['status'],
-              progress: status.progress ?? 0,
-              updatedAt: Date.now(),
+        if (runningTasks.length === 0) {
+          stopPolling();
+          return;
+        }
+
+        for (const task of runningTasks) {
+          fetch(`/api/v1/generation/${task.id}/status`)
+            .then((res) => {
+              if (!res.ok) return;
+              return res.json();
+            })
+            .then((data) => {
+              if (!data) return;
+              const status = data?.data || data;
+              updateTask(task.id, {
+                status: (status.status || 'running') as Task['status'],
+                progress: status.progress ?? 0,
+                updatedAt: Date.now(),
+              });
+
+              if (status.status === 'completed' || status.status === 'failed' || status.status === 'cancelled') {
+                completeTask(task.id, status.status as 'completed' | 'failed' | 'cancelled');
+              }
+            })
+            .catch(() => {
+              // Silently ignore polling errors
             });
+        }
 
-            if (status.status === 'completed' || status.status === 'failed' || status.status === 'cancelled') {
-              completeTask(task.id, status.status as 'completed' | 'failed' | 'cancelled');
-            }
-          })
-          .catch(() => {
-            // Silently ignore polling errors
-          });
-      }
-    }, POLL_INTERVAL);
+        scheduleNext();
+      }, interval) as unknown as ReturnType<typeof setInterval>;
+    };
+
+    scheduleNext();
   }, [updateTask, completeTask, stopPolling]);
 
   const reconnectToDownload = useCallback(

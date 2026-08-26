@@ -1,5 +1,6 @@
 import type { ApiResponse } from '@/types';
 
+// ponytail: cache disabled — returns null until a caching strategy is implemented
 function getCacheService(): { get: <T>(k: string) => T | null; set: <T>(k: string, v: T) => void; keys: () => string[]; delete: (k: string) => void; clear: () => void } | null { return null; }
 
 /**
@@ -84,12 +85,13 @@ async function requestWithRetry<T>(
   path: string,
   init?: RequestInit,
   maxRetries: number = 3,
+  signal?: AbortSignal,
 ): Promise<T> {
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      return await request<T>(path, init);
+      return await request<T>(path, { ...init, signal });
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
 
@@ -116,16 +118,20 @@ async function requestWithCircuitBreaker<T>(
   maxRetries: number = 3,
   timeout: number = 5000
 ): Promise<T> {
+  const controller = new AbortController();
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   // Create a promise that rejects after timeout
   const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error('Request timeout')), timeout);
+    timeoutId = setTimeout(() => {
+      controller.abort();
+      reject(new Error('Request timeout'));
+    }, timeout);
   });
 
   try {
     // Race the request against the timeout
     return await Promise.race([
-      requestWithRetry<T>(path, init, maxRetries),
+      requestWithRetry<T>(path, init, maxRetries, controller.signal),
       timeoutPromise
     ]);
   } finally {
@@ -217,9 +223,10 @@ export const apiClient = {
         }
         onDone?.();
       };
-    } catch {
+    } catch (err) {
       isClosed = true;
       onDone?.();
+      console.error('Failed to create EventSource:', err);
     }
 
     // Return cleanup function

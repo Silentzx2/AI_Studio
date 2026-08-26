@@ -91,7 +91,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
     set({
       loadedModelUrl: url,
       loadedModelName: name,
-      selectedAsset: asset ?? get().selectedAsset,
+      selectedAsset: asset !== undefined ? asset : get().selectedAsset,
     });
   },
 

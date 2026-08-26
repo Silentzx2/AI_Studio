@@ -378,6 +378,9 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     const controls = controlsRef.current;
     if (!camera || !controls) return;
 
+    controls.target.set(0, 0, 0);
+    controls.update();
+
     const box = new THREE.Box3().setFromObject(object);
     const center = box.getCenter(new THREE.Vector3());
     const sphere = box.getBoundingSphere(new THREE.Sphere());
@@ -455,7 +458,13 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     // 2. Check if local 3D files were dropped from desktop (OBJ, GLB, STL, FBX)
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
-      const ext = file.name.split('.').pop()?.toUpperCase() || 'GLB';
+      const ext = file.name.split('.').pop()?.toUpperCase() || '';
+      const ALLOWED_EXTENSIONS = ['GLB', 'GLTF', 'OBJ', 'PLY'];
+      if (!ALLOWED_EXTENSIONS.includes(ext)) {
+        setDropToastMessage(`Unsupported file format "${ext}". Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`);
+        setTimeout(() => setDropToastMessage(null), 3500);
+        return;
+      }
       const cleanName = file.name.replace(/\.[^/.]+$/, "");
 
       const customAsset: ModelAsset = {
@@ -553,13 +562,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               <div className="flex items-center justify-between gap-4">
                 <span className="text-[var(--ws-text-muted,#8e95a5)] text-[11px]">Faces</span>
                 <span className="text-[#22c55e] font-semibold text-[11px]">
-                  {currentAsset?.statsAvailable ? `${currentAsset.faces.toLocaleString()} / ${currentAsset.faces.toLocaleString()}` : '—'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-[var(--ws-text-muted,#8e95a5)] text-[11px]">Vertices</span>
-                <span className="text-[#22c55e] font-semibold text-[11px]">
-                  {currentAsset?.statsAvailable ? `${currentAsset.vertices.toLocaleString()} / ${currentAsset.vertices.toLocaleString()}` : '—'}
+                  {currentAsset?.statsAvailable ? `${currentAsset.faces.toLocaleString()} / ${currentAsset.vertices.toLocaleString()}` : '—'}
                 </span>
               </div>
             </div>

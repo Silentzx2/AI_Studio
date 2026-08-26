@@ -11,6 +11,7 @@ import logging
 import os
 import platform
 import re
+import select
 import shutil
 import subprocess
 import sys
@@ -704,6 +705,7 @@ def _run(
     cwd: Path | None = None,
     env: dict | None = None,
     log_cb: Callable | None = None,
+    timeout: float | None = None,
 ) -> tuple[int, str]:
     merged_env = {**os.environ, **(env or {})}
     merged_env.setdefault("UV_LINK_MODE", "copy")
@@ -711,18 +713,45 @@ def _run(
         cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        text=True,
         cwd=str(cwd) if cwd else None,
         env=merged_env,
     )
     lines: list[str] = []
-    for line in proc.stdout:  # type: ignore[union-attr]
-        line = line.rstrip()
-        lines.append(line)
-        logger.info("[subprocess] %s", line)
-        if log_cb:
-            log_cb(line)
-    proc.wait()
+    # ponytail: select() with timeout prevents blocking forever when subprocess
+    # doesn't flush. Returns partial output on timeout. Upgrade path: async subprocess.
+    if proc.stdout is None:
+        proc.wait()
+        return proc.returncode, ""
+    try:
+        while True:
+            # Wait up to `timeout` seconds for data to be ready
+            ready, _, _ = select.select([proc.stdout], [], [], timeout or 1.0)
+            if ready:
+                chunk = proc.stdout.read(4096)
+                if not chunk:
+                    break
+                for line in chunk.decode("utf-8", errors="replace").splitlines():
+                    line = line.rstrip()
+                    lines.append(line)
+                    logger.info("[subprocess] %s", line)
+                    if log_cb:
+                        log_cb(line)
+            else:
+                # Timeout reached — check if process is still alive
+                if proc.poll() is not None:
+                    # Read any remaining data
+                    remaining = proc.stdout.read()
+                    if remaining:
+                        for line in remaining.decode("utf-8", errors="replace").splitlines():
+                            line = line.rstrip()
+                            lines.append(line)
+                            logger.info("[subprocess] %s", line)
+                            if log_cb:
+                                log_cb(line)
+                    break
+    finally:
+        proc.stdout.close()
+        proc.wait()
     return proc.returncode, "\n".join(lines)
 
 

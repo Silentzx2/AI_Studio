@@ -1,6 +1,6 @@
 # AI 3D Studio Backend — Python 3.12+
 # GPU-ONLY MODE: CUDA-enabled PyTorch is required.
-# PyTorch is installed via Dockerfile with CUDA 12.1 support.
+# PyTorch is installed via scripts/setup.sh (CUDA or CPU wheel, not from this file).
 
 # Web framework
 fastapi==0.115.6

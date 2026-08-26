@@ -175,7 +175,7 @@ export const GeneratePanel: React.FC = () => {
   };
 
   const handleImageTo3DTabClick = () => {
-    setGenerationSettings(prev => ({ ...prev, mode: 'image-to-3d' }));
+    setGenerationSettings(prev => ({ ...prev, mode: 'image-to-3d', prompt: '' }));
   };
 
   const handleModelSelect = (model: ProviderOption) => {
@@ -183,7 +183,8 @@ export const GeneratePanel: React.FC = () => {
       setGenerationSettings(prev => ({
         ...prev,
         aiModel: model.id,
-        mode: 'image-to-3d'
+        mode: 'image-to-3d',
+        prompt: ''
       }));
       setNoticeMessage(`${model.label} is an Image-to-3D model. Switched to Image to 3D mode.`);
       return;

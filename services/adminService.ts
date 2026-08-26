@@ -33,7 +33,7 @@ export const adminService = {
     if (res?.data?.checks && Object.keys(res.data.checks).length > 0) {
       return res.data;
     }
-    throw new Error('Failed to load deep health data');
+    return { status: 'unknown', checks: {} };
   },
 
   async getLogs(limit = 100, level?: string): Promise<AdminLog[]> {

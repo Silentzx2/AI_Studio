@@ -52,7 +52,7 @@ useEffect(() => {
 
     const handler = setTimeout(async () => {
         try {
-            await saveActionRef.current(data);
+            await saveActionRef.current(dataRef.current);
             setStatus('saved');
         } catch {
             setStatus('error');

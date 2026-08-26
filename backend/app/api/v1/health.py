@@ -76,11 +76,15 @@ async def health() -> Dict[str, Any]:
     try:
         from runtime.engine import get_engine
         engine = get_engine()
-        engine_status = "ready" if engine.health().get("initialized") else "not_initialized"
+        engine_health = engine.health()
+        engine_status = "ready" if engine_health.get("initialized") else "not_initialized"
+        engine_ok = engine_status == "ready" and not engine_health.get("error")
         health_status["services"]["engine"] = {
-            "status": "ok" if engine_status != "error" else "error",
+            "status": "ok" if engine_ok else "error",
             "runtime_mode": engine_status,
         }
+        if not engine_ok:
+            overall_healthy = False
     except ImportError:
         health_status["services"]["engine"] = {
             "status": "unavailable",

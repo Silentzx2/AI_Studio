@@ -15,6 +15,10 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 from app.database import Base
 
+# NOTE: This module uses SQLAlchemy 1.x-style Column() definitions.
+# Newer models (e.g. job.py) use 2.0 mapped_column(). Inconsistency is intentional
+# for now — migrate when touching these tables.
+
 # Cross-database compatible column types.
 # JSONB/UUID are PostgreSQL-native; for SQLite use JSON/String fallbacks.
 _DB_JSON = JSON().with_variant(JSONB(), "postgresql")
@@ -73,12 +77,23 @@ class DownloadChunk(Base):
     __tablename__ = "download_chunks"
 
     id = Column(_DB_UUID, primary_key=True, default=uuid.uuid4)
-    queue_id = Column(_DB_UUID, ForeignKey("download_queue.id", ondelete="CASCADE"))
+    queue_id = Column(_DB_UUID, ForeignKey("download_queue.id", ondelete="CASCADE"), index=True)
     chunk_index = Column(Integer)
     offset = Column(BigInteger)
     size = Column(BigInteger)
     checksum = Column(String(256), nullable=True)
     status = Column(String, default="pending") # pending, downloading, completed, failed
+
+    def to_dict(self):
+        return {
+            "id": str(self.id),
+            "queue_id": str(self.queue_id),
+            "chunk_index": self.chunk_index,
+            "offset": self.offset,
+            "size": self.size,
+            "checksum": self.checksum,
+            "status": self.status,
+        }
 
 class InstalledModel(Base):
     __tablename__ = "installed_models"
@@ -102,18 +117,35 @@ class ModelCapability(Base):
     __tablename__ = "model_capabilities"
 
     id = Column(_DB_UUID, primary_key=True, default=uuid.uuid4)
-    model_id = Column(String, ForeignKey("installed_models.id", ondelete="CASCADE"))
+    model_id = Column(String, ForeignKey("installed_models.id", ondelete="CASCADE"), index=True)
     capability = Column(String)
     status = Column(String) # supported, beta, unsupported
+
+    def to_dict(self):
+        return {
+            "id": str(self.id),
+            "model_id": self.model_id,
+            "capability": self.capability,
+            "status": self.status,
+        }
 
 class ModelDependency(Base):
     __tablename__ = "model_dependencies"
 
     id = Column(_DB_UUID, primary_key=True, default=uuid.uuid4)
-    model_id = Column(String, ForeignKey("installed_models.id", ondelete="CASCADE"))
+    model_id = Column(String, ForeignKey("installed_models.id", ondelete="CASCADE"), index=True)
     package_name = Column(String)
     version_requirement = Column(String)
     installation_status = Column(String)
+
+    def to_dict(self):
+        return {
+            "id": str(self.id),
+            "model_id": self.model_id,
+            "package_name": self.package_name,
+            "version_requirement": self.version_requirement,
+            "installation_status": self.installation_status,
+        }
 
 class ProviderInstallState(Base):
     __tablename__ = "provider_install_state"

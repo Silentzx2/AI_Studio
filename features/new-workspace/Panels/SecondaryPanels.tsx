@@ -154,5 +154,12 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
     );
   }
 
-  return null;
+  return (
+    <div className="flex flex-col h-full items-center justify-center px-4 py-3.5 text-xs select-none">
+      <div className="w-10 h-10 rounded-xl bg-[#181a20] border border-[#282c37] flex items-center justify-center text-[#8e95a5] mb-3">
+        <Layers className="w-5 h-5" />
+      </div>
+      <p className="text-[#9ca3af] text-center">This tool is not available yet.</p>
+    </div>
+  );
 };

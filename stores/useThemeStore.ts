@@ -1,3 +1,4 @@
+import React from 'react';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Easing } from 'framer-motion';
@@ -774,32 +775,38 @@ export const useThemeStore = create<ThemeStore>()(
 
 // Apply theme values to CSS custom properties on :root
 // This runs whenever the store state changes
-if (typeof window !== 'undefined') {
-  const applyThemeToCSS = (state: ThemeStore) => {
-    const root = document.documentElement;
-    root.style.setProperty('--ws-accent', state.accentColor);
-    root.style.setProperty('--ws-accent-secondary', state.accentColorSecondary);
-    root.style.setProperty('--ws-bg', state.workspaceBackground);
-    root.style.setProperty('--ws-panel', state.workspacePanel);
-    root.style.setProperty('--ws-viewport', state.workspaceViewport);
-    root.style.setProperty('--ws-text', state.workspaceText);
-    root.style.setProperty('--ws-text-muted', state.workspaceTextMuted);
-    root.style.setProperty('--ws-border', state.workspaceBorder);
-    root.style.setProperty('--ws-active-bg', state.workspaceActiveBg);
-    root.style.setProperty('--ws-hover-bg', state.workspaceHoverBg);
-    root.style.setProperty('--ws-tab-active-bg', state.workspaceTabActiveBg);
-    root.style.setProperty('--ws-tab-bar-bg', state.workspaceTabBarBg);
-    root.style.setProperty('--ws-nav-bg', state.workspaceNavBg);
-    root.style.setProperty('--ws-dropdown-bg', state.workspaceDropdownBg);
-    root.style.setProperty('--ws-hud-bg', state.workspaceHudBg);
-    root.style.setProperty('--ws-hud-border', state.workspaceHudBorder);
-    root.style.setProperty('--ws-surface-opacity', String(state.surfaceOpacity));
-    root.style.setProperty('--ws-border-radius', state.borderRadius);
-  };
+export function ThemeEffect() {
+  React.useEffect(() => {
+    const applyThemeToCSS = (state: ThemeStore) => {
+      const root = document.documentElement;
+      root.style.setProperty('--ws-accent', state.accentColor);
+      root.style.setProperty('--ws-accent-secondary', state.accentColorSecondary);
+      root.style.setProperty('--ws-bg', state.workspaceBackground);
+      root.style.setProperty('--ws-panel', state.workspacePanel);
+      root.style.setProperty('--ws-viewport', state.workspaceViewport);
+      root.style.setProperty('--ws-text', state.workspaceText);
+      root.style.setProperty('--ws-text-muted', state.workspaceTextMuted);
+      root.style.setProperty('--ws-border', state.workspaceBorder);
+      root.style.setProperty('--ws-active-bg', state.workspaceActiveBg);
+      root.style.setProperty('--ws-hover-bg', state.workspaceHoverBg);
+      root.style.setProperty('--ws-tab-active-bg', state.workspaceTabActiveBg);
+      root.style.setProperty('--ws-tab-bar-bg', state.workspaceTabBarBg);
+      root.style.setProperty('--ws-nav-bg', state.workspaceNavBg);
+      root.style.setProperty('--ws-dropdown-bg', state.workspaceDropdownBg);
+      root.style.setProperty('--ws-hud-bg', state.workspaceHudBg);
+      root.style.setProperty('--ws-hud-border', state.workspaceHudBorder);
+      root.style.setProperty('--ws-surface-opacity', String(state.surfaceOpacity));
+      root.style.setProperty('--ws-border-radius', state.borderRadius);
+    };
 
-  // Apply initial theme
-  applyThemeToCSS(useThemeStore.getState());
+    // Apply initial theme
+    applyThemeToCSS(useThemeStore.getState());
 
-  // Subscribe to changes
-  useThemeStore.subscribe(applyThemeToCSS);
+    // Subscribe to changes
+    const unsubscribe = useThemeStore.subscribe(applyThemeToCSS);
+
+    return unsubscribe;
+  }, []);
+
+  return null;
 }

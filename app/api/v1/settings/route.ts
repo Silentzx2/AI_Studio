@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// RESERVED: This endpoint is reserved for future use.
+// No client-side code currently calls this route.
+
 // Link to backend models API endpoint
 const BACKEND_MODELS_URL = process.env.BACKEND_URL ? 
   `${process.env.BACKEND_URL}/api/v1/settings/models` : 

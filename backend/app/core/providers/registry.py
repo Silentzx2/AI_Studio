@@ -181,7 +181,7 @@ def get_provider(name: str, device: str | None = None):
         module_path, class_name = runtime_entry
         module = importlib.import_module(module_path)
         provider_cls = getattr(module, class_name)
-        return provider_cls() if normalized == "mock" else provider_cls(device=device or "cuda:0")
+        return provider_cls(device=device or "cuda:0")
 
     try:
         return ProviderRegistry.get_provider(normalized)

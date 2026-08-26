@@ -78,6 +78,16 @@ def get_gpu_info() -> GPUInfo:
         devices = []
         total_vram = 0
         free_vram = 0
+        # ponytail: NVML init is reference-counted; init once per call, shutdown once after.
+        _nvml_initialized = False
+        try:
+            import pynvml
+            pynvml.nvmlInit()
+            _nvml_initialized = True
+        except ImportError:
+            pass
+        except Exception:
+            pass
         for i in range(torch.cuda.device_count()):
             try:
                 props = torch.cuda.get_device_properties(i)
@@ -88,12 +98,7 @@ def get_gpu_info() -> GPUInfo:
                 free_vram += free_mb
                 utilization = 0
                 temperature = 0
-                try:
-                    import pynvml
-                    # BUG-11 FIX: nvmlInit() is reference-counted; every call without a
-                    # matching nvmlShutdown() leaks an OS-level NVML handle in long-running
-                    # processes. Use try/finally to always release.
-                    pynvml.nvmlInit()
+                if _nvml_initialized:
                     try:
                         handle = pynvml.nvmlDeviceGetHandleByIndex(i)
                         util = pynvml.nvmlDeviceGetUtilizationRates(handle)
@@ -101,12 +106,8 @@ def get_gpu_info() -> GPUInfo:
                         temperature = pynvml.nvmlDeviceGetTemperature(
                             handle, pynvml.NVML_TEMPERATURE_GPU
                         )
-                    finally:
-                        pynvml.nvmlShutdown()   # BUG-11 FIX: always release NVML reference
-                except ImportError:
-                    pass
-                except Exception:
-                    pass
+                    except Exception:
+                        pass
                 devices.append(
                     {
                         "index": i,
@@ -121,6 +122,13 @@ def get_gpu_info() -> GPUInfo:
                 )
             except Exception as exc:
                 logger.warning("Error reading GPU %d info: %s", i, exc)
+
+        if _nvml_initialized:
+            try:
+                import pynvml
+                pynvml.nvmlShutdown()
+            except Exception:
+                pass
 
         return GPUInfo(
             available=True,

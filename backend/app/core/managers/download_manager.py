@@ -5,8 +5,10 @@ Weight storage contract: all downloads target the canonical per-model location
 No fallback to legacy third_party/weights/ for new downloads.
 """
 
+import asyncio
 import uuid
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -16,6 +18,8 @@ from sqlalchemy.orm import Session
 from app.core.download_manager.downloader import SmartDownloader
 from app.core.downloader.mirror_fallback import MirrorFallback
 from app.models.registry import DownloadQueue
+
+_DB_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="download-db")
 
 
 class DownloadManager:
@@ -97,6 +101,11 @@ class DownloadManager:
         
         return download_id
     
+    async def _run_db(self, fn):
+        """Run a sync DB operation in a thread pool executor."""
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(_DB_EXECUTOR, fn)
+
     async def execute_download(
         self,
         download_id: str,
@@ -104,7 +113,7 @@ class DownloadManager:
     ) -> bool:
         """Execute queued download with progress tracking."""
         
-        download = self.db.query(DownloadQueue).filter_by(id=download_id).first()
+        download = await self._run_db(lambda: self.db.query(DownloadQueue).filter_by(id=download_id).first())
         if not download:
             return False
         
@@ -112,7 +121,7 @@ class DownloadManager:
             # Update status to downloading
             download.status = "downloading"
             download.started_at = datetime.utcnow()
-            self.db.commit()
+            await self._run_db(self.db.commit)
             
             output_path = Path(download.file_path)
             output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -126,11 +135,10 @@ class DownloadManager:
                     download.bytes_downloaded = progress.downloaded
                     if progress.total_size and progress.total_size > 0:
                         download.total_bytes = progress.total_size
-                    self.db.commit()
+                    self._run_db(self.db.commit)
                 except Exception:
                     pass
                 if original_cb:
-                    import asyncio
                     try:
                         loop = asyncio.get_running_loop()
                         prog_dict = {
@@ -159,21 +167,21 @@ class DownloadManager:
                 else:
                     download.status = "failed"
                     download.error_message = "Max retries exceeded or checksum mismatch"
-                self.db.commit()
+                await self._run_db(self.db.commit)
                 return False
             
             # Mark as completed
             download.status = "completed"
             download.completed_at = datetime.utcnow()
             download.bytes_downloaded = download.total_bytes
-            self.db.commit()
+            await self._run_db(self.db.commit)
             
             return True
             
         except Exception as e:
             download.status = "failed"
             download.error_message = str(e)
-            self.db.commit()
+            await self._run_db(self.db.commit)
             return False
     
     async def pause_download(self, download_id: str) -> bool:

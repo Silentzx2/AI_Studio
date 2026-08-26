@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import logging
 import os
-import shutil
 from pathlib import Path
 from typing import Any
 
@@ -74,17 +73,6 @@ async def export_project(req: ExportRequest):
         job_id = uuid_mod.uuid4().hex[:12]
         out_dir = Path(settings.storage_local_path) / "exports" / job_id
         out_dir.mkdir(parents=True, exist_ok=True)
-
-        if req.format == "zip":
-            # Simple zip of the model and its textures
-            zip_name = f"project_{job_id}"
-            zip_path = Path(settings.storage_local_path) / f"{zip_name}.zip"
-            shutil.make_archive(str(zip_path).replace(".zip", ""), 'zip', model_path.parent)
-            return FileResponse(
-                path=zip_path,
-                filename=f"{zip_name}.zip",
-                media_type="application/zip"
-            )
 
         result = await process_model(
             input_path=str(model_path),

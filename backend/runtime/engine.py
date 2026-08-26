@@ -250,6 +250,8 @@ class RuntimeEngine:
                     None,
                     lambda: _instantiate_provider(name, device, low_vram=(resolved_mode == "low")),
                 )
+                # Safe: assignment happens inside `async with self._lock` after
+                # the executor future resolves, so no concurrent mutation is possible.
                 self._loaded[name] = provider
                 logger.info("Provider '%s' loaded (vram_mode=%s)", name, resolved_mode)
                 return provider

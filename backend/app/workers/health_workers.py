@@ -26,7 +26,7 @@ def run_health_check(model_id: str):
                 manager.run_model_health_check(model_id)
             )
             
-            logger.info(f"Health check for {model_id}: {result['status']}")
+            logger.info("Health check for %s: %s", model_id, result.get("status", "unknown"))
             return result
             
         finally:

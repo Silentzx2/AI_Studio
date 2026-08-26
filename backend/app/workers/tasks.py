@@ -423,19 +423,20 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             # 7. Blender post-processing
             blender_result = {}
             try:
-                # Parse render settings from prompt if in render mode
+                # Parse render settings from structured JSON metadata
                 render_res = None
                 render_samples = 128
-                if "render quality:" in job.prompt:
-                    # resolution: 1920x1080
-                    import re
-                    res_match = re.search(r"resolution: (\d+)x(\d+)", job.prompt)
-                    if res_match:
-                        render_res = [int(res_match.group(1)), int(res_match.group(2))]
-                    
-                    samples_match = re.search(r"samples: (\d+)", job.prompt)
-                    if samples_match:
-                        render_samples = int(samples_match.group(1))
+                meta_render = job.processing_metadata or {}
+                render_settings = meta_render.get("render_settings")
+                if render_settings and job.mode == "render":
+                    if isinstance(render_settings, str):
+                        render_settings = json.loads(render_settings)
+                    res = render_settings.get("resolution")
+                    if res and "x" in res:
+                        parts = res.split("x")
+                        render_res = [int(parts[0]), int(parts[1])]
+                    if render_settings.get("samples"):
+                        render_samples = int(render_settings["samples"])
 
                 from app.core.blender.pipeline import process_model
                 blender_result = await process_model(
@@ -466,25 +467,37 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             if detail_pass:
                 sync_publish(80, "postprocessing", "DetailGen3D refinement requested...", "info")
                 try:
-                    detail_provider = get_provider("detailgen3d", device=device or "cuda:0")
-                    if hasattr(detail_provider, "load"):
-                        await detail_provider.load()
-                    
-                    current_glb = blender_result.get("glb") or provider_result.model_path
-                    detailed_glb = await detail_provider.detail_mesh(
-                        coarse_glb_path=current_glb,
-                        image_path=request.reference_image_url,
-                        guidance=detail_guidance,
-                        progress_callback=progress_callback
-                    )
-                    
-                    if hasattr(detail_provider, "unload"):
-                        detail_provider.unload()
+                    from runtime.capability import get_model_vram_required
+                    from runtime.gpu import check_vram_sufficient
+                    detail_vram = get_model_vram_required("detailgen3d")
+                    if detail_vram > 0:
+                        vram_ok, vram_msg = check_vram_sufficient(detail_vram, device=device or "cuda:0")
+                        if not vram_ok:
+                            logger.warning("DetailGen3D skipped: %s", vram_msg)
+                            sync_publish(85, "postprocessing", f"DetailGen3D skipped: {vram_msg}", "warning")
+                            meta["detail_pass_error"] = vram_msg
+                            _update_job(session, job_id, processing_metadata=meta)
+                            detail_pass = False
+                    if detail_pass:
+                        detail_provider = get_provider("detailgen3d", device=device or "cuda:0")
+                        if hasattr(detail_provider, "load"):
+                            await detail_provider.load()
                         
-                    blender_result["glb"] = detailed_glb
-                    meta["model_url_detailed"] = to_url(detailed_glb)
-                    _update_job(session, job_id, processing_metadata=meta)
-                    sync_publish(90, "postprocessing", "DetailGen3D pass complete.", "info")
+                        current_glb = blender_result.get("glb") or provider_result.model_path
+                        detailed_glb = await detail_provider.detail_mesh(
+                            coarse_glb_path=current_glb,
+                            image_path=request.reference_image_url,
+                            guidance=detail_guidance,
+                            progress_callback=progress_callback
+                        )
+                        
+                        if hasattr(detail_provider, "unload"):
+                            detail_provider.unload()
+                            
+                        blender_result["glb"] = detailed_glb
+                        meta["model_url_detailed"] = to_url(detailed_glb)
+                        _update_job(session, job_id, processing_metadata=meta)
+                        sync_publish(90, "postprocessing", "DetailGen3D pass complete.", "info")
                 except Exception as ex_det:
                     logger.warning("DetailGen3D pass failed: %s", ex_det)
 

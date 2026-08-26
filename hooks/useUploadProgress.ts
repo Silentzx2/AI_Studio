@@ -45,10 +45,6 @@ export function useUploadProgress() {
       startUpload(file.name, file.size);
       const reader = new FileReader();
 
-      // Simulate chunked progress for large files
-      const chunkSize = 64 * 1024; // 64KB chunks
-      let offset = 0;
-
       reader.onprogress = (e) => {
         if (e.lengthComputable) {
           updateProgress(e.loaded);

@@ -10,9 +10,27 @@ from app.workers.installation_workers import uninstall_model as uninstall_task
 router = APIRouter(prefix="/models", tags=["models"])
 
 import os
-models_dir = os.environ.get("MODELS_DIR", "./storage/models" if os.path.exists("/app") else "./storage/models")
-installer = PluginInstaller(models_dir)
-health_manager = HealthManager(models_dir)
+_installer = None
+_health_manager = None
+
+
+def _get_models_dir() -> str:
+    return os.environ.get("MODELS_DIR", "./storage/models" if os.path.exists("/app") else "./storage/models")
+
+
+def __getattr__(name: str):
+    global _installer, _health_manager
+    if name == "models_dir":
+        return _get_models_dir()
+    if name == "installer":
+        if _installer is None:
+            _installer = PluginInstaller(_get_models_dir())
+        return _installer
+    if name == "health_manager":
+        if _health_manager is None:
+            _health_manager = HealthManager(_get_models_dir())
+        return _health_manager
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 @router.get("")

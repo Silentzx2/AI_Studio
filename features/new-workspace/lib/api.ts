@@ -1,4 +1,5 @@
 import type { SystemStats } from '@/features/new-workspace/types';
+import { apiClient as baseApiClient } from '@/services/apiClient';
 
 export interface HistoryItem {
   prompt?: [number, string, Record<string, unknown>, Record<string, unknown>, string[]];
@@ -175,7 +176,27 @@ class ApiClient {
   }
 }
 
-export const apiClient = new ApiClient();
+// Workspace-specific apiClient: extends the shared services/apiClient instance
+// with event-emitting methods (on/off) and workspace helpers.
+// Object.assign mutates baseApiClient in place, so both this module and
+// services/apiClient.ts export the SAME instance — no duplicate clients.
+const wsApiClient = new ApiClient();
+export const apiClient = Object.assign(baseApiClient, {
+  on: wsApiClient.on.bind(wsApiClient),
+  off: wsApiClient.off.bind(wsApiClient),
+  getSystemStats: wsApiClient.getSystemStats.bind(wsApiClient),
+  getQueue: wsApiClient.getQueue.bind(wsApiClient),
+  getHistory: wsApiClient.getHistory.bind(wsApiClient),
+  deleteHistory: wsApiClient.deleteHistory.bind(wsApiClient),
+  cancelExecution: wsApiClient.cancelExecution.bind(wsApiClient),
+  emitProgress: wsApiClient.emitProgress.bind(wsApiClient),
+  emitExecuting: wsApiClient.emitExecuting.bind(wsApiClient),
+  emitExecuted: wsApiClient.emitExecuted.bind(wsApiClient),
+  emitError: wsApiClient.emitError.bind(wsApiClient),
+  connectWebSocket: wsApiClient.connectWebSocket.bind(wsApiClient),
+  disconnectWebSocket: wsApiClient.disconnectWebSocket.bind(wsApiClient),
+  getBaseUrl: wsApiClient.getBaseUrl.bind(wsApiClient),
+});
 
 export async function fetchSystemStats(): Promise<SystemStats> {
   const stats = await apiClient.getSystemStats();

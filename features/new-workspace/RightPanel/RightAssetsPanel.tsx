@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { apiClient } from '@/services/apiClient';
 import { 
   Plus, 
@@ -47,6 +47,10 @@ export const RightAssetsPanel: React.FC = () => {
   const MAX_MODEL_SIZE = 150 * 1024 * 1024; // 150MB
   const ACCEPTED_MODEL_EXTS = ['glb', 'gltf', 'obj', 'fbx', 'stl', 'ply'];
   const ITEMS_PER_PAGE = 8;
+
+  useEffect(() => {
+    setActivePage(1);
+  }, [assetFilter, showFavoritesOnly]);
 
   const processModelFile = useCallback(async (file: File) => {
     setUploadError(null);

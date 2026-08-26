@@ -30,7 +30,10 @@ export async function GET(
   const targetUrl = `${getBackendUrl()}/static/${fullPath}${request.nextUrl.search}`;
 
   try {
-    const response = await fetch(targetUrl, { method: 'GET' });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const response = await fetch(targetUrl, { method: 'GET', signal: controller.signal });
+    clearTimeout(timeoutId);
     return proxyResponse(response);
   } catch (error) {
     return NextResponse.json(

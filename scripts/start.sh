@@ -371,7 +371,7 @@ step "4/6 Starting Backend API (http://localhost:8000)..."
         --host 0.0.0.0 \
         --port 8000 \
         --log-level info \
-        > "$PROJECT_ROOT/logs/api.log" 2>&1 &
+        >> "$PROJECT_ROOT/logs/api.log" 2>&1 &
     write_pid "$API_PID_FILE" $!
 )
 log "Backend API started (PID: $(cat $API_PID_FILE))"

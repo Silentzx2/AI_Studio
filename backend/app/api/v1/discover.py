@@ -36,7 +36,7 @@ async def discover_models(
             }
     
     # Query each provider
-    for provider_name in providers_to_query:
+    for provider_idx, provider_name in enumerate(providers_to_query):
         try:
             provider_obj = ProviderRegistry.get_provider(provider_name)
             
@@ -66,8 +66,9 @@ async def discover_models(
             for model in provider_models:
                 model["provider"] = provider_name
             
-            # Distribute limit across providers
-            per_provider_limit = max(1, limit // len(providers_to_query))
+            # Distribute limit across providers (remainder to first providers)
+            base, extra = divmod(limit, len(providers_to_query))
+            per_provider_limit = base + (1 if provider_idx < extra else 0)
             models.extend(provider_models[:per_provider_limit])
             
         except Exception as e:

@@ -1,9 +1,12 @@
 """CivitAI Download Provider for community models"""
+import logging
 from typing import Any
 
 import aiohttp
 
 from .base import DownloadProvider
+
+logger = logging.getLogger(__name__)
 
 
 class CivitAIProvider(DownloadProvider):
@@ -41,7 +44,7 @@ class CivitAIProvider(DownloadProvider):
                             if self._check_license(model):
                                 models.append(self._parse_model(model))
         except Exception as e:
-            print(f"Error listing CivitAI models: {e}")
+            logger.error("Error listing CivitAI models: %s", e)
         
         return models
     
@@ -71,7 +74,7 @@ class CivitAIProvider(DownloadProvider):
                                 if items and self._check_license(items[0]):
                                     return self._parse_model(items[0])
         except Exception as e:
-            print(f"Error getting CivitAI model {identifier}: {e}")
+            logger.error("Error getting CivitAI model %s: %s", identifier, e)
         
         return {}
     
@@ -99,7 +102,7 @@ class CivitAIProvider(DownloadProvider):
                                 "fp": file_info.get("fp")  # Precision (fp16, fp32, etc)
                             })
         except Exception as e:
-            print(f"Error resolving CivitAI URLs: {e}")
+            logger.error("Error resolving CivitAI URLs: %s", e)
         
         return urls
     
