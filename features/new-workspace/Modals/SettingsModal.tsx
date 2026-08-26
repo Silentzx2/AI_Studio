@@ -17,7 +17,10 @@ export const SettingsModal: React.FC = () => {
     refreshSystemStats
   } = useWorkspace();
 
-  const [host, setHost] = useState(apiClient.getBaseUrl());
+  const [host, setHost] = useState(() => {
+    // Load saved host from localStorage or use default
+    try { return localStorage.getItem('ai3d_api_host') || apiClient.getBaseUrl(); } catch { return apiClient.getBaseUrl(); }
+  });
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; msg: string } | null>(null);
   const [nodeCount, setNodeCount] = useState<number | null>(null);
@@ -42,7 +45,12 @@ export const SettingsModal: React.FC = () => {
 
   if (!isSettingsOpen) return null;
 
-  const handleTestConnection = async () => {
+  const handleSave = () => {
+    // Persist host URL to localStorage and update apiClient
+    try { localStorage.setItem('ai3d_api_host', host); } catch { /* ignore */ }
+    apiClient.setBaseUrl(host);
+    setIsSettingsOpen(false);
+  };
     setTesting(true);
     setTestResult(null);
     const stats = await apiClient.getSystemStats();
@@ -135,13 +143,13 @@ export const SettingsModal: React.FC = () => {
             onClick={() => setIsSettingsOpen(false)}
             className="px-4 py-2 rounded-xl bg-[#222631] text-[#cbd5e1] hover:bg-[#2b303e] font-medium text-xs transition-colors"
           >
-            Close
+            Cancel
           </button>
           <button
-            onClick={() => setIsSettingsOpen(false)}
+            onClick={handleSave}
             className="px-5 py-2 rounded-xl bg-[#f5c518] hover:bg-[#eab308] text-[#111216] font-bold text-xs shadow-md shadow-[#f5c518]/20 transition-all"
           >
-            Close
+            Save
           </button>
         </div>
       </div>
