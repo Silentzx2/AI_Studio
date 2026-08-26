@@ -1,6 +1,6 @@
 # AI 3D Studio - Setup & Installation Guide
 
-> **Version**: 4.1.2 (Security & Stability Fixes)  
+> **Version**: 4.1.3 (Comprehensive Bug Audit & Fixes)  
 > **Difficulty**: Intermediate  
 > **Estimated Time**: 15-30 minutes (runtime only; weights are on-demand)
 

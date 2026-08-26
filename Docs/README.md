@@ -15,7 +15,7 @@
 
 <p align="center">
 
-  <img src="https://img.shields.io/badge/Version-4.1.0-8A2BE2?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Version-4.1.3-8A2BE2?style=for-the-badge">
 
   <img src="https://img.shields.io/badge/Pipeline-V2-Complete-success?style=for-the-badge">
 
@@ -1073,5 +1073,5 @@ See [Pipeline Status Document](docs/pipeline-status.md) for detailed breakdown.
 ---
 
 <p align="center">
-  <sub>Last Updated: August 26, 2026 | Version 4.1.2 | Security & Stability Fixes</sub>
+  <sub>Last Updated: August 26, 2026 | Version 4.1.3 | Comprehensive Bug Audit & Fixes</sub>
 </p>

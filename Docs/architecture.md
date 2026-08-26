@@ -336,7 +336,7 @@ The frontend uses a modern persistent workspace: ONE global 3D viewport (`MeshVi
 - **Upload timeout**: 60-second AbortController timeout on file uploads
 - **HF token**: Stored in `.hf_token` file (should be moved to secrets manager in production)
 
-#### Frontend Architecture (v4.1.2)
+#### Frontend Architecture (v4.1.3)
 - **Single WorkspaceProvider**: Hoisted to root layout (`app/layout.tsx`) for state persistence across navigation
 - **Three.js cleanup**: Proper disposal of geometries/materials on MeshViewer unmount
 - **Camera framing**: Automatic fit-to-screen after model load
