@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
+import os
 import uuid
 from pathlib import Path
 
@@ -224,7 +225,7 @@ async def upload_model(file: UploadFile = File(...)):  # noqa: C901
     # Return URL
     url = f"/static/models/{unique_name}"
 
-    logger.info(f"Uploaded model: {file.filename} -> {unique_name} ({len(contents)} bytes)")
+    logger.info(f"Uploaded model: {os.path.basename(file.filename or '')} -> {unique_name} ({len(contents)} bytes)")
 
     return success({
         "url": url,

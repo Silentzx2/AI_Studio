@@ -208,7 +208,7 @@ class RuntimeEngine:
                 req = get_model_vram_required(candidate)
                 fits = req == 0 or free_mb >= req
             if fits:
-                logger.info("Fallback to '%s' (mode=%s)", candidate, mode)
+                logger.warning("Fallback to '%s' (mode=%s)", candidate, mode)
                 return candidate
         # BUG-10 FIX: was returning `requested` here even though we just determined it exceeds
         # available VRAM — that caused an OOM crash deep inside model loading instead of a

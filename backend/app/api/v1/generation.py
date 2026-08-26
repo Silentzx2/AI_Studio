@@ -106,6 +106,7 @@ async def estimate_cost(quality: str = "standard", generate_texture: bool = True
     })
 
 
+# TODO: Add rate limiting middleware
 @router.post("")
 async def create_generation(req: GenerationRequest):
     """Submit a new 3D generation job."""
