@@ -34,7 +34,8 @@ function normalizeApiUrl(value: string | undefined): string {
   return trimmed.replace(/\/+$/, '');
 }
 
-export const API_URL = normalizeApiUrl(process.env.NEXT_PUBLIC_API_URL);
+// Base URL for API calls - mutable for runtime updates
+let API_URL = normalizeApiUrl(process.env.NEXT_PUBLIC_API_URL);
 
 async function parseErrorMessage(res: Response): Promise<string> {
   const contentType = res.headers.get('content-type') || '';
@@ -278,8 +279,6 @@ export const apiClient = {
   // Get/set base URL for API calls
   getBaseUrl: () => API_URL,
   setBaseUrl: (url: string) => {
-    // Update the module-level API_URL (used by all subsequent requests)
-    // Note: This only works in the browser; server-side uses env vars
-    (API_URL as string) = url;
+    API_URL = normalizeApiUrl(url || undefined);
   },
 };

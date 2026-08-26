@@ -45,6 +45,7 @@ export const AnimatePanel: React.FC = () => {
   // Animation playback: advance frames when playing
   React.useEffect(() => {
     if (!isPlaying) return;
+    const intervalMs = 1000 / (fps * (animateSettings.speed || 1));
     const interval = setInterval(() => {
       setCurrentFrame(prev => {
         const total = totalFramesRef.current;
@@ -55,9 +56,9 @@ export const AnimatePanel: React.FC = () => {
         }
         return prev + 1;
       });
-    }, 1000 / fps);
+    }, intervalMs);
     return () => clearInterval(interval);
-  }, [isPlaying, fps, setCurrentFrame, setIsPlaying]);
+  }, [isPlaying, fps, animateSettings.speed, setCurrentFrame, setIsPlaying]);
 
   return (
     <div id="panel-animate" className="flex flex-col h-full overflow-y-auto px-4 py-3.5 space-y-4 text-xs select-none">

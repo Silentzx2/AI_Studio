@@ -72,6 +72,17 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const gridHelperRef = useRef<THREE.GridHelper | null>(null);
   const animFrameIdRef = useRef<number | null>(null);
   const isTurntableRef = useRef(isTurntable);
+  const blobUrlRef = useRef<string | null>(null);
+
+  // Cleanup blob URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
+      }
+    };
+  }, []);
 
   // Keep turntable ref in sync with prop
   useEffect(() => {
@@ -481,8 +492,14 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         format: ext === 'OBJ' ? 'OBJ' : ext === 'PLY' ? 'PLY' : 'GLB',
         dateCreated: new Date().toISOString().split('T')[0],
         tags: ['Local Import', '3D Model', ext],
-        source: { filename: file.name, subfolder: '', type: 'input', localUrl: URL.createObjectURL(file) }
+        source: { filename: file.name, subfolder: '', type: 'input', viewUrl: URL.createObjectURL(file) }
       };
+
+      // Revoke old blob URL if exists
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+      }
+      blobUrlRef.current = customAsset.source.viewUrl;
 
       addAsset(customAsset);
       setCurrentAsset(customAsset);

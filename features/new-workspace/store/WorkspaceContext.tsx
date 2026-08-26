@@ -349,10 +349,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
 
   useEffect(() => {
-    void refreshSystemStats();
-    void refreshHistory();
+    let cancelled = false;
     let timeoutId: ReturnType<typeof setTimeout>;
     const poll = () => {
+      if (cancelled) return;
       if (typeof document === 'undefined' || !document.hidden) {
         void refreshSystemStats();
         void refreshHistory();
@@ -360,13 +360,16 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       timeoutId = setTimeout(poll, systemStatsStatusRef.current === 'offline' ? 60000 : 30000);
     };
     timeoutId = setTimeout(poll, systemStatsStatusRef.current === 'offline' ? 60000 : 30000);
-    return () => clearTimeout(timeoutId);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
   }, [refreshSystemStats, refreshHistory]);
 
   useEffect(() => {
     const onProgress = (data: unknown) => {
       const d = data as { value?: number; max?: number; node?: string };
-      const progress = d.max ? Math.round((d.value! / d.max) * 100) : 0;
+      const progress = d.max > 0 ? Math.min(100, Math.round(((d.value ?? 0) / d.max) * 100)) : 0;
       setExecutionProgress(progress);
       setActiveTask(prev => prev ? { ...prev, status: 'running', progress, activeNode: d.node ?? prev.activeNode, currentStep: d.node ? `Executing ${d.node}` : prev.currentStep } : prev);
     };
@@ -428,7 +431,13 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const deleteAsset = useCallback((id: string) => {
     setAssets(prev => {
       const next = prev.filter(a => a.id !== id);
-      if (id === selectedAssetIdRef.current && next.length > 0) setSelectedAssetId(next[0].id);
+      if (id === selectedAssetIdRef.current) {
+        if (next.length > 0) {
+          setSelectedAssetId(next[0].id);
+        } else {
+          setSelectedAssetId(null);
+        }
+      }
       return next;
     });
   }, []);
@@ -678,7 +687,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     else if (nav === 'settings') router.push('/settings');
   }, [router]);
 
-  const value = {
+  const value = React.useMemo(() => ({
     activeTool, setActiveTool, mainNav, setMainNav,
     assets, selectedAssetId, currentAsset, selectAsset, updateAssetProperties, updateMaterialConfig, deleteAsset, addAsset,
     shadingMode, setShadingMode, showWireframe, setShowWireframe, showGrid, setShowGrid, showBones, setShowBones,
@@ -701,7 +710,23 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     generate3DModel, generateTextTo3D, generateImageTo3D, runModelGeneration: generate3DModel,
     runRemeshGeneration, runTextureGeneration, runAnimateGeneration, runRiggingGeneration, runSegmentationGeneration,
     queueWorkflow, navigateToTool, navigateToMain, navigateToMainNav: navigateToMain,
-  };
+  }), [
+    activeTool, mainNav, assets, selectedAssetId, currentAsset, shadingMode, showWireframe, showGrid, showBones,
+    isTurntable, activeTransformTool, viewportResetTrigger, activeRightTab, isLeftPanelOpen, isRightPanelOpen,
+    assetFilter, systemStats, isSettingsOpen, isExportModalOpen, isDccBridgeOpen, refreshSystemStats,
+    activeTask, isExecuting, executionProgress, executionStep, generationSettings, remeshSettings,
+    textureSettings, animateSettings, riggingSettings, segmentationSettings, bones, selectedBoneId,
+    currentFrame, isPlaying, totalFrames, fps, tracks, selectAsset, updateAssetProperties,
+    updateMaterialConfig, deleteAsset, addAsset, setShadingMode, setShowWireframe, setShowGrid, setShowBones,
+    setIsTurntable, setActiveTransformTool, resetCamera, fitToScreen, setActiveRightTab,
+    setIsLeftPanelOpen, setIsRightPanelOpen, setCurrentAsset, setAssetFilter, duplicateAsset,
+    setIsSettingsOpen, setIsExportModalOpen, setIsDccBridgeOpen, dismissActiveTask, cancelExecution,
+    setGenerationSettings, setRemeshSettings, setTextureSettings, setAnimateSettings, setRiggingSettings,
+    setSegmentationSettings, setSelectedBoneId, updateBone, setCurrentFrame, setIsPlaying,
+    generate3DModel, generateTextTo3D, generateImageTo3D, runRemeshGeneration, runTextureGeneration,
+    runAnimateGeneration, runRiggingGeneration, runSegmentationGeneration, queueWorkflow,
+    navigateToTool, navigateToMain,
+  ]);
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 };
