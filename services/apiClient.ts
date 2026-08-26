@@ -254,4 +254,12 @@ export const apiClient = {
       cache.clear();
     }
   },
+
+  // Get/set base URL for API calls
+  getBaseUrl: () => API_URL,
+  setBaseUrl: (url: string) => {
+    // Update the module-level API_URL (used by all subsequent requests)
+    // Note: This only works in the browser; server-side uses env vars
+    (API_URL as string) = url;
+  },
 };

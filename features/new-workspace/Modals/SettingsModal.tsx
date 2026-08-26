@@ -51,6 +51,8 @@ export const SettingsModal: React.FC = () => {
     apiClient.setBaseUrl(host);
     setIsSettingsOpen(false);
   };
+
+  const handleTestConnection = async () => {
     setTesting(true);
     setTestResult(null);
     const stats = await apiClient.getSystemStats();
