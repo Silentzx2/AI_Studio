@@ -61,7 +61,7 @@ export const GeneratePanel: React.FC = () => {
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const { progress: uploadProgress, startUpload, finishUpload, failUpload } = useUploadProgress();
+  const { progress: uploadProgress, startUpload, updateProgress, finishUpload, failUpload } = useUploadProgress();
   
   // Toggles & Settings
   const [ultraMeshQuality, setUltraMeshQuality] = useState(true);
@@ -119,7 +119,11 @@ export const GeneratePanel: React.FC = () => {
 
     try {
       startUpload(file.name, file.size);
-      const res = await apiClient.uploadFile<{ data: { url: string } }>('/api/v1/upload/image', file);
+      const res = await apiClient.uploadFile<{ data: { url: string } }>(
+        '/api/v1/upload/image',
+        file,
+        (loaded, total) => updateProgress(loaded)
+      );
       finishUpload();
       setGenerationSettings(prev => ({
         ...prev,

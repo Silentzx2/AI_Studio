@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { apiClient } from '@/services/apiClient';
+import { apiClient, API_URL } from '@/services/apiClient';
 import { 
   Plus, 
   MoreVertical, 
@@ -70,25 +70,35 @@ export const RightAssetsPanel: React.FC = () => {
     startUpload(file.name, file.size);
 
     try {
-      // Upload file to backend
+      // Upload file to backend with real-time progress
       const result = await apiClient.uploadFile<{ url: string; thumbnail_url?: string; filename: string; size: number }>(
         '/api/v1/upload/model',
-        file
+        file,
+        (loaded, total) => updateProgress(loaded)
       );
 
       finishUpload();
+
+      // Resolve relative URLs to absolute
+      const resolveUrl = (url: string | undefined) => {
+        if (!url) return '';
+        if (url.startsWith('/static/') && API_URL) {
+          return `${API_URL}${url}`;
+        }
+        return url;
+      };
 
       const newAsset: ModelAsset = {
         id: `user-upload-${Date.now()}`,
         name: file.name.replace(/\.[^/.]+$/, ""),
         category: 'mesh',
         meshType: 'custom',
-        thumbnail: result?.thumbnail_url || '',
+        thumbnail: resolveUrl(result?.thumbnail_url),
         faces: 0,
         vertices: 0,
         triangles: 0,
         statsAvailable: false,
-        source: { filename: file.name, subfolder: '', type: 'input', localUrl: result?.url || '' },
+        source: { filename: file.name, subfolder: '', type: 'input', viewUrl: resolveUrl(result?.url) },
         topology: 'Triangle',
         format: (() => {
           if (ext === 'obj') return 'OBJ';

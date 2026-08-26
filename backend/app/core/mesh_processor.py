@@ -174,6 +174,21 @@ def validate_glb(model_path: str) -> dict:
     size = path.stat().st_size
     if size == 0:
         return {"valid": False, "reason": "empty file (0 bytes)", "model_path": model_path}
+
+    # Check GLB magic number directly for clearer error messages
+    # GLB files must start with the magic bytes "glTF" (0x46546C67)
+    try:
+        with open(path, 'rb') as f:
+            magic = f.read(4)
+            if magic != b'glTF':
+                return {
+                    "valid": False,
+                    "reason": f"invalid GLB: incorrect header (expected b'glTF', got {magic!r}). File may not be a valid GLB.",
+                    "model_path": model_path
+                }
+    except Exception as exc:
+        return {"valid": False, "reason": f"cannot read file: {exc}", "model_path": model_path}
+
     trimesh = _try_import_trimesh()
     if trimesh is None:
         return {"valid": True, "model_path": model_path}  # cannot verify — don't block

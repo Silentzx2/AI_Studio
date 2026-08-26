@@ -167,32 +167,52 @@ export const apiClient = {
     requestWithCircuitBreaker<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
 
   // uploadFile: Omit Content-Type header so browser sets multipart boundary
-  uploadFile: async <T>(path: string, file: File): Promise<T> => {
-    const formData = new FormData();
-    formData.append('file', file);
+  // Uses XMLHttpRequest for real-time upload progress support
+  uploadFile: <T>(
+    path: string,
+    file: File,
+    onProgress?: (loaded: number, total: number) => void
+  ): Promise<T> => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const formData = new FormData();
+      formData.append('file', file);
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
-
-    try {
-      const res = await fetch(`${API_URL}${path}`, {
-        method: 'POST',
-        body: formData,
-        signal: controller.signal,
-      });
-
-      if (!res.ok) throw new Error(await parseErrorMessage(res));
-
-      const text = await res.text();
-      if (!text) return {} as T;
-      const json = JSON.parse(text);
-      if (json?.success === false) {
-        throw new Error(json?.message || 'Upload failed');
+      // Progress tracking
+      if (onProgress) {
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            onProgress(e.loaded, e.total);
+          }
+        };
       }
-      return json;
-    } finally {
-      clearTimeout(timeoutId);
-    }
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const text = xhr.responseText;
+            if (!text) return resolve({} as T);
+            const json = JSON.parse(text);
+            if (json?.success === false) {
+              return reject(new Error(json.message || 'Upload failed'));
+            }
+            const result = json?.data ?? json;
+            return resolve(result);
+          } catch (err) {
+            return reject(new Error('Invalid JSON response'));
+          }
+        } else {
+          reject(new Error(`HTTP ${xhr.status}: ${xhr.statusText || 'Upload failed'}`));
+        }
+      };
+
+      xhr.onerror = () => reject(new Error('Upload failed - network error'));
+      xhr.ontimeout = () => reject(new Error('Upload timeout - file may be too large'));
+
+      xhr.open('POST', `${API_URL}${path}`);
+      xhr.timeout = 120000; // 2 minutes for large files
+      xhr.send(formData);
+    });
   },
 
   // streamEvents: SSE via API proxy route
