@@ -334,7 +334,13 @@ def _check_imports(venv_python: Path, packages: list[str]) -> list[PreflightChec
     """Check that each package can be imported in the model venv."""
     results = []
     for pkg in packages:
-        code = f"import {pkg}; print('ok')"
+        # Extract package name from git+ URLs
+        import_name = pkg
+        if import_name.startswith("git+"):
+            import_name = import_name.split("/")[-1].replace(".git", "")
+        # Normalize package name: flash-attn -> flash_attn
+        import_name = import_name.replace("-", "_")
+        code = f"import {import_name}; print('ok')"
         code_r, output = _run_in_venv(venv_python, code, timeout_sec=30)
         ok = code_r == 0 and "ok" in output
         results.append(PreflightCheckResult(
@@ -385,8 +391,14 @@ def _check_native_extensions(venv_python: Path, extensions: list[str]) -> list[P
     """Check that native CUDA extensions can be imported."""
     results = []
     for ext in extensions:
+        # Extract package name from git+ URLs
+        # e.g., "git+https://github.com/JeffreyXiang/diffoctreerast.git" -> "diffoctreerast"
+        import_name = ext
+        if import_name.startswith("git+"):
+            # Extract repo name from URL
+            import_name = import_name.split("/")[-1].replace(".git", "")
         # Normalize package name: flash-attn -> flash_attn (Python module naming)
-        import_name = ext.replace("-", "_")
+        import_name = import_name.replace("-", "_")
         code = f"import {import_name}; print('ok')"
         code_r, output = _run_in_venv(venv_python, code, timeout_sec=30)
         ok = code_r == 0 and "ok" in output
