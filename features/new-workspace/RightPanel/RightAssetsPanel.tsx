@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
+import { apiClient } from '@/services/apiClient';
 import { 
   Plus, 
   MoreVertical, 
@@ -61,36 +62,47 @@ export const RightAssetsPanel: React.FC = () => {
       return;
     }
 
-    // Show progress while processing
+    // Show progress while uploading
     startUpload(file.name, file.size);
-    updateProgress(file.size);
-    finishUpload();
 
-    const newAsset: ModelAsset = {
-      id: `user-upload-${Date.now()}`,
-      name: file.name.replace(/\.[^/.]+$/, ""),
-      category: 'mesh',
-      meshType: 'custom',
-      thumbnail: '',
-      faces: 0,
-      vertices: 0,
-      triangles: 0,
-      statsAvailable: false,
-      source: { filename: file.name, subfolder: '', type: 'input', localUrl: URL.createObjectURL(file) },
-      topology: 'Triangle',
-      format: (() => {
-        if (ext === 'obj') return 'OBJ';
-        if (ext === 'ply') return 'PLY';
-        if (ext === 'glb' || ext === 'gltf') return 'GLB';
-        if (ext === 'fbx') return 'FBX';
-        if (ext === 'stl') return 'STL';
-        return 'FILE';
-      })(),
-      dateCreated: '',
-      tags: ['Custom', 'User-Upload', 'Mesh']
-    };
-    addAsset(newAsset);
-    setCurrentAsset(newAsset);
+    try {
+      // Upload file to backend
+      const result = await apiClient.uploadFile<{ url: string; thumbnail_url?: string; filename: string; size: number }>(
+        '/api/v1/upload/model',
+        file
+      );
+
+      finishUpload();
+
+      const newAsset: ModelAsset = {
+        id: `user-upload-${Date.now()}`,
+        name: file.name.replace(/\.[^/.]+$/, ""),
+        category: 'mesh',
+        meshType: 'custom',
+        thumbnail: result?.thumbnail_url || '',
+        faces: 0,
+        vertices: 0,
+        triangles: 0,
+        statsAvailable: false,
+        source: { filename: file.name, subfolder: '', type: 'input', localUrl: result?.url || '' },
+        topology: 'Triangle',
+        format: (() => {
+          if (ext === 'obj') return 'OBJ';
+          if (ext === 'ply') return 'PLY';
+          if (ext === 'glb' || ext === 'gltf') return 'GLB';
+          if (ext === 'fbx') return 'FBX';
+          if (ext === 'stl') return 'STL';
+          return 'FILE';
+        })(),
+        dateCreated: '',
+        tags: ['Custom', 'User-Upload', 'Mesh']
+      };
+      addAsset(newAsset);
+      setCurrentAsset(newAsset);
+    } catch (err) {
+      finishUpload();
+      setUploadError(err instanceof Error ? err.message : 'Failed to upload file.');
+    }
   }, [addAsset, setCurrentAsset]);
 
   const handleModelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
