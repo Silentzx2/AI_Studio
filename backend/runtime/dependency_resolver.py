@@ -112,13 +112,37 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^(git\+)?.*torchmcubes"),
     },
-    "diso": {
-        # diso has no prebuilt wheel — source build only
-        "wheel_available": False,
+    "chumpy": {
+        # chumpy: use chumpy-fixed from PyPI (PEP 517 compatible)
+        "wheel_available": True,
         "index": None,
         "python": ["3.10", "3.11", "3.12"],
         "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^diso($|==|>=|<=|!=|~=)"),
+        "pattern": re.compile(r"^chumpy(-fixed)?($|==|>=|<=|!=|~=)"),
+    },
+    "torch-scatter": {
+        # torch-scatter: prebuilt wheels from PyG index (CPU/CUDA)
+        "wheel_available": True,
+        "index": "https://data.pyg.org/whl/torch-{torch_ver}+{cuda_ver}.html",
+        "python": ["3.10", "3.11", "3.12"],
+        "cuda": _CUDA12_ALL,
+        "pattern": re.compile(r"^torch[-_]scatter($|==|>=|<=|!=|~=)"),
+    },
+    "torch-cluster": {
+        # torch-cluster: prebuilt wheels from PyG index (CPU/CUDA)
+        "wheel_available": True,
+        "index": "https://data.pyg.org/whl/torch-{torch_ver}+{cuda_ver}.html",
+        "python": ["3.10", "3.11", "3.12"],
+        "cuda": _CUDA12_ALL,
+        "pattern": re.compile(r"^torch[-_]cluster($|==|>=|<=|!=|~=)"),
+    },
+    "pytorch3d": {
+        # pytorch3d: prebuilt wheels from third-party
+        "wheel_available": True,
+        "index": "https://miropsota.github.io/torch_packages_builder",
+        "python": ["3.10", "3.11", "3.12"],
+        "cuda": _CUDA12_ALL,
+        "pattern": re.compile(r"^pytorch3d($|==|>=|<=|!=|~=)"),
     },
     "spconv": {
         # spconv-cu12 wheel available on PyPI
@@ -182,9 +206,10 @@ NATIVE_PKG_PATTERNS: list[re.Pattern] = [
     re.compile(r"^pytorch3d($|==)"),
     re.compile(r"^spconv($|==)"),
     re.compile(r"^cupy[-_]cuda12x($|==)"),
-    re.compile(r"^nvdiffrast($|==)"),
-    re.compile(r"^diffoctreerast($|==)"),
+    re.compile(r"^(git\+)?.*nvdiffrast"),
+    re.compile(r"^(git\+)?.*diffoctreerast"),
     re.compile(r"^bpy($|==)"),
+    re.compile(r"^chumpy($|==)"),
 ]
 
 # Py3.12 incompatible pins — these specific versions have no cp312 wheel.
