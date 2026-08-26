@@ -612,7 +612,21 @@ repaired = 0
 skipped = 0
 failed = 0
 
+# Use user-selected repos if set via interactive prompt
+import _os
+_selected = _os.environ.get("COLAB_SELECTED_REPOS", "").strip()
+if _selected:
+    _selected_repos = set(_selected.split(","))
+    print(f"  [USER] Installing selected models: {', '.join(sorted(_selected_repos))}")
+else:
+    _selected_repos = None
+
 for repo_name in sorted(REPOS.keys()):
+    # Skip repos not selected by user
+    if _selected_repos is not None and repo_name not in _selected_repos:
+        print(f"  [SKIP] {repo_name}: not selected by user")
+        skipped += 1
+        continue
     repo_ok, repo_reason = validate_repo(repo_name)
     venv_ok, venv_reason = validate_venv(repo_name)
     deps_ok, deps_missing = validate_deps(repo_name)
