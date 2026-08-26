@@ -222,7 +222,6 @@ PY312_PIN_REWRITES: list[tuple[re.Pattern, str | None]] = [
     (re.compile(r"^open3d==0\.18\.0$"), "open3d==0.19.0"),
     (re.compile(r"^numba==0\.53\.1$"), "numba>=0.60"),
     (re.compile(r"^llvmlite==0\.36\.0$"), "llvmlite>=0.43"),
-    (re.compile(r"^flash[-_]attn($|==|>=|<=|!=|~=).*$"), None),
     (re.compile(r"^bpy==.*$"), None),
 ]
 
@@ -234,6 +233,10 @@ def _py_ver_str() -> str:
 
 def _cuda_ver_short() -> str:
     """Return CUDA version as '121' for CUDA 12.1, or 'cpu'."""
+    import os as _os
+    # Testing mode: return fake CUDA version
+    if _os.environ.get("CUDA_FORCE_PRESENT") == "1":
+        return _os.environ.get("CUDA_FORCE_VERSION", "124")
     try:
         import torch
         if torch.cuda.is_available():
@@ -247,7 +250,14 @@ def _cuda_ver_short() -> str:
 
 
 def _cuda_available() -> bool:
-    """Check if CUDA is available (GPU driver present)."""
+    """Check if CUDA is available (GPU driver present).
+
+    For testing: set CUDA_FORCE_PRESENT=1 to simulate CUDA presence.
+    """
+    # Testing mode: force CUDA present
+    import os as _os
+    if _os.environ.get("CUDA_FORCE_PRESENT") == "1":
+        return True
     if os.environ.get("CUDA_HOME") or os.environ.get("CUDA_PATH"):
         return True
     if shutil.which("nvcc"):
@@ -572,9 +582,12 @@ def install_resolved_deps(
             # Wheel available — install it directly
             _log(f"Wheel found for {dep.name} (source: {wheel_source})")
             install_args = ["pip", "install", "--python", str(venv_python), dep.spec]
-            if wheel_source != "pypi" and wheel_source.startswith("http"):
-                install_args += ["--index-url", wheel_source, "--extra-index-url", "https://pypi.org/simple"]
-            elif wheel_source != "pypi":
+            if wheel_source == "pypi":
+                pass  # Install from PyPI (default)
+            elif wheel_source.startswith("http"):
+                # Use --find-links for all HTTP sources (works for PyPI simple indexes and GitHub releases)
+                install_args += ["--find-links", wheel_source, "--extra-index-url", "https://pypi.org/simple"]
+            else:
                 install_args += ["--find-links", wheel_source]
 
             code, output = _run_uv(install_args, cwd=repo_dir)
