@@ -1073,5 +1073,5 @@ See [Pipeline Status Document](docs/pipeline-status.md) for detailed breakdown.
 ---
 
 <p align="center">
-  <sub>Last Updated: August 24, 2026 | Version 4.1.0 | Two-Stage Model Setup</sub>
+  <sub>Last Updated: August 26, 2026 | Version 4.1.2 | Security & Stability Fixes</sub>
 </p>

@@ -1,6 +1,6 @@
 # AI 3D Studio - Setup & Installation Guide
 
-> **Version**: 4.1.0 (Two-Stage Model Setup Refactor)  
+> **Version**: 4.1.2 (Security & Stability Fixes)  
 > **Difficulty**: Intermediate  
 > **Estimated Time**: 15-30 minutes (runtime only; weights are on-demand)
 

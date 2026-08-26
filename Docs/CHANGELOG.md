@@ -1,5 +1,36 @@
 # AI 3D Studio — Changelog
 
+## [v4.1.2] - 2026-08-26 - Deep Bug Audit & Fixes (146 issues)
+
+### Security
+- **Path traversal fix**: `upload.py` now safely resolves paths and validates they stay within storage directory before any filesystem operation
+- **Redis connection leak**: Added `finally: r.close()` after Redis ping in admin.py
+
+### P0 Critical Fixes
+- **WorkspaceProvider hoisted**: Moved to root layout so state survives page navigation
+- **Animation playback**: Fixed stale closure in AnimatePanel using useRef for totalFrames
+- **Navigation sync**: Added missing dependencies to WorkspaceShell useEffect
+- **Upload timeout**: Added 60-second AbortController timeout to apiClient.uploadFile
+- **Repair action**: Fixed UnboundLocalError in admin.py _run_repair
+- **Build-time env var**: Export NEXT_PUBLIC_API_URL before Next.js build in start.sh
+- **Database fallback**: Removed hard exits in start.sh, SQLite fallback now works
+- **Redis fallback**: Configures memory broker when Redis unavailable
+
+### P1 High Priority Fixes
+- **Three.js cleanup**: Dispose geometries/materials on MeshViewer unmount
+- **Upload error handling**: Fixed finishUpload → failUpload in catch block
+- **Version comparison**: Fixed Python version comparison in system.py (tuple comparison)
+- **Division by zero**: Added guard in _dl_update percent calculation
+
+### P2 Medium Priority Fixes
+- **Database indexes**: Added missing FK indexes via migration 0004
+- **HTTP status codes**: Fixed upload validation to return JSONResponse with proper status
+- **Package cleanup**: Removed express, vite, lint from package.json; moved autoprefixer to devDeps
+- **Three.js transpile**: Added to next.config.ts transpilePackages
+
+### Changed
+- **start.sh**: Database creation uses $_DB_NAME instead of hardcoded name
+
 ## [v4.1.1] - 2026-08-26 - Upload & Asset Fixes
 
 ### Fixed

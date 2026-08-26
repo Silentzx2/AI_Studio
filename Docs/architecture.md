@@ -330,3 +330,14 @@ The frontend uses a modern persistent workspace: ONE global 3D viewport (`MeshVi
 - **Storage**: Files saved to `storage_local_path/models/`
 - **Thumbnails**: Generated server-side for GLB/GLTF, stored in `storage_local_path/thumbnails/`
 - **Frontend**: `RightAssetsPanel.tsx` uploads via `apiClient.uploadFile()` and uses backend-returned URLs
+
+#### Security
+- **Path traversal prevention**: All upload/download endpoints resolve paths with `.resolve()` and validate they stay within storage directory
+- **Upload timeout**: 60-second AbortController timeout on file uploads
+- **HF token**: Stored in `.hf_token` file (should be moved to secrets manager in production)
+
+#### Frontend Architecture (v4.1.2)
+- **Single WorkspaceProvider**: Hoisted to root layout (`app/layout.tsx`) for state persistence across navigation
+- **Three.js cleanup**: Proper disposal of geometries/materials on MeshViewer unmount
+- **Camera framing**: Automatic fit-to-screen after model load
+- **Asset persistence**: Fetched from backend on workspace mount
