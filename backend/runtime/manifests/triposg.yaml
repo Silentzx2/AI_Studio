@@ -25,7 +25,6 @@ dependencies:
     - "typeguard"
     - "pymeshlab"
     - "accelerate"
-    - "briarmbg"
     - "scipy"
     - "pillow"
     - "imageio"

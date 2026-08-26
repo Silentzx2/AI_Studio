@@ -43,10 +43,10 @@ dependencies:
     # Optional CUDA extensions — handled by native resolver (wheel-first)
     - "flash_attn"
     - "xformers"
-    - "diffoctreerast"
+    - "git+https://github.com/JeffreyXiang/diffoctreerast.git"
     - "spconv"
     - "kaolin"
-    - "nvdiffrast"
+    - "git+https://github.com/NVlabs/nvdiffrast.git"
   attention_backend:
     one_of:
       - "flash-attn"
