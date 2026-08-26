@@ -61,6 +61,16 @@ detect_gpu() {
   GPU_NAME=""
   CUDA_VERSION=""
 
+  # Testing mode: simulate CUDA presence
+  if [[ "${CUDA_FORCE_PRESENT:-}" == "1" ]]; then
+    GPU_NAME="Simulated GPU (TEST_MODE)"
+    GPU_AVAILABLE=true
+    CUDA_VERSION="${CUDA_FORCE_VERSION:-124}"
+    log "GPU detected : ${CYAN}${GPU_NAME}${NC}"
+    log "CUDA (test) : cu${CUDA_VERSION}"
+    return 0
+  fi
+
   if command -v nvidia-smi &>/dev/null; then
     GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 || true)
     if [[ -n "$GPU_NAME" ]]; then

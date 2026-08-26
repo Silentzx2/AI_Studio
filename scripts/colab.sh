@@ -742,8 +742,6 @@ else
 fi
 
 download_model_weights || warn "Weight download had issues - check output above"
-download_model_weights || warn "Weight download had issues - check output above"
-
 
 
 if [[ "$REPOS_ONLY" == "true" ]]; then

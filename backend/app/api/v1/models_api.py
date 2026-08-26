@@ -1,5 +1,6 @@
 """API endpoints for model management."""
 
+import threading
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -12,6 +13,7 @@ router = APIRouter(prefix="/models", tags=["models"])
 import os
 _installer = None
 _health_manager = None
+_init_lock = threading.Lock()
 
 
 def _get_models_dir() -> str:
@@ -24,11 +26,15 @@ def __getattr__(name: str):
         return _get_models_dir()
     if name == "installer":
         if _installer is None:
-            _installer = PluginInstaller(_get_models_dir())
+            with _init_lock:
+                if _installer is None:
+                    _installer = PluginInstaller(_get_models_dir())
         return _installer
     if name == "health_manager":
         if _health_manager is None:
-            _health_manager = HealthManager(_get_models_dir())
+            with _init_lock:
+                if _health_manager is None:
+                    _health_manager = HealthManager(_get_models_dir())
         return _health_manager
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

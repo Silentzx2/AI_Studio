@@ -408,6 +408,9 @@ async def generation_progress_stream(job_id: str):
                         return
 
             while True:
+                # Check for client disconnect
+                if await request.is_disconnected():
+                    break
                 message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
                 if message:
                     data = message["data"]

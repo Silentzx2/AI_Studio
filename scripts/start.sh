@@ -245,6 +245,17 @@ kill_by_pid_file() {
         local pid=$(cat "$pid_file" 2>/dev/null || echo "")
         if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
             kill "$pid" 2>/dev/null || true
+            # Wait for process to die (with timeout)
+            local count=0
+            while kill -0 "$pid" 2>/dev/null && [[ $count -lt 10 ]]; do
+                sleep 1
+                count=$((count + 1))
+            done
+            # Force kill if still alive
+            if kill -0 "$pid" 2>/dev/null; then
+                kill -KILL "$pid" 2>/dev/null || true
+                sleep 1
+            fi
             rm -f "$pid_file"
         fi
     fi
