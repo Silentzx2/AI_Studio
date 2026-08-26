@@ -557,8 +557,12 @@ def repair_venv(repo_name):
         shutil.rmtree(str(venv_dir), ignore_errors=True)
         if venv_dir.is_symlink():
             venv_dir.unlink()
-    from runtime.installer import install_repo_deps
-    return install_repo_deps(repo_name)
+    # Use prepare_runtime which uses manifest + wheel-first logic
+    from runtime.installer import prepare_runtime
+    providers = REPOS.get(repo_name, {}).get("providers", [])
+    if providers:
+        return prepare_runtime(providers[0], allow_native_build=False)
+    return {"success": False, "error": f"No providers for {repo_name}"}
 
 
 def queue_native_build_if_needed(repo_name):
