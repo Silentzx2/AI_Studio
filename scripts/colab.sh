@@ -855,7 +855,7 @@ step "Starting Backend API (http://localhost:8000)..."
 kill_by_pid_file "$PID_DIR/api.pid"
 (
     cd backend
-    $PYTHON_BIN -m uvicorn app.main:app \
+    nohup $PYTHON_BIN -m uvicorn app.main:app \
         --host 0.0.0.0 \
         --port 8000 \
         --log-level info \
@@ -980,7 +980,7 @@ fi
     cd backend
     # Source .env to ensure Celery worker gets correct config
     set -a; source ../.env 2>/dev/null || true; set +a
-    $PYTHON_BIN -m celery -A app.workers.celery_app worker \
+    nohup $PYTHON_BIN -m celery -A app.workers.celery_app worker \
         $CELERY_BROKER_ARG \
         $CELERY_BACKEND_ARG \
         --loglevel=info \
@@ -1006,7 +1006,7 @@ if [[ ! -d .next ]]; then
 fi
 
 kill_by_pid_file "$PID_DIR/frontend.pid"
-NEXT_PUBLIC_API_URL=http://localhost:8000 npm start \
+nohup env NEXT_PUBLIC_API_URL=http://localhost:8000 npm start \
     > "$LOG_DIR/frontend.log" 2>&1 &
 write_pid "$PID_DIR/frontend.pid" $!
 
