@@ -136,12 +136,28 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "pattern": re.compile(r"^cupy[-_]cuda12x($|==|>=|<=|!=|~=)"),
     },
     "nvdiffrast": {
-        # nvdiffrast has no PyPI wheel — installed from git
-        "wheel_available": False,
-        "index": None,
-        "python": ["3.10", "3.11"],
+        # nvdiffrast has no PyPI wheel — prebuilt wheels from third-party
+        "wheel_available": True,
+        "index": "https://miropsota.github.io/torch_packages_builder",
+        "python": ["3.10", "3.11", "3.12"],
         "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^nvdiffrast($|==|>=|<=|!=|~=)"),
+    },
+    "diffoctreerast": {
+        # diffoctreerast has no PyPI wheel — prebuilt wheels from third-party
+        "wheel_available": True,
+        "index": "https://github.com/iiiytn1k/sd-webui-some-stuff/releases",
+        "python": ["3.10", "3.11"],
+        "cuda": _CUDA12_ALL,
+        "pattern": re.compile(r"^diffoctreerast($|==|>=|<=|!=|~=)"),
+    },
+    "bpy": {
+        # bpy has prebuilt wheels on PyPI
+        "wheel_available": True,
+        "index": None,
+        "python": ["3.10", "3.11", "3.12"],
+        "cuda": _CUDA12_ALL,
+        "pattern": re.compile(r"^bpy($|==|>=|<=|!=|~=)"),
     },
     "kaolin": {
         # kaolin wheels via nvidia-kaolin S3
@@ -167,7 +183,7 @@ NATIVE_PKG_PATTERNS: list[re.Pattern] = [
     re.compile(r"^spconv($|==)"),
     re.compile(r"^cupy[-_]cuda12x($|==)"),
     re.compile(r"^nvdiffrast($|==)"),
-    re.compile(r"^kaolin($|==)"),
+    re.compile(r"^diffoctreerast($|==)"),
     re.compile(r"^bpy($|==)"),
 ]
 
