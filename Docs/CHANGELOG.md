@@ -1,5 +1,27 @@
 # AI 3D Studio — Changelog
 
+## [v4.1.5] - 2026-08-26 - PLAN-2: Remove Celery Dependency from Setup
+
+### Summary
+Fixed Celery/Redis initialization during model runtime preparation.
+
+### Root Cause
+- `prepare_runtime()` imported `run_native_build` from `installation_workers.py`
+- `installation_workers.py` uses `@shared_task` decorator
+- This triggered Celery initialization during model setup
+- Celery tried to connect to Redis, which wasn't available yet
+
+### Fix
+- Added `_run_native_build_sync()` - synchronous native build without Celery
+- `prepare_runtime()` now skips native builds during setup
+- Users can build native deps later via UI
+- Celery task preserved for background builds during normal operation
+
+### Behavior
+- Setup no longer initializes Celery or connects to Redis
+- Native builds are skipped during setup (can be built later via UI)
+- Normal service startup (after setup) still uses Celery + Redis
+
 ## [v4.1.4] - 2026-08-26 - PLAN.md Implementation (Manifest-Driven Install)
 
 ### Summary
