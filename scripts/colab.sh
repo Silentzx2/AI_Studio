@@ -346,12 +346,12 @@ except Exception as exc:
     sys.exit(1)
 
 # Use user-selected repos if set via interactive prompt, else fall back to default
-    import _os
-    _selected = _os.environ.get("COLAB_SELECTED_REPOS", "").strip()
-    if _selected:
-        COLAB_ALLOWED_REPOS = set(_selected.split(","))
-    else:
-        COLAB_ALLOWED_REPOS = {"TripoSG", "TRELLIS", "Hunyuan3D-2mini"}
+import _os
+_selected = _os.environ.get("COLAB_SELECTED_REPOS", "").strip()
+if _selected:
+    COLAB_ALLOWED_REPOS = set(_selected.split(","))
+else:
+    COLAB_ALLOWED_REPOS = {"TripoSG", "TRELLIS", "Hunyuan3D-2mini"}
 
 # Map repos to their providers for Colab gating
 repos_to_prepare = []
