@@ -174,8 +174,7 @@ for dependency installation. `install_repo_deps()` in `runtime/installer.py` now
 - **Torch stack**: `_install_torch_stack()` is called to mirror the backend's exact
   torch/torchvision/torchaudio build into each per-model venv.
 - **Backward-compat fallback**: When no manifest exists for a provider, `install_repo_deps`
-  falls back to `REPOS[*]["requirements"]`. The TRELLIS upstream conda-based setup
-  (`_install_trellis_deps`) is preserved as the no-manifest fallback for TRELLIS.
+  falls back to `REPOS[*]["requirements"]`.
 - **External caller compat**: The `requirements_override` parameter on `install_repo_deps()`
   is retained for backward-compatible callers that still pass it (e.g.
   `RuntimeInstaller.install_repo_deps_for_models`).

@@ -903,22 +903,6 @@ def _cuda_available() -> bool:
     return False
 
 
-# ponytail: TRELLIS uses setup.sh (conda-based) instead of requirements.txt.
-# We replicate the equivalent --basic install via uv inside the per-model venv.
-# The repo has no pyproject.toml/setup.py, so the generic _uv_install path
-# would skip it entirely.
-_TRELLIS_BASIC_DEPS = [
-    "pillow", "imageio", "imageio-ffmpeg", "tqdm", "easydict",
-    "opencv-python-headless", "scipy", "ninja", "rembg", "onnxruntime",
-    "trimesh", "open3d", "xatlas", "pyvista", "pymeshfix", "igraph",
-    "transformers", "diffusers", "omegaconf", "numpy", "accelerate",
-    "huggingface_hub",
-]
-_TRELLIS_GIT_DEPS = [
-    "git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8",
-]
-
-
 def _backend_torch_stack() -> tuple[str, list[str]]:
     """Resolve the exact torch/torchvision/torchaudio build used by the backend
     venv so each per-model venv can mirror it.
@@ -1026,77 +1010,6 @@ def _install_torch_stack(
     return 0, output
 
 
-def _install_trellis_deps(
-    repo_dir: Path,
-    venv_python: Path,
-    log_cb: Callable | None = None,
-) -> dict:
-    """Install TRELLIS dependencies into the per-model venv.
-
-    Mirrors setup.sh --basic (core runtime deps + utils3d).
-    Optional extensions (xformers, flash-attn, spconv, kaolin, …) are
-    omitted here — they require CUDA toolkit builds and are installed
-    separately by the generic EXTRA_DEPS / TORCH_BUILD_PKGS paths when
-    the host has the necessary toolchain.
-    """
-    uv_path = shutil.which("uv")
-    if not uv_path:
-        return {"success": False, "error": "uv not found for TRELLIS"}
-
-    def _run_uv(args, cwd=None, extra_env=None):
-        env = dict(os.environ)
-        if extra_env:
-            env.update(extra_env)
-        return _run([uv_path] + args, cwd=cwd, env=env, log_cb=log_cb)
-
-    # Pre-install torch (already done by caller, safe to re-run). Mirror the
-    # backend's exact torch/torchvision/torchaudio build so the per-model venv
-    # stays ABI compatible with the in-process backend torch.
-    code, output = _install_torch_stack(venv_python, repo_dir, log_cb=log_cb)
-    if code != 0:
-        return {"success": False, "error": f"TRELLIS torch stack install failed: {output[:300]}"}
-    # Pre-install numba/llvmlite at py3.12-compatible versions. rembg's
-    # dependency chain (pymatting -> numba==0.53.1 -> llvmlite==0.36.0) does
-    # not support Python >=3.10, so uv must find the newer pins already
-    # present in the venv or it will try to build the broken ones.
-    _run_uv(
-        ["pip", "install", "--python", str(venv_python),
-         "numba>=0.60", "llvmlite>=0.43"],
-        cwd=repo_dir,
-    )
-
-    # Basic runtime dependencies (setup.sh --basic)
-    code, output = _run_uv(
-        ["pip", "install", "--python", str(venv_python), *_TRELLIS_BASIC_DEPS],
-        cwd=repo_dir,
-    )
-    if code != 0:
-        return {"success": False, "error": f"TRELLIS basic deps failed: {output[:300]}"}
-
-    # utils3d (pinned commit from setup.sh)
-    code, output = _run_uv(
-        ["pip", "install", "--python", str(venv_python), *_TRELLIS_GIT_DEPS],
-        cwd=repo_dir,
-    )
-    if code != 0:
-        logger.warning("TRELLIS utils3d install failed: %s", output[:300])
-
-    extra = EXTRA_DEPS.get("TRELLIS")
-    if extra:
-        code_e, out_e = _run_uv(
-            ["pip", "install", "--python", str(venv_python), *extra],
-            cwd=repo_dir,
-        )
-        if code_e != 0:
-            logger.warning(
-                "TRELLIS extra deps install failed: %s", out_e[:200],
-            )
-        else:
-            logger.info("Installed TRELLIS extra deps %s", extra)
-
-    return {"success": True}
-
-
 def _drop_cuda_only_packages(requirements_file: Path) -> Path:
     """Return a requirements path with CUDA-only build packages commented out.
 
@@ -1177,177 +1090,149 @@ def _uv_install(
     if code != 0:
         logger.warning("Pre-install of torch stack failed for %s: %s", repo_name, output[:300])
 
-    # Try pre-built wheels for torch-scatter/torch-cluster/torch-sparse/pyg_lib
-    # from PyG wheels index. This avoids needing the CUDA toolkit (nvcc) for
-    # packages that publish pre-built binaries for common PyTorch+CUDA combos.
-    # ponytail: best-effort; falls back to source build if wheels unavailable.
-    pyg_needed: list[str] = []
-    try:
-        torch_version = ""
-        cuda_version = ""
-        ver_code, ver_out = _run([str(venv_python), "-c",
-            "import torch; print(torch.__version__.rsplit('+',1)[0]); print(torch.version.cuda or 'cpu')"],
-            cwd=str(repo_dir))
-        if ver_code == 0:
-            parts = ver_out.strip().split("\n")
-            if len(parts) >= 2:
-                torch_version = parts[0].strip()
-                cuda_version = parts[1].strip()
-        if torch_version and cuda_version:
-            # Build PyG wheel index URL (e.g. torch-2.5.0+cu121)
-            torch_short = torch_version.rsplit(".", 1)[0]  # 2.5.0 -> 2.5
-            cuda_short = cuda_version.replace(".", "")  # 12.1 -> 121
-            pyg_index = f"https://data.pyg.org/whl/torch-{torch_short}.0+cu{cuda_short}.html"
-            if cuda_version == "cpu":
-                pyg_index = f"https://data.pyg.org/whl/torch-{torch_short}.0+cpu.html"
-            pyg_pkgs = ["torch-scatter", "torch-cluster", "torch-sparse", "pyg_lib"]
-            req_blob_check = ""
-            for _f in (requirements_file, repo_dir / "pyproject.toml", repo_dir / "setup.py"):
-                if _f and _f.exists():
-                    req_blob_check += "\n" + _f.read_text(errors="ignore")
-            pyg_needed = [p for p in pyg_pkgs if re.search(rf"\b{re.escape(p)}\b", req_blob_check)]
-            if pyg_needed:
-                if log_cb:
-                    log_cb(f"Trying pre-built wheels from PyG index: {pyg_index} for {', '.join(pyg_needed)}")
-                code, output = _run_uv(
-                    ["pip", "install", "--python", str(venv_python),
-                     "-f", pyg_index, *pyg_needed],
-                    cwd=repo_dir,
-                )
-                if code == 0:
-                    logger.info("Installed pre-built PyG wheels for %s", ", ".join(pyg_needed))
-                    # Note: removal from requirements happens after install_requirements is assigned below
-    except Exception as exc:
-        logger.warning("PyG wheel pre-install check failed: %s", exc)
-
-    # Packages whose build step imports torch (diso, torch-cluster, …) must
-    # compile inside the venv — which now has torch pre-installed — instead of
-    # an empty isolated build env, otherwise they fail with
-    # `ModuleNotFoundError: No module named 'torch'`.
-    # ponytail: fixed allow-list of known torch-dependent build packages;
-    # extend here if a new repo adds another torch-extension built from source.
-    TORCH_BUILD_PKGS = {
-        "diso", "torch-cluster", "torch-scatter",
-        "torch-sparse", "torchmcubes", "torch-geometric",
-        "flash-attn",
-    }
-
-    # rembg -> pymatting -> numba -> llvmlite==0.36.0 only builds on Python
-    # <3.10. Pre-installing a modern pymatting (>=1.1.15 requires numba>=0.60,
-    # which supports py3.12) stops uv from resolving that ancient chain.
-    # ponytail: hardcoded rembg workaround; revisit if rembg drops pymatting.
-    build_iso_args: list[str] = []
+    # Collect raw requirement text for post-install verification (Pillow check,
+    # critical-package import test). Needed by both resolver and legacy paths.
     req_blob = ""
     for _f in (requirements_file, repo_dir / "pyproject.toml", repo_dir / "setup.py"):
-        if _f.exists():
+        if _f and _f.exists():
             req_blob += "\n" + _f.read_text(errors="ignore")
-    for pkg in sorted(TORCH_BUILD_PKGS):
-        if re.search(rf"\b{re.escape(pkg)}\b", req_blob):
-            build_iso_args += ["--no-build-isolation-package", pkg]
-    if re.search(r"\brembg\b", req_blob):
-        if log_cb:
-            log_cb("Pre-installing modern pymatting/numba/llvmlite for rembg (py3.12 compat)…")
-        code, output = _run_uv(
-            ["pip", "install", "--python", str(venv_python),
-             "pymatting>=1.1.15", "numba>=0.60", "llvmlite>=0.43"],
-            cwd=repo_dir,
+
+    # When a manifest is available, route through the dependency_resolver for
+    # wheel-first logic and user approval (Refactor.md TASK 2, 3, 9, 10).
+    # The resolver handles classification, wheel lookup, and build prompts.
+    _use_resolver = bool(manifest)
+    if _use_resolver:
+        try:
+            from runtime.dependency_resolver import resolve_dependencies, install_resolved_deps
+        except ImportError:
+            _use_resolver = False  # Fall through to legacy uv pip install
+
+    if _use_resolver:
+        deps = resolve_dependencies(repo_dir, manifest)
+        result = install_resolved_deps(
+            deps, venv_python, repo_dir,
+            allow_build=False,
+            interactive=True,
+            log_cb=log_cb,
         )
-        if code != 0:
-            logger.warning("Pre-install of pymatting chain failed for %s: %s", repo_name, output[:300])
-
-    # If torch landed in the venv, point CMake at its cmake config so
-    # packages like torchmcubes can find Torch during build.
-    cmake_env = {}
-    code, out = _run([str(venv_python), "-c",
-                     "import sysconfig; print(sysconfig.get_path('platlib'))"])
-    if code == 0:
-        site_packages = Path(out.strip())
-        torch_cmake = site_packages / "torch" / "share" / "cmake" / "Torch"
-        if torch_cmake.exists():
-            # Torch_DIR must point at the dir holding TorchConfig.cmake.
-            cmake_env["Torch_DIR"] = str(torch_cmake)
-            # CMAKE_PREFIX_PATH: find_package(Torch) looks in
-            # <prefix>/share/cmake/Torch, so prefix = .../site-packages/torch.
-            cmake_env["CMAKE_PREFIX_PATH"] = str(torch_cmake.parents[2])
-
-    # Rewrite py3.12-incompatible pins (open3d 0.18, numpy 1.22, flash-attn,
-    # bpy) before resolving, so the per-model venv can be created on Py3.12.
-    if requirements_file is not None:
-        install_requirements = _normalize_requirements_for_py312(requirements_file)
+        if not result["success"] and result.get("failed"):
+            return {"success": False, "error": f"Some dependencies failed to install: {result['failed']}"}
+        code = 0
+        output = ""
     else:
-        install_requirements = None
+        # Packages whose build step imports torch (diso, torch-cluster, …) must
+        # compile inside the venv — which now has torch pre-installed — instead of
+        # an empty isolated build env, otherwise they fail with
+        # `ModuleNotFoundError: No module named 'torch'`.
+        # ponytail: fixed allow-list of known torch-dependent build packages;
+        # extend here if a new repo adds another torch-extension built from source.
+        TORCH_BUILD_PKGS = {
+            "diso", "torch-cluster", "torch-scatter",
+            "torch-sparse", "torchmcubes", "torch-geometric",
+            "flash-attn",
+        }
 
-    # Remove successfully installed PyG wheels from requirements to avoid rebuild
-    if pyg_needed and install_requirements and install_requirements.exists():
-        req_text = install_requirements.read_text(errors="ignore")
-        new_lines = []
-        for line in req_text.splitlines():
-            pkg_name = re.split(r"[><=!~\[]", line.strip(), 1)[0].strip()
-            if pkg_name in pyg_needed:
-                continue
-            new_lines.append(line)
-        install_requirements.write_text("\n".join(new_lines) + "\n")
-
-    # No CUDA toolkit on this host: CUDA-only source extensions (diso,
-    # torch-cluster, torchmcubes, …) cannot be compiled. Drop them so the venv
-    # still installs its pure-Python deps instead of failing the whole setup.
-    # Inference is already flagged as unavailable without a GPU.
-    cuda_exclude_args: list[str] = []
-    if not _cuda_available():
-        install_requirements = _drop_cuda_only_packages(install_requirements)
-        if install_requirements and log_cb and install_requirements.name.endswith(".nocuda.requirements.txt"):
-            log_cb("No CUDA toolkit detected — skipping CUDA-only build packages (CPU mode)")
-        # Also exclude CUDA-only packages that might be pulled in as transitive deps
-        for pkg_pat in _CUDA_ONLY_PKG_PATTERNS:
-            pkg_name = pkg_pat.pattern.strip("^").split("($|==)")[0]
-            cuda_exclude_args += ["--exclude", pkg_name]
-
-    # torchmcubes (used by some 3D-gen repos) builds with scikit-build-core but
-    # doesn't declare it as a build dependency. Because we build it with
-    # --no-build-isolation-package, scikit_build_core must live in the venv.
-    # (Only needed when CUDA is present; skipped on CPU-only hosts where
-    # torchmcubes is dropped above.)
-    if _cuda_available() and re.search(r"\btorchmcubes\b", req_blob):
-        if log_cb:
-            log_cb("Pre-installing scikit_build_core for torchmcubes build…")
-        code, output = _run_uv(
-            ["pip", "install", "--python", str(venv_python), "scikit_build_core"],
-            cwd=repo_dir,
-        )
-        if code != 0:
-            logger.warning("Pre-install of scikit_build_core failed for %s: %s", repo_name, output[:300])
-
-    if install_requirements is None or not install_requirements.exists():
-        pyproject = repo_dir / "pyproject.toml"
-        setup_py = repo_dir / "setup.py"
-        if pyproject.exists():
-            logger.info("No requirements.txt for %s, using uv pip install -e .", repo_name)
-            code, output = _run_uv(
-                ["pip", "install", "--python", str(venv_python), "-e", ".", *build_iso_args, *cuda_exclude_args],
-                cwd=repo_dir,
-                extra_env=cmake_env,
-            )
-        elif setup_py.exists():
-            logger.info("No requirements.txt for %s, using uv pip install -e .", repo_name)
-            code, output = _run_uv(
-                ["pip", "install", "--python", str(venv_python), "-e", ".", *build_iso_args, *cuda_exclude_args],
-                cwd=repo_dir,
-                extra_env=cmake_env,
-            )
-        else:
-            msg = f"No requirements.txt, pyproject.toml, or setup.py found for {repo_name or 'unknown repo'} at {repo_dir} — skipping install"
-            logger.info(msg)
+        # rembg -> pymatting -> numba -> llvmlite==0.36.0 only builds on Python
+        # <3.10. Pre-installing a modern pymatting (>=1.1.15 requires numba>=0.60,
+        # which supports py3.12) stops uv from resolving that ancient chain.
+        # ponytail: hardcoded rembg workaround; revisit if rembg drops pymatting.
+        build_iso_args: list[str] = []
+        for pkg in sorted(TORCH_BUILD_PKGS):
+            if re.search(rf"\b{re.escape(pkg)}\b", req_blob):
+                build_iso_args += ["--no-build-isolation-package", pkg]
+        if re.search(r"\brembg\b", req_blob):
             if log_cb:
-                log_cb(msg)
-            # Nothing installed — skip post-install steps
-            code = 0
-            output = ""
-    else:
-        code, output = _run_uv(
-            ["pip", "install", "--python", str(venv_python), "-r", str(install_requirements), "--reinstall", *build_iso_args, *cuda_exclude_args],
-            cwd=repo_dir,
-            extra_env=cmake_env,
-        )
+                log_cb("Pre-installing modern pymatting/numba/llvmlite for rembg (py3.12 compat)…")
+            code, output = _run_uv(
+                ["pip", "install", "--python", str(venv_python),
+                 "pymatting>=1.1.15", "numba>=0.60", "llvmlite>=0.43"],
+                cwd=repo_dir,
+            )
+            if code != 0:
+                logger.warning("Pre-install of pymatting chain failed for %s: %s", repo_name, output[:300])
+
+        # If torch landed in the venv, point CMake at its cmake config so
+        # packages like torchmcubes can find Torch during build.
+        cmake_env = {}
+        code, out = _run([str(venv_python), "-c",
+                         "import sysconfig; print(sysconfig.get_path('platlib'))"])
+        if code == 0:
+            site_packages = Path(out.strip())
+            torch_cmake = site_packages / "torch" / "share" / "cmake" / "Torch"
+            if torch_cmake.exists():
+                # Torch_DIR must point at the dir holding TorchConfig.cmake.
+                cmake_env["Torch_DIR"] = str(torch_cmake)
+                # CMAKE_PREFIX_PATH: find_package(Torch) looks in
+                # <prefix>/share/cmake/Torch, so prefix = .../site-packages/torch.
+                cmake_env["CMAKE_PREFIX_PATH"] = str(torch_cmake.parents[2])
+
+        # Rewrite py3.12-incompatible pins (open3d 0.18, numpy 1.22, flash-attn,
+        # bpy) before resolving, so the per-model venv can be created on Py3.12.
+        if requirements_file is not None:
+            install_requirements = _normalize_requirements_for_py312(requirements_file)
+        else:
+            install_requirements = None
+
+        # No CUDA toolkit on this host: CUDA-only source extensions (diso,
+        # torch-cluster, torchmcubes, …) cannot be compiled. Drop them so the venv
+        # still installs its pure-Python deps instead of failing the whole setup.
+        # Inference is already flagged as unavailable without a GPU.
+        cuda_exclude_args: list[str] = []
+        if not _cuda_available():
+            install_requirements = _drop_cuda_only_packages(install_requirements)
+            if install_requirements and log_cb and install_requirements.name.endswith(".nocuda.requirements.txt"):
+                log_cb("No CUDA toolkit detected — skipping CUDA-only build packages (CPU mode)")
+            # Also exclude CUDA-only packages that might be pulled in as transitive deps
+            for pkg_pat in _CUDA_ONLY_PKG_PATTERNS:
+                pkg_name = pkg_pat.pattern.strip("^").split("($|==)")[0]
+                cuda_exclude_args += ["--exclude", pkg_name]
+
+        # torchmcubes (used by some 3D-gen repos) builds with scikit-build-core but
+        # doesn't declare it as a build dependency. Because we build it with
+        # --no-build-isolation-package, scikit_build_core must live in the venv.
+        # (Only needed when CUDA is present; skipped on CPU-only hosts where
+        # torchmcubes is dropped above.)
+        if _cuda_available() and re.search(r"\btorchmcubes\b", req_blob):
+            if log_cb:
+                log_cb("Pre-installing scikit_build_core for torchmcubes build…")
+            code, output = _run_uv(
+                ["pip", "install", "--python", str(venv_python), "scikit_build_core"],
+                cwd=repo_dir,
+            )
+            if code != 0:
+                logger.warning("Pre-install of scikit_build_core failed for %s: %s", repo_name, output[:300])
+
+        if install_requirements is None or not install_requirements.exists():
+            pyproject = repo_dir / "pyproject.toml"
+            setup_py = repo_dir / "setup.py"
+            if pyproject.exists():
+                logger.info("No requirements.txt for %s, using uv pip install -e .", repo_name)
+                code, output = _run_uv(
+                    ["pip", "install", "--python", str(venv_python), "-e", ".", *build_iso_args, *cuda_exclude_args],
+                    cwd=repo_dir,
+                    extra_env=cmake_env,
+                )
+            elif setup_py.exists():
+                logger.info("No requirements.txt for %s, using uv pip install -e .", repo_name)
+                code, output = _run_uv(
+                    ["pip", "install", "--python", str(venv_python), "-e", ".", *build_iso_args, *cuda_exclude_args],
+                    cwd=repo_dir,
+                    extra_env=cmake_env,
+                )
+            else:
+                msg = f"No requirements.txt, pyproject.toml, or setup.py found for {repo_name or 'unknown repo'} at {repo_dir} — skipping install"
+                logger.info(msg)
+                if log_cb:
+                    log_cb(msg)
+                # Nothing installed — skip post-install steps
+                code = 0
+                output = ""
+        else:
+            code, output = _run_uv(
+                ["pip", "install", "--python", str(venv_python), "-r", str(install_requirements), *build_iso_args, *cuda_exclude_args],
+                cwd=repo_dir,
+                extra_env=cmake_env,
+            )
 
     if code != 0:
         return {"success": False, "error": output}
@@ -1823,11 +1708,6 @@ def install_repo_deps(repo_name: str, log_cb: Callable | None = None, requiremen
             req = tmp
         else:
             req = None
-    elif repo_name == "TRELLIS" and not repo_cfg.get("requirements"):
-        ok = _install_trellis_deps(repo_dir, venv_python, log_cb=log_cb)
-        if not ok.get("success", False):
-            return {"success": False, "error": f"uv install failed for {repo_name}: {ok.get('error', 'Unknown error')}"}
-        return {"success": True, "repo": repo_name}
     else:
         req = repo_dir / repo_cfg["requirements"] if repo_cfg.get("requirements") else None
     ok = _uv_install(req, repo_dir, repo_name=repo_name, python_path=str(venv_python), log_cb=log_cb, manifest=manifest)
@@ -2228,65 +2108,53 @@ def _prepare_runtime_venv(
             "deps": {"state": DepsState.FAILED.value},
         }
 
-    # Use new dependency resolver for non-TRELLIS repos
-    if repo_name != "TRELLIS":
-        try:
-            from runtime.dependency_resolver import resolve_dependencies, install_resolved_deps
-            deps = resolve_dependencies(repo_dir, manifest)
-            result = install_resolved_deps(
-                deps, venv_python, repo_dir,
-                allow_build=allow_native_build,
-                interactive=True,
-                log_cb=log_cb,
-            )
-            components["deps"] = {
-                "state": DepsState.READY.value if result["success"] else DepsState.PARTIAL.value,
-                "installed": result.get("installed", []),
-                "skipped": result.get("skipped", []),
-                "failed": result.get("failed", []),
-            }
-            native_state = result.get("native_state", "not_required")
-            if native_state == "ready":
-                components["native"] = {"state": NativeState.READY.value}
-            elif native_state == "skipped":
-                components["native"] = {"state": NativeState.SKIPPED.value}
-            elif native_state == "failed":
-                components["native"] = {"state": NativeState.FAILED.value}
-            else:
-                components["native"] = {"state": NativeState.NOT_REQUIRED.value}
+    # Use dependency resolver (manifest-driven, single source of truth)
+    try:
+        from runtime.dependency_resolver import resolve_dependencies, install_resolved_deps
+        deps = resolve_dependencies(repo_dir, manifest)
+        result = install_resolved_deps(
+            deps, venv_python, repo_dir,
+            allow_build=allow_native_build,
+            interactive=True,
+            log_cb=log_cb,
+        )
+        components["deps"] = {
+            "state": DepsState.READY.value if result["success"] else DepsState.PARTIAL.value,
+            "installed": result.get("installed", []),
+            "skipped": result.get("skipped", []),
+            "failed": result.get("failed", []),
+        }
+        native_state = result.get("native_state", "not_required")
+        if native_state == "ready":
+            components["native"] = {"state": NativeState.READY.value}
+        elif native_state == "skipped":
+            components["native"] = {"state": NativeState.SKIPPED.value}
+        elif native_state == "failed":
+            components["native"] = {"state": NativeState.FAILED.value}
+        else:
+            components["native"] = {"state": NativeState.NOT_REQUIRED.value}
 
-            if not result["success"] and result.get("failed"):
-                return {
-                    "success": False,
-                    "error": f"Some dependencies failed to install: {result['failed']}",
-                    **components,
-                }
-        except ImportError:
-            # Fallback: use legacy _uv_install
-            if log_cb:
-                log_cb("Warning: new resolver unavailable, using legacy install path")
-            repo_cfg = REPOS.get(repo_name)
-            req = repo_dir / repo_cfg["requirements"] if repo_cfg and repo_cfg.get("requirements") else None
-            if req:
-                ok = _uv_install(req, repo_dir, repo_name=repo_name, python_path=str(venv_python), log_cb=log_cb, manifest=manifest)
-                if not ok.get("success"):
-                    return {
-                        "success": False,
-                        "error": ok.get("error", "uv install failed"),
-                        **components,
-                    }
-                components["deps"] = {"state": DepsState.READY.value}
-    else:
-        # TRELLIS special path (no requirements.txt, uses setup.sh-style deps)
-        ok = _install_trellis_deps(repo_dir, venv_python, log_cb=log_cb)
-        if not ok.get("success"):
+        if not result["success"] and result.get("failed"):
             return {
                 "success": False,
-                "error": ok.get("error", "TRELLIS deps install failed"),
+                "error": f"Some dependencies failed to install: {result['failed']}",
                 **components,
             }
-        components["deps"] = {"state": DepsState.READY.value}
-        components["native"] = {"state": NativeState.NOT_REQUIRED.value}
+    except ImportError:
+        # Fallback: use legacy _uv_install
+        if log_cb:
+            log_cb("Warning: new resolver unavailable, using legacy install path")
+        repo_cfg = REPOS.get(repo_name)
+        req = repo_dir / repo_cfg["requirements"] if repo_cfg and repo_cfg.get("requirements") else None
+        if req:
+            ok = _uv_install(req, repo_dir, repo_name=repo_name, python_path=str(venv_python), log_cb=log_cb, manifest=manifest)
+            if not ok.get("success"):
+                return {
+                    "success": False,
+                    "error": ok.get("error", "uv install failed"),
+                    **components,
+                }
+            components["deps"] = {"state": DepsState.READY.value}
 
     # Install EXTRA_DEPS (inference libs omitted from repo requirements)
     # ponytail: hy3dgen, diffusers, etc. are NOT in the repo's requirements.txt

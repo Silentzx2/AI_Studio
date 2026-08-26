@@ -19,6 +19,7 @@ dependencies:
     - "opencv-python-headless>=4.8"
     - "scipy>=1.10"
     - "ninja"
+    - "omegaconf"
     - "rembg>=2.0"
     - "onnxruntime>=1.17"
     - "trimesh>=4.0"

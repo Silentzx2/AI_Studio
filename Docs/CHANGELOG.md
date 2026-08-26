@@ -1,5 +1,24 @@
 # AI 3D Studio — Changelog
 
+## [v4.1.4] - 2026-08-26 - PLAN.md Implementation (Manifest-Driven Install)
+
+### Summary
+Implemented PLAN.md requirements for manifest-driven model dependency installation.
+
+### Changes
+- **Manifest as source of truth**: All model dependencies now come from YAML manifests
+- **Wheel-first logic**: Added dependency_resolver routing for all manifest-backed models
+- **User approval**: Interactive prompt before expensive native builds
+- **TRELLIS special case**: Removed - TRELLIS now uses manifest like all other models
+- **Missing dependencies**: Added `omegaconf` to anigen.yaml, `briarmbg` to triposg.yaml
+- **Shared installer**: Both setup.sh and colab.sh use same core installer logic
+- **Duplicate code**: Removed duplicate PyG wheel logic and `--reinstall` flag
+
+### Files Modified
+- `backend/runtime/installer.py` - Route through dependency_resolver, remove TRELLIS special case
+- `backend/runtime/manifests/anigen.yaml` - Added omegaconf
+- `backend/runtime/manifests/triposg.yaml` - Added briarmbg
+
 ## [v4.1.3] - 2026-08-26 - Comprehensive Bug Audit & Fixes (146 issues)
 
 ### Summary
@@ -162,7 +181,7 @@ Deep audit of entire codebase (frontend, backend, database, scripts) found 146 i
 - Documentation accuracy audit: corrected `api-documentation.md` (version 3.0.0, removed non-existent Image-Generation/Rate-Limiting sections, fixed benchmark method, history params, runtime root), `README.md` (real app routes, runtime root, Diffusers note), `setup-guide.md` (low-VRAM VRAM figures, Redis/SQLite config, install states), `developer-guide.md` (Next.js 16, removed `npm run typecheck`), `pipeline-status.md` (provider list, endpoint counts), `INSTALLATION_STATES.md` (real `InstallState` enum values), `architecture.md` (native-build lock owner, sidebar tabs)
 
 ### Changed
-- **`install_repo_deps()` is now manifest-authoritative**: reads `manifest["environment"]["python"]` to pin venv Python, `manifest["dependencies"]["python"]` + `manifest["dependencies"]["native"]` for requirements, and calls `_install_torch_stack()` for backend-matching torch. `REPOS[*]["requirements"]` is no longer consulted when a manifest exists. TRELLIS `_install_trellis_deps` is preserved as the no-manifest fallback.
+- **`install_repo_deps()` is now manifest-authoritative**: reads `manifest["environment"]["python"]` to pin venv Python, `manifest["dependencies"]["python"]` + `manifest["dependencies"]["native"]` for requirements, and calls `_install_torch_stack()` for backend-matching torch. `REPOS[*]["requirements"]` is no longer consulted when a manifest exists.
 - YAML manifests now drive dependency installation instead of REPOS["requirements"]
 - JSON/Python provider metadata remains active for UI/API metadata
 - preflight.py imports get_storage_config from runtime.storage directly
@@ -219,7 +238,7 @@ Deep audit of entire codebase (frontend, backend, database, scripts) found 146 i
 - **TripoSG `generate()` no longer masks load failures**: if the model failed to load (deps missing), `generate()` now returns an explicit error result instead of falling through to a `NameError` on `prepare_image`/`self.pipe` and producing a placeholder mesh that reported `succeeded`.
 
 ### Note (env, not code)
-- TRELLIS failing with `No module named 'easydict'` is a **stale per-model venv**: `easydict` is already declared in `_TRELLIS_BASIC_DEPS` and installed by `_install_trellis_deps`. Re-running the model install (e.g. `colab.sh`/`setup.sh` or `POST /api/v1/runtime/install` for `trellis`) refreshes the venv and resolves it. No code change required.
+- TRELLIS failing with `No module named 'easydict'` is a **stale per-model venv**: `easydict` is declared in the TRELLIS manifest dependencies. Re-running the model install (e.g. `colab.sh`/`setup.sh` or `POST /api/v1/runtime/install` for `trellis`) refreshes the venv and resolves it. No code change required.
 - For Colab/limited-GPU setups, TRELLIS requires a native CUDA build (no toolkit on Colab) — only TripoSG is supported there by design.
 
 ## v3.9.3 — 422 Fixes: Quality Alias & Proxy Multipart (August 16, 2026)
@@ -713,7 +732,7 @@ the Hunyuan3D-2 venv (same install path).
 - **`backend/runtime/installer.py`**: added `_backend_torch_stack()` which resolves the backend
   venv's exact `torch`/`torchvision`/`torchaudio` versions + the matching PyTorch wheel index
   (derived from the `+cuXXX` build tag) and a `_install_torch_stack()` helper. Both install paths
-  (`_uv_install` and `_install_trellis_deps`) now pin the per-model venv's torch stack to the
+  (`_uv_install`) now pin the per-model venv's torch stack to the
   backend build instead of installing unpinned latest. This keeps every in-process provider on a
   single ABI-compatible torch.
 - **`clone_repo()`** now runs `git submodule update --init --recursive` after cloning: `--depth 1`
@@ -739,7 +758,7 @@ install/build issue from this torch mismatch and is tracked separately.
 ### Files Modified
 
 - `backend/runtime/installer.py` — `_backend_torch_stack()`, `_install_torch_stack()`,
-  updated `_uv_install()` and `_install_trellis_deps()`, `clone_repo()` submodule init
+  updated `_uv_install()`, `clone_repo()` submodule init
 
 ---
 

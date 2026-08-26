@@ -263,8 +263,7 @@ reads the provider's YAML manifest (`backend/runtime/manifests/<provider>.yaml`)
 Native dependencies follow the **wheel-first** resolution strategy (see above).
 
 The `REPOS[*]["requirements"]` field is only used when no manifest exists (backward-compat
-fallback). The TRELLIS upstream conda-based setup (`_install_trellis_deps`) is preserved as
-the no-manifest fallback when TRELLIS has no manifest.
+fallback).
 
 ## Repair
 
