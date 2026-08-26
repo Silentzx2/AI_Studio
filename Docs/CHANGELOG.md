@@ -1,5 +1,25 @@
 # AI 3D Studio — Changelog
 
+## [v4.1.1] - 2026-08-26 - Upload & Asset Fixes
+
+### Fixed
+- **Image upload persistence**: Images are now uploaded to `POST /api/v1/upload/image` immediately and stored in `storage/uploads/`
+- **3D model upload persistence**: Models are now uploaded to `POST /api/v1/upload/model` immediately and stored in `storage/models/`
+- **MeshViewer camera framing**: Added `frameCamera()` after model load to ensure models are visible in the viewport
+- **Thumbnail mapping**: Fixed thumbnail filename to match model filename stem instead of random UUID
+- **Asset persistence**: Workspace now fetches uploaded assets from `GET /api/v1/upload/assets` on mount
+- **Asset reload**: Clicking an asset now reloads the model in the MeshViewer
+- **AniGen smplx dependency**: Added missing `smplx` and `chumpy` to `anigen.yaml` manifest
+- **TRELLIS one_of**: Installer now respects `attention_backend.one_of` alternatives (installs only first option)
+- **GPU cleanup**: Added explicit `torch.cuda.empty_cache()` + `gc.collect()` on model unload
+- **EXTRA_DEPS reinstall**: EXTRA_DEPS now installed with `--reinstall` to fix corrupted packages
+- **Pillow detection**: Now detects Pillow from manifest deps, not just repo files
+
+### Changed
+- **CUDA 12.x support**: All CUDA 12.0-12.8 versions now supported with automatic wheel selection
+- **Colab allowed models**: Reverted to 3 lightweight models (TripoSG, TRELLIS, Hunyuan3D-2mini)
+- **setup.sh / colab.sh**: Updated CUDA detection to use driver version first (more reliable)
+
 ## [v4.1.0] - 2026-08-24 - Two-Stage Model Setup Refactor
 
 ### Added
