@@ -766,7 +766,199 @@ BANNER
   setup_folders
   setup_env
   install_python_deps    || { err "Python dependency installation failed — aborting"; exit 1; }
-  prepare_model_runtimes || warn "Model runtime preparation had issues — check output above"
+
+# ── Interactive Model Selection ──────────────────────────────────────────
+# ponytail: smart prompt that asks user which models to install.
+# Shows VRAM, weight size, deps count, disk space, and warnings.
+select_models_interactively() {
+    local PYTHONBIN="${PROJECT_ROOT}/backend/.venv/bin/python"
+    [[ -x "$PYTHONBIN" ]] || { err "Backend venv missing"; return 1; }
+
+    # Get detailed model info from Python
+    local model_info
+    model_info=$(
+        cd backend
+        PYTHONPATH=. "$PYTHONBIN" - << 'PYEOF'
+import sys, json
+from pathlib import Path
+sys.path.insert(0, str(Path(".").resolve()))
+try:
+    from runtime.capability import get_model_vram_required, is_model_preparable_for_colab, get_colab_incompatibility_reason
+    from runtime.installer import REPOS, PROVIDER_METADATA, EXTRA_DEPS
+    from runtime.manifest_loader import load_manifest
+except Exception as exc:
+    print(json.dumps({"error": str(exc)}))
+    sys.exit(1)
+
+models = []
+for repo_name in sorted(REPOS.keys()):
+    repo_cfg = REPOS.get(repo_name, {})
+    providers = repo_cfg.get("providers", [])
+    meta = PROVIDER_METADATA.get(repo_name, {})
+    vram_mb = meta.get("vram_required_mb", 0)
+    weight_gb = meta.get("weight_size_gb", 0)
+    desc = meta.get("description", "3D generation model")
+    colab_ok = all(is_model_preparable_for_colab(p) for p in providers)
+    colab_reason = None
+    if not colab_ok:
+        for p in providers:
+            if not is_model_preparable_for_colab(p):
+                colab_reason = get_colab_incompatibility_reason(p)
+                break
+    # Count dependencies
+    try:
+        manifest = load_manifest(repo_name)
+        py_deps = len(manifest.get("dependencies", {}).get("python", []) or [])
+        native_deps = len(manifest.get("dependencies", {}).get("native", []) or [])
+    except:
+        py_deps = 0
+        native_deps = 0
+    extra = EXTRA_DEPS.get(repo_name, [])
+    total_deps = py_deps + native_deps + len(extra)
+    # Estimate disk usage (venv + weights)
+    disk_gb = (total_deps * 0.05) + weight_gb  # ~50MB per dep + weights
+    # Warnings
+    warnings = []
+    if vram_mb > 10000:
+        warnings.append("High VRAM")
+    if weight_gb > 10:
+        warnings.append("Large download")
+    if native_deps > 0:
+        warnings.append("Needs compilation")
+    if not colab_ok:
+        warnings.append("Setup incompatible")
+    models.append({
+        "repo": repo_name,
+        "vram_gb": round(vram_mb / 1024, 1) if vram_mb else 0,
+        "weight_gb": round(weight_gb, 1),
+        "py_deps": py_deps,
+        "native_deps": native_deps,
+        "extra_deps": len(extra),
+        "total_deps": total_deps,
+        "disk_gb": round(disk_gb, 1),
+        "colab_ok": colab_ok,
+        "colab_reason": colab_reason or "",
+        "warnings": warnings,
+        "desc": desc[:80],
+    })
+
+print(json.dumps(models))
+PYEOF
+    ) || { err "Failed to get model info"; return 1; }
+
+    # Parse and display
+    echo ""
+    echo "  +================================================================+"
+    echo "  |            AI 3D Studio - Model Selection                     |"
+    echo "  |                                                                |"
+    echo "  |  Choose which models to install. Each model has its own        |"
+    echo "  |  isolated environment with dedicated dependencies.             |"
+    echo "  +================================================================+"
+    echo ""
+
+    # Display model table
+    printf "  | %-4s %-18s %6s %7s %6s %8s |\\n" "#" "Model" "VRAM" "Weight" "Deps" "Disk"
+    echo "  +----------------------------------------------------------------+"
+
+    local repos=()
+    local idx=1
+    while IFS= read -r line; do
+        local repo vram weight total_deps disk colab_ok warnings desc
+        repo=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read())['repo'])")
+        vram=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read())['vram_gb'])")
+        weight=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read())['weight_gb'])")
+        total_deps=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read())['total_deps'])")
+        disk=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read())['disk_gb'])")
+        colab_ok=$(echo "$line" | python3 -c "import sys,json; print('Y' if json.loads(sys.stdin.read())['colab_ok'] else 'N')")
+        warnings=$(echo "$line" | python3 -c "import sys,json; print(','.join(json.loads(sys.stdin.read()).get('warnings',[])))")
+        desc=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read())['desc'][:40])")
+        repos+=("$repo")
+
+        local status="✓"
+        [[ "$colab_ok" == "N" ]] && status="✗"
+        printf "  | [%d]%s %-17s %5.1fG %6.1fG %5d %7.1fG |\\n" "$idx" "$status" "$repo" "$vram" "$weight" "$total_deps" "$disk"
+        [[ -n "$warnings" ]] && printf "  |      ⚠ %s\\n" "$warnings"
+        ((idx++))
+    done < <(echo "$model_info" | python3 -c "import sys,json; [print(json.dumps(m)) for m in json.loads(sys.stdin.read())]")
+
+    echo "  +----------------------------------------------------------------+"
+    echo "  |  ✓ = Setup compatible   ✗ = Needs CUDA toolkit               |"
+    echo "  +================================================================+"
+    echo ""
+
+    # Show menu options
+    echo "  Options:"
+    echo "  [1] Install ALL models (requires ~40GB disk, ~2h install time)"
+    echo "  [2] Install RECOMMENDED for Setup (3 models, ~12GB, ~30min)"
+    echo "  [3] Choose INDIVIDUALLY (pick specific models)"
+    echo "  [4] Skip (install later via UI)"
+    echo ""
+
+    local choice
+    while true; do
+        read -rp "  Enter your choice [1-4]: " choice
+        case "$choice" in
+            1|2|3|4) break ;;
+            *) echo "  Invalid choice. Please enter 1, 2, 3, or 4." ;;
+        esac
+    done
+
+    COLAB_SELECTED_REPOS=""
+    case "$choice" in
+        1)
+            COLAB_SELECTED_REPOS=$(echo "$model_info" | python3 -c "import sys,json; print(','.join(m['repo'] for m in json.loads(sys.stdin.read())))")
+            echo "  → Installing ALL models"
+            ;;
+        2)
+            COLAB_SELECTED_REPOS="TripoSG,TRELLIS,Hunyuan3D-2mini"
+            echo "  → Installing RECOMMENDED models (TripoSG, TRELLIS, Hunyuan3D-2mini)"
+            ;;
+        3)
+            echo ""
+            echo "  Enter model numbers to install (comma-separated, e.g., 1,2,3)"
+            echo "  Or press Enter for recommended models"
+
+            local selection
+            read -rp "  Your selection: " selection
+            if [[ -z "$selection" ]]; then
+                COLAB_SELECTED_REPOS="TripoSG,TRELLIS,Hunyuan3D-2mini"
+                echo "  → Installing RECOMMENDED models"
+            else
+                COLAB_SELECTED_REPOS=""
+                IFS=',' read -ra nums <<< "$selection"
+                for num in "${nums[@]}"; do
+                    num=$(echo "$num" | tr -d ' ')
+                    if [[ "$num" =~ ^[0-9]+$ ]] && (( num >= 1 && num <= ${#repos[@]} )); then
+                        COLAB_SELECTED_REPOS="${COLAB_SELECTED_REPOS},${repos[$((num-1))]}"
+                    fi
+                done
+                COLAB_SELECTED_REPOS="${COLAB_SELECTED_REPOS#,}"
+                echo "  → Installing: ${COLAB_SELECTED_REPOS}"
+            fi
+            ;;
+        4)
+            COLAB_SELECTED_REPOS=""
+            echo "  → Skipping model installation"
+            echo "  → You can install models later via the UI or API"
+            return 2
+            ;;
+    esac
+
+    export COLAB_SELECTED_REPOS
+    return 0
+}
+
+# Run interactive selection
+select_models_interactively
+model_selection_result=$?
+
+if [[ "$model_selection_result" == "2" ]]; then
+    warn "Skipping model installation. Start services and install via UI."
+else
+    prepare_model_runtimes || warn "Model runtime prep had issues — check output above"
+fi
+
+download_model_weights || warn "Weight download had issues — check output above"
 
   # Non-critical project steps
   install_frontend_deps  || warn "Frontend deps had issues — check npm output above"
