@@ -551,6 +551,7 @@ if [[ "$WEIGHTS_ONLY" == "true" ]]; then
 fi
 
 
+
 # ── Interactive Model Selection ──────────────────────────────────────────
 # ponytail: smart prompt that asks user which models to install.
 # Shows VRAM, weight size, deps count, disk space, and warnings.
@@ -567,7 +568,7 @@ import sys, json
 from pathlib import Path
 sys.path.insert(0, str(Path(".").resolve()))
 try:
-    from runtime.capability import get_model_vram_required, is_model_preparable_for_colab, get_colab_incompatibility_reason
+    from runtime.capability import get_model_vram_required, is_model_preparable_for_colab, get_colab_incompatibility_reason, get_model_weight_size_gb
     from runtime.installer import REPOS, PROVIDER_METADATA, EXTRA_DEPS
     from runtime.manifest_loader import load_manifest
 except Exception as exc:
@@ -575,23 +576,17 @@ except Exception as exc:
     sys.exit(1)
 
 models = []
-for repo_name in sorted(REPOS.keys()):
-    repo_cfg = REPOS.get(repo_name, {})
-    providers = repo_cfg.get("providers", [])
-    meta = PROVIDER_METADATA.get(repo_name, {})
+for pid, meta in sorted(PROVIDER_METADATA.items()):
+    if pid == "mock":
+        continue
+    repo_name = meta.get("repo", pid)
     vram_mb = meta.get("vram_required_mb", 0)
-    weight_gb = meta.get("weight_size_gb", 0)
-    desc = meta.get("description", "3D generation model")
-    colab_ok = all(is_model_preparable_for_colab(p) for p in providers)
-    colab_reason = None
-    if not colab_ok:
-        for p in providers:
-            if not is_model_preparable_for_colab(p):
-                colab_reason = get_colab_incompatibility_reason(p)
-                break
-    # Count dependencies
+    weight_gb = get_model_weight_size_gb(pid)
+    desc = meta.get("label", pid)
+    colab_ok = is_model_preparable_for_colab(pid)
+    colab_reason = get_colab_incompatibility_reason(pid) if not colab_ok else ""
     try:
-        manifest = load_manifest(repo_name)
+        manifest = load_manifest(pid)
         py_deps = len(manifest.get("dependencies", {}).get("python", []) or [])
         native_deps = len(manifest.get("dependencies", {}).get("native", []) or [])
     except:
@@ -599,9 +594,7 @@ for repo_name in sorted(REPOS.keys()):
         native_deps = 0
     extra = EXTRA_DEPS.get(repo_name, [])
     total_deps = py_deps + native_deps + len(extra)
-    # Estimate disk usage (venv + weights)
-    disk_gb = (total_deps * 0.05) + weight_gb  # ~50MB per dep + weights
-    # Warnings
+    disk_gb = (total_deps * 0.05) + weight_gb
     warnings = []
     if vram_mb > 10000:
         warnings.append("High VRAM")
@@ -615,22 +608,17 @@ for repo_name in sorted(REPOS.keys()):
         "repo": repo_name,
         "vram_gb": round(vram_mb / 1024, 1) if vram_mb else 0,
         "weight_gb": round(weight_gb, 1),
-        "py_deps": py_deps,
-        "native_deps": native_deps,
-        "extra_deps": len(extra),
         "total_deps": total_deps,
         "disk_gb": round(disk_gb, 1),
         "colab_ok": colab_ok,
-        "colab_reason": colab_reason or "",
         "warnings": warnings,
-        "desc": desc[:80],
     })
 
 print(json.dumps(models))
 PYEOF
     ) || { err "Failed to get model info"; return 1; }
 
-    # Parse and display
+    # Display menu
     echo ""
     echo "  +================================================================+"
     echo "  |            AI 3D Studio - Model Selection                     |"
@@ -640,14 +628,13 @@ PYEOF
     echo "  +================================================================+"
     echo ""
 
-    # Display model table
     printf "  | %-4s %-18s %6s %7s %6s %8s |\\n" "#" "Model" "VRAM" "Weight" "Deps" "Disk"
     echo "  +----------------------------------------------------------------+"
 
     local repos=()
     local idx=1
     while IFS= read -r line; do
-        local repo vram weight total_deps disk colab_ok warnings desc
+        local repo vram weight total_deps disk colab_ok warnings
         repo=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read())['repo'])")
         vram=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read())['vram_gb'])")
         weight=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read())['weight_gb'])")
@@ -655,25 +642,23 @@ PYEOF
         disk=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read())['disk_gb'])")
         colab_ok=$(echo "$line" | python3 -c "import sys,json; print('Y' if json.loads(sys.stdin.read())['colab_ok'] else 'N')")
         warnings=$(echo "$line" | python3 -c "import sys,json; print(','.join(json.loads(sys.stdin.read()).get('warnings',[])))")
-        desc=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read())['desc'][:40])")
         repos+=("$repo")
 
-        local status="✓"
-        [[ "$colab_ok" == "N" ]] && status="✗"
+        local status="OK"
+        [[ "$colab_ok" == "N" ]] && status="NO"
         printf "  | [%d]%s %-17s %5.1fG %6.1fG %5d %7.1fG |\\n" "$idx" "$status" "$repo" "$vram" "$weight" "$total_deps" "$disk"
-        [[ -n "$warnings" ]] && printf "  |      ⚠ %s\\n" "$warnings"
+        [[ -n "$warnings" ]] && printf "  |      ! %s\\n" "$warnings"
         ((idx++))
     done < <(echo "$model_info" | python3 -c "import sys,json; [print(json.dumps(m)) for m in json.loads(sys.stdin.read())]")
 
     echo "  +----------------------------------------------------------------+"
-    echo "  |  ✓ = Colab compatible   ✗ = Needs CUDA toolkit               |"
+    echo "  |  OK = Colab compatible   NO = Needs CUDA toolkit              |"
     echo "  +================================================================+"
     echo ""
 
-    # Show menu options
     echo "  Options:"
-    echo "  [1] Install ALL models (requires ~40GB disk, ~2h install time)"
-    echo "  [2] Install RECOMMENDED for Colab (3 models, ~12GB, ~30min)"
+    echo "  [1] Install ALL models (requires ~80GB disk)"
+    echo "  [2] Install RECOMMENDED for Colab (3 models, ~12GB)"
     echo "  [3] Choose INDIVIDUALLY (pick specific models)"
     echo "  [4] Skip (install later via UI)"
     echo ""
@@ -691,11 +676,11 @@ PYEOF
     case "$choice" in
         1)
             COLAB_SELECTED_REPOS=$(echo "$model_info" | python3 -c "import sys,json; print(','.join(m['repo'] for m in json.loads(sys.stdin.read())))")
-            echo "  → Installing ALL models"
+            echo "  -> Installing ALL models"
             ;;
         2)
             COLAB_SELECTED_REPOS="TripoSG,TRELLIS,Hunyuan3D-2mini"
-            echo "  → Installing RECOMMENDED models (TripoSG, TRELLIS, Hunyuan3D-2mini)"
+            echo "  -> Installing RECOMMENDED models (TripoSG, TRELLIS, Hunyuan3D-2mini)"
             ;;
         3)
             echo ""
@@ -706,7 +691,7 @@ PYEOF
             read -rp "  Your selection: " selection
             if [[ -z "$selection" ]]; then
                 COLAB_SELECTED_REPOS="TripoSG,TRELLIS,Hunyuan3D-2mini"
-                echo "  → Installing RECOMMENDED models"
+                echo "  -> Installing RECOMMENDED models"
             else
                 COLAB_SELECTED_REPOS=""
                 IFS=',' read -ra nums <<< "$selection"
@@ -717,13 +702,12 @@ PYEOF
                     fi
                 done
                 COLAB_SELECTED_REPOS="${COLAB_SELECTED_REPOS#,}"
-                echo "  → Installing: ${COLAB_SELECTED_REPOS}"
+                echo "  -> Installing: ${COLAB_SELECTED_REPOS}"
             fi
             ;;
         4)
             COLAB_SELECTED_REPOS=""
-            echo "  → Skipping model installation"
-            echo "  → You can install models later via the UI or API"
+            echo "  -> Skipping model installation"
             return 2
             ;;
     esac
@@ -739,10 +723,12 @@ model_selection_result=$?
 if [[ "$model_selection_result" == "2" ]]; then
     warn "Skipping model installation. Start services and install via UI."
 else
-    prepare_model_runtimes || warn "Model runtime prep had issues — check output above"
+    prepare_model_runtimes || warn "Model runtime prep had issues - check output above"
 fi
 
-download_model_weights || warn "Weight download had issues — check output above"
+download_model_weights || warn "Weight download had issues - check output above"
+
+
 
 if [[ "$REPOS_ONLY" == "true" ]]; then
     log "Repos-only setup complete. Start services with: bash scripts/colab.sh"

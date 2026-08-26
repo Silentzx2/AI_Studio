@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
-import { AppearanceProvider } from "@/components/AppearanceProvider";
-import { ActivityLogger } from "@/components/ActivityLogger";
-import { WorkspaceProvider } from "@/features/new-workspace/store/WorkspaceContext";
-import { ThemeEffect } from "@/stores/useThemeStore";
+import { Providers } from "@/components/Providers";
 import "./globals.css";
 
 const inter = Inter({
@@ -76,15 +73,7 @@ export default function RootLayout({
           className="fixed inset-0 pointer-events-none z-[2] [box-shadow:inset_0_0_150px_rgba(0,0,0,0.7)]"
           aria-hidden="true"
         />
-        <AppearanceProvider>
-          <ActivityLogger />
-          <ThemeEffect />
-          <WorkspaceProvider>
-            <div className="relative z-10 min-h-screen flex flex-col">
-              {children}
-            </div>
-          </WorkspaceProvider>
-        </AppearanceProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
