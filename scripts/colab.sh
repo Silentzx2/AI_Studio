@@ -346,7 +346,7 @@ except Exception as exc:
     sys.exit(1)
 
 # Use user-selected repos if set via interactive prompt, else fall back to default
-import _os
+import os as _os
 _selected = _os.environ.get("COLAB_SELECTED_REPOS", "").strip()
 if _selected:
     COLAB_ALLOWED_REPOS = set(_selected.split(","))
