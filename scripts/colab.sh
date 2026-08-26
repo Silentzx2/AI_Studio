@@ -345,11 +345,13 @@ except Exception as exc:
     print(f"  [FAIL] Could not import runtime modules: {exc}")
     sys.exit(1)
 
-# Colab: only lightweight models that don't need native CUDA builds.
-# TripoSG (8 GB), TRELLIS (8 GB), Hunyuan3D-2mini (6 GB) — pure Python, no nvcc needed.
-# AniGen skipped (23 GB weight > 10 GB ceiling).
-# DetailGen3D, Hunyuan3D-2, Hunyuan3D-2.1, UniRig require native CUDA toolkit — excluded.
-COLAB_ALLOWED_REPOS = {"TripoSG", "TRELLIS", "Hunyuan3D-2mini"}
+# Use user-selected repos if set via interactive prompt, else fall back to default
+    import _os
+    _selected = _os.environ.get("COLAB_SELECTED_REPOS", "").strip()
+    if _selected:
+        COLAB_ALLOWED_REPOS = set(_selected.split(","))
+    else:
+        COLAB_ALLOWED_REPOS = {"TripoSG", "TRELLIS", "Hunyuan3D-2mini"}
 
 # Map repos to their providers for Colab gating
 repos_to_prepare = []
