@@ -40,7 +40,6 @@ dependencies:
   native:
     # CUDA extensions — handled by native resolver (wheel-first)
     - "flash_attn"
-    - "bpy==4.2"
     - "spconv"
     - "torch_scatter"
     - "torch_cluster"

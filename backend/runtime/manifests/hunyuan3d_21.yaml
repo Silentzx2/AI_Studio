@@ -55,7 +55,6 @@ dependencies:
   native:
     # CUDA-specific, no cp312 wheel — handled by native resolver
     - "cupy-cuda12x"
-    - "bpy"
 weights:
   primary:
     repo: "tencent/Hunyuan3D-2.1"

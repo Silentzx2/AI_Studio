@@ -45,7 +45,7 @@ dependencies:
     # CUDA extensions — handled by native resolver (wheel-first)
     - "spconv"
     - "pytorch3d"
-    - "nvdiffrast"
+    - "git+https://github.com/NVlabs/nvdiffrast.git"
 weights:
   primary:
     repo: "VAST-AI/AniGen_Weights"
