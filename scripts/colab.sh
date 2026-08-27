@@ -582,7 +582,7 @@ for repo_name in sorted(REPOS.keys()):
         # Weights are downloaded separately via the UI or API (Stage B).
         result = run_preflight_for_provider(provider, skip_weights_check=True)
         passed = bool(getattr(result, "passed", False))
-        print(f"    [{'OK  ' if passed else 'FAIL'}] $provider}: {'PASSED' if passed else 'FAILED'}")
+        print(f"    [{'OK  ' if passed else 'FAIL'}] {provider}: {'PASSED' if passed else 'FAILED'}")
         if not passed:
             checks = getattr(result, "checks", {})
             for check_name, check_result in checks.items():

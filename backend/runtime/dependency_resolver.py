@@ -296,10 +296,12 @@ def classify_dependency(raw_spec: str) -> Dependency:
     # e.g., "git+https://github.com/user/repo.git#subdirectory=submodules/pkg"
     # -> name = "pkg" (from subdirectory) or "repo" (from URL)
     if line.startswith("git+") or line.startswith("http"):
-        # Try to extract name from #subdirectory= fragment
-        subdir_match = re.search(r'#subdirectory=([^&/]+)', line)
+        # Try to extract name from #subdirectory= fragment (full path)
+        subdir_match = re.search(r'#subdirectory=([^&]+)', line)
         if subdir_match:
-            name = subdir_match.group(1)
+            # Use the last component of the subdirectory path as the name
+            subdir_path = subdir_match.group(1)
+            name = subdir_path.split("/")[-1]
         else:
             # Extract repo name from URL
             name = re.sub(r'^git\+', '', line)
@@ -809,10 +811,18 @@ def install_resolved_deps(
                         # Clone to a temp dir and install from subdirectory
                         import tempfile as _tf
                         import subprocess as _sp
+                        import os as _os
                         with _tf.TemporaryDirectory() as _tmpdir:
                             _clone_cmd = ["git", "clone", "--depth", "1", git_url, _tmpdir]
-                            _sp.run(_clone_cmd, capture_output=True, timeout=120)
-                            _subdir_path = _tmpdir + "/" + subdir
+                            _clone_result = _sp.run(_clone_cmd, capture_output=True, timeout=120)
+                            if _clone_result.returncode != 0:
+                                _log(f"  Git clone failed for {dep.name}: {_clone_result.stderr.decode()[:200]}")
+                                raise Exception(f"Git clone failed for {dep.name}")
+                            _subdir_path = _os.path.join(_tmpdir, subdir)
+                            # Verify the subdirectory exists
+                            if not _os.path.isdir(_subdir_path):
+                                _log(f"  Subdirectory not found: {_subdir_path}")
+                                raise Exception(f"Subdirectory not found: {subdir}")
                             build_args = ["pip", "install", "--python", str(venv_python), _subdir_path, "--no-build-isolation"]
                     else:
                         build_args = ["pip", "install", "--python", str(venv_python), dep.spec, "--no-build-isolation"]
