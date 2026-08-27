@@ -870,11 +870,11 @@ _CUDA_ONLY_PKG_PATTERNS: list[re.Pattern] = [
 # sys.executable) so they resolve regardless of which sys.path the provider uses.
 # Extend per repo as other missing inference libs are discovered.
 EXTRA_DEPS: dict[str, list[str]] = {
-    "Hunyuan3D-2.1": ["hy3dgen", "accelerate>=0.34.0", "huggingface_hub==0.27.1"],
-    "Hunyuan3D-2": ["hy3dgen", "accelerate>=0.34.0", "huggingface_hub==0.27.1"],
-    "Hunyuan3D-2mini": ["hy3dgen", "accelerate>=0.34.0", "huggingface_hub==0.27.1"],
+    "Hunyuan3D-2.1": ["hy3dgen", "accelerate>=0.34.0", "huggingface_hub>=0.28.0"],
+    "Hunyuan3D-2": ["hy3dgen", "accelerate>=0.34.0", "huggingface_hub>=0.28.0"],
+    "Hunyuan3D-2mini": ["hy3dgen", "accelerate>=0.34.0", "huggingface_hub>=0.28.0"],
     "TRELLIS": ["accelerate>=0.34.0"],
-    "TripoSG": ["diffusers>=0.22.0", "huggingface_hub==0.27.1", "accelerate"],
+    "TripoSG": ["diffusers>=0.22.0", "huggingface_hub>=0.28.0", "accelerate"],
 }
 
 

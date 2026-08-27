@@ -6,8 +6,8 @@ source:
   submodules: true
 environment:
   python: "3.10"
-  torch: "2.5.1"
-  cuda: "12.1"
+  torch: "2.4.0"
+  cuda: "11.8"
 dependencies:
   python:
     # Core runtime deps from upstream setup.sh --basic
@@ -35,12 +35,14 @@ dependencies:
     - "trimesh"
   native:
     # Optional CUDA extensions — handled by native resolver (wheel-first)
-    - "flash_attn"
+    # ponytail: flash-attn unpinned in upstream setup.sh (latest PyPI).
+    # xformers 0.0.27.post2 for torch 2.4.0 per upstream.
+    - "flash-attn"
     - "xformers"
     - "git+https://github.com/JeffreyXiang/diffoctreerast.git"
     - "vox2seq"
     - "git+https://github.com/autonomousvision/mip-splatting.git#subdirectory=submodules/diff-gaussian-rasterization"
-    - "spconv"
+    - "spconv-cu118"
     - "kaolin==0.18.0"
     - "git+https://github.com/NVlabs/nvdiffrast.git"
   attention_backend:

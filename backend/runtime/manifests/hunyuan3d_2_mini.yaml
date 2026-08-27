@@ -11,13 +11,14 @@ environment:
 dependencies:
   python:
     # Same repo as hunyuan3d-2 — same dependencies
+    # From upstream requirements.txt (unpinned) + setup.py (transformers>=4.48.0)
     - "ninja"
     - "pybind11"
     - "diffusers"
     - "einops"
     - "opencv-python"
     - "numpy"
-    - "transformers"
+    - "transformers>=4.48.0"
     - "tqdm"
     - "trimesh"
     - "pymeshlab"

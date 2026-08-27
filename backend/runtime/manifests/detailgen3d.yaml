@@ -10,18 +10,21 @@ environment:
   cuda: "12.4"
 dependencies:
   python:
-    # From upstream requirements.txt
+    # From upstream requirements.txt (mostly unpinned) + HF Spaces pinned versions
     - "diffusers"
-    - "transformers"
+    - "transformers==4.49.0"
     - "einops"
     - "huggingface_hub"
     - "opencv-python"
-    - "trimesh"
+    - "trimesh==4.5.3"
     - "omegaconf"
     - "scikit-image"
     - "numpy==1.22.3"
+    - "scipy==1.11.4"
     - "jaxtyping"
     - "typeguard"
+    - "peft==0.17.1"
+    - "pymeshlab==2022.2.post4"
     # Native CUDA extensions (also listed in native section for wheel-first)
     - "diso"
     - "torch-cluster"

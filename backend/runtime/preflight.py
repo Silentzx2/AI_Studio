@@ -9,6 +9,7 @@ MUST NOT result in READY.
 """
 from __future__ import annotations
 import logging
+import re
 import subprocess
 import sys
 import time
@@ -338,6 +339,8 @@ def _check_imports(venv_python: Path, packages: list[str]) -> list[PreflightChec
         import_name = pkg
         if import_name.startswith("git+"):
             import_name = import_name.split("/")[-1].replace(".git", "")
+        # Strip version specifiers: kaolin==0.18.0 -> kaolin
+        import_name = re.split(r"[><=!~]", import_name)[0].strip()
         # Normalize package name: flash-attn -> flash_attn
         import_name = import_name.replace("-", "_")
         code = f"import {import_name}; print('ok')"
@@ -397,6 +400,8 @@ def _check_native_extensions(venv_python: Path, extensions: list[str]) -> list[P
         if import_name.startswith("git+"):
             # Extract repo name from URL
             import_name = import_name.split("/")[-1].replace(".git", "")
+        # Strip version specifiers: kaolin==0.18.0 -> kaolin
+        import_name = re.split(r"[><=!~]", import_name)[0].strip()
         # Normalize package name: flash-attn -> flash_attn (Python module naming)
         import_name = import_name.replace("-", "_")
         code = f"import {import_name}; print('ok')"

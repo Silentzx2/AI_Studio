@@ -54,19 +54,21 @@ class Dependency:
 _CUDA12_ALL = ["121", "122", "123", "124", "125", "126", "127", "128", "cpu"]
 
 WHEEL_COMPAT_TABLE: dict[str, dict] = {
-    "torch-cluster": {
-        "wheel_available": True,
-        "index": "https://data.pyg.org/whl/torch-{torch_ver}+{cuda_ver}.html",
-        "python": ["3.10", "3.11", "3.12"],
-        "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^torch[-_]cluster($|==|>=|<=|!=|~=)"),
-    },
     "torch-scatter": {
+        # torch-scatter: prebuilt wheels from PyG index (CPU/CUDA)
         "wheel_available": True,
         "index": "https://data.pyg.org/whl/torch-{torch_ver}+{cuda_ver}.html",
         "python": ["3.10", "3.11", "3.12"],
         "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^torch[-_]scatter($|==|>=|<=|!=|~=)"),
+    },
+    "torch-cluster": {
+        # torch-cluster: prebuilt wheels from PyG index (CPU/CUDA)
+        "wheel_available": True,
+        "index": "https://data.pyg.org/whl/torch-{torch_ver}+{cuda_ver}.html",
+        "python": ["3.10", "3.11", "3.12"],
+        "cuda": _CUDA12_ALL,
+        "pattern": re.compile(r"^torch[-_]cluster($|==|>=|<=|!=|~=)"),
     },
     "torch-sparse": {
         "wheel_available": True,
@@ -93,7 +95,7 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "pattern": re.compile(r"^flash[-_]attn($|==|>=|<=|!=|~=)"),
     },
     "nvdiffrast": {
-        # nvdiffrast: prebuilt wheels from third-party PyPI index
+        # nvdiffrast has no PyPI wheel — prebuilt wheels from third-party
         "wheel_available": True,
         "index": "https://miropsota.github.io/torch_packages_builder",
         "python": ["3.10", "3.11", "3.12"],
@@ -101,18 +103,17 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "pattern": re.compile(r"^(git\+)?.*nvdiffrast"),
     },
     "diffoctreerast": {
-        # diffoctreerast: prebuilt wheels from GitHub releases
+        # diffoctreerast has no PyPI wheel — prebuilt wheels from third-party
         "wheel_available": True,
-        "index": None,
-        "direct_url_template": "https://github.com/iiiytn1k/sd-webui-some-stuff/releases/download/diffoctreerast/diffoctreerast-0.0.0-cp{python}-cp{python}-linux_x86_64.whl",
+        "index": "https://github.com/iiiytn1k/sd-webui-some-stuff/releases",
         "python": ["3.10", "3.11"],
         "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^(git\+)?.*diffoctreerast"),
     },
     "pytorch3d": {
-        # pytorch3d has wheels via pytorch.org index
+        # pytorch3d: prebuilt wheels from third-party
         "wheel_available": True,
-        "index": None,
+        "index": "https://miropsota.github.io/torch_packages_builder",
         "python": ["3.10", "3.11", "3.12"],
         "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^pytorch3d($|==|>=|<=|!=|~=)"),
@@ -139,30 +140,6 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^chumpy(-fixed)?($|==|>=|<=|!=|~=)"),
     },
-    "torch-scatter": {
-        # torch-scatter: prebuilt wheels from PyG index (CPU/CUDA)
-        "wheel_available": True,
-        "index": "https://data.pyg.org/whl/torch-{torch_ver}+{cuda_ver}.html",
-        "python": ["3.10", "3.11", "3.12"],
-        "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^torch[-_]scatter($|==|>=|<=|!=|~=)"),
-    },
-    "torch-cluster": {
-        # torch-cluster: prebuilt wheels from PyG index (CPU/CUDA)
-        "wheel_available": True,
-        "index": "https://data.pyg.org/whl/torch-{torch_ver}+{cuda_ver}.html",
-        "python": ["3.10", "3.11", "3.12"],
-        "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^torch[-_]cluster($|==|>=|<=|!=|~=)"),
-    },
-    "pytorch3d": {
-        # pytorch3d: prebuilt wheels from third-party
-        "wheel_available": True,
-        "index": "https://miropsota.github.io/torch_packages_builder",
-        "python": ["3.10", "3.11", "3.12"],
-        "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^pytorch3d($|==|>=|<=|!=|~=)"),
-    },
     "spconv": {
         # spconv-cu12 wheel available on PyPI
         "wheel_available": True,
@@ -177,22 +154,6 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "python": ["3.10", "3.11", "3.12"],
         "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^cupy[-_]cuda12x($|==|>=|<=|!=|~=)"),
-    },
-    "nvdiffrast": {
-        # nvdiffrast has no PyPI wheel — prebuilt wheels from third-party
-        "wheel_available": True,
-        "index": "https://miropsota.github.io/torch_packages_builder",
-        "python": ["3.10", "3.11", "3.12"],
-        "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^(git\+)?.*nvdiffrast"),
-    },
-    "diffoctreerast": {
-        # diffoctreerast has no PyPI wheel — prebuilt wheels from third-party
-        "wheel_available": True,
-        "index": "https://github.com/iiiytn1k/sd-webui-some-stuff/releases",
-        "python": ["3.10", "3.11"],
-        "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^(git\+)?.*diffoctreerast"),
     },
     "bpy": {
         # bpy has prebuilt wheels on PyPI
@@ -211,6 +172,16 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "pattern": re.compile(r"^kaolin($|==|>=|<=|!=|~=)"),
     },
 }
+
+# ponytail: kaolin NVIDIA S3 index URLs that are known to exist.
+# The primary WHEEL_COMPAT_TABLE index uses {cuda_ver} but NVIDIA only
+# publishes for specific CUDA versions. These fallbacks cover common
+# torch+CUDA combos when the primary URL 404s.
+KAOLIN_FALLBACK_URLS: list[str] = [
+    "https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.4.0_cu121.html",
+    "https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.5.1_cu124.html",
+    "https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.5.0_cu124.html",
+]
 
 # Packages that compile CUDA/native code at build time.
 # Used for classification (kind = NATIVE).
@@ -463,24 +434,79 @@ def check_wheel_available(
                 version = ""
                 if "==" in dep.spec:
                     version = dep.spec.split("==")[1].strip()
-                # Format the direct URL with version, cuda, torch, python
-                cv = cuda_ver if cuda_ver == "cpu" else _cuda_normalized
-                direct_url = direct_url_template.format(
-                    version=version,
-                    cuda=cv,
-                    torch=torch_ver,
-                    python=py_ver,
-                )
-                return direct_url
+                # ponytail: skip direct URL if version is unpinned — template
+                # produces invalid filename like "flash_attn-+cu124..." with empty
+                # version. Fall through to index/PyPI instead.
+                if not version:
+                    pass  # fall through to index/PyPI
+                else:
+                    cv = cuda_ver if cuda_ver == "cpu" else _cuda_normalized
+                    direct_url = direct_url_template.format(
+                        version=version,
+                        cuda=cv,
+                        torch=torch_ver,
+                        python=py_ver,
+                    )
+                    return direct_url
             # Build the wheel source/index URL
             index = info.get("index")
             if index and torch_ver:
                 # Replace cuda_ver placeholder (handle both "121" and "cpu")
-                cv = cuda_ver if cuda_ver == "cpu" else f"cu{_cuda_normalized}"
+                # ponytail: template already includes "cu" prefix (e.g. "_cu{cuda_ver}"),
+                # so use _cuda_normalized directly to avoid double "cu" (e.g. "_cucu124").
+                cv = cuda_ver if cuda_ver == "cpu" else _cuda_normalized
                 index = index.replace("{torch_ver}", torch_ver).replace("{cuda_ver}", cv).replace("{cuda_ver_short}", _cuda_normalized)
             return index or "pypi"
 
     return None
+
+
+# ---------------------------------------------------------------------------
+# Fallback wheel sources — tried in order when primary source fails.
+# Each entry: (identifier, url_or_index, is_direct_whl)
+# ---------------------------------------------------------------------------
+FALLBACK_SOURCES: dict[str, list[tuple[str, str, bool]]] = {
+    "flash-attn": [
+        ("pypi", "pypi", False),
+        ("github-prebuild", "https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.0.0/", False),
+    ],
+    "kaolin": [
+        ("pypi", "pypi", False),
+        ("nvidia-s3", "https://nvidia-kaolin.s3.us-east-2.amazonaws.com/", False),
+        ("nvidia-s3-torch2.4.0cu121", "https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.4.0_cu121.html", False),
+        ("nvidia-s3-torch2.5.1cu124", "https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.5.1_cu124.html", False),
+    ],
+    "nvdiffrast": [
+        ("miropsota-index", "https://miropsota.github.io/torch_packages_builder", False),
+        ("pypi", "pypi", False),
+    ],
+    "diffoctreerast": [
+        ("github-releases", "https://github.com/iiiytn1k/sd-webui-some-stuff/releases", False),
+        ("pypi", "pypi", False),
+    ],
+    "pytorch3d": [
+        ("miropsota-index", "https://miropsota.github.io/torch_packages_builder", False),
+        ("pypi", "pypi", False),
+    ],
+}
+
+
+def _get_fallback_sources(dep: Dependency, py_ver: str, cuda_ver: str, torch_ver: str) -> list[str]:
+    """Get fallback wheel sources for a dependency when primary source fails.
+
+    Returns a list of source identifiers/URLs to try in order.
+    """
+    sources: list[str] = []
+    for name, url, is_whl in FALLBACK_SOURCES.get(dep.name, []):
+        if url == "pypi":
+            sources.append("pypi")
+        elif is_whl and "{" not in url:
+            sources.append(url)
+        elif not is_whl and "{" not in url:
+            sources.append(url)
+        else:
+            sources.append(url)
+    return sources
 
 
 def normalize_py312_pin(spec: str) -> str | None:
@@ -616,12 +642,18 @@ def install_resolved_deps(
         if wheel_source:
             # Wheel available — install it directly
             _log(f"Wheel found for {dep.name} (source: {wheel_source})")
+            # ponytail: distinguish direct .whl URLs from index pages.
+            # .whl URLs are installed directly; index pages use --find-links.
+            is_direct_whl = wheel_source.startswith("http") and wheel_source.endswith(".whl")
+            is_index_page = wheel_source.startswith("http") and not is_direct_whl
             install_args = ["pip", "install", "--python", str(venv_python), dep.spec]
             if wheel_source == "pypi":
                 pass  # Install from PyPI (default)
-            elif wheel_source.startswith("http"):
+            elif is_direct_whl:
                 # Direct wheel URL - use as package spec directly
                 install_args = ["pip", "install", "--python", str(venv_python), wheel_source]
+            elif is_index_page:
+                install_args += ["--find-links", wheel_source]
             else:
                 install_args += ["--find-links", wheel_source]
 
@@ -631,10 +663,30 @@ def install_resolved_deps(
                 installed.append(dep.name)
                 _log(f"Wheel installed: {dep.name}")
             else:
-                # Wheel install failed — fall through to build decision
+                # Wheel install failed — try fallback sources if available
                 _log(f"Wheel install failed for {dep.name}: {output[:200]}")
-                dep.wheel_source = None
-                pending_builds.append(dep)
+                fallback_sources = _get_fallback_sources(dep, py_ver, cuda_ver, torch_ver)
+                fallback_success = False
+                for fb_source in fallback_sources:
+                    _log(f"Trying fallback source for {dep.name}: {fb_source}")
+                    fb_is_whl = fb_source.startswith("http") and fb_source.endswith(".whl")
+                    fb_args = ["pip", "install", "--python", str(venv_python), dep.spec]
+                    if fb_is_whl:
+                        fb_args = ["pip", "install", "--python", str(venv_python), fb_source]
+                    elif fb_source.startswith("http"):
+                        fb_args += ["--find-links", fb_source]
+                    fb_code, fb_output = _run_uv(fb_args, cwd=repo_dir)
+                    if fb_code == 0:
+                        dep.state = "wheel_installed"
+                        installed.append(dep.name)
+                        _log(f"Wheel installed from fallback: {dep.name}")
+                        fallback_success = True
+                        break
+                    else:
+                        _log(f"Fallback failed for {dep.name}: {fb_output[:200]}")
+                if not fallback_success:
+                    dep.wheel_source = None
+                    pending_builds.append(dep)
         else:
             # No wheel available — needs build decision
             pending_builds.append(dep)

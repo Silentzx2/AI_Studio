@@ -10,7 +10,7 @@ environment:
   cuda: "12.4"
 dependencies:
   python:
-    # From upstream requirements.txt
+    # From upstream requirements.txt (only numpy==1.22.3 is pinned)
     - "diffusers"
     - "transformers"
     - "einops"
@@ -23,6 +23,7 @@ dependencies:
     - "peft"
     - "jaxtyping"
     - "typeguard"
+    - "diso"
     - "pymeshlab"
   imports:
     - "torch"

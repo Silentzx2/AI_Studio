@@ -1,5 +1,31 @@
 # AI 3D Studio — Changelog
 
+## [v4.2.0] - 2026-08-27 - Dependency Resolution Overhaul & Manifest Sync
+
+### Summary
+Fixed critical dependency resolution bugs causing Colab installation failures. Synced all model manifests with official upstream versions.
+
+### Root Cause Fixes
+- **Preflight syntax bug** (`preflight.py`): `_check_imports()` and `_check_native_extensions()` now strip version specifiers (`kaolin==0.18.0` → `kaolin`) before constructing import statements. Previously caused `SyntaxError: invalid syntax` on all versioned native extensions.
+- **flash_attn empty version** (`dependency_resolver.py`): Direct URL template now skipped when version is unpinned, preventing invalid filenames like `flash_attn-+cu124...whl`.
+- **kaolin double `cu` prefix** (`dependency_resolver.py`): Fixed `_cuda_normalized` being prefixed with `cu` when template already includes it, which produced `_cucu124` URLs.
+- **Index page misrouting** (`dependency_resolver.py`): HTTP URLs ending in `.whl` are now installed directly; index pages use `--find-links`. Previously all HTTP URLs were treated as direct wheel files.
+- **TripoSG transformers conflict** (`installer.py`): Upgraded `huggingface_hub` from `==0.27.1` to `>=0.28.0` across all providers to match newer `transformers` requirements.
+- **Duplicate dict keys** (`dependency_resolver.py`): Removed 5 duplicate keys in `WHEEL_COMPAT_TABLE` where first definition was silently overwritten.
+
+### Fallback Sources
+- Added `FALLBACK_SOURCES` dict with multiple wheel sources per package
+- Added `KAOLIN_FALLBACK_URLS` for known-working NVIDIA S3 index URLs
+- Install logic now tries multiple sources before falling back to build
+
+### Manifest Sync with Official Repos
+- **TRELLIS**: Fixed torch 2.5.1→**2.4.0**, cuda 12.1→**11.8**, flash_attn pinned→**unpinned**, spconv→**spconv-cu118** (all from upstream setup.sh)
+- **TripoSG**: Removed incorrect transformers pin (official has none), added missing `diso` to python deps
+- **Hunyuan3D-2**: Added `transformers>=4.48.0` from upstream setup.py
+- **Hunyuan3D-2mini**: Added `transformers>=4.48.0` from upstream setup.py
+- **DetailGen3D**: Added pinned versions from HF Spaces (`transformers==4.49.0`, `trimesh==4.5.3`, `scipy==1.11.4`, `peft==0.17.1`, `pymeshlab==2022.2.post4`)
+- **UniRig**: Pinned `bpy==4.2`, added `numpy==1.26.4` from upstream README
+
 ## [v4.1.9] - 2026-08-27 - Import Error Fixes
 
 ### Summary

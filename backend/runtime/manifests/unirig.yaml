@@ -25,6 +25,7 @@ dependencies:
     - "pyrender"
     - "huggingface_hub"
     - "wandb"
+    - "numpy==1.26.4"
     # Native CUDA extensions (also in native section for wheel-first)
     - "torch_scatter"
     - "torch_cluster"
@@ -35,7 +36,7 @@ dependencies:
   native:
     # CUDA extensions — handled by native resolver (wheel-first)
     - "flash_attn"
-    - "bpy"
+    - "bpy==4.2"
     - "spconv"
     - "torch_scatter"
     - "torch_cluster"
