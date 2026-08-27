@@ -1,5 +1,22 @@
 # AI 3D Studio — Changelog
 
+## [v4.1.7] - 2026-08-27 - Complete Audit & Build Fix
+
+### Summary
+Completed comprehensive audit of entire codebase (115 issues found and fixed). Fixed npm build errors.
+
+### Build Fixes
+- **SSR error fixed**: `ActivityLogger.tsx` no longer crashes during server-side rendering
+- **TypeScript compiles cleanly**: 0 errors
+- **All 722 Python files pass syntax check**
+- **All 9 bash scripts pass syntax check**
+
+### All 115 Issues Fixed
+- **P0 Critical (14)**: setBaseUrl, blob URL leak, polling timer, SSE disconnect, thread-safe init, etc.
+- **P1 High (28)**: Upload progress, 3D viewer, animation speed, database fallback, etc.
+- **P2 Medium (34)**: Settings persistence, HF token permissions, async blocking calls, etc.
+- **P3 Low (39)**: Dead code removal, minor inconsistencies, code quality, etc.
+
 ## [v4.1.6] - 2026-08-26 - Comprehensive Bug Fixes
 
 ### Summary

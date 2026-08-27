@@ -83,12 +83,31 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "pattern": re.compile(r"^pyg_lib($|==|>=|<=|!=|~=)"),
     },
     "flash-attn": {
-        # flash-attn: prebuilt wheels from third-party
+        # flash-attn: prebuilt wheels from GitHub releases
         "wheel_available": True,
-        "index": "https://github.com/mjun0812/flash-attention-prebuild-wheels/releases",
+        "index": None,
+        # Direct wheel URL template - formatted with version, cuda, torch, python
+        "direct_url_template": "https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.0.0/flash_attn-{version}+cu{cuda}torch{torch}-cp{python}-cp{python}-linux_x86_64.whl",
         "python": ["3.10", "3.11", "3.12"],
         "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^flash[-_]attn($|==|>=|<=|!=|~=)"),
+    },
+    "nvdiffrast": {
+        # nvdiffrast: prebuilt wheels from third-party PyPI index
+        "wheel_available": True,
+        "index": "https://miropsota.github.io/torch_packages_builder",
+        "python": ["3.10", "3.11", "3.12"],
+        "cuda": _CUDA12_ALL,
+        "pattern": re.compile(r"^(git\+)?.*nvdiffrast"),
+    },
+    "diffoctreerast": {
+        # diffoctreerast: prebuilt wheels from GitHub releases
+        "wheel_available": True,
+        "index": None,
+        "direct_url_template": "https://github.com/iiiytn1k/sd-webui-some-stuff/releases/download/diffoctreerast/diffoctreerast-0.0.0-cp{python}-cp{python}-linux_x86_64.whl",
+        "python": ["3.10", "3.11"],
+        "cuda": _CUDA12_ALL,
+        "pattern": re.compile(r"^(git\+)?.*diffoctreerast"),
     },
     "pytorch3d": {
         # pytorch3d has wheels via pytorch.org index
@@ -437,6 +456,22 @@ def check_wheel_available(
             supported_cuda = info.get("cuda", [])
             if supported_cuda and _cuda_normalized not in supported_cuda and cuda_ver not in supported_cuda:
                 return None
+            # Check for direct wheel URL template (highest priority)
+            direct_url_template = info.get("direct_url_template")
+            if direct_url_template and torch_ver:
+                # Extract version from dep.spec (e.g., "flash-attn==2.6.3" -> "2.6.3")
+                version = ""
+                if "==" in dep.spec:
+                    version = dep.spec.split("==")[1].strip()
+                # Format the direct URL with version, cuda, torch, python
+                cv = cuda_ver if cuda_ver == "cpu" else _cuda_normalized
+                direct_url = direct_url_template.format(
+                    version=version,
+                    cuda=cv,
+                    torch=torch_ver,
+                    python=py_ver,
+                )
+                return direct_url
             # Build the wheel source/index URL
             index = info.get("index")
             if index and torch_ver:
@@ -585,8 +620,8 @@ def install_resolved_deps(
             if wheel_source == "pypi":
                 pass  # Install from PyPI (default)
             elif wheel_source.startswith("http"):
-                # Use --find-links for all HTTP sources (works for PyPI simple indexes and GitHub releases)
-                install_args += ["--find-links", wheel_source, "--extra-index-url", "https://pypi.org/simple"]
+                # Direct wheel URL - use as package spec directly
+                install_args = ["pip", "install", "--python", str(venv_python), wheel_source]
             else:
                 install_args += ["--find-links", wheel_source]
 
