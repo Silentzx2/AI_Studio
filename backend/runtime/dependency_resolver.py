@@ -276,7 +276,13 @@ def classify_dependency(raw_spec: str) -> Dependency:
     if not stripped or stripped.startswith("#"):
         return Dependency(name="", spec=raw_spec, kind=DependencyKind.NORMAL, required=False)
 
-    line = stripped.split("#", 1)[0].strip()
+    # ponytail: preserve git URL fragments (#subdirectory=, #egg=, #ref=)
+    # These are not comments — they're part of the URL. Only strip actual
+    # comments that appear after whitespace.
+    if stripped.startswith("git+") or stripped.startswith("http"):
+        line = stripped
+    else:
+        line = stripped.split("#", 1)[0].strip()
 
     # Check if it's a known native package
     for pat in NATIVE_PKG_PATTERNS:
@@ -286,6 +292,21 @@ def classify_dependency(raw_spec: str) -> Dependency:
             return Dependency(name=name, spec=line, kind=DependencyKind.NATIVE, required=True)
 
     # Normal Python dependency
+    # ponytail: for git URLs, extract package name from the URL
+    # e.g., "git+https://github.com/user/repo.git#subdirectory=submodules/pkg"
+    # -> name = "pkg" (from subdirectory) or "repo" (from URL)
+    if line.startswith("git+") or line.startswith("http"):
+        # Try to extract name from #subdirectory= fragment
+        subdir_match = re.search(r'#subdirectory=([^&/]+)', line)
+        if subdir_match:
+            name = subdir_match.group(1)
+        else:
+            # Extract repo name from URL
+            name = re.sub(r'^git\+', '', line)
+            name = re.sub(r'\.git.*$', '', name)
+            name = name.split("/")[-1]
+        return Dependency(name=name, spec=line, kind=DependencyKind.NORMAL, required=True)
+
     name = re.split(r"[><=!~\[]", line, 1)[0].strip()
     return Dependency(name=name, spec=line, kind=DependencyKind.NORMAL, required=True)
 
