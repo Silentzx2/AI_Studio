@@ -41,7 +41,8 @@ dependencies:
       mode: pypi
   fallbacks: {}
   optional: []
-  representation_required: []
+  representation_required:
+  - diso
   local_extensions: {}
 weights:
   primary:

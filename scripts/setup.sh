@@ -325,16 +325,13 @@ install_redis() {
     log "Redis already installed: $(redis-server --version)"
     return 0
   fi
-  
+
   apt-get update -qq
-  apt-get install -y postgresql postgresql-contrib postgresql-16-pgvector || {
-    warn "postgresql-16-pgvector not available — trying pgvector package"
-    apt-get install -y postgresql postgresql-contrib pgvector || {
-      err "Failed to install PostgreSQL"
-      return 1
-    }
+  apt-get install -y redis-server || {
+    err "Failed to install Redis"
+    return 1
   }
-  
+
   systemctl enable redis-server --now
   log "Redis installed and started"
 }

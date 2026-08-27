@@ -456,117 +456,6 @@ def check_available(
     return WheelCheckResult(False, None, False, "manifest wheel target is incomplete", vcs_spec)
 
 
-def check_wheel_available(
-    dep: Dependency,
-    manifest: dict | None = None,
-    py_ver: str | None = None,
-    cuda_ver: str | None = None,
-    torch_ver: str | None = None,
-) -> WheelCheckResult:
-    """Resolve a concrete wheel target from the selected model manifest.
-
-    A configured source is not automatically a wheel. VCS specs require a
-    direct .whl target; normal specs may use PyPI or a finder/index URL.
-    """
-    if py_ver is None:
-        py_ver = _py_ver_str()
-    if cuda_ver is None:
-        cuda_ver = _cuda_ver_short()
-    if torch_ver is None:
-        torch_ver = _get_torch_ver()
-
-    vcs_spec = _is_vcs_spec(dep.spec)
-    info = _manifest_wheel_config(manifest, dep)
-    if not info:
-        return WheelCheckResult(False, None, False, "no wheel entry in manifest", vcs_spec)
-
-    if not info.get("available", False):
-        return WheelCheckResult(
-            False,
-            None,
-            False,
-            info.get("reason", "manifest declares no compatible prebuilt wheel"),
-            vcs_spec,
-        )
-
-    supported_py = info.get("python", []) or []
-    if supported_py and py_ver not in supported_py:
-        return WheelCheckResult(
-            False, None, False,
-            f"Python {py_ver} not in supported list {supported_py}",
-            vcs_spec,
-        )
-
-    normalized_cuda = cuda_ver.replace(".", "") if cuda_ver != "cpu" else "cpu"
-    supported_cuda = info.get("cuda", []) or []
-    if supported_cuda and normalized_cuda not in supported_cuda and cuda_ver not in supported_cuda:
-        return WheelCheckResult(
-            False, None, False,
-            f"CUDA {cuda_ver} not in supported list {supported_cuda}",
-            vcs_spec,
-        )
-
-    supported_torch = info.get("torch", []) or []
-    if supported_torch and torch_ver:
-        base_torch = torch_ver.split("+", 1)[0]
-        if base_torch not in supported_torch and torch_ver not in supported_torch:
-            return WheelCheckResult(
-                False, None, False,
-                f"Torch {torch_ver} not in supported list {supported_torch}",
-                vcs_spec,
-            )
-
-    version = str(info.get("version") or "")
-    if not version and "==" in dep.spec:
-        version = dep.spec.split("==", 1)[1].split()[0].strip()
-
-    direct_url_template = info.get("direct_url_template")
-    if direct_url_template:
-        if "{version}" in direct_url_template and not version:
-            return WheelCheckResult(
-                False, None, False,
-                "direct wheel template requires an explicit package version",
-                vcs_spec,
-            )
-        direct_url = str(direct_url_template).format(
-            version=version,
-            cuda=normalized_cuda,
-            torch=torch_ver or "",
-            python=py_ver,
-            python_nodot=py_ver.replace(".", ""),
-        )
-        return WheelCheckResult(True, direct_url, True, None, vcs_spec)
-
-    index = info.get("index")
-    if index:
-        source = str(index).format(
-            torch_ver=torch_ver or "",
-            cuda_ver=normalized_cuda,
-            cuda_ver_short=normalized_cuda,
-            python=py_ver,
-            python_nodot=py_ver.replace(".", ""),
-            version=version,
-        )
-        if vcs_spec:
-            return WheelCheckResult(
-                False, None, False,
-                f"VCS dependency has index-only wheel source ({source}); "
-                "manifest must provide a direct .whl target",
-                True,
-            )
-        return WheelCheckResult(True, source, False, None, False)
-
-    mode = str(info.get("mode", "pypi")).lower()
-    if mode == "pypi":
-        return WheelCheckResult(True, "pypi", False, None, vcs_spec)
-
-    return WheelCheckResult(
-        False, None, False,
-        "manifest wheel target is incomplete",
-        vcs_spec,
-    )
-
-
 def _get_fallback_sources(
     dep: Dependency,
     manifest: dict | None,
@@ -599,6 +488,7 @@ def _fetch_local_extension_from_hf(
     ext_dir: Path,
     hf_dataset: str,
     log_cb=None,
+    dataset_path: str | None = None,
 ) -> bool:
     """Download a local extension directory from a HuggingFace dataset.
 
@@ -627,14 +517,23 @@ def _fetch_local_extension_from_hf(
     try:
         import shutil
         # Download the dataset to a cache directory
+        dataset_path = dataset_path or ext_dir.name
+        dataset_path = dataset_path.strip("/\\")
+        allow_patterns = [f"{dataset_path}/**", dataset_path]
         cache_dir = snapshot_download(
             repo_id=hf_dataset,
             repo_type="dataset",
-            allow_patterns=["extensions/vox2seq/**", "extensions/vox2seq/*"],
+            allow_patterns=allow_patterns,
         )
-        src_dir = Path(cache_dir) / "extensions" / "vox2seq"
+        src_dir = Path(cache_dir) / dataset_path
         if not src_dir.exists():
-            _log(f"  {dep_name} not found in HF dataset {hf_dataset} (expected at extensions/vox2seq)")
+            # Some datasets store the declared local path beneath a top-level
+            # repository directory. Search only within the downloaded snapshot
+            # for the exact basename to keep resolution generic.
+            matches = [p for p in Path(cache_dir).rglob(ext_dir.name) if p.is_dir()]
+            src_dir = matches[0] if matches else src_dir
+        if not src_dir.exists():
+            _log(f"  {dep_name} not found in HF dataset {hf_dataset} (expected at {dataset_path})")
             return False
         # Copy to the expected location
         ext_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -994,7 +893,11 @@ def install_resolved_deps(
                         # it from the configured HuggingFace dataset source.
                         _log(f"Local extension not found: {ext_dir}")
                         if _fetch_local_extension_from_hf(
-                            dep.name, ext_dir, hf_dataset, log_cb=log_cb
+                            dep.name,
+                            ext_dir,
+                            hf_dataset,
+                            log_cb=log_cb,
+                            dataset_path=str(local_ext.get("path", "")).strip("/\\") or ext_dir.name,
                         ):
                             _log(f"Installing {dep.name} from fetched local extension: {ext_dir}")
                             build_args = ["pip", "install", "--python", str(venv_python), str(ext_dir), "--no-build-isolation", "--no-deps"]

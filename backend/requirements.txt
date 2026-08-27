@@ -57,7 +57,7 @@ pytest-asyncio==0.24.0
 # Hugging Face Accelerate — big-model inference, memory-aware device dispatch,
 # CPU/disk offloading, and mixed-precision support for local model loading.
 # Installed into the backend venv (where local providers load models in-process).
-# Per-model venvs also receive it via EXTRA_DEPS in runtime/installer.py.
+# Per-model venvs also receive it via each manifest `dependencies.extra` section.
 accelerate>=0.34.0
 
 # NOTE: PyTorch is installed separately by scripts/setup.sh with CUDA support:

@@ -1,6 +1,6 @@
 # AI 3D Studio - Complete API Documentation
 
-> **Version**: 3.0.0  
+> **Version**: 4.4.1
 > **Base URL**: `http://localhost:8000` (Backend API)  
 > **API Prefix**: `/api/v1`  
 > **Documentation**: Interactive docs at `/docs` (Swagger UI)
@@ -1613,7 +1613,7 @@ async function generate3D(prompt: string) {
 #### Fixed
 - **Backend startup crash**: `from starlette.types import Scope, Response` corrected to `Scope` from `starlette.types` and `Response` from `starlette.responses` (Response was never in `starlette.types` in Starlette 0.41+).
 - **Extra dependencies clobbering torch**: Both extra-deps install paths now pin to the backend's exact torch build via `_backend_torch_stack()`, eliminating the `torch==2.5.1+cu124 → 2.13.0 → 2.5.1+cu124` thrash cycle.
-- **`spconv-cu118` false negative**: The `spconv` pattern in `WHEEL_COMPAT_TABLE` now matches `spconv-cu118` and `spconv-cu120`, so the resolver recognizes them as wheel-available instead of forcing a source build.
+- **`spconv-cu118` false negative**: The `spconv` pattern in manifest `dependencies.wheels` now matches `spconv-cu118` and `spconv-cu120`, so the resolver recognizes them as wheel-available instead of forcing a source build.
 - **Runtime health too permissive**: `prepare_runtime()` no longer accepts `DepsState.PARTIAL` as "deps OK". The provider registry checks the overall state, not just `repo_ok and weight_ok`, so a provider with broken deps is no longer auto-selected by the engine.
 - **Disk space check not cumulative**: `full_install()` now checks the total estimated size of all selected models before starting any downloads, with a 5GB safety margin plus 20% headroom.
 

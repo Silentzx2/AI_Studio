@@ -5,7 +5,7 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from app.config import get_settings
 from app.core.capability_matrix import is_compatible_with_workspace
@@ -384,7 +384,7 @@ async def get_generation_status(job_id: str):
 
 
 @router.get("/{job_id}/stream")
-async def generation_progress_stream(job_id: str):
+async def generation_progress_stream(job_id: str, request: Request):
     """SSE stream of generation progress for a specific job."""
     from fastapi.responses import StreamingResponse
     import redis.asyncio as redis
@@ -396,19 +396,20 @@ async def generation_progress_stream(job_id: str):
         pubsub = r.pubsub()
         channel = f"job_progress:{job_id}"
         await pubsub.subscribe(channel)
-        
+
         try:
             # Yield initial state from DB if available
-            from app.database import AsyncSessionLocal
-            from app.models.job import GenerationJob
-            async with AsyncSessionLocal() as session:
-                job = await session.get(GenerationJob, job_id)
-                if job:
-                    yield f"data: {json.dumps({'status': job.status, 'progress': job.progress, 'stage': job.stage, 'message': 'Initial state'})}\n\n"
-                    if job.status in ("completed", "failed", "cancelled"):
-                        return
-        except Exception as exc:
-            logger.warning("SSE initial state fetch failed for %s: %s", job_id, exc)
+            try:
+                from app.database import AsyncSessionLocal
+                from app.models.job import GenerationJob
+                async with AsyncSessionLocal() as session:
+                    job = await session.get(GenerationJob, job_id)
+                    if job:
+                        yield f"data: {json.dumps({'status': job.status, 'progress': job.progress, 'stage': job.stage, 'message': 'Initial state'})}\n\n"
+                        if job.status in ("completed", "failed", "cancelled"):
+                            return
+            except Exception as exc:
+                logger.warning("SSE initial state fetch failed for %s: %s", job_id, exc)
 
             while True:
                 # Check for client disconnect

@@ -99,7 +99,7 @@ schemas/
 
 runtime/
   ✅ installer.py               - Stage-aware orchestrator (prepare_runtime, download_weights)
-  ✅ dependency_resolver.py     - Wheel-first resolution with WHEEL_COMPAT_TABLE
+  ✅ dependency_resolver.py     - Wheel-first resolution driven by manifest `dependencies.wheels`
   ✅ preflight.py               - Real model load + capability smoke tests
   ✅ manifests/                 - YAML manifests per provider
 ```
@@ -386,7 +386,7 @@ Derived model state: `not_ready` → `partial` → `ready` / `blocked` / `failed
 #### Wheel-First Dependency Resolution
 
 Native dependencies use a wheel-first resolution strategy:
-1. Check static `WHEEL_COMPAT_TABLE` for pre-built wheel per (py_ver, cuda_ver, platform)
+1. Read manifest `dependencies.wheels` and verify a real compatible wheel target for (py_ver, cuda_ver, platform)
 2. Wheel found → install directly (no compilation, deterministic, works offline)
 3. No wheel → source build (`build_pending` → `build_running` → `ready`/`failed`)
 
@@ -613,7 +613,7 @@ backend/app/core/
 
 backend/runtime/
   ├── installer.py                    [MODIFIED — prepare_runtime(), download_weights(), 2-stage orchestrator]
-  ├── dependency_resolver.py          [NEW — wheel-first resolution, WHEEL_COMPAT_TABLE]
+  ├── dependency_resolver.py          [NEW — wheel-first resolution, manifest `dependencies.wheels`]
   ├── preflight.py                    [MODIFIED — real model load + capability smoke tests]
   ├── manifests/                      [NEW — YAML manifests per provider]
   └── storage.py                      [MODIFIED — StorageConfig per-model paths]
@@ -785,12 +785,12 @@ Model installation is split into two strictly separated stages, each independent
 | **Installation flow** | Single monolithic `full_install()` | Two-stage: `prepare_runtime()` (Stage A) + `download_weights()` (Stage B) |
 | **Setup script** | `setup.sh` installs everything | `setup.sh` runs Stage A then Stage B sequentially |
 | **Colab bootstrap** | Installs all at once | `colab.sh` runs Stage A at bootstrap, defers Stage B to on-demand/`--weights-only` |
-| **Dependency resolution** | Drop-from-requirements pattern | Wheel-first resolver (`dependency_resolver.py`) with `WHEEL_COMPAT_TABLE` |
+| **Dependency resolution** | Drop-from-requirements pattern | Wheel-first resolver (`dependency_resolver.py`) driven by manifest `dependencies.wheels` |
 | **Install state tracking** | Binary `installed: true/false` | Component-level state machine (repo, venv, deps, native, weights, auxiliary_weights, preflight, capabilities) |
 | **State persistence** | None | `ProviderInstallState` DB model via `persist_provider_state()` |
 | **Status endpoint** | Coarse status | `GET /api/v1/admin/install/status` — live-authoritative component-level reporting |
 | **Repair endpoint** | Stub | `POST /api/v1/admin/repair/{provider_name}` — manifest-driven repair flow |
-| **Native builds** | Always source compile | Wheel-first: check `WHEEL_COMPAT_TABLE` → install wheel if available, else source build |
+| **Native builds** | Always source compile | Wheel-first: read manifest wheel policy → verify/install a real wheel if available, else source build |
 
 ### New API Endpoints
 
@@ -816,7 +816,7 @@ Each provider reports fine-grained component status:
 
 Native dependencies (e.g., `torch-cluster`, `diso`, FlexiCubes) use a wheel-first strategy:
 
-1. Check static `WHEEL_COMPAT_TABLE` for prebuilt wheel per (Python version, CUDA version, platform)
+1. Read manifest `dependencies.wheels` and verify a real compatible wheel target for (Python version, CUDA version, platform)
 2. Wheel found → install directly (deterministic, works offline, no compilation)
 3. No wheel → queue source build (`build_pending` → `build_running`)
 
@@ -825,7 +825,7 @@ Reduces install time and CUDA build failures on Colab/Python 3.12.
 ### Key Files
 
 - `backend/runtime/installer.py` — `prepare_runtime()`, `download_weights()`, 2-stage orchestrator
-- `backend/runtime/dependency_resolver.py` — wheel-first resolution, `WHEEL_COMPAT_TABLE`
+- `backend/runtime/dependency_resolver.py` — manifest-driven wheel-first resolution
 - `backend/runtime/preflight.py` — real model load + capability smoke tests
 - `backend/app/models/registry.py` — `ProviderInstallState` DB model
 - `backend/app/api/v1/runtime.py` — `/prepare-runtime`, `/download-weights` endpoints

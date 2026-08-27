@@ -30,7 +30,7 @@ dependencies:
   - torch
   - transformers
   native:
-  - flash_attn
+  - flash-attn
   - bpy==4.2
   - spconv
   - torch_scatter
@@ -38,7 +38,7 @@ dependencies:
   - pytorch3d
   extra: []
   wheels:
-    flash_attn:
+    flash-attn:
       available: true
       mode: pypi
     spconv:

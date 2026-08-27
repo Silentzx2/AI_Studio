@@ -200,7 +200,7 @@ The new `dependency_resolver.py` uses wheel-first logic for native packages:
 
 1. Discovers dependency files (requirements.txt, pyproject.toml, setup.py, manifest)
 2. Classifies each dependency (NORMAL, NATIVE, BUILD_ONLY, OPTIONAL)
-3. For NATIVE deps: checks `WHEEL_COMPAT_TABLE` for prebuilt wheel availability
+3. For NATIVE deps: checks manifest `dependencies.wheels` for prebuilt wheel availability
 4. If wheel exists → install it (no compilation)
 5. If no wheel → prompt for source build or skip
 
@@ -780,7 +780,7 @@ curl http://localhost:8000/api/v1/admin/install/status
 # Look for "native" component state = "failed" or "checking_wheel"
 ```
 
-The wheel-first resolver checks a static compatibility table (`WHEEL_COMPAT_TABLE`) for prebuilt wheels. If no wheel is available for your Python/CUDA combination, it falls back to source build or skips.
+The wheel-first resolver reads the selected manifest `dependencies.wheels`. It verifies a real compatible wheel target for the current Python/CUDA environment; if none is usable, it follows the manifest fallback/source-build policy.
 
 To force a source build for a specific package:
 
@@ -1218,7 +1218,7 @@ curl -X POST /api/v1/repair/triposg
 
 ### Hunyuan3D 2.1 points to wrong repository
 
-Verify the REPOS table has a separate `Hunyuan3D-2.1` entry pointing to `Tencent-Hunyuan/Hunyuan3D-2.1.git`.
+Verify the `hunyuan3d-2.1` YAML manifest has its own source entry pointing to `Tencent-Hunyuan/Hunyuan3D-2.1.git`.
 
 ### Hunyuan3D-2mini: separate repo entry
 

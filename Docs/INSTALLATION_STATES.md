@@ -234,7 +234,7 @@ Stage B is independent of Stage A. Weights can be downloaded before, during, or 
 | `cuda_incompatible` | No GPU/CUDA | Install on a GPU-enabled host |
 | `vram_insufficient` | GPU too small | Use a GPU with more VRAM or enable low-VRAM mode |
 | TripoSG shows `blocked` + RMBG missing | Auxiliary weights missing | Download `briaai/RMBG-1.4` via the repair endpoint |
-| Hunyuan3D 2.1 shows wrong repo | Old repo mapping | Verify REPOS table has `Hunyuan3D-2.1` entry |
+| Hunyuan3D 2.1 shows wrong repo | Old repo mapping | Verify `backend/runtime/manifests/hunyuan3d_21.yaml` declares the correct repository |
 
 ## Ready Gate Rule
 
@@ -266,7 +266,7 @@ reads the provider's YAML manifest (`backend/runtime/manifests/<provider>.yaml`)
 
 Native dependencies follow the **wheel-first** resolution strategy (see above).
 
-The `REPOS[*]["requirements"]` field is only used when no manifest exists (backward-compat
+The The legacy `REPOS` compatibility view is derived from YAML; manifest dependency declarations are authoritative when present.
 fallback).
 
 ## Runtime Health States (v4.3.0+)

@@ -383,7 +383,7 @@ The frontend uses a modern persistent workspace: ONE global 3D viewport (`MeshVi
 
 #### Dependency Installation
 - **Manifest-based**: Each model's `manifest.yaml` is the single source of truth for dependencies
-- **EXTRA_DEPS** (v4.3.0+): Packages not in the repo's requirements.txt (e.g., `hy3dgen` for Hunyuan3D) are installed with a torch pin matching the backend's exact build (`_backend_torch_stack()`) to prevent transitive resolution from upgrading torch to an ABI-incompatible version. The previous `--reinstall` flag was removed because it forced uv to re-resolve and could pull a newer torch.
+- **manifest `dependencies.extra`** (v4.3.0+): Packages not in the repo's requirements.txt (e.g., `hy3dgen` for Hunyuan3D) are installed with a torch pin matching the backend's exact build (`_backend_torch_stack()`) to prevent transitive resolution from upgrading torch to an ABI-incompatible version. The previous `--reinstall` flag was removed because it forced uv to re-resolve and could pull a newer torch.
 - **Optional vs representation-required vs required** (v4.3.0+): The resolver distinguishes three classes of native dependency. Truly optional deps (alternatives like `flash-attn`/`xformers`) are skipped on wheel failure. Representation-required deps (e.g., `kaolin` for mesh, `nvdiffrast` for differentiable rasterization) are attempted in non-interactive mode and degrade the corresponding capability on failure. Fully required deps fail the install on failure.
 - **one_of / alternatives**: `attention_backend.one_of` in manifest is respected (only first alternative installed)
 - **Pillow fix**: Force-reinstalls Pillow if C extension (`_imaging`) is missing or corrupted (detects from manifest or repo files)

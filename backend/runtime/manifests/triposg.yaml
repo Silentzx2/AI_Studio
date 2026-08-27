@@ -41,7 +41,8 @@ dependencies:
       reason: No compatible prebuilt wheel verified; source build fallback is required.
   fallbacks: {}
   optional: []
-  representation_required: []
+  representation_required:
+  - diso
   local_extensions: {}
 weights:
   primary:

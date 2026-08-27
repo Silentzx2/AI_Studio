@@ -621,6 +621,13 @@ cmd_colab() {
     read -rp "Press Enter to continue..."
 }
 
+cmd_cf() {
+    banner
+    bash scripts/cloudflare.sh
+    echo ""
+    read -rp "Press Enter to continue..."
+}
+
 cmd_update_models() {
     banner
     echo -e "${CYAN}Update / Install Models${NC}"

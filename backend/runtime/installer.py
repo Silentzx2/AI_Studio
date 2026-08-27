@@ -1499,26 +1499,23 @@ def _run_native_build_sync(provider_name: str, manifest: dict | None, log_cb=Non
 
     errors: list[str] = []
 
-    # Install native deps from manifest
-    if manifest and "dependencies" in manifest:
-        native_deps = manifest["dependencies"].get("native", [])
-        if native_deps and venv_python and venv_python.exists():
-            if log_cb:
-                log_cb(f"Installing {len(native_deps)} native deps for {canonical_name}...")
-            for dep in native_deps:
-                try:
-                    subprocess.run(
-                        [str(venv_python), "-m", "pip", "install", "-q", dep],
-                        capture_output=True,
-                        timeout=600,
-                        check=True,
-                    )
-                    if log_cb:
-                        log_cb(f"  Native dep installed: {dep}")
-                except Exception as exc:
-                    msg = f"Native dep install failed for {dep}: {exc}"
-                    logger.warning(msg)
-                    errors.append(msg)
+    # Reuse the manifest-driven dependency resolver for native packages. Raw pip
+    # installation here would bypass wheel/fallback/source-build policy.
+    if manifest and venv_python and venv_python.exists():
+        try:
+            from runtime.dependency_resolver import DependencyKind, install_resolved_deps, resolve_dependencies
+            deps = [d for d in resolve_dependencies(repo_dir, manifest) if d.kind == DependencyKind.NATIVE]
+            if deps:
+                if log_cb:
+                    log_cb(f"Resolving {len(deps)} native deps for {canonical_name}...")
+                result = install_resolved_deps(
+                    deps, venv_python, repo_dir, manifest=manifest,
+                    allow_build=True, interactive=False, log_cb=log_cb,
+                )
+                errors.extend(result.get("failed", []))
+        except Exception as exc:
+            errors.append(f"Native dependency resolution failed: {exc}")
+            logger.exception("Native dependency resolution failed for %s", canonical_name)
 
     # Execute manifest-defined native build steps
     if manifest and "capabilities" in manifest:

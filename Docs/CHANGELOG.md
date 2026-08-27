@@ -1,6 +1,27 @@
 # AI 3D Studio — Changelog
 
-## [v4.4.0] - 2026-08-27 - YAML-Only Installation Architecture
+## [v4.4.1] - 2026-08-27 — Bug Fixes & Security Hardening
+
+### Critical Fixes
+- **setup.sh**: Fixed `install_redis()` copy-paste bug that installed PostgreSQL instead of Redis (line 330)
+- **manager.sh**: Added missing `cmd_cf()` function — selecting "Cloudflare" from the menu previously crashed with `cmd_cf: command not found`
+- **restart.sh**: Added missing `info()` helper function — script crashed with `info: command not found` at runtime
+- **plugin_installer.py**: Fixed Zip Slip vulnerability in `_extract_archive()` — validated member paths before extraction to prevent path traversal
+- **generation.py**: Fixed SSE stream `request` undefined variable (NameError at runtime) and polling loop incorrectly scoped inside `except` block (never polled Redis on happy path)
+
+### Improvements
+- **dependency_resolver.py**: Removed dead `check_wheel_available()` function (109 lines of unused duplicate code)
+- **unirig.yaml**: Standardized `flash_attn` → `flash-attn` to match PyPI naming convention and other manifests
+- **triposg.yaml / detailgen3d.yaml**: Added `diso` to `representation_required` for consistent capability-degradation on build failure
+- **models/\_\_init\_\_.py**: Removed duplicate `__all__` declaration (dead code)
+
+### Shell Scripts
+- All shell scripts pass `bash -n` syntax validation
+
+### Verification
+- Backend: `python -m compileall -q backend` passes
+- Frontend: `npx tsc --noEmit` passes, `npm run build` succeeds
+- ESLint: No errors (only pre-existing warnings)
 
 ### Summary
 Refactored the entire installation pipeline to be **fully YAML-driven**. The installer

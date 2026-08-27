@@ -71,17 +71,27 @@ class PluginInstaller:
             return False
     
     async def _extract_archive(self, archive_path: Path, target_dir: Path):
-        # Extract archive file
+        # Extract archive file with path traversal protection
         import tarfile
         import zipfile
-        
+
+        target_dir = target_dir.resolve()
+
         if archive_path.suffix == ".zip":
             with zipfile.ZipFile(archive_path, "r") as zf:
+                for member in zf.namelist():
+                    member_path = (target_dir / member).resolve()
+                    if not str(member_path).startswith(str(target_dir) + "/"):
+                        raise ValueError(f"Blocked path traversal in zip: {member}")
                 zf.extractall(target_dir)
-        
+
         elif archive_path.suffix in [".tar", ".gz"]:
             mode = "r:gz" if archive_path.suffix == ".gz" else "r"
             with tarfile.open(archive_path, mode) as tf:
+                for member in tf.getmembers():
+                    member_path = (target_dir / member.name).resolve()
+                    if not str(member_path).startswith(str(target_dir) + "/"):
+                        raise ValueError(f"Blocked path traversal in tar: {member.name}")
                 tf.extractall(target_dir)
     
     async def uninstall_model(self, model_id: str) -> bool:

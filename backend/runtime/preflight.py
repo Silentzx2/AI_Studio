@@ -17,12 +17,27 @@ from dataclasses import dataclass, field
 from pathlib import Path
 logger = logging.getLogger(__name__)
 
+def _manifest_weight_repo(provider_name: str) -> str | None:
+    """Resolve the primary preflight weight repo from the provider manifest."""
+    try:
+        from .manifest_loader import load_manifest
+        manifest = load_manifest(provider_name)
+        primary = (manifest.get("weights", {}) or {}).get("primary", {}) or {}
+        repo = primary.get("repo")
+        return str(repo) if repo else None
+    except Exception:
+        return None
+
+def _provider_weight_repo_code(provider_name: str) -> str | None:
+    repo = _manifest_weight_repo(provider_name)
+    return repr(repo) if repo else None
+
 _PROVIDER_SMOKE_TESTS: dict[str, str] = {
     "hunyuan3d-2.1": """
 import torch
 import numpy as np
 from hy3dgen.pipelines import Hunyuan3DPipeline
-pipe = Hunyuan3DPipeline.from_pretrained("tencent/Hunyuan3D-2.1")
+pipe = Hunyuan3DPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__)
 point_cloud = torch.randn(1, 3, 32, 32)
 mesh = pipe(point_cloud)
 print("ok")
@@ -30,7 +45,7 @@ print("ok")
     "trellis": """
 import torch
 from trellis.pipelines import TrellisPipeline
-pipe = TrellisPipeline.from_pretrained("microsoft/TRELLIS")
+pipe = TrellisPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__)
 dummy = torch.randn(1, 3, 32, 32)
 pipe(dummy)
 print("ok")
@@ -71,7 +86,7 @@ print("ok")
     "detailgen3d": """
 import torch
 from detailgen3d.pipelines.pipeline_detailgen3d import DetailGen3DPipeline
-pipe = DetailGen3DPipeline.from_pretrained("VAST-AI/DetailGen3D").to("cpu")
+pipe = DetailGen3DPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__).to("cpu")
 print("ok")
 """,
 }
@@ -82,7 +97,7 @@ _CAPABILITY_SMOKE_TESTS: dict[str, dict[str, str]] = {
 import torch
 import numpy as np
 from hy3dgen.pipelines import Hunyuan3DPipeline
-pipe = Hunyuan3DPipeline.from_pretrained("tencent/Hunyuan3D-2.1")
+pipe = Hunyuan3DPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__)
 point_cloud = torch.randn(1, 3, 32, 32)
 mesh = pipe(point_cloud)
 print("ok")
@@ -92,7 +107,7 @@ import torch
 import numpy as np
 from PIL import Image
 from hy3dgen.pipelines import Hunyuan3DPipeline
-pipe = Hunyuan3DPipeline.from_pretrained("tencent/Hunyuan3D-2.1")
+pipe = Hunyuan3DPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__)
 img = Image.new("RGB", (256, 256))
 mesh = pipe(img)
 print("ok")
@@ -102,7 +117,7 @@ print("ok")
         "shape": """
 import torch
 from trellis.pipelines import TrellisPipeline
-pipe = TrellisPipeline.from_pretrained("microsoft/TRELLIS")
+pipe = TrellisPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__)
 dummy = torch.randn(1, 3, 32, 32)
 pipe(dummy)
 print("ok")
@@ -111,7 +126,7 @@ print("ok")
 import torch
 from PIL import Image
 from trellis.pipelines import TrellisImageTo3DPipeline
-pipe = TrellisImageTo3DPipeline.from_pretrained("microsoft/TRELLIS")
+pipe = TrellisImageTo3DPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__)
 img = Image.new("RGB", (256, 256))
 pipe(img)
 print("ok")
@@ -122,7 +137,7 @@ print("ok")
 import torch
 import numpy as np
 from hy3dgen.pipelines import Hunyuan3DPipeline
-pipe = Hunyuan3DPipeline.from_pretrained("tencent/Hunyuan3D-2")
+pipe = Hunyuan3DPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__)
 point_cloud = torch.randn(1, 3, 32, 32)
 mesh = pipe(point_cloud)
 print("ok")
@@ -132,7 +147,7 @@ import torch
 import numpy as np
 from PIL import Image
 from hy3dgen.pipelines import Hunyuan3DPipeline
-pipe = Hunyuan3DPipeline.from_pretrained("tencent/Hunyuan3D-2")
+pipe = Hunyuan3DPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__)
 img = Image.new("RGB", (256, 256))
 mesh = pipe(img)
 print("ok")
@@ -143,7 +158,7 @@ print("ok")
 import torch
 import numpy as np
 from hy3dgen.pipelines import Hunyuan3DPipeline
-pipe = Hunyuan3DPipeline.from_pretrained("tencent/Hunyuan3D-2mini")
+pipe = Hunyuan3DPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__)
 point_cloud = torch.randn(1, 3, 32, 32)
 mesh = pipe(point_cloud)
 print("ok")
@@ -153,7 +168,7 @@ import torch
 import numpy as np
 from PIL import Image
 from hy3dgen.pipelines import Hunyuan3DPipeline
-pipe = Hunyuan3DPipeline.from_pretrained("tencent/Hunyuan3D-2mini")
+pipe = Hunyuan3DPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__)
 img = Image.new("RGB", (256, 256))
 mesh = pipe(img)
 print("ok")
@@ -245,7 +260,7 @@ import torch
 import numpy as np
 from PIL import Image
 from triposg.pipelines.pipeline_triposg import TripoSGPipeline
-pipe = TripoSGPipeline.from_pretrained("VAST-AI/TripoSG")
+pipe = TripoSGPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__)
 img = Image.new("RGB", (256, 256))
 with torch.no_grad():
     outputs = pipe(image=img, num_inference_steps=1, guidance_scale=1.0).samples[0]
@@ -257,7 +272,7 @@ print("ok")
 import torch
 from PIL import Image
 from detailgen3d.pipelines.pipeline_detailgen3d import DetailGen3DPipeline
-pipe = DetailGen3DPipeline.from_pretrained("VAST-AI/DetailGen3D").to("cpu")
+pipe = DetailGen3DPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__).to("cpu")
 img = Image.new("RGB", (512, 512))
 cfg = pipe.transformer.config
 latents = torch.randn(1, cfg.in_channels, cfg.width)
@@ -268,7 +283,7 @@ print("ok")
 import torch
 from PIL import Image
 from detailgen3d.pipelines.pipeline_detailgen3d import DetailGen3DPipeline
-pipe = DetailGen3DPipeline.from_pretrained("VAST-AI/DetailGen3D").to("cpu")
+pipe = DetailGen3DPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__).to("cpu")
 img = Image.new("RGB", (512, 512))
 cfg = pipe.transformer.config
 latents = torch.randn(1, cfg.in_channels, cfg.width)
@@ -420,6 +435,15 @@ def _check_native_extensions(venv_python: Path, extensions: list[str]) -> list[P
     return results
 
 
+def _resolve_smoke_code(provider_name: str, code: str | None) -> str | None:
+    if not code:
+        return None
+    repo = _manifest_weight_repo(provider_name)
+    if not repo:
+        return code
+    return code.replace("__AI_STUDIO_WEIGHT_REPO__", repr(repo))
+
+
 def run_preflight_for_provider(
     provider_name: str,
     hf_token: str | None = None,
@@ -556,7 +580,7 @@ def run_preflight_for_provider(
                 checks["vram"] = {"passed": True, "detail": f"VRAM check skipped: {exc}"}
                 all_passed = False
     # --- Model load test ---
-    smoke_code = _PROVIDER_SMOKE_TESTS.get(provider_name)
+    smoke_code = _resolve_smoke_code(provider_name, _PROVIDER_SMOKE_TESTS.get(provider_name))
     if not smoke_code:
         # Smoke test not implemented — skip rather than fail
         checks["model_load"] = {
@@ -589,7 +613,7 @@ def run_preflight_for_provider(
         }
     else:
         for cap_name, cap_cfg in enabled_caps.items():
-            cap_code = _CAPABILITY_SMOKE_TESTS.get(provider_name, {}).get(cap_name)
+            cap_code = _resolve_smoke_code(provider_name, _CAPABILITY_SMOKE_TESTS.get(provider_name, {}).get(cap_name))
             if not cap_code:
                 checks[f"capability_smoke.{cap_name}"] = {
                     "passed": True,

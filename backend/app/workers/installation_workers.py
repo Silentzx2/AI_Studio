@@ -348,23 +348,43 @@ def run_native_build(self, provider_name: str, task_id: str) -> dict:
 
         errors: list[str] = []
 
-        if manifest and "dependencies" in manifest:
-            native_deps = manifest["dependencies"].get("native", [])
-            if native_deps and venv_python and venv_python.exists():
-                logger.info("Installing %d native deps for %s", len(native_deps), canonical_name)
-                for dep in native_deps:
-                    try:
-                        subprocess.run(
-                            [str(venv_python), "-m", "pip", "install", "-q", dep],
-                            capture_output=True,
-                            timeout=300,
-                            check=True,
+        # Native dependencies must go through the same manifest-driven resolver
+        # used by runtime preparation. Do not bypass wheel/fallback semantics with
+        # raw `pip install`; otherwise queued builds can undo wheel-first decisions.
+        if manifest and venv_python and venv_python.exists():
+            try:
+                from runtime.dependency_resolver import (
+                    DependencyKind,
+                    install_resolved_deps,
+                    resolve_dependencies,
+                )
+                all_deps = resolve_dependencies(repo_dir, manifest)
+                native_deps = [d for d in all_deps if d.kind == DependencyKind.NATIVE]
+                if native_deps:
+                    logger.info(
+                        "Resolving %d native deps for %s through manifest resolver",
+                        len(native_deps), canonical_name,
+                    )
+                    dep_result = install_resolved_deps(
+                        native_deps,
+                        venv_python,
+                        repo_dir,
+                        manifest=manifest,
+                        allow_build=True,
+                        interactive=False,
+                    )
+                    errors.extend(dep_result.get("failed", []))
+                    if dep_result.get("failed"):
+                        logger.warning(
+                            "Native dependency resolution reported failures for %s: %s",
+                            canonical_name, dep_result["failed"],
                         )
-                        logger.info("Native dep installed: %s", dep)
-                    except Exception as exc:
-                        msg = f"Native dep install failed for {dep}: {exc}"
-                        logger.warning(msg)
-                        errors.append(msg)
+                    else:
+                        logger.info("Native dependencies resolved for %s", canonical_name)
+            except Exception as exc:
+                msg = f"Native dependency resolution failed for {canonical_name}: {exc}"
+                logger.exception(msg)
+                errors.append(msg)
 
         # Execute the manifest-defined native build steps for every capability that
         # requires a native build. Steps are REAL shell commands run inside the model
