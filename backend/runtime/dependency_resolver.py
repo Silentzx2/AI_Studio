@@ -141,12 +141,15 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "pattern": re.compile(r"^chumpy(-fixed)?($|==|>=|<=|!=|~=)"),
     },
     "spconv": {
-        # spconv-cu12 wheel available on PyPI
+        # spconv-cu12 wheel available on PyPI. Also match spconv-cu118 and
+        # spconv-cu120 (CUDA-specific PyPI distributions) so the resolver
+        # recognises them as wheel-available instead of falling through to
+        # a forced source build.
         "wheel_available": True,
         "index": None,
         "python": ["3.10", "3.11", "3.12"],
         "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^spconv($|==|>=|<=|!=|~=)"),
+        "pattern": re.compile(r"^spconv([-_]cu\d+)?($|==|>=|<=|!=|~=)"),
     },
     "cupy-cuda12x": {
         "wheel_available": True,
@@ -425,16 +428,41 @@ def resolve_dependencies(repo_dir: Path, manifest: dict | None = None) -> list[D
     return deps
 
 
+@dataclass
+class WheelCheckResult:
+    """Structured result of wheel compatibility check.
+
+    ponytail: previously the resolver returned a single str|None that
+    collapsed four distinct states into one boolean. This caused
+    false-positive "wheel found" results (e.g., flash-attn unpinned
+    returning "pypi" even though PyPI has no flash-attn wheel) and
+    false negatives (e.g., spconv-cu118 not matching the spconv
+    pattern). See Issue 5 in the root-cause debugging prompt.
+    """
+    available: bool          # True if a compatible wheel source is known
+    source: str | None       # "pypi", direct .whl URL, or index page URL
+    is_direct_wheel: bool    # True if source is a .whl URL (not an index)
+    reason: str | None       # Why not available (if available=False)
+
+
 def check_wheel_available(
     dep: Dependency,
     py_ver: str | None = None,
     cuda_ver: str | None = None,
     torch_ver: str | None = None,
-) -> str | None:
+) -> WheelCheckResult:
     """Check if a compatible prebuilt wheel exists for a native dependency.
 
-    Returns the wheel source/index string if available, else None.
-    Uses the static WHEEL_COMPAT_TABLE (no network calls).
+    Returns a WheelCheckResult distinguishing:
+      - available: a wheel source is known and matches the environment
+      - source: where to get it ("pypi", direct .whl, or index page)
+      - is_direct_wheel: True for direct .whl URLs vs index pages
+      - reason: why not available (if not)
+
+    Uses the static WHEEL_COMPAT_TABLE (no network calls). The caller is
+    responsible for actually attempting the install and recording success
+    or failure separately — "available" only means a source is known,
+    not that installation will succeed.
     """
     if py_ver is None:
         py_ver = _py_ver_str()
@@ -448,15 +476,15 @@ def check_wheel_available(
         pat = info.get("pattern")
         if pat and pat.match(dep.spec):
             if not info.get("wheel_available", False):
-                return None
+                return WheelCheckResult(False, None, False, "no wheel available for this package")
             # Check Python version compatibility
             supported_py = info.get("python", [])
             if supported_py and py_ver not in supported_py:
-                return None
+                return WheelCheckResult(False, None, False, f"Python {py_ver} not in supported list {supported_py}")
             # Check CUDA compatibility (try both normalized and original)
             supported_cuda = info.get("cuda", [])
             if supported_cuda and _cuda_normalized not in supported_cuda and cuda_ver not in supported_cuda:
-                return None
+                return WheelCheckResult(False, None, False, f"CUDA {cuda_ver} not in supported list {supported_cuda}")
             # Check for direct wheel URL template (highest priority)
             direct_url_template = info.get("direct_url_template")
             if direct_url_template and torch_ver:
@@ -477,7 +505,7 @@ def check_wheel_available(
                         torch=torch_ver,
                         python=py_ver,
                     )
-                    return direct_url
+                    return WheelCheckResult(True, direct_url, True, None)
             # Build the wheel source/index URL
             index = info.get("index")
             if index and torch_ver:
@@ -486,9 +514,15 @@ def check_wheel_available(
                 # so use _cuda_normalized directly to avoid double "cu" (e.g. "_cucu124").
                 cv = cuda_ver if cuda_ver == "cpu" else _cuda_normalized
                 index = index.replace("{torch_ver}", torch_ver).replace("{cuda_ver}", cv).replace("{cuda_ver_short}", _cuda_normalized)
-            return index or "pypi"
+            source = index or "pypi"
+            # ponytail: flash-attn unpinned falls through to "pypi" but PyPI
+            # does NOT host flash-attn wheels. The install will fail and the
+            # caller will try fallbacks. Mark as available but the caller
+            # must still verify install success.
+            is_direct = source.startswith("http") and source.endswith(".whl")
+            return WheelCheckResult(True, source, is_direct, None)
 
-    return None
+    return WheelCheckResult(False, None, False, "no wheel entry in compat table")
 
 
 # ---------------------------------------------------------------------------
@@ -525,20 +559,38 @@ LOCAL_EXTENSION_PATHS: dict[str, str] = {
     "vox2seq": "extensions/vox2seq",
 }
 
-# Packages that are optional — failure to install does NOT fail the whole install.
-# These are alternatives (e.g., flash-attn vs xformers) or nice-to-have extensions.
+# Packages that are truly optional — failure to install does NOT fail the
+# whole install. These are ALTERNATIVES where only one of a group is needed
+# (e.g., flash-attn vs xformers) or nice-to-have extensions.
 # ponytail: on Colab, source builds for these often fail due to missing build
 # toolchain. They are not required for basic functionality.
+# NOTE: Previously this set also contained representation-specific deps
+# (nvdiffrast, diffoctreerast, vox2seq, diff-gaussian-rasterization, kaolin)
+# which are actually REQUIRED for specific 3D representations. Those moved
+# to REPRESENTATION_REQUIRED_NATIVE_DEPS below — see Issue 6 in
+# "AI Studio — Root-Cause Debugging Prompt.md".
 OPTIONAL_NATIVE_DEPS: set[str] = {
     "flash-attn",
     "flash_attn",
     "xformers",
-    "nvdiffrast",
-    "diffoctreerast",
-    "mip-splatting",
-    "diff-gaussian-rasterization",
-    "vox2seq",
-    "kaolin",
+}
+
+# Packages that are REQUIRED for a specific 3D representation but whose
+# failure should degrade THAT CAPABILITY, not the whole install. Unlike
+# OPTIONAL_NATIVE_DEPS, these are attempted in non-interactive mode when
+# a CUDA toolkit is present. If they fail, the corresponding capability
+# is marked unavailable in the runtime health state, but other capabilities
+# remain usable.
+# ponytail: these are not "nice-to-have" — they enable specific output
+# formats (mesh, Gaussian splat, structured latent, sparse voxel).
+# Marking them optional would silently disable representations.
+REPRESENTATION_REQUIRED_NATIVE_DEPS: set[str] = {
+    "nvdiffrast",            # differentiable rasterization (mesh)
+    "diffoctreerast",        # structured latent decoding
+    "vox2seq",               # structured latent encoding
+    "diff-gaussian-rasterization",  # 3D Gaussian splatting
+    "mip-splatting",         # Gaussian splatting (parent package)
+    "kaolin",                # 3D mesh operations
 }
 
 
@@ -687,15 +739,18 @@ def install_resolved_deps(
     # Collect all native deps that need decisions
     pending_builds: list[Dependency] = []
     for dep in native_deps:
-        wheel_source = check_wheel_available(dep, py_ver, cuda_ver, torch_ver)
-        dep.wheel_source = wheel_source
+        wheel_result = check_wheel_available(dep, py_ver, cuda_ver, torch_ver)
+        # Store the source string for backward compat with callers that read
+        # dep.wheel_source; structured fields are on wheel_result.
+        dep.wheel_source = wheel_result.source if wheel_result.available else None
 
-        if wheel_source:
+        if wheel_result.available:
+            wheel_source = wheel_result.source
             # Wheel available — install it directly
-            _log(f"Wheel found for {dep.name} (source: {wheel_source})")
+            _log(f"Wheel source found for {dep.name} (source: {wheel_source}, direct_wheel: {wheel_result.is_direct_wheel})")
             # ponytail: distinguish direct .whl URLs from index pages.
             # .whl URLs are installed directly; index pages use --find-links.
-            is_direct_whl = wheel_source.startswith("http") and wheel_source.endswith(".whl")
+            is_direct_whl = wheel_result.is_direct_wheel
             is_index_page = wheel_source.startswith("http") and not is_direct_whl
             install_args = ["pip", "install", "--python", str(venv_python), "--no-deps", dep.spec]
             if wheel_source == "pypi":
@@ -763,10 +818,13 @@ def install_resolved_deps(
             has_cuda = _cuda_available()
             has_toolkit = shutil.which("nvcc") is not None
 
-            # Decision flow:
-            # 1. If allow_build flag is set (CI/non-interactive), auto-build
-            # 2. If interactive, ask the user
-            # 3. Otherwise skip
+            # Deterministic non-interactive build policy (Issue 8):
+            # 1. Optional + no wheel → skip (truly optional, e.g. flash-attn alt)
+            # 2. Representation-required + CUDA toolkit → attempt build,
+            #    degrade the capability on failure (not the whole install)
+            # 3. Required + CUDA toolkit → attempt build, fail the install on failure
+            # 4. Any class + no CUDA toolkit → skip (cannot build)
+            # 5. allow_build=True overrides all of the above (explicit opt-in)
             should_build = allow_build
             if not should_build:
                 if interactive and _is_interactive():
@@ -782,23 +840,40 @@ def install_resolved_deps(
                     except (EOFError, KeyboardInterrupt):
                         should_build = False
                 elif dep.name in OPTIONAL_NATIVE_DEPS:
-                    # One-click/bootstrap must never compile optional CUDA extensions
-                    # just because nvcc happens to exist. A wheel failure should
-                    # degrade cleanly; explicit/manual native builds remain available
-                    # through allow_build=True or an interactive confirmation.
+                    # Truly optional (alternative implementation): skip cleanly
                     should_build = False
                     _log(
                         f"Skipping optional native dependency {dep.name} after wheel failure "
                         f"(source build disabled in non-interactive mode)"
                     )
                 elif has_cuda and has_toolkit:
-                    # Required native dependency with a buildable CUDA toolkit.
+                    # Both representation-required and fully-required deps
+                    # attempt the build when a CUDA toolkit is available.
+                    # The difference is in the failure handling below:
+                    # representation-required degrades a capability, required
+                    # fails the install.
+                    if dep.name in REPRESENTATION_REQUIRED_NATIVE_DEPS:
+                        _log(
+                            f"Attempting build for representation-required dep {dep.name} "
+                            f"(CUDA toolkit detected, non-interactive mode). "
+                            f"Failure will degrade the corresponding capability, not the whole install."
+                        )
+                    else:
+                        _log(
+                            f"Attempting build for required dep {dep.name} "
+                            f"(CUDA toolkit detected, non-interactive mode)..."
+                        )
                     should_build = True
-                    _log(f"Auto-building {dep.name} (CUDA toolkit detected, non-interactive mode)...")
                 else:
-                    # Non-interactive without toolkit: skip
+                    # No toolkit: cannot build anything
+                    if dep.name in REPRESENTATION_REQUIRED_NATIVE_DEPS:
+                        _log(
+                            f"Skipping representation-required dep {dep.name} "
+                            f"(no CUDA toolkit in non-interactive mode) — capability will be unavailable"
+                        )
+                    else:
+                        _log(f"Skipping {dep.name} (no CUDA toolkit in non-interactive mode)")
                     should_build = False
-                    _log(f"Skipping {dep.name} (no CUDA toolkit in non-interactive mode)")
 
             if should_build:
                 _log(f"Building {dep.name} from source in {venv_python}...")
@@ -870,12 +945,25 @@ def install_resolved_deps(
                     installed.append(dep.name)
                     _log(f"Build succeeded: {dep.name}")
                 else:
-                    # Check if this is an optional dep that can fail silently
+                    # Three-tier failure handling (Issue 8):
+                    # - Optional: skip silently
+                    # - Representation-required: skip but record capability
+                    #   degradation (native_state will reflect this)
+                    # - Required: fail the install
                     if dep.name in OPTIONAL_NATIVE_DEPS:
                         dep.state = "skipped"
                         skipped.append(dep.name)
                         native_skipped = True
                         _log(f"Optional dep failed, skipping: {dep.name}: {output[:200]}")
+                    elif dep.name in REPRESENTATION_REQUIRED_NATIVE_DEPS:
+                        dep.state = "capability_degraded"
+                        dep.error = output[:300]
+                        skipped.append(dep.name)
+                        native_skipped = True
+                        _log(
+                            f"Representation-required dep {dep.name} build failed — "
+                            f"corresponding capability will be unavailable: {output[:200]}"
+                        )
                     else:
                         dep.state = "failed"
                         dep.error = output[:300]
@@ -888,9 +976,17 @@ def install_resolved_deps(
                 native_skipped = True
                 _log(f"Skipped native dependency: {dep.name}")
 
-    # Determine native state
+    # Determine native state.
+    # If any representation-required dep is in "capability_degraded" state,
+    # the native state is "partial" (some capabilities unavailable, others OK).
+    # Fully optional skipped deps are not counted against the install.
+    has_capability_degraded = any(
+        d.state == "capability_degraded" for d in native_deps
+    )
     if native_failed:
         native_state = "failed"
+    elif has_capability_degraded:
+        native_state = "partial"  # Some capabilities degraded, but install is OK
     elif native_skipped:
         native_state = "skipped"
     elif native_deps and all(d.state in ("wheel_installed", "ready") for d in native_deps):
@@ -901,12 +997,17 @@ def install_resolved_deps(
         native_state = "partial"
 
     success = not failed
+    # Collect which capabilities are degraded due to failed representation-required deps.
+    # The health system uses this to mark the corresponding capability as unavailable
+    # rather than silently hiding the failure.
+    degraded_caps = [d.name for d in native_deps if d.state == "capability_degraded"]
     return {
         "success": success,
         "installed": installed,
         "skipped": skipped,
         "failed": failed,
         "native_state": native_state,
+        "degraded_capabilities": degraded_caps,
         "deps": deps,
     }
 

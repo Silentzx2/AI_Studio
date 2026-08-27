@@ -104,10 +104,37 @@ async def runtime_health():
     gpu = get_gpu_info()
     registry = get_registry()
     available = registry.list_available_providers()
+    # ponytail: surface per-provider state with READY/PARTIAL/FAILED/SKIPPED/
+    # NOT_INSTALLED distinction (see Issue 9). The UI can show a clear
+    # reason for each non-ready provider instead of a binary healthy/degraded.
+    from runtime.installer import get_install_status
+    install_status = get_install_status() or {}
+    provider_states: dict[str, dict] = {}
+    for name, info in install_status.items():
+        if isinstance(info, dict):
+            provider_states[name] = {
+                "state": info.get("state", "unknown"),
+                "blocking_reason": info.get("blocking_reason"),
+                "installed": info.get("installed", False),
+            }
+    # Overall status: "ready" if all installed providers are ready, "partial"
+    # if any are partial, "degraded" if none are available.
+    states = [s["state"] for s in provider_states.values()]
+    if not states:
+        overall = "not_initialized"
+    elif any(s == "runtime_failed" or s == "failed" for s in states):
+        overall = "degraded"
+    elif any(s in ("runtime_partial", "partial", "blocked") for s in states):
+        overall = "partial"
+    elif all(s in ("runtime_ready", "ready", "not_required") for s in states):
+        overall = "healthy"
+    else:
+        overall = "partial"
     return success({
-        "status": "healthy" if gpu.available and available else "degraded",
+        "status": overall,
         "gpu": gpu.available,
         "providers_available": len(available),
+        "provider_states": provider_states,
         "summary": health,
     })
 

@@ -1,5 +1,44 @@
 # AI 3D Studio — Changelog
 
+## [v4.3.0] - 2026-08-27 - Root-Cause Fixes: Import, Torch Contract, Resolver Semantics, Health States
+
+### Summary
+Comprehensive root-cause fixes for the 10 issues identified in the "AI Studio — Root-Cause Debugging Prompt" document. The backend now starts cleanly, Torch ABI constraints are preserved deterministically, the dependency resolver correctly distinguishes optional/representation-specific/required dependencies, and runtime health states are meaningful and actionable.
+
+### Fixes
+
+- **Issue 1 — Backend API startup crash** (`backend/app/main.py`): Fixed `ImportError: cannot import name 'Response' from 'starlette.types'`. Moved `Response` import to `starlette.responses` (its canonical module). `Scope` remains in `starlette.types`. This was the only blocker preventing Uvicorn from starting.
+- **Issue 3 — Extra dependencies clobbering torch** (`backend/runtime/installer.py`): Both extra-deps install paths now pin to the backend's exact torch/torchvision/torchaudio build (via `_backend_torch_stack()`) using `--index-url` for the PyTorch wheel index. Previously the primary path used `--reinstall` with no torch pin, and the secondary path pinned to the manifest version (which is wrong — manifests document upstream-tested configs, not installation targets). This eliminates the `torch==2.5.1+cu124 → 2.13.0 → 2.5.1+cu124` thrash cycle.
+- **Issue 5 — Wheel availability false positive/negative** (`backend/runtime/dependency_resolver.py`): `check_wheel_available()` now returns a `WheelCheckResult` dataclass with explicit `available`, `source`, `is_direct_wheel`, and `reason` fields instead of a single `str | None` that collapsed four distinct states. Fixed `spconv` pattern to also match `spconv-cu118` and `spconv-cu120` (previously `spconv-cu118` was a false negative, forcing a source build when a wheel existed).
+- **Issue 6 — Optional vs required native dependencies** (`backend/runtime/dependency_resolver.py`): Split `OPTIONAL_NATIVE_DEPS` into two sets:
+  - `OPTIONAL_NATIVE_DEPS`: truly optional alternatives (flash-attn, xformers) where only one of a group is needed
+  - `REPRESENTATION_REQUIRED_NATIVE_DEPS`: representation-specific deps (nvdiffrast, diffoctreerast, vox2seq, diff-gaussian-rasterization, kaolin) that are required for specific 3D representations and whose failure should degrade the capability, not the whole install
+- **Issue 8 — Non-interactive build policy** (`backend/runtime/dependency_resolver.py`): Implemented deterministic three-tier policy:
+  1. Optional + no wheel → skip
+  2. Representation-required + CUDA toolkit → attempt build, degrade capability on failure
+  3. Required + CUDA toolkit → attempt build, fail the install on failure
+  4. Any class + no CUDA toolkit → skip
+  5. `allow_build=True` overrides all of the above
+  Previously the policy was inconsistent by dependency class. Now it's explicit in code.
+- **Issue 9 — Runtime health too permissive** (`backend/runtime/installer.py`, `backend/app/core/providers/registry.py`, `backend/app/api/v1/runtime.py`):
+  - `prepare_runtime()` no longer accepts `DepsState.PARTIAL` as "deps OK". PARTIAL now means the install succeeded but some required deps failed — the runtime is reported as `runtime_partial` with a `blocking_reason`.
+  - The provider registry now checks the overall state, not just `installed` (which was `repo_ok and weight_ok`). A provider with `runtime_partial` is no longer marked fully available — the engine won't auto-select a broken provider.
+  - The `/api/v1/runtime/health` endpoint now exposes per-provider states with READY/PARTIAL/FAILED/SKIPPED/NOT_INSTALLED distinction and a `blocking_reason` for each non-ready provider. Overall status is `healthy` / `partial` / `degraded` / `not_initialized`.
+- **Issue 10 — Disk warning** (`backend/runtime/installer.py`):
+  - Cumulative disk check: `full_install()` now checks the total estimated size of all selected models before starting any downloads. Previously each model was checked individually, so a multi-model install could exhaust disk before the last model finished.
+  - The disk check now uses a 5GB safety margin plus 20% headroom for extraction and cache growth.
+  - The bulk install path now fails fast with a clear error if the cumulative size exceeds available space.
+
+### Issues 2, 4, 7 — No code change required (by design)
+- **Issue 2 — Torch contract**: The backend torch stack is authoritative for in-process inference (all providers share one torch via Python's dynamic linker). Manifest torch versions document upstream-tested configurations and are not installation targets. This is already correctly enforced by `_backend_torch_stack()` — manifests' torch fields are preserved as compatibility metadata.
+- **Issue 4 — Wheel-first vs source build**: The wheel-first architecture is preserved. Per-dependency classification is now correct (see Issue 6).
+- **Issue 7 — Local extensions**: `vox2seq` remains special-cased via `LOCAL_EXTENSION_PATHS` and is installed from the local repo directory with `--no-build-isolation`. The special-casing is intentional and documented.
+
+### Documentation
+- Updated `Docs/INSTALLATION_STATES.md` with the new health states and blocking reasons
+- Updated `Docs/CHANGELOG.md` (this entry)
+- Code comments updated to reflect the new semantics
+
 ## [v4.2.0] - 2026-08-27 - Dependency Resolution Overhaul & Manifest Sync
 
 ### Summary

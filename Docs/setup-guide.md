@@ -591,6 +591,31 @@ curl -X POST http://localhost:8000/api/v1/runtime/download-weights \
   -d '{"models": ["hunyuan3d-2.1"]}'
 ```
 
+#### Disk Space Requirements (v4.3.0+)
+
+As of v4.3.0, `full_install()` performs a **cumulative** disk check before
+starting any downloads. The total estimated size of all selected models is
+compared against available space with a **5GB safety margin** plus **20%
+headroom** for extraction and cache growth.
+
+If the cumulative size exceeds available space, the install fails fast with
+a clear error message listing the models and the required vs available space,
+before any downloads start:
+
+```
+Insufficient disk space: 27.0GB free, need ~52.4GB for [hunyuan3d-2.1, trellis]
+(includes 20% headroom + 5GB safety margin)
+```
+
+Previously each model was checked individually, so a multi-model install could
+exhaust disk before the last model finished. The cumulative check prevents
+this by failing fast with a clear message.
+
+**Advisory behavior**: The `colab.sh` script's `check_disk_space` function
+remains advisory (warns but continues) because Colab's ephemeral disk can
+fluctuate. The cumulative check in `full_install()` is the authoritative
+gate that prevents corrupt downloads.
+
 #### 7. Migrating Weights from Old Layout
 
 If you previously installed models with the centralized `third_party/weights/` layout, migrate them:

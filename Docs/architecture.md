@@ -101,6 +101,29 @@ Each model is self-contained under `third_party/<RepoName>/`: its own `.venv/`
 `cache/`. `storage.StorageConfig` resolves weight paths with a legacy fallback.
 Install state is mirrored in `runtime/installer.py::get_install_status()`.
 
+### In-process Torch ABI constraint (v4.3.0)
+
+All local providers execute **in-process** in the backend Python interpreter
+via `RuntimeEngine`. Python's dynamic linker loads a single copy of
+`libtorch` into the backend process. If a per-model venv's torchvision
+registers C++ operators (e.g. `torchvision::nms`) against a different torch
+build than the one already loaded in the backend, inference crashes with
+`RuntimeError: operator torchvision::nms does not exist`.
+
+**Therefore the backend torch stack is authoritative.** The manifests'
+`environment.torch` and `environment.cuda` fields document the upstream-tested
+configuration but are **not installation targets**. `_backend_torch_stack()`
+reads the backend's actual installed `torch`/`torchvision`/`torchaudio` via
+`importlib.metadata`, extracts the `+cuXXX` local version tag, and mirrors the
+exact build into every per-model venv using `--index-url` +
+`--index-strategy unsafe-best-match` + `--reinstall`. Extra dependency
+installs (`hy3dgen`, `diffusers`, `accelerate`, etc.) also include this torch
+pin to prevent transitive resolution from upgrading torch to an
+ABI-incompatible version (e.g. 2.13.0).
+
+Manifest torch fields are preserved as **compatibility metadata** — they
+describe what the upstream repo tested with, not what will be installed.
+
 ## Two-Stage Model Setup (v3.9+)
 
 Model installation is split into two strictly separated stages:
@@ -316,13 +339,45 @@ The frontend uses a modern persistent workspace: ONE global 3D viewport (`MeshVi
 
 #### Dependency Installation
 - **Manifest-based**: Each model's `manifest.yaml` is the single source of truth for dependencies
-- **EXTRA_DEPS**: Packages not in the repo's requirements.txt (e.g., `hy3dgen` for Hunyuan3D) are installed separately with `--reinstall`
+- **EXTRA_DEPS** (v4.3.0+): Packages not in the repo's requirements.txt (e.g., `hy3dgen` for Hunyuan3D) are installed with a torch pin matching the backend's exact build (`_backend_torch_stack()`) to prevent transitive resolution from upgrading torch to an ABI-incompatible version. The previous `--reinstall` flag was removed because it forced uv to re-resolve and could pull a newer torch.
+- **Optional vs representation-required vs required** (v4.3.0+): The resolver distinguishes three classes of native dependency. Truly optional deps (alternatives like `flash-attn`/`xformers`) are skipped on wheel failure. Representation-required deps (e.g., `kaolin` for mesh, `nvdiffrast` for differentiable rasterization) are attempted in non-interactive mode and degrade the corresponding capability on failure. Fully required deps fail the install on failure.
 - **one_of / alternatives**: `attention_backend.one_of` in manifest is respected (only first alternative installed)
 - **Pillow fix**: Force-reinstalls Pillow if C extension (`_imaging`) is missing or corrupted (detects from manifest or repo files)
 - **CUDA 12.x support**: All CUDA 12.0-12.8 versions supported with automatic wheel selection
 - **CPU fallback**: On CPU-only machines, installs CPU wheels and marks models as PARTIAL
 - **Preflight**: Stage A skips weights check (weights are Stage B)
 - **GPU cleanup**: Explicit `torch.cuda.empty_cache()` + `gc.collect()` on model unload
+
+#### Runtime Health States (v4.3.0+)
+
+The `/api/v1/runtime/health` endpoint exposes per-provider states with a
+`blocking_reason` for each non-ready provider:
+
+| State | Meaning | Can the engine use it? |
+|-------|---------|------------------------|
+| `runtime_ready` | All components (venv, deps, native, preflight) are in their success state | Yes — full functionality |
+| `runtime_partial` | Install succeeded but some required deps failed or a representation-specific native dep failed | No — registry marks it unavailable; UI shows `blocking_reason` |
+| `runtime_failed` | Critical component (venv or deps) not ready | No |
+| `not_installed` | Provider not yet selected for install | No |
+| `discovered` | Repo not yet cloned | No |
+
+The provider registry (`app/core/providers/registry.py`) checks the overall
+state, not just `repo_ok and weight_ok`. A provider with `runtime_partial` is
+no longer marked fully available — the engine won't auto-select a broken
+provider. The `prepare_runtime()` function no longer accepts `DepsState.PARTIAL`
+as "deps OK"; PARTIAL now means the install succeeded but some required deps
+failed, and the runtime is reported as `runtime_partial` with a
+`blocking_reason` listing the failed packages.
+
+#### Disk Space Checking (v4.3.0+)
+
+`full_install()` performs a **cumulative** disk check before starting any
+downloads: the total estimated size of all selected models is compared
+against available space with a 5GB safety margin plus 20% headroom for
+extraction and cache growth. Previously each model was checked individually,
+so a multi-model install could exhaust disk before the last model finished.
+The bulk install path now fails fast with a clear error if the cumulative
+size exceeds available space.
 
 #### 3D Model Upload
 - **Endpoint**: `POST /api/v1/upload/model` handles GLB, GLTF, FBX, OBJ, STL

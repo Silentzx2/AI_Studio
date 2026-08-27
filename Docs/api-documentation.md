@@ -1252,7 +1252,58 @@ Returns the current engine, provider, storage, and worker snapshot.
 GET /api/v1/runtime/health
 ```
 
-Returns runtime health summary, GPU availability, and provider count.
+Returns runtime health summary, GPU availability, provider count, and per-provider
+states with `blocking_reason` for each non-ready provider.
+
+**Response (v4.3.0+):**
+```json
+{
+  "success": true,
+  "data": {
+    "status": "partial",
+    "gpu": true,
+    "providers_available": 2,
+    "provider_states": {
+      "hunyuan3d-2.1": {
+        "state": "runtime_ready",
+        "blocking_reason": null,
+        "installed": true
+      },
+      "trellis": {
+        "state": "runtime_partial",
+        "blocking_reason": "Some required dependencies failed to install: ['kaolin']",
+        "installed": false
+      }
+    },
+    "summary": { ... }
+  }
+}
+```
+
+**Overall `status` values (v4.3.0+):**
+
+| Status | Meaning |
+|--------|---------|
+| `healthy` | All installed providers are `runtime_ready` |
+| `partial` | At least one provider is `runtime_partial` or `blocked`, none are `failed` |
+| `degraded` | At least one provider is `runtime_failed` |
+| `not_initialized` | No providers installed yet |
+
+**Per-provider `state` values:**
+
+| State | Meaning |
+|-------|---------|
+| `runtime_ready` | All components (venv, deps, native, preflight) are in their success state |
+| `runtime_partial` | Install succeeded but some required deps failed or a representation-specific native dep failed |
+| `runtime_failed` | Critical component (venv or deps) not ready |
+| `not_installed` | Provider not yet selected for install |
+| `discovered` | Repo not yet cloned |
+
+> **v4.3.0 breaking change**: Previously this endpoint returned a binary
+> `healthy`/`degraded` status based on `gpu.available and providers_available`.
+> The new response includes per-provider states and `blocking_reason` so the
+> UI can show exactly what's wrong with each non-ready provider instead of a
+> generic "degraded" message.
 
 ### Runtime Options
 
@@ -1553,6 +1604,22 @@ async function generate3D(prompt: string) {
 ---
 
 ## Changelog
+
+### v4.3.0 (Root-Cause Fixes)
+
+#### Changed
+- **`GET /api/v1/runtime/health`**: Response now includes `provider_states` (per-provider state + `blocking_reason`) and an overall `status` that is `healthy` / `partial` / `degraded` / `not_initialized` instead of binary `healthy`/`degraded`. See the Runtime Health section above for the full response shape.
+
+#### Fixed
+- **Backend startup crash**: `from starlette.types import Scope, Response` corrected to `Scope` from `starlette.types` and `Response` from `starlette.responses` (Response was never in `starlette.types` in Starlette 0.41+).
+- **Extra dependencies clobbering torch**: Both extra-deps install paths now pin to the backend's exact torch build via `_backend_torch_stack()`, eliminating the `torch==2.5.1+cu124 → 2.13.0 → 2.5.1+cu124` thrash cycle.
+- **`spconv-cu118` false negative**: The `spconv` pattern in `WHEEL_COMPAT_TABLE` now matches `spconv-cu118` and `spconv-cu120`, so the resolver recognizes them as wheel-available instead of forcing a source build.
+- **Runtime health too permissive**: `prepare_runtime()` no longer accepts `DepsState.PARTIAL` as "deps OK". The provider registry checks the overall state, not just `repo_ok and weight_ok`, so a provider with broken deps is no longer auto-selected by the engine.
+- **Disk space check not cumulative**: `full_install()` now checks the total estimated size of all selected models before starting any downloads, with a 5GB safety margin plus 20% headroom.
+
+#### Added
+- **`WheelCheckResult` dataclass**: `check_wheel_available()` now returns a structured result with explicit `available`, `source`, `is_direct_wheel`, and `reason` fields, replacing the previous `str | None` that collapsed four distinct states.
+- **`REPRESENTATION_REQUIRED_NATIVE_DEPS` set**: New classification for native deps that are required for specific 3D representations (e.g., `kaolin` for mesh, `nvdiffrast` for differentiable rasterization) but whose failure should degrade the capability, not the whole install.
 
 ### v3.9.0 (Two-Stage Runtime Installation)
 

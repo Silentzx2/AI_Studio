@@ -1,14 +1,37 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.1.0 (Two-Stage Model Setup Refactor)  
+> **Version**: 4.3.0 (Root-Cause Fixes)  
 > **Status**: ✅ **COMPLETE**  
-> **Last Updated**: August 24, 2026
+> **Last Updated**: August 27, 2026
 
 ---
 
-## Overview
+## v4.3.0 — Root-Cause Fixes (2026-08-27)
+
+### What changed
+- **Backend startup fix**: `from starlette.types import Scope, Response` corrected to import `Response` from `starlette.responses` (Response was never in `starlette.types` in Starlette 0.41+).
+- **Torch ABI contract**: Both extra-deps install paths now pin to the backend's exact torch build via `_backend_torch_stack()`, eliminating the `torch==2.5.1+cu124 → 2.13.0 → 2.5.1+cu124` thrash cycle.
+- **Wheel detection**: `check_wheel_available()` now returns a `WheelCheckResult` dataclass with explicit `available`, `source`, `is_direct_wheel`, and `reason` fields. The `spconv` pattern now matches `spconv-cu118` and `spconv-cu120`.
+- **Optional vs representation-required vs required**: Split into three sets with distinct non-interactive build policies. Representation-required deps (e.g., `kaolin`, `nvdiffrast`) degrade the capability on failure, not the whole install.
+- **Runtime health states**: `prepare_runtime()` no longer accepts `DepsState.PARTIAL` as "deps OK". The provider registry checks the overall state, not just `repo_ok and weight_ok`. The `/api/v1/runtime/health` endpoint exposes per-provider states with `blocking_reason`.
+- **Cumulative disk check**: `full_install()` now checks the total estimated size of all selected models before starting any downloads (5GB safety margin + 20% headroom).
+
+### Files changed
+- `backend/app/main.py` — Issue 1
+- `backend/runtime/installer.py` — Issues 3, 9, 10
+- `backend/runtime/dependency_resolver.py` — Issues 5, 6, 8
+- `backend/app/core/providers/registry.py` — Issue 9
+- `backend/app/api/v1/runtime.py` — Issue 9
+
+---
+
+## v4.1.0 — Two-Stage Model Setup Refactor
+
+### Overview
 
 This document tracks the implementation status of **Pipeline V2** for AI 3D Studio. The pipeline adds comprehensive model management, download queue system, health monitoring, and discovery features.
+
+### What changed
 
 ### Implementation Summary
 

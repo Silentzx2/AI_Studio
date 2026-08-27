@@ -146,11 +146,40 @@ def get_registry() -> RuntimeProviderRegistry:
         status = get_install_status()
         for name, info in (status or {}).items():
             if isinstance(info, dict):
-                registry.set_available(
-                    name,
-                    available=info.get("installed", False),
-                    reason=info.get("reason", ""),
-                )
+                # ponytail: a provider with repo+weights but runtime_partial
+                # (deps failed) must NOT be marked fully available. The
+                # engine would try to load it and crash. Report it as
+                # partially available with the blocking reason so the UI
+                # can show the user what's wrong (see Issue 9).
+                overall_state = info.get("state", "unknown")
+                installed = info.get("installed", False)
+                if overall_state == "runtime_ready":
+                    registry.set_available(
+                        name,
+                        available=True,
+                        reason="",
+                    )
+                elif overall_state in ("runtime_partial", "partial"):
+                    # Partial: repo+weights present but something is degraded.
+                    # Mark as not-fully-available so the engine won't auto-select it.
+                    registry.set_available(
+                        name,
+                        available=False,
+                        reason=info.get("blocking_reason", "Runtime is in partial state"),
+                    )
+                elif overall_state in ("runtime_failed", "failed", "blocked"):
+                    registry.set_available(
+                        name,
+                        available=False,
+                        reason=info.get("blocking_reason", f"Runtime state: {overall_state}"),
+                    )
+                else:
+                    # Unknown / not_installed / discovered: fall back to installed flag
+                    registry.set_available(
+                        name,
+                        available=installed,
+                        reason=info.get("reason", ""),
+                    )
     except Exception as exc:
         logger.debug("Could not auto-detect provider availability: %s", exc)
 

@@ -13,7 +13,8 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from starlette.types import Scope, Response
+from starlette.types import Scope
+from starlette.responses import Response
 
 from app.api.v1 import router as api_v1_router
 from app.config import get_settings

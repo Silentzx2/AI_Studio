@@ -77,18 +77,55 @@ Replaces the old "drop from requirements" pattern with a wheel-first resolver. N
 2. Classify each dependency: `NORMAL`, `NATIVE`, `BUILD_ONLY`, or `OPTIONAL`
 3. For `NATIVE` deps: check static `WHEEL_COMPAT_TABLE` for prebuilt availability
 4. If wheel exists → install it (no compilation)
-5. If no wheel → interactive prompt: build from source? [y/N]
-   - YES → build inside model venv
-   - NO → skip, mark SKIPPED, continue
+5. If no wheel → deterministic policy (v4.3.0+):
+   - **Truly optional** (in `OPTIONAL_NATIVE_DEPS`): skip cleanly on wheel failure
+   - **Representation-required** (in `REPRESENTATION_REQUIRED_NATIVE_DEPS`): attempt build if CUDA toolkit present; on failure, mark the corresponding capability as unavailable (not the whole install)
+   - **Fully required**: attempt build if CUDA toolkit present; on failure, fail the install
 
 ### Key Functions
 - `resolve_dependencies(repo_dir, manifest)` — discover and classify deps
-- `check_wheel_available(dep, py_ver, cuda_ver, torch_ver)` — check static table for wheel
+- `check_wheel_available(dep, py_ver, cuda_ver, torch_ver)` — returns a `WheelCheckResult` (v4.3.0+) with explicit `available`, `source`, `is_direct_wheel`, and `reason` fields. The previous `str | None` return collapsed four distinct states (artifact exists / matches env / installable / install succeeded) into a single boolean and caused false-positive "wheel found" results.
 - `normalize_py312_pin(spec)` — rewrite Py3.12-incompatible pins or return None to drop
-- `install_resolved_deps(deps, venv_python, repo_dir, ...)` — execute wheel-first install
+- `install_resolved_deps(deps, venv_python, repo_dir, ...)` — execute wheel-first install with the three-tier non-interactive policy
 
 ### Static Wheel Table
 `WHEEL_COMPAT_TABLE` maps native packages (torch-cluster, flash-attn, pytorch3d, spconv, etc.) to wheel availability per (py_ver, cuda_ver). Single source of truth — add entries as packages gain wheels for new versions.
+
+### Optional vs Representation-Required vs Required (v4.3.0+)
+
+The resolver distinguishes three classes of native dependency. The classification
+reflects application semantics, not build convenience:
+
+| Class | Sets | Examples | On wheel failure + non-interactive |
+|-------|------|----------|-------------------------------------|
+| Truly optional (alternative) | `OPTIONAL_NATIVE_DEPS` | `flash-attn`, `xformers` | Skip cleanly |
+| Representation-required | `REPRESENTATION_REQUIRED_NATIVE_DEPS` | `nvdiffrast`, `kaolin`, `diffoctreerast`, `vox2seq`, `diff-gaussian-rasterization` | Attempt build if CUDA toolkit; on failure, capability is marked unavailable |
+| Fully required | (neither set) | `spconv-cu118` (for sparse voxel) | Attempt build if CUDA toolkit; on failure, fail the install |
+
+A package is "representation-required" if TRELLIS uses it for a specific 3D
+output format (mesh, Gaussian splat, structured latent, sparse voxel). These
+are not "nice-to-have" — they enable specific outputs. Marking them optional
+would silently disable representations.
+
+### In-Process Torch ABI Constraint (v4.3.0+)
+
+All local providers execute in-process in the backend Python interpreter.
+Python's dynamic linker loads a single copy of `libtorch` into the backend
+process. If a per-model venv's torchvision registers C++ operators against a
+different torch build than the one already loaded in the backend, inference
+crashes with `RuntimeError: operator torchvision::nms does not exist`.
+
+**Therefore the backend torch stack is authoritative.** The manifests'
+`environment.torch` and `environment.cuda` fields document the upstream-tested
+configuration but are NOT installation targets. `_backend_torch_stack()` reads
+the backend's actual installed torch via `importlib.metadata`, extracts the
+`+cuXXX` local version tag, and mirrors the exact build into every per-model
+venv. Extra dependency installs (`hy3dgen`, `diffusers`, `accelerate`, etc.)
+also include this torch pin to prevent transitive resolution from upgrading
+torch to an ABI-incompatible version (e.g. 2.13.0).
+
+Manifest torch fields are preserved as **compatibility metadata** — they
+describe what the upstream repo tested with, not what will be installed.
 
 ## Component-Level State Machine
 

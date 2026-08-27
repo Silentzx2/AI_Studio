@@ -1266,23 +1266,26 @@ def _uv_install(
     # Verify critical packages are importable, force-reinstall if not
     # ponytail: packages can be corrupted from previous failed installs
     _verify_and_fix_critical_packages(venv_python, repo_dir, req_blob)
-    # requirements.txt, e.g. hy3dgen) into the per-model venv. In-process local
-    # providers append this venv's site-packages to sys.path, so the inference
-    # libraries resolve without needing to pollute the backend venv (which
-    # lacks the full ML stack and may conflict with its own deps).
+    # Install extra inference libraries (e.g. hy3dgen, diffusers) that are
+    # missing from the repo's requirements.txt into the per-model venv.
+    # In-process local providers append this venv's site-packages to sys.path,
+    # so the inference libraries resolve without needing to pollute the backend
+    # venv (which lacks the full ML stack and may conflict with its own deps).
+    # ponytail: pin torch to the backend's exact build (not the manifest
+    # version) so the resolver cannot pull a newer ABI-incompatible torch as
+    # a transitive dependency. The manifest's torch version documents the
+    # upstream-tested configuration, but the backend torch is authoritative
+    # for in-process inference (see _backend_torch_stack for the ABI rationale).
     extra = EXTRA_DEPS.get(repo_name)
     if extra:
-        # ponytail: pin torch to manifest version during extra deps install
-        # to prevent upgrade. The manifest's torch version must be preserved
-        # to avoid ABI incompatibilities with the backend venv.
-        torch_ver = manifest.get("environment", {}).get("torch") if manifest else None
-        install_extra = list(extra)
-        if torch_ver:
-            # Add torch pin to the install command so the resolver picks
-            # compatible versions of all packages
-            install_extra.append(f"torch=={torch_ver}")
+        torch_index, torch_specs = _backend_torch_stack()
+        install_extra = [*torch_specs, *extra]
         code_e, out_e = _run_uv(
-            ["pip", "install", "--python", str(venv_python), *install_extra],
+            ["pip", "install", "--python", str(venv_python),
+             "--index-url", torch_index,
+             "--extra-index-url", "https://pypi.org/simple",
+             "--index-strategy", "unsafe-best-match",
+             *install_extra],
             cwd=repo_dir,
         )
         if code_e != 0:
@@ -1542,26 +1545,90 @@ def _release_native_build_lock(repo_name: str) -> None:
         pass
 
 
-def _check_disk_space(provider_name: str) -> tuple[bool, str]:
+def _check_disk_space(
+    provider_name: str,
+    selected_providers: list[str] | None = None,
+    min_safety_gb: float = 5.0,
+) -> tuple[bool, str]:
     """Check if there's enough disk space for a model's weights.
+
+    Args:
+        provider_name: the current model being checked
+        selected_providers: full list of models selected for install.
+            When provided, checks the CUMULATIVE size of all selected models
+            against available disk, not just the current one. This prevents
+            the case where each individual check passes but the combined
+            download exceeds available space.
+        min_safety_gb: minimum free space to keep available for venvs,
+            caches, and other operations. Default 5GB is a safe floor.
+
     Returns (sufficient, error_message).
+
+    ponytail: previously this only checked the single model with 20%
+    headroom and no cumulative check, so multi-model installs could
+    exhaust disk before the last model finished downloading. See Issue 10.
     """
-    model_cfg = HF_MODELS.get(provider_name)
-    if not model_cfg:
-        return True, ""  # Unknown model, can't check — allow
-    size_gb = model_cfg["size_estimate_gb"]
-    required_bytes = int(size_gb * 1024 ** 3) * 1.2  # 20% headroom
+    storage = get_storage_config()
     try:
-        disk = shutil.disk_usage(get_storage_config().third_party_dir)
-        if disk.free < required_bytes:
-            free_gb = round(disk.free / (1024 ** 3), 1)
-            return False, (
-                f"Insufficient disk space: {free_gb}GB free, "
-                f"need ~{size_gb * 1.2:.1f}GB for {provider_name}"
-            )
+        disk = shutil.disk_usage(storage.third_party_dir)
+        free_gb = disk.free / (1024 ** 3)
     except Exception:
-        pass  # Can't check — allow
+        return True, ""  # Can't check — allow
+
+    # Build the list of models to check
+    if selected_providers is None:
+        models_to_check = [provider_name]
+    else:
+        models_to_check = list(selected_providers)
+
+    # Sum estimated sizes for all models, but only count models whose
+    # weights are not already on disk (to avoid double-counting).
+    total_required_gb = 0.0
+    not_yet_present: list[str] = []
+    for m in models_to_check:
+        model_cfg = HF_MODELS.get(m)
+        if not model_cfg:
+            continue
+        size_gb = model_cfg.get("size_estimate_gb", 0)
+        existing = storage.get_weight_path(m)
+        if existing and _weights_already_present(existing, size_gb):
+            continue  # already downloaded
+        total_required_gb += size_gb
+        not_yet_present.append(m)
+
+    # Add 20% headroom for extraction, temp files, and cache growth
+    required_gb = total_required_gb * 1.2 + min_safety_gb
+
+    if free_gb < required_gb:
+        names = ", ".join(not_yet_present) if not_yet_present else provider_name
+        return False, (
+            f"Insufficient disk space: {free_gb:.1f}GB free, "
+            f"need ~{required_gb:.1f}GB for [{names}] "
+            f"(includes 20% headroom + {min_safety_gb}GB safety margin)"
+        )
     return True, ""
+
+
+def _weights_already_present(weight_path, expected_size_gb: float) -> bool:
+    """Return True if the weight directory has a substantial portion of the
+    expected model already on disk. Used to avoid double-counting in
+    cumulative disk checks.
+    """
+    from pathlib import Path as _P
+    p = _P(weight_path)
+    if not p.exists():
+        return False
+    real_files = [
+        f for f in p.rglob("*")
+        if f.is_file()
+        and not f.name.startswith(".")
+        and not any(part.startswith(".") for part in f.relative_to(p).parts[:-1])
+    ]
+    if not real_files:
+        return False
+    total = sum(f.stat().st_size for f in real_files if f.stat().st_size > 0)
+    min_expected = int(expected_size_gb * 1024 ** 3) * 0.1
+    return total > min_expected
 
 
 # ---------------------------------------------------------------------------
@@ -2128,9 +2195,15 @@ def prepare_runtime(
             logger.warning("Preflight failed for %s: %s", provider_name, exc)
             components["preflight"] = {"state": "failed", "error": str(exc)}
 
-        # Determine runtime state
+        # Determine runtime state.
+        # ponytail: deps_ok now requires READY (not PARTIAL). PARTIAL means
+        # some required deps failed to install — the runtime may load but
+        # will crash at first use. PARTIAL still permits the install to
+        # complete (weights download, etc.) but the runtime is reported as
+        # partial with a clear reason, and the registry won't mark the
+        # provider as fully available (see Issue 9).
         venv_ok = components.get("venv", {}).get("state") == EnvState.READY.value
-        deps_ok = components.get("deps", {}).get("state") in (DepsState.READY.value, DepsState.PARTIAL.value)
+        deps_ok = components.get("deps", {}).get("state") == DepsState.READY.value
         native_ok = components.get("native", {}).get("state") in (
             NativeState.NOT_REQUIRED.value,
             NativeState.READY.value,
@@ -2141,14 +2214,28 @@ def prepare_runtime(
 
         if venv_ok and deps_ok and native_ok and preflight_ok:
             runtime_state = "runtime_ready"
-        elif venv_ok and deps_ok:
+            blocking_reason = None
+        elif venv_ok and components.get("deps", {}).get("state") == DepsState.PARTIAL.value:
+            # Deps are partial — runtime can load but some features may fail
             runtime_state = "runtime_partial"
+            failed_deps = components.get("deps", {}).get("failed", [])
+            blocking_reason = f"Some required dependencies failed to install: {failed_deps}"
+        elif venv_ok and deps_ok and not preflight_ok:
+            # Preflight didn't pass but deps are fine — runtime is degraded
+            runtime_state = "runtime_partial"
+            blocking_reason = f"Preflight not passed: {components.get('preflight', {}).get('error', 'unknown')}"
+        elif venv_ok and deps_ok:
+            # Native build pending or other transient state
+            runtime_state = "runtime_partial"
+            blocking_reason = f"Native state: {components.get('native', {}).get('state', 'unknown')}"
         else:
             runtime_state = "runtime_failed"
+            blocking_reason = "Critical component not ready (venv or deps)"
 
         return {
             "success": True,
             "state": runtime_state,
+            "blocking_reason": blocking_reason,
             "components": components,
             "provider": provider_name,
         }
@@ -2259,16 +2346,26 @@ def _prepare_runtime_venv(
 
     # Install EXTRA_DEPS (inference libs omitted from repo requirements)
     # ponytail: hy3dgen, diffusers, etc. are NOT in the repo's requirements.txt
-    # but are needed for inference. Install with --reinstall to ensure they
-    # are present even if a previous install was corrupted.
+    # but are needed for inference. Pin torch to the backend's exact build so
+    # the resolver cannot pull a newer ABI-incompatible torch (e.g. 2.13.0)
+    # as a transitive dependency. Without this pin, packages like diffusers
+    # and accelerate resolve to the latest torch, breaking torchvision's C++
+    # operator registration against the already-loaded backend torch.
     extra = EXTRA_DEPS.get(repo_name)
     if extra:
         uv_path = shutil.which("uv")
         if uv_path:
-            code, output = _run(
-                [uv_path, "pip", "install", "--python", str(venv_python), "--reinstall", *extra],
-                cwd=repo_dir,
-            )
+            # Build the install command with backend torch pin
+            torch_index, torch_specs = _backend_torch_stack()
+            install_cmd = [
+                uv_path, "pip", "install", "--python", str(venv_python),
+                "--index-url", torch_index,
+                "--extra-index-url", "https://pypi.org/simple",
+                "--index-strategy", "unsafe-best-match",
+                *torch_specs,  # Pin torch==X, torchvision==Y, torchaudio==Z
+                *extra,
+            ]
+            code, output = _run(install_cmd, cwd=repo_dir)
             if code != 0:
                 logger.warning("Extra deps install failed for %s: %s", repo_name, output[:200])
             else:
@@ -2345,6 +2442,7 @@ def install_provider(
     log_cb: Callable | None = None,
     allow_native_build: bool = False,
     skip_preflight: bool = False,
+    selected_providers: list[str] | None = None,
 ) -> dict:
     """Manifest-driven installation entry point.
 
@@ -2396,7 +2494,7 @@ def install_provider(
             }
         locked_repos.append(repo_name)
     try:
-        sufficient, space_err = _check_disk_space(provider_name)
+        sufficient, space_err = _check_disk_space(provider_name, selected_providers=selected_providers)
         if not sufficient:
             return {"success": False, "error": space_err}
         # --- 2. Clone repo ---
@@ -3298,6 +3396,25 @@ class RuntimeInstaller:
         resolved = resolve_install_targets(models)
         results: dict = {"success": True, "providers": {}}
         self.create_folders()
+        # ponytail: cumulative disk check BEFORE starting any downloads.
+        # Previously each model was checked individually, so a multi-model
+        # install could exhaust disk before the last model finished. Now we
+        # check the total estimated size of all selected models at once
+        # (see Issue 10). This is advisory when the free space is tight
+        # but safe, and blocking when continuation would predictably fail.
+        if not skip_weights:
+            sufficient, space_err = _check_disk_space(
+                resolved[0] if resolved else "",
+                selected_providers=resolved,
+            )
+            if not sufficient:
+                if cb:
+                    cb(f"[FATAL] {space_err}")
+                return {
+                    "success": False,
+                    "error": space_err,
+                    "providers": {},
+                }
         for name, meta in PROVIDER_METADATA.items():
             if name == "mock":
                 continue

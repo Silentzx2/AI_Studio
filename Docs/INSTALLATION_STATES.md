@@ -265,6 +265,58 @@ Native dependencies follow the **wheel-first** resolution strategy (see above).
 The `REPOS[*]["requirements"]` field is only used when no manifest exists (backward-compat
 fallback).
 
+## Runtime Health States (v4.3.0+)
+
+The runtime health endpoint (`GET /api/v1/runtime/health`) now exposes a clear,
+actionable state machine for each provider and an overall system status.
+
+### Per-provider states
+
+| State | Meaning | Can the engine use it? |
+|-------|---------|------------------------|
+| `runtime_ready` | All components (venv, deps, native, preflight) are in their success state | Yes — full functionality |
+| `runtime_partial` | Install succeeded but some required deps failed or a representation-specific native dep failed | No — registry marks it unavailable; UI shows `blocking_reason` |
+| `runtime_failed` | Critical component (venv or deps) not ready | No |
+| `not_installed` | Provider not yet selected for install | No |
+| `discovered` | Repo not yet cloned | No |
+
+### Overall system status
+
+| Status | Meaning |
+|--------|---------|
+| `healthy` | All installed providers are `runtime_ready` |
+| `partial` | At least one provider is `runtime_partial` or `blocked` but none are `failed` |
+| `degraded` | At least one provider is `runtime_failed` |
+| `not_initialized` | No providers installed yet |
+
+### Why this changed
+
+Previously the runtime reported `runtime_partial` as a non-fatal warning and the
+registry marked the provider available based only on `repo_ok and weight_ok`.
+This meant a provider with broken deps would be auto-selected by the engine
+and crash at first use with no clear error to the user.
+
+The new semantics:
+1. `prepare_runtime()` no longer accepts `DepsState.PARTIAL` as "deps OK"
+2. The registry checks the overall state, not just repo+weights
+3. The API exposes per-provider states with `blocking_reason` so the UI can show
+   exactly what's wrong (e.g., "Some required dependencies failed: [kaolin]")
+
+### Representation-specific vs optional native deps
+
+The resolver distinguishes three classes of native dependency:
+
+| Class | Example | On wheel failure + non-interactive |
+|-------|---------|-------------------------------------|
+| Truly optional (alternative) | `flash-attn`, `xformers` | Skip cleanly |
+| Representation-required | `nvdiffrast`, `kaolin`, `diffoctreerast`, `vox2seq`, `diff-gaussian-rasterization` | Attempt build if CUDA toolkit present; on failure, mark the corresponding capability as unavailable |
+| Fully required | `spconv-cu118` (for sparse voxel) | Attempt build if CUDA toolkit present; on failure, fail the install |
+
+A package is "representation-required" if TRELLIS uses it for a specific 3D
+output format (mesh, Gaussian splat, structured latent, sparse voxel). These
+are not "nice-to-have" — they enable specific outputs. Marking them optional
+would silently disable representations.
+
 ## Repair
 
 The `POST /api/v1/admin/repair/{provider_name}` endpoint is manifest-driven: it:
