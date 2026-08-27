@@ -316,6 +316,87 @@ cmd_clean_logs() {
     read -rp "Press Enter to continue..."
 }
 
+cmd_clean() {
+    banner
+    echo -e "${CYAN}Clean Environments & Dependencies${NC}"
+    echo ""
+    echo "This will remove:"
+    echo -e "  ${RED}•${NC} All per-model venvs (backend/third_party/*/.venv)"
+    echo -e "  ${RED}•${NC} All cloned model repos (backend/third_party/*)"
+    echo -e "  ${RED}•${NC} Backend venv (backend/.venv)"
+    echo -e "  ${RED}•${NC} Frontend node_modules"
+    echo -e "  ${RED}•${NC} Frontend build (.next)"
+    echo -e "  ${RED}•${NC} Runtime cache (.runtime_cache)"
+    echo -e "  ${RED}•${NC} PID files (.pids)"
+    echo ""
+    echo -e "  ${GREEN}•${NC} Preserves: .env, logs/, storage/, manager.sh"
+    echo ""
+    echo -e "${YELLOW}WARNING: This cannot be undone. You will need to re-run setup.${NC}"
+    echo ""
+    read -rp "Type 'CLEAN' to confirm: " confirm
+    case "$confirm" in
+        CLEAN)
+            echo ""
+            echo -e "${BOLD}Cleaning...${NC}"
+            echo ""
+
+            # Stop services first
+            echo -e "  ${CYAN}Stopping services...${NC}"
+            bash scripts/stop.sh 2>/dev/null || true
+
+            # Remove per-model venvs
+            echo -e "  ${CYAN}Removing per-model venvs...${NC}"
+            if [[ -d backend/third_party ]]; then
+                find backend/third_party -maxdepth 2 -type d -name ".venv" -exec rm -rf {} + 2>/dev/null || true
+                echo -e "    ${GREEN}✔${NC} Per-model venvs removed"
+            fi
+
+            # Remove cloned model repos
+            echo -e "  ${CYAN}Removing model repositories...${NC}"
+            if [[ -d backend/third_party ]]; then
+                find backend/third_party -maxdepth 1 -mindepth 1 -type d ! -name '.hf_cache' -exec rm -rf {} + 2>/dev/null || true
+                echo -e "    ${GREEN}✔${NC} Model repositories removed"
+            fi
+
+            # Remove backend venv
+            echo -e "  ${CYAN}Removing backend venv...${NC}"
+            rm -rf backend/.venv 2>/dev/null || true
+            echo -e "    ${GREEN}✔${NC} Backend venv removed"
+
+            # Remove frontend deps & build
+            echo -e "  ${CYAN}Removing frontend dependencies...${NC}"
+            rm -rf node_modules .next 2>/dev/null || true
+            echo -e "    ${GREEN}✔${NC} node_modules & .next removed"
+
+            # Remove runtime cache
+            echo -e "  ${CYAN}Removing runtime cache...${NC}"
+            rm -rf backend/.runtime_cache 2>/dev/null || true
+            echo -e "    ${GREEN}✔${NC} Runtime cache removed"
+
+            # Remove PID files
+            echo -e "  ${CYAN}Removing PID files...${NC}"
+            rm -rf .pids 2>/dev/null || true
+            echo -e "    ${GREEN}✔${NC} PID files removed"
+
+            # Remove install locks
+            echo -e "  ${CYAN}Removing install locks...${NC}"
+            find backend/third_party -name ".installing.lock" -delete 2>/dev/null || true
+            echo -e "    ${GREEN}✔${NC} Install locks removed"
+
+            echo ""
+            echo -e "  ${GREEN}${BOLD}✔ Clean complete!${NC}"
+            echo ""
+            echo -e "  Run ${BOLD}1) First-Time Setup${NC} to rebuild from scratch."
+            echo ""
+            ;;
+        *)
+            echo "Cancelled"
+            ;;
+    esac
+    echo ""
+    read -rp "Press Enter to continue..."
+}
+
 cmd_service() {
     banner
     echo -e "${CYAN}Individual Service Management${NC}"
@@ -661,7 +742,8 @@ _main_menu_() {
         echo "  12) Cloudflare"
         echo "  13) Update / install models"
         echo "  14) Google Colab launcher"
-        echo "  15) Manage individual service"
+        echo "  15) Clean environments"
+        echo "  16) Manage individual service"
         echo "  q)  Quit"
         echo ""
         read -rp "Choice: " choice
@@ -680,7 +762,8 @@ _main_menu_() {
             12) cmd_cf ;;
             13) cmd_update_models ;;
             14) cmd_colab ;;
-            15) cmd_service ;;
+            15) cmd_clean ;;
+            16) cmd_service ;;
             q|Q) echo ""; echo -e "${GREEN}Goodbye!${NC}"; echo ""; exit 0 ;;
             *) echo -e "${RED}Invalid choice${NC}"; sleep 1 ;;
         esac
