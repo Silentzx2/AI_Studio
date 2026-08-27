@@ -139,10 +139,11 @@ class StorageConfig:
         if not _safe_exists(self.weights_dir):
             return legacy
         try:
-            from runtime.installer import PROVIDER_METADATA
+            from runtime.manifest_loader import get_all_provider_metadata  # noqa: PLC0415
+            provider_meta = get_all_provider_metadata()
             # Build reverse map: weight_key -> repo_name
             wk_to_repo: dict[str, str] = {}
-            for _pname, meta in PROVIDER_METADATA.items():
+            for _pname, meta in provider_meta.items():
                 wk = meta.get("weight_key")
                 repo = meta.get("repo")
                 if wk and repo:
@@ -223,8 +224,9 @@ class StorageConfig:
         """
         # 1. CANONICAL per-model location: third_party/<repo_name>/weights/<weight_key>
         try:
-            from runtime.installer import PROVIDER_METADATA
-            for _pname, meta in PROVIDER_METADATA.items():
+            from runtime.manifest_loader import get_all_provider_metadata  # noqa: PLC0415
+            provider_meta = get_all_provider_metadata()
+            for _pname, meta in provider_meta.items():
                 if meta.get("weight_key") == weight_key and meta.get("repo"):
                     per_model_dir = self.get_repo_path(meta["repo"]) / "weights" / weight_key
                     if _safe_exists(per_model_dir) and self._has_real_weight_files(per_model_dir):
@@ -286,8 +288,9 @@ class StorageConfig:
         paths: list[Path] = []
         # ponytail: Section 2 — also check per-model locations
         try:
-            from runtime.installer import PROVIDER_METADATA
-            for _pname, meta in PROVIDER_METADATA.items():
+            from runtime.manifest_loader import get_all_provider_metadata  # noqa: PLC0415
+            provider_meta = get_all_provider_metadata()
+            for _pname, meta in provider_meta.items():
                 if meta.get("weight_key") == weight_key and meta.get("repo"):
                     p1 = self.get_repo_path(meta["repo"]) / "weights" / weight_key
                     if _safe_exists(p1):

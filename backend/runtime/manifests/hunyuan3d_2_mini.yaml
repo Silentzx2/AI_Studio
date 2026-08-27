@@ -1,45 +1,57 @@
 name: hunyuan3d-2-mini
-label: "Hunyuan3D 2 Mini"
+label: Hunyuan3D 2 Mini
 source:
-  repo: "https://github.com/Tencent-Hunyuan/Hunyuan3D-2.git"
-  ref: "main"
+  repo: https://github.com/Tencent-Hunyuan/Hunyuan3D-2.git
+  ref: main
   submodules: false
+  local_dir: Hunyuan3D-2
 environment:
-  python: "3.10"
-  torch: "2.5.1"
-  cuda: "12.4"
+  python: '3.10'
+  torch: 2.5.1
+  cuda: '12.4'
 dependencies:
   python:
-    # Same repo as hunyuan3d-2 — same dependencies
-    # From upstream requirements.txt (unpinned) + setup.py (transformers>=4.48.0)
-    - "ninja"
-    - "pybind11"
-    - "diffusers"
-    - "einops"
-    - "opencv-python"
-    - "numpy"
-    - "transformers>=4.48.0"
-    - "tqdm"
-    - "trimesh"
-    - "pymeshlab"
-    - "pygltflib"
-    - "xatlas"
-    - "accelerate"
-    - "rembg"
-    - "onnxruntime"
-    - "omegaconf"
-    # Inference library (not in upstream requirements.txt)
-    - "hy3dgen"
+  - ninja
+  - pybind11
+  - diffusers
+  - einops
+  - opencv-python
+  - numpy
+  - transformers>=4.48.0
+  - tqdm
+  - trimesh
+  - pymeshlab
+  - pygltflib
+  - xatlas
+  - accelerate
+  - rembg
+  - onnxruntime
+  - omegaconf
+  - hy3dgen
   imports:
-    - "torch"
-    - "diffusers"
-    - "transformers"
-    - "accelerate"
+  - torch
+  - diffusers
+  - transformers
+  - accelerate
   native: []
+  extra:
+  - hy3dgen
+  - accelerate>=0.34.0
+  - huggingface_hub>=0.28.0
+  wheels: {}
+  fallbacks: {}
+  optional: []
+  representation_required: []
+  local_extensions: {}
 weights:
   primary:
-    repo: "tencent/Hunyuan3D-2mini"
+    repo: tencent/Hunyuan3D-2mini
   auxiliary: []
+  size_estimate_gb: 4
+  allow_patterns:
+  - hunyuan3d-dit-v2-mini/*
+  ignore_patterns:
+  - '*.ckpt'
 hardware:
   minimum_vram_mb: 4096
   recommended_vram_mb: 6144
@@ -55,10 +67,10 @@ capabilities:
 preflight:
   check_model_venv: true
   import_packages:
-    - "torch"
-    - "diffusers"
-    - "transformers"
-    - "accelerate"
+  - torch
+  - diffusers
+  - transformers
+  - accelerate
   check_weights: true
   check_cuda: true
   load_weights: true

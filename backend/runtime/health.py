@@ -191,14 +191,19 @@ class RuntimeHealth:
     # Providers
     # -------------------------------------------------------------------------
 
+    # -------------------------------------------------------------------------
+    # Providers
+    # -------------------------------------------------------------------------
+
     @classmethod
     def _check_providers(cls) -> dict:
         result = {"available_count": 0, "total": 0, "providers": {}, "status": "FAIL", "message": "No providers available"}
         try:
-            from runtime.installer import PROVIDER_METADATA
+            from runtime.manifest_loader import get_all_provider_metadata
             from runtime.storage import get_storage_config
             storage = get_storage_config()
-            for name, meta in PROVIDER_METADATA.items():
+            provider_meta = get_all_provider_metadata()
+            for name, meta in provider_meta.items():
                 repo_name = meta.get("repo")
                 weight_key = meta.get("weight_key")
                 repo_ok = storage.find_repo(repo_name) is not None if repo_name else True
@@ -235,13 +240,15 @@ class RuntimeHealth:
     def _check_repositories(cls) -> dict:
         result = {"repos": {}, "found": 0, "total": 0, "status": "FAIL", "message": ""}
         try:
-            from runtime.installer import REPOS
+            from runtime.manifest_loader import get_all_provider_metadata
             from runtime.storage import get_storage_config
             storage = get_storage_config()
-            for repo_name in REPOS:
+            provider_meta = get_all_provider_metadata()
+            for name, meta in provider_meta.items():
+                repo_name = meta.get("repo")
                 repo_path = storage.find_repo(repo_name)
                 valid = repo_path is not None
-                result["repos"][repo_name] = {
+                result["repos"][name] = {
                     "valid": valid,
                     "path": str(repo_path) if repo_path else None,
                     "has_git": (repo_path / ".git").exists() if repo_path else False,
@@ -266,10 +273,14 @@ class RuntimeHealth:
     def _check_weights(cls) -> dict:
         result = {"weights": {}, "found": 0, "total": 0, "status": "FAIL", "message": ""}
         try:
-            from runtime.installer import HF_MODELS
+            from runtime.manifest_loader import get_all_provider_metadata
             from runtime.storage import get_storage_config
             storage = get_storage_config()
-            for weight_key in HF_MODELS:
+            provider_meta = get_all_provider_metadata()
+            for name, meta in provider_meta.items():
+                weight_key = meta.get("weight_key")
+                if not weight_key:
+                    continue
                 weight_path = storage.find_weights(weight_key)
                 exists = weight_path is not None
                 size_str = None
@@ -279,7 +290,7 @@ class RuntimeHealth:
                         size_str = f"{total / (1024**3):.1f}GB"
                     except Exception:
                         pass
-                result["weights"][weight_key] = {
+                result["weights"][name] = {
                     "exists": exists,
                     "path": str(weight_path) if weight_path else None,
                     "size": size_str,

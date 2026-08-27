@@ -2,6 +2,9 @@
 
 Each manifest is the authoritative installation contract for a provider.
 Manifests live in backend/runtime/manifests/ as YAML files.
+
+Compatibility views (REPOS, HF_MODELS, PROVIDER_METADATA) are generated
+from manifests — they are not hardcoded configuration.
 """
 from __future__ import annotations
 import logging
@@ -96,3 +99,140 @@ def list_manifests() -> list[str]:
         if (_MANIFEST_DIR / filename).exists():
             providers.append(provider_name)
     return sorted(providers)
+
+
+def load_all_manifests() -> dict[str, dict]:
+    """Load all manifests into a dict: provider_name -> manifest."""
+    result: dict[str, dict] = {}
+    for provider_name in list_manifests():
+        try:
+            result[provider_name] = load_manifest(provider_name)
+        except Exception as exc:
+            logger.warning("Skipping invalid manifest %s: %s", provider_name, exc)
+    return result
+
+
+def _repo_name_from_manifest(manifest: dict, provider_name: str | None = None) -> str:
+    source = manifest.get("source", {}) if isinstance(manifest, dict) else {}
+    explicit = source.get("local_dir")
+    if explicit:
+        return str(explicit)
+    repo_url = source.get("repo")
+    if repo_url:
+        name = str(repo_url).rstrip("/").rsplit("/", 1)[-1]
+        return name[:-4] if name.endswith(".git") else name
+    return provider_name or str(manifest.get("name", "model"))
+
+
+def _build_repo_registry() -> dict[str, dict]:
+    """Build REPOS-compatible registry from manifests.
+
+    This is a generated compatibility view; data originates from YAML manifests.
+    """
+    registry: dict[str, dict] = {}
+    for provider, manifest in load_all_manifests().items():
+        source = manifest.get("source", {}) or {}
+        repo_url = source.get("repo")
+        if not repo_url:
+            continue
+        repo_name = _repo_name_from_manifest(manifest, provider)
+        cfg = registry.setdefault(repo_name, {
+            "url": repo_url,
+            "branch": source.get("ref", "main"),
+            "requirements": source.get("requirements"),
+            "category": (manifest.get("hardware") or {}).get("category", "3d_generation"),
+            "providers": [],
+        })
+        if provider not in cfg["providers"]:
+            cfg["providers"].append(provider)
+        # Prefer the explicit source metadata from the first manifest; shared
+        # repos (e.g. Hunyuan3D-2 + mini) intentionally use one checkout.
+    return registry
+
+
+def _build_weight_registry() -> dict[str, dict]:
+    """Build HF_MODELS-compatible weight registry from manifests.
+
+    This is a generated compatibility view; data originates from YAML manifests.
+    """
+    result: dict[str, dict] = {}
+    for provider, manifest in load_all_manifests().items():
+        weights = manifest.get("weights", {}) or {}
+        primary = weights.get("primary", {}) or {}
+        repo = primary.get("repo") or weights.get("repo")
+        if not repo:
+            continue
+        result[provider] = {
+            "repo": repo,
+            "size_estimate_gb": weights.get("size_estimate_gb", 0),
+            "allow_patterns": weights.get("allow_patterns"),
+            "ignore_patterns": weights.get("ignore_patterns"),
+        }
+    return result
+
+
+def _build_flat_capabilities(capabilities: dict) -> dict:
+    """Build the flat capabilities dict (supports_* booleans) from manifest capabilities."""
+    flat = {}
+    for cap_name, cap_info in capabilities.items():
+        if not isinstance(cap_info, dict):
+            continue
+        # Copy all supports_* keys from the capability
+        for key, value in cap_info.items():
+            if key.startswith("supports_"):
+                flat[key] = value
+    return flat
+
+
+def get_provider_metadata(provider_name: str) -> dict:
+    """Build a PROVIDER_METADATA-compatible dict from the manifest.
+
+    This is a generated compatibility view; data originates from YAML manifests.
+    """
+    manifest = load_manifest(provider_name)
+    hw = manifest.get("hardware", {}) or {}
+    caps = manifest.get("capabilities", {}) or {}
+    source = manifest.get("source", {}) or {}
+    weights = manifest.get("weights", {}) or {}
+    runtime = manifest.get("runtime", {}) or {}
+
+    # Determine native_build_required from capabilities
+    native_build_required = any(
+        v.get("native_build_required", False)
+        for v in caps.values()
+        if isinstance(v, dict) and v.get("enabled", True)
+    )
+
+    return {
+        "label": manifest.get("label", provider_name),
+        "category": hw.get("category", "3d_generation"),
+        "supports_text_to_3d": caps.get("shape", {}).get("supports_text_to_3d", False),
+        "supports_image_to_3d": caps.get("shape", {}).get("supports_image_to_3d", False),
+        "supports_texture": caps.get("texture_pbr", {}).get("supports_texture_generation", False),
+        "vram_required_mb": hw.get("recommended_vram_mb", 0),
+        "low_vram_supported": hw.get("low_vram_supported", False),
+        "low_vram_required_mb": hw.get("low_vram_required_mb", 0),
+        "low_vram_strategy": hw.get("low_vram_strategy", []),
+        "native_build_required": native_build_required,
+        "install_method": runtime.get("install_method", "uv_requirements"),
+        "capabilities": _build_flat_capabilities(caps),
+        "repo": source.get("local_dir"),
+        "weight_key": weights.get("primary", {}).get("repo"),
+        "workspace_compatibility": runtime.get("workspace_compatibility", []),
+        "size_estimate_gb": weights.get("size_estimate_gb", 0),
+    }
+
+
+def get_all_provider_metadata() -> dict[str, dict]:
+    """Build PROVIDER_METADATA-compatible dict for all providers.
+
+    This is a generated compatibility view; data originates from YAML manifests.
+    """
+    return {pid: get_provider_metadata(pid) for pid in list_manifests()}
+
+
+# Compatibility views generated from manifests — NOT hardcoded configuration.
+# These replace the old REPOS, HF_MODELS, PROVIDER_METADATA in installer.py
+REPOS = _build_repo_registry()
+HF_MODELS = _build_weight_registry()
+PROVIDER_METADATA = get_all_provider_metadata()

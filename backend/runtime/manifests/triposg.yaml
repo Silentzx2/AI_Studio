@@ -1,42 +1,53 @@
 name: triposg
-label: "TripoSG"
+label: TripoSG
 source:
-  repo: "https://github.com/VAST-AI-Research/TripoSG.git"
-  ref: "main"
+  repo: https://github.com/VAST-AI-Research/TripoSG.git
+  ref: main
   submodules: false
+  local_dir: TripoSG
 environment:
-  python: "3.10"
-  torch: "2.5.1"
-  cuda: "12.4"
+  python: '3.10'
+  torch: 2.5.1
+  cuda: '12.4'
 dependencies:
   python:
-    # From upstream requirements.txt (only numpy==1.22.3 is pinned)
-    - "diffusers"
-    - "transformers"
-    - "einops"
-    - "huggingface_hub"
-    - "opencv-python"
-    - "trimesh"
-    - "omegaconf"
-    - "scikit-image"
-    - "numpy==1.22.3"
-    - "peft"
-    - "jaxtyping"
-    - "typeguard"
-    - "diso"
-    - "pymeshlab"
+  - diffusers
+  - transformers
+  - einops
+  - huggingface_hub
+  - opencv-python
+  - trimesh
+  - omegaconf
+  - scikit-image
+  - numpy==1.22.3
+  - peft
+  - jaxtyping
+  - typeguard
+  - pymeshlab
   imports:
-    - "torch"
-    - "diffusers"
-    - "transformers"
-    - "accelerate"
+  - torch
+  - diffusers
+  - transformers
+  - accelerate
   native:
-    # CUDA extension — handled by native resolver (wheel-first)
-    - "diso"
+  - diso
+  extra:
+  - diffusers>=0.22.0
+  - huggingface_hub>=0.28.0
+  - accelerate
+  wheels:
+    diso:
+      available: false
+      reason: No compatible prebuilt wheel verified; source build fallback is required.
+  fallbacks: {}
+  optional: []
+  representation_required: []
+  local_extensions: {}
 weights:
   primary:
-    repo: "VAST-AI/TripoSG"
+    repo: VAST-AI/TripoSG
   auxiliary: []
+  size_estimate_gb: 2
 hardware:
   minimum_vram_mb: 8192
   recommended_vram_mb: 8192
@@ -52,10 +63,10 @@ capabilities:
 preflight:
   check_model_venv: true
   import_packages:
-    - "torch"
-    - "diffusers"
-    - "transformers"
-    - "accelerate"
+  - torch
+  - diffusers
+  - transformers
+  - accelerate
   check_weights: true
   check_cuda: true
   load_weights: true

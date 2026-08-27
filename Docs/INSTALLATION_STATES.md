@@ -54,7 +54,7 @@ pending → installing → ready
 ```text
 not_required
     ↓
-pending → checking_wheel → wheel_found → wheel_installed → ready
+pending → checking_wheel → wheel_target_verified → wheel_installed → ready
               ↓                              ↓
          build_pending → build_running → ready
                               ↓
@@ -70,7 +70,7 @@ pending → checking_wheel → wheel_found → wheel_installed → ready
 | `not_required` | No native build needed for this provider |
 | `pending` | Native build queued, not yet started |
 | `checking_wheel` | Checking wheel table for pre-built wheel |
-| `wheel_found` | Pre-built wheel available |
+| `wheel_target_verified` | A manifest-declared, installable wheel target is available |
 | `wheel_installed` | Pre-built wheel installed successfully |
 | `build_pending` | Source build queued (no wheel available) |
 | `build_running` | Source compilation in progress |
@@ -166,6 +166,10 @@ Native dependencies use a **wheel-first** resolution strategy:
 5. **Skip** → Mark as `skipped` (non-blocking; model may still operate without this capability)
 
 This avoids unnecessary source compilation and reduces install time significantly when pre-built wheels are available.
+
+## Manifest Source of Truth
+
+Installation state is derived from model manifests. Wheel availability is not inferred from a URL merely being configured; the resolver must have a concrete install target. VCS dependencies require a direct wheel URL for wheel substitution. Repository and weight locations are also declared by the manifest.
 
 ## Storage Contract
 
@@ -359,11 +363,11 @@ not part of the git clone. For example, TRELLIS's `extensions/vox2seq` must
 be acquired separately from a HuggingFace dataset
 (`argojuni0506/TRELLIS-3D`).
 
-The resolver handles this via `LOCAL_EXTENSION_PATHS`, which now stores a
+The resolver handles this via `manifest `dependencies.local_extensions``, which now stores a
 tuple `(relative_path, hf_dataset_source)`:
 
 ```python
-LOCAL_EXTENSION_PATHS = {
+manifest `dependencies.local_extensions` = {
     "vox2seq": ("extensions/vox2seq", "argojuni0506/TRELLIS-3D"),
 }
 ```

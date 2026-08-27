@@ -1,50 +1,73 @@
 name: unirig
-label: "UniRig"
+label: UniRig
 source:
-  repo: "https://github.com/VAST-AI-Research/UniRig.git"
-  ref: "main"
+  repo: https://github.com/VAST-AI-Research/UniRig.git
+  ref: main
   submodules: false
+  local_dir: UniRig
 environment:
-  python: "3.10"
-  torch: "2.5.1"
-  cuda: "12.4"
+  python: '3.10'
+  torch: 2.5.1
+  cuda: '12.4'
 dependencies:
   python:
-    # From upstream requirements.txt
-    - "transformers==4.51.3"
-    - "python-box"
-    - "einops"
-    - "omegaconf"
-    - "pytorch_lightning"
-    - "lightning"
-    - "addict"
-    - "timm"
-    - "fast-simplification"
-    - "trimesh"
-    - "open3d"
-    - "pyrender"
-    - "huggingface_hub"
-    - "wandb"
-    - "numpy==1.26.4"
-    # Native CUDA extensions (also in native section for wheel-first)
-    - "torch_scatter"
-    - "torch_cluster"
-    - "spconv"
+  - transformers==4.51.3
+  - python-box
+  - einops
+  - omegaconf
+  - pytorch_lightning
+  - lightning
+  - addict
+  - timm
+  - fast-simplification
+  - trimesh
+  - open3d
+  - pyrender
+  - huggingface_hub
+  - wandb
+  - numpy==1.26.4
   imports:
-    - "torch"
-    - "transformers"
+  - torch
+  - transformers
   native:
-    # CUDA extensions — handled by native resolver (wheel-first)
-    - "flash_attn"
-    - "bpy==4.2"
-    - "spconv"
-    - "torch_scatter"
-    - "torch_cluster"
-    - "pytorch3d"
+  - flash_attn
+  - bpy==4.2
+  - spconv
+  - torch_scatter
+  - torch_cluster
+  - pytorch3d
+  extra: []
+  wheels:
+    flash_attn:
+      available: true
+      mode: pypi
+    spconv:
+      available: true
+      mode: pypi
+    torch_scatter:
+      available: true
+      mode: pypi
+    torch_cluster:
+      available: true
+      mode: pypi
+    pytorch3d:
+      available: true
+      index: https://miropsota.github.io/torch_packages_builder
+    bpy:
+      available: true
+      mode: pypi
+  fallbacks:
+    pytorch3d:
+    - https://miropsota.github.io/torch_packages_builder
+    - pypi
+  optional: []
+  representation_required: []
+  local_extensions: {}
 weights:
   primary:
-    repo: "VAST-AI/UniRig"
+    repo: VAST-AI/UniRig
   auxiliary: []
+  size_estimate_gb: 2
 hardware:
   minimum_vram_mb: 8000
   recommended_vram_mb: 8000
@@ -52,9 +75,8 @@ capabilities:
   shape:
     enabled: true
     native_build_required: true
-    # Build the geometric CUDA extensions required for rigging inference.
     native_steps:
-      - "pip install spconv torch_scatter torch_cluster pytorch3d"
+    - pip install spconv torch_scatter torch_cluster pytorch3d
     vram_required_mb: 8000
   texture_pbr:
     enabled: false
@@ -64,13 +86,13 @@ capabilities:
     enabled: true
     native_build_required: true
     native_steps:
-      - "pip install spconv torch_scatter torch_cluster pytorch3d"
+    - pip install spconv torch_scatter torch_cluster pytorch3d
     vram_required_mb: 8000
 preflight:
   check_model_venv: true
   import_packages:
-    - "torch"
-    - "transformers"
+  - torch
+  - transformers
   check_weights: true
   check_cuda: true
   load_weights: true

@@ -3,7 +3,7 @@
 Single source of truth for:
   - Environment detection (colab / vps / local)
   - GPU/VRAM/CUDA detection
-  - Model VRAM requirements (sourced from PROVIDER_METADATA)
+  - Model VRAM requirements (sourced from manifest via manifest_loader)
   - Colab preparation policy (15 GB VRAM threshold)
 
 All callers — colab.sh, backend API, runtime engine, frontend — should
@@ -115,18 +115,18 @@ def get_cuda_version() -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# Model VRAM requirements (single source of truth: PROVIDER_METADATA)
+# Model VRAM requirements (single source of truth: manifest via manifest_loader)
 # ---------------------------------------------------------------------------
 
 def get_model_vram_required(provider_id: str) -> int:
     """Return the VRAM required by a model in MB.
 
-    Reads from PROVIDER_METADATA in runtime.installer — the single source
-    of truth. Returns 0 if the provider is unknown.
+    Reads from manifest via manifest_loader — the single source of truth.
+    Returns 0 if the provider is unknown.
     """
     try:
-        from runtime.installer import PROVIDER_METADATA  # noqa: PLC0415
-        meta = PROVIDER_METADATA.get(provider_id, {})
+        from runtime.manifest_loader import get_provider_metadata  # noqa: PLC0415
+        meta = get_provider_metadata(provider_id)
         return int(meta.get("vram_required_mb", 0))
     except Exception:
         return 0
@@ -135,25 +135,23 @@ def get_model_vram_required(provider_id: str) -> int:
 def get_model_weight_size_gb(provider_id: str) -> float:
     """Return the downloaded weight size of a model in GB.
 
-    Reads from HF_MODELS in runtime.installer (the download source of truth),
-    falling back to PROVIDER_METADATA.size_estimate_gb. Returns 0.0 if unknown.
+    Reads from manifest via manifest_loader (the download source of truth).
+    Returns 0.0 if unknown.
     """
     try:
-        from runtime.installer import HF_MODELS, PROVIDER_METADATA  # noqa: PLC0415
-        cfg = HF_MODELS.get(provider_id)
-        if cfg and cfg.get("size_estimate_gb"):
-            return float(cfg["size_estimate_gb"])
-        meta = PROVIDER_METADATA.get(provider_id, {})
-        return float(meta.get("size_estimate_gb", 0) or 0)
+        from runtime.manifest_loader import load_manifest  # noqa: PLC0415
+        manifest = load_manifest(provider_id)
+        weights = manifest.get("weights", {}) or {}
+        return float(weights.get("size_estimate_gb", 0) or 0)
     except Exception:
         return 0.0
 
 
 def get_model_metadata(provider_id: str) -> dict[str, Any]:
-    """Return the full metadata dict for a provider from PROVIDER_METADATA."""
+    """Return the full metadata dict for a provider from manifest via manifest_loader."""
     try:
-        from runtime.installer import PROVIDER_METADATA  # noqa: PLC0415
-        return PROVIDER_METADATA.get(provider_id, {})
+        from runtime.manifest_loader import get_provider_metadata  # noqa: PLC0415
+        return get_provider_metadata(provider_id)
     except Exception:
         return {}
 
@@ -368,8 +366,9 @@ def get_runtime_capabilities() -> dict[str, Any]:
 
     providers: dict[str, dict[str, Any]] = {}
     try:
-        from runtime.installer import PROVIDER_METADATA  # noqa: PLC0415
-        for pid, meta in PROVIDER_METADATA.items():
+        from runtime.manifest_loader import get_all_provider_metadata  # noqa: PLC0415
+        provider_meta = get_all_provider_metadata()
+        for pid, meta in provider_meta.items():
             vram_req = int(meta.get("vram_required_mb", 0))
             weight_req = get_model_weight_size_gb(pid)
             colab_incompat = get_colab_incompatibility_reason(pid)

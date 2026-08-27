@@ -84,10 +84,10 @@ class RuntimeEngine:
         # misleading ("wrong weight folder"). Log the resolved per-model dirs.
         available = self._discover_providers()
         try:
-            from runtime.installer import PROVIDER_METADATA
+            from runtime.manifest_loader import get_all_provider_metadata  # noqa: PLC0415
             resolved = {
                 name: str(self._storage.get_weight_path(meta.get("weight_key")))
-                for name, meta in PROVIDER_METADATA.items()
+                for name, meta in get_all_provider_metadata().items()
                 if name in available and meta.get("weight_key")
             }
         except Exception:
@@ -130,8 +130,8 @@ class RuntimeEngine:
         return providers
 
     def _check_provider_available(self, provider_name: str) -> bool:
-        from runtime.installer import PROVIDER_METADATA
-        meta = PROVIDER_METADATA.get(provider_name)
+        from runtime.manifest_loader import get_all_provider_metadata  # noqa: PLC0415
+        meta = get_all_provider_metadata().get(provider_name)
         if not meta:
             return False
         repo_name = meta.get("repo")

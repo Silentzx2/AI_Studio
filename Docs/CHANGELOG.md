@@ -1,5 +1,25 @@
 # AI 3D Studio — Changelog
 
+## [v4.3.4] - 2026-08-27 - YAML-Owned Model Installation Contract
+
+### Summary
+Moved model-specific installation configuration into the model manifests. Repository
+checkout metadata, weight sources/filters, extra dependencies, native dependency
+wheel policy, fallbacks, optional/representation-required semantics, and local
+extension sources are now declared in `backend/runtime/manifests/*.yaml`.
+
+### Behavior
+- The installer derives its repository and weight compatibility views from manifests.
+- The resolver reads native wheel targets and fallback sources from the selected manifest.
+- Extra provider dependencies are read from `dependencies.extra`.
+- VCS dependencies only use a wheel when the manifest provides a real direct wheel target.
+- Native dependencies still fall back to source builds when no verified wheel target exists.
+- Existing runtime/provider API compatibility views are preserved.
+
+### Regression guard
+Do not reintroduce per-model install metadata tables into `installer.py` or
+`dependency_resolver.py`. Add model-specific install data to its manifest.
+
 ## [v4.3.3] - 2026-08-27 - Fix nvdiffrast VCS-to-Wheel Path
 
 ### Summary

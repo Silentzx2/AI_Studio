@@ -130,6 +130,17 @@ The whole project — backend requests, frontend API calls, and user clicks — 
 
 ---
 
+## Manifest-Driven Installation
+
+Each model is installed from its manifest under `backend/runtime/manifests/`. The
+manifest is the single source of truth for the repository checkout, Python/native
+dependencies, extra packages, wheel targets/fallbacks, native build steps, and model
+weights.
+
+The installer does not require a separate per-model installation table. To add or
+repair a model, update its manifest rather than adding repository URLs, weight repos,
+extra dependencies, or wheel rules to `installer.py`.
+
 ## Two-Stage Installation
 
 Since v4.1, model installation is split into two independent stages:

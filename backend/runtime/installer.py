@@ -125,89 +125,81 @@ class ModelState(Enum):
 # Configuration tables
 # ---------------------------------------------------------------------------
 
-REPOS = {
-    "Hunyuan3D-2.1": {
-        "url": "https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1.git",
-        "branch": "main",
-        "requirements": "requirements.txt",
-        "category": "3d_generation",
-        "providers": ["hunyuan3d-2.1"],
-    },
-    "Hunyuan3D-2": {
-        "url": "https://github.com/Tencent-Hunyuan/Hunyuan3D-2.git",
-        "branch": "main",
-        "requirements": "requirements.txt",
-        "category": "3d_generation",
-        "providers": ["hunyuan3d-2"],
-    },
-    "Hunyuan3D-2mini": {
-        # ponytail: mini shares the same GitHub repo as Hunyuan3D-2 (the
-        # weights live in a subfolder). Separate repo entry so each weight
-        # provider maps to exactly one code repo.
-        "url": "https://github.com/Tencent-Hunyuan/Hunyuan3D-2.git",
-        "branch": "main",
-        "requirements": "requirements.txt",
-        "category": "3d_generation",
-        "providers": ["hunyuan3d-2-mini"],
-    },
-    "TRELLIS": {
-        "url": "https://github.com/microsoft/TRELLIS.git",
-        "branch": "main",
-        "requirements": None,
-        "category": "3d_generation",
-        "providers": ["trellis"],
-    },
-    "AniGen": {
-        "url": "https://github.com/VAST-AI-Research/AniGen.git",
-        "branch": "main",
-        "requirements": "requirements.txt",
-        "category": "rigging",
-        "providers": ["anigen"],
-    },
-    "UniRig": {
-        "url": "https://github.com/VAST-AI-Research/UniRig.git",
-        "branch": "main",
-        "requirements": "requirements.txt",
-        "category": "rigging",
-        "providers": ["unirig"],
-    },
-    "DetailGen3D": {
-        "url": "https://github.com/VAST-AI-Research/DetailGen3D.git",
-        "branch": "main",
-        "requirements": "requirements.txt",
-        "category": "post_processing",
-        "providers": ["detailgen3d"],
-    },
-    "TripoSG": {
-        "url": "https://github.com/VAST-AI-Research/TripoSG.git",
-        "branch": "main",
-        "requirements": "requirements.txt",
-        "category": "3d_generation",
-        "providers": ["triposg"],
-    },
-}
+def _load_install_manifests() -> dict[str, dict]:
+    """Load all model manifests that define installation metadata.
 
-HF_MODELS = {
-    "hunyuan3d-2.1": {"repo": "tencent/Hunyuan3D-2.1",         "size_estimate_gb": 14},
-    "hunyuan3d-2":   {"repo": "tencent/Hunyuan3D-2",           "size_estimate_gb": 24},
-    # ponytail: tencent/Hunyuan3D-2mini hosts THREE dit variants + three VAEs
-    # (~25 GB total). The mini provider only needs the standard image-to-shape
-    # dit (its safetensors already bundles the VAE + conditioner), so download
-    # just that subfolder — else a one-click install would fetch 25 GB. The
-    # .fp16.ckpt is a duplicate of the safetensors (hy3dgen uses safetensors by
-    # default) and is skipped to halve the transfer.
-    "hunyuan3d-2-mini": {
-        "repo": "tencent/Hunyuan3D-2mini",
-        "size_estimate_gb": 4,
-        "allow_patterns": ["hunyuan3d-dit-v2-mini/*"],
-        "ignore_patterns": ["*.ckpt"],
-    },
-    "trellis":       {"repo": "microsoft/TRELLIS-image-large", "size_estimate_gb": 3},
-    "anigen":        {"repo": "VAST-AI/AniGen_Weights",        "size_estimate_gb": 23},
-    "unirig":        {"repo": "VAST-AI/UniRig",                "size_estimate_gb": 2},
-    "detailgen3d":   {"repo": "VAST-AI/DetailGen3D",         "size_estimate_gb": 2},
-    "triposg":       {"repo": "VAST-AI/TripoSG",             "size_estimate_gb": 2},
-}
+    ponytail: installation metadata belongs in YAML manifests; this module
+    exposes compatibility views for existing callers without duplicating the
+    actual repo/weights configuration in Python.
+    """
+    from runtime.manifest_loader import list_manifests, load_manifest
+    result: dict[str, dict] = {}
+    for provider in list_manifests():
+        try:
+            result[provider] = load_manifest(provider)
+        except Exception as exc:
+            logger.warning("Skipping invalid install manifest %s: %s", provider, exc)
+    return result
+
+
+def _repo_name_from_manifest(manifest: dict, provider_name: str | None = None) -> str:
+    source = manifest.get("source", {}) if isinstance(manifest, dict) else {}
+    explicit = source.get("local_dir")
+    if explicit:
+        return str(explicit)
+    repo_url = source.get("repo")
+    if repo_url:
+        name = str(repo_url).rstrip("/").rsplit("/", 1)[-1]
+        return name[:-4] if name.endswith(".git") else name
+    return provider_name or str(manifest.get("name", "model"))
+
+
+def _build_repo_registry() -> dict[str, dict]:
+    registry: dict[str, dict] = {}
+    for provider, manifest in _load_install_manifests().items():
+        source = manifest.get("source", {}) or {}
+        repo_url = source.get("repo")
+        if not repo_url:
+            continue
+        repo_name = _repo_name_from_manifest(manifest, provider)
+        cfg = registry.setdefault(repo_name, {
+            "url": repo_url,
+            "branch": source.get("ref", "main"),
+            "requirements": source.get("requirements"),
+            "category": (manifest.get("hardware") or {}).get("category", "3d_generation"),
+            "providers": [],
+        })
+        if provider not in cfg["providers"]:
+            cfg["providers"].append(provider)
+        # Prefer the explicit source metadata from the first manifest; shared
+        # repos (e.g. Hunyuan3D-2 + mini) intentionally use one checkout.
+    return registry
+
+
+# Compatibility views for existing API/health callers. Values originate only
+# from manifests; no install-time model URLs or weight metadata are hardcoded here.
+REPOS = _build_repo_registry()
+
+
+def _build_weight_registry() -> dict[str, dict]:
+    result: dict[str, dict] = {}
+    for provider, manifest in _load_install_manifests().items():
+        weights = manifest.get("weights", {}) or {}
+        primary = weights.get("primary", {}) or {}
+        repo = primary.get("repo") or weights.get("repo")
+        if not repo:
+            continue
+        result[provider] = {
+            "repo": repo,
+            "size_estimate_gb": weights.get("size_estimate_gb", 0),
+            "allow_patterns": weights.get("allow_patterns"),
+            "ignore_patterns": weights.get("ignore_patterns"),
+        }
+    return result
+
+
+HF_MODELS = _build_weight_registry()
+
 
 PROVIDER_ALIASES = {
     "hunyuan3d-1.0": "hunyuan3d-2.1",
@@ -863,20 +855,6 @@ _CUDA_ONLY_PKG_PATTERNS: list[re.Pattern] = [
 ]
 
 
-# ponytail: Section 2 — some repos' requirements.txt omit the actual inference library
-# (e.g. Hunyuan3D-2 needs `hy3dgen`, which is published separately). The
-# in-process local providers import from the backend process, so these EXTRA_DEPS
-# are installed into BOTH the per-model venv and the backend venv (via
-# sys.executable) so they resolve regardless of which sys.path the provider uses.
-# Extend per repo as other missing inference libs are discovered.
-EXTRA_DEPS: dict[str, list[str]] = {
-    "Hunyuan3D-2.1": ["hy3dgen", "accelerate>=0.34.0", "huggingface_hub>=0.28.0"],
-    "Hunyuan3D-2": ["hy3dgen", "accelerate>=0.34.0", "huggingface_hub>=0.28.0"],
-    "Hunyuan3D-2mini": ["hy3dgen", "accelerate>=0.34.0", "huggingface_hub>=0.28.0"],
-    "TRELLIS": ["accelerate>=0.34.0"],
-    "TripoSG": ["diffusers>=0.22.0", "huggingface_hub>=0.28.0", "accelerate"],
-}
-
 
 def _cuda_available() -> bool:
     """Best-effort detection of a usable CUDA toolkit or GPU on the build host.
@@ -1118,6 +1096,7 @@ def _uv_install(
         deps = resolve_dependencies(repo_dir, manifest)
         result = install_resolved_deps(
             deps, venv_python, repo_dir,
+            manifest=manifest,
             allow_build=False,
             interactive=True,
             log_cb=log_cb,
@@ -1276,7 +1255,7 @@ def _uv_install(
     # a transitive dependency. The manifest's torch version documents the
     # upstream-tested configuration, but the backend torch is authoritative
     # for in-process inference (see _backend_torch_stack for the ABI rationale).
-    extra = EXTRA_DEPS.get(repo_name)
+    extra = (manifest or {}).get("dependencies", {}).get("extra", []) or []
     if extra:
         torch_index, torch_specs = _backend_torch_stack()
         install_extra = [*torch_specs, *extra]
@@ -1817,7 +1796,7 @@ def _run_native_build_sync(provider_name: str, manifest: dict | None, log_cb=Non
 
     canonical_name = _canonical_provider_name(provider_name)
     meta = PROVIDER_METADATA.get(canonical_name, {})
-    repo_name = meta.get("repo") or canonical_name
+    repo_name = _repo_name_from_manifest(manifest, canonical_name) if manifest else (meta.get("repo") or canonical_name)
     storage = get_storage_config()
     repo_dir = storage.get_repo_path(repo_name)
 
@@ -1957,8 +1936,12 @@ def download_weights(
     # (hunyuan3d-2.1 + hunyuan3d-2 both map to "Hunyuan3D-2") isolated —
     # previously they collapsed into one shared flat weights dir and
     # get_weight_path() could not tell them apart.
-    meta = PROVIDER_METADATA.get(provider_name, {})
-    repo_name = meta.get("repo", provider_name)
+    try:
+        from runtime.manifest_loader import load_manifest
+        weight_manifest = load_manifest(provider_name)
+        repo_name = _repo_name_from_manifest(weight_manifest, provider_name)
+    except Exception:
+        repo_name = PROVIDER_METADATA.get(provider_name, {}).get("repo", provider_name)
     local_dir = storage.get_repo_path(repo_name) / "weights" / provider_name
     local_dir.mkdir(parents=True, exist_ok=True)
 
@@ -2093,7 +2076,7 @@ def prepare_runtime(
     # Determine native-build requirement
     native_req, all_caps_need_native = _get_native_build_info(meta, manifest)
 
-    repo_name = meta.get("repo")
+    repo_name = _repo_name_from_manifest(manifest, provider_name) if manifest else meta.get("repo")
     components: dict[str, dict] = {}
 
     # Acquire install lock
@@ -2302,6 +2285,7 @@ def _prepare_runtime_venv(
         deps = resolve_dependencies(repo_dir, manifest)
         result = install_resolved_deps(
             deps, venv_python, repo_dir,
+            manifest=manifest,
             allow_build=allow_native_build,
             interactive=True,
             log_cb=log_cb,
@@ -2344,14 +2328,14 @@ def _prepare_runtime_venv(
                 }
             components["deps"] = {"state": DepsState.READY.value}
 
-    # Install EXTRA_DEPS (inference libs omitted from repo requirements)
+    # Install manifest-defined extra dependencies
     # ponytail: hy3dgen, diffusers, etc. are NOT in the repo's requirements.txt
     # but are needed for inference. Pin torch to the backend's exact build so
     # the resolver cannot pull a newer ABI-incompatible torch (e.g. 2.13.0)
     # as a transitive dependency. Without this pin, packages like diffusers
     # and accelerate resolve to the latest torch, breaking torchvision's C++
     # operator registration against the already-loaded backend torch.
-    extra = EXTRA_DEPS.get(repo_name)
+    extra = (manifest or {}).get("dependencies", {}).get("extra", []) or []
     if extra:
         uv_path = shutil.which("uv")
         if uv_path:

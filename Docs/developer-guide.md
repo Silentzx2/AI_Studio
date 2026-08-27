@@ -70,27 +70,80 @@ Model installation is split into two strictly separated stages. Each stage is in
 
 ## Dependency Resolver (`backend/runtime/dependency_resolver.py`)
 
-Replaces the old "drop from requirements" pattern with a wheel-first resolver. No network calls — deterministic, works offline.
+The resolver is a generic execution engine. Per-model installation policy is declared
+in `backend/runtime/manifests/*.yaml`; the resolver does not own a Python-side
+per-model wheel/fallback/extra-dependency table.
 
 ### Resolution Flow
-1. Discover dependency files (requirements.txt, pyproject.toml, setup.py, manifest)
-2. Classify each dependency: `NORMAL`, `NATIVE`, `BUILD_ONLY`, or `OPTIONAL`
-3. For `NATIVE` deps: check static `WHEEL_COMPAT_TABLE` for prebuilt availability
-4. If wheel exists → install it (no compilation)
-5. If no wheel → deterministic policy (v4.3.0+):
-   - **Truly optional** (in `OPTIONAL_NATIVE_DEPS`): skip cleanly on wheel failure
-   - **Representation-required** (in `REPRESENTATION_REQUIRED_NATIVE_DEPS`): attempt build if CUDA toolkit present; on failure, mark the corresponding capability as unavailable (not the whole install)
-   - **Fully required**: attempt build if CUDA toolkit present; on failure, fail the install
+1. Load the selected model manifest.
+2. Read normal dependencies from `dependencies.python`.
+3. Read native dependencies from `dependencies.native`.
+4. Read optional/representation-required semantics from the same manifest.
+5. Check the dependency's manifest `dependencies.wheels` entry.
+6. If a real wheel target is declared and compatible, install the wheel.
+7. For VCS dependencies, only a direct `.whl` target can substitute the Git source.
+8. If no verified wheel target exists, evaluate manifest-driven fallbacks.
+9. If a native dependency still needs installation, apply the non-interactive build policy.
+10. Use `dependencies.local_extensions` for local/native sources that require a separate acquisition step.
+11. Report truthful `ready`, `partial`, `skipped`, and `failed` states.
+
+### Manifest-Owned Installation Data
+All model-specific installation configuration belongs in YAML:
+
+```yaml
+source:
+  repo: "https://..."
+  ref: "main"
+  submodules: true
+  local_dir: "TRELLIS"
+
+dependencies:
+  python:
+    - "transformers"
+  extra:
+    - "accelerate>=0.34.0"
+  native:
+    - "..."
+  wheels:
+    package-name:
+      available: true
+      mode: "pypi"
+      # or direct_url_template / index
+  fallbacks:
+    package-name:
+      - "pypi"
+  optional:
+    - "flash-attn"
+  representation_required:
+    - "..."
+  local_extensions:
+    package-name:
+      path: "extensions/..."
+      hf_dataset: "owner/dataset"
+
+weights:
+  primary:
+    repo: "owner/repo"
+  size_estimate_gb: 3
+  allow_patterns: []
+  ignore_patterns: []
+```
+
+`source.local_dir` is the canonical checkout name. `source.repo/ref/submodules` controls
+repository acquisition. `weights` controls weight acquisition. `dependencies.extra`
+controls additional Python packages that are required by the provider but absent from
+the upstream repository requirements. No equivalent model-specific Python dictionary
+should be added to `installer.py` or `dependency_resolver.py`.
 
 ### Key Functions
 - `resolve_dependencies(repo_dir, manifest)` — discover and classify deps
-- `check_wheel_available(dep, py_ver, cuda_ver, torch_ver)` — returns a `WheelCheckResult` (v4.3.0+) with explicit `available`, `source`, `is_direct_wheel`, `reason`, and `is_vcs_spec` fields. The previous `str | None` return collapsed four distinct states (artifact exists / matches env / installable / install succeeded) into a single boolean and caused false-positive "wheel found" results.
+- `check_wheel_available(dep, manifest, py_ver, cuda_ver, torch_ver)` — returns a `WheelCheckResult` (v4.3.0+) with explicit `available`, `source`, `is_direct_wheel`, `reason`, and `is_vcs_spec` fields. The previous `str | None` return collapsed four distinct states (artifact exists / matches env / installable / install succeeded) into a single boolean and caused false-positive "wheel found" results.
 - `normalize_py312_pin(spec)` — rewrite Py3.12-incompatible pins or return None to drop
 - `install_resolved_deps(deps, venv_python, repo_dir, ...)` — execute wheel-first install with the three-tier non-interactive policy
 - `_is_vcs_spec(spec)` — detect VCS dependencies (git+http://, git+ssh://, etc.)
 
-### Static Wheel Table
-`WHEEL_COMPAT_TABLE` maps native packages (torch-cluster, flash-attn, pytorch3d, spconv, etc.) to wheel availability per (py_ver, cuda_ver). Single source of truth — add entries as packages gain wheels for new versions.
+### Manifest Wheel Policy
+the manifest's `dependencies.wheels` maps native packages (torch-cluster, flash-attn, pytorch3d, spconv, etc.) to wheel availability per (py_ver, cuda_ver). Single source of truth — add entries as packages gain wheels for new versions.
 
 ### Optional vs Representation-Required vs Required (v4.3.0+)
 
@@ -99,8 +152,8 @@ reflects application semantics, not build convenience:
 
 | Class | Sets | Examples | On wheel failure + non-interactive |
 |-------|------|----------|-------------------------------------|
-| Truly optional (alternative) | `OPTIONAL_NATIVE_DEPS` | `flash-attn`, `xformers` | Skip cleanly |
-| Representation-required | `REPRESENTATION_REQUIRED_NATIVE_DEPS` | `nvdiffrast`, `kaolin`, `diffoctreerast`, `vox2seq`, `diff-gaussian-rasterization` | Attempt build if CUDA toolkit; on failure, capability is marked unavailable |
+| Truly optional (alternative) | the manifest's `dependencies.optional` | `flash-attn`, `xformers` | Skip cleanly |
+| Representation-required | the manifest's `dependencies.representation_required` | `nvdiffrast`, `kaolin`, `diffoctreerast`, `vox2seq`, `diff-gaussian-rasterization` | Attempt build if CUDA toolkit; on failure, capability is marked unavailable |
 | Fully required | (neither set) | `spconv-cu118` (for sparse voxel) | Attempt build if CUDA toolkit; on failure, fail the install |
 
 A package is "representation-required" if TRELLIS uses it for a specific 3D
@@ -137,11 +190,11 @@ always cloned and built from source.
 
 The only valid wheel substitution mechanisms for VCS specs are:
 
-1. **Direct `.whl` URL** — generated from `WHEEL_COMPAT_TABLE` `direct_url_template`
+1. **Direct `.whl` URL** — generated from the manifest's `dependencies.wheels` `direct_url_template`
    with a pinned version. uv installs the `.whl` file directly, ignoring the VCS spec.
 2. **PyPI** — if the package is published on PyPI, uv resolves it from there.
 
-An `index` URL in `WHEEL_COMPAT_TABLE` (e.g. a GitHub Releases landing page) is
+An `index` URL in the manifest's `dependencies.wheels` (e.g. a GitHub Releases landing page) is
 **not** a valid wheel target for a VCS spec. The resolver now detects this and
 returns `available=False` with a clear `reason`, so the dep falls through to the
 source-build path.
@@ -176,11 +229,11 @@ not part of the git clone. For example, TRELLIS's `extensions/vox2seq` must
 be acquired separately from a HuggingFace dataset
 (`argojuni0506/TRELLIS-3D`).
 
-The resolver handles this via `LOCAL_EXTENSION_PATHS`, which now stores a
+The resolver handles this via the manifest's `dependencies.local_extensions`, which now stores a
 tuple `(relative_path, hf_dataset_source)`:
 
 ```python
-LOCAL_EXTENSION_PATHS = {
+manifest `dependencies.local_extensions` = {
     "vox2seq": ("extensions/vox2seq", "argojuni0506/TRELLIS-3D"),
 }
 ```
@@ -207,7 +260,7 @@ resolver:
 
 ### diso Wheel Classification (v4.3.2+)
 
-`diso` is explicitly listed in `WHEEL_COMPAT_TABLE` with `wheel_available=False`.
+`diso` is explicitly listed in the manifest's `dependencies.wheels` with `wheel_available=False`.
 PyPI only provides sdist (source distribution) for all versions (0.1.0–0.1.4),
 so the resolver now performs a genuine wheel-first check and reports
 "No compatible prebuilt wheel verified for diso" before evaluating the

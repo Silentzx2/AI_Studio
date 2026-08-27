@@ -1,44 +1,53 @@
 name: detailgen3d
-label: "DetailGen3D"
+label: DetailGen3D
 source:
-  repo: "https://github.com/VAST-AI-Research/DetailGen3D.git"
-  ref: "main"
+  repo: https://github.com/VAST-AI-Research/DetailGen3D.git
+  ref: main
   submodules: false
+  local_dir: DetailGen3D
 environment:
-  python: "3.10"
-  torch: "2.5.1"
-  cuda: "12.4"
+  python: '3.10'
+  torch: 2.5.1
+  cuda: '12.4'
 dependencies:
   python:
-    # From upstream requirements.txt (mostly unpinned) + HF Spaces pinned versions
-    - "diffusers"
-    - "transformers==4.49.0"
-    - "einops"
-    - "huggingface_hub"
-    - "opencv-python"
-    - "trimesh==4.5.3"
-    - "omegaconf"
-    - "scikit-image"
-    - "numpy==1.22.3"
-    - "scipy==1.11.4"
-    - "jaxtyping"
-    - "typeguard"
-    - "peft==0.17.1"
-    - "pymeshlab==2022.2.post4"
-    # Native CUDA extensions (also listed in native section for wheel-first)
-    - "diso"
-    - "torch-cluster"
+  - diffusers
+  - transformers==4.49.0
+  - einops
+  - huggingface_hub
+  - opencv-python
+  - trimesh==4.5.3
+  - omegaconf
+  - scikit-image
+  - numpy==1.22.3
+  - scipy==1.11.4
+  - jaxtyping
+  - typeguard
+  - peft==0.17.1
+  - pymeshlab==2022.2.post4
   imports:
-    - "torch"
-    - "transformers"
+  - torch
+  - transformers
   native:
-    # CUDA extensions — handled by native resolver (wheel-first)
-    - "diso"
-    - "torch-cluster"
+  - diso
+  - torch-cluster
+  extra: []
+  wheels:
+    diso:
+      available: false
+      reason: No compatible prebuilt wheel verified; source build fallback is required.
+    torch-cluster:
+      available: true
+      mode: pypi
+  fallbacks: {}
+  optional: []
+  representation_required: []
+  local_extensions: {}
 weights:
   primary:
-    repo: "VAST-AI/DetailGen3D"
+    repo: VAST-AI/DetailGen3D
   auxiliary: []
+  size_estimate_gb: 2
 hardware:
   minimum_vram_mb: 4000
   recommended_vram_mb: 4000
@@ -58,8 +67,8 @@ capabilities:
 preflight:
   check_model_venv: true
   import_packages:
-    - "torch"
-    - "transformers"
+  - torch
+  - transformers
   check_weights: true
   check_cuda: true
   load_weights: true

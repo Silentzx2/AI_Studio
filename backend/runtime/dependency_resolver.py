@@ -3,7 +3,7 @@
 Replaces the old "drop from requirements" pattern with a wheel-first resolver:
   1. Discover dependency files (requirements.txt, pyproject.toml, setup.py, manifest)
   2. Classify each dependency (NORMAL, NATIVE, BUILD_ONLY, OPTIONAL)
-  3. For NATIVE deps: check static WHEEL_COMPAT_TABLE for prebuilt availability
+  3. For NATIVE deps: check wheel configuration declared by the model manifest
   4. If wheel exists → install it (no compilation)
   5. If no wheel → interactive prompt: build from source? [y/N]
      - YES → build inside model venv
@@ -50,206 +50,34 @@ class Dependency:
 # Upgrade path: add entries as packages gain wheels for new Py/CUDA versions.
 # ---------------------------------------------------------------------------
 
-# All CUDA 12.x versions (forward-compatible within 12.x series)
-_CUDA12_ALL = ["121", "122", "123", "124", "125", "126", "127", "128", "cpu"]
+def _normalize_dep_key(name: str) -> str:
+    return re.sub(r"[-_.]+", "_", name.strip().lower())
 
-WHEEL_COMPAT_TABLE: dict[str, dict] = {
-    "torch-scatter": {
-        # torch-scatter: prebuilt wheels from PyG index (CPU/CUDA)
-        "wheel_available": True,
-        "index": "https://data.pyg.org/whl/torch-{torch_ver}+{cuda_ver}.html",
-        "python": ["3.10", "3.11", "3.12"],
-        "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^torch[-_]scatter($|==|>=|<=|!=|~=)"),
-    },
-    "torch-cluster": {
-        # torch-cluster: prebuilt wheels from PyG index (CPU/CUDA)
-        "wheel_available": True,
-        "index": "https://data.pyg.org/whl/torch-{torch_ver}+{cuda_ver}.html",
-        "python": ["3.10", "3.11", "3.12"],
-        "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^torch[-_]cluster($|==|>=|<=|!=|~=)"),
-    },
-    "torch-sparse": {
-        "wheel_available": True,
-        "index": "https://data.pyg.org/whl/torch-{torch_ver}+{cuda_ver}.html",
-        "python": ["3.10", "3.11", "3.12"],
-        "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^torch[-_]sparse($|==|>=|<=|!=|~=)"),
-    },
-    "pyg_lib": {
-        "wheel_available": True,
-        "index": "https://data.pyg.org/whl/torch-{torch_ver}+{cuda_ver}.html",
-        "python": ["3.10", "3.11", "3.12"],
-        "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^pyg_lib($|==|>=|<=|!=|~=)"),
-    },
-    "flash-attn": {
-        # flash-attn: prebuilt wheels from GitHub releases
-        "wheel_available": True,
-        "index": None,
-        # Direct wheel URL template - formatted with version, cuda, torch, python
-        "direct_url_template": "https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.0.0/flash_attn-{version}+cu{cuda}torch{torch}-cp{python}-cp{python}-linux_x86_64.whl",
-        "python": ["3.10", "3.11", "3.12"],
-        "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^flash[-_]attn($|==|>=|<=|!=|~=)"),
-    },
-    "nvdiffrast": {
-        # nvdiffrast has no PyPI wheel — prebuilt wheels are hosted on
-        # MiroPsota's GitHub Releases. The index page at
-        # https://miropsota.github.io/torch_packages_builder/nvdiffrast/
-        # lists the available wheels, whose actual download URLs point to
-        # https://github.com/MiroPsota/torch_packages_builder/releases/download/...
-        # Verified: nvdiffrast-0.4.0+253ac4fpt2.5.1cu124-cp310-cp310-linux_x86_64.whl
-        # is a real 18.5MB wheel reachable at the constructed URL.
-        # The wheel filename embeds the torch+CUDA version in the local
-        # version identifier, so we use a direct_url_template (no {version}
-        # placeholder needed) and let check_wheel_available construct the
-        # exact URL from the runtime torch/cuda/python versions.
-        "wheel_available": True,
-        "index": None,
-        "direct_url_template": "https://github.com/MiroPsota/torch_packages_builder/releases/download/nvdiffrast-0.4.0+253ac4f/nvdiffrast-0.4.0+253ac4fpt{torch}cu{cuda}-cp{python_nodot}-cp{python_nodot}-linux_x86_64.whl",
-        "python": ["3.10", "3.11", "3.12"],
-        "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^(git\+)?.*nvdiffrast"),
-    },
-    "diffoctreerast": {
-        # diffoctreerast has no PyPI wheel — prebuilt wheels from third-party
-        "wheel_available": True,
-        "index": "https://github.com/iiiytn1k/sd-webui-some-stuff/releases",
-        "python": ["3.10", "3.11"],
-        "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^(git\+)?.*diffoctreerast"),
-    },
-    "pytorch3d": {
-        # pytorch3d: prebuilt wheels from third-party
-        "wheel_available": True,
-        "index": "https://miropsota.github.io/torch_packages_builder",
-        "python": ["3.10", "3.11", "3.12"],
-        "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^pytorch3d($|==|>=|<=|!=|~=)"),
-    },
-    "xformers": {
-        "wheel_available": True,
-        "index": None,
-        "python": ["3.10", "3.11", "3.12"],
-        "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^xformers($|==|>=|<=|!=|~=)"),
-    },
-    "torchmcubes": {
-        "wheel_available": False,
-        "index": None,
-        "python": ["3.10", "3.11"],
-        "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^(git\+)?.*torchmcubes"),
-    },
-    "chumpy": {
-        # chumpy: use chumpy-fixed from PyPI (PEP 517 compatible)
-        "wheel_available": True,
-        "index": None,
-        "python": ["3.10", "3.11", "3.12"],
-        "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^chumpy(-fixed)?($|==|>=|<=|!=|~=)"),
-    },
-    "spconv": {
-        # spconv-cu12 wheel available on PyPI. Also match spconv-cu118 and
-        # spconv-cu120 (CUDA-specific PyPI distributions) so the resolver
-        # recognises them as wheel-available instead of falling through to
-        # a forced source build.
-        "wheel_available": True,
-        "index": None,
-        "python": ["3.10", "3.11", "3.12"],
-        "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^spconv([-_]cu\d+)?($|==|>=|<=|!=|~=)"),
-    },
-    "cupy-cuda12x": {
-        "wheel_available": True,
-        "index": None,
-        "python": ["3.10", "3.11", "3.12"],
-        "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^cupy[-_]cuda12x($|==|>=|<=|!=|~=)"),
-    },
-    "bpy": {
-        # bpy has prebuilt wheels on PyPI
-        "wheel_available": True,
-        "index": None,
-        "python": ["3.10", "3.11", "3.12"],
-        "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^bpy($|==|>=|<=|!=|~=)"),
-    },
-    "kaolin": {
-        # kaolin: prebuilt wheels from NVIDIA S3
-        "wheel_available": True,
-        "index": "https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-{torch_ver}_cu{cuda_ver}.html",
-        "python": ["3.10", "3.11", "3.12"],
-        "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^kaolin($|==|>=|<=|!=|~=)"),
-    },
-    "diso": {
-        # diso: NO prebuilt wheels on PyPI — only sdist (source distribution)
-        # for all versions (0.1.0–0.1.4). Verified at https://pypi.org/simple/diso/
-        # which lists only .tar.gz files. diso requires CUDA compilation from
-        # source. Marked as wheel_available=False so the resolver explicitly
-        # reports "no verified wheel" instead of falsely claiming PyPI has one.
-        # See "AI Studio — Current TODO: vox2seq and diff-gaussian-rasterization
-        # Source Resolution.md" (TODO 3).
-        "wheel_available": False,
-        "index": None,
-        "python": ["3.10", "3.11", "3.12"],
-        "cuda": _CUDA12_ALL,
-        "pattern": re.compile(r"^diso($|==|>=|<=|!=|~=)"),
-    },
-}
 
-# ponytail: kaolin NVIDIA S3 index URLs that are known to exist.
-# The primary WHEEL_COMPAT_TABLE index uses {cuda_ver} but NVIDIA only
-# publishes for specific CUDA versions. These fallbacks cover common
-# torch+CUDA combos when the primary URL 404s.
-KAOLIN_FALLBACK_URLS: list[str] = [
-    "https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.4.0_cu121.html",
-    "https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.5.1_cu124.html",
-    "https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.5.0_cu124.html",
-]
+def _manifest_dependency_config(manifest: dict | None, section: str, dep_name: str) -> dict:
+    """Return a dependency configuration from the model manifest.
 
-# Packages that compile CUDA/native code at build time.
-# Used for classification (kind = NATIVE).
-NATIVE_PKG_PATTERNS: list[re.Pattern] = [
-    re.compile(r"^diso($|==)"),
-    re.compile(r"^torch-cluster($|==)"),
-    re.compile(r"^torch-scatter($|==)"),
-    re.compile(r"^torch-sparse($|==)"),
-    re.compile(r"^(git\+)?.*torchmcubes"),
-    re.compile(r"^flash[-_]attn($|==)"),
-    re.compile(r"^xformers($|==)"),
-    re.compile(r"^pytorch3d($|==)"),
-    re.compile(r"^spconv($|==)"),
-    re.compile(r"^cupy[-_]cuda12x($|==)"),
-    re.compile(r"^(git\+)?.*nvdiffrast"),
-    re.compile(r"^(git\+)?.*diffoctreerast"),
-    re.compile(r"^bpy($|==)"),
-    re.compile(r"^chumpy($|==)"),
-    # vox2seq is a local extension in TRELLIS — not on PyPI as a wheel.
-    # Classify as NATIVE so it goes through the local extension path
-    # (LOCAL_EXTENSION_PATHS) which downloads from the HF dataset.
-    re.compile(r"^vox2seq($|==|>=|<=|!=|~=)"),
-    # diff-gaussian-rasterization is a CUDA extension installed from
-    # mip-splatting's submodules/diff-gaussian-rasterization directory.
-    # Classify as NATIVE so it goes through the git subdirectory build path.
-    re.compile(r"^diff[-_]gaussian[-_]rasterization($|==|>=|<=|!=|~=)"),
-]
+    ponytail: install behavior is manifest-owned. Python keeps only the generic
+    resolution engine; package-specific wheel/fallback/local policy belongs in YAML.
+    """
+    if not manifest:
+        return {}
+    deps = manifest.get("dependencies", {}) or {}
+    mapping = deps.get(section, {}) or {}
+    key = _normalize_dep_key(dep_name)
+    for candidate, cfg in mapping.items():
+        if _normalize_dep_key(str(candidate)) == key and isinstance(cfg, dict):
+            return cfg
+    return {}
 
-# Py3.12 incompatible pins — these specific versions have no cp312 wheel.
-# The resolver upgrades them to compatible versions instead of dropping.
-# Note: torch-cluster, torch-scatter, diso are NOT dropped here — they have
-# pre-built wheels available from the PyG index (data.pyg.org/whl) and are
-# handled by the installer's pre-built wheel logic.
-PY312_PIN_REWRITES: list[tuple[re.Pattern, str | None]] = [
-    (re.compile(r"^numpy==1\.22\..*$"), "numpy>=1.26.4,<2.0"),
-    (re.compile(r"^open3d==0\.18\.0$"), "open3d==0.19.0"),
-    (re.compile(r"^numba==0\.53\.1$"), "numba>=0.60"),
-    (re.compile(r"^llvmlite==0\.36\.0$"), "llvmlite>=0.43"),
-    (re.compile(r"^bpy==.*$"), None),
-]
+
+def _manifest_dependency_list(manifest: dict | None, key: str) -> set[str]:
+    values = (manifest or {}).get("dependencies", {}).get(key, []) or []
+    return {_normalize_dep_key(str(v)) for v in values}
+
+
+def _manifest_wheel_config(manifest: dict | None, dep: Dependency) -> dict:
+    return _manifest_dependency_config(manifest, "wheels", dep.name)
 
 
 def _py_ver_str() -> str:
@@ -392,7 +220,9 @@ def resolve_dependencies(repo_dir: Path, manifest: dict | None = None) -> list[D
                 one_of_specs.add(alt.lower().replace("-", "_"))
         
         for spec in manifest.get("dependencies", {}).get("python", []) or []:
-            _add(classify_dependency(spec))
+            dep = classify_dependency(spec)
+            dep.kind = DependencyKind.NORMAL
+            _add(dep)
         for spec in manifest.get("dependencies", {}).get("native", []) or []:
             dep = classify_dependency(spec)
             dep.kind = DependencyKind.NATIVE
@@ -513,172 +343,246 @@ def _is_vcs_spec(spec: str) -> bool:
     return s.startswith("git+") or s.startswith("git@") or s.startswith("hg+") or s.startswith("svn+")
 
 
-def check_wheel_available(
+def check_available(
     dep: Dependency,
+    manifest: dict | None = None,
     py_ver: str | None = None,
     cuda_ver: str | None = None,
     torch_ver: str | None = None,
 ) -> WheelCheckResult:
-    """Check if a compatible prebuilt wheel exists for a native dependency.
+    """Resolve a real wheel target using the current model's YAML manifest."""
+    if py_ver is None:
+        py_ver = _py_ver_str()
+    if cuda_ver is None:
+        cuda_ver = _cuda_ver_short()
+    if torch_ver is None:
+        torch_ver = _get_torch_ver()
 
-    Returns a WheelCheckResult distinguishing:
-      - available: a VERIFIED, installable wheel target exists for this dep
-      - source: where to get it ("pypi", direct .whl, or index page)
-      - is_direct_wheel: True for direct .whl URLs vs index pages
-      - reason: why not available (if not)
-      - is_vcs_spec: True if the dep.spec is a VCS URL
+    vcs_spec = _is_vcs_spec(dep.spec)
+    info = _manifest_wheel_config(manifest, dep)
+    if not info:
+        return WheelCheckResult(
+            False,
+            None,
+            False,
+            "no wheel entry in manifest",
+            vcs_spec,
+        )
+    if not info.get("available", False):
+        return WheelCheckResult(
+            False,
+            None,
+            False,
+            info.get("reason", "manifest declares no compatible prebuilt wheel"),
+            vcs_spec,
+        )
 
-    v4.3.1+: For VCS dependencies (e.g. git+https://...diffoctreerast.git),
-    an `index` URL in WHEEL_COMPAT_TABLE is NOT treated as a verified wheel
-    target. uv will clone the Git repo and build from source regardless of
-    `--find-links`. Only a direct `.whl` URL (generated from a
-    `direct_url_template` with a pinned version) or PyPI is accepted as
-    "available" for VCS specs. This prevents the false-positive
-    "wheel found" → "Git source build" loop reported in the
-    diffoctreerast/nvdiffrast bug.
+    supported_py = info.get("python", [])
+    if supported_py and py_ver not in supported_py:
+        return WheelCheckResult(
+            False, None, False,
+            f"Python {py_ver} not in supported list {supported_py}",
+            vcs_spec,
+        )
 
-    Uses the static WHEEL_COMPAT_TABLE (no network calls). The caller is
-    responsible for actually attempting the install and recording success
-    or failure separately — "available" means a real wheel target is
-    known, not merely a metadata URL.
+    supported_cuda = info.get("cuda", [])
+    cuda_normalized = cuda_ver.replace(".", "") if cuda_ver != "cpu" else "cpu"
+    if supported_cuda and cuda_normalized not in supported_cuda and cuda_ver not in supported_cuda:
+        return WheelCheckResult(
+            False, None, False,
+            f"CUDA {cuda_ver} not in supported list {supported_cuda}",
+            vcs_spec,
+        )
+
+    supported_torch = info.get("torch", [])
+    if supported_torch and torch_ver:
+        torch_base = torch_ver.split("+", 1)[0]
+        if torch_base not in supported_torch and torch_ver not in supported_torch:
+            return WheelCheckResult(
+                False, None, False,
+                f"Torch {torch_ver} not in supported list {supported_torch}",
+                vcs_spec,
+            )
+
+    mode = str(info.get("mode", "")).lower()
+    direct_url_template = info.get("direct_url_template")
+    version = info.get("version")
+    if not version and "==" in dep.spec:
+        version = dep.spec.split("==", 1)[1].split()[0].strip()
+    version = version or ""
+
+    if direct_url_template and (version or "{version}" not in direct_url_template):
+        direct_url = direct_url_template.format(
+            version=version,
+            cuda=cuda_normalized,
+            torch=torch_ver or "",
+            python=py_ver,
+            python_nodot=py_ver.replace(".", ""),
+        )
+        return WheelCheckResult(True, direct_url, True, None, vcs_spec)
+
+    index = info.get("index")
+    if index:
+        source = str(index).replace("{torch_ver}", torch_ver or "").replace(
+            "{cuda_ver}", cuda_normalized
+        ).replace("{cuda_ver_short}", cuda_normalized)
+        # An index/finder URL cannot replace a VCS requirement by itself.
+        # It is valid for normal dependencies, but VCS deps require a direct
+        # wheel URL or another explicit artifact target in YAML.
+        if vcs_spec:
+            return WheelCheckResult(
+                False, None, False,
+                f"VCS dependency has index-only wheel source ({source}); "
+                f"manifest must provide a direct .whl target",
+                True,
+            )
+        return WheelCheckResult(True, source, False, None, vcs_spec)
+
+    # PyPI is a real package index; uv can resolve a normal named dependency
+    # from it. For VCS specs, replace the VCS requirement with the package name
+    # during installation (handled by the caller).
+    if mode == "pypi" or not index:
+        return WheelCheckResult(True, "pypi", False, None, vcs_spec)
+
+    return WheelCheckResult(False, None, False, "manifest wheel target is incomplete", vcs_spec)
+
+
+def check_wheel_available(
+    dep: Dependency,
+    manifest: dict | None = None,
+    py_ver: str | None = None,
+    cuda_ver: str | None = None,
+    torch_ver: str | None = None,
+) -> WheelCheckResult:
+    """Resolve a concrete wheel target from the selected model manifest.
+
+    A configured source is not automatically a wheel. VCS specs require a
+    direct .whl target; normal specs may use PyPI or a finder/index URL.
     """
     if py_ver is None:
         py_ver = _py_ver_str()
     if cuda_ver is None:
         cuda_ver = _cuda_ver_short()
+    if torch_ver is None:
+        torch_ver = _get_torch_ver()
 
     vcs_spec = _is_vcs_spec(dep.spec)
+    info = _manifest_wheel_config(manifest, dep)
+    if not info:
+        return WheelCheckResult(False, None, False, "no wheel entry in manifest", vcs_spec)
 
-    # Normalize CUDA version: "12.2" -> "122", "12.0" -> "120"
-    _cuda_normalized = cuda_ver.replace(".", "") if cuda_ver != "cpu" else "cpu"
-
-    for pkg_name, info in WHEEL_COMPAT_TABLE.items():
-        pat = info.get("pattern")
-        if pat and pat.match(dep.spec):
-            if not info.get("wheel_available", False):
-                return WheelCheckResult(False, None, False, "no wheel available for this package", vcs_spec)
-            # Check Python version compatibility
-            supported_py = info.get("python", [])
-            if supported_py and py_ver not in supported_py:
-                return WheelCheckResult(False, None, False, f"Python {py_ver} not in supported list {supported_py}", vcs_spec)
-            # Check CUDA compatibility (try both normalized and original)
-            supported_cuda = info.get("cuda", [])
-            if supported_cuda and _cuda_normalized not in supported_cuda and cuda_ver not in supported_cuda:
-                return WheelCheckResult(False, None, False, f"CUDA {cuda_ver} not in supported list {supported_cuda}", vcs_spec)
-            # Check for direct wheel URL template (highest priority)
-            direct_url_template = info.get("direct_url_template")
-            if direct_url_template and torch_ver:
-                # Extract version from dep.spec (e.g., "flash-attn==2.6.3" -> "2.6.3")
-                version = ""
-                if "==" in dep.spec:
-                    version = dep.spec.split("==")[1].strip()
-                elif info.get("version"):
-                    version = info["version"]
-                # ponytail: skip direct URL if version is required by the
-                # template but unavailable — that produces invalid filenames
-                # like "flash_attn-+cu124...". However, some templates (e.g.
-                # nvdiffrast's GitHub Releases URL) embed the version in the
-                # path/filename without a {version} placeholder, so they work
-                # fine for unpinned VCS specs. Only skip when the template
-                # actually contains {version} and we have no value for it.
-                if not version and "{version}" in direct_url_template:
-                    pass  # fall through to index/PyPI
-                else:
-                    cv = cuda_ver if cuda_ver == "cpu" else _cuda_normalized
-                    direct_url = direct_url_template.format(
-                        version=version,
-                        cuda=cv,
-                        torch=torch_ver,
-                        python=py_ver,
-                        python_nodot=py_ver.replace(".", ""),
-                    )
-                    return WheelCheckResult(True, direct_url, True, None, vcs_spec)
-            # Build the wheel source/index URL
-            index = info.get("index")
-            if index and torch_ver:
-                # Replace cuda_ver placeholder (handle both "121" and "cpu")
-                # ponytail: template already includes "cu" prefix (e.g. "_cu{cuda_ver}"),
-                # so use _cuda_normalized directly to avoid double "cu" (e.g. "_cucu124").
-                cv = cuda_ver if cuda_ver == "cpu" else _cuda_normalized
-                index = index.replace("{torch_ver}", torch_ver).replace("{cuda_ver}", cv).replace("{cuda_ver_short}", _cuda_normalized)
-            source = index or "pypi"
-            # ponytail: flash-attn unpinned falls through to "pypi" but PyPI
-            # does NOT host flash-attn wheels. The install will fail and the
-            # caller will try fallbacks. Mark as available but the caller
-            # must still verify install success.
-            is_direct = source.startswith("http") and source.endswith(".whl")
-            # v4.3.1 fix: for VCS specs, an `index` URL is NOT a verified wheel.
-            # uv will clone the Git repo and build from source regardless of
-            # --find-links. Only "pypi" or a direct .whl URL can substitute
-            # a wheel for a VCS spec. Reject index-only sources so the
-            # resolver falls through to the source-build path.
-            if vcs_spec and not is_direct and source != "pypi":
-                return WheelCheckResult(
-                    False, None, False,
-                    f"VCS spec with index-only wheel source ({source}) — "
-                    f"--find-links does not substitute a wheel for a VCS spec; "
-                    f"source build required",
-                    True,
-                )
-            return WheelCheckResult(True, source, is_direct, None, vcs_spec)
-
-    # No compat table entry at all. For VCS specs, the only viable path
-    # is source build. Do not lie about "pypi" availability.
-    if vcs_spec:
+    if not info.get("available", False):
         return WheelCheckResult(
-            False, None, False,
-            f"VCS spec ({dep.spec}) with no compat table entry — source build required",
-            True,
+            False,
+            None,
+            False,
+            info.get("reason", "manifest declares no compatible prebuilt wheel"),
+            vcs_spec,
         )
 
-    return WheelCheckResult(False, None, False, "no wheel entry in compat table", vcs_spec)
+    supported_py = info.get("python", []) or []
+    if supported_py and py_ver not in supported_py:
+        return WheelCheckResult(
+            False, None, False,
+            f"Python {py_ver} not in supported list {supported_py}",
+            vcs_spec,
+        )
+
+    normalized_cuda = cuda_ver.replace(".", "") if cuda_ver != "cpu" else "cpu"
+    supported_cuda = info.get("cuda", []) or []
+    if supported_cuda and normalized_cuda not in supported_cuda and cuda_ver not in supported_cuda:
+        return WheelCheckResult(
+            False, None, False,
+            f"CUDA {cuda_ver} not in supported list {supported_cuda}",
+            vcs_spec,
+        )
+
+    supported_torch = info.get("torch", []) or []
+    if supported_torch and torch_ver:
+        base_torch = torch_ver.split("+", 1)[0]
+        if base_torch not in supported_torch and torch_ver not in supported_torch:
+            return WheelCheckResult(
+                False, None, False,
+                f"Torch {torch_ver} not in supported list {supported_torch}",
+                vcs_spec,
+            )
+
+    version = str(info.get("version") or "")
+    if not version and "==" in dep.spec:
+        version = dep.spec.split("==", 1)[1].split()[0].strip()
+
+    direct_url_template = info.get("direct_url_template")
+    if direct_url_template:
+        if "{version}" in direct_url_template and not version:
+            return WheelCheckResult(
+                False, None, False,
+                "direct wheel template requires an explicit package version",
+                vcs_spec,
+            )
+        direct_url = str(direct_url_template).format(
+            version=version,
+            cuda=normalized_cuda,
+            torch=torch_ver or "",
+            python=py_ver,
+            python_nodot=py_ver.replace(".", ""),
+        )
+        return WheelCheckResult(True, direct_url, True, None, vcs_spec)
+
+    index = info.get("index")
+    if index:
+        source = str(index).format(
+            torch_ver=torch_ver or "",
+            cuda_ver=normalized_cuda,
+            cuda_ver_short=normalized_cuda,
+            python=py_ver,
+            python_nodot=py_ver.replace(".", ""),
+            version=version,
+        )
+        if vcs_spec:
+            return WheelCheckResult(
+                False, None, False,
+                f"VCS dependency has index-only wheel source ({source}); "
+                "manifest must provide a direct .whl target",
+                True,
+            )
+        return WheelCheckResult(True, source, False, None, False)
+
+    mode = str(info.get("mode", "pypi")).lower()
+    if mode == "pypi":
+        return WheelCheckResult(True, "pypi", False, None, vcs_spec)
+
+    return WheelCheckResult(
+        False, None, False,
+        "manifest wheel target is incomplete",
+        vcs_spec,
+    )
 
 
-# ---------------------------------------------------------------------------
-# Fallback wheel sources — tried in order when primary source fails.
-# Each entry: (identifier, url_or_index, is_direct_whl)
-# ---------------------------------------------------------------------------
-FALLBACK_SOURCES: dict[str, list[tuple[str, str, bool]]] = {
-    "flash-attn": [
-        ("pypi", "pypi", False),
-    ],
-    "kaolin": [
-        ("pypi", "pypi", False),
-        ("nvidia-s3", "https://nvidia-kaolin.s3.us-east-2.amazonaws.com/", False),
-        ("nvidia-s3-torch2.4.0cu121", "https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.4.0_cu121.html", False),
-        ("nvidia-s3-torch2.5.1cu124", "https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.5.1_cu124.html", False),
-    ],
-    "nvdiffrast": [
-        # nvdiffrast uses a direct_url_template (GitHub Releases wheel), so
-        # no fallback sources are needed. If the direct wheel install fails
-        # (e.g. unsupported CUDA version), the resolver falls through to
-        # source build via pending_builds.
-    ],
-    "diffoctreerast": [
-        ("github-releases", "https://github.com/iiiytn1k/sd-webui-some-stuff/releases", False),
-        ("pypi", "pypi", False),
-    ],
-    "pytorch3d": [
-        ("miropsota-index", "https://miropsota.github.io/torch_packages_builder", False),
-        ("pypi", "pypi", False),
-    ],
-}
-
-# Packages installed from local directories within the cloned repo.
-# Key: package name, Value: tuple of (relative path in repo, optional
-# HuggingFace dataset source for fallback download).
-#
-# ponytail: vox2seq is a special case. The upstream TRELLIS repo (microsoft/TRELLIS)
-# does NOT include the `extensions/vox2seq` directory in its git clone — the
-# upstream setup.sh expects it to be present in the working directory from a
-# separate source. Per microsoft/TRELLIS issue #356, the correct acquisition
-# method is:
-#   hf download argojuni0506/TRELLIS-3D --repo-type dataset
-# which provides the `extensions/vox2seq` directory. We download it on demand
-# when the local path is not found in the cloned repo.
-LOCAL_EXTENSION_PATHS: dict[str, tuple[str, str | None]] = {
-    "vox2seq": ("extensions/vox2seq", "argojuni0506/TRELLIS-3D"),
-}
+def _get_fallback_sources(
+    dep: Dependency,
+    manifest: dict | None,
+    py_ver: str,
+    cuda_ver: str,
+    torch_ver: str,
+) -> list[str]:
+    """Return manifest-defined fallback wheel sources in declared order."""
+    sources = []
+    mapping = (manifest or {}).get("dependencies", {}).get("fallbacks", {}) or {}
+    key = _normalize_dep_key(dep.name)
+    for name, values in mapping.items():
+        if _normalize_dep_key(str(name)) != key:
+            continue
+        for source in values or []:
+            sources.append(
+                str(source)
+                .replace("{torch_ver}", torch_ver)
+                .replace("{cuda_ver}", cuda_ver.replace(".", "") if cuda_ver != "cpu" else "cpu")
+                .replace("{cuda_ver_short}", cuda_ver.replace(".", "") if cuda_ver != "cpu" else "cpu")
+                .replace("{python}", py_ver)
+                .replace("{python_nodot}", py_ver.replace(".", ""))
+            )
+        break
+    return sources
 
 
 def _fetch_local_extension_from_hf(
@@ -744,63 +648,6 @@ def _fetch_local_extension_from_hf(
 # which are actually REQUIRED for specific 3D representations. Those moved
 # to REPRESENTATION_REQUIRED_NATIVE_DEPS below — see Issue 6 in
 # "AI Studio — Root-Cause Debugging Prompt.md".
-OPTIONAL_NATIVE_DEPS: set[str] = {
-    "flash-attn",
-    "flash_attn",
-    "xformers",
-}
-
-# Packages that are REQUIRED for a specific 3D representation but whose
-# failure should degrade THAT CAPABILITY, not the whole install. Unlike
-# OPTIONAL_NATIVE_DEPS, these are attempted in non-interactive mode when
-# a CUDA toolkit is present. If they fail, the corresponding capability
-# is marked unavailable in the runtime health state, but other capabilities
-# remain usable.
-# ponytail: these are not "nice-to-have" — they enable specific output
-# formats (mesh, Gaussian splat, structured latent, sparse voxel).
-# Marking them optional would silently disable representations.
-REPRESENTATION_REQUIRED_NATIVE_DEPS: set[str] = {
-    "nvdiffrast",            # differentiable rasterization (mesh)
-    "diffoctreerast",        # structured latent decoding
-    "vox2seq",               # structured latent encoding
-    "diff-gaussian-rasterization",  # 3D Gaussian splatting
-    "mip-splatting",         # Gaussian splatting (parent package)
-    "kaolin",                # 3D mesh operations
-}
-
-
-def _get_fallback_sources(dep: Dependency, py_ver: str, cuda_ver: str, torch_ver: str) -> list[str]:
-    """Get fallback wheel sources for a dependency when primary source fails.
-
-    Returns a list of source identifiers/URLs to try in order.
-
-    v4.3.1: For VCS specs, only DIRECT .whl URLs are real fallbacks.
-    Generic releases pages, PyPI, and index pages cannot substitute a wheel
-    for a VCS spec — uv will clone the Git repo regardless. We filter
-    those out here so the caller does not log misleading
-    "Trying fallback source" lines that are followed by another source build.
-    """
-    sources: list[str] = []
-    is_vcs = _is_vcs_spec(dep.spec)
-    for name, url, is_whl in FALLBACK_SOURCES.get(dep.name, []):
-        if is_vcs:
-            # For VCS specs, only direct .whl URLs are real fallbacks.
-            # A generic releases/index page is not — uv will still clone
-            # the Git repo. PyPI is filtered out by the caller.
-            if not is_whl:
-                continue
-        if url == "pypi":
-            # PyPI is included but the caller will skip it for VCS specs.
-            sources.append("pypi")
-        elif is_whl and "{" not in url:
-            sources.append(url)
-        elif not is_whl and "{" not in url:
-            sources.append(url)
-        else:
-            sources.append(url)
-    return sources
-
-
 def normalize_py312_pin(spec: str) -> str | None:
     """Normalize a requirement spec for Python 3.12 compatibility.
 
@@ -824,6 +671,7 @@ def install_resolved_deps(
     venv_python: Path,
     repo_dir: Path,
     *,
+    manifest: dict | None = None,
     allow_build: bool = False,
     interactive: bool = True,
     log_cb=None,
@@ -928,7 +776,7 @@ def install_resolved_deps(
     # Collect all native deps that need decisions
     pending_builds: list[Dependency] = []
     for dep in native_deps:
-        wheel_result = check_wheel_available(dep, py_ver, cuda_ver, torch_ver)
+        wheel_result = check_available(dep, manifest, py_ver, cuda_ver, torch_ver)
         # Store the source string for backward compat with callers that read
         # dep.wheel_source; structured fields are on wheel_result.
         dep.wheel_source = wheel_result.source if wheel_result.available else None
@@ -938,18 +786,18 @@ def install_resolved_deps(
             # v4.3.1: log truthfully. "Verified wheel target" means we have
             # either a direct .whl URL or PyPI — both of which uv can install
             # as a real wheel substitution. An index page is not accepted for
-            # VCS specs (see check_wheel_available).
+            # VCS specs (see check_available).
             if wheel_result.is_direct_wheel:
                 _log(f"Verified wheel target for {dep.name}: direct .whl URL")
             elif wheel_source == "pypi":
                 _log(f"Wheel candidate for {dep.name}: PyPI (will verify by install)")
             else:
-                _log(f"Wheel source for {dep.name}: index page {wheel_source}")
+                _log(f"Wheel candidate for {dep.name}: index {wheel_source} (will verify by install)")
             # ponytail: for VCS specs, the ONLY valid install target is a
             # direct .whl URL. We never pass the VCS spec + --find-links
             # because uv will clone the Git repo and build from source,
             # silently ignoring --find-links for the main package. This
-            # check is a defensive guard — check_wheel_available already
+            # check is a defensive guard — check_available already
             # rejects index-only sources for VCS specs.
             if wheel_result.is_vcs_spec and not wheel_result.is_direct_wheel:
                 _log(
@@ -959,18 +807,22 @@ def install_resolved_deps(
                 pending_builds.append(dep)
                 continue
             is_direct_whl = wheel_result.is_direct_wheel
-            # Build install command. The key fix: when we have a direct
-            # .whl URL, we install THAT URL (not dep.spec). When we have
-            # PyPI, we install dep.spec (which uv resolves from PyPI).
-            # We never combine a VCS/git spec with --find-links.
+            # Build the real wheel installation command from the manifest target.
             if is_direct_whl:
-                # Direct wheel URL - install that URL directly, ignoring
-                # the VCS spec. This is the only way to actually substitute
-                # a wheel for a VCS dependency.
                 install_args = ["pip", "install", "--python", str(venv_python), "--no-deps", wheel_source]
+            elif wheel_source == "pypi":
+                # A VCS dependency must be replaced by its distribution name
+                # when the manifest explicitly allows a PyPI wheel.
+                target = dep.name if wheel_result.is_vcs_spec else dep.spec
+                install_args = ["pip", "install", "--python", str(venv_python), "--no-deps", target]
             else:
-                # PyPI: install the package name (dep.spec or the name part)
-                install_args = ["pip", "install", "--python", str(venv_python), "--no-deps", dep.spec]
+                # Index/finder sources apply to normal package specs. VCS
+                # requirements are rejected earlier because --find-links
+                # cannot substitute the main VCS requirement.
+                install_args = [
+                    "pip", "install", "--python", str(venv_python),
+                    "--no-deps", dep.spec, "--find-links", wheel_source,
+                ]
 
             code, output = _run_uv(install_args, cwd=repo_dir)
             if code == 0:
@@ -980,7 +832,7 @@ def install_resolved_deps(
             else:
                 # Wheel install failed — try fallback sources if available
                 _log(f"Wheel install failed for {dep.name}: {output[:200]}")
-                fallback_sources = _get_fallback_sources(dep, py_ver, cuda_ver, torch_ver)
+                fallback_sources = _get_fallback_sources(dep, manifest, py_ver, cuda_ver, torch_ver)
                 fallback_success = False
                 for fb_source in fallback_sources:
                     # v4.3.1: for VCS specs, --find-links to a generic page
@@ -1079,7 +931,7 @@ def install_resolved_deps(
                         should_build = choice == "y"
                     except (EOFError, KeyboardInterrupt):
                         should_build = False
-                elif dep.name in OPTIONAL_NATIVE_DEPS:
+                elif _normalize_dep_key(dep.name) in _manifest_dependency_list(manifest, "optional"):
                     # Truly optional (alternative implementation): skip cleanly
                     should_build = False
                     _log(
@@ -1092,7 +944,7 @@ def install_resolved_deps(
                     # The difference is in the failure handling below:
                     # representation-required degrades a capability, required
                     # fails the install.
-                    if dep.name in REPRESENTATION_REQUIRED_NATIVE_DEPS:
+                    if _normalize_dep_key(dep.name) in _manifest_dependency_list(manifest, "representation_required"):
                         _log(
                             f"Attempting build for representation-required dep {dep.name} "
                             f"(CUDA toolkit detected, non-interactive mode). "
@@ -1106,7 +958,7 @@ def install_resolved_deps(
                     should_build = True
                 else:
                     # No toolkit: cannot build anything
-                    if dep.name in REPRESENTATION_REQUIRED_NATIVE_DEPS:
+                    if _normalize_dep_key(dep.name) in _manifest_dependency_list(manifest, "representation_required"):
                         _log(
                             f"Skipping representation-required dep {dep.name} "
                             f"(no CUDA toolkit in non-interactive mode) — capability will be unavailable"
@@ -1119,7 +971,9 @@ def install_resolved_deps(
                 _log(f"Building {dep.name} from source in {venv_python}...")
                 dep.state = "build_running"
                 # Check if this is a local extension (e.g., vox2seq in TRELLIS/extensions/)
-                local_ext = LOCAL_EXTENSION_PATHS.get(dep.name)
+                local_ext = _manifest_dependency_config(manifest, "local_extensions", dep.name)
+                if local_ext:
+                    local_ext = (local_ext.get("path"), local_ext.get("hf_dataset"))
                 if local_ext:
                     local_path, hf_dataset = local_ext
                     ext_dir = repo_dir / local_path
@@ -1231,12 +1085,12 @@ def install_resolved_deps(
                     # - Representation-required: skip but record capability
                     #   degradation (native_state will reflect this)
                     # - Required: fail the install
-                    if dep.name in OPTIONAL_NATIVE_DEPS:
+                    if _normalize_dep_key(dep.name) in _manifest_dependency_list(manifest, "optional"):
                         dep.state = "skipped"
                         skipped.append(dep.name)
                         native_skipped = True
                         _log(f"Optional dep failed, skipping: {dep.name}: {output[:200]}")
-                    elif dep.name in REPRESENTATION_REQUIRED_NATIVE_DEPS:
+                    elif _normalize_dep_key(dep.name) in _manifest_dependency_list(manifest, "representation_required"):
                         dep.state = "capability_degraded"
                         dep.error = output[:300]
                         skipped.append(dep.name)

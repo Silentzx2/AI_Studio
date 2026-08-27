@@ -135,7 +135,7 @@ Model installation is split into two strictly separated stages:
 3. Discover dependency files (requirements.txt, pyproject.toml, manifest)
 4. Install normal dependencies into model venv
 5. Resolve native dependencies via **wheel-first** logic:
-   - Check static `WHEEL_COMPAT_TABLE` for prebuilt wheel
+   - Check manifest `dependencies.wheels` for prebuilt wheel
    - Wheel found → install wheel (no compilation)
    - No wheel → interactive prompt "build from source? [y/N]"
      - YES → build inside model venv
@@ -169,7 +169,7 @@ Model installation is split into two strictly separated stages:
 - **BUILD_ONLY** — only needed at build time
 - **OPTIONAL** — platform-specific optional
 
-Static `WHEEL_COMPAT_TABLE` maps native packages to wheel availability per (py_ver, cuda_ver, platform). No network calls — deterministic, works offline.
+Static `manifest `dependencies.wheels`` maps native packages to wheel availability per (py_ver, cuda_ver, platform). No network calls — deterministic, works offline.
 
 ### Component-Level State Machine
 Fine-grained states for UI status:
