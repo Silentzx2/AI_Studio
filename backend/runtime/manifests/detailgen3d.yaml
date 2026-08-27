@@ -22,11 +22,6 @@ dependencies:
     - "numpy==1.22.3"
     - "jaxtyping"
     - "typeguard"
-    - "accelerate>=0.34.0"
-    - "scipy"
-    - "pillow"
-    - "imageio"
-    - "tqdm"
     # Native CUDA extensions (also listed in native section for wheel-first)
     - "diso"
     - "torch-cluster"

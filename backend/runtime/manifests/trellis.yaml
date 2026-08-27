@@ -28,15 +28,9 @@ dependencies:
     - "pymeshfix"
     - "igraph"
     - "transformers"
-    - "diffusers"
-    - "omegaconf"
-    - "numpy"
-    - "accelerate"
-    - "huggingface_hub"
     - "git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8"
   imports:
     - "torch"
-    - "diffusers"
     - "transformers"
     - "trimesh"
   native:
@@ -44,6 +38,8 @@ dependencies:
     - "flash_attn"
     - "xformers"
     - "git+https://github.com/JeffreyXiang/diffoctreerast.git"
+    - "vox2seq"
+    - "git+https://github.com/autonomousvision/mip-splatting.git#subdirectory=submodules/diff-gaussian-rasterization"
     - "spconv"
     - "kaolin==0.18.0"
     - "git+https://github.com/NVlabs/nvdiffrast.git"
@@ -76,7 +72,6 @@ preflight:
   check_model_venv: true
   import_packages:
     - "torch"
-    - "diffusers"
     - "transformers"
     - "trimesh"
   check_weights: true
