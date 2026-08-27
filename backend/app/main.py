@@ -13,6 +13,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.types import Scope, Response
 
 from app.api.v1 import router as api_v1_router
 from app.config import get_settings
@@ -340,7 +341,28 @@ async def request_timing_middleware(request: Request, call_next):
 app.include_router(api_v1_router, prefix=settings.api_v1_prefix)
 
 Path(settings.storage_local_path).mkdir(parents=True, exist_ok=True)
-app.mount("/static", StaticFiles(directory=settings.storage_local_path), name="static")
+
+
+class BinaryStaticFiles(StaticFiles):
+    """ponytail: StaticFiles subclass that adds headers to prevent Cloudflare
+    from modifying binary responses (GLB, GLTF, etc.). Cloudflare tunnel
+    can return HTML challenge pages instead of binary files without these headers."""
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        response = await super().get_response(path, scope)
+        # Prevent Cloudflare from modifying binary content
+        if any(path.endswith(ext) for ext in ('.glb', '.gltf', '.obj', '.fbx', '.stl', '.ply', '.bin', '.png', '.jpg', '.jpeg', '.webp')):
+            response.headers["Cache-Control"] = "no-transform"
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            # Ensure correct content type for binary files
+            if path.endswith('.glb'):
+                response.headers["Content-Type"] = "model/gltf-binary"
+            elif path.endswith('.gltf'):
+                response.headers["Content-Type"] = "model/gltf+json"
+        return response
+
+
+app.mount("/static", BinaryStaticFiles(directory=settings.storage_local_path), name="static")
 
 
 @app.exception_handler(Exception)
