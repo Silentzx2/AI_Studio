@@ -468,7 +468,6 @@ def check_wheel_available(
 FALLBACK_SOURCES: dict[str, list[tuple[str, str, bool]]] = {
     "flash-attn": [
         ("pypi", "pypi", False),
-        ("github-prebuild", "https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.0.0/", False),
     ],
     "kaolin": [
         ("pypi", "pypi", False),
@@ -488,6 +487,23 @@ FALLBACK_SOURCES: dict[str, list[tuple[str, str, bool]]] = {
         ("miropsota-index", "https://miropsota.github.io/torch_packages_builder", False),
         ("pypi", "pypi", False),
     ],
+}
+
+# Packages installed from local directories within the cloned repo.
+# Key: package name, Value: relative path from repo root to the package directory
+LOCAL_EXTENSION_PATHS: dict[str, str] = {
+    "vox2seq": "extensions/vox2seq",
+}
+
+# Packages that are optional — failure to install does NOT fail the whole install.
+# These are alternatives (e.g., flash-attn vs xformers) or nice-to-have extensions.
+# ponytail: on Colab, source builds for these often fail due to missing build
+# toolchain. They are not required for basic functionality.
+OPTIONAL_NATIVE_DEPS: set[str] = {
+    "flash-attn",
+    "flash_attn",
+    "nvdiffrast",
+    "diffoctreerast",
 }
 
 
@@ -742,22 +758,55 @@ def install_resolved_deps(
             if should_build:
                 _log(f"Building {dep.name} from source in {venv_python}...")
                 dep.state = "build_running"
-                build_args = ["pip", "install", "--python", str(venv_python), dep.spec, "--no-build-isolation"]
+                # Check if this is a local extension (e.g., vox2seq in TRELLIS/extensions/)
+                local_path = LOCAL_EXTENSION_PATHS.get(dep.name)
+                if local_path:
+                    ext_dir = repo_dir / local_path
+                    if ext_dir.exists():
+                        _log(f"Installing {dep.name} from local extension: {ext_dir}")
+                        build_args = ["pip", "install", "--python", str(venv_python), str(ext_dir), "--no-build-isolation"]
+                    else:
+                        _log(f"Local extension not found: {ext_dir} — skipping")
+                        dep.state = "skipped"
+                        skipped.append(dep.name)
+                        native_skipped = True
+                        continue
+                else:
+                    build_args = ["pip", "install", "--python", str(venv_python), dep.spec, "--no-build-isolation"]
                 # Add build dependencies for known packages
                 if dep.name in ("torch-cluster", "torch-scatter", "torch-sparse", "pyg_lib"):
                     # These need torch to be installed first
                     pass
-                code, output = _run_uv(build_args, cwd=repo_dir)
+                # ponytail: retry once on transient errors (cache corruption, network blips)
+                max_attempts = 2
+                code = 1
+                output = ""
+                for attempt in range(1, max_attempts + 1):
+                    code, output = _run_uv(build_args, cwd=repo_dir)
+                    if code == 0:
+                        break
+                    # Check for transient errors worth retrying
+                    if attempt < max_attempts and any(kw in output.lower() for kw in ("cache", "timeout", "connection", "network", "503", "502", "504")):
+                        _log(f"  Retry {attempt}/{max_attempts} for {dep.name} (transient error)")
+                        import time
+                        time.sleep(3)
                 if code == 0:
                     dep.state = "ready"
                     installed.append(dep.name)
                     _log(f"Build succeeded: {dep.name}")
                 else:
-                    dep.state = "failed"
-                    dep.error = output[:300]
-                    failed.append(dep.name)
-                    native_failed = True
-                    _log(f"Build failed: {dep.name}: {output[:200]}")
+                    # Check if this is an optional dep that can fail silently
+                    if dep.name in OPTIONAL_NATIVE_DEPS:
+                        dep.state = "skipped"
+                        skipped.append(dep.name)
+                        native_skipped = True
+                        _log(f"Optional dep failed, skipping: {dep.name}: {output[:200]}")
+                    else:
+                        dep.state = "failed"
+                        dep.error = output[:300]
+                        failed.append(dep.name)
+                        native_failed = True
+                        _log(f"Build failed: {dep.name}: {output[:200]}")
             else:
                 dep.state = "skipped"
                 skipped.append(dep.name)
