@@ -45,7 +45,7 @@ dependencies:
     - "xformers"
     - "git+https://github.com/JeffreyXiang/diffoctreerast.git"
     - "spconv"
-    - "kaolin"
+    - "kaolin==0.18.0"
     - "git+https://github.com/NVlabs/nvdiffrast.git"
   attention_backend:
     one_of:

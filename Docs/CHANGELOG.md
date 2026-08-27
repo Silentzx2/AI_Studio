@@ -1,5 +1,22 @@
 # AI 3D Studio — Changelog
 
+## [v4.1.8] - 2026-08-27 - Wheel Installation & Build Fixes
+
+### Summary
+Fixed prebuilt wheel installation for flash_attn, nvdiffrast, and diffoctreerast. Fixed npm build errors.
+
+### Wheel Installation
+- **flash_attn**: Added direct wheel URL template for GitHub releases
+- **nvdiffrast**: Added PyPI extra-index-url for prebuilt wheels
+- **diffoctreerast**: Added direct wheel URL template for GitHub releases
+- **check_wheel_available()**: Returns direct wheel URL when available
+
+### Build Fixes
+- **SSR error fixed**: `ActivityLogger.tsx` no longer crashes during server-side rendering
+- **TypeScript compiles cleanly**: 0 errors
+- **All 722 Python files pass syntax check**
+- **All 9 bash scripts pass syntax check**
+
 ## [v4.1.7] - 2026-08-27 - Complete Audit & Build Fix
 
 ### Summary

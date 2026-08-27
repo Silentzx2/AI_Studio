@@ -203,10 +203,10 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "pattern": re.compile(r"^bpy($|==|>=|<=|!=|~=)"),
     },
     "kaolin": {
-        # kaolin wheels via nvidia-kaolin S3
+        # kaolin: prebuilt wheels from NVIDIA S3
         "wheel_available": True,
         "index": "https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-{torch_ver}_cu{cuda_ver}.html",
-        "python": ["3.10", "3.11"],
+        "python": ["3.10", "3.11", "3.12"],
         "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^kaolin($|==|>=|<=|!=|~=)"),
     },
