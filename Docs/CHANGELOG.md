@@ -1,5 +1,42 @@
 # AI 3D Studio — Changelog
 
+## [v4.3.1] - 2026-08-27 - Fix VCS Dependency Wheel Resolution and Native Build Loop
+
+### Summary
+Fixed the `diffoctreerast`/`nvdiffrast` false-positive "wheel found" bug. The resolver was claiming a wheel was available for VCS dependencies (e.g. `git+https://github.com/JeffreyXiang/diffoctreerast.git`) when the `WHEEL_COMPAT_TABLE` entry was just a GitHub Releases landing page. uv's `--find-links` flag does not substitute a wheel for a VCS spec — it only tells uv where to look for transitive dependency wheels. The main package was always cloned and built from source, despite the logs saying "wheel found".
+
+### Root Cause
+For VCS dependencies, the only valid wheel substitution mechanisms are:
+1. A direct `.whl` URL (generated from a `direct_url_template` with a pinned version)
+2. PyPI (if the package is published there)
+
+An `index` URL in `WHEEL_COMPAT_TABLE` (e.g. a GitHub Releases page) is **not** a valid wheel target for a VCS spec. uv clones the Git repo and builds from source regardless of `--find-links`.
+
+### Fix
+- **`check_wheel_available()`** now detects VCS specs (`git+http://`, `git+ssh://`, `git@`, `hg+`, `svn+`) and returns `available=False` when the only wheel source is an index page or a releases landing page. The `reason` field explains why.
+- **`WheelCheckResult`** gained an `is_vcs_spec` field so the caller can make package/source-aware decisions.
+- **`install_resolved_deps()`** now:
+  - For VCS specs, only installs direct `.whl` URLs (never the VCS spec + `--find-links`)
+  - Filters out ineffective fallbacks (index pages) for VCS specs
+  - Skips PyPI fallbacks for VCS specs (they would just clone the Git repo again)
+  - Logs the actual mechanism truthfully: "Verified wheel target" for direct .whl, "No verified wheel" for VCS specs with index-only sources
+- **`_get_fallback_sources()`** filters out non-`.whl` fallbacks for VCS deps.
+
+### Behavior after fix
+- `diffoctreerast` (VCS, index-only) → `available=False` → falls through to source-build path (representation-required, so builds when CUDA toolkit present; degrades capability on failure)
+- `nvdiffrast` (VCS, index-only) → `available=False` → same path
+- `diff-gaussian-rasterization` (VCS, subdirectory) → `available=False` → same path
+- `flash-attn` (optional, non-VCS) → unchanged: returns "pypi", install fails, skipped in non-interactive mode
+- `kaolin` (non-VCS, custom index) → unchanged
+- `spconv-cu118` (non-VCS) → unchanged
+- `vox2seq` (local extension) → unchanged
+
+### Files changed
+- `backend/runtime/dependency_resolver.py` — core fix
+
+### Verification
+12 regression tests pass covering: VCS spec detection, diffoctreerast, nvdiffrast, diff-gaussian-rasterization, flash-attn (pinned and unpinned), kaolin, spconv-cu118, fallback filtering for VCS, fallback preservation for non-VCS, vox2seq local extension, classify_dependency on VCS.
+
 ## [v4.3.0] - 2026-08-27 - Root-Cause Fixes: Import, Torch Contract, Resolver Semantics, Health States
 
 ### Summary

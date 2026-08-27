@@ -84,9 +84,10 @@ Replaces the old "drop from requirements" pattern with a wheel-first resolver. N
 
 ### Key Functions
 - `resolve_dependencies(repo_dir, manifest)` — discover and classify deps
-- `check_wheel_available(dep, py_ver, cuda_ver, torch_ver)` — returns a `WheelCheckResult` (v4.3.0+) with explicit `available`, `source`, `is_direct_wheel`, and `reason` fields. The previous `str | None` return collapsed four distinct states (artifact exists / matches env / installable / install succeeded) into a single boolean and caused false-positive "wheel found" results.
+- `check_wheel_available(dep, py_ver, cuda_ver, torch_ver)` — returns a `WheelCheckResult` (v4.3.0+) with explicit `available`, `source`, `is_direct_wheel`, `reason`, and `is_vcs_spec` fields. The previous `str | None` return collapsed four distinct states (artifact exists / matches env / installable / install succeeded) into a single boolean and caused false-positive "wheel found" results.
 - `normalize_py312_pin(spec)` — rewrite Py3.12-incompatible pins or return None to drop
 - `install_resolved_deps(deps, venv_python, repo_dir, ...)` — execute wheel-first install with the three-tier non-interactive policy
+- `_is_vcs_spec(spec)` — detect VCS dependencies (git+http://, git+ssh://, etc.)
 
 ### Static Wheel Table
 `WHEEL_COMPAT_TABLE` maps native packages (torch-cluster, flash-attn, pytorch3d, spconv, etc.) to wheel availability per (py_ver, cuda_ver). Single source of truth — add entries as packages gain wheels for new versions.
@@ -126,6 +127,47 @@ torch to an ABI-incompatible version (e.g. 2.13.0).
 
 Manifest torch fields are preserved as **compatibility metadata** — they
 describe what the upstream repo tested with, not what will be installed.
+
+### VCS Dependency Wheel Substitution (v4.3.1+)
+
+For VCS dependencies (e.g. `git+https://github.com/JeffreyXiang/diffoctreerast.git`),
+uv's `--find-links` flag does **not** substitute a wheel for the VCS spec — it only
+tells uv where to look for *transitive dependency* wheels. The main package is
+always cloned and built from source.
+
+The only valid wheel substitution mechanisms for VCS specs are:
+
+1. **Direct `.whl` URL** — generated from `WHEEL_COMPAT_TABLE` `direct_url_template`
+   with a pinned version. uv installs the `.whl` file directly, ignoring the VCS spec.
+2. **PyPI** — if the package is published on PyPI, uv resolves it from there.
+
+An `index` URL in `WHEEL_COMPAT_TABLE` (e.g. a GitHub Releases landing page) is
+**not** a valid wheel target for a VCS spec. The resolver now detects this and
+returns `available=False` with a clear `reason`, so the dep falls through to the
+source-build path.
+
+**Behavior:**
+
+| Dependency class | Compat table entry | `check_wheel_available` result | Install path |
+|------------------|---------------------|-------------------------------|--------------|
+| Non-VCS, custom index (e.g. `kaolin`) | `index` URL | `available=True, source=index` | Install with `--find-links` |
+| Non-VCS, direct .whl template (e.g. pinned `flash-attn`) | `direct_url_template` | `available=True, is_direct_wheel=True` | Install the `.whl` URL directly |
+| Non-VCS, PyPI (e.g. `spconv-cu118`) | (no entry, or pypi) | `available=True, source=pypi` | Install from PyPI |
+| VCS, index-only (e.g. `diffoctreerast`, `nvdiffrast`) | `index` URL | `available=False, reason="VCS spec with index-only wheel source..."` | **Source build** (per policy) |
+| VCS, direct .whl template | `direct_url_template` | `available=True, is_direct_wheel=True` | Install the `.whl` URL directly |
+| VCS, no compat entry | (no entry) | `available=False, reason="VCS spec with no compat table entry..."` | **Source build** (per policy) |
+
+**Fallback handling:** For VCS specs, `_get_fallback_sources()` filters out
+index-page fallbacks (they are not real wheel targets). PyPI is kept but the
+caller skips it for VCS specs (it would just clone the Git repo again).
+
+**Why this matters:** Previously, the resolver logged "Wheel found" for
+`diffoctreerast` and then ran `uv pip install --find-links <releases-page>
+git+https://...diffoctreerast.git`, which cloned the Git repo and built from
+source. The logs were misleading. The new logs clearly distinguish:
+
+- `"Verified wheel target for diffoctreerast: direct .whl URL"` — real wheel install
+- `"No verified wheel for diffoctreerast: VCS spec with index-only wheel source...; source build required"` — honest
 
 ## Component-Level State Machine
 

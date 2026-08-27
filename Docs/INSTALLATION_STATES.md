@@ -317,6 +317,30 @@ output format (mesh, Gaussian splat, structured latent, sparse voxel). These
 are not "nice-to-have" — they enable specific outputs. Marking them optional
 would silently disable representations.
 
+## VCS Dependency Wheel Resolution (v4.3.1+)
+
+VCS dependencies (e.g. `git+https://github.com/JeffreyXiang/diffoctreerast.git`)
+require special handling because uv's `--find-links` flag does **not** substitute
+a wheel for a VCS spec — it only tells uv where to look for *transitive
+dependency* wheels. The main package is always cloned and built from source.
+
+The resolver now distinguishes:
+
+| Dependency class | Compat table entry | `check_wheel_available` | Install path |
+|------------------|---------------------|------------------------|--------------|
+| Non-VCS, custom index | `index` URL | `available=True` | Install with `--find-links` |
+| Non-VCS, direct `.whl` template | `direct_url_template` | `available=True, is_direct_wheel=True` | Install the `.whl` URL directly |
+| Non-VCS, PyPI | (no entry or `pypi`) | `available=True, source=pypi` | Install from PyPI |
+| VCS, index-only (e.g. `diffoctreerast`, `nvdiffrast`) | `index` URL | `available=False, reason="VCS spec with index-only..."` | **Source build** |
+| VCS, direct `.whl` template | `direct_url_template` | `available=True, is_direct_wheel=True` | Install the `.whl` URL directly |
+| VCS, no compat entry | (no entry) | `available=False, reason="VCS spec with no compat table entry..."` | **Source build** |
+
+A VCS dep with an index-only source (like `diffoctreerast` pointing to a GitHub
+Releases page) is **not** a verified wheel target. It falls through to the
+source-build path, where the representation-required/optional/required policy
+applies as normal. The logs clearly say "No verified wheel" rather than
+misleading "Wheel found".
+
 ## Repair
 
 The `POST /api/v1/admin/repair/{provider_name}` endpoint is manifest-driven: it:

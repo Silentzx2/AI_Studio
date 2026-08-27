@@ -438,11 +438,32 @@ class WheelCheckResult:
     returning "pypi" even though PyPI has no flash-attn wheel) and
     false negatives (e.g., spconv-cu118 not matching the spconv
     pattern). See Issue 5 in the root-cause debugging prompt.
+
+    v4.3.1+: Added `is_vcs_spec` to explicitly distinguish VCS dependencies
+    (git+https://...) from regular PyPI specs. A VCS spec with only an
+    `index` wheel source is NOT a real wheel installation — uv will clone
+    the Git repo and build from source regardless of `--find-links`.
+    The caller must treat this as "no verified wheel" and fall through
+    to the source-build path. See "AI Studio — Fix diffoctreerast
+    Wheel Resolution and Native Build Loop.md".
     """
-    available: bool          # True if a compatible wheel source is known
+    available: bool          # True if a verified, installable wheel target exists
     source: str | None       # "pypi", direct .whl URL, or index page URL
     is_direct_wheel: bool    # True if source is a .whl URL (not an index)
     reason: str | None       # Why not available (if available=False)
+    is_vcs_spec: bool = False  # True if the dep.spec is a VCS URL (git+http://...)
+
+
+def _is_vcs_spec(spec: str) -> bool:
+    """Return True if the dependency spec is a VCS URL (git+http, git+ssh, etc.).
+
+    ponytail: VCS specs require git clone + source build. A `--find-links`
+    URL alongside a VCS spec does NOT substitute a wheel — uv still clones
+    the repo. Only a direct `.whl` URL (or PyPI) can substitute a wheel
+    for a VCS spec.
+    """
+    s = spec.strip()
+    return s.startswith("git+") or s.startswith("git@") or s.startswith("hg+") or s.startswith("svn+")
 
 
 def check_wheel_available(
@@ -454,20 +475,32 @@ def check_wheel_available(
     """Check if a compatible prebuilt wheel exists for a native dependency.
 
     Returns a WheelCheckResult distinguishing:
-      - available: a wheel source is known and matches the environment
+      - available: a VERIFIED, installable wheel target exists for this dep
       - source: where to get it ("pypi", direct .whl, or index page)
       - is_direct_wheel: True for direct .whl URLs vs index pages
       - reason: why not available (if not)
+      - is_vcs_spec: True if the dep.spec is a VCS URL
+
+    v4.3.1+: For VCS dependencies (e.g. git+https://...diffoctreerast.git),
+    an `index` URL in WHEEL_COMPAT_TABLE is NOT treated as a verified wheel
+    target. uv will clone the Git repo and build from source regardless of
+    `--find-links`. Only a direct `.whl` URL (generated from a
+    `direct_url_template` with a pinned version) or PyPI is accepted as
+    "available" for VCS specs. This prevents the false-positive
+    "wheel found" → "Git source build" loop reported in the
+    diffoctreerast/nvdiffrast bug.
 
     Uses the static WHEEL_COMPAT_TABLE (no network calls). The caller is
     responsible for actually attempting the install and recording success
-    or failure separately — "available" only means a source is known,
-    not that installation will succeed.
+    or failure separately — "available" means a real wheel target is
+    known, not merely a metadata URL.
     """
     if py_ver is None:
         py_ver = _py_ver_str()
     if cuda_ver is None:
         cuda_ver = _cuda_ver_short()
+
+    vcs_spec = _is_vcs_spec(dep.spec)
 
     # Normalize CUDA version: "12.2" -> "122", "12.0" -> "120"
     _cuda_normalized = cuda_ver.replace(".", "") if cuda_ver != "cpu" else "cpu"
@@ -476,15 +509,15 @@ def check_wheel_available(
         pat = info.get("pattern")
         if pat and pat.match(dep.spec):
             if not info.get("wheel_available", False):
-                return WheelCheckResult(False, None, False, "no wheel available for this package")
+                return WheelCheckResult(False, None, False, "no wheel available for this package", vcs_spec)
             # Check Python version compatibility
             supported_py = info.get("python", [])
             if supported_py and py_ver not in supported_py:
-                return WheelCheckResult(False, None, False, f"Python {py_ver} not in supported list {supported_py}")
+                return WheelCheckResult(False, None, False, f"Python {py_ver} not in supported list {supported_py}", vcs_spec)
             # Check CUDA compatibility (try both normalized and original)
             supported_cuda = info.get("cuda", [])
             if supported_cuda and _cuda_normalized not in supported_cuda and cuda_ver not in supported_cuda:
-                return WheelCheckResult(False, None, False, f"CUDA {cuda_ver} not in supported list {supported_cuda}")
+                return WheelCheckResult(False, None, False, f"CUDA {cuda_ver} not in supported list {supported_cuda}", vcs_spec)
             # Check for direct wheel URL template (highest priority)
             direct_url_template = info.get("direct_url_template")
             if direct_url_template and torch_ver:
@@ -505,7 +538,7 @@ def check_wheel_available(
                         torch=torch_ver,
                         python=py_ver,
                     )
-                    return WheelCheckResult(True, direct_url, True, None)
+                    return WheelCheckResult(True, direct_url, True, None, vcs_spec)
             # Build the wheel source/index URL
             index = info.get("index")
             if index and torch_ver:
@@ -520,9 +553,31 @@ def check_wheel_available(
             # caller will try fallbacks. Mark as available but the caller
             # must still verify install success.
             is_direct = source.startswith("http") and source.endswith(".whl")
-            return WheelCheckResult(True, source, is_direct, None)
+            # v4.3.1 fix: for VCS specs, an `index` URL is NOT a verified wheel.
+            # uv will clone the Git repo and build from source regardless of
+            # --find-links. Only "pypi" or a direct .whl URL can substitute
+            # a wheel for a VCS spec. Reject index-only sources so the
+            # resolver falls through to the source-build path.
+            if vcs_spec and not is_direct and source != "pypi":
+                return WheelCheckResult(
+                    False, None, False,
+                    f"VCS spec with index-only wheel source ({source}) — "
+                    f"--find-links does not substitute a wheel for a VCS spec; "
+                    f"source build required",
+                    True,
+                )
+            return WheelCheckResult(True, source, is_direct, None, vcs_spec)
 
-    return WheelCheckResult(False, None, False, "no wheel entry in compat table")
+    # No compat table entry at all. For VCS specs, the only viable path
+    # is source build. Do not lie about "pypi" availability.
+    if vcs_spec:
+        return WheelCheckResult(
+            False, None, False,
+            f"VCS spec ({dep.spec}) with no compat table entry — source build required",
+            True,
+        )
+
+    return WheelCheckResult(False, None, False, "no wheel entry in compat table", vcs_spec)
 
 
 # ---------------------------------------------------------------------------
@@ -598,10 +653,24 @@ def _get_fallback_sources(dep: Dependency, py_ver: str, cuda_ver: str, torch_ver
     """Get fallback wheel sources for a dependency when primary source fails.
 
     Returns a list of source identifiers/URLs to try in order.
+
+    v4.3.1: For VCS specs, only DIRECT .whl URLs are real fallbacks.
+    Generic releases pages, PyPI, and index pages cannot substitute a wheel
+    for a VCS spec — uv will clone the Git repo regardless. We filter
+    those out here so the caller does not log misleading
+    "Trying fallback source" lines that are followed by another source build.
     """
     sources: list[str] = []
+    is_vcs = _is_vcs_spec(dep.spec)
     for name, url, is_whl in FALLBACK_SOURCES.get(dep.name, []):
+        if is_vcs:
+            # For VCS specs, only direct .whl URLs are real fallbacks.
+            # A generic releases/index page is not — uv will still clone
+            # the Git repo. PyPI is filtered out by the caller.
+            if not is_whl:
+                continue
         if url == "pypi":
+            # PyPI is included but the caller will skip it for VCS specs.
             sources.append("pypi")
         elif is_whl and "{" not in url:
             sources.append(url)
@@ -746,22 +815,42 @@ def install_resolved_deps(
 
         if wheel_result.available:
             wheel_source = wheel_result.source
-            # Wheel available — install it directly
-            _log(f"Wheel source found for {dep.name} (source: {wheel_source}, direct_wheel: {wheel_result.is_direct_wheel})")
-            # ponytail: distinguish direct .whl URLs from index pages.
-            # .whl URLs are installed directly; index pages use --find-links.
-            is_direct_whl = wheel_result.is_direct_wheel
-            is_index_page = wheel_source.startswith("http") and not is_direct_whl
-            install_args = ["pip", "install", "--python", str(venv_python), "--no-deps", dep.spec]
-            if wheel_source == "pypi":
-                pass  # Install from PyPI (default)
-            elif is_direct_whl:
-                # Direct wheel URL - use as package spec directly
-                install_args = ["pip", "install", "--python", str(venv_python), "--no-deps", wheel_source]
-            elif is_index_page:
-                install_args += ["--find-links", wheel_source]
+            # v4.3.1: log truthfully. "Verified wheel target" means we have
+            # either a direct .whl URL or PyPI — both of which uv can install
+            # as a real wheel substitution. An index page is not accepted for
+            # VCS specs (see check_wheel_available).
+            if wheel_result.is_direct_wheel:
+                _log(f"Verified wheel target for {dep.name}: direct .whl URL")
+            elif wheel_source == "pypi":
+                _log(f"Wheel candidate for {dep.name}: PyPI (will verify by install)")
             else:
-                install_args += ["--find-links", wheel_source]
+                _log(f"Wheel source for {dep.name}: index page {wheel_source}")
+            # ponytail: for VCS specs, the ONLY valid install target is a
+            # direct .whl URL. We never pass the VCS spec + --find-links
+            # because uv will clone the Git repo and build from source,
+            # silently ignoring --find-links for the main package. This
+            # check is a defensive guard — check_wheel_available already
+            # rejects index-only sources for VCS specs.
+            if wheel_result.is_vcs_spec and not wheel_result.is_direct_wheel:
+                _log(
+                    f"  Rejecting non-direct wheel source for VCS dep {dep.name}; "
+                    f"source build required"
+                )
+                pending_builds.append(dep)
+                continue
+            is_direct_whl = wheel_result.is_direct_wheel
+            # Build install command. The key fix: when we have a direct
+            # .whl URL, we install THAT URL (not dep.spec). When we have
+            # PyPI, we install dep.spec (which uv resolves from PyPI).
+            # We never combine a VCS/git spec with --find-links.
+            if is_direct_whl:
+                # Direct wheel URL - install that URL directly, ignoring
+                # the VCS spec. This is the only way to actually substitute
+                # a wheel for a VCS dependency.
+                install_args = ["pip", "install", "--python", str(venv_python), "--no-deps", wheel_source]
+            else:
+                # PyPI: install the package name (dep.spec or the name part)
+                install_args = ["pip", "install", "--python", str(venv_python), "--no-deps", dep.spec]
 
             code, output = _run_uv(install_args, cwd=repo_dir)
             if code == 0:
@@ -774,13 +863,36 @@ def install_resolved_deps(
                 fallback_sources = _get_fallback_sources(dep, py_ver, cuda_ver, torch_ver)
                 fallback_success = False
                 for fb_source in fallback_sources:
+                    # v4.3.1: for VCS specs, --find-links to a generic page
+                    # is not a real fallback. Only direct .whl URLs and
+                    # PyPI can substitute a wheel for a VCS spec.
+                    if dep.spec.startswith("git+") and not fb_source.startswith("http") and not fb_source.endswith(".whl"):
+                        # Skip non-URL fallbacks for VCS specs
+                        if fb_source == "pypi":
+                            # PyPI doesn't host diffoctreerast/nvdiffrast;
+                            # this will just clone the Git repo. Skip it
+                            # to avoid the misleading "fallback selected"
+                            # log followed by another source build.
+                            _log(
+                                f"  Skipping PyPI fallback for VCS dep {dep.name} "
+                                f"(not on PyPI; would just clone the Git repo)"
+                            )
+                            continue
                     _log(f"Trying fallback source for {dep.name}: {fb_source}")
                     fb_is_whl = fb_source.startswith("http") and fb_source.endswith(".whl")
-                    fb_args = ["pip", "install", "--python", str(venv_python), "--no-deps", dep.spec]
                     if fb_is_whl:
+                        # Direct .whl fallback — install it directly
                         fb_args = ["pip", "install", "--python", str(venv_python), "--no-deps", fb_source]
-                    elif fb_source.startswith("http"):
-                        fb_args += ["--find-links", fb_source]
+                    elif dep.spec.startswith("git+"):
+                        # VCS spec: --find-links does not work. Skip.
+                        _log(
+                            f"  Fallback {fb_source} is an index page and cannot "
+                            f"substitute a wheel for VCS spec {dep.name}; skipping"
+                        )
+                        continue
+                    else:
+                        # Non-VCS spec: index page can be used as --find-links
+                        fb_args = ["pip", "install", "--python", str(venv_python), "--no-deps", dep.spec, "--find-links", fb_source]
                     fb_code, fb_output = _run_uv(fb_args, cwd=repo_dir)
                     if fb_code == 0:
                         dep.state = "wheel_installed"
@@ -794,7 +906,15 @@ def install_resolved_deps(
                     dep.wheel_source = None
                     pending_builds.append(dep)
         else:
-            # No wheel available — needs build decision
+            # No verified wheel — needs build decision
+            if wheel_result.is_vcs_spec:
+                _log(
+                    f"No verified wheel for VCS dep {dep.name}: {wheel_result.reason}"
+                )
+            else:
+                _log(
+                    f"No verified wheel for {dep.name}: {wheel_result.reason}"
+                )
             pending_builds.append(dep)
 
     # Handle pending builds
