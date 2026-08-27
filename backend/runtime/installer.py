@@ -1272,10 +1272,32 @@ def _uv_install(
     # lacks the full ML stack and may conflict with its own deps).
     extra = EXTRA_DEPS.get(repo_name)
     if extra:
+        # ponytail: install extra deps without upgrading existing packages
+        # (especially torch). The manifest's torch version must be preserved
+        # to avoid ABI incompatibilities with the backend venv.
         code_e, out_e = _run_uv(
-            ["pip", "install", "--python", str(venv_python), *extra],
+            ["pip", "install", "--python", str(venv_python), "--no-deps", *extra],
             cwd=repo_dir,
         )
+        if code_e != 0:
+            # Fallback: try with deps but then restore torch version
+            logger.warning(
+                "Extra deps %s (no-deps) failed for %s: %s",
+                extra, repo_name, out_e[:200],
+            )
+            code_e, out_e = _run_uv(
+                ["pip", "install", "--python", str(venv_python), *extra],
+                cwd=repo_dir,
+            )
+            if code_e == 0:
+                # Restore torch to manifest version if it was upgraded
+                torch_ver = manifest.get("environment", {}).get("torch")
+                if torch_ver:
+                    _run_uv(
+                        ["pip", "install", "--python", str(venv_python),
+                         f"torch=={torch_ver}", "--no-deps"],
+                        cwd=repo_dir,
+                    )
         if code_e != 0:
             logger.warning(
                 "Extra deps %s install failed for %s (per-model venv): %s",
