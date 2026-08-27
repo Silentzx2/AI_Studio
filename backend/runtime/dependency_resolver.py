@@ -346,17 +346,24 @@ def resolve_dependencies(repo_dir: Path, manifest: dict | None = None) -> list[D
         for spec in manifest.get("dependencies", {}).get("native", []) or []:
             dep = classify_dependency(spec)
             dep.kind = DependencyKind.NATIVE
-            # Skip native deps that are in one_of (handled separately below)
-            if dep.name and dep.name.lower() in one_of_specs:
+            # Skip native deps that are in one_of (handled separately below).
+            # Normalize hyphens/underscores so flash-attn and flash_attn match.
+            dep_key = dep.name.lower().replace("-", "_") if dep.name else ""
+            if dep_key and dep_key in one_of_specs:
                 continue
             _add(dep)
-        # Handle one_of: only install the first available alternative
-        if one_of_specs:
-            # Add the first one_of alternative as optional
-            first_alt = list(one_of_specs)[0]
+        # Handle one_of: only install the first declared alternative.
+        # Keep manifest order; never convert to a set because that makes the
+        # selected backend nondeterministic.
+        one_of_list = [
+            alt for alt in (manifest.get("attention_backend", {}).get("one_of", []) or [])
+            if isinstance(alt, str)
+        ]
+        if one_of_list:
+            first_alt = one_of_list[0]
             dep = classify_dependency(first_alt)
             dep.kind = DependencyKind.NATIVE
-            dep.optional = True
+            dep.required = False
             _add(dep)
         return deps
 
@@ -525,6 +532,7 @@ LOCAL_EXTENSION_PATHS: dict[str, str] = {
 OPTIONAL_NATIVE_DEPS: set[str] = {
     "flash-attn",
     "flash_attn",
+    "xformers",
     "nvdiffrast",
     "diffoctreerast",
     "mip-splatting",
@@ -689,12 +697,12 @@ def install_resolved_deps(
             # .whl URLs are installed directly; index pages use --find-links.
             is_direct_whl = wheel_source.startswith("http") and wheel_source.endswith(".whl")
             is_index_page = wheel_source.startswith("http") and not is_direct_whl
-            install_args = ["pip", "install", "--python", str(venv_python), dep.spec]
+            install_args = ["pip", "install", "--python", str(venv_python), "--no-deps", dep.spec]
             if wheel_source == "pypi":
                 pass  # Install from PyPI (default)
             elif is_direct_whl:
                 # Direct wheel URL - use as package spec directly
-                install_args = ["pip", "install", "--python", str(venv_python), wheel_source]
+                install_args = ["pip", "install", "--python", str(venv_python), "--no-deps", wheel_source]
             elif is_index_page:
                 install_args += ["--find-links", wheel_source]
             else:
@@ -713,9 +721,9 @@ def install_resolved_deps(
                 for fb_source in fallback_sources:
                     _log(f"Trying fallback source for {dep.name}: {fb_source}")
                     fb_is_whl = fb_source.startswith("http") and fb_source.endswith(".whl")
-                    fb_args = ["pip", "install", "--python", str(venv_python), dep.spec]
+                    fb_args = ["pip", "install", "--python", str(venv_python), "--no-deps", dep.spec]
                     if fb_is_whl:
-                        fb_args = ["pip", "install", "--python", str(venv_python), fb_source]
+                        fb_args = ["pip", "install", "--python", str(venv_python), "--no-deps", fb_source]
                     elif fb_source.startswith("http"):
                         fb_args += ["--find-links", fb_source]
                     fb_code, fb_output = _run_uv(fb_args, cwd=repo_dir)
@@ -773,8 +781,18 @@ def install_resolved_deps(
                         should_build = choice == "y"
                     except (EOFError, KeyboardInterrupt):
                         should_build = False
+                elif dep.name in OPTIONAL_NATIVE_DEPS:
+                    # One-click/bootstrap must never compile optional CUDA extensions
+                    # just because nvcc happens to exist. A wheel failure should
+                    # degrade cleanly; explicit/manual native builds remain available
+                    # through allow_build=True or an interactive confirmation.
+                    should_build = False
+                    _log(
+                        f"Skipping optional native dependency {dep.name} after wheel failure "
+                        f"(source build disabled in non-interactive mode)"
+                    )
                 elif has_cuda and has_toolkit:
-                    # Non-interactive with toolkit: auto-build
+                    # Required native dependency with a buildable CUDA toolkit.
                     should_build = True
                     _log(f"Auto-building {dep.name} (CUDA toolkit detected, non-interactive mode)...")
                 else:
@@ -791,7 +809,7 @@ def install_resolved_deps(
                     ext_dir = repo_dir / local_path
                     if ext_dir.exists():
                         _log(f"Installing {dep.name} from local extension: {ext_dir}")
-                        build_args = ["pip", "install", "--python", str(venv_python), str(ext_dir), "--no-build-isolation"]
+                        build_args = ["pip", "install", "--python", str(venv_python), str(ext_dir), "--no-build-isolation", "--no-deps"]
                     else:
                         _log(f"Local extension not found: {ext_dir} — skipping")
                         dep.state = "skipped"
@@ -817,7 +835,7 @@ def install_resolved_deps(
                         import subprocess as _sp
                         import os as _os
                         with _tf.TemporaryDirectory() as _tmpdir:
-                            _clone_cmd = ["git", "clone", "--depth", "1", git_url, _tmpdir]
+                            _clone_cmd = ["git", "clone", "--depth", "1", "--recurse-submodules", git_url, _tmpdir]
                             _clone_result = _sp.run(_clone_cmd, capture_output=True, timeout=120)
                             if _clone_result.returncode != 0:
                                 _log(f"  Git clone failed for {dep.name}: {_clone_result.stderr.decode()[:200]}")
@@ -827,9 +845,9 @@ def install_resolved_deps(
                             if not _os.path.isdir(_subdir_path):
                                 _log(f"  Subdirectory not found: {_subdir_path}")
                                 raise Exception(f"Subdirectory not found: {subdir}")
-                            build_args = ["pip", "install", "--python", str(venv_python), _subdir_path, "--no-build-isolation"]
+                            build_args = ["pip", "install", "--python", str(venv_python), _subdir_path, "--no-build-isolation", "--no-deps"]
                     else:
-                        build_args = ["pip", "install", "--python", str(venv_python), dep.spec, "--no-build-isolation"]
+                        build_args = ["pip", "install", "--python", str(venv_python), dep.spec, "--no-build-isolation", "--no-deps"]
                 # Add build dependencies for known packages
                 if dep.name in ("torch-cluster", "torch-scatter", "torch-sparse", "pyg_lib"):
                     # These need torch to be installed first

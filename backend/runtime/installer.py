@@ -1320,11 +1320,17 @@ def _verify_and_fix_critical_packages(venv_python: Path, repo_dir: Path, req_blo
             logger.warning("Package %s failed import check, force-reinstalling...", pkg)
             pkg_name = "pillow" if pkg == "PIL" else pkg
             if uv_path:
-                _run(
-                    [uv_path, "pip", "install", "--python", str(venv_python),
-                     "--force-reinstall", "--no-cache-dir", pkg_name],
-                    cwd=str(repo_dir),
-                )
+                if pkg_name == "torch":
+                    # Never reinstall unpinned torch here: that can silently
+                    # pull a newer ABI-incompatible build. The central torch
+                    # stack helper pins it to the backend's exact build.
+                    _install_torch_stack(venv_python, repo_dir)
+                else:
+                    _run(
+                        [uv_path, "pip", "install", "--python", str(venv_python),
+                         "--force-reinstall", "--no-cache-dir", pkg_name],
+                        cwd=str(repo_dir),
+                    )
 
 
 # ---------------------------------------------------------------------------
@@ -2269,6 +2275,16 @@ def _prepare_runtime_venv(
                 logger.info("Installed extra deps %s for %s", extra, repo_name)
         else:
             logger.error("uv not found - cannot install extra deps for %s", repo_name)
+
+    # Final ABI guard: native/model dependencies must not leave a different
+    # torch stack in the per-model venv.
+    code, output = _install_torch_stack(venv_python, repo_dir, log_cb=log_cb)
+    if code != 0:
+        return {
+            "success": False,
+            "error": f"Final torch stack re-lock failed: {output[:300]}",
+            **components,
+        }
 
     return {"success": True, **components}
 

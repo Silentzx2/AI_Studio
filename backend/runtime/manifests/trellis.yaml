@@ -46,9 +46,11 @@ dependencies:
     - "kaolin==0.18.0"
     - "git+https://github.com/NVlabs/nvdiffrast.git"
   attention_backend:
+    # Prefer xformers for one-click installs. flash-attn is optional and
+    # frequently has no compatible wheel for the selected torch/Python pair.
     one_of:
-      - "flash-attn"
       - "xformers"
+      - "flash-attn"
 weights:
   primary:
     repo: "microsoft/TRELLIS-image-large"
