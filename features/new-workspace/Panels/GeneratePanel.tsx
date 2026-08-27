@@ -119,7 +119,7 @@ export const GeneratePanel: React.FC = () => {
 
     try {
       startUpload(file.name, file.size);
-      const res = await apiClient.uploadFile<{ data: { url: string } }>(
+      const res = await apiClient.uploadFile<{ url: string; width?: number; height?: number; filename?: string; size_bytes?: number }>(
         '/api/v1/upload/image',
         file,
         (loaded, total) => updateProgress(loaded)
@@ -127,7 +127,7 @@ export const GeneratePanel: React.FC = () => {
       finishUpload();
       setGenerationSettings(prev => ({
         ...prev,
-        image: res.data.url
+        image: res.url
       }));
     } catch (err) {
       failUpload();
