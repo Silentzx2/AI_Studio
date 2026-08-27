@@ -528,6 +528,7 @@ OPTIONAL_NATIVE_DEPS: set[str] = {
     "nvdiffrast",
     "diffoctreerast",
     "mip-splatting",
+    "diff-gaussian-rasterization",
     "vox2seq",
     "kaolin",
 }
@@ -807,6 +808,9 @@ def install_resolved_deps(
                         subdir = _subdir_match.group(1).strip()
                         # Extract the base git URL (without fragment)
                         git_url = _re.sub(r'#.*$', '', dep.spec)
+                        # ponytail: strip git+ prefix — pip uses git+https:// but
+                        # git clone only understands https://
+                        git_url = _re.sub(r'^git\+', '', git_url)
                         _log(f"Installing {dep.name} from git subdirectory: {subdir}")
                         # Clone to a temp dir and install from subdirectory
                         import tempfile as _tf
