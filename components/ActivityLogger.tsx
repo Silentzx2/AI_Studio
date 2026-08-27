@@ -21,7 +21,8 @@ import { useAppStore } from '@/stores/useAppStore';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-const ORIGINAL_FETCH = window.fetch;
+// Store original fetch at module scope (only in browser)
+const ORIGINAL_FETCH = typeof window !== 'undefined' ? window.fetch : null;
 
 const LOG_ENDPOINT = '/api/v1/system/log';
 
@@ -82,7 +83,7 @@ export function ActivityLogger() {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
         const start = performance.now();
         try {
-          const res = await ORIGINAL_FETCH(input, init);
+          const res = await ORIGINAL_FETCH!(input, init);
           if (!url.includes(LOG_ENDPOINT) && !isPollingEndpoint(url)) {
             const durationMs = Math.round(performance.now() - start);
             const entry: ActivityEntry = {
