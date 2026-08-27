@@ -95,9 +95,20 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "pattern": re.compile(r"^flash[-_]attn($|==|>=|<=|!=|~=)"),
     },
     "nvdiffrast": {
-        # nvdiffrast has no PyPI wheel — prebuilt wheels from third-party
+        # nvdiffrast has no PyPI wheel — prebuilt wheels are hosted on
+        # MiroPsota's GitHub Releases. The index page at
+        # https://miropsota.github.io/torch_packages_builder/nvdiffrast/
+        # lists the available wheels, whose actual download URLs point to
+        # https://github.com/MiroPsota/torch_packages_builder/releases/download/...
+        # Verified: nvdiffrast-0.4.0+253ac4fpt2.5.1cu124-cp310-cp310-linux_x86_64.whl
+        # is a real 18.5MB wheel reachable at the constructed URL.
+        # The wheel filename embeds the torch+CUDA version in the local
+        # version identifier, so we use a direct_url_template (no {version}
+        # placeholder needed) and let check_wheel_available construct the
+        # exact URL from the runtime torch/cuda/python versions.
         "wheel_available": True,
-        "index": "https://miropsota.github.io/torch_packages_builder",
+        "index": None,
+        "direct_url_template": "https://github.com/MiroPsota/torch_packages_builder/releases/download/nvdiffrast-0.4.0+253ac4f/nvdiffrast-0.4.0+253ac4fpt{torch}cu{cuda}-cp{python_nodot}-cp{python_nodot}-linux_x86_64.whl",
         "python": ["3.10", "3.11", "3.12"],
         "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^(git\+)?.*nvdiffrast"),
@@ -561,10 +572,16 @@ def check_wheel_available(
                 version = ""
                 if "==" in dep.spec:
                     version = dep.spec.split("==")[1].strip()
-                # ponytail: skip direct URL if version is unpinned — template
-                # produces invalid filename like "flash_attn-+cu124..." with empty
-                # version. Fall through to index/PyPI instead.
-                if not version:
+                elif info.get("version"):
+                    version = info["version"]
+                # ponytail: skip direct URL if version is required by the
+                # template but unavailable — that produces invalid filenames
+                # like "flash_attn-+cu124...". However, some templates (e.g.
+                # nvdiffrast's GitHub Releases URL) embed the version in the
+                # path/filename without a {version} placeholder, so they work
+                # fine for unpinned VCS specs. Only skip when the template
+                # actually contains {version} and we have no value for it.
+                if not version and "{version}" in direct_url_template:
                     pass  # fall through to index/PyPI
                 else:
                     cv = cuda_ver if cuda_ver == "cpu" else _cuda_normalized
@@ -573,6 +590,7 @@ def check_wheel_available(
                         cuda=cv,
                         torch=torch_ver,
                         python=py_ver,
+                        python_nodot=py_ver.replace(".", ""),
                     )
                     return WheelCheckResult(True, direct_url, True, None, vcs_spec)
             # Build the wheel source/index URL
@@ -631,8 +649,10 @@ FALLBACK_SOURCES: dict[str, list[tuple[str, str, bool]]] = {
         ("nvidia-s3-torch2.5.1cu124", "https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.5.1_cu124.html", False),
     ],
     "nvdiffrast": [
-        ("miropsota-index", "https://miropsota.github.io/torch_packages_builder", False),
-        ("pypi", "pypi", False),
+        # nvdiffrast uses a direct_url_template (GitHub Releases wheel), so
+        # no fallback sources are needed. If the direct wheel install fails
+        # (e.g. unsupported CUDA version), the resolver falls through to
+        # source build via pending_builds.
     ],
     "diffoctreerast": [
         ("github-releases", "https://github.com/iiiytn1k/sd-webui-some-stuff/releases", False),

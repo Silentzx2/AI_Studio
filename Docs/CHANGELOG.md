@@ -1,5 +1,55 @@
 # AI 3D Studio — Changelog
 
+## [v4.3.3] - 2026-08-27 - Fix nvdiffrast VCS-to-Wheel Path
+
+### Summary
+After verifying the actual artifact URLs for `nvdiffrast` and `diffoctreerast`, confirmed that `nvdiffrast` has real downloadable prebuilt wheels on GitHub Releases (`MiroPsota/torch_packages_builder`), while `diffoctreerast`'s configured releases page returns 404 and has no wheel. Implemented a direct wheel URL path for `nvdiffrast` so the resolver installs the real `.whl` instead of falling through to source build. `diffoctreerast` remains on source-build path (correct — no wheel exists).
+
+### Artifact Verification
+
+**nvdiffrast:**
+- Index page `https://miropsota.github.io/torch_packages_builder/nvdiffrast/` lists 402 real `.whl` files.
+- Actual download URLs point to GitHub Releases: `https://github.com/MiroPsota/torch_packages_builder/releases/download/...`
+- Verified exact wheel for our environment (Python 3.10, Torch 2.5.1, CUDA 12.4): `nvdiffrast-0.4.0+253ac4fpt2.5.1cu124-cp310-cp310-linux_x86_64.whl` (18.5MB, HTTP 200).
+- Result: **VERIFIED WHEEL → direct wheel installation → no source build**
+
+**diffoctreerast:**
+- Configured releases page `https://github.com/iiiytn1k/sd-webui-some-stuff/releases` returns HTTP 404.
+- No wheel artifact exists.
+- Result: **NO VERIFIED WHEEL → explicit source-build fallback → source build** (acceptable)
+
+### Fix
+
+- **`check_wheel_available()`**: Now uses `direct_url_template` for unpinned VCS specs when the template does not contain a `{version}` placeholder. Previously, any unpinned spec skipped the template and fell through to index/PyPI, which blocked the nvdiffrast wheel path.
+- **`nvdiffrast` WHEEL_COMPAT_TABLE entry**: Replaced `index` URL with `direct_url_template` pointing to the actual GitHub Releases asset URL pattern. Added `python_nodot` format placeholder (e.g. `310` instead of `3.10`) to match wheel filename conventions.
+- **`FALLBACK_SOURCES["nvdiffrast"]`**: Cleared — the direct wheel URL is the only valid install target for this VCS dep. If the direct wheel install fails (e.g. unsupported CUDA version), the resolver falls through to source build via `pending_builds`.
+
+### Behavior after fix
+- `nvdiffrast` (VCS, direct wheel URL) → `available=True, is_direct_wheel=True` → installs `.whl` directly, no Git clone, no source compilation
+- `diffoctreerast` (VCS, no wheel) → `available=False` → source-build path (unchanged)
+- `diff-gaussian-rasterization` (VCS+subdirectory, no wheel) → `available=False` → source-build path (unchanged)
+- `vox2seq` (local extension) → unchanged
+- `diso` (sdist-only) → `available=False` → source-build path (unchanged)
+- `flash-attn` (optional) → unchanged
+- `kaolin` (non-VCS index) → unchanged
+- `spconv-cu118` (PyPI) → unchanged
+
+### Files changed
+- `backend/runtime/dependency_resolver.py` — core fix
+
+### Verification
+12 regression tests pass covering: nvdiffrast VCS direct wheel URL construction (py310/py311/cu121/cu124), nvdiffrast VCS fallbacks empty, nvdiffrast wheel reachability (HEAD 200, 18.5MB), diffoctreerast still source-build-only, flash-attn unpinned fallback, kaolin non-VCS preserved, spconv-cu118 preserved, vox2seq LOCAL_EXTENSION_PATHS preserved, nvdiffrast non-VCS path, diffoctreerast fallbacks empty.
+
+### Preserved behavior
+- `diffoctreerast` source build (v4.3.1 preserved)
+- `diff-gaussian-rasterization` subdirectory source build (v4.3.2 preserved)
+- `vox2seq` HF dataset fallback (v4.3.2 preserved)
+- `diso` explicit sdist-only check (v4.3.2 preserved)
+- `flash-attn` optional skip (v4.3.0 preserved)
+- `kaolin` wheel installation (unchanged)
+- `spconv-cu118` PyPI wheel (unchanged)
+- Stable `torch==2.5.1+cu124` (v4.3.0 preserved)
+
 ## [v4.3.2] - 2026-08-27 - Fix vox2seq, diff-gaussian-rasterization, and diso Source Resolution
 
 ### Summary

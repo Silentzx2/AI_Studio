@@ -153,8 +153,8 @@ source-build path.
 | Non-VCS, custom index (e.g. `kaolin`) | `index` URL | `available=True, source=index` | Install with `--find-links` |
 | Non-VCS, direct .whl template (e.g. pinned `flash-attn`) | `direct_url_template` | `available=True, is_direct_wheel=True` | Install the `.whl` URL directly |
 | Non-VCS, PyPI (e.g. `spconv-cu118`) | (no entry, or pypi) | `available=True, source=pypi` | Install from PyPI |
-| VCS, index-only (e.g. `diffoctreerast`, `nvdiffrast`) | `index` URL | `available=False, reason="VCS spec with index-only wheel source..."` | **Source build** (per policy) |
-| VCS, direct .whl template | `direct_url_template` | `available=True, is_direct_wheel=True` | Install the `.whl` URL directly |
+| VCS, real direct wheel (e.g. `nvdiffrast`) | `direct_url_template` (no {version} needed) | `available=True, is_direct_wheel=True` | **Direct wheel install** |
+| VCS, index-only (e.g. `diffoctreerast`) | `index` URL | `available=False, reason="VCS spec with index-only..."` | **Source build** (per policy) |
 | VCS, no compat entry | (no entry) | `available=False, reason="VCS spec with no compat table entry..."` | **Source build** (per policy) |
 
 **Fallback handling:** For VCS specs, `_get_fallback_sources()` filters out
@@ -212,6 +212,28 @@ PyPI only provides sdist (source distribution) for all versions (0.1.0–0.1.4),
 so the resolver now performs a genuine wheel-first check and reports
 "No compatible prebuilt wheel verified for diso" before evaluating the
 source-build policy, instead of silently skipping the wheel lookup.
+
+### nvdiffrast Direct Wheel Install (v4.3.3+)
+
+`nvdiffrast` is a VCS dependency (`git+https://github.com/NVlabs/nvdiffrast.git`)
+that has real prebuilt wheels hosted on GitHub Releases
+(`MiroPsota/torch_packages_builder`). The index page at
+`miropsota.github.io/torch_packages_builder/nvdiffrast/` lists 402 `.whl` files;
+their actual download URLs point to GitHub Releases assets.
+
+The resolver now uses a `direct_url_template` for `nvdiffrast` that constructs
+the exact wheel URL from the runtime's torch, CUDA, and Python versions. The
+wheel filename embeds the torch+CUDA version in the local version identifier
+(e.g. `nvdiffrast-0.4.0+253ac4fpt2.5.1cu124-cp310-cp310-linux_x86_64.whl`),
+so the template uses `{torch}`, `{cuda}`, and `{python_nodot}` placeholders
+instead of a pinned `{version}`.
+
+Result: `nvdiffrast` installs the prebuilt wheel directly — no Git clone, no
+source compilation.
+
+**diffoctreerast remains on source-build path:** Its configured releases page
+(`iiiytn1k/sd-webui-some-stuff/releases`) returns HTTP 404 — no wheel artifact
+exists there. Source build is the correct and only path.
 
 ## Component-Level State Machine
 

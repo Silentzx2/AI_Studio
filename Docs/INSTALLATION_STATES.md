@@ -331,15 +331,26 @@ The resolver now distinguishes:
 | Non-VCS, custom index | `index` URL | `available=True` | Install with `--find-links` |
 | Non-VCS, direct `.whl` template | `direct_url_template` | `available=True, is_direct_wheel=True` | Install the `.whl` URL directly |
 | Non-VCS, PyPI | (no entry or `pypi`) | `available=True, source=pypi` | Install from PyPI |
-| VCS, index-only (e.g. `diffoctreerast`, `nvdiffrast`) | `index` URL | `available=False, reason="VCS spec with index-only..."` | **Source build** |
-| VCS, direct `.whl` template | `direct_url_template` | `available=True, is_direct_wheel=True` | Install the `.whl` URL directly |
+| VCS, real direct wheel URL (e.g. `nvdiffrast`) | `direct_url_template` | `available=True, is_direct_wheel=True` | **Direct wheel install** |
+| VCS, index-only (e.g. `diffoctreerast`) | `index` URL | `available=False, reason="VCS spec with index-only..."` | **Source build** |
 | VCS, no compat entry | (no entry) | `available=False, reason="VCS spec with no compat table entry..."` | **Source build** |
 
 A VCS dep with an index-only source (like `diffoctreerast` pointing to a GitHub
-Releases page) is **not** a verified wheel target. It falls through to the
-source-build path, where the representation-required/optional/required policy
+Releases page that 404s) is **not** a verified wheel target. It falls through to
+the source-build path, where the representation-required/optional/required policy
 applies as normal. The logs clearly say "No verified wheel" rather than
 misleading "Wheel found".
+
+**nvdiffrast exception:** The `miropsota.github.io/torch_packages_builder` index
+page lists 402 real `.whl` files hosted on GitHub Releases
+(`MiroPsota/torch_packages_builder`). Verified reachable wheel for our
+environment (Python 3.10, Torch 2.5.1, CUDA 12.4):
+`nvdiffrast-0.4.0+253ac4fpt2.5.1cu124-cp310-cp310-linux_x86_64.whl` (18.5MB).
+The resolver now installs this wheel directly via `direct_url_template`,
+bypassing the VCS spec entirely. No Git clone, no source compilation.
+
+**diffoctreerast:** The configured releases page (`iiiytn1k/sd-webui-some-stuff`)
+returns 404. No wheel exists. Source build is the correct and only path.
 
 ## Local Extension Resolution (v4.3.2+)
 
