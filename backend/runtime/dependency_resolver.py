@@ -504,6 +504,9 @@ OPTIONAL_NATIVE_DEPS: set[str] = {
     "flash_attn",
     "nvdiffrast",
     "diffoctreerast",
+    "mip-splatting",
+    "vox2seq",
+    "kaolin",
 }
 
 
@@ -772,7 +775,26 @@ def install_resolved_deps(
                         native_skipped = True
                         continue
                 else:
-                    build_args = ["pip", "install", "--python", str(venv_python), dep.spec, "--no-build-isolation"]
+                    # ponytail: handle git URLs with #subdirectory= fragment.
+                    # uv does not support pip's #subdirectory= syntax, so we must
+                    # install directly from the subdirectory path.
+                    import re as _re
+                    _subdir_match = _re.search(r'#subdirectory=([^&]+)', dep.spec)
+                    if _subdir_match:
+                        subdir = _subdir_match.group(1).strip()
+                        # Extract the base git URL (without fragment)
+                        git_url = _re.sub(r'#.*$', '', dep.spec)
+                        _log(f"Installing {dep.name} from git subdirectory: {subdir}")
+                        # Clone to a temp dir and install from subdirectory
+                        import tempfile as _tf
+                        import subprocess as _sp
+                        with _tf.TemporaryDirectory() as _tmpdir:
+                            _clone_cmd = ["git", "clone", "--depth", "1", git_url, _tmpdir]
+                            _sp.run(_clone_cmd, capture_output=True, timeout=120)
+                            _subdir_path = _tmpdir + "/" + subdir
+                            build_args = ["pip", "install", "--python", str(venv_python), _subdir_path, "--no-build-isolation"]
+                    else:
+                        build_args = ["pip", "install", "--python", str(venv_python), dep.spec, "--no-build-isolation"]
                 # Add build dependencies for known packages
                 if dep.name in ("torch-cluster", "torch-scatter", "torch-sparse", "pyg_lib"):
                     # These need torch to be installed first

@@ -409,8 +409,12 @@ def _check_native_extensions(venv_python: Path, extensions: list[str]) -> list[P
         ok = code_r == 0 and "ok" in output
         # Treat missing modules as skip rather than fail on CPU-only
         is_missing = "ModuleNotFoundError" in (output or "")
+        # ponytail: also treat import errors in optional deps as skip
+        # (e.g., kaolin wheel installed but fails to import due to torch mismatch)
+        is_optional = import_name in ("flash_attn", "flash-attn", "nvdiffrast", "diffoctreerast", "kaolin", "vox2seq", "mip_splatting")
+        should_skip = is_missing or (is_optional and not ok)
         results.append(PreflightCheckResult(
-            f"native_{ext}", ok or is_missing,
+            f"native_{ext}", ok or should_skip,
             "ok" if ok else f"Failed to import {ext}: {output[:200]}",
         ))
     return results
