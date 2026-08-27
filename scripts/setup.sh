@@ -17,13 +17,47 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
 BOLD='\033[1m'
+DIM='\033[2m'
 NC='\033[0m'
 
-log()   { echo -e "${GREEN}[SETUP]${NC} $*"; }
-warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
-err()   { echo -e "${RED}[ERROR]${NC} $*" >&2; }
-head_() { echo -e "\n${BOLD}${BLUE}===== $* =====${NC}\n"; }
+log()   { echo -e "${GREEN}[SETUP]${NC}  ✔ $*"; }
+warn()  { echo -e "${YELLOW}[WARN]${NC}   ⚠ $*"; }
+err()   { echo -e "${RED}[ERROR]{NC}  ✖ $*" >&2; }
+head_() { echo -e "\n${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n  ${BOLD}${MAGENTA}➜ $*${NC}\n"; }
+info()  { echo -e "${CYAN}[INFO]${NC}   ℹ $*"; }
+done_() { echo -e "  ${GREEN}${BOLD}✔ Done!${NC}"; }
+
+# ── Progress bar ─────────────────────────────────────────────────────────
+_progress_bar() {
+    local current=$1
+    local total=$2
+    local width=30
+    local percentage=$((current * 100 / total))
+    local filled=$((width * current / total))
+    local empty=$((width - filled))
+    printf "\r  ${DIM}[${NC}"
+    printf '%*s' "$filled" '' | tr ' ' '█'
+    printf "${DIM}"
+    printf '%*s' "$empty" '' | tr ' ' '░'
+    printf "${NC}] ${BOLD}%3d%%${NC}" "$percentage"
+}
+
+_spinner() {
+    local pid=$1
+    local msg="${2:─Waiting}"
+    local delay=0.08
+    local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    while kill -0 "$pid" 2>/dev/null; do
+        local temp=${spinstr#?}
+        printf "\r  ${CYAN}%s${NC}  %s" "${spinstr:0:1}" "$msg"
+        local spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+    done
+    wait "$pid" 2>/dev/null
+    printf "\r  ${GREEN}✔${NC}  %s\n" "$msg"
+}
 
 # ── Prerequisites ─────────────────────────────────────────────────────────────
 
@@ -94,7 +128,7 @@ detect_gpu() {
       else
         CUDA_VERSION="121"
       fi
-      log "CUDA (from driver): cu${CUDA_VERSION}"
+      log "CUDA (from driver): ${CYAN}cu${CUDA_VERSION}${NC}"
     fi
   fi
 
@@ -119,7 +153,7 @@ detect_gpu() {
       exit 1
     fi
     if [[ -t 0 ]] && [[ "${CI:-}" != "true" ]] && [[ "${NONINTERACTIVE:-}" != "1" ]]; then
-      read -rp "Continue without GPU? [y/N] " choice
+      read -rp "  Continue without GPU? [y/N] " choice
       if [[ "${choice,,}" != "y" ]]; then
         err "Aborting. Install an NVIDIA GPU + driver and re-run."
         exit 1
@@ -139,17 +173,15 @@ install_system_deps() {
     err "apt-get update failed — check network / apt sources"
     return 1
   }
-  apt-get install -y --no-install-recommends \
-    curl wget git unzip tar ca-certificates gnupg lsb-release \
-    build-essential software-properties-common \
-    libssl-dev libffi-dev zlib1g-dev libpq-dev \
-    ffmpeg libsm6 libxext6 libxrender-dev libglib2.0-0 \
-    libgl1 libopengl0 libx11-6 libxcb1 libxkbcommon-x11-0 \
-    libxrender1 libxi6 libxtst6 libdbus-1-3 libfontconfig1 libfreetype6 || {
+  local pkgs=(curl wget git unzip tar ca-certificates gnupg lsb-release build-essential software-properties-common libssl-dev libffi-dev zlib1g-dev libpq-dev ffmpeg libsm6 libxext6 libglib2.0-0 libgl1 libopengl0 libx11-6 libxcb1 libxkbcommon-x11-0 libxrender1 libxi6 libxtst6 libdbus-1-3 libfontconfig1 libfreetype6)
+  local total=${#pkgs[@]}
+  local i=0
+  # shellcheck disable=SC2068
+  apt-get install -y --no-install-recommends ${pkgs[@]} || {
     err "Failed to install system dependencies"
     return 1
   }
-  log "System dependencies installed"
+  log "System dependencies installed (${total} packages)"
 }
 
 install_python() {
@@ -727,18 +759,26 @@ build_frontend() {
         fi
     fi
 
-    npm run build || {
+    echo -e "  ${BOLD}Building Next.js (this takes 2-5 minutes)${NC}"
+    npm run build 2>&1 | while IFS= -r read -n1 char; do
+        case "$char" in
+            .) printf "${GREEN}█${NC}" ;;
+            $'\n') printf "\n" ;;
+        esac
+    done || {
         err "Frontend build failed"
         return 1
     }
-
+    echo ""
     log "Frontend built successfully"
 }
 # ── Services ───────────────────────────────────────────────────────────────────
 
 print_summary() {
   head_ "Setup Complete"
-  echo -e "${GREEN}${BOLD}AI 3D Studio v3.9.4 is ready!${NC}"
+  echo -e "  ${GREEN}${BOLD}╔════════════════════════════════════════════════════════════╗${NC}"
+  echo -e "  ${GREEN}${BOLD}║  ✅ AI 3D Studio v3.9.4 is ready!                        ║${NC}"
+  echo -e "  ${GREEN}${BOLD}╚════════════════════════════════════════════════════════════╝${NC}"
   echo
   echo -e "  ${CYAN}Database :${NC}  PostgreSQL on localhost:5432"
   echo -e "  ${CYAN}Cache    :${NC}  Redis on localhost:6379"
@@ -748,9 +788,9 @@ print_summary() {
   echo -e "    ${GREEN}bash scripts/start.sh${NC}"
   echo
   echo -e "  Services will start at:"
-  echo -e "    Frontend :  http://localhost:3000"
-  echo -e "    Backend  :  http://localhost:8000"
-  echo -e "    API Docs :  http://localhost:8000/docs"
+  echo -e "    Frontend :  ${CYAN}http://localhost:3000${NC}"
+  echo -e "    Backend  :  ${CYAN}http://localhost:8000${NC}"
+  echo -e "    API Docs :  ${CYAN}http://localhost:8000/docs${NC}"
   echo
   if [[ "$GPU_AVAILABLE" == "true" ]]; then
     echo -e "  ${GREEN}GPU Mode:${NC}  ${GPU_NAME}"
@@ -762,12 +802,15 @@ print_summary() {
   echo -e "  ${CYAN}3rd-party:${NC}  backend/third_party/"
   echo -e "  ${CYAN}Config   :${NC}  .env"
   echo
-  echo -e "  ${CYAN}Command reference:${NC}"
-  echo -e "    Start services  : bash scripts/start.sh"
-  echo -e "    Stop services   : bash scripts/stop.sh"
-  echo -e "    Restart services: bash scripts/restart.sh"
-  echo -e "    Manage services : bash manager.sh"
+  echo -e "  ${BOLD}Command reference:${NC}"
+  echo -e "    Start services  : ${GREEN}bash scripts/start.sh${NC}"
+  echo -e "    Stop services   : ${GREEN}bash scripts/stop.sh${NC}"
+  echo -e "    Restart services: ${GREEN}bash scripts/restart.sh${NC}"
+  echo -e "    Manage services : ${GREEN}bash manager.sh${NC}"
+  echo -e "    Colab launcher  : ${GREEN}bash scripts/colab.sh${NC}"
   echo
+  echo -e "  ${DIM}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+  echo -e "  ${MAGENTA}${BOLD}🚀 Happy 3D generating!${NC}\n"
 }
 
 # ── Entry point ────────────────────────────────────────────────────────────────

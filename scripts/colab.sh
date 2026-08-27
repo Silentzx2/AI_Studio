@@ -26,14 +26,53 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
 BOLD='\033[1m'
+DIM='\033[2m'
 NC='\033[0m'
 
-log()   { echo -e "${GREEN}[COLAB]${NC}  $*"; }
-info()  { echo -e "${CYAN}[INFO]${NC}   $*"; }
-warn()  { echo -e "${YELLOW}[WARN]${NC}   $*"; }
-err()   { echo -e "${RED}[ERROR]${NC}  $*" >&2; }
-step()  { echo -e "\n${BOLD}${BLUE}➜ $*${NC}"; }
+# ── Animated logging ─────────────────────────────────────────────────────
+log()   { echo -e "${GREEN}[COLAB]${NC}  ✔ $*"; }
+info()  { echo -e "${CYAN}[INFO]${NC}   ℹ $*"; }
+warn()  { echo -e "${YELLOW}[WARN]${NC}   ⚠ $*"; }
+err()   { echo -e "${RED}[ERROR]{NC}  ✖ $*" >&2; }
+step()  { echo -e "\n${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n  ${BOLD}${MAGENTA}➜ Step $*${NC}\n"; }
+done_() { echo -e "  ${GREEN}${BOLD}✔ Done!${NC}"; }
+
+# ── Progress bar ─────────────────────────────────────────────────────────
+_progress_bar() {
+    local current=$1
+    local total=$2
+    local width=30
+    local percentage=$((current * 100 / total))
+    local filled=$((width * current / total))
+    local empty=$((width - filled))
+    printf "\r  ${DIM}[${NC}"
+    printf '%*s' "$filled" '' | tr ' ' '█'
+    printf "${DIM}"
+    printf '%*s' "$empty" '' | tr ' ' '░'
+    printf "${NC}] ${BOLD}%3d%%${NC}" "$percentage"
+}
+
+_spinner() {
+    local pid=$1
+    local msg="${2:─Waiting}"
+    local delay=0.08
+    local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    while kill -0 "$pid" 2>/dev/null; do
+        local temp=${spinstr#?}
+        printf "\r  ${CYAN}%s${NC}  %s" "${spinstr:0:1}" "$msg"
+        local spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+    done
+    wait "$pid" 2>/dev/null
+    printf "\r  ${GREEN}✔${NC}  %s\n" "$msg"
+}
+
+_run_silent() {
+    "$@" &>/dev/null &
+    _spinner $! "$1"
+}
 
 # ── Project Root ────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -305,15 +344,23 @@ log "Node.js available: $(node --version 2>/dev/null || echo 'unknown')"
 # Install frontend deps
 if [[ ! -d node_modules ]]; then
     info "Installing npm dependencies..."
-    npm ci --prefer-offline --no-audit 2>>"$PROJECT_ROOT/logs/bootstrap.log" || npm install --no-audit 2>>"$PROJECT_ROOT/logs/bootstrap.log" || {
+    npm ci --prefer-offline --no-audit 2>>"$PROJECT_ROOT/logs/bootstrap.log" | while IFS= read -r line; do
+        if [[ "$line" =~ added|up.to.date|packages ]]; then
+            echo -e "    ${GREEN}✔${NC} $line"
+        fi
+    done || npm install --no-audit 2>>"$PROJECT_ROOT/logs/bootstrap.log" || {
         warn "Frontend dependency installation had issues"
     }
 fi
 
 # Build Next.js if needed
 if [[ ! -d .next ]]; then
-    info "Building Next.js..."
-    npm run build 2>>"$PROJECT_ROOT/logs/bootstrap.log" || warn "Next.js build failed — will retry on start"
+    echo -e "  ${BOLD}Building Next.js...${NC}"
+    npm run build 2>>"$PROJECT_ROOT/logs/bootstrap.log" | while IFS= read -r line; do
+        if [[ "$line" =~ Compiled|compiled|success|Ready|route ]]; then
+            echo -e "    ${CYAN}→${NC} $line"
+        fi
+    done || warn "Next.js build failed — will retry on start"
 fi
 
 log "Frontend dependencies ready"

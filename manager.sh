@@ -516,13 +516,28 @@ _systemd_service_submenu() {
     done
 }
 
-cmd_cf() {
+cmd_colab() {
+    banner
+    echo -e "${CYAN}Google Colab Launcher${NC}"
     echo ""
-    if [[ -f scripts/cloudflare.sh ]]; then
-        bash scripts/cloudflare.sh
-    else
-        echo -e "${RED}scripts/cloudflare.sh not found${NC}"
-    fi
+    echo "  1) Full bootstrap + start"
+    echo "  2) Setup only (skip start)"
+    echo "  3) Repos only (clone + deps)"
+    echo "  4) Weights only (download)"
+    echo "  b) Back"
+    echo ""
+    read -rp "Choice: " choice
+    echo ""
+    case "$choice" in
+        1) bash scripts/colab.sh ;;
+        2) bash scripts/colab.sh --skip-start ;;
+        3) bash scripts/colab.sh --repos-only ;;
+        4) bash scripts/colab.sh --weights-only ;;
+        b|B) return ;;
+        *) echo -e "${RED}Invalid choice${NC}" ;;
+    esac
+    echo ""
+    read -rp "Press Enter to continue..."
 }
 
 cmd_update_models() {
@@ -589,7 +604,44 @@ BANNER
   echo -e "${NC}  ${BOLD}Automatic Installer v3.2.0${NC}\n"
 }
 
-# ── Main menu loop ────────────────────────────────────────────────────────
+# ── Progress bar & spinner ─────────────────────────────────────────────────
+
+_progress_bar() {
+    local current=$1
+    local total=$2
+    local width=40
+    local percentage=$((current * 100 / total))
+    local filled=$((width * current / total))
+    local empty=$((width - filled))
+    printf "\r  [${GREEN}"
+    printf '%*s' "$filled" '' | tr ' ' '█'
+    printf "${NC}"
+    printf '%*s' "$empty" '' | tr ' ' '░'
+    printf "] ${BOLD}%3d%%${NC}" "$percentage"
+}
+
+_spinner() {
+    local pid=$1
+    local msg="${2:─Waiting}"
+    local delay=0.1
+    local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    while kill -0 "$pid" 2>/dev/null; do
+        local temp=${spinstr#?}
+        printf "\r  ${CYAN}%s${NC}  %s" "${spinstr:0:1}" "$msg"
+        local spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+    done
+    printf "\r  ${GREEN}✔${NC}  %s\n" "$msg"
+}
+
+_run_with_progress() {
+    local msg=$1
+    shift
+    echo -e "  ${BOLD}${msg}${NC}"
+    "$@" 2>&1 | while IFS= read -r line; do
+        echo "    ${line}"
+    done
+}
 _main_menu_() {
     while true; do
         banner
@@ -608,7 +660,8 @@ _main_menu_() {
         echo "  11) Clean old logs"
         echo "  12) Cloudflare"
         echo "  13) Update / install models"
-        echo "  14) Manage individual service"
+        echo "  14) Google Colab launcher"
+        echo "  15) Manage individual service"
         echo "  q)  Quit"
         echo ""
         read -rp "Choice: " choice
@@ -626,7 +679,8 @@ _main_menu_() {
             11) cmd_clean_logs ;;
             12) cmd_cf ;;
             13) cmd_update_models ;;
-            14) cmd_service ;;
+            14) cmd_colab ;;
+            15) cmd_service ;;
             q|Q) echo ""; echo -e "${GREEN}Goodbye!${NC}"; echo ""; exit 0 ;;
             *) echo -e "${RED}Invalid choice${NC}"; sleep 1 ;;
         esac
