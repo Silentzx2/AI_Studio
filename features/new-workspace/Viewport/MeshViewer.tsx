@@ -270,6 +270,17 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
         const format = currentAsset.format.toLowerCase();
         if (format === 'glb' || format === 'gltf') {
+          // ponytail: verify response is binary before parsing as GLB.
+          // Cloudflare tunnel or missing files can return HTML with 200 status.
+          const response = await fetch(sourceUrl);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const contentType = response.headers.get('content-type') || '';
+          if (contentType.includes('text/html') || contentType.includes('application/json')) {
+            const text = await response.text();
+            if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
+              throw new Error('Model file not found or served as HTML. Check Cloudflare tunnel and file path.');
+            }
+          }
           const loader = new GLTFLoader();
           const gltf = await loader.loadAsync(sourceUrl);
           if (!cancelled) {
@@ -283,6 +294,16 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             frameCamera(gltf.scene);
           }
         } else if (format === 'obj') {
+          // ponytail: verify response is text before parsing as OBJ
+          const objResponse = await fetch(sourceUrl);
+          if (!objResponse.ok) throw new Error(`HTTP ${objResponse.status}`);
+          const objContentType = objResponse.headers.get('content-type') || '';
+          if (objContentType.includes('text/html') || objContentType.includes('application/json')) {
+            const text = await objResponse.text();
+            if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
+              throw new Error('Model file not found or served as HTML. Check Cloudflare tunnel and file path.');
+            }
+          }
           const loader = new OBJLoader();
           const object = await loader.loadAsync(sourceUrl);
           if (!cancelled) {
@@ -306,6 +327,13 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         } else if (format === 'ply') {
           const response = await fetch(sourceUrl);
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const contentType = response.headers.get('content-type') || '';
+          if (contentType.includes('text/html') || contentType.includes('application/json')) {
+            const text = await response.text();
+            if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
+              throw new Error('Model file not found or served as HTML. Check Cloudflare tunnel and file path.');
+            }
+          }
           const buffer = await response.arrayBuffer();
           const loader = new PLYLoader();
           const geometry = loader.parse(buffer);
