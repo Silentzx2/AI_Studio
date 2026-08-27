@@ -68,10 +68,10 @@ class DownloadManager:
 
         storage = get_storage_config()
         try:
-            from runtime.installer import PROVIDER_METADATA
-            meta = PROVIDER_METADATA.get(model_id, {})
+            from runtime.manifest_loader import get_provider_metadata
+            meta = get_provider_metadata(model_id)
             repo = meta.get("repo")
-        except ImportError:
+        except Exception:
             repo = None
 
         # Canonical per-model weights directory (third_party/<repo>/weights/)

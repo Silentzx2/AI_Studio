@@ -142,15 +142,16 @@ async def runtime_health():
 @router.get("/options")
 async def get_runtime_options():
     try:
-        from runtime.gpu import get_gpu_info
-        from runtime.installer import (
-            OUTPUT_FORMATS,
-            PROVIDER_METADATA,
-            RENDER_QUALITIES,
-            RESOLUTIONS,
-            RIGGING_PROVIDERS,
-            TEXTURE_MODELS,
-        )
+            from runtime.gpu import get_gpu_info
+            from runtime.installer import (
+                OUTPUT_FORMATS,
+                RENDER_QUALITIES,
+                RESOLUTIONS,
+                RIGGING_PROVIDERS,
+                TEXTURE_MODELS,
+            )
+            from runtime.manifest_loader import get_all_provider_metadata  # noqa: PLC0415
+            provider_meta = get_all_provider_metadata()
 
         from app.core.providers.registry import get_registry
         from app.core.registry.model_registry import ModelRegistry
@@ -182,10 +183,16 @@ async def get_runtime_options():
                 }
             return {"colab_incompatible": False, "colab_skip_reason": None}
 
-        # --- Build three_d_models from PROVIDER_METADATA ---
+        try:
+            from runtime.manifest_loader import get_all_provider_metadata  # noqa: PLC0415
+            provider_meta = get_all_provider_metadata()
+        except Exception:
+            provider_meta = {}
+
+        # --- Build three_d_models from manifests ---
         three_d_models = []
         seen_ids: set[str] = set()
-        for name, meta in PROVIDER_METADATA.items():
+        for name, meta in provider_meta.items():
             if meta.get("category") != "3d_generation":
                 continue
             avail = registry.get_availability(name)
@@ -619,7 +626,8 @@ class RepoActionRequest(BaseModel):
 
 @router.post("/update")
 async def update_repo(req: RepoActionRequest, background_tasks: BackgroundTasks):
-    from runtime.installer import REPOS, clone_repo
+    from runtime.installer import clone_repo
+    from runtime.manifest_loader import REPOS
 
     # ponytail: update only the specific repo, not everything
     if req.repo not in REPOS:
@@ -636,7 +644,8 @@ async def update_repo(req: RepoActionRequest, background_tasks: BackgroundTasks)
 async def repair_repo(req: RepoActionRequest, background_tasks: BackgroundTasks):
     import shutil
 
-    from runtime.installer import REPOS, clone_repo, install_repo_deps
+    from runtime.installer import clone_repo, install_repo_deps
+    from runtime.manifest_loader import REPOS
     from runtime.storage import get_storage_config
 
     # ponytail: repair only the specific repo, not everything.

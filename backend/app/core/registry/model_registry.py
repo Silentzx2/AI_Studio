@@ -32,8 +32,8 @@ class ModelRegistry:
             return pid in _loadable
 
         try:
-            from runtime.installer import PROVIDER_METADATA  # noqa: PLC0415
-            _vram_map = {k: v.get("vram_required_mb", 0) for k, v in PROVIDER_METADATA.items()}
+            from runtime.manifest_loader import get_all_provider_metadata  # noqa: PLC0415
+            _vram_map = {k: v.get("vram_required_mb", 0) for k, v in get_all_provider_metadata().items()}
         except Exception:
             _vram_map = {}
 

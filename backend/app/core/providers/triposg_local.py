@@ -23,7 +23,7 @@ for p in (TRIPOSG_REPO, TRIPOSG_SCRIPTS):
         sys.path.insert(0, str(p))
 
 # CRITICAL: prepend the per-model venv's site-packages (where diffusers and other
-# inference libs are installed by the installer's EXTRA_DEPS) to sys.path BEFORE
+# inference libs are installed by the manifest's dependencies.extra) to sys.path BEFORE
 # the dependency import check below. Without this, `import diffusers` fails at
 # import time and TripoSG permanently reports "deps not available" even though
 # they are installed in the per-model venv. This mirrors hunyuan3d_local /

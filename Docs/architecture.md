@@ -202,9 +202,53 @@ for dependency installation. `install_repo_deps()` in `runtime/installer.py` now
   is retained for backward-compatible callers that still pass it (e.g.
   `RuntimeInstaller.install_repo_deps_for_models`).
 
-JSON/Python provider metadata tables (`REPOS`, `HF_MODELS`, `PROVIDER_METADATA`) remain
-authoritative only for **catalog/UI/API identity** (repo URLs, VRAM estimates, provider
-aliases, weight keys). They no longer drive dependency installation.
+### YAML-only installation architecture (v4.4.0+)
+
+The installation pipeline is **fully YAML-driven**. The Python installer and
+dependency resolver are generic engines; every model-specific detail lives in
+`backend/runtime/manifests/*.yaml`:
+
+- **WHAT** to install → `dependencies.python`, `dependencies.extra`,
+  `dependencies.native`, `dependencies.optional`,
+  `dependencies.representation_required`
+- **WHERE** to get it → `source.repo`, `source.ref`, `source.local_dir`,
+  `dependencies.local_extensions[*].path`,
+  `dependencies.local_extensions[*].hf_dataset`
+- **WHICH WHEEL** to try → `dependencies.wheels[*]` (per-package wheel policy:
+  pypi, custom index, direct wheel URL, VCS+direct wheel)
+- **WHICH FALLBACK** to try → `dependencies.fallbacks[*]` (genuinely
+  different installable sources, not duplicates)
+- **WHETHER SOURCE BUILD** is allowed → derived from `dependencies.optional`
+  vs `dependencies.representation_required` vs required semantics
+- **WHERE WEIGHTS** come from → `weights.primary.repo`,
+  `weights.auxiliary[*]`, `weights.allow_patterns`, `weights.ignore_patterns`
+- **WHICH BUILD STEPS** are required → `capabilities[*].native_steps`,
+  `preflight.*`
+
+#### Manifest loader (`backend/runtime/manifest_loader.py`)
+
+`manifest_loader` is the single access point for model metadata. It exposes:
+
+- `load_manifest(provider_name)` → returns the parsed YAML manifest dict
+- `load_all_manifests()` → dict of provider_name → manifest
+- `list_manifests()` → list of available provider names
+- `get_provider_metadata(provider_name)` → compatibility view for a single
+  provider (label, category, vram_required_mb, supports_*, etc.)
+- `get_all_provider_metadata()` → dict of provider_name → compatibility view
+
+For backward compatibility, the module also exports generated compatibility
+views `REPOS`, `HF_MODELS`, and `PROVIDER_METADATA`. These are **derived
+from manifests at import time** — they are not hardcoded configuration.
+Removing a manifest removes it from these views; the installer no longer
+maintains a separate Python-side model table.
+
+#### Adding a new model
+
+To add a new model, create `backend/runtime/manifests/<name>.yaml` with the
+required keys (name, source, environment, dependencies, weights, hardware,
+capabilities, preflight) and add a `provider_name → filename` entry to
+`_PROVIDER_MANIFEST_MAP` in `manifest_loader.py`. No Python-side
+configuration changes are required.
 
 ## Installation States
 

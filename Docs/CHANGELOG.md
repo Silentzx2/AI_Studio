@@ -1,6 +1,67 @@
 # AI 3D Studio — Changelog
 
-## [v4.3.4] - 2026-08-27 - YAML-Owned Model Installation Contract
+## [v4.4.0] - 2026-08-27 - YAML-Only Installation Architecture
+
+### Summary
+Refactored the entire installation pipeline to be **fully YAML-driven**. The installer
+and dependency resolver are now generic engines; all model-specific configuration
+lives in `backend/runtime/manifests/*.yaml`. The previous `REPOS`, `HF_MODELS`,
+`PROVIDER_METADATA` hardcoded tables in `installer.py` and `WHEEL_COMPAT_TABLE`,
+`FALLBACK_SOURCES`, `NATIVE_PKG_PATTERNS`, `LOCAL_EXTENSION_PATHS` in
+`dependency_resolver.py` have been removed.
+
+The new `backend/runtime/manifest_loader.py` is the single access point for
+model metadata. It exposes both raw manifest loading (`load_manifest`,
+`list_manifests`, `load_all_manifests`) and generated compatibility views
+(`REPOS`, `HF_MODELS`, `PROVIDER_METADATA`) that are derived from YAML at
+import time. Adding a new model now requires only a new YAML manifest file.
+
+### Behavior
+- **Manifest authority**: `install_repo_deps()` consumes `manifest["environment"]`
+  and `manifest["dependencies"]` directly. `REPOS[*]["requirements"]` is not consulted
+  when a manifest is present.
+- **Wheel policy**: `dependencies.wheels` is the single source of truth for
+  prebuilt wheel availability. The resolver distinguishes "configured source"
+  from "real installable wheel target" — a URL alone is not proof a wheel exists.
+- **Source build fallback**: Universal policy — YAML dependency → attempt wheel
+  → verify actual success → if no usable wheel, evaluate source-build policy
+  (required / optional / representation-required semantics are all YAML-declared).
+- **Local extensions**: `dependencies.local_extensions` declaratively declares
+  local native extensions with `path` + optional `hf_dataset` for fetch.
+  The resolver handles these generically — no hardcoded `vox2seq` implementation.
+- **Shared repositories**: If multiple manifests point to one repository
+  (e.g., Hunyuan3D-2 and Hunyuan3D-2-mini), one canonical `source.local_dir`
+  is used; provider-specific weight destinations are preserved.
+- **Torch ABI preserved**: The backend torch stack remains authoritative for
+  in-process providers. Manifest `environment.torch`/`environment.cuda` fields
+  are compatibility metadata only.
+
+### Files changed
+- `backend/runtime/manifest_loader.py` — new manifest loading/validation module
+- `backend/runtime/installer.py` — removed hardcoded `REPOS`, `HF_MODELS`,
+  `PROVIDER_METADATA`, `_PY312_REQ_REWRITES`, `_CUDA_ONLY_PKG_PATTERNS`
+- `backend/runtime/dependency_resolver.py` — removed `WHEEL_COMPAT_TABLE`,
+  `FALLBACK_SOURCES`, `NATIVE_PKG_PATTERNS`, `LOCAL_EXTENSION_PATHS`,
+  `PY312_PIN_REWRITES`
+- `backend/runtime/capability.py` — uses `manifest_loader` instead of
+  `installer.PROVIDER_METADATA`
+- `backend/runtime/engine.py` — uses `manifest_loader` instead of
+  `installer.PROVIDER_METADATA`
+- `backend/runtime/health.py` — uses `manifest_loader` instead of
+  `installer.REPOS`/`HF_MODELS`/`PROVIDER_METADATA`
+- `backend/runtime/storage.py` — uses `manifest_loader` instead of
+  `installer.PROVIDER_METADATA`
+- `backend/scripts/migrate_weights_to_per_model.py` — uses `manifest_loader`
+- `backend/app/workers/installation_workers.py` — uses `manifest_loader`
+- `backend/app/core/managers/download_manager.py` — uses `manifest_loader`
+- `backend/app/core/registry/model_registry.py` — uses `manifest_loader`
+- `backend/app/api/v1/runtime.py` — uses `manifest_loader`
+- `backend/app/api/v1/admin.py` — uses `manifest_loader`
+- `backend/app/api/v1/generation.py` — uses `manifest_loader`
+
+### Regression guard
+Do not reintroduce per-model install metadata tables into `installer.py` or
+`dependency_resolver.py`. Add model-specific install data to its manifest.
 
 ### Summary
 Moved model-specific installation configuration into the model manifests. Repository

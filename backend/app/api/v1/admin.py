@@ -1002,9 +1002,11 @@ async def list_models():
     try:
         from runtime.engine import get_engine
         from runtime.installer import (
-            PROVIDER_METADATA,
-            HF_MODELS,
             get_install_status,
+        )
+        from runtime.manifest_loader import (
+            get_all_provider_metadata,
+            HF_MODELS,
         )
         from runtime.storage import get_storage_config
         from runtime.capability import (
@@ -1017,7 +1019,7 @@ async def list_models():
         loaded_names = set(engine._loaded.keys()) if hasattr(engine, "_loaded") else set()
         install_status = get_install_status()
         models = []
-        for name, meta in PROVIDER_METADATA.items():
+        for name, meta in get_all_provider_metadata().items():
             inst = install_status.get(name, {})
             # Get actual paths for verification
             repo_name = meta.get("repo")
@@ -1137,8 +1139,8 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
                 result = install_provider(model_id, log_cb=_log_cb)
                 if result.get("success"):
                     storage = get_storage_config()
-                    from runtime.installer import PROVIDER_METADATA
-                    meta = PROVIDER_METADATA.get(model_id, {})
+                    from runtime.manifest_loader import get_provider_metadata
+                    meta = get_provider_metadata(model_id)
                     weight_key = meta.get("weight_key")
                     repo_name = meta.get("repo")
                     if weight_key:
@@ -1170,19 +1172,21 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
 
         def _run_repair() -> None:
             from runtime.installer import (
-                PROVIDER_METADATA,
-                REPOS,
                 clone_repo,
                 download_weights,
                 install_repo_deps,
                 get_install_status,
                 persist_provider_state,
             )
+            from runtime.manifest_loader import (
+                get_provider_metadata,
+                load_manifest,
+                REPOS,
+            )
             from runtime.storage import get_storage_config
-            from runtime.manifest_loader import load_manifest
 
             storage = get_storage_config()
-            meta = PROVIDER_METADATA.get(model_id, {})
+            meta = get_provider_metadata(model_id)
             repo_name = meta.get("repo")
 
             # Load manifest for repair guidance
@@ -1265,10 +1269,10 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
 
     elif action in ("delete", "uninstall"):
         try:
-            from runtime.installer import PROVIDER_METADATA
+            from runtime.manifest_loader import get_provider_metadata
             from runtime.storage import get_storage_config
             storage = get_storage_config()
-            meta = PROVIDER_METADATA.get(model_id, {})
+            meta = get_provider_metadata(model_id)
             weight_key = meta.get("weight_key")
             if weight_key:
                 weight_path = storage.get_weight_path(weight_key)
@@ -1974,13 +1978,14 @@ async def admin_runtime_action(req: RuntimeActionRequest):
 @router.get("/providers")
 async def list_providers():
     from runtime.engine import get_engine
-    from runtime.installer import PROVIDER_METADATA, get_install_status
+    from runtime.installer import get_install_status
+    from runtime.manifest_loader import get_all_provider_metadata
 
     engine = get_engine()
     loaded_names = set(engine._loaded.keys()) if hasattr(engine, "_loaded") else set()
     install_status = get_install_status()
     providers = []
-    for name, meta in PROVIDER_METADATA.items():
+    for name, meta in get_all_provider_metadata().items():
         inst = install_status.get(name, {})
         providers.append({
             "id": name,

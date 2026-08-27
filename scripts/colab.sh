@@ -496,7 +496,8 @@ try:
         is_model_preparable_for_colab,
         get_colab_incompatibility_reason,
     )
-    from runtime.installer import HF_MODELS, download_model_weights
+    from runtime.installer import download_model_weights
+    from runtime.manifest_loader import HF_MODELS
 except Exception as exc:
     print(f"  [FAIL] Could not import runtime modules: {exc}")
     sys.exit(1)
@@ -633,8 +634,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(".").resolve()))
 try:
     from runtime.capability import get_model_vram_required, is_model_preparable_for_colab, get_colab_incompatibility_reason, get_model_weight_size_gb
-    from runtime.installer import REPOS, PROVIDER_METADATA, EXTRA_DEPS
-    from runtime.manifest_loader import load_manifest
+    from runtime.installer import REPOS
+    from runtime.manifest_loader import PROVIDER_METADATA, load_manifest
 except Exception as exc:
     print(json.dumps({"error": str(exc)}))
     sys.exit(1)
@@ -653,11 +654,12 @@ for pid, meta in sorted(PROVIDER_METADATA.items()):
         manifest = load_manifest(pid)
         py_deps = len(manifest.get("dependencies", {}).get("python", []) or [])
         native_deps = len(manifest.get("dependencies", {}).get("native", []) or [])
-    except:
+        extra_deps = len(manifest.get("dependencies", {}).get("extra", []) or [])
+    except Exception:
         py_deps = 0
         native_deps = 0
-    extra = EXTRA_DEPS.get(repo_name, [])
-    total_deps = py_deps + native_deps + len(extra)
+        extra_deps = 0
+    total_deps = py_deps + native_deps + extra_deps
     disk_gb = (total_deps * 0.05) + weight_gb
     warnings = []
     if vram_mb > 10000:

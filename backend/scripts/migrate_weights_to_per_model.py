@@ -19,7 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from runtime.storage import get_storage_config
-from runtime.installer import PROVIDER_METADATA
+from runtime.manifest_loader import get_all_provider_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ def migrate_all() -> dict:
     storage = get_storage_config()
     results = {}
 
-    for provider_name, meta in PROVIDER_METADATA.items():
+    for provider_name, meta in get_all_provider_metadata().items():
         weight_key = meta.get("weight_key")
         repo_name = meta.get("repo")
         if not weight_key or not repo_name:

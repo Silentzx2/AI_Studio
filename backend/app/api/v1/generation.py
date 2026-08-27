@@ -194,8 +194,8 @@ async def create_generation(req: GenerationRequest):
     # Validate workspace/provider compatibility if workspace is specified
     if req.workspace:
         try:
-            from runtime.installer import PROVIDER_METADATA
-            meta = PROVIDER_METADATA.get(provider, {})
+            from runtime.manifest_loader import get_provider_metadata
+            meta = get_provider_metadata(provider)
             if not is_compatible_with_workspace(meta, req.workspace):
                 logger.warning(
                     "Incompatible workspace '%s' for provider '%s'",

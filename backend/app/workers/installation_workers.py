@@ -289,7 +289,6 @@ def run_native_build(self, provider_name: str, task_id: str) -> dict:
     for the duration of the build and releases it on completion or failure.
     """
     from runtime.installer import (
-        PROVIDER_METADATA,
         _acquire_native_build_lock,
         _canonical_provider_name,
         _release_native_build_lock,
@@ -299,12 +298,12 @@ def run_native_build(self, provider_name: str, task_id: str) -> dict:
         load_provider_state_from_db,
         persist_provider_state,
     )
-    from runtime.manifest_loader import load_manifest
+    from runtime.manifest_loader import get_provider_metadata
     from runtime.preflight import run_provider_preflight
     from runtime.storage import get_storage_config
 
     canonical_name = _canonical_provider_name(provider_name)
-    meta = PROVIDER_METADATA.get(canonical_name, {})
+    meta = get_provider_metadata(canonical_name)
     repo_name = meta.get("repo") or canonical_name
     storage = get_storage_config()
     repo_dir = storage.get_repo_path(repo_name)
