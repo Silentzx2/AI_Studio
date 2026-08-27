@@ -23,6 +23,15 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# Host-level compatibility tables (not model-specific).
+# These are generic Python/CUDA environment compatibility policies.
+from runtime.installer import _CUDA_ONLY_PKG_PATTERNS as _INSTALLER_CUDA_ONLY_PKG_PATTERNS
+from runtime.installer import _PY312_REQ_REWRITES as _INSTALLER_PY312_REQ_REWRITES
+
+# Map installer table names to local aliases for backward compatibility
+NATIVE_PKG_PATTERNS = _INSTALLER_CUDA_ONLY_PKG_PATTERNS
+PY312_PIN_REWRITES = _INSTALLER_PY312_REQ_REWRITES
+
 
 class DependencyKind(Enum):
     NORMAL = "normal"

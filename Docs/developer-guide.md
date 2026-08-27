@@ -68,6 +68,33 @@ Model installation is split into two strictly separated stages. Each stage is in
 - `POST /api/v1/runtime/download-weights` → Stage B
 - `POST /api/v1/runtime/install` → Stage A + B (backward compat)
 
+## YAML-Only Architecture (v4.4+)
+
+The installation pipeline is **fully YAML-driven**. The Python installer and
+dependency resolver are generic engines; every model-specific detail lives in
+`backend/runtime/manifests/*.yaml`. This means:
+
+- **No hardcoded model configuration**: All model-specific installation data
+  lives in YAML manifests. Adding a new model requires only a new YAML file.
+- **Manifest as single source of truth**: `backend/runtime/manifest_loader.py`
+  is the single access point for model metadata. It exposes `load_manifest()`,
+  `list_manifests()`, `get_provider_metadata()`, and `get_all_provider_metadata()`.
+  For backward compatibility, it also exports generated compatibility views
+  (`REPOS`, `HF_MODELS`, `PROVIDER_METADATA`) that are derived from YAML at
+  import time — they are not hardcoded configuration.
+- **Generic engine**: The installer and resolver use the manifest's fields
+  (`dependencies.python`, `dependencies.extra`, `dependencies.native`,
+  `dependencies.wheels`, `dependencies.local_extensions`, etc.) without
+  any model-specific knowledge.
+
+### Adding a new model
+
+To add a new model, create `backend/runtime/manifests/<name>.yaml` with the
+required keys (name, source, environment, dependencies, weights, hardware,
+capabilities, preflight) and add a provider_name → filename entry to
+`manifest_loader.py`'s `_PROVIDER_MANIFEST_MAP`. No Python-side
+configuration changes are required.
+
 ## Dependency Resolver (`backend/runtime/dependency_resolver.py`)
 
 The resolver is a generic execution engine. Per-model installation policy is declared

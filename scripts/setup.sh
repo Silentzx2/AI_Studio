@@ -524,7 +524,8 @@ logger = logging.getLogger(__name__)
 sys.path.insert(0, str(Path(".").resolve()))
 
 try:
-    from runtime.installer import REPOS, prepare_runtime, PROVIDER_METADATA
+    from runtime.installer import prepare_runtime
+    from runtime.manifest_loader import REPOS, PROVIDER_METADATA
     from runtime.storage import get_storage_config
 except Exception as exc:
     print(f"  [FAIL] Could not import runtime modules: {exc}")

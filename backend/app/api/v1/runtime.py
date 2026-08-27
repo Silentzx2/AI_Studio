@@ -142,16 +142,16 @@ async def runtime_health():
 @router.get("/options")
 async def get_runtime_options():
     try:
-            from runtime.gpu import get_gpu_info
-            from runtime.installer import (
-                OUTPUT_FORMATS,
-                RENDER_QUALITIES,
-                RESOLUTIONS,
-                RIGGING_PROVIDERS,
-                TEXTURE_MODELS,
-            )
-            from runtime.manifest_loader import get_all_provider_metadata  # noqa: PLC0415
-            provider_meta = get_all_provider_metadata()
+        from runtime.gpu import get_gpu_info
+        from runtime.installer import (
+            OUTPUT_FORMATS,
+            RENDER_QUALITIES,
+            RESOLUTIONS,
+            RIGGING_PROVIDERS,
+            TEXTURE_MODELS,
+        )
+        from runtime.manifest_loader import get_all_provider_metadata  # noqa: PLC0415
+        provider_meta = get_all_provider_metadata()
 
         from app.core.providers.registry import get_registry
         from app.core.registry.model_registry import ModelRegistry

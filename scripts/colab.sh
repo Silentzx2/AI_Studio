@@ -394,7 +394,8 @@ try:
         is_model_preparable_for_colab,
         get_colab_incompatibility_reason,
     )
-    from runtime.installer import REPOS, prepare_runtime, get_install_status
+    from runtime.installer import prepare_runtime, get_install_status
+    from runtime.manifest_loader import REPOS
 except Exception as exc:
     print(f"  [FAIL] Could not import runtime modules: {exc}")
     sys.exit(1)
@@ -553,7 +554,7 @@ from pathlib import Path
 logging.basicConfig(level=logging.INFO, format="  %(levelname)-5s %(name)s: %(message)s")
 sys.path.insert(0, str(Path(".").resolve()))
 try:
-    from runtime.installer import REPOS, PROVIDER_METADATA
+    from runtime.manifest_loader import REPOS, PROVIDER_METADATA
     from runtime.storage import get_storage_config
     from runtime.preflight import run_preflight_for_provider
 except Exception as exc:
@@ -634,7 +635,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(".").resolve()))
 try:
     from runtime.capability import get_model_vram_required, is_model_preparable_for_colab, get_colab_incompatibility_reason, get_model_weight_size_gb
-    from runtime.installer import REPOS
+    from runtime.manifest_loader import REPOS
     from runtime.manifest_loader import PROVIDER_METADATA, load_manifest
 except Exception as exc:
     print(json.dumps({"error": str(exc)}))

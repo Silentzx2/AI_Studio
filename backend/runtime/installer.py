@@ -211,57 +211,46 @@ def _canonical_provider_name(name: str) -> str:
     return PROVIDER_ALIASES.get(name, name)
 
 
-# ponytail: single source of truth for model capability + VRAM metadata.
-# Rules for editing:
-#   * `vram_required_mb` = verified NORMAL (full-texture) run requirement.
-#   * `low_vram_supported`/`low_vram_required_mb` = LOW VRAM mode is a VERIFIED
-#     feature of the code in this repo (engine + provider + accelerate loader).
-#     Do not fake capabilities — locked off unless verified, declare honestly.
-#   * `native_build_required` = install compiles a CUDA/native extension that
-#     takes 15-60 min. Such models are excluded from default/one-click installs.
-#   * `low_vram_strategy` = ordered hints for accelerate_loader, in priority
-#     order; the loader picks the strongest one available at runtime.
+# PROVIDER_METADATA is now generated from YAML manifests via manifest_loader.
+# The "mock" testing provider is appended here because it has no manifest.
 from runtime.manifest_loader import PROVIDER_METADATA as _MANIFEST_PROVIDER_METADATA
 
-PROVIDER_METADATA = {**_MANIFEST_PROVIDER_METADATA, 'mock': {
-    'label': 'Mock (Testing)',
-    'category': 'testing',
-    'supports_text_to_3d': True,
-    'supports_image_to_3d': True,
-    'supports_texture': False,
-    'vram_required_mb': 0,
-    'low_vram_supported': True,
-    'low_vram_required_mb': 0,
-    'low_vram_strategy': [],
-    'native_build_required': False,
-    'install_method': 'internal',
-    'capabilities': {
-        'supports_text_to_3d': True,
-        'supports_image_to_3d': True,
-        'supports_texture_generation': False,
-        'supports_texture_baking': False,
-        'supports_pbr': False,
-        'supports_uv': True,
-        'supports_glb': True,
-        'supports_obj': True,
-        'supports_fbx': True,
-        'supports_usdz': False,
-        'supports_gaussian': False,
-        'supports_mesh': True,
-        'supports_rigging': True,
-        'supports_part_separation': False,
-        'supports_detail_enhancement': False,
-        'supports_cpu_offload': False,
-        'supports_quantization': False,
+PROVIDER_METADATA = {**_MANIFEST_PROVIDER_METADATA, "mock": {
+    "label": "Mock (Testing)",
+    "category": "testing",
+    "supports_text_to_3d": True,
+    "supports_image_to_3d": True,
+    "supports_texture": False,
+    "vram_required_mb": 0,
+    "low_vram_supported": True,
+    "low_vram_required_mb": 0,
+    "low_vram_strategy": [],
+    "native_build_required": False,
+    "install_method": "internal",
+    "capabilities": {
+        "supports_text_to_3d": True,
+        "supports_image_to_3d": True,
+        "supports_texture_generation": False,
+        "supports_texture_baking": False,
+        "supports_pbr": False,
+        "supports_uv": True,
+        "supports_glb": True,
+        "supports_obj": True,
+        "supports_fbx": True,
+        "supports_usdz": False,
+        "supports_gaussian": False,
+        "supports_mesh": True,
+        "supports_rigging": True,
+        "supports_part_separation": False,
+        "supports_detail_enhancement": False,
+        "supports_cpu_offload": False,
+        "supports_quantization": False,
     },
-    'repo': None,
-    'weight_key': None,
-    'workspace_compatibility': ['mesh-generation', 'texture-generation', 'rigging', 'remesh', 'post-processing', 'animation'],
+    "repo": None,
+    "weight_key": None,
+    "workspace_compatibility": ["mesh-generation", "texture-generation", "rigging", "remesh", "post-processing", "animation"],
 }}
 
-
-TEXTURE_MODELS = 
-}
 
 TEXTURE_MODELS = [
     {"id": "hunyuan3d-2.1", "label": "Hunyuan3D 2.1 (recommended)"},
