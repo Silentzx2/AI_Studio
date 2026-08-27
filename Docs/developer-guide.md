@@ -169,6 +169,50 @@ source. The logs were misleading. The new logs clearly distinguish:
 - `"Verified wheel target for diffoctreerast: direct .whl URL"` — real wheel install
 - `"No verified wheel for diffoctreerast: VCS spec with index-only wheel source...; source build required"` — honest
 
+### Local Extension Resolution (v4.3.2+)
+
+Some model repos (e.g. TRELLIS) expect local extension directories that are
+not part of the git clone. For example, TRELLIS's `extensions/vox2seq` must
+be acquired separately from a HuggingFace dataset
+(`argojuni0506/TRELLIS-3D`).
+
+The resolver handles this via `LOCAL_EXTENSION_PATHS`, which now stores a
+tuple `(relative_path, hf_dataset_source)`:
+
+```python
+LOCAL_EXTENSION_PATHS = {
+    "vox2seq": ("extensions/vox2seq", "argojuni0506/TRELLIS-3D"),
+}
+```
+
+When the local extension is not found in the cloned repo, the resolver
+attempts to fetch it from the configured HF dataset. If the fetch also
+fails, the dep is marked `capability_degraded` (not silently skipped) so
+the runtime health correctly reflects that the structured latent capability
+is unavailable.
+
+### Git Subdirectory Source Resolution (v4.3.2+)
+
+VCS dependencies with `#subdirectory=` (e.g.
+`git+https://github.com/autonomousvision/mip-splatting.git#subdirectory=submodules/diff-gaussian-rasterization`)
+require cloning the full repo and installing from the subdirectory path. The
+resolver:
+
+1. Uses **full clone** (not `--depth 1`) with `--recurse-submodules` for
+   reliability.
+2. Verifies the subdirectory exists after clone.
+3. Verifies the subdirectory contains a Python package definition
+   (setup.py, pyproject.toml, or setup.cfg) before attempting install.
+4. If any check fails, the dep is marked `capability_degraded`.
+
+### diso Wheel Classification (v4.3.2+)
+
+`diso` is explicitly listed in `WHEEL_COMPAT_TABLE` with `wheel_available=False`.
+PyPI only provides sdist (source distribution) for all versions (0.1.0–0.1.4),
+so the resolver now performs a genuine wheel-first check and reports
+"No compatible prebuilt wheel verified for diso" before evaluating the
+source-build policy, instead of silently skipping the wheel lookup.
+
 ## Component-Level State Machine
 
 Fine-grained states for UI status reporting:

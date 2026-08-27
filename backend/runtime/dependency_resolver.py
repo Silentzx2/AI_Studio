@@ -174,6 +174,20 @@ WHEEL_COMPAT_TABLE: dict[str, dict] = {
         "cuda": _CUDA12_ALL,
         "pattern": re.compile(r"^kaolin($|==|>=|<=|!=|~=)"),
     },
+    "diso": {
+        # diso: NO prebuilt wheels on PyPI — only sdist (source distribution)
+        # for all versions (0.1.0–0.1.4). Verified at https://pypi.org/simple/diso/
+        # which lists only .tar.gz files. diso requires CUDA compilation from
+        # source. Marked as wheel_available=False so the resolver explicitly
+        # reports "no verified wheel" instead of falsely claiming PyPI has one.
+        # See "AI Studio — Current TODO: vox2seq and diff-gaussian-rasterization
+        # Source Resolution.md" (TODO 3).
+        "wheel_available": False,
+        "index": None,
+        "python": ["3.10", "3.11", "3.12"],
+        "cuda": _CUDA12_ALL,
+        "pattern": re.compile(r"^diso($|==|>=|<=|!=|~=)"),
+    },
 }
 
 # ponytail: kaolin NVIDIA S3 index URLs that are known to exist.
@@ -203,6 +217,14 @@ NATIVE_PKG_PATTERNS: list[re.Pattern] = [
     re.compile(r"^(git\+)?.*diffoctreerast"),
     re.compile(r"^bpy($|==)"),
     re.compile(r"^chumpy($|==)"),
+    # vox2seq is a local extension in TRELLIS — not on PyPI as a wheel.
+    # Classify as NATIVE so it goes through the local extension path
+    # (LOCAL_EXTENSION_PATHS) which downloads from the HF dataset.
+    re.compile(r"^vox2seq($|==|>=|<=|!=|~=)"),
+    # diff-gaussian-rasterization is a CUDA extension installed from
+    # mip-splatting's submodules/diff-gaussian-rasterization directory.
+    # Classify as NATIVE so it goes through the git subdirectory build path.
+    re.compile(r"^diff[-_]gaussian[-_]rasterization($|==|>=|<=|!=|~=)"),
 ]
 
 # Py3.12 incompatible pins — these specific versions have no cp312 wheel.
@@ -310,7 +332,21 @@ def classify_dependency(raw_spec: str) -> Dependency:
             name = re.sub(r'^git\+', '', line)
             name = re.sub(r'\.git.*$', '', name)
             name = name.split("/")[-1]
-        return Dependency(name=name, spec=line, kind=DependencyKind.NORMAL, required=True)
+        # ponytail: if the extracted name (or subdir path) matches a known
+        # native package pattern, classify as NATIVE so it goes through
+        # the native install path (wheel check + source build). This is
+        # needed for VCS+subdirectory deps like diff-gaussian-rasterization
+        # which are CUDA extensions, not normal Python packages.
+        _is_native = False
+        for _pat in NATIVE_PKG_PATTERNS:
+            if _pat.match(name) or _pat.match(subdir_path if subdir_match else name):
+                _is_native = True
+                break
+        return Dependency(
+            name=name, spec=line,
+            kind=DependencyKind.NATIVE if _is_native else DependencyKind.NORMAL,
+            required=True,
+        )
 
     name = re.split(r"[><=!~\[]", line, 1)[0].strip()
     return Dependency(name=name, spec=line, kind=DependencyKind.NORMAL, required=True)
@@ -609,10 +645,74 @@ FALLBACK_SOURCES: dict[str, list[tuple[str, str, bool]]] = {
 }
 
 # Packages installed from local directories within the cloned repo.
-# Key: package name, Value: relative path from repo root to the package directory
-LOCAL_EXTENSION_PATHS: dict[str, str] = {
-    "vox2seq": "extensions/vox2seq",
+# Key: package name, Value: tuple of (relative path in repo, optional
+# HuggingFace dataset source for fallback download).
+#
+# ponytail: vox2seq is a special case. The upstream TRELLIS repo (microsoft/TRELLIS)
+# does NOT include the `extensions/vox2seq` directory in its git clone — the
+# upstream setup.sh expects it to be present in the working directory from a
+# separate source. Per microsoft/TRELLIS issue #356, the correct acquisition
+# method is:
+#   hf download argojuni0506/TRELLIS-3D --repo-type dataset
+# which provides the `extensions/vox2seq` directory. We download it on demand
+# when the local path is not found in the cloned repo.
+LOCAL_EXTENSION_PATHS: dict[str, tuple[str, str | None]] = {
+    "vox2seq": ("extensions/vox2seq", "argojuni0506/TRELLIS-3D"),
 }
+
+
+def _fetch_local_extension_from_hf(
+    dep_name: str,
+    ext_dir: Path,
+    hf_dataset: str,
+    log_cb=None,
+) -> bool:
+    """Download a local extension directory from a HuggingFace dataset.
+
+    Used for packages like vox2seq that are not part of the upstream git clone
+    but are distributed as part of a HuggingFace dataset. Returns True on
+    success, False on failure.
+
+    The download uses `huggingface_hub.snapshot_download` to fetch the entire
+    dataset, then copies the extension directory to ext_dir. This is a
+    best-effort download — if the network is unavailable or the dataset
+    structure changes, the caller should handle the failure gracefully
+    (e.g., mark the dep as capability_degraded).
+    """
+    def _log(msg: str) -> None:
+        logger.info(msg)
+        if log_cb:
+            log_cb(msg)
+
+    try:
+        from huggingface_hub import snapshot_download
+    except ImportError:
+        _log(f"  huggingface_hub not available; cannot fetch {dep_name} from HF dataset {hf_dataset}")
+        return False
+
+    _log(f"  Fetching {dep_name} from HuggingFace dataset {hf_dataset}...")
+    try:
+        import shutil
+        # Download the dataset to a cache directory
+        cache_dir = snapshot_download(
+            repo_id=hf_dataset,
+            repo_type="dataset",
+            allow_patterns=["extensions/vox2seq/**", "extensions/vox2seq/*"],
+        )
+        src_dir = Path(cache_dir) / "extensions" / "vox2seq"
+        if not src_dir.exists():
+            _log(f"  {dep_name} not found in HF dataset {hf_dataset} (expected at extensions/vox2seq)")
+            return False
+        # Copy to the expected location
+        ext_dir.parent.mkdir(parents=True, exist_ok=True)
+        if ext_dir.exists():
+            shutil.rmtree(ext_dir)
+        shutil.copytree(src_dir, ext_dir)
+        _log(f"  Fetched {dep_name} to {ext_dir}")
+        return True
+    except Exception as exc:
+        _log(f"  Failed to fetch {dep_name} from HF dataset {hf_dataset}: {exc}")
+        return False
 
 # Packages that are truly optional — failure to install does NOT fail the
 # whole install. These are ALTERNATIVES where only one of a group is needed
@@ -999,12 +1099,29 @@ def install_resolved_deps(
                 _log(f"Building {dep.name} from source in {venv_python}...")
                 dep.state = "build_running"
                 # Check if this is a local extension (e.g., vox2seq in TRELLIS/extensions/)
-                local_path = LOCAL_EXTENSION_PATHS.get(dep.name)
-                if local_path:
+                local_ext = LOCAL_EXTENSION_PATHS.get(dep.name)
+                if local_ext:
+                    local_path, hf_dataset = local_ext
                     ext_dir = repo_dir / local_path
                     if ext_dir.exists():
                         _log(f"Installing {dep.name} from local extension: {ext_dir}")
                         build_args = ["pip", "install", "--python", str(venv_python), str(ext_dir), "--no-build-isolation", "--no-deps"]
+                    elif hf_dataset:
+                        # Local extension not in the cloned repo — try to fetch
+                        # it from the configured HuggingFace dataset source.
+                        _log(f"Local extension not found: {ext_dir}")
+                        if _fetch_local_extension_from_hf(
+                            dep.name, ext_dir, hf_dataset, log_cb=log_cb
+                        ):
+                            _log(f"Installing {dep.name} from fetched local extension: {ext_dir}")
+                            build_args = ["pip", "install", "--python", str(venv_python), str(ext_dir), "--no-build-isolation", "--no-deps"]
+                        else:
+                            _log(f"  Could not obtain {dep.name} — capability will be unavailable")
+                            dep.state = "capability_degraded"
+                            dep.error = f"Local extension {ext_dir} not found and HF dataset fetch failed"
+                            skipped.append(dep.name)
+                            native_skipped = True
+                            continue
                     else:
                         _log(f"Local extension not found: {ext_dir} — skipping")
                         dep.state = "skipped"
@@ -1025,21 +1142,45 @@ def install_resolved_deps(
                         # git clone only understands https://
                         git_url = _re.sub(r'^git\+', '', git_url)
                         _log(f"Installing {dep.name} from git subdirectory: {subdir}")
-                        # Clone to a temp dir and install from subdirectory
+                        # Clone to a temp dir and install from subdirectory.
+                        # ponytail: do NOT use --depth 1 with --recurse-submodules.
+                        # Shallow clones with --recurse-submodules have known issues
+                        # where the submodule content is not fetched. Some repos
+                        # (e.g. mip-splatting) contain the subdirectory as a regular
+                        # directory rather than a git submodule, in which case
+                        # --depth 1 alone would work — but --recurse-submodules
+                        # combined with --depth 1 can produce an incomplete tree.
+                        # Use a full clone for reliability. See "AI Studio —
+                        # Current TODO: vox2seq and diff-gaussian-rasterization
+                        # Source Resolution.md" (TODO 2).
                         import tempfile as _tf
                         import subprocess as _sp
                         import os as _os
                         with _tf.TemporaryDirectory() as _tmpdir:
-                            _clone_cmd = ["git", "clone", "--depth", "1", "--recurse-submodules", git_url, _tmpdir]
-                            _clone_result = _sp.run(_clone_cmd, capture_output=True, timeout=120)
+                            _clone_cmd = ["git", "clone", "--recurse-submodules", git_url, _tmpdir]
+                            _clone_result = _sp.run(_clone_cmd, capture_output=True, timeout=180)
                             if _clone_result.returncode != 0:
                                 _log(f"  Git clone failed for {dep.name}: {_clone_result.stderr.decode()[:200]}")
                                 raise Exception(f"Git clone failed for {dep.name}")
                             _subdir_path = _os.path.join(_tmpdir, subdir)
                             # Verify the subdirectory exists
                             if not _os.path.isdir(_subdir_path):
-                                _log(f"  Subdirectory not found: {_subdir_path}")
-                                raise Exception(f"Subdirectory not found: {subdir}")
+                                _log(f"  Subdirectory not found after clone: {_subdir_path}")
+                                raise Exception(f"Subdirectory not found after clone: {subdir}")
+                            # Verify the subdirectory contains a Python package
+                            # definition (setup.py, pyproject.toml, or setup.cfg)
+                            # before attempting install. This catches the case
+                            # where the subdirectory exists but is not a valid
+                            # Python distribution, which would produce a
+                            # confusing "Distribution not found" error from pip.
+                            _has_pkg = any(
+                                (_os.path.exists(_os.path.join(_subdir_path, f)))
+                                for f in ("setup.py", "pyproject.toml", "setup.cfg")
+                            )
+                            if not _has_pkg:
+                                _log(f"  Subdirectory {subdir} exists but contains no Python package definition (setup.py/pyproject.toml)")
+                                raise Exception(f"No Python package found in subdirectory: {subdir}")
+                            _log(f"  Cloned {git_url} and found subdirectory {subdir} with Python package definition")
                             build_args = ["pip", "install", "--python", str(venv_python), _subdir_path, "--no-build-isolation", "--no-deps"]
                     else:
                         build_args = ["pip", "install", "--python", str(venv_python), dep.spec, "--no-build-isolation", "--no-deps"]

@@ -341,6 +341,43 @@ source-build path, where the representation-required/optional/required policy
 applies as normal. The logs clearly say "No verified wheel" rather than
 misleading "Wheel found".
 
+## Local Extension Resolution (v4.3.2+)
+
+Some model repos (e.g. TRELLIS) expect local extension directories that are
+not part of the git clone. For example, TRELLIS's `extensions/vox2seq` must
+be acquired separately from a HuggingFace dataset
+(`argojuni0506/TRELLIS-3D`).
+
+The resolver handles this via `LOCAL_EXTENSION_PATHS`, which now stores a
+tuple `(relative_path, hf_dataset_source)`:
+
+```python
+LOCAL_EXTENSION_PATHS = {
+    "vox2seq": ("extensions/vox2seq", "argojuni0506/TRELLIS-3D"),
+}
+```
+
+When the local extension is not found in the cloned repo, the resolver
+attempts to fetch it from the configured HF dataset. If the fetch also
+fails, the dep is marked `capability_degraded` (not silently skipped) so
+the runtime health correctly reflects that the structured latent capability
+is unavailable.
+
+## Git Subdirectory Source Resolution (v4.3.2+)
+
+VCS dependencies with `#subdirectory=` (e.g.
+`git+https://github.com/autonomousvision/mip-splatting.git#subdirectory=submodules/diff-gaussian-rasterization`)
+require cloning the full repo and installing from the subdirectory path. The
+resolver:
+
+1. Uses **full clone** (not `--depth 1`) with `--recurse-submodules` for
+   reliability. Shallow clones with `--recurse-submodules` have known issues
+   where the submodule content is not fetched.
+2. Verifies the subdirectory exists after clone.
+3. Verifies the subdirectory contains a Python package definition
+   (setup.py, pyproject.toml, or setup.cfg) before attempting install.
+4. If any check fails, the dep is marked `capability_degraded`.
+
 ## Repair
 
 The `POST /api/v1/admin/repair/{provider_name}` endpoint is manifest-driven: it:

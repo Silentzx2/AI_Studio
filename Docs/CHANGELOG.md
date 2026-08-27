@@ -1,5 +1,55 @@
 # AI 3D Studio — Changelog
 
+## [v4.3.2] - 2026-08-27 - Fix vox2seq, diff-gaussian-rasterization, and diso Source Resolution
+
+### Summary
+Fixed three outstanding issues in the dependency resolver:
+1. **vox2seq** — local extension was stale (TRELLIS repo doesn't include `extensions/vox2seq`); added HuggingFace dataset fallback
+2. **diff-gaussian-rasterization** — git subdirectory clone used `--depth 1 --recurse-submodules` which produces incomplete trees; switched to full clone with better error handling
+3. **diso** — added to `WHEEL_COMPAT_TABLE` with `wheel_available=False` so the wheel lookup is explicit and the source-build decision is logged truthfully
+
+### TODO 1 — vox2seq
+
+**Root cause:** The `LOCAL_EXTENSION_PATHS["vox2seq"]` entry pointed to `extensions/vox2seq` within the cloned TRELLIS repo. However, the upstream microsoft/TRELLIS git clone does NOT include this directory — it must be acquired separately from a HuggingFace dataset (`argojuni0506/TRELLIS-3D`) per microsoft/TRELLIS issue #356.
+
+**Fix:**
+- Changed `LOCAL_EXTENSION_PATHS` to store a tuple `(relative_path, hf_dataset_source)` instead of just a path string
+- Added `_fetch_local_extension_from_hf()` function that downloads the extension from the configured HF dataset when the local path is not found
+- Updated the local extension handling in `install_resolved_deps()` to use the new tuple format and fall back to HF download
+- If the HF download also fails, the dep is marked `capability_degraded` (not silently skipped) so the runtime health correctly reflects that the structured latent capability is unavailable
+- Added `vox2seq` to `NATIVE_PKG_PATTERNS` so it's classified as NATIVE and routed through the native install path
+
+### TODO 2 — diff-gaussian-rasterization
+
+**Root cause:** The resolver used `git clone --depth 1 --recurse-submodules` for git+subdirectory deps. Shallow clones with `--recurse-submodules` have known issues where the submodule content is not fetched. The mip-splatting repo's `submodules/diff-gaussian-rasterization` is a regular directory (not a git submodule), but the combination of `--depth 1` and `--recurse-submodules` can still produce an incomplete tree.
+
+**Fix:**
+- Removed `--depth 1` from the git subdirectory clone command (now uses full clone with `--recurse-submodules`)
+- Added pre-install validation: verifies the subdirectory exists after clone AND contains a Python package definition (setup.py, pyproject.toml, or setup.cfg) before attempting install. This catches the "Distribution not found" error early with a clear message
+- Added `diff-gaussian-rasterization` to `NATIVE_PKG_PATTERNS` and updated `classify_dependency()` to classify VCS+subdirectory deps as NATIVE when the subdirectory name matches a native pattern
+
+### TODO 3 — diso
+
+**Root cause:** `diso` was not in `WHEEL_COMPAT_TABLE`, so the resolver skipped the wheel lookup step and went directly to source build. The log showed "CUDA toolkit detected → source build" without explaining that the wheel lookup was performed and found no wheel.
+
+**Fix:**
+- Added `diso` to `WHEEL_COMPAT_TABLE` with `wheel_available=False` and a comment explaining that PyPI only has sdist (no prebuilt wheels for any version 0.1.0–0.1.4)
+- Now the resolver explicitly checks for a wheel, reports "No compatible prebuilt wheel verified for diso", then evaluates the source-build policy
+
+### Files changed
+- `backend/runtime/dependency_resolver.py` — core fixes
+
+### Verification
+11 regression tests pass covering: LOCAL_EXTENSION_PATHS tuple format, diso wheel check, vox2seq classification, diff-gaussian-rasterization classification, all v4.3.1 preserved behavior (diffoctreerast, nvdiffrast, flash-attn, kaolin, spconv-cu118), utils3d normal git URL, graceful HF fetch failure.
+
+### Preserved behavior
+- `diffoctreerast` successful build (v4.3.1 VCS fix preserved)
+- `nvdiffrast` successful build (v4.3.1 VCS fix preserved)
+- `xformers` wheel installation (unchanged)
+- `kaolin` wheel installation (unchanged)
+- Stable `torch==2.5.1+cu124` after extra dependency installation (v4.3.0 fix preserved)
+- Optional `flash-attn` skip behavior (v4.3.0 fix preserved)
+
 ## [v4.3.1] - 2026-08-27 - Fix VCS Dependency Wheel Resolution and Native Build Loop
 
 ### Summary
