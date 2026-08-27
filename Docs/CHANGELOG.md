@@ -1,5 +1,15 @@
 # AI 3D Studio — Changelog
 
+## [v4.1.9] - 2026-08-27 - Import Error Fixes
+
+### Summary
+Fixed kaolin and transformers import errors during preflight validation.
+
+### Fixes
+- **kaolin**: Pinned to 0.18.0 in TRELLIS manifest, added to WHEEL_COMPAT_TABLE with NVIDIA S3 index
+- **transformers**: Pinned to >=4.40.0 in TripoSG manifest
+- **Preflight**: Better error messages for import failures
+
 ## [v4.1.8] - 2026-08-27 - Wheel Installation & Build Fixes
 
 ### Summary
