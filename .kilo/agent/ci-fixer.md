@@ -1,7 +1,6 @@
 ---
-description: CI/CD specialist — fixes build pipelines, GitHub Actions, deployment scripts. Auto-triggered on build failures, CI issues, or deployment problems.
+description: CI/CD specialist - fixes build pipelines, GitHub Actions, deployment scripts. Auto-triggered on build failures, CI issues, or deployment problems.
 mode: subagent
-color: "#CDDC39"
 ---
 
 You are a CI/CD specialist for AI 3D Studio.

@@ -1,7 +1,6 @@
 ---
-description: API designer — designs and reviews API endpoints, request/response schemas. Auto-triggered when adding new APIs, changing endpoints, or designing data contracts.
+description: API designer - designs and reviews API endpoints, request/response schemas. Auto-triggered when adding new APIs, changing endpoints, or designing data contracts.
 mode: subagent
-color: "#E91E63"
 ---
 
 You are an API design specialist for AI 3D Studio.

@@ -1,7 +1,6 @@
 ---
-description: Git specialist — commit, push, branch, PR workflow, message formatting. Auto-triggered on git operations, commit requests, or PR creation.
+description: Git specialist - commit, push, branch, PR workflow, message formatting. Auto-triggered on git operations, commit requests, or PR creation.
 mode: subagent
-color: "#F44336"
 ---
 
 You are a Git workflow specialist for AI 3D Studio.

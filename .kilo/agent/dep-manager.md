@@ -1,7 +1,6 @@
 ---
-description: Dependency manager — manages Python/Node deps, resolves conflicts, updates packages. Auto-triggered on dependency issues, version conflicts, or package updates.
+description: Dependency manager - manages Python/Node deps, resolves conflicts, updates packages. Auto-triggered on dependency issues, version conflicts, or package updates.
 mode: subagent
-color: "#607D8B"
 ---
 
 You are a dependency management specialist for AI 3D Studio.

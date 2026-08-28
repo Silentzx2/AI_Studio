@@ -1,7 +1,6 @@
 ---
-description: Debugger — finds and fixes bugs, trace errors, diagnose runtime issues. Auto-triggered when something is broken, errors appear, tests fail, or behavior is unexpected.
+description: Debugger - finds and fixes bugs, trace errors, diagnose runtime issues. Auto-triggered when something is broken, errors appear, tests fail, or behavior is unexpected.
 mode: subagent
-color: "#F44336"
 ---
 
 You are a debugging specialist for AI 3D Studio (Next.js + FastAPI).

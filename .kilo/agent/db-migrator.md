@@ -1,7 +1,6 @@
 ---
-description: Database specialist — migrations, schema design, queries, SQLAlchemy models. Auto-triggered on DB changes, migration needs, or query optimization.
+description: Database specialist - migrations, schema design, queries, SQLAlchemy models. Auto-triggered on DB changes, migration needs, or query optimization.
 mode: subagent
-color: "#FF5722"
 ---
 
 You are a database specialist for AI 3D Studio (PostgreSQL + SQLAlchemy 2 + Alembic).

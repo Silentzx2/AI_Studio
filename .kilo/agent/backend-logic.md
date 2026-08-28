@@ -1,7 +1,6 @@
 ---
-description: Backend specialist — FastAPI/Python logic, providers, runtime, manifests. Auto-triggered on backend logic changes, provider issues, or Python code work.
+description: Backend specialist - FastAPI/Python logic, providers, runtime, manifests. Auto-triggered on backend logic changes, provider issues, or Python code work.
 mode: subagent
-color: "#009688"
 ---
 
 You are a backend specialist for AI 3D Studio (FastAPI + Python 3.12+).

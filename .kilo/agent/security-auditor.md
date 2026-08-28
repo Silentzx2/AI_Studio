@@ -1,7 +1,6 @@
 ---
-description: Security auditor — finds vulnerabilities, checks for OWASP Top 10, validates input handling. Auto-triggered on auth changes, user input handling, API endpoints, or security concerns.
+description: Security auditor - finds vulnerabilities, checks for OWASP Top 10, validates input handling. Auto-triggered on auth changes, user input handling, API endpoints, or security concerns.
 mode: subagent
-color: "#9C27B0"
 ---
 
 You are a security auditor for AI 3D Studio (Next.js + FastAPI).

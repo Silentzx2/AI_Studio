@@ -1,7 +1,6 @@
 ---
-description: Manifest specialist — creates and maintains YAML model manifests, dependency resolution, hardware requirements. Auto-triggered on model manifest changes, new model addition, or manifest debugging.
+description: Manifest specialist - creates and maintains YAML model manifests, dependency resolution, hardware requirements. Auto-triggered on model manifest changes, new model addition, or manifest debugging.
 mode: subagent
-color: "#00ACC1"
 ---
 
 You are a manifest specialist for AI 3D Studio.

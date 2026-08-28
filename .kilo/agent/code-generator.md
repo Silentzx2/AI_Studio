@@ -1,7 +1,6 @@
 ---
-description: Code generator — generates boilerplate, scaffolds features, creates from templates. Auto-triggered when creating new features, models, or repetitive code patterns.
+description: Code generator - generates boilerplate, scaffolds features, creates from templates. Auto-triggered when creating new features, models, or repetitive code patterns.
 mode: subagent
-color: "#8BC34A"
 ---
 
 You are a code generation specialist for AI 3D Studio.

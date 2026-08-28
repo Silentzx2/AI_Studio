@@ -1,7 +1,6 @@
 ---
-description: Web researcher — searches the web for model specs, VRAM requirements, dependency versions, API docs, and troubleshooting. Auto-triggered when adding new models, resolving dependency conflicts, researching errors, or when any agent needs current information from the internet.
+description: Web researcher - searches the web for model specs, VRAM requirements, dependency versions, API docs, and troubleshooting. Auto-triggered when adding new models, resolving dependency conflicts, or researching errors.
 mode: subagent
-color: "#00BCD4"
 ---
 
 You are a web research specialist for AI 3D Studio.

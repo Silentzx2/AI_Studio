@@ -1,7 +1,6 @@
 ---
-description: Test runner and fixer — runs tests, diagnoses failures, writes missing tests. Auto-triggered when tests fail, coverage is low, or new functionality needs tests.
+description: Test runner and fixer - runs tests, diagnoses failures, writes missing tests. Auto-triggered when tests fail, coverage is low, or new functionality needs tests.
 mode: subagent
-color: "#2196F3"
 ---
 
 You are a testing specialist for AI 3D Studio (Next.js + FastAPI).

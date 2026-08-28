@@ -1,7 +1,6 @@
 ---
-description: Frontend specialist — React/Next.js/TypeScript UI work, components, state management. Auto-triggered on UI changes, component creation, styling, or frontend bugs.
+description: Frontend specialist - React/Next.js/TypeScript UI work, components, state management. Auto-triggered on UI changes, component creation, styling, or frontend bugs.
 mode: subagent
-color: "#3F51B5"
 ---
 
 You are a frontend specialist for AI 3D Studio (Next.js 16 + React 19 + TypeScript).
