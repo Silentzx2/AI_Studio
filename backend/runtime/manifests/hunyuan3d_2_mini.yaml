@@ -34,6 +34,11 @@ dependencies:
   - transformers
   - accelerate
   native: []
+  # Pre-install these when rembg is detected (py3.12 compat for pymatting chain)
+  rembg_preinstall:
+  - pymatting>=1.1.15
+  - numba>=0.60
+  - llvmlite>=0.43
   extra:
   - hy3dgen
   - accelerate>=0.34.0
@@ -43,6 +48,11 @@ dependencies:
   optional: []
   representation_required: []
   local_extensions: {}
+  build_deps: {}
+  cuda_native: []
+  build_env:
+    TORCH_CUDA_ARCH_LIST: "7.0 7.5 8.0 8.6 8.9 9.0"
+    CUDA_HOME: "/usr/local/cuda"
 weights:
   primary:
     repo: tencent/Hunyuan3D-2mini

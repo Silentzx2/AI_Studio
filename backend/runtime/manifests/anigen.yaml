@@ -41,6 +41,22 @@ dependencies:
   - spconv
   - pytorch3d
   - nvdiffrast
+  # CUDA-only packages: dropped on CPU-only hosts (no CUDA toolkit)
+  cuda_native_packages:
+  - pytorch3d
+  - flash-attn
+  - xformers
+  # Packages whose build step imports torch (need --no-build-isolation-package)
+  torch_build_packages:
+  - pytorch3d
+  - nvdiffrast
+  - flash-attn
+  - xformers
+  # Pre-install these when rembg is detected (py3.12 compat for pymatting chain)
+  rembg_preinstall:
+  - pymatting>=1.1.15
+  - numba>=0.60
+  - llvmlite>=0.43
   extra: []
   wheels:
     spconv:
@@ -66,6 +82,16 @@ dependencies:
   - xformers
   representation_required: []
   local_extensions: {}
+  build_deps:
+    pytorch3d: ["ninja"]
+    nvdiffrast: ["ninja"]
+  cuda_native:
+  - spconv
+  - pytorch3d
+  - nvdiffrast
+  build_env:
+    TORCH_CUDA_ARCH_LIST: "7.0 7.5 8.0 8.6 8.9 9.0"
+    CUDA_HOME: "/usr/local/cuda"
 weights:
   primary:
     repo: VAST-AI/AniGen_Weights

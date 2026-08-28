@@ -37,6 +37,15 @@ dependencies:
   - spconv
   - torch_scatter
   - torch_cluster
+  # CUDA-only packages: dropped on CPU-only hosts (no CUDA toolkit)
+  cuda_native_packages:
+  - torch_scatter
+  - torch_cluster
+  # Packages whose build step imports torch (need --no-build-isolation-package)
+  torch_build_packages:
+  - torch_scatter
+  - torch_cluster
+  - spconv
   extra: []
   wheels:
     spconv:
@@ -60,6 +69,16 @@ dependencies:
   - flash-attn
   representation_required: []
   local_extensions: {}
+  build_deps:
+    torch_scatter: ["ninja", "pkg-config"]
+    torch_cluster: ["ninja", "pkg-config", "setuptools<70"]
+  cuda_native:
+  - spconv
+  - torch_scatter
+  - torch_cluster
+  build_env:
+    TORCH_CUDA_ARCH_LIST: "7.0 7.5 8.0 8.6 8.9 9.0"
+    CUDA_HOME: "/usr/local/cuda"
 weights:
   primary:
     repo: VAST-AI/UniRig

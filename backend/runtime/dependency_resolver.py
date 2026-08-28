@@ -23,39 +23,44 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# Module-level override for target Python version (from YAML manifest).
+# When set, _py_ver_str() uses this instead of sys.version_info.
+_TARGET_PYTHON_VERSION: str | None = None
+
+
+def set_target_python(version: str | None) -> None:
+    """Set the target Python version for resolution (e.g. '3.11' from manifest).
+
+    This overrides sys.version_info for all version-specific logic in this module.
+    Pass None to clear the override and fall back to system Python.
+    """
+    global _TARGET_PYTHON_VERSION
+    _TARGET_PYTHON_VERSION = version
+
+
 # Host-level compatibility tables (not model-specific).
 # These are generic Python/CUDA environment compatibility policies.
-from runtime.installer import _CUDA_ONLY_PKG_PATTERNS as _INSTALLER_CUDA_ONLY_PKG_PATTERNS
 from runtime.installer import _PY312_REQ_REWRITES as _INSTALLER_PY312_REQ_REWRITES
 
-# Map installer table names to local aliases for backward compatibility
-NATIVE_PKG_PATTERNS = _INSTALLER_CUDA_ONLY_PKG_PATTERNS + [
-    re.compile(r"^nvdiffrast($|==)"),
-    re.compile(r"^(git\+)?.*diffoctreerast"),
-    re.compile(r"^(git\+)?.*vox2seq"),
-    re.compile(r"^diff[-_]gaussian"),
-]
+# ponytail: native package classification is now manifest-driven.
+# The manifest declares which packages are native via dependencies.native.
+# classify_dependency() no longer uses hardcoded regex patterns — it only
+# parses name/spec. The caller (resolve_dependencies) sets kind=NATIVE for
+# entries from manifest.dependencies.native.
 PY312_PIN_REWRITES = _INSTALLER_PY312_REQ_REWRITES
 
-# Build dependencies that need to be pre-installed for certain native packages.
-# These are installed via uv into the model venv before the source build runs.
-# ponytail: setuptools<70 is needed for packages using legacy setuptools.build_meta
-# (torch-cluster, diso) to avoid "setuptools.build_meta:__legacy__.build_" errors.
-_BUILD_DEPS: dict[str, list[str]] = {
-    "torch-cluster": ["ninja", "pkg-config", "setuptools<70"],
-    "torch-scatter": ["ninja", "pkg-config"],
-    "torch-sparse": ["ninja", "pkg-config"],
-    "pyg_lib": ["ninja", "pkg-config"],
-    "torch_cluster": ["ninja", "pkg-config", "setuptools<70"],  # alias
-    "torch_scatter": ["ninja", "pkg-config"],  # alias
-    "diffoctreerast": ["ninja"],
-    "nvdiffrast": ["ninja"],
-    "diff-gaussian-rasterization": ["ninja"],
-    "diso": ["ninja", "setuptools<70"],
-    "flash-attn": ["ninja"],
-    "pytorch3d": ["ninja"],
-}
-
+# ---------------------------------------------------------------------------
+# Transient error keywords for retry logic.
+# ponytail: single source of truth for both wheel-install and source-build
+# retry paths. A transient error is a transient error regardless of whether
+# it's a wheel or source build — union of all keywords from both paths.
+# Upgrade path: persistent wheel cache to avoid re-downloading.
+# ---------------------------------------------------------------------------
+_TRANSIENT_KEYWORDS = (
+    "rate", "403", "429", "timeout", "connection", "network",
+    "503", "502", "504", "redirect",
+    "cache", "ssl", "certificate", "reset", "dns", "resolve", "refused",
+)
 
 class DependencyKind(Enum):
     NORMAL = "normal"
@@ -109,12 +114,36 @@ def _manifest_dependency_list(manifest: dict | None, key: str) -> set[str]:
     return {_normalize_dep_key(str(v)) for v in values}
 
 
+def _get_build_deps(manifest: dict | None, dep_name: str) -> list[str]:
+    """Return build dependencies for a native package from the model manifest.
+
+    ponytail: build deps are declared per-model in YAML, not hardcoded. Each
+    manifest owns its toolchain requirements (ninja, pkg-config, setuptools<70).
+    Upgrade path: add a ``build_deps`` entry to the model manifest.
+    """
+    if not manifest:
+        return []
+    build_deps = (manifest.get("dependencies", {}) or {}).get("build_deps", {}) or {}
+    key = _normalize_dep_key(dep_name)
+    for candidate, deps in build_deps.items():
+        if _normalize_dep_key(str(candidate)) == key and isinstance(deps, list):
+            return list(deps)
+    return []
+
+
 def _manifest_wheel_config(manifest: dict | None, dep: Dependency) -> dict:
     return _manifest_dependency_config(manifest, "wheels", dep.name)
 
 
 def _py_ver_str() -> str:
-    """Return Python version as '3.12'."""
+    """Return Python version as '3.12'.
+
+    If set_target_python() has been called (e.g. with '3.11' from a per-model
+    manifest), use that instead of the system Python. This ensures pin
+    normalization matches the venv's Python, not the host's.
+    """
+    if _TARGET_PYTHON_VERSION:
+        return _TARGET_PYTHON_VERSION
     return f"{sys.version_info.major}.{sys.version_info.minor}"
 
 
@@ -168,7 +197,12 @@ def _cuda_available() -> bool:
 
 
 def classify_dependency(raw_spec: str) -> Dependency:
-    """Classify a requirement line into a Dependency with kind."""
+    """Classify a requirement line into a Dependency with kind.
+
+    ponytail: only parses name/spec. Native classification is manifest-driven —
+    resolve_dependencies() sets kind=NATIVE for entries from
+    manifest.dependencies.native. No hardcoded regex patterns here.
+    """
     stripped = raw_spec.strip()
     if not stripped or stripped.startswith("#"):
         return Dependency(name="", spec=raw_spec, kind=DependencyKind.NORMAL, required=False)
@@ -180,13 +214,6 @@ def classify_dependency(raw_spec: str) -> Dependency:
         line = stripped
     else:
         line = stripped.split("#", 1)[0].strip()
-
-    # Check if it's a known native package
-    for pat in NATIVE_PKG_PATTERNS:
-        if pat.match(line):
-            # Extract package name (strip version specifier)
-            name = re.split(r"[><=!~]", line, 1)[0].strip()
-            return Dependency(name=name, spec=line, kind=DependencyKind.NATIVE, required=True)
 
     # Normal Python dependency
     # ponytail: for git URLs, extract package name from the URL
@@ -204,19 +231,9 @@ def classify_dependency(raw_spec: str) -> Dependency:
             name = re.sub(r'^git\+', '', line)
             name = re.sub(r'\.git.*$', '', name)
             name = name.split("/")[-1]
-        # ponytail: if the extracted name (or subdir path) matches a known
-        # native package pattern, classify as NATIVE so it goes through
-        # the native install path (wheel check + source build). This is
-        # needed for VCS+subdirectory deps like diff-gaussian-rasterization
-        # which are CUDA extensions, not normal Python packages.
-        _is_native = False
-        for _pat in NATIVE_PKG_PATTERNS:
-            if _pat.match(name) or _pat.match(subdir_path if subdir_match else name):
-                _is_native = True
-                break
         return Dependency(
             name=name, spec=line,
-            kind=DependencyKind.NATIVE if _is_native else DependencyKind.NORMAL,
+            kind=DependencyKind.NORMAL,
             required=True,
         )
 
@@ -224,7 +241,11 @@ def classify_dependency(raw_spec: str) -> Dependency:
     return Dependency(name=name, spec=line, kind=DependencyKind.NORMAL, required=True)
 
 
-def resolve_dependencies(repo_dir: Path, manifest: dict | None = None) -> list[Dependency]:
+def resolve_dependencies(
+    repo_dir: Path,
+    manifest: dict | None = None,
+    target_python: str | None = None,
+) -> list[Dependency]:
     """Discover and classify all dependencies for a repo.
 
     Reads from (in priority order):
@@ -233,6 +254,8 @@ def resolve_dependencies(repo_dir: Path, manifest: dict | None = None) -> list[D
       3. pyproject.toml
       4. setup.py / setup.cfg
     """
+    if target_python:
+        set_target_python(target_python)
     deps: list[Dependency] = []
     seen: set[str] = set()
 
@@ -596,13 +619,22 @@ def _fetch_local_extension_from_hf(
 # which are actually REQUIRED for specific 3D representations. Those moved
 # to REPRESENTATION_REQUIRED_NATIVE_DEPS below — see Issue 6 in
 # "AI Studio — Root-Cause Debugging Prompt.md".
-def normalize_py312_pin(spec: str) -> str | None:
+def normalize_py312_pin(spec: str, py_ver: str | None = None) -> str | None:
     """Normalize a requirement spec for Python 3.12 compatibility.
 
     Returns the replacement spec, or None if the package should be dropped.
     On Python < 3.12, returns the original spec unchanged.
+
+    Args:
+        py_ver: target Python version string (e.g. '3.11'). If None, uses
+            the system Python version.
     """
-    if sys.version_info < (3, 12):
+    if py_ver is None:
+        py_tuple = sys.version_info
+    else:
+        parts = py_ver.split(".")
+        py_tuple = (int(parts[0]), int(parts[1]) if len(parts) > 1 else 0)
+    if py_tuple < (3, 12):
         return spec
     stripped = spec.strip()
     if not stripped or stripped.startswith("#"):
@@ -623,6 +655,7 @@ def install_resolved_deps(
     allow_build: bool = False,
     interactive: bool = True,
     log_cb=None,
+    target_python: str | None = None,
 ) -> dict:
     """Install resolved dependencies with wheel-first logic.
 
@@ -633,6 +666,8 @@ def install_resolved_deps(
         allow_build: if True, attempt source builds without prompting
         interactive: if True AND stdin is a TTY, prompt for build decisions
         log_cb: optional callback for progress messages
+        target_python: Python version from manifest (e.g. '3.11'). If provided,
+            overrides system Python for version-specific logic.
 
     Returns:
         dict with keys:
@@ -642,6 +677,8 @@ def install_resolved_deps(
           - failed: list of failed dep names
           - native_state: "ready" | "skipped" | "partial" | "failed"
     """
+    if target_python:
+        set_target_python(target_python)
     uv_path = _find_uv()
     if not uv_path:
         return {"success": False, "error": "uv not found", "installed": [], "skipped": [], "failed": [], "native_state": "failed"}
@@ -794,7 +831,7 @@ def install_resolved_deps(
                 code, output = _run_uv(install_args, cwd=repo_dir)
                 if code == 0:
                     break
-                if wheel_attempt < max_wheel_attempts and any(kw in output.lower() for kw in ("rate", "403", "429", "timeout", "connection", "network", "503", "502", "504", "redirect")):
+                if wheel_attempt < max_wheel_attempts and any(kw in output.lower() for kw in _TRANSIENT_KEYWORDS):
                     _log(f"  Retry {wheel_attempt}/{max_wheel_attempts} for {dep.name} (transient wheel install error)")
                     import time
                     time.sleep(5 * wheel_attempt)
@@ -981,9 +1018,13 @@ def install_resolved_deps(
                     import re as _re
                     # CUDA env vars for source builds — ensure the build can find
                     # the CUDA toolkit and target the right GPU architectures.
+                    # ponytail: these are fallback defaults. The manifest can override
+                    # via dependencies.build_env (per-dep dict) or build_env (global dict).
+                    # Upgrade path: read from manifest.build_env when present.
                     build_env = os.environ.copy()
-                    build_env.setdefault("TORCH_CUDA_ARCH_LIST", "7.0 7.5 8.0 8.6 8.9 9.0")
-                    build_env.setdefault("CUDA_HOME", "/usr/local/cuda")
+                    manifest_build_env = _manifest_dependency_config(manifest, "build_env", dep.name)
+                    build_env.setdefault("TORCH_CUDA_ARCH_LIST", manifest_build_env.get("TORCH_CUDA_ARCH_LIST", "7.0 7.5 8.0 8.6 8.9 9.0"))
+                    build_env.setdefault("CUDA_HOME", manifest_build_env.get("CUDA_HOME", "/usr/local/cuda"))
                     _subdir_match = _re.search(r'#subdirectory=([^&]+)', dep.spec)
                     if _subdir_match:
                         subdir = _subdir_match.group(1).strip()
@@ -1050,14 +1091,14 @@ def install_resolved_deps(
                                 code, output = _run_uv(build_args, cwd=repo_dir, env=build_env)
                                 if code == 0:
                                     break
-                                if attempt < max_attempts and any(kw in output.lower() for kw in ("cache", "timeout", "connection", "network", "503", "502", "504", "ssl", "certificate", "reset", "dns", "resolve", "refused")):
+                                if attempt < max_attempts and any(kw in output.lower() for kw in _TRANSIENT_KEYWORDS):
                                     _log(f"  Retry {attempt}/{max_attempts} for {dep.name} (transient error)")
                                     import time
                                     time.sleep(3)
                     else:
                         build_args = ["pip", "install", "--python", str(venv_python), dep.spec, "--no-build-isolation", "--no-deps"]
                 # Add build dependencies for known packages
-                build_deps = _BUILD_DEPS.get(dep.name)
+                build_deps = _get_build_deps(manifest, dep.name)
                 if build_deps:
                     _log(f"  Installing build dependencies for {dep.name}: {build_deps}")
                     _run_uv(["pip", "install", "--python", str(venv_python), *build_deps])
@@ -1070,7 +1111,7 @@ def install_resolved_deps(
                         code, output = _run_uv(build_args, cwd=repo_dir, env=build_env)
                         if code == 0:
                             break
-                        if attempt < max_attempts and any(kw in output.lower() for kw in ("cache", "timeout", "connection", "network", "503", "502", "504", "ssl", "certificate", "reset", "dns", "resolve", "refused")):
+                        if attempt < max_attempts and any(kw in output.lower() for kw in _TRANSIENT_KEYWORDS):
                             _log(f"  Retry {attempt}/{max_attempts} for {dep.name} (transient error)")
                             import time
                             time.sleep(3)

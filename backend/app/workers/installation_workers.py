@@ -372,6 +372,7 @@ def run_native_build(self, provider_name: str, task_id: str) -> dict:
                         manifest=manifest,
                         allow_build=True,
                         interactive=False,
+                        target_python=manifest.get("environment", {}).get("python") if manifest else None,
                     )
                     errors.extend(dep_result.get("failed", []))
                     if dep_result.get("failed"):

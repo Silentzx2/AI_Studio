@@ -9,6 +9,14 @@ environment:
   python: '3.10'
   torch: 2.5.1
   cuda: '12.4'
+  python_pin_rewrites:
+  # numpy 1.22.x builds via distutils (gone in 3.12); rewrite to a cp312
+  # compatible pin that stays <2.0 to match the backend venv's numpy<2.0.
+  - pattern: "^numpy==1\\.22\\..*$"
+    replacement: "numpy>=1.26.4,<2.0"
+  # flash-attn publishes no cp312 wheels — drop on Py3.12
+  - pattern: "^flash[-_]attn($|==|>=|<=|!=|~=).*$"
+    replacement: null
 dependencies:
   python:
   - diffusers
@@ -31,6 +39,14 @@ dependencies:
   native:
   - diso
   - torch-cluster
+  # CUDA-only packages: dropped on CPU-only hosts (no CUDA toolkit)
+  cuda_native_packages:
+  - diso
+  - torch-cluster
+  # Packages whose build step imports torch (need --no-build-isolation-package)
+  torch_build_packages:
+  - diso
+  - torch-cluster
   extra: []
   wheels:
     diso:
@@ -44,6 +60,15 @@ dependencies:
   representation_required:
   - diso
   local_extensions: {}
+  build_deps:
+    diso: ["ninja", "setuptools<70"]
+    torch-cluster: ["ninja", "pkg-config", "setuptools<70"]
+  cuda_native:
+  - diso
+  - torch-cluster
+  build_env:
+    TORCH_CUDA_ARCH_LIST: "7.0 7.5 8.0 8.6 8.9 9.0"
+    CUDA_HOME: "/usr/local/cuda"
 weights:
   primary:
     repo: VAST-AI/DetailGen3D

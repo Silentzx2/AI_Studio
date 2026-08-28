@@ -439,52 +439,58 @@ def _run(
     return proc.returncode, "\n".join(lines)
 
 
-# ponytail: Py3.12 dropped `distutils` and several pinned deps publish no
-# cp312 wheels. On Py3.12 we rewrite the cloned repo's requirements to
-# installable versions so the per-model venv can be created. Real GPU
-# deployments run on Py3.11 where the upstream pins are valid, so this table
-# is only applied on Py>=3.12. Upgrade path: drop this once repos publish
-# cp312-compatible pins or the stack targets Py3.11.
-_PY312_REQ_REWRITES: list[tuple[re.Pattern, str | None]] = [
-    # numpy 1.22.x builds via distutils (gone in 3.12); rewrite to a cp312
-    # compatible pin that stays <2.0 to match the backend venv's numpy<2.0
-    # constraint and avoid shadowing it with numpy 2.x from the per-model venv.
-    (re.compile(r"^numpy==1\.22\..*$"), "numpy>=1.26.4,<2.0"),
-    # open3d 0.18.0 has no cp312 wheel; 0.19.0 is the first with one.
-    (re.compile(r"^open3d==0\.18\.0$"), "open3d==0.19.0"),
-    # numba 0.53.1 / llvmlite 0.36.0 only support Python <3.10.
-    # Bump to py3.12-compatible versions (also pre-installed below when rembg
-    # is detected, but uv will downgrade them unless the requirements file
-    # itself is rewritten).
-    (re.compile(r"^numba==0\.53\.1$"), "numba>=0.60"),
-    (re.compile(r"^llvmlite==0\.36\.0$"), "llvmlite>=0.43"),
-    # flash-attn / bpy publish no cp312 wheels (CUDA-build / Blender-bound);
-    # not installable on a CPU Py3.12 box — drop rather than fail the venv.
-    # flash-attn is also in _CUDA_ONLY_PKG_PATTERNS so it gets dropped on
-    # CPU-only hosts regardless of Py version; dropped here too because
-    # --no-build-isolation-package does not make torch visible to the build
-    # backend in the current uv version.
-    (re.compile(r"^flash[-_]attn($|==|>=|<=|!=|~=).*$"), None),
-    (re.compile(r"^bpy==.*$"), None),
-    # torch-cluster and diso are CUDA-only native extensions with no cp312 wheels.
-    # DetailGen3D has a PyTorch FPS fallback for torch-cluster and uses
-    # skimage.measure.marching_cubes instead of diso. Drop both on Py3.12+
-    # to avoid heavy native builds (15-60 min) on Colab and similar hosts.
-    (re.compile(r"^torch[-_]cluster($|==|>=|<=|!=|~=).*$"), None),
-    (re.compile(r"^diso($|==|>=|<=|!=|~=).*$"), None),
-]
+# ---------------------------------------------------------------------------
+# Python 3.12 requirement rewrites (manifest-driven)
+# ---------------------------------------------------------------------------
+# Pin rewrites for Python 3.12 compatibility are now defined in each manifest
+# under `environment.python_pin_rewrites` as a list of {pattern, replacement}
+# entries. This allows per-repo customization without modifying installer code.
+# If a manifest lacks this section, no rewrites are applied (the original
+# requirements file is used as-is).
 
 
-def _normalize_requirements_for_py312(requirements_file: Path) -> Path:
+def _extract_pkg_name(spec: str) -> str:
+    """Extract the package name from a dependency spec.
+
+    Handles specs like 'pkg==1.0', 'pkg>=1.0', 'pkg[extra]', 'git+https://...'.
+    Returns the normalized package name (lowercase, stripped).
+    """
+    spec = spec.strip()
+    if not spec:
+        return ""
+    # VCS URLs: extract the package name from the fragment or the last path segment
+    if spec.startswith(("git+", "hg+", "svn+", "bzr+")):
+        # Try to find '#egg=' fragment
+        egg_idx = spec.find("#egg=")
+        if egg_idx != -1:
+            return spec[egg_idx + 5:].split("&", 1)[0].strip().lower()
+        # Fall back to last path segment, strip .git suffix
+        name = spec.rstrip("/").rsplit("/", 1)[-1]
+        if name.endswith(".git"):
+            name = name[:-4]
+        return name.lower()
+    # Standard spec: extract name before any version specifier or extras
+    match = re.match(r"^([a-zA-Z0-9][-a-zA-Z0-9._]*)", spec)
+    return match.group(1).lower() if match else spec.lower()
+
+
+def _normalize_requirements_for_py312(requirements_file: Path, manifest: dict | None = None) -> Path:
     """On Py<3.12 return the original path unchanged.
 
     On Py>=3.12 rewrite uninstallable pins to cp312-installable versions
-    (see _PY312_REQ_REWRITES) into a temp file and return that path. The
-    upstream requirements file is left pristine so re-clones stay clean.
+    using rules from the manifest's `environment.python_pin_rewrites` section.
+    If no manifest or no rewrites are defined, the original file is returned.
+    The upstream requirements file is left pristine so re-clones stay clean.
     """
     if sys.version_info < (3, 12):
         return requirements_file
     if not requirements_file.exists():
+        return requirements_file
+
+    # Load rewrite rules from manifest
+    env = (manifest or {}).get("environment", {}) or {}
+    rewrite_rules = env.get("python_pin_rewrites") or []
+    if not rewrite_rules:
         return requirements_file
 
     text = requirements_file.read_text(errors="ignore")
@@ -498,12 +504,14 @@ def _normalize_requirements_for_py312(requirements_file: Path) -> Path:
         line = stripped.split("#", 1)[0].strip()
         dropped = False
         replaced: str | None = None
-        for pat, repl in _PY312_REQ_REWRITES:
-            if pat.match(line):
-                if repl is None:
+        for rule in rewrite_rules:
+            pattern = rule.get("pattern", "")
+            replacement = rule.get("replacement")
+            if pattern and re.search(pattern, line):
+                if replacement is None:
                     dropped = True
                 else:
-                    replaced = repl
+                    replaced = replacement
                 changed = True
                 break
         if dropped:
@@ -523,21 +531,14 @@ def _normalize_requirements_for_py312(requirements_file: Path) -> Path:
     return tmp
 
 
-# ponytail: source extensions that compile a CUDA kernel at build time. They
-# cannot be built on a host without a CUDA toolkit (no cuda_runtime.h / nvcc),
-# and the install must not hard-fail the whole setup on such hosts — the stack
-# ponytail: packages that cannot be compiled without a CUDA toolkit AND have
-# no pre-built wheels available. These are dropped on CPU-only hosts.
-# NOTE: torch-scatter, torch-cluster, torch-sparse are NOT in this list — they
-# have pre-built wheels on PyG (data.pyg.org/whl) and are handled by the
-# pre-built wheel logic earlier in the install flow.
-_CUDA_ONLY_PKG_PATTERNS: list[re.Pattern] = [
-    re.compile(r"^diso($|==)"),
-    re.compile(r"^(git\+)?.*torchmcubes"),
-    re.compile(r"^flash[-_]attn($|==)"),
-    re.compile(r"^xformers($|==)"),
-    re.compile(r"^pytorch3d($|==)"),
-]
+# ---------------------------------------------------------------------------
+# CUDA-only package detection (manifest-driven)
+# ---------------------------------------------------------------------------
+# CUDA-only packages are identified by the `cuda_native: true` flag on
+# dependencies in the manifest's `dependencies.cuda_native_packages` list.
+# Packages in this list are dropped on CPU-only hosts to avoid hard-failing
+# the venv when no CUDA toolkit is available. The list lives in the manifest,
+# not in this module, so new CUDA-only packages only require a manifest update.
 
 
 
@@ -680,15 +681,25 @@ def _install_torch_stack(
     return 0, output
 
 
-def _drop_cuda_only_packages(requirements_file: Path) -> Path:
+def _drop_cuda_only_packages(requirements_file: Path, manifest: dict | None = None) -> Path:
     """Return a requirements path with CUDA-only build packages commented out.
 
-    Used only when no CUDA toolkit is present, so the per-model venv can
-    install its pure-Python deps and start in a degraded (CPU/inference-less)
-    mode instead of failing the entire setup.
+    CUDA-only packages are identified by the manifest's
+    `dependencies.cuda_native_packages` list. Used only when no CUDA toolkit is
+    present, so the per-model venv can install its pure-Python deps and start
+    in a degraded (CPU/inference-less) mode instead of failing the whole setup.
     """
     if requirements_file is None or not requirements_file.exists():
         return requirements_file
+
+    # Build set of CUDA-only package names from manifest
+    deps = (manifest or {}).get("dependencies", {}) or {}
+    cuda_native_list = deps.get("cuda_native_packages", []) or []
+    cuda_pkg_names = {_extract_pkg_name(spec) for spec in cuda_native_list if _extract_pkg_name(spec)}
+
+    if not cuda_pkg_names:
+        return requirements_file
+
     text = requirements_file.read_text(errors="ignore")
     out_lines: list[str] = []
     changed = False
@@ -698,7 +709,8 @@ def _drop_cuda_only_packages(requirements_file: Path) -> Path:
             out_lines.append(raw)
             continue
         line = stripped.split("#", 1)[0].strip()
-        if any(pat.match(line) for pat in _CUDA_ONLY_PKG_PATTERNS):
+        pkg_name = _extract_pkg_name(line)
+        if pkg_name in cuda_pkg_names:
             changed = True
             out_lines.append(f"# ponytail: dropped (no CUDA toolkit on host): {line}")
             continue
@@ -785,38 +797,37 @@ def _uv_install(
             allow_build=False,
             interactive=True,
             log_cb=log_cb,
+            target_python=manifest.get("environment", {}).get("python") if manifest else None,
         )
         if not result["success"] and result.get("failed"):
             return {"success": False, "error": f"Some dependencies failed to install: {result['failed']}"}
         code = 0
         output = ""
     else:
-        # Packages whose build step imports torch (diso, torch-cluster, …) must
-        # compile inside the venv — which now has torch pre-installed — instead of
-        # an empty isolated build env, otherwise they fail with
-        # `ModuleNotFoundError: No module named 'torch'`.
-        # ponytail: fixed allow-list of known torch-dependent build packages;
-        # extend here if a new repo adds another torch-extension built from source.
-        TORCH_BUILD_PKGS = {
-            "diso", "torch-cluster", "torch-scatter",
-            "torch-sparse", "torchmcubes", "torch-geometric",
-            "flash-attn",
-        }
+        # Packages whose build step imports torch must compile inside the venv
+        # (which has torch pre-installed) instead of an empty isolated build env,
+        # otherwise they fail with `ModuleNotFoundError: No module named 'torch'`.
+        # The set of torch-dependent build packages comes from the manifest's
+        # `dependencies.torch_build_packages` list.
+        deps = (manifest or {}).get("dependencies", {}) or {}
+        torch_build_pkgs = deps.get("torch_build_packages", []) or []
+        torch_build_names = {_extract_pkg_name(spec) for spec in torch_build_pkgs if _extract_pkg_name(spec)}
 
         # rembg -> pymatting -> numba -> llvmlite==0.36.0 only builds on Python
         # <3.10. Pre-installing a modern pymatting (>=1.1.15 requires numba>=0.60,
         # which supports py3.12) stops uv from resolving that ancient chain.
-        # ponytail: hardcoded rembg workaround; revisit if rembg drops pymatting.
+        # The rembg pre-install packages come from the manifest's
+        # `dependencies.rembg_preinstall` list; if absent, this step is skipped.
         build_iso_args: list[str] = []
-        for pkg in sorted(TORCH_BUILD_PKGS):
-            if re.search(rf"\b{re.escape(pkg)}\b", req_blob):
+        for pkg in sorted(torch_build_names):
+            if re.search(rf"\b{re.escape(pkg)}\b", req_blob, re.IGNORECASE):
                 build_iso_args += ["--no-build-isolation-package", pkg]
-        if re.search(r"\brembg\b", req_blob):
+        rembg_preinstall = deps.get("rembg_preinstall", []) or []
+        if rembg_preinstall and re.search(r"\brembg\b", req_blob, re.IGNORECASE):
             if log_cb:
                 log_cb("Pre-installing modern pymatting/numba/llvmlite for rembg (py3.12 compat)…")
             code, output = _run_uv(
-                ["pip", "install", "--python", str(venv_python),
-                 "pymatting>=1.1.15", "numba>=0.60", "llvmlite>=0.43"],
+                ["pip", "install", "--python", str(venv_python), *rembg_preinstall],
                 cwd=repo_dir,
             )
             if code != 0:
@@ -839,8 +850,9 @@ def _uv_install(
 
         # Rewrite py3.12-incompatible pins (open3d 0.18, numpy 1.22, flash-attn,
         # bpy) before resolving, so the per-model venv can be created on Py3.12.
+        # Rewrite rules come from the manifest's `environment.python_pin_rewrites`.
         if requirements_file is not None:
-            install_requirements = _normalize_requirements_for_py312(requirements_file)
+            install_requirements = _normalize_requirements_for_py312(requirements_file, manifest)
         else:
             install_requirements = None
 
@@ -850,13 +862,16 @@ def _uv_install(
         # Inference is already flagged as unavailable without a GPU.
         cuda_exclude_args: list[str] = []
         if not _cuda_available():
-            install_requirements = _drop_cuda_only_packages(install_requirements)
+            install_requirements = _drop_cuda_only_packages(install_requirements, manifest)
             if install_requirements and log_cb and install_requirements.name.endswith(".nocuda.requirements.txt"):
                 log_cb("No CUDA toolkit detected — skipping CUDA-only build packages (CPU mode)")
             # Also exclude CUDA-only packages that might be pulled in as transitive deps
-            for pkg_pat in _CUDA_ONLY_PKG_PATTERNS:
-                pkg_name = pkg_pat.pattern.strip("^").split("($|==)")[0]
-                cuda_exclude_args += ["--exclude", pkg_name]
+            deps = (manifest or {}).get("dependencies", {}) or {}
+            cuda_native_list = deps.get("cuda_native_packages", []) or []
+            for spec in cuda_native_list:
+                pkg_name = _extract_pkg_name(spec)
+                if pkg_name:
+                    cuda_exclude_args += ["--exclude", pkg_name]
 
         # torchmcubes (used by some 3D-gen repos) builds with scikit-build-core but
         # doesn't declare it as a build dependency. Because we build it with
@@ -929,7 +944,7 @@ def _uv_install(
 
     # Verify critical packages are importable, force-reinstall if not
     # ponytail: packages can be corrupted from previous failed installs
-    _verify_and_fix_critical_packages(venv_python, repo_dir, req_blob)
+    _verify_and_fix_critical_packages(venv_python, repo_dir, req_blob, manifest)
     # Install extra inference libraries (e.g. hy3dgen, diffusers) that are
     # missing from the repo's requirements.txt into the per-model venv.
     # In-process local providers append this venv's site-packages to sys.path,
@@ -961,22 +976,25 @@ def _uv_install(
             logger.info("Installed extra deps %s into %s (per-model venv)", extra, repo_name)
 
     # Verify critical packages are importable, force-reinstall if corrupted
-    _verify_and_fix_critical_packages(venv_python, repo_dir, req_blob)
+    _verify_and_fix_critical_packages(venv_python, repo_dir, req_blob, manifest)
 
     return {"success": True}
 
 
-def _verify_and_fix_critical_packages(venv_python: Path, repo_dir: Path, req_blob: str) -> None:
+def _verify_and_fix_critical_packages(venv_python: Path, repo_dir: Path, req_blob: str, manifest: dict | None = None) -> None:
     """Verify critical packages can be imported, force-reinstall if corrupted.
 
-    ponytail: packages from previous failed installs can be partially
-    extracted or missing C extensions. This checks the key packages and
-    force-reinstalls any that fail to import.
+    The list of critical packages comes from the manifest's
+    `preflight.import_packages` section. If absent, falls back to a minimal
+    default list. ponytail: packages from previous failed installs can be
+    partially extracted or missing C extensions. This checks the key packages
+    and force-reinstalls any that fail to import.
     """
-    critical = ["torch", "transformers", "diffusers", "numpy", "PIL"]
+    preflight = (manifest or {}).get("preflight", {}) or {}
+    critical = preflight.get("import_packages", []) or ["torch", "transformers", "diffusers", "numpy", "PIL"]
     uv_path = shutil.which("uv")
     for pkg in critical:
-        if not re.search(rf"\b{re.escape(pkg)}\b", req_blob):
+        if not re.search(rf"\b{re.escape(pkg)}\b", req_blob, re.IGNORECASE):
             continue
         import_name = "PIL" if pkg == "PIL" else pkg
         code, output = _run(
@@ -1021,55 +1039,41 @@ def resolve_install_targets(models: list[str] | None) -> list[str]:
     return models
 
 
-# ponytail: native-build policy. Models that compile a CUDA/native extension at
-# install time (TRELLIS FlexiCubes, UniRig flash-attn, AniGen mmcv/git deps) can
-# take 15-60 min and hard-fail without a CUDA toolkit, so they are NOT part of
-# default/one-click installs. `allow_native_build=True` on an explicit
-# model-specific install skips the guard.
-def default_models() -> list[str]:
-    """Provider ids installed by default (excludes native-build models)."""
-    return [
-        pid for pid, meta in PROVIDER_METADATA.items()
-        if not meta.get("native_build_required", False)
-    ]
+# ---------------------------------------------------------------------------
+# Native-build detection (manifest-driven)
+# ---------------------------------------------------------------------------
+# Whether a model requires a native CUDA extension build at install time is
+# declared in the manifest via `capabilities.*.native_build_required: true`
+# (or the legacy top-level `native_build_required`). The heuristic regex scan
+# below is a fallback for repos without a manifest; it checks for common
+# build directives in setup.py/pyproject.toml/CMakeLists.txt. Upgrade path:
+# remove the heuristic once all manifests declare the flag.
 
 
-def native_build_required(provider_id: str) -> bool:
-    """True if the provider's install compiles a native extension."""
-    return bool(PROVIDER_METADATA.get(provider_id, {}).get("native_build_required", False))
-
-
-_NATIVE_BUILD_PATTERNS: tuple[re.Pattern, ...] = (
-    re.compile(r"\b(CUDAExtension|CppExtension|load\(\)|cuSetup|setup\(.*ext_modules)"),
-    re.compile(r"\bcmake\b|\bNinja\b|\bninja\b"),
-    re.compile(r"\bCUDA_HOME\b|\bnvcc\b|NVCCOptions"),
-    re.compile(r"\bflash[\-_]attn\b"),
-)
-
-
-def detect_native_build(repo_dir: Path) -> bool:
+def detect_native_build(repo_dir: Path, manifest: dict | None = None) -> bool:
     """Best-effort scan of a cloned repo for source-build directives.
 
-    Returns True if the repo contains extension/setup/cmake markers that would
-    compile native code at install time. Used to warn when a model declared
-    ``native_build_required=False`` actually needs a build, and to confirm the
-    flag on models that do. Honest heuristic: a false negative (repo is
-    interpreted as no-build) only affects the warning text, never install logic.
+    When a manifest is available, its `native_build_required` flag is the
+    authoritative source and the file scan is skipped. For repos without a
+    manifest, scans for common build directives (setup.py, pyproject.toml,
+    CMakeLists.txt) to warn that a long CUDA-toolkit build is needed.
     """
     if not repo_dir.exists():
         return False
-    probe_exts = ("setup.py", "pyproject.toml", "setup.cfg", "CMakeLists.txt", "requirements.txt")
-    blob = ""
-    for fname in probe_exts:
-        f = repo_dir / fname
-        if f.exists():
-            try:
-                blob += "\n" + f.read_text(errors="ignore")
-            except OSError:
-                pass
-    if not blob:
+
+    # Manifest-driven check (authoritative)
+    if manifest is not None:
+        native_req, _ = _get_native_build_info({}, manifest)
+        if native_req:
+            return True
+        # Check legacy top-level flag
+        if manifest.get("native_build_required", False):
+            return True
         return False
-    return any(pat.search(blob) for pat in _NATIVE_BUILD_PATTERNS)
+
+    # Fallback heuristic: check for build-related files
+    build_files = ("setup.py", "pyproject.toml", "CMakeLists.txt")
+    return any((repo_dir / fname).exists() for fname in build_files)
 
 
 # ---------------------------------------------------------------------------
@@ -1376,21 +1380,6 @@ def install_repo_deps(repo_name: str, log_cb: Callable | None = None, requiremen
     repo_dir = storage.get_repo_path(repo_name)
     if not repo_dir.exists():
         return {"success": False, "error": f"Repo not cloned: {repo_name}"}
-    # ponytail: honest native-build detection. If the cloned repo contains
-    # compile directives (CMake/CUDAExtension/ninja/…) warn so an admin can
-    # expect a long install and a CUDA-toolkit dependency before it starts.
-    if detect_native_build(repo_dir):
-        msg = f"Native build detected in {repo_name} (CMake/CUDA/ninja) — dependency install may take 15-60 min and requires a CUDA toolkit."
-        logger.warning(msg)
-        if log_cb:
-            log_cb(msg)
-    # per-model isolated venv — uv only, no fallback
-    # ponytail: cross-platform venv Python path detection
-    venv_dir = repo_dir / ".venv"
-    if platform.system() == "Windows":
-        venv_python = venv_dir / "Scripts" / "python.exe"
-    else:
-        venv_python = venv_dir / "bin" / "python"
 
     # ponytail: resolve manifest for authoritative deps path; falls back to
     # REPOS if no manifest exists (preserves backward-compat for repos without
@@ -1402,6 +1391,23 @@ def install_repo_deps(repo_name: str, log_cb: Callable | None = None, requiremen
         manifest = load_manifest(provider_name)
     except (ValueError, ImportError):
         pass
+
+    # ponytail: honest native-build detection. If the cloned repo contains
+    # compile directives (CMake/CUDAExtension/ninja/…) warn so an admin can
+    # expect a long install and a CUDA-toolkit dependency before it starts.
+    # The manifest's native_build_required flag is authoritative when present.
+    if detect_native_build(repo_dir, manifest):
+        msg = f"Native build detected in {repo_name} (CMake/CUDA/ninja) — dependency install may take 15-60 min and requires a CUDA toolkit."
+        logger.warning(msg)
+        if log_cb:
+            log_cb(msg)
+    # per-model isolated venv — uv only, no fallback
+    # ponytail: cross-platform venv Python path detection
+    venv_dir = repo_dir / ".venv"
+    if platform.system() == "Windows":
+        venv_python = venv_dir / "Scripts" / "python.exe"
+    else:
+        venv_python = venv_dir / "bin" / "python"
 
     if not venv_dir.exists():
         uv_path = shutil.which("uv")
@@ -1510,6 +1516,7 @@ def _run_native_build_sync(provider_name: str, manifest: dict | None, log_cb=Non
                 result = install_resolved_deps(
                     deps, venv_python, repo_dir, manifest=manifest,
                     allow_build=True, interactive=False, log_cb=log_cb,
+                    target_python=manifest.get("environment", {}).get("python") if manifest else None,
                 )
                 errors.extend(result.get("failed", []))
         except Exception as exc:
@@ -1970,6 +1977,7 @@ def _prepare_runtime_venv(
             allow_build=allow_native_build,
             interactive=True,
             log_cb=log_cb,
+            target_python=manifest.get("environment", {}).get("python") if manifest else None,
         )
         components["deps"] = {
             "state": DepsState.READY.value if result["success"] else DepsState.PARTIAL.value,
