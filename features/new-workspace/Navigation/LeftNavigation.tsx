@@ -9,14 +9,16 @@ import {
   Settings,
   Sparkles,
   LayoutDashboard,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Globe
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { ToolType } from '../types';
 
 export const LeftNavigation: React.FC = () => {
   const router = useRouter();
+  const pathname = usePathname();
   const {
     activeTool,
     mainNav,
@@ -74,7 +76,22 @@ export const LeftNavigation: React.FC = () => {
           </span>
         </button>
 
-        {/* 3. Segmentation */}
+        {/* 3. WorldGen */}
+        <button
+          id="tool-btn-worldgen"
+          onClick={() => router.push('/workspace/worldgen')}
+          title="WorldGen — Environment & World Generation"
+          className={`w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
+            pathname?.startsWith('/workspace/worldgen')
+              ? 'bg-[var(--ws-active-bg,#1e2230)] text-[#f5c518] border border-[#f5c518]/30 shadow-lg shadow-[#f5c518]/10'
+              : 'text-[var(--ws-text-muted,#848a97)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#181a20)]'
+          }`}
+        >
+          <Globe className="w-4 h-4 mb-0.5" />
+          <span className="text-[9px] font-medium leading-none">World</span>
+        </button>
+
+        {/* 4. Segmentation */}
         <button
           id="tool-btn-segment"
           onClick={() => handleToolClick('segment')}

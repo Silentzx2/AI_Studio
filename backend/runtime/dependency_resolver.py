@@ -38,16 +38,38 @@ def set_target_python(version: str | None) -> None:
     _TARGET_PYTHON_VERSION = version
 
 
-# Host-level compatibility tables (not model-specific).
-# These are generic Python/CUDA environment compatibility policies.
-from runtime.installer import _PY312_REQ_REWRITES as _INSTALLER_PY312_REQ_REWRITES
+# Module-level override for py312 pin rewrite rules (from YAML manifest).
+# When set, normalize_py312_pin uses these instead of reading from a manifest arg.
+# Each entry is a (compiled_pattern, replacement) tuple. replacement=None means drop.
+_PY312_REWRITE_RULES: list[tuple[re.Pattern, str | None]] | None = None
+
+
+def set_py312_rewrite_rules(manifest: dict | None) -> None:
+    """Set py312 pin rewrite rules from manifest.
+
+    Rules are compiled from manifest.environment.python_pin_rewrites.
+    Pass None to clear the override.
+    """
+    global _PY312_REWRITE_RULES
+    if not manifest:
+        _PY312_REWRITE_RULES = None
+        return
+    env = manifest.get("environment", {}) or {}
+    raw_rules = env.get("python_pin_rewrites") or []
+    rules: list[tuple[re.Pattern, str | None]] = []
+    for rule in raw_rules:
+        pattern = rule.get("pattern", "")
+        replacement = rule.get("replacement")
+        if pattern:
+            rules.append((re.compile(pattern), replacement))
+    _PY312_REWRITE_RULES = rules or None
+
 
 # ponytail: native package classification is now manifest-driven.
 # The manifest declares which packages are native via dependencies.native.
 # classify_dependency() no longer uses hardcoded regex patterns — it only
 # parses name/spec. The caller (resolve_dependencies) sets kind=NATIVE for
 # entries from manifest.dependencies.native.
-PY312_PIN_REWRITES = _INSTALLER_PY312_REQ_REWRITES
 
 # ---------------------------------------------------------------------------
 # Transient error keywords for retry logic.
@@ -619,7 +641,7 @@ def _fetch_local_extension_from_hf(
 # which are actually REQUIRED for specific 3D representations. Those moved
 # to REPRESENTATION_REQUIRED_NATIVE_DEPS below — see Issue 6 in
 # "AI Studio — Root-Cause Debugging Prompt.md".
-def normalize_py312_pin(spec: str, py_ver: str | None = None) -> str | None:
+def normalize_py312_pin(spec: str, py_ver: str | None = None, manifest: dict | None = None) -> str | None:
     """Normalize a requirement spec for Python 3.12 compatibility.
 
     Returns the replacement spec, or None if the package should be dropped.
@@ -628,6 +650,8 @@ def normalize_py312_pin(spec: str, py_ver: str | None = None) -> str | None:
     Args:
         py_ver: target Python version string (e.g. '3.11'). If None, uses
             the system Python version.
+        manifest: optional manifest dict. Used only if module-level rules
+            haven't been set via set_py312_rewrite_rules().
     """
     if py_ver is None:
         py_tuple = sys.version_info
@@ -640,9 +664,21 @@ def normalize_py312_pin(spec: str, py_ver: str | None = None) -> str | None:
     if not stripped or stripped.startswith("#"):
         return spec
     line = stripped.split("#", 1)[0].strip()
-    for pat, repl in PY312_PIN_REWRITES:
-        if pat.match(line):
-            return repl
+    # Prefer module-level rules (set via set_py312_rewrite_rules), fall back to manifest arg
+    rules = _PY312_REWRITE_RULES
+    if rules is None and manifest:
+        env = manifest.get("environment", {}) or {}
+        raw_rules = env.get("python_pin_rewrites") or []
+        rules = []
+        for rule in raw_rules:
+            pattern = rule.get("pattern", "")
+            replacement = rule.get("replacement")
+            if pattern:
+                rules.append((re.compile(pattern), replacement))
+    if rules:
+        for pat, repl in rules:
+            if pat.search(line):
+                return repl  # None means drop
     return spec
 
 
@@ -679,6 +715,7 @@ def install_resolved_deps(
     """
     if target_python:
         set_target_python(target_python)
+    set_py312_rewrite_rules(manifest)
     uv_path = _find_uv()
     if not uv_path:
         return {"success": False, "error": "uv not found", "installed": [], "skipped": [], "failed": [], "native_state": "failed"}
@@ -727,7 +764,7 @@ def install_resolved_deps(
         # Build requirements list with Py3.12 normalization
         normal_specs: list[str] = []
         for dep in normal_deps:
-            normalized = normalize_py312_pin(dep.spec)
+            normalized = normalize_py312_pin(dep.spec, manifest=manifest)
             if normalized is None:
                 _log(f"Dropping Py3.12-incompatible package: {dep.spec}")
                 skipped.append(dep.name)
