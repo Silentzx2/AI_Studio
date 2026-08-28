@@ -40,7 +40,7 @@ dependencies:
   native:
   - spconv
   - pytorch3d
-  - git+https://github.com/NVlabs/nvdiffrast.git
+  - nvdiffrast
   extra: []
   wheels:
     spconv:
@@ -50,14 +50,21 @@ dependencies:
       available: true
       mode: extra_index
       index: https://miropsota.github.io/torch_packages_builder
-      version: "0.7.9+d9839a9"
+      version: "0.7.8+5043d15"
+    nvdiffrast:
+      available: true
+      mode: direct_url
+      url: https://huggingface.co/spaces/JeffreyXiang/TRELLIS/resolve/main/wheels/nvdiffrast-0.3.3-cp310-cp310-linux_x86_64.whl?download=true
+      version: "0.3.3"
   fallbacks:
     pytorch3d:
     - https://miropsota.github.io/torch_packages_builder
-    nvdiffrast: []
-  optional: []
-  representation_required:
-  - pytorch3d
+    nvdiffrast:
+    - https://huggingface.co/spaces/JeffreyXiang/TRELLIS/resolve/main/wheels/nvdiffrast-0.3.3-cp310-cp310-linux_x86_64.whl?download=true
+  optional:
+  - flash-attn
+  - xformers
+  representation_required: []
   local_extensions: {}
 weights:
   primary:

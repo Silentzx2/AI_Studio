@@ -6,8 +6,8 @@ source:
   submodules: false
   local_dir: UniRig
 environment:
-  python: '3.10'
-  torch: 2.5.1
+  python: '3.11'
+  torch: '>=2.3.1'
   cuda: '12.4'
 dependencies:
   python:
@@ -25,6 +25,10 @@ dependencies:
   - pyrender
   - huggingface_hub
   - wandb
+  - scipy
+  - Pillow
+  - tqdm
+  - pyyaml
   - numpy==1.26.4
   imports:
   - torch
@@ -33,7 +37,6 @@ dependencies:
   - spconv
   - torch_scatter
   - torch_cluster
-  - pytorch3d
   extra: []
   wheels:
     spconv:
@@ -45,26 +48,17 @@ dependencies:
     torch_cluster:
       available: true
       index: https://data.pyg.org/whl/torch-{torch_ver}+cu{cuda_ver}.html
-    pytorch3d:
-      available: true
-      mode: extra_index
-      index: https://miropsota.github.io/torch_packages_builder
-      version: "0.7.9+d9839a9"
     bpy:
       available: false
       reason: "bpy is Blender's Python API — it ships with Blender, not PyPI. Install Blender separately to enable headless rigging."
-  fallbacks:
-    pytorch3d:
-    - https://miropsota.github.io/torch_packages_builder
-    nvdiffrast: []
+  fallbacks: {}
   # bpy is only used by the headless Blender subprocess script (blender/scripts/process_mesh.py).
   # It is NOT imported by any in-process provider code. The pipeline degrades gracefully
   # when Blender is absent (pipeline.py checks blender_enabled + shutil.which).
   optional:
   - bpy
   - flash-attn
-  representation_required:
-  - pytorch3d
+  representation_required: []
   local_extensions: {}
 weights:
   primary:
@@ -79,7 +73,7 @@ capabilities:
     enabled: true
     native_build_required: true
     native_steps:
-    - pip install spconv torch_scatter torch_cluster pytorch3d
+    - pip install spconv torch_scatter torch_cluster
     vram_required_mb: 8000
   texture_pbr:
     enabled: false
@@ -89,7 +83,7 @@ capabilities:
     enabled: true
     native_build_required: true
     native_steps:
-    - pip install spconv torch_scatter torch_cluster pytorch3d
+    - pip install spconv torch_scatter torch_cluster
     vram_required_mb: 8000
 preflight:
   check_model_venv: true
