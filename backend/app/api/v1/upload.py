@@ -222,6 +222,19 @@ async def upload_model(file: UploadFile = File(...)):  # noqa: C901
         except Exception as exc:
             logger.warning(f"Thumbnail generation failed for {unique_name}: {exc}")
 
+    # Extract mesh stats (polygon count, vertex count) for properties display
+    mesh_stats = None
+    try:
+        from app.core.mesh_processor import get_mesh_stats
+        stats = get_mesh_stats(str(file_path))
+        if stats and (stats.get("polygon_count", 0) > 0 or stats.get("vertex_count", 0) > 0):
+            mesh_stats = {
+                "polygon_count": stats.get("polygon_count", 0),
+                "vertex_count": stats.get("vertex_count", 0),
+            }
+    except Exception as exc:
+        logger.warning(f"Mesh stats extraction failed for {unique_name}: {exc}")
+
     # Return URL
     url = f"/static/models/{unique_name}"
 
@@ -233,6 +246,7 @@ async def upload_model(file: UploadFile = File(...)):  # noqa: C901
         "size": len(contents),
         "format": ext.lstrip('.'),
         "thumbnail_url": thumbnail_url,
+        "mesh_stats": mesh_stats,
     })
 
 
@@ -280,7 +294,21 @@ async def list_uploaded_assets():
                         thumb_path = thumbnails_dir / thumb_name
                         if thumb_path.exists():
                             thumbnail_url = f"/static/thumbnails/{thumb_name}"
-                    
+
+                    # Extract mesh stats for properties display
+                    mesh_stats = None
+                    if f.suffix.lower() in {'.glb', '.gltf', '.obj', '.stl', '.ply'}:
+                        try:
+                            from app.core.mesh_processor import get_mesh_stats
+                            stats = get_mesh_stats(str(f))
+                            if stats and (stats.get("polygon_count", 0) > 0 or stats.get("vertex_count", 0) > 0):
+                                mesh_stats = {
+                                    "polygon_count": stats.get("polygon_count", 0),
+                                    "vertex_count": stats.get("vertex_count", 0),
+                                }
+                        except Exception:
+                            pass
+
                     models.append({
                         "id": f.name,
                         "name": f.name,
@@ -290,6 +318,7 @@ async def list_uploaded_assets():
                         "format": f.suffix.lstrip('.'),
                         "type": "model",
                         "thumbnail_url": thumbnail_url,
+                        "mesh_stats": mesh_stats,
                         "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat()
                     })
         

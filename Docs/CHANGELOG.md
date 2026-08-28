@@ -1,12 +1,52 @@
 # AI 3D Studio — Changelog
 
-## [v4.4.4] - 2026-08-28 — TRELLIS Install Fixes
+## [v4.4.7] - 2026-08-28 — Backend Settings Persistence for Generation, Low VRAM Sync & Hook Optimizations
 
-### Critical Bug Fixes
-- **dependency_resolver.py**: Fixed `TemporaryDirectory` cleanup bug for VCS subdirectory deps (e.g., `diff-gaussian-rasterization`). The `with TemporaryDirectory()` context manager was exiting before `_run_uv(build_args)` ran, deleting the cloned source directory and causing "Distribution not found" errors. Moved the retry loop inside the `with` block.
+### Added
+- **Backend Generation Settings API**: Created `GET /api/v1/settings/generation` and `POST /api/v1/settings/generation` endpoints along with `low_vram` and `vram_mode` support in `Settings` and `ConfigUpdateRequest` in FastAPI.
+- **GenerationSection Low VRAM Card**: Added dedicated Low VRAM Mode switch card to `GenerationSection` in Settings with automatic detection and badge indicator for target provider compatibility.
+- **Full Backend-Frontend Low VRAM Sync**: Synchronized Low VRAM state across Settings, WorkspaceContext, GeneratePanel, and backend runtime config so low VRAM execution persists and applies dynamically.
 
-### Robustness Improvements
-- **dependency_resolver.py**: Added retry logic for direct `.whl` URL installs (e.g., `nvdiffrast`). Transient failures from GitHub rate limiting, redirect timeouts, and network blips now retry up to 3 times with exponential backoff.
+### Fixed & Cleaned
+- **React Hook State Hygiene**: Optimized `useAutoSave`, `PreferencesSections`, and `WorkspaceSection` by utilizing lazy state initializers and cleanup callbacks, preventing unnecessary cascading renders and resolving linting warnings.
+
+---
+
+## [v4.4.6] - 2026-08-28 — Framer Motion Transitions, Dynamic Route Standardization & Model-Aware Low VRAM Mode
+
+### Added
+- **Framer Motion View & Tool Transitions**: Integrated smooth `AnimatePresence` and `motion.div` transitions into `WorkspaceShell` for frictionless tool panel switching (3D Gen, Retopo, Remesh, Texture, Animate, Rigging, etc.) and main view overlays (Dashboard, Assets, System), completely eliminating route flicker.
+- **Dynamic Model-Aware Low VRAM Toggle**: Configured the Low VRAM mode toggle in `GeneratePanel` to conditionally appear only when the active model supports low VRAM (`low_vram_supported`), dynamically showing the target memory ceiling (`<8GB`, `<4GB`, etc.). Auto-resets on selecting models that don't support low VRAM.
+- **Direct Backend Actions Integration**: Connected all 'Clear', 'Download', and 'Refresh' actions across `LogsTab`, `StorageTab`, `RuntimeTab`, `HealthTab`, `WorkspaceSection`, and `ExportModal` directly to backend endpoints (`/api/v1/admin/logs`, `/api/v1/admin/logs/file`, `/api/v1/system/cache/clear`, `/api/v1/runtime/clear-cache`, `/api/v1/runtime/clear-vram`, `/api/v1/settings/workspace/clear-history`).
+
+### Fixed & Cleaned
+- **Standardized Workspace Routing**: Standardized all workspace routes to `/workspace/[tool]` (`/workspace/generate`, `/workspace/texture`, `/workspace/segment`, `/workspace/retopo`, `/workspace/remesh`, `/workspace/animate`, `/workspace/rigging`, `/workspace/overview`, `/workspace/assets`, `/workspace/system`).
+- **Route Redundancy Cleanup**: Removed redundant route catch-all and static duplicate pages (`app/workspace/[...tool]/`, `app/workspace/overview/`) in favor of canonical dynamic route `app/workspace/[tool]/page.tsx`.
+
+---
+
+## [v4.4.5] - 2026-08-28 — Terminal Logs Redesign, Real Telemetry Polling, Low VRAM Mode & Route Stability
+
+### Added
+- **Low VRAM Mode in UI**: Added Low VRAM Mode toggle to `GeneratePanel` and bound it to the backend `low_vram` boolean parameter and `vram_mode` across generation workflows (`text-to-3d` and `image-to-3d`).
+- **Terminal-Style Logs Viewer**: Redesigned `LogsTab` into a clean terminal console layout with live syntax highlighting, level filters (ALL, INFO, OK, WARN, ERR, DBG), search filter with term highlighting, source selector, word wrap toggle, jump-to-latest button, working clipboard copy, log export download, and backend clear logs integration.
+
+### Fixed
+- **Infinite Refresh Bug in Logs**: Removed cyclical dependency in `LogsTab` load callback and prevented repetitive re-renders.
+- **Mock Telemetry Data Removal**: Replaced hardcoded default values with 100% real GPU/VRAM telemetry metrics from the FastAPI backend and eliminated rapid polling flicker in `GpuVramLineChart`.
+- **Tool Route Switching Glitch**: Optimized route synchronization in `WorkspaceShell` and active tool selection in `LeftNavigation` to provide instantaneous transitions without state bounce.
+
+---
+
+## [v4.4.4] - 2026-08-28 — Real-Time Recharts GPU/VRAM Monitoring & Route Fixes
+
+### Added
+- **Recharts Real-Time Telemetry Component**: Created `GpuVramLineChart` using `recharts` for live visualization of GPU utilization, VRAM usage (GB & percentage), CPU load, and temperature with smooth streaming curves and interactive tooltip telemetry.
+- **Monitoring Integration**: Integrated `GpuVramLineChart` into `OverviewTab`, `RuntimeTab`, `StudioDashboard` (`/workspace/overview`), and `SystemPage`.
+
+### Fixed
+- **Workspace Overview Route**: Created dedicated route `/workspace/overview` and updated `WorkspaceShell` routing to properly display the workspace studio overview instead of falling back to `/`.
+- **FastAPI Status Connection**: Replaced static mock status in `TopHeader` with real-time polling data from the backend proxy (`/api/v1`) connected to `localhost:8000`, correctly parsing FastAPI envelope responses.
 
 ---
 

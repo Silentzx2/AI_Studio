@@ -1,82 +1,38 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { motion } from "framer-motion";
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import {
   Terminal, Search, Trash2, Info, AlertTriangle, XCircle, CheckCircle, Bug,
-  RefreshCw, Copy, Zap, Pause, Play, WrapText, Filter,
-  Download, ArrowDownToLine, BarChart3,
+  RefreshCw, Copy, Pause, Play, WrapText, Download,
+  ArrowDown, Check, X, ShieldAlert
 } from "lucide-react";
-import { GlassCard } from "@/components/premium/GlassCard";
-import { NeonButton } from "@/components/premium/NeonButton";
-import { Spinner } from "@/components/premium/Spinner";
 import { adminService } from "@/services/adminService";
 import type { AdminLog } from "@/types";
-import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-type LevelKey = "all" | "info" | "warn" | "error" | "debug" | "success";
+type LevelKey = "all" | "info" | "success" | "warn" | "error" | "debug";
 
-const LEVELS: LevelKey[] = ["all", "info", "success", "warn", "error", "debug"];
-
-const LEVEL_STYLE: Record<string, { color: string; icon: React.ComponentType<{ className?: string }>; tag: string }> = {
-  info:    { color: "text-[hsl(var(--neon-blue))]",    icon: Info,    tag: "INFO" },
-  success: { color: "text-[hsl(var(--neon-green))]",  icon: CheckCircle, tag: "OK" },
-  warn:    { color: "text-[hsl(var(--neon-amber))]",  icon: AlertTriangle, tag: "WARN" },
-  error:   { color: "text-[hsl(var(--destructive))]", icon: XCircle, tag: "ERR" },
-  debug:   { color: "text-[hsl(var(--neon-purple))]", icon: Bug,     tag: "DBG" },
+const LEVEL_STYLE: Record<string, { badge: string; text: string; label: string }> = {
+  info:    { badge: "bg-[#0284c7]/20 text-[#38bdf8] border-[#0284c7]/40", text: "text-[#38bdf8]", label: "INFO" },
+  success: { badge: "bg-[#16a34a]/20 text-[#4ade80] border-[#16a34a]/40", text: "text-[#4ade80]", label: "OK  " },
+  warn:    { badge: "bg-[#d97706]/20 text-[#fbbf24] border-[#d97706]/40", text: "text-[#fbbf24]", label: "WARN" },
+  error:   { badge: "bg-[#dc2626]/20 text-[#f87171] border-[#dc2626]/40", text: "text-[#f87171]", label: "ERR " },
+  debug:   { badge: "bg-[#9333ea]/20 text-[#c084fc] border-[#9333ea]/40", text: "text-[#c084fc]", label: "DBG " },
 };
-
-const SOURCE_COLORS: Record<string, string> = {
-  backend:  "bg-[hsl(var(--neon-blue)/0.2)] text-[hsl(var(--neon-blue))]",
-  frontend: "bg-[hsl(var(--neon-green)/0.2)] text-[hsl(var(--neon-green))]",
-  downloads:"bg-[hsl(var(--neon-amber)/0.2)] text-[hsl(var(--neon-amber))]",
-  models:   "bg-[hsl(var(--neon-purple)/0.2)] text-[hsl(var(--neon-purple))]",
-  database: "bg-[hsl(var(--neon-cyan)/0.2)] text-[hsl(var(--neon-cyan))]",
-  workers:  "bg-[hsl(var(--neon-pink)/0.2)] text-[hsl(var(--neon-pink))]",
-  pipelines:"bg-[hsl(var(--neon-purple)/0.2)] text-[hsl(var(--neon-purple))]",
-  system:   "bg-[hsl(var(--muted-foreground)/0.2)] text-[hsl(var(--muted-foreground))]",
-};
-
-function getSourceColor(source: string): string {
-  const key = source.toLowerCase();
-  for (const [prefix, cls] of Object.entries(SOURCE_COLORS)) {
-    if (key.includes(prefix)) return cls;
-  }
-  return "bg-[hsl(var(--muted-foreground)/0.15)] text-[hsl(var(--muted-foreground))]";
-}
 
 function formatTime(ts: string): string {
   if (!ts) return "--:--:--";
   const d = new Date(ts.includes("T") ? ts : ts.replace(" ", "T"));
-  if (isNaN(d.getTime())) return ts;
+  if (isNaN(d.getTime())) return ts.slice(11, 19) || ts;
   return d.toLocaleTimeString("en-GB", { hour12: false });
 }
 
-function formatDate(ts: string): string {
+function formatFullTs(ts: string): string {
   if (!ts) return "";
   const d = new Date(ts.includes("T") ? ts : ts.replace(" ", "T"));
-  if (isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  if (isNaN(d.getTime())) return ts;
+  return `${d.toISOString().slice(0, 10)} ${d.toLocaleTimeString("en-GB", { hour12: false })}.${String(d.getMilliseconds()).padStart(3, "0")}`;
 }
-
-function highlight(text: string, query: string): React.ReactNode {
-  if (!query) return text;
-  const idx = text.toLowerCase().indexOf(query.toLowerCase());
-  if (idx === -1) return text;
-  return (
-    <>
-      {text.slice(0, idx)}
-      <mark className="bg-[hsl(var(--neon-amber)/0.35)] text-foreground rounded-sm px-0.5">
-        {text.slice(idx, idx + query.length)}
-      </mark>
-      {text.slice(idx + query.length)}
-    </>
-  );
-}
-
-const ITEM_HEIGHT = 28;
-const VIRTUAL_BUFFER = 15;
 
 export function LogsTab() {
   const [logs, setLogs] = useState<AdminLog[]>([]);
@@ -84,505 +40,462 @@ export function LogsTab() {
   const [level, setLevel] = useState<LevelKey>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
+  const [isClearing, setIsClearing] = useState(false);
   const [live, setLive] = useState(true);
   const [wrap, setWrap] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
-  const [scrollTop, setScrollTop] = useState(0);
-  const [containerHeight, setContainerHeight] = useState(0);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false);
+
+  const terminalRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
-  const seen = useRef<Set<string>>(new Set());
-  const rafRef = useRef<number>(0);
-  const statsRef = useRef<HTMLDivElement>(null);
+  const seenIds = useRef<Set<string>>(new Set());
+  const isAutoScrollRef = useRef(autoScroll);
+  isAutoScrollRef.current = autoScroll;
 
-  const load = useCallback(async () => {
+  // Load initial logs
+  const fetchLogs = useCallback(async () => {
     setLoading(true);
-    const data = await adminService.getLogs(500, level === "all" ? undefined : level);
-    if (data.length > 0 || !loading) {
+    try {
+      const data = await adminService.getLogs(1000, level === "all" ? undefined : level);
       setLogs(data);
-      seen.current = new Set(data.map((l) => `${l.timestamp}|${l.source}|${l.message}`));
+      seenIds.current = new Set(data.map((l) => l.id || `${l.timestamp}-${l.source}-${l.message}`));
+    } catch {
+      toast.error("Failed to load backend logs");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, [level, loading]);
+  }, [level]);
 
+  // Initial fetch on mount or level filter change
   useEffect(() => {
-    void load();
-  }, [load]);
+    void fetchLogs();
+  }, [fetchLogs]);
 
+  // Live SSE stream handler
   useEffect(() => {
     if (!live) return;
-    const stop = adminService.streamAdminLogs((entry) => {
-      const key = `${entry.timestamp}|${entry.source}|${entry.message}`;
-      if (seen.current.has(key)) return;
-      seen.current.add(key);
-      setLogs((prev) => [...prev.slice(-1500), entry]);
+    const unsubscribe = adminService.streamAdminLogs((entry) => {
+      const key = entry.id || `${entry.timestamp}-${entry.source}-${entry.message}`;
+      if (seenIds.current.has(key)) return;
+      seenIds.current.add(key);
+
+      setLogs((prev) => {
+        const next = [...prev, entry];
+        if (next.length > 2500) {
+          return next.slice(-2000);
+        }
+        return next;
+      });
     }, 100);
-    return () => stop();
+
+    return () => {
+      unsubscribe();
+    };
   }, [live]);
 
+  // Scroll listener for detecting user manual scroll vs auto-scroll
   const handleScroll = useCallback(() => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(() => {
-      const el = scrollRef.current;
-      if (!el) return;
-      setScrollTop(el.scrollTop);
-      setContainerHeight(el.clientHeight);
-      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
-      if (nearBottom && !autoScroll) {
-        setAutoScroll(true);
-      }
-      if (!nearBottom && autoScroll) {
-        setAutoScroll(false);
-      }
-    });
-  }, [autoScroll]);
-
-  useEffect(() => {
-    const el = scrollRef.current;
+    const el = terminalRef.current;
     if (!el) return;
-    el.addEventListener("scroll", handleScroll, { passive: true });
-    return () => {
-      el.removeEventListener("scroll", handleScroll);
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [handleScroll]);
+    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+    if (isAtBottom) {
+      setAutoScroll(true);
+      setShowJumpToLatest(false);
+    } else {
+      setAutoScroll(false);
+      setShowJumpToLatest(true);
+    }
+  }, []);
 
+  // Auto-scroll when new logs arrive if enabled
   useEffect(() => {
     if (autoScroll) {
       endRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [logs, autoScroll]);
 
-  useEffect(() => {
-    if (!autoScroll && logs.length > 0) {
-      const el = scrollRef.current;
-      if (el) {
-        const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
-        if (!nearBottom) {
-          setShowJumpToLatest(true);
-        }
-      }
-    }
-  }, [logs, autoScroll]);
-
+  // Derived available sources
   const sources = useMemo(() => {
-    const s = new Set(logs.map((l) => l.source));
-    return ["all", ...Array.from(s).filter(Boolean).sort().slice(0, 40)];
+    const s = new Set(logs.map((l) => l.source).filter(Boolean));
+    return ["all", ...Array.from(s).sort()];
   }, [logs]);
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
+  // Filter logs by search, level, and source
+  const filteredLogs = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return logs.filter((l) => {
       if (level !== "all" && l.level !== level) return false;
       if (sourceFilter !== "all" && l.source !== sourceFilter) return false;
-      if (q && !l.message.toLowerCase().includes(q) && !l.source.toLowerCase().includes(q)) return false;
+      if (q) {
+        const msgMatch = l.message?.toLowerCase().includes(q);
+        const srcMatch = l.source?.toLowerCase().includes(q);
+        if (!msgMatch && !srcMatch) return false;
+      }
       return true;
     });
   }, [logs, level, sourceFilter, search]);
 
+  // Level counts
   const counts = useMemo(() => {
-    const c: Record<string, number> = { info: 0, success: 0, warn: 0, error: 0, debug: 0 };
-    for (const l of logs) if (c[l.level] !== undefined) c[l.level]++;
-    return c;
-  }, [logs]);
-
-  const sourceCounts = useMemo(() => {
-    const c: Record<string, number> = {};
+    const c = { all: logs.length, info: 0, success: 0, warn: 0, error: 0, debug: 0 };
     for (const l of logs) {
-      c[l.source] = (c[l.source] ?? 0) + 1;
-    }
-    return c;
-  }, [logs]);
-
-  const stats = useMemo(() => {
-    const total = logs.length;
-    const byLevel = { ...counts };
-    const bySource: Record<string, number> = {};
-    for (const l of logs) {
-      bySource[l.source] = (bySource[l.source] ?? 0) + 1;
-    }
-    const topSources = Object.entries(bySource)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8);
-    const oldest = logs.length > 0 ? logs[0].timestamp : null;
-    const newest = logs.length > 0 ? logs[logs.length - 1].timestamp : null;
-    return { total, byLevel, topSources, oldest, newest };
-  }, [logs, counts]);
-
-  const groupedBySource = useMemo(() => {
-    const groups: Record<string, AdminLog[]> = {};
-    for (const l of filtered) {
-      if (!groups[l.source]) groups[l.source] = [];
-      groups[l.source].push(l);
-    }
-    return groups;
-  }, [filtered]);
-
-  const sortedSources = useMemo(() => {
-    return Object.keys(groupedBySource).sort((a, b) => {
-      return (groupedBySource[b]?.length ?? 0) - (groupedBySource[a]?.length ?? 0);
-    });
-  }, [groupedBySource]);
-
-  const virtualItems = useMemo(() => {
-    if (sortedSources.length === 0) return [];
-    const items: Array<{ type: "header"; source: string; count: number } | { type: "entry"; log: AdminLog }> = [];
-    for (const source of sortedSources) {
-      const entries = groupedBySource[source];
-      items.push({ type: "header", source, count: entries.length });
-      for (const entry of entries) {
-        items.push({ type: "entry", log: entry });
+      if (l.level in c) {
+        c[l.level as keyof typeof c]++;
       }
     }
-    return items;
-  }, [sortedSources, groupedBySource]);
+    return c;
+  }, [logs]);
 
-  const visibleRange = useMemo(() => {
-    const totalHeight = virtualItems.length * ITEM_HEIGHT;
-    const startIdx = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - VIRTUAL_BUFFER);
-    const endIdx = Math.min(
-      virtualItems.length,
-      Math.ceil((scrollTop + containerHeight) / ITEM_HEIGHT) + VIRTUAL_BUFFER
-    );
-    return { startIdx, endIdx, totalHeight };
-  }, [virtualItems, scrollTop, containerHeight]);
-
+  // Copy logs
   const handleCopy = async () => {
+    if (filteredLogs.length === 0) {
+      toast.info("No logs to copy");
+      return;
+    }
     try {
-      const text = filtered
-        .map((l) => `[${formatTime(l.timestamp)}] [${l.level.toUpperCase()}] [${l.source}] ${l.message}`)
+      const text = filteredLogs
+        .map((l) => `[${formatFullTs(l.timestamp)}] [${(l.level || 'info').toUpperCase()}] [${l.source || 'sys'}] ${l.message}`)
         .join("\n");
       await navigator.clipboard.writeText(text);
-      toast.success("Logs copied to clipboard");
+      setCopied(true);
+      toast.success(`Copied ${filteredLogs.length} log lines to clipboard`);
+      setTimeout(() => setCopied(false), 2000);
     } catch {
       toast.error("Failed to copy logs");
     }
   };
 
-  const handleDownload = async () => {
+  // Download logs
+  const handleDownload = () => {
+    if (filteredLogs.length === 0) {
+      toast.info("No logs to download");
+      return;
+    }
     try {
-      const text = filtered
-        .map((l) => `[${formatTime(l.timestamp)}] [${l.level.toUpperCase()}] [${l.source}] ${l.message}`)
+      const text = filteredLogs
+        .map((l) => `[${formatFullTs(l.timestamp)}] [${(l.level || 'info').toUpperCase()}] [${l.source || 'sys'}] ${l.message}`)
         .join("\n");
-      const blob = new Blob([text], { type: "text/plain" });
+      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `logs-${new Date().toISOString().slice(0, 10)}.log`;
+      a.download = `ai3d-studio-logs-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.log`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toast.success("Logs downloaded");
+      toast.success(`Downloaded ${filteredLogs.length} log lines`);
     } catch {
       toast.error("Failed to download logs");
     }
   };
 
+  // Clear logs via backend DELETE endpoint
   const handleClear = async () => {
+    setIsClearing(true);
     try {
       await adminService.clearLogs();
       setLogs([]);
-      seen.current.clear();
-      toast.success("Logs cleared");
+      seenIds.current.clear();
+      toast.success("All logs cleared successfully");
     } catch {
-      toast.error("Failed to clear logs");
+      toast.error("Failed to clear backend logs");
+    } finally {
+      setIsClearing(false);
     }
   };
 
-  const handleJumpToLatest = () => {
+  const jumpToBottom = () => {
     setAutoScroll(true);
+    setShowJumpToLatest(false);
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const totalFiltered = filtered.length;
+  const highlightMatch = (text: string, query: string) => {
+    if (!query) return text;
+    const idx = text.toLowerCase().indexOf(query.toLowerCase());
+    if (idx === -1) return text;
+    return (
+      <>
+        {text.slice(0, idx)}
+        <span className="bg-[#f59e0b]/40 text-[#fde68a] font-bold px-0.5 rounded">
+          {text.slice(idx, idx + query.length)}
+        </span>
+        {text.slice(idx + query.length)}
+      </>
+    );
+  };
 
   return (
-    <div className="p-4 lg:p-6 space-y-4 max-w-[1800px] mx-auto">
-      {/* ── Header ── */}
-      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Terminal className="w-5 h-5 text-[hsl(var(--neon-green))]" />
-            System Logs
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Full application activity — startup, downloads, installs, database, model lifecycle, API requests, warnings &amp; errors.
-          </p>
+    <div id="page-terminal-logs" className="flex flex-col h-[calc(100vh-130px)] min-h-[550px] bg-[#07080b] rounded-xl border border-[#1d2029] overflow-hidden text-xs select-none">
+      {/* ── Terminal Title Bar ── */}
+      <div className="flex items-center justify-between px-3.5 py-2 bg-[#0d0e14] border-b border-[#1c1f28]">
+        {/* Terminal dots & command path */}
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]/80 border border-[#ef4444]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]/80 border border-[#f59e0b]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#22c55e]/80 border border-[#22c55e]" />
+          </div>
+          <div className="flex items-center gap-1.5 font-mono text-[11px] text-[#9ca3af] truncate">
+            <Terminal className="w-3.5 h-3.5 text-[#38bdf8]" />
+            <span className="text-[#38bdf8] font-semibold">fastapi@studio</span>
+            <span className="text-[#64748b]">:</span>
+            <span className="text-[#e2e8f0]">~/logs</span>
+            <span className="text-[#64748b]">$</span>
+            <span className="text-[#cbd5e1] font-normal">tail -f app.log</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+
+        {/* Live Stream Status & Action Controls */}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {/* Live / Paused toggle */}
           <button
             onClick={() => setLive((v) => !v)}
-            className={cn(
-              "px-3 py-1.5 rounded-xl text-xs font-medium border transition-all flex items-center gap-1.5",
+            className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-semibold flex items-center gap-1.5 transition-all ${
               live
-                ? "bg-[hsl(var(--neon-green)/0.15)] text-foreground border-[hsl(var(--neon-green)/0.3)]"
-                : "glass text-muted-foreground border-[hsl(var(--border)/0.5)]"
-            )}
-            title={live ? "Live streaming on" : "Live streaming paused"}
+                ? "bg-[#22c55e]/15 text-[#4ade80] border border-[#22c55e]/30 shadow-sm"
+                : "bg-[#334155]/20 text-[#94a3b8] border border-[#475569]/30"
+            }`}
+            title={live ? "Click to pause live streaming" : "Click to resume live streaming"}
           >
-            {live ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-            {live ? "Live" : "Paused"}
+            {live ? (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse" />
+                <span>LIVE</span>
+              </>
+            ) : (
+              <>
+                <Pause className="w-3 h-3" />
+                <span>PAUSED</span>
+              </>
+            )}
           </button>
-          <NeonButton variant="secondary" size="sm" onClick={handleCopy} disabled={filtered.length === 0}>
-            <Copy className="w-3.5 h-3.5" /> Copy
-          </NeonButton>
-          <NeonButton variant="secondary" size="sm" onClick={handleDownload} disabled={filtered.length === 0}>
-            <Download className="w-3.5 h-3.5" /> Download
-          </NeonButton>
-          <NeonButton variant="secondary" size="sm" onClick={() => load()}>
-            <RefreshCw className="w-3.5 h-3.5" /> Refresh
-          </NeonButton>
-          <NeonButton variant="destructive" size="sm" onClick={handleClear}>
-            <Trash2 className="w-3.5 h-3.5" /> Clear
-          </NeonButton>
+
+          {/* Copy */}
+          <button
+            onClick={handleCopy}
+            className="px-2 py-1 rounded-md bg-[#13151c] hover:bg-[#1a1d26] border border-[#232733] text-[#cbd5e1] hover:text-[#ffffff] flex items-center gap-1 transition-colors"
+            title="Copy filtered logs"
+          >
+            {copied ? <Check className="w-3.5 h-3.5 text-[#22c55e]" /> : <Copy className="w-3.5 h-3.5" />}
+            <span className="font-mono text-[10.5px]">Copy</span>
+          </button>
+
+          {/* Download */}
+          <button
+            onClick={handleDownload}
+            className="px-2 py-1 rounded-md bg-[#13151c] hover:bg-[#1a1d26] border border-[#232733] text-[#cbd5e1] hover:text-[#ffffff] flex items-center gap-1 transition-colors"
+            title="Download log file"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span className="font-mono text-[10.5px]">Export</span>
+          </button>
+
+          {/* Clear */}
+          <button
+            onClick={handleClear}
+            disabled={isClearing}
+            className="px-2 py-1 rounded-md bg-[#1f1316] hover:bg-[#2d171b] border border-[#451e24] text-[#fca5a5] hover:text-[#f87171] flex items-center gap-1 transition-colors disabled:opacity-50"
+            title="Clear all application logs"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span className="font-mono text-[10.5px]">Clear</span>
+          </button>
+
+          {/* Refresh */}
+          <button
+            onClick={() => fetchLogs()}
+            disabled={loading}
+            className="p-1 rounded-md bg-[#13151c] hover:bg-[#1a1d26] border border-[#232733] text-[#9ca3af] hover:text-[#f3f4f6] transition-colors"
+            title="Refresh logs from server"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-[#38bdf8]" : ""}`} />
+          </button>
         </div>
       </div>
 
-      {/* ── Statistics ── */}
-      <GlassCard className="p-3" delay={0.05}>
-        <div className="flex items-center gap-2 mb-2">
-          <BarChart3 className="w-3.5 h-3.5 text-[hsl(var(--neon-purple))]" />
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Statistics</span>
-          <span className="ml-auto text-xs font-mono text-muted-foreground/60">
-            {stats.total} total entries
-            {stats.oldest && ` · oldest ${formatTime(stats.oldest)}`}
-            {stats.newest && ` · latest ${formatTime(stats.newest)}`}
-          </span>
-        </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          {LEVELS.filter((lv) => lv !== "all").map((lv) => {
-            const style = LEVEL_STYLE[lv];
-            const Icon = style.icon;
+      {/* ── Filter & Search Toolbar ── */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2 bg-[#090a0f] border-b border-[#171922]">
+        {/* Level Badges */}
+        <div className="flex items-center gap-1 flex-wrap">
+          {(["all", "info", "success", "warn", "error", "debug"] as LevelKey[]).map((lvl) => {
+            const isSelected = level === lvl;
+            const count = lvl === "all" ? counts.all : counts[lvl as keyof typeof counts] || 0;
             return (
-              <div key={lv} className="flex items-center gap-1.5 px-2 py-1 rounded-lg glass text-xs">
-                <Icon className={cn("w-3 h-3", style.color)} />
-                <span className={cn("font-semibold", style.color)}>{counts[lv] ?? 0}</span>
-                <span className="text-muted-foreground capitalize">{lv}</span>
-              </div>
+              <button
+                key={lvl}
+                onClick={() => setLevel(lvl)}
+                className={`px-2 py-0.5 rounded text-[10.5px] font-mono uppercase font-semibold transition-all flex items-center gap-1 ${
+                  isSelected
+                    ? "bg-[#2563eb] text-white shadow-sm"
+                    : "bg-[#11131a] text-[#8e95a5] hover:bg-[#181b24] hover:text-[#cbd5e1] border border-[#1e222d]"
+                }`}
+              >
+                <span>{lvl}</span>
+                <span className={`text-[9px] px-1 py-0.2 rounded ${
+                  isSelected ? "bg-black/30 text-white" : "bg-[#191d26] text-[#6b7280]"
+                }`}>
+                  {count}
+                </span>
+              </button>
             );
           })}
-          <div className="w-px h-5 bg-[hsl(var(--border)/0.3)]" />
-          {stats.topSources.map(([src, cnt]) => (
-            <div key={src} className="flex items-center gap-1.5 px-2 py-1 rounded-lg glass text-xs">
-              <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", getSourceColor(src))} />
-              <span className="text-foreground font-medium">{cnt}</span>
-              <span className="text-muted-foreground truncate max-w-[120px]">{src}</span>
-            </div>
-          ))}
         </div>
-      </GlassCard>
 
-      {/* ── Filters ── */}
-      <GlassCard className="p-3" delay={0.05}>
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search messages & sources…"
-                className="w-full h-9 pl-9 pr-4 rounded-xl glass text-sm border border-[hsl(var(--border)/0.5)] focus:border-[hsl(var(--neon-purple)/0.4)] focus:outline-none font-mono"
-              />
-            </div>
-            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin">
-              <Filter className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-              {LEVELS.map((lv) => (
-                <button
-                  key={lv}
-                  onClick={() => setLevel(lv)}
-                  className={cn(
-                    "px-2.5 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all border whitespace-nowrap",
-                    level === lv
-                      ? "bg-[hsl(var(--neon-purple)/0.18)] text-foreground border-[hsl(var(--neon-purple)/0.35)]"
-                      : "glass text-muted-foreground border-[hsl(var(--border)/0.5)] hover:text-foreground"
-                  )}
-                >
-                  {lv === "all" ? `All (${logs.length})` : `${lv} ${counts[lv] ?? 0}`}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-muted-foreground">Source:</span>
+        {/* Search, Source Filter & Wrap Toggle */}
+        <div className="flex items-center gap-2">
+          {/* Source dropdown */}
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-[#64748b] font-mono">SRC:</span>
             <select
               value={sourceFilter}
               onChange={(e) => setSourceFilter(e.target.value)}
-              className="h-8 rounded-lg glass text-xs border border-[hsl(var(--border)/0.5)] px-2 focus:outline-none max-w-[220px]"
+              className="bg-[#11131a] border border-[#1e222d] rounded px-1.5 py-0.5 text-[10.5px] font-mono text-[#cbd5e1] focus:outline-none focus:border-[#38bdf8]"
             >
               {sources.map((s) => (
-                <option key={s} value={s} className="bg-[hsl(var(--card))]">
-                  {s === "all" ? "All sources" : `${s} (${sourceCounts[s] ?? 0})`}
+                <option key={s} value={s} className="bg-[#11131a] text-[#cbd5e1]">
+                  {s.toUpperCase()}
                 </option>
               ))}
             </select>
-            <button
-              onClick={() => setWrap((v) => !v)}
-              className={cn(
-                "px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5",
-                wrap
-                  ? "bg-[hsl(var(--neon-purple)/0.15)] text-foreground border-[hsl(var(--neon-purple)/0.3)]"
-                  : "glass text-muted-foreground border-[hsl(var(--border)/0.5)]"
-              )}
-            >
-              <WrapText className="w-3.5 h-3.5" /> Wrap
-            </button>
-            <button
-              onClick={() => setAutoScroll((v) => !v)}
-              className={cn(
-                "px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all",
-                autoScroll
-                  ? "bg-[hsl(var(--neon-purple)/0.15)] text-foreground border-[hsl(var(--neon-purple)/0.3)]"
-                  : "glass text-muted-foreground border-[hsl(var(--border)/0.5)]"
-              )}
-            >
-              {autoScroll ? "Auto-scroll: On" : "Auto-scroll: Off"}
-            </button>
           </div>
-        </div>
-      </GlassCard>
 
-      {/* ── Terminal ── */}
-      <GlassCard className="p-0 overflow-hidden" delay={0.1}>
-        {/* Terminal title bar */}
-        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[hsl(var(--neon-green)/0.15)] bg-[#06090f]">
-          <span className="w-3 h-3 rounded-full bg-[#ff5f57]" />
-          <span className="w-3 h-3 rounded-full bg-[#febc2e]" />
-          <span className="w-3 h-3 rounded-full bg-[#28c840]" />
-          <span className="ml-3 text-xs font-mono text-[hsl(var(--neon-green)/0.85)]">
-            ai3d@studio:~/logs$ <span className="text-[hsl(var(--muted-foreground))]">tail -f app.log --follow</span>
-            <span className="terminal-cursor ml-1" />
-          </span>
-          <span className="ml-auto flex items-center gap-2">
-            <span className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider">
-              <span className={cn(
-                "w-2 h-2 rounded-full",
-                live ? "bg-[hsl(var(--neon-green))] shadow-[0_0_8px_hsl(var(--neon-green))] animate-pulse" : "bg-[hsl(var(--muted-foreground))]"
-              )} />
-              <span className={live ? "text-[hsl(var(--neon-green))]" : "text-muted-foreground"}>
-                {live ? "Live" : "Paused"}
-              </span>
-            </span>
-            <span className="text-xs font-mono text-muted-foreground/70 tabular-nums">
-              {totalFiltered} / {logs.length} lines
-            </span>
-          </span>
-        </div>
+          {/* Search box */}
+          <div className="relative">
+            <Search className="w-3 h-3 text-[#64748b] absolute left-2 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search logs..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-6 pr-5 py-0.5 w-36 lg:w-48 bg-[#11131a] border border-[#1e222d] rounded text-[11px] font-mono text-[#e2e8f0] placeholder-[#475569] focus:outline-none focus:border-[#38bdf8]"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-[#e2e8f0]"
+              >
+                <X className="w-2.5 h-2.5" />
+              </button>
+            )}
+          </div>
 
-        <div
-          ref={scrollRef}
-          className={cn(
-            "bg-[#05070b] text-[#c9d1d9] font-mono text-[13px] leading-[1.5]",
-            "h-[calc(100vh-420px)] min-h-[460px] overflow-y-auto scrollbar-thin p-3"
-          )}
-        >
-          {loading && logs.length === 0 ? (
-            <div className="flex items-center justify-center py-20">
-              <Spinner size="md" />
-            </div>
-          ) : totalFiltered === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/50">
-              <Terminal className="w-10 h-10 mb-2 opacity-30" />
-              <p className="text-sm font-mono">no log entries match the current filter</p>
-            </div>
-          ) : (
-            <div style={{ height: `${virtualItems.length * ITEM_HEIGHT}px`, position: "relative" }}>
-              <div style={{ transform: `translateY(${visibleRange.startIdx * ITEM_HEIGHT}px)` }}>
-                {virtualItems.slice(visibleRange.startIdx, visibleRange.endIdx).map((item, i) => {
-                  if (item.type === "header") {
-                    const color = getSourceColor(item.source);
-                    return (
-                      <div
-                        key={`header-${item.source}`}
-                        className="sticky top-0 z-10 flex items-center gap-2 px-2 py-1.5 mt-1 mb-0.5 rounded-md bg-[#05070b]/95 backdrop-blur-sm border-b border-[hsl(var(--neon-green)/0.12)]"
-                        style={{ height: `${ITEM_HEIGHT}px`, boxSizing: "border-box" }}
-                      >
-                        <span className="text-[hsl(var(--neon-green)/0.6)] select-none">── </span>
-                        <span className="text-[hsl(var(--neon-green)/0.8)] font-semibold text-xs uppercase tracking-wider">{item.source}</span>
-                        <span className="text-[hsl(var(--muted-foreground))] text-xs font-mono">({item.count})</span>
-                        <span className="ml-auto text-[hsl(var(--muted-foreground)/0.35)] text-[10px] font-mono">
-                          {formatDate(logs.find((l) => l.source === item.source)?.timestamp ?? "")}
-                        </span>
-                      </div>
-                    );
-                  }
-                  const log = item.log;
-                  const style = LEVEL_STYLE[log.level] || LEVEL_STYLE.info;
-                  const Icon = style.icon;
-                  return (
-                    <div
-                      key={`${log.timestamp}-${log.id}-${i}`}
-                      className={cn(
-                        "group flex items-start gap-2 px-1.5 py-0.5 rounded hover:bg-[hsl(var(--surface-2))]/[0.03] transition-colors",
-                        !wrap && "whitespace-nowrap"
-                      )}
-                      style={{ height: `${ITEM_HEIGHT}px`, boxSizing: "border-box" }}
-                    >
-                      <span className="text-[hsl(var(--muted-foreground)/0.4)] shrink-0 select-none tabular-nums text-[11px]">
-                        {formatTime(log.timestamp)}
-                      </span>
-                      <Icon className={cn("w-3 h-3 mt-0.5 shrink-0", style.color)} />
-                      <span className={cn("shrink-0 font-bold w-9 select-none text-[11px]", style.color)}>
-                        {style.tag}
-                      </span>
-                      <span className={cn("shrink-0 select-none text-[11px] px-1.5 py-0.5 rounded-full font-medium", getSourceColor(log.source))}>
-                        {log.source}
-                      </span>
-                      <span className={cn("flex-1 min-w-0", wrap ? "break-words" : "truncate", log.level === "error" ? "text-[#ff6b6b]" : "text-[#c9d1d9]")}>
-                        {highlight(log.message, search)}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          <div ref={endRef} />
-        </div>
-
-        {/* Terminal status bar */}
-        <div className="flex items-center gap-3 px-4 py-1.5 border-t border-[hsl(var(--neon-green)/0.15)] bg-[#06090f] text-[10px] font-mono">
-          <span className={cn("flex items-center gap-1.5", live ? "text-[hsl(var(--neon-green))]" : "text-muted-foreground")}>
-            {live ? "●" : "○"} {live ? "LIVE" : "PAUSED"}
-          </span>
-          <span className="text-[hsl(var(--muted-foreground))]">mode: <span className="text-[#e6edf3]">{level}</span></span>
-          <span className="text-[hsl(var(--muted-foreground))]">src: <span className="text-[#e6edf3]">{sourceFilter === "all" ? "*" : sourceFilter}</span></span>
-          <span className="text-[hsl(var(--muted-foreground))]">wrap: <span className="text-[#e6edf3]">{wrap ? "on" : "off"}</span></span>
-          <span className="ml-auto flex items-center gap-3 tabular-nums">
-            {LEVELS.filter((lv) => lv !== "all").map((lv) => {
-              const style = LEVEL_STYLE[lv];
-              return (
-                <span key={lv} className={cn("flex items-center gap-1", style.color)}>
-                  {style.tag} <span className="text-[#e6edf3]">{counts[lv] ?? 0}</span>
-                </span>
-              );
-            })}
-          </span>
-        </div>
-
-        {!autoScroll && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="absolute bottom-10 right-6 z-20"
+          {/* Wrap toggle */}
+          <button
+            onClick={() => setWrap((w) => !w)}
+            className={`px-1.5 py-0.5 rounded text-[10.5px] font-mono flex items-center gap-1 border transition-colors ${
+              wrap
+                ? "bg-[#38bdf8]/15 border-[#38bdf8]/40 text-[#38bdf8]"
+                : "bg-[#11131a] border-[#1e222d] text-[#64748b] hover:text-[#94a3b8]"
+            }`}
+            title="Toggle word wrap"
           >
-            <NeonButton
-              variant="primary"
-              size="sm"
-              onClick={handleJumpToLatest}
-              className="text-xs"
-            >
-              <ArrowDownToLine className="w-3 h-3 mr-1.5" />
-              Jump to Latest
-            </NeonButton>
-          </motion.div>
-        )}
-      </GlassCard>
+            <WrapText className="w-3 h-3" />
+            <span>Wrap</span>
+          </button>
+        </div>
+      </div>
 
-      <p className="text-xs text-muted-foreground/60 flex items-center gap-1.5">
-        <Zap className="w-3 h-3 text-[hsl(var(--neon-amber))]" />
-        Logs persist to <code className="font-mono">logs/app.log</code> and stream live — frontend API calls &amp; button clicks are captured by the ActivityLogger and forwarded to <code className="font-mono">POST /api/v1/system/log</code>.
-      </p>
+      {/* ── Main Terminal Log Stream Area ── */}
+      <div
+        ref={terminalRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto overflow-x-auto p-3 font-mono text-[11.5px] leading-relaxed bg-[#050608] text-[#cbd5e1] space-y-0.5 scrollbar-thin scrollbar-thumb-[#1e222d]"
+      >
+        {loading && logs.length === 0 ? (
+          <div className="flex items-center justify-center h-48 text-[#64748b] font-mono">
+            <RefreshCw className="w-4 h-4 animate-spin mr-2 text-[#38bdf8]" />
+            <span>Streaming logs from backend...</span>
+          </div>
+        ) : filteredLogs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-48 text-[#64748b] font-mono space-y-1">
+            <Terminal className="w-6 h-6 text-[#334155]" />
+            <span>No log entries match the current filter.</span>
+            <span className="text-[10px] text-[#475569]">Try clearing search or changing the log level.</span>
+          </div>
+        ) : (
+          filteredLogs.map((l, index) => {
+            const levelStyle = LEVEL_STYLE[l.level?.toLowerCase()] || LEVEL_STYLE.info;
+            return (
+              <div
+                key={l.id || `${l.timestamp}-${index}`}
+                className={`flex items-start gap-2 px-1.5 py-0.5 rounded hover:bg-[#10121a] transition-colors ${
+                  wrap ? "flex-wrap" : "whitespace-pre"
+                }`}
+              >
+                {/* Line number */}
+                <span className="text-[#475569] select-none text-[10px] w-8 text-right flex-shrink-0 font-mono">
+                  {index + 1}
+                </span>
+
+                {/* Timestamp */}
+                <span
+                  className="text-[#64748b] select-none flex-shrink-0 font-mono text-[10.5px]"
+                  title={formatFullTs(l.timestamp)}
+                >
+                  {formatTime(l.timestamp)}
+                </span>
+
+                {/* Level badge */}
+                <span
+                  className={`px-1 py-0.1 rounded text-[9.5px] font-bold tracking-wider flex-shrink-0 border ${levelStyle.badge}`}
+                >
+                  {levelStyle.label}
+                </span>
+
+                {/* Source tag */}
+                <span className="text-[#a78bfa] font-semibold flex-shrink-0">
+                  [{l.source || "sys"}]
+                </span>
+
+                {/* Log message content */}
+                <span className={`text-[#e2e8f0] flex-1 ${wrap ? "break-words" : ""}`}>
+                  {highlightMatch(l.message, search)}
+                </span>
+              </div>
+            );
+          })
+        )}
+        <div ref={endRef} />
+      </div>
+
+      {/* ── Floating Jump to Bottom Button ── */}
+      {showJumpToLatest && (
+        <div className="relative">
+          <button
+            onClick={jumpToBottom}
+            className="absolute bottom-3 right-4 px-3 py-1.5 rounded-full bg-[#38bdf8] hover:bg-[#0ea5e9] text-[#0f172a] font-mono font-bold text-[11px] shadow-lg flex items-center gap-1.5 animate-bounce z-10 transition-transform active:scale-95"
+          >
+            <ArrowDown className="w-3.5 h-3.5" />
+            <span>Jump to latest</span>
+          </button>
+        </div>
+      )}
+
+      {/* ── Terminal Status Bar Footer ── */}
+      <div className="flex items-center justify-between px-3.5 py-1.5 bg-[#090a0f] border-t border-[#171922] font-mono text-[10.5px] text-[#64748b]">
+        <div className="flex items-center gap-3">
+          <span>
+            LINES: <strong className="text-[#cbd5e1]">{filteredLogs.length}</strong> / {logs.length}
+          </span>
+          <span>
+            AUTO-SCROLL: <strong className={autoScroll ? "text-[#4ade80]" : "text-[#94a3b8]"}>{autoScroll ? "ON" : "OFF"}</strong>
+          </span>
+          <span>
+            WRAP: <strong className={wrap ? "text-[#38bdf8]" : "text-[#94a3b8]"}>{wrap ? "ON" : "OFF"}</strong>
+          </span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <span className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e]" />
+            <span className="text-[#94a3b8]">Uvicorn / FastAPI Log Sink</span>
+          </span>
+          <span className="text-[#475569]">UTF-8</span>
+        </div>
+      </div>
     </div>
   );
 }

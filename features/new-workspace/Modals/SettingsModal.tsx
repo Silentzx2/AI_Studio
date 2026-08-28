@@ -4,7 +4,9 @@ import {
   X, 
   CheckCircle2, 
   AlertCircle, 
-  RefreshCw
+  RefreshCw,
+  Wrench,
+  Sliders
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { apiClient } from '../lib/api';
@@ -14,7 +16,9 @@ export const SettingsModal: React.FC = () => {
     isSettingsOpen,
     setIsSettingsOpen,
     systemStats,
-    refreshSystemStats
+    refreshSystemStats,
+    generationSettings,
+    setGenerationSettings
   } = useWorkspace();
 
   const [host, setHost] = useState(() => {
@@ -124,17 +128,130 @@ export const SettingsModal: React.FC = () => {
 
           {/* Node registry status (real /object_info data) */}
           <div className="space-y-2 pt-2">
-            <span className="font-semibold text-xs text-[#8e95a5] uppercase tracking-wider">Backend Status</span>
-            <div className="p-3 rounded-xl bg-[#111216] border border-[#232732]">
+            <span className="font-semibold text-xs text-[#8e95a5] uppercase tracking-wider">Backend Status & Hardware</span>
+            <div className="p-3 rounded-xl bg-[#111216] border border-[#232732] space-y-2">
               {nodeError ? (
                 <div className="text-[11px] text-[#fca5a5]">Backend unreachable: {nodeError}</div>
               ) : (
-                <div className="flex items-center justify-between">
-                  <span className="text-[#cbd5e1]">FastAPI Backend</span>
-                  <span className="text-[11px] text-[#f5c518] font-mono">{nodeCount === null ? 'Checking...' : nodeCount > 0 ? 'Online' : 'Offline'}</span>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#cbd5e1]">FastAPI Status</span>
+                    <span className={`text-[11px] font-mono font-bold ${systemStats.status === 'online' ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
+                      {systemStats.status === 'online' ? `Online (${systemStats.lastPingMs}ms)` : 'Offline'}
+                    </span>
+                  </div>
+                  {systemStats.gpu && systemStats.gpu !== 'Unavailable' && (
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-[#8e95a5]">GPU</span>
+                      <span className="font-mono text-[#e5e7eb] truncate max-w-[280px]">{systemStats.gpu}</span>
+                    </div>
+                  )}
+                  {systemStats.vramUsedGb != null && (
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-[#8e95a5]">VRAM</span>
+                      <span className="font-mono text-[#38bdf8]">{systemStats.vramUsedGb} / {systemStats.vramTotalGb || '?'} GB</span>
+                    </div>
+                  )}
+                  {systemStats.pythonVersion && (
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-[#8e95a5]">Python / PyTorch</span>
+                      <span className="font-mono text-[#9ca3af]">{systemStats.pythonVersion} {systemStats.torchVersion ? `· PyTorch ${systemStats.torchVersion}` : ''}</span>
+                    </div>
+                  )}
                 </div>
               )}
-              <div className="text-[10px] text-[#6b7280] mt-2">AI 3D Studio uses FastAPI backend at /api/v1 for all generation tasks.</div>
+              <div className="text-[10px] text-[#6b7280] pt-1 border-t border-[#1c1e26]">AI 3D Studio connects via /api/v1 (proxied to backend on localhost:8000).</div>
+            </div>
+          </div>
+
+          {/* Auto-Optimize Defaults */}
+          <div className="space-y-2 pt-2">
+            <div className="flex items-center gap-2">
+              <Wrench className="w-3.5 h-3.5 text-[#f5c518]" />
+              <span className="font-semibold text-xs text-[#8e95a5] uppercase tracking-wider">Auto-Optimize Defaults</span>
+            </div>
+            <div className="p-3 rounded-xl bg-[#111216] border border-[#232732] space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-xs text-[#cbd5e1] font-medium block">Enable Auto-Optimize by Default</span>
+                  <span className="text-[10px] text-[#6b7280]">Automatically optimize meshes after generation</span>
+                </div>
+                <button
+                  onClick={() => setGenerationSettings(prev => ({ ...prev, autoOptimize: !prev.autoOptimize }))}
+                  className={`w-9 h-5 rounded-full p-0.5 transition-colors ${
+                    generationSettings.autoOptimize ? 'bg-[#f5c518]' : 'bg-[#282c38]'
+                  }`}
+                >
+                  <div className={`w-4 h-4 rounded-full bg-[#111216] transition-transform ${
+                    generationSettings.autoOptimize ? 'translate-x-4' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+
+              {generationSettings.autoOptimize && (
+                <div className="space-y-2.5 pt-2 border-t border-[#1c1e26]">
+                  {/* Default Target Polycount */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-[#cbd5e1]">Default Target Polycount</span>
+                      <span className="text-[10px] font-mono text-[#f5c518]">{generationSettings.autoOptimizeSettings.targetPolycount.toLocaleString()} tris</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={5000}
+                      max={100000}
+                      step={5000}
+                      value={generationSettings.autoOptimizeSettings.targetPolycount}
+                      onChange={(e) => setGenerationSettings(prev => ({
+                        ...prev,
+                        autoOptimizeSettings: { ...prev.autoOptimizeSettings, targetPolycount: parseInt(e.target.value) }
+                      }))}
+                      className="w-full h-1.5 rounded-full appearance-none bg-[#282c38] accent-[#f5c518] cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Default Fix UVs */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[11px] text-[#cbd5e1] font-medium block">Fix UVs by Default</span>
+                      <span className="text-[10px] text-[#6b7280]">Repair overlapping UVs automatically</span>
+                    </div>
+                    <button
+                      onClick={() => setGenerationSettings(prev => ({
+                        ...prev,
+                        autoOptimizeSettings: { ...prev.autoOptimizeSettings, fixUVs: !prev.autoOptimizeSettings.fixUVs }
+                      }))}
+                      className={`w-9 h-5 rounded-full p-0.5 transition-colors ${
+                        generationSettings.autoOptimizeSettings.fixUVs ? 'bg-[#f5c518]' : 'bg-[#282c38]'
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded-full bg-[#111216] transition-transform ${
+                        generationSettings.autoOptimizeSettings.fixUVs ? 'translate-x-4' : 'translate-x-0'
+                      }`} />
+                    </button>
+                  </div>
+
+                  {/* Default Preserve Details */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-[#cbd5e1]">Default Detail Preservation</span>
+                      <span className="text-[10px] font-mono text-[#f5c518]">{generationSettings.autoOptimizeSettings.preserveDetails}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={5}
+                      value={generationSettings.autoOptimizeSettings.preserveDetails}
+                      onChange={(e) => setGenerationSettings(prev => ({
+                        ...prev,
+                        autoOptimizeSettings: { ...prev.autoOptimizeSettings, preserveDetails: parseInt(e.target.value) }
+                      }))}
+                      className="w-full h-1.5 rounded-full appearance-none bg-[#282c38] accent-[#f5c518] cursor-pointer"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

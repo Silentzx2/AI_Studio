@@ -1,12 +1,12 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { apiClient, getApiUrl } from '@/services/apiClient';
-import { 
-  Plus, 
-  MoreVertical, 
-  ChevronLeft, 
+import {
+  Plus,
+  MoreVertical,
+  ChevronLeft,
   ChevronRight,
-  Box, 
-  Grid as GridIcon, 
+  Box,
+  Grid as GridIcon,
   Star,
   Filter,
   Check,
@@ -17,11 +17,15 @@ import {
   SlidersHorizontal,
   FolderOpen,
   AlertCircle,
-  Loader2
+  Loader2,
+  ArrowRightLeft,
+  Search
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { ModelAsset } from '../types';
 import { useUploadProgress } from '@/hooks/useUploadProgress';
+import { UploadDiagnosticModal } from '../Modals/UploadDiagnosticModal';
+import { validate3DFile } from '../lib/fileValidation';
 
 export const RightAssetsPanel: React.FC = () => {
   const { 
@@ -32,7 +36,8 @@ export const RightAssetsPanel: React.FC = () => {
     setAssetFilter,
     duplicateAsset,
     deleteAsset,
-    addAsset
+    addAsset,
+    setActiveTool
   } = useWorkspace();
 
   const [activePage, setActivePage] = useState(1);
@@ -43,6 +48,8 @@ export const RightAssetsPanel: React.FC = () => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const { progress: uploadProgress, readFileWithProgress, startUpload, updateProgress, finishUpload, failUpload } = useUploadProgress();
+  const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
+  const [diagnosticFile, setDiagnosticFile] = useState<File | null>(null);
 
   const MAX_MODEL_SIZE = 150 * 1024 * 1024; // 150MB
   const ACCEPTED_MODEL_EXTS = ['glb', 'gltf', 'obj', 'fbx', 'stl', 'ply'];
@@ -55,14 +62,21 @@ export const RightAssetsPanel: React.FC = () => {
   const processModelFile = useCallback(async (file: File) => {
     setUploadError(null);
 
+    // Validate file structure before upload (extension, MIME, size, magic bytes)
+    const validation = await validate3DFile(file, 'upload');
+    if (!validation.valid) {
+      setUploadError(validation.error || 'Invalid file');
+      return;
+    }
+
     const ext = file.name.split('.').pop()?.toLowerCase();
     if (!ext || !ACCEPTED_MODEL_EXTS.includes(ext)) {
       setUploadError('Invalid file type. Use GLB, GLTF, OBJ, FBX, STL, or PLY.');
       return;
     }
 
-    if (file.size > MAX_MODEL_SIZE) {
-      setUploadError('File too large. Maximum size is 150MB.');
+    if (file.size === 0) {
+      setUploadError('File is empty.');
       return;
     }
 
@@ -71,7 +85,13 @@ export const RightAssetsPanel: React.FC = () => {
 
     try {
       // Upload file to backend with real-time progress
-      const result = await apiClient.uploadFile<{ url: string; thumbnail_url?: string; filename: string; size: number }>(
+      const result = await apiClient.uploadFile<{
+        url: string;
+        thumbnail_url?: string;
+        filename: string;
+        size: number;
+        mesh_stats?: { polygon_count: number; vertex_count: number };
+      }>(
         '/api/v1/upload/model',
         file,
         (loaded, total) => updateProgress(loaded)
@@ -79,25 +99,28 @@ export const RightAssetsPanel: React.FC = () => {
 
       finishUpload();
 
-      // Resolve relative URLs to absolute
+      // Resolve relative URLs: /static/* paths go through the /static proxy route
       const resolveUrl = (url: string | undefined) => {
         if (!url) return '';
-        if (url.startsWith('/static/') && getApiUrl()) {
-          return `${getApiUrl()}${url}`;
+        if (url.startsWith('/static/')) {
+          // Return as same-origin relative URL - the /static/* proxy route
+          // will forward to the backend
+          return url;
         }
         return url;
       };
 
+      const meshStats = result?.mesh_stats;
       const newAsset: ModelAsset = {
         id: `user-upload-${Date.now()}`,
         name: file.name.replace(/\.[^/.]+$/, ""),
         category: 'mesh',
         meshType: 'custom',
         thumbnail: resolveUrl(result?.thumbnail_url),
-        faces: 0,
-        vertices: 0,
-        triangles: 0,
-        statsAvailable: false,
+        faces: meshStats?.polygon_count || 0,
+        vertices: meshStats?.vertex_count || 0,
+        triangles: meshStats?.polygon_count || 0,
+        statsAvailable: !!(meshStats && meshStats.polygon_count > 0),
         source: { filename: file.name, subfolder: '', type: 'input', viewUrl: resolveUrl(result?.url) },
         topology: 'Triangle',
         format: (() => {
@@ -241,12 +264,24 @@ export const RightAssetsPanel: React.FC = () => {
           </div>
 
           {/* Manage Button */}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-[#cbd5e1] hover:text-[#f5c518] hover:bg-[#181a22] border border-[#242834] transition-colors"
-          >
-            <span>Manage</span>
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-[#cbd5e1] hover:text-[#f5c518] hover:bg-[#181a22] border border-[#242834] transition-colors"
+            >
+              <span>Manage</span>
+            </button>
+            <button
+              onClick={() => {
+                setDiagnosticFile(null);
+                setIsDiagnosticOpen(true);
+              }}
+              title="Diagnose upload issues"
+              className="p-1.5 rounded-lg text-[#8e95a5] hover:text-[#f5c518] hover:bg-[#181a22] border border-[#242834] transition-colors"
+            >
+              <Search className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -345,8 +380,18 @@ export const RightAssetsPanel: React.FC = () => {
                       crossOrigin="anonymous"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Box className="w-8 h-8 text-[#4b5563]" />
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-[#15171d] to-[#0d0e12] gap-1 p-2">
+                      <div className="w-10 h-10 rounded-lg bg-[#1e2129] border border-[#2a2e39] flex items-center justify-center">
+                        <Box className="w-5 h-5 text-[#6b7280]" />
+                      </div>
+                      <span className="text-[9px] font-bold text-[#8b9099] uppercase tracking-wider">
+                        {asset.format}
+                      </span>
+                      {asset.statsAvailable && (
+                        <span className="text-[8px] text-[#5a5f6b]">
+                          {asset.faces.toLocaleString()} faces
+                        </span>
+                      )}
                     </div>
                   )}
 
@@ -363,10 +408,17 @@ export const RightAssetsPanel: React.FC = () => {
                 </div>
 
                 {/* Bottom Asset Label */}
-                <div className="px-2 py-1 bg-[#12141a]/95 border-t border-[#1e222c] flex items-center justify-between">
-                  <span className={`text-[10px] font-medium truncate ${isSelected ? 'text-[#f5c518] font-bold' : 'text-[#cbd5e1]'}`}>
-                    {asset.name}
-                  </span>
+                <div className="px-2 py-1 bg-[#12141a]/95 border-t border-[#1e222c] flex items-center justify-between gap-1">
+                  <div className="flex flex-col min-w-0">
+                    <span className={`text-[10px] font-medium truncate ${isSelected ? 'text-[#f5c518] font-bold' : 'text-[#cbd5e1]'}`}>
+                      {asset.name}
+                    </span>
+                    {asset.statsAvailable && (
+                      <span className="text-[8px] text-[#6b7280] truncate">
+                        {asset.format} · {asset.faces.toLocaleString()} faces · {asset.vertices.toLocaleString()} verts
+                      </span>
+                    )}
+                  </div>
 
                   {/* 3-Dots Menu */}
                   <div className="relative">
@@ -380,34 +432,46 @@ export const RightAssetsPanel: React.FC = () => {
                       <MoreVertical className="w-2.5 h-2.5" />
                     </button>
 
-                    {activeMenuAssetId === asset.id && (
-                      <div className="absolute right-0 bottom-full mb-1 w-28 py-1 rounded-lg bg-[#1a1d26] border border-[#2e3342] shadow-xl z-50 text-[10px]">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            duplicateAsset(asset.id);
-                            setActiveMenuAssetId(null);
-                          }}
-                          className="w-full text-left px-2 py-1 text-[#e5e7eb] hover:bg-[#252a36] flex items-center gap-1"
-                        >
-                          <Copy className="w-2.5 h-2.5 text-[#f5c518]" />
-                          <span>Duplicate</span>
-                        </button>
-                        {assets.length > 1 && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteAsset(asset.id);
-                              setActiveMenuAssetId(null);
-                            }}
-                            className="w-full text-left px-2 py-1 text-[#ef4444] hover:bg-[#252a36] flex items-center gap-1"
-                          >
-                            <Trash2 className="w-2.5 h-2.5" />
-                            <span>Delete</span>
-                          </button>
-                        )}
-                      </div>
-                    )}
+                     {activeMenuAssetId === asset.id && (
+                       <div className="absolute right-0 bottom-full mb-1 w-28 py-1 rounded-lg bg-[#1a1d26] border border-[#2e3342] shadow-xl z-50 text-[10px]">
+                         <button
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             setCurrentAsset(asset);
+                             setActiveTool('compare');
+                             setActiveMenuAssetId(null);
+                           }}
+                           className="w-full text-left px-2 py-1 text-[#e5e7eb] hover:bg-[#252a36] flex items-center gap-1"
+                         >
+                           <ArrowRightLeft className="w-2.5 h-2.5 text-[#f5c518]" />
+                           <span>Compare</span>
+                         </button>
+                         <button
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             duplicateAsset(asset.id);
+                             setActiveMenuAssetId(null);
+                           }}
+                           className="w-full text-left px-2 py-1 text-[#e5e7eb] hover:bg-[#252a36] flex items-center gap-1"
+                         >
+                           <Copy className="w-2.5 h-2.5 text-[#f5c518]" />
+                           <span>Duplicate</span>
+                         </button>
+                         {assets.length > 1 && (
+                           <button
+                             onClick={(e) => {
+                               e.stopPropagation();
+                               deleteAsset(asset.id);
+                               setActiveMenuAssetId(null);
+                             }}
+                             className="w-full text-left px-2 py-1 text-[#ef4444] hover:bg-[#252a36] flex items-center gap-1"
+                           >
+                             <Trash2 className="w-2.5 h-2.5" />
+                             <span>Delete</span>
+                           </button>
+                         )}
+                       </div>
+                     )}
                   </div>
                 </div>
               </div>
@@ -446,6 +510,16 @@ export const RightAssetsPanel: React.FC = () => {
           <ChevronRight className="w-3.5 h-3.5" />
         </button>
       </div>
+
+      {/* Upload Diagnostic Modal */}
+      <UploadDiagnosticModal
+        isOpen={isDiagnosticOpen}
+        onClose={() => {
+          setIsDiagnosticOpen(false);
+          setDiagnosticFile(null);
+        }}
+        initialFile={diagnosticFile}
+      />
     </div>
   );
 };

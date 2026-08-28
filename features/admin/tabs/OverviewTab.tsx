@@ -14,6 +14,7 @@ import { ProgressBar } from '@/components/premium/ProgressBar';
 import { StatusDot } from '@/components/premium/StatusDot';
 import { Badge } from '@/components/premium/Badge';
 import { Spinner } from '@/components/premium/Spinner';
+import { GpuVramLineChart } from '@/components/monitoring/GpuVramLineChart';
 import { adminService } from '@/services/adminService';
 import { runtimeService } from '@/services/runtimeService';
 import type { AdminOverview, RuntimeStatus } from '@/types';
@@ -165,6 +166,11 @@ export function OverviewTab() {
           <div className="mt-3"><ProgressBar value={ram} color="green" size="sm" /></div>
         </MetricCard>
       </div>
+
+      {/* Real-time Recharts Line Chart for VRAM and GPU Utilization */}
+      <GlassCard className="p-5 lg:p-6" delay={0.3}>
+        <GpuVramLineChart height={280} autoPoll pollIntervalMs={3000} />
+      </GlassCard>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <GlassCard className="p-5" delay={0.4}>

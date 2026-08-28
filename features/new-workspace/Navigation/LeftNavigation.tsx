@@ -8,7 +8,8 @@ import {
   Activity,
   Settings,
   Sparkles,
-  LayoutDashboard
+  LayoutDashboard,
+  ArrowRightLeft
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useWorkspace } from '../store/WorkspaceContext';
@@ -56,7 +57,7 @@ export const LeftNavigation: React.FC = () => {
           onClick={() => handleToolClick('model')}
           title="3D Generator (Text-to-3D & Image-to-3D AI Models)"
           className={`group relative w-full py-2.5 flex flex-col items-center justify-center rounded-xl transition-all ${
-            activeTool === 'model'
+            mainNav === 'workspace' && activeTool === 'model'
               ? 'bg-[var(--ws-active-bg,#1e2230)] text-[#f5c518] border border-[#f5c518]/50 shadow-lg shadow-[#f5c518]/15 ring-1 ring-[#f5c518]/30'
               : 'text-[var(--ws-text-muted,#848a97)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#181a20)]'
           }`}
@@ -78,7 +79,7 @@ export const LeftNavigation: React.FC = () => {
           id="tool-btn-segment"
           onClick={() => handleToolClick('segment')}
           className={`w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
-            activeTool === 'segment'
+            mainNav === 'workspace' && activeTool === 'segment'
               ? 'bg-[var(--ws-active-bg,#1e2230)] text-[#f5c518] border border-[#f5c518]/30 shadow-lg shadow-[#f5c518]/10'
               : 'text-[var(--ws-text-muted,#848a97)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#181a20)]'
           }`}
@@ -92,7 +93,7 @@ export const LeftNavigation: React.FC = () => {
           id="tool-btn-retopo"
           onClick={() => handleToolClick('retopo')}
           className={`w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
-            activeTool === 'retopo' || activeTool === 'remesh'
+            mainNav === 'workspace' && (activeTool === 'retopo' || activeTool === 'remesh')
               ? 'bg-[var(--ws-active-bg,#1e2230)] text-[#f5c518] border border-[#f5c518]/30 shadow-lg shadow-[#f5c518]/10'
               : 'text-[var(--ws-text-muted,#848a97)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#181a20)]'
           }`}
@@ -106,7 +107,7 @@ export const LeftNavigation: React.FC = () => {
           id="tool-btn-remesh"
           onClick={() => handleToolClick('remesh')}
           className={`w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
-            activeTool === 'remesh'
+            mainNav === 'workspace' && activeTool === 'remesh'
               ? 'bg-[var(--ws-active-bg,#1e2230)] text-[#f5c518] border border-[#f5c518]/30 shadow-lg shadow-[#f5c518]/10'
               : 'text-[var(--ws-text-muted,#848a97)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#181a20)]'
           }`}
@@ -120,7 +121,7 @@ export const LeftNavigation: React.FC = () => {
           id="tool-btn-texture"
           onClick={() => handleToolClick('texture')}
           className={`w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
-            activeTool === 'texture' || activeTool === 'pbr'
+            mainNav === 'workspace' && (activeTool === 'texture' || activeTool === 'pbr')
               ? 'bg-[var(--ws-active-bg,#1e2230)] text-[#f5c518] border border-[#f5c518]/30 shadow-lg shadow-[#f5c518]/10'
               : 'text-[var(--ws-text-muted,#848a97)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#181a20)]'
           }`}
@@ -134,7 +135,7 @@ export const LeftNavigation: React.FC = () => {
           id="tool-btn-animate"
           onClick={() => handleToolClick('animate')}
           className={`w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
-            activeTool === 'animate'
+            mainNav === 'workspace' && activeTool === 'animate'
               ? 'bg-[var(--ws-active-bg,#1e2230)] text-[#f5c518] border border-[#f5c518]/30 shadow-lg shadow-[#f5c518]/10'
               : 'text-[var(--ws-text-muted,#848a97)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#181a20)]'
           }`}
@@ -148,13 +149,27 @@ export const LeftNavigation: React.FC = () => {
           id="tool-btn-rigging"
           onClick={() => handleToolClick('rigging')}
           className={`w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
-            activeTool === 'rigging'
+            mainNav === 'workspace' && activeTool === 'rigging'
               ? 'bg-[var(--ws-active-bg,#1e2230)] text-[#f5c518] border border-[#f5c518]/30 shadow-lg shadow-[#f5c518]/10'
               : 'text-[var(--ws-text-muted,#848a97)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#181a20)]'
           }`}
         >
           <Bone className="w-4 h-4 mb-0.5" />
           <span className="text-[9px] font-medium leading-none">Rigging</span>
+        </button>
+
+        {/* 10. Compare */}
+        <button
+          id="tool-btn-compare"
+          onClick={() => handleToolClick('compare')}
+          className={`w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
+            mainNav === 'workspace' && activeTool === 'compare'
+              ? 'bg-[var(--ws-active-bg,#1e2230)] text-[#f5c518] border border-[#f5c518]/30 shadow-lg shadow-[#f5c518]/10'
+              : 'text-[var(--ws-text-muted,#848a97)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#181a20)]'
+          }`}
+        >
+          <ArrowRightLeft className="w-4 h-4 mb-0.5" />
+          <span className="text-[9px] font-medium leading-none">Compare</span>
         </button>
       </div>
 

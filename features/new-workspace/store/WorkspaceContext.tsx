@@ -131,6 +131,7 @@ const TOOL_TO_ROUTE: Record<ToolType, string> = {
   pbr: '/workspace/pbr',
   animate: '/workspace/animate',
   rigging: '/workspace/rigging',
+  compare: '/workspace/compare',
 };
 
 export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -184,6 +185,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     prompt: appStore.prompt || '',
     aiModel: '', meshQuality: 'high', textureQuality: 'high',
     quadTopology: false, seed: 42891, guidanceScale: 7.5, removeBackground: true,
+    lowVram: false,
+    vramMode: 'auto',
+    autoOptimize: false,
+    autoOptimizeSettings: { targetPolycount: 30000, fixUVs: true, preserveDetails: 75 },
   });
 
   const [remeshSettings, setRemeshSettings] = useState<RemeshSettings>({
@@ -235,6 +240,16 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     mainNavRef.current = mainNav;
     systemStatsStatusRef.current = systemStats.status;
   }, [selectedAssetId, currentAsset, mainNav, systemStats.status]);
+
+  useEffect(() => {
+    try {
+      const savedLowVram = localStorage.getItem('lowVramMode');
+      if (savedLowVram !== null) {
+        const isLow = JSON.parse(savedLowVram);
+        setGenerationSettings(prev => ({ ...prev, lowVram: isLow }));
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   useEffect(() => {
     if (activeTool === 'rigging' || activeTool === 'animate') setShowBonesState(true);
@@ -323,20 +338,25 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           dateCreated: img.created_at || '',
           tags: ['Uploaded', 'Image'],
         }));
-        const uploadedModels = (data?.data?.models || data?.models || []).map((m: any) => ({
-          id: m.id || m.filename,
-          name: m.name || m.filename,
-          category: 'mesh' as const,
-          meshType: 'custom' as const,
-          thumbnail: m.thumbnail_url || '',
-          faces: 0, vertices: 0, triangles: 0,
-          statsAvailable: false,
-          source: { filename: m.filename, subfolder: '', type: 'upload', viewUrl: m.url || '' },
-          topology: 'Triangle' as const,
-          format: m.format || 'GLB',
-          dateCreated: m.created_at || '',
-          tags: ['Uploaded', 'Model'],
-        }));
+        const uploadedModels = (data?.data?.models || data?.models || []).map((m: any) => {
+          const meshStats = m.mesh_stats;
+          return {
+            id: m.id || m.filename,
+            name: m.name || m.filename,
+            category: 'mesh' as const,
+            meshType: 'custom' as const,
+            thumbnail: m.thumbnail_url || '',
+            faces: meshStats?.polygon_count || m.faces || 0,
+            vertices: meshStats?.vertex_count || m.vertices || 0,
+            triangles: meshStats?.polygon_count || m.triangles || 0,
+            statsAvailable: !!(meshStats && meshStats.polygon_count > 0),
+            source: { filename: m.filename, subfolder: '', type: 'upload', viewUrl: m.url || '' },
+            topology: 'Triangle' as const,
+            format: m.format || 'GLB',
+            dateCreated: m.created_at || '',
+            tags: ['Uploaded', 'Model'],
+          };
+        });
         // Merge uploaded assets without duplicates
         setAssets(prev => {
           const existingIds = new Set(prev.map(a => a.id));
@@ -353,15 +373,19 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     let cancelled = false;
     let timeoutId: ReturnType<typeof setTimeout>;
+    // Immediately fetch stats and history on mount
+    void refreshSystemStats();
+    void refreshHistory();
+
     const poll = () => {
       if (cancelled) return;
       if (typeof document === 'undefined' || !document.hidden) {
         void refreshSystemStats();
         void refreshHistory();
       }
-      timeoutId = setTimeout(poll, systemStatsStatusRef.current === 'offline' ? 60000 : 30000);
+      timeoutId = setTimeout(poll, 8000);
     };
-    timeoutId = setTimeout(poll, systemStatsStatusRef.current === 'offline' ? 60000 : 30000);
+    timeoutId = setTimeout(poll, 8000);
     return () => {
       cancelled = true;
       clearTimeout(timeoutId);
@@ -491,7 +515,11 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           seed: generationSettings.seed,
           generate_texture: true,
           auto_rig: false,
+          low_vram: Boolean(generationSettings.lowVram),
+          vram_mode: generationSettings.lowVram ? 'low' : (generationSettings.vramMode || 'auto'),
           workspace: 'mesh-generation',
+          auto_optimize: generationSettings.autoOptimize,
+          auto_optimize_settings: generationSettings.autoOptimizeSettings,
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -502,7 +530,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setExecutionStep(e instanceof Error ? e.message : 'Failed to submit generation');
       setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: 'Submission failed' } : prev);
     }
-  }, [generationSettings.prompt, generationSettings.aiModel, generationSettings.meshQuality, generationSettings.guidanceScale, generationSettings.seed, startTask]);
+  }, [generationSettings.prompt, generationSettings.aiModel, generationSettings.meshQuality, generationSettings.guidanceScale, generationSettings.seed, generationSettings.lowVram, generationSettings.vramMode, generationSettings.autoOptimize, generationSettings.autoOptimizeSettings, startTask]);
 
   const generateImageTo3D = useCallback(async (customImage?: string) => {
     const imageToUse = customImage ?? generationSettings.image;
@@ -517,6 +545,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           provider: generationSettings.aiModel,
           reference_image_url: imageToUse,
           quality: generationSettings.meshQuality,
+          low_vram: Boolean(generationSettings.lowVram),
+          vram_mode: generationSettings.lowVram ? 'low' : (generationSettings.vramMode || 'auto'),
+          auto_optimize: generationSettings.autoOptimize,
+          auto_optimize_settings: generationSettings.autoOptimizeSettings,
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -527,7 +559,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setExecutionStep(e instanceof Error ? e.message : 'Failed to submit generation');
       setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: 'Submission failed' } : prev);
     }
-  }, [generationSettings.image, generationSettings.aiModel, generationSettings.meshQuality, startTask]);
+  }, [generationSettings.image, generationSettings.aiModel, generationSettings.meshQuality, generationSettings.lowVram, generationSettings.vramMode, generationSettings.autoOptimize, generationSettings.autoOptimizeSettings, startTask]);
 
   const generate3DModel = useCallback(async () => {
     if (generationSettings.mode === 'text-to-3d') return generateTextTo3D();
@@ -675,17 +707,19 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const navigateToTool = useCallback((tool: ToolType) => {
     setActiveTool(tool);
+    setMainNav('workspace');
+    mainNavRef.current = 'workspace';
     setIsLeftPanelOpen(true);
     const route = TOOL_TO_ROUTE[tool] || '/workspace/generate';
     if (pathname !== route) router.push(route);
-  }, [pathname, router]);
+  }, [pathname, router, setMainNav, setActiveTool, setIsLeftPanelOpen]);
 
   const navigateToMain = useCallback((nav: MainNavRoute) => {
     if (mainNavRef.current === nav) return;
     setMainNav(nav);
-    if (nav === 'dashboard') router.push('/dashboard');
-    else if (nav === 'assets') router.push('/outputs');
-    else if (nav === 'system') router.push('/system');
+    if (nav === 'dashboard') router.push('/workspace/overview');
+    else if (nav === 'assets') router.push('/workspace/assets');
+    else if (nav === 'system') router.push('/workspace/system');
     else if (nav === 'settings') router.push('/settings');
   }, [router]);
 

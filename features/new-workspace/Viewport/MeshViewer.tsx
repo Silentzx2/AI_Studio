@@ -4,28 +4,44 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
-import { 
-  Hand, 
-  Camera, 
-  Grid as GridIcon, 
-  HelpCircle, 
-  RotateCcw, 
-  RotateCw, 
-  Maximize, 
-  Printer, 
-  Download, 
-  ChevronDown, 
-  Sparkles, 
-  RefreshCw, 
-  Eye, 
+import {
+  Hand,
+  Camera,
+  Grid as GridIcon,
+  HelpCircle,
+  RotateCcw,
+  RotateCw,
+  Maximize,
+  Printer,
+  Download,
+  ChevronDown,
+  Sparkles,
+  RefreshCw,
+  Eye,
   Layers,
   Compass,
   Check,
   UploadCloud,
-  Box
+  Box,
+  Search
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { ShadingMode, CameraViewPreset, ModelAsset } from '../types';
+
+/**
+ * Logs diagnostic info when an HTML response is detected during asset loading.
+ * This helps identify token/auth errors that return HTML instead of binary data.
+ */
+function logHtmlErrorDiagnostics(url: string, contentType: string, bodyPreview: string): void {
+  console.group('[UploadDiagnostics] HTML response detected during asset load');
+  console.log('URL:', url);
+  console.log('Content-Type:', contentType);
+  console.log('Body preview:', bodyPreview.slice(0, 300));
+  console.log('Recommendation: This usually indicates a token/auth failure or reverse proxy interception.');
+  console.log('Check: session validity, CSRF token, and that the URL serves binary data not HTML.');
+  console.groupEnd();
+}
+import { validate3DFile } from '../lib/fileValidation';
 
 interface MeshViewerProps {
   className?: string;
@@ -62,6 +78,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const [interactionMode, setInteractionMode] = useState<'orbit' | 'pan'>('orbit');
   const [isDragOver, setIsDragOver] = useState(false);
   const [dropToastMessage, setDropToastMessage] = useState<string | null>(null);
+  const [dropToastIsHtmlError, setDropToastIsHtmlError] = useState(false);
 
   // Internal Three.js references
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -278,7 +295,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           if (contentType.includes('text/html') || contentType.includes('application/json')) {
             const text = await response.text();
             if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
-              throw new Error('Model file not found or served as HTML. Check Cloudflare tunnel and file path.');
+              logHtmlErrorDiagnostics(sourceUrl, contentType, text);
+              throw new Error('Model file served as HTML — possible token/auth failure. Open DevTools for details.');
             }
           }
           const loader = new GLTFLoader();
@@ -301,7 +319,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           if (objContentType.includes('text/html') || objContentType.includes('application/json')) {
             const text = await objResponse.text();
             if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
-              throw new Error('Model file not found or served as HTML. Check Cloudflare tunnel and file path.');
+              logHtmlErrorDiagnostics(sourceUrl, objContentType, text);
+              throw new Error('Model file served as HTML — possible token/auth failure. Open DevTools for details.');
             }
           }
           const loader = new OBJLoader();
@@ -331,7 +350,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           if (contentType.includes('text/html') || contentType.includes('application/json')) {
             const text = await response.text();
             if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
-              throw new Error('Model file not found or served as HTML. Check Cloudflare tunnel and file path.');
+              logHtmlErrorDiagnostics(sourceUrl, contentType, text);
+              throw new Error('Model file served as HTML — possible token/auth failure. Open DevTools for details.');
             }
           }
           const buffer = await response.arrayBuffer();
@@ -355,8 +375,13 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
       } catch (error) {
         if (!cancelled) {
           console.error('Viewport asset load failed', error);
-          setDropToastMessage(error instanceof Error ? error.message : 'Unable to preview asset');
-          window.setTimeout(() => setDropToastMessage(null), 4000);
+          const message = error instanceof Error ? error.message : 'Unable to preview asset';
+          setDropToastMessage(message);
+          setDropToastIsHtmlError(message.includes('served as HTML') || message.includes('token/auth'));
+          window.setTimeout(() => {
+            setDropToastMessage(null);
+            setDropToastIsHtmlError(false);
+          }, 6000);
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -464,7 +489,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     }
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
 
@@ -504,6 +529,15 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         setTimeout(() => setDropToastMessage(null), 3500);
         return;
       }
+
+      // Validate file structure before creating blob URL
+      const validation = await validate3DFile(file, 'preview');
+      if (!validation.valid) {
+        setDropToastMessage(validation.error || 'Invalid file');
+        setTimeout(() => setDropToastMessage(null), 3500);
+        return;
+      }
+
       const cleanName = file.name.replace(/\.[^/.]+$/, "");
 
       const customAsset: ModelAsset = {
@@ -563,9 +597,25 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
       {/* Drop Notification Toast */}
       {dropToastMessage && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl bg-[var(--ws-dropdown-bg,#181a22)]/95 border border-[#f5c518]/40 backdrop-blur-md shadow-2xl flex items-center gap-2 text-xs font-semibold text-[var(--ws-text,#f3f4f6)] animate-in fade-in slide-in-from-top-2 duration-300">
-          <Sparkles className="w-4 h-4 text-[#f5c518]" />
-          <span>{dropToastMessage}</span>
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl bg-[var(--ws-dropdown-bg,#181a22)]/95 border border-[#f5c518]/40 backdrop-blur-md shadow-2xl flex items-center gap-2 text-xs font-semibold text-[var(--ws-text,#f3f4f6)] animate-in fade-in slide-in-from-top-2 duration-300 max-w-md">
+          {dropToastIsHtmlError ? (
+            <Search className="w-4 h-4 text-[#ef4444] flex-shrink-0" />
+          ) : (
+            <Sparkles className="w-4 h-4 text-[#f5c518]" />
+          )}
+          <span className="truncate">{dropToastMessage}</span>
+          {dropToastIsHtmlError && (
+            <button
+              onClick={() => {
+                setDropToastMessage(null);
+                setDropToastIsHtmlError(false);
+                window.dispatchEvent(new CustomEvent('openUploadDiagnostic'));
+              }}
+              className="ml-2 px-2 py-0.5 rounded-md bg-[#ef4444]/20 text-[#fca5a5] hover:bg-[#ef4444]/30 text-[10px] font-bold flex-shrink-0 transition-colors"
+            >
+              Diagnose
+            </button>
+          )}
         </div>
       )}
 

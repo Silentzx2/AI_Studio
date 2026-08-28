@@ -62,6 +62,8 @@ class Settings(BaseSettings):
     offline_mode: bool = False
     huggingface_token: str = ""
     allow_mock_provider: bool = False
+    low_vram: bool = False
+    vram_mode: str = "auto"
 
     @field_validator("debug", mode="before")
     @classmethod

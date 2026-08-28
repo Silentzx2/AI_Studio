@@ -501,9 +501,63 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 except Exception as ex_det:
                     logger.warning("DetailGen3D pass failed: %s", ex_det)
 
+            glb_path = blender_result.get("glb") or provider_result.model_path
+
+            # 7b. Auto-optimize mesh (post-generation cleanup)
+            # Runs after generation + detail pass but BEFORE thumbnail generation.
+            # If optimization fails, the original model is returned (graceful fallback).
+            meta = job.processing_metadata or {}
+            auto_optimize = meta.get("auto_optimize", False)
+            auto_optimize_settings = meta.get("auto_optimize_settings") or {}
+            optimize_result = None
+
+            if auto_optimize and glb_path and Path(glb_path).exists():
+                sync_publish(85, "optimizing", "Auto-optimizing mesh (decimation + UV fix)...", "info")
+                try:
+                    from app.core.mesh_optimizer import optimize_mesh
+
+                    target_polycount = auto_optimize_settings.get("target_polycount", 30000)
+                    fix_uvs = auto_optimize_settings.get("fix_uvs", True)
+                    preserve_details = auto_optimize_settings.get("preserve_details", 75.0)
+
+                    optimized_path = str(Path(glb_path).with_suffix(".optimized.glb"))
+                    optimize_result = optimize_mesh(
+                        input_path=glb_path,
+                        output_path=optimized_path,
+                        target_polycount=target_polycount,
+                        fix_uvs=fix_uvs,
+                        preserve_details=preserve_details,
+                    )
+
+                    if optimize_result.get("success"):
+                        # Replace the working GLB with the optimized version
+                        import shutil
+                        shutil.move(optimized_path, glb_path)
+                        meta["auto_optimize_result"] = optimize_result
+                        _update_job(session, job_id, processing_metadata=meta)
+                        sync_publish(88, "optimizing",
+                            f"Auto-optimize complete: {optimize_result['reduction_percent']}% poly reduction",
+                            "success")
+                    else:
+                        # Optimization failed — keep original, log the error
+                        logger.warning("Auto-optimize failed for job %s: %s",
+                            job_id, optimize_result.get("error", "unknown"))
+                        sync_publish(88, "optimizing",
+                            f"Auto-optimize skipped: {optimize_result.get('error', 'unknown error')}",
+                            "warning")
+                        # Clean up failed optimization output
+                        if Path(optimized_path).exists():
+                            Path(optimized_path).unlink()
+                        meta["auto_optimize_error"] = optimize_result.get("error")
+                        _update_job(session, job_id, processing_metadata=meta)
+                except Exception as opt_exc:
+                    logger.warning("Auto-optimize step failed (non-blocking): %s", opt_exc)
+                    sync_publish(88, "optimizing", "Auto-optimize skipped due to error", "warning")
+                    meta["auto_optimize_error"] = str(opt_exc)
+                    _update_job(session, job_id, processing_metadata=meta)
+
             # 8. Thumbnail (Non-blocking)
             from app.core.mesh_processor import get_mesh_stats, render_thumbnail
-            glb_path = blender_result.get("glb") or provider_result.model_path
             thumb_path = str(model_output_dir(job_id) / "thumbnail.png")
             _wait_for_stable_file(glb_path)
             

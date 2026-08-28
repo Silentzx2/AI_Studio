@@ -38,6 +38,11 @@ export interface AnimationInfo {
 
 export type ContextTabType = 'assets' | 'inspector' | 'materials' | 'rig' | 'animation' | 'jobs';
 
+export interface CompareCameraState {
+  position: [number, number, number];
+  target: [number, number, number];
+}
+
 /**
  * Global persistent 3D workspace viewer store.
  * Holds canonical loaded model, viewport camera, mesh statistics,
@@ -54,6 +59,10 @@ interface ViewerState {
   rigInfo: RigInfo | null;
   animationInfo: AnimationInfo | null;
   viewport: { cameraPosition: [number, number, number]; target: [number, number, number] } | null;
+  compareMode: boolean;
+  compareSyncCamera: boolean;
+  compareLeftAssetId: string | null;
+  compareRightAssetId: string | null;
 
   setLoadedModel: (url: string | null, name?: string | null, asset?: AssetItem | null) => void;
   setSelectedAsset: (asset: AssetItem | null) => void;
@@ -65,6 +74,10 @@ interface ViewerState {
   setRigInfo: (info: RigInfo | null) => void;
   setAnimationInfo: (info: AnimationInfo | null) => void;
   setViewport: (viewport: { cameraPosition: [number, number, number]; target: [number, number, number] }) => void;
+  setCompareMode: (enabled: boolean) => void;
+  setCompareSyncCamera: (enabled: boolean) => void;
+  setCompareLeftAsset: (assetId: string | null) => void;
+  setCompareRightAsset: (assetId: string | null) => void;
 }
 
 export const useViewerStore = create<ViewerState>((set, get) => ({
@@ -78,6 +91,10 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   rigInfo: null,
   animationInfo: null,
   viewport: null,
+  compareMode: false,
+  compareSyncCamera: false,
+  compareLeftAssetId: null,
+  compareRightAssetId: null,
 
   setLoadedModel: (url, name = null, asset = null) => {
     const prev = get().loadedModelUrl;
@@ -104,6 +121,10 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   setRigInfo: (rigInfo) => set({ rigInfo }),
   setAnimationInfo: (animationInfo) => set({ animationInfo }),
   setViewport: (viewport) => set({ viewport }),
+  setCompareMode: (compareMode) => set({ compareMode }),
+  setCompareSyncCamera: (compareSyncCamera) => set({ compareSyncCamera }),
+  setCompareLeftAsset: (compareLeftAssetId) => set({ compareLeftAssetId }),
+  setCompareRightAsset: (compareRightAssetId) => set({ compareRightAssetId }),
 }));
 
 /** Single entry point used by panels / drag-drop to load a model everywhere. */

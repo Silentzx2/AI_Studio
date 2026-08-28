@@ -156,13 +156,24 @@ export const TopHeader: React.FC = () => {
           onClick={() => setIsSettingsOpen(true)}
           className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-mono transition-all ${
             systemStats.status === 'online'
-              ? 'bg-[#151921] border-[#2563eb]/40 text-[#93c5fd] hover:border-[#3b82f6]'
+              ? 'bg-[#121b18] border-[#22c55e]/40 text-[#86efac] hover:border-[#22c55e]'
               : 'bg-[#1e1616] border-[#ef4444]/40 text-[#fca5a5] hover:border-[#ef4444]'
           }`}
-          title="Configure FastAPI + 3D Generation Pipeline local server backend"
+          title={
+            systemStats.status === 'online'
+              ? `FastAPI Backend Connected: localhost:8000 (${systemStats.lastPingMs}ms) • ${systemStats.gpu || 'GPU'}${systemStats.vramUsedGb != null ? ` • VRAM ${systemStats.vramUsedGb}GB / ${systemStats.vramTotalGb || '?'}GB` : ''}`
+              : 'FastAPI Backend Offline at localhost:8000 • Click to open settings'
+          }
         >
-          <div className={`w-2 h-2 rounded-full ${systemStats.status === 'online' ? 'bg-[#22c55e] animate-pulse' : 'bg-[#ef4444]'}`} />
-          <span className="text-[11px] font-sans font-medium text-[#cbd5e1]">FastAPI 3D</span>
+          <div className={`w-2 h-2 rounded-full ${systemStats.status === 'online' ? 'bg-[#22c55e] shadow-[0_0_8px_#22c55e] animate-pulse' : 'bg-[#ef4444]'}`} />
+          <span className="text-[11px] font-sans font-medium text-[#e2e8f0]">
+            FastAPI {systemStats.status === 'online' ? '8000' : 'Offline'}
+          </span>
+          {systemStats.status === 'online' && (
+            <span className="text-[10px] text-[#4ade80] font-mono font-semibold px-1 rounded bg-[#22c55e]/10">
+              {systemStats.vramUsedGb != null ? `${systemStats.vramUsedGb}G` : `${systemStats.lastPingMs}ms`}
+            </span>
+          )}
         </button>
 
         {/* Brightness / Theme Icon */}

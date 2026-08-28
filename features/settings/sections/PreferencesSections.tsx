@@ -21,12 +21,20 @@ import {
 } from '@/components/ui/alert-dialog';
 
 export function NotificationsSection() {
-  const [settings, setSettings] = useState({
-    emailAlerts: true,
-    pushNotifications: false,
-    jobCompletion: true,
-    systemUpdates: true,
-    marketing: false
+  const [settings, setSettings] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('notificationSettings');
+      if (saved) {
+        try { return JSON.parse(saved); } catch { /* ignore */ }
+      }
+    }
+    return {
+      emailAlerts: true,
+      pushNotifications: false,
+      jobCompletion: true,
+      systemUpdates: true,
+      marketing: false
+    };
   });
   
   const { Indicator } = useAutoSave(settings, (data) => {
@@ -34,15 +42,6 @@ export function NotificationsSection() {
       localStorage.setItem('notificationSettings', JSON.stringify(data));
     }
   });
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('notificationSettings');
-      if (saved) {
-        try { setSettings(JSON.parse(saved)); } catch (e) {}
-      }
-    }
-  }, []);
 
   return (
     <div className="p-6 space-y-6">
@@ -138,10 +137,18 @@ export function ShortcutsSection() {
 }
 
 export function NetworkSection() {
-  const [settings, setSettings] = useState({
-    offlineMode: false,
-    proxyEnabled: false,
-    autoSync: true
+  const [settings, setSettings] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('networkSettings');
+      if (saved) {
+        try { return JSON.parse(saved); } catch { /* ignore */ }
+      }
+    }
+    return {
+      offlineMode: false,
+      proxyEnabled: false,
+      autoSync: true
+    };
   });
   
   const { Indicator } = useAutoSave(settings, (data) => {
@@ -149,13 +156,6 @@ export function NetworkSection() {
       localStorage.setItem('networkSettings', JSON.stringify(data));
     }
   });
-
-  useEffect(() => {
-    const saved = localStorage.getItem('networkSettings');
-    if (saved) {
-      try { setSettings(JSON.parse(saved)); } catch (e) {}
-    }
-  }, []);
 
   return (
     <div className="p-6 space-y-6">
@@ -195,10 +195,18 @@ export function NetworkSection() {
 }
 
 export function AdvancedSection() {
-  const [settings, setSettings] = useState({
-    experimentalFeatures: false,
-    hardwareAcceleration: true,
-    debugMode: false,
+  const [settings, setSettings] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('advancedSettings');
+      if (saved) {
+        try { return JSON.parse(saved); } catch { /* ignore */ }
+      }
+    }
+    return {
+      experimentalFeatures: false,
+      hardwareAcceleration: true,
+      debugMode: false,
+    };
   });
   
   const { Indicator } = useAutoSave(settings, (data) => {
@@ -206,13 +214,6 @@ export function AdvancedSection() {
       localStorage.setItem('advancedSettings', JSON.stringify(data));
     }
   });
-
-  useEffect(() => {
-    const saved = localStorage.getItem('advancedSettings');
-    if (saved) {
-      try { setSettings(JSON.parse(saved)); } catch (e) {}
-    }
-  }, []);
 
   const handleResetDefaults = () => {
     const keysToReset = [

@@ -1,19 +1,8 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.4.4 (TRELLIS Install Fixes)  
+> **Version**: 4.3.0 (Root-Cause Fixes)  
 > **Status**: ✅ **COMPLETE**  
-> **Last Updated**: August 28, 2026
-
----
-
-## v4.4.4 — TRELLIS Install Fixes (2026-08-28)
-
-### What changed
-- **TemporaryDirectory bug fix**: Fixed `with TemporaryDirectory()` exiting before `_run_uv()` ran for VCS subdirectory deps (e.g., `diff-gaussian-rasterization`). The retry loop now runs inside the `with` block so the cloned source directory exists when pip installs from it.
-- **Wheel install retry**: Added retry logic for direct `.whl` URL installs (e.g., `nvdiffrast`). Transient failures from GitHub rate limiting, redirect timeouts, and network blips now retry up to 3 times with exponential backoff.
-
-### Files changed
-- `backend/runtime/dependency_resolver.py` — TemporaryDirectory fix + wheel retry
+> **Last Updated**: August 27, 2026
 
 ---
 

@@ -13,6 +13,8 @@ interface RuntimeConfig {
   output_format?: string;
   texture_model?: string;
   rigging_provider?: string;
+  low_vram?: boolean;
+  vram_mode?: string;
 }
 
 type ApiEnvelope<T> = ApiResponse<T> | T;
@@ -233,5 +235,18 @@ export const runtimeService = {
     } catch {
       return false;
     }
+  },
+
+  async getGenerationSettings(): Promise<any> {
+    try {
+      const response = await apiClient.get<ApiEnvelope<any>>('/api/v1/settings/generation');
+      return unwrap(response);
+    } catch {
+      return null;
+    }
+  },
+
+  async saveGenerationSettings(config: any): Promise<void> {
+    await apiClient.post('/api/v1/settings/generation', config);
   },
 };

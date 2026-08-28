@@ -28,41 +28,35 @@ export function useAutoSave<T>(
     dataRef.current = data;
   }, [data]);
 
-useEffect(() => {
+  useEffect(() => {
     if (skipInitial && initialRender.current) {
-        initialRender.current = false;
-        return;
+      initialRender.current = false;
+      return;
     }
 
     if (!isAutoSaveEnabled) {
-        setIsModified(true);
-        return;
+      setIsModified(true);
+      return;
     }
 
-    // Handle manual modifications separately
-}, [isAutoSaveEnabled]);
-
-useEffect(() => {
-    setStatus('saving');
-
     const handler = setTimeout(async () => {
-        try {
-            await saveActionRef.current(dataRef.current);
-            setStatus('saved');
-        } catch {
-            setStatus('error');
-        } finally {
-            setTimeout(() => {
-                setStatus((current) =>
-                    current === 'saved' || current === 'error' ? 'idle' : current
-                );
-            }, 2500);
-        }
+      setStatus('saving');
+      try {
+        await saveActionRef.current(dataRef.current);
+        setStatus('saved');
+      } catch {
+        setStatus('error');
+      } finally {
+        setTimeout(() => {
+          setStatus((current) =>
+            current === 'saved' || current === 'error' ? 'idle' : current
+          );
+        }, 2500);
+      }
     }, delay);
 
     return () => clearTimeout(handler);
-    // setStatus is stable from useState, adding to deps avoids lint warning
-}, [data, delay, skipInitial, setStatus]);
+  }, [data, delay, skipInitial, isAutoSaveEnabled]);
 
   const handleManualSave = async () => {
     setStatus('saving');

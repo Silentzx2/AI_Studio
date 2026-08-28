@@ -15,6 +15,7 @@ import {
   Bone
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
+import { GpuVramLineChart } from '@/components/monitoring/GpuVramLineChart';
 
 export const StudioDashboard: React.FC = () => {
   const { 
@@ -186,6 +187,11 @@ export const StudioDashboard: React.FC = () => {
             <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
         </div>
+      </div>
+
+      {/* Real-time VRAM and GPU Utilization Monitoring Section */}
+      <div className="p-5 rounded-2xl bg-[#14161c] border border-[#242834] shadow-lg space-y-3">
+        <GpuVramLineChart height={240} autoPoll pollIntervalMs={3000} />
       </div>
 
       {/* Recent Studio Assets Catalog */}

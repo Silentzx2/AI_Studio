@@ -663,6 +663,8 @@ class ConfigUpdateRequest(BaseModel):
     output_format: str | None = None
     texture_model: str | None = None
     rigging_provider: str | None = None
+    low_vram: bool | None = None
+    vram_mode: str | None = None
 
 
 @router.post("/config")

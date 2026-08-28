@@ -6,6 +6,12 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 # ── Request schemas ────────────────────────────────────────────────────────────
 
+class AutoOptimizeSettings(BaseModel):
+    target_polycount: int = Field(30000, ge=1000, le=500000, description="Target triangle count after optimization")
+    fix_uvs: bool = Field(True, description="Fix overlapping UVs and fill UV islands")
+    preserve_details: float = Field(75.0, ge=0, le=100, description="Detail preservation percentage (0=aggressive, 100=max)")
+
+
 class GenerationRequest(BaseModel):
     # ponytail: Extended modes to support remesh, texture-gen, and future pipeline steps
     mode: Literal[
@@ -30,6 +36,9 @@ class GenerationRequest(BaseModel):
     provider: str | None = None
     # Optional workspace id used to auto-map generation mode and stored on the job.
     workspace: str | None = None
+    # Auto-optimize: post-generation mesh cleanup (decimation + UV fix)
+    auto_optimize: bool = False
+    auto_optimize_settings: AutoOptimizeSettings | None = None
 
     @field_validator("reference_image_url", mode="before")
     @classmethod

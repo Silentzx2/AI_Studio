@@ -68,30 +68,76 @@ class ApiClient {
       ]);
 
       const latency = Math.round(performance.now() - start);
-      const gpu = gpuRes.status === 'fulfilled' && gpuRes.value.ok ? await gpuRes.value.json() as Record<string, unknown> : {};
-      const sys = sysRes.status === 'fulfilled' && sysRes.value.ok ? await sysRes.value.json() as Record<string, unknown> : {};
-      const runtime = runtimeRes.status === 'fulfilled' && runtimeRes.value.ok ? await runtimeRes.value.json() as Record<string, unknown> : {};
+      const isAnyOk = (sysRes.status === 'fulfilled' && sysRes.value.ok) ||
+                      (gpuRes.status === 'fulfilled' && gpuRes.value.ok) ||
+                      (runtimeRes.status === 'fulfilled' && runtimeRes.value.ok);
 
-      const gpuMem = (gpu.gpu_memory ?? gpu.memory ?? {}) as Record<string, number>;
-      const sysMem = (sys.memory ?? {}) as Record<string, number>;
+      if (!isAnyOk) {
+        return {
+          status: 'offline',
+          host: API_BASE,
+          gpu: 'Unavailable',
+          vramUsedGb: null, vramTotalGb: null,
+          ramUsedGb: null, ramTotalGb: null,
+          torchVramUsedGb: null, torchVramTotalGb: null,
+          gpuType: null, gpuIndex: null,
+          pythonVersion: null, torchVersion: null,
+          apiVersion: null,
+          queueRunning: 0, queuePending: 0,
+          activePromptId: null, activeNode: null,
+          lastPingMs: latency,
+        };
+      }
+
+      const rawGpu = gpuRes.status === 'fulfilled' && gpuRes.value.ok ? await gpuRes.value.json() as Record<string, unknown> : {};
+      const rawSys = sysRes.status === 'fulfilled' && sysRes.value.ok ? await sysRes.value.json() as Record<string, unknown> : {};
+      const rawRt = runtimeRes.status === 'fulfilled' && runtimeRes.value.ok ? await runtimeRes.value.json() as Record<string, unknown> : {};
+
+      const gpuData = (rawGpu.data ?? rawGpu) as Record<string, any>;
+      const sysData = (rawSys.data ?? rawSys) as Record<string, any>;
+      const rtData = (rawRt.data ?? rawRt) as Record<string, any>;
+
+      // Extract GPU details
+      const gpusList = Array.isArray(gpuData.gpus) ? gpuData.gpus : (Array.isArray(sysData.gpu?.gpus) ? sysData.gpu.gpus : []);
+      const primaryGpu = gpusList[0] || gpuData.gpu || {};
+      const gpuName = primaryGpu.name || gpuData.name || sysData.gpu?.name || 'NVIDIA GPU';
+
+      // VRAM in MB or bytes
+      let vramTotalMb = primaryGpu.total_memory_mb ?? primaryGpu.vram_mb ?? gpuData.vram_total_mb ?? rtData.vram_total_mb;
+      let vramFreeMb = primaryGpu.free_memory_mb ?? primaryGpu.free_vram_mb ?? gpuData.vram_free_mb;
+      let vramUsedMb = primaryGpu.used_memory_mb ?? (vramTotalMb && vramFreeMb != null ? Math.max(0, vramTotalMb - vramFreeMb) : gpuData.vram_used_mb ?? rtData.vram_used_mb);
+
+      // System Memory
+      const sysMem = sysData.memory || sysData.system_resources?.memory || {};
+      const ramTotalMb = sysMem.total_mb ?? (sysMem.total ? sysMem.total / (1024 * 1024) : undefined);
+      const ramUsedMb = sysMem.used_mb ?? (sysMem.used ? sysMem.used / (1024 * 1024) : undefined);
+
+      const vramUsedGb = vramUsedMb != null ? Number((vramUsedMb / 1024).toFixed(2)) : (primaryGpu.vram_used_gb ?? null);
+      const vramTotalGb = vramTotalMb != null ? Number((vramTotalMb / 1024).toFixed(2)) : (primaryGpu.vram_total_gb ?? null);
+      const ramUsedGb = ramUsedMb != null ? Number((ramUsedMb / 1024).toFixed(2)) : null;
+      const ramTotalGb = ramTotalMb != null ? Number((ramTotalMb / 1024).toFixed(2)) : null;
+
+      const pythonVer = sysData.basic_info?.python_version || sysData.python_version || sysData.environment?.python_version || null;
+      const torchVer = gpuData.cuda?.torch_version || sysData.environment?.torch_version || gpuData.torch_version || null;
+      const apiVer = sysData.service?.api_version || sysData.service?.version || 'v1';
 
       return {
         status: 'online',
         host: API_BASE,
-        gpu: (gpu.name ?? gpu.model ?? 'Unknown GPU') as string,
-        vramUsedGb: typeof gpuMem.used === 'number' ? Number((gpuMem.used / (1024 ** 3)).toFixed(2)) : null,
-        vramTotalGb: typeof gpuMem.total === 'number' ? Number((gpuMem.total / (1024 ** 3)).toFixed(2)) : null,
-        ramUsedGb: typeof sysMem.used === 'number' ? Number((sysMem.used / (1024 ** 3)).toFixed(2)) : null,
-        ramTotalGb: typeof sysMem.total === 'number' ? Number((sysMem.total / (1024 ** 3)).toFixed(2)) : null,
+        gpu: gpuName,
+        vramUsedGb,
+        vramTotalGb,
+        ramUsedGb,
+        ramTotalGb,
         torchVramUsedGb: null,
         torchVramTotalGb: null,
-        gpuType: (gpu.type ?? gpu.backend ?? null) as string | null,
-        gpuIndex: (gpu.index ?? gpu.gpu_index ?? null) as number | null,
-        pythonVersion: (sys.python_version ?? null) as string | null,
-        torchVersion: (gpu.torch_version ?? gpu.pytorch ?? null) as string | null,
-        apiVersion: null,
-        queueRunning: (runtime.queue_running ?? runtime.active_jobs ?? 0) as number,
-        queuePending: (runtime.queue_pending ?? runtime.pending_jobs ?? 0) as number,
+        gpuType: primaryGpu.type || gpuData.type || 'CUDA',
+        gpuIndex: primaryGpu.index ?? 0,
+        pythonVersion: typeof pythonVer === 'string' ? pythonVer.split(' ')[0] : null,
+        torchVersion: typeof torchVer === 'string' ? torchVer : null,
+        apiVersion: apiVer,
+        queueRunning: Number(rtData.queue_running ?? rtData.active_jobs ?? 0),
+        queuePending: Number(rtData.queue_pending ?? rtData.pending_jobs ?? 0),
         activePromptId: null,
         activeNode: null,
         lastPingMs: latency,

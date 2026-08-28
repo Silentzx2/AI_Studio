@@ -16,6 +16,7 @@ import { StatusDot } from '@/components/premium/StatusDot';
 import { Badge } from '@/components/premium/Badge';
 import { NeonButton } from '@/components/premium/NeonButton';
 import { Spinner } from '@/components/premium/Spinner';
+import { GpuVramLineChart } from '@/components/monitoring/GpuVramLineChart';
 import { runtimeService } from '@/services/runtimeService';
 import { adminService } from '@/services/adminService';
 import type { RuntimeStatus, AdminLog } from '@/types';
@@ -238,26 +239,7 @@ export function RuntimeTab() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <GlassCard className="p-5 lg:col-span-2" delay={0.3}>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-sm font-semibold">Performance Graph</h3>
-              <p className="text-xs text-muted-foreground">Real-time — updates every 5s</p>
-            </div>
-            <div className="flex items-center gap-3">
-              {[
-                { label: 'GPU', color: 'hsl(275 95% 65%)' },
-                { label: 'VRAM', color: 'hsl(210 100% 60%)' },
-                { label: 'CPU', color: 'hsl(190 100% 55%)' },
-                { label: 'RAM', color: 'hsl(150 80% 55%)' },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full" style={{ background: item.color }} />
-                  <span className="text-xs text-muted-foreground">{item.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <PerformanceChart history={history} />
+          <GpuVramLineChart height={240} autoPoll pollIntervalMs={3000} />
         </GlassCard>
 
         <GlassCard className="p-5" delay={0.35}>

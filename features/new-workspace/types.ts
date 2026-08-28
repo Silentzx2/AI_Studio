@@ -8,7 +8,8 @@ export type ToolType =
   | 'upscale' 
   | 'pbr' 
   | 'animate' 
-  | 'rigging';
+  | 'rigging'
+  | 'compare';
 
 export interface ActiveTask {
   id: string;
@@ -158,6 +159,12 @@ export interface TextureSettings {
   };
 }
 
+export interface AutoOptimizeSettings {
+  targetPolycount: number;
+  fixUVs: boolean;
+  preserveDetails: number;
+}
+
 export interface GenerationSettings {
   mode: 'image-to-3d' | 'text-to-3d';
   image: string | null;
@@ -169,6 +176,10 @@ export interface GenerationSettings {
   seed: number;
   guidanceScale: number;
   removeBackground: boolean;
+  lowVram?: boolean;
+  vramMode?: 'auto' | 'normal' | 'low';
+  autoOptimize: boolean;
+  autoOptimizeSettings: AutoOptimizeSettings;
 }
 
 export interface AnimateSettings {
@@ -189,4 +200,13 @@ export interface RiggingSettings {
   symmetry: boolean;
   boneSize: number;
   boneCount: number;
+}
+
+export interface CompareSettings {
+  syncCamera: boolean;
+  leftAssetId: string | null;
+  rightAssetId: string | null;
+  shadingMode: ShadingMode;
+  showWireframe: boolean;
+  showGrid: boolean;
 }

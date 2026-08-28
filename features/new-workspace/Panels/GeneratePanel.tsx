@@ -22,7 +22,8 @@ import {
   Info,
   X,
   ArrowRight,
-  Loader2
+  Loader2,
+  Wrench
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { useRuntimeOptions } from '@/hooks/useBackendData';
@@ -40,6 +41,7 @@ interface ProviderOption {
   supports_image_to_3d?: boolean;
   workspace_compatibility?: string[];
   low_vram_supported?: boolean;
+  low_vram_required_mb?: number;
 }
 
 export const GeneratePanel: React.FC = () => {
@@ -188,13 +190,18 @@ export const GeneratePanel: React.FC = () => {
         ...prev,
         aiModel: model.id,
         mode: 'image-to-3d',
-        prompt: ''
+        prompt: '',
+        lowVram: model.low_vram_supported ? prev.lowVram : false,
       }));
       setNoticeMessage(`${model.label} is an Image-to-3D model. Switched to Image to 3D mode.`);
       return;
     }
 
-    setGenerationSettings(prev => ({ ...prev, aiModel: model.id }));
+    setGenerationSettings(prev => ({
+      ...prev,
+      aiModel: model.id,
+      lowVram: model.low_vram_supported ? prev.lowVram : false,
+    }));
   };
 
   const handleGenerate = () => {
@@ -669,43 +676,181 @@ export const GeneratePanel: React.FC = () => {
                 </button>
               </div>
 
-              {/* Privacy Setting (Public / Private) */}
-              <div className="flex items-center justify-between pt-1 border-t border-[#1e212a]">
-                <div className="flex items-center gap-1.5 text-xs text-[#9ca3af]">
-                  <Globe className="w-3.5 h-3.5" />
-                  <span>Privacy</span>
-                </div>
-                <div className="relative">
-                  <button
-                    onClick={() => setPrivacyMenuOpen(!privacyMenuOpen)}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#191b22] border border-[#282c38] text-[11px] font-semibold text-[#e5e7eb] hover:border-[#f5c518]/50 transition-colors"
-                  >
-                    <span className="capitalize">{privacy}</span>
-                    <ChevronDown className="w-3 h-3 text-[#8e95a5]" />
-                  </button>
-
-                  {privacyMenuOpen && (
-                    <div className="absolute right-0 bottom-full mb-1 w-28 py-1 rounded-xl bg-[#1c1e27] border border-[#2f3444] shadow-xl z-50">
-                      <button
-                        onClick={() => { setPrivacy('public'); setPrivacyMenuOpen(false); }}
-                        className="w-full text-left px-3 py-1.5 text-[11px] text-[#e5e7eb] hover:bg-[#252835]"
-                      >
-                        🌐 Public
-                      </button>
-                      <button
-                        onClick={() => { setPrivacy('private'); setPrivacyMenuOpen(false); }}
-                        className="w-full text-left px-3 py-1.5 text-[11px] text-[#e5e7eb] hover:bg-[#252835]"
-                      >
-                        🔒 Private
-                      </button>
+              {/* Low VRAM Optimization Mode Toggle - Conditionally rendered based on model support */}
+              {activeModelObj?.low_vram_supported && (
+                <div className="flex items-center justify-between pt-1 border-t border-[#1e212a]">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-[#cbd5e1] font-medium">Low VRAM Mode</span>
+                      <span className="px-1 py-0.2 rounded bg-[#38bdf8]/20 text-[#38bdf8] border border-[#38bdf8]/30 text-[8px] font-mono font-bold">
+                        {activeModelObj.low_vram_required_mb ? `<${Math.round(activeModelObj.low_vram_required_mb / 1024)}GB` : '<8GB'}
+                      </span>
                     </div>
-                  )}
+                    <span className="text-[10px] text-[#717786]">Sequential offload &amp; chunked VRAM pipeline</span>
+                  </div>
+                  <button
+                    id="toggle-low-vram-mode"
+                    onClick={() => setGenerationSettings(prev => ({ ...prev, lowVram: !prev.lowVram }))}
+                    className={`w-9 h-5 rounded-full p-0.5 transition-colors ${
+                      generationSettings.lowVram ? 'bg-[#38bdf8]' : 'bg-[#282c38]'
+                    }`}
+                    title="Enable Low VRAM execution mode for GPUs with limited VRAM"
+                  >
+                    <div className={`w-4 h-4 rounded-full bg-[#111216] transition-transform ${
+                      generationSettings.lowVram ? 'translate-x-4' : 'translate-x-0'
+                    }`} />
+                  </button>
                 </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+              )}
+
+               {/* Privacy Setting (Public / Private) */}
+               <div className="flex items-center justify-between pt-1 border-t border-[#1e212a]">
+                 <div className="flex items-center gap-1.5 text-xs text-[#9ca3af]">
+                   <Globe className="w-3.5 h-3.5" />
+                   <span>Privacy</span>
+                 </div>
+                 <div className="relative">
+                   <button
+                     onClick={() => setPrivacyMenuOpen(!privacyMenuOpen)}
+                     className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#191b22] border border-[#282c38] text-[11px] font-semibold text-[#e5e7eb] hover:border-[#f5c518]/50 transition-colors"
+                   >
+                     <span className="capitalize">{privacy}</span>
+                     <ChevronDown className="w-3 h-3 text-[#8e95a5]" />
+                   </button>
+
+                   {privacyMenuOpen && (
+                     <div className="absolute right-0 bottom-full mb-1 w-28 py-1 rounded-xl bg-[#1c1e27] border border-[#2f3444] shadow-xl z-50">
+                       <button
+                         onClick={() => { setPrivacy('public'); setPrivacyMenuOpen(false); }}
+                         className="w-full text-left px-3 py-1.5 text-[11px] text-[#e5e7eb] hover:bg-[#252835]"
+                       >
+                         🌐 Public
+                       </button>
+                       <button
+                         onClick={() => { setPrivacy('private'); setPrivacyMenuOpen(false); }}
+                         className="w-full text-left px-3 py-1.5 text-[11px] text-[#e5e7eb] hover:bg-[#252835]"
+                       >
+                         🔒 Private
+                       </button>
+                     </div>
+                   )}
+                 </div>
+               </div>
+             </div>
+           )}
+         </div>
+
+         {/* Accordion 2: Auto-Optimize Settings */}
+         <div className="border border-[#21242d] rounded-xl overflow-hidden bg-[#13151b]">
+           <button
+             onClick={() => setGenerationSettings(prev => ({ ...prev, autoOptimize: !prev.autoOptimize }))}
+             className="w-full px-3 py-2.5 flex items-center justify-between font-bold text-xs text-[#e5e7eb] hover:bg-[#181a22] transition-colors"
+           >
+             <div className="flex items-center gap-1.5">
+               <Wrench className="w-3.5 h-3.5 text-[#f5c518]" />
+               <span>Auto-Optimize Mesh</span>
+               {generationSettings.autoOptimize && (
+                 <span className="px-1.5 py-0.5 rounded bg-[#22c55e]/20 text-[#22c55e] text-[8px] font-bold">ON</span>
+               )}
+             </div>
+             <div className="flex items-center gap-2">
+               {generationSettings.autoOptimize && (
+                 <span className="text-[10px] text-[#6b7280]">~{Math.round(100 - (generationSettings.autoOptimizeSettings.targetPolycount / 100000) * 100)}% reduction</span>
+               )}
+               <div className={`w-9 h-5 rounded-full p-0.5 transition-colors ${
+                 generationSettings.autoOptimize ? 'bg-[#f5c518]' : 'bg-[#282c38]'
+               }`}>
+                 <div className={`w-4 h-4 rounded-full bg-[#111216] transition-transform ${
+                   generationSettings.autoOptimize ? 'translate-x-4' : 'translate-x-0'
+                 }`} />
+               </div>
+             </div>
+           </button>
+
+           {generationSettings.autoOptimize && (
+             <div className="p-3 pt-1 border-t border-[#1e222b] space-y-3 animate-in fade-in duration-200">
+               {/* Target Polycount Slider */}
+               <div className="space-y-1.5">
+                 <div className="flex items-center justify-between">
+                   <span className="text-xs text-[#cbd5e1] font-medium">Target Polycount</span>
+                   <span className="text-[10px] font-mono text-[#f5c518]">{generationSettings.autoOptimizeSettings.targetPolycount.toLocaleString()} tris</span>
+                 </div>
+                 <input
+                   type="range"
+                   min={5000}
+                   max={100000}
+                   step={5000}
+                   value={generationSettings.autoOptimizeSettings.targetPolycount}
+                   onChange={(e) => setGenerationSettings(prev => ({
+                     ...prev,
+                     autoOptimizeSettings: { ...prev.autoOptimizeSettings, targetPolycount: parseInt(e.target.value) }
+                   }))}
+                   className="w-full h-1.5 rounded-full appearance-none bg-[#282c38] accent-[#f5c518] cursor-pointer"
+                 />
+                 <div className="flex justify-between text-[9px] text-[#6b7280]">
+                   <span>5K</span>
+                   <span>100K</span>
+                 </div>
+               </div>
+
+               {/* Fix UVs Checkbox */}
+               <div className="flex items-center justify-between">
+                 <div>
+                   <span className="text-xs text-[#cbd5e1] font-medium block">Fix UV Mapping</span>
+                   <span className="text-[10px] text-[#717786]">Repair overlapping UVs &amp; fill islands</span>
+                 </div>
+                 <button
+                   onClick={() => setGenerationSettings(prev => ({
+                     ...prev,
+                     autoOptimizeSettings: { ...prev.autoOptimizeSettings, fixUVs: !prev.autoOptimizeSettings.fixUVs }
+                   }))}
+                   className={`w-9 h-5 rounded-full p-0.5 transition-colors ${
+                     generationSettings.autoOptimizeSettings.fixUVs ? 'bg-[#f5c518]' : 'bg-[#282c38]'
+                   }`}
+                 >
+                   <div className={`w-4 h-4 rounded-full bg-[#111216] transition-transform ${
+                     generationSettings.autoOptimizeSettings.fixUVs ? 'translate-x-4' : 'translate-x-0'
+                   }`} />
+                 </button>
+               </div>
+
+               {/* Preserve Details Slider */}
+               <div className="space-y-1.5">
+                 <div className="flex items-center justify-between">
+                   <span className="text-xs text-[#cbd5e1] font-medium">Preserve Details</span>
+                   <span className="text-[10px] font-mono text-[#f5c518]">{generationSettings.autoOptimizeSettings.preserveDetails}%</span>
+                 </div>
+                 <input
+                   type="range"
+                   min={0}
+                   max={100}
+                   step={5}
+                   value={generationSettings.autoOptimizeSettings.preserveDetails}
+                   onChange={(e) => setGenerationSettings(prev => ({
+                     ...prev,
+                     autoOptimizeSettings: { ...prev.autoOptimizeSettings, preserveDetails: parseInt(e.target.value) }
+                   }))}
+                   className="w-full h-1.5 rounded-full appearance-none bg-[#282c38] accent-[#f5c518] cursor-pointer"
+                 />
+                 <div className="flex justify-between text-[9px] text-[#6b7280]">
+                   <span>Aggressive</span>
+                   <span>Maximum</span>
+                 </div>
+               </div>
+
+               {/* Estimated Savings */}
+               <div className="p-2 rounded-lg bg-[#1a1d26] border border-[#2a2e3a] flex items-center gap-2">
+                 <Info className="w-3.5 h-3.5 text-[#38bdf8] flex-shrink-0" />
+                 <span className="text-[10px] text-[#8e95a5]">
+                   Will reduce ~{Math.max(10, Math.round(100 - (generationSettings.autoOptimizeSettings.targetPolycount / 100000) * 100))}% of polygons
+                   {generationSettings.autoOptimizeSettings.fixUVs && ' • Fix UV overlaps'}
+                   {generationSettings.autoOptimizeSettings.preserveDetails > 50 && ' • High detail preservation'}
+                 </span>
+               </div>
+             </div>
+           )}
+         </div>
+       </div>
 
       {/* Bottom Sticky Action Button */}
       <div className="p-3.5 border-t border-[#21242c] bg-[#0d0e12]">

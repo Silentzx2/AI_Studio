@@ -30,24 +30,22 @@ export function WorkspaceSection() {
     await apiClient.post('/api/v1/settings/workspace', data);
   }, 1000, true);
 
-  async function fetchWorkspaceConfig() {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await apiClient.get<any>('/api/v1/settings/workspace');
-      const payload = response?.data ?? response ?? {};
-      setConfig(payload);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load workspace configuration');
-      setConfig(null);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
-    fetchWorkspaceConfig();
+    let active = true;
+    apiClient.get<any>('/api/v1/settings/workspace')
+      .then((response) => {
+        if (!active) return;
+        const payload = response?.data ?? response ?? {};
+        setConfig(payload);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setError(err instanceof Error ? err.message : 'Failed to load workspace configuration');
+        setConfig(null);
+        setLoading(false);
+      });
+    return () => { active = false; };
   }, []);
 
   const clearHistory = async () => {
