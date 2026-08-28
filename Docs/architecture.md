@@ -390,6 +390,8 @@ The frontend uses a modern persistent workspace: ONE global 3D viewport (`MeshVi
 - **CPU fallback**: On CPU-only machines, installs CPU wheels and marks models as PARTIAL
 - **Preflight**: Stage A skips weights check (weights are Stage B)
 - **GPU cleanup**: Explicit `torch.cuda.empty_cache()` + `gc.collect()` on model unload
+- **Native dependency resolution (v4.4.11+)**: CUDA env vars (`TORCH_CUDA_ARCH_LIST`, `CUDA_HOME`) are set automatically for source builds; `ninja` is pre-installed as a build dependency for CUDA extensions; shallow clone support for VCS subdirectory deps reduces clone time
+- **Extra-index-url support (v4.4.11+)**: Wheel configs support `mode: extra_index` to install pre-built wheels from custom indexes (e.g., MiroPsota torch_packages_builder for nvdiffrast) via `--extra-index-url`
 
 #### Runtime Health States (v4.3.0+)
 

@@ -1,5 +1,23 @@
 # AI 3D Studio — Changelog
 
+## [v4.4.11] - 2026-08-28
+
+### Fixed
+- **TRELLIS native deps**: Pin flash-attn==2.8.3 for correct wheel URL resolution
+- **TRELLIS native deps**: Switch nvdiffrast to extra-index-url install (MiroPsota builder)
+- **TRELLIS native deps**: Add CUDA env vars (TORCH_CUDA_ARCH_LIST, CUDA_HOME) for source builds
+- **TRELLIS native deps**: Add shallow clone support for VCS subdirectory deps
+- **TRELLIS native deps**: Fix vox2seq local extension path resolution
+- **TRELLIS native deps**: Remove invalid "pypi" fallbacks that caused pip errors
+- **Dependency resolver**: Fix --find-links pypi invalid argument bug
+- **Dependency resolver**: Add missing NATIVE_PKG_PATTERNS for nvdiffrast, diffoctreerast, vox2seq, diff-gaussian
+- **Dependency resolver**: Fix VCS fallback skip to handle all non-URL sources
+- **Dependency resolver**: Add build dependency pre-install (ninja) for CUDA extensions
+- **Dependency resolver**: Expand retry logic to include SSL/DNS errors
+- **Dependency resolver**: Add mode: extra_index support for wheel configs
+
+---
+
 ## [v4.4.10] - 2026-08-28 — Crash Fixes, Route Conflict Resolution, Security & Performance
 
 ### Fixed

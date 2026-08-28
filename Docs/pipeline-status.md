@@ -1,8 +1,30 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.4.10 (Crash Fixes, Route Conflict Resolution, Security & Performance)
+> **Version**: 4.4.11 (TRELLIS Native Dependency Fixes)
 > **Status**: ✅ **COMPLETE**
 > **Last Updated**: August 28, 2026
+
+---
+
+## v4.4.11 — TRELLIS Native Dependency Resolution Improvements
+
+### What changed
+- **TRELLIS native deps**: Pin flash-attn==2.8.3 for correct wheel URL resolution
+- **TRELLIS native deps**: Switch nvdiffrast to extra-index-url install (MiroPsota builder)
+- **TRELLIS native deps**: Add CUDA env vars (TORCH_CUDA_ARCH_LIST, CUDA_HOME) for source builds
+- **TRELLIS native deps**: Add shallow clone support for VCS subdirectory deps
+- **TRELLIS native deps**: Fix vox2seq local extension path resolution
+- **TRELLIS native deps**: Remove invalid "pypi" fallbacks that caused pip errors
+- **Dependency resolver**: Fix --find-links pypi invalid argument bug
+- **Dependency resolver**: Add missing NATIVE_PKG_PATTERNS for nvdiffrast, diffoctreerast, vox2seq, diff-gaussian
+- **Dependency resolver**: Fix VCS fallback skip to handle all non-URL sources
+- **Dependency resolver**: Add build dependency pre-install (ninja) for CUDA extensions
+- **Dependency resolver**: Expand retry logic to include SSL/DNS errors
+- **Dependency resolver**: Add mode: extra_index support for wheel configs
+
+### Files changed
+- `backend/runtime/dependency_resolver.py` — core resolver fixes (find-links bug, VCS fallback skip, NATIVE_PKG_PATTERNS, retry logic, extra_index mode)
+- `backend/runtime/manifests/trellis.yaml` — flash-attn pin, nvdiffrast extra-index-url, CUDA env vars, shallow clone, vox2seq path fix, removed invalid fallbacks
 
 ---
 

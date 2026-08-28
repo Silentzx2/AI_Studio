@@ -34,7 +34,7 @@ dependencies:
   - transformers
   - trimesh
   native:
-  - flash-attn
+  - flash-attn==2.8.3
   - xformers
   - git+https://github.com/JeffreyXiang/diffoctreerast.git
   - vox2seq
@@ -63,7 +63,12 @@ dependencies:
       index: https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-{torch_ver}_cu{cuda_ver}.html
     nvdiffrast:
       available: true
-      direct_url_template: https://github.com/MiroPsota/torch_packages_builder/releases/download/nvdiffrast-0.4.0+253ac4f/nvdiffrast-0.4.0+253ac4fpt{torch}cu{cuda}-cp{python_nodot}-cp{python_nodot}-linux_x86_64.whl
+      mode: extra_index
+      index: https://miropsota.github.io/torch_packages_builder
+      version: "0.4.0+253ac4f"
+      python: ["3.10", "3.11", "3.12"]
+      cuda: ["118", "121", "124", "128", "130"]
+      torch: ["2.4.0", "2.5.0", "2.5.1", "2.8.0", "2.9.0", "2.10.0", "2.11.0", "2.12.0"]
     diffoctreerast:
       available: false
       reason: No verified wheel target for this source in current manifest; source
@@ -74,16 +79,14 @@ dependencies:
     diff-gaussian-rasterization:
       available: false
       reason: VCS subdirectory dependency; no verified prebuilt wheel target is declared.
+      shallow_clone: true
     mip-splatting:
       available: false
       reason: VCS parent repository used only as source for diff-gaussian-rasterization.
   fallbacks:
-    flash-attn:
-    - pypi
     diffoctreerast: []
     nvdiffrast: []
     kaolin:
-    - pypi
     - https://nvidia-kaolin.s3.us-east-2.amazonaws.com/
     - https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.4.0_cu121.html
     - https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.5.1_cu124.html
@@ -100,6 +103,10 @@ dependencies:
     vox2seq:
       path: extensions/vox2seq
       hf_dataset: argojuni0506/TRELLIS-3D
+      hf_allow_pattern: "extensions/vox2seq/**"
+  build_env:
+    TORCH_CUDA_ARCH_LIST: "7.0 7.5 8.0 8.6 8.9 9.0"
+    CUDAHOME: "/usr/local/cuda"
 weights:
   primary:
     repo: microsoft/TRELLIS-image-large

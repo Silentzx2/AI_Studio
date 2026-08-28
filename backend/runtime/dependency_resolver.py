@@ -29,8 +29,25 @@ from runtime.installer import _CUDA_ONLY_PKG_PATTERNS as _INSTALLER_CUDA_ONLY_PK
 from runtime.installer import _PY312_REQ_REWRITES as _INSTALLER_PY312_REQ_REWRITES
 
 # Map installer table names to local aliases for backward compatibility
-NATIVE_PKG_PATTERNS = _INSTALLER_CUDA_ONLY_PKG_PATTERNS
+NATIVE_PKG_PATTERNS = _INSTALLER_CUDA_ONLY_PKG_PATTERNS + [
+    re.compile(r"^nvdiffrast($|==)"),
+    re.compile(r"^(git\+)?.*diffoctreerast"),
+    re.compile(r"^(git\+)?.*vox2seq"),
+    re.compile(r"^diff[-_]gaussian"),
+]
 PY312_PIN_REWRITES = _INSTALLER_PY312_REQ_REWRITES
+
+# Build dependencies that need to be pre-installed for certain native packages.
+# These are installed via uv into the model venv before the source build runs.
+_BUILD_DEPS: dict[str, list[str]] = {
+    "torch-cluster": ["ninja", "pkg-config"],
+    "torch-scatter": ["ninja", "pkg-config"],
+    "torch-sparse": ["ninja", "pkg-config"],
+    "pyg_lib": ["ninja", "pkg-config"],
+    "diffoctreerast": ["ninja"],
+    "nvdiffrast": ["ninja"],
+    "diff-gaussian-rasterization": ["ninja"],
+}
 
 
 class DependencyKind(Enum):
@@ -430,6 +447,21 @@ def check_available(
         )
         return WheelCheckResult(True, direct_url, True, None, vcs_spec)
 
+    # ponytail: extra_index mode returns a composite "index|package==version"
+    # source that install_resolved_deps parses to build a pip install command
+    # with --extra-index-url.
+    if mode == "extra_index":
+        index = info.get("index")
+        version = info.get("version", "")
+        dep_name = dep.name
+        return WheelCheckResult(
+            True,
+            f"{index}|{dep_name}=={version}",
+            False,
+            None,
+            vcs_spec,
+        )
+
     index = info.get("index")
     if index:
         source = str(index).replace("{torch_ver}", torch_ver or "").replace(
@@ -489,6 +521,7 @@ def _fetch_local_extension_from_hf(
     hf_dataset: str,
     log_cb=None,
     dataset_path: str | None = None,
+    local_path: str | None = None,
 ) -> bool:
     """Download a local extension directory from a HuggingFace dataset.
 
@@ -517,7 +550,7 @@ def _fetch_local_extension_from_hf(
     try:
         import shutil
         # Download the dataset to a cache directory
-        dataset_path = dataset_path or ext_dir.name
+        dataset_path = dataset_path or local_path or ext_dir.name
         dataset_path = dataset_path.strip("/\\")
         allow_patterns = [f"{dataset_path}/**", dataset_path]
         cache_dir = snapshot_download(
@@ -723,6 +756,15 @@ def install_resolved_deps(
                 # when the manifest explicitly allows a PyPI wheel.
                 target = dep.name if wheel_result.is_vcs_spec else dep.spec
                 install_args = ["pip", "install", "--python", str(venv_python), "--no-deps", target]
+            elif wheel_source and "|" in wheel_source and not wheel_source.startswith(("http", "/")):
+                # Composite "index|package==version" source (mode: extra_index).
+                # Parse and use --extra-index-url for the package install.
+                idx_url, pkg_spec = wheel_source.split("|", 1)
+                install_args = [
+                    "pip", "install", "--python", str(venv_python),
+                    "--no-deps", pkg_spec,
+                    "--extra-index-url", idx_url,
+                ]
             else:
                 # Index/finder sources apply to normal package specs. VCS
                 # requirements are rejected earlier because --find-links
@@ -764,16 +806,7 @@ def install_resolved_deps(
                     # PyPI can substitute a wheel for a VCS spec.
                     if dep.spec.startswith("git+") and not fb_source.startswith("http") and not fb_source.endswith(".whl"):
                         # Skip non-URL fallbacks for VCS specs
-                        if fb_source == "pypi":
-                            # PyPI doesn't host diffoctreerast/nvdiffrast;
-                            # this will just clone the Git repo. Skip it
-                            # to avoid the misleading "fallback selected"
-                            # log followed by another source build.
-                            _log(
-                                f"  Skipping PyPI fallback for VCS dep {dep.name} "
-                                f"(not on PyPI; would just clone the Git repo)"
-                            )
-                            continue
+                        continue
                     _log(f"Trying fallback source for {dep.name}: {fb_source}")
                     fb_is_whl = fb_source.startswith("http") and fb_source.endswith(".whl")
                     if fb_is_whl:
@@ -788,7 +821,10 @@ def install_resolved_deps(
                         continue
                     else:
                         # Non-VCS spec: index page can be used as --find-links
-                        fb_args = ["pip", "install", "--python", str(venv_python), "--no-deps", dep.spec, "--find-links", fb_source]
+                        if fb_source == "pypi":
+                            fb_args = ["pip", "install", "--python", str(venv_python), "--no-deps", dep.spec]
+                        else:
+                            fb_args = ["pip", "install", "--python", str(venv_python), "--no-deps", dep.spec, "--find-links", fb_source]
                     fb_code, fb_output = _run_uv(fb_args, cwd=repo_dir)
                     if fb_code == 0:
                         dep.state = "wheel_installed"
@@ -914,6 +950,7 @@ def install_resolved_deps(
                             hf_dataset,
                             log_cb=log_cb,
                             dataset_path=str(local_path).strip("/\\") or ext_dir.name,
+                            local_path=str(local_path).strip("/\\"),
                         ):
                             _log(f"Installing {dep.name} from fetched local extension: {ext_dir}")
                             build_args = ["pip", "install", "--python", str(venv_python), str(ext_dir), "--no-build-isolation", "--no-deps"]
@@ -935,6 +972,11 @@ def install_resolved_deps(
                     # uv does not support pip's #subdirectory= syntax, so we must
                     # install directly from the subdirectory path.
                     import re as _re
+                    # CUDA env vars for source builds — ensure the build can find
+                    # the CUDA toolkit and target the right GPU architectures.
+                    build_env = os.environ.copy()
+                    build_env.setdefault("TORCH_CUDA_ARCH_LIST", "7.0 7.5 8.0 8.6 8.9 9.0")
+                    build_env.setdefault("CUDA_HOME", "/usr/local/cuda")
                     _subdir_match = _re.search(r'#subdirectory=([^&]+)', dep.spec)
                     if _subdir_match:
                         subdir = _subdir_match.group(1).strip()
@@ -961,7 +1003,12 @@ def install_resolved_deps(
                         import subprocess as _sp
                         import os as _os
                         with _tf.TemporaryDirectory() as _tmpdir:
-                            _clone_cmd = ["git", "clone", "--recurse-submodules", git_url, _tmpdir]
+                            # Check manifest for shallow_clone flag
+                            manifest_shallow = _manifest_dependency_config(manifest, "build_flags", dep.name).get("shallow_clone", False)
+                            if not manifest_shallow:
+                                _clone_cmd = ["git", "clone", "--recurse-submodules", git_url, _tmpdir]
+                            else:
+                                _clone_cmd = ["git", "clone", "--depth", "1", "--recurse-submodules", git_url, _tmpdir]
                             _clone_result = _sp.run(_clone_cmd, capture_output=True, timeout=180)
                             if _clone_result.returncode != 0:
                                 _log(f"  Git clone failed for {dep.name}: {_clone_result.stderr.decode()[:200]}")
@@ -993,29 +1040,30 @@ def install_resolved_deps(
                             code = 1
                             output = ""
                             for attempt in range(1, max_attempts + 1):
-                                code, output = _run_uv(build_args, cwd=repo_dir)
+                                code, output = _run_uv(build_args, cwd=repo_dir, env=build_env)
                                 if code == 0:
                                     break
-                                if attempt < max_attempts and any(kw in output.lower() for kw in ("cache", "timeout", "connection", "network", "503", "502", "504")):
+                                if attempt < max_attempts and any(kw in output.lower() for kw in ("cache", "timeout", "connection", "network", "503", "502", "504", "ssl", "certificate", "reset", "dns", "resolve", "refused")):
                                     _log(f"  Retry {attempt}/{max_attempts} for {dep.name} (transient error)")
                                     import time
                                     time.sleep(3)
                     else:
                         build_args = ["pip", "install", "--python", str(venv_python), dep.spec, "--no-build-isolation", "--no-deps"]
                 # Add build dependencies for known packages
-                if dep.name in ("torch-cluster", "torch-scatter", "torch-sparse", "pyg_lib"):
-                    # These need torch to be installed first
-                    pass
+                build_deps = _BUILD_DEPS.get(dep.name)
+                if build_deps:
+                    _log(f"  Installing build dependencies for {dep.name}: {build_deps}")
+                    _run_uv(["pip", "install", "--python", str(venv_python), *build_deps])
                 # For non-subdirectory deps, run the retry loop here (no temp dir involved)
                 if not _subdir_match:
                     max_attempts = 2
                     code = 1
                     output = ""
                     for attempt in range(1, max_attempts + 1):
-                        code, output = _run_uv(build_args, cwd=repo_dir)
+                        code, output = _run_uv(build_args, cwd=repo_dir, env=build_env)
                         if code == 0:
                             break
-                        if attempt < max_attempts and any(kw in output.lower() for kw in ("cache", "timeout", "connection", "network", "503", "502", "504")):
+                        if attempt < max_attempts and any(kw in output.lower() for kw in ("cache", "timeout", "connection", "network", "503", "502", "504", "ssl", "certificate", "reset", "dns", "resolve", "refused")):
                             _log(f"  Retry {attempt}/{max_attempts} for {dep.name} (transient error)")
                             import time
                             time.sleep(3)
