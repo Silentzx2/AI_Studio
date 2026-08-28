@@ -35,10 +35,10 @@ dependencies:
   wheels:
     diso:
       available: false
-      reason: No compatible prebuilt wheel verified; source build fallback is required.
+      reason: No compatible prebuilt wheel on PyPI (source-only). Source build requires ninja.
     torch-cluster:
       available: true
-      mode: pypi
+      index: https://data.pyg.org/whl/torch-{torch_ver}+cu{cuda_ver}.html
   fallbacks: {}
   optional: []
   representation_required:

@@ -39,14 +39,17 @@ PY312_PIN_REWRITES = _INSTALLER_PY312_REQ_REWRITES
 
 # Build dependencies that need to be pre-installed for certain native packages.
 # These are installed via uv into the model venv before the source build runs.
+# ponytail: setuptools<70 is needed for packages using legacy setuptools.build_meta
+# (torch-cluster, diso) to avoid "setuptools.build_meta:__legacy__.build_" errors.
 _BUILD_DEPS: dict[str, list[str]] = {
-    "torch-cluster": ["ninja", "pkg-config"],
+    "torch-cluster": ["ninja", "pkg-config", "setuptools<70"],
     "torch-scatter": ["ninja", "pkg-config"],
     "torch-sparse": ["ninja", "pkg-config"],
     "pyg_lib": ["ninja", "pkg-config"],
     "diffoctreerast": ["ninja"],
     "nvdiffrast": ["ninja"],
     "diff-gaussian-rasterization": ["ninja"],
+    "diso": ["ninja", "setuptools<70"],
 }
 
 
