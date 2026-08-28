@@ -110,6 +110,7 @@ chmod +x scripts/*.sh manager.sh
 | **Frontend** | http://localhost:3000 | Web application |
 | **Backend API** | http://localhost:8000 | REST API |
 | **API Docs** | http://localhost:8000/docs | Swagger UI |
+| **Static Files** | http://localhost:3000/static/* | Proxied to backend (models, thumbnails) |
 | **Prompt Assistant** | built-in | Optional AI prompt enhancement |
 
 ### Project Activity Logging

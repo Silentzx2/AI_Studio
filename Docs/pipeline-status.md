@@ -1,8 +1,30 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.3.0 (Root-Cause Fixes)  
-> **Status**: ✅ **COMPLETE**  
-> **Last Updated**: August 27, 2026
+> **Version**: 4.4.8 (Static Proxy, Mesh Stats, Validation, Diagnostics, Compare View, Auto-Optimize)
+> **Status**: ✅ **COMPLETE**
+> **Last Updated**: August 28, 2026
+
+---
+
+## v4.4.8 — Static Proxy, Mesh Stats, Validation, Diagnostics, Compare View & Auto-Optimize
+
+### What changed
+- **Static file proxy**: New `app/static/[...path]/route.ts` forwards `/static/*` to backend, resolving token error pages
+- **Mesh stats in upload**: `POST /api/v1/upload/model` now returns `mesh_stats` with polygon/vertex counts
+- **Client-side validation**: `lib/fileValidation.ts` validates GLB magic bytes, structure, and truncation
+- **Upload diagnostics**: `lib/uploadDiagnostics.ts` + `UploadDiagnosticModal.tsx` for debugging uploads
+- **Compare view**: `Panels/ComparePanel.tsx` + `Viewport/CompareViewport.tsx` for side-by-side model comparison
+- **Auto-optimize**: `backend/app/core/mesh_optimizer.py` for post-generation mesh decimation and UV fixing
+
+### Files changed
+- `app/static/[...path]/route.ts` — new static file proxy route
+- `backend/app/api/v1/upload.py` — mesh_stats in upload response
+- `features/new-workspace/lib/fileValidation.ts` — client-side file validation
+- `features/new-workspace/lib/uploadDiagnostics.ts` — upload diagnostics
+- `features/new-workspace/Modals/UploadDiagnosticModal.tsx` — diagnostics UI
+- `features/new-workspace/Panels/ComparePanel.tsx` — compare panel
+- `features/new-workspace/Viewport/CompareViewport.tsx` — compare viewport
+- `backend/app/core/mesh_optimizer.py` — mesh optimization
 
 ---
 

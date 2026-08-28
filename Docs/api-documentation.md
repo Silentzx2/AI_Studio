@@ -1,6 +1,6 @@
 # AI 3D Studio - Complete API Documentation
 
-> **Version**: 4.4.1
+> **Version**: 4.4.8
 > **Base URL**: `http://localhost:8000` (Backend API)  
 > **API Prefix**: `/api/v1`  
 > **Documentation**: Interactive docs at `/docs` (Swagger UI)
@@ -967,12 +967,18 @@ Content-Type: multipart/form-data
     "filename": "character.glb",
     "size": 5242880,
     "format": "glb",
-    "thumbnail_url": "/static/thumbnails/abc123.png"
+    "thumbnail_url": "/static/thumbnails/abc123.png",
+    "mesh_stats": {
+      "polygon_count": 12500,
+      "vertex_count": 8200,
+      "material_count": 3,
+      "dimensions": {"x": 1.2, "y": 0.8, "z": 0.5}
+    }
   }
 }
 ```
 
-> **Note:** The returned `url` is a persistent backend URL (`/static/models/...`). For GLB/GLTF files, a thumbnail is automatically generated and returned as `thumbnail_url`. The frontend uses the `url` directly for loading into the 3D viewer via the `load-glb-model` event.
+> **Note:** The returned `url` is a persistent backend URL (`/static/models/...`). For GLB/GLTF files, a thumbnail is automatically generated and returned as `thumbnail_url`. The `mesh_stats` field contains polygon count, vertex count, material count, and bounding box dimensions — available for GLB/GLTF files when `trimesh` is installed. The frontend uses the `url` directly for loading into the 3D viewer via the `load-glb-model` event.
 
 ### List Uploaded Assets
 

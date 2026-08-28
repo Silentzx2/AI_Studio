@@ -426,7 +426,34 @@ size exceeds available space.
 - **Endpoint**: `POST /api/v1/upload/model` handles GLB, GLTF, FBX, OBJ, STL
 - **Storage**: Files saved to `storage_local_path/models/`
 - **Thumbnails**: Generated server-side for GLB/GLTF, stored in `storage_local_path/thumbnails/`
+- **Mesh Stats**: Upload response includes `mesh_stats` with polygon/vertex counts via `get_mesh_stats()` from `app/core/mesh_processor.py`
 - **Frontend**: `RightAssetsPanel.tsx` uploads via `apiClient.uploadFile()` and uses backend-returned URLs
+
+#### Static File Proxy
+- **Route**: `app/static/[...path]/route.ts` forwards `/static/*` requests to backend
+- **Purpose**: Resolves token error pages caused by browsers being unable to reach backend's `/static` mount directly in Docker/local dev setups
+- **Implementation**: Uses same `BACKEND_URL` resolution as `/api/v1/*` proxy, forwards with appropriate content-type headers and Cloudflare-compatible binary headers
+
+#### Client-Side File Validation
+- **Module**: `features/new-workspace/lib/fileValidation.ts`
+- **Features**: GLB magic bytes validation (`glTF` header), GLB structure validation (version, length, chunk headers), truncation detection, format-specific checks for OBJ/STL/PLY
+- **Limits**: 100MB upload limit, 150MB preview limit
+
+#### Upload Diagnostics
+- **Module**: `features/new-workspace/lib/uploadDiagnostics.ts`
+- **UI**: `features/new-workspace/Modals/UploadDiagnosticModal.tsx`
+- **Features**: Captures request/response details, detects HTML error pages (token errors), provides actionable recommendations for upload failures
+
+#### Compare View
+- **Panel**: `features/new-workspace/Panels/ComparePanel.tsx`
+- **Viewport**: `features/new-workspace/Viewport/CompareViewport.tsx`
+- **Features**: Side-by-side model comparison, synchronized camera, property diff (polycount, vertices, materials, dimensions), multiple view modes (side-by-side, overlay, split)
+
+#### Auto-Optimize Mesh
+- **Module**: `backend/app/core/mesh_optimizer.py`
+- **Features**: Post-generation mesh decimation to target polycount (default 30,000 triangles), UV fixing, normal recalculation
+- **Settings**: Configurable via `auto_optimize` setting in GeneratePanel, `preserve_details` (0-100%), `target_polycount`
+- **Integration**: Runs AFTER generation completes but BEFORE thumbnail rendering
 
 #### Security
 - **Path traversal prevention**: All upload/download endpoints resolve paths with `.resolve()` and validate they stay within storage directory

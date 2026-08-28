@@ -365,3 +365,47 @@ npm run lint     # Lint check (eslint)
 3. Implement component in `features/`
 4. Update docs in `Docs/`
 5. Run `npx tsc --noEmit` + `npm run lint`
+
+## Client-Side File Validation
+
+The `features/new-workspace/lib/fileValidation.ts` module provides client-side validation for 3D file uploads:
+
+- **GLB magic bytes**: Validates the `glTF` header (bytes `0x47, 0x6c, 0x54, 0x46`)
+- **GLB structure**: Checks version, total length, and chunk headers
+- **Truncation detection**: Compares declared file size against actual size
+- **Format-specific checks**: Basic validation for OBJ, STL, PLY formats
+
+To add a new validation rule, extend the `validateGlbStructure` function or add a new format-specific validator following the existing pattern.
+
+## Upload Diagnostics Tool
+
+The `features/new-workspace/lib/uploadDiagnostics.ts` module provides debugging capabilities for upload failures:
+
+- Captures request details (URL, headers, FormData entries)
+- Captures response details (status, headers, body)
+- Detects HTML error pages (token errors, redirects)
+- Provides actionable recommendations
+
+The `UploadDiagnosticModal.tsx` provides a UI for invoking diagnostics. To use it, import and render the modal with the file you're attempting to upload.
+
+## Compare View
+
+The compare view consists of two components:
+
+- **`Panels/ComparePanel.tsx`**: Left panel with asset selectors, view mode toggles, and property diff display
+- **`Viewport/CompareViewport.tsx`**: Three.js viewport for rendering models in compare mode
+
+To extend the compare view:
+- Add new property diffs in the `PropertyDiff` interface
+- Add new view modes in the `viewMode` state
+- Add new shading modes in the `ShadingMode` type
+
+## Auto-Optimize Mesh
+
+The `backend/app/core/mesh_optimizer.py` module provides post-generation mesh optimization:
+
+- **Decimation**: Reduces polygon count to target (default 30,000 triangles)
+- **UV fixing**: Repairs overlapping UVs and fills UV islands
+- **Normal recalculation**: Recomputes vertex normals after optimization
+
+Configuration is exposed via the GeneratePanel settings (`auto_optimize`, `target_polycount`, `preserve_details`).

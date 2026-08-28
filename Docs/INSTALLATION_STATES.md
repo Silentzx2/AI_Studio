@@ -1,5 +1,7 @@
 # Installation States Reference
 
+> **Last Updated**: August 28, 2026 (v4.4.8)
+
 ## Component-Level State Machine
 
 The installation process is now modeled as a set of independent component states, each with its own lifecycle. The overall model state is derived from the component states.

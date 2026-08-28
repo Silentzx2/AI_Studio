@@ -1,5 +1,20 @@
 # AI 3D Studio — Changelog
 
+## [v4.4.8] - 2026-08-28 — Static Proxy, Mesh Stats, File Validation, Upload Diagnostics, Compare View & Auto-Optimize
+
+### Added
+- **Static File Proxy Route**: New `app/static/[...path]/route.ts` that forwards `/static/*` requests to the backend, resolving token error pages caused by browsers being unable to reach the backend's `/static` mount directly.
+- **Mesh Stats in Upload Response**: `POST /api/v1/upload/model` now returns `mesh_stats` with polygon/vertex counts for GLB/GLTF files via `get_mesh_stats()` from `app/core/mesh_processor.py`.
+- **Client-Side File Validation**: New `features/new-workspace/lib/fileValidation.ts` with GLB magic bytes validation, GLB structure validation (version, length, chunk headers), truncation detection, and format-specific checks for OBJ/STL/PLY.
+- **Upload Diagnostics Tool**: New `features/new-workspace/lib/uploadDiagnostics.ts` and `Modals/UploadDiagnosticModal.tsx` for debugging upload failures — captures request/response details, detects HTML error pages, and provides actionable recommendations.
+- **Compare View Mode**: New `Panels/ComparePanel.tsx` and `Viewport/CompareViewport.tsx` for side-by-side model comparison with synchronized camera, property diff (polycount, vertices, materials, dimensions), and multiple view modes (side-by-side, overlay, split).
+- **Auto-Optimize Mesh**: New `backend/app/core/mesh_optimizer.py` with post-generation mesh optimization (decimation to target polycount, UV fixing, normal recalculation). Configurable via `auto_optimize` setting in GeneratePanel.
+
+### Fixed
+- **HTML Token Error on Static Files**: Resolved issue where static file requests (models, thumbnails) returned HTML error pages instead of binary content by adding dedicated `/static/*` proxy route.
+
+---
+
 ## [v4.4.7] - 2026-08-28 — Backend Settings Persistence for Generation, Low VRAM Sync & Hook Optimizations
 
 ### Added

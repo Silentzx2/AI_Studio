@@ -15,7 +15,7 @@
 
 <p align="center">
 
-  <img src="https://img.shields.io/badge/Version-4.4.1-8A2BE2?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Version-4.4.8-8A2BE2?style=for-the-badge">
 
   <img src="https://img.shields.io/badge/Pipeline-V2-Complete-success?style=for-the-badge">
 
@@ -77,6 +77,10 @@
 | **Texture Pipeline** | Production-grade PBR texture generation with model selection | ✅ | v3.3 |
 | **3D Viewer** | In-browser Three.js rendering | ✅ | v1 |
 | **Admin Dashboard** | System administration interface | ✅ | v1 |
+| **Compare View** | Side-by-side model comparison with property diff | ✅ | v4.4.8 |
+| **Auto-Optimize** | Post-generation mesh decimation & UV fixing | ✅ | v4.4.8 |
+| **File Validation** | Client-side GLB structure & magic bytes validation | ✅ | v4.4.8 |
+| **Upload Diagnostics** | Debug tool for upload failures with recommendations | ✅ | v4.4.8 |
 
 
 ### Current Model & Runtime Catalog
@@ -379,7 +383,7 @@ cp .env.example .env
 ENVIRONMENT=development
 DEBUG=true
 APP_NAME=AI 3D Studio
-APP_VERSION=4.4.1
+APP_VERSION=4.4.8
 
 # ===== DATABASE =====
 DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/ai3dstudio
@@ -730,13 +734,23 @@ ai-3d-studio/
 │   ├── workspace/page.tsx             # Main generation workspace (tabbed shell)
 │   ├── settings/page.tsx              # Unified settings (includes former admin tabs)
 │   ├── error.tsx / loading.tsx / not-found.tsx
-│   ├── static/[...path]/route.ts      # Static asset proxy
+│   ├── static/[...path]/route.ts      # Static file proxy (forwards /static/* to backend)
 │   │
 │   └── api/                           # Next.js API proxy routes
 │       ├── v1/[...path]/route.ts      # Backend API proxy
 │       └── v1/settings/route.ts       # Settings proxy
 │
 ├── features/                          # Feature modules (ROOT level, NOT under app/)
+│   ├── new-workspace/                 # Current workspace UI (replaces old /workspace/)
+│   │   ├── lib/
+│   │   │   ├── fileValidation.ts      # Client-side GLB/OBJ/STL validation
+│   │   │   └── uploadDiagnostics.ts   # Upload failure diagnostics
+│   │   ├── Panels/
+│   │   │   └── ComparePanel.tsx       # Side-by-side model comparison
+│   │   ├── Viewport/
+│   │   │   └── CompareViewport.tsx    # Compare mode 3D viewport
+│   │   └── Modals/
+│   │       └── UploadDiagnosticModal.tsx  # Upload diagnostics UI
 │   ├── workspace/                     # Workspace layout & navigation
 │   │   ├── new-ui/                    # Tab-based workspace UI (Tripo-style)
 │   │   │   ├── CreativeWorkspaceLayout.tsx  # Main workspace shell with sidebar
@@ -828,7 +842,9 @@ ai-3d-studio/
 │   │   │   └── rigging_router.py      # /rigging (no prefix)
 │   │   │
 │   │   ├── core/
-│   │   │   ├── providers/             # AI Providers
+│   │   │   ├── mesh_optimizer.py     # Post-generation mesh optimization
+│   │   │   │   ├── mesh_processor.py     # Mesh stats & thumbnail generation
+│   │   │   │   ├── providers/             # AI Providers
 │   │   │   │   ├── base.py
 │   │   │   │   ├── registry.py
 │   │   │   │   ├── huggingface_provider.py
@@ -1068,5 +1084,5 @@ See [Pipeline Status Document](docs/pipeline-status.md) for detailed breakdown.
 ---
 
 <p align="center">
-  <sub>Last Updated: August 27, 2026 | Version 4.4.1
+  <sub>Last Updated: August 28, 2026 | Version 4.4.8
 </p>
