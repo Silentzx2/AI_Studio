@@ -37,9 +37,6 @@ dependencies:
   - pytorch3d
   extra: []
   wheels:
-    flash-attn:
-      available: true
-      mode: pypi
     spconv:
       available: true
       mode: pypi
@@ -64,6 +61,7 @@ dependencies:
   # when Blender is absent (pipeline.py checks blender_enabled + shutil.which).
   optional:
   - bpy
+  - flash-attn
   representation_required: []
   local_extensions: {}
 weights:

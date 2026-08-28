@@ -46,6 +46,8 @@ _BUILD_DEPS: dict[str, list[str]] = {
     "torch-scatter": ["ninja", "pkg-config"],
     "torch-sparse": ["ninja", "pkg-config"],
     "pyg_lib": ["ninja", "pkg-config"],
+    "torch_cluster": ["ninja", "pkg-config", "setuptools<70"],  # alias
+    "torch_scatter": ["ninja", "pkg-config"],  # alias
     "diffoctreerast": ["ninja"],
     "nvdiffrast": ["ninja"],
     "diff-gaussian-rasterization": ["ninja"],
@@ -759,7 +761,7 @@ def install_resolved_deps(
                 # when the manifest explicitly allows a PyPI wheel.
                 target = dep.name if wheel_result.is_vcs_spec else dep.spec
                 install_args = ["pip", "install", "--python", str(venv_python), "--no-deps", target]
-            elif wheel_source and "|" in wheel_source and not wheel_source.startswith(("http", "/")):
+            elif wheel_source and "|" in wheel_source and not wheel_source.endswith(".whl"):
                 # Composite "index|package==version" source (mode: extra_index).
                 # Parse and use --extra-index-url for the package install.
                 idx_url, pkg_spec = wheel_source.split("|", 1)

@@ -50,10 +50,7 @@ dependencies:
       available: true
       mode: extra_index
       index: https://miropsota.github.io/torch_packages_builder
-    nvdiffrast:
-      available: true
-      mode: extra_index
-      index: https://miropsota.github.io/torch_packages_builder
+      version: "0.7.0"
   fallbacks:
     pytorch3d:
     - https://miropsota.github.io/torch_packages_builder
