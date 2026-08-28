@@ -173,7 +173,7 @@ install_system_deps() {
     err "apt-get update failed — check network / apt sources"
     return 1
   }
-  local pkgs=(curl wget git unzip tar ca-certificates gnupg lsb-release build-essential software-properties-common libssl-dev libffi-dev zlib1g-dev libpq-dev ffmpeg libsm6 libxext6 libglib2.0-0 libgl1 libopengl0 libx11-6 libxcb1 libxkbcommon-x11-0 libxrender1 libxi6 libxtst6 libdbus-1-3 libfontconfig1 libfreetype6)
+  local pkgs=(curl wget git unzip tar ca-certificates gnupg lsb-release build-essential software-properties-common libssl-dev libffi-dev zlib1g-dev libpq-dev ffmpeg libsm6 libxext6 libglib2.0-0 libgl1 libopengl0 libx11-6 libxcb1 libxkbcommon-x11-0 libxrender1 libxi6 libxtst6 libdbus-1-3 libfontconfig1 libfreetype6 python3-yaml)
   local total=${#pkgs[@]}
   local i=0
   # shellcheck disable=SC2068
@@ -184,23 +184,74 @@ install_system_deps() {
   log "System dependencies installed (${total} packages)"
 }
 
+# ── Python version resolution ─────────────────────────────────────────────────
+
+# Read Python version from a provider's YAML manifest
+get_manifest_python() {
+  local provider=$1
+  python3 -c "
+import yaml, sys
+try:
+    with open('backend/runtime/manifests/${provider}.yaml') as f:
+        m = yaml.safe_load(f)
+    print(m.get('environment',{}).get('python','3.10'))
+except Exception:
+    print('3.10')
+"
+}
+
 install_python() {
-  head_ "Installing Python 3.12"
-  if python3.12 --version &>/dev/null 2>&1; then
-    log "Already installed: $(python3.12 --version)"
+  # Collect required Python versions from all model manifests + backend (3.12)
+  local -a versions=("3.12")
+  for manifest in backend/runtime/manifests/*.yaml; do
+    [[ -f "$manifest" ]] || continue
+    local provider
+    provider=$(basename "$manifest" .yaml)
+    local ver
+    ver=$(get_manifest_python "$provider")
+    # Deduplicate
+    local found=0
+    for v in "${versions[@]}"; do
+      [[ "$v" == "$ver" ]] && { found=1; break; }
+    done
+    [[ $found -eq 0 ]] && versions+=("$ver")
+  done
+
+  # Determine which versions are missing
+  local -a to_install=()
+  for ver in "${versions[@]}"; do
+    command -v "python${ver}" &>/dev/null || to_install+=("$ver")
+  done
+
+  if [[ ${#to_install[@]} -eq 0 ]]; then
+    head_ "Python Already Installed"
+    log "All required Python versions present: ${versions[*]}"
     return 0
   fi
+
+  head_ "Installing Python ${to_install[*]}"
   add-apt-repository ppa:deadsnakes/ppa -y || {
-    err "Failed to add deadsnakes PPA — cannot install Python 3.12"
+    err "Failed to add deadsnakes PPA — cannot install Python"
     return 1
   }
   apt-get update -qq
-  apt-get install -y python3.12 python3.12-dev || {
-    err "Failed to install Python 3.12"
+
+  local -a install_pkgs=()
+  for ver in "${to_install[@]}"; do
+    install_pkgs+=("python${ver}" "python${ver}-dev")
+  done
+
+  apt-get install -y "${install_pkgs[@]}" || {
+    err "Failed to install Python versions"
     return 1
   }
-  update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
-  log "Python 3.12 installed"
+
+  # Set python3.12 as the default python3 (backend venv uses it)
+  if command -v python3.12 &>/dev/null; then
+    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
+  fi
+
+  log "Python versions installed: ${to_install[*]}"
 }
 
 install_uv() {

@@ -84,6 +84,12 @@ SKIP_START=false
 REPOS_ONLY=false
 WEIGHTS_ONLY=false
 
+# ── Backend Python version ─────────────────────────────────────────────────
+# The backend is NOT a model — it has no YAML manifest. Its Python version is
+# a project-wide convention (3.12), not a per-model value. Per-model venvs
+# read their Python version from each model's manifest via prepare_runtime().
+BACKEND_PYTHON_VERSION="${BACKEND_PYTHON_VERSION:-3.12}"
+
 for arg in "$@"; do
     case "$arg" in
         --skip-start)    SKIP_START=true ;;
@@ -277,7 +283,7 @@ if [[ ! -x backend/.venv/bin/python ]]; then
         rm -rf backend/.venv
     fi
     info "Creating backend virtual environment with uv..."
-    uv venv --python 3.12 backend/.venv || {
+    uv venv --python "$BACKEND_PYTHON_VERSION" backend/.venv || {
         err "Failed to create backend venv"
         exit 1
     }
@@ -657,10 +663,12 @@ for pid, meta in sorted(PROVIDER_METADATA.items()):
         py_deps = len(manifest.get("dependencies", {}).get("python", []) or [])
         native_deps = len(manifest.get("dependencies", {}).get("native", []) or [])
         extra_deps = len(manifest.get("dependencies", {}).get("extra", []) or [])
+        py_version = manifest.get("environment", {}).get("python", "3.10")
     except Exception:
         py_deps = 0
         native_deps = 0
         extra_deps = 0
+        py_version = "3.10"
     total_deps = py_deps + native_deps + extra_deps
     disk_gb = (total_deps * 0.05) + weight_gb
     warnings = []
@@ -676,6 +684,7 @@ for pid, meta in sorted(PROVIDER_METADATA.items()):
         "weight_gb": round(weight_gb, 1),
         "total_deps": total_deps,
         "disk_gb": round(disk_gb, 1),
+        "py_version": py_version,
         "colab_ok": colab_ok,
         "warnings": warnings,
     })
@@ -694,30 +703,31 @@ PYEOF
     echo "  +================================================================+"
     echo ""
 
-    printf "  | %-4s %-18s %6s %7s %6s %8s |\\n" "#" "Model" "VRAM" "Weight" "Deps" "Disk"
-    echo "  +----------------------------------------------------------------+"
+    printf "  | %-4s %-15s %6s %6s %7s %6s %8s |\\n" "#" "Model" "Python" "VRAM" "Weight" "Deps" "Disk"
+    echo "  +------------------------------------------------------------------------+"
 
     local repos=()
     local idx=1
     while IFS= read -r line; do
-        local repo vram weight total_deps disk colab_ok warnings
+        local repo vram weight total_deps disk colab_ok warnings py_version
         repo=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read())['repo'])")
         vram=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read())['vram_gb'])")
         weight=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read())['weight_gb'])")
         total_deps=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read())['total_deps'])")
         disk=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read())['disk_gb'])")
         colab_ok=$(echo "$line" | python3 -c "import sys,json; print('Y' if json.loads(sys.stdin.read())['colab_ok'] else 'N')")
+        py_version=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read())['py_version'])")
         warnings=$(echo "$line" | python3 -c "import sys,json; print(','.join(json.loads(sys.stdin.read()).get('warnings',[])))")
         repos+=("$repo")
 
         local status="OK"
         [[ "$colab_ok" == "N" ]] && status="NO"
-        printf "  | [%d]%s %-17s %5.1fG %6.1fG %5d %7.1fG |\\n" "$idx" "$status" "$repo" "$vram" "$weight" "$total_deps" "$disk"
+        printf "  | [%d]%s %-14s %5s %5.1fG %6.1fG %5d %7.1fG |\\n" "$idx" "$status" "$repo" "$py_version" "$vram" "$weight" "$total_deps" "$disk"
         [[ -n "$warnings" ]] && printf "  |      ! %s\\n" "$warnings"
         ((idx++))
     done < <(echo "$model_info" | python3 -c "import sys,json; [print(json.dumps(m)) for m in json.loads(sys.stdin.read())]")
 
-    echo "  +----------------------------------------------------------------+"
+    echo "  +------------------------------------------------------------------------+"
     echo "  |  All models installable — VRAM shown for reference only        |"
     echo "  +================================================================+"
     echo ""
