@@ -56,7 +56,8 @@ dependencies:
     - https://miropsota.github.io/torch_packages_builder
     nvdiffrast: []
   optional: []
-  representation_required: []
+  representation_required:
+  - pytorch3d
   local_extensions: {}
 weights:
   primary:

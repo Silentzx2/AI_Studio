@@ -63,7 +63,8 @@ dependencies:
   optional:
   - bpy
   - flash-attn
-  representation_required: []
+  representation_required:
+  - pytorch3d
   local_extensions: {}
 weights:
   primary:
