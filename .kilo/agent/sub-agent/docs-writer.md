@@ -1,7 +1,6 @@
 ---
 description: Documentation writer — updates docs, writes changelogs, maintains README. Auto-triggered when docs need updating, features change, or changelog entries are needed.
 mode: subagent
-model: anthropic/claude-sonnet
 color: "#FF9800"
 ---
 

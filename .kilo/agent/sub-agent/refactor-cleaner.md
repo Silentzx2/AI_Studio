@@ -1,7 +1,6 @@
 ---
 description: Refactoring specialist — cleans up code, removes dead code, simplifies complex logic. Auto-triggered when code is messy, has duplication, or needs restructuring.
 mode: subagent
-model: anthropic/claude-sonnet
 color: "#00BCD4"
 ---
 

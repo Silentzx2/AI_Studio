@@ -1,7 +1,6 @@
 ---
 description: Security auditor — finds vulnerabilities, checks for OWASP Top 10, validates input handling. Auto-triggered on auth changes, user input handling, API endpoints, or security concerns.
 mode: subagent
-model: anthropic/claude-sonnet
 color: "#9C27B0"
 ---
 

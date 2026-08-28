@@ -1,7 +1,6 @@
 ---
 description: Architecture advisor — system design, structural decisions, high-level planning. Auto-triggered on architectural questions, design decisions, or structural changes.
 mode: subagent
-model: anthropic/claude-sonnet
 color: "#673AB7"
 ---
 

@@ -1,7 +1,6 @@
 ---
 description: Database specialist — migrations, schema design, queries, SQLAlchemy models. Auto-triggered on DB changes, migration needs, or query optimization.
 mode: subagent
-model: anthropic/claude-sonnet
 color: "#FF5722"
 ---
 

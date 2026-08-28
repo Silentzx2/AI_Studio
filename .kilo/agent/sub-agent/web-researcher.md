@@ -1,7 +1,6 @@
 ---
 description: Web researcher — searches the web for model specs, VRAM requirements, dependency versions, API docs, and troubleshooting. Auto-triggered when adding new models, resolving dependency conflicts, researching errors, or when any agent needs current information from the internet.
 mode: subagent
-model: anthropic/claude-sonnet
 color: "#00BCD4"
 ---
 

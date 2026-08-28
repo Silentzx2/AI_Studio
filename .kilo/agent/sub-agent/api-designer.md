@@ -1,7 +1,6 @@
 ---
 description: API designer — designs and reviews API endpoints, request/response schemas. Auto-triggered when adding new APIs, changing endpoints, or designing data contracts.
 mode: subagent
-model: anthropic/claude-sonnet
 color: "#E91E63"
 ---
 

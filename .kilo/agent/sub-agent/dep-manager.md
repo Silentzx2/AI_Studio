@@ -1,7 +1,6 @@
 ---
 description: Dependency manager — manages Python/Node deps, resolves conflicts, updates packages. Auto-triggered on dependency issues, version conflicts, or package updates.
 mode: subagent
-model: anthropic/claude-sonnet
 color: "#607D8B"
 ---
 

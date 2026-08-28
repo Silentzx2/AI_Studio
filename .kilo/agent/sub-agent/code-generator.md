@@ -1,7 +1,6 @@
 ---
 description: Code generator — generates boilerplate, scaffolds features, creates from templates. Auto-triggered when creating new features, models, or repetitive code patterns.
 mode: subagent
-model: anthropic/claude-sonnet
 color: "#8BC34A"
 ---
 

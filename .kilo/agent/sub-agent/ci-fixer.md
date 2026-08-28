@@ -1,7 +1,6 @@
 ---
 description: CI/CD specialist — fixes build pipelines, GitHub Actions, deployment scripts. Auto-triggered on build failures, CI issues, or deployment problems.
 mode: subagent
-model: anthropic/claude-sonnet
 color: "#CDDC39"
 ---
 

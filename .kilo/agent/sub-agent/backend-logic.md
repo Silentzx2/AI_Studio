@@ -1,7 +1,6 @@
 ---
 description: Backend specialist — FastAPI/Python logic, providers, runtime, manifests. Auto-triggered on backend logic changes, provider issues, or Python code work.
 mode: subagent
-model: anthropic/claude-sonnet
 color: "#009688"
 ---
 

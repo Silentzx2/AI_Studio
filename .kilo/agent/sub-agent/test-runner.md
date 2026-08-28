@@ -1,7 +1,6 @@
 ---
 description: Test runner and fixer — runs tests, diagnoses failures, writes missing tests. Auto-triggered when tests fail, coverage is low, or new functionality needs tests.
 mode: subagent
-model: anthropic/claude-sonnet
 color: "#2196F3"
 ---
 

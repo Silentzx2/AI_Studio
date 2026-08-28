@@ -1,7 +1,6 @@
 ---
 description: Debugger — finds and fixes bugs, trace errors, diagnose runtime issues. Auto-triggered when something is broken, errors appear, tests fail, or behavior is unexpected.
 mode: subagent
-model: anthropic/claude-sonnet
 color: "#F44336"
 ---
 

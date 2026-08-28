@@ -1,7 +1,6 @@
 ---
 description: Frontend specialist — React/Next.js/TypeScript UI work, components, state management. Auto-triggered on UI changes, component creation, styling, or frontend bugs.
 mode: subagent
-model: anthropic/claude-sonnet
 color: "#3F51B5"
 ---
 

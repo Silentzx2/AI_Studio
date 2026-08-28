@@ -1,7 +1,6 @@
 ---
 description: Code quality reviewer — reviews code for bugs, style, patterns, and best practices. Auto-triggered on code review requests, PR reviews, or when code quality issues are suspected.
 mode: subagent
-model: anthropic/claude-sonnet
 color: "#4CAF50"
 ---
 

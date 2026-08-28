@@ -1,7 +1,6 @@
 ---
 description: DevOps specialist — shell scripts, service management, infrastructure setup. Auto-triggered on script issues, service management, or infrastructure changes.
 mode: subagent
-model: anthropic/claude-sonnet
 color: "#9E9E9E"
 ---
 

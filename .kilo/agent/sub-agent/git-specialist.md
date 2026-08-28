@@ -1,7 +1,6 @@
 ---
 description: Git specialist — commit, push, branch, PR workflow, message formatting. Auto-triggered on git operations, commit requests, or PR creation.
 mode: subagent
-model: anthropic/claude-sonnet
 color: "#F44336"
 ---
 

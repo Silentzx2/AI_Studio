@@ -1,7 +1,6 @@
 ---
 description: Performance optimizer — finds bottlenecks, optimizes queries, reduces VRAM/CPU usage. Auto-triggered on slow performance, high memory usage, or optimization requests.
 mode: subagent
-model: anthropic/claude-sonnet
 color: "#795548"
 ---
 
