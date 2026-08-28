@@ -1,6 +1,6 @@
 {
   "$schema": "https://app.kilo.ai/config.json",
-  "default_agent": "code-reviewer",
+  "default_agent": "orchestrator",
   "instructions": [
     ".kilo/rules/*.md"
   ],
@@ -12,6 +12,7 @@
       "features/**": "allow",
       "types/**": "allow",
       "*.md": "allow",
+      ".kilo/**": "allow",
       "*": "ask"
     },
     "read": "allow",
