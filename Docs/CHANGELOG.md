@@ -1,5 +1,15 @@
 # AI 3D Studio — Changelog
 
+## [v4.4.4] - 2026-08-28 — TRELLIS Install Fixes
+
+### Critical Bug Fixes
+- **dependency_resolver.py**: Fixed `TemporaryDirectory` cleanup bug for VCS subdirectory deps (e.g., `diff-gaussian-rasterization`). The `with TemporaryDirectory()` context manager was exiting before `_run_uv(build_args)` ran, deleting the cloned source directory and causing "Distribution not found" errors. Moved the retry loop inside the `with` block.
+
+### Robustness Improvements
+- **dependency_resolver.py**: Added retry logic for direct `.whl` URL installs (e.g., `nvdiffrast`). Transient failures from GitHub rate limiting, redirect timeouts, and network blips now retry up to 3 times with exponential backoff.
+
+---
+
 ## [v4.4.3] - 2026-08-28 — Remove Hunyuan3D-2 (Superseded by 2.1)
 
 ### Removed

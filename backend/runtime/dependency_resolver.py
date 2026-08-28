@@ -732,7 +732,23 @@ def install_resolved_deps(
                     "--no-deps", dep.spec, "--find-links", wheel_source,
                 ]
 
-            code, output = _run_uv(install_args, cwd=repo_dir)
+            # ponytail: retry direct .whl installs on transient failures
+            # (GitHub rate limiting, redirect timeouts, network blips).
+            # Upgrade path: persistent wheel cache to avoid re-downloading.
+            if is_direct_whl:
+                max_wheel_attempts = 3
+            else:
+                max_wheel_attempts = 1
+            code = 1
+            output = ""
+            for wheel_attempt in range(1, max_wheel_attempts + 1):
+                code, output = _run_uv(install_args, cwd=repo_dir)
+                if code == 0:
+                    break
+                if wheel_attempt < max_wheel_attempts and any(kw in output.lower() for kw in ("rate", "403", "429", "timeout", "connection", "network", "503", "502", "504", "redirect")):
+                    _log(f"  Retry {wheel_attempt}/{max_wheel_attempts} for {dep.name} (transient wheel install error)")
+                    import time
+                    time.sleep(5 * wheel_attempt)
             if code == 0:
                 dep.state = "wheel_installed"
                 installed.append(dep.name)
@@ -937,8 +953,10 @@ def install_resolved_deps(
                         # --depth 1 alone would work — but --recurse-submodules
                         # combined with --depth 1 can produce an incomplete tree.
                         # Use a full clone for reliability. See "AI Studio —
-                        # Current TODO: vox2seq and diff-gaussian-rasterization
-                        # Source Resolution.md" (TODO 2).
+                        # ponytail: VCS subdirectory deps clone to a temp dir.
+                        # The retry loop MUST run inside the `with TemporaryDirectory()`
+                        # block — _subdir_path is deleted when the context exits.
+                        # See CHANGELOG v4.4.4 for the fix history.
                         import tempfile as _tf
                         import subprocess as _sp
                         import os as _os
@@ -967,26 +985,40 @@ def install_resolved_deps(
                                 _log(f"  Subdirectory {subdir} exists but contains no Python package definition (setup.py/pyproject.toml)")
                                 raise Exception(f"No Python package found in subdirectory: {subdir}")
                             _log(f"  Cloned {git_url} and found subdirectory {subdir} with Python package definition")
+                            # ponytail: run install INSIDE the TemporaryDirectory context.
+                            # _subdir_path is deleted when the `with` block exits, so
+                            # _run_uv must run here, not after the context manager closes.
                             build_args = ["pip", "install", "--python", str(venv_python), _subdir_path, "--no-build-isolation", "--no-deps"]
+                            max_attempts = 2
+                            code = 1
+                            output = ""
+                            for attempt in range(1, max_attempts + 1):
+                                code, output = _run_uv(build_args, cwd=repo_dir)
+                                if code == 0:
+                                    break
+                                if attempt < max_attempts and any(kw in output.lower() for kw in ("cache", "timeout", "connection", "network", "503", "502", "504")):
+                                    _log(f"  Retry {attempt}/{max_attempts} for {dep.name} (transient error)")
+                                    import time
+                                    time.sleep(3)
                     else:
                         build_args = ["pip", "install", "--python", str(venv_python), dep.spec, "--no-build-isolation", "--no-deps"]
                 # Add build dependencies for known packages
                 if dep.name in ("torch-cluster", "torch-scatter", "torch-sparse", "pyg_lib"):
                     # These need torch to be installed first
                     pass
-                # ponytail: retry once on transient errors (cache corruption, network blips)
-                max_attempts = 2
-                code = 1
-                output = ""
-                for attempt in range(1, max_attempts + 1):
-                    code, output = _run_uv(build_args, cwd=repo_dir)
-                    if code == 0:
-                        break
-                    # Check for transient errors worth retrying
-                    if attempt < max_attempts and any(kw in output.lower() for kw in ("cache", "timeout", "connection", "network", "503", "502", "504")):
-                        _log(f"  Retry {attempt}/{max_attempts} for {dep.name} (transient error)")
-                        import time
-                        time.sleep(3)
+                # For non-subdirectory deps, run the retry loop here (no temp dir involved)
+                if not _subdir_match:
+                    max_attempts = 2
+                    code = 1
+                    output = ""
+                    for attempt in range(1, max_attempts + 1):
+                        code, output = _run_uv(build_args, cwd=repo_dir)
+                        if code == 0:
+                            break
+                        if attempt < max_attempts and any(kw in output.lower() for kw in ("cache", "timeout", "connection", "network", "503", "502", "504")):
+                            _log(f"  Retry {attempt}/{max_attempts} for {dep.name} (transient error)")
+                            import time
+                            time.sleep(3)
                 if code == 0:
                     dep.state = "ready"
                     installed.append(dep.name)
