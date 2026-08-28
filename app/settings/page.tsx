@@ -552,8 +552,24 @@ useEffect(() => {
 
   return (
     <div className="flex h-screen bg-background">
+      {/* Header with Back to Workspace */}
+      <div className="fixed top-0 left-0 right-0 z-50 h-12 bg-[#0d0e12] border-b border-[#21242c] px-4 flex items-center justify-between">
+        <button
+          onClick={() => router.push('/workspace')}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#16181f] border border-[#272b36] hover:border-[#f5c518]/50 transition-colors group"
+        >
+          <div className="w-5 h-5 rounded-md bg-[#f5c518] flex items-center justify-center shadow-md shadow-[#f5c518]/20 group-hover:scale-105 transition-transform">
+            <span className="text-[#111216] font-black text-xs">▲</span>
+          </div>
+          <span className="font-extrabold text-xs tracking-wider text-[#f3f4f6] uppercase font-mono">
+            3D Studio
+          </span>
+        </button>
+        <span className="text-xs font-medium text-[#9ca3af]">Settings</span>
+      </div>
+
       {/* Mobile menu button */}
-      <div className="fixed top-0 left-0 z-50 lg:hidden p-4">
+      <div className="fixed top-12 left-0 z-50 lg:hidden p-4">
         <Button
           variant="ghost"
           size="icon"
@@ -570,12 +586,12 @@ useEffect(() => {
       {/* Sidebar */}
       <div
         className={`
-          fixed lg:relative z-40 h-full
+          fixed lg:relative z-40 h-full top-12 lg:top-0
           ${sidebarOpen ? 'w-80' : 'w-20'} 
           border-r border-border bg-card transition-all duration-300 flex flex-col
         `}
       >
-        <div className="p-6 space-y-6 pt-16 lg:pt-6 flex-1 overflow-y-auto">
+        <div className="p-6 space-y-6 pt-4 lg:pt-12 flex-1 overflow-y-auto">
           {sidebarOpen && (
             <div className="relative sticky top-0 bg-card z-10 pb-2">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -701,7 +717,7 @@ useEffect(() => {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto flex flex-col">
+      <div className="flex-1 overflow-auto flex flex-col pt-12">
         {/* Backend Status Banner */}
         {backendStatus === 'offline' && (
           <div className="px-6 py-3 bg-destructive/10 border-b border-destructive/20 flex items-center gap-3">
@@ -728,7 +744,7 @@ useEffect(() => {
         )}
 
         {/* Content header */}
-        <div className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-20">
+        <div className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-12 z-20">
           <div className="p-6 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold">{currentSection?.label || 'Settings'}</h1>

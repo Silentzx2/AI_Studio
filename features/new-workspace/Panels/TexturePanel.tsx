@@ -11,10 +11,12 @@ import {
   AlertCircle,
   Loader2
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { useUploadProgress } from '@/hooks/useUploadProgress';
 
 export const TexturePanel: React.FC = () => {
+  const router = useRouter();
   const { 
     textureSettings, 
     setTextureSettings, 
@@ -157,7 +159,10 @@ export const TexturePanel: React.FC = () => {
             Texture
           </button>
           <button
-            onClick={() => setTextureSettings(prev => ({ ...prev, workflow: 'pbr' }))}
+            onClick={() => {
+              setTextureSettings(prev => ({ ...prev, workflow: 'pbr' }));
+              router.push('/workspace/pbr');
+            }}
             className={`py-2 rounded-lg font-medium transition-all ${
               textureSettings.workflow === 'pbr'
                 ? 'bg-[#232732] text-[#f5c518] shadow-sm font-semibold'

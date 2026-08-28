@@ -432,26 +432,14 @@ export const RightAssetsPanel: React.FC = () => {
                       <MoreVertical className="w-2.5 h-2.5" />
                     </button>
 
-                     {activeMenuAssetId === asset.id && (
-                       <div className="absolute right-0 bottom-full mb-1 w-28 py-1 rounded-lg bg-[#1a1d26] border border-[#2e3342] shadow-xl z-50 text-[10px]">
-                         <button
-                           onClick={(e) => {
-                             e.stopPropagation();
-                             setCurrentAsset(asset);
-                             setActiveTool('compare');
-                             setActiveMenuAssetId(null);
-                           }}
-                           className="w-full text-left px-2 py-1 text-[#e5e7eb] hover:bg-[#252a36] flex items-center gap-1"
-                         >
-                           <ArrowRightLeft className="w-2.5 h-2.5 text-[#f5c518]" />
-                           <span>Compare</span>
-                         </button>
-                         <button
-                           onClick={(e) => {
-                             e.stopPropagation();
-                             duplicateAsset(asset.id);
-                             setActiveMenuAssetId(null);
-                           }}
+                      {activeMenuAssetId === asset.id && (
+                        <div className="absolute right-0 bottom-full mb-1 w-28 py-1 rounded-lg bg-[#1a1d26] border border-[#2e3342] shadow-xl z-50 text-[10px]">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              duplicateAsset(asset.id);
+                              setActiveMenuAssetId(null);
+                            }}
                            className="w-full text-left px-2 py-1 text-[#e5e7eb] hover:bg-[#252a36] flex items-center gap-1"
                          >
                            <Copy className="w-2.5 h-2.5 text-[#f5c518]" />

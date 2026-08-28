@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import type { ViewportMode } from '../types';
 
-interface WorldViewerProps {
+interface WorldMeshViewerProps {
   mode: ViewportMode;
   showGrid: boolean;
   turntable: boolean;
@@ -24,7 +24,7 @@ interface WorldViewerProps {
   onToggleTurntable: () => void;
 }
 
-export const WorldViewer: React.FC<WorldViewerProps> = ({
+export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
   mode,
   showGrid,
   turntable,
@@ -350,4 +350,4 @@ export const WorldViewer: React.FC<WorldViewerProps> = ({
   );
 };
 
-export default WorldViewer;
+export default WorldMeshViewer;

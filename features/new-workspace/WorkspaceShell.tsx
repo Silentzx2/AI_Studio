@@ -24,8 +24,7 @@ import { ExportModal } from './Modals/ExportModal';
 import { SettingsModal } from './Modals/SettingsModal';
 import { DccBridgeModal } from './Modals/DccBridgeModal';
 import { ProgressOverlay } from './Notifications/ProgressOverlay';
-import { ComparePanel } from './Panels/ComparePanel';
-import { FolderOpen, Sliders } from 'lucide-react';
+import { FolderOpen, Sliders, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import type { ToolType } from './types';
 
 const ROUTE_SEGMENT_TO_TOOL: Record<string, ToolType> = {
@@ -45,7 +44,6 @@ const ROUTE_SEGMENT_TO_TOOL: Record<string, ToolType> = {
   'animation': 'animate',
   'rigging': 'rigging',
   'rig': 'rigging',
-  'compare': 'compare',
 };
 
 export const WorkspaceShell: React.FC = () => {
@@ -55,6 +53,7 @@ export const WorkspaceShell: React.FC = () => {
     mainNav, setMainNav, activeTool, setActiveTool,
     rightPanelMode, setRightPanelMode,
     isLeftPanelOpen, isRightPanelOpen,
+    setIsLeftPanelOpen, setIsRightPanelOpen,
   } = useWorkspace();
 
   useEffect(() => {
@@ -98,7 +97,6 @@ export const WorkspaceShell: React.FC = () => {
       case 'remesh': return <RemeshPanel />;
       case 'animate': return <AnimatePanel />;
       case 'rigging': return <RiggingPanel />;
-      case 'compare': return <ComparePanel />;
       case 'retopo': case 'edit': case 'upscale': case 'pbr': return <SecondaryPanel tool={activeTool} />;
       default: return <GeneratePanel />;
     }
@@ -110,87 +108,151 @@ export const WorkspaceShell: React.FC = () => {
       <div className="flex flex-1 overflow-hidden relative">
         <LeftNavigation />
         <div className="flex flex-1 overflow-hidden relative">
-          {/* Workspace mode: left panel + viewport + right panel in a row */}
-          {mainNav === 'workspace' && isLeftPanelOpen && (
-            <aside id="context-tool-panel-container" className="w-80 h-full bg-[#101115] border-r border-[#21242c] flex flex-col flex-shrink-0 z-10 overflow-hidden">
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={activeTool}
-                  initial={{ opacity: 0, x: -6 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 6 }}
-                  transition={{ duration: 0.12, ease: 'easeOut' }}
-                  className="h-full w-full flex flex-col overflow-hidden"
-                >
-                  {renderToolPanel()}
-                </motion.div>
-              </AnimatePresence>
-            </aside>
-          )}
+           {/* Workspace mode: left panel + viewport + right panel in a row with smooth transitions */}
+          <AnimatePresence initial={false}>
+            {mainNav === 'workspace' && isLeftPanelOpen && (
+              <motion.aside
+                id="context-tool-panel-container"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+                className="w-80 h-full bg-[#101115] border-r border-[#21242c] flex flex-col flex-shrink-0 z-10 overflow-hidden"
+              >
+                <div className="h-9 px-3 flex items-center justify-between border-b border-[#21242c] bg-[#0c0d12] flex-shrink-0">
+                  <span className="text-[10px] font-bold tracking-wider text-[#9ca3af] uppercase">Tools</span>
+                  <button
+                    onClick={() => setIsLeftPanelOpen(false)}
+                    title="Collapse panel"
+                    className="p-1 rounded-md text-[#6b7280] hover:text-[#f5c518] hover:bg-[#1a1d26] transition-colors"
+                  >
+                    <PanelLeftClose className="w-4 h-4" />
+                  </button>
+                </div>
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.div
+                    key={activeTool}
+                    initial={{ opacity: 0, x: -6 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 6 }}
+                    transition={{ duration: 0.12, ease: 'easeOut' }}
+                    className="h-full w-full flex flex-col overflow-hidden"
+                  >
+                    {renderToolPanel()}
+                  </motion.div>
+                </AnimatePresence>
+              </motion.aside>
+            )}
+          </AnimatePresence>
 
           <main id="center-viewport-stage" className="flex-1 h-full relative overflow-hidden bg-[#0a0b0e]">
-            <MeshViewer />
+            {mainNav === 'workspace' && <MeshViewer />}
+
+            {/* Left collapsed toggle - inside viewport so it sits at viewport edge */}
+            {mainNav === 'workspace' && !isLeftPanelOpen && (
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 z-20">
+                <button
+                  onClick={() => setIsLeftPanelOpen(true)}
+                  title="Open Tool Panel"
+                  className="w-6 h-14 rounded-r-lg bg-[#16181f] border border-l-0 border-[#272b36] text-[#6b7280] hover:text-[#f5c518] transition-colors flex items-center justify-center"
+                >
+                  <PanelLeftOpen className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* Right collapsed toggle - inside viewport so it sits at viewport edge */}
+            {mainNav === 'workspace' && !isRightPanelOpen && (
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 z-20">
+                <button
+                  onClick={() => setIsRightPanelOpen(true)}
+                  title="Open Right Panel"
+                  className="w-6 h-14 rounded-l-lg bg-[#16181f] border border-r-0 border-[#272b36] text-[#6b7280] hover:text-[#f5c518] transition-colors flex items-center justify-center"
+                >
+                  <PanelRightOpen className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
           </main>
 
-          {mainNav === 'workspace' && isRightPanelOpen && (
-            <aside id="right-inspector-assets-column" className="w-80 h-full bg-[var(--ws-panel,#101115)] border-l border-[var(--ws-border,#21242c)] flex flex-col flex-shrink-0 z-10 overflow-hidden">
-              <div className="flex items-center p-1 bg-[var(--ws-tab-bar-bg,#0f1014)] border-b border-[var(--ws-border,#21242c)]">
-                <button id="tab-btn-assets" onClick={() => setRightPanelMode('assets')} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${rightPanelMode === 'assets' ? 'bg-[var(--ws-tab-active-bg,#1c1f28)] text-[#f5c518] shadow-sm' : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)]'}`}>
-                  <FolderOpen className="w-3.5 h-3.5" /><span>Assets</span>
-                </button>
-                <button id="tab-btn-prompt" onClick={() => setRightPanelMode('prompt')} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${rightPanelMode === 'prompt' ? 'bg-[var(--ws-tab-active-bg,#1c1f28)] text-[#f5c518] shadow-sm' : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)]'}`}>
-                  <span>Prompt</span>
-                </button>
-                <button id="tab-btn-properties" onClick={() => setRightPanelMode('properties')} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${rightPanelMode === 'properties' || rightPanelMode === 'property' ? 'bg-[var(--ws-tab-active-bg,#1c1f28)] text-[#f5c518] shadow-sm' : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)]'}`}>
-                  <Sliders className="w-3.5 h-3.5" /><span>Property</span>
-                </button>
-              </div>
-              <div className="flex-1 overflow-hidden">
-                {rightPanelMode === 'assets' ? <RightAssetsPanel /> : rightPanelMode === 'prompt' ? <RightPromptPanel /> : <RightPropertyPanel />}
-              </div>
-            </aside>
-          )}
-
-          {/* Dashboard/Assets/System overlays with smooth Framer Motion transition */}
-          <AnimatePresence mode="wait" initial={false}>
-            {mainNav === 'dashboard' && (
-              <motion.div
-                key="dashboard-overlay"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-                className="absolute inset-0 z-20 bg-[var(--ws-bg,#0d0e12)] overflow-auto"
+          <AnimatePresence initial={false}>
+            {mainNav === 'workspace' && isRightPanelOpen && (
+              <motion.aside
+                id="right-inspector-assets-column"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+                className="w-80 h-full bg-[var(--ws-panel,#101115)] border-l border-[var(--ws-border,#21242c)] flex flex-col flex-shrink-0 z-10 overflow-hidden"
               >
-                <StudioDashboard />
-              </motion.div>
-            )}
-            {mainNav === 'assets' && (
-              <motion.div
-                key="assets-overlay"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-                className="absolute inset-0 z-20 bg-[var(--ws-bg,#0d0e12)] overflow-auto"
-              >
-                <OutputsPage />
-              </motion.div>
-            )}
-            {mainNav === 'system' && (
-              <motion.div
-                key="system-overlay"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-                className="absolute inset-0 z-20 bg-[var(--ws-bg,#0d0e12)] overflow-auto"
-              >
-                <SystemPage />
-              </motion.div>
+                <div className="h-9 px-3 flex items-center justify-between border-b border-[var(--ws-border,#21242c)] bg-[#0c0d12] flex-shrink-0">
+                  <button
+                    onClick={() => setIsRightPanelOpen(false)}
+                    title="Collapse panel"
+                    className="p-1 rounded-md text-[#6b7280] hover:text-[#f5c518] hover:bg-[#1a1d26] transition-colors"
+                  >
+                    <PanelRightClose className="w-4 h-4" />
+                  </button>
+                  <span className="text-[10px] font-bold tracking-wider text-[#9ca3af] uppercase">Inspector</span>
+                </div>
+                <div className="flex items-center p-1 bg-[var(--ws-tab-bar-bg,#0f1014)] border-b border-[var(--ws-border,#21242c)]">
+                  <button id="tab-btn-assets" onClick={() => setRightPanelMode('assets')} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${rightPanelMode === 'assets' ? 'bg-[var(--ws-tab-active-bg,#1c1f28)] text-[#f5c518] shadow-sm' : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)]'}`}>
+                    <FolderOpen className="w-3.5 h-3.5" /><span>Assets</span>
+                  </button>
+                  <button id="tab-btn-prompt" onClick={() => setRightPanelMode('prompt')} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${rightPanelMode === 'prompt' ? 'bg-[var(--ws-tab-active-bg,#1c1f28)] text-[#f5c518] shadow-sm' : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)]'}`}>
+                    <span>Prompt</span>
+                  </button>
+                  <button id="tab-btn-properties" onClick={() => setRightPanelMode('properties')} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${rightPanelMode === 'properties' || rightPanelMode === 'property' ? 'bg-[var(--ws-tab-active-bg,#1c1f28)] text-[#f5c518] shadow-sm' : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)]'}`}>
+                    <Sliders className="w-3.5 h-3.5" /><span>Property</span>
+                  </button>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  {rightPanelMode === 'assets' ? <RightAssetsPanel /> : rightPanelMode === 'prompt' ? <RightPromptPanel /> : <RightPropertyPanel />}
+                </div>
+              </motion.aside>
             )}
           </AnimatePresence>
         </div>
+
+        {/* Dashboard/Assets/System overlays with smooth Framer Motion transition */}
+        <AnimatePresence mode="wait" initial={false}>
+          {mainNav === 'dashboard' && (
+            <motion.div
+              key="dashboard-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="absolute inset-0 z-[15] bg-[var(--ws-bg,#0d0e12)] overflow-auto pl-18"
+            >
+              <StudioDashboard />
+            </motion.div>
+          )}
+          {mainNav === 'assets' && (
+            <motion.div
+              key="assets-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="absolute inset-0 z-[15] bg-[var(--ws-bg,#0d0e12)] overflow-auto pl-18"
+            >
+              <OutputsPage />
+            </motion.div>
+          )}
+          {mainNav === 'system' && (
+            <motion.div
+              key="system-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="absolute inset-0 z-[15] bg-[var(--ws-bg,#0d0e12)] overflow-auto pl-18"
+            >
+              <SystemPage />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
       <ProgressOverlay />
       <SettingsModal />

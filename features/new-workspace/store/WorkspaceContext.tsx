@@ -15,6 +15,7 @@ import {
   RiggingSettings,
   SegmentationSettings,
   ActiveTask,
+  EnvironmentSettings,
 } from '../types';
 import { apiClient } from '../lib/api';
 import { useAppStore } from '@/stores/useAppStore';
@@ -62,6 +63,8 @@ interface WorkspaceContextType {
   setIsRightPanelOpen: (open: boolean) => void;
   rightPanelOpen: boolean;
   setRightPanelOpen: (open: boolean) => void;
+  environmentSettings: EnvironmentSettings;
+  setEnvironmentSettings: React.Dispatch<React.SetStateAction<EnvironmentSettings>>;
   setCurrentAsset: (asset: ModelAsset) => void;
   assetFilter: string;
   setAssetFilter: (filter: string) => void;
@@ -131,7 +134,7 @@ const TOOL_TO_ROUTE: Record<ToolType, string> = {
   pbr: '/workspace/pbr',
   animate: '/workspace/animate',
   rigging: '/workspace/rigging',
-  compare: '/workspace/compare',
+  environment: '/workspace/generate',
 };
 
 export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -217,6 +220,20 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [segmentationSettings, setSegmentationSettings] = useState<SegmentationSettings>({
     mode: 'auto', target: 'character', selectedPart: 'Whole Character',
     feather: 0.15, preserveTextures: true,
+  });
+
+  const [environmentSettings, setEnvironmentSettings] = useState<EnvironmentSettings>({
+    ambientIntensity: 1.2,
+    keyLightIntensity: 3.0,
+    fillLightIntensity: 1.8,
+    rimLightIntensity: 2.5,
+    exposure: 1.5,
+    gridVisible: true,
+    gridColor: '#4a5060',
+    backgroundColor: '#14161c',
+    autoRotate: false,
+    showAxes: true,
+    showStats: true,
   });
 
   const [currentFrame, setCurrentFrame] = useState(0);
@@ -785,12 +802,14 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     animateSettings, setAnimateSettings,
     riggingSettings, setRiggingSettings,
     segmentationSettings, setSegmentationSettings,
+    environmentSettings, setEnvironmentSettings,
   }), [generationSettings, setGenerationSettings,
     remeshSettings, setRemeshSettings,
     textureSettings, setTextureSettings,
     animateSettings, setAnimateSettings,
     riggingSettings, setRiggingSettings,
-    segmentationSettings, setSegmentationSettings]);
+    segmentationSettings, setSegmentationSettings,
+    environmentSettings, setEnvironmentSettings]);
 
   const animationValue = useMemo(() => ({
     bones, selectedBoneId, setSelectedBoneId, updateBone,

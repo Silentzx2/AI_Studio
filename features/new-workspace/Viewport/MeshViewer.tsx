@@ -23,7 +23,8 @@ import {
   Check,
   UploadCloud,
   Box,
-  Search
+  Search,
+  Sun
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { ShadingMode, CameraViewPreset, ModelAsset } from '../types';
@@ -78,12 +79,29 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
   const [isLoading, setIsLoading] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
+  const [showEnvironmentPanel, setShowEnvironmentPanel] = useState(false);
+  const [environmentSettings, setEnvironmentSettings] = useState({
+    ambientIntensity: 1.2,
+    keyLightIntensity: 3.0,
+    fillLightIntensity: 1.8,
+    rimLightIntensity: 2.5,
+    exposure: 1.5,
+    gridVisible: true,
+    gridColor: '#4a5060',
+    backgroundColor: '#14161c',
+    autoRotate: false,
+    showAxes: true,
+    showStats: true,
+  });
   const [cameraPreset, setCameraPreset] = useState<CameraViewPreset>('perspective');
   const [cameraMenuOpen, setCameraMenuOpen] = useState(false);
   const [interactionMode, setInteractionMode] = useState<'orbit' | 'pan'>('orbit');
   const [isDragOver, setIsDragOver] = useState(false);
   const [dropToastMessage, setDropToastMessage] = useState<string | null>(null);
   const [dropToastIsHtmlError, setDropToastIsHtmlError] = useState(false);
+
+  const patchEnv = (updates: Partial<typeof environmentSettings>) =>
+    setEnvironmentSettings((p) => ({ ...p, ...updates }));
 
   // Internal Three.js references
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -92,6 +110,9 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const controlsRef = useRef<OrbitControls | null>(null);
   const currentMeshGroupRef = useRef<THREE.Group | null>(null);
   const gridHelperRef = useRef<THREE.GridHelper | null>(null);
+  const keyLightRef = useRef<THREE.DirectionalLight | null>(null);
+  const fillLightRef = useRef<THREE.DirectionalLight | null>(null);
+  const rimLightRef = useRef<THREE.DirectionalLight | null>(null);
   const animFrameIdRef = useRef<number | null>(null);
   const isTurntableRef = useRef(isTurntable);
   const blobUrlRef = useRef<string | null>(null);
@@ -112,6 +133,34 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     isTurntableRef.current = isTurntable;
   }, [isTurntable]);
 
+  // Update Three.js scene when environment settings change
+  useEffect(() => {
+    if (!sceneRef.current || !rendererRef.current) return;
+    const scene = sceneRef.current;
+    const renderer = rendererRef.current;
+
+    // Update background color
+    scene.background = new THREE.Color(environmentSettings.backgroundColor);
+
+    // Update tone mapping exposure
+    renderer.toneMappingExposure = environmentSettings.exposure;
+
+    // Update grid visibility
+    if (gridHelperRef.current) {
+      gridHelperRef.current.visible = environmentSettings.gridVisible;
+    }
+
+    // Update light intensities
+    scene.traverse((obj) => {
+      if (obj instanceof THREE.AmbientLight) {
+        obj.intensity = environmentSettings.ambientIntensity;
+      }
+    });
+    if (keyLightRef.current) keyLightRef.current.intensity = environmentSettings.keyLightIntensity;
+    if (fillLightRef.current) fillLightRef.current.intensity = environmentSettings.fillLightIntensity;
+    if (rimLightRef.current) rimLightRef.current.intensity = environmentSettings.rimLightIntensity;
+  }, [environmentSettings]);
+
   // Initialize Three.js Scene once
   useEffect(() => {
     if (!containerRef.current) return;
@@ -121,7 +170,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
     // 1. Scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0f1015);
+    scene.background = new THREE.Color(0x14161c);
     sceneRef.current = scene;
 
     // 2. Camera
@@ -138,7 +187,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.toneMappingExposure = 1.5;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;
     container.innerHTML = '';
@@ -154,28 +203,31 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     controls.target.set(0, 0.4, 0);
     controlsRef.current = controls;
 
-    // 5. Lighting Setup (Studio 3-Point Setup)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+    // 5. Lighting Setup (Studio 3-Point Setup) - Brighter
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
     scene.add(ambientLight);
 
-    const mainKeyLight = new THREE.DirectionalLight(0xfff5ea, 2.2);
+    const mainKeyLight = new THREE.DirectionalLight(0xfff5ea, 3.0);
     mainKeyLight.position.set(4, 6, 5);
     mainKeyLight.castShadow = true;
     mainKeyLight.shadow.mapSize.width = 2048;
     mainKeyLight.shadow.mapSize.height = 2048;
     mainKeyLight.shadow.bias = -0.0001;
     scene.add(mainKeyLight);
+    keyLightRef.current = mainKeyLight;
 
-    const fillLight = new THREE.DirectionalLight(0x90b0ff, 1.2);
+    const fillLight = new THREE.DirectionalLight(0x90b0ff, 1.8);
     fillLight.position.set(-5, 3, -3);
     scene.add(fillLight);
+    fillLightRef.current = fillLight;
 
-    const rimLight = new THREE.DirectionalLight(0xfff0d0, 1.8);
+    const rimLight = new THREE.DirectionalLight(0xfff0d0, 2.5);
     rimLight.position.set(0, 5, -6);
     scene.add(rimLight);
+    rimLightRef.current = rimLight;
 
-    // 6. Floor Grid and Soft Shadow Floor
-    const grid = new THREE.GridHelper(10, 20, 0x303644, 0x1a1e28);
+    // 6. Floor Grid and Soft Shadow Floor - Brighter colors
+    const grid = new THREE.GridHelper(10, 20, 0x4a5060, 0x2a3040);
     grid.position.y = -0.65;
     scene.add(grid);
     gridHelperRef.current = grid;
@@ -197,11 +249,10 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     const timer = new THREE.Timer();
     const animate = () => {
       animFrameIdRef.current = requestAnimationFrame(animate);
-      if (meshGroup.children.length === 0) return;
       timer.update();
       const delta = timer.getDelta();
 
-      if (isTurntableRef.current && meshGroup) {
+      if (isTurntableRef.current && meshGroup && meshGroup.children.length > 0) {
         meshGroup.rotation.y += delta * 0.45;
       }
 
@@ -748,7 +799,86 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             >
               <RotateCcw className="w-4 h-4" />
             </button>
+
+            <button
+              onClick={() => setShowEnvironmentPanel(!showEnvironmentPanel)}
+              title="Environment Settings — Lighting, Grid, Camera"
+              className={`p-2 rounded-xl transition-all ${
+                showEnvironmentPanel
+                  ? 'bg-[#f5c518] text-[#111216]'
+                  : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
+              }`}
+            >
+              <Sun className="w-4 h-4" />
+            </button>
           </div>
+
+          {/* Environment Settings Panel */}
+          {showEnvironmentPanel && (
+            <div className="absolute right-16 top-1/2 -translate-y-1/2 z-20 w-72 bg-[var(--ws-hud-bg,#12141a)]/95 backdrop-blur-md border border-[var(--ws-hud-border,#232733)] rounded-2xl shadow-2xl p-4 space-y-3">
+              <h3 className="text-[10px] font-bold tracking-wider text-[#f5c518] uppercase">Environment Settings</h3>
+
+              {/* Lighting Section */}
+              <div className="space-y-2">
+                <span className="text-[9px] font-semibold text-[#9ca3af] uppercase tracking-wider">Lighting</span>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] text-[#9ca3af]">Ambient</span>
+                    <span className="text-[9px] font-mono text-[#f5c518]">{environmentSettings.ambientIntensity.toFixed(1)}</span>
+                  </div>
+                  <input type="range" min={0} max={3} step={0.1} value={environmentSettings.ambientIntensity} onChange={(e) => patchEnv({ ambientIntensity: parseFloat(e.target.value) })} className="w-full h-1 rounded-full bg-[#232733] appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#f5c518]" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] text-[#9ca3af]">Key Light</span>
+                    <span className="text-[9px] font-mono text-[#f5c518]">{environmentSettings.keyLightIntensity.toFixed(1)}</span>
+                  </div>
+                  <input type="range" min={0} max={5} step={0.1} value={environmentSettings.keyLightIntensity} onChange={(e) => patchEnv({ keyLightIntensity: parseFloat(e.target.value) })} className="w-full h-1 rounded-full bg-[#232733] appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#f5c518]" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] text-[#9ca3af]">Fill Light</span>
+                    <span className="text-[9px] font-mono text-[#f5c518]">{environmentSettings.fillLightIntensity.toFixed(1)}</span>
+                  </div>
+                  <input type="range" min={0} max={4} step={0.1} value={environmentSettings.fillLightIntensity} onChange={(e) => patchEnv({ fillLightIntensity: parseFloat(e.target.value) })} className="w-full h-1 rounded-full bg-[#232733] appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#f5c518]" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] text-[#9ca3af]">Rim Light</span>
+                    <span className="text-[9px] font-mono text-[#f5c518]">{environmentSettings.rimLightIntensity.toFixed(1)}</span>
+                  </div>
+                  <input type="range" min={0} max={4} step={0.1} value={environmentSettings.rimLightIntensity} onChange={(e) => patchEnv({ rimLightIntensity: parseFloat(e.target.value) })} className="w-full h-1 rounded-full bg-[#232733] appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#f5c518]" />
+                </div>
+              </div>
+
+              {/* Exposure Section */}
+              <div className="space-y-1.5">
+                <span className="text-[9px] font-semibold text-[#9ca3af] uppercase tracking-wider">Camera</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] text-[#9ca3af]">Exposure</span>
+                  <span className="text-[9px] font-mono text-[#f5c518]">{environmentSettings.exposure.toFixed(2)}</span>
+                </div>
+                <input type="range" min={0.5} max={3} step={0.05} value={environmentSettings.exposure} onChange={(e) => patchEnv({ exposure: parseFloat(e.target.value) })} className="w-full h-1 rounded-full bg-[#232733] appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#f5c518]" />
+              </div>
+
+              {/* Grid Toggle */}
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] text-[#9ca3af]">Show Grid</span>
+                <button onClick={() => patchEnv({ gridVisible: !environmentSettings.gridVisible })} className={`w-7 h-3.5 rounded-full transition-colors relative ${environmentSettings.gridVisible ? 'bg-[#f5c518]' : 'bg-[#232733]'}`}>
+                  <div className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white transition-transform ${environmentSettings.gridVisible ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+
+              {/* Reset to Defaults */}
+              <button onClick={() => setEnvironmentSettings({ ambientIntensity: 1.2, keyLightIntensity: 3.0, fillLightIntensity: 1.8, rimLightIntensity: 2.5, exposure: 1.5, gridVisible: true, gridColor: '#4a5060', backgroundColor: '#14161c', autoRotate: false, showAxes: true, showStats: true })} className="w-full py-1.5 rounded-lg text-[9px] font-semibold text-[#9ca3af] bg-[#16181f] border border-[#272b36] hover:border-[#f5c518]/50 hover:text-[#f5c518] transition-colors">
+                Reset to Defaults
+              </button>
+            </div>
+          )}
 
           {/* Shading Material Swatches Bar (Bottom Center - Exact Match to Screenshot) */}
           <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10">

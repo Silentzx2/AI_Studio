@@ -45,7 +45,7 @@ export const TopHeader: React.FC = () => {
             <span className="text-[#111216] font-black text-xs">▲</span>
           </div>
           <span className="font-extrabold text-sm tracking-wider text-[#f3f4f6] uppercase font-mono">
-            NEXUS 3D
+            3D Studio
           </span>
         </div>
 

@@ -9,8 +9,8 @@ import {
   Settings,
   Sparkles,
   LayoutDashboard,
-  ArrowRightLeft,
-  Globe
+  Globe,
+  Sun
 } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useWorkspace } from '../store/WorkspaceContext';
@@ -175,18 +175,19 @@ export const LeftNavigation: React.FC = () => {
           <span className="text-[9px] font-medium leading-none">Rigging</span>
         </button>
 
-        {/* 10. Compare */}
+        {/* 10. Rigging */}
         <button
-          id="tool-btn-compare"
-          onClick={() => handleToolClick('compare')}
+          id="tool-btn-rigging"
+          onClick={() => handleToolClick('rigging')}
+          title="Rigging — Skeleton & Animation"
           className={`w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
-            mainNav === 'workspace' && activeTool === 'compare'
+            mainNav === 'workspace' && activeTool === 'rigging'
               ? 'bg-[var(--ws-active-bg,#1e2230)] text-[#f5c518] border border-[#f5c518]/30 shadow-lg shadow-[#f5c518]/10'
               : 'text-[var(--ws-text-muted,#848a97)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#181a20)]'
           }`}
         >
-          <ArrowRightLeft className="w-4 h-4 mb-0.5" />
-          <span className="text-[9px] font-medium leading-none">Compare</span>
+          <Bone className="w-4 h-4 mb-0.5" />
+          <span className="text-[9px] font-medium leading-none">Rigging</span>
         </button>
       </div>
 

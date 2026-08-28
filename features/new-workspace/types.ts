@@ -9,7 +9,7 @@ export type ToolType =
   | 'pbr' 
   | 'animate' 
   | 'rigging'
-  | 'compare';
+  | 'environment';
 
 export interface ActiveTask {
   id: string;
@@ -78,6 +78,20 @@ export interface MaterialConfig {
   normalScale: number;
   aoIntensity: number;
   style: 'realistic' | 'game' | 'stylized' | 'anime';
+}
+
+export interface EnvironmentSettings {
+  ambientIntensity: number;
+  keyLightIntensity: number;
+  fillLightIntensity: number;
+  rimLightIntensity: number;
+  exposure: number;
+  gridVisible: boolean;
+  gridColor: string;
+  backgroundColor: string;
+  autoRotate: boolean;
+  showAxes: boolean;
+  showStats: boolean;
 }
 
 export interface BoneNode {
