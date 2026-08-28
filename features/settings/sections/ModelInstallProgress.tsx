@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Download, GitBranch, Package, CheckCircle, XCircle,
   Zap, Clock, HardDrive, AlertTriangle, Wifi,
-  Server, Cloud, Loader2, X, Play, Pause, Unplug,
+  Server, Cloud, Loader2, X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProgressBar } from '@/components/premium/ProgressBar';

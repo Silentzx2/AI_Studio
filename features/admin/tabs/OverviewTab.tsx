@@ -4,8 +4,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Cpu, HardDrive, Zap, Activity, Box, Clock,
-  AlertTriangle, CheckCircle, XCircle, Server,
+  Cpu, HardDrive, Zap, Activity, Box,
+  XCircle, Server,
   MemoryStick, Thermometer, Gauge, ScrollText, RefreshCw
 } from 'lucide-react';
 import { GlassCard } from '@/components/premium/GlassCard';

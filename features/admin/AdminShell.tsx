@@ -8,8 +8,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Boxes, Activity, ScrollText, Briefcase,
   ListOrdered, HeartPulse, Terminal, Settings,
-  ChevronLeft, ChevronRight, Box, Sparkles, Cpu, HardDrive,
-  Zap, Wifi, Search, Bell, Menu, X, PanelLeftClose, PanelLeft,
+  ChevronLeft, ChevronRight, Box, Sparkles, Cpu,
+  Zap, Wifi, Search, Bell, Menu
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { APP_NAME, ADMIN_NAV_ITEMS } from '@/constants';

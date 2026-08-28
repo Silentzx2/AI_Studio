@@ -5,8 +5,7 @@ import {
   CheckCircle2, 
   AlertCircle, 
   RefreshCw,
-  Wrench,
-  Sliders
+  Wrench
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { apiClient } from '../lib/api';

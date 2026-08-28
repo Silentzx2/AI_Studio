@@ -1,7 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { apiClient, getApiUrl } from '@/services/apiClient';
 import {
-  Plus,
   MoreVertical,
   ChevronLeft,
   ChevronRight,
@@ -12,13 +11,9 @@ import {
   Check,
   Copy,
   Trash2,
-  Upload,
-  Info,
-  SlidersHorizontal,
   FolderOpen,
   AlertCircle,
   Loader2,
-  ArrowRightLeft,
   Search
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
@@ -26,6 +21,7 @@ import { ModelAsset } from '../types';
 import { useUploadProgress } from '@/hooks/useUploadProgress';
 import { UploadDiagnosticModal } from '../Modals/UploadDiagnosticModal';
 import { validate3DFile } from '../lib/fileValidation';
+import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 
 export const RightAssetsPanel: React.FC = () => {
   const { 
@@ -195,66 +191,69 @@ export const RightAssetsPanel: React.FC = () => {
       />
 
       {/* Top Action Sub-bar (Matching Reference Image) */}
-      <div className="p-3 border-b border-[#21242c] space-y-2.5">
+      <div className="p-2.5 border-b border-[#21242c] space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             {/* Grid / All View */}
-            <button
-              onClick={() => { setShowFavoritesOnly(false); setAssetFilter('all'); }}
-              title="All Assets"
-              className={`p-1.5 rounded-lg transition-colors ${
-                !showFavoritesOnly && assetFilter === 'all'
-                  ? 'bg-[#232733] text-[#f5c518]'
-                  : 'text-[#8e95a5] hover:text-[#f3f4f6] hover:bg-[#181a22]'
-              }`}
-            >
-              <GridIcon className="w-3.5 h-3.5" />
-            </button>
-
-            {/* Favorite Filter */}
-            <button
-              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-              title="Favorites Only"
-              className={`p-1.5 rounded-lg transition-colors ${
-                showFavoritesOnly
-                  ? 'bg-[#232733] text-[#f5c518]'
-                  : 'text-[#8e95a5] hover:text-[#f3f4f6] hover:bg-[#181a22]'
-              }`}
-            >
-              <Star className="w-3.5 h-3.5" />
-            </button>
-
-            {/* Category Filter */}
-            <div className="relative">
+            <SimpleTooltip label="All Assets">
               <button
-                onClick={() => setFilterMenuOpen(!filterMenuOpen)}
-                title="Filter by Category"
+                onClick={() => { setShowFavoritesOnly(false); setAssetFilter('all'); }}
                 className={`p-1.5 rounded-lg transition-colors ${
-                  assetFilter !== 'all'
+                  !showFavoritesOnly && assetFilter === 'all'
                     ? 'bg-[#232733] text-[#f5c518]'
                     : 'text-[#8e95a5] hover:text-[#f3f4f6] hover:bg-[#181a22]'
                 }`}
               >
-                <Filter className="w-3.5 h-3.5" />
+                <GridIcon className="w-3.5 h-3.5" />
               </button>
+            </SimpleTooltip>
+
+            {/* Favorite Filter */}
+            <SimpleTooltip label="Favorites Only">
+              <button
+                onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                className={`p-1.5 rounded-lg transition-colors ${
+                  showFavoritesOnly
+                    ? 'bg-[#232733] text-[#f5c518]'
+                    : 'text-[#8e95a5] hover:text-[#f3f4f6] hover:bg-[#181a22]'
+                }`}
+              >
+                <Star className="w-3.5 h-3.5" />
+              </button>
+            </SimpleTooltip>
+
+            {/* Category Filter */}
+            <div className="relative">
+              <SimpleTooltip label="Filter by Category">
+                <button
+                  onClick={() => setFilterMenuOpen(!filterMenuOpen)}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    assetFilter !== 'all'
+                      ? 'bg-[#232733] text-[#f5c518]'
+                      : 'text-[#8e95a5] hover:text-[#f3f4f6] hover:bg-[#181a22]'
+                  }`}
+                >
+                  <Filter className="w-3.5 h-3.5" />
+                </button>
+              </SimpleTooltip>
 
               {filterMenuOpen && (
                 <div className="absolute top-full left-0 mt-1.5 w-36 py-1 rounded-xl bg-[#181a22] border border-[#2b3040] shadow-2xl z-50 text-xs">
                   <button
                     onClick={() => { setAssetFilter('all'); setFilterMenuOpen(false); }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-[#232734] text-[#cbd5e1]"
+                    className="w-full text-left px-2.5 py-1 hover:bg-[#232734] text-[#cbd5e1]"
                   >
                     All Assets
                   </button>
                   <button
                     onClick={() => { setAssetFilter('models'); setFilterMenuOpen(false); }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-[#232734] text-[#cbd5e1]"
+                    className="w-full text-left px-2.5 py-1 hover:bg-[#232734] text-[#cbd5e1]"
                   >
                     3D Models
                   </button>
                   <button
                     onClick={() => { setAssetFilter('textures'); setFilterMenuOpen(false); }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-[#232734] text-[#cbd5e1]"
+                    className="w-full text-left px-2.5 py-1 hover:bg-[#232734] text-[#cbd5e1]"
                   >
                     PBR Textures
                   </button>
@@ -276,17 +275,20 @@ export const RightAssetsPanel: React.FC = () => {
                 setDiagnosticFile(null);
                 setIsDiagnosticOpen(true);
               }}
-              title="Diagnose upload issues"
               className="p-1.5 rounded-lg text-[#8e95a5] hover:text-[#f5c518] hover:bg-[#181a22] border border-[#242834] transition-colors"
             >
-              <Search className="w-3.5 h-3.5" />
+              <SimpleTooltip label="Diagnose upload issues">
+                <span className="flex items-center justify-center">
+                  <Search className="w-3.5 h-3.5" />
+                </span>
+              </SimpleTooltip>
             </button>
           </div>
         </div>
       </div>
 
       {/* Main Asset Grid Body */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+      <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
         {filteredAssets.length === 0 && (
           <div className="py-14 px-4 text-center text-[#6b7280]">
             <FolderOpen className="w-8 h-8 mx-auto mb-3 text-[#3d4350]" />
@@ -469,7 +471,7 @@ export const RightAssetsPanel: React.FC = () => {
       </div>
 
       {/* Pagination Footer */}
-      <div className="p-2.5 border-t border-[#21242c] flex items-center justify-center gap-1 text-xs text-[#8e95a5]">
+      <div className="p-2 border-t border-[#21242c] flex items-center justify-center gap-1 text-xs text-[#8e95a5]">
         <button
           onClick={() => setActivePage(Math.max(1, activePage - 1))}
           disabled={activePage <= 1}

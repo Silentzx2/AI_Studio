@@ -5,7 +5,6 @@ import {
   HelpCircle, 
   ChevronDown, 
   ChevronRight, 
-  Layers,
   Palette,
   Check,
   AlertCircle,
@@ -134,11 +133,11 @@ export const TexturePanel: React.FC = () => {
   };
 
   return (
-    <div id="panel-texture" className="flex flex-col h-full overflow-y-auto px-4 py-3.5 space-y-4 text-xs select-none">
+    <div id="panel-texture" className="flex flex-col h-full overflow-y-auto px-3 py-3 space-y-3 text-xs select-none">
       {/* Title Header (Screenshot 2) */}
       <div className="flex items-center gap-2 pb-1">
         <Sparkles className="w-4 h-4 text-[#f5c518]" />
-        <h2 className="text-sm font-bold text-[#f3f4f6]">Texture</h2>
+        <h2 className="text-xs font-bold text-[#f3f4f6]">Texture</h2>
       </div>
 
       {/* Workflow Tabs: Texture | PBR */}

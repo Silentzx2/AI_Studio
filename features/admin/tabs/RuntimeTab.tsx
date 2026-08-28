@@ -5,15 +5,14 @@ import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Cpu, Zap, MemoryStick, Thermometer, HardDrive, Activity,
-  Server, Wifi, RefreshCw, Trash2, AlertTriangle, CheckCircle,
-  Gauge, Loader2, XCircle
+  Server, Wifi, RefreshCw, Trash2, CheckCircle,
+  Gauge, XCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlassCard } from '@/components/premium/GlassCard';
 import { MetricCard } from '@/components/premium/MetricCard';
 import { ProgressBar } from '@/components/premium/ProgressBar';
 import { StatusDot } from '@/components/premium/StatusDot';
-import { Badge } from '@/components/premium/Badge';
 import { NeonButton } from '@/components/premium/NeonButton';
 import { Spinner } from '@/components/premium/Spinner';
 import { GpuVramLineChart } from '@/components/monitoring/GpuVramLineChart';
@@ -315,53 +314,6 @@ export function RuntimeTab() {
           </div>
         </GlassCard>
       </div>
-    </div>
-  );
-}
-
-function PerformanceChart({ history }: { history: { gpu: number; vram: number; cpu: number; ram: number }[] }) {
-  const width = 100;
-  const height = 200;
-
-  const makePath = (key: 'gpu' | 'vram' | 'cpu' | 'ram') =>
-    history.map((p, i) => {
-      const x = (i / Math.max(history.length - 1, 1)) * width;
-      const y = height - (p[key] / 100) * height;
-      return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-    }).join(' ');
-
-  const colors = {
-    gpu: 'hsl(var(--neon-purple))',
-    vram: 'hsl(var(--neon-blue))',
-    cpu: 'hsl(190 100% 55%)',
-    ram: 'hsl(var(--neon-green))',
-  };
-
-  if (history.length === 0) {
-    return <div className="flex items-center justify-center" style={{ height: '220px' }}><span className="text-xs text-muted-foreground">Collecting data...</span></div>;
-  }
-
-  return (
-    <div className="relative w-full" style={{ height: '220px' }}>
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full" preserveAspectRatio="none">
-        <defs>
-          {(Object.keys(colors) as ('gpu' | 'vram' | 'cpu' | 'ram')[]).map((key) => (
-            <linearGradient key={key} id={`grad-${key}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={colors[key]} stopOpacity="0.2" />
-              <stop offset="100%" stopColor={colors[key]} stopOpacity="0" />
-            </linearGradient>
-          ))}
-        </defs>
-        {[0, 25, 50, 75, 100].map((y) => (
-           <line key={y} x1="0" y1={height - (y / 100) * height} x2={width} y2={height - (y / 100) * height} stroke="hsl(var(--border))" strokeWidth="0.2" />
-        ))}
-        {(Object.keys(colors) as ('gpu' | 'vram' | 'cpu' | 'ram')[]).map((key) => (
-          <g key={key}>
-            <path d={`${makePath(key)} L ${width} ${height} L 0 ${height} Z`} fill={`url(#grad-${key})`} />
-            <path d={makePath(key)} fill="none" stroke={colors[key]} strokeWidth="0.4" />
-          </g>
-        ))}
-      </svg>
     </div>
   );
 }

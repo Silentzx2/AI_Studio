@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Download, Upload, Save, AlertCircle, Check, Copy } from 'lucide-react';
+import { Download, Upload, AlertCircle, Check, Copy } from 'lucide-react';
 import { useSystemSettings } from '@/hooks/useBackendData';
 import { toast } from 'sonner';
 

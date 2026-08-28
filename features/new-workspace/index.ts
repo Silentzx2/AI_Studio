@@ -20,4 +20,3 @@ export { ProgressOverlay } from './Notifications/ProgressOverlay';
 export { StudioDashboard } from './Dashboard/StudioDashboard';
 export { SystemPage } from './Dashboard/SystemPage';
 export { OutputsPage } from './Dashboard/OutputsPage';
-export * from './types';

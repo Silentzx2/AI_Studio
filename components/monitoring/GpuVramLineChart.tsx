@@ -11,7 +11,7 @@ import {
   Tooltip,
   Legend,
 } from 'recharts';
-import { Cpu, Zap, Activity, RefreshCw, Layers, Flame, Gauge } from 'lucide-react';
+import { Cpu, Zap, Activity, RefreshCw, Flame } from 'lucide-react';
 import { runtimeService } from '@/services/runtimeService';
 import { useWorkspace } from '@/features/new-workspace/store/WorkspaceContext';
 

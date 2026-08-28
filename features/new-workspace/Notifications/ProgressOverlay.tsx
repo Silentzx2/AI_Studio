@@ -10,13 +10,10 @@ import {
   Minimize2, 
   StopCircle, 
   Clock, 
-  Cpu, 
-  Layers, 
-  ChevronRight,
-  ExternalLink,
   Activity,
   ArrowRight
 } from 'lucide-react';
+import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 import { useWorkspace } from '../store/WorkspaceContext';
 
 export const ProgressOverlay: React.FC = () => {
@@ -104,13 +101,14 @@ export const ProgressOverlay: React.FC = () => {
             >
               {isMinimized ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
             </button>
-            <button
-              onClick={dismissActiveTask}
-              className="p-1 rounded-md text-[#8e95a5] hover:text-[#ef4444] hover:bg-[#232734] transition-colors"
-              title="Close notification"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
+            <SimpleTooltip label="Close notification">
+              <button
+                onClick={dismissActiveTask}
+                className="p-1 rounded-md text-[#8e95a5] hover:text-[#ef4444] hover:bg-[#232734] transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </SimpleTooltip>
           </div>
         </div>
 

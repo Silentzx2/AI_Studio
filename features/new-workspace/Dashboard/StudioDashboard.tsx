@@ -5,12 +5,9 @@ import {
   Layers, 
   Sliders, 
   Activity, 
-  Plus, 
-  Server, 
   ArrowRight,
   FolderOpen,
   Cpu,
-  Clock,
   Scissors,
   Bone
 } from 'lucide-react';

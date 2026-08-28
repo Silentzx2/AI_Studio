@@ -2,14 +2,9 @@ import React, { useState } from 'react';
 import { 
   Sliders, 
   Download, 
-  Layers, 
   Box, 
-  Rotate3d, 
-  Maximize2, 
   Move, 
   Check,
-  ChevronDown,
-  ChevronRight,
   Sparkles,
   Palette,
   Activity,
@@ -18,12 +13,11 @@ import {
   Lock,
   Unlock,
   Hexagon,
-  FileCode,
-  ShieldCheck,
-  Cpu
+  ShieldCheck
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { ShadingMode } from '../types';
+import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 
 export const RightPropertyPanel: React.FC = () => {
   const { 
@@ -151,7 +145,7 @@ export const RightPropertyPanel: React.FC = () => {
       className="flex flex-col h-full bg-[#101115] text-xs select-none overflow-y-auto"
     >
       {/* Header with Asset Meta */}
-      <div className="p-3 border-b border-[#21242c] flex items-center justify-between">
+      <div className="p-2.5 border-b border-[#21242c] flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-6 h-6 rounded-lg bg-[#1c202a] border border-[#2d3240] flex items-center justify-center text-[#f5c518] flex-shrink-0">
             <Sliders className="w-3.5 h-3.5" />
@@ -166,7 +160,7 @@ export const RightPropertyPanel: React.FC = () => {
         </span>
       </div>
 
-      <div className="p-3 space-y-4">
+      <div className="p-2.5 space-y-3">
         {/* 1. Object Transform Section */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -176,10 +170,11 @@ export const RightPropertyPanel: React.FC = () => {
             </span>
             <button
               onClick={handleResetTransform}
-              title="Reset Transform"
               className="p-1 rounded text-[#717786] hover:text-[#f3f4f6] hover:bg-[#181a22] transition-colors"
             >
-              <RefreshCw className="w-3 h-3" />
+              <SimpleTooltip label="Reset Transform">
+                <RefreshCw className="w-3 h-3" />
+              </SimpleTooltip>
             </button>
           </div>
 

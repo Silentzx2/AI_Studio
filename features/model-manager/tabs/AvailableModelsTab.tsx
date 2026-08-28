@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Download, Info, AlertTriangle } from 'lucide-react';
+import { Download, AlertTriangle } from 'lucide-react';
 import { CompatibilityChecker } from '../components/CompatibilityChecker';
 
 interface AvailableModel {

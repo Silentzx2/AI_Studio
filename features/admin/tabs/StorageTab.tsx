@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import {
   HardDrive, Loader2, AlertCircle, Trash2, RefreshCw, CheckCircle2,
-  FolderArchive, Database, Layers, Sparkles, Folder, Activity, Zap
+  FolderArchive, Database, Layers, Sparkles
 } from 'lucide-react';
 import { apiClient } from '@/services/apiClient';
 import { toast } from 'sonner';

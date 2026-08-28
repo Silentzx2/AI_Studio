@@ -2,10 +2,10 @@
 import Link from 'next/link';
 import type { AdminTab } from './AdminShell';
 import {
-  LayoutDashboard, Layers, Package, Download, ListOrdered,
+  LayoutDashboard, Layers, Package, ListOrdered,
   Cpu, ScrollText, Settings, Activity,
   BriefcaseBusiness, Terminal, ChevronRight, ExternalLink,
-  Boxes, Zap,
+  Boxes,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 

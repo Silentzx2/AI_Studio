@@ -8,26 +8,20 @@ import {
   Hand,
   Camera,
   Grid as GridIcon,
-  HelpCircle,
   RotateCcw,
   RotateCw,
-  Maximize,
   Printer,
   Download,
   ChevronDown,
   Sparkles,
-  RefreshCw,
-  Eye,
-  Layers,
-  Compass,
   Check,
   UploadCloud,
-  Box,
   Search,
   Sun
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { ShadingMode, CameraViewPreset, ModelAsset } from '../types';
+import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 
 /**
  * Logs diagnostic info when an HTML response is detected during asset loading.
@@ -53,6 +47,88 @@ interface MeshViewerProps {
   className?: string;
   showOverlayUI?: boolean;
 }
+
+interface EnvironmentPreset {
+  id: string;
+  label: string;
+  settings: {
+    ambientIntensity: number;
+    keyLightIntensity: number;
+    fillLightIntensity: number;
+    rimLightIntensity: number;
+    exposure: number;
+    backgroundColor: string;
+    gridVisible: boolean;
+  };
+}
+
+const ENVIRONMENT_PRESETS: EnvironmentPreset[] = [
+  {
+    id: 'studio',
+    label: 'Studio',
+    settings: {
+      ambientIntensity: 1.5,
+      keyLightIntensity: 3.5,
+      fillLightIntensity: 2.0,
+      rimLightIntensity: 2.0,
+      exposure: 1.6,
+      backgroundColor: '#1a1c20',
+      gridVisible: true,
+    },
+  },
+  {
+    id: 'game',
+    label: 'Game',
+    settings: {
+      ambientIntensity: 0.8,
+      keyLightIntensity: 4.0,
+      fillLightIntensity: 1.5,
+      rimLightIntensity: 3.0,
+      exposure: 1.3,
+      backgroundColor: '#0a0b0e',
+      gridVisible: true,
+    },
+  },
+  {
+    id: 'real',
+    label: 'Real',
+    settings: {
+      ambientIntensity: 1.8,
+      keyLightIntensity: 3.0,
+      fillLightIntensity: 2.5,
+      rimLightIntensity: 1.5,
+      exposure: 1.8,
+      backgroundColor: '#1e2024',
+      gridVisible: true,
+    },
+  },
+  {
+    id: 'dramatic',
+    label: 'Dramatic',
+    settings: {
+      ambientIntensity: 0.5,
+      keyLightIntensity: 5.0,
+      fillLightIntensity: 1.0,
+      rimLightIntensity: 3.5,
+      exposure: 1.2,
+      backgroundColor: '#08090b',
+      gridVisible: true,
+    },
+  },
+  {
+    id: 'soft',
+    label: 'Soft',
+    settings: {
+      ambientIntensity: 2.0,
+      keyLightIntensity: 2.5,
+      fillLightIntensity: 2.0,
+      rimLightIntensity: 1.0,
+      exposure: 2.0,
+      backgroundColor: '#252830',
+      gridVisible: true,
+    },
+  },
+];
 
 export const MeshViewer: React.FC<MeshViewerProps> = ({ 
   className = '', 
@@ -100,8 +176,17 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const [dropToastMessage, setDropToastMessage] = useState<string | null>(null);
   const [dropToastIsHtmlError, setDropToastIsHtmlError] = useState(false);
 
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+
   const patchEnv = (updates: Partial<typeof environmentSettings>) =>
     setEnvironmentSettings((p) => ({ ...p, ...updates }));
+
+  const applyPreset = useCallback((presetId: string) => {
+    const preset = ENVIRONMENT_PRESETS.find(p => p.id === presetId);
+    if (!preset) return;
+    setSelectedPreset(presetId);
+    setEnvironmentSettings((p) => ({ ...p, ...preset.settings }));
+  }, []);
 
   // Internal Three.js references
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -117,6 +202,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const isTurntableRef = useRef(isTurntable);
   const blobUrlRef = useRef<string | null>(null);
   const toastTimeoutRef = useRef<number | null>(null);
+  const needsRenderRef = useRef(true);
 
   // Cleanup blob URLs on unmount
   useEffect(() => {
@@ -159,6 +245,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     if (keyLightRef.current) keyLightRef.current.intensity = environmentSettings.keyLightIntensity;
     if (fillLightRef.current) fillLightRef.current.intensity = environmentSettings.fillLightIntensity;
     if (rimLightRef.current) rimLightRef.current.intensity = environmentSettings.rimLightIntensity;
+    needsRenderRef.current = true;
   }, [environmentSettings]);
 
   // Initialize Three.js Scene once
@@ -186,6 +273,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.info.autoReset = false;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.5;
     renderer.shadowMap.enabled = true;
@@ -210,8 +298,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     const mainKeyLight = new THREE.DirectionalLight(0xfff5ea, 3.0);
     mainKeyLight.position.set(4, 6, 5);
     mainKeyLight.castShadow = true;
-    mainKeyLight.shadow.mapSize.width = 2048;
-    mainKeyLight.shadow.mapSize.height = 2048;
+    mainKeyLight.shadow.mapSize.width = 1024;
+    mainKeyLight.shadow.mapSize.height = 1024;
     mainKeyLight.shadow.bias = -0.0001;
     scene.add(mainKeyLight);
     keyLightRef.current = mainKeyLight;
@@ -245,10 +333,10 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     scene.add(meshGroup);
     currentMeshGroupRef.current = meshGroup;
 
-    // 8. Animation & Render Loop
+    // 8. Animation & Render Loop (setAnimationLoop for better performance)
     const timer = new THREE.Timer();
     const animate = () => {
-      animFrameIdRef.current = requestAnimationFrame(animate);
+      if (!needsRenderRef.current && !isTurntableRef.current) return;
       timer.update();
       const delta = timer.getDelta();
 
@@ -257,9 +345,11 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
       }
 
       controls.update();
+      renderer.info.reset();
       renderer.render(scene, camera);
+      needsRenderRef.current = false;
     };
-    animate();
+    renderer.setAnimationLoop(animate);
 
     // 9. Resize Handling via ResizeObserver
     const resizeObserver = new ResizeObserver(() => {
@@ -276,6 +366,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
     return () => {
       resizeObserver.disconnect();
+      renderer.setAnimationLoop(null);
       if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
       if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
       controls.dispose();
@@ -311,6 +402,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     if (gridHelperRef.current) {
       gridHelperRef.current.visible = showGrid;
     }
+    needsRenderRef.current = true;
   }, [showGrid]);
 
   // Load the real selected asset into the persistent viewport.
@@ -372,6 +464,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               }
             });
             frameCamera(gltf.scene);
+            needsRenderRef.current = true;
           }
         } else if (format === 'obj') {
           // ponytail: verify response is text before parsing as OBJ
@@ -410,6 +503,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             });
             group.add(object);
             frameCamera(object);
+            needsRenderRef.current = true;
           }
         } else if (format === 'ply') {
           const response = await fetch(sourceUrl);
@@ -437,6 +531,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           mesh.receiveShadow = true;
           group.add(mesh);
           frameCamera(mesh);
+          needsRenderRef.current = true;
         } else {
           throw new Error(`No browser preview is available for ${currentAsset.format}.`);
         }
@@ -500,6 +595,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         break;
     }
     ctrl.update();
+    needsRenderRef.current = true;
   }, []);
 
   const resetCamera = useCallback(() => {
@@ -732,91 +828,118 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             </div>
 
             {/* 3D Axis Orientation Widget / Gizmo */}
-            <div 
-              onClick={resetCamera}
-              className="w-11 h-11 rounded-xl bg-[var(--ws-hud-bg,#12141a)]/90 backdrop-blur-md border border-[var(--ws-hud-border,#232733)] flex items-center justify-center cursor-pointer hover:border-[#f5c518] shadow-xl group transition-all"
-              title="Reset Orbit Camera"
-            >
-              <div className="relative w-6 h-6 flex items-center justify-center">
-                <span className="text-[9px] font-bold text-[#ef4444] absolute -top-1">Y</span>
-                <span className="text-[9px] font-bold text-[#22c55e] absolute -right-1">X</span>
-                <span className="text-[9px] font-bold text-[#3b82f6] absolute -bottom-1">Z</span>
-                <div className="w-2 h-2 rounded-full bg-[#f5c518] group-hover:scale-125 transition-transform" />
+            <SimpleTooltip label="Reset Orbit Camera">
+              <div
+                onClick={resetCamera}
+                className="w-11 h-11 rounded-xl bg-[var(--ws-hud-bg,#12141a)]/90 backdrop-blur-md border border-[var(--ws-hud-border,#232733)] flex items-center justify-center cursor-pointer hover:border-[#f5c518] shadow-xl group transition-all"
+              >
+                <div className="relative w-6 h-6 flex items-center justify-center">
+                  <span className="text-[9px] font-bold text-[#ef4444] absolute -top-1">Y</span>
+                  <span className="text-[9px] font-bold text-[#22c55e] absolute -right-1">X</span>
+                  <span className="text-[9px] font-bold text-[#3b82f6] absolute -bottom-1">Z</span>
+                  <div className="w-2 h-2 rounded-full bg-[#f5c518] group-hover:scale-125 transition-transform" />
+                </div>
               </div>
-            </div>
+            </SimpleTooltip>
           </div>
 
           {/* Right Floating Tool Rail (Hand, Camera, Grid, Help, Turntable) */}
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-1.5 bg-[var(--ws-hud-bg,#12141a)]/90 backdrop-blur-md border border-[var(--ws-hud-border,#232733)] p-1.5 rounded-2xl shadow-2xl">
-            <button
-              onClick={() => setInteractionMode(interactionMode === 'orbit' ? 'pan' : 'orbit')}
-              title={interactionMode === 'orbit' ? 'Switch to Pan Mode' : 'Switch to Orbit Mode'}
-              className={`p-2 rounded-xl transition-all ${
-                interactionMode === 'pan' 
-                  ? 'bg-[#f5c518] text-[#111216]' 
-                  : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
-              }`}
-            >
-              <Hand className="w-4 h-4" />
-            </button>
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-1.3 bg-[var(--ws-hud-bg,#12141a)]/90 backdrop-blur-md border border-[var(--ws-hud-border,#232733)] p-1.5 rounded-2xl shadow-2xl">
+            <SimpleTooltip label={interactionMode === 'orbit' ? 'Switch to Pan Mode' : 'Switch to Orbit Mode'}>
+              <button
+                onClick={() => setInteractionMode(interactionMode === 'orbit' ? 'pan' : 'orbit')}
+                className={`p-2 rounded-xl transition-all ${
+                  interactionMode === 'pan' 
+                    ? 'bg-[#f5c518] text-[#111216]' 
+                    : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
+                }`}
+              >
+                <Hand className="w-4 h-4" />
+              </button>
+            </SimpleTooltip>
 
-            <button
-              onClick={handleScreenshot}
-              title="Capture 3D Viewport Screenshot"
-              className="p-2 rounded-xl text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)] transition-all"
-            >
-              <Camera className="w-4 h-4" />
-            </button>
+            <SimpleTooltip label="Capture 3D Viewport Screenshot">
+              <button
+                onClick={handleScreenshot}
+                className="p-2 rounded-xl text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)] transition-all"
+              >
+                <Camera className="w-4 h-4" />
+              </button>
+            </SimpleTooltip>
 
-            <button
-              onClick={() => setShowGrid(!showGrid)}
-              title={showGrid ? 'Hide Floor Grid' : 'Show Floor Grid'}
-              className={`p-2 rounded-xl transition-all ${
-                showGrid 
-                  ? 'text-[#f5c518] bg-[var(--ws-active-bg,#1a1d26)]' 
-                  : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
-              }`}
-            >
-              <GridIcon className="w-4 h-4" />
-            </button>
+            <SimpleTooltip label={showGrid ? 'Hide Floor Grid' : 'Show Floor Grid'}>
+              <button
+                onClick={() => setShowGrid(!showGrid)}
+                className={`p-2 rounded-xl transition-all ${
+                  showGrid 
+                    ? 'text-[#f5c518] bg-[var(--ws-active-bg,#1a1d26)]' 
+                    : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
+                }`}
+              >
+                <GridIcon className="w-4 h-4" />
+              </button>
+            </SimpleTooltip>
 
-            <button
-              onClick={() => setIsTurntable(!isTurntable)}
-              title={isTurntable ? 'Pause Turntable 360°' : 'Start Turntable 360°'}
-              className={`p-2 rounded-xl transition-all ${
-                isTurntable 
-                  ? 'bg-[#f5c518] text-[#111216]' 
-                  : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
-              }`}
-            >
-              <RotateCw className="w-4 h-4" />
-            </button>
+            <SimpleTooltip label={isTurntable ? 'Pause Turntable 360°' : 'Start Turntable 360°'}>
+              <button
+                onClick={() => setIsTurntable(!isTurntable)}
+                className={`p-2 rounded-xl transition-all ${
+                  isTurntable 
+                    ? 'bg-[#f5c518] text-[#111216]' 
+                    : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
+                }`}
+              >
+                <RotateCw className="w-4 h-4" />
+              </button>
+            </SimpleTooltip>
 
-            <button
-              onClick={resetCamera}
-              title="Reset Camera (Hotkey: F)"
-              className="p-2 rounded-xl text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)] transition-all"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </button>
+            <SimpleTooltip label="Reset Camera (Hotkey: F)">
+              <button
+                onClick={resetCamera}
+                className="p-2 rounded-xl text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)] transition-all"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            </SimpleTooltip>
 
-            <button
-              onClick={() => setShowEnvironmentPanel(!showEnvironmentPanel)}
-              title="Environment Settings — Lighting, Grid, Camera"
-              className={`p-2 rounded-xl transition-all ${
-                showEnvironmentPanel
-                  ? 'bg-[#f5c518] text-[#111216]'
-                  : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
-              }`}
-            >
-              <Sun className="w-4 h-4" />
-            </button>
+            <SimpleTooltip label="Environment Settings — Lighting, Grid, Camera">
+              <button
+                onClick={() => setShowEnvironmentPanel(!showEnvironmentPanel)}
+                className={`p-2 rounded-xl transition-all ${
+                  showEnvironmentPanel
+                    ? 'bg-[#f5c518] text-[#111216]'
+                    : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
+                }`}
+              >
+                <Sun className="w-4 h-4" />
+              </button>
+            </SimpleTooltip>
           </div>
 
           {/* Environment Settings Panel */}
           {showEnvironmentPanel && (
             <div className="absolute right-16 top-1/2 -translate-y-1/2 z-20 w-72 bg-[var(--ws-hud-bg,#12141a)]/95 backdrop-blur-md border border-[var(--ws-hud-border,#232733)] rounded-2xl shadow-2xl p-4 space-y-3">
               <h3 className="text-[10px] font-bold tracking-wider text-[#f5c518] uppercase">Environment Settings</h3>
+
+              {/* Presets Section */}
+              <div className="space-y-1.5">
+                <span className="text-[9px] font-semibold text-[#9ca3af] uppercase tracking-wider">Presets</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {ENVIRONMENT_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      onClick={() => applyPreset(preset.id)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
+                        selectedPreset === preset.id
+                          ? 'bg-[#f5c518] text-[#111216] shadow-md shadow-[#f5c518]/20'
+                          : 'bg-[#1a1d26] text-[#9ca3af] border border-[#2e3342] hover:border-[#f5c518]/50 hover:text-[#f5c518]'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               {/* Lighting Section */}
               <div className="space-y-2">
@@ -884,98 +1007,107 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10">
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-[var(--ws-hud-bg,#12141a)]/95 backdrop-blur-md border border-[var(--ws-hud-border,#232733)] shadow-2xl">
               {/* Textured / PBR */}
-              <button
-                onClick={() => setShadingMode('textured')}
-                title="PBR Textured"
-                className={`w-7 h-7 rounded-full overflow-hidden border-2 transition-transform ${
-                  shadingMode === 'textured' ? 'border-[#f5c518] scale-110 shadow-md' : 'border-transparent hover:scale-105'
-                }`}
-              >
-                {currentAsset?.thumbnail ? (
-                  <img 
-                    src={currentAsset.thumbnail} 
-                    alt="Textured" 
-                    className="w-full h-full object-cover"
-                    crossOrigin="anonymous" 
-                  />
-                ) : (
-                  <div className="w-full h-full bg-[#2a2f3a]" />
-                )}
-              </button>
+              <SimpleTooltip label="PBR Textured">
+                <button
+                  onClick={() => setShadingMode('textured')}
+                  className={`w-7 h-7 rounded-full overflow-hidden border-2 transition-transform ${
+                    shadingMode === 'textured' ? 'border-[#f5c518] scale-110 shadow-md' : 'border-transparent hover:scale-105'
+                  }`}
+                >
+                  {currentAsset?.thumbnail ? (
+                    <img 
+                      src={currentAsset.thumbnail} 
+                      alt="Textured" 
+                      className="w-full h-full object-cover"
+                      crossOrigin="anonymous" 
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-[#2a2f3a]" />
+                  )}
+                </button>
+              </SimpleTooltip>
 
               {/* Clay */}
-              <button
-                onClick={() => setShadingMode('clay')}
-                title="Matte Clay"
-                className={`w-7 h-7 rounded-full bg-[#8c919d] border-2 transition-transform ${
-                  shadingMode === 'clay' ? 'border-[#f5c518] scale-110 shadow-md' : 'border-transparent hover:scale-105'
-                }`}
-              />
+              <SimpleTooltip label="Matte Clay">
+                <button
+                  onClick={() => setShadingMode('clay')}
+                  className={`w-7 h-7 rounded-full bg-[#8c919d] border-2 transition-transform ${
+                    shadingMode === 'clay' ? 'border-[#f5c518] scale-110 shadow-md' : 'border-transparent hover:scale-105'
+                  }`}
+                />
+              </SimpleTooltip>
 
               {/* White Ceramic */}
-              <button
-                onClick={() => setShadingMode('matcap-ceramic')}
-                title="Ceramic Gloss"
-                className={`w-7 h-7 rounded-full bg-[#e2e8f0] border-2 transition-transform ${
-                  shadingMode === 'matcap-ceramic' ? 'border-[#f5c518] scale-110 shadow-md' : 'border-transparent hover:scale-105'
-                }`}
-              />
+              <SimpleTooltip label="Ceramic Gloss">
+                <button
+                  onClick={() => setShadingMode('matcap-ceramic')}
+                  className={`w-7 h-7 rounded-full bg-[#e2e8f0] border-2 transition-transform ${
+                    shadingMode === 'matcap-ceramic' ? 'border-[#f5c518] scale-110 shadow-md' : 'border-transparent hover:scale-105'
+                  }`}
+                />
+              </SimpleTooltip>
 
               {/* Chrome Metallic */}
-              <button
-                onClick={() => setShadingMode('matcap-chrome')}
-                title="Chrome Metallic"
-                className={`w-7 h-7 rounded-full bg-gradient-to-tr from-[#334155] via-[#94a3b8] to-[#f8fafc] border-2 transition-transform ${
-                  shadingMode === 'matcap-chrome' ? 'border-[#f5c518] scale-110 shadow-md' : 'border-transparent hover:scale-105'
-                }`}
-              />
+              <SimpleTooltip label="Chrome Metallic">
+                <button
+                  onClick={() => setShadingMode('matcap-chrome')}
+                  className={`w-7 h-7 rounded-full bg-gradient-to-tr from-[#334155] via-[#94a3b8] to-[#f8fafc] border-2 transition-transform ${
+                    shadingMode === 'matcap-chrome' ? 'border-[#f5c518] scale-110 shadow-md' : 'border-transparent hover:scale-105'
+                  }`}
+                />
+              </SimpleTooltip>
 
               {/* Wireframe */}
-              <button
-                onClick={() => setShadingMode('wireframe')}
-                title="Topology Wireframe"
-                className={`w-7 h-7 rounded-full bg-[#111827] border-2 flex items-center justify-center text-[10px] text-[#22c55e] transition-transform ${
-                  shadingMode === 'wireframe' ? 'border-[#f5c518] scale-110 shadow-md' : 'border-transparent hover:scale-105'
-                }`}
-              >
-                #
-              </button>
+              <SimpleTooltip label="Topology Wireframe">
+                <button
+                  onClick={() => setShadingMode('wireframe')}
+                  className={`w-7 h-7 rounded-full bg-[#111827] border-2 flex items-center justify-center text-[10px] text-[#22c55e] transition-transform ${
+                    shadingMode === 'wireframe' ? 'border-[#f5c518] scale-110 shadow-md' : 'border-transparent hover:scale-105'
+                  }`}
+                >
+                  #
+                </button>
+              </SimpleTooltip>
 
               {/* Normal Map */}
-              <button
-                onClick={() => setShadingMode('matcap-normal')}
-                title="Tangent Normals"
-                className={`w-7 h-7 rounded-full bg-gradient-to-br from-[#ec4899] via-[#8b5cf6] to-[#06b6d4] border-2 transition-transform ${
-                  shadingMode === 'matcap-normal' ? 'border-[#f5c518] scale-110 shadow-md' : 'border-transparent hover:scale-105'
-                }`}
-              />
+              <SimpleTooltip label="Tangent Normals">
+                <button
+                  onClick={() => setShadingMode('matcap-normal')}
+                  className={`w-7 h-7 rounded-full bg-gradient-to-br from-[#ec4899] via-[#8b5cf6] to-[#06b6d4] border-2 transition-transform ${
+                    shadingMode === 'matcap-normal' ? 'border-[#f5c518] scale-110 shadow-md' : 'border-transparent hover:scale-105'
+                  }`}
+                />
+              </SimpleTooltip>
 
               {/* Gold Matcap */}
-              <button
-                onClick={() => setShadingMode('matcap-gold')}
-                title="Gold Lustre"
-                className={`w-7 h-7 rounded-full bg-gradient-to-br from-[#f59e0b] to-[#d97706] border-2 transition-transform ${
-                  shadingMode === 'matcap-gold' ? 'border-[#f5c518] scale-110 shadow-md' : 'border-transparent hover:scale-105'
-                }`}
-              />
+              <SimpleTooltip label="Gold Lustre">
+                <button
+                  onClick={() => setShadingMode('matcap-gold')}
+                  className={`w-7 h-7 rounded-full bg-gradient-to-br from-[#f59e0b] to-[#d97706] border-2 transition-transform ${
+                    shadingMode === 'matcap-gold' ? 'border-[#f5c518] scale-110 shadow-md' : 'border-transparent hover:scale-105'
+                  }`}
+                />
+              </SimpleTooltip>
 
               {/* Dark Obsidian */}
-              <button
-                onClick={() => setShadingMode('xray')}
-                title="X-Ray Silhouette"
-                className={`w-7 h-7 rounded-full bg-[#1f242d] border border-[#374151] border-2 transition-transform ${
-                  shadingMode === 'xray' ? 'border-[#f5c518] scale-110 shadow-md' : 'border-transparent hover:scale-105'
-                }`}
-              />
+              <SimpleTooltip label="X-Ray Silhouette">
+                <button
+                  onClick={() => setShadingMode('xray')}
+                  className={`w-7 h-7 rounded-full bg-[#1f242d] border border-[#374151] border-2 transition-transform ${
+                    shadingMode === 'xray' ? 'border-[#f5c518] scale-110 shadow-md' : 'border-transparent hover:scale-105'
+                  }`}
+                />
+              </SimpleTooltip>
 
               {/* Turquoise Stylized */}
-              <button
-                onClick={() => setShadingMode('matcap-turquoise')}
-                title="Turquoise Gem"
-                className={`w-7 h-7 rounded-full bg-[#06b6d4] border-2 transition-transform ${
-                  shadingMode === 'matcap-turquoise' ? 'border-[#f5c518] scale-110 shadow-md' : 'border-transparent hover:scale-105'
-                }`}
-              />
+              <SimpleTooltip label="Turquoise Gem">
+                <button
+                  onClick={() => setShadingMode('matcap-turquoise')}
+                  className={`w-7 h-7 rounded-full bg-[#06b6d4] border-2 transition-transform ${
+                    shadingMode === 'matcap-turquoise' ? 'border-[#f5c518] scale-110 shadow-md' : 'border-transparent hover:scale-105'
+                  }`}
+                />
+              </SimpleTooltip>
             </div>
           </div>
 

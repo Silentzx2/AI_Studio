@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRuntimeOptions, useSystemSettings } from '@/hooks/useBackendData';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/premium/Spinner';
-import { Cpu, Sliders, Box, Layers, Save, Check, ListOrdered, Sparkles, Zap, CheckCircle2, Gauge, ShieldAlert } from 'lucide-react';
+import { Cpu, Sliders, Box, Sparkles, Zap, Gauge, ListOrdered } from 'lucide-react';
 import { runtimeService } from '@/services/runtimeService';
 import { toast } from 'sonner';
 import { useAutoSave } from '@/hooks/useAutoSave';

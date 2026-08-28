@@ -15,6 +15,7 @@ import type {
 } from './types';
 
 const DEFAULT_SETTINGS: WorldGenSettings = {
+  prompt: '',
   mood: 'fantasy',
   shape: 'hills',
   style: 'stylized',

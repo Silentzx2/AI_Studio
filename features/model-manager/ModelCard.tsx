@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, Trash2, Download, CheckCircle, AlertTriangle, Layers } from 'lucide-react';
+import { Play, Pause, Trash2, Download, CheckCircle } from 'lucide-react';
 
 export function ModelCard({ model, onAction }: { model: any, onAction: (id: string, action: string) => void }) {
   const [progress, setProgress] = useState<number>(model.download_progress?.percent ?? model.progress ?? 0);

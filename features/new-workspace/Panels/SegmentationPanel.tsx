@@ -15,11 +15,11 @@ export const SegmentationPanel: React.FC = () => {
   const parts = ['Whole Character', 'Head', 'Torso', 'Left Arm', 'Right Arm', 'Legs', 'Accessory'];
 
   return (
-    <div id="panel-segmentation" className="flex flex-col h-full overflow-y-auto px-4 py-3.5 space-y-4 text-xs select-none">
+    <div id="panel-segmentation" className="flex flex-col h-full overflow-y-auto px-3 py-3 space-y-3 text-xs select-none">
       <div className="flex items-center gap-2 pb-1">
         <Layers3 className="w-4 h-4 text-[#f5c518]" />
         <div>
-          <h2 className="text-sm font-bold text-[#f3f4f6]">Segmentation</h2>
+          <h2 className="text-xs font-bold text-[#f3f4f6]">Segmentation</h2>
           <p className="text-[10px] text-[#9ca3af]">Isolate editable regions from the selected mesh.</p>
         </div>
       </div>

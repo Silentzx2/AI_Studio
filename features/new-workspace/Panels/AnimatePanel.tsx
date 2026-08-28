@@ -5,10 +5,8 @@ import {
   Pause, 
   SkipBack, 
   SkipForward, 
-  RotateCcw, 
   Upload, 
-  Sparkles, 
-  Sliders,
+  Sparkles,
   Layers
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
@@ -61,11 +59,11 @@ export const AnimatePanel: React.FC = () => {
   }, [isPlaying, fps, animateSettings.speed, setCurrentFrame, setIsPlaying]);
 
   return (
-    <div id="panel-animate" className="flex flex-col h-full overflow-y-auto px-4 py-3.5 space-y-4 text-xs select-none">
+    <div id="panel-animate" className="flex flex-col h-full overflow-y-auto px-3 py-3 space-y-3 text-xs select-none">
       {/* Title Header */}
       <div className="flex items-center gap-2 pb-1">
         <Activity className="w-4 h-4 text-[#f5c518]" />
-        <h2 className="text-sm font-bold text-[#f3f4f6]">Animate</h2>
+        <h2 className="text-xs font-bold text-[#f3f4f6]">Animate</h2>
       </div>
 
       {/* Animation Types */}

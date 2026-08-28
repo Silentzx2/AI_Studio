@@ -2,9 +2,9 @@
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import {
-  Terminal, Search, Trash2, Info, AlertTriangle, XCircle, CheckCircle, Bug,
-  RefreshCw, Copy, Pause, Play, WrapText, Download,
-  ArrowDown, Check, X, ShieldAlert
+  Terminal, Search, Trash2, XCircle, CheckCircle, Check,
+  RefreshCw, Copy, Pause, WrapText, Download,
+  ArrowDown, X
 } from "lucide-react";
 import { adminService } from "@/services/adminService";
 import type { AdminLog } from "@/types";

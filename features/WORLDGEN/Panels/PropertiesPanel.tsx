@@ -6,7 +6,6 @@ import {
   CloudSun,
   Mountain,
   Globe,
-  Sparkles,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
@@ -90,14 +89,14 @@ function ToggleRow({
       <span className="text-[11px] text-[var(--ws-text-muted,#8e95a5)] group-hover:text-[var(--ws-text,#f3f4f6)] transition-colors">
         {label}
       </span>
-      <span
-        className={`w-8 h-[18px] rounded-full relative transition-colors ${
-          on ? 'bg-[#f5c518]' : 'bg-[var(--ws-hover-bg,#1f232e)] border border-[var(--ws-hud-border,#232733)]'
-        }`}
-      >
+       <span
+          className={`w-7 h-3.5 rounded-full relative transition-colors duration-200 ${
+            on ? 'bg-[#f5c518]' : 'bg-[#232733]'
+          }`}
+        >
         <span
-          className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white shadow transition-transform ${
-            on ? 'translate-x-4' : 'translate-x-0.5'
+          className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white shadow-sm transition-all duration-200 ${
+            on ? 'translate-x-[14px]' : 'translate-x-[2px]'
           }`}
         />
       </span>
@@ -193,23 +192,9 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   ))}
                 </div>
               )}
-            </section>
-          );
-        })}
-
-        <div className="section-divider" />
-
-        {/* Status placeholder */}
-        <section className="rounded-xl border border-[var(--ws-border,#232733)] bg-[var(--ws-panel,#101115)] px-3 py-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-3.5 h-3.5 text-[#f5c518]" />
-            <h3 className="panel-section-label">World Gen</h3>
-          </div>
-          <p className="text-[10px] text-[var(--ws-text-muted,#8e95a5)] mt-1 leading-relaxed">
-            Configure your environment and press Generate World to build a new
-            scene from your uploaded reference image.
-          </p>
-        </section>
+             </section>
+           );
+         })}
       </div>
     </div>
   );

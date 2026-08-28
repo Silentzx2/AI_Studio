@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, Check, Loader2, RefreshCw, CheckCircle, XCircle, Activity, Save } from 'lucide-react';
+import { AlertCircle, Loader2, RefreshCw, CheckCircle, XCircle, Activity, Save } from 'lucide-react';
 import { apiClient } from '@/services/apiClient';
 import { Switch } from '@/components/ui/switch';
 

@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { ListOrdered, Trash2, Activity, Users, Clock, Zap, RefreshCw, AlertCircle } from 'lucide-react';
+import { Trash2, Activity, Users, Clock, Zap, RefreshCw, AlertCircle } from 'lucide-react';
 import { GlassCard } from '@/components/premium/GlassCard';
 import { MetricCard } from '@/components/premium/MetricCard';
 import { Badge } from '@/components/premium/Badge';

@@ -21,19 +21,13 @@ import {
   Shield,
   Code,
   HardDrive,
-  BarChart3,
   Package,
-  Zap,
-  Users,
   Clock,
   RotateCcw,
   Save,
-  Menu,
-  X,
   Search,
   Pin,
   PinOff,
-  AlertTriangle,
   Server,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -49,6 +43,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+
+// Import workspace layout components
+import { TopHeader } from '@/features/new-workspace/Header/TopHeader';
+import { LeftNavigation } from '@/features/new-workspace/Navigation/LeftNavigation';
 
 // Import existing admin/settings components (reuse)
 import {
@@ -79,6 +77,7 @@ import {
 } from '@/features/settings/sections';
 
 import { apiClient } from '@/services/apiClient';
+import { StyledTooltip } from '@/components/ui/tooltip';
 
 interface SettingsSection {
   id: string;
@@ -552,242 +551,216 @@ useEffect(() => {
 
   return (
     <div className="flex h-screen bg-background">
-      {/* Header with Back to Workspace */}
-      <div className="fixed top-0 left-0 right-0 z-50 h-12 bg-[#0d0e12] border-b border-[#21242c] px-4 flex items-center justify-between">
-        <button
-          onClick={() => router.push('/workspace')}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#16181f] border border-[#272b36] hover:border-[#f5c518]/50 transition-colors group"
-        >
-          <div className="w-5 h-5 rounded-md bg-[#f5c518] flex items-center justify-center shadow-md shadow-[#f5c518]/20 group-hover:scale-105 transition-transform">
-            <span className="text-[#111216] font-black text-xs">▲</span>
-          </div>
-          <span className="font-extrabold text-xs tracking-wider text-[#f3f4f6] uppercase font-mono">
-            3D Studio
-          </span>
-        </button>
-        <span className="text-xs font-medium text-[#9ca3af]">Settings</span>
-      </div>
+      {/* Left Navigation Rail */}
+      <LeftNavigation />
 
-      {/* Mobile menu button */}
-      <div className="fixed top-12 left-0 z-50 lg:hidden p-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleSidebarToggle}
-        >
-          {sidebarOpen ? (
-            <X className="w-5 h-5" />
-          ) : (
-            <Menu className="w-5 h-5" />
-          )}
-        </Button>
-      </div>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Top Header */}
+        <TopHeader />
 
-      {/* Sidebar */}
-      <div
-        className={`
-          fixed lg:relative z-40 h-full top-12 lg:top-0
-          ${sidebarOpen ? 'w-80' : 'w-20'} 
-          border-r border-border bg-card transition-all duration-300 flex flex-col
-        `}
-      >
-        <div className="p-6 space-y-6 pt-4 lg:pt-12 flex-1 overflow-y-auto">
-          {sidebarOpen && (
-            <div className="relative sticky top-0 bg-card z-10 pb-2">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search settings..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              />
-            </div>
-          )}
-
-          {pinnedSections.length > 0 && (
-            <div>
+        {/* Settings Content */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Settings Sidebar */}
+          <div
+            className={`
+              ${sidebarOpen ? 'w-80' : 'w-20'} 
+              border-r border-border bg-card transition-all duration-300 flex flex-col flex-shrink-0
+            `}
+          >
+            <div className="p-6 space-y-6 flex-1 overflow-y-auto">
               {sidebarOpen && (
-                <h3 className="text-xs font-semibold text-[hsl(var(--muted-foreground))]/80 uppercase tracking-wider mb-3 px-2">
-                  Quick Actions
-                </h3>
+                <div className="relative sticky top-0 bg-card z-10 pb-2">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Search settings..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
               )}
-              <div className="space-y-1">
-                {pinnedSections.map((pinnedId) => {
-                  const section = SETTINGS_SECTIONS.find(s => s.id === pinnedId);
-                  if (!section) return null;
-                  return (
-                    <div key={`pinned-${section.id}`} className="relative group">
-                      <button
-                        onClick={() => handleSectionClick(section.id)}
-                        className={`
-                          w-full flex items-start gap-3 px-3 py-2.5 rounded-md text-sm font-medium 
-                          transition-all duration-200 border-l-[4px] pr-8
-                          ${
-                            activeSection === section.id
-                               ? 'bg-primary text-black shadow-md border-l-black'
-                              : 'text-foreground hover:bg-accent hover:text-accent-foreground border-l-transparent'
-                          }
-                        `}
-                        title={section.label}
-                      >
-                        <span className="flex-shrink-0 mt-0.5">{section.icon}</span>
-                        {sidebarOpen && (
-                          <div className="flex-1 text-left min-w-0">
-                            <div className="font-semibold truncate">
-                              {highlightText(section.label, searchQuery)}
-                            </div>
-                          </div>
-                        )}
-                      </button>
-                      {sidebarOpen && (
-                        <button 
-                          onClick={(e) => togglePin(e, section.id)}
-                          className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-black/10 dark:hover:bg-[hsl(var(--surface-2))] opacity-0 group-hover:opacity-100 transition-opacity ${activeSection === section.id ? 'text-black/70 hover:text-black' : 'text-muted-foreground'}`}
-                          title="Unpin section"
-                        >
-                          <PinOff className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
-          {Object.entries(groupedSections).map(([groupId, sections]) => (
-            <div key={groupId}>
-              {sidebarOpen && (
-                <h3 className="text-xs font-semibold text-[hsl(var(--muted-foreground))]/80 uppercase tracking-wider mb-3 px-2">
-                  {GROUP_LABELS[groupId as keyof typeof GROUP_LABELS]}
-                </h3>
+              {pinnedSections.length > 0 && (
+                <div>
+                  {sidebarOpen && (
+                    <h3 className="text-xs font-semibold text-[hsl(var(--muted-foreground))]/80 uppercase tracking-wider mb-3 px-2">
+                      Quick Actions
+                    </h3>
+                  )}
+                  <div className="space-y-1">
+                    {pinnedSections.map((pinnedId) => {
+                      const section = SETTINGS_SECTIONS.find(s => s.id === pinnedId);
+                      if (!section) return null;
+                      return (
+                        <div key={`pinned-${section.id}`} className="relative group">
+                          <button
+                            onClick={() => handleSectionClick(section.id)}
+                            className={`
+                              w-full flex items-start gap-3 px-3 py-2.5 rounded-md text-sm font-medium 
+                              transition-all duration-200 border-l-[4px] pr-8
+                              ${
+                                activeSection === section.id
+                                   ? 'bg-primary text-black shadow-md border-l-black'
+                                  : 'text-foreground hover:bg-accent hover:text-accent-foreground border-l-transparent'
+                              }
+                            `}
+                          >
+                            <span className="flex-shrink-0 mt-0.5">{section.icon}</span>
+                            {sidebarOpen && (
+                              <div className="flex-1 text-left min-w-0">
+                                <div className="font-semibold truncate">
+                                  {highlightText(section.label, searchQuery)}
+                                </div>
+                              </div>
+                            )}
+                          </button>
+                          {sidebarOpen && (
+                            <StyledTooltip content="Unpin section">
+                              <button 
+                                onClick={(e) => togglePin(e, section.id)}
+                                className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-black/10 dark:hover:bg-[hsl(var(--surface-2))] opacity-0 group-hover:opacity-100 transition-opacity ${activeSection === section.id ? 'text-black/70 hover:text-black' : 'text-muted-foreground'}`}
+                              >
+                                <PinOff className="w-3.5 h-3.5" />
+                              </button>
+                            </StyledTooltip>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
-              <div className="space-y-1">
-                {sections.map((section) => {
-                  const isPinned = pinnedSections.includes(section.id);
-                  return (
-                    <div key={section.id} className="relative group">
-                      <button
-                        onClick={() => handleSectionClick(section.id)}
-                        className={`
-                          w-full flex items-start gap-3 px-3 py-2.5 rounded-md text-sm font-medium 
-                          transition-all duration-200 border-l-[4px] pr-8
-                          ${
-                            activeSection === section.id
-                               ? 'bg-primary text-black shadow-md border-l-black'
-                              : 'text-foreground hover:bg-accent hover:text-accent-foreground border-l-transparent'
-                          }
-                        `}
-                        title={section.label}
-                      >
-                        <span className="flex-shrink-0 mt-0.5">{section.icon}</span>
-                        {sidebarOpen && (
-                          <div className="flex-1 text-left min-w-0">
-                            <div className="font-semibold truncate">
-                              {highlightText(section.label, searchQuery)}
-                            </div>
-                          </div>
-                        )}
-                      </button>
-                      {sidebarOpen && (
-                        <button 
-                          onClick={(e) => togglePin(e, section.id)}
-                          className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-black/10 dark:hover:bg-[hsl(var(--surface-2))] transition-opacity ${isPinned ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} ${activeSection === section.id ? 'text-black/70 hover:text-black' : 'text-muted-foreground'}`}
-                          title={isPinned ? "Unpin section" : "Pin section"}
-                        >
-                          {isPinned ? <Pin className="w-3.5 h-3.5 fill-current" /> : <Pin className="w-3.5 h-3.5" />}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
 
-      {/* Overlay for mobile when sidebar is open */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-black/50 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto flex flex-col pt-12">
-        {/* Backend Status Banner */}
-        {backendStatus === 'offline' && (
-          <div className="px-6 py-3 bg-destructive/10 border-b border-destructive/20 flex items-center gap-3">
-            <Server className="w-5 h-5 text-destructive flex-shrink-0" />
-            <div className="flex-1">
-              <span className="text-sm font-medium text-destructive">Backend unavailable</span>
-              <span className="text-sm text-muted-foreground ml-2">— Connection to FastAPI backend failed. Some sections may show limited data.</span>
+              {Object.entries(groupedSections).map(([groupId, sections]) => (
+                <div key={groupId}>
+                  {sidebarOpen && (
+                    <h3 className="text-xs font-semibold text-[hsl(var(--muted-foreground))]/80 uppercase tracking-wider mb-3 px-2">
+                      {GROUP_LABELS[groupId as keyof typeof GROUP_LABELS]}
+                    </h3>
+                  )}
+                  <div className="space-y-1">
+                    {sections.map((section) => {
+                      const isPinned = pinnedSections.includes(section.id);
+                      return (
+                        <div key={section.id} className="relative group">
+                          <button
+                            onClick={() => handleSectionClick(section.id)}
+                            className={`
+                              w-full flex items-start gap-3 px-3 py-2.5 rounded-md text-sm font-medium 
+                              transition-all duration-200 border-l-[4px] pr-8
+                              ${
+                                activeSection === section.id
+                                   ? 'bg-primary text-black shadow-md border-l-black'
+                                  : 'text-foreground hover:bg-accent hover:text-accent-foreground border-l-transparent'
+                              }
+                            `}
+                          >
+                            <span className="flex-shrink-0 mt-0.5">{section.icon}</span>
+                            {sidebarOpen && (
+                              <div className="flex-1 text-left min-w-0">
+                                <div className="font-semibold truncate">
+                                  {highlightText(section.label, searchQuery)}
+                                </div>
+                              </div>
+                            )}
+                          </button>
+                          {sidebarOpen && (
+                            <StyledTooltip content={isPinned ? "Unpin section" : "Pin section"}>
+                              <button 
+                                onClick={(e) => togglePin(e, section.id)}
+                                className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-black/10 dark:hover:bg-[hsl(var(--surface-2))] transition-opacity ${isPinned ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} ${activeSection === section.id ? 'text-black/70 hover:text-black' : 'text-muted-foreground'}`}
+                              >
+                                {isPinned ? <Pin className="w-3.5 h-3.5 fill-current" /> : <Pin className="w-3.5 h-3.5" />}
+                              </button>
+                            </StyledTooltip>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setBackendStatus('checking');
-                apiClient.get('/api/v1/system/info')
-                  .then(() => setBackendStatus('online'))
-                  .catch(() => setBackendStatus('offline'));
-              }}
-              className="gap-2"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              Retry
-            </Button>
           </div>
-        )}
 
-        {/* Content header */}
-        <div className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-12 z-20">
-          <div className="p-6 flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">{currentSection?.label || 'Settings'}</h1>
-              {currentSection?.description && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  {currentSection.description}
-                </p>
-              )}
-            </div>
-            
-            {getKeysForSection(activeSection).length > 0 && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
-                    <RotateCcw className="w-4 h-4" />
-                    Reset Section
+          {/* Main Content */}
+          <div className="flex-1 overflow-auto flex flex-col">
+            {/* Backend Status Banner */}
+            {backendStatus === 'offline' && (
+              <div className="px-6 py-3 bg-destructive/10 border-b border-destructive/20 flex items-center gap-3">
+                <Server className="w-5 h-5 text-destructive flex-shrink-0" />
+                <div className="flex-1">
+                  <span className="text-sm font-medium text-destructive">Backend unavailable</span>
+                  <span className="text-sm text-muted-foreground ml-2">— Connection to FastAPI backend failed. Some sections may show limited data.</span>
+                </div>
+                <StyledTooltip content="Retry connection">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setBackendStatus('checking');
+                      apiClient.get('/api/v1/system/info')
+                        .then(() => setBackendStatus('online'))
+                        .catch(() => setBackendStatus('offline'));
+                    }}
+                    className="gap-2"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Retry
                   </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Reset {currentSection?.label} Settings?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will reset all configuration values within the "{currentSection?.label}" section back to their defaults. This action cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction 
-                      onClick={handleResetSection}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      Reset Settings
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                </StyledTooltip>
+              </div>
             )}
-          </div>
-        </div>
 
-        {/* Content area */}
-        <div className="flex-1 overflow-auto">
-          {renderContent()}
+            {/* Content header */}
+            <div className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-20">
+              <div className="p-6 flex items-center justify-between">
+                <div>
+                  <h1 className="text-2xl font-bold">{currentSection?.label || 'Settings'}</h1>
+                  {currentSection?.description && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {currentSection.description}
+                    </p>
+                  )}
+                </div>
+                
+                {getKeysForSection(activeSection).length > 0 && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
+                        <RotateCcw className="w-4 h-4" />
+                        Reset Section
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Reset {currentSection?.label} Settings?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will reset all configuration values within the "{currentSection?.label}" section back to their defaults. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={handleResetSection}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Reset Settings
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              </div>
+            </div>
+
+            {/* Content area */}
+            <div className="flex-1 overflow-auto">
+              {renderContent()}
+            </div>
+          </div>
         </div>
       </div>
     </div>

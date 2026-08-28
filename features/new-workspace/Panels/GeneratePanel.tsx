@@ -17,11 +17,9 @@ import {
   Dices,
   Trash2, 
   Lock,
-  Unlock,
   AlertCircle,
   Info,
   X,
-  ArrowRight,
   Loader2,
   Wrench
 } from 'lucide-react';
@@ -29,6 +27,7 @@ import { useWorkspace } from '../store/WorkspaceContext';
 import { useRuntimeOptions } from '@/hooks/useBackendData';
 import { useUploadProgress } from '@/hooks/useUploadProgress';
 import { apiClient } from '@/services/apiClient';
+import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 
 interface ProviderOption {
   id: string;
@@ -219,11 +218,11 @@ export const GeneratePanel: React.FC = () => {
   return (
     <div id="panel-generate-model" className="flex flex-col h-full bg-[#101115] text-xs select-none">
       {/* Header title */}
-      <div className="p-3.5 pb-2 border-b border-[#21242c]">
+      <div className="p-3 pb-2 border-b border-[#21242c]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-[#f5c518]" />
-            <h2 className="text-sm font-bold text-[#f3f4f6]">Generate 3D Model</h2>
+            <h2 className="text-xs font-bold text-[#f3f4f6]">Generate 3D Model</h2>
           </div>
           <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#1c202a] text-[#f5c518] border border-[#f5c518]/20">
             FastAPI-3D
@@ -232,7 +231,7 @@ export const GeneratePanel: React.FC = () => {
       </div>
 
       {/* Main Scrollable Body */}
-      <div className="flex-1 overflow-y-auto p-3.5 space-y-3.5">
+      <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {/* Notice Message Toast/Banner */}
         {noticeMessage && (
           <div className="p-2.5 rounded-xl bg-[#261f14] border border-[#f5c518]/50 text-[#f5c518] text-[11px] flex items-center justify-between gap-2 animate-in fade-in shadow-md">
@@ -256,11 +255,6 @@ export const GeneratePanel: React.FC = () => {
             <button
               id="tab-text-to-3d"
               onClick={handleTextTo3DTabClick}
-              title={
-                isCurrentModelTextTo3DLocked
-                  ? `${activeModelObj?.label || 'Model'} does not support Text-to-3D. Click to switch models & unlock.`
-                  : 'Generate 3D from Text Prompt'
-              }
               className={`flex-1 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all relative ${
                 currentMode === 'text-to-3d'
                   ? 'bg-[#ffffff] text-[#111216] shadow-md'
@@ -287,7 +281,6 @@ export const GeneratePanel: React.FC = () => {
             <button
               id="tab-image-to-3d"
               onClick={handleImageTo3DTabClick}
-              title="Reconstruct 3D mesh from Reference Image"
               className={`flex-1 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
                 currentMode === 'image-to-3d'
                   ? 'bg-[#ffffff] text-[#111216] shadow-md'
@@ -324,7 +317,6 @@ export const GeneratePanel: React.FC = () => {
                     setGenerationSettings(prev => ({ ...prev, prompt: random }));
                   }}
                   className="text-[10px] text-[#f5c518] hover:underline flex items-center gap-1"
-                  title="Insert random sample prompt"
                 >
                   <Dices className="w-3 h-3" />
                   <span>Surprise Me</span>
@@ -344,7 +336,6 @@ export const GeneratePanel: React.FC = () => {
                   <button
                     onClick={() => setGenerationSettings(prev => ({ ...prev, prompt: '' }))}
                     className="absolute right-2.5 bottom-2.5 text-[#6b7280] hover:text-[#ef4444] p-1"
-                    title="Clear prompt"
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>
@@ -378,45 +369,49 @@ export const GeneratePanel: React.FC = () => {
           <div className="space-y-3 animate-in fade-in duration-200">
             {/* Sub-Action Icon Bar (Upload, Crop, Wand, Edit) */}
             <div className="flex items-center justify-between px-2 py-1.5 rounded-xl bg-[#181a22] border border-[#262a36]">
-              <button
-                onClick={() => { setSubAction('upload'); fileInputRef.current?.click(); }}
-                title="Upload Reference Image"
-                className={`p-1.5 rounded-lg transition-colors ${
-                  subAction === 'upload' ? 'bg-[#272b38] text-[#f5c518]' : 'text-[#8e95a5] hover:text-[#f3f4f6]'
-                }`}
-              >
-                <ImageIcon className="w-4 h-4" />
-              </button>
+              <SimpleTooltip label="Upload Reference Image">
+                <button
+                  onClick={() => { setSubAction('upload'); fileInputRef.current?.click(); }}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    subAction === 'upload' ? 'bg-[#272b38] text-[#f5c518]' : 'text-[#8e95a5] hover:text-[#f3f4f6]'
+                  }`}
+                >
+                  <ImageIcon className="w-4 h-4" />
+                </button>
+              </SimpleTooltip>
 
-              <button
-                onClick={() => setSubAction('crop')}
-                title="Crop & Align Subject"
-                className={`p-1.5 rounded-lg transition-colors ${
-                  subAction === 'crop' ? 'bg-[#272b38] text-[#f5c518]' : 'text-[#8e95a5] hover:text-[#f3f4f6]'
-                }`}
-              >
-                <Crop className="w-4 h-4" />
-              </button>
+              <SimpleTooltip label="Crop & Align Subject">
+                <button
+                  onClick={() => setSubAction('crop')}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    subAction === 'crop' ? 'bg-[#272b38] text-[#f5c518]' : 'text-[#8e95a5] hover:text-[#f3f4f6]'
+                  }`}
+                >
+                  <Crop className="w-4 h-4" />
+                </button>
+              </SimpleTooltip>
 
-              <button
-                onClick={() => setSubAction('wand')}
-                title="AI Image Enhance"
-                className={`p-1.5 rounded-lg transition-colors ${
-                  subAction === 'wand' ? 'bg-[#272b38] text-[#f5c518]' : 'text-[#8e95a5] hover:text-[#f3f4f6]'
-                }`}
-              >
-                <Wand2 className="w-4 h-4" />
-              </button>
+              <SimpleTooltip label="AI Image Enhance">
+                <button
+                  onClick={() => setSubAction('wand')}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    subAction === 'wand' ? 'bg-[#272b38] text-[#f5c518]' : 'text-[#8e95a5] hover:text-[#f3f4f6]'
+                  }`}
+                >
+                  <Wand2 className="w-4 h-4" />
+                </button>
+              </SimpleTooltip>
 
-              <button
-                onClick={() => setSubAction('edit')}
-                title="Paint Mask / Edit"
-                className={`p-1.5 rounded-lg transition-colors ${
-                  subAction === 'edit' ? 'bg-[#272b38] text-[#f5c518]' : 'text-[#8e95a5] hover:text-[#f3f4f6]'
-                }`}
-              >
-                <Pencil className="w-4 h-4" />
-              </button>
+              <SimpleTooltip label="Paint Mask / Edit">
+                <button
+                  onClick={() => setSubAction('edit')}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    subAction === 'edit' ? 'bg-[#272b38] text-[#f5c518]' : 'text-[#8e95a5] hover:text-[#f3f4f6]'
+                  }`}
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+              </SimpleTooltip>
             </div>
 
             {/* Image Dropzone Area with Checkerboard Background */}
@@ -551,11 +546,6 @@ export const GeneratePanel: React.FC = () => {
                   <button
                     key={m.id}
                     onClick={() => handleModelSelect(m)}
-                    title={
-                      isLockedInCurrentMode
-                        ? `${m.label} does not support Text-to-3D. Click to switch to Image-to-3D mode.`
-                        : `${m.label} — ${vramGb} GB VRAM`
-                    }
                     className={`p-2 rounded-xl text-left border transition-all relative ${
                       isLockedInCurrentMode
                         ? 'bg-[#181316] border-[#3f2127] text-[#8e95a5] hover:border-[#ef4444]/60'
@@ -570,7 +560,9 @@ export const GeneratePanel: React.FC = () => {
                           <Lock className="w-3 h-3 text-[#ef4444] flex-shrink-0" />
                         )}
                         {!isInstalled && (
-                          <span className="w-2 h-2 rounded-full bg-[#f5c518] flex-shrink-0" title="Not installed" />
+                          <SimpleTooltip label="Not installed">
+                            <span className="w-2 h-2 rounded-full bg-[#f5c518] flex-shrink-0" />
+                          </SimpleTooltip>
                         )}
                         <span className={`font-bold text-xs truncate ${
                           isLockedInCurrentMode 
@@ -694,7 +686,6 @@ export const GeneratePanel: React.FC = () => {
                     className={`w-9 h-5 rounded-full p-0.5 transition-colors ${
                       generationSettings.lowVram ? 'bg-[#38bdf8]' : 'bg-[#282c38]'
                     }`}
-                    title="Enable Low VRAM execution mode for GPUs with limited VRAM"
                   >
                     <div className={`w-4 h-4 rounded-full bg-[#111216] transition-transform ${
                       generationSettings.lowVram ? 'translate-x-4' : 'translate-x-0'
@@ -720,16 +711,16 @@ export const GeneratePanel: React.FC = () => {
 
                    {privacyMenuOpen && (
                      <div className="absolute right-0 bottom-full mb-1 w-28 py-1 rounded-xl bg-[#1c1e27] border border-[#2f3444] shadow-xl z-50">
-                       <button
-                         onClick={() => { setPrivacy('public'); setPrivacyMenuOpen(false); }}
-                         className="w-full text-left px-3 py-1.5 text-[11px] text-[#e5e7eb] hover:bg-[#252835]"
-                       >
-                         🌐 Public
-                       </button>
-                       <button
-                         onClick={() => { setPrivacy('private'); setPrivacyMenuOpen(false); }}
-                         className="w-full text-left px-3 py-1.5 text-[11px] text-[#e5e7eb] hover:bg-[#252835]"
-                       >
+                        <button
+                          onClick={() => { setPrivacy('public'); setPrivacyMenuOpen(false); }}
+                          className="w-full text-left px-2.5 py-1 text-[11px] text-[#e5e7eb] hover:bg-[#252835]"
+                        >
+                          🌐 Public
+                        </button>
+                        <button
+                          onClick={() => { setPrivacy('private'); setPrivacyMenuOpen(false); }}
+                          className="w-full text-left px-2.5 py-1 text-[11px] text-[#e5e7eb] hover:bg-[#252835]"
+                        >
                          🔒 Private
                        </button>
                      </div>
@@ -852,8 +843,8 @@ export const GeneratePanel: React.FC = () => {
          </div>
        </div>
 
-      {/* Bottom Sticky Action Button */}
-      <div className="p-3.5 border-t border-[#21242c] bg-[#0d0e12]">
+       {/* Bottom Sticky Action Button */}
+       <div className="p-3 border-t border-[#21242c] bg-[#0d0e12]">
         <button
           id="btn-generate-model-action"
           onClick={handleGenerate}

@@ -15,6 +15,7 @@ import {
   Layers,
 } from 'lucide-react';
 import type { ViewportMode } from '../types';
+import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 
 interface WorldMeshViewerProps {
   mode: ViewportMode;
@@ -41,6 +42,7 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
   const gridRef = useRef<THREE.GridHelper | null>(null);
   const animRef = useRef<number | null>(null);
   const turntableRef = useRef(turntable);
+  const needsRenderRef = useRef(true);
 
   const [interaction, setInteraction] = useState<'orbit' | 'pan'>('orbit');
   const [viewpoint, setViewpoint] = useState<'latest' | 'seat'>('latest');
@@ -48,6 +50,14 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
   useEffect(() => {
     turntableRef.current = turntable;
   }, [turntable]);
+
+  // React to grid visibility changes
+  useEffect(() => {
+    if (gridRef.current) {
+      gridRef.current.visible = showGrid;
+    }
+    needsRenderRef.current = true;
+  }, [showGrid]);
 
   // Build a low-poly procedural world preview (static terrain mesh).
   // ponytail: this is a decorative placeholder mesh only — it holds a fixed
@@ -113,6 +123,7 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
     cam.position.set(2.4, 1.6, 2.4);
     if (target) target.set(0, 0.2, 0);
     controlsRef.current?.update();
+    needsRenderRef.current = true;
   }, []);
 
   const fitToScreen = useCallback(() => {
@@ -121,6 +132,7 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
     cam.position.set(1.6, 1.0, 1.6);
     if (controlsRef.current?.target) controlsRef.current.target.set(0, 0.2, 0);
     controlsRef.current?.update();
+    needsRenderRef.current = true;
   }, []);
 
   const handleScreenshot = useCallback(() => {
@@ -148,9 +160,10 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
     camera.position.set(2.4, 1.6, 2.4);
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.info.autoReset = false;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.1;
     renderer.shadowMap.enabled = true;
@@ -189,15 +202,17 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
 
     const timer = new THREE.Timer();
     const animate = () => {
-      animRef.current = requestAnimationFrame(animate);
+      if (!needsRenderRef.current && !turntableRef.current) return;
       timer.update();
       if (turntableRef.current && world) {
         world.rotation.y += timer.getDelta() * 0.35;
       }
       controls.update();
+      renderer.info.reset();
       renderer.render(scene, camera);
+      needsRenderRef.current = false;
     };
-    animate();
+    renderer.setAnimationLoop(animate);
 
     const resizeObserver = new ResizeObserver(() => {
       if (!container || !renderer || !camera) return;
@@ -212,6 +227,7 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
     resizeObserver.observe(container);
 
     return () => {
+      renderer.setAnimationLoop(null);
       if (animRef.current) cancelAnimationFrame(animRef.current);
       resizeObserver.disconnect();
       controls.dispose();
@@ -252,76 +268,83 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
           </div>
         </div>
 
-        <button
-          onClick={resetCamera}
-          title="Reset Camera"
-          className="w-11 h-11 rounded-xl bg-[var(--ws-hud-bg,#12141a)]/90 backdrop-blur-md border border-[var(--ws-hud-border,#232733)] flex items-center justify-center cursor-pointer hover:border-[#f5c518] shadow-xl group transition-all"
-        >
-          <div className="relative w-6 h-6 flex items-center justify-center">
-            <span className="text-[9px] font-bold text-[#ef4444] absolute -top-1">Y</span>
-            <span className="text-[9px] font-bold text-[#22c55e] absolute -right-1">X</span>
-            <span className="text-[9px] font-bold text-[#3b82f6] absolute -bottom-1">Z</span>
-            <div className="w-2 h-2 rounded-full bg-[#f5c518] group-hover:scale-125 transition-transform" />
-          </div>
-        </button>
+        <SimpleTooltip label="Reset Camera">
+          <button
+            onClick={resetCamera}
+            className="w-11 h-11 rounded-xl bg-[var(--ws-hud-bg,#12141a)]/90 backdrop-blur-md border border-[var(--ws-hud-border,#232733)] flex items-center justify-center cursor-pointer hover:border-[#f5c518] shadow-xl group transition-all"
+          >
+            <div className="relative w-6 h-6 flex items-center justify-center">
+              <span className="text-[9px] font-bold text-[#ef4444] absolute -top-1">Y</span>
+              <span className="text-[9px] font-bold text-[#22c55e] absolute -right-1">X</span>
+              <span className="text-[9px] font-bold text-[#3b82f6] absolute -bottom-1">Z</span>
+              <div className="w-2 h-2 rounded-full bg-[#f5c518] group-hover:scale-125 transition-transform" />
+            </div>
+          </button>
+        </SimpleTooltip>
       </div>
 
       {/* Right floating tool rail */}
       <div className="absolute right-4 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-1.5 bg-[var(--ws-hud-bg,#12141a)]/90 backdrop-blur-md border border-[var(--ws-hud-border,#232733)] p-1.5 rounded-2xl shadow-2xl">
-        <button
-          onClick={() => setInteraction(interaction === 'orbit' ? 'pan' : 'orbit')}
-          title={interaction === 'orbit' ? 'Switch to Pan Mode' : 'Switch to Orbit Mode'}
-          className={`p-2 rounded-xl transition-all ${
-            interaction === 'pan'
-              ? 'bg-[#f5c518] text-[#111216]'
-              : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
-          }`}
-        >
-          <Hand className="w-4 h-4" />
-        </button>
-        <button
-          onClick={handleScreenshot}
-          title="Capture Viewport Screenshot"
-          className="p-2 rounded-xl text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)] transition-all"
-        >
-          <Camera className="w-4 h-4" />
-        </button>
-        <button
-          onClick={onToggleGrid}
-          title={showGrid ? 'Hide Floor Grid' : 'Show Floor Grid'}
-          className={`p-2 rounded-xl transition-all ${
-            showGrid
-              ? 'text-[#f5c518] bg-[var(--ws-active-bg,#1a1d26)]'
-              : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
-          }`}
-        >
-          <GridIcon className="w-4 h-4" />
-        </button>
-        <button
-          onClick={onToggleTurntable}
-          title={turntable ? 'Pause Turntable' : 'Start Turntable'}
-          className={`p-2 rounded-xl transition-all ${
-            turntable
-              ? 'bg-[#f5c518] text-[#111216]'
-              : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
-          }`}
-        >
-          <RotateCw className="w-4 h-4" />
-        </button>
-        <button
-          onClick={resetCamera}
-          title="Reset Camera"
-          className="p-2 rounded-xl text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)] transition-all"
-        >
-          <RotateCcw className="w-4 h-4" />
-        </button>
-        <button
-          onClick={fitToScreen}
-          title="Frame World"
-          className="p-2 rounded-xl text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)] transition-all"
-        >
-          <Compass className="w-4 h-4" />
-        </button>
+        <SimpleTooltip label={interaction === 'orbit' ? 'Switch to Pan Mode' : 'Switch to Orbit Mode'}>
+          <button
+            onClick={() => setInteraction(interaction === 'orbit' ? 'pan' : 'orbit')}
+            className={`p-2 rounded-xl transition-all ${
+              interaction === 'pan'
+                ? 'bg-[#f5c518] text-[#111216]'
+                : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
+            }`}
+          >
+            <Hand className="w-4 h-4" />
+          </button>
+        </SimpleTooltip>
+        <SimpleTooltip label="Capture Viewport Screenshot">
+          <button
+            onClick={handleScreenshot}
+            className="p-2 rounded-xl text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)] transition-all"
+          >
+            <Camera className="w-4 h-4" />
+          </button>
+        </SimpleTooltip>
+        <SimpleTooltip label={showGrid ? 'Hide Floor Grid' : 'Show Floor Grid'}>
+          <button
+            onClick={onToggleGrid}
+            className={`p-2 rounded-xl transition-all ${
+              showGrid
+                ? 'text-[#f5c518] bg-[var(--ws-active-bg,#1a1d26)]'
+                : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
+            }`}
+          >
+            <GridIcon className="w-4 h-4" />
+          </button>
+        </SimpleTooltip>
+        <SimpleTooltip label={turntable ? 'Pause Turntable' : 'Start Turntable'}>
+          <button
+            onClick={onToggleTurntable}
+            className={`p-2 rounded-xl transition-all ${
+              turntable
+                ? 'bg-[#f5c518] text-[#111216]'
+                : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
+            }`}
+          >
+            <RotateCw className="w-4 h-4" />
+          </button>
+        </SimpleTooltip>
+        <SimpleTooltip label="Reset Camera">
+          <button
+            onClick={resetCamera}
+            className="p-2 rounded-xl text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)] transition-all"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </button>
+        </SimpleTooltip>
+        <SimpleTooltip label="Frame World">
+          <button
+            onClick={fitToScreen}
+            className="p-2 rounded-xl text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)] transition-all"
+          >
+            <Compass className="w-4 h-4" />
+          </button>
+        </SimpleTooltip>
       </div>
 
       {/* Bottom center view mode switcher */}
@@ -332,17 +355,17 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
             { id: 'terrain', label: 'Terrain', Icon: Mountain },
             { id: 'wireframe', label: 'Wire', Icon: Layers },
           ] as const).map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              title={`View: ${label}`}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-all ${
-                mode === id
-                  ? 'bg-[#f5c518] text-[#111216]'
-                  : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-            </button>
+            <SimpleTooltip key={id} label={`View: ${label}`}>
+              <button
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-all ${
+                  mode === id
+                    ? 'bg-[#f5c518] text-[#111216]'
+                    : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+              </button>
+            </SimpleTooltip>
           ))}
         </div>
       </div>

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Save, Bell, Keyboard, Network, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Bell, Keyboard, Network, RotateCcw, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import {

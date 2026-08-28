@@ -24,6 +24,7 @@ export interface EnvironmentUpload {
 }
 
 export interface WorldGenSettings {
+  prompt: string;
   mood: WorldGenMood;
   shape: WorldGenShape;
   style: WorldGenStyle;
@@ -39,5 +40,3 @@ export interface WorldGenSettings {
 }
 
 export type ViewportMode = 'world' | 'terrain' | 'wireframe';
-
-export type PanelTab = 'upload' | 'controls' | 'properties';

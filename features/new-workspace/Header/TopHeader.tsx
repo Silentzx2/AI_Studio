@@ -4,16 +4,15 @@ import {
   ChevronDown,
   Layers,
   Sliders,
-  Activity,
   Bell,
   User,
   Cable,
   Sun,
-  Hexagon,
-  Image as ImageIcon
+  Hexagon
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useWorkspace } from '../store/WorkspaceContext';
+import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 
 export const TopHeader: React.FC = () => {
   const router = useRouter();
@@ -137,34 +136,30 @@ export const TopHeader: React.FC = () => {
         </nav>
       </div>
 
-      {/* Right DCC Bridge, FastAPI 3D Status, Notifications, Profile (Personal Use - No Billing/Credits) */}
-      <div className="flex items-center gap-3.5">
-        {/* DCC Bridge Button with Version (Reference Image) */}
-        <button
-          id="btn-dcc-bridge"
-          onClick={() => setIsDccBridgeOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#16181f] border border-[#272b36] hover:border-[#3b4150] text-xs text-[#cbd5e1] transition-colors"
-          title="Connect to Blender / Unreal Engine / Maya via DCC Bridge"
-        >
-          <Cable className="w-3.5 h-3.5 text-[#f5c518]" />
-          <span className="font-medium">DCC Bridge</span>
-                  </button>
+        {/* Right DCC Bridge, FastAPI 3D Status, Notifications, Profile (Personal Use - No Billing/Credits) */}
+        <div className="flex items-center gap-3.5">
+          {/* DCC Bridge Button with Version (Reference Image) */}
+          <SimpleTooltip label="Connect to Blender / Unreal Engine / Maya via DCC Bridge">
+            <button
+              id="btn-dcc-bridge"
+              onClick={() => setIsDccBridgeOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#16181f] border border-[#272b36] hover:border-[#3b4150] text-xs text-[#cbd5e1] transition-colors"
+            >
+              <Cable className="w-3.5 h-3.5 text-[#f5c518]" />
+              <span className="font-medium">DCC Bridge</span>
+            </button>
+          </SimpleTooltip>
 
-        {/* Live FastAPI Backend Indicator */}
-        <button
-          id="btn-status-pill"
-          onClick={() => setIsSettingsOpen(true)}
-          className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-mono transition-all ${
-            systemStats.status === 'online'
-              ? 'bg-[#121b18] border-[#22c55e]/40 text-[#86efac] hover:border-[#22c55e]'
-              : 'bg-[#1e1616] border-[#ef4444]/40 text-[#fca5a5] hover:border-[#ef4444]'
-          }`}
-          title={
-            systemStats.status === 'online'
-              ? `FastAPI Backend Connected: localhost:8000 (${systemStats.lastPingMs}ms) • ${systemStats.gpu || 'GPU'}${systemStats.vramUsedGb != null ? ` • VRAM ${systemStats.vramUsedGb}GB / ${systemStats.vramTotalGb || '?'}GB` : ''}`
-              : 'FastAPI Backend Offline at localhost:8000 • Click to open settings'
-          }
-        >
+          {/* Live FastAPI Backend Indicator */}
+          <button
+            id="btn-status-pill"
+            onClick={() => setIsSettingsOpen(true)}
+            className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-mono transition-all ${
+              systemStats.status === 'online'
+                ? 'bg-[#121b18] border-[#22c55e]/40 text-[#86efac] hover:border-[#22c55e]'
+                : 'bg-[#1e1616] border-[#ef4444]/40 text-[#fca5a5] hover:border-[#ef4444]'
+            }`}
+          >
           <div className={`w-2 h-2 rounded-full ${systemStats.status === 'online' ? 'bg-[#22c55e] shadow-[0_0_8px_#22c55e] animate-pulse' : 'bg-[#ef4444]'}`} />
           <span className="text-[11px] font-sans font-medium text-[#e2e8f0]">
             FastAPI {systemStats.status === 'online' ? '8000' : 'Offline'}
@@ -177,21 +172,23 @@ export const TopHeader: React.FC = () => {
         </button>
 
         {/* Brightness / Theme Icon */}
-        <button
-          onClick={() => router.push('/settings')}
-          className="p-1.5 rounded-lg text-[#9ca3af] hover:text-[#f3f4f6] hover:bg-[#1c1e24] transition-colors"
-          title="Settings"
-        >
-          <Sun className="w-4 h-4" />
-        </button>
+        <SimpleTooltip label="Settings">
+          <button
+            onClick={() => router.push('/settings')}
+            className="p-1.5 rounded-lg text-[#9ca3af] hover:text-[#f3f4f6] hover:bg-[#1c1e24] transition-colors"
+          >
+            <Sun className="w-4 h-4" />
+          </button>
+        </SimpleTooltip>
 
-        <button
-          aria-label="Notifications"
-          className="p-1.5 rounded-lg text-[#9ca3af] hover:text-[#f3f4f6] hover:bg-[#1c1e24] transition-colors"
-          title="Notifications"
-        >
-          <Bell className="w-4 h-4" />
-        </button>
+        <SimpleTooltip label="Notifications">
+          <button
+            aria-label="Notifications"
+            className="p-1.5 rounded-lg text-[#9ca3af] hover:text-[#f3f4f6] hover:bg-[#1c1e24] transition-colors"
+          >
+            <Bell className="w-4 h-4" />
+          </button>
+        </SimpleTooltip>
 
         {/* Profile Avatar */}
         <div

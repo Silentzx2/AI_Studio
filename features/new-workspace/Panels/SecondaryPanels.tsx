@@ -1,13 +1,10 @@
 import React from 'react';
 import {
-  Sparkles,
   Hexagon,
   Pencil,
   Maximize,
   Palette,
-  Wand2,
-  Layers,
-  ArrowRight
+  Layers
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { ToolType } from '../types';
@@ -26,13 +23,13 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
 
   if (tool === 'retopo') {
     return (
-      <div className="flex flex-col h-full overflow-y-auto px-4 py-3.5 space-y-4 text-xs select-none">
+      <div className="flex flex-col h-full overflow-y-auto px-3 py-3 space-y-3 text-xs select-none">
         <div className="flex items-center gap-2 pb-1">
           <div className="w-6 h-6 rounded-md bg-[#f5c518]/20 flex items-center justify-center text-[#f5c518]">
             <Hexagon className="w-3.5 h-3.5" />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-[#f3f4f6]">Quad Retopology</h2>
+            <h2 className="text-xs font-bold text-[#f3f4f6]">Quad Retopology</h2>
             <p className="text-[10px] text-[#9ca3af]">Anatomical flow & Game-Ready Quads</p>
           </div>
         </div>
@@ -95,12 +92,12 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
 
   if (tool === 'edit') {
     return (
-      <div className="flex flex-col h-full overflow-y-auto px-4 py-3.5 space-y-4 text-xs select-none">
+      <div className="flex flex-col h-full overflow-y-auto px-3 py-3 space-y-3 text-xs select-none">
         <div className="flex items-center gap-2 pb-1">
           <div className="w-6 h-6 rounded-md bg-[#f5c518]/20 flex items-center justify-center text-[#f5c518]">
             <Pencil className="w-3.5 h-3.5" />
           </div>
-          <h2 className="text-sm font-bold text-[#f3f4f6]">3D Sculpt & Edit</h2>
+          <h2 className="text-xs font-bold text-[#f3f4f6]">3D Sculpt & Edit</h2>
         </div>
         <p className="text-[#9ca3af]">Interactive vertex push, smooth, inflate, pinch and symmetry sculpting tools.</p>
         <div className="grid grid-cols-2 gap-2">
@@ -116,12 +113,12 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
 
   if (tool === 'upscale') {
     return (
-      <div className="flex flex-col h-full overflow-y-auto px-4 py-3.5 space-y-4 text-xs select-none">
+      <div className="flex flex-col h-full overflow-y-auto px-3 py-3 space-y-3 text-xs select-none">
         <div className="flex items-center gap-2 pb-1">
           <div className="w-6 h-6 rounded-md bg-[#f5c518]/20 flex items-center justify-center text-[#f5c518]">
             <Maximize className="w-3.5 h-3.5" />
           </div>
-          <h2 className="text-sm font-bold text-[#f3f4f6]">3D AI Upscale</h2>
+          <h2 className="text-xs font-bold text-[#f3f4f6]">3D AI Upscale</h2>
         </div>
         <p className="text-[#9ca3af]">Increase texture resolution from 1K to 4K/8K and subdivide high-frequency surface details.</p>
         <div className="space-y-1.5">
@@ -148,12 +145,12 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
 
   if (tool === 'pbr') {
     return (
-      <div className="flex flex-col h-full overflow-y-auto px-4 py-3.5 space-y-4 text-xs select-none">
+      <div className="flex flex-col h-full overflow-y-auto px-3 py-3 space-y-3 text-xs select-none">
         <div className="flex items-center gap-2 pb-1">
           <div className="w-6 h-6 rounded-md bg-[#f5c518]/20 flex items-center justify-center text-[#f5c518]">
             <Palette className="w-3.5 h-3.5" />
           </div>
-          <h2 className="text-sm font-bold text-[#f3f4f6]">PBR Material Baker</h2>
+          <h2 className="text-xs font-bold text-[#f3f4f6]">PBR Material Baker</h2>
         </div>
         <p className="text-[#9ca3af]">Bake physically based rendering channels (Albedo, Normal, Roughness, Metallic, Height, AO) using 3D Generation Pipeline nodes.</p>
         <button
@@ -169,7 +166,7 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
   }
 
   return (
-    <div className="flex flex-col h-full items-center justify-center px-4 py-3.5 text-xs select-none">
+    <div className="flex flex-col h-full items-center justify-center px-3 py-3 text-xs select-none">
       <div className="w-10 h-10 rounded-xl bg-[#181a20] border border-[#282c37] flex items-center justify-center text-[#8e95a5] mb-3">
         <Layers className="w-5 h-5" />
       </div>

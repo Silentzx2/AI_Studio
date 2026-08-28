@@ -1,5 +1,58 @@
 # AI 3D Studio — Changelog
 
+## [v4.5.1] - 2026-08-28
+
+### Added
+- **Environment Preset Themes**: 5 clickable presets (Studio, Game, Real, Dramatic, Soft) in MeshViewer
+- **SimpleTooltip Component**: Shared dark-styled tooltips across workspace
+- **WorldGen Generate Button**: Golden "Generate World" button in left settings panel
+
+### Changed
+- **Compact UI**: 5-10% smaller (panels w-72, reduced padding/gaps)
+- **MeshViewer 60fps**: setAnimationLoop, demand rendering, reduced shadow maps
+- **Brighter Lighting**: Increased all light intensities and exposure
+- **Collapse Icons**: PanelLeftClose/Open icons instead of »/«
+- **Toggle Styling**: Smaller, smoother toggle switches
+- **WorldGen + Settings**: Use workspace TopHeader + LeftNavigation
+
+### Removed
+- **Heavy Loading**: Replaced with minimal spinner
+- **Compare Panel**: Deleted component and all references
+- **Dead Code**: ~217 lines removed (PerformanceChart, geometry utils, unused imports)
+
+### Fixed
+- **MeshViewer Rendering**: Fixed early return in animate()
+- **Duplicate Rigging Button**: Removed from LeftNavigation
+- **Missing Icons**: Restored HeartPulse and 14 appearance icons
+
+---
+
+## [v4.5.0] - 2026-08-28
+
+### Added
+- **Environment Settings in MeshViewer**: Added Sun icon button to the right floating tool rail that opens a popover with lighting controls (ambient, key, fill, rim), exposure slider, grid toggle, and reset to defaults. Settings update the Three.js scene in real-time.
+- **WorldGen Page**: Added LeftNavigation icon rail and TopHeader to the WorldGen page for consistent navigation with workspace pages.
+
+### Changed
+- **WorldViewer → WorldMeshViewer**: Renamed the WorldGen viewport component to avoid confusion with the workspace MeshViewer.
+- **Brighter MeshViewer**: Increased light intensities, grid colors, background brightness, and tone mapping exposure for better visibility.
+- **Collapse Icons**: Changed from "»"/"«" characters to proper PanelLeftClose/PanelLeftOpen/PanelRightClose/PanelRightOpen icons.
+- **Smoother Collapse Animation**: Changed from width-based animation to opacity + x-transition for smoother panel collapse/expand.
+- **Logo Text**: Changed "NEXUS 3D" to "3D Studio" in the TopHeader.
+- **Inspector Header**: Swapped collapse button (now on left) and "Inspector" text (now on right).
+- **Settings Page Header**: Added fixed header with "3D Studio" logo button that redirects to workspace. Fixed padding to prevent content from being covered.
+
+### Removed
+- **Compare Panel**: Removed the ComparePanel component, CompareSettings type, and all references. The Compare tool button was removed from LeftNavigation.
+- **WorldGenHeader**: Removed the custom WorldGenHeader component. WorldGen now uses the same TopHeader as workspace pages.
+
+### Fixed
+- **MeshViewer Not Rendering**: Fixed early return in animate() function that prevented grid/scene from rendering when no mesh was loaded.
+- **Duplicate Rigging Button**: Removed duplicate "Rigging" button from LeftNavigation.
+- **PBR Route**: Fixed PBR tab in Texture panel to navigate to /workspace/pbr page.
+
+---
+
 ## [v4.4.13] - 2026-08-28
 
 ### Fixed

@@ -6,13 +6,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Download, CheckCircle, Loader2,
   HardDrive, Boxes, X, Tag, RefreshCw, AlertCircle,
-  Image as ImageIcon, Star, Trash2, ChevronDown, Zap, Clock,
+  Trash2, ChevronDown, Zap, Clock,
   Play, Pause, Unplug,
 } from 'lucide-react';
 import { GlassCard } from '@/components/premium/GlassCard';
 import { ProgressBar } from '@/components/premium/ProgressBar';
 import { Badge } from '@/components/premium/Badge';
-import { Spinner } from '@/components/premium/Spinner';
 import { Switch } from '@/components/ui/switch';
 import { adminService } from '@/services/adminService';
 import { useTaskManager } from '@/hooks/useTaskManager';

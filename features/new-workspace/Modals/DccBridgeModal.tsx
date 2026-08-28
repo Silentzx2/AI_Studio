@@ -4,9 +4,7 @@ import {
   X, 
   Check, 
   Copy, 
-  ExternalLink, 
   Box, 
-  Layers, 
   CheckCircle2
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';

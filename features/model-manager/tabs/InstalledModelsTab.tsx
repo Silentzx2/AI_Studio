@@ -7,8 +7,6 @@ import { Input } from "@/components/ui/input";
 import { 
   Trash2, 
   RefreshCw, 
-  Info, 
-  Settings,
   Activity,
   AlertTriangle 
 } from 'lucide-react';

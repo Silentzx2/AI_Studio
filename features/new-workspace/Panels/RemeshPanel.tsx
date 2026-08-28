@@ -38,7 +38,7 @@ export const RemeshPanel: React.FC = () => {
   };
 
   return (
-    <div id="panel-remesh" className="flex flex-col h-full overflow-y-auto px-4 py-3.5 space-y-4 text-xs select-none">
+    <div id="panel-remesh" className="flex flex-col h-full overflow-y-auto px-3 py-3 space-y-3 text-xs select-none">
       {/* Title Header (Screenshot 1) */}
       <div className="flex items-center justify-between pb-1">
         <div className="flex items-center gap-2">
@@ -48,7 +48,7 @@ export const RemeshPanel: React.FC = () => {
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <h2 className="text-sm font-bold text-[#f3f4f6]">Remesh</h2>
+          <h2 className="text-xs font-bold text-[#f3f4f6]">Remesh</h2>
           <HelpCircle className="w-3.5 h-3.5 text-[#6b7280]" />
         </div>
       </div>

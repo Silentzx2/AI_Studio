@@ -9,19 +9,15 @@ import {
   X,
   Download,
   Trash2,
-  HeartPulse,
   Settings,
   Info,
   Package,
   HardDrive,
   Cpu,
-  Clock,
   Shield,
-  ExternalLink,
   CheckCircle,
   AlertTriangle,
-  Loader2,
-  AlertCircle
+  HeartPulse
 } from 'lucide-react';
 
 interface ModelManifest {

@@ -75,9 +75,9 @@
 | **GPU Scheduling** | VRAM-aware provider selection | ✅ | v1 |
 | **Workspace Compatibility** | Model-to-workspace filtering (prevents invalid selection) | ✅ | v3.3 |
 | **Texture Pipeline** | Production-grade PBR texture generation with model selection | ✅ | v3.3 |
-| **3D Viewer** | In-browser Three.js rendering | ✅ | v1 |
+| **3D Viewer** | In-browser Three.js rendering with environment controls | ✅ | v1 |
+| **WorldGen** | Procedural world & environment generation | ✅ | v4.5 |
 | **Admin Dashboard** | System administration interface | ✅ | v1 |
-| **Compare View** | Side-by-side model comparison with property diff | ✅ | v4.4.8 |
 | **Auto-Optimize** | Post-generation mesh decimation & UV fixing | ✅ | v4.4.8 |
 | **File Validation** | Client-side GLB structure & magic bytes validation | ✅ | v4.4.8 |
 | **Upload Diagnostics** | Debug tool for upload failures with recommendations | ✅ | v4.4.8 |
