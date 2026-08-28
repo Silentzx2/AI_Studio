@@ -55,7 +55,6 @@ dependencies:
   - accelerate
   native:
   - cupy-cuda12x==13.4.1
-  - bpy==4.0
   extra:
   - hy3dgen
   - accelerate>=0.34.0
@@ -65,10 +64,14 @@ dependencies:
       available: true
       mode: pypi
     bpy:
-      available: true
-      mode: pypi
+      available: false
+      reason: "bpy is Blender's Python API — it ships with Blender, not PyPI. Install Blender separately to enable headless mesh cleanup/rigging."
   fallbacks: {}
-  optional: []
+  # bpy is only used by the headless Blender subprocess script (blender/scripts/process_mesh.py).
+  # It is NOT imported by any in-process provider code. The pipeline degrades gracefully
+  # when Blender is absent (pipeline.py checks blender_enabled + shutil.which).
+  optional:
+  - bpy
   representation_required: []
   local_extensions: {}
 weights:

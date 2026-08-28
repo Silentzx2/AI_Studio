@@ -172,7 +172,7 @@ def _build_repo_registry() -> dict[str, dict]:
         if provider not in cfg["providers"]:
             cfg["providers"].append(provider)
         # Prefer the explicit source metadata from the first manifest; shared
-        # repos (e.g. Hunyuan3D-2.1 + mini) intentionally use one checkout.
+        # repos intentionally use one checkout.
     return registry
 
 

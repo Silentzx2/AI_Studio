@@ -4,7 +4,7 @@ source:
   repo: https://github.com/Tencent-Hunyuan/Hunyuan3D-2.git
   ref: main
   submodules: false
-  local_dir: Hunyuan3D-2
+  local_dir: Hunyuan3D-2mini
 environment:
   python: '3.10'
   torch: 2.5.1

@@ -1,30 +1,25 @@
 """
-Hunyuan3D local providers — wraps third_party/Hunyuan3D-2.1 without modifying it.
+Hunyuan3D local providers — each provider uses its own isolated directory and venv.
 
 Hunyuan3D21LocalProvider  — primary   (Hunyuan3D-2.1, ~29 GB VRAM peak / 21 GB low-VRAM)
 Hunyuan3D2MiniLocalProvider — fast    (Hunyuan3D-2 Mini 0.6B, image-to-shape only,
                                       loads its dit from the hunyuan3d-dit-v2-mini
                                       subfolder of the tencent/Hunyuan3D-2mini snapshot)
 
-FIXES APPLIED (Issue #1):
+FIXES APPLIED:
 - Added GPU execution verification after model load
 - Added GPU memory logging before/after inference
-- Unified path resolution using StorageConfig (Issue #10)
-- CRITICAL: Call _add_model_env() BEFORE any other imports to ensure per-model
-  venv packages (hy3dgen, newer huggingface_hub) take precedence.
+- Unified path resolution using StorageConfig
+- Per-model venv isolation: each provider calls _add_model_env() with its own repo_name
 """
 from __future__ import annotations
-
-# CRITICAL: Must set up per-model env BEFORE any other imports
-from app.core.providers.base import _add_model_env
-_add_model_env("Hunyuan3D-2")
 
 import asyncio
 import logging
 from pathlib import Path
 from typing import Any
 
-from app.core.providers.base import BaseProvider, ProviderResult
+from app.core.providers.base import BaseProvider, ProviderResult, _add_model_env
 from app.core.mesh_processor import write_placeholder_mesh
 from app.schemas.generation import GenerationRequest
 from runtime.accelerate_loader import (
@@ -265,7 +260,8 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
         return "hunyuan3d-2.1"
 
     def __init__(self, device: str = "cuda", low_vram: bool = False) -> None:
-        super().__init__("hunyuan3d-2.1", "hunyuan3d-2.1", device, low_vram=low_vram)
+        _add_model_env("Hunyuan3D-2.1")
+        super().__init__("hunyuan3d-2.1", "hunyuan3d-2.1", repo_name="Hunyuan3D-2.1", device=device, low_vram=low_vram)
 
     def _load_model(self) -> None:
         try:
@@ -357,7 +353,8 @@ class Hunyuan3D2MiniLocalProvider(_HunyuanBase):
         return "hunyuan3d-2-mini"
 
     def __init__(self, device: str = "cuda", low_vram: bool = False) -> None:
-        super().__init__("hunyuan3d-2-mini", "hunyuan3d-2-mini", device, low_vram=low_vram)
+        _add_model_env("Hunyuan3D-2mini")
+        super().__init__("hunyuan3d-2-mini", "hunyuan3d-2-mini", repo_name="Hunyuan3D-2mini", device=device, low_vram=low_vram)
 
     def _load_model(self) -> None:
         try:

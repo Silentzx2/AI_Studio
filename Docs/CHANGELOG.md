@@ -1,5 +1,24 @@
 # AI 3D Studio — Changelog
 
+## [v4.4.13] - 2026-08-28
+
+### Fixed
+- **Hunyuan3D-2.1 / UniRig**: Removed `bpy==4.0`/`bpy==4.2` from `dependencies.native`. `bpy` is Blender's Python API — it ships with Blender, not PyPI. Listing it as a pip dependency caused `uv pip install bpy==4.0` to fail and block the entire install. Moved to `optional` with `wheels.bpy.available: false` and a clear reason. `bpy` is only used by the headless Blender subprocess script (`blender/scripts/process_mesh.py`); it is never imported by in-process provider code. The pipeline already degrades gracefully when Blender is absent (`pipeline.py` checks `blender_enabled` + `shutil.which`).
+
+---
+
+## [v4.4.12] - 2026-08-28
+
+### Fixed
+- **Hunyuan3D-2 Mini isolation**: Fixed model isolation issue where the mini version shared the same third_party directory and venv as the regular Hunyuan3D-2.1.
+  - Changed `source.local_dir` in `hunyuan3d_2_mini.yaml` from `Hunyuan3D-2` to `Hunyuan3D-2mini` for complete directory isolation.
+  - Removed module-level `_add_model_env("Hunyuan3D-2")` call in `hunyuan3d_local.py` that incorrectly set up the same venv for both providers.
+  - Each provider now calls `_add_model_env()` with its own repo name (`Hunyuan3D-2.1` or `Hunyuan3D-2mini`) in its `__init__` method.
+  - Fixed `Hunyuan3D2MiniLocalProvider` to pass `repo_name="Hunyuan3D-2mini"` to the base class, ensuring correct weight path resolution.
+  - Updated outdated comments in `manifest_loader.py` and `installer.py` that referenced the old shared checkout behavior.
+
+---
+
 ## [v4.4.11] - 2026-08-28
 
 ### Fixed
