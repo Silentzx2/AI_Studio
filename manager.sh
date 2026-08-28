@@ -681,15 +681,26 @@ cmd_update_models() {
     read -rp "Press Enter to continue..."
 }
 
+_banner_line() {
+  # Prints a box line with proper padding: _banner_line "content" "padding_char"
+  local content="$1"
+  local pad_char="${2:- }"
+  local box_width=58
+  local visible_len=${#content}
+  local padding=$((box_width - visible_len))
+  if ((padding < 1)); then padding=1; fi
+  printf "  ║%s%*s║\n" "$content" "$padding" "" | sed "s/ /${pad_char}/g"
+}
+
 banner() {
   echo -e "${CYAN}${BOLD}"
-  echo "  ╔════════════════════════════════════════════════════════════╗"
-  echo "  ║                                                            ║"
-  echo "  ║           ${WHITE}AI 3D Studio v3.2${CYAN}                              ║"
-  echo "  ║        ${DIM}══════════════════════════════════${CYAN}                   ║"
-  echo "  ║   ${GRAY}Professional AI-Powered 3D Generation${CYAN}                    ║"
-  echo "  ║                                                            ║"
-  echo "  ╚════════════════════════════════════════════════════════════╝"
+  echo -e "  ╔════════════════════════════════════════════════════════════╗"
+  echo -e "  ║                                                            ║"
+  echo -e "  ║           \033[1;37mAI 3D Studio v3.2\033[1;36m                              ║"
+  echo -e "  ║        \033[2m══════════════════════════════════\033[1;36m                   ║"
+  echo -e "  ║   \033[0;90mProfessional AI-Powered 3D Generation\033[1;36m                    ║"
+  echo -e "  ║                                                            ║"
+  echo -e "  ╚════════════════════════════════════════════════════════════╝"
   echo -e "${NC}"
 }
 
@@ -731,32 +742,63 @@ _run_with_progress() {
         echo "    ${line}"
     done
 }
+_menu_item() {
+  # _menu_line "key" "description" — prints a padded menu line with colored key
+  local key="$1"
+  local desc="$2"
+  local box_width=56
+  local key_part
+  if [[ "$key" == *"["*"]"* ]]; then
+    key_part=$(echo -e "${CYAN}${key}${NC}")
+  else
+    key_part=$(echo -e "${RED}${key}${NC}")
+  fi
+  local line="  ${key_part}  ${desc}"
+  local visible_stripped
+  visible_stripped=$(echo -e "$line" | sed 's/\x1b\[[0-9;]*m//g')
+  local pad=$((box_width - ${#visible_stripped}))
+  if ((pad < 1)); then pad=1; fi
+  printf "  ║%s%*s║\n" "$line" "$pad" ""
+}
+
+_menu_separator() {
+  echo -e "${BOLD}${MAGENTA}  ╠════════════════════════════════════════════════════════╣${NC}"
+}
+
+_menu_top() {
+  echo -e "${BOLD}${MAGENTA}  ╔════════════════════════════════════════════════════════╗${NC}"
+  echo -e "${BOLD}${MAGENTA}  ║${NC}                  ${BOLD}${WHITE}Main Menu${NC}                         ${MAGENTA}║${NC}"
+  _menu_separator
+}
+
+_menu_bottom() {
+  echo -e "${BOLD}${MAGENTA}  ╚════════════════════════════════════════════════════════╝${NC}"
+}
+
 _main_menu_() {
     while true; do
         banner
         _status
-        echo -e "${BOLD}${MAGENTA}  ╔════════════════════════════════════════════════════════╗${NC}"
-        echo -e "${BOLD}${MAGENTA}  ║${NC}                  ${BOLD}${WHITE}Main Menu${NC}                         ${MAGENTA}║${NC}"
-        echo -e "${BOLD}${MAGENTA}  ╠════════════════════════════════════════════════════════╣${NC}"
-        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[1]${NC}  First-Time Setup                              ${MAGENTA}║${NC}"
-        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[2]${NC}  Start all services                           ${MAGENTA}║${NC}"
-        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[3]${NC}  Stop all services                            ${MAGENTA}║${NC}"
-        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[4]${NC}  Restart all services                         ${MAGENTA}║${NC}"
-        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[5]${NC}  Service status                               ${MAGENTA}║${NC}"
-        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[6]${NC}  View logs                                    ${MAGENTA}║${NC}"
-        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[7]${NC}  Health check                                 ${MAGENTA}║${NC}"
-        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[8]${NC}  Database management                          ${MAGENTA}║${NC}"
-        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[9]${NC}  View environment                             ${MAGENTA}║${NC}"
-        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[10]${NC} Reset PID files                              ${MAGENTA}║${NC}"
-        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[11]${NC} Clean old logs                               ${MAGENTA}║${NC}"
-        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[12]${NC} Cloudflare                                   ${MAGENTA}║${NC}"
-        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[13]${NC} Update / install models                      ${MAGENTA}║${NC}"
-        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[14]${NC} Google Colab launcher                         ${MAGENTA}║${NC}"
-        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[15]${NC} Clean environments                           ${MAGENTA}║${NC}"
-        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[16]${NC} Manage individual service                   ${MAGENTA}║${NC}"
-        echo -e "${BOLD}${MAGENTA}  ╠════════════════════════════════════════════════════════╣${NC}"
-        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${RED}[q]${NC}  Quit                                         ${MAGENTA}║${NC}"
-        echo -e "${BOLD}${MAGENTA}  ╚════════════════════════════════════════════════════════╝${NC}"
+        _menu_top
+        _menu_item "[1]" "First-Time Setup"
+        _menu_item "[2]" "Start all services"
+        _menu_item "[3]" "Stop all services"
+        _menu_item "[4]" "Restart all services"
+        _menu_item "[5]" "Service status"
+        _menu_item "[6]" "View logs"
+        _menu_item "[7]" "Health check"
+        _menu_item "[8]" "Database management"
+        _menu_item "[9]" "View environment"
+        _menu_item "[10]" "Reset PID files"
+        _menu_item "[11]" "Clean old logs"
+        _menu_item "[12]" "Cloudflare"
+        _menu_item "[13]" "Update / install models"
+        _menu_item "[14]" "Google Colab launcher"
+        _menu_item "[15]" "Clean environments"
+        _menu_item "[16]" "Manage individual service"
+        _menu_separator
+        _menu_item "[q]" "Quit"
+        _menu_bottom
         echo ""
         echo -e "  ${GRAY}Quick keys: 1-16  ${DIM}│${NC}  ${GRAY}q to quit${NC}"
         echo ""

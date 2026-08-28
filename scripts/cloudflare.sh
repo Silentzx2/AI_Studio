@@ -29,9 +29,9 @@ print_banner() {
     echo -e "${BLUE}"
     echo "  ╔════════════════════════════════════════════════════════════╗"
     echo "  ║                                                            ║"
-    echo "  ║           ${WHITE}${BOLD}Cloudflare Tunnel Manager${BLUE}                       ║"
-    echo "  ║        ${DIM}══════════════════════════════════${BLUE}                   ║"
-    echo "  ║   ${GRAY}Secure external access for AI 3D Studio${BLUE}                 ║"
+    echo -e "  ║           ${WHITE}${BOLD}Cloudflare Tunnel Manager${BLUE}                       ║"
+    echo -e "  ║        ${DIM}══════════════════════════════════${BLUE}                   ║"
+    echo -e "  ║   ${GRAY}Secure external access for AI 3D Studio${BLUE}                 ║"
     echo "  ║                                                            ║"
     echo "  ╚════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
@@ -163,6 +163,24 @@ delete_tunnel() {
     log "Tunnel Deleted"
 }
 
+_cf_menu_item() {
+  local key="$1"
+  local desc="$2"
+  local box_width=56
+  local key_part
+  if [[ "$key" == *"["*"]"* ]]; then
+    key_part=$(echo -e "${CYAN}${key}${NC}")
+  else
+    key_part=$(echo -e "${RED}${key}${NC}")
+  fi
+  local line="  ${key_part}  ${desc}"
+  local visible_stripped
+  visible_stripped=$(echo -e "$line" | sed 's/\x1b\[[0-9;]*m//g')
+  local pad=$((box_width - ${#visible_stripped}))
+  if ((pad < 1)); then pad=1; fi
+  printf "  ║%s%*s║\n" "$line" "$pad" ""
+}
+
 while true; do
 
 clear
@@ -172,13 +190,13 @@ print_banner
 echo -e "${BOLD}${BLUE}  ╔════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BOLD}${BLUE}  ║${NC}                  ${BOLD}${WHITE}Tunnel Menu${NC}                         ${BLUE}║${NC}"
 echo -e "${BOLD}${BLUE}  ╠════════════════════════════════════════════════════════╣${NC}"
-echo -e "${BOLD}${BLUE}  ║${NC}  ${CYAN}[1]${NC} Install Cloudflared                            ${BLUE}║${NC}"
-echo -e "${BOLD}${BLUE}  ║${NC}  ${CYAN}[2]${NC} Create Tunnel                                 ${BLUE}║${NC}"
-echo -e "${BOLD}${BLUE}  ║${NC}  ${CYAN}[3]${NC} List Tunnels                                  ${BLUE}║${NC}"
-echo -e "${BOLD}${BLUE}  ║${NC}  ${CYAN}[4]${NC} Stop Tunnel                                   ${BLUE}║${NC}"
-echo -e "${BOLD}${BLUE}  ║${NC}  ${CYAN}[5]${NC} Delete Tunnel                                 ${BLUE}║${NC}"
+_cf_menu_item "[1]" "Install Cloudflared"
+_cf_menu_item "[2]" "Create Tunnel"
+_cf_menu_item "[3]" "List Tunnels"
+_cf_menu_item "[4]" "Stop Tunnel"
+_cf_menu_item "[5]" "Delete Tunnel"
 echo -e "${BOLD}${BLUE}  ╠════════════════════════════════════════════════════════╣${NC}"
-echo -e "${BOLD}${BLUE}  ║${NC}  ${RED}[6]${NC} Exit                                          ${BLUE}║${NC}"
+_cf_menu_item "[6]" "Exit"
 echo -e "${BOLD}${BLUE}  ╚════════════════════════════════════════════════════════╝${NC}"
 echo ""
 read -rp "  Choose: " CH
