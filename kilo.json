@@ -1,0 +1,22 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "default_agent": "code-reviewer",
+  "instructions": [
+    ".kilo/rules/*.md"
+  ],
+  "permission": {
+    "bash": "allow",
+    "edit": {
+      "backend/**": "allow",
+      "app/**": "allow",
+      "features/**": "allow",
+      "types/**": "allow",
+      "*.md": "allow",
+      "*": "ask"
+    },
+    "read": "allow",
+    "task": "allow",
+    "webfetch": "allow",
+    "websearch": "allow"
+  }
+}
