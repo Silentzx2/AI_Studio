@@ -11,8 +11,12 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+GRAY='\033[0;90m'
 BOLD='\033[1m'
+DIM='\033[2m'
 NC='\033[0m'
 
 # ── Helpers ───────────────────────────────────────────────────────
@@ -20,6 +24,32 @@ log()   { echo -e "${GREEN}[STOP]${NC}   $*"; }
 info()  { echo -e "${CYAN}[INFO]${NC}   $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC}   $*"; }
 err()   { echo -e "${RED}[ERROR]${NC}  $*" >&2; }
+log_success() { echo -e "${GREEN}[✓]${NC} $*"; }
+log_warning() { echo -e "${YELLOW}[⚠]${NC} $*"; }
+log_error() { echo -e "${RED}[✗]${NC} $*" >&2; }
+log_step() { echo -e "${CYAN}[→]${NC} $*"; }
+
+# ── Banner ─────────────────────────────────────────────────────────────────
+print_banner() {
+    echo -e "${RED}"
+    echo "  ╔════════════════════════════════════════════════════════════╗"
+    echo "  ║                                                            ║"
+    echo "  ║           ${WHITE}${BOLD}AI 3D Studio v3.2${RED}                              ║"
+    echo "  ║        ${DIM}══════════════════════════════════${RED}                   ║"
+    echo "  ║   ${GRAY}Professional AI-Powered 3D Generation${RED}                    ║"
+    echo "  ║                                                            ║"
+    echo "  ╚════════════════════════════════════════════════════════════╝"
+    echo -e "${NC}"
+}
+
+# ── Section header ─────────────────────────────────────────────────────────
+print_section() {
+    echo ""
+    echo -e "${MAGENTA}═══════════════════════════════════════════════${NC}"
+    echo -e "${MAGENTA}  $1${NC}"
+    echo -e "${MAGENTA}═══════════════════════════════════════════════${NC}"
+    echo ""
+}
 
 # ── Project Root ──────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -51,14 +81,11 @@ kill_by_signature() {
     fi
 }
 
-# ── Banner ─────────────────────────────────────────────────────────
-echo ""
-echo -e "${CYAN}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║${NC}  🛑 ${BOLD}Stopping AI 3D Studio Services${NC}"
-echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
-echo ""
+# ── Banner ─────────────────────────────────────────────────────────────────
+print_banner
 
 # ── Stop services in reverse order ─────────────────────────────────
+print_section "Stopping Services"
 kill_by_signature "Frontend"      "next start"
 kill_by_signature "Frontend"      "next-server"
 kill_by_signature "Celery Worker" "celery -A app.workers.celery_app worker"
@@ -88,6 +115,11 @@ fi
 # ── Clean up stale PID files ──────────────────────────────────────
 rm -f "${PROJECT_ROOT}/.pids"/*.pid 2>/dev/null || true
 
+# ── Summary ────────────────────────────────────────────────────────────────
 echo ""
-log "All services stopped"
+echo -e "${RED}╔════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${RED}║${NC}  ${RED}🛑 All Services Stopped${NC}"
+echo -e "${RED}╚════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+echo -e "  ${GRAY}Services stopped. Run ${GREEN}bash scripts/start.sh${GRAY} to restart.${NC}"
 echo ""

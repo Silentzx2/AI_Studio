@@ -1,5 +1,21 @@
 # AI 3D Studio — Changelog
 
+## [v4.4.10] - 2026-08-28 — Crash Fixes, Route Conflict Resolution, Security & Performance
+
+### Fixed
+- **CRASH**: Undefined `contents` variable in `upload.py` that crashed every model upload
+- **CRASH**: Route conflict between `plugin_manager.py` and `admin.py` (removed dead code)
+- **SECURITY**: Added job existence check to SSE stream endpoint (prevents info disclosure)
+- **PERFORMANCE**: Parallelized N+1 queries in models API with `asyncio.gather`
+- **PERFORMANCE**: Concurrent health checks instead of sequential
+- **PERFORMANCE**: Thread-safe settings store with locking
+- **PERFORMANCE**: Non-blocking background tasks with `asyncio.to_thread`
+- **IMPROVEMENT**: Added pagination offset to jobs endpoint
+- **SECURITY**: Added `.hf_token` to `.gitignore`
+- **VISUAL**: Added colors, animations, progress bars to all shell scripts (start, stop, restart, manager, cloudflare)
+
+---
+
 ## [v4.4.9] - 2026-08-28 — Security Hardening, Memory Leaks & Runtime Bug Fixes
 
 ### Fixed

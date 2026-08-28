@@ -247,7 +247,7 @@ async def upload_model(file: UploadFile = File(...)):  # noqa: C901
     return success({
         "url": url,
         "filename": file.filename,
-        "size": len(contents),
+        "size": total_size,
         "format": ext.lstrip('.'),
         "thumbnail_url": thumbnail_url,
         "mesh_stats": mesh_stats,

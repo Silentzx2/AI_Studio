@@ -472,6 +472,12 @@ size exceeds available space.
 - **Blob URL model loading**: `MeshViewer.tsx` now uses blob URLs to eliminate redundant network fetches when loading models into Three.js
 - **Animation loop gating**: Animation loop now stops when no model is loaded, eliminating unnecessary GPU computation
 
+#### Performance Improvements (v4.4.10)
+- **Parallelized health checks**: `backend/app/api/v1/health.py` now runs provider health checks concurrently using `asyncio.gather` instead of sequentially, reducing health endpoint latency from O(n) to O(1)
+- **Thread-safe settings store**: `backend/app/api/v1/settings.py` uses a threading lock to prevent race conditions on concurrent settings reads/writes
+- **Non-blocking background tasks**: Long-running background operations use `asyncio.to_thread` to avoid blocking the event loop
+- **Parallelized models API**: N+1 query pattern in `models_api.py` replaced with `asyncio.gather` for concurrent data fetching
+
 #### Frontend Architecture (v4.1.3)
 - **Single WorkspaceProvider**: Hoisted to root layout (`app/layout.tsx`) for state persistence across navigation
 - **Three.js cleanup**: Proper disposal of geometries/materials on MeshViewer unmount

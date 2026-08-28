@@ -1,5 +1,7 @@
 """Settings endpoints — appearance and user preferences stored server-side."""
 
+import threading
+
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
@@ -34,6 +36,8 @@ _generation_store: dict = {
     "batch_generation_enabled": False,
 }
 
+_settings_lock = threading.Lock()
+
 
 class AppearanceConfig(BaseModel):
     theme: str = "dark"
@@ -62,38 +66,45 @@ class GenerationConfig(BaseModel):
 
 @router.get("/appearance")
 async def get_appearance():
-    return _appearance_store
+    with _settings_lock:
+        return dict(_appearance_store)
 
 
 @router.post("/appearance")
 async def save_appearance(config: AppearanceConfig):
-    _appearance_store.update(config.model_dump())
-    return {"success": True, "data": _appearance_store}
+    with _settings_lock:
+        _appearance_store.update(config.model_dump())
+        return {"success": True, "data": dict(_appearance_store)}
 
 
 @router.get("/workspace")
 async def get_workspace():
-    return _workspace_store
+    with _settings_lock:
+        return dict(_workspace_store)
 
 
 @router.post("/workspace")
 async def save_workspace(config: WorkspaceConfig):
-    _workspace_store.update(config.model_dump())
-    return {"success": True, "data": _workspace_store}
+    with _settings_lock:
+        _workspace_store.update(config.model_dump())
+        return {"success": True, "data": dict(_workspace_store)}
 
 
 @router.post("/workspace/clear-history")
 async def clear_workspace_history():
-    _workspace_store["recentProjects"] = []
-    return {"success": True, "data": _workspace_store}
+    with _settings_lock:
+        _workspace_store["recentProjects"] = []
+        return {"success": True, "data": dict(_workspace_store)}
 
 
 @router.get("/generation")
 async def get_generation():
-    return _generation_store
+    with _settings_lock:
+        return dict(_generation_store)
 
 
 @router.post("/generation")
 async def save_generation(config: GenerationConfig):
-    _generation_store.update({k: v for k, v in config.model_dump().items() if v is not None})
-    return {"success": True, "data": _generation_store}
+    with _settings_lock:
+        _generation_store.update({k: v for k, v in config.model_dump().items() if v is not None})
+        return {"success": True, "data": dict(_generation_store)}

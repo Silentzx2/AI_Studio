@@ -1,8 +1,35 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.4.9 (Security Hardening, Memory Leaks & Runtime Bug Fixes)
+> **Version**: 4.4.10 (Crash Fixes, Route Conflict Resolution, Security & Performance)
 > **Status**: ✅ **COMPLETE**
 > **Last Updated**: August 28, 2026
+
+---
+
+## v4.4.10 — Crash Fixes, Route Conflict Resolution, Security & Performance
+
+### What changed
+- **Crash fixes**: Undefined `contents` variable in `upload.py` (crashed every model upload), route conflict between `plugin_manager.py` and `admin.py` (removed dead code)
+- **Security**: Added job existence check to SSE stream endpoint to prevent info disclosure, added `.hf_token` to `.gitignore`
+- **Performance**: Parallelized N+1 queries in models API with `asyncio.gather`, concurrent health checks, thread-safe settings store with locking, non-blocking background tasks with `asyncio.to_thread`
+- **Improvements**: Added pagination offset to jobs endpoint, colors/animations/progress bars in all shell scripts
+
+### Files changed
+- `backend/app/api/v1/upload.py` — fixed undefined `contents` variable
+- `backend/app/api/v1/plugin_manager.py` — removed dead code causing route conflict
+- `backend/app/api/v1/generation.py` — added job existence check to SSE stream
+- `backend/app/api/v1/models_api.py` — parallelized N+1 queries with `asyncio.gather`
+- `backend/app/api/v1/health.py` — concurrent health checks
+- `backend/app/api/v1/settings.py` — thread-safe locking
+- `backend/app/api/v1/runtime.py` — non-blocking background tasks
+- `backend/app/api/v1/jobs.py` — added pagination offset
+- `backend/app/api/v1/hf_token.py` — HF token handling
+- `.gitignore` — added `.hf_token`
+- `manager.sh` — colors, animations, progress bars
+- `scripts/start.sh` — colors, animations, progress bars
+- `scripts/stop.sh` — colors, animations, progress bars
+- `scripts/restart.sh` — colors, animations, progress bars
+- `scripts/cloudflare.sh` — colors, animations, progress bars
 
 ---
 

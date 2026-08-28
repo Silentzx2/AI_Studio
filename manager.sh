@@ -11,9 +11,13 @@ cd "$(dirname "$0")"
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
 BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+GRAY='\033[0;90m'
 BOLD='\033[1m'
+DIM='\033[2m'
 NC='\033[0m'
 
 # ── PID directory ─────────────────────────────────────────────────────────
@@ -678,18 +682,15 @@ cmd_update_models() {
 }
 
 banner() {
-  echo -e "${RED}${BOLD}"
-  cat << 'BANNER'
-
- ██████╗██╗    ██████╗ ██████╗      ███████╗████████╗██╗   ██╗██████╗ ██╗ ██████╗
-██╔══██╗██║    ╚════██╗██╔══██╗     ██╔════╝╚══██╔══╝██║   ██║██╔══██╗██║██╔═══██╗
-███████║██║     █████╔╝██║  ██║     ███████╗   ██║   ██║   ██║██║  ██║██║██║   ██║
-██╔══██║██║    ╚═══██╗ ██║  ██║     ╚════██║   ██║   ██║   ██║██║  ██║██║██║   ██║
-██║  ██║██║   ██████╔╝ ██████╔╝     ███████║   ██║   ╚██████╔╝██████╔╝██║╚██████╔╝
-╚═╝  ╚═╝╚═╝   ╚═════╝  ╚═════╝      ╚══════╝   ╚═╝    ╚═════╝ ╚═════╝ ╚═╝ ╚═════╝
-
-BANNER
-  echo -e "${NC}  ${BOLD}Automatic Installer v3.2.0${NC}\n"
+  echo -e "${CYAN}${BOLD}"
+  echo "  ╔════════════════════════════════════════════════════════════╗"
+  echo "  ║                                                            ║"
+  echo "  ║           ${WHITE}AI 3D Studio v3.2${CYAN}                              ║"
+  echo "  ║        ${DIM}══════════════════════════════════${CYAN}                   ║"
+  echo "  ║   ${GRAY}Professional AI-Powered 3D Generation${CYAN}                    ║"
+  echo "  ║                                                            ║"
+  echo "  ╚════════════════════════════════════════════════════════════╝"
+  echo -e "${NC}"
 }
 
 # ── Progress bar & spinner ─────────────────────────────────────────────────
@@ -734,26 +735,32 @@ _main_menu_() {
     while true; do
         banner
         _status
-        echo -e "${BOLD}Actions:${NC}"
-        echo "  1) First-Time Setup"
-        echo "  2)  Start all services"
-        echo "  3)  Stop all services"
-        echo "  4)  Restart all services"
-        echo "  5)  Service status"
-        echo "  6)  View logs"
-        echo "  7)  Health check"
-        echo "  8)  Database management"
-        echo "  9)  View environment"
-        echo "  10) Reset PID files"
-        echo "  11) Clean old logs"
-        echo "  12) Cloudflare"
-        echo "  13) Update / install models"
-        echo "  14) Google Colab launcher"
-        echo "  15) Clean environments"
-        echo "  16) Manage individual service"
-        echo "  q)  Quit"
+        echo -e "${BOLD}${MAGENTA}  ╔════════════════════════════════════════════════════════╗${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}                  ${BOLD}${WHITE}Main Menu${NC}                         ${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ╠════════════════════════════════════════════════════════╣${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[1]${NC}  First-Time Setup                              ${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[2]${NC}  Start all services                           ${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[3]${NC}  Stop all services                            ${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[4]${NC}  Restart all services                         ${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[5]${NC}  Service status                               ${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[6]${NC}  View logs                                    ${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[7]${NC}  Health check                                 ${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[8]${NC}  Database management                          ${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[9]${NC}  View environment                             ${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[10]${NC} Reset PID files                              ${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[11]${NC} Clean old logs                               ${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[12]${NC} Cloudflare                                   ${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[13]${NC} Update / install models                      ${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[14]${NC} Google Colab launcher                         ${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[15]${NC} Clean environments                           ${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[16]${NC} Manage individual service                   ${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ╠════════════════════════════════════════════════════════╣${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${RED}[q]${NC}  Quit                                         ${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ╚════════════════════════════════════════════════════════╝${NC}"
         echo ""
-        read -rp "Choice: " choice
+        echo -e "  ${GRAY}Quick keys: 1-16  ${DIM}│${NC}  ${GRAY}q to quit${NC}"
+        echo ""
+        read -rp "  Choice: " choice
         case "$choice" in
             1)  cmd_setup ;;
             2)  cmd_start ;;
@@ -771,7 +778,7 @@ _main_menu_() {
             14) cmd_colab ;;
             15) cmd_clean ;;
             16) cmd_service ;;
-            q|Q) echo ""; echo -e "${GREEN}Goodbye!${NC}"; echo ""; exit 0 ;;
+            q|Q) echo ""; echo -e "${GREEN}  ╔════════════════════════════════════════════════════════╗${NC}"; echo -e "${GREEN}  ║${NC}              ${BOLD}Goodbye! 👋${NC}                            ${GREEN}║${NC}"; echo -e "${GREEN}  ╚════════════════════════════════════════════════════════╝${NC}"; echo ""; exit 0 ;;
             *) echo -e "${RED}Invalid choice${NC}"; sleep 1 ;;
         esac
     done

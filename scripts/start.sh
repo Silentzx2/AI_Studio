@@ -12,8 +12,12 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+GRAY='\033[0;90m'
 BOLD='\033[1m'
+DIM='\033[2m'
 NC='\033[0m'
 
 # ── Helpers ───────────────────────────────────────────────────────────────
@@ -21,7 +25,64 @@ log()   { echo -e "${GREEN}[START]${NC}  $*"; }
 info()  { echo -e "${CYAN}[INFO]${NC}   $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC}   $*"; }
 err()   { echo -e "${RED}[ERROR]${NC}  $*" >&2; }
-step()  { echo -e "\n${BOLD}${BLUE}➜ $*${NC}"; }
+step()  { echo -e "\n${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n  ${BOLD}${MAGENTA}➜ $*${NC}\n"; }
+log_success() { echo -e "${GREEN}[✓]${NC} $*"; }
+log_warning() { echo -e "${YELLOW}[⚠]${NC} $*"; }
+log_error() { echo -e "${RED}[✗]${NC} $*" >&2; }
+log_step() { echo -e "${CYAN}[→]${NC} $*"; }
+log_debug() { echo -e "${GRAY}[DEBUG]${NC} $*"; }
+
+# ── Banner ─────────────────────────────────────────────────────────────────
+print_banner() {
+    echo -e "${CYAN}"
+    echo "  ╔════════════════════════════════════════════════════════════╗"
+    echo "  ║                                                            ║"
+    echo "  ║           ${WHITE}${BOLD}AI 3D Studio v3.2${CYAN}                              ║"
+    echo "  ║        ${DIM}══════════════════════════════════${CYAN}                   ║"
+    echo "  ║   ${GRAY}Professional AI-Powered 3D Generation${CYAN}                    ║"
+    echo "  ║                                                            ║"
+    echo "  ╚════════════════════════════════════════════════════════════╝"
+    echo -e "${NC}"
+}
+
+# ── Progress spinner ───────────────────────────────────────────────────────
+spinner() {
+    local pid=$1
+    local msg="${2:-Waiting}"
+    local delay=0.1
+    local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    while kill -0 "$pid" 2>/dev/null; do
+        local temp=${spinstr#?}
+        printf "\r  ${CYAN}%s${NC}  %s" "${spinstr:0:1}" "$msg"
+        local spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+    done
+    wait "$pid" 2>/dev/null
+    printf "\r  ${GREEN}✔${NC}  %s\n" "$msg"
+}
+
+# ── Progress bar ───────────────────────────────────────────────────────────
+show_progress() {
+    local current=$1
+    local total=$2
+    local width=50
+    local percentage=$((current * 100 / total))
+    local filled=$((width * current / total))
+    local empty=$((width - filled))
+    printf "\r  ${CYAN}[${NC}"
+    printf "%${filled}s" | tr ' ' '█'
+    printf "%${empty}s" | tr ' ' '░'
+    printf "${CYAN}]${NC} ${WHITE}%3d%%${NC}" "$percentage"
+}
+
+# ── Section header ─────────────────────────────────────────────────────────
+print_section() {
+    echo ""
+    echo -e "${MAGENTA}═══════════════════════════════════════════════${NC}"
+    echo -e "${MAGENTA}  $1${NC}"
+    echo -e "${MAGENTA}═══════════════════════════════════════════════${NC}"
+    echo ""
+}
 
 # ── Project Root ──────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -262,11 +323,7 @@ kill_by_pid_file() {
 }
 
 # ── Banner ─────────────────────────────────────────────────────────────────
-echo ""
-echo -e "${CYAN}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║${NC}  🚀 ${BOLD}AI 3D Studio v3.2${NC} — Starting Services (Native)"
-echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
-echo ""
+print_banner
 
 # ── Step 1: Verify PostgreSQL ──────────────────────────────────────────────
 step "1/6 Checking PostgreSQL..."
@@ -485,19 +542,20 @@ log "Frontend started (PID: $(cat $FRONTEND_PID_FILE))"
 echo ""
 
 # ── Summary ────────────────────────────────────────────────────────────────
-echo -e "${CYAN}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║${NC}  ${GREEN}✅ All Services Started${NC} — ${env_type} mode"
-echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║${NC}  ${GREEN}✅ All Services Started${NC} — ${CYAN}${env_type}${GREEN} mode${NC}"
+echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "  ${BOLD}Endpoints:${NC}"
-echo -e "    Frontend       http://localhost:3000  "
-echo -e "    Backend API    http://localhost:8000"
-echo -e "    API Docs       http://localhost:8000/docs"
+echo -e "    ${GRAY}├─${NC} Frontend       ${CYAN}http://localhost:3000${NC}  "
+echo -e "    ${GRAY}├─${NC} Backend API    ${CYAN}http://localhost:8000${NC}"
+echo -e "    ${GRAY}└─${NC} API Docs       ${CYAN}http://localhost:8000/docs${NC}"
 echo ""
 echo -e "  ${BOLD}Logs:${NC}"
-echo -e "    API      logs/api.log"
-echo -e "    Worker   logs/worker.log"
-echo -e "    Frontend logs/frontend.log"
+echo -e "    ${GRAY}├─${NC} API      ${CYAN}logs/api.log${NC}"
+echo -e "    ${GRAY}├─${NC} Worker   ${CYAN}logs/worker.log${NC}"
+echo -e "    ${GRAY}└─${NC} Frontend ${CYAN}logs/frontend.log${NC}"
 echo ""
-echo -e "  ${BOLD}Stop services:${NC} bash scripts/stop.sh"
+echo -e "  ${BOLD}Stop services:${NC} ${GREEN}bash scripts/stop.sh${NC}"
 echo ""

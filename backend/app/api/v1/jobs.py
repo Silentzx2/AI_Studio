@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("")
-async def list_jobs(limit: int = 50, status: str = ""):
+async def list_jobs(limit: int = 50, offset: int = 0, status: str = ""):
     """Return all generation jobs from the database."""
     try:
         from sqlalchemy import desc, select
@@ -24,7 +24,7 @@ async def list_jobs(limit: int = 50, status: str = ""):
             q = select(GenerationJob).order_by(desc(GenerationJob.created_at))
             if status:
                 q = q.where(GenerationJob.status == status)
-            q = q.limit(limit)
+            q = q.offset(offset).limit(limit)
             result = await session.execute(q)
             jobs = result.scalars().all()
             return success(
@@ -45,12 +45,15 @@ async def list_jobs(limit: int = 50, status: str = ""):
                             "completed_at": j.completed_at.isoformat() if j.completed_at else None,
                         }
                         for j in jobs
-                    ]
+                    ],
+                    "offset": offset,
+                    "limit": limit,
+                    "count": len(jobs),
                 }
             )
     except Exception as exc:
         logger.warning("DB unavailable for list_jobs: %s", exc)
-        return success({"jobs": []})
+        return success({"jobs": [], "offset": offset, "limit": limit, "count": 0})
 
 
 @router.get("/{job_id}")

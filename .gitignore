@@ -1,3 +1,7 @@
+# HuggingFace token (stored with 0o600 permissions, but plaintext on disk)
+.hf_token
+backend/.hf_token
+
 # Dependencies
 node_modules/
 

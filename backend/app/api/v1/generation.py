@@ -374,6 +374,14 @@ async def generation_progress_stream(job_id: str, request: Request):
     import asyncio
     import json
 
+    # Validate job exists before opening SSE stream
+    from app.database import AsyncSessionLocal
+    from app.models.job import GenerationJob
+    async with AsyncSessionLocal() as session:
+        job = await session.get(GenerationJob, job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Job not found")
+
     async def _event_generator():
         r = redis.from_url(settings.redis_url, decode_responses=True)
         pubsub = r.pubsub()

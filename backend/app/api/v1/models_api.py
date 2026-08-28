@@ -1,5 +1,6 @@
 """API endpoints for model management."""
 
+import asyncio
 import threading
 
 from fastapi import APIRouter, HTTPException, Query
@@ -74,25 +75,33 @@ async def list_installed_models(
         result_models = []
         
         if include_health:
-            for model_id in model_ids:
+            # Parallelize manifest + health checks to avoid N+1 sequential calls
+            manifests = await asyncio.gather(
+                *[get_installer().get_model_manifest(mid) for mid in model_ids],
+                return_exceptions=True,
+            )
+            healths = await asyncio.gather(
+                *[get_health_manager().quick_health_check(mid) for mid in model_ids],
+                return_exceptions=True,
+            )
+
+            for i, model_id in enumerate(model_ids):
                 model_info = {
                     "id": model_id,
-                    "name": model_id
+                    "name": model_id,
                 }
-                
-                # Get manifest
-                manifest = await get_installer().get_model_manifest(model_id)
-                if manifest:
+
+                manifest = manifests[i]
+                if not isinstance(manifest, Exception) and manifest:
                     model_info["manifest"] = manifest
                     model_info["name"] = manifest.get("name", model_id)
 
-                # Get health status (quick check)
-                try:
-                    health = await get_health_manager().quick_health_check(model_id)
-                    model_info["health"] = health.get("status", "unknown")
-                except Exception:
+                health = healths[i]
+                if isinstance(health, Exception):
                     model_info["health"] = "unknown"
-                
+                else:
+                    model_info["health"] = health.get("status", "unknown") if health else "unknown"
+
                 result_models.append(model_info)
         else:
             result_models = [{"id": m, "name": m} for m in model_ids]

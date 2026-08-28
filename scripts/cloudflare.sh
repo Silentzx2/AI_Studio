@@ -1,12 +1,41 @@
 #!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════════════════
+# AI 3D Studio — Cloudflare Tunnel Manager
+# ═══════════════════════════════════════════════════════════════════════════
 
 set -euo pipefail
 
-GREEN="\033[0;32m"
-YELLOW="\033[1;33m"
-RED="\033[0;31m"
-BLUE="\033[0;34m"
-NC="\033[0m"
+# ── Colors ────────────────────────────────────────────────────────────────
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+GRAY='\033[0;90m'
+BOLD='\033[1m'
+DIM='\033[2m'
+NC='\033[0m'
+
+# ── Helpers ───────────────────────────────────────────────────────────────
+log()   { echo -e "${GREEN}[✓]${NC} $*"; }
+info()  { echo -e "${CYAN}[→]${NC} $*"; }
+warn()  { echo -e "${YELLOW}[⚠]${NC} $*"; }
+err()   { echo -e "${RED}[✗]${NC} $*" >&2; }
+
+# ── Banner ─────────────────────────────────────────────────────────────────
+print_banner() {
+    echo -e "${BLUE}"
+    echo "  ╔════════════════════════════════════════════════════════════╗"
+    echo "  ║                                                            ║"
+    echo "  ║           ${WHITE}${BOLD}Cloudflare Tunnel Manager${BLUE}                       ║"
+    echo "  ║        ${DIM}══════════════════════════════════${BLUE}                   ║"
+    echo "  ║   ${GRAY}Secure external access for AI 3D Studio${BLUE}                 ║"
+    echo "  ║                                                            ║"
+    echo "  ╚════════════════════════════════════════════════════════════╝"
+    echo -e "${NC}"
+}
 
 # Directory to store tunnel PID/URL/log files
 # ponytail: single flat dir is enough; no need for a DB or registry
@@ -15,41 +44,41 @@ mkdir -p "$DIR"
 
 install_cf() {
     if command -v cloudflared > /dev/null 2>&1; then
-        echo -e "${GREEN}✓ cloudflared already installed${NC}"
+        log "cloudflared already installed"
         return
     fi
 
-    echo "Installing cloudflared..."
+    info "Installing cloudflared..."
 
     # dpkg --print-architecture matches cloudflared release naming (amd64, arm64)
     local ARCH; ARCH=$(dpkg --print-architecture 2>/dev/null || echo "amd64")
     local DEB="/tmp/cloudflared-$$.deb"
     if ! wget -q "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${ARCH}.deb" -O "$DEB"; then
-        echo -e "${RED}ERROR: Failed to download cloudflared (arch: $ARCH)${NC}"
+        err "Failed to download cloudflared (arch: $ARCH)"
         rm -f "$DEB"
         return 1
     fi
     sudo dpkg -i "$DEB"
     rm -f "$DEB"
 
-    echo -e "${GREEN}✓ Installed${NC}"
+    log "Installed"
 }
 
 create_tunnel() {
 
-    read -rp "Port: " PORT
+    read -rp "  Port: " PORT
 
     [[ ! "$PORT" =~ ^[0-9]+$ ]] && {
-        echo "Invalid Port"
+        err "Invalid Port"
         return
     }
 
     if [ -f "$DIR/$PORT.pid" ] && kill -0 "$(cat "$DIR/$PORT.pid")" 2>/dev/null; then
-        echo "Tunnel already running."
+        warn "Tunnel already running."
         return
     fi
 
-    echo "Starting tunnel..."
+    info "Starting tunnel..."
 
     nohup cloudflared tunnel \
         --url "http://localhost:$PORT" \
@@ -65,20 +94,20 @@ create_tunnel() {
 
     if [ -n "$URL" ]; then
         echo "$URL" > "$DIR/$PORT.url"
-        echo
-        echo -e "${GREEN}✓ Tunnel Started${NC}"
-        echo "Port : $PORT"
-        echo "URL  : $URL"
+        echo ""
+        log "Tunnel Started"
+        echo -e "  ${GRAY}Port :${NC} $PORT"
+        echo -e "  ${GRAY}URL  :${NC} ${GREEN}$URL${NC}"
     else
-        echo "Tunnel started but URL not ready."
+        warn "Tunnel started but URL not ready."
     fi
 }
 
 list_tunnels() {
 
-    echo
-    printf "%-8s %-10s %s\n" "PORT" "STATUS" "URL"
-    echo "----------------------------------------------"
+    echo ""
+    echo -e "  ${BOLD}${GRAY}PORT     STATUS     URL${NC}"
+    echo -e "  ${GRAY}────────────────────────────────────────────${NC}"
 
     shopt -s nullglob
 
@@ -88,15 +117,15 @@ list_tunnels() {
         PID=$(cat "$f")
 
         if kill -0 "$PID" 2>/dev/null; then
-            STATUS="Running"
+            STATUS="${GREEN}Running${NC}"
         else
-            STATUS="Stopped"
+            STATUS="${RED}Stopped${NC}"
         fi
 
         URL="-"
         [ -f "$DIR/$PORT.url" ] && URL=$(cat "$DIR/$PORT.url")
 
-        printf "%-8s %-10s %s\n" "$PORT" "$STATUS" "$URL"
+        echo -e "  ${CYAN}${PORT}${NC}     ${STATUS}     ${GRAY}${URL}${NC}"
     done
 
     shopt -u nullglob
@@ -104,10 +133,10 @@ list_tunnels() {
 
 stop_tunnel() {
 
-    read -rp "Port: " PORT
+    read -rp "  Port: " PORT
 
     if [ ! -f "$DIR/$PORT.pid" ]; then
-        echo "Tunnel not found."
+        warn "Tunnel not found."
         return
     fi
 
@@ -117,12 +146,12 @@ stop_tunnel() {
 
     rm -f "$DIR/$PORT.pid"
 
-    echo -e "${GREEN}✓ Tunnel Stopped${NC}"
+    log "Tunnel Stopped"
 }
 
 delete_tunnel() {
 
-    read -rp "Port: " PORT
+    read -rp "  Port: " PORT
 
     [ -f "$DIR/$PORT.pid" ] && kill "$(cat "$DIR/$PORT.pid")" 2>/dev/null || true
 
@@ -131,28 +160,28 @@ delete_tunnel() {
         "$DIR/$PORT.url" \
         "$DIR/$PORT.log"
 
-    echo -e "${GREEN}✓ Tunnel Deleted${NC}"
+    log "Tunnel Deleted"
 }
 
 while true; do
 
 clear
 
-echo -e "${BLUE}"
-echo "================================="
-echo " Cloudflare Tunnel Manager"
-echo "================================="
-echo -e "${NC}"
+print_banner
 
-echo "1. Install Cloudflared"
-echo "2. Create Tunnel"
-echo "3. List Tunnels"
-echo "4. Stop Tunnel"
-echo "5. Delete Tunnel"
-echo "6. Exit"
-
-echo
-read -rp "Choose: " CH
+echo -e "${BOLD}${BLUE}  ╔════════════════════════════════════════════════════════╗${NC}"
+echo -e "${BOLD}${BLUE}  ║${NC}                  ${BOLD}${WHITE}Tunnel Menu${NC}                         ${BLUE}║${NC}"
+echo -e "${BOLD}${BLUE}  ╠════════════════════════════════════════════════════════╣${NC}"
+echo -e "${BOLD}${BLUE}  ║${NC}  ${CYAN}[1]${NC} Install Cloudflared                            ${BLUE}║${NC}"
+echo -e "${BOLD}${BLUE}  ║${NC}  ${CYAN}[2]${NC} Create Tunnel                                 ${BLUE}║${NC}"
+echo -e "${BOLD}${BLUE}  ║${NC}  ${CYAN}[3]${NC} List Tunnels                                  ${BLUE}║${NC}"
+echo -e "${BOLD}${BLUE}  ║${NC}  ${CYAN}[4]${NC} Stop Tunnel                                   ${BLUE}║${NC}"
+echo -e "${BOLD}${BLUE}  ║${NC}  ${CYAN}[5]${NC} Delete Tunnel                                 ${BLUE}║${NC}"
+echo -e "${BOLD}${BLUE}  ╠════════════════════════════════════════════════════════╣${NC}"
+echo -e "${BOLD}${BLUE}  ║${NC}  ${RED}[6]${NC} Exit                                          ${BLUE}║${NC}"
+echo -e "${BOLD}${BLUE}  ╚════════════════════════════════════════════════════════╝${NC}"
+echo ""
+read -rp "  Choose: " CH
 
 case "$CH" in
 
@@ -161,13 +190,13 @@ case "$CH" in
 3) list_tunnels ;;
 4) stop_tunnel ;;
 5) delete_tunnel ;;
-6) exit ;;
+6) echo ""; echo -e "${GREEN}  Goodbye! 👋${NC}"; echo ""; exit 0 ;;
 
-*) echo "Invalid Option" ;;
+*) echo -e "${RED}  Invalid Option${NC}" ;;
 
 esac
 
 echo
-read -rp "Press Enter..."
+read -rp "  Press Enter..."
 
 done

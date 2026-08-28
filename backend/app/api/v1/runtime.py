@@ -1,6 +1,7 @@
 """Runtime management API."""
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -498,7 +499,8 @@ async def install_runtime(req: InstallRequest, background_tasks: BackgroundTasks
             models=targets,
         )
 
-    background_tasks.add_task(_run)
+    # Run blocking install in thread executor to avoid blocking the event loop
+    background_tasks.add_task(asyncio.to_thread, _run)
     return success({"started": True}, "Installation started in background.")
 
 
@@ -523,7 +525,8 @@ async def prepare_runtime(req: InstallRequest, background_tasks: BackgroundTasks
             allow_native_build=False,
         )
 
-    background_tasks.add_task(_run)
+    # Run blocking task in thread executor to avoid blocking the event loop
+    background_tasks.add_task(asyncio.to_thread, _run)
     return success({"started": True}, "Runtime preparation started in background.")
 
 
@@ -546,7 +549,8 @@ async def download_weights(req: InstallRequest, background_tasks: BackgroundTask
     def _run() -> None:
         RuntimeInstaller().download_weights(models=targets)
 
-    background_tasks.add_task(_run)
+    # Run blocking task in thread executor to avoid blocking the event loop
+    background_tasks.add_task(asyncio.to_thread, _run)
     return success({"started": True}, "Weight download started in background.")
 
 
@@ -618,7 +622,8 @@ async def update_repo(req: RepoActionRequest, background_tasks: BackgroundTasks)
     def _run() -> None:
         clone_repo(req.repo)
 
-    background_tasks.add_task(_run)
+    # Run blocking task in thread executor to avoid blocking the event loop
+    background_tasks.add_task(asyncio.to_thread, _run)
     return success({"repo": req.repo, "started": True}, "Update started.")
 
 
@@ -644,7 +649,8 @@ async def repair_repo(req: RepoActionRequest, background_tasks: BackgroundTasks)
         clone_repo(req.repo)
         install_repo_deps(req.repo)
 
-    background_tasks.add_task(_run)
+    # Run blocking task in thread executor to avoid blocking the event loop
+    background_tasks.add_task(asyncio.to_thread, _run)
     return success({"repo": req.repo, "started": True}, "Repair started.")
 
 

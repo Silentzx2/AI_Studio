@@ -43,6 +43,12 @@ class HFTokenRequest(BaseModel):
     token: str
 
 
+# NOTE: Token is stored plaintext on disk with 0o600 permissions.
+# ponytail: no KMS/secret manager in this deployment — acceptable for
+# single-user studio. For multi-user or hosted deployments, swap for
+# envelope encryption (e.g. Fernet key derived from a master secret).
+
+
 @router.post("")
 async def save_hf_token(req: HFTokenRequest):
     token = req.token.strip()
