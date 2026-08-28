@@ -49,7 +49,7 @@ dependencies:
       available: true
       mode: extra_index
       index: https://miropsota.github.io/torch_packages_builder
-      version: "0.7.1"
+      version: "0.7.9+d9839a9"
     bpy:
       available: false
       reason: "bpy is Blender's Python API — it ships with Blender, not PyPI. Install Blender separately to enable headless rigging."
