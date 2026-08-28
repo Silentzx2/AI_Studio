@@ -29,6 +29,7 @@ When the user request matches a pattern below, immediately launch the correspond
 | how should I structure, design decision, best way to, architecture | architect |
 | commit, push, create PR, git operations | git-specialist |
 | add model, create manifest, update manifest, YAML manifests | manifest-specialist |
+| research online, find latest version, check upstream, web search, model specs, dependency lookup | web-researcher |
 
 ## How to Launch Sub-Agents
 
