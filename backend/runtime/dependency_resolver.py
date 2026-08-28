@@ -52,6 +52,8 @@ _BUILD_DEPS: dict[str, list[str]] = {
     "nvdiffrast": ["ninja"],
     "diff-gaussian-rasterization": ["ninja"],
     "diso": ["ninja", "setuptools<70"],
+    "flash-attn": ["ninja"],
+    "pytorch3d": ["ninja"],
 }
 
 
