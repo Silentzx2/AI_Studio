@@ -29,6 +29,9 @@ def _resolve_model_path(model_url: str) -> Path | None:
     """Resolve a /static/... URL to an absolute file path."""
     if not model_url:
         return None
+    # Security: prevent path traversal
+    if '..' in model_url or model_url.startswith('/'):
+        return None
     rel = model_url.replace("/static/", "", 1)
     p = Path(settings.storage_local_path) / rel
     return p if p.exists() else None

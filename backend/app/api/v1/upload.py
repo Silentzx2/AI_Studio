@@ -163,27 +163,31 @@ async def upload_model(file: UploadFile = File(...)):  # noqa: C901
             detail=f"Unsupported file type '{ext}'. Allowed: {', '.join(sorted(allowed_extensions))}"
         )
 
-    # Validate file size (max 100MB)
+    # Validate file size (max 100MB) and write in chunks to avoid loading entire file into memory
     max_size = 100 * 1024 * 1024
-    contents = await file.read()
-    if len(contents) > max_size:
-        raise HTTPException(
-            status_code=413,
-            detail="File too large. Maximum size: 100MB"
-        )
-
-    if len(contents) == 0:
-        raise HTTPException(status_code=422, detail="Empty file")
-
-    # Save file
     models_dir = Path(settings.storage_local_path) / "models"
     models_dir.mkdir(parents=True, exist_ok=True)
 
     unique_name = f"{uuid.uuid4().hex[:12]}{ext}"
     file_path = models_dir / unique_name
 
+    total_size = 0
+    chunk_size = 1024 * 1024  # 1MB chunks
     with open(file_path, "wb") as f:
-        f.write(contents)
+        while chunk := await file.read(chunk_size):
+            total_size += len(chunk)
+            if total_size > max_size:
+                f.close()
+                file_path.unlink(missing_ok=True)
+                raise HTTPException(
+                    status_code=413,
+                    detail="File too large. Maximum size: 100MB"
+                )
+            f.write(chunk)
+
+    if total_size == 0:
+        file_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=422, detail="Empty file")
 
     # Validate GLB/GLTF file integrity
     if ext in {'.glb', '.gltf'}:
@@ -238,7 +242,7 @@ async def upload_model(file: UploadFile = File(...)):  # noqa: C901
     # Return URL
     url = f"/static/models/{unique_name}"
 
-    logger.info(f"Uploaded model: {os.path.basename(file.filename or '')} -> {unique_name} ({len(contents)} bytes)")
+    logger.info(f"Uploaded model: {os.path.basename(file.filename or '')} -> {unique_name} ({total_size} bytes)")
 
     return success({
         "url": url,

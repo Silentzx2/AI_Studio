@@ -298,7 +298,7 @@ def run_native_build(self, provider_name: str, task_id: str) -> dict:
         load_provider_state_from_db,
         persist_provider_state,
     )
-    from runtime.manifest_loader import get_provider_metadata
+    from runtime.manifest_loader import get_provider_metadata, load_manifest
     from runtime.preflight import run_provider_preflight
     from runtime.storage import get_storage_config
 

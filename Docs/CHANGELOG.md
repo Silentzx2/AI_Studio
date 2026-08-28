@@ -1,5 +1,27 @@
 # AI 3D Studio — Changelog
 
+## [v4.4.9] - 2026-08-28 — Security Hardening, Memory Leaks & Runtime Bug Fixes
+
+### Fixed
+- **Broken lazy initialization in `models_api.py`**: Fixed `NameError` caused by broken lazy initialization pattern.
+- **Undefined variables in `runtime.py`**: Fixed `NameError` from undefined variables in runtime module.
+- **Terminal command injection vulnerability**: Replaced blocklist-based command filtering with an allowlist approach to prevent command injection.
+- **`output_path` NameError in `mesh_processor.py`**: Fixed fallback mesh generation referencing undefined `output_path`.
+- **Missing import in `installation_workers.py`**: Added missing import required for worker execution.
+- **Three.js texture/material memory leaks**: Fixed GPU memory leaks on model swap by properly disposing textures and materials.
+- **Animation loop running with no model**: Fixed animation loop continuing to consume GPU cycles when no model was loaded.
+- **Path traversal vulnerability in static proxy**: Added path traversal protection to `app/static/[...path]/route.ts`.
+- **Missing timeouts on PUT/DELETE proxy routes**: Added request timeouts to PUT/DELETE routes in `app/api/v1/[...path]/route.ts`.
+- **Wildcard CORS origin**: Replaced wildcard (`*`) CORS with environment-specific origin configuration.
+- **SSE connection leak on timeout**: Fixed Server-Sent Events connection leak on admin stream timeout.
+- **File upload memory exhaustion**: Replaced full-memory file upload with chunked streaming in `upload.py`.
+- **WorkspaceContext cascading re-renders**: Split large memo into smaller memoized selectors to prevent cascading re-renders.
+- **`getQueue` using wrong endpoint**: Fixed queue API call to use correct `/jobs?status=queued` endpoint.
+- **Double-fetch in `MeshViewer`**: Eliminated redundant network request by switching to blob URL based loading.
+- **Null-safe `searchParams` access**: Added null-safe access to `searchParams` in settings page.
+
+---
+
 ## [v4.4.8] - 2026-08-28 — Static Proxy, Mesh Stats, File Validation, Upload Diagnostics, Compare View & Auto-Optimize
 
 ### Added

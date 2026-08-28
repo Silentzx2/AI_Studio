@@ -281,7 +281,7 @@ export default function SettingsPage() {
 function SettingsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const activeSection = searchParams.get('section') || 'general';
+  const activeSection = searchParams?.get('section') || 'general';
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [searchQuery, setSearchQuery] = useState('');

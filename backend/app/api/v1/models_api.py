@@ -20,23 +20,22 @@ def _get_models_dir() -> str:
     return os.environ.get("MODELS_DIR", "./storage/models")
 
 
-def __getattr__(name: str):
-    global _installer, _health_manager
-    if name == "models_dir":
-        return _get_models_dir()
-    if name == "installer":
-        if _installer is None:
-            with _init_lock:
-                if _installer is None:
-                    _installer = PluginInstaller(_get_models_dir())
-        return _installer
-    if name == "health_manager":
-        if _health_manager is None:
-            with _init_lock:
-                if _health_manager is None:
-                    _health_manager = HealthManager(_get_models_dir())
-        return _health_manager
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+def get_installer():
+    global _installer
+    if _installer is None:
+        with _init_lock:
+            if _installer is None:
+                _installer = PluginInstaller(_get_models_dir())
+    return _installer
+
+
+def get_health_manager():
+    global _health_manager
+    if _health_manager is None:
+        with _init_lock:
+            if _health_manager is None:
+                _health_manager = HealthManager(_get_models_dir())
+    return _health_manager
 
 
 @router.get("")
@@ -69,7 +68,7 @@ async def list_installed_models(
     """List all installed models."""
     
     try:
-        model_dicts = await installer.get_installed_models()
+        model_dicts = await get_installer().get_installed_models()
         model_ids = [m.get("model_id") for m in model_dicts if isinstance(m, dict) and m.get("model_id")]
 
         result_models = []
@@ -82,14 +81,14 @@ async def list_installed_models(
                 }
                 
                 # Get manifest
-                manifest = await installer.get_model_manifest(model_id)
+                manifest = await get_installer().get_model_manifest(model_id)
                 if manifest:
                     model_info["manifest"] = manifest
                     model_info["name"] = manifest.get("name", model_id)
-                
+
                 # Get health status (quick check)
                 try:
-                    health = await health_manager.quick_health_check(model_id)
+                    health = await get_health_manager().quick_health_check(model_id)
                     model_info["health"] = health.get("status", "unknown")
                 except Exception:
                     model_info["health"] = "unknown"
@@ -118,11 +117,11 @@ async def get_model(
     """Get detailed information about a specific model."""
     
     try:
-        manifest = await installer.get_model_manifest(model_id)
-        
+        manifest = await get_installer().get_model_manifest(model_id)
+
         if not manifest:
             raise HTTPException(status_code=404, detail="Model not found")
-        
+
         result = {
             "success": True,
             "data": {
@@ -130,10 +129,10 @@ async def get_model(
                 "manifest": manifest
             }
         }
-        
+
         if include_health:
             try:
-                health = await health_manager.run_model_health_check(model_id)
+                health = await get_health_manager().run_model_health_check(model_id)
                 result["data"]["health"] = health
             except Exception as e:
                 result["data"]["health"] = {"status": "error", "error": str(e)}
@@ -151,10 +150,10 @@ async def uninstall_model_endpoint(model_id: str):
     """Uninstall a model (async task)."""
     
     # Check if model exists
-    manifest = await installer.get_model_manifest(model_id)
+    manifest = await get_installer().get_model_manifest(model_id)
     if not manifest:
         raise HTTPException(status_code=404, detail="Model not found")
-    
+
     # Dispatch uninstall task
     uninstall_task.delay(model_id)
     
@@ -170,10 +169,10 @@ async def repair_model_endpoint(model_id: str):
     """Repair a model by running diagnostics and fixing issues."""
     
     # Check if model exists
-    manifest = await installer.get_model_manifest(model_id)
+    manifest = await get_installer().get_model_manifest(model_id)
     if not manifest:
         raise HTTPException(status_code=404, detail="Model not found")
-    
+
     # Dispatch repair task (or run synchronously for response)
     from app.workers.installation_workers import repair_model as run_repair
     result = run_repair.delay(model_id)
@@ -191,11 +190,11 @@ async def get_model_health(model_id: str):
     """Get health check results for a specific model."""
     
     try:
-        health = await health_manager.run_model_health_check(model_id)
-        
+        health = await get_health_manager().run_model_health_check(model_id)
+
         if "error" in health and "not found" in health.get("error", ""):
             raise HTTPException(status_code=404, detail="Model not found")
-        
+
         return {"success": True, "data": health}
         
     except HTTPException:
@@ -209,7 +208,7 @@ async def run_model_benchmark(model_id: str):
     """Run benchmark for a specific model."""
     from fastapi import HTTPException
 
-    manifest = await installer.get_model_manifest(model_id)
+    manifest = await get_installer().get_model_manifest(model_id)
     if not manifest:
         raise HTTPException(status_code=404, detail="Model not found")
 
@@ -224,7 +223,7 @@ async def get_all_models_health():
     """Get health summary for all installed models."""
     
     try:
-        health_report = await health_manager.get_all_models_health()
+        health_report = await get_health_manager().get_all_models_health()
         return {"success": True, "data": health_report}
     except Exception as e:
         return {"success": False, "error": str(e)}

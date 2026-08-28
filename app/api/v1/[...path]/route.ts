@@ -161,6 +161,7 @@ export async function PUT(
         ...getAuthHeader(request),
       },
       body: body || undefined,
+      signal: AbortSignal.timeout(30000),
     });
     
     return createProxyResponse(response);
@@ -187,6 +188,7 @@ export async function DELETE(
     const response = await fetch(targetUrl, {
       method: 'DELETE',
       headers: getForwardingHeaders(request),
+      signal: AbortSignal.timeout(30000),
     });
     
     return createProxyResponse(response);
@@ -239,19 +241,22 @@ function getAuthHeader(request: NextRequest): HeadersInit {
 // Helper: Create response from backend response
 function createProxyResponse(response: Response): NextResponse {
   const headers = new Headers();
-  
+
   // Forward relevant headers
   const forwardHeaders = ['content-type', 'cache-control', 'etag', 'last-modified'];
   for (const header of forwardHeaders) {
     const value = response.headers.get(header);
     if (value) headers.set(header, value);
   }
-  
-  // Add CORS headers for browser clients
-  headers.set('Access-Control-Allow-Origin', '*');
+
+  // Security: use specific origin instead of wildcard
+  const allowedOrigin = process.env.NODE_ENV === 'production'
+    ? 'https://yourdomain.com'
+    : 'http://localhost:3000';
+  headers.set('Access-Control-Allow-Origin', allowedOrigin);
   headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Client-Info, Apikey');
-  
+
   return new NextResponse(response.body, {
     status: response.status,
     headers,

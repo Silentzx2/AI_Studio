@@ -29,6 +29,12 @@ export async function GET(
   const params = await context.params;
   const pathSegments = params.path || [];
   const fullPath = pathSegments.join('/');
+
+  // Security: prevent path traversal
+  if (fullPath.includes('..') || fullPath.includes('~') || fullPath.startsWith('/')) {
+    return new NextResponse('Invalid path', { status: 400 });
+  }
+
   const BACKEND_URL = getBackendUrl();
   const targetUrl = `${BACKEND_URL}/static/${fullPath}`;
 

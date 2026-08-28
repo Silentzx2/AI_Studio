@@ -15,7 +15,7 @@
 
 <p align="center">
 
-  <img src="https://img.shields.io/badge/Version-4.4.8-8A2BE2?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Version-4.4.9-8A2BE2?style=for-the-badge">
 
   <img src="https://img.shields.io/badge/Pipeline-V2-Complete-success?style=for-the-badge">
 
@@ -81,6 +81,9 @@
 | **Auto-Optimize** | Post-generation mesh decimation & UV fixing | ✅ | v4.4.8 |
 | **File Validation** | Client-side GLB structure & magic bytes validation | ✅ | v4.4.8 |
 | **Upload Diagnostics** | Debug tool for upload failures with recommendations | ✅ | v4.4.8 |
+| **Security Hardening** | Command allowlist, path traversal protection, CORS origin, proxy timeouts | ✅ | v4.4.9 |
+| **Memory Leak Fixes** | Three.js texture/material disposal, SSE connection cleanup | ✅ | v4.4.9 |
+| **Chunked Upload** | Streaming file upload to prevent memory exhaustion | ✅ | v4.4.9 |
 
 
 ### Current Model & Runtime Catalog
@@ -383,7 +386,7 @@ cp .env.example .env
 ENVIRONMENT=development
 DEBUG=true
 APP_NAME=AI 3D Studio
-APP_VERSION=4.4.8
+APP_VERSION=4.4.9
 
 # ===== DATABASE =====
 DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/ai3dstudio
@@ -1084,5 +1087,5 @@ See [Pipeline Status Document](docs/pipeline-status.md) for detailed breakdown.
 ---
 
 <p align="center">
-  <sub>Last Updated: August 28, 2026 | Version 4.4.8
+  <sub>Last Updated: August 28, 2026 | Version 4.4.9
 </p>

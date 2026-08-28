@@ -1,10 +1,16 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
+import { toast } from 'sonner';
 import { ShadingMode, ModelAsset } from '../types';
+
+const disposeMaterial = (material: THREE.Material) => {
+  Object.values(material).forEach((v) => { if (v instanceof THREE.Texture) v.dispose(); });
+  material.dispose();
+};
 
 interface CompareViewportProps {
   asset: ModelAsset | null;
@@ -117,6 +123,7 @@ export const CompareViewport: React.FC<CompareViewportProps> = ({
     const timer = new THREE.Timer();
     const animate = () => {
       animFrameIdRef.current = requestAnimationFrame(animate);
+      if (meshGroup.children.length === 0) return;
       timer.update();
       controls.update();
       renderer.render(scene, camera);
@@ -231,96 +238,106 @@ export const CompareViewport: React.FC<CompareViewportProps> = ({
     controls.update();
   }, []);
 
-  // Load asset into viewport
-  useEffect(() => {
-    if (!sceneRef.current || !meshGroupRef.current) return;
-    const group = meshGroupRef.current;
+   // Load asset into viewport
+   useEffect(() => {
+     if (!sceneRef.current || !meshGroupRef.current) return;
+     const group = meshGroupRef.current;
 
-    // Clear existing mesh
-    while (group.children.length > 0) {
-      const obj = group.children[0];
-      group.remove(obj);
-      obj.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-          child.geometry?.dispose();
-          const material = child.material;
-          if (Array.isArray(material)) material.forEach(m => m.dispose());
-          else material?.dispose();
-        }
-      });
-    }
+     // Clear existing mesh
+     while (group.children.length > 0) {
+       const obj = group.children[0];
+       group.remove(obj);
+       obj.traverse((child) => {
+         if (child instanceof THREE.Mesh) {
+           child.geometry?.dispose();
+           const material = child.material;
+           if (Array.isArray(material)) material.forEach(m => m.dispose());
+           else material?.dispose();
+         }
+       });
+     }
 
-    if (!asset?.source?.viewUrl && !asset?.source?.localUrl) return;
+     if (!asset?.source?.viewUrl && !asset?.source?.localUrl) return;
 
-    let cancelled = false;
+     let cancelled = false;
 
-    const load = async () => {
-      try {
-        const sourceUrl = asset.source?.localUrl || asset.source?.viewUrl;
-        if (!sourceUrl) return;
+     const load = async () => {
+       try {
+         const sourceUrl = asset.source?.localUrl || asset.source?.viewUrl;
+         if (!sourceUrl) return;
 
-        const format = asset.format.toLowerCase();
-        if (format === 'glb' || format === 'gltf') {
-          const loader = new GLTFLoader();
-          const gltf = await loader.loadAsync(sourceUrl);
-          if (!cancelled) {
-            group.add(gltf.scene);
-            gltf.scene.traverse((child) => {
-              if (child instanceof THREE.Mesh) {
-                child.castShadow = true;
-                child.receiveShadow = true;
-                applyShadingToMesh(child);
-              }
-            });
-            frameCamera(gltf.scene);
-          }
-        } else if (format === 'obj') {
-          const loader = new OBJLoader();
-          const object = await loader.loadAsync(sourceUrl);
-          if (!cancelled) {
-            object.traverse((child) => {
-              if (child instanceof THREE.Mesh) {
-                child.castShadow = true;
-                child.receiveShadow = true;
-                applyShadingToMesh(child);
-              }
-            });
-            group.add(object);
-            frameCamera(object);
-          }
-        } else if (format === 'ply') {
-          const response = await fetch(sourceUrl);
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          const buffer = await response.arrayBuffer();
-          const loader = new PLYLoader();
-          const geometry = loader.parse(buffer);
-          geometry.computeVertexNormals();
-          const material = new THREE.MeshStandardMaterial({
-            color: 0xbcc2cc,
-            roughness: 0.82,
-            metalness: 0.05,
-            wireframe: showWireframe || shadingMode === 'wireframe',
-          });
-          const mesh = new THREE.Mesh(geometry, material);
-          mesh.castShadow = true;
-          mesh.receiveShadow = true;
-          group.add(mesh);
-          frameCamera(mesh);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          console.error('Compare viewport load failed', error);
-        }
-      }
-    };
+         const format = asset.format.toLowerCase();
+         if (format === 'glb' || format === 'gltf') {
+           const loader = new GLTFLoader();
+           const gltf = await loader.loadAsync(sourceUrl);
+           if (!cancelled) {
+             group.add(gltf.scene);
+             gltf.scene.traverse((child) => {
+               if (child instanceof THREE.Mesh) {
+                 child.castShadow = true;
+                 child.receiveShadow = true;
+                 applyShadingToMesh(child);
+               }
+             });
+             frameCamera(gltf.scene);
+           }
+         } else if (format === 'obj') {
+           const loader = new OBJLoader();
+           const object = await loader.loadAsync(sourceUrl);
+           if (!cancelled) {
+             object.traverse((child) => {
+               if (child instanceof THREE.Mesh) {
+                 child.castShadow = true;
+                 child.receiveShadow = true;
+                 applyShadingToMesh(child);
+               }
+             });
+             group.add(object);
+             frameCamera(object);
+           }
+         } else if (format === 'ply') {
+           const response = await fetch(sourceUrl);
+           if (!response.ok) throw new Error(`HTTP ${response.status}`);
+           const contentType = response.headers.get('content-type') || '';
+           if (contentType.includes('text/html') || contentType.includes('application/json')) {
+             const text = await response.clone().text();
+             if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
+               throw new Error('Model file served as HTML — possible token/auth failure');
+             }
+           }
+           const buffer = await response.arrayBuffer();
+           const loader = new PLYLoader();
+           const geometry = loader.parse(buffer);
+           geometry.computeVertexNormals();
+           const material = new THREE.MeshStandardMaterial({
+             color: 0xbcc2cc,
+             roughness: 0.82,
+             metalness: 0.05,
+             wireframe: showWireframe || shadingMode === 'wireframe',
+           });
+           const mesh = new THREE.Mesh(geometry, material);
+           mesh.castShadow = true;
+           mesh.receiveShadow = true;
+           group.add(mesh);
+           frameCamera(mesh);
+         }
+       } catch (error) {
+         if (!cancelled) {
+           const message = error instanceof Error ? error.message : 'Failed to load model';
+           console.error('Compare viewport load failed', error);
+           toast.error(message);
+         }
+       }
+     };
 
-    void load();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [asset?.id, asset?.source?.viewUrl, asset?.source?.localUrl, asset?.format]);
+     void load();
+     return () => { cancelled = true; };
+     // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, [asset?.id, asset?.source?.viewUrl, asset?.source?.localUrl, asset?.format]);
 
   // Apply shading mode to mesh
   const applyShadingToMesh = (mesh: THREE.Mesh) => {
+    const oldMaterial = mesh.material;
     if (shadingMode === 'wireframe' || showWireframe) {
       mesh.material = new THREE.MeshStandardMaterial({
         color: 0xd0d5dc,
@@ -359,6 +376,8 @@ export const CompareViewport: React.FC<CompareViewportProps> = ({
         wireframe: false,
       });
     }
+    if (Array.isArray(oldMaterial)) oldMaterial.forEach(m => disposeMaterial(m));
+    else if (oldMaterial) disposeMaterial(oldMaterial);
   };
 
   // Re-apply shading when mode changes

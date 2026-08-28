@@ -1,8 +1,35 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.4.8 (Static Proxy, Mesh Stats, Validation, Diagnostics, Compare View, Auto-Optimize)
+> **Version**: 4.4.9 (Security Hardening, Memory Leaks & Runtime Bug Fixes)
 > **Status**: ✅ **COMPLETE**
 > **Last Updated**: August 28, 2026
+
+---
+
+## v4.4.9 — Security Hardening, Memory Leaks & Runtime Bug Fixes
+
+### What changed
+- **Security hardening**: Terminal command allowlist (replaces blocklist), path traversal protection in static proxy, CORS origin restriction, proxy route timeouts
+- **Memory leak fixes**: Three.js texture/material disposal on model swap, SSE connection cleanup on timeout
+- **Runtime bug fixes**: Broken lazy initialization in `models_api.py`, undefined variables in `runtime.py`, missing import in `installation_workers.py`, `output_path` NameError in `mesh_processor.py`
+- **Performance improvements**: Chunked file upload, memoized workspace context, blob URL model loading, animation loop gating
+- **Frontend fixes**: Double-fetch elimination in `MeshViewer`, null-safe `searchParams` access in settings page, `getQueue` endpoint correction
+
+### Files changed
+- `backend/app/api/v1/models_api.py` — fixed lazy initialization
+- `backend/app/api/v1/runtime.py` — fixed undefined variables
+- `backend/app/api/v1/upload.py` — chunked streaming upload
+- `backend/app/core/mesh_processor.py` — fixed `output_path` NameError
+- `backend/app/workers/installation_workers.py` — added missing import
+- `app/api/v1/[...path]/route.ts` — added timeouts to PUT/DELETE routes
+- `app/static/[...path]/route.ts` — added path traversal protection
+- `app/settings/page.tsx` — null-safe `searchParams` access
+- `features/new-workspace/Viewport/MeshViewer.tsx` — blob URL loading, animation loop gating
+- `features/new-workspace/Viewport/CompareViewport.tsx` — Three.js memory leak fixes
+- `features/new-workspace/lib/api.ts` — fixed `getQueue` endpoint
+- `features/new-workspace/store/WorkspaceContext.tsx` — split memo to prevent cascading re-renders
+- `services/adminService.ts` — SSE connection cleanup
+- `stores/useAppStore.ts` — CORS origin restriction
 
 ---
 

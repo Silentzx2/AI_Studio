@@ -255,6 +255,20 @@ async def get_runtime_options():
                     "id": f"cuda:{dev['index']}",
                     "label": f"{dev['name']} ({dev['vram_mb'] // 1024} GB)",
                 })
+
+        # Colab detection for runtime policy
+        colab_detected = False
+        colab_vram = 0
+        colab_limit = 0
+        try:
+            from runtime.platform_detection import _is_colab
+            if _is_colab():
+                colab_detected = True
+                colab_vram = gpu.total_vram_mb
+                colab_limit = gpu.total_vram_mb
+        except Exception:
+            pass
+
         return success({
             "three_d_models": three_d_models,
             "texture_models": TEXTURE_MODELS,

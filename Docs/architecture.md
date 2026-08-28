@@ -460,6 +460,18 @@ size exceeds available space.
 - **Upload timeout**: 60-second AbortController timeout on file uploads
 - **HF token**: Stored in `.hf_token` file (should be moved to secrets manager in production)
 
+#### Security Improvements (v4.4.9)
+- **Terminal command allowlist**: Replaced blocklist-based command filtering with an allowlist approach to prevent command injection in terminal/execution endpoints
+- **Path traversal protection in static proxy**: `app/static/[...path]/route.ts` now validates resolved paths stay within the backend's static directory, preventing `../` traversal attacks
+- **Proxy route timeouts**: PUT/DELETE routes in `app/api/v1/[...path]/route.ts` now enforce request timeouts to prevent slowloris and resource exhaustion
+- **CORS origin restriction**: Replaced wildcard (`*`) CORS origin with environment-specific origin configuration to prevent unauthorized cross-origin requests
+
+#### Performance Improvements (v4.4.9)
+- **Chunked file upload**: `backend/app/api/v1/upload.py` now streams uploads in chunks instead of buffering entire files in memory, preventing memory exhaustion on large uploads
+- **Memoized workspace context**: `WorkspaceContext.tsx` split into smaller memoized selectors to prevent cascading re-renders when any context value changes
+- **Blob URL model loading**: `MeshViewer.tsx` now uses blob URLs to eliminate redundant network fetches when loading models into Three.js
+- **Animation loop gating**: Animation loop now stops when no model is loaded, eliminating unnecessary GPU computation
+
 #### Frontend Architecture (v4.1.3)
 - **Single WorkspaceProvider**: Hoisted to root layout (`app/layout.tsx`) for state persistence across navigation
 - **Three.js cleanup**: Proper disposal of geometries/materials on MeshViewer unmount

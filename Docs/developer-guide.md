@@ -409,3 +409,33 @@ The `backend/app/core/mesh_optimizer.py` module provides post-generation mesh op
 - **Normal recalculation**: Recomputes vertex normals after optimization
 
 Configuration is exposed via the GeneratePanel settings (`auto_optimize`, `target_polycount`, `preserve_details`).
+
+## Security Best Practices (v4.4.9+)
+
+When contributing to AI 3D Studio, follow these security guidelines:
+
+### Command Execution
+- **Use allowlists, never blocklists**: The terminal/execution endpoints use an allowlist of approved commands. Blocklists are bypassable; allowlists are not by default.
+- **Validate all user input**: Never pass unsanitized user input to shell commands or system calls.
+
+### File Handling
+- **Path traversal protection**: Always resolve paths with `.resolve()` and validate they stay within the intended directory. The static proxy (`app/static/[...path]/route.ts`) implements this pattern.
+- **Streaming uploads**: Use chunked streaming for file uploads to prevent memory exhaustion. See `backend/app/api/v1/upload.py` for the implementation.
+- **Client-side validation**: Validate file formats client-side (magic bytes, structure) as a first line of defense, but always re-validate server-side.
+
+### API Security
+- **CORS origin restriction**: Never use wildcard (`*`) CORS origins in production. Configure environment-specific origins via `CORS_ORIGINS`.
+- **Request timeouts**: All proxy routes must enforce timeouts to prevent slowloris and resource exhaustion attacks.
+- **SSE cleanup**: Always close Server-Sent Events connections on timeout to prevent connection leaks.
+
+## Performance Best Practices (v4.4.9+)
+
+### Frontend
+- **Memoize context selectors**: Split large React Context providers into smaller memoized selectors to prevent cascading re-renders. See `WorkspaceContext.tsx` for the pattern.
+- **Blob URLs for large files**: Use blob URLs to load models into Three.js, eliminating redundant network fetches.
+- **Animation loop gating**: Stop animation loops when no work is being done (no model loaded) to avoid unnecessary GPU computation.
+
+### Backend
+- **Chunked streaming**: Stream large file operations in chunks rather than buffering in memory.
+- **Connection cleanup**: Always close SSE and WebSocket connections on timeout or client disconnect.
+- **Lazy initialization**: Use lazy initialization patterns for expensive resources, ensuring all references are properly scoped.

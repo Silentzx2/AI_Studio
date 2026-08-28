@@ -43,6 +43,11 @@ function logHtmlErrorDiagnostics(url: string, contentType: string, bodyPreview: 
 }
 import { validate3DFile } from '../lib/fileValidation';
 
+const disposeMaterial = (material: THREE.Material) => {
+  Object.values(material).forEach((v) => { if (v instanceof THREE.Texture) v.dispose(); });
+  material.dispose();
+};
+
 interface MeshViewerProps {
   className?: string;
   showOverlayUI?: boolean;
@@ -90,6 +95,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const animFrameIdRef = useRef<number | null>(null);
   const isTurntableRef = useRef(isTurntable);
   const blobUrlRef = useRef<string | null>(null);
+  const toastTimeoutRef = useRef<number | null>(null);
 
   // Cleanup blob URLs on unmount
   useEffect(() => {
@@ -191,6 +197,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     const timer = new THREE.Timer();
     const animate = () => {
       animFrameIdRef.current = requestAnimationFrame(animate);
+      if (meshGroup.children.length === 0) return;
       timer.update();
       const delta = timer.getDelta();
 
@@ -219,6 +226,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     return () => {
       resizeObserver.disconnect();
       if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
       controls.dispose();
       renderer.dispose();
       if (container.contains(renderer.domElement)) {
@@ -265,8 +273,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         if (child instanceof THREE.Mesh) {
           child.geometry?.dispose();
           const material = child.material;
-          if (Array.isArray(material)) material.forEach(m => m.dispose());
-          else material?.dispose();
+          if (Array.isArray(material)) material.forEach(m => disposeMaterial(m));
+          else if (material) disposeMaterial(material);
         }
       });
     }
@@ -293,14 +301,17 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
           const contentType = response.headers.get('content-type') || '';
           if (contentType.includes('text/html') || contentType.includes('application/json')) {
-            const text = await response.text();
+            const text = await response.clone().text();
             if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
               logHtmlErrorDiagnostics(sourceUrl, contentType, text);
               throw new Error('Model file served as HTML — possible token/auth failure. Open DevTools for details.');
             }
           }
+          const blob = await response.blob();
+          const blobUrl = URL.createObjectURL(blob);
           const loader = new GLTFLoader();
-          const gltf = await loader.loadAsync(sourceUrl);
+          const gltf = await loader.loadAsync(blobUrl);
+          URL.revokeObjectURL(blobUrl);
           if (!cancelled) {
             group.add(gltf.scene);
             gltf.scene.traverse((child) => {
@@ -317,26 +328,32 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           if (!objResponse.ok) throw new Error(`HTTP ${objResponse.status}`);
           const objContentType = objResponse.headers.get('content-type') || '';
           if (objContentType.includes('text/html') || objContentType.includes('application/json')) {
-            const text = await objResponse.text();
+            const text = await objResponse.clone().text();
             if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
               logHtmlErrorDiagnostics(sourceUrl, objContentType, text);
               throw new Error('Model file served as HTML — possible token/auth failure. Open DevTools for details.');
             }
           }
+          const blob = await objResponse.blob();
+          const blobUrl = URL.createObjectURL(blob);
           const loader = new OBJLoader();
-          const object = await loader.loadAsync(sourceUrl);
+          const object = await loader.loadAsync(blobUrl);
+          URL.revokeObjectURL(blobUrl);
           if (!cancelled) {
             object.traverse((child) => {
               if (child instanceof THREE.Mesh) {
                 child.castShadow = true;
                 child.receiveShadow = true;
                 if (shadingMode === 'wireframe') {
+                  const oldMaterial = child.material;
                   child.material = new THREE.MeshStandardMaterial({
                     color: 0xd0d5dc,
                     wireframe: true,
                     roughness: 0.75,
                     metalness: 0.05
                   });
+                  if (Array.isArray(oldMaterial)) oldMaterial.forEach(m => disposeMaterial(m));
+                  else if (oldMaterial) disposeMaterial(oldMaterial);
                 }
               }
             });
@@ -348,7 +365,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
           const contentType = response.headers.get('content-type') || '';
           if (contentType.includes('text/html') || contentType.includes('application/json')) {
-            const text = await response.text();
+            const text = await response.clone().text();
             if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
               logHtmlErrorDiagnostics(sourceUrl, contentType, text);
               throw new Error('Model file served as HTML — possible token/auth failure. Open DevTools for details.');
@@ -378,7 +395,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           const message = error instanceof Error ? error.message : 'Unable to preview asset';
           setDropToastMessage(message);
           setDropToastIsHtmlError(message.includes('served as HTML') || message.includes('token/auth'));
-          window.setTimeout(() => {
+          if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+          toastTimeoutRef.current = window.setTimeout(() => {
             setDropToastMessage(null);
             setDropToastIsHtmlError(false);
           }, 6000);

@@ -230,6 +230,7 @@ export const adminService = {
     const cleanup = () => {
       if (timeoutId) clearTimeout(timeoutId);
       eventSourceClosed = true;
+      unsubscribe();
       if (onDone) onDone();
     };
 

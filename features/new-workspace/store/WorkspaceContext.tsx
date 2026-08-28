@@ -723,46 +723,101 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     else if (nav === 'settings') router.push('/settings');
   }, [router]);
 
-  const value = React.useMemo(() => ({
-    activeTool, setActiveTool, mainNav, setMainNav,
-    assets, selectedAssetId, currentAsset, selectAsset, updateAssetProperties, updateMaterialConfig, deleteAsset, addAsset,
-    shadingMode, setShadingMode, showWireframe, setShowWireframe, showGrid, setShowGrid, showBones, setShowBones,
-    isTurntable, setIsTurntable, activeTransformTool, setActiveTransformTool,
+  // Split context value into smaller memos to reduce re-render scope.
+  // Each memo only recalculates when its specific dependencies change.
+  const viewportValue = useMemo(() => ({
+    shadingMode, setShadingMode, showWireframe, setShowWireframe,
+    showGrid, setShowGrid, showBones, setShowBones,
+    isTurntable, setIsTurntable,
+    activeTransformTool, setActiveTransformTool,
     viewportResetTrigger, resetCamera, fitToScreen,
+  }), [shadingMode, setShadingMode, showWireframe, setShowWireframe,
+    showGrid, setShowGrid, showBones, setShowBones,
+    isTurntable, setIsTurntable,
+    activeTransformTool, setActiveTransformTool,
+    viewportResetTrigger, resetCamera, fitToScreen]);
+
+  const toolValue = useMemo(() => ({
+    activeTool, setActiveTool, mainNav, setMainNav,
     activeRightTab, setActiveRightTab,
     rightPanelMode: activeRightTab, setRightPanelMode: setActiveRightTab,
-    isLeftPanelOpen, setIsLeftPanelOpen, toolPanelOpen: isLeftPanelOpen, setToolPanelOpen: setIsLeftPanelOpen,
-    isRightPanelOpen, setIsRightPanelOpen, rightPanelOpen: isRightPanelOpen, setRightPanelOpen: setIsRightPanelOpen,
-    setCurrentAsset, assetFilter, setAssetFilter, duplicateAsset,
+    isLeftPanelOpen, setIsLeftPanelOpen,
+    toolPanelOpen: isLeftPanelOpen, setToolPanelOpen: setIsLeftPanelOpen,
+    isRightPanelOpen, setIsRightPanelOpen,
+    rightPanelOpen: isRightPanelOpen, setRightPanelOpen: setIsRightPanelOpen,
+    navigateToTool, navigateToMain, navigateToMainNav: navigateToMain,
+  }), [activeTool, setActiveTool, mainNav, setMainNav,
+    activeRightTab, setActiveRightTab,
+    isLeftPanelOpen, setIsLeftPanelOpen,
+    isRightPanelOpen, setIsRightPanelOpen,
+    navigateToTool, navigateToMain]);
+
+  const assetValue = useMemo(() => ({
+    assets, selectedAssetId, currentAsset,
+    selectAsset, updateAssetProperties, updateMaterialConfig,
+    deleteAsset, addAsset, setCurrentAsset,
+    assetFilter, setAssetFilter, duplicateAsset,
+  }), [assets, selectedAssetId, currentAsset,
+    selectAsset, updateAssetProperties, updateMaterialConfig,
+    deleteAsset, addAsset, setCurrentAsset,
+    assetFilter, setAssetFilter, duplicateAsset]);
+
+  const systemValue = useMemo(() => ({
     systemStats, isSettingsOpen, setIsSettingsOpen,
-    isExportModalOpen, setIsExportModalOpen, isDccBridgeOpen, setIsDccBridgeOpen,
-    refreshSystemStats, activeTask, dismissActiveTask,
+    isExportModalOpen, setIsExportModalOpen,
+    isDccBridgeOpen, setIsDccBridgeOpen,
+    refreshSystemStats,
+  }), [systemStats, isSettingsOpen, setIsSettingsOpen,
+    isExportModalOpen, setIsExportModalOpen,
+    isDccBridgeOpen, setIsDccBridgeOpen,
+    refreshSystemStats]);
+
+  const executionValue = useMemo(() => ({
+    activeTask, dismissActiveTask,
     isExecuting, executionProgress, executionStep, cancelExecution,
-    generationSettings, setGenerationSettings, remeshSettings, setRemeshSettings,
-    textureSettings, setTextureSettings, animateSettings, setAnimateSettings,
-    riggingSettings, setRiggingSettings, segmentationSettings, setSegmentationSettings,
+  }), [activeTask, dismissActiveTask,
+    isExecuting, executionProgress, executionStep, cancelExecution]);
+
+  const generationSettingsValue = useMemo(() => ({
+    generationSettings, setGenerationSettings,
+    remeshSettings, setRemeshSettings,
+    textureSettings, setTextureSettings,
+    animateSettings, setAnimateSettings,
+    riggingSettings, setRiggingSettings,
+    segmentationSettings, setSegmentationSettings,
+  }), [generationSettings, setGenerationSettings,
+    remeshSettings, setRemeshSettings,
+    textureSettings, setTextureSettings,
+    animateSettings, setAnimateSettings,
+    riggingSettings, setRiggingSettings,
+    segmentationSettings, setSegmentationSettings]);
+
+  const animationValue = useMemo(() => ({
     bones, selectedBoneId, setSelectedBoneId, updateBone,
-    currentFrame, setCurrentFrame, isPlaying, setIsPlaying, totalFrames, fps, tracks,
-    generate3DModel, generateTextTo3D, generateImageTo3D, runModelGeneration: generate3DModel,
-    runRemeshGeneration, runTextureGeneration, runAnimateGeneration, runRiggingGeneration, runSegmentationGeneration,
-    queueWorkflow, navigateToTool, navigateToMain, navigateToMainNav: navigateToMain,
-  }), [
-    activeTool, mainNav, assets, selectedAssetId, currentAsset, shadingMode, showWireframe, showGrid, showBones,
-    isTurntable, activeTransformTool, viewportResetTrigger, activeRightTab, isLeftPanelOpen, isRightPanelOpen,
-    assetFilter, systemStats, isSettingsOpen, isExportModalOpen, isDccBridgeOpen, refreshSystemStats,
-    activeTask, isExecuting, executionProgress, executionStep, generationSettings, remeshSettings,
-    textureSettings, animateSettings, riggingSettings, segmentationSettings, bones, selectedBoneId,
-    currentFrame, isPlaying, totalFrames, fps, tracks, selectAsset, updateAssetProperties,
-    updateMaterialConfig, deleteAsset, addAsset, setShadingMode, setShowWireframe, setShowGrid, setShowBones,
-    setIsTurntable, setActiveTransformTool, resetCamera, fitToScreen, setActiveRightTab,
-    setIsLeftPanelOpen, setIsRightPanelOpen, setCurrentAsset, setAssetFilter, duplicateAsset,
-    setIsSettingsOpen, setIsExportModalOpen, setIsDccBridgeOpen, dismissActiveTask, cancelExecution,
-    setGenerationSettings, setRemeshSettings, setTextureSettings, setAnimateSettings, setRiggingSettings,
-    setSegmentationSettings, setSelectedBoneId, updateBone, setCurrentFrame, setIsPlaying,
-    generate3DModel, generateTextTo3D, generateImageTo3D, runRemeshGeneration, runTextureGeneration,
-    runAnimateGeneration, runRiggingGeneration, runSegmentationGeneration, queueWorkflow,
-    navigateToTool, navigateToMain,
-  ]);
+    currentFrame, setCurrentFrame, isPlaying, setIsPlaying,
+    totalFrames, fps, tracks,
+  }), [bones, selectedBoneId, setSelectedBoneId, updateBone,
+    currentFrame, setCurrentFrame, isPlaying, setIsPlaying,
+    totalFrames, fps, tracks]);
+
+  const generationActionsValue = useMemo(() => ({
+    generate3DModel, generateTextTo3D, generateImageTo3D,
+    runModelGeneration: generate3DModel,
+    runRemeshGeneration, runTextureGeneration,
+    runAnimateGeneration, runRiggingGeneration,
+    runSegmentationGeneration, queueWorkflow,
+  }), [generate3DModel, generateTextTo3D, generateImageTo3D,
+    runRemeshGeneration, runTextureGeneration,
+    runAnimateGeneration, runRiggingGeneration,
+    runSegmentationGeneration, queueWorkflow]);
+
+  const value = React.useMemo(() => ({
+    ...viewportValue, ...toolValue, ...assetValue, ...systemValue,
+    ...executionValue, ...generationSettingsValue, ...animationValue,
+    ...generationActionsValue,
+  }), [viewportValue, toolValue, assetValue, systemValue,
+    executionValue, generationSettingsValue, animationValue,
+    generationActionsValue]);
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 };

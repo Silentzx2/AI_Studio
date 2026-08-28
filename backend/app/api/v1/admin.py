@@ -295,6 +295,17 @@ _TERMINAL_HISTORY: list[dict] = []
 _TERMINAL_HISTORY_MAX = 100
 _TERMINAL_LOCK = threading.Lock()
 
+# Allowlist of safe read-only commands. Only these exact command names are
+# permitted — everything else is rejected. This is a positive security model
+# (default-deny) rather than a blocklist that can be bypassed.
+_ALLOWED_COMMANDS = {
+    "ls", "cat", "head", "tail", "echo", "pwd", "whoami", "date",
+    "nvidia-smi", "ps", "top", "df", "du", "find", "grep", "wc",
+    "file", "stat", "which", "env", "printenv", "hostname", "uname",
+    "uptime", "free", "lscpu", "lsblk", "lspci", "lsmod", "dmesg",
+    "git", "pip", "python", "python3",
+}
+
 
 class TerminalCommandRequest(BaseModel):
     command: str
@@ -314,24 +325,24 @@ def _execute_command(command: str) -> dict:
     cmd_id = str(uuid.uuid4())[:8]
     timestamp = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
 
-    # Security: reject shell metacharacters outright (allowlist-style).
-    # A blocklist (rm -rf /, curl|sh, ...) is trivially bypassable via nested
-    # shells, command substitution, newlines, etc. — so no metacharacters, period.
-    if re.search(r'[;&|><`$\n\r\\()]', command):
-        return {
-            "id": cmd_id,
-            "command": command,
-            "output": "Command blocked: shell metacharacters are not allowed",
-            "timestamp": timestamp,
-            "exit_code": 1,
-        }
-
     argv = shlex.split(command)
     if not argv:
         return {
             "id": cmd_id,
             "command": command,
             "output": "Empty command",
+            "timestamp": timestamp,
+            "exit_code": 1,
+        }
+
+    # Security: only allowlisted command names are permitted.
+    # Extract the base command name (first token) and check against the allowlist.
+    base_cmd = os.path.basename(argv[0])
+    if base_cmd not in _ALLOWED_COMMANDS:
+        return {
+            "id": cmd_id,
+            "command": command,
+            "output": f"Command not allowed: '{base_cmd}'. Allowed commands: {', '.join(sorted(_ALLOWED_COMMANDS))}",
             "timestamp": timestamp,
             "exit_code": 1,
         }

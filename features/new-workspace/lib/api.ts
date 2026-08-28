@@ -62,15 +62,13 @@ class ApiClient {
     const start = performance.now();
     try {
       const [sysRes, gpuRes, runtimeRes] = await Promise.allSettled([
-        fetch(`${API_BASE}/system/info`, { signal: AbortSignal.timeout(4000) }),
-        fetch(`${API_BASE}/system/gpu`, { signal: AbortSignal.timeout(4000) }),
-        fetch(`${API_BASE}/runtime/status`, { signal: AbortSignal.timeout(4000) }),
+        baseApiClient.get<Record<string, unknown>>(`${API_BASE}/system/info`),
+        baseApiClient.get<Record<string, unknown>>(`${API_BASE}/system/gpu`),
+        baseApiClient.get<Record<string, unknown>>(`${API_BASE}/runtime/status`),
       ]);
 
       const latency = Math.round(performance.now() - start);
-      const isAnyOk = (sysRes.status === 'fulfilled' && sysRes.value.ok) ||
-                      (gpuRes.status === 'fulfilled' && gpuRes.value.ok) ||
-                      (runtimeRes.status === 'fulfilled' && runtimeRes.value.ok);
+      const isAnyOk = sysRes.status === 'fulfilled' || gpuRes.status === 'fulfilled' || runtimeRes.status === 'fulfilled';
 
       if (!isAnyOk) {
         return {
@@ -89,9 +87,9 @@ class ApiClient {
         };
       }
 
-      const rawGpu = gpuRes.status === 'fulfilled' && gpuRes.value.ok ? await gpuRes.value.json() as Record<string, unknown> : {};
-      const rawSys = sysRes.status === 'fulfilled' && sysRes.value.ok ? await sysRes.value.json() as Record<string, unknown> : {};
-      const rawRt = runtimeRes.status === 'fulfilled' && runtimeRes.value.ok ? await runtimeRes.value.json() as Record<string, unknown> : {};
+      const rawGpu = gpuRes.status === 'fulfilled' ? gpuRes.value : {};
+      const rawSys = sysRes.status === 'fulfilled' ? sysRes.value : {};
+      const rawRt = runtimeRes.status === 'fulfilled' ? runtimeRes.value : {};
 
       const gpuData = (rawGpu.data ?? rawGpu) as Record<string, any>;
       const sysData = (rawSys.data ?? rawSys) as Record<string, any>;
@@ -162,7 +160,7 @@ class ApiClient {
 
   async getQueue(): Promise<{ running: unknown[]; pending: unknown[] }> {
     try {
-      const res = await fetch(`${API_BASE}/generation/history?limit=5`, { signal: AbortSignal.timeout(4000) });
+      const res = await fetch(`${API_BASE}/jobs?status=queued&limit=50`, { signal: AbortSignal.timeout(4000) });
       if (!res.ok) return { running: [], pending: [] };
       const data = await res.json() as { jobs?: unknown[] };
       return { running: data.jobs ?? [], pending: [] };

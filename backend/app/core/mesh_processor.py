@@ -46,7 +46,7 @@ def write_placeholder_mesh(glb_path: str, seed: int | None = None) -> dict[str, 
     return {
         "polygon_count": len(mesh.faces),
         "vertex_count": len(mesh.vertices),
-        "output_path": output_path,
+        "output_path": glb_path,
     }
 
 
