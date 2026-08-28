@@ -30,7 +30,6 @@ dependencies:
   - torch
   - transformers
   native:
-  - flash-attn
   - spconv
   - torch_scatter
   - torch_cluster
@@ -42,20 +41,22 @@ dependencies:
       mode: pypi
     torch_scatter:
       available: true
-      mode: pypi
+      index: https://data.pyg.org/whl/torch-{torch_ver}+cu{cuda_ver}.html
     torch_cluster:
       available: true
-      mode: pypi
+      index: https://data.pyg.org/whl/torch-{torch_ver}+cu{cuda_ver}.html
     pytorch3d:
       available: true
+      mode: extra_index
       index: https://miropsota.github.io/torch_packages_builder
+      version: "0.7.1"
     bpy:
       available: false
       reason: "bpy is Blender's Python API — it ships with Blender, not PyPI. Install Blender separately to enable headless rigging."
   fallbacks:
     pytorch3d:
     - https://miropsota.github.io/torch_packages_builder
-    - pypi
+    nvdiffrast: []
   # bpy is only used by the headless Blender subprocess script (blender/scripts/process_mesh.py).
   # It is NOT imported by any in-process provider code. The pipeline degrades gracefully
   # when Blender is absent (pipeline.py checks blender_enabled + shutil.which).
