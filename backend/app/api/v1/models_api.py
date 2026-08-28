@@ -17,7 +17,7 @@ _init_lock = threading.Lock()
 
 
 def _get_models_dir() -> str:
-    return os.environ.get("MODELS_DIR", "./storage/models" if os.path.exists("/app") else "./storage/models")
+    return os.environ.get("MODELS_DIR", "./storage/models")
 
 
 def __getattr__(name: str):

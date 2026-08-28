@@ -15,6 +15,8 @@ from runtime.capability import get_model_vram_required
 from runtime.gpu import get_device, get_gpu_info, select_device
 from runtime.storage import get_storage_config
 
+from app.core.providers.registry import _RUNTIME_PROVIDER_MAP as _PROVIDER_MAP
+
 logger = logging.getLogger(__name__)
 
 PROVIDER_PRIORITY = ["hunyuan3d-2.1", "trellis", "hunyuan3d-2", "hunyuan3d-2-mini", "triposg", "anigen", "unirig", "detailgen3d", "mock"]
@@ -34,20 +36,6 @@ PROVIDER_MODES: dict[str, set[str]] = {
     "unirig": {"rigging"},
     "detailgen3d": {"remesh", "post-processing"},
     "mock": {"text-to-3d", "image-to-3d", "remesh", "texture-generation", "rigging"},
-}
-
-_PROVIDER_MAP: dict[str, tuple[str, str]] = {
-    "hunyuan3d": ("app.core.providers.hunyuan3d_local", "Hunyuan3D21LocalProvider"),
-    "hunyuan3d-1.0": ("app.core.providers.hunyuan3d_local", "Hunyuan3D21LocalProvider"),
-    "hunyuan3d-2.1": ("app.core.providers.hunyuan3d_local", "Hunyuan3D21LocalProvider"),
-    "hunyuan3d-2": ("app.core.providers.hunyuan3d_local", "Hunyuan3D2LocalProvider"),
-    "hunyuan3d-2-mini": ("app.core.providers.hunyuan3d_local", "Hunyuan3D2MiniLocalProvider"),
-    "trellis": ("app.core.providers.trellis_local", "TRELLISLocalProvider"),
-    "triposg": ("app.core.providers.triposg_local", "TripoSGLocalProvider"),
-    "anigen": ("app.core.providers.anigen_provider", "AniGenProvider"),
-    "unirig": ("app.core.providers.unirig_provider", "UniRigProvider"),
-    "detailgen3d": ("app.core.providers.detailgen3d", "DetailGen3DProvider"),
-    "mock": ("app.core.providers.mock", "MockProvider"),
 }
 
 

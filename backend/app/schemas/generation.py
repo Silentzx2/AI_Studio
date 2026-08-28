@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -125,7 +125,7 @@ class ProgressEvent(BaseModel):
     message: str
     level: Literal["info", "warn", "error", "success"] = "info"
     result: JobResult | None = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 
 # ── Upload schemas ─────────────────────────────────────────────────────────────

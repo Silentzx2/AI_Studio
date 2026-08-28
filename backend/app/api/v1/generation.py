@@ -352,7 +352,6 @@ async def get_generation_status(job_id: str):
                 "mode": job.mode,
                 "prompt": job.prompt,
                 "provider": job.provider,
-                "error": job.error_message,
                 "error_message": job.error_message,
                 "detail_pass": meta.get("detail_pass", False),
                 "low_vram": job.low_vram,
@@ -424,7 +423,7 @@ async def generation_progress_stream(job_id: str, request: Request):
                         payload = json.loads(data)
                         if payload.get("status") in ("completed", "failed", "cancelled"):
                             break
-                    except:
+                    except Exception:
                         pass
                 await asyncio.sleep(0.1)
         finally:

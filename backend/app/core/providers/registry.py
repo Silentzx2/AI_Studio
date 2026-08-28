@@ -38,6 +38,7 @@ _RUNTIME_PROVIDER_MAP = {
     "anigen": ("app.core.providers.anigen_provider", "AniGenProvider"),
     "unirig": ("app.core.providers.unirig_provider", "UniRigProvider"),
     "detailgen3d": ("app.core.providers.detailgen3d", "DetailGen3DProvider"),
+    "mock": ("app.core.providers.mock", "MockProvider"),
 }
 
 

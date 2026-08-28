@@ -393,7 +393,6 @@ async def get_public_config():
             "app_name": settings.app_name,
             "app_version": settings.app_version,
             "environment": settings.environment,
-            "debug": settings.debug,
             "ai_provider": settings.ai_provider,
             "runtime_mode": settings.runtime_mode,
             "features": {
@@ -507,7 +506,14 @@ async def test_connection():
         from app.config import get_settings
         settings = get_settings()
 
-        await asyncio.to_thread(redis.from_url(settings.redis_url).ping)
+        def _redis_check():
+            r = redis.from_url(settings.redis_url)
+            try:
+                r.ping()
+            finally:
+                r.close()
+
+        await asyncio.to_thread(_redis_check)
         results["redis"] = {"status": "connected", "ok": True}
     except Exception as e:
         results["redis"] = {"status": "error", "ok": False, "error": str(e)}

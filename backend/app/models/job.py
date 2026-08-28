@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import JSON, DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
@@ -48,8 +48,8 @@ class GenerationJob(Base):
     processing_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     # Timing
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
@@ -62,7 +62,7 @@ class VramAuditLog(Base):
     action: Mapped[str] = mapped_column(String(32), nullable=False)  # "load", "unload", "eviction"
     size_gb: Mapped[float] = mapped_column(nullable=False)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     # ponytail: enriched audit fields — which provider/mode was loaded, on which
     # attempt, and whether the attempt was a post-OOM retry. Lets an admin see
     # low-vs-normal VRAM usage and OOM recovery activity without grepping logs.

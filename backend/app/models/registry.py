@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     BigInteger,
@@ -37,7 +37,7 @@ class DownloadQueue(Base):
     speed_mbps = Column(Float, default=0.0)
     eta_seconds = Column(Integer, default=0)
     retry_count = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     error_message = Column(String, nullable=True)
@@ -101,7 +101,7 @@ class InstalledModel(Base):
     id = Column(String, primary_key=True) # e.g., 'hunyuan3d'
     manifest = Column(_DB_JSON)
     status = Column(String) # installing, ready, broken, disabled
-    installed_at = Column(DateTime, default=datetime.utcnow)
+    installed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     last_used = Column(DateTime, nullable=True)
     installation_path = Column(String)
     venv_path = Column(String, nullable=True)
@@ -168,4 +168,4 @@ class ProviderInstallState(Base):
     native_build_task_id = Column(String, nullable=True)
     native_build_lock_owner = Column(String, nullable=True)
     native_build_lock_ts = Column(DateTime, nullable=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))

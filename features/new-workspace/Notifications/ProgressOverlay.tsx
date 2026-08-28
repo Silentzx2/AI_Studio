@@ -151,10 +151,10 @@ export const ProgressOverlay: React.FC = () => {
                     Image-to-3D Reference
                   </div>
                   <div className="text-xs font-semibold text-[#f3f4f6] truncate">
-                    TripoSR / InstantMesh Pipeline
+                    3D Generation Pipeline
                   </div>
                   <div className="text-[10px] text-[#22c55e]">
-                    Alpha Matting & Quad Decimation Active
+                    Model inference in progress
                   </div>
                 </div>
               </div>

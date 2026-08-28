@@ -14,19 +14,29 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # GenerationJob: low-VRAM request snapshot + resolved mode
-    op.add_column("generation_jobs", sa.Column("low_vram", sa.Boolean, nullable=False, server_default="false"))
-    op.add_column("generation_jobs", sa.Column("vram_mode", sa.String(16), nullable=False, server_default="auto"))
+    _add_column_if_missing("generation_jobs", "low_vram", sa.Boolean, nullable=False, server_default="false")
+    _add_column_if_missing("generation_jobs", "vram_mode", sa.String(16), nullable=False, server_default="auto")
 
-    # VramAuditLog: enriched audit trail (provider/mode/attempt/oom_retried)
-    op.add_column("vram_audit_logs", sa.Column("provider", sa.String(64), nullable=True))
-    op.add_column("vram_audit_logs", sa.Column("mode", sa.String(16), nullable=True))
-    op.add_column("vram_audit_logs", sa.Column("attempt", sa.Integer, nullable=True))
-    op.add_column("vram_audit_logs", sa.Column("oom_retried", sa.Boolean, nullable=True))
+    _add_column_if_missing("vram_audit_logs", "provider", sa.String(64), nullable=True)
+    _add_column_if_missing("vram_audit_logs", "mode", sa.String(16), nullable=True)
+    _add_column_if_missing("vram_audit_logs", "attempt", sa.Integer, nullable=True)
+    _add_column_if_missing("vram_audit_logs", "oom_retried", sa.Boolean, nullable=True)
 
-    # InstalledModel: last health check timestamp + status
-    op.add_column("installed_models", sa.Column("last_health_check_at", sa.DateTime, nullable=True))
-    op.add_column("installed_models", sa.Column("last_health_check_status", sa.String, nullable=True))
+    _add_column_if_missing("installed_models", "last_health_check_at", sa.DateTime, nullable=True)
+    _add_column_if_missing("installed_models", "last_health_check_status", sa.String, nullable=True)
+
+
+def _add_column_if_missing(table: str, column: str, col_type, **kwargs) -> None:
+    """Add a column only if it doesn't already exist.
+
+    create_all() in main.py may have already created these columns on fresh
+    databases. Using try/except avoids migration failures in that case.
+    """
+    try:
+        op.add_column(table, sa.Column(column, col_type, **kwargs))
+    except Exception:
+        # Column may already exist from create_all() — safe to skip.
+        pass
 
 
 def downgrade() -> None:

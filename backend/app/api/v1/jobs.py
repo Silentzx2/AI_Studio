@@ -109,7 +109,10 @@ async def delete_job(job_id: str):
             if job.model_url:
                 try:
                     from pathlib import Path
-                    model_path = Path(job.model_url.replace("/static/", ""))
+                    from app.config import get_settings
+                    _settings = get_settings()
+                    base = Path(_settings.storage_local_path)
+                    model_path = base / job.model_url.replace("/static/", "")
                     if model_path.exists():
                         model_path.unlink()
                 except Exception as e:
@@ -118,7 +121,10 @@ async def delete_job(job_id: str):
             if job.thumbnail_url:
                 try:
                     from pathlib import Path
-                    thumb_path = Path(job.thumbnail_url.replace("/static/", ""))
+                    from app.config import get_settings
+                    _settings = get_settings()
+                    base = Path(_settings.storage_local_path)
+                    thumb_path = base / job.thumbnail_url.replace("/static/", "")
                     if thumb_path.exists():
                         thumb_path.unlink()
                 except Exception as e:

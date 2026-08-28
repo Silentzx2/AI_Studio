@@ -52,8 +52,10 @@ const SSE_PATHS = [
   'admin/logs/stream',
 ];
 
+// Broader patterns: any path ending with /stream is treated as SSE
 function isSsePath(path: string): boolean {
-  return SSE_PATHS.some(sse => path.includes(sse));
+  if (SSE_PATHS.some(sse => path.includes(sse))) return true;
+  return path.endsWith('/stream');
 }
 
 export async function GET(

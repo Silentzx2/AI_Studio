@@ -151,13 +151,16 @@ async def get_runtime_options():
             TEXTURE_MODELS,
         )
         from runtime.manifest_loader import get_all_provider_metadata  # noqa: PLC0415
-        provider_meta = get_all_provider_metadata()
-
         from app.core.providers.registry import get_registry
         from app.core.registry.model_registry import ModelRegistry
+        from runtime.installer import get_install_status
 
         gpu = get_gpu_info()
         registry = get_registry()
+
+        # Cache per-request to avoid repeated YAML reloads and disk I/O
+        provider_meta = get_all_provider_metadata()
+        install_status = get_install_status() or {}
 
         try:
             from runtime.capability import get_runtime_capabilities  # noqa: PLC0415
@@ -182,12 +185,6 @@ async def get_runtime_options():
                     ),
                 }
             return {"colab_incompatible": False, "colab_skip_reason": None}
-
-        try:
-            from runtime.manifest_loader import get_all_provider_metadata  # noqa: PLC0415
-            provider_meta = get_all_provider_metadata()
-        except Exception:
-            provider_meta = {}
 
         # --- Build three_d_models from manifests ---
         three_d_models = []
@@ -269,8 +266,6 @@ async def get_runtime_options():
         # models (which skip the registry merge due to seen_ids) still report
         # installed/status correctly.
         try:
-            from runtime.installer import get_install_status
-            install_status = get_install_status()
             install_map = {str(k).lower(): v for k, v in install_status.items()}
             for m in three_d_models:
                 mid = str(m.get("id", "")).lower()
