@@ -294,6 +294,8 @@ if [[ "$GPU_TYPE" == "gpu" ]]; then
     # Map any CUDA 12.x to nearest compatible wheel
     if [[ "$CUDA_INDEX" == "120" || "$CUDA_INDEX" == "121" ]]; then
         CUDA_INDEX="121"
+    elif [[ "$CUDA_INDEX" == "122" || "$CUDA_INDEX" == "123" ]]; then
+        CUDA_INDEX="124"
     elif [[ "$CUDA_INDEX" == "125" || "$CUDA_INDEX" == "126" || "$CUDA_INDEX" == "127" || "$CUDA_INDEX" == "128" ]]; then
         CUDA_INDEX="124"
     fi
@@ -515,7 +517,6 @@ for key in sorted(HF_MODELS.keys()):
         if _selected_providers is not None and key not in _selected_providers:
             print(f"  [SKIP] {key}: not selected by user")
             continue
-            continue
         if not is_model_preparable_for_colab(key):
             reason = get_colab_incompatibility_reason(key) or (
                 f"Required VRAM: {get_model_vram_required(key) / 1024:.1f} GB"
@@ -669,8 +670,6 @@ for pid, meta in sorted(PROVIDER_METADATA.items()):
         warnings.append("Large download")
     if native_deps > 0:
         warnings.append("Needs compilation")
-    if not colab_ok:
-        warnings.append("Colab incompatible")
     models.append({
         "repo": repo_name,
         "vram_gb": round(vram_mb / 1024, 1) if vram_mb else 0,
@@ -719,7 +718,7 @@ PYEOF
     done < <(echo "$model_info" | python3 -c "import sys,json; [print(json.dumps(m)) for m in json.loads(sys.stdin.read())]")
 
     echo "  +----------------------------------------------------------------+"
-    echo "  |  OK = Colab compatible   NO = Needs CUDA toolkit              |"
+    echo "  |  All models installable — VRAM shown for reference only        |"
     echo "  +================================================================+"
     echo ""
 
@@ -791,9 +790,8 @@ if [[ "$model_selection_result" == "2" ]]; then
     warn "Skipping model installation. Start services and install via UI."
 else
     prepare_model_runtimes || warn "Model runtime prep had issues - check output above"
+    download_model_weights || warn "Weight download had issues - check output above"
 fi
-
-download_model_weights || warn "Weight download had issues - check output above"
 
 
 if [[ "$REPOS_ONLY" == "true" ]]; then

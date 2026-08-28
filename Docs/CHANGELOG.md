@@ -1,5 +1,49 @@
 # AI 3D Studio — Changelog
 
+## [v4.4.3] - 2026-08-28 — Remove Hunyuan3D-2 (Superseded by 2.1)
+
+### Removed
+- **Hunyuan3D-2** — removed entirely (manifest, provider, registry entries, docs). Superseded by Hunyuan3D-2.1 which offers better quality, PBR texture pipeline, and training code. The Hunyuan3D-2mini (low-VRAM variant) and Hunyuan3D-2.1 remain.
+
+---
+
+## [v4.4.2] - 2026-08-28 — Colab Policy, VRAM Audit & Bug Fixes
+
+### Policy Change
+- **Colab mode**: Removed the model blocking policy — all models are now installable in Colab mode regardless of VRAM or weight. Colab is a testing environment; VRAM requirements in manifests are advisory only.
+- `capability.py:is_model_preparable_for_colab()` now always returns `True`
+- `capability.py:get_colab_incompatibility_reason()` now always returns `None`
+- Removed dead Colab-blocking code from `runtime.py`, `pipelines.py`, `admin.py`, `generation.py`
+
+### VRAM Audit
+- **TRELLIS**: Fixed `recommended_vram_mb` from 24000 (23.4 GB) to 16000 (16 GB) to match official Microsoft repo requirement ("at least 16 GB VRAM")
+- All other manifest VRAM values verified against official repository documentation
+
+### Critical Bug Fixes
+- **admin.py**: Fixed `NameError` in repair endpoint — `final_status` was referenced outside its scope (line 1267)
+- **runtime.py**: Added missing `from pathlib import Path` import in `migrate_legacy_weights()` (line 594)
+- **setup.sh**: Fixed unclosed quote in `/etc/profile.d/cuda.sh` heredoc (line 274)
+
+### High Bug Fixes
+- **dependency_resolver.py**: Fixed `AttributeError` — `.get()` called on tuple instead of dict (line 900)
+- **installer.py**: Fixed missing return for partial native build pending state (line 2813)
+- **colab.sh**: Fixed weights downloaded even when user chooses to skip installation
+- **colab.sh**: Added missing CUDA 122/123 → 124 wheel mapping
+- **start.sh**: Fixed `systemctl` crash on systems without systemd (Redis check)
+
+### Medium Bug Fixes
+- **preflight.py**: Fixed VRAM exception handler contradicting itself (`passed: True` + `all_passed = False`)
+- **manifest_loader.py**: Fixed filename normalization — preserves dots so `hunyuan3d-2.1` → `hunyuan3d_2.1.yaml`
+- **start.sh**: Fixed incomplete "All Services Started — mode" message
+- **colab.sh**: Removed unreachable duplicate `continue` in weight download loop
+
+### Documentation
+- Updated `Docs/README.md` Colab Preparation Policy section and model catalog VRAM values
+- Updated `Docs/setup-guide.md` Colab Preparation Policy section
+- Updated `AGENTS.md` with project-specific architecture, commands, and common pitfalls
+
+---
+
 ## [v4.4.1] - 2026-08-27 — Bug Fixes & Security Hardening
 
 ### Critical Fixes

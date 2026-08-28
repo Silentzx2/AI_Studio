@@ -26,7 +26,8 @@ def _manifest_path(provider_name: str) -> Path:
         raise ValueError("Provider name cannot be empty")
     candidates = sorted(_MANIFEST_DIR.glob("*.yaml"))
     # Prefer a filename-derived match for fast, predictable lookup.
-    safe = re.sub(r"[^a-z0-9]", "_", wanted)
+    # Preserve dots so "hunyuan3d-2.1" normalizes to "hunyuan3d_2.1" (not "hunyuan3d_2_1").
+    safe = re.sub(r"[^a-z0-9.]", "_", wanted)
     filename_match = _MANIFEST_DIR / f"{safe}.yaml"
     if filename_match.exists():
         return filename_match
@@ -140,7 +141,7 @@ def _build_repo_registry() -> dict[str, dict]:
         if provider not in cfg["providers"]:
             cfg["providers"].append(provider)
         # Prefer the explicit source metadata from the first manifest; shared
-        # repos (e.g. Hunyuan3D-2 + mini) intentionally use one checkout.
+        # repos (e.g. Hunyuan3D-2.1 + mini) intentionally use one checkout.
     return registry
 
 

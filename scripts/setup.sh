@@ -271,7 +271,7 @@ install_cuda() {
   # Persist PATH/LD_LIBRARY_PATH
   cat > /etc/profile.d/cuda.sh << 'CUDA_ENV'
 export PATH=/usr/local/cuda/bin:$PATH
-export LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}
+export LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}"
 CUDA_ENV
   chmod +x /etc/profile.d/cuda.sh
   # Apply for this session too

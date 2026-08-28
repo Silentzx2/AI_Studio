@@ -31,7 +31,6 @@ _RUNTIME_PROVIDER_ALIASES = {
 # mock despite the engine being able to load them.)
 _RUNTIME_PROVIDER_MAP = {
     "hunyuan3d-2.1": ("app.core.providers.hunyuan3d_local", "Hunyuan3D21LocalProvider"),
-    "hunyuan3d-2": ("app.core.providers.hunyuan3d_local", "Hunyuan3D2LocalProvider"),
     "hunyuan3d-2-mini": ("app.core.providers.hunyuan3d_local", "Hunyuan3D2MiniLocalProvider"),
     "trellis": ("app.core.providers.trellis_local", "TRELLISLocalProvider"),
     "triposg": ("app.core.providers.triposg_local", "TripoSGLocalProvider"),
@@ -90,7 +89,6 @@ class ProviderRegistry:
 _KNOWN_PROVIDERS = [
     "mock",
     "hunyuan3d",
-    "hunyuan3d-2",
     "hunyuan3d-2.1",
     "hunyuan3d-2-mini",
     "trellis",

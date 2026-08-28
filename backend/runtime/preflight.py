@@ -132,27 +132,6 @@ pipe(img)
 print("ok")
 """,
     },
-    "hunyuan3d-2": {
-        "shape": """
-import torch
-import numpy as np
-from hy3dgen.pipelines import Hunyuan3DPipeline
-pipe = Hunyuan3DPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__)
-point_cloud = torch.randn(1, 3, 32, 32)
-mesh = pipe(point_cloud)
-print("ok")
-""",
-        "texture_pbr": """
-import torch
-import numpy as np
-from PIL import Image
-from hy3dgen.pipelines import Hunyuan3DPipeline
-pipe = Hunyuan3DPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__)
-img = Image.new("RGB", (256, 256))
-mesh = pipe(img)
-print("ok")
-""",
-    },
     "hunyuan3d-2-mini": {
         "shape": """
 import torch
@@ -578,7 +557,6 @@ def run_preflight_for_provider(
                 # VRAM failure is informational on CPU-only environments
             except Exception as exc:
                 checks["vram"] = {"passed": True, "detail": f"VRAM check skipped: {exc}"}
-                all_passed = False
     # --- Model load test ---
     smoke_code = _resolve_smoke_code(provider_name, _PROVIDER_SMOKE_TESTS.get(provider_name))
     if not smoke_code:

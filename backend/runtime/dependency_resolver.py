@@ -897,7 +897,7 @@ def install_resolved_deps(
                             ext_dir,
                             hf_dataset,
                             log_cb=log_cb,
-                            dataset_path=str(local_ext.get("path", "")).strip("/\\") or ext_dir.name,
+                            dataset_path=str(local_path).strip("/\\") or ext_dir.name,
                         ):
                             _log(f"Installing {dep.name} from fetched local extension: {ext_dir}")
                             build_args = ["pip", "install", "--python", str(venv_python), str(ext_dir), "--no-build-isolation", "--no-deps"]

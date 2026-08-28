@@ -1009,10 +1009,6 @@ async def list_models():
             HF_MODELS,
         )
         from runtime.storage import get_storage_config
-        from runtime.capability import (
-            is_model_preparable_for_colab,
-            get_colab_incompatibility_reason,
-        )
 
         engine = get_engine()
         storage = get_storage_config()
@@ -1047,10 +1043,6 @@ async def list_models():
                 "venv_ready": inst.get("venv_ready", False),
                 "weights_ready": inst.get("weights_ready", False),
                 "native_build": inst.get("components", {}).get("native_build", {"state": "not_required"}),
-                # ponytail: colab_preparable + install_block_reason drive the
-                # model-tab "can't install on this runtime" gray/warning state.
-                "colab_preparable": is_model_preparable_for_colab(name),
-                "install_block_reason": get_colab_incompatibility_reason(name),
                 # ponytail: size/repo live in HF_MODELS (keyed by provider id),
                 # NOT PROVIDER_METADATA — the latter only stores the REPOS key.
                 "hf_repo": HF_MODELS.get(name, {}).get("repo"),
@@ -1264,7 +1256,7 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
         return success({
             "model_id": model_id,
             "action": "repair_started",
-            "state": final_status.get("state") if final_status is not None else "unknown"
+            "state": "started"
         })
 
     elif action in ("delete", "uninstall"):

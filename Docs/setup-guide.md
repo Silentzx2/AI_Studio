@@ -75,10 +75,9 @@
 | **Trellis** | 8 GB (12 GB native-build) | High quality | ~60 seconds |
 | **TripoSG** | 8 GB | image-to-3D | ~60 seconds |
 | **UniRig** | 8 GB | Rigging / animation | ~30 seconds |
-| **Hunyuan3D-2** | 16 GB (24.5 GB normal peak) | High quality | ~75 seconds |
 | **Hunyuan3D-2.1** | 21 GB texture / 29 GB combined | High quality | ~90 seconds |
 
-> VRAM figures are the verified normal-footprint requirements. Hunyuan3D-2 (24.5 GB peak / 16 GB low-VRAM combined) and Hunyuan3D-2.1 (29 GB peak / 10 GB low-VRAM combined) also support a verified **low-VRAM** mode (CPU offload) for constrained GPUs; Hunyuan3D-2-Mini (6 GB peak) uses the same low-VRAM machinery. TRELLIS, TripoSG, AniGen, UniRig, and DetailGen3D do not support low-VRAM mode (they require a native CUDA build or have no verified low-VRAM path).
+> VRAM figures are the verified normal-footprint requirements. Hunyuan3D-2.1 (29 GB peak / 10 GB low-VRAM combined) also supports a verified **low-VRAM** mode (CPU offload) for constrained GPUs; Hunyuan3D-2-Mini (6 GB peak) uses the same low-VRAM machinery. TRELLIS, TripoSG, AniGen, UniRig, and DetailGen3D do not support low-VRAM mode (they require a native CUDA build or have no verified low-VRAM path).
 
 
 ---
@@ -211,7 +210,6 @@ This reduces install time and CUDA build failures, especially on Python 3.12.
 | Model ID | Repo Entry | Category |
 |----------|------------|----------|
 | `hunyuan3d-2.1` | `Hunyuan3D-2.1` | 3D Generation |
-| `hunyuan3d-2` | `Hunyuan3D-2` | 3D Generation |
 | `hunyuan3d-2-mini` | `Hunyuan3D-2mini` | 3D Generation |
 | `trellis` | `TRELLIS` | 3D Generation |
 | `triposg` | `TripoSG` | 3D Generation |
@@ -223,20 +221,19 @@ This reduces install time and CUDA build failures, especially on Python 3.12.
 
 ### Colab Preparation Policy
 
-Models are automatically prepared on Colab only if they pass BOTH criteria:
-- VRAM < 15 GB (Colab T4/P100 have ~16 GB)
-- Weight download ≤ 10 GB (Colab free-tier disk limit)
+Colab mode is a testing environment — all models are installable regardless of VRAM or weight. VRAM requirements shown in manifests are advisory (displayed to users) but never gate preparation. The caller is still responsible for handling runtime OOM.
 
-| Model | VRAM | Weight | Colab Prep | Reason |
-|-------|------|--------|------------|--------|
-| DetailGen3D | 4 GB | 2 GB | ✅ Prepared | Passes both gates |
-| Hunyuan3D-2mini | 6 GB | 4 GB | ✅ Prepared | Passes both gates |
-| TripoSG | 8 GB | 2 GB | ✅ Prepared | Passes both gates |
-| AniGen | 6.2 GB | 23 GB | ❌ Skipped | Weight exceeds 10 GB ceiling |
-| TRELLIS | 8 GB | 3 GB | ❌ Skipped | Requires native CUDA build (no toolkit on Colab) |
-| UniRig | 8 GB | 2 GB | ❌ Skipped | Requires native CUDA build (no toolkit on Colab) |
-| Hunyuan3D 2 | 24 GB | 24 GB | ❌ Skipped | VRAM exceeds 15 GB limit |
-| Hunyuan3D 2.1 | 29 GB | 14 GB | ❌ Skipped | VRAM exceeds 15 GB limit |
+| Model | VRAM | Weight | Notes |
+|-------|------|--------|-------|
+| DetailGen3D | 4 GB | 2 GB | Geometry enhancement |
+| Hunyuan3D-2mini | 6 GB | 4 GB | Optimized for low VRAM |
+| TripoSG | 8 GB | 2 GB | Image-to-3D |
+| AniGen | 6.2 GB | 23 GB | Low VRAM mode available |
+| TRELLIS | 16 GB | 3 GB | Official: ≥16 GB required |
+| UniRig | 8 GB | 2 GB | Skeleton prediction |
+| Hunyuan3D 2.1 | 29 GB | 14 GB | Full pipeline ~29 GB |
+
+> **Note**: Models requiring native CUDA builds (TRELLIS, UniRig, AniGen) need the CUDA toolkit (`nvcc`) to compile extensions. On Colab, the toolkit may be unavailable — the runtime will still install but native extensions may fail to compile. On VPS/full-GPU hosts with CUDA toolkit installed, all models work without restrictions.
 
 ---
 
@@ -413,7 +410,7 @@ MAX_UPLOAD_SIZE=52428800  # 50MB
 AI_PROVIDER=hunyuan3d-2.1
 RUNTIME_MODE=local
 
-# Options: mock, hunyuan3d-2.1, hunyuan3d-2, hunyuan3d-2-mini, trellis, triposg, anigen, unirig, detailgen3d
+# Options: mock, hunyuan3d-2.1, hunyuan3d-2-mini, trellis, triposg, anigen, unirig, detailgen3d
 # (aliases: hunyuan3d, hunyuan3d-1.0 -> hunyuan3d-2.1)
 
 # ===== GPU SETTINGS =====
@@ -699,9 +696,9 @@ extension requiring `kaolin`). The installer now clones submodules, but the exte
 built in the per-model venv. Until that is done, TRELLIS import fails at
 `from .flexicubes.flexicubes import FlexiCubes`. This is independent of the torch mismatch above.
 
-#### 11. TRELLIS / Hunyuan3D-2: `accelerate` import picks backend `.venv` first
+#### 11. TRELLIS / Hunyuan3D-2.1: `accelerate` import picks backend `.venv` first
 
-If generation fails immediately for `trellis` or `hunyuan3d-2` with:
+If generation fails immediately for `trellis` or `hunyuan3d-2.1` with:
 
 ```
 AttributeError: module 'numpy._core' has no attribute 'multiarray'
@@ -764,7 +761,7 @@ bash manager.sh
 # or via API:
 curl -X POST http://localhost:8000/api/v1/runtime/prepare-runtime \
   -H "Content-Type: application/json" \
-  -d '{"models": ["trellis","hunyuan3d-2","triposg"]}'
+  -d '{"models": ["trellis","hunyuan3d-2.1","triposg"]}'
 ```
 
 This is required because per-model `.venv/` directories are created at install time and are **not** automatically updated when dependency pins change in code. Skipping this step leaves the old (broken) pins in place and the runtime errors persist.
@@ -1222,9 +1219,9 @@ Verify the `hunyuan3d-2.1` YAML manifest has its own source entry pointing to `T
 
 ### Hunyuan3D-2mini: separate repo entry
 
-As of v4.1, `Hunyuan3D-2mini` is a **separate repo entry** from `Hunyuan3D-2`. Both point to `Tencent-Hunyuan/Hunyuan3D-2.git` but have independent:
-- Manifests (`hunyuan3d_2_mini.yaml` vs `hunyuan3d_2.yaml`)
-- Weights paths (`third_party/Hunyuan3D-2mini/weights/` vs `third_party/Hunyuan3D-2/weights/`)
+As of v4.4.3, `Hunyuan3D-2mini` is a **separate repo entry** from `Hunyuan3D-2.1`. Both point to `Tencent-Hunyuan/Hunyuan3D-2.git` but have independent:
+- Manifests (`hunyuan3d_2_mini.yaml` vs `hunyuan3d_21.yaml`)
+- Weights paths (`third_party/Hunyuan3D-2mini/weights/` vs `third_party/Hunyuan3D-2.1/weights/`)
 - Virtual environments
 
 This allows the mini variant (6 GB VRAM) to be installed independently from the full model (16+ GB VRAM).
@@ -1290,5 +1287,5 @@ See `Docs/INSTALLATION_STATES.md` for the full state reference.
 - The workspace model pickers read from `GET /api/v1/pipelines/workspace-models`.
 - Runtime status comes from `GET /api/v1/runtime/status` and `GET /api/v1/runtime/health`.
 - Runtime options for the UI come from `GET /api/v1/runtime/options`.
-- The current model ids exposed by the registry are: `hunyuan3d-2.1`, `hunyuan3d-2`, `hunyuan3d-2-mini`, `trellis`, `triposg`, `anigen`, `unirig`, `detailgen3d` (plus `mock`; aliases `hunyuan3d` / `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`). As of v3.8.7 the registry map is synced with the engine, so `hunyuan3d-2-mini` and `triposg` are also switchable via `/runtime/provider` and resolvable via `get_provider()` (previously these silently fell back to mock).
+- The current model ids exposed by the registry are: `hunyuan3d-2.1`, `hunyuan3d-2-mini`, `trellis`, `triposg`, `anigen`, `unirig`, `detailgen3d` (plus `mock`; aliases `hunyuan3d` / `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`). As of v3.8.7 the registry map is synced with the engine, so `hunyuan3d-2-mini` and `triposg` are also switchable via `/runtime/provider` and resolvable via `get_provider()` (previously these silently fell back to mock).
 - The backend does not expose a bare `GET /api/v1/runtime` route.

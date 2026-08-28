@@ -686,15 +686,14 @@ The current workspace model pickers are backed by the live registry snapshot and
 
 ### Registered model ids
 
-`hunyuan3d-2.1`, `hunyuan3d-2`, `hunyuan3d-2-mini`, `trellis`, `triposg`, `anigen`, `unirig`, `detailgen3d` (plus `mock` for testing; aliases `hunyuan3d` / `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`). As of v3.8.7 all are switchable via `/runtime/provider` and resolvable via `get_provider()` (the registry map was synced with the engine).
+`hunyuan3d-2.1`, `hunyuan3d-2-mini`, `trellis`, `triposg`, `anigen`, `unirig`, `detailgen3d` (plus `mock` for testing; aliases `hunyuan3d` / `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`). As of v3.8.7 all are switchable via `/runtime/provider` and resolvable via `get_provider()` (the registry map was synced with the engine).
 
 ### Capability summary
 
 | Model | Category | Workspace compatibility | Key capabilities | VRAM |
 |------|----------|------------------------|------------------|------|
 | Hunyuan3D 2.1 | 3D generation | mesh-generation, texture-generation, post-processing | text/image-to-3D, texture generation | 16 GB |
-| Hunyuan3D 2 | 3D generation | mesh-generation, texture-generation, post-processing | text/image-to-3D, texture generation | 12 GB |
-| Hunyuan3D-2 Mini | 3D generation | mesh-generation | image-to-3D (texture via Hunyuan3D-2 paint weights) | 6 GB |
+| Hunyuan3D-2 Mini | 3D generation | mesh-generation | image-to-3D (texture via Hunyuan3D paint weights) | 6 GB |
 | Trellis | 3D generation | mesh-generation, texture-generation | image-to-3D, text-to-3D, texture generation | 8 GB |
 | TripoSG | 3D generation | mesh-generation | image-to-3D (no texture) | 8 GB |
 | AniGen | Rigging | rigging, animation | character rigging, animation | 6.2 GB |
@@ -703,8 +702,8 @@ The current workspace model pickers are backed by the live registry snapshot and
 
 ### Workspace compatibility rules
 
-- **mesh-generation**: hunyuan3d-2-mini, hunyuan3d-2.1, hunyuan3d-2, trellis, triposg
-- **texture-generation**: hunyuan3d-2.1, hunyuan3d-2, trellis
+- **mesh-generation**: hunyuan3d-2-mini, hunyuan3d-2.1, trellis, triposg
+- **texture-generation**: hunyuan3d-2.1, trellis
 - **rigging**: anigen, unirig
 - **animation**: anigen, unirig
 - **remesh**: detailgen3d

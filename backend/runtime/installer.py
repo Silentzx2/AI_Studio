@@ -172,7 +172,7 @@ def _build_repo_registry() -> dict[str, dict]:
         if provider not in cfg["providers"]:
             cfg["providers"].append(provider)
         # Prefer the explicit source metadata from the first manifest; shared
-        # repos (e.g. Hunyuan3D-2 + mini) intentionally use one checkout.
+        # repos (e.g. Hunyuan3D-2.1 + mini) intentionally use one checkout.
     return registry
 
 
@@ -254,7 +254,6 @@ PROVIDER_METADATA = {**_MANIFEST_PROVIDER_METADATA, "mock": {
 
 TEXTURE_MODELS = [
     {"id": "hunyuan3d-2.1", "label": "Hunyuan3D 2.1 (recommended)"},
-    {"id": "hunyuan3d-2", "label": "Hunyuan3D 2"},
     {"id": "trellis", "label": "TRELLIS"},
 ]
 
@@ -1616,9 +1615,8 @@ def download_weights(
 
     # ponytail: weights live inside the model's repo folder under a per-model
     # subdir keyed by the weight_key. This keeps models that share a repo
-    # (hunyuan3d-2.1 + hunyuan3d-2 both map to "Hunyuan3D-2") isolated —
-    # previously they collapsed into one shared flat weights dir and
-    # get_weight_path() could not tell them apart.
+    # isolated — previously they collapsed into one shared flat weights dir
+    # and get_weight_path() could not tell them apart.
     try:
         from runtime.manifest_loader import load_manifest
         weight_manifest = load_manifest(provider_name)
@@ -2811,6 +2809,7 @@ def _compute_overall_state(
                     all_caps_need_native = all(v.get("native_build_required", False) for v in enabled_caps)
             if all_caps_need_native:
                 return "native_build_pending", "Native CUDA build queued for background execution"
+            return "partial", "Some capabilities ready; native build pending for others"
         if native_state == "pending_partial":
             if preflight_state == "passed":
                 return "partial", "Some capabilities ready; native build pending for other capabilities"

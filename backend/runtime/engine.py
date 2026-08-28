@@ -19,7 +19,7 @@ from app.core.providers.registry import _RUNTIME_PROVIDER_MAP as _PROVIDER_MAP
 
 logger = logging.getLogger(__name__)
 
-PROVIDER_PRIORITY = ["hunyuan3d-2.1", "trellis", "hunyuan3d-2", "hunyuan3d-2-mini", "triposg", "anigen", "unirig", "detailgen3d", "mock"]
+PROVIDER_PRIORITY = ["hunyuan3d-2.1", "trellis", "hunyuan3d-2-mini", "triposg", "anigen", "unirig", "detailgen3d", "mock"]
 
 # ponytail: mode support matrix. Used by get_best_provider_name to avoid
 # silently falling back to a provider that can't handle the requested mode
@@ -28,7 +28,6 @@ PROVIDER_MODES: dict[str, set[str]] = {
     "hunyuan3d": {"text-to-3d", "image-to-3d"},
     "hunyuan3d-1.0": {"text-to-3d", "image-to-3d"},
     "hunyuan3d-2.1": {"text-to-3d", "image-to-3d"},
-    "hunyuan3d-2": {"text-to-3d", "image-to-3d"},
     "hunyuan3d-2-mini": {"image-to-3d"},
     "trellis": {"image-to-3d"},
     "triposg": {"image-to-3d"},
@@ -184,7 +183,7 @@ class RuntimeEngine:
                 continue
             # ponytail: Auto VRAM — accept a candidate that fits either its
             # normal footprint OR its verified low-VRAM footprint. Previously
-            # only the normal requirement was consulted, so a 12 GB hunyuan3d-2
+            # only the normal requirement was consulted, so a 12 GB model
             # on an 8 GB GPU was rejected even though low mode fits.
             try:
                 from runtime.capability import plan_vram_usage

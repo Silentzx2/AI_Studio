@@ -408,7 +408,7 @@ def dispatch_pipeline_models(
 ) -> bool:
     """Dispatch multiple named sub-models (e.g. a pipeline's model dict).
 
-    Used by TRELLIS and Hunyuan3D-2 pipelines which hold multiple sub-models
+    Used by TRELLIS and Hunyuan3D-2.1 pipelines which hold multiple sub-models
     in a ``models`` dict. Dispatches each sub-model individually with
     Accelerate, optionally chaining CPU offload via ``offload_sequence``.
 
@@ -458,7 +458,7 @@ def enable_cpu_offload(
     """Enable Accelerate CPU offload on a pipeline that supports it.
 
     Tries the pipeline's own ``enable_model_cpu_offload`` method first
-    (Hunyuan3D-2 has this), then falls back to ``attach_execution_device_hook``
+    (Hunyuan3D pipelines have this), then falls back to ``attach_execution_device_hook``
     from Accelerate.
 
     Returns True if offload was configured, False otherwise.

@@ -114,26 +114,6 @@ async def create_generation(req: GenerationRequest):
     provider = req.provider or settings.ai_provider
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
-    # Colab VRAM guard: block generation for models that exceed the Colab
-    # preparation limit so we don't silently OOM and crash the runtime.
-    try:
-        from runtime.capability import get_colab_incompatibility_reason  # noqa: PLC0415
-        reason = get_colab_incompatibility_reason(provider)
-        if reason:
-            logger.warning("Blocked Colab-incompatible generation: provider=%s reason=%s", provider, reason)
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"This model requires more VRAM than the current Google Colab runtime "
-                    f"is designed to provide. Running it may cause GPU OOM, process "
-                    f"termination, or runtime crash.\n\n{reason}"
-                ),
-            )
-    except HTTPException:
-        raise
-    except Exception:
-        pass  # Soft fail: don't block generation if capability check errors
-
     # Low VRAM guard: reject an explicit low-vram request for a provider that
     # has no verified low-VRAM execution path instead of silently running in
     # normal mode (and likely OOMing). 'auto' is never rejected — the worker
@@ -146,7 +126,7 @@ async def create_generation(req: GenerationRequest):
                 detail=(
                     f"Model '{provider}' does not support verified low-VRAM "
                     f"execution. Disable Low VRAM mode or choose a model that "
-                    f"supports it (Hunyuan3D 2 / 2.1)."
+                    f"supports it (Hunyuan3D 2.1)."
                 ),
             )
         if req.vram_mode == "low" and not supports_low_vram(provider):

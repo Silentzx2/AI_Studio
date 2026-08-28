@@ -364,7 +364,7 @@ echo ""
 
 # ── Step 2: Verify Redis ───────────────────────────────────────────────────
 step "2/6 Checking Redis..."
-if ! systemctl is-active --quiet redis-server; then
+if command -v systemctl &>/dev/null && ! systemctl is-active --quiet redis-server; then
     info "Starting Redis..."
     sudo systemctl start redis-server || {
         warn "Failed to start Redis — will configure in-memory broker fallback"
@@ -486,7 +486,7 @@ echo ""
 
 # ── Summary ────────────────────────────────────────────────────────────────
 echo -e "${CYAN}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║${NC}  ${GREEN}✅ All Services Started${NC} — mode"
+echo -e "${CYAN}║${NC}  ${GREEN}✅ All Services Started${NC} — ${env_type} mode"
 echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "  ${BOLD}Endpoints:${NC}"

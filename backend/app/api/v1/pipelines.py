@@ -117,26 +117,6 @@ def _overlay_install_state(merged: dict[str, dict[str, Any]]) -> dict[str, dict[
     return merged
 
 
-def _enrich_with_colab(models: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Add colab_incompatible and colab_skip_reason to each model dict."""
-    try:
-        from runtime.capability import get_colab_incompatibility_reason  # noqa: PLC0415
-        enriched = []
-        for m in models:
-            mm = dict(m)
-            reason = get_colab_incompatibility_reason(mm.get("id", ""))
-            if reason:
-                mm["colab_incompatible"] = True
-                mm["colab_skip_reason"] = reason
-            else:
-                mm["colab_incompatible"] = False
-                mm["colab_skip_reason"] = None
-            enriched.append(mm)
-        return enriched
-    except Exception:
-        return models
-
-
 @router.get("")
 async def list_pipelines() -> dict[str, Any]:
     """Return all known models and the computed feature matrix."""
@@ -158,7 +138,7 @@ async def list_pipelines() -> dict[str, Any]:
     merged = _overlay_install_state(merged)
 
     enabled_map = _load_enabled_map()
-    snapshot = build_pipeline_snapshot(_enrich_with_colab(list(merged.values())), enabled_map)
+    snapshot = build_pipeline_snapshot(list(merged.values()), enabled_map)
 
     return success(
         {
@@ -203,7 +183,7 @@ async def get_workspace_models(workspace: str = Query(...), installed_only: bool
 
     compatible = filter_by_workspace(models, workspace)
     enabled_map = _load_enabled_map()
-    snapshot = build_pipeline_snapshot(_enrich_with_colab(compatible), enabled_map)
+    snapshot = build_pipeline_snapshot(compatible, enabled_map)
     return success(snapshot)
 
 
@@ -227,7 +207,7 @@ async def toggle_pipeline(model_id: str, payload: PipelineToggleRequest) -> dict
     for model in available + installed:
         merged[str(model.get("id", "")).lower()] = {**merged.get(str(model.get("id", "")).lower(), {}), **model}
 
-    snapshot = build_pipeline_snapshot(_enrich_with_colab(list(merged.values())), enabled_map)
+    snapshot = build_pipeline_snapshot(list(merged.values()), enabled_map)
     return success(
         {
             "model_id": model_id_norm,

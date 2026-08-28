@@ -83,15 +83,15 @@
 
 | Name | Category | VRAM Required | Speed | Key Capabilities |
 |------|----------|--------------|-------|------------------|
-| **Hunyuan3D 2.1** | 3D generation | ~16 GB | ~90s | text-to-3D, image-to-3D, texture generation |
+| **Hunyuan3D 2.1** | 3D generation | ~16 GB (29 GB full) | ~90s | text-to-3D, image-to-3D, texture generation |
 | **Hunyuan3D-2mini** | 3D generation | ~6 GB | ~45s | image-to-3D (texture via Hunyuan3D-2 paint weights); separate repo, manifest, weights path, and venv |
-| **Trellis** | 3D generation | ~12 GB | ~60s | image-to-3D, text-to-3D, texture generation |
+| **Trellis** | 3D generation | ~16 GB | ~60s | image-to-3D, text-to-3D, texture generation |
 | **TripoSG** | 3D generation | ~8 GB | ~60s | image-to-3D (rectified-flow, no texture) |
 | **DetailGen3D** | Post-processing | ~4 GB | ~15s | detail enhancement (mesh refinement, no texture) |
 | **UniRig** | Rigging | ~8 GB | ~30s | skeletal rigging, animation |
 | **AniGen** | Rigging | ~6.2 GB | ~30s | character skeletal rigging, animation |
 
-> **Note**: `Hunyuan3D-2mini` is a **separate repo entry** from `Hunyuan3D-2`. They share the same GitHub URL but have independent manifests, weights paths, and venvs — allowing the mini variant to be installed and updated independently.
+> **Note**: `Hunyuan3D-2mini` is a **separate repo entry** from `Hunyuan3D-2.1`. They share the same GitHub URL but have independent manifests, weights paths, and venvs — allowing the mini variant to be installed and updated independently.
 
 ### Pipeline & Workspace APIs
 
@@ -346,24 +346,19 @@ Colab mode automatically:
 - Starts API, Celery worker, and frontend via Cloudflare Tunnel
 - Stage B (weights) is deferred — download via UI or `download-weights` API after startup
 
-**Colab Preparation Policy**: Models are automatically prepared on Colab only if they pass BOTH criteria:
-- VRAM < 15 GB (Colab T4/P100 have ~16 GB)
-- Weight download ≤ 10 GB (Colab free-tier disk limit)
+**Colab Preparation Policy**: Colab mode is a testing environment — all models are installable regardless of VRAM or weight. VRAM requirements shown in manifests are advisory (displayed to users) but never gate preparation. The caller is still responsible for handling runtime OOM.
 
-Models requiring native CUDA builds (TRELLIS, UniRig) are also skipped on Colab since the CUDA toolkit is unavailable. On VPS/full-GPU hosts, all models are available without these restrictions.
+| Model | VRAM Required | Notes |
+|-------|--------------|-------|
+| Hunyuan3D 2.1 | 16 GB | Full pipeline ~29 GB |
+| Hunyuan3D-2mini | 6 GB | Optimized for low VRAM |
+| TRELLIS | 16 GB | Official: ≥16 GB required |
+| AniGen | 6.2 GB | Low VRAM mode available |
+| UniRig | 8 GB | Skeleton prediction |
+| DetailGen3D | 4 GB | Geometry enhancement |
+| TripoSG | 8 GB | Image-to-3D |
 
-| Model | VRAM Required | Colab Prep |
-|-------|--------------|------------|
-| Hunyuan3D 2.1 | 16 GB | Skipped |
-| Hunyuan3D 2 | 24 GB | Skipped |
-| Hunyuan3D-2mini | 6 GB | Prepared |
-| TRELLIS | 8 GB | Skipped (native CUDA build) |
-| AniGen | 6.2 GB | Skipped (23 GB weight >10 GB ceiling) |
-| UniRig | 8 GB | Skipped (native CUDA build) |
-| DetailGen3D | 4 GB | Prepared |
-| TripoSG | 8 GB | Prepared |
-
-To run a skipped model on Colab, use a VPS or full-GPU environment instead.
+> **Note**: Models requiring native CUDA builds (TRELLIS, UniRig, AniGen) need the CUDA toolkit (`nvcc`) to compile extensions. On Colab, the toolkit may be unavailable — the runtime will still install but native extensions may fail to compile. On VPS/full-GPU hosts with CUDA toolkit installed, all models work without restrictions.
 
 ---
 
@@ -396,7 +391,7 @@ CELERY_RESULT_BACKEND=redis://localhost:6379/1
 
 # ===== AI PROVIDER =====
 AI_PROVIDER=hunyuan3d-2.1
-# Options: mock, hunyuan3d-2.1, hunyuan3d-2, hunyuan3d-2-mini, trellis, triposg, anigen, unirig, detailgen3d
+# Options: mock, hunyuan3d-2.1, hunyuan3d-2-mini, trellis, triposg, anigen, unirig, detailgen3d
 # (aliases: hunyuan3d, hunyuan3d-1.0 -> hunyuan3d-2.1)
 
 # ===== GPU SETTINGS =====
@@ -450,12 +445,12 @@ For complete configuration options, see [Setup Guide - Configuration](docs/setup
 
 | Workspace | Purpose | Compatible Models |
 |-----------|---------|-------------------|
-| **Mesh Generation** | Create 3D meshes from text or images | Hunyuan3D 2.1, Hunyuan3D 2, Hunyuan3D-2mini, TRELLIS, TripoSG |
-| **Texture Generation** | Generate PBR textures and materials | Hunyuan3D 2.1, Hunyuan3D 2, TRELLIS |
+| **Mesh Generation** | Create 3D meshes from text or images | Hunyuan3D 2.1, Hunyuan3D-2mini, TRELLIS, TripoSG |
+| **Texture Generation** | Generate PBR textures and materials | Hunyuan3D 2.1, TRELLIS |
 | **Rigging** | Auto-rig 3D character meshes | AniGen, UniRig |
 | **Animation** | Generate skeletal animations | AniGen, UniRig |
 | **Remesh** | Retopology and mesh optimization | DetailGen3D |
-| **Post-Processing** | Detail enhancement and mesh polishing | Hunyuan3D 2.1, Hunyuan3D 2, DetailGen3D |
+| **Post-Processing** | Detail enhancement and mesh polishing | Hunyuan3D 2.1, DetailGen3D |
 
 ### Model Manager Interface (NEW in V2)
 
@@ -525,7 +520,7 @@ The Pipelines page (`/settings?section=pipelines`) provides:
 ### Texture Generation Workflow
 
 The Texture tab (`/workspace/texture`) now supports:
-- **Model Selection**: Choose from texture-compatible models (Hunyuan3D 2.1, Hunyuan3D 2, TRELLIS).
+- **Model Selection**: Choose from texture-compatible models (Hunyuan3D 2.1, TRELLIS).
 - **Resolution Presets**: 512px (Draft), 1024px (Fast), 2048px (Balanced), 4096px (Ultra).
 - **Style Presets**: Photorealistic PBR, Stylized Handpainted, Anime/Cel-Shaded, Cyberpunk Neon, Procedural.
 - **PBR Material Controls**: Metalness Bias and Roughness Bias sliders (0–100%).
@@ -971,7 +966,7 @@ export BATCH_SIZE=1
 watch -n 1 nvidia-smi
 
 # Use smaller model
-export AI_PROVIDER=trellis  # Uses less VRAM
+export AI_PROVIDER=trellis  # 16 GB VRAM (less than Hunyuan3D-2.1)
 ```
 
 #### **Model Download Fails**

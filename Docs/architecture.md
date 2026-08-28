@@ -63,7 +63,6 @@ and `app/core/providers/registry.py::_RUNTIME_PROVIDER_MAP` (validation +
 | provider id | engine class | low-VRAM |
 |-------------|--------------|----------|
 | `hunyuan3d-2.1` | `Hunyuan3D21LocalProvider` | verified |
-| `hunyuan3d-2` | `Hunyuan3D2LocalProvider` | verified |
 | `hunyuan3d-2-mini` | `Hunyuan3D2MiniLocalProvider` | verified (image-to-3D only) |
 | `trellis` | `TRELLISLocalProvider` | no (native CUDA build) |
 | `triposg` | `TripoSGLocalProvider` | no |

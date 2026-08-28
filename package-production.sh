@@ -79,7 +79,7 @@ rm -rf backend/third_party/.hf_cache/
 
 # Model weights — EXCLUDED from production image per user requirement
 rm -rf backend/third_party/weights/
-for repo in AniGen Hunyuan3D-2 TRELLIS UniRig; do
+for repo in AniGen Hunyuan3D-2mini TRELLIS UniRig; do
     rm -rf "backend/third_party/${repo}/weights/"
 done
 

@@ -107,7 +107,7 @@ weights:
   size_estimate_gb: 3
 hardware:
   minimum_vram_mb: 8000
-  recommended_vram_mb: 24000
+  recommended_vram_mb: 16000
 capabilities:
   shape:
     enabled: true

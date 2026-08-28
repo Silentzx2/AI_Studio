@@ -21,19 +21,6 @@ logger = logging.getLogger(__name__)
 # Colab preparation policy
 # ---------------------------------------------------------------------------
 
-# ponytail: 15 GB is a Colab preparation policy, not a guarantee that models
-# below this are always safe. Colab T4/P100 runtimes provide ~16 GB VRAM;
-# subtracting overhead for PyTorch, CUDA context, and OS gives a safe prep
-# ceiling of 15 GB. VPS/full-GPU hosts are NOT restricted by this value.
-_COLAB_PREP_LIMIT_MB: int = 15_000
-
-# ponytail: low-weight ceiling for auto-install on Colab. The VRAM gate alone
-# is not enough — e.g. hunyuan3d-2 ships ~24 GB of weights, which overflows
-# Colab's free-tier disk. Auto-prep therefore requires BOTH a low VRAM
-# requirement AND a small weight download.
-_COLAB_PREP_WEIGHT_LIMIT_GB: float = 10.0
-
-
 # ---------------------------------------------------------------------------
 # Environment helpers (delegate to platform_detection to avoid duplication)
 # ---------------------------------------------------------------------------
@@ -285,66 +272,24 @@ def plan_vram_usage(provider_id: str, mode: str = "auto") -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Colab preparation policy
 # ---------------------------------------------------------------------------
-
-def get_colab_prep_limit_mb() -> int:
-    """Return the maximum VRAM (MB) a model may require to be prepared
-    automatically in Colab. Models at or above this limit are skipped."""
-    return _COLAB_PREP_LIMIT_MB
-
-
-def _colab_prep_forced() -> bool:
-    """True when the dedicated Colab bootstrap (scripts/colab.sh) has opted in.
-
-    ponytail: is_colab() self-detection can misfire on unusual Colab runtimes;
-    colab.sh exports COLAB_PREP_GATE=1 so the preparation policy is applied
-    deterministically rather than depending on environment detection.
-    """
-    return os.environ.get("COLAB_PREP_GATE") == "1"
-
+#
+# Colab mode is a testing environment — no model is blocked from installation.
+# VRAM requirements in manifests are advisory (shown to users) but never gate
+# preparation. The caller is still responsible for handling runtime OOM.
 
 def is_model_preparable_for_colab(provider_id: str) -> bool:
     """Return True if the model can be cloned/installed in Colab.
 
-    A model is preparable if:
-    - We are NOT in Colab and no Colab gate is forced (VPS/local hosts have no
-      restriction), OR
-    - Its required VRAM is strictly less than the Colab preparation limit (15 GB)
-      AND its downloaded weight size is at or below the low-weight ceiling (10 GB).
+    Colab mode is a testing environment — no model is blocked.
     """
-    if not (is_colab() or _colab_prep_forced()):
-        return True
-    vram = get_model_vram_required(provider_id)
-    if vram == 0:
-        return True
-    if vram >= _COLAB_PREP_LIMIT_MB:
-        return False
-    weight = get_model_weight_size_gb(provider_id)
-    if weight == 0:
-        return True
-    return weight <= _COLAB_PREP_WEIGHT_LIMIT_GB
+    return True
 
 
 def get_colab_incompatibility_reason(provider_id: str) -> str | None:
-    """Return a human-readable reason why a model is incompatible with
-    Colab preparation, or None if it is compatible."""
-    if not (is_colab() or _colab_prep_forced()):
-        return None
-    vram = get_model_vram_required(provider_id)
-    if vram == 0 and get_model_weight_size_gb(provider_id) == 0:
-        return None
-    if vram >= _COLAB_PREP_LIMIT_MB:
-        return (
-            f"Required VRAM: {vram / 1024:.1f} GB\n"
-            f"Colab preparation limit: <{_COLAB_PREP_LIMIT_MB / 1024:.0f} GB\n"
-            f"Reason: exceeds Colab runtime VRAM policy"
-        )
-    weight = get_model_weight_size_gb(provider_id)
-    if weight > _COLAB_PREP_WEIGHT_LIMIT_GB:
-        return (
-            f"Weight size: {weight:.1f} GB\n"
-            f"Colab low-weight ceiling: ≤{_COLAB_PREP_WEIGHT_LIMIT_GB:.0f} GB\n"
-            f"Reason: exceeds Colab disk/weight policy — repo & venv not prepared"
-        )
+    """Return why a model is incompatible with Colab, or None.
+
+    Always None — Colab mode blocks nothing.
+    """
     return None
 
 
