@@ -522,7 +522,7 @@ echo ""
 # ── Summary ────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║${NC}  ${GREEN}✅ All Services Started${NC} — ${CYAN}${env_type}${GREEN} mode${NC}"
+echo -e "${GREEN}║${NC}  ${GREEN}✅ All Services Started${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "  ${BOLD}Endpoints:${NC}"
