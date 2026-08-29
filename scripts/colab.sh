@@ -98,6 +98,7 @@ for arg in "$@"; do
         --start)         colab_start_services; exit 0 ;;
         --stop)          colab_stop_services; exit 0 ;;
         --restart)       colab_restart_services; exit 0 ;;
+        --status)        _colab_show_status; exit 0 ;;
         --interactive)   colab_interactive; exit 0 ;;
         --help|-h)
             echo "Usage: bash scripts/colab.sh [OPTIONS]"
@@ -109,6 +110,7 @@ for arg in "$@"; do
             echo "  --start          Start services (skip setup)"
             echo "  --stop           Stop all services"
             echo "  --restart        Restart all services"
+            echo "  --status         Show service status"
             echo "  --interactive    Interactive launcher menu"
             echo "  -h, --help       Show this help"
             exit 0
