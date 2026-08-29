@@ -51,8 +51,8 @@ dependencies:
   extra: []
   wheels:
     diso:
-      available: false
-      reason: No compatible prebuilt wheel on PyPI (source-only). Source build requires ninja.
+      available: true
+      mode: pypi
     torch-cluster:
       available: true
       index: https://data.pyg.org/whl/torch-{torch_ver}+cu{cuda_ver}.html

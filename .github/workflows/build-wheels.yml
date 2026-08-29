@@ -1,0 +1,59 @@
+name: Build Native CUDA Wheels
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-wheels:
+    runs-on: ubuntu-latest
+    container:
+      image: nvidia/cuda:12.4-devel-ubuntu22.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install system dependencies
+        run: |
+          apt-get update && apt-get install -y \
+            git \
+            ninja-build \
+            build-essential \
+            wget
+          echo "/usr/local/cuda/bin" >> $GITHUB_PATH
+
+      - name: Install PyTorch
+        run: |
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+
+      - name: Build native wheels
+        run: |
+          python scripts/build_native_wheels.py \
+            --output-dir ./wheels \
+            --python 3.10 \
+            --cuda 12.4
+
+      - name: Upload wheels as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-py3.10-cu12.4
+          path: ./wheels/*.whl
+          retention-days: 90
+
+      - name: Create Release with wheels
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./wheels/*.whl
+          tag_name: ${{ github.ref_name }}-wheels
+          name: "Native Wheels ${{ github.ref_name }}"
+          draft: false
+          prerelease: false
