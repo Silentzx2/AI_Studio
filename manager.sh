@@ -61,13 +61,27 @@ _status() {
         && echo -e "${GREEN}●${NC} Frontend" \
         || echo -e "${RED}●${NC} Frontend"
 
-    systemctl is-active --quiet postgresql 2>/dev/null \
-        && echo -e "${GREEN}●${NC} PostgreSQL" \
-        || echo -e "${RED}●${NC} PostgreSQL"
+    # PostgreSQL — check via pg_isready (works without systemctl)
+    if command -v pg_isready &>/dev/null; then
+        pg_isready -q 2>/dev/null \
+            && echo -e "${GREEN}●${NC} PostgreSQL" \
+            || echo -e "${RED}●${NC} PostgreSQL"
+    elif systemctl is-active --quiet postgresql 2>/dev/null; then
+        echo -e "${GREEN}●${NC} PostgreSQL"
+    else
+        echo -e "${RED}●${NC} PostgreSQL"
+    fi
 
-    systemctl is-active --quiet redis-server 2>/dev/null \
-        && echo -e "${GREEN}●${NC} Redis" \
-        || echo -e "${RED}●${NC} Redis"
+    # Redis — check via redis-cli ping (works without systemctl)
+    if command -v redis-cli &>/dev/null; then
+        redis-cli ping 2>/dev/null | grep -q PONG \
+            && echo -e "${GREEN}●${NC} Redis" \
+            || echo -e "${RED}●${NC} Redis"
+    elif systemctl is-active --quiet redis-server 2>/dev/null; then
+        echo -e "${GREEN}●${NC} Redis"
+    else
+        echo -e "${RED}●${NC} Redis"
+    fi
     echo
 }
 
