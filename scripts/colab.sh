@@ -225,6 +225,30 @@ CUDA_VERSION=$(detect_cuda_version)
 log "GPU : ${CYAN}${GPU_TYPE}${NC}"
 log "CUDA: ${CYAN}cu${CUDA_VERSION}${NC}"
 
+# ── Install Blender ──────────────────────────────────────────────────────
+install_blender() {
+    if command -v blender &>/dev/null; then
+        log "Already installed: $(blender --version 2>/dev/null | head -1)"
+        return 0
+    fi
+    info "Installing Blender..."
+    sudo apt-get install -y blender 2>/dev/null || {
+        warn "Blender not in apt — downloading from blender.org..."
+        local BLENDER_VER="4.2.3"
+        local BLENDER_URL="https://download.blender.org/release/Blender4.2/blender-${BLENDER_VER}-linux-x64.tar.xz"
+        wget -q "$BLENDER_URL" -O /tmp/blender.tar.xz || {
+            warn "Failed to download Blender — post-processing will be unavailable"
+            return 0
+        }
+        sudo tar -xJf /tmp/blender.tar.xz -C /opt/
+        sudo ln -sf "/opt/blender-${BLENDER_VER}-linux-x64/blender" /usr/local/bin/blender
+        rm -f /tmp/blender.tar.xz
+        log "Blender $BLENDER_VER installed to /opt/"
+    }
+}
+
+install_blender || warn "Blender install skipped — post-processing may be unavailable"
+
 # Build-time frontend config must be set BEFORE `npm run build` (Next.js embeds
 # NEXT_PUBLIC_* at build time). Export early so both the build and `npm start`
 # inherit the same API URL.
