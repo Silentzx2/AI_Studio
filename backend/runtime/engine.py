@@ -19,7 +19,7 @@ from app.core.providers.registry import _RUNTIME_PROVIDER_MAP as _PROVIDER_MAP
 
 logger = logging.getLogger(__name__)
 
-PROVIDER_PRIORITY = ["hunyuan3d-2.1", "trellis", "hunyuan3d-2-mini", "triposg", "anigen", "unirig", "detailgen3d", "worldgen", "mock"]
+PROVIDER_PRIORITY = ["hunyuan3d-2.1", "trellis", "hunyuan3d-2-mini", "triposg", "detailgen3d", "worldgen", "mock"]
 
 # ponytail: mode support matrix. Used by get_best_provider_name to avoid
 # silently falling back to a provider that can't handle the requested mode
@@ -31,8 +31,6 @@ PROVIDER_MODES: dict[str, set[str]] = {
     "hunyuan3d-2-mini": {"image-to-3d"},
     "trellis": {"image-to-3d"},
     "triposg": {"image-to-3d"},
-    "anigen": {"rigging"},
-    "unirig": {"rigging"},
     "detailgen3d": {"remesh", "post-processing"},
     "worldgen": {"text-to-3d", "image-to-3d"},
     "mock": {"text-to-3d", "image-to-3d", "remesh", "texture-generation", "rigging"},

@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 # ponytail: TripoSG repo lives under the storage third_party dir (per-model
 # layout). The old parents[4]/third_party guess pointed at the project root and
-# never resolved (same bug as anigen_provider). Resolve via get_storage_config.
+# never resolved (provider map bug). Resolve via get_storage_config.
 TRIPOSG_REPO = get_storage_config().get_repo_path("TripoSG")
 TRIPOSG_SCRIPTS = TRIPOSG_REPO / "scripts"
 for p in (TRIPOSG_REPO, TRIPOSG_SCRIPTS):

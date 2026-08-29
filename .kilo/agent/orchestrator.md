@@ -57,5 +57,5 @@ After feature -> offer docs-writer
 - Frontend: Next.js 16, React 19, TypeScript, Zustand, Three.js
 - Backend: FastAPI, Python 3.12+, SQLAlchemy 2, Celery + Redis
 - Models: YAML-driven manifests, per-model venvs
-- Provider IDs: hunyuan3d-2.1, hunyuan3d-2-mini, trellis, triposg, anigen, unirig, detailgen3d, worldgen
+- Provider IDs: hunyuan3d-2.1, hunyuan3d-2-mini, trellis, triposg, detailgen3d, worldgen
 - Rules: .kilo/rules/ (coding-style, security, testing, code-review, etc.)

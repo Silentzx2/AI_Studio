@@ -171,7 +171,6 @@ export const RightAssetsPanel: React.FC = () => {
     if (assetFilter === 'models') return a.category === 'generation' || a.category === 'mesh';
     if (assetFilter === 'textures') return a.category === 'texture' || a.tags?.includes('PBR');
     if (assetFilter === 'images') return a.tags?.includes('character') || a.tags?.includes('sculpture');
-    if (assetFilter === 'videos') return a.category === 'animation';
     return true;
   });
 

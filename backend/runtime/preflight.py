@@ -50,39 +50,7 @@ dummy = torch.randn(1, 3, 32, 32)
 pipe(dummy)
 print("ok")
 """,
-    "anigen": """
-import sys
-from pathlib import Path
-for base in [Path("/storage/third_party"), Path(__file__).resolve().parent.parent.parent.parent]:
-    c = base / "AniGen"
-    if c.exists():
-        sys.path.insert(0, str(c))
-        break
-from anigen.pipelines import AnigenImageTo3DPipeline
-pipe = AnigenImageTo3DPipeline.from_pretrained(device="cpu")
-print("ok")
-""",
-    "unirig": """
-import sys, yaml, torch
-from pathlib import Path
-repo = None
-for base in [Path("/storage/third_party"), Path(__file__).resolve().parent.parent.parent.parent]:
-    c = base / "UniRig"
-    if c.exists():
-        repo = c
-        sys.path.insert(0, str(c))
-        break
-from box import Box
-from src.tokenizer.parse import get_tokenizer, TokenizerConfig
-from src.model.parse import get_model
-from src.inference.download import download
-tok = get_tokenizer(config=TokenizerConfig.parse(Box(yaml.safe_load(open(repo / "configs" / "tokenizer" / "tokenizer_parts_articulationxl_256.yaml")))))
-model = get_model(tokenizer=tok, __target__="unirig_ar", **yaml.safe_load(open(repo / "configs" / "model" / "unirig_ar_350m_1024_81920_float32.yaml")))
-ckpt = torch.load(download("experiments/skeleton/articulation-xl_quantization_256/model.ckpt"), map_location="cpu")
-model.load_state_dict(ckpt["state_dict"])
-model.eval()
-print("ok")
-""",
+
     "detailgen3d": """
 import torch
 from detailgen3d.pipelines.pipeline_detailgen3d import DetailGen3DPipeline
@@ -159,86 +127,7 @@ mesh = pipe(img)
 print("ok")
 """,
     },
-    "anigen": {
-        "shape": """
-import sys
-from pathlib import Path
-for base in [Path("/storage/third_party"), Path(__file__).resolve().parent.parent.parent.parent]:
-    c = base / "AniGen"
-    if c.exists():
-        sys.path.insert(0, str(c))
-        break
-from PIL import Image
-from anigen.pipelines import AnigenImageTo3DPipeline
-pipe = AnigenImageTo3DPipeline.from_pretrained(device="cpu")
-out = pipe.run(Image.new("RGB", (256, 256)), seed=0, output_glb="/tmp/anigen_smoke.glb")
-print("ok")
-""",
-        "rigging": """
-import sys
-from pathlib import Path
-for base in [Path("/storage/third_party"), Path(__file__).resolve().parent.parent.parent.parent]:
-    c = base / "AniGen"
-    if c.exists():
-        sys.path.insert(0, str(c))
-        break
-from PIL import Image
-from anigen.pipelines import AnigenImageTo3DPipeline
-pipe = AnigenImageTo3DPipeline.from_pretrained(device="cpu")
-out = pipe.run(Image.new("RGB", (256, 256)), seed=0, output_glb="/tmp/anigen_smoke_rig.glb")
-print("ok")
-""",
-    },
-    "unirig": {
-        "shape": """
-import sys, yaml, torch
-from pathlib import Path
-repo = None
-for base in [Path("/storage/third_party"), Path(__file__).resolve().parent.parent.parent.parent]:
-    c = base / "UniRig"
-    if c.exists():
-        repo = c
-        sys.path.insert(0, str(c))
-        break
-from box import Box
-from src.tokenizer.parse import get_tokenizer, TokenizerConfig
-from src.model.parse import get_model
-from src.inference.download import download
-tok = get_tokenizer(config=TokenizerConfig.parse(Box(yaml.safe_load(open(repo / "configs" / "tokenizer" / "tokenizer_parts_articulationxl_256.yaml")))))
-model = get_model(tokenizer=tok, __target__="unirig_ar", **yaml.safe_load(open(repo / "configs" / "model" / "unirig_ar_350m_1024_81920_float32.yaml")))
-ckpt = torch.load(download("experiments/skeleton/articulation-xl_quantization_256/model.ckpt"), map_location="cpu")
-model.load_state_dict(ckpt["state_dict"])
-model.eval()
-v = torch.randn(1, 100, 3)
-n = torch.randn(1, 100, 3)
-out = model.generate(vertices=v, normals=n, cls=None)
-print("ok")
-""",
-        "rigging": """
-import sys, yaml, torch
-from pathlib import Path
-repo = None
-for base in [Path("/storage/third_party"), Path(__file__).resolve().parent.parent.parent.parent]:
-    c = base / "UniRig"
-    if c.exists():
-        repo = c
-        sys.path.insert(0, str(c))
-        break
-from box import Box
-from src.tokenizer.parse import get_tokenizer, TokenizerConfig
-from src.model.parse import get_model
-from src.inference.download import download
-tok = get_tokenizer(config=TokenizerConfig.parse(Box(yaml.safe_load(open(repo / "configs" / "tokenizer" / "tokenizer_parts_articulationxl_256.yaml")))))
-model = get_model(tokenizer=tok, __target__="unirig_ar", **yaml.safe_load(open(repo / "configs" / "model" / "unirig_ar_350m_1024_81920_float32.yaml")))
-ckpt = torch.load(download("experiments/skeleton/articulation-xl_quantization_256/model.ckpt"), map_location="cpu")
-model.load_state_dict(ckpt["state_dict"])
-model.eval()
-v = torch.randn(1, 100, 3)
-n = torch.randn(1, 100, 3)
-out = model.generate(vertices=v, normals=n, cls=None)
-print("ok")
-""",
-    },
+
     "triposg": {
         "shape": """
 import torch

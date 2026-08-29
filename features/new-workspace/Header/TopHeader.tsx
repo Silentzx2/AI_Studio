@@ -89,13 +89,6 @@ export const TopHeader: React.FC = () => {
                 <Sliders className="w-4 h-4 text-[#f5c518]" />
                 <span>Segmentation</span>
               </button>
-              <button
-                onClick={() => { navigateToTool('rigging'); setWorkspaceMenuOpen(false); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-[#e5e7eb] hover:bg-[#232731]"
-              >
-                <Hexagon className="w-4 h-4 text-[#f5c518]" />
-                <span>Rigging</span>
-              </button>
             </div>
           )}
         </div>

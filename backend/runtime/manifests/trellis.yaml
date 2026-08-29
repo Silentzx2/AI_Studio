@@ -8,7 +8,7 @@ source:
 environment:
   python: '3.10'
   torch: 2.5.1
-  cuda: '12.4'
+  # CUDA version is dynamically detected at install time
   python_pin_rewrites:
   # flash-attn / bpy publish no cp312 wheels (CUDA-build / Blender-bound);
   # not installable on a CPU Py3.12 box — drop rather than fail the venv.
@@ -52,7 +52,7 @@ dependencies:
   - git+https://github.com/JeffreyXiang/diffoctreerast.git
   - vox2seq
   - git+https://github.com/autonomousvision/mip-splatting.git#subdirectory=submodules/diff-gaussian-rasterization
-  - spconv-cu118
+  - spconv-cu120
   - kaolin==0.18.0
   - git+https://github.com/NVlabs/nvdiffrast.git
   # CUDA-only packages: dropped on CPU-only hosts (no CUDA toolkit)
@@ -86,7 +86,7 @@ dependencies:
     xformers:
       available: true
       mode: pypi
-    spconv-cu118:
+    spconv-cu120:
       available: true
       mode: pypi
     kaolin:
@@ -110,7 +110,6 @@ dependencies:
     nvdiffrast: []
     kaolin:
     - https://nvidia-kaolin.s3.us-east-2.amazonaws.com/
-    - https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.4.0_cu121.html
     - https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.5.1_cu124.html
   optional:
   - flash-attn
@@ -140,12 +139,11 @@ dependencies:
   - diffoctreerast
   - vox2seq
   - diff-gaussian-rasterization
-  - spconv-cu118
+  - spconv-cu120
   - kaolin
   - nvdiffrast
   build_env:
     TORCH_CUDA_ARCH_LIST: "7.0 7.5 8.0 8.6 8.9 9.0"
-    CUDA_HOME: "/usr/local/cuda"
 weights:
   primary:
     repo: microsoft/TRELLIS-image-large

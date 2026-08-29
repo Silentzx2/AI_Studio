@@ -37,7 +37,7 @@ truth for how a generation job reaches a model on the GPU.
 ┌───────────────────────────────▼─────────────────────────────┐
 │   Local Providers (app/core/providers/*_local.py)            │
 │  Hunyuan3D 2.1 / 2 / 2-Mini, TRELLIS, TripoSG,             │
-│  AniGen, UniRig, DetailGen3D, WorldGen, Mock               │
+│  DetailGen3D, WorldGen, Mock                               │
 │  - each calls _add_model_env() BEFORE imports so the         │
 │    per-model .venv packages win over the backend's           │
 │  - load on device via accelerate_loader                      │
@@ -66,8 +66,6 @@ and `app/core/providers/registry.py::_RUNTIME_PROVIDER_MAP` (validation +
 | `hunyuan3d-2-mini` | `Hunyuan3D2MiniLocalProvider` | verified (image-to-3D only) |
 | `trellis` | `TRELLISLocalProvider` | no (native CUDA build) |
 | `triposg` | `TripoSGLocalProvider` | no |
-| `anigen` | `AniGenProvider` | no (native build) |
-| `unirig` | `UniRigProvider` | no (native build) |
 | `detailgen3d` | `DetailGen3DProvider` | no |
 | `worldgen` | `WorldGenProvider` | no (dedicated workspace tab) |
 | `mock` | `MockProvider` | n/a (testing) |

@@ -12,7 +12,6 @@ interface RuntimeConfig {
   texture_resolution?: string;
   output_format?: string;
   texture_model?: string;
-  rigging_provider?: string;
   low_vram?: boolean;
   vram_mode?: string;
 }
@@ -48,7 +47,6 @@ function normalizeRuntimeOptions(options: RuntimeOptions): RuntimeOptions {
     ...options,
     three_d_models: (options?.three_d_models ?? []).map(normalizeProviderOption),
     texture_models: (options?.texture_models ?? []).map(normalizeProviderOption),
-    rigging_providers: (options?.rigging_providers ?? []).map(normalizeProviderOption),
     render_qualities: (options?.render_qualities ?? []).map(normalizeProviderOption),
     resolutions: (options?.resolutions ?? []).map(normalizeProviderOption),
     texture_resolutions: (options?.texture_resolutions ?? []).map(normalizeProviderOption),

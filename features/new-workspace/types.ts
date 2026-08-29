@@ -1,19 +1,17 @@
-export type ToolType = 
-  | 'model' 
+export type ToolType =
+  | 'model'
   | 'segment'
-  | 'retopo' 
-  | 'remesh' 
-  | 'texture' 
-  | 'edit' 
-  | 'upscale' 
-  | 'pbr' 
-  | 'animate' 
-  | 'rigging'
+  | 'retopo'
+  | 'remesh'
+  | 'texture'
+  | 'edit'
+  | 'upscale'
+  | 'pbr'
   | 'environment';
 
 export interface ActiveTask {
   id: string;
-  type: 'text-to-3d' | 'image-to-3d' | 'segment' | 'retopo' | 'texture' | 'animate' | 'rigging';
+  type: 'text-to-3d' | 'image-to-3d' | 'segment' | 'retopo' | 'texture';
   title: string;
   promptText?: string;
   inputImage?: string;
@@ -48,7 +46,7 @@ export type CameraViewPreset = 'perspective' | 'front' | 'back' | 'top' | 'botto
 export interface ModelAsset {
   id: string;
   name: string;
-  category: 'all' | 'mesh' | 'texture' | 'generation' | 'animation';
+  category: 'all' | 'mesh' | 'texture' | 'generation';
   thumbnail: string;
   source?: { filename: string; subfolder: string; type: string; viewUrl?: string; mime?: string; localUrl?: string; promptId?: string; nodeId?: string };
   previewColor?: string;
@@ -92,25 +90,6 @@ export interface EnvironmentSettings {
   autoRotate: boolean;
   showAxes: boolean;
   showStats: boolean;
-}
-
-export interface BoneNode {
-  id: string;
-  name: string;
-  parent: string | null;
-  position: [number, number, number];
-  rotation: [number, number, number];
-  length: number;
-  type: 'root' | 'spine' | 'limb' | 'head' | 'accessory';
-  children: string[];
-}
-
-export interface AnimationTrack {
-  id: string;
-  name: string;
-  type: 'root' | 'bone' | 'morph' | 'transform';
-  keyframes: { frame: number; value: number | [number, number, number] }[];
-  color: string;
 }
 
 export interface SystemStats {
@@ -196,25 +175,7 @@ export interface GenerationSettings {
   autoOptimizeSettings: AutoOptimizeSettings;
 }
 
-export interface AnimateSettings {
-  mode: 'animation' | 'rigging';
-  type: 'text-to-motion' | 'presets' | 'upload';
-  prompt: string;
-  preset: 'idle' | 'walk' | 'run' | 'jump' | 'combat' | 'dance' | 'wave';
-  intensity: number;
-  speed: number;
-  loop: boolean;
-}
 
-export interface RiggingSettings {
-  tab: 'rigging' | 'skinning';
-  rigType: 'humanoid' | 'quadruped';
-  autoRig: boolean;
-  bonesDetection: boolean;
-  symmetry: boolean;
-  boneSize: number;
-  boneCount: number;
-}
 
 export interface CompareSettings {
   syncCamera: boolean;

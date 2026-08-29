@@ -31,4 +31,4 @@ You are a senior code reviewer for AI 3D Studio (Next.js + FastAPI).
 - Error handling at trust boundaries
 - No hardcoded secrets
 - VRAM values in manifests are advisory only (never gate installation)
-- Provider IDs: hunyuan3d-2.1, hunyuan3d-2-mini, trellis, triposg, anigen, unirig, detailgen3d, worldgen
+- Provider IDs: hunyuan3d-2.1, hunyuan3d-2-mini, trellis, triposg, detailgen3d, worldgen

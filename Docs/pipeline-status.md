@@ -816,7 +816,7 @@ The current workspace model pickers are backed by the live registry snapshot and
 
 ### Registered model ids
 
-`hunyuan3d-2.1`, `hunyuan3d-2-mini`, `trellis`, `triposg`, `anigen`, `unirig`, `detailgen3d`, `worldgen` (plus `mock` for testing; aliases `hunyuan3d` / `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`). As of v3.8.7 all are switchable via `/runtime/provider` and resolvable via `get_provider()` (the registry map was synced with the engine). WorldGen is a **dedicated workspace tab** model — it is registered for capability gating but runs in its own workspace tab rather than the general provider pool.
+`hunyuan3d-2.1`, `hunyuan3d-2-mini`, `trellis`, `triposg`, `detailgen3d`, `worldgen` (plus `mock` for testing; aliases `hunyuan3d` / `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`). As of v3.8.7 all are switchable via `/runtime/provider` and resolvable via `get_provider()` (the registry map was synced with the engine). WorldGen is a **dedicated workspace tab** model — it is registered for capability gating but runs in its own workspace tab rather than the general provider pool.
 
 ### Capability summary
 
@@ -826,8 +826,6 @@ The current workspace model pickers are backed by the live registry snapshot and
 | Hunyuan3D-2 Mini | 3D generation | mesh-generation | image-to-3D (texture via Hunyuan3D paint weights) | 6 GB |
 | Trellis | 3D generation | mesh-generation, texture-generation | image-to-3D, text-to-3D, texture generation | 8 GB |
 | TripoSG | 3D generation | mesh-generation | image-to-3D (no texture) | 8 GB |
-| AniGen | Rigging | rigging, animation | character rigging, animation | 6.2 GB |
-| UniRig | Rigging | rigging, animation | rigging, animation | 8 GB |
 | DetailGen3D | Post-processing | post-processing | detail enhancement | 4 GB |
 | WorldGen | World generation | world-generation | text/image-to-3D scene generation, Gaussian Splatting | 10 GB (24 GB recommended) |
 
@@ -835,8 +833,8 @@ The current workspace model pickers are backed by the live registry snapshot and
 
 - **mesh-generation**: hunyuan3d-2-mini, hunyuan3d-2.1, trellis, triposg
 - **texture-generation**: hunyuan3d-2.1, trellis
-- **rigging**: anigen, unirig
-- **animation**: anigen, unirig
+- **rigging**: —
+- **animation**: —
 - **remesh**: detailgen3d
 - **post-processing**: hunyuan3d-2.1, hunyuan3d-2, detailgen3d
 - **world-generation**: worldgen
@@ -844,7 +842,7 @@ The current workspace model pickers are backed by the live registry snapshot and
 ### Feature gating rules
 
 - Texture generation is enabled when at least one texture-capable model is active.
-- Rigging / animation is enabled when AniGen or UniRig is active.
+- Rigging / animation is enabled when a rigging-capable model is active.
 - Detail enhancement is enabled when DetailGen3D is active.
 - Text-to-3D is enabled when Hunyuan3D 2.1 or Trellis is active.
 - Image-to-3D is enabled whenever a generation model is active.

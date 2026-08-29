@@ -126,7 +126,7 @@ class ManifestSchema(BaseModel):
     native_build_required: bool = False
     install_method: str = "uv_requirements"
     cuda_required: bool = True
-    cuda_min_version: str = "11.8"
+    cuda_min_version: str = "12.4"
     python_min: str = "3.10"
     supported_os: list[str] = Field(default_factory=lambda: ["linux"])
     supported_architectures: list[str] = Field(default_factory=lambda: ["x86_64"])

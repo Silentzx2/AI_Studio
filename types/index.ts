@@ -1,15 +1,12 @@
 export type GenerationMode = 'text-to-3d' | 'image-to-3d';
 export type QualityPreset = 'low-poly' | 'standard' | 'high-poly' | 'ultra' | 'draft';
-export type GenerationStatus = 'idle' | 'uploading' | 'queued' | 'processing' | 'generating' | 'texturing' | 'rigging' | 'completed' | 'failed' | 'cancelled';
+export type GenerationStatus = 'idle' | 'uploading' | 'queued' | 'processing' | 'generating' | 'texturing' | 'completed' | 'failed' | 'cancelled';
 export type ExportFormat = 'glb' | 'fbx' | 'obj' | 'stl';
 export type ViewerMode = 'solid' | 'wireframe' | 'texture' | 'material';
 
-// Workspace types that map to frontend workspace tabs
 export type WorkspaceType =
   | 'mesh-generation'
   | 'texture-generation'
-  | 'rigging'
-  | 'animation'
   | 'remesh'
   | 'post-processing';
 
@@ -131,7 +128,6 @@ export interface ProviderOption {
 export interface RuntimeOptions {
   three_d_models: ProviderOption[];
   texture_models: ProviderOption[];
-  rigging_providers: ProviderOption[];
   render_qualities: ProviderOption[];
   resolutions: ProviderOption[];
   texture_resolutions?: ProviderOption[];
@@ -310,7 +306,7 @@ export interface InstallProgress {
 
 export interface ProjectLayer {
   id: string;
-  type: 'texture' | 'rigging' | 'animation' | 'lod' | 'remesh' | 'part_separation';
+  type: 'texture' | 'lod' | 'remesh' | 'part_separation';
   name: string;
   enabled: boolean;
   visible: boolean;

@@ -99,8 +99,6 @@
 | **Trellis** | 3D generation | ~16 GB | ~60s | image-to-3D, text-to-3D, texture generation |
 | **TripoSG** | 3D generation | ~8 GB | ~60s | image-to-3D (rectified-flow, no texture) |
 | **DetailGen3D** | Post-processing | ~4 GB | ~15s | detail enhancement (mesh refinement, no texture) |
-| **UniRig** | Rigging | ~8 GB | ~30s | skeletal rigging, animation |
-| **AniGen** | Rigging | ~6.2 GB | ~30s | character skeletal rigging, animation |
 | **WorldGen** | World generation | 10 GB (24 GB recommended) | ~60s | text-to-3D, image-to-3D, scene generation, Gaussian Splatting |
 
 ### WorldGen Parameters
@@ -130,7 +128,7 @@ The backend pipelines API drives workspace model pickers and feature gating (the
 - Runtime health and provider data come from `/api/v1/runtime/status`, `/api/v1/runtime/health`, and `/api/v1/runtime/options`.
 - The backend also registers a bare `GET /api/v1/runtime` route (returns the same payload as `/status`).
 - Supported workspace types: `mesh-generation`, `texture-generation`, `rigging`, `animation`, `remesh`, `post-processing`, `world-generation`.
-- Current model catalog: `hunyuan3d-2.1`, `hunyuan3d-2-mini`, `trellis`, `triposg`, `anigen`, `unirig`, `detailgen3d`, `worldgen` (plus `mock`).
+- Current model catalog: `hunyuan3d-2.1`, `hunyuan3d-2-mini`, `trellis`, `triposg`, `detailgen3d`, `worldgen` (plus `mock`).
 - Supported workspace types: `mesh-generation`, `texture-generation`, `rigging`, `animation`, `remesh`, `post-processing`, `world-generation`.
 
 
@@ -388,13 +386,11 @@ Colab mode automatically:
 | Hunyuan3D 2.1 | 16 GB | Full pipeline ~29 GB |
 | Hunyuan3D-2mini | 6 GB | Optimized for low VRAM |
 | TRELLIS | 16 GB | Official: ≥16 GB required |
-| AniGen | 6.2 GB | Low VRAM mode available |
-| UniRig | 8 GB | Skeleton prediction |
 | DetailGen3D | 4 GB | Geometry enhancement |
 | TripoSG | 8 GB | Image-to-3D |
 | WorldGen | 10 GB (24 GB recommended) | Scene generation via Gaussian Splatting |
 
-> **Note**: Models requiring native CUDA builds (TRELLIS, UniRig, AniGen) need the CUDA toolkit (`nvcc`) to compile extensions. On Colab, the toolkit may be unavailable — the runtime will still install but native extensions may fail to compile. On VPS/full-GPU hosts with CUDA toolkit installed, all models work without restrictions.
+> **Note**: Models requiring native CUDA builds (TRELLIS) need the CUDA toolkit (`nvcc`) to compile extensions. On Colab, the toolkit may be unavailable — the runtime will still install but native extensions may fail to compile. On VPS/full-GPU hosts with CUDA toolkit installed, all models work without restrictions.
 
 ---
 
@@ -427,7 +423,7 @@ CELERY_RESULT_BACKEND=redis://localhost:6379/1
 
 # ===== AI PROVIDER =====
 AI_PROVIDER=hunyuan3d-2.1
-# Options: mock, hunyuan3d-2.1, hunyuan3d-2-mini, trellis, triposg, anigen, unirig, detailgen3d, worldgen
+# Options: mock, hunyuan3d-2.1, hunyuan3d-2-mini, trellis, triposg, detailgen3d, worldgen
 # (aliases: hunyuan3d, hunyuan3d-1.0 -> hunyuan3d-2.1)
 
 # ===== GPU SETTINGS =====
@@ -483,8 +479,8 @@ For complete configuration options, see [Setup Guide - Configuration](docs/setup
 |-----------|---------|-------------------|
 | **Mesh Generation** | Create 3D meshes from text or images | Hunyuan3D 2.1, Hunyuan3D-2mini, TRELLIS, TripoSG |
 | **Texture Generation** | Generate PBR textures and materials | Hunyuan3D 2.1, TRELLIS |
-| **Rigging** | Auto-rig 3D character meshes | AniGen, UniRig |
-| **Animation** | Generate skeletal animations | AniGen, UniRig |
+| **Rigging** | Auto-rig 3D character meshes | — |
+| **Animation** | Generate skeletal animations | — |
 | **Remesh** | Retopology and mesh optimization | DetailGen3D |
 | **Post-Processing** | Detail enhancement and mesh polishing | Hunyuan3D 2.1, DetailGen3D |
 | **World Generation** | Text/image-to-3D scene generation via Gaussian Splatting | WorldGen |
@@ -898,7 +894,6 @@ ai-3d-studio/
 │   │   │   │   ├── trellis_local.py
 │   │   │   │   ├── instant_mesh.py
 │   │   │   │   ├── detailgen3d.py
-│   │   │   │   ├── anigen_provider.py
 │   │   │   │   ├── worldgen_provider.py
 │   │   │   │   └── mock.py
 │   │   │   ├── managers/

@@ -447,7 +447,6 @@ export function ModelsTab() {
             { key: 'threeDGen', label: '3D Generation', desc: 'Enable 3D mesh generation capabilities' },
             { key: 'remesh', label: 'Remesh & Refine', desc: 'Enable mesh optimization and remeshing' },
             { key: 'textureGen', label: 'Texture Generation', desc: 'Enable AI texture mapping for 3D objects' },
-            { key: 'riggingAnimation', label: 'Rigging & Animation', desc: 'Enable auto-rigging and animation preview' },
           ] as const).map(({ key, label, desc }) => (
             <div key={key} className="flex items-center justify-between p-3 rounded-lg border border-[hsl(var(--border)/0.5)] bg-[hsl(var(--surface-0)/0.5)]">
               <div>

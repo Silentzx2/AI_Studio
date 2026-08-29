@@ -8,7 +8,7 @@ source:
 environment:
   python: '3.10'
   torch: 2.5.1
-  cuda: '12.4'
+  # CUDA version is dynamically detected at install time
   python_pin_rewrites:
   # numpy 1.22.x builds via distutils (gone in 3.12); rewrite to a cp312
   # compatible pin that stays <2.0 to match the backend venv's numpy<2.0.
@@ -65,7 +65,6 @@ dependencies:
   - diso
   build_env:
     TORCH_CUDA_ARCH_LIST: "7.0 7.5 8.0 8.6 8.9 9.0"
-    CUDA_HOME: "/usr/local/cuda"
 weights:
   primary:
     repo: VAST-AI/TripoSG

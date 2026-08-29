@@ -6,7 +6,7 @@ import type { InstallProgress } from '@/types';
 
 interface Task {
   id: string;
-  type: 'generation' | 'download' | 'install' | 'render' | 'texture' | 'rigging';
+  type: 'generation' | 'download' | 'install' | 'render' | 'texture';
   status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
   progress: number;
   label: string;

@@ -390,7 +390,6 @@ class EnvironmentManager:
     def estimate_memory_needed(self, model_name: str) -> float:
         """Get estimated VRAM requirements in GB for specific models."""
         estimates = {
-            "anigen": 6.2,
             "detailgen3d": 4.0,
             "hunyuan3d": 16.0,
             "trellis": 8.0,

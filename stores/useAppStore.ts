@@ -56,7 +56,7 @@ export interface AppState {
   // ── Tasks ──
   tasks: Record<string, {
     id: string;
-    type: 'generation' | 'download' | 'install' | 'render' | 'texture' | 'rigging';
+    type: 'generation' | 'download' | 'install' | 'render' | 'texture';
     status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
     progress: number;
     label: string;
@@ -223,7 +223,7 @@ const DEFAULT_STATE: AppStateData = {
   inspectorTab: 'scene',
   bottomDockTab: 'recent',
   creativeLayoutMode: true,
-  capabilities: { threeDGen: true, remesh: true, textureGen: true, riggingAnimation: true },
+  capabilities: { threeDGen: true, remesh: true, textureGen: true },
 
   tasks: {},
   downloads: {},

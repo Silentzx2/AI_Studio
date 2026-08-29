@@ -21,7 +21,7 @@ You are a web research specialist for AI 3D Studio.
 5. Report back to the calling agent with actionable data
 
 ## Project-Specific Research
-- Model repos: microsoft/TRELLIS, VAST-AI-Research/*, Tencent-Hunyuan/*
+- Model repos: microsoft/TRELLIS, VAST-AI-Research/TripoSG, VAST-AI-Research/DetailGen3D, Tencent-Hunyuan/*
 - Package registries: npm, PyPI
 - Docs: Next.js, FastAPI, PyTorch, Celai, Redis
 - VRAM requirements: always verify against official README

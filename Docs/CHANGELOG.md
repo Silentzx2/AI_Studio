@@ -36,7 +36,7 @@
 ## [v4.5.3] - 2026-08-29
 
 ### Documentation
-- **WorldGen model catalog integration**: Added WorldGen to the model catalog tables across all documentation files (README, architecture, setup-guide, api-documentation, pipeline-status). WorldGen is now listed alongside existing models (Hunyuan3D-2.1, Hunyuan3D-2-mini, Trellis, TripoSG, AniGen, UniRig, DetailGen3D) in the runtime catalog, provider registry, VRAM requirements, workspace compatibility, and capability summary tables.
+- **WorldGen model catalog integration**: Added WorldGen to the model catalog tables across all documentation files (README, architecture, setup-guide, api-documentation, pipeline-status). WorldGen is now listed alongside existing models (Hunyuan3D-2.1, Hunyuan3D-2-mini, Trellis, TripoSG, DetailGen3D) in the runtime catalog, provider registry, VRAM requirements, workspace compatibility, and capability summary tables.
 - **WorldGen provider registry**: Added `worldgen` → `WorldGenProvider` to the engine/registry provider map (dedicated workspace tab model, not general provider pool).
 - **Workspace compatibility**: Added `world-generation` workspace type with WorldGen as the compatible model.
 
@@ -46,16 +46,12 @@
 - **YAML build environment contract**: Global `dependencies.build_env` mappings are now honored by the resolver, with manifest values taking precedence over process defaults.
 - **TRELLIS attention backend**: `dependencies.attention_backend.one_of` is now read from the correct YAML section, making backend selection deterministic.
 - **VCS subdirectory resolution**: Initialized subdirectory-match state for all source branches, including local-extension paths.
-- **AniGen inference capability**: Removed the training-only CUBVH build step from inference capabilities and aligned VRAM admission/allocation metadata with the upstream 18 GB requirement.
-- **AniGen VRAM accounting**: Provider allocation/error reporting now reads the manifest instead of a hard-coded 6.2 GB value.
-- **UniRig spconv contract**: Represented the CUDA-12.4 `spconv-cu124` package explicitly in YAML native dependency, wheel, build, and capability configuration.
 - **TRELLIS clone policy**: Moved `shallow_clone` to `dependencies.build_flags`, the section consumed by the resolver.
 - **Hunyuan3D-2 Mini manifest**: Removed duplicate `hy3dgen`/`accelerate` declarations and pinned `hy3dgen` to upstream package version `2.0.2`.
-- **UniRig Blender dependency**: Removed `bpy==4.2` from the model venv requirements; Blender owns `bpy` for the separate headless Blender subprocess.
 - **Backend CUDA fallback**: Removed the unsafe hard-coded `cu121` fallback from backend Torch stack detection; missing CUDA metadata now resolves to CPU instead of guessing a CUDA wheel family.
 
 ### Added
-- **Dependency manifest regression check**: `backend/runtime/test_dependency_manifest_contract.py` validates manifest discovery, nested attention selection, global build environment handling, AniGen inference metadata, and UniRig spconv configuration.
+- **Dependency manifest regression check**: `backend/runtime/test_dependency_manifest_contract.py` validates manifest discovery, nested attention selection, global build environment handling, and TRELLIS clone policy.
 
 ## [v4.5.1] - 2026-08-28
 
@@ -113,7 +109,7 @@
 ## [v4.4.13] - 2026-08-28
 
 ### Fixed
-- **Hunyuan3D-2.1 / UniRig**: Removed `bpy==4.0`/`bpy==4.2` from `dependencies.native`. `bpy` is Blender's Python API — it ships with Blender, not PyPI. Listing it as a pip dependency caused `uv pip install bpy==4.0` to fail and block the entire install. Moved to `optional` with `wheels.bpy.available: false` and a clear reason. `bpy` is only used by the headless Blender subprocess script (`blender/scripts/process_mesh.py`); it is never imported by in-process provider code. The pipeline already degrades gracefully when Blender is absent (`pipeline.py` checks `blender_enabled` + `shutil.which`).
+- **Hunyuan3D-2.1**: Removed `bpy==4.0` from `dependencies.native`. `bpy` is Blender's Python API — it ships with Blender, not PyPI. Listing it as a pip dependency caused `uv pip install bpy==4.0` to fail and block the entire install. Moved to `optional` with `wheels.bpy.available: false` and a clear reason. `bpy` is only used by the headless Blender subprocess script (`blender/scripts/process_mesh.py`); it is never imported by in-process provider code. The pipeline already degrades gracefully when Blender is absent (`pipeline.py` checks `blender_enabled` + `shutil.which`).
 
 ---
 
@@ -305,7 +301,6 @@
 
 ### Improvements
 - **dependency_resolver.py**: Removed dead `check_wheel_available()` function (109 lines of unused duplicate code)
-- **unirig.yaml**: Standardized `flash_attn` → `flash-attn` to match PyPI naming convention and other manifests
 - **triposg.yaml / detailgen3d.yaml**: Added `diso` to `representation_required` for consistent capability-degradation on build failure
 - **models/\_\_init\_\_.py**: Removed duplicate `__all__` declaration (dead code)
 
@@ -596,7 +591,6 @@ Fixed critical dependency resolution bugs causing Colab installation failures. S
 - **Hunyuan3D-2**: Added `transformers>=4.48.0` from upstream setup.py
 - **Hunyuan3D-2mini**: Added `transformers>=4.48.0` from upstream setup.py
 - **DetailGen3D**: Added pinned versions from HF Spaces (`transformers==4.49.0`, `trimesh==4.5.3`, `scipy==1.11.4`, `peft==0.17.1`, `pymeshlab==2022.2.post4`)
-- **UniRig**: Pinned `bpy==4.2`, added `numpy==1.26.4` from upstream README
 
 ## [v4.1.9] - 2026-08-27 - Import Error Fixes
 
@@ -711,13 +705,12 @@ Implemented PLAN.md requirements for manifest-driven model dependency installati
 - **Wheel-first logic**: Added dependency_resolver routing for all manifest-backed models
 - **User approval**: Interactive prompt before expensive native builds
 - **TRELLIS special case**: Removed - TRELLIS now uses manifest like all other models
-- **Missing dependencies**: Added `omegaconf` to anigen.yaml, `briarmbg` to triposg.yaml
+- **Missing dependencies**: Added `briarmbg` to triposg.yaml
 - **Shared installer**: Both setup.sh and colab.sh use same core installer logic
 - **Duplicate code**: Removed duplicate PyG wheel logic and `--reinstall` flag
 
 ### Files Modified
 - `backend/runtime/installer.py` - Route through dependency_resolver, remove TRELLIS special case
-- `backend/runtime/manifests/anigen.yaml` - Added omegaconf
 - `backend/runtime/manifests/triposg.yaml` - Added briarmbg
 
 ## [v4.1.3] - 2026-08-26 - Comprehensive Bug Audit & Fixes (146 issues)
@@ -789,7 +782,6 @@ Deep audit of entire codebase (frontend, backend, database, scripts) found 146 i
 - **Thumbnail mapping**: Fixed thumbnail filename to match model filename stem instead of random UUID
 - **Asset persistence**: Workspace now fetches uploaded assets from `GET /api/v1/upload/assets` on mount
 - **Asset reload**: Clicking an asset now reloads the model in the MeshViewer
-- **AniGen smplx dependency**: Added missing `smplx` and `chumpy` to `anigen.yaml` manifest
 - **TRELLIS one_of**: Installer now respects `attention_backend.one_of` alternatives (installs only first option)
 - **GPU cleanup**: Added explicit `torch.cuda.empty_cache()` + `gc.collect()` on model unload
 - **EXTRA_DEPS reinstall**: EXTRA_DEPS now installed with `--reinstall` to fix corrupted packages
@@ -977,7 +969,7 @@ Deep audit of entire codebase (frontend, backend, database, scripts) found 146 i
 ### Fixed
 - **GLB/models "load then revert to default page" (root cause)**: Both 3D viewers (`Canvas3D` in the workspace and `ViewerScene` in render/texture) fetched an HDRI environment map via `<Environment preset="studio">` from a remote CDN with **no error boundary**. When that fetch hung or failed (offline/flaky network), the thrown error blanked the whole viewer — the model appeared to load, then the viewer fell back to its empty/default state. `Environment` is now wrapped in a `Suspense` + `ErrorBoundary` (null fallback) in **both** viewers, so an HDRI failure can no longer tear down the model view. The model stays visible with scene lighting.
 - **Model state lost on page navigation**: The loaded model URL was held in local component state inside each viewer, so switching pages (workspace ↔ render ↔ texture) discarded it. Introduced a **global `useViewerStore`** (`stores/useViewerStore.ts`) that is the single source of truth for the currently loaded model. Both viewers read from it, so a model loaded on one page stays loaded on all of them.
-- **GPU placement now verified everywhere**: `verify_gpu_placement()` (in `runtime/accelerate_loader.py`) was only called by the TRELLIS and Hunyuan3D providers. The other real model loaders (`triposg`, `detailgen3d`) did `.to(device)` with **no check**, so a silent CPU fallback was invisible. Added `verify_gpu_placement` to `triposg`, `detailgen3d`, and (guarded) `anigen`. If CUDA is available but a model lands on CPU (and is not an intentional Accelerate offload), it now raises loudly instead of silently running on CPU.
+- **GPU placement now verified everywhere**: `verify_gpu_placement()` (in `runtime/accelerate_loader.py`) was only called by the TRELLIS and Hunyuan3D providers. The other real model loaders (`triposg`, `detailgen3d`) did `.to(device)` with **no check**, so a silent CPU fallback was invisible. Added `verify_gpu_placement` to `triposg` and `detailgen3d`. If CUDA is available but a model lands on CPU (and is not an intentional Accelerate offload), it now raises loudly instead of silently running on CPU.
 - **`verify_gpu_placement` CPU-host safety**: It previously raised `RuntimeError` even on CPU-only hosts (where there is no GPU to use). It now warns and returns when `torch.cuda.is_available()` is `False`, so CPU-only deployments no longer crash on load.
 
 ### Added
@@ -1647,7 +1639,7 @@ When local providers (hunyuan3d_local, trellis_local, triposr_local) run in-proc
 
 - **Fixed import order in local providers**: Moved `_add_model_env()` calls to execute at the **very top** of provider modules (before any other imports including `asyncio`, `logging`, `from pathlib`, etc.). This ensures the per-model venv's site-packages take precedence.
 
-- **Fixed provider map divergence**: Added missing provider mappings (`triposg`, `triposf`, `unirig`, `holopart`) to `registry.py` that existed in `engine.py`.
+- **Fixed provider map divergence**: Added missing provider mappings (`triposg`, `triposf`, `holopart`) to `registry.py` that existed in `engine.py`.
 
 - **Added `EXTRA_DEPS` mechanism in `installer.py`**: Allows declaring inference libraries that are omitted from a repo's own requirements.txt (e.g., `hy3dgen` for Hunyuan3D-2) and installs them into the per-model venv.
 

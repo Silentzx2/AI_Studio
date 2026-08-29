@@ -22,18 +22,14 @@ import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 export const RightPropertyPanel: React.FC = () => {
   const { 
     currentAsset, 
-    activeTool, 
-    shadingMode, 
+    activeTool,
+    shadingMode,
     setShadingMode,
     showWireframe,
     setShowWireframe,
     remeshSettings,
     textureSettings,
     generationSettings,
-    animateSettings,
-    totalFrames,
-    fps,
-    bones,
     systemStats
   } = useWorkspace();
 
@@ -460,35 +456,6 @@ export const RightPropertyPanel: React.FC = () => {
               <div className="flex justify-between text-[#cbd5e1]">
                 <span>Quad Flow Alignment</span>
                 <span className="font-mono text-[#22c55e]">{currentAsset.topology} • {currentAsset.statsAvailable ? currentAsset.faces.toLocaleString() : '—'} faces</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* CASE C: Tool is Animate */}
-        {activeTool === 'animate' && (
-          <div className="space-y-3 p-3 rounded-xl bg-[#13151b] border border-[#222632]">
-            <span className="font-bold text-[11px] text-[#8e95a5] uppercase tracking-wider flex items-center gap-1.5">
-              <Activity className="w-3.5 h-3.5 text-[#f5c518]" />
-              Skeletal Rig & Motion
-            </span>
-
-            <div className="space-y-1.5 text-[11px]">
-              <div className="flex justify-between text-[#cbd5e1]">
-                <span>Skeleton Hierarchy</span>
-                <span className="font-mono text-[#f5c518]">{bones.length} bones in local rig state</span>
-              </div>
-              <div className="flex justify-between text-[#cbd5e1]">
-                <span>Motion Preset</span>
-                <span className="font-mono text-[#38bdf8]">{animateSettings.preset}</span>
-              </div>
-              <div className="flex justify-between text-[#cbd5e1]">
-                <span>Sequence Speed</span>
-                <span className="font-mono text-[#cbd5e1]">{animateSettings.speed}x</span>
-              </div>
-              <div className="flex justify-between text-[#cbd5e1]">
-                <span>Timeline Length</span>
-                <span className="font-mono text-[#cbd5e1]">{totalFrames} Frames @ {fps} FPS</span>
               </div>
             </div>
           </div>

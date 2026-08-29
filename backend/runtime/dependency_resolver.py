@@ -194,6 +194,37 @@ def _cuda_ver_short() -> str:
     return "cpu"
 
 
+def _detect_cuda_home() -> str | None:
+    """Detect CUDA toolkit installation path dynamically.
+
+    Checks (in order):
+      1. nvcc on PATH → derive parent dir
+      2. Common install locations (/usr/local/cuda, /opt/cuda, etc.)
+      3. Symlink resolution at /usr/local/cuda
+
+    Returns the path or None if no toolkit found.
+    """
+    # Derive from nvcc location: <cuda_home>/bin/nvcc
+    nvcc_path = shutil.which("nvcc")
+    if nvcc_path:
+        resolved = str(Path(nvcc_path).resolve())
+        # nvcc may be a symlink; resolve to real path, then go up two levels
+        cuda_home = str(Path(resolved).parents[1])
+        if Path(cuda_home, "bin", "nvcc").exists():
+            return cuda_home
+    # Check common install locations
+    for cand in ("/usr/local/cuda", "/opt/cuda", "/usr/local/cuda-12", "/usr/local/cuda-12.4"):
+        if Path(cand, "bin", "nvcc").exists():
+            return cand
+    # Check if /usr/local/cuda is a valid symlink
+    link = Path("/usr/local/cuda")
+    if link.is_symlink():
+        resolved = link.resolve()
+        if Path(resolved, "bin", "nvcc").exists():
+            return str(resolved)
+    return None
+
+
 def _cuda_available() -> bool:
     """Check if CUDA is available (GPU driver present).
 
@@ -329,6 +360,14 @@ def resolve_dependencies(
             first_alt = one_of_list[0]
             dep = classify_dependency(first_alt)
             dep.kind = DependencyKind.NATIVE
+            dep.required = False
+            _add(dep)
+        for spec in manifest.get("dependencies", {}).get("optional", []) or []:
+            dep = classify_dependency(spec)
+            dep_key = dep.name.lower().replace("-", "_") if dep.name else ""
+            if dep_key and dep_key in one_of_specs:
+                continue
+            dep.kind = DependencyKind.OPTIONAL
             dep.required = False
             _add(dep)
         return deps
@@ -1079,7 +1118,12 @@ def install_resolved_deps(
                     # YAML is the source of truth when it declares a build variable;
                     # hard-coded defaults only fill variables absent from the manifest.
                     build_env.setdefault("TORCH_CUDA_ARCH_LIST", "7.0 7.5 8.0 8.6 8.9 9.0")
-                    build_env.setdefault("CUDA_HOME", "/usr/local/cuda")
+                    # Dynamically detect CUDA_HOME: check env vars, nvcc path, then
+                    # common install locations. Never hard-code a single path.
+                    if "CUDA_HOME" not in build_env:
+                        _cuda_home = _detect_cuda_home()
+                        if _cuda_home:
+                            build_env["CUDA_HOME"] = _cuda_home
                     build_env.update(manifest_build_env)
                     _subdir_match = _re.search(r'#subdirectory=([^&]+)', dep.spec)
                     if _subdir_match:

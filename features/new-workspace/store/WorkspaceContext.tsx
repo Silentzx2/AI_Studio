@@ -5,14 +5,10 @@ import {
   ShadingMode,
   ModelAsset,
   MaterialConfig,
-  BoneNode,
-  AnimationTrack,
   SystemStats,
   GenerationSettings,
   RemeshSettings,
   TextureSettings,
-  AnimateSettings,
-  RiggingSettings,
   SegmentationSettings,
   ActiveTask,
   EnvironmentSettings,
@@ -89,31 +85,14 @@ interface WorkspaceContextType {
   setRemeshSettings: React.Dispatch<React.SetStateAction<RemeshSettings>>;
   textureSettings: TextureSettings;
   setTextureSettings: React.Dispatch<React.SetStateAction<TextureSettings>>;
-  animateSettings: AnimateSettings;
-  setAnimateSettings: React.Dispatch<React.SetStateAction<AnimateSettings>>;
-  riggingSettings: RiggingSettings;
-  setRiggingSettings: React.Dispatch<React.SetStateAction<RiggingSettings>>;
   segmentationSettings: SegmentationSettings;
   setSegmentationSettings: React.Dispatch<React.SetStateAction<SegmentationSettings>>;
-  bones: BoneNode[];
-  selectedBoneId: string | null;
-  setSelectedBoneId: (id: string | null) => void;
-  updateBone: (id: string, updates: Partial<BoneNode>) => void;
-  currentFrame: number;
-  setCurrentFrame: (frame: number | ((prev: number) => number)) => void;
-  isPlaying: boolean;
-  setIsPlaying: (playing: boolean) => void;
-  totalFrames: number;
-  fps: number;
-  tracks: AnimationTrack[];
   generate3DModel: () => Promise<void>;
   generateTextTo3D: (customPrompt?: string, extraParams?: Record<string, unknown>) => Promise<void>;
   generateImageTo3D: (customImage?: string) => Promise<void>;
   runModelGeneration: () => Promise<void>;
   runRemeshGeneration: () => Promise<void>;
   runTextureGeneration: () => Promise<void>;
-  runAnimateGeneration: () => Promise<void>;
-  runRiggingGeneration: () => Promise<void>;
   runSegmentationGeneration: () => Promise<void>;
   queueWorkflow: (workflow: Record<string, unknown>, type: ActiveTask['type'], title: string) => Promise<void>;
   navigateToTool: (tool: ToolType) => void;
@@ -132,8 +111,6 @@ const TOOL_TO_ROUTE: Record<ToolType, string> = {
   edit: '/workspace/edit',
   upscale: '/workspace/upscale',
   pbr: '/workspace/pbr',
-  animate: '/workspace/animate',
-  rigging: '/workspace/rigging',
   environment: '/workspace/generate',
 };
 
@@ -207,16 +184,6 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     maps: { albedo: true, normal: true, roughness: true, metallic: true, ao: true, height: false },
   });
 
-  const [animateSettings, setAnimateSettings] = useState<AnimateSettings>({
-    mode: 'animation', type: 'presets', prompt: '',
-    preset: 'idle', intensity: 1.0, speed: 1.0, loop: true,
-  });
-
-  const [riggingSettings, setRiggingSettings] = useState<RiggingSettings>({
-    tab: 'rigging', rigType: 'humanoid', autoRig: true,
-    bonesDetection: true, symmetry: true, boneSize: 1.0, boneCount: 32,
-  });
-
   const [segmentationSettings, setSegmentationSettings] = useState<SegmentationSettings>({
     mode: 'auto', target: 'character', selectedPart: 'Whole Character',
     feather: 0.15, preserveTextures: true,
@@ -235,15 +202,6 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     showAxes: true,
     showStats: true,
   });
-
-  const [currentFrame, setCurrentFrame] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [totalFrames, setTotalFrames] = useState(0);
-  const [fps, setFps] = useState(30);
-  const [tracks, setTracks] = useState<AnimationTrack[]>([]);
-
-  const [bones, setBones] = useState<BoneNode[]>([]);
-  const [selectedBoneId, setSelectedBoneId] = useState<string | null>(null);
 
   const currentAsset = useMemo(
     () => selectedAssetId ? (assets.find(a => a.id === selectedAssetId) ?? null) : null,
@@ -269,8 +227,6 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
 
   useEffect(() => {
-    if (activeTool === 'rigging' || activeTool === 'animate') setShowBonesState(true);
-    else setShowBonesState(false);
     if (activeTool === 'remesh') setShowWireframeState(true);
   }, [activeTool]);
 
@@ -490,10 +446,6 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setSelectedAssetId(asset.id);
   }, []);
 
-  const updateBone = useCallback((id: string, updates: Partial<BoneNode>) => {
-    setBones(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
-  }, []);
-
   const resetCamera = useCallback(() => {
     setViewportResetTrigger(prev => prev + 1);
   }, []);
@@ -631,52 +583,6 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [textureSettings.style, textureSettings.prompt, startTask]);
 
-  const runAnimateGeneration = useCallback(async () => {
-    startTask('animate', 'Animation generation');
-    try {
-      const res = await fetch('/api/v1/generation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode: 'rigging',
-          quality: 'standard',
-          prompt: animateSettings.prompt || animateSettings.preset,
-          workspace: 'rigging',
-        }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json() as { job_id?: string; id?: string };
-      setActiveTask(prev => prev ? { ...prev, id: data.job_id ?? data.id ?? prev.id, status: 'running', currentStep: 'Processing' } : prev);
-      setExecutionStep('Animation submitted');
-    } catch (e) {
-      setExecutionStep(e instanceof Error ? e.message : 'Animation failed');
-      setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: 'Submission failed' } : prev);
-    }
-  }, [animateSettings.preset, animateSettings.prompt, startTask]);
-
-  const runRiggingGeneration = useCallback(async () => {
-    startTask('rigging', 'Rigging generation');
-    try {
-      const res = await fetch('/api/v1/generation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode: 'rigging',
-          quality: 'standard',
-          auto_rig: riggingSettings.autoRig,
-          workspace: 'rigging',
-        }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json() as { job_id?: string; id?: string };
-      setActiveTask(prev => prev ? { ...prev, id: data.job_id ?? data.id ?? prev.id, status: 'running', currentStep: 'Processing' } : prev);
-      setExecutionStep('Rigging submitted');
-    } catch (e) {
-      setExecutionStep(e instanceof Error ? e.message : 'Rigging failed');
-      setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: 'Submission failed' } : prev);
-    }
-  }, [riggingSettings.autoRig, startTask]);
-
   const runSegmentationGeneration = useCallback(async () => {
     startTask('segment', 'Segmentation');
     try {
@@ -800,43 +706,29 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     generationSettings, setGenerationSettings,
     remeshSettings, setRemeshSettings,
     textureSettings, setTextureSettings,
-    animateSettings, setAnimateSettings,
-    riggingSettings, setRiggingSettings,
     segmentationSettings, setSegmentationSettings,
     environmentSettings, setEnvironmentSettings,
   }), [generationSettings, setGenerationSettings,
     remeshSettings, setRemeshSettings,
     textureSettings, setTextureSettings,
-    animateSettings, setAnimateSettings,
-    riggingSettings, setRiggingSettings,
     segmentationSettings, setSegmentationSettings,
     environmentSettings, setEnvironmentSettings]);
-
-  const animationValue = useMemo(() => ({
-    bones, selectedBoneId, setSelectedBoneId, updateBone,
-    currentFrame, setCurrentFrame, isPlaying, setIsPlaying,
-    totalFrames, fps, tracks,
-  }), [bones, selectedBoneId, setSelectedBoneId, updateBone,
-    currentFrame, setCurrentFrame, isPlaying, setIsPlaying,
-    totalFrames, fps, tracks]);
 
   const generationActionsValue = useMemo(() => ({
     generate3DModel, generateTextTo3D, generateImageTo3D,
     runModelGeneration: generate3DModel,
     runRemeshGeneration, runTextureGeneration,
-    runAnimateGeneration, runRiggingGeneration,
     runSegmentationGeneration, queueWorkflow,
   }), [generate3DModel, generateTextTo3D, generateImageTo3D,
     runRemeshGeneration, runTextureGeneration,
-    runAnimateGeneration, runRiggingGeneration,
     runSegmentationGeneration, queueWorkflow]);
 
   const value = React.useMemo(() => ({
     ...viewportValue, ...toolValue, ...assetValue, ...systemValue,
-    ...executionValue, ...generationSettingsValue, ...animationValue,
+    ...executionValue, ...generationSettingsValue,
     ...generationActionsValue,
   }), [viewportValue, toolValue, assetValue, systemValue,
-    executionValue, generationSettingsValue, animationValue,
+    executionValue, generationSettingsValue,
     generationActionsValue]);
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

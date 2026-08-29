@@ -211,8 +211,6 @@ Do not introduce per-model hard-coded Torch installation logic without process i
 - `dependencies.attention_backend.one_of` is read from the nested YAML dependency section.
 - Global `dependencies.build_env` values are honored for native source builds and override process defaults.
 - VCS subdirectory resolution initializes its match state on every branch, including local-extension paths.
-- AniGen CUBVH is training-only upstream and is not required by inference capabilities.
-- UniRig explicitly represents the CUDA-12.4 `spconv-cu124` package in YAML.
 - TRELLIS `shallow_clone` is stored under `dependencies.build_flags`, the section consumed by the resolver.
 
 ### VCS Dependency Wheel Substitution (v4.3.1+)

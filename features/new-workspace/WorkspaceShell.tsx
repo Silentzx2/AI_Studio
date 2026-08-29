@@ -10,9 +10,7 @@ import { MeshViewer } from './Viewport/MeshViewer';
 import { GeneratePanel } from './Panels/GeneratePanel';
 import { TexturePanel } from './Panels/TexturePanel';
 import { RemeshPanel } from './Panels/RemeshPanel';
-import { AnimatePanel } from './Panels/AnimatePanel';
 import { SegmentationPanel } from './Panels/SegmentationPanel';
-import { RiggingPanel } from './Panels/RiggingPanel';
 import { SecondaryPanel } from './Panels/SecondaryPanels';
 import { RightAssetsPanel } from './RightPanel/RightAssetsPanel';
 import { RightPropertyPanel } from './RightPanel/RightPropertyPanel';
@@ -41,10 +39,6 @@ const ROUTE_SEGMENT_TO_TOOL: Record<string, ToolType> = {
   'edit': 'edit',
   'upscale': 'upscale',
   'pbr': 'pbr',
-  'animate': 'animate',
-  'animation': 'animate',
-  'rigging': 'rigging',
-  'rig': 'rigging',
 };
 
 export const WorkspaceShell: React.FC = () => {
@@ -96,8 +90,6 @@ export const WorkspaceShell: React.FC = () => {
       case 'segment': return <SegmentationPanel />;
       case 'texture': return <TexturePanel />;
       case 'remesh': return <RemeshPanel />;
-      case 'animate': return <AnimatePanel />;
-      case 'rigging': return <RiggingPanel />;
       case 'retopo': case 'edit': case 'upscale': case 'pbr': return <SecondaryPanel tool={activeTool} />;
       default: return <GeneratePanel />;
     }

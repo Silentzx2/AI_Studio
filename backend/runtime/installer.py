@@ -550,29 +550,12 @@ def _cuda_available() -> bool:
     present. Preferring pre-built wheels means we can install CUDA extensions
     without the toolkit, so a GPU without nvcc should still be treated as
     CUDA-capable.
+
+    ponytail: implementation lives in dependency_resolver; this is a thin
+    wrapper to avoid a circular import at module load time.
     """
-    # Check for CUDA toolkit (nvcc, CUDA_HOME, etc.)
-    if os.environ.get("CUDA_HOME") or os.environ.get("CUDA_PATH"):
-        return True
-    if shutil.which("nvcc"):
-        return True
-    for cand in ("/usr/local/cuda", "/opt/cuda"):
-        if Path(cand).exists():
-            return True
-    # Check for NVIDIA GPU driver (nvidia-smi) — GPU present, toolkit may not be
-    # installed but pre-built wheels can still be used.
-    if shutil.which("nvidia-smi"):
-        try:
-            import subprocess
-            result = subprocess.run(
-                ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
-                capture_output=True, text=True, timeout=5
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                return True
-        except Exception:
-            pass
-    return False
+    from runtime.dependency_resolver import _cuda_available as _resolver_cuda_available
+    return _resolver_cuda_available()
 
 
 def _backend_torch_stack() -> tuple[str, list[str]]:

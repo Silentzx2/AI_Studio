@@ -34,8 +34,6 @@ _RUNTIME_PROVIDER_MAP = {
     "hunyuan3d-2-mini": ("app.core.providers.hunyuan3d_local", "Hunyuan3D2MiniLocalProvider"),
     "trellis": ("app.core.providers.trellis_local", "TRELLISLocalProvider"),
     "triposg": ("app.core.providers.triposg_local", "TripoSGLocalProvider"),
-    "anigen": ("app.core.providers.anigen_provider", "AniGenProvider"),
-    "unirig": ("app.core.providers.unirig_provider", "UniRigProvider"),
     "detailgen3d": ("app.core.providers.detailgen3d", "DetailGen3DProvider"),
     "worldgen": ("app.core.providers.worldgen_provider", "WorldGenLocalProvider"),
     "mock": ("app.core.providers.mock", "MockProvider"),
@@ -94,9 +92,7 @@ _KNOWN_PROVIDERS = [
     "hunyuan3d-2-mini",
     "trellis",
     "triposg",
-    "unirig",
     "instant-mesh",
-    "anigen",
     "detailgen3d",
     "worldgen",
 ]

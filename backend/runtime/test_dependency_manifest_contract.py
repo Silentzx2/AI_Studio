@@ -20,13 +20,11 @@ from runtime.manifest_loader import load_all_manifests  # noqa: E402
 def main() -> None:
     manifests = load_all_manifests()
     expected = {
-        "anigen",
         "detailgen3d",
         "hunyuan3d-2.1",
         "hunyuan3d-2-mini",
         "trellis",
         "triposg",
-        "unirig",
         "worldgen",
     }
     assert set(manifests) == expected, (set(manifests), expected)
@@ -42,17 +40,7 @@ def main() -> None:
     ).get("shallow_clone") is True
     assert _manifest_dependency_config(trellis, "build_env", "nvdiffrast") == {
         "TORCH_CUDA_ARCH_LIST": "7.0 7.5 8.0 8.6 8.9 9.0",
-        "CUDA_HOME": "/usr/local/cuda",
     }
-
-    anigen = manifests["anigen"]
-    assert anigen["hardware"]["minimum_vram_mb"] == 18432
-    assert not anigen["capabilities"]["shape"].get("native_steps")
-    assert not anigen["capabilities"]["shape"]["native_build_required"]
-
-    unirig = manifests["unirig"]
-    assert "spconv-cu124" in unirig["dependencies"]["native"]
-    assert "spconv-cu124" in unirig["dependencies"]["cuda_native_packages"]
 
     worldgen = manifests["worldgen"]
     assert worldgen["environment"]["python"] == "3.11"

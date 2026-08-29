@@ -144,7 +144,7 @@ def get_gpu_info() -> GPUInfo:
     except ImportError:
         return _no_gpu(
             "PyTorch is not installed. "
-            "Run: uv pip install torch --index-url https://download.pytorch.org/whl/cu121"
+            "Run: uv pip install torch --index-url https://download.pytorch.org/whl/cu124"
         )
     except Exception as exc:
         logger.exception("GPU check failed")
@@ -273,7 +273,7 @@ def _build_cuda_unavailable_reason(cuda_visible: str) -> str:
         )
     parts.append("Ensure NVIDIA drivers and CUDA toolkit are installed.")
     parts.append(
-        "Verify PyTorch CUDA: uv pip install torch --index-url https://download.pytorch.org/whl/cu121"
+        "Verify PyTorch CUDA: uv pip install torch --index-url https://download.pytorch.org/whl/cu124"
     )
     return " ".join(parts)
 

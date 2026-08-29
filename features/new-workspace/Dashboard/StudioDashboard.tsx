@@ -1,14 +1,12 @@
 import React from 'react';
-import { 
-  Box, 
-  Sparkles, 
-  Layers, 
-  Sliders, 
-  Activity, 
+import {
+  Box,
+  Sparkles,
+  Layers,
+  Sliders,
   ArrowRight,
   FolderOpen,
-  Scissors,
-  Bone
+  Scissors
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { GpuVramLineChart } from '@/components/monitoring/GpuVramLineChart';
@@ -46,7 +44,7 @@ export const StudioDashboard: React.FC = () => {
             AI 3D Creation Workspace
           </h1>
           <p className="text-xs text-[#9ca3af] max-w-xl">
-            Professional high-fidelity 3D modeling, quad topology remeshing, PBR texture baking, and bone auto-rigging engine.
+            Professional high-fidelity 3D modeling, quad topology remeshing, and PBR texture baking.
           </p>
         </div>
 
@@ -144,45 +142,6 @@ export const StudioDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Animate & Rig */}
-        <div 
-          onClick={() => handleLaunchTool('animate')}
-          className="p-5 rounded-2xl bg-[#14161c] border border-[#242834] hover:border-[#f5c518]/60 hover:bg-[#181b24] cursor-pointer transition-all group flex flex-col justify-between"
-        >
-          <div className="space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-[#1f232f] flex items-center justify-center text-[#f5c518] group-hover:scale-110 transition-transform">
-              <Activity className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-sm text-[#f3f4f6]">Auto Rig & Animate</h3>
-              <p className="text-[#8e95a5] text-[11px] mt-1">Humanoid skeleton fitting, weight painting, and motion diffusion diffusion.</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 text-[#f5c518] font-bold text-xs pt-4">
-            <span>Launch Tool</span>
-            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-          </div>
-        </div>
-
-        {/* Rigging */}
-        <div
-          onClick={() => handleLaunchTool('rigging')}
-          className="p-5 rounded-2xl bg-[#14161c] border border-[#242834] hover:border-[#f5c518]/60 hover:bg-[#181b24] cursor-pointer transition-all group flex flex-col justify-between"
-        >
-          <div className="space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-[#1f232f] flex items-center justify-center text-[#f5c518] group-hover:scale-110 transition-transform">
-              <Bone className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-sm text-[#f3f4f6]">Rigging</h3>
-              <p className="text-[#8e95a5] text-[11px] mt-1">Prepare selected meshes for skeletal animation workflows.</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 text-[#f5c518] font-bold text-xs pt-4">
-            <span>Launch Tool</span>
-            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-          </div>
-        </div>
       </div>
 
       {/* Real-time VRAM and GPU Utilization Monitoring Section */}

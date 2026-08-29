@@ -3,7 +3,6 @@ import {
   Box,
   Hexagon,
   Scissors,
-  Bone,
   Layers,
   Activity,
   Settings,
@@ -158,40 +157,7 @@ export const LeftNavigation: React.FC = () => {
           </button>
         </SimpleTooltip>
 
-        {/* 8. Animate */}
-        <SimpleTooltip label="Animation">
-          <button
-            id="tool-btn-animate"
-            onClick={() => handleToolClick('animate')}
-            className={`w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
-              mainNav === 'workspace' && activeTool === 'animate'
-                ? 'bg-[var(--ws-active-bg,#1e2230)] text-[#f5c518] border border-[#f5c518]/30 shadow-lg shadow-[#f5c518]/10'
-                : 'text-[var(--ws-text-muted,#848a97)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#181a20)]'
-            }`}
-          >
-            <Activity className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px] font-medium leading-none">Animate</span>
-          </button>
-        </SimpleTooltip>
-
-        {/* 9. Rigging */}
-        <SimpleTooltip label="Rigging & Bones">
-          <button
-            id="tool-btn-rigging"
-            onClick={() => handleToolClick('rigging')}
-            className={`w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
-              mainNav === 'workspace' && activeTool === 'rigging'
-                ? 'bg-[var(--ws-active-bg,#1e2230)] text-[#f5c518] border border-[#f5c518]/30 shadow-lg shadow-[#f5c518]/10'
-                : 'text-[var(--ws-text-muted,#848a97)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#181a20)]'
-            }`}
-          >
-            <Bone className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px] font-medium leading-none">Rigging</span>
-          </button>
-        </SimpleTooltip>
-      </div>
-
-      {/* Bottom Pipeline & Settings */}
+        {/* Bottom Pipeline & Settings */}
       <div className="flex flex-col items-center gap-1.5 w-full px-1.5 pt-2 border-t border-[var(--ws-border,#21242c)]/60">
         {/* Settings - navigates to /settings page */}
         <SimpleTooltip label="Settings & Configuration">

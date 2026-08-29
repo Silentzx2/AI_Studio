@@ -8,7 +8,7 @@ source:
 environment:
   python: '3.11'
   torch: 2.7.0
-  cuda: '12.4'
+  # CUDA version is dynamically detected at install time
   python_pin_rewrites:
   # numpy 1.22.x builds via distutils (gone in 3.12); rewrite to a cp312
   # compatible pin that stays <2.0 to match the backend venv's numpy<2.0.
@@ -64,10 +64,7 @@ dependencies:
   wheels:
     pytorch3d:
       available: false
-      reason: No prebuilt wheel for torch 2.7.0 + cu124. Requires source build with
-        nvcc/CUDA toolkit. Optional for WorldGen — core generation works without it.
-        Install manually in Colab with:
-        pip install pytorch3d@https://github.com/OutofAi/PyTorch3D-wheels/releases/download/0.7.8/pytorch3d-0.7.8.postAda260124-cp311-cp311-linux_x86_64.whl
+      reason: "No prebuilt wheel for torch 2.7.0 + cu124. Requires source build with nvcc/CUDA toolkit. Optional for WorldGen — core generation works without it. Install manually in Colab with: pip install pytorch3d@https://github.com/OutofAi/PyTorch3D-wheels/releases/download/0.7.8/pytorch3d-0.7.8.postAda260124-cp311-cp311-linux_x86_64.whl"
     xformers:
       available: true
       mode: pypi
@@ -82,7 +79,6 @@ dependencies:
   - xformers
   build_env:
     TORCH_CUDA_ARCH_LIST: "7.0 7.5 8.0 8.6 8.9 9.0"
-    CUDA_HOME: "/usr/local/cuda"
 weights:
   primary:
     repo: LeoXie/WorldGen

@@ -36,7 +36,7 @@ export interface AnimationInfo {
   frameCount?: number;
 }
 
-export type ContextTabType = 'assets' | 'inspector' | 'materials' | 'rig' | 'animation' | 'jobs';
+export type ContextTabType = 'assets' | 'inspector' | 'materials' | 'jobs';
 
 export interface CompareCameraState {
   position: [number, number, number];
@@ -46,7 +46,7 @@ export interface CompareCameraState {
 /**
  * Global persistent 3D workspace viewer store.
  * Holds canonical loaded model, viewport camera, mesh statistics,
- * material shading state, rigging metadata, and context panel tab.
+ * material shading state, and context panel tab.
  */
 interface ViewerState {
   loadedModelUrl: string | null;
@@ -56,8 +56,6 @@ interface ViewerState {
   shadingMode: ShadingPreset;
   wireframeOverlay: boolean;
   activeContextTab: ContextTabType;
-  rigInfo: RigInfo | null;
-  animationInfo: AnimationInfo | null;
   viewport: { cameraPosition: [number, number, number]; target: [number, number, number] } | null;
   compareMode: boolean;
   compareSyncCamera: boolean;
@@ -71,8 +69,6 @@ interface ViewerState {
   setWireframeOverlay: (enabled: boolean) => void;
   toggleWireframeOverlay: () => void;
   setActiveContextTab: (tab: ContextTabType) => void;
-  setRigInfo: (info: RigInfo | null) => void;
-  setAnimationInfo: (info: AnimationInfo | null) => void;
   setViewport: (viewport: { cameraPosition: [number, number, number]; target: [number, number, number] }) => void;
   setCompareMode: (enabled: boolean) => void;
   setCompareSyncCamera: (enabled: boolean) => void;
@@ -88,8 +84,6 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   shadingMode: 'default',
   wireframeOverlay: false,
   activeContextTab: 'assets',
-  rigInfo: null,
-  animationInfo: null,
   viewport: null,
   compareMode: false,
   compareSyncCamera: false,
@@ -118,8 +112,6 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   setWireframeOverlay: (wireframeOverlay) => set({ wireframeOverlay }),
   toggleWireframeOverlay: () => set((s) => ({ wireframeOverlay: !s.wireframeOverlay })),
   setActiveContextTab: (activeContextTab) => set({ activeContextTab }),
-  setRigInfo: (rigInfo) => set({ rigInfo }),
-  setAnimationInfo: (animationInfo) => set({ animationInfo }),
   setViewport: (viewport) => set({ viewport }),
   setCompareMode: (compareMode) => set({ compareMode }),
   setCompareSyncCamera: (compareSyncCamera) => set({ compareSyncCamera }),

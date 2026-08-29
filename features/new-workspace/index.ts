@@ -5,8 +5,6 @@ export { TopHeader } from './Header/TopHeader';
 export { LeftNavigation } from './Navigation/LeftNavigation';
 export { GeneratePanel } from './Panels/GeneratePanel';
 export { TexturePanel } from './Panels/TexturePanel';
-export { RiggingPanel } from './Panels/RiggingPanel';
-export { AnimatePanel } from './Panels/AnimatePanel';
 export { RemeshPanel } from './Panels/RemeshPanel';
 export { SegmentationPanel } from './Panels/SegmentationPanel';
 export { SecondaryPanel } from './Panels/SecondaryPanels';

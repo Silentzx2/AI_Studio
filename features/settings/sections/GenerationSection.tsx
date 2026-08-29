@@ -30,7 +30,6 @@ export function GenerationSection() {
     if (!data.provider) return;
     try {
       const config = {
-        rigging_provider: data.provider,
         render_quality: data.quality,
         output_format: data.outputFormat,
         resolution: data.resolution,
