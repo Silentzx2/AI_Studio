@@ -1677,12 +1677,11 @@ def download_weights(
         # ponytail: per-model allow_patterns keep large multi-variant repos lean
         # (hunyuan3d-2-mini pulls only its dit subfolder, not the ~25 GB repo).
         allow_patterns = model_cfg.get("allow_patterns")
-        ignore_patterns = list(
-            model_cfg.get(
-                "ignore_patterns",
-                ["*.msgpack", "flax_model*", "tf_model*", "rust_model*"],
-            )
-        )
+        ignore_patterns = model_cfg.get("ignore_patterns")
+        if ignore_patterns is None:
+            ignore_patterns = ["*.msgpack", "flax_model*", "tf_model*", "rust_model*"]
+        else:
+            ignore_patterns = list(ignore_patterns)
         path = snapshot_download(
             repo_id=hf_repo,
             local_dir=str(local_dir),

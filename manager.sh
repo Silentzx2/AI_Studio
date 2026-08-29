@@ -775,6 +775,47 @@ _menu_bottom() {
   echo -e "${BOLD}${MAGENTA}  ╚════════════════════════════════════════════════════════╝${NC}"
 }
 
+cmd_build_wheels() {
+    head_ "Building Native CUDA Wheels"
+    echo ""
+    echo "  This will build CUDA extension wheels for packages that don't have"
+    echo "  prebuilt wheels (diffoctreerast, vox2seq, diff-gaussian-rasterization)."
+    echo ""
+    echo "  Requirements: CUDA toolkit (nvcc), ninja, PyTorch with CUDA"
+    echo "  Output: ./wheels/ directory"
+    echo ""
+
+    # Check prerequisites
+    if ! command -v nvcc &>/dev/null; then
+        warn "nvcc not found — CUDA toolkit required"
+        echo "  Install: sudo apt-get install -y nvidia-cuda-toolkit"
+        return 1
+    fi
+
+    if ! command -v ninja &>/dev/null; then
+        info "Installing ninja..."
+        pip install ninja || { warn "Failed to install ninja"; return 1; }
+    fi
+
+    # Create output directory
+    mkdir -p wheels
+
+    # Run the build script
+    info "Starting native wheel builds..."
+    python scripts/build_native_wheels.py --output-dir ./wheels
+
+    echo ""
+    if [ "$(ls -A wheels/*.whl 2>/dev/null)" ]; then
+        ok "Wheels built successfully!"
+        echo ""
+        ls -lh wheels/*.whl | awk '{print "  " $9 " (" $5 ")"}'
+        echo ""
+        info "Upload these wheels to GitHub Releases, then update manifest URLs."
+    else
+        warn "No wheels were built — check errors above"
+    fi
+}
+
 _main_menu_() {
     while true; do
         banner
@@ -796,6 +837,7 @@ _main_menu_() {
         _menu_item "[14]" "Google Colab launcher"
         _menu_item "[15]" "Clean environments"
         _menu_item "[16]" "Manage individual service"
+        _menu_item "[17]" "Build native CUDA wheels"
         _menu_separator
         _menu_item "[q]" "Quit"
         _menu_bottom
@@ -820,6 +862,7 @@ _main_menu_() {
             14) cmd_colab ;;
             15) cmd_clean ;;
             16) cmd_service ;;
+            17) cmd_build_wheels ;;
             q|Q) echo ""; echo -e "${GREEN}  ╔════════════════════════════════════════════════════════╗${NC}"; echo -e "${GREEN}  ║${NC}              ${BOLD}Goodbye! 👋${NC}                            ${GREEN}║${NC}"; echo -e "${GREEN}  ╚════════════════════════════════════════════════════════╝${NC}"; echo ""; exit 0 ;;
             *) echo -e "${RED}Invalid choice${NC}"; sleep 1 ;;
         esac
