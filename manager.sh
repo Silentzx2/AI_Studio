@@ -616,36 +616,9 @@ _systemd_service_submenu() {
 }
 
 cmd_colab() {
-    while true; do
-        banner
-        echo -e "${CYAN}${BOLD}╔════════════════════════════════════════════════════════════╗${NC}"
-        echo -e "${CYAN}${BOLD}║${NC}           ${BOLD}AI 3D Studio — Colab Launcher${NC}                 ${CYAN}${BOLD}║${NC}"
-        echo -e "${CYAN}${BOLD}╠════════════════════════════════════════════════════════════╣${NC}"
-        echo -e "${CYAN}${BOLD}║${NC}                                                            ${CYAN}${BOLD}║${NC}"
-        echo -e "${CYAN}${BOLD}║${NC}  ${GREEN}[1]${NC} ${BOLD}Setup${NC}      — Full bootstrap + start all services     ${CYAN}${BOLD}║${NC}"
-        echo -e "${CYAN}${BOLD}║${NC}  ${GREEN}[2]${NC} ${BOLD}Start${NC}      — Start services (skip setup)             ${CYAN}${BOLD}║${NC}"
-        echo -e "${CYAN}${BOLD}║${NC}  ${GREEN}[3]${NC} ${BOLD}Stop${NC}       — Stop all running services               ${CYAN}${BOLD}║${NC}"
-        echo -e "${CYAN}${BOLD}║${NC}  ${GREEN}[4]${NC} ${BOLD}Restart${NC}    — Stop + Start services                    ${CYAN}${BOLD}║${NC}"
-        echo -e "${CYAN}${BOLD}║${NC}  ${GREEN}[5]${NC} ${BOLD}Status${NC}     — Check service status                     ${CYAN}${BOLD}║${NC}"
-        echo -e "${CYAN}${BOLD}║${NC}                                                            ${CYAN}${BOLD}║${NC}"
-        echo -e "${CYAN}${BOLD}║${NC}  ${RED}[b]${NC} ${BOLD}Back${NC}                                                 ${CYAN}${BOLD}║${NC}"
-        echo -e "${CYAN}${BOLD}║${NC}                                                            ${CYAN}${BOLD}║${NC}"
-        echo -e "${CYAN}${BOLD}╚════════════════════════════════════════════════════════════╝${NC}"
-        echo ""
-        read -rp "  Choice: " choice
-        echo ""
-        case "$choice" in
-            1) bash scripts/colab.sh ;;
-            2) bash scripts/colab.sh --start ;;
-            3) bash scripts/colab.sh --stop ;;
-            4) bash scripts/colab.sh --restart ;;
-            5) bash scripts/colab.sh --status ;;
-            b|B) return ;;
-            *) echo -e "${RED}Invalid choice${NC}" ;;
-        esac
-        echo ""
-        read -rp "Press Enter to continue..."
-    done
+    # All Colab logic lives in scripts/colab.sh
+    # This is just a thin wrapper that launches the interactive menu
+    bash scripts/colab.sh --interactive
 }
 
 cmd_cf() {

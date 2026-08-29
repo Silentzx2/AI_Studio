@@ -95,11 +95,6 @@ for arg in "$@"; do
         --skip-start)    SKIP_START=true ;;
         --repos-only)    REPOS_ONLY=true ;;
         --weights-only)  WEIGHTS_ONLY=true ;;
-        --start)         colab_start_services; exit 0 ;;
-        --stop)          colab_stop_services; exit 0 ;;
-        --restart)       colab_restart_services; exit 0 ;;
-        --status)        _colab_show_status; exit 0 ;;
-        --interactive)   colab_interactive; exit 0 ;;
         --help|-h)
             echo "Usage: bash scripts/colab.sh [OPTIONS]"
             echo ""
@@ -107,11 +102,6 @@ for arg in "$@"; do
             echo "  --skip-start     Setup only, don't start services"
             echo "  --repos-only     Only clone repos and install deps"
             echo "  --weights-only   Only download weights"
-            echo "  --start          Start services (skip setup)"
-            echo "  --stop           Stop all services"
-            echo "  --restart        Restart all services"
-            echo "  --status         Show service status"
-            echo "  --interactive    Interactive launcher menu"
             echo "  -h, --help       Show this help"
             exit 0
             ;;
@@ -1180,25 +1170,13 @@ _colab_show_status() {
 }
 
 # ── Interactive Launcher (default when no flags) ─────────────────────────
-# If no service management flags were passed, show the interactive menu
-# so the user can choose what to do.
+# If no setup flags were passed, show the interactive menu.
 
 if [[ "$SKIP_START" != "true" && "$REPOS_ONLY" != "true" && "$WEIGHTS_ONLY" != "true" ]]; then
-    # Check if any explicit flags were passed
-    has_flag=false
-    for arg in "$@"; do
-        case "$arg" in
-            --skip-start|--repos-only|--weights-only|--start|--stop|--restart|--interactive|--help|-h)
-                has_flag=true
-                ;;
-        esac
-    done
-    if [[ "$has_flag" == "false" ]]; then
-        colab_interactive
-        # If user chose Setup (option 1), continue with full bootstrap
-        if [[ "${RUN_FULL_SETUP:-}" != "true" ]]; then
-            exit 0
-        fi
+    colab_interactive
+    # If user chose Setup (option 1), continue with full bootstrap
+    if [[ "${RUN_FULL_SETUP:-}" != "true" ]]; then
+        exit 0
     fi
 fi
 
