@@ -147,7 +147,6 @@ detect_cuda_version() {
             ver=$(echo "$cuda_full" | awk -F. '{print $1$2}')
             # ponytail: don't cap — return actual CUDA version for wheel resolution
             echo "$ver"
-            fi
             return
         fi
     fi
