@@ -3,9 +3,11 @@
 import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { Toaster } from 'sonner';
 import { TopHeader } from '../new-workspace/Header/TopHeader';
 import { LeftNavigation } from '../new-workspace/Navigation/LeftNavigation';
-import { UploadPanel } from './Panels/UploadPanel';
+import { WorkspaceProvider } from '../new-workspace/store/WorkspaceContext';
+import { WorldGenToolBar } from './Panels/WorldGenToolBar';
 import { PropertiesPanel } from './Panels/PropertiesPanel';
 import { WorldMeshViewer } from './Viewport/WorldMeshViewer';
 import type {
@@ -44,10 +46,11 @@ export const WorldGenShell: React.FC = () => {
     setSettings((p) => ({ ...p, ...patch }));
 
   return (
-    <div
-      id="worldgen-root"
-      className="flex flex-col h-screen w-screen overflow-hidden bg-[var(--ws-bg,#0d0e12)] text-[var(--ws-text,#f3f4f6)]"
-    >
+    <WorkspaceProvider>
+      <div
+        id="worldgen-root"
+        className="flex flex-col h-screen w-screen overflow-hidden bg-[var(--ws-bg,#0d0e12)] text-[var(--ws-text,#f3f4f6)]"
+      >
       <TopHeader />
       <input
         ref={generateFileInputRef}
@@ -88,7 +91,7 @@ export const WorldGenShell: React.FC = () => {
                   <PanelLeftClose className="w-4 h-4" />
                 </button>
               </div>
-              <UploadPanel settings={settings} onChange={patchSettings} />
+              <WorldGenToolBar settings={settings} onChange={patchSettings} />
             </motion.aside>
           )}
         </AnimatePresence>
@@ -161,7 +164,9 @@ export const WorldGenShell: React.FC = () => {
           )}
         </AnimatePresence>
       </div>
-    </div>
+      </div>
+      <Toaster position="bottom-right" richColors />
+    </WorkspaceProvider>
   );
 };
 
