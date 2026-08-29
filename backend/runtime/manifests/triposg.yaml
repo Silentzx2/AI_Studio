@@ -52,8 +52,8 @@ dependencies:
   - accelerate
   wheels:
     diso:
-      available: false
-      reason: No compatible prebuilt wheel verified; source build fallback is required.
+      available: true
+      mode: pypi
   fallbacks: {}
   optional: []
   representation_required:
