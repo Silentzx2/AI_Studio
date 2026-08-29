@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from 'lucide-react';
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
 import { TopHeader } from '../new-workspace/Header/TopHeader';
 import { LeftNavigation } from '../new-workspace/Navigation/LeftNavigation';
-import { WorkspaceProvider } from '../new-workspace/store/WorkspaceContext';
+import { WorkspaceProvider, useWorkspace } from '../new-workspace/store/WorkspaceContext';
+import { ProgressOverlay } from '../new-workspace/Notifications/ProgressOverlay';
 import { WorldGenToolBar } from './Panels/WorldGenToolBar';
 import { PropertiesPanel } from './Panels/PropertiesPanel';
 import { WorldMeshViewer } from './Viewport/WorldMeshViewer';
@@ -32,21 +33,86 @@ const DEFAULT_SETTINGS: WorldGenSettings = {
   environmentUpload: null,
 };
 
-export const WorldGenShell: React.FC = () => {
+const WorldGenInner: React.FC = () => {
   const [settings, setSettings] = useState<WorldGenSettings>(DEFAULT_SETTINGS);
   const [isLeftOpen, setIsLeftOpen] = useState(true);
   const [isRightOpen, setIsRightOpen] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
   const [turntable, setTurntable] = useState(false);
   const [mode, setMode] = useState<ViewportMode>('world');
+  const [modelUrl, setModelUrl] = useState<string | null>(null);
+  const [generationMode, setGenerationMode] = useState<'text' | 'image'>('text');
+
+  const {
+    isExecuting,
+    executionProgress,
+    executionStep,
+    generateTextTo3D,
+    activeTask,
+    assets,
+    setGenerationSettings,
+  } = useWorkspace();
+
+  // Ensure provider is pinned to worldgen for this workspace tab
+  useEffect(() => {
+    setGenerationSettings(prev => ({ ...prev, aiModel: 'worldgen' }));
+  }, [setGenerationSettings]);
 
   const generateFileInputRef = useRef<HTMLInputElement>(null);
 
   const patchSettings = (patch: Partial<WorldGenSettings>) =>
     setSettings((p) => ({ ...p, ...patch }));
 
+  const handleGenerate = () => {
+    if (generationMode === 'text' && !settings.prompt.trim()) {
+      toast.error('Please enter a prompt');
+      return;
+    }
+    if (generationMode === 'image' && !settings.environmentUpload) {
+      toast.error('Please upload a reference image');
+      return;
+    }
+    setModelUrl(null);
+
+    const extraParams: Record<string, unknown> = {
+      workspace: 'world-generation',
+      mood: settings.mood,
+      shape: settings.shape,
+      style: settings.style,
+      preset: settings.preset,
+      resolution: settings.resolution,
+      size: settings.size,
+      density: settings.density,
+    };
+
+    if (generationMode === 'image') {
+      extraParams.mode = 'image-to-3d';
+      extraParams.reference_image_url = settings.environmentUpload?.previewUrl;
+    }
+
+    generateTextTo3D(settings.prompt, extraParams);
+  };
+
+  const handleImageUpload = () => {
+    generateFileInputRef.current?.click();
+  };
+
+  // When generation completed, load latest generated model into viewer
+  useEffect(() => {
+    if (activeTask?.status === 'completed' && activeTask.type === 'text-to-3d') {
+      const latest = assets.find(a => a.category === 'generation' && a.source?.viewUrl);
+      if (latest?.source?.viewUrl) {
+        setModelUrl(latest.source.viewUrl);
+      }
+      toast.success('World generated successfully!');
+    }
+    if (activeTask?.status === 'failed') {
+      toast.error('Generation failed');
+    }
+  }, [activeTask?.status, activeTask?.type, assets]);
+
   return (
-    <WorkspaceProvider>
+    <>
       <div
         id="worldgen-root"
         className="flex flex-col h-screen w-screen overflow-hidden bg-[var(--ws-bg,#0d0e12)] text-[var(--ws-text,#f3f4f6)]"
@@ -91,7 +157,17 @@ export const WorldGenShell: React.FC = () => {
                   <PanelLeftClose className="w-4 h-4" />
                 </button>
               </div>
-              <WorldGenToolBar settings={settings} onChange={patchSettings} />
+              <WorldGenToolBar
+                settings={settings}
+                onChange={patchSettings}
+                onGenerate={handleGenerate}
+                isExecuting={isExecuting}
+                executionProgress={executionProgress}
+                executionStep={executionStep}
+                generationMode={generationMode}
+                onGenerationModeChange={setGenerationMode}
+                onImageUpload={handleImageUpload}
+              />
             </motion.aside>
           )}
         </AnimatePresence>
@@ -104,6 +180,7 @@ export const WorldGenShell: React.FC = () => {
             turntable={turntable}
             onToggleGrid={() => setShowGrid((p) => !p)}
             onToggleTurntable={() => setTurntable((p) => !p)}
+            modelUrl={modelUrl}
           />
 
           {/* Left collapsed toggle - appears at viewport edge when panel is closed */}
@@ -153,9 +230,7 @@ export const WorldGenShell: React.FC = () => {
                 </button>
               </div>
               <PropertiesPanel
-                style={settings.style}
-                autoOptimize={settings.autoOptimize}
-                textureAtlas={settings.textureAtlas}
+                settings={settings}
                 onStyleChange={(s: WorldGenStyle) => patchSettings({ style: s })}
                 onToggleOptimize={() => patchSettings({ autoOptimize: !settings.autoOptimize })}
                 onToggleAtlas={() => patchSettings({ textureAtlas: !settings.textureAtlas })}
@@ -165,7 +240,17 @@ export const WorldGenShell: React.FC = () => {
         </AnimatePresence>
       </div>
       </div>
+      {/* Generation progress overlay — matches other provider pages */}
+      <ProgressOverlay />
       <Toaster position="bottom-right" richColors />
+    </>
+  );
+};
+
+export const WorldGenShell: React.FC = () => {
+  return (
+    <WorkspaceProvider>
+      <WorldGenInner />
     </WorkspaceProvider>
   );
 };

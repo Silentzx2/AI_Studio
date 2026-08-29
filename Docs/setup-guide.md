@@ -1,6 +1,6 @@
 # AI 3D Studio - Setup & Installation Guide
 
-> **Version**: 4.1.9 (All Issues Fixed)  
+> **Version**: 4.6.0 (Performance Optimizations & Bug Fixes)
 > **Difficulty**: Intermediate  
 > **Estimated Time**: 15-30 minutes (runtime only; weights are on-demand)
 
@@ -76,6 +76,7 @@
 | **TripoSG** | 8 GB | image-to-3D | ~60 seconds |
 | **UniRig** | 8 GB | Rigging / animation | ~30 seconds |
 | **Hunyuan3D-2.1** | 21 GB texture / 29 GB combined | High quality | ~90 seconds |
+| **WorldGen** | 10 GB (24 GB recommended) | Scene generation / Gaussian Splatting | ~60 seconds |
 
 > VRAM figures are the verified normal-footprint requirements. Hunyuan3D-2.1 (29 GB peak / 10 GB low-VRAM combined) also supports a verified **low-VRAM** mode (CPU offload) for constrained GPUs; Hunyuan3D-2-Mini (6 GB peak) uses the same low-VRAM machinery. TRELLIS, TripoSG, AniGen, UniRig, and DetailGen3D do not support low-VRAM mode (they require a native CUDA build or have no verified low-VRAM path).
 
@@ -217,8 +218,29 @@ This reduces install time and CUDA build failures, especially on Python 3.12.
 | `anigen` | `AniGen` | Rigging |
 | `unirig` | `UniRig` | Rigging |
 | `detailgen3d` | `DetailGen3D` | Post-processing |
+| `worldgen` | `WorldGen` | World Generation |
 
 > **Note**: `Hunyuan3D-2mini` is a **separate repo entry** from `Hunyuan3D-2`. They share the same GitHub URL (`Tencent-Hunyuan/Hunyuan3D-2.git`) but have independent manifests, weights paths, and venvs. This allows the mini variant to be installed and updated independently.
+
+### WorldGen Setup
+
+WorldGen requires specific environment configuration:
+
+| Setting | Value |
+|---------|-------|
+| **Python** | 3.11 |
+| **Torch** | 2.7.0 |
+| **CUDA** | 12.4 |
+| **VRAM** | 10 GB minimum, 24 GB recommended |
+| **Weights** | ~20 GB (LeoXie/WorldGen + FLUX.1-dev + auxiliary models) |
+
+WorldGen runs in its own dedicated workspace tab at `/workspace/worldgen` and supports:
+- **Text-to-World**: Generate 3D scenes from text descriptions
+- **Image-to-World**: Generate 3D scenes from reference images
+
+Parameters: mood, shape, style, preset, resolution, seed, guidance, size, density
+
+> **Note**: WorldGen uses Python 3.11 and Torch 2.7.0, which differs from other models. The manifest-driven installer handles this automatically.
 
 ### Colab Preparation Policy
 
@@ -233,6 +255,7 @@ Colab mode is a testing environment — all models are installable regardless of
 | TRELLIS | 16 GB | 3 GB | Official: ≥16 GB required |
 | UniRig | 8 GB | 2 GB | Skeleton prediction |
 | Hunyuan3D 2.1 | 29 GB | 14 GB | Full pipeline ~29 GB |
+| WorldGen | 10 GB | ~20 GB | Scene generation via Gaussian Splatting (LeoXie/WorldGen + FLUX.1-dev + aux models) |
 
 > **Note**: Models requiring native CUDA builds (TRELLIS, UniRig, AniGen) need the CUDA toolkit (`nvcc`) to compile extensions. On Colab, the toolkit may be unavailable — the runtime will still install but native extensions may fail to compile. On VPS/full-GPU hosts with CUDA toolkit installed, all models work without restrictions.
 
@@ -269,6 +292,8 @@ sudo apt install -y nvidia-driver-535 nvidia-cuda-toolkit nvidia-cuda-toolkit-gc
 
 ### 2. PostgreSQL Setup
 
+> **Note**: As of v4.6.0, PostgreSQL database setup has been fixed. The previous issue where the database initialization failed has been resolved.
+
 ```bash
 # Start PostgreSQL
 sudo systemctl start postgresql
@@ -296,6 +321,8 @@ redis-cli ping
 
 ### 4. Backend Setup
 
+> **Note**: As of v4.6.0, the backend `.env` file location has been fixed. The `.env` file should be placed in the `backend/` directory (copied from `backend/env.example`).
+
 ```bash
 # Install uv (if not already installed)
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -306,7 +333,7 @@ uv venv .venv
 source .venv/bin/activate
 uv pip install -r requirements.txt
 
-# Copy environment file
+# Copy environment file (place in backend/ directory)
 cp ../env.example .env
 
 # Configure environment
@@ -411,7 +438,7 @@ MAX_UPLOAD_SIZE=52428800  # 50MB
 AI_PROVIDER=hunyuan3d-2.1
 RUNTIME_MODE=local
 
-# Options: mock, hunyuan3d-2.1, hunyuan3d-2-mini, trellis, triposg, anigen, unirig, detailgen3d
+# Options: mock, hunyuan3d-2.1, hunyuan3d-2-mini, trellis, triposg, anigen, unirig, detailgen3d, worldgen
 # (aliases: hunyuan3d, hunyuan3d-1.0 -> hunyuan3d-2.1)
 
 # ===== GPU SETTINGS =====
@@ -422,6 +449,8 @@ AUTO_UNLOAD_AFTER_JOB=true
 ```
 
 ### Storage Paths
+
+> **Note**: As of v4.6.0, storage permissions have been fixed. Ensure the storage directory is writable by the backend process.
 
 ```env
 # ===== STORAGE =====
@@ -1288,5 +1317,6 @@ See `Docs/INSTALLATION_STATES.md` for the full state reference.
 - The workspace model pickers read from `GET /api/v1/pipelines/workspace-models`.
 - Runtime status comes from `GET /api/v1/runtime/status` and `GET /api/v1/runtime/health`.
 - Runtime options for the UI come from `GET /api/v1/runtime/options`.
-- The current model ids exposed by the registry are: `hunyuan3d-2.1`, `hunyuan3d-2-mini`, `trellis`, `triposg`, `anigen`, `unirig`, `detailgen3d` (plus `mock`; aliases `hunyuan3d` / `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`). As of v3.8.7 the registry map is synced with the engine, so `hunyuan3d-2-mini` and `triposg` are also switchable via `/runtime/provider` and resolvable via `get_provider()` (previously these silently fell back to mock).
+- The current model ids exposed by the registry are: `hunyuan3d-2.1`, `hunyuan3d-2-mini`, `trellis`, `triposg`, `anigen`, `unirig`, `detailgen3d`, `worldgen` (plus `mock`; aliases `hunyuan3d` / `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`). As of v3.8.7 the registry map is synced with the engine, so `hunyuan3d-2-mini` and `triposg` are also switchable via `/runtime/provider` and resolvable via `get_provider()` (previously these silently fell back to mock).
 - The backend does not expose a bare `GET /api/v1/runtime` route.
+- Supported workspace types: `mesh-generation`, `texture-generation`, `rigging`, `animation`, `remesh`, `post-processing`, `world-generation` (WorldGen is a dedicated workspace tab model).

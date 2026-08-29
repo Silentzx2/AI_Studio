@@ -7,7 +7,6 @@ import {
   Activity, 
   ArrowRight,
   FolderOpen,
-  Cpu,
   Scissors,
   Bone
 } from 'lucide-react';

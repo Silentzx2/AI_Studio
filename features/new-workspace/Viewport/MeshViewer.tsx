@@ -20,22 +20,9 @@ import {
   Sun
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
-import { ShadingMode, CameraViewPreset, ModelAsset } from '../types';
+import { CameraViewPreset, ModelAsset } from '../types';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 
-/**
- * Logs diagnostic info when an HTML response is detected during asset loading.
- * This helps identify token/auth errors that return HTML instead of binary data.
- */
-function logHtmlErrorDiagnostics(url: string, contentType: string, bodyPreview: string): void {
-  console.group('[UploadDiagnostics] HTML response detected during asset load');
-  console.log('URL:', url);
-  console.log('Content-Type:', contentType);
-  console.log('Body preview:', bodyPreview.slice(0, 300));
-  console.log('Recommendation: This usually indicates a token/auth failure or reverse proxy interception.');
-  console.log('Check: session validity, CSRF token, and that the URL serves binary data not HTML.');
-  console.groupEnd();
-}
 import { validate3DFile } from '../lib/fileValidation';
 
 const disposeMaterial = (material: THREE.Material) => {
@@ -446,7 +433,6 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           if (contentType.includes('text/html') || contentType.includes('application/json')) {
             const text = await response.clone().text();
             if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
-              logHtmlErrorDiagnostics(sourceUrl, contentType, text);
               throw new Error('Model file served as HTML — possible token/auth failure. Open DevTools for details.');
             }
           }
@@ -474,7 +460,6 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           if (objContentType.includes('text/html') || objContentType.includes('application/json')) {
             const text = await objResponse.clone().text();
             if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
-              logHtmlErrorDiagnostics(sourceUrl, objContentType, text);
               throw new Error('Model file served as HTML — possible token/auth failure. Open DevTools for details.');
             }
           }
@@ -512,7 +497,6 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           if (contentType.includes('text/html') || contentType.includes('application/json')) {
             const text = await response.clone().text();
             if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
-              logHtmlErrorDiagnostics(sourceUrl, contentType, text);
               throw new Error('Model file served as HTML — possible token/auth failure. Open DevTools for details.');
             }
           }

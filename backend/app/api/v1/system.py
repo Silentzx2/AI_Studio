@@ -1,10 +1,16 @@
 """API endpoints for system information and diagnostics."""
 
+import asyncio
+import json
+import time
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy import text
 from pydantic import BaseModel, Field
+
+from app.core.cache import get_cached, set_cached
 
 router = APIRouter(prefix="/system", tags=["system"])
 
@@ -24,6 +30,10 @@ class CompatibilityCheckRequest(BaseModel):
 async def get_system_info():
     """Get comprehensive system information."""
     
+    cached = get_cached("system_info", ttl_seconds=15)
+    if cached is not None:
+        return {"success": True, "data": cached}
+    
     try:
         from app.core.managers.environment_manager import EnvironmentManager
         
@@ -41,6 +51,7 @@ async def get_system_info():
             "api_version": "v1"
         }
         
+        set_cached("system_info", system_info)
         return {"success": True, "data": system_info}
             
     except Exception as e:
@@ -215,6 +226,10 @@ async def check_compatibility(request: CompatibilityCheckRequest):
 async def get_gpu_info():
     """Get detailed GPU information."""
     
+    cached = get_cached("system_gpu", ttl_seconds=15)
+    if cached is not None:
+        return {"success": True, "data": cached}
+    
     try:
         from app.core.managers.environment_manager import EnvironmentManager
         
@@ -223,12 +238,14 @@ async def get_gpu_info():
         gpu_info = await env_manager.get_gpu_info()
         cuda_info = await env_manager.check_cuda_availability()
         
+        result = {
+            **gpu_info,
+            "cuda": cuda_info
+        }
+        set_cached("system_gpu", result)
         return {
             "success": True,
-            "data": {
-                **gpu_info,
-                "cuda": cuda_info
-            }
+            "data": result
         }
             
     except Exception as e:
@@ -468,6 +485,33 @@ async def get_system_statistics():
         stats["storage_models_mb"] = 0
 
     return {"success": True, "data": stats}
+
+
+@router.get("/stream")
+async def system_stream(request: Request):
+    """SSE stream for real-time system stats."""
+    async def event_generator():
+        while True:
+            if await request.is_disconnected():
+                break
+            try:
+                from runtime.gpu import get_gpu_info
+                gpu = get_gpu_info()
+                data = {
+                    "gpu_available": gpu.available,
+                    "gpu_devices": gpu.devices,
+                    "free_vram_mb": gpu.free_vram_mb,
+                    "timestamp": time.time(),
+                }
+                yield f"data: {json.dumps(data)}\n\n"
+            except Exception:
+                pass
+            await asyncio.sleep(5)
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post("/test/connection")

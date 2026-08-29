@@ -1,10 +1,42 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.4.11 (TRELLIS Native Dependency Fixes)
+> **Version**: 4.6.0 (Performance Optimizations & Bug Fixes)
 > **Status**: ✅ **COMPLETE**
-> **Last Updated**: August 28, 2026
+> **Last Updated**: August 29, 2026
 
 ---
+
+## v4.6.0 — WorldGen Integration, Real-time Push, Caching & Bug Fixes
+
+### What changed
+- **WorldGen model integration**: Full integration of WorldGen as a dedicated workspace tab model with text/image-to-3D scene generation, Gaussian Splatting support, and dedicated UI
+- **WebSocket real-time push**: New `WS /api/v1/realtime/ws` endpoint with GPU telemetry broadcast, health updates, and auto-reconnect
+- **SSE system stream**: New `GET /api/v1/system/stream` endpoint for system event streaming
+- **In-memory caching**: TTL-based caching layer (5-30s per endpoint) reducing redundant computation
+- **Frontend polling optimization**: Status polling reduced from 30s to 60s, GPU chart polling reduced from 4s to 10s
+- **New hooks**: `useRealtime` and `useSSE` for WebSocket/SSE integration
+- **Bug fixes**: PostgreSQL setup, backend .env location, storage permissions
+- **Dead code removal**: 16 lines of unused code removed
+
+### Files changed
+- `backend/app/api/v1/realtime.py` — WebSocket endpoint + background pusher
+- `backend/app/api/v1/system.py` — SSE stream endpoint + cache clear
+- `backend/app/core/cache.py` — In-memory caching layer with TTL
+- `backend/app/api/v1/*.py` — Caching decorators applied to endpoints
+- `features/new-workspace/hooks/useRealtime.ts` — WebSocket client hook
+- `features/new-workspace/hooks/useSSE.ts` — SSE client hook
+- `features/new-workspace/hooks/useBackendData.ts` — Updated polling intervals
+- `features/new-workspace/WorkspaceWorldGen.tsx` — WorldGen workspace tab
+- `backend/runtime/manifests/worldgen.yaml` — WorldGen manifest
+- `backend/app/core/providers/worldgen_provider.py` — WorldGen provider
+- `backend/runtime/engine.py` — WorldGen registered in provider map
+- `backend/app/core/providers/registry.py` — WorldGen registered in registry map
+
+### Verification
+- TypeScript compilation: PASS (`npx tsc --noEmit`)
+- All UI verified with agent-browser
+- WebSocket connection tested
+- Cache TTL validated per endpoint
 
 ## v4.4.11 — TRELLIS Native Dependency Resolution Improvements
 
@@ -784,7 +816,7 @@ The current workspace model pickers are backed by the live registry snapshot and
 
 ### Registered model ids
 
-`hunyuan3d-2.1`, `hunyuan3d-2-mini`, `trellis`, `triposg`, `anigen`, `unirig`, `detailgen3d` (plus `mock` for testing; aliases `hunyuan3d` / `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`). As of v3.8.7 all are switchable via `/runtime/provider` and resolvable via `get_provider()` (the registry map was synced with the engine).
+`hunyuan3d-2.1`, `hunyuan3d-2-mini`, `trellis`, `triposg`, `anigen`, `unirig`, `detailgen3d`, `worldgen` (plus `mock` for testing; aliases `hunyuan3d` / `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`). As of v3.8.7 all are switchable via `/runtime/provider` and resolvable via `get_provider()` (the registry map was synced with the engine). WorldGen is a **dedicated workspace tab** model — it is registered for capability gating but runs in its own workspace tab rather than the general provider pool.
 
 ### Capability summary
 
@@ -797,6 +829,7 @@ The current workspace model pickers are backed by the live registry snapshot and
 | AniGen | Rigging | rigging, animation | character rigging, animation | 6.2 GB |
 | UniRig | Rigging | rigging, animation | rigging, animation | 8 GB |
 | DetailGen3D | Post-processing | post-processing | detail enhancement | 4 GB |
+| WorldGen | World generation | world-generation | text/image-to-3D scene generation, Gaussian Splatting | 10 GB (24 GB recommended) |
 
 ### Workspace compatibility rules
 
@@ -806,6 +839,7 @@ The current workspace model pickers are backed by the live registry snapshot and
 - **animation**: anigen, unirig
 - **remesh**: detailgen3d
 - **post-processing**: hunyuan3d-2.1, hunyuan3d-2, detailgen3d
+- **world-generation**: worldgen
 
 ### Feature gating rules
 

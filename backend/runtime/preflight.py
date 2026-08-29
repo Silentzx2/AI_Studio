@@ -89,6 +89,12 @@ from detailgen3d.pipelines.pipeline_detailgen3d import DetailGen3DPipeline
 pipe = DetailGen3DPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__).to("cpu")
 print("ok")
 """,
+    "worldgen": """
+import torch
+from worldgen import WorldGen
+wg = WorldGen(mode="t2s", device=torch.device("cpu"), low_vram=True)
+print("ok")
+""",
 }
 
 _CAPABILITY_SMOKE_TESTS: dict[str, dict[str, str]] = {
@@ -267,6 +273,20 @@ img = Image.new("RGB", (512, 512))
 cfg = pipe.transformer.config
 latents = torch.randn(1, cfg.in_channels, cfg.width)
 out = pipe(img, latents=latents, num_inference_steps=2, output_type="latent")
+print("ok")
+""",
+    },
+    "worldgen": {
+        "shape": """
+import torch
+from worldgen import WorldGen
+wg = WorldGen(mode="t2s", device=torch.device("cpu"), low_vram=True)
+print("ok")
+""",
+        "scene_generation": """
+import torch
+from worldgen import WorldGen
+wg = WorldGen(mode="t2s", device=torch.device("cpu"), low_vram=True)
 print("ok")
 """,
     },

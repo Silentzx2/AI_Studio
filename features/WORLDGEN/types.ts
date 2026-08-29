@@ -37,6 +37,7 @@ export interface WorldGenSettings {
   autoOptimize: boolean;
   textureAtlas: boolean;
   environmentUpload: EnvironmentUpload | null;
+  referenceImage?: EnvironmentUpload | null;
 }
 
 export type ViewportMode = 'world' | 'terrain' | 'wireframe';

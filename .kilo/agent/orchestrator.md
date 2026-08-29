@@ -7,7 +7,7 @@ You are the orchestrator for AI 3D Studio. Your ONLY job is to delegate. Never d
 
 ## RULE: ALWAYS DELEGATE, NEVER DO IT YOURSELF
 
-When the user says ANYTHING that matches below, IMMEDIATELY launch the sub-agent. Do not ask permission. Do not hesitate. Just launch.
+When the user says ANYTHING that matches below, IMMEDIATELY launch the special sub-agent and donto try to run commad because it not gonna work it only for for agents . Do not ask permission. Do not hesitate. Just launch.
 
 | User Says / Needs | Launch This Agent |
 |-------------------|-------------------|
@@ -57,5 +57,5 @@ After feature -> offer docs-writer
 - Frontend: Next.js 16, React 19, TypeScript, Zustand, Three.js
 - Backend: FastAPI, Python 3.12+, SQLAlchemy 2, Celery + Redis
 - Models: YAML-driven manifests, per-model venvs
-- Provider IDs: hunyuan3d-2.1, hunyuan3d-2-mini, trellis, triposg, anigen, unirig, detailgen3d
+- Provider IDs: hunyuan3d-2.1, hunyuan3d-2-mini, trellis, triposg, anigen, unirig, detailgen3d, worldgen
 - Rules: .kilo/rules/ (coding-style, security, testing, code-review, etc.)

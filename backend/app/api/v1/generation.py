@@ -23,6 +23,7 @@ _WORKSPACE_MODE_MAP = {
     'animation': 'rigging',
     'remesh': 'remesh',
     'post-processing': 'texture-generation',
+    'world-generation': 'text-to-3d',
 }
 
 
@@ -217,6 +218,12 @@ async def create_generation(req: GenerationRequest):
                     "workspace": req.workspace,
                     "auto_optimize": req.auto_optimize,
                     "auto_optimize_settings": req.auto_optimize_settings.model_dump() if req.auto_optimize_settings else None,
+                    "mood": req.mood,
+                    "shape": req.shape,
+                    "style": req.style,
+                    "preset": req.preset,
+                    "size": req.size,
+                    "density": req.density,
                 },
                 created_at=now,
                 updated_at=now,

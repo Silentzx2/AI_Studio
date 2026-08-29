@@ -1,5 +1,6 @@
 """FastAPI application entry point."""
 
+import asyncio
 import logging
 import os
 import platform
@@ -17,6 +18,7 @@ from starlette.types import Scope
 from starlette.responses import Response
 
 from app.api.v1 import router as api_v1_router
+from app.api.v1.realtime import push_update
 from app.config import get_settings
 
 # ---------------------------------------------------------------------------
@@ -294,8 +296,29 @@ async def lifespan(app: FastAPI):
     logger.info("=" * 70)
     logger.info("")
 
+    # Start background task to push real-time updates to WebSocket clients
+    async def _realtime_pusher() -> None:
+        """Push GPU/system updates to WebSocket clients every 10 seconds."""
+        while True:
+            await asyncio.sleep(10)
+            try:
+                from runtime.gpu import get_gpu_info
+                gpu = get_gpu_info()
+                await push_update("gpu", {
+                    "available": gpu.available,
+                    "devices": gpu.devices,
+                    "free_vram_mb": gpu.free_vram_mb,
+                    "total_vram_mb": gpu.total_vram_mb,
+                })
+            except Exception as exc:
+                logger.debug("WebSocket push failed: %s", exc)
+
+    _pusher_task = asyncio.create_task(_realtime_pusher())
+    logger.info("Real-time WebSocket pusher started")
+
     yield
 
+    _pusher_task.cancel()
     logger.info("AI 3D Studio API shutting down")
 
 
@@ -318,6 +341,27 @@ app.add_middleware(
 )
 
 
+# Cached endpoint TTLs for HTTP cache headers
+_CACHE_TTLS: dict[str, int] = {
+    "/api/v1/runtime/health": 5,
+    "/api/v1/runtime/status": 10,
+    "/api/v1/runtime/options": 30,
+    "/api/v1/settings/appearance": 30,
+    "/api/v1/settings/workspace": 30,
+    "/api/v1/settings/generation": 30,
+    "/api/v1/models/": 30,
+    "/api/v1/pipelines/": 30,
+}
+
+
+def _cache_header_for(path: str) -> str | None:
+    """Return Cache-Control header value for a cached endpoint, or None."""
+    for prefix, ttl in _CACHE_TTLS.items():
+        if path.startswith(prefix) or path == prefix.rstrip("/"):
+            return f"max-age={ttl}"
+    return None
+
+
 @app.middleware("http")
 async def request_timing_middleware(request: Request, call_next):
     """Track request timing and add request ID header."""
@@ -329,6 +373,11 @@ async def request_timing_middleware(request: Request, call_next):
     elapsed_ms = (time.perf_counter() - start) * 1000
     response.headers["X-Request-ID"] = request_id
     response.headers["X-Response-Time"] = f"{elapsed_ms:.1f}ms"
+
+    # Add HTTP cache headers for cached endpoints
+    cache_control = _cache_header_for(request.url.path)
+    if cache_control:
+        response.headers["Cache-Control"] = cache_control
 
     logger.info(
         "%s %s → %d (%.1fms)",

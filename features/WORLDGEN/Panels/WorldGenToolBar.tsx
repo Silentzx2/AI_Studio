@@ -1,12 +1,15 @@
 'use client';
 
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   Sparkles,
   Wand2,
   Dice5,
   SlidersHorizontal,
   Upload,
+  RefreshCw,
+  Type,
+  Image,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { WorldGenSettings, WorldGenMood, WorldGenShape, GenerationPreset } from '../types';
@@ -14,6 +17,13 @@ import type { WorldGenSettings, WorldGenMood, WorldGenShape, GenerationPreset } 
 interface WorldGenToolBarProps {
   settings: WorldGenSettings;
   onChange: (patch: Partial<WorldGenSettings>) => void;
+  onGenerate?: () => void;
+  isExecuting?: boolean;
+  executionProgress?: number;
+  executionStep?: string;
+  generationMode?: 'text' | 'image';
+  onGenerationModeChange?: (mode: 'text' | 'image') => void;
+  onImageUpload?: () => void;
 }
 
 const MOODS: { id: WorldGenMood; label: string }[] = [
@@ -45,9 +55,46 @@ const RESOLUTIONS: { id: '1K' | '2K' | '4K'; label: string }[] = [
   { id: '4K', label: '4K' },
 ];
 
-export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({ settings, onChange }) => {
+export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
+  settings,
+  onChange,
+  onGenerate,
+  isExecuting = false,
+  executionProgress = 0,
+  executionStep = '',
+  generationMode: externalMode,
+  onGenerationModeChange,
+  onImageUpload,
+}) => {
+  const [internalMode, setInternalMode] = React.useState<'text' | 'image'>('text');
+  const mode = externalMode ?? internalMode;
+  const setMode = (m: 'text' | 'image') => {
+    setInternalMode(m);
+    onGenerationModeChange?.(m);
+  };
+
+  const referenceImageInputRef = useRef<HTMLInputElement>(null);
+
+  const handleReferenceImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const previewUrl = URL.createObjectURL(file);
+      onChange({
+        referenceImage: { name: file.name, previewUrl, sizeBytes: file.size },
+      });
+    }
+    e.target.value = '';
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      <input
+        ref={referenceImageInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleReferenceImageUpload}
+      />
       <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-5">
         {/* Prompt input */}
         <section className="space-y-2">
@@ -55,13 +102,108 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({ settings, onCh
             <Sparkles className="w-3.5 h-3.5 text-[#f5c518]" />
             Prompt
           </h3>
-          <textarea
-            value={settings.prompt}
-            onChange={(e) => onChange({ prompt: e.target.value })}
-            placeholder="Describe the world you want to generate..."
-            rows={3}
-            className="w-full rounded-lg border border-[var(--ws-border,#232733)] bg-[var(--ws-panel,#101115)] px-3 py-2 text-xs text-[var(--ws-text,#f3f4f6)] placeholder:text-[#4b5563] resize-none focus:outline-none focus:border-[#f5c518]/50 transition-colors"
-          />
+          {/* Mode selector tabs */}
+          <div className="flex gap-0.5">
+            <button
+              onClick={() => setMode('text')}
+              className={`flex-1 py-1.5 text-[10px] font-semibold rounded-l-lg flex items-center justify-center gap-1 transition-all ${
+                mode === 'text'
+                  ? 'bg-[#f5c518] text-[#111216]'
+                  : 'border border-[var(--ws-border,#232733)] text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
+              }`}
+            >
+              <Type className="w-3 h-3" />
+              Text to World
+            </button>
+            <button
+              onClick={() => setMode('image')}
+              className={`flex-1 py-1.5 text-[10px] font-semibold rounded-r-lg flex items-center justify-center gap-1 transition-all ${
+                mode === 'image'
+                  ? 'bg-[#f5c518] text-[#111216]'
+                  : 'border border-[var(--ws-border,#232733)] text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
+              }`}
+            >
+              <Image className="w-3 h-3" />
+              Image to World
+            </button>
+          </div>
+          {mode === 'image' ? (
+            <div className="space-y-2">
+              {/* Reference image upload area */}
+              {settings.referenceImage ? (
+                <div className="relative rounded-lg border border-[var(--ws-border,#232733)] bg-[var(--ws-panel,#101115)] overflow-hidden">
+                  <img
+                    src={settings.referenceImage.previewUrl}
+                    alt={settings.referenceImage.name}
+                    className="w-full h-32 object-cover"
+                  />
+                  <button
+                    onClick={() => onChange({ referenceImage: null })}
+                    className="absolute top-1.5 right-1.5 px-2 py-0.5 rounded-md bg-black/70 text-[10px] text-[#ef4444] hover:text-[#f87171] transition-colors"
+                  >
+                    Remove
+                  </button>
+                  <div className="px-2 py-1 text-[10px] text-[var(--ws-text-muted,#8e95a5)] truncate">
+                    {settings.referenceImage.name}
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => referenceImageInputRef.current?.click()}
+                  className="w-full py-6 rounded-lg border-2 border-dashed border-[var(--ws-border,#232733)] bg-[var(--ws-panel,#101115)] text-[var(--ws-text-muted,#8e95a5)] hover:border-[#f5c518]/50 hover:text-[#f5c518] transition-colors flex flex-col items-center justify-center gap-2"
+                >
+                  <Upload className="w-5 h-5" />
+                  <span className="text-[11px] font-medium">Upload Reference Image</span>
+                  <span className="text-[9px]">JPG, PNG, WebP</span>
+                </button>
+              )}
+              {/* Prompt for image mode - describes desired output */}
+              <textarea
+                value={settings.prompt}
+                onChange={(e) => onChange({ prompt: e.target.value })}
+                placeholder="Describe the desired world based on the reference image..."
+                rows={2}
+                className="w-full rounded-lg border border-[var(--ws-border,#232733)] bg-[var(--ws-panel,#101115)] px-3 py-2 text-xs text-[var(--ws-text,#f3f4f6)] placeholder:text-[#4b5563] resize-none focus:outline-none focus:border-[#f5c518]/50 transition-colors"
+              />
+            </div>
+          ) : (
+            <>
+              <textarea
+                value={settings.prompt}
+                onChange={(e) => onChange({ prompt: e.target.value })}
+                placeholder="Describe the world you want to generate..."
+                rows={3}
+                className="w-full rounded-lg border border-[var(--ws-border,#232733)] bg-[var(--ws-panel,#101115)] px-3 py-2 text-xs text-[var(--ws-text,#f3f4f6)] placeholder:text-[#4b5563] resize-none focus:outline-none focus:border-[#f5c518]/50 transition-colors"
+              />
+              {/* Optional reference image in text mode */}
+              {settings.referenceImage ? (
+                <div className="flex items-center gap-2 rounded-lg border border-[var(--ws-border,#232733)] bg-[var(--ws-panel,#101115)] p-1.5">
+                  <img
+                    src={settings.referenceImage.previewUrl}
+                    alt={settings.referenceImage.name}
+                    className="w-8 h-8 rounded object-cover"
+                  />
+                  <span className="flex-1 text-[10px] text-[var(--ws-text,#f3f4f6)] truncate">
+                    {settings.referenceImage.name}
+                  </span>
+                  <button
+                    onClick={() => onChange({ referenceImage: null })}
+                    className="text-[10px] text-[#ef4444] hover:text-[#f87171] transition-colors"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => referenceImageInputRef.current?.click()}
+                  className="flex items-center gap-1.5 text-[10px] text-[var(--ws-text-muted,#8e95a5)] hover:text-[#f5c518] transition-colors"
+                >
+                  <Upload className="w-3 h-3" />
+                  Add optional reference image
+                </button>
+              )}
+            </>
+          )}
         </section>
 
         <div className="section-divider" />
@@ -261,9 +403,13 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({ settings, onCh
               </span>
             </div>
           ) : (
-            <p className="text-[11px] text-[var(--ws-text-muted,#8e95a5)]">
-              No environment image uploaded
-            </p>
+            <button
+              onClick={onImageUpload}
+              className="w-full py-3 rounded-lg border border-dashed border-[var(--ws-border,#232733)] bg-[var(--ws-panel,#101115)] text-[11px] text-[var(--ws-text-muted,#8e95a5)] hover:border-[#f5c518]/50 hover:text-[#f5c518] transition-colors flex items-center justify-center gap-1.5"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              Upload Environment Image
+            </button>
           )}
         </section>
       </div>
@@ -271,11 +417,21 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({ settings, onCh
       {/* Generate button */}
       <div className="p-4 border-t border-[#1a1d26]">
         <button
-          onClick={() => toast.success('World generation started...')}
-          className="w-full py-2.5 rounded-lg bg-[#f5c518] text-[#111216] text-xs font-bold flex items-center justify-center gap-2 hover:bg-[#e6b800] transition-colors"
+          onClick={onGenerate}
+          disabled={isExecuting}
+          className="w-full py-2.5 rounded-lg bg-[#f5c518] text-[#111216] text-xs font-bold flex items-center justify-center gap-2 hover:bg-[#e6b800] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Wand2 className="w-4 h-4" />
-          Generate World
+          {isExecuting ? (
+            <>
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              <span>{executionStep || `Generating World (${executionProgress || 0}%)...`}</span>
+            </>
+          ) : (
+            <>
+              <Wand2 className="w-4 h-4" />
+              <span>Generate World</span>
+            </>
+          )}
         </button>
       </div>
     </div>

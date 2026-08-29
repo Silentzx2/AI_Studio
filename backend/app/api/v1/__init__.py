@@ -15,6 +15,7 @@ from app.api.v1.models_api import router as models_router
 
 # Existing routers
 from app.api.v1.pipelines import router as pipelines_router
+from app.api.v1.realtime import router as realtime_router
 from app.api.v1.runtime import router as runtime_router
 from app.api.v1.system import router as system_router
 from app.api.v1.settings import router as settings_router
@@ -43,3 +44,4 @@ router.include_router(discover_router)
 router.include_router(download_router)
 router.include_router(system_router)
 router.include_router(settings_router)
+router.include_router(realtime_router, prefix="/realtime")

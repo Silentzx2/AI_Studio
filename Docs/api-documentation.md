@@ -1,6 +1,6 @@
 # AI 3D Studio - Complete API Documentation
 
-> **Version**: 4.4.8
+> **Version**: 4.6.0
 > **Base URL**: `http://localhost:8000` (Backend API)  
 > **API Prefix**: `/api/v1`  
 > **Documentation**: Interactive docs at `/docs` (Swagger UI)
@@ -1116,14 +1116,15 @@ GET /api/v1/pipelines
       "image_to_3d": true
     },
     "input_modes": ["text-to-3d", "image-to-3d"],
-    "total_models": 8,
+    "total_models": 9,
     "workspace_types": [
       "mesh-generation",
       "texture-generation",
       "rigging",
       "animation",
       "remesh",
-      "post-processing"
+      "post-processing",
+      "world-generation"
     ],
     "updated_at": "2026-07-27T00:00:00Z"
   }
@@ -1154,7 +1155,7 @@ GET /api/v1/pipelines/workspace-models?workspace=<type>&installed_only=<bool>
 ```
 
 **Query Parameters:**
-- `workspace` (required): One of `mesh-generation`, `texture-generation`, `rigging`, `animation`, `remesh`, `post-processing`.
+- `workspace` (required): One of `mesh-generation`, `texture-generation`, `rigging`, `animation`, `remesh`, `post-processing`, `world-generation`.
 - `installed_only` (optional, default `false`): If `true`, only return installed models.
 
 **Response (200):**
@@ -1198,7 +1199,8 @@ GET /api/v1/pipelines/workspace-types
       "rigging",
       "animation",
       "remesh",
-      "post-processing"
+      "post-processing",
+      "world-generation"
     ],
     "descriptions": {
       "mesh-generation": "Generate 3D meshes from text or images",
@@ -1206,7 +1208,8 @@ GET /api/v1/pipelines/workspace-types
       "rigging": "Auto-rig 3D character meshes",
       "animation": "Generate skeletal animations",
       "remesh": "Retopology and mesh optimization",
-      "post-processing": "Detail enhancement and mesh polishing"
+      "post-processing": "Detail enhancement and mesh polishing",
+      "world-generation": "Text/image-to-3D scene generation via Gaussian Splatting"
     }
   }
 }
@@ -1223,6 +1226,7 @@ All of these are valid `AI_PROVIDER` values and are switchable via `POST /api/v1
 - `anigen` — character rigging/animation (6.2 GB VRAM; native build)
 - `unirig` — rigging/animation (8 GB VRAM; native build)
 - `detailgen3d` — post-processing detail enhancement (4 GB VRAM)
+- `worldgen` — text/image-to-3D scene generation via Gaussian Splatting (10 GB VRAM minimum, 24 GB recommended; dedicated workspace tab)
 - `mock` — testing provider (no VRAM)
 
 Aliases `hunyuan3d` and `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`.
@@ -1540,6 +1544,97 @@ eventSource.addEventListener('complete', (e) => {
 | `error` | `{ error, code }` | Job failed |
 | `queued` | `{ position }` | Position in queue |
 
+### WebSocket Real-time API (v4.6.0+)
+
+The WebSocket endpoint provides instant push updates for system status, GPU telemetry, and health.
+
+```
+WS /api/v1/realtime/ws
+```
+
+**Connection:**
+
+```javascript
+const ws = new WebSocket('ws://localhost:8000/api/v1/realtime/ws');
+
+ws.onopen = () => console.log('Connected');
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  switch (msg.type) {
+    case 'initial':
+      // Full state snapshot (health + GPU)
+      break;
+    case 'gpu':
+      // GPU telemetry update (every 10s)
+      break;
+    case 'health':
+      // Health check update
+      break;
+    case 'keepalive':
+      // Server liveness (after 30s idle)
+      break;
+    case 'pong':
+      // Response to client ping
+      break;
+  }
+};
+
+// Send ping
+ws.send(JSON.stringify({ type: 'ping' }));
+```
+
+**Message Types:**
+
+| Direction | `type` | Payload | Description |
+|-----------|--------|---------|-------------|
+| Server → Client | `initial` | `{ health, gpu }` | Full state snapshot on connect |
+| Server → Client | `gpu` | `{ gpu_info }` | GPU telemetry (pushed every 10s) |
+| Server → Client | `health` | `{ provider_states }` | Health check update |
+| Server → Client | `keepalive` | `{}` | Sent after 30s of no client activity |
+| Client → Server | `ping` | `{}` | Client-initiated liveness check |
+| Server → Client | `pong` | `{}` | Response to client ping |
+
+### SSE System Stream (v4.6.0+)
+
+```
+GET /api/v1/system/stream
+```
+
+Server-Sent Events stream for system-wide real-time updates.
+
+**Headers:**
+- `Content-Type: text/event-stream`
+- `Cache-Control: no-cache`
+- `Connection: keep-alive`
+
+**Frontend Integration:**
+
+```javascript
+const eventSource = new EventSource('/api/v1/system/stream');
+
+eventSource.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log('System event:', data);
+};
+```
+
+### Caching Headers (v4.6.0+)
+
+API responses include caching headers for improved performance:
+
+| Endpoint | Cache TTL | Header |
+|----------|-----------|--------|
+| `/api/v1/system/info` | 30s | `Cache-Control: max-age=30` |
+| `/api/v1/system/gpu` | 10s | `Cache-Control: max-age=10` |
+| `/api/v1/runtime/status` | 5s | `Cache-Control: max-age=5` |
+| `/api/v1/runtime/health` | 10s | `Cache-Control: max-age=10` |
+| `/api/v1/pipelines` | 30s | `Cache-Control: max-age=30` |
+
+Clear cache manually:
+```
+POST /api/v1/system/cache/clear
+```
+
 ---
 
 ## SDK Examples
@@ -1609,6 +1704,25 @@ async function generate3D(prompt: string) {
 ---
 
 ## Changelog
+
+### v4.6.0 (Performance Optimizations & Bug Fixes)
+
+#### Added
+- **`WS /api/v1/realtime/ws`**: WebSocket endpoint for real-time push of GPU telemetry, health updates, and system status. Message types: `initial`, `gpu`, `health`, `keepalive`, `ping`/`pong`.
+- **`GET /api/v1/system/stream`**: SSE endpoint for system event streaming.
+- **In-memory caching**: TTL-based caching layer (5-30s per endpoint) with `Cache-Control` headers.
+- **`POST /api/v1/system/cache/clear`**: Manual cache invalidation endpoint.
+- **`useRealtime` hook**: WebSocket client with auto-reconnect and fallback to polling.
+- **`useSSE` hook**: SSE client with auto-reconnect and fallback to polling.
+
+#### Changed
+- **Reduced polling frequency**: Status polling 30s → 60s, GPU chart polling 4s → 10s.
+
+#### Fixed
+- PostgreSQL database setup fixed.
+- Backend `.env` file location fixed.
+- Storage permissions fixed.
+- Dead code removed (16 lines).
 
 ### v4.3.0 (Root-Cause Fixes)
 
@@ -1716,7 +1830,7 @@ async function generate3D(prompt: string) {
 
 ---
 
-*Last Updated: August 24, 2026*
+*Last Updated: August 29, 2026*
 
 
 ### Frontend Connectivity Notes

@@ -5,6 +5,7 @@ import threading
 
 from fastapi import APIRouter, HTTPException, Query
 
+from app.core.cache import get_cached, set_cached
 from app.core.installer.plugin_installer import PluginInstaller
 from app.core.managers.health_manager import HealthManager
 from app.workers.installation_workers import uninstall_model as uninstall_task
@@ -42,6 +43,9 @@ def get_health_manager():
 @router.get("")
 async def list_all_models():
     """Return all available + installed models. Used by workspace ModelsTab."""
+    cached = get_cached("models_list", ttl_seconds=30)
+    if cached is not None:
+        return cached
     from app.core.registry.model_registry import ModelRegistry
 
     registry = ModelRegistry()
@@ -49,7 +53,7 @@ async def list_all_models():
         installed = await registry.get_installed_models()
         available = await registry.get_available_models()
         all_models = installed + available
-        return {
+        result = {
             "success": True,
             "data": {
                 "models": all_models,
@@ -58,6 +62,8 @@ async def list_all_models():
                 "available_count": len(available),
             },
         }
+        set_cached("models_list", result)
+        return result
     except Exception as e:
         return {"success": False, "error": str(e), "data": {"models": [], "count": 0}}
 
@@ -124,7 +130,10 @@ async def get_model(
     include_health: bool = Query(False, description="Include full health check")
 ):
     """Get detailed information about a specific model."""
-    
+    cache_key = f"model_status_{model_id}"
+    cached = get_cached(cache_key, ttl_seconds=10)
+    if cached is not None:
+        return cached
     try:
         manifest = await get_installer().get_model_manifest(model_id)
 
@@ -145,9 +154,10 @@ async def get_model(
                 result["data"]["health"] = health
             except Exception as e:
                 result["data"]["health"] = {"status": "error", "error": str(e)}
-        
+
+        set_cached(cache_key, result)
         return result
-        
+
     except HTTPException:
         raise
     except Exception as e:

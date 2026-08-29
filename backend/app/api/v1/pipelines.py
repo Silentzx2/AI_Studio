@@ -14,6 +14,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
+from app.core.cache import get_cached, set_cached
 from app.core.capability_matrix import build_pipeline_snapshot, filter_by_workspace, WORKSPACE_TYPES
 from app.core.registry.model_registry import ModelRegistry
 from app.utils.response import error, success
@@ -120,6 +121,9 @@ def _overlay_install_state(merged: dict[str, dict[str, Any]]) -> dict[str, dict[
 @router.get("")
 async def list_pipelines() -> dict[str, Any]:
     """Return all known models and the computed feature matrix."""
+    cached = get_cached("pipelines_list", ttl_seconds=30)
+    if cached is not None:
+        return cached
     registry = ModelRegistry()
     installed = await registry.get_installed_models()
     available = await registry.get_available_models()
@@ -140,13 +144,15 @@ async def list_pipelines() -> dict[str, Any]:
     enabled_map = _load_enabled_map()
     snapshot = build_pipeline_snapshot(list(merged.values()), enabled_map)
 
-    return success(
+    result = success(
         {
             **snapshot,
             "workspace_types": list(WORKSPACE_TYPES),
             "updated_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         }
     )
+    set_cached("pipelines_list", result)
+    return result
 
 
 @router.get("/workspace-models")

@@ -373,6 +373,97 @@ npm run lint     # Lint check (eslint)
 4. Update docs in `Docs/`
 5. Run `npx tsc --noEmit` + `npm run lint`
 
+## WorldGen Model
+
+WorldGen is a **dedicated workspace tab** model for text/image-to-3D scene generation via Gaussian Splatting. Unlike general providers (Hunyuan3D, Trellis, etc.), WorldGen runs in its own workspace tab rather than the shared provider pool.
+
+### Key Details
+- **Provider ID**: `worldgen`
+- **Provider class**: `WorldGenProvider`
+- **Manifest**: `backend/runtime/manifests/worldgen.yaml`
+- **Repo**: https://github.com/ZiYang-xie/WorldGen.git
+- **Python**: 3.11
+- **Torch**: 2.7.0
+- **CUDA**: 12.4
+- **VRAM**: 10 GB minimum, 24 GB recommended
+- **Weights**: ~20 GB (LeoXie/WorldGen + FLUX.1-dev + auxiliary models)
+- **Workspace tab**: `world-generation`
+
+### Architecture Notes
+- WorldGen is registered in the provider map (`_PROVIDER_MAP` in `runtime/engine.py` and `_RUNTIME_PROVIDER_MAP` in `app/core/providers/registry.py`) for capability gating
+- It uses the same manifest-driven installation pipeline as other models (Stage A: runtime, Stage B: weights)
+- The workspace tab is rendered as a dedicated UI, not part of the general mesh-generation workspace
+
+### Generation Modes
+- **Text-to-World**: Generate 3D scenes from text descriptions
+- **Image-to-World**: Generate 3D scenes from reference images
+
+### Parameters
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `mood` | string | Scene mood/atmosphere |
+| `shape` | string | Shape complexity |
+| `style` | string | Visual style preset |
+| `preset` | string | Generation preset |
+| `resolution` | string | Output resolution |
+| `seed` | integer | Random seed for reproducibility |
+| `guidance` | float | Guidance scale |
+| `size` | string | Scene size |
+| `density` | float | Object density |
+
+## Caching Patterns (v4.6.0+)
+
+### In-Memory Cache with TTL
+
+The backend uses an in-memory caching layer with configurable TTL per endpoint:
+
+```python
+from functools import wraps
+import time
+
+_cache = {}
+
+def cached(ttl_seconds: int):
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            key = f"{func.__name__}:{args}:{kwargs}"
+            now = time.time()
+            if key in _cache:
+                result, expiry = _cache[key]
+                if now < expiry:
+                    return result
+            result = await func(*args, **kwargs)
+            _cache[key] = (result, now + ttl_seconds)
+            return result
+        return wrapper
+    return decorator
+```
+
+### Cache Configuration
+
+| Endpoint | TTL | Rationale |
+|----------|-----|-----------|
+| `/api/v1/system/info` | 30s | System info changes slowly |
+| `/api/v1/system/gpu` | 10s | GPU telemetry updates frequently |
+| `/api/v1/runtime/status` | 5s | Status changes rapidly |
+| `/api/v1/runtime/health` | 10s | Health checks are expensive |
+| `/api/v1/pipelines` | 30s | Pipeline config is static |
+
+### Manual Cache Invalidation
+
+```
+POST /api/v1/system/cache/clear
+```
+
+Clears all cached entries. Called after configuration changes or model installation.
+
+### Frontend Integration
+
+- **`useRealtime` hook**: WebSocket client with auto-reconnect; falls back to polling
+- **`useSSE` hook**: SSE client for system stream; falls back to polling
+- Polling intervals: 60s (status), 10s (GPU chart)
+
 ## Client-Side File Validation
 
 The `features/new-workspace/lib/fileValidation.ts` module provides client-side validation for 3D file uploads:

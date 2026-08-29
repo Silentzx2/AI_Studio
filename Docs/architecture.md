@@ -37,7 +37,7 @@ truth for how a generation job reaches a model on the GPU.
 ┌───────────────────────────────▼─────────────────────────────┐
 │   Local Providers (app/core/providers/*_local.py)            │
 │  Hunyuan3D 2.1 / 2 / 2-Mini, TRELLIS, TripoSG,             │
-│  AniGen, UniRig, DetailGen3D, Mock                          │
+│  AniGen, UniRig, DetailGen3D, WorldGen, Mock               │
 │  - each calls _add_model_env() BEFORE imports so the         │
 │    per-model .venv packages win over the backend's           │
 │  - load on device via accelerate_loader                      │
@@ -69,6 +69,7 @@ and `app/core/providers/registry.py::_RUNTIME_PROVIDER_MAP` (validation +
 | `anigen` | `AniGenProvider` | no (native build) |
 | `unirig` | `UniRigProvider` | no (native build) |
 | `detailgen3d` | `DetailGen3DProvider` | no |
+| `worldgen` | `WorldGenProvider` | no (dedicated workspace tab) |
 | `mock` | `MockProvider` | n/a (testing) |
 
 Aliases `hunyuan3d` / `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`.
@@ -485,3 +486,87 @@ size exceeds available space.
 - **Three.js cleanup**: Proper disposal of geometries/materials on MeshViewer unmount
 - **Camera framing**: Automatic fit-to-screen after model load
 - **Asset persistence**: Fetched from backend on workspace mount
+
+## Real-Time Push Architecture (v4.5.0+)
+
+Replaces slow polling with instant WebSocket push for system status, GPU telemetry, and health updates.
+
+### WebSocket Endpoint
+
+- **Route**: `WS /api/v1/realtime/ws`
+- **Module**: `backend/app/api/v1/realtime.py`
+- **Protocol**: JSON messages over WebSocket
+
+#### Message Types
+
+| Direction | `type` | Purpose |
+|-----------|--------|---------|
+| Server → Client | `initial` | Full state snapshot on connect (health + GPU) |
+| Server → Client | `gpu` | GPU telemetry update (pushed every 10s) |
+| Server → Client | `health` | Health check update |
+| Server → Client | `keepalive` | Sent after 30s of no client activity |
+| Client → Server | `ping` | Client-initiated liveness check |
+| Server → Client | `pong` | Response to client ping |
+
+### Background Pusher
+
+A lifespan-managed asyncio task (`_realtime_pusher`) runs on server startup:
+- Polls `runtime.gpu.get_gpu_info()` every 10 seconds
+- Broadcasts to all connected clients via `push_update()`
+- Automatically cancelled on server shutdown
+
+### Frontend Integration
+
+- **`hooks/useRealtime.ts`**: WebSocket client hook with auto-reconnect (5s backoff)
+  - Returns `{ connected, gpu, health }` state
+  - Consumers fall back to polling when `connected` is false
+- **`hooks/useBackendData.ts`**: `useBackendStatus()` uses WebSocket when connected, falls back to 60s polling
+- **`components/monitoring/GpuVramLineChart.tsx`**: Accepts optional `realtimeGpu` prop; skips polling entirely when provided
+
+### Connection Lifecycle
+
+1. Client connects → server sends `initial` message with full state
+2. Server pushes `gpu` updates every 10s via background task
+3. Client can send `ping` to verify liveness
+4. On disconnect → client auto-reconnects after 5s
+5. On server shutdown → background task cancelled cleanly
+
+### Graceful Degradation
+
+- WebSocket is an **enhancement**, not a replacement
+- All existing REST endpoints remain functional
+- Frontend falls back to polling when WebSocket is unavailable
+- No breaking changes to existing components
+
+## Caching Layer (v4.6.0+)
+
+In-memory caching with TTL reduces redundant computation and improves response times.
+
+### Cache Configuration
+
+| Endpoint | TTL | Purpose |
+|----------|-----|---------|
+| `/api/v1/system/info` | 30s | System information (CPU, RAM, disk) |
+| `/api/v1/system/gpu` | 10s | GPU telemetry data |
+| `/api/v1/runtime/status` | 5s | Runtime status snapshot |
+| `/api/v1/runtime/health` | 10s | Provider health states |
+| `/api/v1/pipelines` | 30s | Pipeline snapshot + feature matrix |
+
+### Implementation
+- Cache entries store serialized response data with expiration timestamps
+- Stale entries are evicted on read and via periodic background cleanup
+- Cache keys include query parameters for endpoint-specific invalidation
+- Manual cache clear via `POST /api/v1/system/cache/clear`
+
+## SSE System Stream (v4.6.0+)
+
+- **Route**: `GET /api/v1/system/stream`
+- **Module**: `backend/app/api/v1/system.py`
+- **Protocol**: Server-Sent Events (text/event-stream)
+- **Purpose**: System event streaming for real-time updates
+
+### Frontend Integration
+- **`hooks/useSSE.ts`**: SSE client hook with auto-reconnect
+  - Returns `{ connected, lastEvent }` state
+  - Consumers fall back to polling when `connected` is false
+- **`hooks/useBackendData.ts`**: Uses SSE when connected, falls back to 60s polling for status

@@ -25,7 +25,7 @@ You are a manifest specialist for AI 3D Studio.
 - `manifest_loader.py` uses filename lookup (normalize: lowercase, `[^a-z0-9.]` → `_`)
 - VRAM values are advisory only (never gate installation)
 - Per-model venvs: `backend/third_party/<local_dir>/.venv/`
-- Current models: hunyuan3d-2.1, hunyuan3d-2-mini, trellis, triposg, anigen, unirig, detailgen3d
+- Current models: hunyuan3d-2.1, hunyuan3d-2-mini, trellis, triposg, anigen, unirig, detailgen3d, worldgen
 
 ## Output Format
 - Manifest created/updated

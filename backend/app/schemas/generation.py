@@ -39,6 +39,13 @@ class GenerationRequest(BaseModel):
     # Auto-optimize: post-generation mesh cleanup (decimation + UV fix)
     auto_optimize: bool = False
     auto_optimize_settings: AutoOptimizeSettings | None = None
+    # WorldGen-specific parameters (only used when provider is "worldgen")
+    mood: str | None = None
+    shape: str | None = None
+    style: str | None = None
+    preset: str | None = None
+    size: float | None = None
+    density: float | None = None
 
     @field_validator("reference_image_url", mode="before")
     @classmethod

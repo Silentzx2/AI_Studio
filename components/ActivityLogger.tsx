@@ -12,7 +12,7 @@ const FALLBACK_TIMESTAMP = Date.now();
 
 import React, { useEffect, useState, useMemo } from 'react';
 import {
-  Clock, CheckCircle2, AlertCircle, Loader2, Play, Heart, Download,
+  Clock, CheckCircle2, AlertCircle, Loader2, Play, Heart,
   Search, Layers, Box, Cpu,
   RefreshCw, Eye, FileCode, Copy
 } from 'lucide-react';

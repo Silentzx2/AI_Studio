@@ -5,6 +5,8 @@ import threading
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
+from app.core.cache import get_cached, set_cached, invalidate_pattern
+
 router = APIRouter(prefix="/settings", tags=["settings"])
 
 # In-memory store (replace with DB-backed store if persistence across restarts needed)
@@ -66,45 +68,71 @@ class GenerationConfig(BaseModel):
 
 @router.get("/appearance")
 async def get_appearance():
+    cached = get_cached("settings_appearance", ttl_seconds=30)
+    if cached is not None:
+        return cached
     with _settings_lock:
-        return dict(_appearance_store)
+        result = dict(_appearance_store)
+    set_cached("settings_appearance", result)
+    return result
 
 
 @router.post("/appearance")
 async def save_appearance(config: AppearanceConfig):
     with _settings_lock:
         _appearance_store.update(config.model_dump())
-        return {"success": True, "data": dict(_appearance_store)}
+        result = {"success": True, "data": dict(_appearance_store)}
+    invalidate_pattern("settings_")
+    set_cached("settings_appearance", result["data"])
+    return result
 
 
 @router.get("/workspace")
 async def get_workspace():
+    cached = get_cached("settings_workspace", ttl_seconds=30)
+    if cached is not None:
+        return cached
     with _settings_lock:
-        return dict(_workspace_store)
+        result = dict(_workspace_store)
+    set_cached("settings_workspace", result)
+    return result
 
 
 @router.post("/workspace")
 async def save_workspace(config: WorkspaceConfig):
     with _settings_lock:
         _workspace_store.update(config.model_dump())
-        return {"success": True, "data": dict(_workspace_store)}
+        result = {"success": True, "data": dict(_workspace_store)}
+    invalidate_pattern("settings_")
+    set_cached("settings_workspace", result["data"])
+    return result
 
 
 @router.post("/workspace/clear-history")
 async def clear_workspace_history():
     with _settings_lock:
         _workspace_store["recentProjects"] = []
-        return {"success": True, "data": dict(_workspace_store)}
+        result = {"success": True, "data": dict(_workspace_store)}
+    invalidate_pattern("settings_")
+    return result
 
 
 @router.get("/generation")
 async def get_generation():
+    cached = get_cached("settings_generation", ttl_seconds=30)
+    if cached is not None:
+        return cached
     with _settings_lock:
-        return dict(_generation_store)
+        result = dict(_generation_store)
+    set_cached("settings_generation", result)
+    return result
 
 
 @router.post("/generation")
 async def save_generation(config: GenerationConfig):
     with _settings_lock:
         _generation_store.update({k: v for k, v in config.model_dump().items() if v is not None})
-        return {"success": True, "data": dict(_generation_store)}
+        result = {"success": True, "data": dict(_generation_store)}
+    invalidate_pattern("settings_")
+    set_cached("settings_generation", result["data"])
+    return result

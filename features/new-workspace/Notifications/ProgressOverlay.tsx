@@ -10,7 +10,6 @@ import {
   Minimize2, 
   StopCircle, 
   Clock, 
-  Activity,
   ArrowRight
 } from 'lucide-react';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';

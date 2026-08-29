@@ -321,6 +321,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 enhanced = job.prompt
 
             # 3. Build generation request
+            meta = job.processing_metadata or {}
             request = GenerationRequest(
                 mode=job.mode,
                 prompt=enhanced,
@@ -330,6 +331,12 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 generate_texture=job.generate_texture,
                 auto_rig=job.auto_rig,
                 reference_image_url=_resolve_reference_image(job.reference_image_url, job_id),
+                mood=meta.get("mood"),
+                shape=meta.get("shape"),
+                style=meta.get("style"),
+                preset=meta.get("preset"),
+                size=meta.get("size"),
+                density=meta.get("density"),
             )
 
             # 4. Load provider via RuntimeEngine (enforces VRAM scheduling)

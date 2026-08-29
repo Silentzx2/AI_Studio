@@ -3,6 +3,9 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { toast } from 'sonner';
 import {
   Hand,
   Camera,
@@ -23,6 +26,7 @@ interface WorldMeshViewerProps {
   turntable: boolean;
   onToggleGrid: () => void;
   onToggleTurntable: () => void;
+  modelUrl?: string | null;
 }
 
 export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
@@ -31,6 +35,7 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
   turntable,
   onToggleGrid,
   onToggleTurntable,
+  modelUrl,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -45,7 +50,6 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
   const needsRenderRef = useRef(true);
 
   const [interaction, setInteraction] = useState<'orbit' | 'pan'>('orbit');
-  const [viewpoint, setViewpoint] = useState<'latest' | 'seat'>('latest');
 
   useEffect(() => {
     turntableRef.current = turntable;
@@ -58,6 +62,59 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
     }
     needsRenderRef.current = true;
   }, [showGrid]);
+
+  // Wire interaction mode (orbit/pan) to OrbitControls
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    if (interaction === 'pan') {
+      controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
+      controls.touches.ONE = THREE.TOUCH.PAN;
+    } else {
+      controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+      controls.touches.ONE = THREE.TOUCH.ROTATE;
+    }
+  }, [interaction]);
+
+  // React to view mode changes (world/terrain/wireframe)
+  useEffect(() => {
+    const terrain = terrainRef.current;
+    if (!terrain) return;
+
+    if (mode === 'terrain') {
+      terrain.traverse((obj) => {
+        if (obj instanceof THREE.Mesh) {
+          const isGround = obj.geometry instanceof THREE.BoxGeometry && obj.position.y < 0;
+          obj.visible = isGround || obj.name === 'world-terrain';
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          mats.forEach((m) => {
+            if ('wireframe' in m) m.wireframe = false;
+          });
+        }
+      });
+    } else if (mode === 'wireframe') {
+      terrain.traverse((obj) => {
+        if (obj instanceof THREE.Mesh) {
+          obj.visible = true;
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          mats.forEach((m) => {
+            if ('wireframe' in m) m.wireframe = true;
+          });
+        }
+      });
+    } else {
+      terrain.traverse((obj) => {
+        if (obj instanceof THREE.Mesh) {
+          obj.visible = true;
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          mats.forEach((m) => {
+            if ('wireframe' in m) m.wireframe = false;
+          });
+        }
+      });
+    }
+    needsRenderRef.current = true;
+  }, [mode]);
 
   // Build a low-poly procedural world preview (static terrain mesh).
   // ponytail: this is a decorative placeholder mesh only — it holds a fixed
@@ -245,6 +302,94 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
       }
     };
   }, [buildTerrain]);
+
+  // Fit camera to loaded model
+  const fitCameraToObject = useCallback((object: THREE.Object3D) => {
+    const cam = cameraRef.current;
+    const controls = controlsRef.current;
+    if (!cam || !controls) return;
+
+    const box = new THREE.Box3().setFromObject(object);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const fov = cam.fov * (Math.PI / 180);
+    let cameraZ = maxDim / (2 * Math.tan(fov / 2));
+    cameraZ *= 2.5; // padding
+
+    cam.position.set(center.x + cameraZ, center.y + cameraZ * 0.6, center.z + cameraZ);
+    controls.target.copy(center);
+    controls.update();
+    needsRenderRef.current = true;
+  }, []);
+
+  // Load generated model when modelUrl changes
+  useEffect(() => {
+    if (!modelUrl || !sceneRef.current) return;
+    const scene = sceneRef.current;
+
+    // Remove previous model
+    const prev = scene.getObjectByName('worldgen_model');
+    if (prev) {
+      prev.traverse((obj) => {
+        if (obj instanceof THREE.Mesh) {
+          obj.geometry.dispose();
+          const m = obj.material as THREE.Material | THREE.Material[];
+          if (Array.isArray(m)) m.forEach((mm) => mm.dispose());
+          else m.dispose();
+        }
+      });
+      scene.remove(prev);
+    }
+
+    const isGLB = modelUrl.endsWith('.glb') || modelUrl.endsWith('.gltf');
+    const isPLY = modelUrl.endsWith('.ply');
+
+    if (isPLY) {
+      new PLYLoader().load(
+        modelUrl,
+        (geometry) => {
+          geometry.computeVertexNormals();
+          const material = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, flatShading: true });
+          const mesh = new THREE.Mesh(geometry, material);
+          mesh.name = 'worldgen_model';
+
+          // Center and scale to unit size
+          geometry.computeBoundingBox();
+          const box = geometry.boundingBox!;
+          const center = box.getCenter(new THREE.Vector3());
+          mesh.position.sub(center);
+
+          scene.add(mesh);
+          fitCameraToObject(mesh);
+        },
+        undefined,
+        (err) => {
+          console.error('PLY load error:', err);
+          toast.error('Failed to load PLY model');
+        },
+      );
+    } else if (isGLB) {
+      new GLTFLoader().load(
+        modelUrl,
+        (gltf) => {
+          const model = gltf.scene;
+          model.name = 'worldgen_model';
+          scene.add(model);
+          fitCameraToObject(model);
+        },
+        undefined,
+        (err) => {
+          console.error('GLB load error:', err);
+          toast.error('Failed to load GLB model');
+        },
+      );
+    } else {
+      // Unsupported format — show toast but don't crash
+      toast.error(`Unsupported model format: ${modelUrl.split('.').pop()}`);
+    }
+  }, [modelUrl, fitCameraToObject]);
 
   return (
     <div className="relative w-full h-full overflow-hidden select-none">

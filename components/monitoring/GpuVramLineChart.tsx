@@ -14,6 +14,7 @@ import {
 import { Cpu, Zap, Activity, RefreshCw, Flame } from 'lucide-react';
 import { runtimeService } from '@/services/runtimeService';
 import { useWorkspace } from '@/features/new-workspace/store/WorkspaceContext';
+import type { RealtimeGpuData } from '@/hooks/useRealtime';
 
 export interface TelemetryPoint {
   time: string;
@@ -34,15 +35,18 @@ interface GpuVramLineChartProps {
   height?: number | string;
   showDetails?: boolean;
   className?: string;
+  /** When provided, used as the live GPU source instead of polling. */
+  realtimeGpu?: RealtimeGpuData | null;
 }
 
 export function GpuVramLineChart({
   initialHistory,
   autoPoll = true,
-  pollIntervalMs = 4000,
+  pollIntervalMs = 10000,
   height = 260,
   showDetails = true,
   className = '',
+  realtimeGpu = null,
 }: GpuVramLineChartProps) {
   const { systemStats } = useWorkspace();
   const [data, setData] = useState<TelemetryPoint[]>(() => {
@@ -74,6 +78,43 @@ export function GpuVramLineChart({
   const [maxPoints, setMaxPoints] = useState<number>(30);
   const [isLive, setIsLive] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+
+  // Record a telemetry sample from realtime WebSocket GPU data
+  useEffect(() => {
+    if (!realtimeGpu) return;
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    const totalVramMb = realtimeGpu.total_vram_mb ?? 0;
+    const freeVramMb = realtimeGpu.free_vram_mb ?? 0;
+    const usedVramMb = totalVramMb > 0 ? totalVramMb - freeVramMb : 0;
+    const vramPct = totalVramMb > 0 ? Math.min(100, Math.round((usedVramMb / totalVramMb) * 100)) : 0;
+    const vramUsedGb = Number((usedVramMb / 1024).toFixed(2));
+    const vramTotalGb = Number((totalVramMb / 1024).toFixed(1));
+
+    // Use first device's utilization/temperature if available
+    const device = realtimeGpu.devices?.[0];
+    const gpuUtil = Math.round(device?.utilization ?? 0);
+    const tempVal = Math.round(device?.temperature ?? 0);
+
+    const newPoint: TelemetryPoint = {
+      time: timeStr,
+      rawTime: now.getTime(),
+      gpu: gpuUtil,
+      vram: vramPct,
+      vramUsedGb,
+      vramTotalGb,
+      cpu: 0,
+      ram: 0,
+      temp: tempVal,
+    };
+
+    setData((prev) => {
+      const next = [...prev, newPoint];
+      if (next.length > maxPoints) return next.slice(-maxPoints);
+      return next;
+    });
+  }, [realtimeGpu, maxPoints]);
 
   // Function to record a new telemetry sample from real backend
   const recordSample = useCallback(async (isManual = false) => {
@@ -121,6 +162,8 @@ export function GpuVramLineChart({
 
   useEffect(() => {
     if (!autoPoll || !isLive) return;
+    // When realtime GPU data is provided via WebSocket, skip polling entirely
+    if (realtimeGpu) return;
 
     // Trigger initial sample silently
     void recordSample(false);
@@ -132,7 +175,7 @@ export function GpuVramLineChart({
     }, pollIntervalMs);
 
     return () => clearInterval(interval);
-  }, [autoPoll, isLive, pollIntervalMs, recordSample]);
+  }, [autoPoll, isLive, pollIntervalMs, recordSample, realtimeGpu]);
 
   // Derived current metrics and peaks
   const latest = data[data.length - 1] || {

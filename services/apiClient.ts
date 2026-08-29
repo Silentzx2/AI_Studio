@@ -53,9 +53,14 @@ async function parseErrorMessage(res: Response): Promise<string> {
   return `HTTP ${res.status}: ${res.statusText || 'Request failed'}`;
 }
 
+// Default timeout for API requests (30s)
+// Some endpoints like /runtime/status and /runtime/options can take 5+ seconds
+// due to health checks and provider discovery
+const DEFAULT_TIMEOUT_MS = 30000;
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
   try {
     const res = await fetch(`${API_URL}${path}`, {
       ...init,

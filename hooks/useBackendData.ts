@@ -10,31 +10,43 @@
  */
 import { useEffect, useState } from 'react';
 import { apiClient } from '@/services/apiClient';
+import { useRealtime } from '@/hooks/useRealtime';
 
 export type BackendStatus = 'unknown' | 'online' | 'offline';
 
 export function useBackendStatus(): BackendStatus {
-  const [status, setStatus] = useState<BackendStatus>('unknown');
+  const realtime = useRealtime();
+  const [polledStatus, setPolledStatus] = useState<BackendStatus>('unknown');
 
+  // When WebSocket is connected, derive status from it directly
   useEffect(() => {
+    if (realtime.connected) {
+      setPolledStatus('online');
+    }
+  }, [realtime.connected]);
+
+  // Fallback polling only when WebSocket is disconnected
+  useEffect(() => {
+    if (realtime.connected) return; // WebSocket handles status
+
     let active = true;
     const check = async () => {
       try {
         await apiClient.get('/api/v1/runtime/health', false, false);
-        if (active) setStatus('online');
+        if (active) setPolledStatus('online');
       } catch {
-        if (active) setStatus('offline');
+        if (active) setPolledStatus('offline');
       }
     };
     check();
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
       check();
-    }, 30000);
+    }, 60000);
     return () => { active = false; clearInterval(interval); };
-  }, []);
+  }, [realtime.connected]);
 
-  return status;
+  return realtime.connected ? 'online' : polledStatus;
 }
 
 export function useRuntimeOptions() {
@@ -43,20 +55,38 @@ export function useRuntimeOptions() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
+
+    // Try SSE first for real-time system stats
+    const es = new EventSource('/api/v1/system/stream');
+    es.onmessage = (e) => {
+      if (!active) return;
+      try {
+        const data = JSON.parse(e.data);
+        // Merge SSE data into options when we have it
+        setOptions((prev: any) => prev ? { ...prev, ...data } : data);
+      } catch {}
+    };
+
+    // Fetch full options data
     const fetchOptions = async () => {
       try {
-        setLoading(true);
         const data = await apiClient.get<any>('/api/v1/runtime/options');
-        setOptions(data?.data ?? data ?? {});
-        setError(null);
+        if (active) {
+          setOptions((prev: any) => ({ ...(data?.data ?? data ?? {}), ...prev }));
+          setError(null);
+          setLoading(false);
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch options');
-        setOptions(null);
-      } finally {
-        setLoading(false);
+        if (active) {
+          setError(err instanceof Error ? err.message : 'Failed to fetch options');
+          setLoading(false);
+        }
       }
     };
+
     fetchOptions();
+    return () => { active = false; es.close(); };
   }, []);
 
   return { options, loading, error };

@@ -1,5 +1,45 @@
 # AI 3D Studio — Changelog
 
+## [v4.6.0] - 2026-08-29
+
+### Added
+- **WorldGen model integration**: Full integration of WorldGen (text/image-to-3D scene generation) as a dedicated workspace tab model. Includes:
+  - Dedicated workspace tab at `/workspace/worldgen`
+  - Text-to-World and Image-to-World generation modes
+  - Parameters: mood, shape, style, preset, resolution, seed, guidance, size, density
+  - VRAM: 10 GB minimum, 24 GB recommended
+  - Python 3.11, Torch 2.7.0, CUDA 12.4
+  - Provider class: `WorldGenProvider`
+  - Manifest: `backend/runtime/manifests/worldgen.yaml`
+- **WebSocket real-time push**: New WebSocket endpoint at `WS /api/v1/realtime/ws` for instant system status, GPU telemetry, and health updates:
+  - Message types: `initial`, `gpu`, `health`, `keepalive`, `ping`/`pong`
+  - Background pusher broadcasts GPU telemetry every 10s
+  - Auto-reconnect with 5s backoff on client side
+  - Graceful degradation: falls back to polling when WebSocket unavailable
+- **SSE system stream**: New SSE endpoint at `/api/v1/system/stream` for system event streaming
+- **In-memory caching with TTL**: Added caching layer with 5-30s TTL per endpoint for improved response times
+- **Frontend real-time hooks**: New `useRealtime` and `useSSE` hooks for WebSocket/SSE integration
+- **Reduced polling frequency**: Frontend polling intervals optimized:
+  - Status polling: 30s → 60s
+  - GPU chart polling: 4s → 10s
+
+### Fixed
+- **PostgreSQL database setup**: Fixed database initialization and connection configuration
+- **Backend .env file location**: Fixed environment file path resolution
+- **Storage permissions**: Fixed filesystem permission handling for storage directories
+- **Dead code removal**: Removed 16 lines of unused code
+
+### Code Quality
+- **TypeScript compilation**: Passes with zero errors (`npx tsc --noEmit`)
+- **UI verification**: All UI components verified with agent-browser
+
+## [v4.5.3] - 2026-08-29
+
+### Documentation
+- **WorldGen model catalog integration**: Added WorldGen to the model catalog tables across all documentation files (README, architecture, setup-guide, api-documentation, pipeline-status). WorldGen is now listed alongside existing models (Hunyuan3D-2.1, Hunyuan3D-2-mini, Trellis, TripoSG, AniGen, UniRig, DetailGen3D) in the runtime catalog, provider registry, VRAM requirements, workspace compatibility, and capability summary tables.
+- **WorldGen provider registry**: Added `worldgen` → `WorldGenProvider` to the engine/registry provider map (dedicated workspace tab model, not general provider pool).
+- **Workspace compatibility**: Added `world-generation` workspace type with WorldGen as the compatible model.
+
 ## [v4.5.2] - 2026-08-29
 
 ### Fixed

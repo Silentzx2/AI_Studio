@@ -61,8 +61,8 @@ dependencies:
   wheels:
     pytorch3d:
       available: true
-      mode: extra_index
-      index: https://miropsota.github.io/torch_packages_builder
+      mode: direct_url
+      direct_url_template: https://miropsota.github.io/torch_packages_builder/pytorch3d/pytorch3d-0.7.9+d9839a9pt{torch}cu{cuda}-cp{python_nodot}-cp{python_nodot}-linux_x86_64.whl
       version: "0.7.9+d9839a9"
     nvdiffrast:
       available: true
@@ -71,7 +71,7 @@ dependencies:
       version: "0.3.3"
   fallbacks:
     pytorch3d:
-    - https://miropsota.github.io/torch_packages_builder
+    - https://miropsota.github.io/torch_packages_builder/pytorch3d/
     nvdiffrast:
     - https://huggingface.co/spaces/JeffreyXiang/TRELLIS/resolve/main/wheels/nvdiffrast-0.3.3-cp310-cp310-linux_x86_64.whl?download=true
   optional:

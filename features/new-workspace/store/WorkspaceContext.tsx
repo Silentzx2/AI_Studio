@@ -107,7 +107,7 @@ interface WorkspaceContextType {
   fps: number;
   tracks: AnimationTrack[];
   generate3DModel: () => Promise<void>;
-  generateTextTo3D: (customPrompt?: string) => Promise<void>;
+  generateTextTo3D: (customPrompt?: string, extraParams?: Record<string, unknown>) => Promise<void>;
   generateImageTo3D: (customImage?: string) => Promise<void>;
   runModelGeneration: () => Promise<void>;
   runRemeshGeneration: () => Promise<void>;
@@ -515,7 +515,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setActiveTask({ id: promptId ?? `task-${type}-${Date.now()}`, type, title, startedAt: Date.now(), status: 'queued', progress: 0, currentStep: 'Queued' });
   }, []);
 
-  const generateTextTo3D = useCallback(async (customPrompt?: string) => {
+  const generateTextTo3D = useCallback(async (customPrompt?: string, extraParams?: Record<string, unknown>) => {
     const promptToUse = (customPrompt ?? generationSettings.prompt).trim();
     if (!promptToUse) { setExecutionStep('Enter a text prompt'); return; }
     startTask('text-to-3d', 'Text-to-3D generation');
@@ -537,6 +537,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           workspace: 'mesh-generation',
           auto_optimize: generationSettings.autoOptimize,
           auto_optimize_settings: generationSettings.autoOptimizeSettings,
+          ...extraParams,
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

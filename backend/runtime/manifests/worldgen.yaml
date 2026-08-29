@@ -1,0 +1,155 @@
+name: worldgen
+label: WorldGen
+source:
+  repo: https://github.com/ZiYang-xie/WorldGen.git
+  ref: main
+  submodules: false
+  local_dir: WorldGen
+environment:
+  python: '3.11'
+  torch: 2.7.0
+  cuda: '12.4'
+  python_pin_rewrites:
+  # numpy 1.22.x builds via distutils (gone in 3.12); rewrite to a cp312
+  # compatible pin that stays <2.0 to match the backend venv's numpy<2.0.
+  - pattern: "^numpy==1\\.22\\..*$"
+    replacement: "numpy>=1.26.4,<2.0"
+  # flash-attn publishes no cp312 wheels — drop on Py3.12
+  - pattern: "^flash[-_]attn($|==|>=|<=|!=|~=).*$"
+    replacement: null
+dependencies:
+  python:
+  - torch>=2.7.0
+  - torchvision>=0.22.0
+  - diffusers>=0.33.1
+  - transformers>=4.48.3
+  - xformers>=0.0.30
+  - peft>=0.7.1
+  - nunchaku==0.2.0
+  - open3d>=0.19.0
+  - trimesh>=4.6.1
+  - py360convert>=0.1.0
+  - einops>=0.7.0
+  - scikit-image>=0.24.0
+  - opencv-python>=4.12.0
+  - sentencepiece>=0.2.0
+  - timm>=1.0.15
+  - accelerate>=1.1.1
+  - Pillow>=10.0
+  - huggingface_hub
+  - omegaconf
+  - pyyaml
+  - tqdm
+  - scipy
+  - ninja
+  - utils3d @ git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8
+  # Submodules installed as VCS deps (not git submodules)
+  - git+https://github.com/facebookresearch/pytorch3d.git
+  - git+https://github.com/EnVision-Research/DA-2.git
+  - git+https://github.com/ZiYang-xie/viser.git
+  imports:
+  - torch
+  - diffusers
+  - transformers
+  - accelerate
+  native:
+  - pytorch3d
+  # CUDA-only packages: dropped on CPU-only hosts (no CUDA toolkit)
+  cuda_native_packages:
+  - pytorch3d
+  - xformers
+  # Packages whose build step imports torch (need --no-build-isolation-package)
+  torch_build_packages:
+  - pytorch3d
+  - xformers
+  extra:
+  - accelerate>=0.34.0
+  - huggingface_hub>=0.28.0
+  wheels:
+    pytorch3d:
+      available: false
+      reason: CUDA extension requiring source build; no verified prebuilt wheel for
+        torch 2.7.0. Installed via VCS dep (git+https://github.com/facebookresearch/pytorch3d.git).
+    xformers:
+      available: true
+      mode: pypi
+  fallbacks:
+    pytorch3d:
+    - https://miropsota.github.io/torch_packages_builder/pytorch3d/
+  optional:
+  - xformers
+  representation_required:
+  - pytorch3d
+  local_extensions: {}
+  build_deps:
+    pytorch3d: ["ninja"]
+  cuda_native:
+  - pytorch3d
+  - xformers
+  build_env:
+    TORCH_CUDA_ARCH_LIST: "7.0 7.5 8.0 8.6 8.9 9.0"
+    CUDA_HOME: "/usr/local/cuda"
+weights:
+  primary:
+    repo: LeoXie/WorldGen
+    allow_patterns:
+    - "*.safetensors"
+    - "*.json"
+    - "*.py"
+  auxiliary:
+  - repo: black-forest-labs/FLUX.1-dev
+    gated: true
+  - repo: black-forest-labs/FLUX.1-Fill-dev
+    gated: true
+  - repo: EnVision-Research/DA-2
+  - repo: EnVision-Research/SHARP
+  - repo: Oneformer/OneFormer
+  - repo: advimman/lama
+  - repo: mit-han-lab/nunchaku
+  size_estimate_gb: 20
+hardware:
+  category: world_generation
+  minimum_vram_mb: 10240
+  recommended_vram_mb: 24576
+  low_vram_supported: true
+  low_vram_required_mb: 10240
+  low_vram_strategy:
+    - nunchaku_int4
+    - sequential_cpu_offload
+    - fp16
+capabilities:
+  shape:
+    enabled: true
+    native_build_required: true
+    native_steps:
+    - pip install git+https://github.com/facebookresearch/pytorch3d.git
+    vram_required_mb: 10240
+    supports_text_to_3d: true
+    supports_image_to_3d: true
+  texture_pbr:
+    enabled: false
+    native_build_required: false
+    vram_required_mb: 0
+  scene_generation:
+    enabled: true
+    native_build_required: true
+    native_steps:
+    - pip install git+https://github.com/facebookresearch/pytorch3d.git
+    vram_required_mb: 10240
+    supports_panorama_generation: true
+    supports_depth_estimation: true
+    supports_gaussian_splatting: true
+    supports_mesh_export: true
+preflight:
+  check_model_venv: true
+  import_packages:
+  - torch
+  - diffusers
+  - transformers
+  - accelerate
+  check_weights: true
+  check_cuda: true
+  load_weights: true
+  smoke_inference: true
+runtime:
+  workspace_compatibility: [world-generation]

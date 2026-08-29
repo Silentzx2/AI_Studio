@@ -13,6 +13,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.config import get_settings
+from app.core.cache import get_cached, set_cached
 from app.utils.response import error, success
 
 router = APIRouter()
@@ -81,8 +82,12 @@ async def _build_runtime_status_payload() -> dict[str, Any]:
 
 @router.get("/status")
 async def runtime_status():
+    cached = get_cached("runtime_status", ttl_seconds=10)
+    if cached is not None:
+        return success(cached)
     try:
         payload = await _build_runtime_status_payload()
+        set_cached("runtime_status", payload)
         return success(payload)
     except Exception as exc:
         logger.exception("Status check failed")
@@ -96,6 +101,9 @@ async def runtime_root():
 
 @router.get("/health")
 async def runtime_health():
+    cached = get_cached("runtime_health", ttl_seconds=5)
+    if cached is not None:
+        return success(cached)
     from runtime.gpu import get_gpu_info
     from runtime.health import RuntimeHealth
 
@@ -131,17 +139,22 @@ async def runtime_health():
         overall = "healthy"
     else:
         overall = "partial"
-    return success({
+    result = {
         "status": overall,
         "gpu": gpu.available,
         "providers_available": len(available),
         "provider_states": provider_states,
         "summary": health,
-    })
+    }
+    set_cached("runtime_health", result)
+    return success(result)
 
 
 @router.get("/options")
 async def get_runtime_options():
+    cached = get_cached("runtime_options", ttl_seconds=30)
+    if cached is not None:
+        return success(cached)
     try:
         from runtime.gpu import get_gpu_info
         from runtime.installer import (
@@ -270,7 +283,7 @@ async def get_runtime_options():
         except Exception:
             pass
 
-        return success({
+        result = {
             "three_d_models": three_d_models,
             "texture_models": TEXTURE_MODELS,
             "rigging_providers": RIGGING_PROVIDERS,
@@ -289,7 +302,9 @@ async def get_runtime_options():
             "colab_detected": colab_detected,
             "colab_detected_vram_mb": colab_vram,
             "colab_preparation_limit_mb": colab_limit,
-        })
+        }
+        set_cached("runtime_options", result)
+        return success(result)
     except Exception as exc:
         logger.exception("get_runtime_options failed")
         return error(f"Options error: {exc}")

@@ -15,7 +15,7 @@
 
 <p align="center">
 
-  <img src="https://img.shields.io/badge/Version-4.4.11-8A2BE2?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Version-4.6.0-8A2BE2?style=for-the-badge">
 
   <img src="https://img.shields.io/badge/Pipeline-V2-Complete-success?style=for-the-badge">
 
@@ -85,6 +85,9 @@
 | **Memory Leak Fixes** | Three.js texture/material disposal, SSE connection cleanup | ✅ | v4.4.9 |
 | **Chunked Upload** | Streaming file upload to prevent memory exhaustion | ✅ | v4.4.9 |
 | **Shell Script UI** | Colors, animations, progress bars in all shell scripts | ✅ | v4.4.10 |
+| **Real-time WebSocket** | `WS /api/v1/realtime/ws` for instant GPU telemetry & health push | ✅ | v4.6.0 |
+| **SSE System Stream** | `GET /api/v1/system/stream` for system event streaming | ✅ | v4.6.0 |
+| **In-Memory Caching** | TTL-based caching layer (5-30s per endpoint) | ✅ | v4.6.0 |
 
 
 ### Current Model & Runtime Catalog
@@ -98,6 +101,21 @@
 | **DetailGen3D** | Post-processing | ~4 GB | ~15s | detail enhancement (mesh refinement, no texture) |
 | **UniRig** | Rigging | ~8 GB | ~30s | skeletal rigging, animation |
 | **AniGen** | Rigging | ~6.2 GB | ~30s | character skeletal rigging, animation |
+| **WorldGen** | World generation | 10 GB (24 GB recommended) | ~60s | text-to-3D, image-to-3D, scene generation, Gaussian Splatting |
+
+### WorldGen Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `mood` | string | Scene mood/atmosphere |
+| `shape` | string | Shape complexity |
+| `style` | string | Visual style preset |
+| `preset` | string | Generation preset |
+| `resolution` | string | Output resolution |
+| `seed` | integer | Random seed for reproducibility |
+| `guidance` | float | Guidance scale |
+| `size` | string | Scene size |
+| `density` | float | Object density |
 
 > **Note**: `Hunyuan3D-2mini` is a **separate repo entry** from `Hunyuan3D-2.1`. They share the same GitHub URL but have independent manifests, weights paths, and venvs — allowing the mini variant to be installed and updated independently.
 
@@ -111,6 +129,9 @@ The backend pipelines API drives workspace model pickers and feature gating (the
 - `GET /api/v1/pipelines/workspace-types` lists all supported workspace/task types with descriptions.
 - Runtime health and provider data come from `/api/v1/runtime/status`, `/api/v1/runtime/health`, and `/api/v1/runtime/options`.
 - The backend also registers a bare `GET /api/v1/runtime` route (returns the same payload as `/status`).
+- Supported workspace types: `mesh-generation`, `texture-generation`, `rigging`, `animation`, `remesh`, `post-processing`, `world-generation`.
+- Current model catalog: `hunyuan3d-2.1`, `hunyuan3d-2-mini`, `trellis`, `triposg`, `anigen`, `unirig`, `detailgen3d`, `worldgen` (plus `mock`).
+- Supported workspace types: `mesh-generation`, `texture-generation`, `rigging`, `animation`, `remesh`, `post-processing`, `world-generation`.
 
 
 ### Download Sources (Pipeline V2)
@@ -199,10 +220,16 @@ The backend pipelines API drives workspace model pickers and feature gating (the
 │  │  Smart UI: Auto-refresh, Real-time Progress         │   │
 │  └──────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
-                              ↕ REST API / WebSocket
+                               ↕ REST API / WebSocket / SSE
 ┌─────────────────────────────────────────────────────────────┐
 │                       BACKEND (FastAPI)                       │
 │  ┌──────────────────────────────────────────────────────┐   │
+│  │  Real-time Layer:                                    │   │
+│  │  ├─ WS /api/v1/realtime/ws (WebSocket push)         │   │
+│  │  ├─ SSE /api/v1/system/stream (event stream)        │   │
+│  │  └─ Background pusher (10s GPU telemetry)           │   │
+│  │  Caching Layer:                                      │   │
+│  │  └─ In-memory TTL cache (5-30s per endpoint)        │   │
 │  │  API Routers:                                        │   │
 │  │  ├─ /api/v1/models     - Model CRUD & management    │   │
 │  │  ├─ /api/v1/download   - Download queue operations  │   │
@@ -234,7 +261,7 @@ The backend pipelines API drives workspace model pickers and feature gating (the
 │  │  ChunkManager → MirrorFallback → ChecksumValidator   │   │
 │  └──────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
-                              ↕
+                               ↕
 ┌─────────────────────────────────────────────────────────────┐
 │                     DATA & INFRASTRUCTURE                     │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
@@ -365,6 +392,7 @@ Colab mode automatically:
 | UniRig | 8 GB | Skeleton prediction |
 | DetailGen3D | 4 GB | Geometry enhancement |
 | TripoSG | 8 GB | Image-to-3D |
+| WorldGen | 10 GB (24 GB recommended) | Scene generation via Gaussian Splatting |
 
 > **Note**: Models requiring native CUDA builds (TRELLIS, UniRig, AniGen) need the CUDA toolkit (`nvcc`) to compile extensions. On Colab, the toolkit may be unavailable — the runtime will still install but native extensions may fail to compile. On VPS/full-GPU hosts with CUDA toolkit installed, all models work without restrictions.
 
@@ -387,7 +415,7 @@ cp .env.example .env
 ENVIRONMENT=development
 DEBUG=true
 APP_NAME=AI 3D Studio
-APP_VERSION=4.4.11
+APP_VERSION=4.6.0
 
 # ===== DATABASE =====
 DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/ai3dstudio
@@ -399,7 +427,7 @@ CELERY_RESULT_BACKEND=redis://localhost:6379/1
 
 # ===== AI PROVIDER =====
 AI_PROVIDER=hunyuan3d-2.1
-# Options: mock, hunyuan3d-2.1, hunyuan3d-2-mini, trellis, triposg, anigen, unirig, detailgen3d
+# Options: mock, hunyuan3d-2.1, hunyuan3d-2-mini, trellis, triposg, anigen, unirig, detailgen3d, worldgen
 # (aliases: hunyuan3d, hunyuan3d-1.0 -> hunyuan3d-2.1)
 
 # ===== GPU SETTINGS =====
@@ -459,6 +487,7 @@ For complete configuration options, see [Setup Guide - Configuration](docs/setup
 | **Animation** | Generate skeletal animations | AniGen, UniRig |
 | **Remesh** | Retopology and mesh optimization | DetailGen3D |
 | **Post-Processing** | Detail enhancement and mesh polishing | Hunyuan3D 2.1, DetailGen3D |
+| **World Generation** | Text/image-to-3D scene generation via Gaussian Splatting | WorldGen |
 
 ### Model Manager Interface (NEW in V2)
 
@@ -808,6 +837,11 @@ ai-3d-studio/
 │   ├── premium/                       # Styled premium components
 │   └── motion/                        # Framer Motion wrappers
 │
+├── hooks/                            # Custom React hooks
+│   ├── useRealtime.ts              # WebSocket client hook
+│   ├── useSSE.ts                   # SSE client hook
+│   └── useBackendData.ts           # Backend data with fallback
+
 ├── stores/                            # Zustand state stores
 │   ├── useGenerationStore.ts
 │   ├── useProjectStore.ts
@@ -834,6 +868,7 @@ ai-3d-studio/
 │   │   │   ├── jobs_router.py         # /jobs
 │   │   │   ├── health_router.py       # /health
 │   │   │   ├── runtime_router.py      # /runtime
+│   │   │   ├── realtime_router.py     # /realtime (WebSocket)
 │   │   │   ├── upload_router.py       # /upload
 │   │   │   ├── hf_token_router.py     # /hf-token
 │   │   │   ├── models_api.py          # /models (no prefix)
@@ -847,8 +882,9 @@ ai-3d-studio/
 │   │   │
 │   │   ├── core/
 │   │   │   ├── mesh_optimizer.py     # Post-generation mesh optimization
-│   │   │   │   ├── mesh_processor.py     # Mesh stats & thumbnail generation
-│   │   │   │   ├── providers/             # AI Providers
+│   │   │   ├── mesh_processor.py     # Mesh stats & thumbnail generation
+│   │   │   ├── cache.py              # In-memory TTL caching layer
+│   │   │   ├── providers/            # AI Providers
 │   │   │   │   ├── base.py
 │   │   │   │   ├── registry.py
 │   │   │   │   ├── huggingface_provider.py
@@ -863,6 +899,7 @@ ai-3d-studio/
 │   │   │   │   ├── instant_mesh.py
 │   │   │   │   ├── detailgen3d.py
 │   │   │   │   ├── anigen_provider.py
+│   │   │   │   ├── worldgen_provider.py
 │   │   │   │   └── mock.py
 │   │   │   ├── managers/
 │   │   │   │   ├── compatibility_manager.py
@@ -1088,5 +1125,5 @@ See [Pipeline Status Document](docs/pipeline-status.md) for detailed breakdown.
 ---
 
 <p align="center">
-  <sub>Last Updated: August 28, 2026 | Version 4.4.11
+   <sub>Last Updated: August 29, 2026 | Version 4.6.0
 </p>
