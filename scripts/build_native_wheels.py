@@ -5,13 +5,14 @@ Reads all YAML manifests, identifies native packages that need source builds,
 compiles them one by one, and collects the resulting .whl files.
 
 Usage:
-    python scripts/build_native_wheels.py [--output-dir ./wheels] [--python 3.10] [--cuda 12.4]
+    python scripts/build_native_wheels.py [--output-dir ./wheels] [--python 3.10] [--cuda 12.4] [--upload]
 
 Environment requirements:
     - CUDA toolkit (nvcc) in PATH
     - ninja build system (auto-installed if missing)
     - PyTorch with CUDA support
     - Python 3.10/3.11/3.12
+    - GitHub CLI (gh) if --upload is used
 """
 
 from __future__ import annotations
@@ -174,6 +175,8 @@ def main():
     parser.add_argument("--output-dir", default="./wheels", help="Output directory for .whl files")
     parser.add_argument("--python", default=None, help="Python version (e.g. 3.10)")
     parser.add_argument("--cuda", default=None, help="CUDA version (e.g. 12.4)")
+    parser.add_argument("--upload", action="store_true", help="Auto-upload to GitHub Releases")
+    parser.add_argument("--release-tag", default=None, help="GitHub release tag (default: wheels-{cuda}-py{python})")
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir).resolve()
@@ -253,6 +256,10 @@ def main():
         for name in failed:
             print(f"  - {name}")
 
+    # Auto-upload to GitHub Releases
+    if built and args.upload:
+        upload_to_github_release(built, args)
+
     # Generate manifest snippet
     if built:
         print("\n" + "=" * 60)
@@ -266,6 +273,99 @@ def main():
       available: true
       mode: direct_url
       direct_url: {url}""")
+
+
+def upload_to_github_release(wheels: list[Path], args):
+    """Upload built wheels to GitHub Releases.
+
+    Requires:
+        - GitHub CLI (`gh`) installed and authenticated
+        - GITHUB_TOKEN environment variable (optional, gh uses it automatically)
+    """
+    print("\n" + "=" * 60)
+    print("Uploading to GitHub Releases")
+    print("=" * 60)
+
+    # Check gh CLI
+    gh_path = shutil.which("gh")
+    if not gh_path:
+        print("ERROR: GitHub CLI (gh) not found")
+        print("Install: https://cli.github.com/")
+        print("Or: sudo apt-get install gh")
+        return
+
+    # Get release tag
+    release_tag = args.release_tag or f"wheels-{args.cuda}-py{args.python}"
+    release_name = f"Native Wheels CUDA {args.cuda} Python {args.python}"
+    release_notes = (
+        f"Prebuilt CUDA extension wheels\n\n"
+        f"- CUDA: {args.cuda}\n"
+        f"- Python: {args.python}\n"
+        f"- Packages: {', '.join(w.name.split('-')[0].replace('_', '-') for w in wheels)}"
+    )
+
+    # Check if release already exists
+    result = subprocess.run(
+        ["gh", "release", "view", release_tag, "--json", "url"],
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode != 0:
+        # Create new release
+        print(f"Creating release: {release_tag}")
+        result = subprocess.run(
+            [
+                "gh", "release", "create", release_tag,
+                "--title", release_name,
+                "--notes", release_notes,
+                "--latest=false",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            print(f"FAILED to create release: {result.stderr[:300]}")
+            return
+        print(f"Release created: {release_tag}")
+    else:
+        print(f"Release already exists: {release_tag}")
+
+    # Upload wheels
+    print(f"Uploading {len(wheels)} wheel(s)...")
+    for whl in wheels:
+        print(f"  Uploading {whl.name}...")
+        result = subprocess.run(
+            [
+                "gh", "release", "upload", release_tag,
+                str(whl),
+                "--clobber",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            print(f"    FAILED: {result.stderr[:200]}")
+        else:
+            print(f"    OK")
+
+    # Get release URL
+    result = subprocess.run(
+        ["gh", "release", "view", release_tag, "--json", "url", "--jq", ".url"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        release_url = result.stdout.strip()
+        print(f"\nRelease URL: {release_url}")
+        print("\nWheel URLs (for manifest):")
+        for whl in wheels:
+            url = f"{release_url.replace('/releases/tag/', '/releases/download/')}/{whl.name}"
+            print(f"  {whl.name}: {url}")
+
+
+if __name__ == "__main__":
+    main()
 
 
 if __name__ == "__main__":
