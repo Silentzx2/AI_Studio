@@ -161,29 +161,6 @@ detect_cuda_version() {
     echo "121"
 }
 
-# ── Interactive Launcher (default when no flags) ─────────────────────────
-# If no service management flags were passed, show the interactive menu
-# so the user can choose what to do.
-
-if [[ "$SKIP_START" != "true" && "$REPOS_ONLY" != "true" && "$WEIGHTS_ONLY" != "true" ]]; then
-    # Check if any explicit flags were passed
-    has_flag=false
-    for arg in "$@"; do
-        case "$arg" in
-            --skip-start|--repos-only|--weights-only|--start|--stop|--restart|--interactive|--help|-h)
-                has_flag=true
-                ;;
-        esac
-    done
-    if [[ "$has_flag" == "false" ]]; then
-        colab_interactive
-        # If user chose Setup (option 1), continue with full bootstrap
-        if [[ "${RUN_FULL_SETUP:-}" != "true" ]]; then
-            exit 0
-        fi
-    fi
-fi
-
 # ── Step 1: Environment Setup ─────────────────────────────────────────────
 
 step "1/6 Google Colab environment setup"
@@ -1199,6 +1176,29 @@ _colab_show_status() {
     fi
     echo ""
 }
+
+# ── Interactive Launcher (default when no flags) ─────────────────────────
+# If no service management flags were passed, show the interactive menu
+# so the user can choose what to do.
+
+if [[ "$SKIP_START" != "true" && "$REPOS_ONLY" != "true" && "$WEIGHTS_ONLY" != "true" ]]; then
+    # Check if any explicit flags were passed
+    has_flag=false
+    for arg in "$@"; do
+        case "$arg" in
+            --skip-start|--repos-only|--weights-only|--start|--stop|--restart|--interactive|--help|-h)
+                has_flag=true
+                ;;
+        esac
+    done
+    if [[ "$has_flag" == "false" ]]; then
+        colab_interactive
+        # If user chose Setup (option 1), continue with full bootstrap
+        if [[ "${RUN_FULL_SETUP:-}" != "true" ]]; then
+            exit 0
+        fi
+    fi
+fi
 
 # ── Step 6: Start Services ────────────────────────────────────────────────
 
