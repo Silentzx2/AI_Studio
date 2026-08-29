@@ -166,6 +166,7 @@ def _build_repo_registry() -> dict[str, dict]:
             "url": repo_url,
             "branch": source.get("ref", "main"),
             "requirements": source.get("requirements"),
+            "submodules": source.get("submodules", False),
             "category": (manifest.get("hardware") or {}).get("category", "3d_generation"),
             "providers": [],
         })
@@ -1209,9 +1210,15 @@ def _release_native_build_lock(repo_name: str) -> None:
 def _check_disk_space(
     provider_name: str,
     selected_providers: list[str] | None = None,
-    min_safety_gb: float = 5.0,
+    min_safety_gb: float = 2.0,
 ) -> tuple[bool, str]:
     """Check if there's enough disk space for a model's weights.
+
+    ponytail: 10% headroom + 2GB safety floor. Conservative enough to
+    prevent mid-download failures, permissive enough for Colab's limited
+    disk. Upgrade path: per-model headroom override in manifest.
+
+    Returns (sufficient, error_message).
 
     Args:
         provider_name: the current model being checked
@@ -1257,15 +1264,15 @@ def _check_disk_space(
         total_required_gb += size_gb
         not_yet_present.append(m)
 
-    # Add 20% headroom for extraction, temp files, and cache growth
-    required_gb = total_required_gb * 1.2 + min_safety_gb
+    # Add 10% headroom for extraction, temp files, and cache growth
+    required_gb = total_required_gb * 1.1 + min_safety_gb
 
     if free_gb < required_gb:
         names = ", ".join(not_yet_present) if not_yet_present else provider_name
         return False, (
             f"Insufficient disk space: {free_gb:.1f}GB free, "
             f"need ~{required_gb:.1f}GB for [{names}] "
-            f"(includes 20% headroom + {min_safety_gb}GB safety margin)"
+            f"(includes 10% headroom + {min_safety_gb}GB safety margin)"
         )
     return True, ""
 
@@ -1358,10 +1365,12 @@ def clone_repo(repo_name: str, log_cb: Callable | None = None) -> dict:
     code, out = _run(cmd, log_cb=log_cb)
     if code != 0:
         return {"success": False, "error": f"git clone failed (exit {code})", "output": out}
-    # ponytail: --depth 1 skips submodules (e.g. TRELLIS's FlexiCubes CUDA
-    # extension). Pull them so in-repo source isn't missing at import time.
+    # ponytail: Only init submodules when the manifest explicitly requests it.
+    # Some repos (e.g. WorldGen) have SSH submodule URLs that fail in Colab.
     # Failure is non-fatal: repos without submodules just no-op here.
-    _run(["git", "submodule", "update", "--init", "--recursive"], cwd=dest, log_cb=log_cb)
+    repo_cfg_local = REPOS.get(repo_name, {})
+    if repo_cfg_local.get("submodules", False):
+        _run(["git", "submodule", "update", "--init", "--recursive"], cwd=dest, log_cb=log_cb)
     return {"success": True, "path": str(dest), "action": "cloned"}
 
 

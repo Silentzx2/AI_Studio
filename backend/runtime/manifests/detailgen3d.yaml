@@ -74,7 +74,7 @@ weights:
   primary:
     repo: VAST-AI/DetailGen3D
   auxiliary: []
-  size_estimate_gb: 2
+  size_estimate_gb: 4
 hardware:
   minimum_vram_mb: 4000
   recommended_vram_mb: 4000

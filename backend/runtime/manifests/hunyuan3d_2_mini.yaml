@@ -56,7 +56,7 @@ weights:
   primary:
     repo: tencent/Hunyuan3D-2mini
   auxiliary: []
-  size_estimate_gb: 4
+  size_estimate_gb: 8
   allow_patterns:
   - hunyuan3d-dit-v2-mini/*
   ignore_patterns:

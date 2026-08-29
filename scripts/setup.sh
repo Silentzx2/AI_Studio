@@ -116,10 +116,16 @@ detect_gpu() {
   fi
 
   # Detect CUDA version: driver first (more reliable), nvcc fallback
+  # ponytail: driver version determines max supported CUDA toolkit version.
+  # Newer drivers support newer CUDA — don't cap, pass through to PyTorch.
   if command -v nvidia-smi &>/dev/null; then
     DRIVER_MAJOR=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 | awk -F. '{print $1}')
     if [[ -n "$DRIVER_MAJOR" ]]; then
-      if [[ "$DRIVER_MAJOR" -ge 550 ]]; then
+      if [[ "$DRIVER_MAJOR" -ge 570 ]]; then
+        CUDA_VERSION="128"
+      elif [[ "$DRIVER_MAJOR" -ge 560 ]]; then
+        CUDA_VERSION="126"
+      elif [[ "$DRIVER_MAJOR" -ge 550 ]]; then
         CUDA_VERSION="124"
       elif [[ "$DRIVER_MAJOR" -ge 535 ]]; then
         CUDA_VERSION="121"
@@ -137,10 +143,6 @@ detect_gpu() {
     CUDA_FULL=$(nvcc --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
     if [[ -n "$CUDA_FULL" ]]; then
       CUDA_VERSION=$(echo "$CUDA_FULL" | awk -F. '{print $1$2}')
-      # Cap at cu124 (latest PyTorch 2.5.1 supports)
-      if [[ "$CUDA_VERSION" -gt 124 ]]; then
-        CUDA_VERSION="124"
-      fi
       log "CUDA toolkit : ${CYAN}${CUDA_FULL}${NC}"
     fi
   fi
@@ -516,18 +518,30 @@ install_python_deps() {
 
     # Install PyTorch once — GPU or CPU depending on hardware
     if [[ "$GPU_AVAILABLE" == "true" ]]; then
-      # Normalize CUDA version for PyTorch wheel index
-      CUDA_INDEX="${CUDA_VERSION:-121}"
-      # Map any CUDA 12.x to nearest compatible wheel (PyTorch 2.5.1)
+      # Use detected CUDA version for PyTorch wheel index
+      CUDA_INDEX="${CUDA_VERSION:-124}"
+      # Map CUDA to nearest PyTorch-supported wheel
+      # ponytail: PyTorch stable wheels exist for cu118, cu121, cu124, cu126, cu128
       if [[ "$CUDA_INDEX" == "120" || "$CUDA_INDEX" == "121" ]]; then
         CUDA_INDEX="121"
       elif [[ "$CUDA_INDEX" == "122" || "$CUDA_INDEX" == "123" ]]; then
         CUDA_INDEX="124"
-      elif [[ "$CUDA_INDEX" == "125" || "$CUDA_INDEX" == "126" || "$CUDA_INDEX" == "127" || "$CUDA_INDEX" == "128" ]]; then
-        CUDA_INDEX="124"
+      elif [[ "$CUDA_INDEX" == "125" || "$CUDA_INDEX" == "126" ]]; then
+        CUDA_INDEX="126"
+      elif [[ "$CUDA_INDEX" == "127" || "$CUDA_INDEX" == "128" ]]; then
+        CUDA_INDEX="128"
       fi
-      log "Installing PyTorch with CUDA ${CUDA_INDEX} via uv..."
-      uv pip install --python .venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
+      # Select PyTorch version based on CUDA (newer CUDA needs newer PyTorch)
+      TORCH_VER="2.5.1"
+      if [[ "$CUDA_INDEX" == "126" ]]; then
+        TORCH_VER="2.6.0"
+      elif [[ "$CUDA_INDEX" == "128" ]]; then
+        TORCH_VER="2.7.0"
+      fi
+      log "Installing PyTorch ${TORCH_VER} with CUDA ${CUDA_INDEX} via uv..."
+      uv pip install --python .venv/bin/python torch==${TORCH_VER} \
+        --index-url "https://download.pytorch.org/whl/cu${CUDA_INDEX}" -q
+      uv pip install --python .venv/bin/python torchvision torchaudio \
         --index-url "https://download.pytorch.org/whl/cu${CUDA_INDEX}" -q
     else
       log "Installing PyTorch CPU-only via uv..."

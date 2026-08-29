@@ -70,7 +70,7 @@ weights:
   primary:
     repo: VAST-AI/TripoSG
   auxiliary: []
-  size_estimate_gb: 2
+  size_estimate_gb: 8
 hardware:
   minimum_vram_mb: 8192
   recommended_vram_mb: 8192

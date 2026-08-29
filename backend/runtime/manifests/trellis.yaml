@@ -7,8 +7,8 @@ source:
   local_dir: TRELLIS
 environment:
   python: '3.10'
-  torch: 2.4.0
-  cuda: '11.8'
+  torch: 2.5.1
+  cuda: '12.4'
   python_pin_rewrites:
   # flash-attn / bpy publish no cp312 wheels (CUDA-build / Blender-bound);
   # not installable on a CPU Py3.12 box — drop rather than fail the venv.
@@ -150,7 +150,7 @@ weights:
   primary:
     repo: microsoft/TRELLIS-image-large
   auxiliary: []
-  size_estimate_gb: 3
+  size_estimate_gb: 3.5
 hardware:
   minimum_vram_mb: 8000
   recommended_vram_mb: 16000

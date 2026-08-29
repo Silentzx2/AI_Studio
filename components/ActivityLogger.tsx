@@ -21,16 +21,7 @@ import { useAppStore } from '@/stores/useAppStore';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-// Store original fetch at module scope (only in browser)
-const ORIGINAL_FETCH = typeof window !== 'undefined' ? window.fetch : null;
-
 const LOG_ENDPOINT = '/api/v1/system/log';
-
-const POLLING_ENDPOINTS = ['/system/info', '/system/gpu', '/runtime/status', '/generation/history'];
-
-function isPollingEndpoint(url: string): boolean {
-  return POLLING_ENDPOINTS.some(ep => url.includes(ep));
-}
 
 export interface ActivityEntry {
   ts: string;
@@ -74,50 +65,11 @@ export function ActivityLogger() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // ── 1. API call logging (wrapped fetch) ────────────────────────────────
-    let fetchIntercepted = false;
-
-    try {
-      const wrappedFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-        const method = (init?.method ?? 'GET').toUpperCase();
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-        const start = performance.now();
-        try {
-          const res = await ORIGINAL_FETCH!(input, init);
-          if (!url.includes(LOG_ENDPOINT) && !isPollingEndpoint(url)) {
-            const durationMs = Math.round(performance.now() - start);
-            const entry: ActivityEntry = {
-              ts: now(),
-              type: 'api',
-              detail: `${method} ${url} → ${res.status} (${durationMs}ms)`,
-            };
-            console.info(`[activity] ${entry.detail}`);
-            postLog(entry);
-            emitActivity(entry);
-          }
-          return res;
-        } catch (err) {
-          const durationMs = Math.round(performance.now() - start);
-          const detail = `${method} ${url} FAILED (${durationMs}ms)`;
-          console.error(`[activity] ${detail}`, err);
-          const entry: ActivityEntry = { ts: now(), type: 'error', detail };
-          postLog(entry);
-          emitActivity(entry);
-          throw err;
-        }
-      };
-
-      Object.defineProperty(window, 'fetch', {
-        value: wrappedFetch,
-        configurable: true,
-        writable: true,
-      });
-      fetchIntercepted = true;
-    } catch (e) {
-      console.warn('[ActivityLogger] Could not intercept window.fetch:', e);
-    }
-
-    // ── 2. Button/link click logging (delegated listener) ───────────────────
+    // ── 1. Button/link click logging (delegated listener) ───────────────────
+    // ponytail: fetch interceptor removed — it caused a death spiral where
+    // every API call spawned a log POST that timed out under load, flooding
+    // the backend connection pool and slowing all endpoints. Click events are
+    // infrequent and safe to log.
     const onClick = (e: MouseEvent) => {
       const target = (e.target as HTMLElement | null)?.closest?.(
         'button, a, [role="button"], [role="menuitem"], [onclick]',
@@ -135,17 +87,6 @@ export function ActivityLogger() {
     document.addEventListener('click', onClick, { capture: true });
 
     return () => {
-      if (fetchIntercepted) {
-        try {
-          Object.defineProperty(window, 'fetch', {
-            value: ORIGINAL_FETCH,
-            configurable: true,
-            writable: true,
-          });
-        } catch {
-          (window as any).fetch = ORIGINAL_FETCH;
-        }
-      }
       document.removeEventListener('click', onClick, { capture: true });
     };
   }, []);

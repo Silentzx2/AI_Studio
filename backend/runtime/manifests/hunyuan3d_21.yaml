@@ -106,7 +106,7 @@ weights:
   primary:
     repo: tencent/Hunyuan3D-2.1
   auxiliary: []
-  size_estimate_gb: 14
+  size_estimate_gb: 15
 hardware:
   minimum_vram_mb: 10240
   recommended_vram_mb: 29000

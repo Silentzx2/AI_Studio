@@ -25,7 +25,6 @@ dependencies:
   - transformers>=4.48.3
   - xformers>=0.0.30
   - peft>=0.7.1
-  - nunchaku==0.2.0
   - open3d>=0.19.0
   - trimesh>=4.6.1
   - py360convert>=0.1.0
@@ -44,23 +43,20 @@ dependencies:
   - ninja
   - utils3d @ git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8
   # Submodules installed as VCS deps (not git submodules)
-  - git+https://github.com/facebookresearch/pytorch3d.git
-  - git+https://github.com/EnVision-Research/DA-2.git
+  # DA-2: pyproject.toml is in src/ — must use #subdirectory=src
+  - git+https://github.com/EnVision-Research/DA-2.git#subdirectory=src
   - git+https://github.com/ZiYang-xie/viser.git
   imports:
   - torch
   - diffusers
   - transformers
   - accelerate
-  native:
-  - pytorch3d
+  native: []
   # CUDA-only packages: dropped on CPU-only hosts (no CUDA toolkit)
   cuda_native_packages:
-  - pytorch3d
   - xformers
   # Packages whose build step imports torch (need --no-build-isolation-package)
   torch_build_packages:
-  - pytorch3d
   - xformers
   extra:
   - accelerate>=0.34.0
@@ -68,23 +64,21 @@ dependencies:
   wheels:
     pytorch3d:
       available: false
-      reason: CUDA extension requiring source build; no verified prebuilt wheel for
-        torch 2.7.0. Installed via VCS dep (git+https://github.com/facebookresearch/pytorch3d.git).
+      reason: No prebuilt wheel for torch 2.7.0 + cu124. Requires source build with
+        nvcc/CUDA toolkit. Optional for WorldGen — core generation works without it.
+        Install manually in Colab with:
+        pip install pytorch3d@https://github.com/OutofAi/PyTorch3D-wheels/releases/download/0.7.8/pytorch3d-0.7.8.postAda260124-cp311-cp311-linux_x86_64.whl
     xformers:
       available: true
       mode: pypi
   fallbacks:
-    pytorch3d:
-    - https://miropsota.github.io/torch_packages_builder/pytorch3d/
+    pytorch3d: []
   optional:
   - xformers
-  representation_required:
   - pytorch3d
   local_extensions: {}
-  build_deps:
-    pytorch3d: ["ninja"]
+  build_deps: {}
   cuda_native:
-  - pytorch3d
   - xformers
   build_env:
     TORCH_CUDA_ARCH_LIST: "7.0 7.5 8.0 8.6 8.9 9.0"
@@ -101,12 +95,12 @@ weights:
     gated: true
   - repo: black-forest-labs/FLUX.1-Fill-dev
     gated: true
-  - repo: EnVision-Research/DA-2
-  - repo: EnVision-Research/SHARP
-  - repo: Oneformer/OneFormer
-  - repo: advimman/lama
-  - repo: mit-han-lab/nunchaku
-  size_estimate_gb: 20
+  - repo: haodongli/DA-2
+  - repo: apple/Sharp
+  - repo: shi-labs/oneformer_ade20k_swin_tiny
+  - repo: smartywu/big-lama
+  - repo: mit-han-lab/nunchaku-flux.1-dev
+  size_estimate_gb: 0.1
 hardware:
   category: world_generation
   minimum_vram_mb: 10240
@@ -120,9 +114,7 @@ hardware:
 capabilities:
   shape:
     enabled: true
-    native_build_required: true
-    native_steps:
-    - pip install git+https://github.com/facebookresearch/pytorch3d.git
+    native_build_required: false
     vram_required_mb: 10240
     supports_text_to_3d: true
     supports_image_to_3d: true
@@ -132,9 +124,7 @@ capabilities:
     vram_required_mb: 0
   scene_generation:
     enabled: true
-    native_build_required: true
-    native_steps:
-    - pip install git+https://github.com/facebookresearch/pytorch3d.git
+    native_build_required: false
     vram_required_mb: 10240
     supports_panorama_generation: true
     supports_depth_estimation: true

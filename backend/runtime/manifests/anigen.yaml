@@ -61,9 +61,9 @@ dependencies:
   wheels:
     pytorch3d:
       available: true
-      mode: direct_url
-      direct_url_template: https://miropsota.github.io/torch_packages_builder/pytorch3d/pytorch3d-0.7.9+d9839a9pt{torch}cu{cuda}-cp{python_nodot}-cp{python_nodot}-linux_x86_64.whl
-      version: "0.7.9+d9839a9"
+      mode: extra_index
+      index: https://miropsota.github.io/torch_packages_builder
+      version: "0.7.9"
     nvdiffrast:
       available: true
       mode: direct_url
@@ -92,7 +92,7 @@ weights:
   primary:
     repo: VAST-AI/AniGen_Weights
   auxiliary: []
-  size_estimate_gb: 23
+  size_estimate_gb: 22
 hardware:
   minimum_vram_mb: 18432
   recommended_vram_mb: 18432

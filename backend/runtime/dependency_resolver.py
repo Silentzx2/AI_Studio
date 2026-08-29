@@ -490,19 +490,12 @@ def check_available(
                 vcs_spec,
             )
 
-    # Use manifest's declared torch/CUDA versions for URL construction.
-    # The manifest declares what the model NEEDS, not what's installed.
-    # Compatibility checks above use installed versions (torch_ver, cuda_ver).
+    # Use INSTALLED torch/CUDA versions for wheel URL construction.
+    # The manifest declares compatibility (supported_cuda list), but the
+    # installed versions determine which wheels actually work on this system.
+    # This allows the same manifest to work across CUDA 12.4, 12.6, 12.8, etc.
     index_torch_ver = torch_ver
     index_cuda_normalized = cuda_normalized
-    if manifest:
-        env = manifest.get("environment", {}) or {}
-        manifest_torch = env.get("torch")
-        manifest_cuda = env.get("cuda")
-        if manifest_torch:
-            index_torch_ver = str(manifest_torch)
-        if manifest_cuda:
-            index_cuda_normalized = str(manifest_cuda).replace(".", "")
 
     mode = str(info.get("mode", "")).lower()
     direct_url_template = info.get("direct_url_template")

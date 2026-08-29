@@ -84,11 +84,11 @@ weights:
   primary:
     repo: VAST-AI/UniRig
   auxiliary: []
-  size_estimate_gb: 2
+  size_estimate_gb: 12
 hardware:
   minimum_vram_mb: 8000
   recommended_vram_mb: 8000
-capabilities:
+  capabilities:
   shape:
     enabled: true
     native_build_required: true

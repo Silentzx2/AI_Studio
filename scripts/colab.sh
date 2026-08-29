@@ -145,11 +145,8 @@ detect_cuda_version() {
         if [[ -n "$cuda_full" ]]; then
             local ver
             ver=$(echo "$cuda_full" | awk -F. '{print $1$2}')
-            # Cap at cu124 (latest PyTorch 2.5.1 supports)
-            if [[ "$ver" -gt 124 ]]; then
-                echo "124"
-            else
-                echo "$ver"
+            # ponytail: don't cap — return actual CUDA version for wheel resolution
+            echo "$ver"
             fi
             return
         fi
@@ -295,23 +292,29 @@ fi
 # Install PyTorch (GPU or CPU depending on hardware)
 if [[ "$GPU_TYPE" == "gpu" ]]; then
     # Normalize CUDA version for PyTorch wheel index
-    # PyTorch 2.5.1 supports: cu118, cu121, cu124
-    CUDA_INDEX="${CUDA_VERSION:-121}"
-    # Map any CUDA 12.x to nearest compatible wheel
+    # ponytail: map to nearest PyTorch-supported wheel, use newer PyTorch for newer CUDA
+    CUDA_INDEX="${CUDA_VERSION:-124}"
+    TORCH_VER="2.5.1"
     if [[ "$CUDA_INDEX" == "120" || "$CUDA_INDEX" == "121" ]]; then
         CUDA_INDEX="121"
     elif [[ "$CUDA_INDEX" == "122" || "$CUDA_INDEX" == "123" ]]; then
         CUDA_INDEX="124"
-    elif [[ "$CUDA_INDEX" == "125" || "$CUDA_INDEX" == "126" || "$CUDA_INDEX" == "127" || "$CUDA_INDEX" == "128" ]]; then
-        CUDA_INDEX="124"
+    elif [[ "$CUDA_INDEX" == "125" || "$CUDA_INDEX" == "126" ]]; then
+        CUDA_INDEX="126"
+        TORCH_VER="2.6.0"
+    elif [[ "$CUDA_INDEX" == "127" || "$CUDA_INDEX" == "128" ]]; then
+        CUDA_INDEX="128"
+        TORCH_VER="2.7.0"
     fi
-    info "Installing PyTorch with CUDA ${CUDA_INDEX} via uv..."
-    uv pip install --python backend/.venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
+    info "Installing PyTorch ${TORCH_VER} with CUDA ${CUDA_INDEX} via uv..."
+    uv pip install --python backend/.venv/bin/python torch==${TORCH_VER} \
         --index-url "https://download.pytorch.org/whl/cu${CUDA_INDEX}" -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || {
         warn "PyTorch CUDA install failed, trying CPU fallback..."
         uv pip install --python backend/.venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
             --index-url https://download.pytorch.org/whl/cpu -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || true
     }
+    uv pip install --python backend/.venv/bin/python torchvision torchaudio \
+        --index-url "https://download.pytorch.org/whl/cu${CUDA_INDEX}" -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || true
 else
     info "Installing PyTorch CPU-only via uv..."
     uv pip install --python backend/.venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
