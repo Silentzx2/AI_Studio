@@ -57,10 +57,8 @@ dependencies:
   - git+https://github.com/NVlabs/nvdiffrast.git
   # CUDA-only packages: dropped on CPU-only hosts (no CUDA toolkit)
   cuda_native_packages:
-  - flash-attn
-  - xformers
-  - pytorch3d
-  - torchmcubes
+   - flash-attn
+   - xformers
   # Packages whose build step imports torch (need --no-build-isolation-package)
   torch_build_packages:
   - flash-attn
