@@ -17,6 +17,7 @@ from app.core.config import settings
 from app.core.providers.base import BaseProvider, ProviderResult
 from app.core.managers.vram_tracker import vram_tracker
 from runtime.accelerate_loader import safe_unload, verify_gpu_placement
+from runtime.manifest_loader import get_provider_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -72,10 +73,10 @@ class AniGenProvider(BaseProvider):
             self.is_loaded = True  # ponytail: mark loaded so we can still attempt subprocess calls
             return True
 
-        # Allocate 6.2 GB of VRAM using VRAMAllocationTracker
-        success = vram_tracker.allocate("anigen", 6.2, reason="anigen_model_load")
+        vram_required_gb = get_provider_metadata("anigen").get("vram_required_mb", 0) / 1024
+        success = vram_tracker.allocate("anigen", vram_required_gb, reason="anigen_model_load")
         if not success:
-            logger.error("VRAM allocation failed for AniGen (needs 6.2GB)")
+            logger.error("VRAM allocation failed for AniGen (needs %.1fGB)", vram_required_gb)
             return False
 
         try:
@@ -130,7 +131,11 @@ class AniGenProvider(BaseProvider):
         if not self.is_loaded:
             loaded = await self.load()
             if not loaded:
-                raise RuntimeError("VRAM allocation failed for AniGen. Not enough GPU memory (needs 6.2GB).")
+                vram_required_gb = get_provider_metadata("anigen").get("vram_required_mb", 0) / 1024
+                raise RuntimeError(
+                    f"VRAM allocation failed for AniGen. Not enough GPU memory "
+                    f"(needs {vram_required_gb:.1f}GB)."
+                )
 
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)

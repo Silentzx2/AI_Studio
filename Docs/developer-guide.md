@@ -99,7 +99,8 @@ configuration changes are required.
 
 The resolver is a generic execution engine. Per-model installation policy is declared
 in `backend/runtime/manifests/*.yaml`; the resolver does not own a Python-side
-per-model wheel/fallback/extra-dependency table.
+per-model wheel/fallback/extra-dependency table. YAML is authoritative for the model
+dependency contract, including native build policy and toolchain environment.
 
 ### Resolution Flow
 1. Load the selected model manifest.
@@ -196,17 +197,23 @@ process. If a per-model venv's torchvision registers C++ operators against a
 different torch build than the one already loaded in the backend, inference
 crashes with `RuntimeError: operator torchvision::nms does not exist`.
 
-**Therefore the backend torch stack is authoritative.** The manifests'
-`environment.torch` and `environment.cuda` fields document the upstream-tested
-configuration but are NOT installation targets. `_backend_torch_stack()` reads
-the backend's actual installed torch via `importlib.metadata`, extracts the
-`+cuXXX` local version tag, and mirrors the exact build into every per-model
-venv. Extra dependency installs (`hy3dgen`, `diffusers`, `accelerate`, etc.)
-also include this torch pin to prevent transitive resolution from upgrading
-torch to an ABI-incompatible version (e.g. 2.13.0).
+Model manifests remain authoritative for model-specific Python, native, wheel, optional,
+and build configuration. A separate process-level Torch ABI constraint remains deliberate:
+all local providers run in one backend process, so each model venv must mirror the backend's
+loaded torch/torchvision/torchaudio build. `_backend_torch_stack()` reads that installed
+stack and prevents a per-model environment from loading a conflicting libtorch build.
+The manifest's `environment.torch` and `environment.cuda` fields are therefore audited as
+upstream/model compatibility metadata rather than copied into Python-side dependency tables.
+Do not introduce per-model hard-coded Torch installation logic without process isolation.
 
-Manifest torch fields are preserved as **compatibility metadata** — they
-describe what the upstream repo tested with, not what will be installed.
+### Manifest Contract Corrections (v4.5.2)
+
+- `dependencies.attention_backend.one_of` is read from the nested YAML dependency section.
+- Global `dependencies.build_env` values are honored for native source builds and override process defaults.
+- VCS subdirectory resolution initializes its match state on every branch, including local-extension paths.
+- AniGen CUBVH is training-only upstream and is not required by inference capabilities.
+- UniRig explicitly represents the CUDA-12.4 `spconv-cu124` package in YAML.
+- TRELLIS `shallow_clone` is stored under `dependencies.build_flags`, the section consumed by the resolver.
 
 ### VCS Dependency Wheel Substitution (v4.3.1+)
 

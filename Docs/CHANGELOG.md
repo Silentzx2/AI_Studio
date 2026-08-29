@@ -1,5 +1,22 @@
 # AI 3D Studio — Changelog
 
+## [v4.5.2] - 2026-08-29
+
+### Fixed
+- **YAML build environment contract**: Global `dependencies.build_env` mappings are now honored by the resolver, with manifest values taking precedence over process defaults.
+- **TRELLIS attention backend**: `dependencies.attention_backend.one_of` is now read from the correct YAML section, making backend selection deterministic.
+- **VCS subdirectory resolution**: Initialized subdirectory-match state for all source branches, including local-extension paths.
+- **AniGen inference capability**: Removed the training-only CUBVH build step from inference capabilities and aligned VRAM admission/allocation metadata with the upstream 18 GB requirement.
+- **AniGen VRAM accounting**: Provider allocation/error reporting now reads the manifest instead of a hard-coded 6.2 GB value.
+- **UniRig spconv contract**: Represented the CUDA-12.4 `spconv-cu124` package explicitly in YAML native dependency, wheel, build, and capability configuration.
+- **TRELLIS clone policy**: Moved `shallow_clone` to `dependencies.build_flags`, the section consumed by the resolver.
+- **Hunyuan3D-2 Mini manifest**: Removed duplicate `hy3dgen`/`accelerate` declarations and pinned `hy3dgen` to upstream package version `2.0.2`.
+- **UniRig Blender dependency**: Removed `bpy==4.2` from the model venv requirements; Blender owns `bpy` for the separate headless Blender subprocess.
+- **Backend CUDA fallback**: Removed the unsafe hard-coded `cu121` fallback from backend Torch stack detection; missing CUDA metadata now resolves to CPU instead of guessing a CUDA wheel family.
+
+### Added
+- **Dependency manifest regression check**: `backend/runtime/test_dependency_manifest_contract.py` validates manifest discovery, nested attention selection, global build environment handling, AniGen inference metadata, and UniRig spconv configuration.
+
 ## [v4.5.1] - 2026-08-28
 
 ### Added

@@ -157,6 +157,15 @@ The `GET /api/v1/admin/install/status` endpoint returns detailed component-level
 
 > **Note**: Component-level install states are persisted to the database via the `ProviderInstallState` model (`backend/app/models/registry.py`). The installer calls `persist_provider_state()` after status changes to record historical and in-flight task details. The `GET /api/v1/admin/install/status` endpoint is **live-authoritative**: it computes readiness from `get_install_status()` at request time. Persisted DB state only fills in task/locking detail and is never used to override a live `BLOCKED`/`PARTIAL`/`FAILED` or resurrect a stale `READY`.
 
+## YAML Dependency Contract (v4.5.2)
+
+Model dependency decisions are owned by `backend/runtime/manifests/*.yaml`. The resolver
+interprets this contract without a separate Python model-dependency table. Global
+`dependencies.build_env` variables are applied to native source builds, `dependencies.build_flags`
+contains clone/build flags such as TRELLIS `shallow_clone`, and `dependencies.attention_backend.one_of`
+controls mutually exclusive attention backends. AniGen CUBVH is training-only upstream and is not an
+inference capability build. UniRig's CUDA-12.4 native contract explicitly names `spconv-cu124`.
+
 ## Wheel-First Dependency Resolution
 
 Native dependencies use a **wheel-first** resolution strategy:

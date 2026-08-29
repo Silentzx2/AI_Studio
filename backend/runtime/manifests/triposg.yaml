@@ -19,7 +19,8 @@ environment:
     replacement: null
 dependencies:
   python:
-  - diffusers
+   - Pillow>=10.0
+   - diffusers
   - transformers
   - einops
   - huggingface_hub

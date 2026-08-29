@@ -115,19 +115,26 @@ def _normalize_dep_key(name: str) -> str:
 
 
 def _manifest_dependency_config(manifest: dict | None, section: str, dep_name: str) -> dict:
-    """Return a dependency configuration from the model manifest.
+    """Return manifest-owned dependency configuration.
 
-    ponytail: install behavior is manifest-owned. Python keeps only the generic
-    resolution engine; package-specific wheel/fallback/local policy belongs in YAML.
+    Dependency sections such as ``wheels`` are keyed by dependency name.
+    ``build_env`` additionally supports a global environment mapping because
+    toolchain variables apply to source builds as a whole. Per-dependency
+    ``build_env`` mappings still take precedence when present.
     """
     if not manifest:
         return {}
     deps = manifest.get("dependencies", {}) or {}
     mapping = deps.get(section, {}) or {}
+    if not isinstance(mapping, dict):
+        return {}
     key = _normalize_dep_key(dep_name)
     for candidate, cfg in mapping.items():
         if _normalize_dep_key(str(candidate)) == key and isinstance(cfg, dict):
             return cfg
+    if section == "build_env" and all(isinstance(value, str) for value in mapping.values()):
+        # Global build environment: CUDA_HOME, TORCH_CUDA_ARCH_LIST, etc.
+        return dict(mapping)
     return {}
 
 
@@ -292,7 +299,8 @@ def resolve_dependencies(
     if manifest:
         # Collect one_of alternatives (packages where only one should be installed)
         one_of_specs: set[str] = set()
-        for alt in manifest.get("attention_backend", {}).get("one_of", []) or []:
+        attention_backend = (manifest.get("dependencies", {}) or {}).get("attention_backend", {}) or {}
+        for alt in attention_backend.get("one_of", []) or []:
             if isinstance(alt, str):
                 # Normalize package name for comparison
                 one_of_specs.add(alt.lower().replace("-", "_"))
@@ -314,7 +322,7 @@ def resolve_dependencies(
         # Keep manifest order; never convert to a set because that makes the
         # selected backend nondeterministic.
         one_of_list = [
-            alt for alt in (manifest.get("attention_backend", {}).get("one_of", []) or [])
+            alt for alt in (attention_backend.get("one_of", []) or [])
             if isinstance(alt, str)
         ]
         if one_of_list:
@@ -1050,6 +1058,7 @@ def install_resolved_deps(
                         continue
                 else:
                     # ponytail: handle git URLs with #subdirectory= fragment.
+                    _subdir_match = None
                     # uv does not support pip's #subdirectory= syntax, so we must
                     # install directly from the subdirectory path.
                     import re as _re
@@ -1060,8 +1069,11 @@ def install_resolved_deps(
                     # Upgrade path: read from manifest.build_env when present.
                     build_env = os.environ.copy()
                     manifest_build_env = _manifest_dependency_config(manifest, "build_env", dep.name)
-                    build_env.setdefault("TORCH_CUDA_ARCH_LIST", manifest_build_env.get("TORCH_CUDA_ARCH_LIST", "7.0 7.5 8.0 8.6 8.9 9.0"))
-                    build_env.setdefault("CUDA_HOME", manifest_build_env.get("CUDA_HOME", "/usr/local/cuda"))
+                    # YAML is the source of truth when it declares a build variable;
+                    # hard-coded defaults only fill variables absent from the manifest.
+                    build_env.setdefault("TORCH_CUDA_ARCH_LIST", "7.0 7.5 8.0 8.6 8.9 9.0")
+                    build_env.setdefault("CUDA_HOME", "/usr/local/cuda")
+                    build_env.update(manifest_build_env)
                     _subdir_match = _re.search(r'#subdirectory=([^&]+)', dep.spec)
                     if _subdir_match:
                         subdir = _subdir_match.group(1).strip()

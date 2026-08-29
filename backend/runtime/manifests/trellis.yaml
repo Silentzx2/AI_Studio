@@ -104,7 +104,6 @@ dependencies:
     diff-gaussian-rasterization:
       available: false
       reason: VCS subdirectory dependency; no verified prebuilt wheel target is declared.
-      shallow_clone: true
     mip-splatting:
       available: false
       reason: VCS parent repository used only as source for diff-gaussian-rasterization.
@@ -129,6 +128,9 @@ dependencies:
       path: extensions/vox2seq
       hf_dataset: argojuni0506/TRELLIS-3D
       hf_allow_pattern: "extensions/vox2seq/**"
+  build_flags:
+    diff-gaussian-rasterization:
+      shallow_clone: true
   build_deps:
     flash-attn: ["ninja"]
     diffoctreerast: ["ninja"]

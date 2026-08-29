@@ -34,21 +34,22 @@ dependencies:
   - torch
   - transformers
   native:
-  - spconv
+  - spconv-cu124
   - torch_scatter
   - torch_cluster
   # CUDA-only packages: dropped on CPU-only hosts (no CUDA toolkit)
   cuda_native_packages:
+  - spconv-cu124
   - torch_scatter
   - torch_cluster
   # Packages whose build step imports torch (need --no-build-isolation-package)
   torch_build_packages:
   - torch_scatter
   - torch_cluster
-  - spconv
+  - spconv-cu124
   extra: []
   wheels:
-    spconv:
+    spconv-cu124:
       available: true
       mode: pypi
     torch_scatter:
@@ -73,7 +74,7 @@ dependencies:
     torch_scatter: ["ninja", "pkg-config"]
     torch_cluster: ["ninja", "pkg-config", "setuptools<70"]
   cuda_native:
-  - spconv
+  - spconv-cu124
   - torch_scatter
   - torch_cluster
   build_env:
@@ -92,7 +93,7 @@ capabilities:
     enabled: true
     native_build_required: true
     native_steps:
-    - pip install spconv torch_scatter torch_cluster
+    - pip install spconv-cu124 torch_scatter torch_cluster
     vram_required_mb: 8000
   texture_pbr:
     enabled: false
@@ -102,7 +103,7 @@ capabilities:
     enabled: true
     native_build_required: true
     native_steps:
-    - pip install spconv torch_scatter torch_cluster
+    - pip install spconv-cu124 torch_scatter torch_cluster
     vram_required_mb: 8000
 preflight:
   check_model_venv: true
