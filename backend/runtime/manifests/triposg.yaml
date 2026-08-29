@@ -33,8 +33,6 @@ dependencies:
    - jaxtyping
    - typeguard
    - pymeshlab
-   - briarmbg
-   - image_process
   imports:
   - torch
   - diffusers

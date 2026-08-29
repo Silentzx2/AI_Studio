@@ -490,6 +490,20 @@ def check_available(
                 vcs_spec,
             )
 
+    # Use manifest's declared torch/CUDA versions for URL construction.
+    # The manifest declares what the model NEEDS, not what's installed.
+    # Compatibility checks above use installed versions (torch_ver, cuda_ver).
+    index_torch_ver = torch_ver
+    index_cuda_normalized = cuda_normalized
+    if manifest:
+        env = manifest.get("environment", {}) or {}
+        manifest_torch = env.get("torch")
+        manifest_cuda = env.get("cuda")
+        if manifest_torch:
+            index_torch_ver = str(manifest_torch)
+        if manifest_cuda:
+            index_cuda_normalized = str(manifest_cuda).replace(".", "")
+
     mode = str(info.get("mode", "")).lower()
     direct_url_template = info.get("direct_url_template")
     version = info.get("version")
@@ -500,8 +514,8 @@ def check_available(
     if direct_url_template and (version or "{version}" not in direct_url_template):
         direct_url = direct_url_template.format(
             version=version,
-            cuda=cuda_normalized,
-            torch=torch_ver or "",
+            cuda=index_cuda_normalized,
+            torch=index_torch_ver or "",
             python=py_ver,
             python_nodot=py_ver.replace(".", ""),
         )
@@ -524,9 +538,9 @@ def check_available(
 
     index = info.get("index")
     if index:
-        source = str(index).replace("{torch_ver}", torch_ver or "").replace(
-            "{cuda_ver}", cuda_normalized
-        ).replace("{cuda_ver_short}", cuda_normalized)
+        source = str(index).replace("{torch_ver}", index_torch_ver or "").replace(
+            "{cuda_ver}", index_cuda_normalized
+        ).replace("{cuda_ver_short}", index_cuda_normalized)
         # An index/finder URL cannot replace a VCS requirement by itself.
         # It is valid for normal dependencies, but VCS deps require a direct
         # wheel URL or another explicit artifact target in YAML.
