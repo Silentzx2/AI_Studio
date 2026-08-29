@@ -181,12 +181,44 @@ fi
 unalias uv 2>/dev/null || true
 unset -f uv 2>/dev/null || true
 
-# Colab has no systemd — use SQLite for database
-export USE_SQLITE=1
-# ponytail: force the Colab preparation policy (low VRAM + low weight) on, so
-# model gating does not depend on runtime self-detection misfiring.
-export COLAB_PREP_GATE=1
-warn "Running in Colab — using SQLite fallback for database and in-process broker for Celery."
+# Colab: install and start PostgreSQL + Redis
+info "Setting up PostgreSQL..."
+if ! command -v psql &>/dev/null; then
+    sudo apt-get update -qq 2>/dev/null && sudo apt-get install -y postgresql postgresql-contrib redis-server 2>/dev/null || {
+        warn "Could not install PostgreSQL/Redis via apt — attempting manual install..."
+        apt-get update -qq && apt-get install -y postgresql postgresql-contrib redis-server || true
+    }
+fi
+
+# Start PostgreSQL if not running
+if ! pg_isready -q 2>/dev/null; then
+    sudo service postgresql start 2>/dev/null || sudo pg_ctlcluster $(ls /etc/postgresql/) main start 2>/dev/null || {
+        # Manual start if service commands fail
+        sudo -u postgres pg_ctl -D /var/lib/postgresql/$(ls /var/lib/postgresql/)/main -l /tmp/pg.log start 2>/dev/null || true
+    }
+    sleep 2
+fi
+
+# Create database and user if they don't exist
+if sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='ai_studio'" 2>/dev/null | grep -q 1; then
+    log "Database 'ai_studio' already exists"
+else
+    sudo -u postgres psql -c "CREATE USER ai_studio WITH PASSWORD 'ai_studio_dev';" 2>/dev/null || true
+    sudo -u postgres psql -c "CREATE DATABASE ai_studio OWNER ai_studio;" 2>/dev/null || true
+    sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ai_studio TO ai_studio;" 2>/dev/null || true
+    log "Created PostgreSQL database 'ai_studio' with user 'ai_studio'"
+fi
+
+# Start Redis if not running
+if ! redis-cli ping &>/dev/null 2>&1; then
+    sudo service redis-server start 2>/dev/null || redis-server --daemonize yes 2>/dev/null || true
+    sleep 1
+fi
+if redis-cli ping &>/dev/null 2>&1; then
+    log "Redis is running"
+else
+    warn "Redis not responding — Celery will use in-memory fallback"
+fi
 
 GPU_TYPE=$(detect_gpu)
 CUDA_VERSION=$(detect_cuda_version)
@@ -209,8 +241,7 @@ if [[ ! -f .env ]]; then
     else
         warn "No .env.example found — creating minimal .env"
         cat > .env << 'ENVEOF'
-DATABASE_URL=sqlite:///backend/storage/studio.db
-DATABASE_SYNC_URL=sqlite:///backend/storage/studio.db
+DATABASE_URL=postgresql+asyncpg://ai_studio:ai_studio_dev@127.0.0.1:5432/ai_studio
 REDIS_URL=redis://localhost:6379/0
 CELERY_BROKER_URL=redis://localhost:6379/0
 CELERY_RESULT_BACKEND=redis://localhost:6379/1
@@ -218,30 +249,23 @@ BACKEND_URL=http://localhost:8000
 CUDA_DEVICE=auto
 DEBUG=false
 ENVIRONMENT=development
-USE_SQLITE=1
 ENVEOF
-        log "Created minimal .env with SQLite fallback"
+        log "Created minimal .env with PostgreSQL"
     fi
 fi
 
-# Load .env, then override for Colab (SQLite + localhost)
+# Load .env
 set -a
 source .env
 set +a
 
-export USE_SQLITE=1
-export DATABASE_URL="sqlite:///$(pwd)/backend/storage/studio.db"
-export DATABASE_SYNC_URL="sqlite:///$(pwd)/backend/storage/studio.db"
+export DATABASE_URL="postgresql+asyncpg://ai_studio:ai_studio_dev@127.0.0.1:5432/ai_studio"
 export BACKEND_URL="http://localhost:8000"
 
-# Update .env file to match (prevents Celery worker from reading stale URLs)
-sed -i 's|^DATABASE_URL=.*|DATABASE_URL=sqlite:///'"$(pwd)"'/backend/storage/studio.db|' .env 2>/dev/null || true
-sed -i 's|^DATABASE_SYNC_URL=.*|DATABASE_SYNC_URL=sqlite:///'"$(pwd)"'/backend/storage/studio.db|' .env 2>/dev/null || true
-sed -i 's|^REDIS_URL=.*|REDIS_URL=memory://|' .env 2>/dev/null || true
-sed -i 's|^CELERY_BROKER_URL=.*|CELERY_BROKER_URL=memory://|' .env 2>/dev/null || true
-sed -i 's|^CELERY_RESULT_BACKEND=.*|CELERY_RESULT_BACKEND=cache+memory://|' .env 2>/dev/null || true
+# Update .env file to match
+sed -i 's|^DATABASE_URL=.*|DATABASE_URL=postgresql+asyncpg://ai_studio:ai_studio_dev@127.0.0.1:5432/ai_studio|' .env 2>/dev/null || true
 
-log "Environment configured (SQLite mode)"
+log "Environment configured (PostgreSQL mode)"
 
 # ── GPU / platform parity with setup.sh ────────────────────────────────────
 # Mirror setup.sh's GPU block, but keep GPU auto-detection intact so multi-GPU
@@ -880,11 +904,6 @@ if [[ "$REDIS_AVAILABLE" != "true" ]]; then
     sed -i 's|^CELERY_BROKER_URL=.*|CELERY_BROKER_URL=memory://|' .env 2>/dev/null || true
     sed -i 's|^CELERY_RESULT_BACKEND=.*|CELERY_RESULT_BACKEND=cache+memory://|' .env 2>/dev/null || true
     log "Celery fallback active: eager execution + memory broker (no Redis)"
-else
-    # Redis is available, use localhost URLs
-    export REDIS_URL="redis://localhost:6379/0"
-    export CELERY_BROKER_URL="redis://localhost:6379/0"
-    export CELERY_RESULT_BACKEND="redis://localhost:6379/1"
 fi
 
 # ── Run migrations ────────────────────────────────────────────────────────

@@ -157,12 +157,6 @@ auto_bootstrap() {
         log "uv installed: $(uv --version)"
     fi
 
-    # Codespaces/cloud notebooks: use SQLite fallback (no systemd)
-    if [[ "$env_type" == "codespaces" || "$env_type" == "cloud-notebook" ]]; then
-        export USE_SQLITE=1
-        warn "${env_type} detected — using SQLite fallback for database and in-process broker for Celery."
-    fi
-
     # Ensure backend venv exists (clear and recreate if corrupted)
     if [[ ! -x backend/.venv/bin/python ]]; then
         if [[ -d backend/.venv ]]; then
@@ -327,26 +321,13 @@ print_banner
 
 # ── Step 1: Verify PostgreSQL ──────────────────────────────────────────────
 step "1/6 Checking PostgreSQL..."
-if [[ "${USE_SQLITE:-}" != "1" ]]; then
-  if ! command -v systemctl &>/dev/null; then
-    warn "systemctl not available — falling back to SQLite"
-    export USE_SQLITE=1
-    export DATABASE_URL="sqlite:///$(pwd)/backend/storage/studio.db"
-    export DATABASE_SYNC_URL="sqlite:///$(pwd)/backend/storage/studio.db"
-  elif ! systemctl is-active --quiet postgresql; then
-    info "Starting PostgreSQL..."
-    sudo systemctl start postgresql || {
-      err "Failed to start PostgreSQL — will fall back to SQLite"
-    }
-  fi
-fi
 
 # Extract DB credentials from .env if available
-_DB_USER="${POSTGRES_USER:-postgres}"
-_DB_PASS="${POSTGRES_PASSWORD:-postgres}"
+_DB_USER="${POSTGRES_USER:-ai_studio}"
+_DB_PASS="${POSTGRES_PASSWORD:-ai_studio_dev}"
 _DB_HOST="${POSTGRES_HOST:-localhost}"
 _DB_PORT="${POSTGRES_PORT:-5432}"
-_DB_NAME="${POSTGRES_DB:-ai3dstudio}"
+_DB_NAME="${POSTGRES_DB:-ai_studio}"
 
 # Try to parse DATABASE_URL if set
 if [[ -n "${DATABASE_URL:-}" ]]; then
@@ -368,29 +349,29 @@ if u.port: print(u.port)
   fi
 fi
 
-_PG_READY=false
-if [[ "${USE_SQLITE:-}" != "1" ]]; then
-  # First check if server is running
-  if pg_isready -h "$_DB_HOST" -p "$_DB_PORT" -U "$_DB_USER" &>/dev/null; then
-    # Now test actual authentication with the configured password
-    if PGPASSWORD="$_DB_PASS" psql -h "$_DB_HOST" -p "$_DB_PORT" -U "$_DB_USER" -d postgres -c "SELECT 1;" &>/dev/null; then
-      _PG_READY=true
-      log "PostgreSQL authentication successful (user=$_DB_USER, host=$_DB_HOST)"
-    else
-      warn "PostgreSQL is running but authentication failed for user '$_DB_USER'@$_DB_HOST — falling back to SQLite."
-      export USE_SQLITE=1
-      export DATABASE_URL="sqlite:///$(pwd)/backend/storage/studio.db"
-      export DATABASE_SYNC_URL="sqlite:///$(pwd)/backend/storage/studio.db"
-    fi
-  else
-    warn "PostgreSQL not responding — falling back to local SQLite (backend/storage/studio.db)."
-    export USE_SQLITE=1
-    export DATABASE_URL="sqlite:///$(pwd)/backend/storage/studio.db"
-    export DATABASE_SYNC_URL="sqlite:///$(pwd)/backend/storage/studio.db"
-    # Update .env file to match
-    sed -i 's|^DATABASE_URL=.*|DATABASE_URL=sqlite:///'"$(pwd)"'/backend/storage/studio.db|' .env 2>/dev/null || true
-    sed -i 's|^DATABASE_SYNC_URL=.*|DATABASE_SYNC_URL=sqlite:///'"$(pwd)"'/backend/storage/studio.db|' .env 2>/dev/null || true
+# Start PostgreSQL if not running
+if ! pg_isready -h "$_DB_HOST" -p "$_DB_PORT" -U "$_DB_USER" &>/dev/null; then
+  info "Starting PostgreSQL..."
+  if command -v systemctl &>/dev/null; then
+    sudo systemctl start postgresql 2>/dev/null || true
   fi
+  # Try direct start if systemctl failed or unavailable
+  if ! pg_isready -h "$_DB_HOST" -p "$_DB_PORT" -U "$_DB_USER" &>/dev/null; then
+    sudo service postgresql start 2>/dev/null || sudo pg_ctlcluster $(ls /etc/postgresql/ 2>/dev/null | head -1) main start 2>/dev/null || true
+  fi
+  sleep 2
+fi
+
+_PG_READY=false
+if pg_isready -h "$_DB_HOST" -p "$_DB_PORT" -U "$_DB_USER" &>/dev/null; then
+  if PGPASSWORD="$_DB_PASS" psql -h "$_DB_HOST" -p "$_DB_PORT" -U "$_DB_USER" -d postgres -c "SELECT 1;" &>/dev/null; then
+    _PG_READY=true
+    log "PostgreSQL authentication successful (user=$_DB_USER, host=$_DB_HOST)"
+  else
+    warn "PostgreSQL is running but authentication failed for user '$_DB_USER'@$_DB_HOST"
+  fi
+else
+  warn "PostgreSQL not responding at $_DB_HOST:$_DB_PORT"
 fi
 
 # Create database if it doesn't exist (only when PostgreSQL is ready)
@@ -413,9 +394,6 @@ END
 \$\$;
 EOF
   log "PostgreSQL ready"
-else
-  info "Using SQLite for database (no PostgreSQL credentials available)"
-  mkdir -p "$(pwd)/backend/storage"
 fi
 echo ""
 

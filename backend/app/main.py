@@ -242,30 +242,24 @@ async def lifespan(app: FastAPI):
         from app.models import Base as RegistryBase  # imports all models via __init__.py
         def _sync_db_check():
             db_url = settings.sync_database_url
-            # SQLite uses NullPool which doesn't accept pool_size/max_overflow
-            if db_url.startswith("sqlite"):
-                eng = create_engine(db_url)
-            else:
-                eng = create_engine(db_url, pool_size=1, max_overflow=0)
+            eng = create_engine(db_url, pool_size=1, max_overflow=0)
             with eng.connect() as conn:
                 conn.execute(sa_text("SELECT 1"))
             # Create tables if not exist
             RegistryBase.metadata.create_all(eng)
             # Ensure column lengths are expanded for extended modes and qualities
             # ponytail: ALTER only if table exists; silently skip on fresh DB
-            # and only for PostgreSQL — SQLite doesn't support ALTER COLUMN TYPE
-            if not db_url.startswith("sqlite"):
-                try:
-                    with eng.begin() as conn:
-                        # Check if generation_jobs table exists before altering
-                        table_exists = conn.execute(sa_text(
-                            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='generation_jobs')"
-                        )).scalar()
-                        if table_exists:
-                            conn.execute(sa_text("ALTER TABLE generation_jobs ALTER COLUMN mode TYPE VARCHAR(64)"))
-                            conn.execute(sa_text("ALTER TABLE generation_jobs ALTER COLUMN quality TYPE VARCHAR(64)"))
-                except Exception as e:
-                    logger.warning(f"Failed to alter columns for generation_jobs: {e}")
+            try:
+                with eng.begin() as conn:
+                    # Check if generation_jobs table exists before altering
+                    table_exists = conn.execute(sa_text(
+                        "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='generation_jobs')"
+                    )).scalar()
+                    if table_exists:
+                        conn.execute(sa_text("ALTER TABLE generation_jobs ALTER COLUMN mode TYPE VARCHAR(64)"))
+                        conn.execute(sa_text("ALTER TABLE generation_jobs ALTER COLUMN quality TYPE VARCHAR(64)"))
+            except Exception as e:
+                logger.warning(f"Failed to alter columns for generation_jobs: {e}")
             eng.dispose()
         await asyncio.get_event_loop().run_in_executor(None, _sync_db_check)
         logger.info("Database connection successful and tables created")

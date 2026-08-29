@@ -238,8 +238,8 @@ cmd_database() {
                     _DB_PASS="$(echo "$DATABASE_URL" | sed -n 's|^postgresql[+]*://[^:]*:\([^@]*\)@.*$|\1|p')"
                     [[ -z "$_DB_PASS" ]] && _DB_PASS="postgres"
                 fi
-                PGPASSWORD="$_DB_PASS" psql -h localhost -U postgres -c "DROP DATABASE IF EXISTS ai3dstudio;"
-                PGPASSWORD="$_DB_PASS" psql -h localhost -U postgres -c "CREATE DATABASE ai3dstudio;"
+                PGPASSWORD="$_DB_PASS" psql -h localhost -U postgres -c "DROP DATABASE IF EXISTS ai_studio;"
+                PGPASSWORD="$_DB_PASS" psql -h localhost -U postgres -c "CREATE DATABASE ai_studio;"
                 echo "Running migrations..."
                 cd backend
                 backend/.venv/bin/python -m alembic upgrade head

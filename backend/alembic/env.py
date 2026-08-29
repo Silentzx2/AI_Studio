@@ -28,30 +28,14 @@ target_metadata = Base.metadata
 
 
 def get_database_url():
-    """Get database URL from environment and convert to appropriate async driver."""
+    """Get database URL from environment and convert to asyncpg driver."""
     database_url = os.getenv("DATABASE_URL")
     if not database_url:
-        # Fallback to the value in alembic.ini if env var not set
         database_url = config.get_main_option("sqlalchemy.url")
-    
-    # Convert URL to appropriate async driver based on database type
-    if database_url.startswith("sqlite://") or database_url.startswith("sqlite+aiosqlite://"):
-        # SQLite: use aiosqlite for async
-        # Handle both bare sqlite:// and already formatted sqlite+aiosqlite://
-        if "+aiosqlite" in database_url:
-            return database_url  # Already has correct async driver
-        else:
-            return database_url.replace("sqlite://", "sqlite+aiosqlite://")
-    elif database_url.startswith("postgresql://") or database_url.startswith("postgresql+asyncpg://"):
-        # PostgreSQL: use asyncpg for async
-        # Handle both bare postgresql:// and already formatted postgresql+asyncpg://
-        if "+asyncpg" in database_url:
-            return database_url  # Already has correct async driver
-        else:
-            return database_url.replace("postgresql://", "postgresql+asyncpg://")
-    else:
-        # Return as-is for other cases or if already has driver specified
+
+    if "+asyncpg" in database_url:
         return database_url
+    return database_url.replace("postgresql://", "postgresql+asyncpg://")
 
 
 def run_migrations_offline() -> None:

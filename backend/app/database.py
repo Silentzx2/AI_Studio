@@ -9,49 +9,25 @@ from app.config import get_settings
 
 settings = get_settings()
 
-# Determine database type and use appropriate drivers
+# PostgreSQL only — asyncpg for async, psycopg2 for sync
 database_url = settings.database_url
-if database_url.startswith("sqlite://") or database_url.startswith("sqlite+aiosqlite://"):
-    # SQLite: use aiosqlite for async, bare sqlite for sync
-    # Handle both bare sqlite:// and already formatted sqlite+aiosqlite://
-    if "+aiosqlite" in database_url:
-        async_db_url = database_url  # Already has correct async driver
-        sync_db_url = database_url.replace("+aiosqlite", "")  # Remove async driver for sync
-    else:
-        async_db_url = database_url.replace("sqlite://", "sqlite+aiosqlite://")
-        sync_db_url = database_url  # Keep bare sqlite:// for sync engine
-elif database_url.startswith("postgresql://") or database_url.startswith("postgresql+asyncpg://"):
-    # PostgreSQL: use asyncpg for async, psycopg2 for sync
-    # Handle both bare postgresql:// and already formatted postgresql+asyncpg://
-    if "+asyncpg" in database_url:
-        async_db_url = database_url  # Already has correct async driver
-        sync_db_url = database_url.replace("+asyncpg", "+psycopg2")  # Convert to sync driver
-    else:
-        async_db_url = database_url.replace("postgresql://", "postgresql+asyncpg://")
-        sync_db_url = database_url.replace("postgresql://", "postgresql+psycopg2://")
-else:
-    # Handle other cases or fallback
+if "+asyncpg" in database_url:
     async_db_url = database_url
     sync_db_url = database_url.replace("+asyncpg", "+psycopg2")
-
-# Build engine kwargs based on database type
-# SQLite uses NullPool internally — pool_size/max_overflow are invalid there
-# and raise TypeError. PostgreSQL uses QueuePool which benefits from them.
-_is_sqlite = async_db_url.startswith("sqlite")
-if _is_sqlite:
-    _async_engine_kwargs = {"echo": settings.debug}
-    _sync_engine_kwargs = {"echo": settings.debug}
 else:
-    _async_engine_kwargs = {
-        "echo": settings.debug,
-        "pool_pre_ping": True,
-        "pool_size": 10,
-        "max_overflow": 20,
-    }
-    _sync_engine_kwargs = {
-        "echo": settings.debug,
-        "pool_pre_ping": True,
-    }
+    async_db_url = database_url.replace("postgresql://", "postgresql+asyncpg://")
+    sync_db_url = database_url.replace("postgresql://", "postgresql+psycopg2://")
+
+_async_engine_kwargs = {
+    "echo": settings.debug,
+    "pool_pre_ping": True,
+    "pool_size": 10,
+    "max_overflow": 20,
+}
+_sync_engine_kwargs = {
+    "echo": settings.debug,
+    "pool_pre_ping": True,
+}
 
 # Async engine
 engine = create_async_engine(async_db_url, **_async_engine_kwargs)

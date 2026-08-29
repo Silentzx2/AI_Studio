@@ -27,7 +27,7 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3000",
         "http://127.0.0.1:3001",
     ]
-    database_url: str = "postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/ai3dstudio"
+    database_url: str = "postgresql+asyncpg://ai_studio:ai_studio_dev@127.0.0.1:5432/ai_studio"
     redis_url: str = "redis://localhost:6379/0"
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/1"
@@ -78,15 +78,9 @@ class Settings(BaseSettings):
 
     @property
     def sync_database_url(self) -> str:
-        """Synchronous DB URL for Celery workers (not async contexts).
-
-        BUG-16 FIX: Previously each worker file duplicated the same brittle string
-        replacement inline. Centralised here so there is one place to fix when the
-        driver changes.
-        """
+        """Synchronous DB URL for Celery workers (not async contexts)."""
         url = self.database_url
         url = url.replace("+asyncpg", "+psycopg2")
-        url = url.replace("+aiosqlite", "")   # bare sqlite:// is the sync driver
         return url
 
     @field_validator("cors_origins", mode="before")

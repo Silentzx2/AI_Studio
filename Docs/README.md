@@ -414,7 +414,7 @@ APP_NAME=AI 3D Studio
 APP_VERSION=4.6.0
 
 # ===== DATABASE =====
-DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/ai3dstudio
+DATABASE_URL=postgresql+asyncpg://ai_studio:ai_studio_dev@localhost:5432/ai_studio
 
 # ===== REDIS & CELERY =====
 REDIS_URL=redis://localhost:6379/0
@@ -1002,7 +1002,7 @@ PORT=3001 npm run dev
 sudo systemctl status postgresql
 
 # Test connection manually
-psql -h localhost -U ai3dstudio -d ai3dstudio
+psql -h localhost -U ai_studio -d ai_studio
 ```
 
 #### **Out of Memory Errors**

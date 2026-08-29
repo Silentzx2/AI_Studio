@@ -59,7 +59,6 @@ build/
 # Database
 *.db
 tsconfig.tsbuildinfo
-*.sqlite
 
 ai-dev*.tar
 backend/third_party/*

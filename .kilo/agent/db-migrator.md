@@ -23,7 +23,7 @@ You are a database specialist for AI 3D Studio (PostgreSQL + SQLAlchemy 2 + Alem
 - Migrations: Alembic (`backend/alembic/`)
 - Async driver: `asyncpg`
 - Sync driver: `psycopg2-binary` (for migrations)
-- Colab mode: SQLite (`sqlite:///backend/storage/studio.db`)
+- PostgreSQL database (primary)
 - Models: `backend/app/models/registry.py`, `backend/app/models/job.py`
 - DB setup: `backend/app/database.py`
 

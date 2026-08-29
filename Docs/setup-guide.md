@@ -294,9 +294,9 @@ sudo systemctl enable postgresql
 
 # Create database
 sudo -u postgres psql <<EOF
-CREATE USER ai3dstudio WITH PASSWORD 'your_password';
-CREATE DATABASE ai3dstudio OWNER ai3dstudio;
-GRANT ALL PRIVILEGES ON DATABASE ai3dstudio TO ai3dstudio;
+CREATE USER ai_studio WITH PASSWORD 'ai_studio_dev';
+CREATE DATABASE ai_studio OWNER ai_studio;
+GRANT ALL PRIVILEGES ON DATABASE ai_studio TO ai_studio;
 EOF
 ```
 
@@ -407,8 +407,8 @@ APP_NAME=AI 3D Studio
 APP_VERSION=4.1.0
 
 # ===== DATABASE =====
-DATABASE_URL=postgresql+asyncpg://ai3dstudio:password@localhost:5432/ai3dstudio
-SYNC_DATABASE_URL=postgresql://ai3dstudio:password@localhost:5432/ai3dstudio
+DATABASE_URL=postgresql+asyncpg://ai_studio:ai_studio_dev@localhost:5432/ai_studio
+SYNC_DATABASE_URL=postgresql://ai_studio:ai_studio_dev@localhost:5432/ai_studio
 
 # ===== REDIS & CELERY =====
 REDIS_URL=redis://localhost:6379/0
@@ -422,7 +422,7 @@ CORS_ORIGINS=["http://localhost:3000","http://localhost:8000"]
 MAX_UPLOAD_SIZE=52428800  # 50MB
 ```
 
-> **Database**: The full install uses PostgreSQL (`DATABASE_URL=postgresql+asyncpg://…`). Colab and other container/SQLite environments set `USE_SQLITE=1` and `DATABASE_URL=sqlite:///…/studio.db` instead — no PostgreSQL required.
+> **Database**: The full install uses PostgreSQL (`DATABASE_URL=postgresql+asyncpg://…`).
 
 ### AI Provider Settings
 
@@ -568,7 +568,7 @@ nvidia-smi
 sudo systemctl status postgresql
 
 # Test connection
-psql -h localhost -U ai3dstudio -d ai3dstudio
+psql -h localhost -U ai_studio -d ai_studio
 
 # Common fixes:
 # 1. Ensure user/password correct in .env
