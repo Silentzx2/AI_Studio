@@ -158,6 +158,7 @@ export const LeftNavigation: React.FC = () => {
         </SimpleTooltip>
 
         {/* Bottom Pipeline & Settings */}
+      </div>
       <div className="flex flex-col items-center gap-1.5 w-full px-1.5 pt-2 border-t border-[var(--ws-border,#21242c)]/60">
         {/* Settings - navigates to /settings page */}
         <SimpleTooltip label="Settings & Configuration">
