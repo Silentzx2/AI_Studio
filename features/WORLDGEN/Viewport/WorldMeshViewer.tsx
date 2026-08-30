@@ -209,8 +209,8 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
     const height = container.clientHeight || 600;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0b0c10);
-    scene.fog = new THREE.Fog(0x0b0c10, 6, 16);
+    scene.background = new THREE.Color(0x14161a);
+    scene.fog = new THREE.Fog(0x14161a, 8, 20);
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
@@ -236,14 +236,14 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
     controls.target.set(0, 0.2, 0);
     controlsRef.current = controls;
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-    const key = new THREE.DirectionalLight(0xfff2d9, 1.8);
+    scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+    const key = new THREE.DirectionalLight(0xfff2d9, 2.2);
     key.position.set(4, 6, 4);
     key.castShadow = true;
     key.shadow.mapSize.width = 1024;
     key.shadow.mapSize.height = 1024;
     scene.add(key);
-    const fill = new THREE.DirectionalLight(0x6f84ff, 0.6);
+    const fill = new THREE.DirectionalLight(0x6f84ff, 0.8);
     fill.position.set(-4, 2, -3);
     scene.add(fill);
 
@@ -252,7 +252,7 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
     buildTerrain(world);
     terrainRef.current = world;
 
-    const grid = new THREE.GridHelper(8, 20, 0x2c3140, 0x1a1e2a);
+    const grid = new THREE.GridHelper(8, 20, 0x3a4050, 0x2a2e3a);
     grid.position.y = 0;
     scene.add(grid);
     gridRef.current = grid;

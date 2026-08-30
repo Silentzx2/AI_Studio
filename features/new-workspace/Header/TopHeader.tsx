@@ -31,7 +31,7 @@ export const TopHeader: React.FC = () => {
   return (
     <header
       id="persistent-top-header"
-      className="h-14 w-full bg-[var(--ws-bg,hsl(var(--surface-0)))] border-b border-[var(--ws-border,hsl(var(--border)))] px-4 flex items-center justify-between z-30 select-none flex-shrink-0"
+      className="h-14 w-full bg-[hsl(var(--surface-0))] border-b border-[hsl(var(--border))] px-4 flex items-center justify-between z-30 select-none flex-shrink-0"
     >
       {/* Left Branding & Mode Dropdown */}
       <div className="flex items-center gap-6">
@@ -53,7 +53,7 @@ export const TopHeader: React.FC = () => {
           <button
             id="btn-workspace-switcher"
             onClick={() => setWorkspaceMenuOpen(!workspaceMenuOpen)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[hsl(var(--surface-1))] border border-[var(--ws-border,hsl(var(--border)))] text-xs font-semibold text-[hsl(var(--primary))] hover:border-[hsl(var(--primary))]/50 transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] text-xs font-semibold text-[hsl(var(--primary))] hover:border-[hsl(var(--primary))]/50 transition-colors"
           >
             <span>3D Workspace</span>
             <ChevronDown className="w-3.5 h-3.5 text-[hsl(var(--muted-foreground))]" />
@@ -136,7 +136,7 @@ export const TopHeader: React.FC = () => {
             <button
               id="btn-dcc-bridge"
               onClick={() => setIsDccBridgeOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[hsl(var(--surface-1))] border border-[var(--ws-border,hsl(var(--border)))] hover:border-[hsl(var(--border))] text-xs text-[hsl(var(--foreground))] transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] hover:border-[hsl(var(--border))] text-xs text-[hsl(var(--foreground))] transition-colors"
             >
               <Cable className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
               <span className="font-medium">DCC Bridge</span>
