@@ -70,22 +70,22 @@ export const SettingsModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 select-none animate-in fade-in duration-200">
-      <div className="w-full max-w-xl rounded-2xl bg-[#14161c] border border-[#2e3342] shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[hsl(var(--surface-1))] p-4 select-none animate-in fade-in duration-200">
+      <div className="w-full max-w-xl rounded-2xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 bg-[#181b22] border-b border-[#292e3c]">
+        <div className="flex items-center justify-between px-5 py-4 bg-[hsl(var(--surface-1))] border-b border-[hsl(var(--border))]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#202532] border border-[#32394a] flex items-center justify-center text-[#f5c518]">
+            <div className="w-8 h-8 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] flex items-center justify-center text-[hsl(var(--primary))]">
               <Server className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-[#f3f4f6]">FastAPI Backend Configuration</h3>
-              <p className="text-[11px] text-[#8e95a5]">Connect to local or cloud FastAPI + 3D Generation Pipeline instance</p>
+              <h3 className="font-bold text-sm text-[hsl(var(--foreground))]">FastAPI Backend Configuration</h3>
+              <p className="text-[11px] text-[hsl(var(--muted-foreground))]">Connect to local or cloud FastAPI + 3D Generation Pipeline instance</p>
             </div>
           </div>
           <button
             onClick={() => setIsSettingsOpen(false)}
-            className="p-1.5 rounded-lg text-[#9ca3af] hover:text-[#f3f4f6] hover:bg-[#252936]"
+            className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]"
           >
             <X className="w-4 h-4" />
           </button>
@@ -95,19 +95,19 @@ export const SettingsModal: React.FC = () => {
         <div className="p-5 space-y-4 text-xs">
           {/* Host & Port Input */}
           <div className="space-y-1.5">
-            <label className="font-medium text-[#cbd5e1]">Backend Server URL</label>
+            <label className="font-medium text-[hsl(var(--foreground))]">Backend Server URL</label>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={host}
                 onChange={(e) => setHost(e.target.value)}
                 placeholder="/api/v1"
-                className="flex-1 px-3 py-2 rounded-xl bg-[#101115] border border-[#2a2e3c] text-xs font-mono text-[#e5e7eb] focus:border-[#f5c518] outline-none"
+                className="flex-1 px-3 py-2 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] text-xs font-mono text-[hsl(var(--foreground))] focus:border-[hsl(var(--primary))] outline-none"
               />
               <button
                 onClick={handleTestConnection}
                 disabled={testing}
-                className="px-4 py-2 rounded-xl bg-[#222734] hover:bg-[#2c3345] border border-[#384154] text-[#f5c518] font-bold text-xs flex items-center gap-1.5 transition-colors"
+                className="px-4 py-2 rounded-xl bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] text-[hsl(var(--primary))] font-bold text-xs flex items-center gap-1.5 transition-colors"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${testing ? 'animate-spin' : ''}`} />
                 <span>{testing ? 'Testing...' : 'Test Link'}</span>
@@ -118,82 +118,82 @@ export const SettingsModal: React.FC = () => {
           {/* Test Status Banner */}
           {testResult && (
             <div className={`p-3 rounded-xl border flex items-center gap-2.5 ${
-              testResult.success ? 'bg-[#15231c] border-[#22c55e]/40 text-[#86efac]' : 'bg-[#231515] border-[#ef4444]/40 text-[#fca5a5]'
+              testResult.success ? 'bg-[hsl(var(--neon-green)/0.1)] border-[hsl(var(--neon-green))]/40 text-[hsl(var(--neon-green))]' : 'bg-[hsl(var(--destructive)/0.1)] border-[hsl(var(--destructive))]/40 text-[hsl(var(--destructive))]'
             }`}>
-              {testResult.success ? <CheckCircle2 className="w-4 h-4 text-[#22c55e] flex-shrink-0" /> : <AlertCircle className="w-4 h-4 text-[#ef4444] flex-shrink-0" />}
+              {testResult.success ? <CheckCircle2 className="w-4 h-4 text-[hsl(var(--neon-green))] flex-shrink-0" /> : <AlertCircle className="w-4 h-4 text-[hsl(var(--destructive))] flex-shrink-0" />}
               <span className="text-xs">{testResult.msg}</span>
             </div>
           )}
 
           {/* Node registry status (real /object_info data) */}
           <div className="space-y-2 pt-2">
-            <span className="font-semibold text-xs text-[#8e95a5] uppercase tracking-wider">Backend Status & Hardware</span>
-            <div className="p-3 rounded-xl bg-[#111216] border border-[#232732] space-y-2">
+            <span className="font-semibold text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Backend Status & Hardware</span>
+            <div className="p-3 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] space-y-2">
               {nodeError ? (
-                <div className="text-[11px] text-[#fca5a5]">Backend unreachable: {nodeError}</div>
+                <div className="text-[11px] text-[hsl(var(--destructive))]">Backend unreachable: {nodeError}</div>
               ) : (
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[#cbd5e1]">FastAPI Status</span>
-                    <span className={`text-[11px] font-mono font-bold ${systemStats.status === 'online' ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
+                    <span className="text-[hsl(var(--foreground))]">FastAPI Status</span>
+                    <span className={`text-[11px] font-mono font-bold ${systemStats.status === 'online' ? 'text-[hsl(var(--neon-green))]' : 'text-[hsl(var(--destructive))]'}`}>
                       {systemStats.status === 'online' ? `Online (${systemStats.lastPingMs}ms)` : 'Offline'}
                     </span>
                   </div>
                   {systemStats.gpu && systemStats.gpu !== 'Unavailable' && (
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-[#8e95a5]">GPU</span>
-                      <span className="font-mono text-[#e5e7eb] truncate max-w-[280px]">{systemStats.gpu}</span>
+                      <span className="text-[hsl(var(--muted-foreground))]">GPU</span>
+                      <span className="font-mono text-[hsl(var(--foreground))] truncate max-w-[280px]">{systemStats.gpu}</span>
                     </div>
                   )}
                   {systemStats.vramUsedGb != null && (
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-[#8e95a5]">VRAM</span>
-                      <span className="font-mono text-[#38bdf8]">{systemStats.vramUsedGb} / {systemStats.vramTotalGb || '?'} GB</span>
+                      <span className="text-[hsl(var(--muted-foreground))]">VRAM</span>
+                      <span className="font-mono text-[hsl(var(--neon-blue))]">{systemStats.vramUsedGb} / {systemStats.vramTotalGb || '?'} GB</span>
                     </div>
                   )}
                   {systemStats.pythonVersion && (
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-[#8e95a5]">Python / PyTorch</span>
-                      <span className="font-mono text-[#9ca3af]">{systemStats.pythonVersion} {systemStats.torchVersion ? `· PyTorch ${systemStats.torchVersion}` : ''}</span>
+                      <span className="text-[hsl(var(--muted-foreground))]">Python / PyTorch</span>
+                      <span className="font-mono text-[hsl(var(--muted-foreground))]">{systemStats.pythonVersion} {systemStats.torchVersion ? `· PyTorch ${systemStats.torchVersion}` : ''}</span>
                     </div>
                   )}
                 </div>
               )}
-              <div className="text-[10px] text-[#6b7280] pt-1 border-t border-[#1c1e26]">AI 3D Studio connects via /api/v1 (proxied to backend on localhost:8000).</div>
+              <div className="text-[10px] text-[hsl(var(--muted-foreground))] pt-1 border-t border-[hsl(var(--surface-1))]">AI 3D Studio connects via /api/v1 (proxied to backend on localhost:8000).</div>
             </div>
           </div>
 
           {/* Auto-Optimize Defaults */}
           <div className="space-y-2 pt-2">
             <div className="flex items-center gap-2">
-              <Wrench className="w-3.5 h-3.5 text-[#f5c518]" />
-              <span className="font-semibold text-xs text-[#8e95a5] uppercase tracking-wider">Auto-Optimize Defaults</span>
+              <Wrench className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
+              <span className="font-semibold text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Auto-Optimize Defaults</span>
             </div>
-            <div className="p-3 rounded-xl bg-[#111216] border border-[#232732] space-y-3">
+            <div className="p-3 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-xs text-[#cbd5e1] font-medium block">Enable Auto-Optimize by Default</span>
-                  <span className="text-[10px] text-[#6b7280]">Automatically optimize meshes after generation</span>
+                  <span className="text-xs text-[hsl(var(--foreground))] font-medium block">Enable Auto-Optimize by Default</span>
+                  <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Automatically optimize meshes after generation</span>
                 </div>
                 <button
                   onClick={() => setGenerationSettings(prev => ({ ...prev, autoOptimize: !prev.autoOptimize }))}
                   className={`w-9 h-5 rounded-full p-0.5 transition-colors ${
-                    generationSettings.autoOptimize ? 'bg-[#f5c518]' : 'bg-[#282c38]'
+                    generationSettings.autoOptimize ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--border))]'
                   }`}
                 >
-                  <div className={`w-4 h-4 rounded-full bg-[#111216] transition-transform ${
+                  <div className={`w-4 h-4 rounded-full bg-[hsl(var(--surface-1))] transition-transform ${
                     generationSettings.autoOptimize ? 'translate-x-4' : 'translate-x-0'
                   }`} />
                 </button>
               </div>
 
               {generationSettings.autoOptimize && (
-                <div className="space-y-2.5 pt-2 border-t border-[#1c1e26]">
+                <div className="space-y-2.5 pt-2 border-t border-[hsl(var(--surface-1))]">
                   {/* Default Target Polycount */}
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-[#cbd5e1]">Default Target Polycount</span>
-                      <span className="text-[10px] font-mono text-[#f5c518]">{generationSettings.autoOptimizeSettings.targetPolycount.toLocaleString()} tris</span>
+                      <span className="text-[11px] text-[hsl(var(--foreground))]">Default Target Polycount</span>
+                      <span className="text-[10px] font-mono text-[hsl(var(--primary))]">{generationSettings.autoOptimizeSettings.targetPolycount.toLocaleString()} tris</span>
                     </div>
                     <input
                       type="range"
@@ -205,15 +205,15 @@ export const SettingsModal: React.FC = () => {
                         ...prev,
                         autoOptimizeSettings: { ...prev.autoOptimizeSettings, targetPolycount: parseInt(e.target.value) }
                       }))}
-                      className="w-full h-1.5 rounded-full appearance-none bg-[#282c38] accent-[#f5c518] cursor-pointer"
+                      className="w-full h-1.5 rounded-full appearance-none bg-[hsl(var(--border))] accent-[hsl(var(--primary))] cursor-pointer"
                     />
                   </div>
 
                   {/* Default Fix UVs */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-[11px] text-[#cbd5e1] font-medium block">Fix UVs by Default</span>
-                      <span className="text-[10px] text-[#6b7280]">Repair overlapping UVs automatically</span>
+                      <span className="text-[11px] text-[hsl(var(--foreground))] font-medium block">Fix UVs by Default</span>
+                      <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Repair overlapping UVs automatically</span>
                     </div>
                     <button
                       onClick={() => setGenerationSettings(prev => ({
@@ -221,10 +221,10 @@ export const SettingsModal: React.FC = () => {
                         autoOptimizeSettings: { ...prev.autoOptimizeSettings, fixUVs: !prev.autoOptimizeSettings.fixUVs }
                       }))}
                       className={`w-9 h-5 rounded-full p-0.5 transition-colors ${
-                        generationSettings.autoOptimizeSettings.fixUVs ? 'bg-[#f5c518]' : 'bg-[#282c38]'
+                        generationSettings.autoOptimizeSettings.fixUVs ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--border))]'
                       }`}
                     >
-                      <div className={`w-4 h-4 rounded-full bg-[#111216] transition-transform ${
+                      <div className={`w-4 h-4 rounded-full bg-[hsl(var(--surface-1))] transition-transform ${
                         generationSettings.autoOptimizeSettings.fixUVs ? 'translate-x-4' : 'translate-x-0'
                       }`} />
                     </button>
@@ -233,8 +233,8 @@ export const SettingsModal: React.FC = () => {
                   {/* Default Preserve Details */}
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-[#cbd5e1]">Default Detail Preservation</span>
-                      <span className="text-[10px] font-mono text-[#f5c518]">{generationSettings.autoOptimizeSettings.preserveDetails}%</span>
+                      <span className="text-[11px] text-[hsl(var(--foreground))]">Default Detail Preservation</span>
+                      <span className="text-[10px] font-mono text-[hsl(var(--primary))]">{generationSettings.autoOptimizeSettings.preserveDetails}%</span>
                     </div>
                     <input
                       type="range"
@@ -246,7 +246,7 @@ export const SettingsModal: React.FC = () => {
                         ...prev,
                         autoOptimizeSettings: { ...prev.autoOptimizeSettings, preserveDetails: parseInt(e.target.value) }
                       }))}
-                      className="w-full h-1.5 rounded-full appearance-none bg-[#282c38] accent-[#f5c518] cursor-pointer"
+                      className="w-full h-1.5 rounded-full appearance-none bg-[hsl(var(--border))] accent-[hsl(var(--primary))] cursor-pointer"
                     />
                   </div>
                 </div>
@@ -256,16 +256,16 @@ export const SettingsModal: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2.5 px-5 py-3.5 bg-[#181b22] border-t border-[#292e3c]">
+        <div className="flex items-center justify-end gap-2.5 px-5 py-3.5 bg-[hsl(var(--surface-1))] border-t border-[hsl(var(--border))]">
           <button
             onClick={() => setIsSettingsOpen(false)}
-            className="px-4 py-2 rounded-xl bg-[#222631] text-[#cbd5e1] hover:bg-[#2b303e] font-medium text-xs transition-colors"
+            className="px-4 py-2 rounded-xl bg-[hsl(var(--surface-2))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))] font-medium text-xs transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-5 py-2 rounded-xl bg-[#f5c518] hover:bg-[#eab308] text-[#111216] font-bold text-xs shadow-md shadow-[#f5c518]/20 transition-all"
+            className="px-5 py-2 rounded-xl bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))] text-[hsl(var(--surface-1))] font-bold text-xs shadow-md shadow-[hsl(var(--primary))]/20 transition-all"
           >
             Save
           </button>

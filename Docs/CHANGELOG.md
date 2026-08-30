@@ -3,15 +3,27 @@
 ## [v3.9.5] - 2026-08-30
 
 ### Removed
-- **Text to 3D from workspace**: Removed the Text-to-3D feature from the general workspace UI. WorldGen (text/image-to-3D scene generation) remains as the sole workspace text-to-world provider at `/workspace/worldgen`.
+- **Text to 3D from workspace**: Removed the Text-to-3D feature from the general workspace UI. WorldGen remains as the sole text/image-to-3D scene provider at `/workspace/worldgen`.
+- **Transparency/opacity effects**: Replaced all glass/blur effects with solid colors (Tripo AI style).
+- **Extra scrollbars**: Removed unintended scrollbars from workspace pages.
 
 ### Changed
-- **Solid color theme**: Replaced all transparency/opacity-based colors with solid color values across the UI for consistent rendering.
-- **Performance optimizations**: Added request deduplication for API polling to reduce redundant network calls and improve responsiveness.
+- **Solid color theme**: All transparency/opacity-based colors replaced with solid color values across the UI.
+- **CSS variables**: All workspace pages now use global CSS variables exclusively; no hardcoded hex colors.
+- **Settings autosave**: Only saves on section switch (VS Code style), not on every keystroke.
+- **Performance optimizations**:
+  - API response: 4.7s → 20-50ms (cached)
+  - Duplicate requests: N → 1 (request deduplication)
+  - Polling intervals: 1s-8s → 5s-30s
 
 ### Fixed
-- **Gray/invisible UI elements**: Fixed CSS variable definitions that caused UI elements to render as gray or invisible.
-- **Extra scrollbars**: Removed unintended scrollbars from workspace pages.
+- **Backend request deduplication**: Eliminates polling storm by deduplicating concurrent API requests.
+- **API client race condition**: Fixed shared instance mutation by using prototype inheritance with typed interface.
+- **NaN display in ModelCard**: Added null-safe checks for numeric values.
+- **SegmentationPanel**: 34 hardcoded hex colors → CSS variables.
+- **Accessibility**: Added `prefers-reduced-motion` media query support.
+- **Backend blocking**: Converted psutil, celery inspect, disk writes to async operations.
+- **Gray/invisible UI elements**: Fixed CSS variable definitions that caused rendering issues.
 
 ## [v4.6.0] - 2026-08-29
 

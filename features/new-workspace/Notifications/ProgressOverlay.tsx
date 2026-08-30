@@ -56,12 +56,12 @@ export const ProgressOverlay: React.FC = () => {
         isMinimized ? 'w-72' : 'w-96'
       }`}
     >
-      <div className={`rounded-2xl border shadow-2xl backdrop-blur-xl overflow-hidden transition-all ${
+      <div className={`rounded-2xl border shadow-2xl overflow-hidden transition-all ${
         isCompleted
-          ? 'bg-[hsl(var(--surface-1))]/95 border-[hsl(var(--status-online))]/50 shadow-[hsl(var(--status-online))]/15'
+          ? 'bg-[hsl(var(--surface-1))] border-[hsl(var(--status-online))]/50 shadow-[hsl(var(--status-online))]/15'
           : isFailed || isInterrupted
-          ? 'bg-[hsl(var(--surface-1))]/95 border-[hsl(var(--destructive))]/50 shadow-[hsl(var(--destructive))]/15'
-          : 'bg-[hsl(var(--surface-1))]/95 border-[hsl(var(--primary))]/60 shadow-[hsl(var(--primary))]/20 ring-1 ring-[hsl(var(--primary))]/30'
+          ? 'bg-[hsl(var(--surface-1))] border-[hsl(var(--destructive))]/50 shadow-[hsl(var(--destructive))]/15'
+          : 'bg-[hsl(var(--surface-1))] border-[hsl(var(--primary))]/60 shadow-[hsl(var(--primary))]/20 ring-1 ring-[hsl(var(--primary))]/30'
       }`}>
         {/* Top Header Bar */}
         <div className="flex items-center justify-between px-3.5 py-2.5 bg-[hsl(var(--surface-2))] border-b border-[hsl(var(--border))]">

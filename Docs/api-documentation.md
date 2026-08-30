@@ -103,7 +103,7 @@ Content-Type: application/json
 ```json
 {
   "prompt": "A cute cartoon robot holding a flower",
-  "mode": "text-to-3d",
+  "mode": "image-to-3d",
   "quality": "standard",
   "provider": "hunyuan3d-2.1",
   "generate_texture": true,
@@ -124,7 +124,7 @@ Content-Type: application/json
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `prompt` | string | ✅ | Text description for generation (max 2000 chars) |
-| `mode` | string | ❌ | `text-to-3d`, `image-to-3d`, `remesh`, `texture-generation`, `rigging`, or `render` (default: `text-to-3d`) |
+| `mode` | string | ❌ | `image-to-3d`, `remesh`, `texture-generation`, `rigging`, or `render` (default: `image-to-3d`) |
 | `quality` | string | ❌ | `low-poly`, `standard`, `high-poly`, `ultra`, or `draft` (default: `standard`) |
 | `provider` | string | ❌ | AI provider to use (auto-selected if omitted) |
 | `generate_texture` | boolean | ❌ | Generate textures for the model (default: `true`) |
@@ -230,7 +230,7 @@ GET /api/v1/models/installed?include_health=true
         "manifest": {
           "version": "2.1.0",
           "category": "image-to-3d",
-          "capabilities": ["image-to-3d", "text-to-3d"],
+          "capabilities": ["image-to-3d"],
           "min_vram_mb": 16384
         }
       }
@@ -393,7 +393,7 @@ GET /api/v1/discover/models?category=3d-generation&search=hunyuan&limit=50&offse
 - `3d-generation`
 - `text-to-image`
 - `image-to-3d`
-- `text-to-3d`
+- `image-to-3d`
 - `remeshing`
 - `texture-generation`
 - `upscaling`
@@ -1102,7 +1102,6 @@ GET /api/v1/pipelines
           "texture_generation": true,
           "rigging_animation": false,
           "detail_enhancement": false,
-          "text_to_3d": true,
           "image_to_3d": true
         },
         "workspace_compatibility": ["mesh-generation", "texture-generation", "post-processing"]
@@ -1112,10 +1111,9 @@ GET /api/v1/pipelines
       "texture_generation": true,
       "rigging_animation": true,
       "detail_enhancement": true,
-      "text_to_3d": true,
       "image_to_3d": true
     },
-    "input_modes": ["text-to-3d", "image-to-3d"],
+      "input_modes": ["image-to-3d"],
     "total_models": 9,
     "workspace_types": [
       "mesh-generation",
@@ -1171,7 +1169,6 @@ GET /api/v1/pipelines/workspace-models?workspace=<type>&installed_only=<bool>
         "status": "ready",
         "vram_required_mb": 29000,
         "supports": {
-          "text_to_3d": true,
           "image_to_3d": true,
           "texture_generation": true
         },
@@ -1219,7 +1216,7 @@ GET /api/v1/pipelines/workspace-types
 
 All of these are valid `AI_PROVIDER` values and are switchable via `POST /api/v1/runtime/provider` and resolvable via `get_provider()` (the registry was synced with the engine provider map in **v3.8.7**, which also re-enabled `hunyuan3d-2-mini` and `triposg` that were previously rejected by `validate_provider_switch`).
 
-- `hunyuan3d-2.1` — text-to-3D, image-to-3D, texture (29 GB VRAM peak / 21 GB low-VRAM combined)
+- `hunyuan3d-2.1` — image-to-3D, texture (29 GB VRAM peak / 21 GB low-VRAM combined)
 - `hunyuan3d-2-mini` — image-to-3D only, texture via Hunyuan3D paint weights (6 GB VRAM, verified low-VRAM)
 - `trellis` — image-to-3D, texture (8 GB VRAM; native CUDA build — excluded from one-click install)
 - `triposg` — image-to-3D (rectified-flow, no texture; 8 GB VRAM)
@@ -1646,7 +1643,7 @@ class AI3DStudioClient:
     def __init__(self, base_url="http://localhost:8000"):
         self.client = httpx.Client(base_url=base_url)
     
-    def generate(self, prompt: str, mode: str = "text-to-3d") -> dict:
+    def generate(self, prompt: str, mode: str = "image-to-3d") -> dict:
         resp = self.client.post("/api/v1/generation", json={
             "prompt": prompt,
             "mode": mode
@@ -1678,7 +1675,7 @@ import { apiClient } from '@/services/apiClient';
 async function generate3D(prompt: string) {
   const response = await apiClient.post('/generation', {
     prompt,
-    mode: 'text-to-3d',
+    mode: 'image-to-3d',
     quality: 'standard'
   });
   
@@ -1753,7 +1750,7 @@ async function generate3D(prompt: string) {
 - Low-VRAM model loading: the GPU-placement check after load no longer aborts verified low-VRAM runs. With Accelerate CPU offload / `device_map`, tensors intentionally rest on CPU between steps, so the check now skips the hard assertion for offloaded models and only fails on a genuine silent CPU fallback.
 
 #### Added
-- **Model capability validation**: `POST /api/v1/generation` now validates that the requested model supports the selected mode (`text-to-3d`, `image-to-3d`) before queuing. Returns `400` with clear error if model doesn't support the mode.
+- **Model capability validation**: `POST /api/v1/generation` now validates that the requested model supports the selected mode (`image-to-3d`) before queuing. Returns `400` with clear error if model doesn't support the mode.
 - **Installation guard**: Generation is blocked if the model isn't installed (missing repo/venv/weights), returning a clear error listing missing components with install instructions.
 - **Real image upload progress**: Image uploads now use `uploadWithProgress` showing real upload percentage instead of local preview only.
 - **Consolidated model upload**: 3D model upload moved to Asset Panel (right side) only; removed duplicate from Generation Controls (left side).

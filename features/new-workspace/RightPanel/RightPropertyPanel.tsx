@@ -55,7 +55,7 @@ export const RightPropertyPanel: React.FC = () => {
 
   // Material & PBR Shader Settings
   const [materialSettings, setMaterialSettings] = useState({
-    albedoColor: '#ffffff',
+    albedoColor: 'hsl(0, 0%, 100%)',
     roughness: 0.45,
     metallic: 0.15,
     normalStrength: 1.0,

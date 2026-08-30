@@ -64,22 +64,22 @@ export const DccBridgeModal: React.FC = () => {
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 select-none animate-in fade-in duration-200">
-      <div className="w-full max-w-xl rounded-2xl bg-[#14161c] border border-[#2e3342] shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[hsl(var(--surface-1))] p-4 select-none animate-in fade-in duration-200">
+      <div className="w-full max-w-xl rounded-2xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 bg-[#181b22] border-b border-[#292e3c]">
+        <div className="flex items-center justify-between px-5 py-4 bg-[hsl(var(--surface-1))] border-b border-[hsl(var(--border))]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#202532] border border-[#32394a] flex items-center justify-center text-[#f5c518]">
+            <div className="w-8 h-8 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] flex items-center justify-center text-[hsl(var(--primary))]">
               <Cable className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-[#f3f4f6]">DCC Bridge & Live Sync</h3>
-              <p className="text-[11px] text-[#8e95a5]">Send 3D meshes & PBR textures directly into DCC software</p>
+              <h3 className="font-bold text-sm text-[hsl(var(--foreground))]">DCC Bridge & Live Sync</h3>
+              <p className="text-[11px] text-[hsl(var(--muted-foreground))]">Send 3D meshes & PBR textures directly into DCC software</p>
             </div>
           </div>
           <button
             onClick={() => setIsDccBridgeOpen(false)}
-            className="p-1.5 rounded-lg text-[#9ca3af] hover:text-[#f3f4f6] hover:bg-[#252936]"
+            className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]"
           >
             <X className="w-4 h-4" />
           </button>
@@ -88,15 +88,15 @@ export const DccBridgeModal: React.FC = () => {
         {/* Content */}
         <div className="p-5 space-y-3.5 text-xs">
           {bridges.map((b) => (
-            <div key={b.id} className="p-3.5 rounded-xl bg-[#111216] border border-[#262a36] space-y-2.5">
+            <div key={b.id} className="p-3.5 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] space-y-2.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Box className="w-4 h-4 text-[#f5c518]" />
-                  <span className="font-bold text-xs text-[#e5e7eb]">{b.name}</span>
+                  <Box className="w-4 h-4 text-[hsl(var(--primary))]" />
+                  <span className="font-bold text-xs text-[hsl(var(--foreground))]">{b.name}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#1e2330] text-[#60a5fa]">Port {b.port}</span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#15231c] text-[#86efac] flex items-center gap-1">
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[hsl(var(--surface-2))] text-[hsl(var(--neon-blue))]">Port {b.port}</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[hsl(var(--neon-green)/0.1)] text-[hsl(var(--neon-green))] flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3" />
                     {b.status}
                   </span>
@@ -104,12 +104,12 @@ export const DccBridgeModal: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-between pt-1">
-                <span className="text-[11px] text-[#8e95a5]">One-click Python Listener Script:</span>
+                <span className="text-[11px] text-[hsl(var(--muted-foreground))]">One-click Python Listener Script:</span>
                 <button
                   onClick={() => handleCopyScript(b.id, b.script)}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#1a1e27] hover:bg-[#242936] text-[#cbd5e1] hover:text-[#f5c518] border border-[#2b313f] transition-colors"
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[hsl(var(--surface-1))] hover:bg-[hsl(var(--surface-2))] text-[hsl(var(--foreground))] hover:text-[hsl(var(--primary))] border border-[hsl(var(--border))] transition-colors"
                 >
-                  {copiedApp === b.id ? <Check className="w-3 h-3 text-[#22c55e]" /> : <Copy className="w-3 h-3" />}
+                  {copiedApp === b.id ? <Check className="w-3 h-3 text-[hsl(var(--neon-green))]" /> : <Copy className="w-3 h-3" />}
                   <span>{copiedApp === b.id ? 'Copied' : 'Copy Script'}</span>
                 </button>
               </div>
@@ -118,10 +118,10 @@ export const DccBridgeModal: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end px-5 py-3.5 bg-[#181b22] border-t border-[#292e3c]">
+        <div className="flex items-center justify-end px-5 py-3.5 bg-[hsl(var(--surface-1))] border-t border-[hsl(var(--border))]">
           <button
             onClick={() => setIsDccBridgeOpen(false)}
-            className="px-5 py-2 rounded-xl bg-[#f5c518] hover:bg-[#eab308] text-[#111216] font-bold text-xs shadow-md shadow-[#f5c518]/20 transition-all"
+            className="px-5 py-2 rounded-xl bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))] text-[hsl(var(--surface-1))] font-bold text-xs shadow-md shadow-[hsl(var(--primary))]/20 transition-all"
           >
             Done
           </button>

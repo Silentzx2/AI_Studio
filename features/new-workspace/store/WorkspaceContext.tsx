@@ -197,8 +197,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     rimLightIntensity: 2.5,
     exposure: 1.5,
     gridVisible: true,
-    gridColor: '#4a5060',
-    backgroundColor: '#14161c',
+    gridColor: 'hsl(var(--muted-foreground))',
+    backgroundColor: 'hsl(var(--surface-1))',
     autoRotate: false,
     showAxes: true,
     showStats: true,
@@ -263,7 +263,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const refreshSystemStats = useCallback(async () => {
     const stats = await apiClient.getSystemStats();
-    setSystemStats(stats as SystemStats);
+    setSystemStats(stats as unknown as SystemStats);
   }, []);
 
   const refreshHistory = useCallback(async () => {
@@ -447,7 +447,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const updateMaterialConfig = useCallback((updates: Partial<MaterialConfig>) => {
     const asset = currentAssetRef.current;
     if (!asset) return;
-    const cur = asset.materialConfig || { roughness: 0.5, metalness: 0.5, color: '#888888', wireframe: false, wireframeColor: '#222222', normalScale: 1.0, aoIntensity: 0.8, style: 'realistic' };
+    const cur = asset.materialConfig || { roughness: 0.5, metalness: 0.5, color: 'hsl(0, 0%, 50%)', wireframe: false, wireframeColor: 'hsl(0, 0%, 10%)', normalScale: 1.0, aoIntensity: 0.8, style: 'realistic' };
     updateAssetProperties(asset.id, { materialConfig: { ...cur, ...updates } });
   }, [updateAssetProperties]);
 

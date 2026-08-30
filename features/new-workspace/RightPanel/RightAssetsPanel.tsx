@@ -397,7 +397,7 @@ export const RightAssetsPanel: React.FC = () => {
                   )}
 
                   {/* Info Badge (i) on bottom-left of thumbnail */}
-                  <div className="absolute bottom-1.5 left-1.5 w-4 h-4 rounded-full bg-[hsl(var(--surface-0))]/80 backdrop-blur-sm border border-[hsl(var(--border))] flex items-center justify-center text-[hsl(var(--muted-foreground))] text-[9px] font-mono">
+                  <div className="absolute bottom-1.5 left-1.5 w-4 h-4 rounded-full bg-[hsl(var(--surface-0))] border border-[hsl(var(--border))] flex items-center justify-center text-[hsl(var(--muted-foreground))] text-[9px] font-mono">
                     i
                   </div>
 
@@ -409,7 +409,7 @@ export const RightAssetsPanel: React.FC = () => {
                 </div>
 
                 {/* Bottom Asset Label */}
-                <div className="px-2 py-1 bg-[hsl(var(--surface-1))]/95 border-t border-[hsl(var(--border))] flex items-center justify-between gap-1">
+                <div className="px-2 py-1 bg-[hsl(var(--surface-1))] border-t border-[hsl(var(--border))] flex items-center justify-between gap-1">
                   <div className="flex flex-col min-w-0">
                     <span className={`text-[10px] font-medium truncate ${isSelected ? 'text-[hsl(var(--primary))] font-bold' : 'text-[hsl(var(--foreground))]'}`}>
                       {asset.name}

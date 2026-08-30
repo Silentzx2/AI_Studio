@@ -273,7 +273,7 @@ export function GenerationSection() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-base font-semibold">
-              <Gauge className="w-5 h-5 text-[#38bdf8]" />
+              <Gauge className="w-5 h-5 text-[hsl(var(--neon-blue))]" />
               Low VRAM Execution Mode (&lt;8GB GPUs)
             </CardTitle>
             <div className="flex items-center gap-2">
@@ -283,7 +283,7 @@ export function GenerationSection() {
                 aria-checked={lowVram}
                 onClick={() => handleToggleLowVram(!lowVram)}
                 className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
-                  lowVram ? 'bg-[#38bdf8]' : 'bg-[hsl(var(--muted))]'
+                  lowVram ? 'bg-[hsl(var(--neon-blue))]' : 'bg-[hsl(var(--muted))]'
                 }`}
               >
                 <span
@@ -302,7 +302,7 @@ export function GenerationSection() {
           <div className="p-4 rounded-xl bg-[hsl(var(--surface-2)/0.6)] border border-[hsl(var(--border)/0.5)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="space-y-1">
               <span className="text-sm font-semibold text-[hsl(var(--foreground))] flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-[#38bdf8]" />
+                <Sparkles className="w-4 h-4 text-[hsl(var(--neon-blue))]" />
                 Target Provider Compatibility: {selectedModelObj?.label || provider || 'Default Model'}
               </span>
               <p className="text-xs text-[hsl(var(--muted-foreground))]">
@@ -313,7 +313,7 @@ export function GenerationSection() {
             </div>
             <span className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap self-start sm:self-auto ${
               lowVram
-                ? 'bg-[#38bdf8]/15 text-[#38bdf8] border border-[#38bdf8]/30'
+                ? 'bg-[hsl(var(--neon-blue))]/15 text-[hsl(var(--neon-blue))] border border-[hsl(var(--neon-blue))]/30'
                 : 'bg-[hsl(var(--muted)/0.5)] text-[hsl(var(--muted-foreground))]'
             }`}>
               {lowVram ? 'Low VRAM Active' : 'Full VRAM Mode'}

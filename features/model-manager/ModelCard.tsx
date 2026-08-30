@@ -45,11 +45,11 @@ export function ModelCard({ model, onAction }: { model: any, onAction: (id: stri
       <div className="grid grid-cols-2 gap-2 text-sm text-[hsl(var(--foreground))]/60 mb-2">
         <div className="flex flex-col">
           <span className="text-[hsl(var(--foreground))]/40 text-xs">Size</span>
-          <span>{model.size_estimate_gb || (model.size_mb / 1000).toFixed(1)} GB</span>
+          <span>{model.size_estimate_gb || (model.size_mb ? (model.size_mb / 1000).toFixed(1) : '0.0')} GB</span>
         </div>
         <div className="flex flex-col">
           <span className="text-[hsl(var(--foreground))]/40 text-xs">VRAM Req.</span>
-          <span>{(model.vram_required_mb / 1024).toFixed(1)} GB</span>
+          <span>{model.vram_required_mb ? (model.vram_required_mb / 1024).toFixed(1) : '0.0'} GB</span>
         </div>
       </div>
 

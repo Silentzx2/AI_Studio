@@ -221,27 +221,47 @@ class ApiClient {
   }
 }
 
-// Workspace-specific apiClient: extends the shared services/apiClient instance
-// with event-emitting methods (on/off) and workspace helpers.
-// Object.assign mutates baseApiClient in place, so both this module and
-// services/apiClient.ts export the SAME instance — no duplicate clients.
+// Workspace-specific apiClient: wraps services/apiClient via prototype
+// inheritance. ApiClient extends the shared client class at runtime, so
+// workspace helpers (on/off, getSystemStats, …) are available here while
+// the shared singleton remains untouched.
 const wsApiClient = new ApiClient();
-export const apiClient = Object.assign(baseApiClient, {
-  on: wsApiClient.on.bind(wsApiClient),
-  off: wsApiClient.off.bind(wsApiClient),
-  getSystemStats: wsApiClient.getSystemStats.bind(wsApiClient),
-  getQueue: wsApiClient.getQueue.bind(wsApiClient),
-  getHistory: wsApiClient.getHistory.bind(wsApiClient),
-  deleteHistory: wsApiClient.deleteHistory.bind(wsApiClient),
-  cancelExecution: wsApiClient.cancelExecution.bind(wsApiClient),
-  emitProgress: wsApiClient.emitProgress.bind(wsApiClient),
-  emitExecuting: wsApiClient.emitExecuting.bind(wsApiClient),
-  emitExecuted: wsApiClient.emitExecuted.bind(wsApiClient),
-  emitError: wsApiClient.emitError.bind(wsApiClient),
-  connectWebSocket: wsApiClient.connectWebSocket.bind(wsApiClient),
-  disconnectWebSocket: wsApiClient.disconnectWebSocket.bind(wsApiClient),
-  getBaseUrl: wsApiClient.getBaseUrl.bind(wsApiClient),
-});
+
+export interface WorkspaceApiClient {
+  on(event: string, cb: (...args: unknown[]) => void): () => void;
+  off(event: string, cb: (...args: unknown[]) => void): void;
+  getSystemStats(): Promise<Record<string, unknown>>;
+  getQueue(): Promise<{ running: unknown[]; pending: unknown[] }>;
+  getHistory(maxItems?: number): Promise<Record<string, HistoryItem>>;
+  deleteHistory(jobId: string): Promise<void>;
+  cancelExecution(): void;
+  emitProgress(progress: unknown): void;
+  executing(node: string | null): void;
+  executed(node: string, data: unknown): void;
+  executionError(error: unknown): void;
+  connectWebSocket(): void;
+  disconnectWebSocket(): void;
+  getBaseUrl(): string;
+  setBaseUrl(url: string): void;
+}
+
+export const apiClient = Object.create(baseApiClient, {
+  on: { value: wsApiClient.on.bind(wsApiClient) },
+  off: { value: wsApiClient.off.bind(wsApiClient) },
+  getSystemStats: { value: wsApiClient.getSystemStats.bind(wsApiClient) },
+  getQueue: { value: wsApiClient.getQueue.bind(wsApiClient) },
+  getHistory: { value: wsApiClient.getHistory.bind(wsApiClient) },
+  deleteHistory: { value: wsApiClient.deleteHistory.bind(wsApiClient) },
+  cancelExecution: { value: wsApiClient.cancelExecution.bind(wsApiClient) },
+  emitProgress: { value: wsApiClient.emitProgress.bind(wsApiClient) },
+  emitExecuting: { value: wsApiClient.emitExecuting.bind(wsApiClient) },
+  emitExecuted: { value: wsApiClient.emitExecuted.bind(wsApiClient) },
+  emitError: { value: wsApiClient.emitError.bind(wsApiClient) },
+  connectWebSocket: { value: wsApiClient.connectWebSocket.bind(wsApiClient) },
+  disconnectWebSocket: { value: wsApiClient.disconnectWebSocket.bind(wsApiClient) },
+  getBaseUrl: { value: wsApiClient.getBaseUrl.bind(wsApiClient) },
+  setBaseUrl: { value: baseApiClient.setBaseUrl },
+}) as unknown as WorkspaceApiClient;
 
 export async function fetchSystemStats(): Promise<SystemStats> {
   const stats = await apiClient.getSystemStats();

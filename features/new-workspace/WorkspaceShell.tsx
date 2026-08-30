@@ -96,7 +96,7 @@ export const WorkspaceShell: React.FC = () => {
   };
 
   return (
-    <div id="forge3d-app-root" className="flex flex-col h-screen w-screen overflow-hidden bg-[var(--ws-bg,#0d0e12)] text-[var(--ws-text,#f3f4f6)]">
+    <div id="forge3d-app-root" className="flex flex-col h-screen w-screen overflow-hidden bg-[var(--ws-bg,hsl(var(--surface-0)))] text-[var(--ws-text,hsl(var(--foreground)))]">
       <TopHeader />
       <div className="flex flex-1 overflow-hidden relative">
         <LeftNavigation />
@@ -110,14 +110,14 @@ export const WorkspaceShell: React.FC = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -10 }}
                 transition={{ duration: 0.15, ease: 'easeOut' }}
-                className="w-72 h-full bg-[#101115] border-r border-[#21242c] flex flex-col flex-shrink-0 z-10 overflow-hidden"
+                className="w-72 h-full bg-[hsl(var(--surface-1))] border-r border-[hsl(var(--border))] flex flex-col flex-shrink-0 z-10 overflow-hidden"
               >
-                <div className="h-8 px-2.5 flex items-center justify-between border-b border-[#21242c] bg-[#0c0d12] flex-shrink-0">
-                   <span className="text-[10px] font-bold tracking-wider text-[#9ca3af] uppercase">Tools</span>
+                <div className="h-8 px-2.5 flex items-center justify-between border-b border-[hsl(var(--border))] bg-[hsl(var(--surface-1))] flex-shrink-0">
+                   <span className="text-[10px] font-bold tracking-wider text-[hsl(var(--muted-foreground))] uppercase">Tools</span>
                    <SimpleTooltip label="Collapse panel">
                     <button
                       onClick={() => setIsLeftPanelOpen(false)}
-                      className="p-1 rounded-md text-[#6b7280] hover:text-[#f5c518] hover:bg-[#1a1d26] transition-colors"
+                      className="p-1 rounded-md text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] hover:bg-[hsl(var(--surface-1))] transition-colors"
                     >
                       <PanelLeftClose className="w-4 h-4" />
                     </button>
@@ -139,7 +139,7 @@ export const WorkspaceShell: React.FC = () => {
             )}
           </AnimatePresence>
 
-          <main id="center-viewport-stage" className="flex-1 h-full relative overflow-hidden bg-[#0a0b0e]">
+          <main id="center-viewport-stage" className="flex-1 h-full relative overflow-hidden bg-[hsl(var(--surface-1))]">
             {mainNav === 'workspace' && <MeshViewer />}
 
             {/* Left collapsed toggle - inside viewport so it sits at viewport edge */}
@@ -148,7 +148,7 @@ export const WorkspaceShell: React.FC = () => {
                 <SimpleTooltip label="Open Tool Panel">
                   <button
                     onClick={() => setIsLeftPanelOpen(true)}
-                    className="w-6 h-14 rounded-r-lg bg-[#16181f] border border-l-0 border-[#272b36] text-[#6b7280] hover:text-[#f5c518] transition-colors flex items-center justify-center"
+                    className="w-6 h-14 rounded-r-lg bg-[hsl(var(--surface-1))] border border-l-0 border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors flex items-center justify-center"
                   >
                     <PanelLeftOpen className="w-3.5 h-3.5" />
                   </button>
@@ -162,7 +162,7 @@ export const WorkspaceShell: React.FC = () => {
                 <SimpleTooltip label="Open Right Panel">
                   <button
                     onClick={() => setIsRightPanelOpen(true)}
-                    className="w-6 h-14 rounded-l-lg bg-[#16181f] border border-r-0 border-[#272b36] text-[#6b7280] hover:text-[#f5c518] transition-colors flex items-center justify-center"
+                    className="w-6 h-14 rounded-l-lg bg-[hsl(var(--surface-1))] border border-r-0 border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors flex items-center justify-center"
                   >
                     <PanelRightOpen className="w-3.5 h-3.5" />
                   </button>
@@ -179,27 +179,27 @@ export const WorkspaceShell: React.FC = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 10 }}
                 transition={{ duration: 0.15, ease: 'easeOut' }}
-                className="w-72 h-full bg-[var(--ws-panel,#101115)] border-l border-[var(--ws-border,#21242c)] flex flex-col flex-shrink-0 z-10 overflow-hidden"
+                className="w-72 h-full bg-[var(--ws-panel,hsl(var(--surface-1)))] border-l border-[var(--ws-border,hsl(var(--border)))] flex flex-col flex-shrink-0 z-10 overflow-hidden"
               >
-                <div className="h-8 px-2.5 flex items-center justify-between border-b border-[var(--ws-border,#21242c)] bg-[#0c0d12] flex-shrink-0">
+                <div className="h-8 px-2.5 flex items-center justify-between border-b border-[var(--ws-border,hsl(var(--border)))] bg-[hsl(var(--surface-1))] flex-shrink-0">
                   <SimpleTooltip label="Collapse panel">
                     <button
                       onClick={() => setIsRightPanelOpen(false)}
-                      className="p-1 rounded-md text-[#6b7280] hover:text-[#f5c518] hover:bg-[#1a1d26] transition-colors"
+                      className="p-1 rounded-md text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] hover:bg-[hsl(var(--surface-1))] transition-colors"
                     >
                       <PanelRightClose className="w-4 h-4" />
                     </button>
                   </SimpleTooltip>
-                  <span className="text-[10px] font-bold tracking-wider text-[#9ca3af] uppercase">Inspector</span>
+                  <span className="text-[10px] font-bold tracking-wider text-[hsl(var(--muted-foreground))] uppercase">Inspector</span>
                 </div>
-                <div className="flex items-center p-0.5 bg-[var(--ws-tab-bar-bg,#0f1014)] border-b border-[var(--ws-border,#21242c)]">
-                   <button id="tab-btn-assets" onClick={() => setRightPanelMode('assets')} className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${rightPanelMode === 'assets' ? 'bg-[var(--ws-tab-active-bg,#1c1f28)] text-[#f5c518] shadow-sm' : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)]'}`}>
+                <div className="flex items-center p-0.5 bg-[var(--ws-tab-bar-bg,hsl(var(--surface-1)))] border-b border-[var(--ws-border,hsl(var(--border)))]">
+                   <button id="tab-btn-assets" onClick={() => setRightPanelMode('assets')} className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${rightPanelMode === 'assets' ? 'bg-[var(--ws-tab-active-bg,hsl(var(--surface-2)))] text-[hsl(var(--primary))] shadow-sm' : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))]'}`}>
                      <FolderOpen className="w-3 h-3" /><span>Assets</span>
                    </button>
-                   <button id="tab-btn-prompt" onClick={() => setRightPanelMode('prompt')} className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${rightPanelMode === 'prompt' ? 'bg-[var(--ws-tab-active-bg,#1c1f28)] text-[#f5c518] shadow-sm' : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)]'}`}>
+                   <button id="tab-btn-prompt" onClick={() => setRightPanelMode('prompt')} className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${rightPanelMode === 'prompt' ? 'bg-[var(--ws-tab-active-bg,hsl(var(--surface-2)))] text-[hsl(var(--primary))] shadow-sm' : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))]'}`}>
                      <span>Prompt</span>
                    </button>
-                   <button id="tab-btn-properties" onClick={() => setRightPanelMode('properties')} className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${rightPanelMode === 'properties' || rightPanelMode === 'property' ? 'bg-[var(--ws-tab-active-bg,#1c1f28)] text-[#f5c518] shadow-sm' : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)]'}`}>
+                   <button id="tab-btn-properties" onClick={() => setRightPanelMode('properties')} className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${rightPanelMode === 'properties' || rightPanelMode === 'property' ? 'bg-[var(--ws-tab-active-bg,hsl(var(--surface-2)))] text-[hsl(var(--primary))] shadow-sm' : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))]'}`}>
                      <Sliders className="w-3 h-3" /><span>Property</span>
                    </button>
                 </div>
@@ -220,7 +220,7 @@ export const WorkspaceShell: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="absolute inset-0 z-[15] bg-[var(--ws-bg,#0d0e12)] overflow-auto pl-16"
+              className="absolute inset-0 z-[15] bg-[var(--ws-bg,hsl(var(--surface-0)))] overflow-auto pl-16"
              >
                <StudioDashboard />
             </motion.div>
@@ -232,7 +232,7 @@ export const WorkspaceShell: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="absolute inset-0 z-[15] bg-[var(--ws-bg,#0d0e12)] overflow-auto pl-16"
+              className="absolute inset-0 z-[15] bg-[var(--ws-bg,hsl(var(--surface-0)))] overflow-auto pl-16"
              >
                <OutputsPage />
             </motion.div>
@@ -244,7 +244,7 @@ export const WorkspaceShell: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="absolute inset-0 z-[15] bg-[var(--ws-bg,#0d0e12)] overflow-auto pl-16"
+              className="absolute inset-0 z-[15] bg-[var(--ws-bg,hsl(var(--surface-0)))] overflow-auto pl-16"
              >
                <SystemPage />
             </motion.div>

@@ -602,7 +602,7 @@
 
   .tooltip-premium {
     background: hsl(var(--surface-3) / 0.95);
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(4px);
     border: 1px solid hsl(var(--border) / 0.5);
     border-radius: 0.5rem;
     box-shadow: 0 4px 16px hsl(var(--surface-0) / 0.4);
@@ -654,8 +654,8 @@
 
   .dialog-premium {
     background: hsl(var(--surface-1) / 0.92);
-    backdrop-filter: blur(32px) saturate(190%);
-    -webkit-backdrop-filter: blur(32px) saturate(190%);
+    backdrop-filter: blur(8px) saturate(120%);
+    -webkit-backdrop-filter: blur(8px) saturate(120%);
     border: 1px solid hsl(var(--border) / 0.5);
     border-radius: 1rem;
     box-shadow:
@@ -667,8 +667,8 @@
 
   .sheet-premium {
     background: hsl(var(--surface-1) / 0.95);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(6px) saturate(120%);
+    -webkit-backdrop-filter: blur(6px) saturate(120%);
     border: 1px solid hsl(var(--border) / 0.4);
     box-shadow:
       -4px 0 24px hsl(var(--surface-0) / 0.4),
@@ -677,8 +677,8 @@
 
   .dropdown-premium {
     background: hsl(var(--surface-2) / 0.95);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(6px) saturate(120%);
+    -webkit-backdrop-filter: blur(6px) saturate(120%);
     border: 1px solid hsl(var(--border) / 0.5);
     border-radius: 0.75rem;
     box-shadow:
@@ -690,8 +690,8 @@
 
   .popover-premium {
     background: hsl(var(--surface-2) / 0.96);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(6px) saturate(120%);
+    -webkit-backdrop-filter: blur(6px) saturate(120%);
     border: 1px solid hsl(var(--border) / 0.5);
     border-radius: 0.75rem;
     box-shadow:
@@ -738,8 +738,8 @@
 
   .toast-premium {
     background: hsl(var(--surface-2) / 0.92);
-    backdrop-filter: blur(16px) saturate(180%);
-    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    backdrop-filter: blur(4px) saturate(120%);
+    -webkit-backdrop-filter: blur(4px) saturate(120%);
     border: 1px solid hsl(var(--border) / 0.5);
     border-radius: 0.75rem;
     box-shadow:
@@ -770,8 +770,8 @@
 
   .card-glass-hover {
     background: hsl(var(--surface-1) / 0.4);
-    backdrop-filter: blur(16px) saturate(180%);
-    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    backdrop-filter: blur(4px) saturate(120%);
+    -webkit-backdrop-filter: blur(4px) saturate(120%);
     border: 1px solid hsl(var(--border) / 0.3);
     border-radius: 1rem;
     transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1840,7 +1840,7 @@ html:not([data-ambient-glow]) .bg-mesh-gradient {
 }
 .tabs-glass [data-state="active"],
 [data-tab-style="glass"] [data-state="active"] {
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(4px);
   background: hsl(var(--primary) / 0.1);
   border: 1px solid hsl(var(--primary) / 0.2);
   border-radius: var(--radius, 0.75rem);
@@ -2244,12 +2244,12 @@ html.reduced-animations *::after {
 }
 .btn-option[data-state="on"],
 .btn-option-active {
-  background: hsl(var(--tripo-gray-50, #fafafa));
-  color: #0c0d10;
+  background: hsl(var(--tripo-gray-50, hsl(var(--foreground))));
+  color: hsl(var(--surface-0));
 }
 .btn-option[data-state="on"]:hover,
 .btn-option-active:hover {
-  background: hsl(var(--tripo-gray-50, #fafafa));
+  background: hsl(var(--tripo-gray-50, hsl(var(--foreground))));
 }
 
 /* ── Tripo Nav System ── */
@@ -2274,7 +2274,7 @@ html.reduced-animations *::after {
   color: hsl(var(--tripo-gray-100));
 }
 .nav-link.active {
-  color: #0c0d10;
+  color: hsl(var(--surface-0));
   background: hsl(var(--tripo-yellow-1));
 }
 .nav-link.active:hover {
@@ -2302,11 +2302,11 @@ html.reduced-animations *::after {
   color: hsl(var(--tripo-gray-100));
 }
 .tab-trigger[data-state="active"] {
-  background: #fafafa;
-  color: #0c0d10;
+  background: hsl(var(--foreground));
+  color: hsl(var(--surface-0));
 }
 .tab-trigger[data-state="active"]:hover {
-  background: #fafafa;
+  background: hsl(var(--foreground));
 }
 
 /* ── Tripo Card System ── */
@@ -2369,12 +2369,27 @@ html.reduced-animations *::after {
 }
 .sidebar-nav-item.active {
   background: hsl(var(--tripo-white-5));
-  color: #0c0d10;
+  color: hsl(var(--surface-0));
 }
 
 /* ── Status & Badge ── */
 
 /* ── Typography Utilities ── */
+
+
+
+/* ═══════════════════════════════════════════════════════════════
+   ACCESSIBILITY — Respect prefers-reduced-motion
+   ═══════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 
 
 

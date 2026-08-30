@@ -33,7 +33,7 @@ export const LeftNavigation: React.FC = () => {
     <nav
       id="left-tool-rail"
       aria-label="3D Studio Toolset"
-      className="w-[4.2rem] h-full bg-[var(--ws-nav-bg,#0f1015)] border-r border-[var(--ws-border,#21242c)] flex flex-col items-center py-2 justify-between z-20 select-none flex-shrink-0"
+      className="w-[4.2rem] h-full bg-[var(--ws-nav-bg,hsl(var(--surface-0)))] border-r border-[var(--ws-border,hsl(var(--border)))] flex flex-col items-center py-2 justify-between z-20 select-none flex-shrink-0"
     >
       {/* Top Primary Toolset */}
       <div className="flex flex-col items-center gap-1 w-full px-1 overflow-y-auto overflow-x-hidden">
@@ -44,8 +44,8 @@ export const LeftNavigation: React.FC = () => {
             onClick={() => navigateToMainNav('dashboard')}
             className={`group relative w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
               mainNav === 'dashboard'
-                ? 'bg-[var(--ws-active-bg,#1e2230)] text-[#f5c518] border border-[#f5c518]/50 shadow-lg shadow-[#f5c518]/15 ring-1 ring-[#f5c518]/30'
-                : 'text-[var(--ws-text-muted,#848a97)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#181a20)]'
+                ? 'bg-[var(--ws-active-bg,hsl(var(--surface-2)))] text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/50 shadow-lg shadow-[hsl(var(--primary))]/15 ring-1 ring-[hsl(var(--primary))]/30'
+                : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-1)))]'
             }`}
           >
             <LayoutDashboard className="w-5 h-5 mb-0.5" />
@@ -60,18 +60,18 @@ export const LeftNavigation: React.FC = () => {
             onClick={() => handleToolClick('model')}
             className={`group relative w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
               mainNav === 'workspace' && activeTool === 'model'
-                ? 'bg-[var(--ws-active-bg,#1e2230)] text-[#f5c518] border border-[#f5c518]/50 shadow-lg shadow-[#f5c518]/15 ring-1 ring-[#f5c518]/30'
-                : 'text-[var(--ws-text-muted,#848a97)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#181a20)]'
+                ? 'bg-[var(--ws-active-bg,hsl(var(--surface-2)))] text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/50 shadow-lg shadow-[hsl(var(--primary))]/15 ring-1 ring-[hsl(var(--primary))]/30'
+                : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-1)))]'
             }`}
           >
             <div className="relative">
               <Box className="w-5 h-5 mb-0.5" />
-              <Sparkles className="w-2.5 h-2.5 text-[#f5c518] absolute -top-1 -right-2" />
+              <Sparkles className="w-2.5 h-2.5 text-[hsl(var(--primary))] absolute -top-1 -right-2" />
             </div>
             <span className="text-[9.5px] font-bold leading-tight text-center">3D Gen</span>
 
             {/* SOTA Badge */}
-            <span className="mt-0.5 px-1 py-0.2 rounded bg-[#f5c518]/20 text-[7px] font-mono font-bold text-[#f5c518] tracking-tight">
+            <span className="mt-0.5 px-1 py-0.2 rounded bg-[hsl(var(--primary))]/20 text-[7px] font-mono font-bold text-[hsl(var(--primary))] tracking-tight">
               AI 3D
             </span>
           </button>
@@ -84,8 +84,8 @@ export const LeftNavigation: React.FC = () => {
             onClick={() => router.push('/workspace/worldgen')}
             className={`w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
               pathname?.startsWith('/workspace/worldgen')
-                ? 'bg-[var(--ws-active-bg,#1e2230)] text-[#f5c518] border border-[#f5c518]/30 shadow-lg shadow-[#f5c518]/10'
-                : 'text-[var(--ws-text-muted,#848a97)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#181a20)]'
+                ? 'bg-[var(--ws-active-bg,hsl(var(--surface-2)))] text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/30 shadow-lg shadow-[hsl(var(--primary))]/10'
+                : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-1)))]'
             }`}
           >
             <Globe className="w-4 h-4 mb-0.5" />
@@ -100,8 +100,8 @@ export const LeftNavigation: React.FC = () => {
             onClick={() => handleToolClick('segment')}
             className={`w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
               mainNav === 'workspace' && activeTool === 'segment'
-                ? 'bg-[var(--ws-active-bg,#1e2230)] text-[#f5c518] border border-[#f5c518]/30 shadow-lg shadow-[#f5c518]/10'
-                : 'text-[var(--ws-text-muted,#848a97)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#181a20)]'
+                ? 'bg-[var(--ws-active-bg,hsl(var(--surface-2)))] text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/30 shadow-lg shadow-[hsl(var(--primary))]/10'
+                : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-1)))]'
             }`}
           >
             <Scissors className="w-4 h-4 mb-0.5" />
@@ -116,8 +116,8 @@ export const LeftNavigation: React.FC = () => {
             onClick={() => handleToolClick('retopo')}
             className={`w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
               mainNav === 'workspace' && (activeTool === 'retopo' || activeTool === 'remesh')
-                ? 'bg-[var(--ws-active-bg,#1e2230)] text-[#f5c518] border border-[#f5c518]/30 shadow-lg shadow-[#f5c518]/10'
-                : 'text-[var(--ws-text-muted,#848a97)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#181a20)]'
+                ? 'bg-[var(--ws-active-bg,hsl(var(--surface-2)))] text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/30 shadow-lg shadow-[hsl(var(--primary))]/10'
+                : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-1)))]'
             }`}
           >
             <Hexagon className="w-4 h-4 mb-0.5" />
@@ -132,8 +132,8 @@ export const LeftNavigation: React.FC = () => {
             onClick={() => handleToolClick('remesh')}
             className={`w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
               mainNav === 'workspace' && activeTool === 'remesh'
-                ? 'bg-[var(--ws-active-bg,#1e2230)] text-[#f5c518] border border-[#f5c518]/30 shadow-lg shadow-[#f5c518]/10'
-                : 'text-[var(--ws-text-muted,#848a97)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#181a20)]'
+                ? 'bg-[var(--ws-active-bg,hsl(var(--surface-2)))] text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/30 shadow-lg shadow-[hsl(var(--primary))]/10'
+                : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-1)))]'
             }`}
           >
             <Hexagon className="w-4 h-4 mb-0.5" />
@@ -148,8 +148,8 @@ export const LeftNavigation: React.FC = () => {
             onClick={() => handleToolClick('texture')}
             className={`w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
               mainNav === 'workspace' && (activeTool === 'texture' || activeTool === 'pbr')
-                ? 'bg-[var(--ws-active-bg,#1e2230)] text-[#f5c518] border border-[#f5c518]/30 shadow-lg shadow-[#f5c518]/10'
-                : 'text-[var(--ws-text-muted,#848a97)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#181a20)]'
+                ? 'bg-[var(--ws-active-bg,hsl(var(--surface-2)))] text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/30 shadow-lg shadow-[hsl(var(--primary))]/10'
+                : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-1)))]'
             }`}
           >
             <Layers className="w-4 h-4 mb-0.5" />
@@ -159,13 +159,13 @@ export const LeftNavigation: React.FC = () => {
 
         {/* Bottom Pipeline & Settings */}
       </div>
-      <div className="flex flex-col items-center gap-1.5 w-full px-1.5 pt-2 border-t border-[var(--ws-border,#21242c)]/60">
+      <div className="flex flex-col items-center gap-1.5 w-full px-1.5 pt-2 border-t border-[var(--ws-border,hsl(var(--border)))]">
         {/* Settings - navigates to /settings page */}
         <SimpleTooltip label="Settings & Configuration">
           <button
             id="tool-btn-settings"
             onClick={() => router.push('/settings')}
-            className="w-full p-2 flex flex-col items-center justify-center rounded-xl text-[var(--ws-text-muted,#848a97)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#181a20)] transition-colors"
+            className="w-full p-2 flex flex-col items-center justify-center rounded-xl text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-1)))] transition-colors"
           >
             <Settings className="w-4 h-4" />
           </button>

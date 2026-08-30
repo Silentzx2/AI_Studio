@@ -8,7 +8,8 @@ export function useAutoSave<T>(
   data: T,
   saveAction: (data: T) => Promise<void> | void,
   delay: number = 800,
-  skipInitial: boolean = true
+  skipInitial: boolean = true,
+  autoSave: boolean = true
 ) {
   const [status, setStatus] = useState<AutoSaveStatus>('idle');
   const [isModified, setIsModified] = useState(false);
@@ -34,6 +35,10 @@ export function useAutoSave<T>(
       return;
     }
 
+    if (!autoSave) {
+      return;
+    }
+
     if (!isAutoSaveEnabled) {
       setIsModified(true);
       return;
@@ -56,7 +61,7 @@ export function useAutoSave<T>(
     }, delay);
 
     return () => clearTimeout(handler);
-  }, [data, delay, skipInitial, isAutoSaveEnabled]);
+  }, [data, delay, skipInitial, isAutoSaveEnabled, autoSave]);
 
   const handleManualSave = async () => {
     setStatus('saving');

@@ -82,7 +82,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 className={`flex-1 px-2 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${
                   settings.style === s.id
                     ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
-                    : 'text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] border border-[var(--ws-border,#hsl(var(--border)))] hover:text-[var(--ws-text,#hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,#hsl(var(--surface-2)))]'
+                    : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] border border-[var(--ws-border,hsl(var(--border)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-2)))]'
                 }`}
               >
                 {s.label}

@@ -95,12 +95,12 @@
 
 | Name | Category | VRAM Required | Speed | Key Capabilities |
 |------|----------|--------------|-------|------------------|
-| **Hunyuan3D 2.1** | 3D generation | ~16 GB (29 GB full) | ~90s | text-to-3D, image-to-3D, texture generation |
+| **Hunyuan3D 2.1** | 3D generation | ~16 GB (29 GB full) | ~90s | image-to-3D, texture generation |
 | **Hunyuan3D-2mini** | 3D generation | ~6 GB | ~45s | image-to-3D (texture via Hunyuan3D-2 paint weights); separate repo, manifest, weights path, and venv |
-| **Trellis** | 3D generation | ~16 GB | ~60s | image-to-3D, text-to-3D, texture generation |
+| **Trellis** | 3D generation | ~16 GB | ~60s | image-to-3D, texture generation |
 | **TripoSG** | 3D generation | ~8 GB | ~60s | image-to-3D (rectified-flow, no texture) |
 | **DetailGen3D** | Post-processing | ~4 GB | ~15s | detail enhancement (mesh refinement, no texture) |
-| **WorldGen** | World generation | 10 GB (24 GB recommended) | ~60s | text-to-3D, image-to-3D, scene generation, Gaussian Splatting |
+| **WorldGen** | World generation | 10 GB (24 GB recommended) | ~60s | text/image-to-3D scene generation, Gaussian Splatting |
 
 ### WorldGen Parameters
 
@@ -456,7 +456,7 @@ For complete configuration options, see [Setup Guide - Configuration](docs/setup
 ### Basic Workflow
 
 1. **Open the app** at http://localhost:3000
-2. **Choose generation mode**: Text-to-3D or Image-to-3D
+2. **Choose generation mode**: Image-to-3D (or WorldGen for scene generation)
 3. **Enter prompt** describing your desired 3D model
 4. **Select quality**: Low-poly / Standard / High-poly
 5. **(Optional) Upload reference image** for image-to-3D
@@ -495,7 +495,7 @@ Navigate to **Settings** to access the model management system:
 - Quick stats: version, size, install date
 - Actions: Uninstall, Repair, View Details
 - Health status indicator (Healthy/Warning/Error)
-- Capability display (Text-to-3D, Image-to-3D, etc.)
+- Capability display (Image-to-3D, etc.)
 
 #### **Available Models Tab**
 - Browse models from 5 sources
