@@ -141,8 +141,9 @@ export function useTaskManager() {
 
     const scheduleNext = () => {
       pollTickCountRef.current++;
-      const backoff = Math.min(pollTickCountRef.current, 6);
-      const interval = Math.min(POLL_INTERVAL * Math.pow(2, backoff - 1), 10000);
+      // Gentle exponential backoff: 5s, 7.5s, 10s, then cap at 10s
+      const backoffFactor = Math.min(pollTickCountRef.current, 3);
+      const interval = Math.min(POLL_INTERVAL + (backoffFactor - 1) * 2500, 10000);
 
       pollIntervalRef.current = setTimeout(() => {
         const state = useAppStore.getState();

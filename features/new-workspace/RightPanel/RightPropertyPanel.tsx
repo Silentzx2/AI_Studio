@@ -124,11 +124,11 @@ export const RightPropertyPanel: React.FC = () => {
 
   if (!currentAsset) {
     return (
-      <div id="panel-properties-inspector" className="flex h-full items-center justify-center bg-[#101115] px-6 text-center">
+      <div id="panel-properties-inspector" className="flex h-full items-center justify-center bg-[hsl(var(--surface-1))] px-6 text-center">
         <div>
-          <Box className="w-8 h-8 mx-auto mb-3 text-[#3d4350]" />
-          <div className="text-xs font-semibold text-[#9ca3af]">No asset selected</div>
-          <div className="text-[10px] text-[#626977] mt-1">Generate or import a real asset to inspect its properties.</div>
+          <Box className="w-8 h-8 mx-auto mb-3 text-[hsl(var(--muted-foreground))]" />
+          <div className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">No asset selected</div>
+          <div className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1">Generate or import a real asset to inspect its properties.</div>
         </div>
       </div>
     );
@@ -138,20 +138,20 @@ export const RightPropertyPanel: React.FC = () => {
   return (
     <div 
       id="panel-properties-inspector" 
-      className="flex flex-col h-full bg-[#101115] text-xs select-none overflow-y-auto"
+      className="flex flex-col h-full bg-[hsl(var(--surface-1))] text-xs select-none overflow-y-auto"
     >
       {/* Header with Asset Meta */}
-      <div className="p-2.5 border-b border-[#21242c] flex items-center justify-between">
+      <div className="p-2.5 border-b border-[hsl(var(--border))] flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="w-6 h-6 rounded-lg bg-[#1c202a] border border-[#2d3240] flex items-center justify-center text-[#f5c518] flex-shrink-0">
+          <div className="w-6 h-6 rounded-lg bg-[hsl(var(--surface-3))] border border-[hsl(var(--border))] flex items-center justify-center text-[hsl(var(--primary))] flex-shrink-0">
             <Sliders className="w-3.5 h-3.5" />
           </div>
           <div className="min-w-0">
-            <h2 className="font-bold text-xs text-[#f3f4f6] truncate">{currentAsset.name}</h2>
-            <span className="text-[10px] text-[#717786] block">Inspector & Properties</span>
+            <h2 className="font-bold text-xs text-[hsl(var(--foreground))] truncate">{currentAsset.name}</h2>
+            <span className="text-[10px] text-[hsl(var(--muted-foreground))] block">Inspector & Properties</span>
           </div>
         </div>
-        <span className="text-[10px] uppercase font-mono font-bold px-2 py-0.5 rounded-md bg-[#1d212b] border border-[#2c3240] text-[#f5c518] flex-shrink-0">
+        <span className="text-[10px] uppercase font-mono font-bold px-2 py-0.5 rounded-md bg-[hsl(var(--surface-3))] border border-[hsl(var(--border))] text-[hsl(var(--primary))] flex-shrink-0">
           {currentAsset.format}
         </span>
       </div>
@@ -160,13 +160,13 @@ export const RightPropertyPanel: React.FC = () => {
         {/* 1. Object Transform Section */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="font-bold text-[11px] text-[#8e95a5] uppercase tracking-wider flex items-center gap-1.5">
-              <Move className="w-3.5 h-3.5 text-[#f5c518]" />
+            <span className="font-bold text-[11px] text-[hsl(var(--muted-foreground))] uppercase tracking-wider flex items-center gap-1.5">
+              <Move className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
               Object Transform
             </span>
             <button
               onClick={handleResetTransform}
-              className="p-1 rounded text-[#717786] hover:text-[#f3f4f6] hover:bg-[#181a22] transition-colors"
+              className="p-1 rounded text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))] transition-colors"
             >
               <SimpleTooltip label="Reset Transform">
                 <RefreshCw className="w-3 h-3" />
@@ -176,39 +176,39 @@ export const RightPropertyPanel: React.FC = () => {
 
           {/* Position (m) */}
           <div className="space-y-1">
-            <div className="flex justify-between text-[10px] text-[#9ca3af]">
+            <div className="flex justify-between text-[10px] text-[hsl(var(--muted-foreground))]">
               <span>Position (m)</span>
-              <span className="font-mono text-[#606775]">World Space</span>
+              <span className="font-mono text-[hsl(var(--muted-foreground))]">World Space</span>
             </div>
             <div className="grid grid-cols-3 gap-1.5 font-mono text-[11px]">
-              <div className="flex items-center px-2 py-1 rounded-lg bg-[#15171e] border border-[#242834]">
-                <span className="text-[#ef4444] font-bold mr-1 text-[10px]">X</span>
+              <div className="flex items-center px-2 py-1 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
+                <span className="text-[hsl(var(--destructive))] font-bold mr-1 text-[10px]">X</span>
                 <input 
                   type="number" 
                   step="0.1" 
                   value={transform.posX} 
                   onChange={(e) => setTransform(p => ({ ...p, posX: parseFloat(e.target.value) || 0 }))}
-                  className="w-full bg-transparent text-[#e5e7eb] outline-none" 
+                  className="w-full bg-transparent text-[hsl(var(--foreground))] outline-none" 
                 />
               </div>
-              <div className="flex items-center px-2 py-1 rounded-lg bg-[#15171e] border border-[#242834]">
-                <span className="text-[#22c55e] font-bold mr-1 text-[10px]">Y</span>
+              <div className="flex items-center px-2 py-1 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
+                <span className="text-[hsl(var(--neon-green))] font-bold mr-1 text-[10px]">Y</span>
                 <input 
                   type="number" 
                   step="0.1" 
                   value={transform.posY} 
                   onChange={(e) => setTransform(p => ({ ...p, posY: parseFloat(e.target.value) || 0 }))}
-                  className="w-full bg-transparent text-[#e5e7eb] outline-none" 
+                  className="w-full bg-transparent text-[hsl(var(--foreground))] outline-none" 
                 />
               </div>
-              <div className="flex items-center px-2 py-1 rounded-lg bg-[#15171e] border border-[#242834]">
-                <span className="text-[#3b82f6] font-bold mr-1 text-[10px]">Z</span>
+              <div className="flex items-center px-2 py-1 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
+                <span className="text-[hsl(var(--neon-blue))] font-bold mr-1 text-[10px]">Z</span>
                 <input 
                   type="number" 
                   step="0.1" 
                   value={transform.posZ} 
                   onChange={(e) => setTransform(p => ({ ...p, posZ: parseFloat(e.target.value) || 0 }))}
-                  className="w-full bg-transparent text-[#e5e7eb] outline-none" 
+                  className="w-full bg-transparent text-[hsl(var(--foreground))] outline-none" 
                 />
               </div>
             </div>
@@ -216,35 +216,35 @@ export const RightPropertyPanel: React.FC = () => {
 
           {/* Rotation (°) */}
           <div className="space-y-1">
-            <div className="flex justify-between text-[10px] text-[#9ca3af]">
+            <div className="flex justify-between text-[10px] text-[hsl(var(--muted-foreground))]">
               <span>Rotation (Euler °)</span>
             </div>
             <div className="grid grid-cols-3 gap-1.5 font-mono text-[11px]">
-              <div className="flex items-center px-2 py-1 rounded-lg bg-[#15171e] border border-[#242834]">
-                <span className="text-[#ef4444] font-bold mr-1 text-[10px]">X</span>
+              <div className="flex items-center px-2 py-1 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
+                <span className="text-[hsl(var(--destructive))] font-bold mr-1 text-[10px]">X</span>
                 <input 
                   type="number" 
                   value={transform.rotX} 
                   onChange={(e) => setTransform(p => ({ ...p, rotX: parseFloat(e.target.value) || 0 }))}
-                  className="w-full bg-transparent text-[#e5e7eb] outline-none" 
+                  className="w-full bg-transparent text-[hsl(var(--foreground))] outline-none" 
                 />
               </div>
-              <div className="flex items-center px-2 py-1 rounded-lg bg-[#15171e] border border-[#242834]">
-                <span className="text-[#22c55e] font-bold mr-1 text-[10px]">Y</span>
+              <div className="flex items-center px-2 py-1 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
+                <span className="text-[hsl(var(--neon-green))] font-bold mr-1 text-[10px]">Y</span>
                 <input 
                   type="number" 
                   value={transform.rotY} 
                   onChange={(e) => setTransform(p => ({ ...p, rotY: parseFloat(e.target.value) || 0 }))}
-                  className="w-full bg-transparent text-[#e5e7eb] outline-none" 
+                  className="w-full bg-transparent text-[hsl(var(--foreground))] outline-none" 
                 />
               </div>
-              <div className="flex items-center px-2 py-1 rounded-lg bg-[#15171e] border border-[#242834]">
-                <span className="text-[#3b82f6] font-bold mr-1 text-[10px]">Z</span>
+              <div className="flex items-center px-2 py-1 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
+                <span className="text-[hsl(var(--neon-blue))] font-bold mr-1 text-[10px]">Z</span>
                 <input 
                   type="number" 
                   value={transform.rotZ} 
                   onChange={(e) => setTransform(p => ({ ...p, rotZ: parseFloat(e.target.value) || 0 }))}
-                  className="w-full bg-transparent text-[#e5e7eb] outline-none" 
+                  className="w-full bg-transparent text-[hsl(var(--foreground))] outline-none" 
                 />
               </div>
             </div>
@@ -252,47 +252,47 @@ export const RightPropertyPanel: React.FC = () => {
 
           {/* Scale */}
           <div className="space-y-1">
-            <div className="flex items-center justify-between text-[10px] text-[#9ca3af]">
+            <div className="flex items-center justify-between text-[10px] text-[hsl(var(--muted-foreground))]">
               <span>Scale Ratio</span>
               <button
                 onClick={() => setTransform(p => ({ ...p, lockScale: !p.lockScale }))}
-                className="flex items-center gap-1 text-[#f5c518] hover:underline text-[9px]"
+                className="flex items-center gap-1 text-[hsl(var(--primary))] hover:underline text-[9px]"
               >
                 {transform.lockScale ? <Lock className="w-2.5 h-2.5" /> : <Unlock className="w-2.5 h-2.5" />}
                 <span>{transform.lockScale ? 'Uniform Locked' : 'Independent'}</span>
               </button>
             </div>
             <div className="grid grid-cols-3 gap-1.5 font-mono text-[11px]">
-              <div className="flex items-center px-2 py-1 rounded-lg bg-[#15171e] border border-[#242834]">
-                <span className="text-[#ef4444] font-bold mr-1 text-[10px]">X</span>
+              <div className="flex items-center px-2 py-1 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
+                <span className="text-[hsl(var(--destructive))] font-bold mr-1 text-[10px]">X</span>
                 <input 
                   type="number" 
                   step="0.05"
                   value={transform.scaleX} 
                   onChange={(e) => handleScaleChange(parseFloat(e.target.value) || 1)}
-                  className="w-full bg-transparent text-[#e5e7eb] outline-none" 
+                  className="w-full bg-transparent text-[hsl(var(--foreground))] outline-none" 
                 />
               </div>
-              <div className="flex items-center px-2 py-1 rounded-lg bg-[#15171e] border border-[#242834]">
-                <span className="text-[#22c55e] font-bold mr-1 text-[10px]">Y</span>
+              <div className="flex items-center px-2 py-1 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
+                <span className="text-[hsl(var(--neon-green))] font-bold mr-1 text-[10px]">Y</span>
                 <input 
                   type="number" 
                   step="0.05"
                   value={transform.scaleY} 
                   onChange={(e) => setTransform(p => ({ ...p, scaleY: parseFloat(e.target.value) || 1 }))}
                   disabled={transform.lockScale}
-                  className={`w-full bg-transparent text-[#e5e7eb] outline-none ${transform.lockScale ? 'opacity-70' : ''}`} 
+                  className={`w-full bg-transparent text-[hsl(var(--foreground))] outline-none ${transform.lockScale ? 'opacity-70' : ''}`} 
                 />
               </div>
-              <div className="flex items-center px-2 py-1 rounded-lg bg-[#15171e] border border-[#242834]">
-                <span className="text-[#3b82f6] font-bold mr-1 text-[10px]">Z</span>
+              <div className="flex items-center px-2 py-1 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
+                <span className="text-[hsl(var(--neon-blue))] font-bold mr-1 text-[10px]">Z</span>
                 <input 
                   type="number" 
                   step="0.05"
                   value={transform.scaleZ} 
                   onChange={(e) => setTransform(p => ({ ...p, scaleZ: parseFloat(e.target.value) || 1 }))}
                   disabled={transform.lockScale}
-                  className={`w-full bg-transparent text-[#e5e7eb] outline-none ${transform.lockScale ? 'opacity-70' : ''}`} 
+                  className={`w-full bg-transparent text-[hsl(var(--foreground))] outline-none ${transform.lockScale ? 'opacity-70' : ''}`} 
                 />
               </div>
             </div>
@@ -300,36 +300,36 @@ export const RightPropertyPanel: React.FC = () => {
         </div>
 
         {/* 2. Geometry Statistics & Topology Health */}
-        <div className="p-3 rounded-xl bg-[#13151b] border border-[#222632] space-y-2.5">
-          <div className="flex items-center justify-between text-[#cbd5e1] font-semibold">
+        <div className="p-3 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] space-y-2.5">
+          <div className="flex items-center justify-between text-[hsl(var(--foreground))] font-semibold">
             <span className="flex items-center gap-1.5 text-[11px]">
-              <Box className="w-3.5 h-3.5 text-[#f5c518]" />
+              <Box className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
               Geometry Topology
             </span>
-            <span className="flex items-center gap-1 text-[9px] text-[#22c55e] font-mono px-1.5 py-0.5 rounded bg-[#22c55e]/10 border border-[#22c55e]/30">
+            <span className="flex items-center gap-1 text-[9px] text-[hsl(var(--neon-green))] font-mono px-1.5 py-0.5 rounded bg-[hsl(var(--neon-green))]/10 border border-[hsl(var(--neon-green))]/30">
               <ShieldCheck className="w-2.5 h-2.5" />
               Manifold OK
             </span>
           </div>
 
           <div className="grid grid-cols-3 gap-1.5 font-mono text-[10px]">
-            <div className="p-2 rounded-lg bg-[#181a22] border border-[#272b38]">
-              <span className="text-[#717786] block text-[9px]">Vertices</span>
-              <span className="font-bold text-[#e5e7eb]">{currentAsset.statsAvailable ? currentAsset.vertices.toLocaleString() : '—'}</span>
+            <div className="p-2 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
+              <span className="text-[hsl(var(--muted-foreground))] block text-[9px]">Vertices</span>
+              <span className="font-bold text-[hsl(var(--foreground))]">{currentAsset.statsAvailable ? currentAsset.vertices.toLocaleString() : '—'}</span>
             </div>
-            <div className="p-2 rounded-lg bg-[#181a22] border border-[#272b38]">
-              <span className="text-[#717786] block text-[9px]">Polygons</span>
-              <span className="font-bold text-[#f5c518]">{currentAsset.statsAvailable ? currentAsset.faces.toLocaleString() : '—'}</span>
+            <div className="p-2 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
+              <span className="text-[hsl(var(--muted-foreground))] block text-[9px]">Polygons</span>
+              <span className="font-bold text-[hsl(var(--primary))]">{currentAsset.statsAvailable ? currentAsset.faces.toLocaleString() : '—'}</span>
             </div>
-            <div className="p-2 rounded-lg bg-[#181a22] border border-[#272b38]">
-              <span className="text-[#717786] block text-[9px]">Topology</span>
-              <span className="font-bold text-[#38bdf8] truncate block">{currentAsset.topology}</span>
+            <div className="p-2 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
+              <span className="text-[hsl(var(--muted-foreground))] block text-[9px]">Topology</span>
+              <span className="font-bold text-[hsl(var(--neon-blue))] truncate block">{currentAsset.topology}</span>
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-[10px] text-[#8e95a5] pt-1 border-t border-[#1d202a]">
+          <div className="flex items-center justify-between text-[10px] text-[hsl(var(--muted-foreground))] pt-1 border-t border-[hsl(var(--border))]">
             <span>UV Channels</span>
-            <span className="font-mono text-[#cbd5e1]">2 (UV0: Diffuse, UV1: Lightmap)</span>
+            <span className="font-mono text-[hsl(var(--foreground))]">2 (UV0: Diffuse, UV1: Lightmap)</span>
           </div>
         </div>
 
@@ -337,17 +337,17 @@ export const RightPropertyPanel: React.FC = () => {
         
         {/* CASE A: Tool is Texture or PBR */}
         {(activeTool === 'texture' || activeTool === 'pbr') && (
-          <div className="space-y-3 p-3 rounded-xl bg-[#13151b] border border-[#222632]">
-            <span className="font-bold text-[11px] text-[#8e95a5] uppercase tracking-wider flex items-center gap-1.5">
-              <Palette className="w-3.5 h-3.5 text-[#f5c518]" />
+          <div className="space-y-3 p-3 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))]">
+            <span className="font-bold text-[11px] text-[hsl(var(--muted-foreground))] uppercase tracking-wider flex items-center gap-1.5">
+              <Palette className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
               PBR Material Channels
             </span>
 
             {/* Roughness */}
             <div className="space-y-1">
-              <div className="flex justify-between text-[11px] text-[#cbd5e1]">
+              <div className="flex justify-between text-[11px] text-[hsl(var(--foreground))]">
                 <span>Roughness</span>
-                <span className="font-mono text-[#f5c518]">{materialSettings.roughness.toFixed(2)}</span>
+                <span className="font-mono text-[hsl(var(--primary))]">{materialSettings.roughness.toFixed(2)}</span>
               </div>
               <input
                 type="range"
@@ -356,15 +356,15 @@ export const RightPropertyPanel: React.FC = () => {
                 step="0.02"
                 value={materialSettings.roughness}
                 onChange={(e) => setMaterialSettings(p => ({ ...p, roughness: parseFloat(e.target.value) }))}
-                className="w-full accent-[#f5c518]"
+                className="w-full accent-[hsl(var(--primary))]"
               />
             </div>
 
             {/* Metallic */}
             <div className="space-y-1">
-              <div className="flex justify-between text-[11px] text-[#cbd5e1]">
+              <div className="flex justify-between text-[11px] text-[hsl(var(--foreground))]">
                 <span>Metallic</span>
-                <span className="font-mono text-[#f5c518]">{materialSettings.metallic.toFixed(2)}</span>
+                <span className="font-mono text-[hsl(var(--primary))]">{materialSettings.metallic.toFixed(2)}</span>
               </div>
               <input
                 type="range"
@@ -373,15 +373,15 @@ export const RightPropertyPanel: React.FC = () => {
                 step="0.02"
                 value={materialSettings.metallic}
                 onChange={(e) => setMaterialSettings(p => ({ ...p, metallic: parseFloat(e.target.value) }))}
-                className="w-full accent-[#f5c518]"
+                className="w-full accent-[hsl(var(--primary))]"
               />
             </div>
 
             {/* Normal Strength */}
             <div className="space-y-1">
-              <div className="flex justify-between text-[11px] text-[#cbd5e1]">
+              <div className="flex justify-between text-[11px] text-[hsl(var(--foreground))]">
                 <span>Normal Intensity</span>
-                <span className="font-mono text-[#f5c518]">{materialSettings.normalStrength.toFixed(1)}x</span>
+                <span className="font-mono text-[hsl(var(--primary))]">{materialSettings.normalStrength.toFixed(1)}x</span>
               </div>
               <input
                 type="range"
@@ -390,15 +390,15 @@ export const RightPropertyPanel: React.FC = () => {
                 step="0.1"
                 value={materialSettings.normalStrength}
                 onChange={(e) => setMaterialSettings(p => ({ ...p, normalStrength: parseFloat(e.target.value) }))}
-                className="w-full accent-[#f5c518]"
+                className="w-full accent-[hsl(var(--primary))]"
               />
             </div>
 
             {/* Ambient Occlusion */}
             <div className="space-y-1">
-              <div className="flex justify-between text-[11px] text-[#cbd5e1]">
+              <div className="flex justify-between text-[11px] text-[hsl(var(--foreground))]">
                 <span>Cavity & AO Strength</span>
-                <span className="font-mono text-[#f5c518]">{materialSettings.ambientOcclusion.toFixed(2)}</span>
+                <span className="font-mono text-[hsl(var(--primary))]">{materialSettings.ambientOcclusion.toFixed(2)}</span>
               </div>
               <input
                 type="range"
@@ -407,11 +407,11 @@ export const RightPropertyPanel: React.FC = () => {
                 step="0.05"
                 value={materialSettings.ambientOcclusion}
                 onChange={(e) => setMaterialSettings(p => ({ ...p, ambientOcclusion: parseFloat(e.target.value) }))}
-                className="w-full accent-[#f5c518]"
+                className="w-full accent-[hsl(var(--primary))]"
               />
             </div>
 
-            <div className="flex items-center justify-between text-[10px] text-[#8e95a5] pt-1.5 border-t border-[#1e222d]">
+            <div className="flex items-center justify-between text-[10px] text-[hsl(var(--muted-foreground))] pt-1.5 border-t border-[hsl(var(--border))]">
               <span>Normal Standard</span>
               <div className="flex gap-1">
                 {(['OpenGL', 'DirectX'] as const).map(fmt => (
@@ -420,8 +420,8 @@ export const RightPropertyPanel: React.FC = () => {
                     onClick={() => setMaterialSettings(p => ({ ...p, normalFormat: fmt }))}
                     className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold ${
                       materialSettings.normalFormat === fmt
-                        ? 'bg-[#f5c518] text-[#111216]'
-                        : 'bg-[#1a1d26] text-[#8e95a5] hover:text-[#f3f4f6]'
+                        ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
+                        : 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
                     }`}
                   >
                     {fmt}
@@ -434,28 +434,28 @@ export const RightPropertyPanel: React.FC = () => {
 
         {/* CASE B: Tool is Retopo / Remesh */}
         {(activeTool === 'remesh' || activeTool === 'retopo') && (
-          <div className="space-y-3 p-3 rounded-xl bg-[#13151b] border border-[#222632]">
-            <span className="font-bold text-[11px] text-[#8e95a5] uppercase tracking-wider flex items-center gap-1.5">
-              <Hexagon className="w-3.5 h-3.5 text-[#f5c518]" />
+          <div className="space-y-3 p-3 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))]">
+            <span className="font-bold text-[11px] text-[hsl(var(--muted-foreground))] uppercase tracking-wider flex items-center gap-1.5">
+              <Hexagon className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
               Quad Retopology Inspector
             </span>
 
             <div className="space-y-1.5 text-[11px]">
-              <div className="flex justify-between text-[#cbd5e1]">
+              <div className="flex justify-between text-[hsl(var(--foreground))]">
                 <span>Target Polycount</span>
-                <span className="font-mono font-bold text-[#f5c518]">{remeshSettings.targetFaces.toLocaleString()}</span>
+                <span className="font-mono font-bold text-[hsl(var(--primary))]">{remeshSettings.targetFaces.toLocaleString()}</span>
               </div>
-              <div className="flex justify-between text-[#cbd5e1]">
+              <div className="flex justify-between text-[hsl(var(--foreground))]">
                 <span>Topology Mode</span>
-                <span className="font-mono text-[#38bdf8] uppercase">{remeshSettings.mode}</span>
+                <span className="font-mono text-[hsl(var(--neon-blue))] uppercase">{remeshSettings.mode}</span>
               </div>
-              <div className="flex justify-between text-[#cbd5e1]">
+              <div className="flex justify-between text-[hsl(var(--foreground))]">
                 <span>Detail Preservation</span>
-                <span className="font-mono text-[#cbd5e1] uppercase">{remeshSettings.detailPreservation}</span>
+                <span className="font-mono text-[hsl(var(--foreground))] uppercase">{remeshSettings.detailPreservation}</span>
               </div>
-              <div className="flex justify-between text-[#cbd5e1]">
+              <div className="flex justify-between text-[hsl(var(--foreground))]">
                 <span>Quad Flow Alignment</span>
-                <span className="font-mono text-[#22c55e]">{currentAsset.topology} • {currentAsset.statsAvailable ? currentAsset.faces.toLocaleString() : '—'} faces</span>
+                <span className="font-mono text-[hsl(var(--neon-green))]">{currentAsset.topology} • {currentAsset.statsAvailable ? currentAsset.faces.toLocaleString() : '—'} faces</span>
               </div>
             </div>
           </div>
@@ -463,28 +463,28 @@ export const RightPropertyPanel: React.FC = () => {
 
         {/* CASE D: Tool is 3D Generation / Model */}
         {activeTool === 'model' && (
-          <div className="space-y-3 p-3 rounded-xl bg-[#13151b] border border-[#222632]">
-            <span className="font-bold text-[11px] text-[#8e95a5] uppercase tracking-wider flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-[#f5c518]" />
+          <div className="space-y-3 p-3 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))]">
+            <span className="font-bold text-[11px] text-[hsl(var(--muted-foreground))] uppercase tracking-wider flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
               3D AI Generator Pipeline
             </span>
 
             <div className="space-y-1.5 text-[11px]">
-              <div className="flex justify-between text-[#cbd5e1]">
+              <div className="flex justify-between text-[hsl(var(--foreground))]">
                 <span>Model Engine</span>
-                <span className="font-mono text-[#f5c518]">{generationSettings.aiModel}</span>
+                <span className="font-mono text-[hsl(var(--primary))]">{generationSettings.aiModel}</span>
               </div>
-              <div className="flex justify-between text-[#cbd5e1]">
+              <div className="flex justify-between text-[hsl(var(--foreground))]">
                 <span>Octree Depth</span>
-                <span className="font-mono text-[#cbd5e1]">Not available until workflow execution</span>
+                <span className="font-mono text-[hsl(var(--foreground))]">Not available until workflow execution</span>
               </div>
-              <div className="flex justify-between text-[#cbd5e1]">
+              <div className="flex justify-between text-[hsl(var(--foreground))]">
                 <span>Diffusion Steps</span>
-                <span className="font-mono text-[#cbd5e1]">Workflow-defined</span>
+                <span className="font-mono text-[hsl(var(--foreground))]">Workflow-defined</span>
               </div>
-              <div className="flex justify-between text-[#cbd5e1]">
+              <div className="flex justify-between text-[hsl(var(--foreground))]">
                 <span>Cutout RMBG</span>
-                <span className="font-mono text-[#22c55e]">{generationSettings.removeBackground ? 'Requested' : 'Off'}</span>
+                <span className="font-mono text-[hsl(var(--neon-green))]">{generationSettings.removeBackground ? 'Requested' : 'Off'}</span>
               </div>
             </div>
           </div>
@@ -492,8 +492,8 @@ export const RightPropertyPanel: React.FC = () => {
         
         {/* 4. Shading & Render Viewport Overrides */}
         <div className="space-y-2 pt-1">
-          <span className="font-bold text-[11px] text-[#8e95a5] uppercase tracking-wider flex items-center gap-1.5">
-            <Eye className="w-3.5 h-3.5 text-[#f5c518]" />
+          <span className="font-bold text-[11px] text-[hsl(var(--muted-foreground))] uppercase tracking-wider flex items-center gap-1.5">
+            <Eye className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
             Viewport Shading
           </span>
 
@@ -502,8 +502,8 @@ export const RightPropertyPanel: React.FC = () => {
               onClick={() => setShadingMode('textured')}
               className={`py-1.5 px-2 rounded-lg text-[10px] font-medium transition-all ${
                 shadingMode === 'textured'
-                  ? 'bg-[#f5c518] text-[#111216] font-bold shadow'
-                  : 'bg-[#161820] text-[#9ca3af] hover:text-[#f3f4f6] border border-[#232734]'
+                  ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] font-bold shadow'
+                  : 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] border border-[hsl(var(--border))]'
               }`}
             >
               PBR Lit
@@ -513,8 +513,8 @@ export const RightPropertyPanel: React.FC = () => {
               onClick={() => setShadingMode('wireframe')}
               className={`py-1.5 px-2 rounded-lg text-[10px] font-medium transition-all ${
                 shadingMode === 'wireframe'
-                  ? 'bg-[#f5c518] text-[#111216] font-bold shadow'
-                  : 'bg-[#161820] text-[#9ca3af] hover:text-[#f3f4f6] border border-[#232734]'
+                  ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] font-bold shadow'
+                  : 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] border border-[hsl(var(--border))]'
               }`}
             >
               Wireframe
@@ -524,8 +524,8 @@ export const RightPropertyPanel: React.FC = () => {
               onClick={() => setShadingMode('normals')}
               className={`py-1.5 px-2 rounded-lg text-[10px] font-medium transition-all ${
                 shadingMode === 'normals'
-                  ? 'bg-[#f5c518] text-[#111216] font-bold shadow'
-                  : 'bg-[#161820] text-[#9ca3af] hover:text-[#f3f4f6] border border-[#232734]'
+                  ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] font-bold shadow'
+                  : 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] border border-[hsl(var(--border))]'
               }`}
             >
               Normals
@@ -535,8 +535,8 @@ export const RightPropertyPanel: React.FC = () => {
               onClick={() => setShadingMode('matcap')}
               className={`py-1.5 px-2 rounded-lg text-[10px] font-medium transition-all ${
                 shadingMode === 'matcap'
-                  ? 'bg-[#f5c518] text-[#111216] font-bold shadow'
-                  : 'bg-[#161820] text-[#9ca3af] hover:text-[#f3f4f6] border border-[#232734]'
+                  ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] font-bold shadow'
+                  : 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] border border-[hsl(var(--border))]'
               }`}
             >
               MatCap
@@ -546,8 +546,8 @@ export const RightPropertyPanel: React.FC = () => {
               onClick={() => setShadingMode('textured')}
               className={`py-1.5 px-2 rounded-lg text-[10px] font-medium transition-all ${
                 shadingMode === 'textured'
-                  ? 'bg-[#f5c518] text-[#111216] font-bold shadow'
-                  : 'bg-[#161820] text-[#9ca3af] hover:text-[#f3f4f6] border border-[#232734]'
+                  ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] font-bold shadow'
+                  : 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] border border-[hsl(var(--border))]'
               }`}
             >
               Albedo
@@ -557,8 +557,8 @@ export const RightPropertyPanel: React.FC = () => {
               onClick={() => setShowWireframe(!showWireframe)}
               className={`py-1.5 px-2 rounded-lg text-[10px] font-medium transition-all ${
                 showWireframe
-                  ? 'bg-[#6366f1] text-white font-bold'
-                  : 'bg-[#161820] text-[#9ca3af] hover:text-[#f3f4f6] border border-[#232734]'
+                  ? 'bg-[hsl(var(--accent))] text-white font-bold'
+                  : 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] border border-[hsl(var(--border))]'
               }`}
             >
               + Wire Overlay
@@ -567,9 +567,9 @@ export const RightPropertyPanel: React.FC = () => {
         </div>
 
         {/* 5. Production Export Section */}
-        <div className="pt-3 border-t border-[#232732] space-y-3">
-          <span className="font-bold text-[11px] text-[#8e95a5] uppercase tracking-wider flex items-center gap-1.5">
-            <Download className="w-3.5 h-3.5 text-[#f5c518]" />
+        <div className="pt-3 border-t border-[hsl(var(--border))] space-y-3">
+          <span className="font-bold text-[11px] text-[hsl(var(--muted-foreground))] uppercase tracking-wider flex items-center gap-1.5">
+            <Download className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
             Quick Export Asset
           </span>
 
@@ -581,8 +581,8 @@ export const RightPropertyPanel: React.FC = () => {
                 onClick={() => setExportFormat(fmt)}
                 className={`py-1.5 rounded-lg uppercase font-mono font-bold text-[10px] transition-colors ${
                   exportFormat === fmt
-                    ? 'bg-[#f5c518] text-[#111216]'
-                    : 'bg-[#161820] text-[#9ca3af] hover:text-[#e5e7eb] border border-[#242834]'
+                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
+                    : 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] border border-[hsl(var(--border))]'
                 }`}
               >
                 {fmt}
@@ -592,22 +592,22 @@ export const RightPropertyPanel: React.FC = () => {
 
           {/* Export Options Toggles */}
           <div className="space-y-2 text-[11px]">
-            <label className="flex items-center justify-between text-[#cbd5e1] cursor-pointer">
+            <label className="flex items-center justify-between text-[hsl(var(--foreground))] cursor-pointer">
               <span>Embed PBR Textures</span>
               <input
                 type="checkbox"
                 checked={embedTextures}
                 onChange={(e) => setEmbedTextures(e.target.checked)}
-                className="rounded accent-[#f5c518] cursor-pointer"
+                className="rounded accent-[hsl(var(--primary))] cursor-pointer"
               />
             </label>
-            <label className="flex items-center justify-between text-[#cbd5e1] cursor-pointer">
+            <label className="flex items-center justify-between text-[hsl(var(--foreground))] cursor-pointer">
               <span>Draco Mesh Compression</span>
               <input
                 type="checkbox"
                 checked={dracoCompression}
                 onChange={(e) => setDracoCompression(e.target.checked)}
-                className="rounded accent-[#f5c518] cursor-pointer"
+                className="rounded accent-[hsl(var(--primary))] cursor-pointer"
               />
             </label>
           </div>
@@ -617,14 +617,14 @@ export const RightPropertyPanel: React.FC = () => {
             id="btn-export-download"
             onClick={handleExportDownload}
             disabled={isExporting}
-            className="w-full py-2.5 rounded-xl bg-[#202532] hover:bg-[#282f40] border border-[#363e52] text-[#f5c518] font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-md cursor-pointer"
+            className="w-full py-2.5 rounded-xl bg-[hsl(var(--surface-3))] hover:bg-[hsl(var(--surface-4))] border border-[hsl(var(--border))] text-[hsl(var(--primary))] font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-md cursor-pointer"
           >
             {isExporting ? (
-              <RefreshCw className="w-4 h-4 animate-spin text-[#f5c518]" />
+              <RefreshCw className="w-4 h-4 animate-spin text-[hsl(var(--primary))]" />
             ) : exportSuccess ? (
-              <Check className="w-4 h-4 text-[#22c55e]" />
+              <Check className="w-4 h-4 text-[hsl(var(--neon-green))]" />
             ) : (
-              <Download className="w-4 h-4 text-[#f5c518]" />
+              <Download className="w-4 h-4 text-[hsl(var(--primary))]" />
             )}
             <span>
               {isExporting ? 'Packing 3D Bundle...' : exportSuccess ? 'Export Saved!' : `Download ${exportFormat.toUpperCase()} Asset`}

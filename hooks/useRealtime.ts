@@ -43,6 +43,7 @@ export function useRealtime(): RealtimeState {
   });
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const reconnectAttemptsRef = useRef(0);
 
   const connect = useCallback(() => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -52,6 +53,7 @@ export function useRealtime(): RealtimeState {
     wsRef.current = ws;
 
     ws.onopen = () => {
+      reconnectAttemptsRef.current = 0;
       setState((s) => ({ ...s, connected: true }));
     };
 
@@ -77,8 +79,11 @@ export function useRealtime(): RealtimeState {
 
     ws.onclose = () => {
       setState((s) => ({ ...s, connected: false }));
-      // Reconnect after 5s
-      reconnectRef.current = setTimeout(connect, 5000);
+      wsRef.current = null;
+      // Exponential backoff: 1s, 2s, 4s, 8s, max 30s
+      reconnectAttemptsRef.current++;
+      const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current - 1), 30000);
+      reconnectRef.current = setTimeout(connect, delay);
     };
 
     ws.onerror = () => {
@@ -87,10 +92,23 @@ export function useRealtime(): RealtimeState {
   }, []);
 
   useEffect(() => {
+    // Don't reconnect if tab is hidden
+    const onVisibility = () => {
+      if (!document.hidden && !wsRef.current) {
+        reconnectAttemptsRef.current = 0;
+        connect();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
     connect();
     return () => {
-      if (wsRef.current) wsRef.current.close();
+      document.removeEventListener('visibilitychange', onVisibility);
       if (reconnectRef.current) clearTimeout(reconnectRef.current);
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
     };
   }, [connect]);
 

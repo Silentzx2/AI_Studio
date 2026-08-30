@@ -1,5 +1,18 @@
 # AI 3D Studio — Changelog
 
+## [v3.9.5] - 2026-08-30
+
+### Removed
+- **Text to 3D from workspace**: Removed the Text-to-3D feature from the general workspace UI. WorldGen (text/image-to-3D scene generation) remains as the sole workspace text-to-world provider at `/workspace/worldgen`.
+
+### Changed
+- **Solid color theme**: Replaced all transparency/opacity-based colors with solid color values across the UI for consistent rendering.
+- **Performance optimizations**: Added request deduplication for API polling to reduce redundant network calls and improve responsiveness.
+
+### Fixed
+- **Gray/invisible UI elements**: Fixed CSS variable definitions that caused UI elements to render as gray or invisible.
+- **Extra scrollbars**: Removed unintended scrollbars from workspace pages.
+
 ## [v4.6.0] - 2026-08-29
 
 ### Added

@@ -8,9 +8,10 @@
  *
  * @WARNING Using this hook inside WorkspaceContext subtree duplicates polling.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { apiClient } from '@/services/apiClient';
 import { useRealtime } from '@/hooks/useRealtime';
+import { dedupedGet, TTL } from '@/lib/requestDedup';
 
 export type BackendStatus = 'unknown' | 'online' | 'offline';
 
@@ -53,25 +54,31 @@ export function useRuntimeOptions() {
   const [options, setOptions] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const esRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
     let active = true;
 
     // Try SSE first for real-time system stats
     const es = new EventSource('/api/v1/system/stream');
+    esRef.current = es;
     es.onmessage = (e) => {
       if (!active) return;
       try {
         const data = JSON.parse(e.data);
         // Merge SSE data into options when we have it
         setOptions((prev: any) => prev ? { ...prev, ...data } : data);
-      } catch {}
+      } catch { /* ignore parse errors */ }
+    };
+    es.onerror = () => {
+      es.close();
+      esRef.current = null;
     };
 
-    // Fetch full options data
+    // Fetch full options data (deduped — 30s TTL)
     const fetchOptions = async () => {
       try {
-        const data = await apiClient.get<any>('/api/v1/runtime/options');
+        const data = await dedupedGet<any>('/api/v1/runtime/options', TTL.OPTIONS);
         if (active) {
           setOptions((prev: any) => ({ ...(data?.data ?? data ?? {}), ...prev }));
           setError(null);
@@ -86,7 +93,13 @@ export function useRuntimeOptions() {
     };
 
     fetchOptions();
-    return () => { active = false; es.close(); };
+    return () => {
+      active = false;
+      if (esRef.current) {
+        esRef.current.close();
+        esRef.current = null;
+      }
+    };
   }, []);
 
   return { options, loading, error };

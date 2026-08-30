@@ -1,5 +1,6 @@
 import type { SystemStats } from '@/features/new-workspace/types';
 import { apiClient as baseApiClient } from '@/services/apiClient';
+import { dedupedGet } from '@/lib/requestDedup';
 
 export interface HistoryItem {
   prompt?: [number, string, Record<string, unknown>, Record<string, unknown>, string[]];
@@ -62,9 +63,9 @@ class ApiClient {
     const start = performance.now();
     try {
       const [sysRes, gpuRes, runtimeRes] = await Promise.allSettled([
-        baseApiClient.get<Record<string, unknown>>(`${API_BASE}/system/info`),
-        baseApiClient.get<Record<string, unknown>>(`${API_BASE}/system/gpu`),
-        baseApiClient.get<Record<string, unknown>>(`${API_BASE}/runtime/status`),
+        dedupedGet<Record<string, unknown>>('/api/v1/system/info'),
+        dedupedGet<Record<string, unknown>>('/api/v1/system/gpu'),
+        dedupedGet<Record<string, unknown>>('/api/v1/runtime/status'),
       ]);
 
       const latency = Math.round(performance.now() - start);

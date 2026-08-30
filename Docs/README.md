@@ -63,8 +63,8 @@
 
 | Feature | Description | Status | Version |
 |---------|-------------|--------|---------|
-| **Text-to-3D** | Generate 3D models from text descriptions | ✅ | v1 |
 | **Image-to-3D** | Convert 2D images to 3D models | ✅ | v1 |
+| **WorldGen** | Text/image-to-3D scene generation (Gaussian Splatting) | ✅ | v3.9 |
 | **Model Discovery** | Browse models from 5+ sources | ✅ | V2 |
 | **Smart Download** | Resumable, chunked downloads with mirror fallback | ✅ | V2 |
 | **Health Monitoring** | Comprehensive system & model diagnostics | ✅ | V2 |
@@ -76,7 +76,8 @@
 | **Workspace Compatibility** | Model-to-workspace filtering (prevents invalid selection) | ✅ | v3.3 |
 | **Texture Pipeline** | Production-grade PBR texture generation with model selection | ✅ | v3.3 |
 | **3D Viewer** | In-browser Three.js rendering with environment controls | ✅ | v1 |
-| **WorldGen** | Procedural world & environment generation | ✅ | v4.5 |
+| **Solid Theme** | Consistent solid-color UI (no transparency) | ✅ | v3.9 |
+| **Request Dedup** | API polling request deduplication | ✅ | v3.9 |
 | **Admin Dashboard** | System administration interface | ✅ | v1 |
 | **Auto-Optimize** | Post-generation mesh decimation & UV fixing | ✅ | v4.4.8 |
 | **File Validation** | Client-side GLB structure & magic bytes validation | ✅ | v4.4.8 |

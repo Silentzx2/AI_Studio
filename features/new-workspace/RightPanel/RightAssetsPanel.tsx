@@ -179,7 +179,7 @@ export const RightAssetsPanel: React.FC = () => {
   const paginatedAssets = filteredAssets.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
 
   return (
-    <div id="panel-assets-library" className="flex flex-col h-full bg-[#101115] text-xs select-none">
+    <div id="panel-assets-library" className="flex flex-col h-full bg-[hsl(var(--surface-1))] text-xs select-none">
       {/* Hidden file input for uploading custom 3D files */}
       <input 
         ref={fileInputRef}
@@ -190,7 +190,7 @@ export const RightAssetsPanel: React.FC = () => {
       />
 
       {/* Top Action Sub-bar (Matching Reference Image) */}
-      <div className="p-2.5 border-b border-[#21242c] space-y-2">
+      <div className="p-2.5 border-b border-[hsl(var(--border))] space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             {/* Grid / All View */}
@@ -199,8 +199,8 @@ export const RightAssetsPanel: React.FC = () => {
                 onClick={() => { setShowFavoritesOnly(false); setAssetFilter('all'); }}
                 className={`p-1.5 rounded-lg transition-colors ${
                   !showFavoritesOnly && assetFilter === 'all'
-                    ? 'bg-[#232733] text-[#f5c518]'
-                    : 'text-[#8e95a5] hover:text-[#f3f4f6] hover:bg-[#181a22]'
+                    ? 'bg-[hsl(var(--surface-3))] text-[hsl(var(--primary))]'
+                    : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
                 }`}
               >
                 <GridIcon className="w-3.5 h-3.5" />
@@ -213,8 +213,8 @@ export const RightAssetsPanel: React.FC = () => {
                 onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
                 className={`p-1.5 rounded-lg transition-colors ${
                   showFavoritesOnly
-                    ? 'bg-[#232733] text-[#f5c518]'
-                    : 'text-[#8e95a5] hover:text-[#f3f4f6] hover:bg-[#181a22]'
+                    ? 'bg-[hsl(var(--surface-3))] text-[hsl(var(--primary))]'
+                    : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
                 }`}
               >
                 <Star className="w-3.5 h-3.5" />
@@ -228,8 +228,8 @@ export const RightAssetsPanel: React.FC = () => {
                   onClick={() => setFilterMenuOpen(!filterMenuOpen)}
                   className={`p-1.5 rounded-lg transition-colors ${
                     assetFilter !== 'all'
-                      ? 'bg-[#232733] text-[#f5c518]'
-                      : 'text-[#8e95a5] hover:text-[#f3f4f6] hover:bg-[#181a22]'
+                      ? 'bg-[hsl(var(--surface-3))] text-[hsl(var(--primary))]'
+                      : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
                   }`}
                 >
                   <Filter className="w-3.5 h-3.5" />
@@ -237,22 +237,22 @@ export const RightAssetsPanel: React.FC = () => {
               </SimpleTooltip>
 
               {filterMenuOpen && (
-                <div className="absolute top-full left-0 mt-1.5 w-36 py-1 rounded-xl bg-[#181a22] border border-[#2b3040] shadow-2xl z-50 text-xs">
+                <div className="absolute top-full left-0 mt-1.5 w-36 py-1 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] shadow-2xl z-50 text-xs">
                   <button
                     onClick={() => { setAssetFilter('all'); setFilterMenuOpen(false); }}
-                    className="w-full text-left px-2.5 py-1 hover:bg-[#232734] text-[#cbd5e1]"
+                    className="w-full text-left px-2.5 py-1 hover:bg-[hsl(var(--surface-3))] text-[hsl(var(--foreground))]"
                   >
                     All Assets
                   </button>
                   <button
                     onClick={() => { setAssetFilter('models'); setFilterMenuOpen(false); }}
-                    className="w-full text-left px-2.5 py-1 hover:bg-[#232734] text-[#cbd5e1]"
+                    className="w-full text-left px-2.5 py-1 hover:bg-[hsl(var(--surface-3))] text-[hsl(var(--foreground))]"
                   >
                     3D Models
                   </button>
                   <button
                     onClick={() => { setAssetFilter('textures'); setFilterMenuOpen(false); }}
-                    className="w-full text-left px-2.5 py-1 hover:bg-[#232734] text-[#cbd5e1]"
+                    className="w-full text-left px-2.5 py-1 hover:bg-[hsl(var(--surface-3))] text-[hsl(var(--foreground))]"
                   >
                     PBR Textures
                   </button>
@@ -265,7 +265,7 @@ export const RightAssetsPanel: React.FC = () => {
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-[#cbd5e1] hover:text-[#f5c518] hover:bg-[#181a22] border border-[#242834] transition-colors"
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-[hsl(var(--foreground))] hover:text-[hsl(var(--primary))] hover:bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] transition-colors"
             >
               <span>Manage</span>
             </button>
@@ -274,7 +274,7 @@ export const RightAssetsPanel: React.FC = () => {
                 setDiagnosticFile(null);
                 setIsDiagnosticOpen(true);
               }}
-              className="p-1.5 rounded-lg text-[#8e95a5] hover:text-[#f5c518] hover:bg-[#181a22] border border-[#242834] transition-colors"
+              className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] hover:bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] transition-colors"
             >
               <SimpleTooltip label="Diagnose upload issues">
                 <span className="flex items-center justify-center">
@@ -289,9 +289,9 @@ export const RightAssetsPanel: React.FC = () => {
       {/* Main Asset Grid Body */}
       <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
         {filteredAssets.length === 0 && (
-          <div className="py-14 px-4 text-center text-[#6b7280]">
-            <FolderOpen className="w-8 h-8 mx-auto mb-3 text-[#3d4350]" />
-            <div className="text-xs font-semibold text-[#9ca3af]">No real outputs yet</div>
+          <div className="py-14 px-4 text-center text-[hsl(var(--muted-foreground))]">
+            <FolderOpen className="w-8 h-8 mx-auto mb-3 text-[hsl(var(--muted-foreground))]" />
+            <div className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">No real outputs yet</div>
             <div className="text-[10px] mt-1">Run a generation workflow or import a local 3D file.</div>
           </div>
         )}
@@ -305,37 +305,37 @@ export const RightAssetsPanel: React.FC = () => {
             onClick={() => fileInputRef.current?.click()}
             className={`group relative rounded-xl border border-dashed cursor-pointer p-3 flex flex-col items-center justify-center text-center aspect-square transition-all ${
               isDragOver
-                ? 'border-[#f5c518] bg-[#f5c518]/10 scale-105'
-                : 'border-[#2f3545] hover:border-[#f5c518]/60 bg-[#12141a] hover:bg-[#161922]'
+                ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 scale-105'
+                : 'border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/60 bg-[hsl(var(--surface-1))] hover:bg-[hsl(var(--surface-2))]'
             }`}
           >
             {uploadProgress.active ? (
               <div className="flex flex-col items-center justify-center space-y-1 w-full">
-                <Loader2 className="w-6 h-6 animate-spin text-[#f5c518]" />
-                <div className="w-full bg-[#1b1e28] rounded-full h-1.5 overflow-hidden">
+                <Loader2 className="w-6 h-6 animate-spin text-[hsl(var(--primary))]" />
+                <div className="w-full bg-[hsl(var(--surface-3))] rounded-full h-1.5 overflow-hidden">
                   <div
-                    className="bg-[#f5c518] h-full rounded-full transition-all duration-200"
+                    className="bg-[hsl(var(--primary))] h-full rounded-full transition-all duration-200"
                     style={{ width: `${uploadProgress.percent}%` }}
                   />
                 </div>
-                <span className="text-[9px] text-[#6b7280]">
+                <span className="text-[9px] text-[hsl(var(--muted-foreground))]">
                   {uploadProgress.percent}% ({(uploadProgress.loadedBytes / 1024 / 1024).toFixed(1)}/{(uploadProgress.totalBytes / 1024 / 1024).toFixed(1)} MB)
                 </span>
               </div>
             ) : (
               <>
-                <div className={`w-8 h-8 rounded-full bg-[#1b1e28] border border-[#282d3b] flex items-center justify-center transition-all mb-1.5 ${
-                  isDragOver ? 'text-[#f5c518] border-[#f5c518] scale-110' : 'text-[#8e95a5] group-hover:text-[#f5c518] group-hover:scale-105'
+                <div className={`w-8 h-8 rounded-full bg-[hsl(var(--surface-3))] border border-[hsl(var(--border))] flex items-center justify-center transition-all mb-1.5 ${
+                  isDragOver ? 'text-[hsl(var(--primary))] border-[hsl(var(--primary))] scale-110' : 'text-[hsl(var(--muted-foreground))] group-hover:text-[hsl(var(--primary))] group-hover:scale-105'
                 }`}>
                   <Box className="w-4 h-4" />
                 </div>
-                <span className="text-[11px] font-bold text-[#e5e7eb] leading-tight block">
+                <span className="text-[11px] font-bold text-[hsl(var(--foreground))] leading-tight block">
                   {isDragOver ? 'Drop model here' : 'Upload 3D Model'}
                 </span>
-                <span className="text-[9px] text-[#717786] mt-0.5 block">
+                <span className="text-[9px] text-[hsl(var(--muted-foreground))] mt-0.5 block">
                   OBJ, FBX, STL, GLB
                 </span>
-                <span className="text-[9px] text-[#555a68] block">
+                <span className="text-[9px] text-muted-foreground block">
                   Size ≤150MB
                 </span>
               </>
@@ -343,7 +343,7 @@ export const RightAssetsPanel: React.FC = () => {
           </div>
 
           {uploadError && (
-            <div className="flex items-center gap-1 text-[10px] text-[#ef4444] px-1">
+            <div className="flex items-center gap-1 text-[10px] text-[hsl(var(--destructive))] px-1">
               <AlertCircle className="w-3 h-3" />
               <span>{uploadError}</span>
             </div>
@@ -366,13 +366,13 @@ export const RightAssetsPanel: React.FC = () => {
                 onClick={() => setCurrentAsset(asset)}
                 className={`group relative rounded-xl overflow-hidden cursor-grab active:cursor-grabbing transition-all aspect-square flex flex-col ${
                   isSelected
-                    ? 'ring-2 ring-[#f5c518] bg-[#1a1d26] shadow-lg shadow-[#f5c518]/15'
-                    : 'border border-[#212530] bg-[#13151b] hover:border-[#383f50] hover:bg-[#161922]'
+                    ? 'ring-2 ring-[hsl(var(--primary))] bg-[hsl(var(--surface-2))] shadow-lg shadow-[hsl(var(--primary))]/15'
+                    : 'border border-[hsl(var(--border))] bg-[hsl(var(--surface-1))] hover:border-[hsl(var(--border))] hover:bg-[hsl(var(--surface-2))]'
                 }`}
                 title={`Click or drag "${asset.name}" into 3D Viewport`}
               >
                 {/* 3D Asset Thumbnail */}
-                <div className="relative w-full flex-1 bg-[#0b0c0f] overflow-hidden">
+                <div className="relative w-full flex-1 bg-[hsl(var(--surface-0))] overflow-hidden">
                   {asset.thumbnail ? (
                     <img
                       src={asset.thumbnail}
@@ -381,15 +381,15 @@ export const RightAssetsPanel: React.FC = () => {
                       crossOrigin="anonymous"
                     />
                   ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-[#15171d] to-[#0d0e12] gap-1 p-2">
-                      <div className="w-10 h-10 rounded-lg bg-[#1e2129] border border-[#2a2e39] flex items-center justify-center">
-                        <Box className="w-5 h-5 text-[#6b7280]" />
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-[hsl(var(--surface-2))] to-[hsl(var(--surface-0))] gap-1 p-2">
+                      <div className="w-10 h-10 rounded-lg bg-[hsl(var(--border))] border border-[hsl(var(--border))] flex items-center justify-center">
+                        <Box className="w-5 h-5 text-[hsl(var(--muted-foreground))]" />
                       </div>
-                      <span className="text-[9px] font-bold text-[#8b9099] uppercase tracking-wider">
+                      <span className="text-[9px] font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">
                         {asset.format}
                       </span>
                       {asset.statsAvailable && (
-                        <span className="text-[8px] text-[#5a5f6b]">
+                        <span className="text-[8px] text-[hsl(var(--muted-foreground))]">
                           {asset.faces.toLocaleString()} faces
                         </span>
                       )}
@@ -397,25 +397,25 @@ export const RightAssetsPanel: React.FC = () => {
                   )}
 
                   {/* Info Badge (i) on bottom-left of thumbnail */}
-                  <div className="absolute bottom-1.5 left-1.5 w-4 h-4 rounded-full bg-[#0d0e12]/80 backdrop-blur-sm border border-[#252a36] flex items-center justify-center text-[#9ca3af] text-[9px] font-mono">
+                  <div className="absolute bottom-1.5 left-1.5 w-4 h-4 rounded-full bg-[hsl(var(--surface-0))]/80 backdrop-blur-sm border border-[hsl(var(--border))] flex items-center justify-center text-[hsl(var(--muted-foreground))] text-[9px] font-mono">
                     i
                   </div>
 
                   {isSelected && (
-                    <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-[#f5c518] flex items-center justify-center text-[#111216] shadow">
+                    <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-[hsl(var(--primary))] flex items-center justify-center text-[hsl(var(--primary-foreground))] shadow">
                       <Check className="w-2.5 h-2.5 stroke-[3]" />
                     </div>
                   )}
                 </div>
 
                 {/* Bottom Asset Label */}
-                <div className="px-2 py-1 bg-[#12141a]/95 border-t border-[#1e222c] flex items-center justify-between gap-1">
+                <div className="px-2 py-1 bg-[hsl(var(--surface-1))]/95 border-t border-[hsl(var(--border))] flex items-center justify-between gap-1">
                   <div className="flex flex-col min-w-0">
-                    <span className={`text-[10px] font-medium truncate ${isSelected ? 'text-[#f5c518] font-bold' : 'text-[#cbd5e1]'}`}>
+                    <span className={`text-[10px] font-medium truncate ${isSelected ? 'text-[hsl(var(--primary))] font-bold' : 'text-[hsl(var(--foreground))]'}`}>
                       {asset.name}
                     </span>
                     {asset.statsAvailable && (
-                      <span className="text-[8px] text-[#6b7280] truncate">
+                      <span className="text-[8px] text-[hsl(var(--muted-foreground))] truncate">
                         {asset.format} · {asset.faces.toLocaleString()} faces · {asset.vertices.toLocaleString()} verts
                       </span>
                     )}
@@ -428,22 +428,22 @@ export const RightAssetsPanel: React.FC = () => {
                         e.stopPropagation();
                         setActiveMenuAssetId(activeMenuAssetId === asset.id ? null : asset.id);
                       }}
-                      className="p-0.5 rounded text-[#717684] hover:text-[#f3f4f6]"
+                      className="p-0.5 rounded text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
                     >
                       <MoreVertical className="w-2.5 h-2.5" />
                     </button>
 
                       {activeMenuAssetId === asset.id && (
-                        <div className="absolute right-0 bottom-full mb-1 w-28 py-1 rounded-lg bg-[#1a1d26] border border-[#2e3342] shadow-xl z-50 text-[10px]">
+                        <div className="absolute right-0 bottom-full mb-1 w-28 py-1 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] shadow-xl z-50 text-[10px]">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               duplicateAsset(asset.id);
                               setActiveMenuAssetId(null);
                             }}
-                           className="w-full text-left px-2 py-1 text-[#e5e7eb] hover:bg-[#252a36] flex items-center gap-1"
+                           className="w-full text-left px-2 py-1 text-[hsl(var(--foreground))] hover:bg-[hsl(var(--border))] flex items-center gap-1"
                          >
-                           <Copy className="w-2.5 h-2.5 text-[#f5c518]" />
+                           <Copy className="w-2.5 h-2.5 text-[hsl(var(--primary))]" />
                            <span>Duplicate</span>
                          </button>
                          {assets.length > 1 && (
@@ -453,7 +453,7 @@ export const RightAssetsPanel: React.FC = () => {
                                deleteAsset(asset.id);
                                setActiveMenuAssetId(null);
                              }}
-                             className="w-full text-left px-2 py-1 text-[#ef4444] hover:bg-[#252a36] flex items-center gap-1"
+                             className="w-full text-left px-2 py-1 text-[hsl(var(--destructive))] hover:bg-[hsl(var(--border))] flex items-center gap-1"
                            >
                              <Trash2 className="w-2.5 h-2.5" />
                              <span>Delete</span>
@@ -470,11 +470,11 @@ export const RightAssetsPanel: React.FC = () => {
       </div>
 
       {/* Pagination Footer */}
-      <div className="p-2 border-t border-[#21242c] flex items-center justify-center gap-1 text-xs text-[#8e95a5]">
+      <div className="p-2 border-t border-[hsl(var(--border))] flex items-center justify-center gap-1 text-xs text-[hsl(var(--muted-foreground))]">
         <button
           onClick={() => setActivePage(Math.max(1, activePage - 1))}
           disabled={activePage <= 1}
-          className="p-1 rounded hover:text-[#f3f4f6] hover:bg-[#181a20] disabled:opacity-40"
+          className="p-1 rounded hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))] disabled:opacity-40"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
         </button>
@@ -484,7 +484,7 @@ export const RightAssetsPanel: React.FC = () => {
             key={page}
             onClick={() => setActivePage(page)}
             className={`w-5 h-5 rounded flex items-center justify-center text-xs font-bold ${
-              safePage === page ? 'bg-[#f5c518] text-[#111216]' : 'hover:text-[#f3f4f6] hover:bg-[#181a20]'
+              safePage === page ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]' : 'hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]'
             }`}
           >
             {page}
@@ -494,7 +494,7 @@ export const RightAssetsPanel: React.FC = () => {
         <button
           onClick={() => setActivePage(Math.min(totalPages, activePage + 1))}
           disabled={activePage >= totalPages}
-          className="p-1 rounded hover:text-[#f3f4f6] hover:bg-[#181a20] disabled:opacity-40"
+          className="p-1 rounded hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))] disabled:opacity-40"
         >
           <ChevronRight className="w-3.5 h-3.5" />
         </button>

@@ -18,6 +18,7 @@ import { useAppStore } from '@/stores/useAppStore';
 import { useViewerStore } from '@/stores/useViewerStore';
 import { shadingModeToPreset, presetToShadingMode } from '@/lib/storeAdapter';
 import { useRouter, usePathname } from 'next/navigation';
+import { dedupedGet, TTL } from '@/lib/requestDedup';
 
 interface WorkspaceContextType {
   activeTool: ToolType;
@@ -345,23 +346,46 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   useEffect(() => {
     let cancelled = false;
-    let timeoutId: ReturnType<typeof setTimeout>;
+    let statsTimeoutId: ReturnType<typeof setTimeout>;
+    let historyTimeoutId: ReturnType<typeof setTimeout>;
+    let isStatsPending = false;
+    let isHistoryPending = false;
+
     // Immediately fetch stats and history on mount
     void refreshSystemStats();
     void refreshHistory();
 
-    const poll = () => {
+    // Poll system stats every 15s (reduced frequency to avoid UI blocking)
+    const pollStats = () => {
       if (cancelled) return;
       if (typeof document === 'undefined' || !document.hidden) {
-        void refreshSystemStats();
-        void refreshHistory();
+        if (!isStatsPending) {
+          isStatsPending = true;
+          refreshSystemStats().finally(() => { isStatsPending = false; });
+        }
       }
-      timeoutId = setTimeout(poll, 8000);
+      statsTimeoutId = setTimeout(pollStats, 15000);
     };
-    timeoutId = setTimeout(poll, 8000);
+
+    // Poll history every 30s (less frequent — only new completed jobs)
+    const pollHistory = () => {
+      if (cancelled) return;
+      if (typeof document === 'undefined' || !document.hidden) {
+        if (!isHistoryPending) {
+          isHistoryPending = true;
+          refreshHistory().finally(() => { isHistoryPending = false; }
+          );
+        }
+      }
+      historyTimeoutId = setTimeout(pollHistory, 30000);
+    };
+
+    statsTimeoutId = setTimeout(pollStats, 15000);
+    historyTimeoutId = setTimeout(pollHistory, 30000);
     return () => {
       cancelled = true;
-      clearTimeout(timeoutId);
+      clearTimeout(statsTimeoutId);
+      clearTimeout(historyTimeoutId);
     };
   }, [refreshSystemStats, refreshHistory]);
 

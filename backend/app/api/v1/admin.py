@@ -23,6 +23,7 @@ import shutil
 import subprocess
 import threading
 from collections.abc import AsyncGenerator
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -409,8 +410,17 @@ async def get_terminal_history():
 
 _DL_STATE: dict[str, dict] = {}  # model_id -> progress dict
 _DL_LOCK = threading.Lock()
+# Event-driven SSE: one asyncio.Event per model_id, set on state change.
+# SSE endpoints wait on these instead of polling, eliminating lock contention
+# and reducing update latency from 500ms to near-instant.
+_DL_EVENTS: dict[str, asyncio.Event] = {}
+_DL_EVENTS_LOCK = threading.Lock()
 # ponytail: _DL_STATE/_DL_LOCK are per-process. Multi-worker deployments
 # (gunicorn --workers >1, Celery) need Redis-backed shared state instead.
+
+# Dedicated executor for disk writes — prevents _dl_save_state() from
+# blocking the event loop or contending on _DL_STATE with readers.
+_DL_SAVE_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="dl-save")
 
 
 def _dl_get(model_id: str) -> dict | None:
@@ -529,11 +539,23 @@ def _dl_init(model_id: str) -> None:
             "updated_at": time.time(),
             "_speed_samples": [],
         }
+    # Register an asyncio.Event for SSE subscribers to await on.
+    with _DL_EVENTS_LOCK:
+        # Reuse existing event if present (e.g. re-init after cancel).
+        if model_id not in _DL_EVENTS:
+            loop = _LOG_EVENT_LOOP
+            if loop is not None:
+                _DL_EVENTS[model_id] = asyncio.Event()
     _dl_save_state()
 
 
 def _dl_update(model_id: str, **fields) -> None:
-    """Thread-safe update of download state."""
+    """Thread-safe update of download state with event notification.
+
+    SSE subscribers are notified immediately via asyncio.Event instead of
+    polling. Disk persistence is deferred to a background executor to
+    avoid blocking the caller or contending on _DL_LOCK.
+    """
     with _DL_LOCK:
         if model_id not in _DL_STATE:
             return
@@ -565,7 +587,22 @@ def _dl_update(model_id: str, **fields) -> None:
 
         state.update(fields)
         state["updated_at"] = now
-    _dl_save_state()
+
+    # Notify SSE subscribers immediately (outside lock to avoid contention).
+    # The event is set; SSE generators awaiting it will wake instantly.
+    loop = _LOG_EVENT_LOOP
+    if loop is not None:
+        with _DL_EVENTS_LOCK:
+            events_to_notify = list(_DL_EVENTS.items())
+        for eid, event in events_to_notify:
+            if eid == model_id or eid == "__all__":
+                try:
+                    loop.call_soon_threadsafe(event.set)
+                except Exception:
+                    pass
+
+    # Persist to disk in background executor — never blocks the caller.
+    _DL_SAVE_EXECUTOR.submit(_dl_save_state)
 
 
 def _dl_snapshot(model_id: str) -> dict:
@@ -573,6 +610,29 @@ def _dl_snapshot(model_id: str) -> dict:
     with _DL_LOCK:
         state = _DL_STATE.get(model_id, {})
         return {k: v for k, v in state.items() if not k.startswith("_")}
+
+
+def _build_sse_data(model_id: str, state: dict) -> dict:
+    """Build the SSE payload dict from a raw state dict."""
+    speed_bps = state.get("speed_bps", 0) or 0
+    bytes_dl = state.get("bytes_downloaded", 0)
+    bytes_tot = state.get("bytes_total", 0)
+    return {
+        "model_id": model_id,
+        "status": state.get("status", "unknown"),
+        "phase": state.get("phase", ""),
+        "percent": state.get("percent", 0),
+        "progress": state.get("percent", 0),
+        "speed_bps": speed_bps,
+        "speed_mbps": speed_bps / (1024 * 1024),
+        "bytes_downloaded": bytes_dl,
+        "bytes_total": bytes_tot,
+        "downloaded_mb": bytes_dl / (1024 * 1024),
+        "total_mb": bytes_tot / (1024 * 1024),
+        "eta_seconds": state.get("eta_seconds"),
+        "log": state.get("log", ""),
+        "error": state.get("error"),
+    }
 
 
 def _parse_log_for_progress(model_id: str, msg: str) -> None:
@@ -728,7 +788,10 @@ async def admin_overview():
         storage_used_gb = 0.0
         storage_total_gb = 0.0
         try:
-            cpu_usage = round(psutil.cpu_percent(interval=0.1), 1)
+            # ponytail: interval=0 is non-blocking (instantaneous reading).
+            # interval=0.1 would block the event loop for 100ms, causing
+            # frontend freezes when this endpoint is polled frequently.
+            cpu_usage = round(psutil.cpu_percent(interval=0), 1)
             ram_usage = round(psutil.virtual_memory().percent, 1)
             disk = psutil.disk_usage("/")
             storage_used_gb = round((disk.total - disk.free) / (1024 ** 3), 1)
@@ -791,8 +854,9 @@ async def admin_system():
                 "total_gb": round(vm.total / (1024 ** 3), 1),
                 "percent": round(vm.percent, 1),
             }
+            # ponytail: interval=0 is non-blocking; interval=0.1 blocks event loop
             cpu_info = {
-                "percent": round(psutil.cpu_percent(interval=0.1), 1),
+                "percent": round(psutil.cpu_percent(interval=0), 1),
                 "count": psutil.cpu_count() or 1,
             }
             d = psutil.disk_usage("/")
@@ -970,13 +1034,16 @@ async def admin_status():
         queue_depth = 0
         try:
             from app.workers.celery_app import celery_app
-            inspect = celery_app.control.inspect(timeout=1.0)
-            active = inspect.active() or {}
-            reserved = inspect.reserved() or {}
-            queue_depth = (
-                sum(len(v) for v in active.values())
-                + sum(len(v) for v in reserved.values())
-            )
+
+            # ponytail: run_in_executor prevents blocking the event loop
+            # when celery workers are slow to respond.
+            loop = asyncio.get_running_loop()
+            def _inspect_queue():
+                inspect = celery_app.control.inspect(timeout=1.0)
+                active = inspect.active() or {}
+                reserved = inspect.reserved() or {}
+                return sum(len(v) for v in active.values()) + sum(len(v) for v in reserved.values())
+            queue_depth = await loop.run_in_executor(None, _inspect_queue)
         except Exception:
             pass
         return success({
@@ -1011,6 +1078,14 @@ async def admin_status():
 async def list_models():
     """List all models/providers — used by ModelsTab."""
     try:
+        # Use cached result to avoid expensive filesystem + DB checks on every poll.
+        # install_status is cached for 10s; we add another layer here for the
+        # full model list (which includes path resolution per model).
+        from app.core.cache import get_cached, set_cached
+        cached = get_cached("list_models", ttl_seconds=8)
+        if cached is not None:
+            return success(cached)
+
         from runtime.engine import get_engine
         from runtime.installer import (
             get_install_status,
@@ -1061,7 +1136,9 @@ async def list_models():
                 "size_mb": int((HF_MODELS.get(name, {}).get("size_estimate_gb") or 0) * 1024),
                 "download_progress": _dl_snapshot(name) if name in _DL_STATE else None,
             })
-        return success({"models": models})
+        result = {"models": models}
+        set_cached("list_models", result)
+        return success(result)
     except Exception as exc:
         logger.exception("list_models failed")
         return error(f"Models error: {exc}")
@@ -1333,62 +1410,62 @@ async def get_install_progress(model_id: str):
     return success(_dl_snapshot(model_id))
 
 
-# FINAL_FIX_REPORT: Changed - Added proper SSE streaming endpoint with timeout protection and state polling
 @router.get("/install/stream/{model_id}")
 async def install_stream(model_id: str) -> StreamingResponse:
     """Stream installation progress via Server-Sent Events (SSE).
 
-    Connects to _DL_STATE and broadcasts progress updates in real-time.
-    Frontend uses EventSource to listen to this stream.
+    Uses event-driven updates via asyncio.Event — subscribers are notified
+    immediately when state changes, eliminating the 500ms polling delay
+    and lock contention that caused the freeze.
     """
     # Restore state from disk if in-memory state was lost (e.g. worker restart)
     _dl_load_state()
 
     async def _stream_progress() -> AsyncGenerator[str, None]:
         """Generate SSE events for model installation progress."""
-        last_update = 0.0
-        timeout_counter = 0
+        # Get or create the event for this model
+        with _DL_EVENTS_LOCK:
+            event = _DL_EVENTS.get(model_id)
+            if event is None:
+                event = asyncio.Event()
+                _DL_EVENTS[model_id] = event
 
+        # Send initial state immediately
+        with _DL_LOCK:
+            state = _DL_STATE.get(model_id)
+        if state is not None:
+            data = _build_sse_data(model_id, state)
+            yield f"data: {json.dumps(data)}\n\n"
+
+        timeout_counter = 0
         while timeout_counter < 3600:  # 60 minute timeout
             try:
-                # Get current progress state
+                # Wait for state change event (with timeout as safety net)
+                try:
+                    await asyncio.wait_for(event.wait(), timeout=2.0)
+                    event.clear()  # Reset for next update
+                except asyncio.TimeoutError:
+                    # No update in 2s — send heartbeat to keep connection alive
+                    yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
+                    timeout_counter += 2
+                    continue
+
+                # Read current state and send update
                 with _DL_LOCK:
                     state = _DL_STATE.get(model_id)
 
                 if state is None:
-                    # Not yet initialized - wait and retry
-                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(0.1)
                     timeout_counter += 1
                     continue
 
-                # Only send update if state changed
-                current_time = time.time()
-                if current_time - last_update >= 0.5:  # Update every 500ms max
-                    data = {
-                        "model_id": model_id,
-                        "status": state.get("status", "unknown"),
-                        "phase": state.get("phase", ""),
-                        "percent": state.get("percent", 0),
-                        "progress": state.get("percent", 0),
-                        "speed_bps": state.get("speed_bps", 0),
-                        "speed_mbps": state.get("speed_bps", 0) / (1024 * 1024) if state.get("speed_bps") else 0,
-                        "bytes_downloaded": state.get("bytes_downloaded", 0),
-                        "bytes_total": state.get("bytes_total", 0),
-                        "downloaded_mb": state.get("bytes_downloaded", 0) / (1024 * 1024),
-                        "total_mb": state.get("bytes_total", 0) / (1024 * 1024),
-                        "eta_seconds": state.get("eta_seconds"),
-                        "log": state.get("log", ""),
-                        "error": state.get("error"),
-                    }
+                data = _build_sse_data(model_id, state)
+                yield f"data: {json.dumps(data)}\n\n"
 
-                    yield f"data: {json.dumps(data)}\n\n"
-                    last_update = current_time
+                # Stop if completed or failed
+                if state.get("status") in ("completed", "failed"):
+                    break
 
-                    # Stop if completed or failed
-                    if state.get("status") in ("completed", "failed"):
-                        break
-
-                await asyncio.sleep(0.5)
                 timeout_counter += 1
 
             except asyncio.CancelledError:
@@ -1398,54 +1475,61 @@ async def install_stream(model_id: str) -> StreamingResponse:
                 yield f"data: {json.dumps({'error': str(exc)})}\n\n"
                 break
 
-        # Final status update
-        with _DL_LOCK:
-            state = _DL_STATE.get(model_id)
-            if state:
-                yield f"data: {json.dumps({'status': state.get('status'), 'percent': state.get('percent', 0)})}\n\n"
-
     return StreamingResponse(_stream_progress(), media_type="text/event-stream")
 
 
 @router.get("/install/stream")
 async def stream_all_install_progress():
-    """SSE stream broadcasting progress for ALL active downloads."""
+    """SSE stream broadcasting progress for ALL active downloads.
+
+    Event-driven: wakes immediately when any download state changes,
+    rather than polling every 250ms.
+    """
     _dl_load_state()
+
     async def _gen() -> AsyncGenerator[str, None]:
-        last_json = ""
-        last_heartbeat = time.monotonic()
+        # Create a shared event that fires on any model state change
+        with _DL_EVENTS_LOCK:
+            all_event = asyncio.Event()
+            _DL_EVENTS["__all__"] = all_event
 
-        # Yield current state immediately so reconnecting clients see
-        # live progress without waiting for the next update cycle.
-        with _DL_LOCK:
-            initial = {
-                mid: {k: v for k, v in s.items() if not k.startswith("_")}
-                for mid, s in _DL_STATE.items()
-            }
-        init_json = json.dumps(initial)
-        if init_json and init_json != "{}":
-            yield f"data: {init_json}\n\n"
-            last_json = init_json
-
-        while True:
+        try:
+            # Yield current state immediately so reconnecting clients see
+            # live progress without waiting for the next update cycle.
             with _DL_LOCK:
-                active = {
+                initial = {
                     mid: {k: v for k, v in s.items() if not k.startswith("_")}
                     for mid, s in _DL_STATE.items()
-                    if s.get("status") not in ("completed", "failed")
                 }
+            init_json = json.dumps(initial)
+            if init_json and init_json != "{}":
+                yield f"data: {init_json}\n\n"
+            last_json = init_json
 
-            snap_json = json.dumps(active)
-            if snap_json != last_json:
-                yield f"data: {snap_json}\n\n"
-                last_json = snap_json
+            while True:
+                try:
+                    # Wait for any state change event
+                    await asyncio.wait_for(all_event.wait(), timeout=10.0)
+                    all_event.clear()
+                except asyncio.TimeoutError:
+                    yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
+                    continue
 
-            now = time.monotonic()
-            if now - last_heartbeat >= 10.0:
-                yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
-                last_heartbeat = now
+                with _DL_LOCK:
+                    active = {
+                        mid: {k: v for k, v in s.items() if not k.startswith("_")}
+                        for mid, s in _DL_STATE.items()
+                        if s.get("status") not in ("completed", "failed")
+                    }
 
-            await asyncio.sleep(0.25)
+                snap_json = json.dumps(active)
+                if snap_json != last_json:
+                    yield f"data: {snap_json}\n\n"
+                    last_json = snap_json
+
+        finally:
+            with _DL_EVENTS_LOCK:
+                _DL_EVENTS.pop("__all__", None)
 
     return StreamingResponse(
         _gen(),

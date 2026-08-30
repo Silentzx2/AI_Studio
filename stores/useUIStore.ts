@@ -84,20 +84,19 @@ export const useUIStore = create<UIState>()((set) => ({
 }));
 
 // Mirror app store data into this proxy store so subscribers re-render.
-// Only update fields that actually changed to avoid unnecessary re-renders.
-useAppStore.subscribe((state) => {
-  const cur = useUIStore.getState();
+// Shallow-compare each field to avoid unnecessary re-render cascades.
+useAppStore.subscribe((state, prevState) => {
   const next: Partial<UIState> = {};
-  if (cur.leftSidebarCollapsed !== state.leftSidebarCollapsed) next.leftSidebarCollapsed = state.leftSidebarCollapsed;
-  if (cur.rightSidebarCollapsed !== state.rightSidebarCollapsed) next.rightSidebarCollapsed = state.rightSidebarCollapsed;
-  if (cur.bottomPanelCollapsed !== state.bottomPanelCollapsed) next.bottomPanelCollapsed = state.bottomPanelCollapsed;
-  if (cur.mobileMenuOpen !== state.mobileMenuOpen) next.mobileMenuOpen = state.mobileMenuOpen;
-  if (cur.mobileLeftSidebarOpen !== state.mobileLeftSidebarOpen) next.mobileLeftSidebarOpen = state.mobileLeftSidebarOpen;
-  if (cur.mobileRightSidebarOpen !== state.mobileRightSidebarOpen) next.mobileRightSidebarOpen = state.mobileRightSidebarOpen;
-  if (cur.viewer !== state.viewer) next.viewer = state.viewer;
-  if (cur.inspectorTab !== state.inspectorTab) next.inspectorTab = state.inspectorTab as InspectorTab;
-  if (cur.bottomDockTab !== state.bottomDockTab) next.bottomDockTab = state.bottomDockTab as BottomDockTab;
-  if (cur.creativeLayoutMode !== state.creativeLayoutMode) next.creativeLayoutMode = state.creativeLayoutMode;
-  if (cur.capabilities !== state.capabilities) next.capabilities = state.capabilities as UIState['capabilities'];
+  if (prevState.leftSidebarCollapsed !== state.leftSidebarCollapsed) next.leftSidebarCollapsed = state.leftSidebarCollapsed;
+  if (prevState.rightSidebarCollapsed !== state.rightSidebarCollapsed) next.rightSidebarCollapsed = state.rightSidebarCollapsed;
+  if (prevState.bottomPanelCollapsed !== state.bottomPanelCollapsed) next.bottomPanelCollapsed = state.bottomPanelCollapsed;
+  if (prevState.mobileMenuOpen !== state.mobileMenuOpen) next.mobileMenuOpen = state.mobileMenuOpen;
+  if (prevState.mobileLeftSidebarOpen !== state.mobileLeftSidebarOpen) next.mobileLeftSidebarOpen = state.mobileLeftSidebarOpen;
+  if (prevState.mobileRightSidebarOpen !== state.mobileRightSidebarOpen) next.mobileRightSidebarOpen = state.mobileRightSidebarOpen;
+  if (prevState.viewer !== state.viewer) next.viewer = state.viewer;
+  if (prevState.inspectorTab !== state.inspectorTab) next.inspectorTab = state.inspectorTab as InspectorTab;
+  if (prevState.bottomDockTab !== state.bottomDockTab) next.bottomDockTab = state.bottomDockTab as BottomDockTab;
+  if (prevState.creativeLayoutMode !== state.creativeLayoutMode) next.creativeLayoutMode = state.creativeLayoutMode;
+  if (prevState.capabilities !== state.capabilities) next.capabilities = state.capabilities as UIState['capabilities'];
   if (Object.keys(next).length > 0) useUIStore.setState(next);
 });

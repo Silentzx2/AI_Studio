@@ -1,10 +1,24 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.6.0 (Performance Optimizations & Bug Fixes)
+> **Version**: 3.9.5 (Solid Colors, Text-to-3D Removal, Performance)
 > **Status**: ✅ **COMPLETE**
-> **Last Updated**: August 29, 2026
+> **Last Updated**: August 30, 2026
 
 ---
+
+## v3.9.5 — Solid Colors, Text-to-3D Removal & Performance (2026-08-30)
+
+### What changed
+- **Removed Text to 3D from workspace**: The general Text-to-3D feature was removed from the workspace UI. WorldGen remains as the sole text/image-to-3D scene provider at `/workspace/worldgen`.
+- **Solid color theme**: All transparency/opacity-based colors replaced with solid color values for consistent rendering across the application.
+- **Request deduplication**: Added request deduplication for API polling to eliminate redundant network calls and improve frontend responsiveness.
+- **CSS variable fixes**: Fixed broken CSS variable definitions that caused UI elements to appear gray or invisible.
+- **Scrollbar cleanup**: Removed extra scrollbars from workspace pages.
+
+### Verification
+- TypeScript compilation: PASS (`npx tsc --noEmit`)
+- Build: PASS (`npm run build`)
+- All routes prerendered successfully
 
 ## v4.6.0 — WorldGen Integration, Real-time Push, Caching & Bug Fixes
 

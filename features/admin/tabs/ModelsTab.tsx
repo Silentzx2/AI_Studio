@@ -204,10 +204,13 @@ export function ModelsTab() {
 
   useEffect(() => { setTimeout(() => load(), 0); }, [load]);
 
-  // Poll install status for native-build updates
+  // Poll install status for native-build updates (reduced to 10s, tab-aware)
   useEffect(() => {
     if (models.length === 0) return;
+    let active = true;
     pollCleanup.current = setInterval(async () => {
+      if (!active) return;
+      if (typeof document !== 'undefined' && document.hidden) return;
       try {
         const status = await adminService.getInstallStatus();
         if (!status) return;
@@ -219,8 +222,9 @@ export function ModelsTab() {
       } catch {
         // ignore poll errors
       }
-    }, 5000);
+    }, 10000);
     return () => {
+      active = false;
       if (pollCleanup.current) clearInterval(pollCleanup.current);
     };
   }, [models.length]);
@@ -235,8 +239,13 @@ export function ModelsTab() {
     };
   }, []);
 
-  // Restore install state from persisted progress on mount
+  // Restore install state from persisted progress on mount (only once)
+  const restoreAttemptedRef = useRef(false);
   useEffect(() => {
+    if (restoreAttemptedRef.current) return;
+    if (models.length === 0) return;
+    restoreAttemptedRef.current = true;
+
     const restoreProgress = async () => {
       for (const model of models) {
         if (!installProgress[model.id]) {
@@ -253,10 +262,8 @@ export function ModelsTab() {
         }
       }
     };
-    if (models.length > 0) {
-      restoreProgress();
-    }
-  }, [models.length]);
+    restoreProgress();
+  }, [models.length, installProgress, reconnectToInstall]);
 
   const filtered = models.filter((m) => {
     const matchesSearch = m.name.toLowerCase().includes(search.toLowerCase()) ||

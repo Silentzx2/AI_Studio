@@ -216,15 +216,15 @@ export const GeneratePanel: React.FC = () => {
   };
 
   return (
-    <div id="panel-generate-model" className="flex flex-col h-full bg-[#101115] text-xs select-none">
+    <div id="panel-generate-model" className="flex flex-col h-full bg-[hsl(var(--surface-1))] text-xs select-none">
       {/* Header title */}
-      <div className="p-3 pb-2 border-b border-[#21242c]">
+      <div className="p-3 pb-2 border-b border-[hsl(var(--border))]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#f5c518]" />
-            <h2 className="text-xs font-bold text-[#f3f4f6]">Generate 3D Model</h2>
+            <Sparkles className="w-4 h-4 text-[hsl(var(--primary))]" />
+            <h2 className="text-xs font-bold text-[hsl(var(--foreground))]">Generate 3D Model</h2>
           </div>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#1c202a] text-[#f5c518] border border-[#f5c518]/20">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[hsl(var(--surface-3))] text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/20">
             FastAPI-3D
           </span>
         </div>
@@ -234,14 +234,14 @@ export const GeneratePanel: React.FC = () => {
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {/* Notice Message Toast/Banner */}
         {noticeMessage && (
-          <div className="p-2.5 rounded-xl bg-[#261f14] border border-[#f5c518]/50 text-[#f5c518] text-[11px] flex items-center justify-between gap-2 animate-in fade-in shadow-md">
+          <div className="p-2.5 rounded-xl bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/50 text-[hsl(var(--primary))] text-[11px] flex items-center justify-between gap-2 animate-in fade-in shadow-md">
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
-              <Info className="w-3.5 h-3.5 flex-shrink-0 text-[#f5c518]" />
+              <Info className="w-3.5 h-3.5 flex-shrink-0 text-[hsl(var(--primary))]" />
               <span className="leading-tight">{noticeMessage}</span>
             </div>
             <button 
               onClick={() => setNoticeMessage(null)}
-              className="text-[#8e95a5] hover:text-[#f3f4f6] p-0.5 rounded"
+              className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] p-0.5 rounded cursor-pointer transition-colors"
             >
               <X className="w-3 h-3" />
             </button>
@@ -250,28 +250,28 @@ export const GeneratePanel: React.FC = () => {
 
         {/* Top Tab Switcher: Text to 3D vs Image to 3D */}
         <div className="space-y-1">
-          <div className="flex items-center p-1 rounded-xl bg-[#181a22] border border-[#262a36]">
+          <div className="flex items-center p-1 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
             {/* Tab 1: Text to 3D (With Lock status when active model doesn't support Text to 3D) */}
             <button
               id="tab-text-to-3d"
               onClick={handleTextTo3DTabClick}
               className={`flex-1 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all relative ${
                 currentMode === 'text-to-3d'
-                  ? 'bg-[#ffffff] text-[#111216] shadow-md'
+                  ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-md'
                   : isCurrentModelTextTo3DLocked
-                  ? 'text-[#848a97] hover:text-[#e5e7eb] hover:bg-[#20232e]'
-                  : 'text-[#8e95a5] hover:text-[#e5e7eb]'
+                  ? 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-3))]'
+                  : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
               }`}
             >
               {isCurrentModelTextTo3DLocked && currentMode !== 'text-to-3d' ? (
-                <Lock className="w-3.5 h-3.5 text-[#ef4444]" />
+                <Lock className="w-3.5 h-3.5 text-[hsl(var(--destructive))]" />
               ) : (
                 <Type className="w-3.5 h-3.5" />
               )}
               <span>Text to 3D</span>
 
               {isCurrentModelTextTo3DLocked && currentMode !== 'text-to-3d' && (
-                <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-[#ef4444]/20 text-[#ef4444] border border-[#ef4444]/30">
+                <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-[hsl(var(--destructive))]/20 text-[hsl(var(--destructive))] border border-[hsl(var(--destructive))]/30">
                   Locked
                 </span>
               )}
@@ -283,8 +283,8 @@ export const GeneratePanel: React.FC = () => {
               onClick={handleImageTo3DTabClick}
               className={`flex-1 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
                 currentMode === 'image-to-3d'
-                  ? 'bg-[#ffffff] text-[#111216] shadow-md'
-                  : 'text-[#8e95a5] hover:text-[#e5e7eb]'
+                  ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-md'
+                  : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
               }`}
             >
               <ImageIcon className="w-3.5 h-3.5" />
@@ -294,7 +294,7 @@ export const GeneratePanel: React.FC = () => {
 
           {/* Helper caption if locked */}
           {isCurrentModelTextTo3DLocked && (
-            <div className="px-1 flex items-center gap-1 text-[10px] text-[#ef4444]">
+            <div className="px-1 flex items-center gap-1 text-[10px] text-[hsl(var(--destructive))]">
               <Lock className="w-2.5 h-2.5 flex-shrink-0" />
               <span>{activeModelObj?.label || 'Model'} is Image-to-3D only. Click 'Text to 3D' to switch models.</span>
             </div>
@@ -307,8 +307,8 @@ export const GeneratePanel: React.FC = () => {
             {/* Prompt Input Box */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-semibold text-[#cbd5e1] flex items-center gap-1">
-                  <FileText className="w-3.5 h-3.5 text-[#f5c518]" />
+                <label className="text-[11px] font-semibold text-[hsl(var(--foreground))] flex items-center gap-1">
+                  <FileText className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
                   <span>Prompt Description</span>
                 </label>
                 <button
@@ -316,7 +316,7 @@ export const GeneratePanel: React.FC = () => {
                     const random = samplePrompts[Math.floor(Math.random() * samplePrompts.length)];
                     setGenerationSettings(prev => ({ ...prev, prompt: random }));
                   }}
-                  className="text-[10px] text-[#f5c518] hover:underline flex items-center gap-1"
+                  className="text-[10px] text-[hsl(var(--primary))] hover:underline flex items-center gap-1 cursor-pointer transition-colors"
                 >
                   <Dices className="w-3 h-3" />
                   <span>Surprise Me</span>
@@ -330,12 +330,12 @@ export const GeneratePanel: React.FC = () => {
                   onChange={(e) => setGenerationSettings(prev => ({ ...prev, prompt: e.target.value }))}
                   placeholder="Describe your 3D asset in detail (e.g., A menacing cybernetic goblin with glowing orange armor, high poly, highly detailed)..."
                   rows={4}
-                  className="w-full p-2.5 rounded-xl bg-[#14161d] border border-[#272b38] focus:border-[#f5c518] outline-none text-xs text-[#e5e7eb] placeholder-[#6b7280] leading-relaxed resize-none transition-colors"
+                  className="w-full p-2.5 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] focus:border-[hsl(var(--primary))] outline-none text-xs text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))] leading-relaxed resize-none transition-colors"
                 />
                 {generationSettings.prompt && (
                   <button
                     onClick={() => setGenerationSettings(prev => ({ ...prev, prompt: '' }))}
-                    className="absolute right-2.5 bottom-2.5 text-[#6b7280] hover:text-[#ef4444] p-1"
+                    className="absolute right-2.5 bottom-2.5 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--destructive))] p-1"
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>
@@ -345,7 +345,7 @@ export const GeneratePanel: React.FC = () => {
 
             {/* Quick Inspiration Tags */}
             <div className="space-y-1">
-              <span className="text-[10px] text-[#6b7280]">Quick Add Modifiers:</span>
+              <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Quick Add Modifiers:</span>
               <div className="flex flex-wrap gap-1">
                 {['Realistic PBR', 'Game Ready Low-Poly', 'Cinematic 8K', 'Stylized Fantasy', 'Subdivision Quad Mesh'].map(tag => (
                   <button
@@ -354,7 +354,7 @@ export const GeneratePanel: React.FC = () => {
                       const cur = generationSettings.prompt ? `${generationSettings.prompt}, ${tag}` : tag;
                       setGenerationSettings(prev => ({ ...prev, prompt: cur }));
                     }}
-                    className="px-2 py-1 rounded-lg bg-[#181a22] hover:bg-[#232733] border border-[#272b38] text-[10px] text-[#8e95a5] hover:text-[#e5e7eb] transition-colors"
+                    className="px-2 py-1 rounded-lg bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-3))] border border-[hsl(var(--border))] text-[10px] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors cursor-pointer"
                   >
                     +{tag}
                   </button>
@@ -368,12 +368,12 @@ export const GeneratePanel: React.FC = () => {
         {currentMode === 'image-to-3d' && (
           <div className="space-y-3 animate-in fade-in duration-200">
             {/* Sub-Action Icon Bar (Upload, Crop, Wand, Edit) */}
-            <div className="flex items-center justify-between px-2 py-1.5 rounded-xl bg-[#181a22] border border-[#262a36]">
+            <div className="flex items-center justify-between px-2 py-1.5 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
               <SimpleTooltip label="Upload Reference Image">
                 <button
                   onClick={() => { setSubAction('upload'); fileInputRef.current?.click(); }}
                   className={`p-1.5 rounded-lg transition-colors ${
-                    subAction === 'upload' ? 'bg-[#272b38] text-[#f5c518]' : 'text-[#8e95a5] hover:text-[#f3f4f6]'
+                    subAction === 'upload' ? 'bg-[hsl(var(--surface-3))] text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
                   }`}
                 >
                   <ImageIcon className="w-4 h-4" />
@@ -384,7 +384,7 @@ export const GeneratePanel: React.FC = () => {
                 <button
                   onClick={() => setSubAction('crop')}
                   className={`p-1.5 rounded-lg transition-colors ${
-                    subAction === 'crop' ? 'bg-[#272b38] text-[#f5c518]' : 'text-[#8e95a5] hover:text-[#f3f4f6]'
+                    subAction === 'crop' ? 'bg-[hsl(var(--surface-3))] text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
                   }`}
                 >
                   <Crop className="w-4 h-4" />
@@ -395,7 +395,7 @@ export const GeneratePanel: React.FC = () => {
                 <button
                   onClick={() => setSubAction('wand')}
                   className={`p-1.5 rounded-lg transition-colors ${
-                    subAction === 'wand' ? 'bg-[#272b38] text-[#f5c518]' : 'text-[#8e95a5] hover:text-[#f3f4f6]'
+                    subAction === 'wand' ? 'bg-[hsl(var(--surface-3))] text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
                   }`}
                 >
                   <Wand2 className="w-4 h-4" />
@@ -406,7 +406,7 @@ export const GeneratePanel: React.FC = () => {
                 <button
                   onClick={() => setSubAction('edit')}
                   className={`p-1.5 rounded-lg transition-colors ${
-                    subAction === 'edit' ? 'bg-[#272b38] text-[#f5c518]' : 'text-[#8e95a5] hover:text-[#f3f4f6]'
+                    subAction === 'edit' ? 'bg-[hsl(var(--surface-3))] text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
                   }`}
                 >
                   <Pencil className="w-4 h-4" />
@@ -430,32 +430,32 @@ export const GeneratePanel: React.FC = () => {
               onClick={() => fileInputRef.current?.click()}
               className={`relative w-full aspect-video rounded-2xl border-2 border-dashed cursor-pointer overflow-hidden group transition-all flex flex-col items-center justify-center p-3 ${
                 isDragOver
-                  ? 'border-[#f5c518] bg-[#f5c518]/10'
-                  : 'border-[#2f3442] hover:border-[#f5c518]/60'
+                  ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10'
+                  : 'border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/60'
               }`}
               style={{
                 backgroundImage: `
-                  linear-gradient(45deg, #151821 25%, transparent 25%), 
-                  linear-gradient(-45deg, #151821 25%, transparent 25%), 
-                  linear-gradient(45deg, transparent 75%, #151821 75%), 
-                  linear-gradient(-45deg, transparent 75%, #151821 75%)
+                  linear-gradient(45deg, hsl(var(--surface-2)) 25%, transparent 25%), 
+                  linear-gradient(-45deg, hsl(var(--surface-2)) 25%, transparent 25%), 
+                  linear-gradient(45deg, transparent 75%, hsl(var(--surface-2)) 75%), 
+                  linear-gradient(-45deg, transparent 75%, hsl(var(--surface-2)) 75%)
                 `,
                 backgroundSize: '16px 16px',
                 backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
-                backgroundColor: '#0e1015'
+                backgroundColor: 'hsl(var(--surface-1))'
               }}
             >
               {uploadProgress.active ? (
                 <div className="text-center space-y-2 w-full px-3">
-                  <Loader2 className="w-8 h-8 mx-auto animate-spin text-[#f5c518]" />
-                  <div className="font-semibold text-xs text-[#cbd5e1]">Uploading...</div>
-                  <div className="w-full bg-[#1b1e27] rounded-full h-2 overflow-hidden">
+                  <Loader2 className="w-8 h-8 mx-auto animate-spin text-[hsl(var(--primary))]" />
+                  <div className="font-semibold text-xs text-[hsl(var(--foreground))]">Uploading...</div>
+                  <div className="w-full bg-[hsl(var(--surface-3))] rounded-full h-2 overflow-hidden">
                     <div
-                      className="bg-[#f5c518] h-full rounded-full transition-all duration-200"
+                      className="bg-[hsl(var(--primary))] h-full rounded-full transition-all duration-200"
                       style={{ width: `${uploadProgress.percent}%` }}
                     />
                   </div>
-                  <div className="text-[10px] text-[#6b7280]">
+                  <div className="text-[10px] text-[hsl(var(--muted-foreground))]">
                     {uploadProgress.percent}% ({(uploadProgress.loadedBytes / 1024 / 1024).toFixed(1)}/{(uploadProgress.totalBytes / 1024 / 1024).toFixed(1)} MB)
                   </div>
                 </div>
@@ -466,45 +466,45 @@ export const GeneratePanel: React.FC = () => {
                     alt="Source reference" 
                     className="w-full h-full object-contain" 
                   />
-                  <div className="absolute inset-0 bg-[#0c0d10]/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-xs font-semibold text-[#f5c518]">
+                  <div className="absolute inset-0 bg-[hsl(var(--surface-0))]/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-xs font-semibold text-[hsl(var(--primary))]">
                     Click to change reference image
                   </div>
                 </div>
               ) : (
                 <div className="text-center space-y-1.5">
-                  <div className={`w-9 h-9 mx-auto rounded-full bg-[#1b1e27] border border-[#2b303d] flex items-center justify-center transition-colors ${
-                    isDragOver ? 'text-[#f5c518] border-[#f5c518]' : 'text-[#8e95a5] group-hover:text-[#f5c518]'
+                  <div className={`w-9 h-9 mx-auto rounded-full bg-[hsl(var(--surface-3))] border border-[hsl(var(--border))] flex items-center justify-center transition-colors ${
+                    isDragOver ? 'text-[hsl(var(--primary))] border-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))] group-hover:text-[hsl(var(--primary))]'
                   }`}>
                     <Upload className="w-4 h-4" />
                   </div>
-                  <div className="font-semibold text-xs text-[#cbd5e1]">
+                  <div className="font-semibold text-xs text-[hsl(var(--foreground))]">
                     {isDragOver ? 'Drop image here' : 'Upload JPG, PNG, WEBP'}
                   </div>
-                  <div className="text-[10px] text-[#6b7280]">Drag reference image or click to browse</div>
+                  <div className="text-[10px] text-[hsl(var(--muted-foreground))]">Drag reference image or click to browse</div>
                 </div>
               )}
             </div>
 
             {uploadError && (
-              <div className="flex items-center gap-1 text-[10px] text-[#ef4444]">
+              <div className="flex items-center gap-1 text-[10px] text-[hsl(var(--destructive))]">
                 <AlertCircle className="w-3 h-3" />
                 <span>{uploadError}</span>
               </div>
             )}
 
             {/* Auto Remove Background Toggle */}
-            <div className="p-2.5 rounded-xl bg-[#14161d] border border-[#242834] flex items-center justify-between">
+            <div className="p-2.5 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] flex items-center justify-between">
               <div>
-                <span className="text-xs text-[#cbd5e1] font-medium block">BiRefNet Alpha Matting</span>
-                <span className="text-[10px] text-[#6b7280]">Isolates foreground subject with clean alpha mask</span>
+                <span className="text-xs text-[hsl(var(--foreground))] font-medium block">BiRefNet Alpha Matting</span>
+                <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Isolates foreground subject with clean alpha mask</span>
               </div>
               <button
                 onClick={() => setGenerationSettings(prev => ({ ...prev, removeBackground: !prev.removeBackground }))}
                 className={`w-9 h-5 rounded-full p-0.5 transition-colors ${
-                  generationSettings.removeBackground !== false ? 'bg-[#f5c518]' : 'bg-[#282c38]'
+                  generationSettings.removeBackground !== false ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-4))]'
                 }`}
               >
-                <div className={`w-4 h-4 rounded-full bg-[#111216] transition-transform ${
+                <div className={`w-4 h-4 rounded-full bg-[hsl(var(--surface-0))] transition-transform ${
                   generationSettings.removeBackground !== false ? 'translate-x-4' : 'translate-x-0'
                 }`} />
               </button>
@@ -516,22 +516,22 @@ export const GeneratePanel: React.FC = () => {
         {/* AI Model Generator Choice (With Lock Indicators for models not supporting Text-to-3D) */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-[11px] font-semibold text-[#cbd5e1] flex items-center gap-1">
-              <Zap className="w-3.5 h-3.5 text-[#f5c518]" />
+            <label className="text-[11px] font-semibold text-[hsl(var(--foreground))] flex items-center gap-1">
+              <Zap className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
               <span>Generation Architecture</span>
             </label>
-            <span className="text-[10px] text-[#8e95a5]">
+            <span className="text-[10px] text-[hsl(var(--muted-foreground))]">
               {currentMode === 'text-to-3d' ? 'Prompt Diffusion' : 'Image Reconstruction'}
             </span>
           </div>
 
           {optionsLoading ? (
-            <div className="flex items-center justify-center p-4 text-[#8e95a5]">
+            <div className="flex items-center justify-center p-4 text-[hsl(var(--muted-foreground))]">
               <Loader2 className="w-4 h-4 animate-spin mr-2" />
               <span className="text-[10px]">Loading models...</span>
             </div>
           ) : providersList.length === 0 ? (
-            <div className="p-3 rounded-xl bg-[#181a22] border border-[#262a36] text-[10px] text-[#8e95a5] text-center">
+            <div className="p-3 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] text-[10px] text-[hsl(var(--muted-foreground))] text-center">
               No models available. Install models via Settings.
             </div>
           ) : (
@@ -546,30 +546,30 @@ export const GeneratePanel: React.FC = () => {
                   <button
                     key={m.id}
                     onClick={() => handleModelSelect(m)}
-                    className={`p-2 rounded-xl text-left border transition-all relative ${
+                    className={`p-2 rounded-xl text-left border transition-all relative cursor-pointer ${
                       isLockedInCurrentMode
-                        ? 'bg-[#181316] border-[#3f2127] text-[#8e95a5] hover:border-[#ef4444]/60'
+                        ? 'bg-[hsl(var(--destructive))]/5 border-[hsl(var(--destructive))]/20 text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--destructive))]/60'
                         : isSelected
-                        ? 'bg-[#1e2230] border-[#f5c518] shadow-sm ring-1 ring-[#f5c518]/30'
-                        : 'bg-[#14161d] border-[#252936] hover:border-[#3b4356] text-[#8e95a5]'
+                        ? 'bg-[hsl(var(--primary))]/10 border-[hsl(var(--primary))] shadow-sm ring-1 ring-[hsl(var(--primary))]/30'
+                        : 'bg-[hsl(var(--surface-1))] border-[hsl(var(--border))] hover:border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1 min-w-0">
                         {isLockedInCurrentMode && (
-                          <Lock className="w-3 h-3 text-[#ef4444] flex-shrink-0" />
+                          <Lock className="w-3 h-3 text-[hsl(var(--destructive))] flex-shrink-0" />
                         )}
                         {!isInstalled && (
                           <SimpleTooltip label="Not installed">
-                            <span className="w-2 h-2 rounded-full bg-[#f5c518] flex-shrink-0" />
+                            <span className="w-2 h-2 rounded-full bg-[hsl(var(--primary))] flex-shrink-0" />
                           </SimpleTooltip>
                         )}
                         <span className={`font-bold text-xs truncate ${
                           isLockedInCurrentMode 
-                            ? 'text-[#fca5a5]' 
+                            ? 'text-[hsl(var(--destructive))]' 
                             : isSelected 
-                            ? 'text-[#f5c518]' 
-                            : 'text-[#e5e7eb]'
+                            ? 'text-[hsl(var(--primary))]' 
+                            : 'text-[hsl(var(--foreground))]'
                         }`}>
                           {m.label}
                         </span>
@@ -577,16 +577,16 @@ export const GeneratePanel: React.FC = () => {
 
                       <span className={`text-[8px] font-mono px-1 rounded ${
                         isLockedInCurrentMode
-                          ? 'bg-[#ef4444]/20 text-[#ef4444]'
+                          ? 'bg-[hsl(var(--destructive))]/20 text-[hsl(var(--destructive))]'
                           : isSelected
-                          ? 'bg-[#f5c518]/20 text-[#f5c518]'
-                          : 'bg-[#232733] text-[#f3f4f6]'
+                          ? 'bg-[hsl(var(--primary))]/20 text-[hsl(var(--primary))]'
+                          : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--foreground))]'
                       }`}>
                         {isLockedInCurrentMode ? 'Img-Only' : `${vramGb}GB`}
                       </span>
                     </div>
 
-                    <span className="text-[10px] text-[#6b7280] block mt-0.5 truncate">
+                    <span className="text-[10px] text-[hsl(var(--muted-foreground))] block mt-0.5 truncate">
                       {isLockedInCurrentMode ? 'Requires Image Input' : (m.low_vram_supported ? 'Low-VRAM supported' : `Image Reconstruction`)}
                     </span>
                   </button>
@@ -597,33 +597,33 @@ export const GeneratePanel: React.FC = () => {
         </div>
 
         {/* Accordion 1: General Settings */}
-        <div className="border border-[#21242d] rounded-xl overflow-hidden bg-[#13151b]">
+        <div className="border border-[hsl(var(--border))] rounded-xl overflow-hidden bg-[hsl(var(--surface-1))]">
           <button
             onClick={() => setGeneralSettingsOpen(!generalSettingsOpen)}
-            className="w-full px-3 py-2.5 flex items-center justify-between font-bold text-xs text-[#e5e7eb] hover:bg-[#181a22] transition-colors"
+            className="w-full px-3 py-2.5 flex items-center justify-between font-bold text-xs text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))] transition-colors"
           >
             <div className="flex items-center gap-1.5">
-              <Sliders className="w-3.5 h-3.5 text-[#f5c518]" />
+              <Sliders className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
               <span>General Mesh Settings</span>
             </div>
-            {generalSettingsOpen ? <ChevronDown className="w-3.5 h-3.5 text-[#8e95a5]" /> : <ChevronRight className="w-3.5 h-3.5 text-[#8e95a5]" />}
+            {generalSettingsOpen ? <ChevronDown className="w-3.5 h-3.5 text-[hsl(var(--muted-foreground))]" /> : <ChevronRight className="w-3.5 h-3.5 text-[hsl(var(--muted-foreground))]" />}
           </button>
 
           {generalSettingsOpen && (
-            <div className="p-3 pt-1 border-t border-[#1e222b] space-y-2.5">
+            <div className="p-3 pt-1 border-t border-[hsl(var(--border))] space-y-2.5">
               {/* Ultra Mesh Quality Toggle */}
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-xs text-[#cbd5e1] font-medium block">Ultra Mesh Quality</span>
-                  <span className="text-[10px] text-[#717786]">Dense multi-view voxel reconstruction</span>
+                  <span className="text-xs text-[hsl(var(--foreground))] font-medium block">Ultra Mesh Quality</span>
+                  <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Dense multi-view voxel reconstruction</span>
                 </div>
                 <button
                   onClick={() => setUltraMeshQuality(!ultraMeshQuality)}
-                  className={`w-9 h-5 rounded-full p-0.5 transition-colors ${
-                    ultraMeshQuality ? 'bg-[#f5c518]' : 'bg-[#282c38]'
+                  className={`w-9 h-5 rounded-full p-0.5 transition-all duration-200 cursor-pointer ${
+                    ultraMeshQuality ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-4))]'
                   }`}
                 >
-                  <div className={`w-4 h-4 rounded-full bg-[#111216] transition-transform ${
+                  <div className={`w-4 h-4 rounded-full bg-[hsl(var(--primary-foreground))] transition-transform ${
                     ultraMeshQuality ? 'translate-x-4' : 'translate-x-0'
                   }`} />
                 </button>
@@ -633,18 +633,18 @@ export const GeneratePanel: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-[#cbd5e1] font-medium">8K Texture Baking</span>
-                    <span className="px-1 py-0.2 rounded bg-[#ef4444] text-white text-[8px] font-bold">Ultra</span>
+                    <span className="text-xs text-[hsl(var(--foreground))] font-medium">8K Texture Baking</span>
+                    <span className="px-1 py-0.2 rounded bg-[hsl(var(--destructive))] text-white text-[8px] font-bold">Ultra</span>
                   </div>
-                  <span className="text-[10px] text-[#717786]">High-res multi-channel PBR map generation</span>
+                  <span className="text-[10px] text-[hsl(var(--muted-foreground))]">High-res multi-channel PBR map generation</span>
                 </div>
                 <button
                   onClick={() => setTexture8k(!texture8k)}
-                  className={`w-9 h-5 rounded-full p-0.5 transition-colors ${
-                    texture8k ? 'bg-[#f5c518]' : 'bg-[#282c38]'
+                  className={`w-9 h-5 rounded-full p-0.5 transition-all duration-200 cursor-pointer ${
+                    texture8k ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-4))]'
                   }`}
                 >
-                  <div className={`w-4 h-4 rounded-full bg-[#111216] transition-transform ${
+                  <div className={`w-4 h-4 rounded-full bg-[hsl(var(--primary-foreground))] transition-transform ${
                     texture8k ? 'translate-x-4' : 'translate-x-0'
                   }`} />
                 </button>
@@ -653,16 +653,16 @@ export const GeneratePanel: React.FC = () => {
               {/* Quad Topology Checkbox */}
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-xs text-[#cbd5e1] font-medium block">Quad-Dominant Topology</span>
-                  <span className="text-[10px] text-[#717786]">Subdivision-ready edge loop flow</span>
+                  <span className="text-xs text-[hsl(var(--foreground))] font-medium block">Quad-Dominant Topology</span>
+                  <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Subdivision-ready edge loop flow</span>
                 </div>
                 <button
                   onClick={() => setGenerationSettings(prev => ({ ...prev, quadTopology: !prev.quadTopology }))}
-                  className={`w-9 h-5 rounded-full p-0.5 transition-colors ${
-                    generationSettings.quadTopology !== false ? 'bg-[#f5c518]' : 'bg-[#282c38]'
+                  className={`w-9 h-5 rounded-full p-0.5 transition-all duration-200 cursor-pointer ${
+                    generationSettings.quadTopology !== false ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-4))]'
                   }`}
                 >
-                  <div className={`w-4 h-4 rounded-full bg-[#111216] transition-transform ${
+                  <div className={`w-4 h-4 rounded-full bg-[hsl(var(--primary-foreground))] transition-transform ${
                     generationSettings.quadTopology !== false ? 'translate-x-4' : 'translate-x-0'
                   }`} />
                 </button>
@@ -670,24 +670,24 @@ export const GeneratePanel: React.FC = () => {
 
               {/* Low VRAM Optimization Mode Toggle - Conditionally rendered based on model support */}
               {activeModelObj?.low_vram_supported && (
-                <div className="flex items-center justify-between pt-1 border-t border-[#1e212a]">
+                <div className="flex items-center justify-between pt-1 border-t border-[hsl(var(--border))]">
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-[#cbd5e1] font-medium">Low VRAM Mode</span>
-                      <span className="px-1 py-0.2 rounded bg-[#38bdf8]/20 text-[#38bdf8] border border-[#38bdf8]/30 text-[8px] font-mono font-bold">
+                      <span className="text-xs text-[hsl(var(--foreground))] font-medium">Low VRAM Mode</span>
+                      <span className="px-1 py-0.2 rounded bg-[hsl(var(--neon-blue))]/20 text-[hsl(var(--neon-blue))] border border-[hsl(var(--neon-blue))]/30 text-[8px] font-mono font-bold">
                         {activeModelObj.low_vram_required_mb ? `<${Math.round(activeModelObj.low_vram_required_mb / 1024)}GB` : '<8GB'}
                       </span>
                     </div>
-                    <span className="text-[10px] text-[#717786]">Sequential offload &amp; chunked VRAM pipeline</span>
+                    <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Sequential offload &amp; chunked VRAM pipeline</span>
                   </div>
                   <button
                     id="toggle-low-vram-mode"
                     onClick={() => setGenerationSettings(prev => ({ ...prev, lowVram: !prev.lowVram }))}
-                    className={`w-9 h-5 rounded-full p-0.5 transition-colors ${
-                      generationSettings.lowVram ? 'bg-[#38bdf8]' : 'bg-[#282c38]'
+                    className={`w-9 h-5 rounded-full p-0.5 transition-all duration-200 cursor-pointer ${
+                      generationSettings.lowVram ? 'bg-[hsl(var(--neon-blue))]' : 'bg-[hsl(var(--surface-4))]'
                     }`}
                   >
-                    <div className={`w-4 h-4 rounded-full bg-[#111216] transition-transform ${
+                    <div className={`w-4 h-4 rounded-full bg-[hsl(var(--primary-foreground))] transition-transform ${
                       generationSettings.lowVram ? 'translate-x-4' : 'translate-x-0'
                     }`} />
                   </button>
@@ -695,31 +695,31 @@ export const GeneratePanel: React.FC = () => {
               )}
 
                {/* Privacy Setting (Public / Private) */}
-               <div className="flex items-center justify-between pt-1 border-t border-[#1e212a]">
-                 <div className="flex items-center gap-1.5 text-xs text-[#9ca3af]">
+               <div className="flex items-center justify-between pt-1 border-t border-[hsl(var(--border))]">
+                 <div className="flex items-center gap-1.5 text-xs text-[hsl(var(--muted-foreground))]">
                    <Globe className="w-3.5 h-3.5" />
                    <span>Privacy</span>
                  </div>
                  <div className="relative">
                    <button
                      onClick={() => setPrivacyMenuOpen(!privacyMenuOpen)}
-                     className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#191b22] border border-[#282c38] text-[11px] font-semibold text-[#e5e7eb] hover:border-[#f5c518]/50 transition-colors"
+                     className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--surface-4))] text-[11px] font-semibold text-[hsl(var(--foreground))] hover:border-[hsl(var(--primary))]/50 transition-colors"
                    >
                      <span className="capitalize">{privacy}</span>
-                     <ChevronDown className="w-3 h-3 text-[#8e95a5]" />
+                     <ChevronDown className="w-3 h-3 text-[hsl(var(--muted-foreground))]" />
                    </button>
 
                    {privacyMenuOpen && (
-                     <div className="absolute right-0 bottom-full mb-1 w-28 py-1 rounded-xl bg-[#1c1e27] border border-[#2f3444] shadow-xl z-50">
+                     <div className="absolute right-0 bottom-full mb-1 w-28 py-1 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] shadow-xl z-50">
                         <button
                           onClick={() => { setPrivacy('public'); setPrivacyMenuOpen(false); }}
-                          className="w-full text-left px-2.5 py-1 text-[11px] text-[#e5e7eb] hover:bg-[#252835]"
+                          className="w-full text-left px-2.5 py-1 text-[11px] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-3))]"
                         >
                           🌐 Public
                         </button>
                         <button
                           onClick={() => { setPrivacy('private'); setPrivacyMenuOpen(false); }}
-                          className="w-full text-left px-2.5 py-1 text-[11px] text-[#e5e7eb] hover:bg-[#252835]"
+                          className="w-full text-left px-2.5 py-1 text-[11px] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-3))]"
                         >
                          🔒 Private
                        </button>
@@ -732,26 +732,26 @@ export const GeneratePanel: React.FC = () => {
          </div>
 
          {/* Accordion 2: Auto-Optimize Settings */}
-         <div className="border border-[#21242d] rounded-xl overflow-hidden bg-[#13151b]">
+         <div className="border border-[hsl(var(--border))] rounded-xl overflow-hidden bg-[hsl(var(--surface-1))]">
            <button
              onClick={() => setGenerationSettings(prev => ({ ...prev, autoOptimize: !prev.autoOptimize }))}
-             className="w-full px-3 py-2.5 flex items-center justify-between font-bold text-xs text-[#e5e7eb] hover:bg-[#181a22] transition-colors"
+             className="w-full px-3 py-2.5 flex items-center justify-between font-bold text-xs text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))] transition-colors"
            >
              <div className="flex items-center gap-1.5">
-               <Wrench className="w-3.5 h-3.5 text-[#f5c518]" />
+               <Wrench className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
                <span>Auto-Optimize Mesh</span>
                {generationSettings.autoOptimize && (
-                 <span className="px-1.5 py-0.5 rounded bg-[#22c55e]/20 text-[#22c55e] text-[8px] font-bold">ON</span>
+                 <span className="px-1.5 py-0.5 rounded bg-[hsl(var(--neon-green))]/20 text-[hsl(var(--neon-green))] text-[8px] font-bold">ON</span>
                )}
              </div>
              <div className="flex items-center gap-2">
                {generationSettings.autoOptimize && (
-                 <span className="text-[10px] text-[#6b7280]">~{Math.round(100 - (generationSettings.autoOptimizeSettings.targetPolycount / 100000) * 100)}% reduction</span>
+                 <span className="text-[10px] text-[hsl(var(--muted-foreground))]">~{Math.round(100 - (generationSettings.autoOptimizeSettings.targetPolycount / 100000) * 100)}% reduction</span>
                )}
-               <div className={`w-9 h-5 rounded-full p-0.5 transition-colors ${
-                 generationSettings.autoOptimize ? 'bg-[#f5c518]' : 'bg-[#282c38]'
-               }`}>
-                 <div className={`w-4 h-4 rounded-full bg-[#111216] transition-transform ${
+                <div className={`w-9 h-5 rounded-full p-0.5 transition-all duration-200 ${
+                  generationSettings.autoOptimize ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-4))]'
+                }`}>
+                 <div className={`w-4 h-4 rounded-full bg-[hsl(var(--primary-foreground))] transition-transform ${
                    generationSettings.autoOptimize ? 'translate-x-4' : 'translate-x-0'
                  }`} />
                </div>
@@ -759,12 +759,12 @@ export const GeneratePanel: React.FC = () => {
            </button>
 
            {generationSettings.autoOptimize && (
-             <div className="p-3 pt-1 border-t border-[#1e222b] space-y-3 animate-in fade-in duration-200">
+             <div className="p-3 pt-1 border-t border-[hsl(var(--border))] space-y-3 animate-in fade-in duration-200">
                {/* Target Polycount Slider */}
                <div className="space-y-1.5">
                  <div className="flex items-center justify-between">
-                   <span className="text-xs text-[#cbd5e1] font-medium">Target Polycount</span>
-                   <span className="text-[10px] font-mono text-[#f5c518]">{generationSettings.autoOptimizeSettings.targetPolycount.toLocaleString()} tris</span>
+                   <span className="text-xs text-[hsl(var(--foreground))] font-medium">Target Polycount</span>
+                   <span className="text-[10px] font-mono text-[hsl(var(--primary))]">{generationSettings.autoOptimizeSettings.targetPolycount.toLocaleString()} tris</span>
                  </div>
                  <input
                    type="range"
@@ -776,9 +776,9 @@ export const GeneratePanel: React.FC = () => {
                      ...prev,
                      autoOptimizeSettings: { ...prev.autoOptimizeSettings, targetPolycount: parseInt(e.target.value) }
                    }))}
-                   className="w-full h-1.5 rounded-full appearance-none bg-[#282c38] accent-[#f5c518] cursor-pointer"
+                   className="w-full h-1.5 rounded-full appearance-none bg-[hsl(var(--surface-4))] accent-[hsl(var(--primary))] cursor-pointer"
                  />
-                 <div className="flex justify-between text-[9px] text-[#6b7280]">
+                 <div className="flex justify-between text-[9px] text-[hsl(var(--muted-foreground))]">
                    <span>5K</span>
                    <span>100K</span>
                  </div>
@@ -787,8 +787,8 @@ export const GeneratePanel: React.FC = () => {
                {/* Fix UVs Checkbox */}
                <div className="flex items-center justify-between">
                  <div>
-                   <span className="text-xs text-[#cbd5e1] font-medium block">Fix UV Mapping</span>
-                   <span className="text-[10px] text-[#717786]">Repair overlapping UVs &amp; fill islands</span>
+                   <span className="text-xs text-[hsl(var(--foreground))] font-medium block">Fix UV Mapping</span>
+                   <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Repair overlapping UVs &amp; fill islands</span>
                  </div>
                  <button
                    onClick={() => setGenerationSettings(prev => ({
@@ -796,10 +796,10 @@ export const GeneratePanel: React.FC = () => {
                      autoOptimizeSettings: { ...prev.autoOptimizeSettings, fixUVs: !prev.autoOptimizeSettings.fixUVs }
                    }))}
                    className={`w-9 h-5 rounded-full p-0.5 transition-colors ${
-                     generationSettings.autoOptimizeSettings.fixUVs ? 'bg-[#f5c518]' : 'bg-[#282c38]'
+                     generationSettings.autoOptimizeSettings.fixUVs ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-4))]'
                    }`}
                  >
-                   <div className={`w-4 h-4 rounded-full bg-[#111216] transition-transform ${
+                   <div className={`w-4 h-4 rounded-full bg-[hsl(var(--primary-foreground))] transition-transform ${
                      generationSettings.autoOptimizeSettings.fixUVs ? 'translate-x-4' : 'translate-x-0'
                    }`} />
                  </button>
@@ -808,8 +808,8 @@ export const GeneratePanel: React.FC = () => {
                {/* Preserve Details Slider */}
                <div className="space-y-1.5">
                  <div className="flex items-center justify-between">
-                   <span className="text-xs text-[#cbd5e1] font-medium">Preserve Details</span>
-                   <span className="text-[10px] font-mono text-[#f5c518]">{generationSettings.autoOptimizeSettings.preserveDetails}%</span>
+                   <span className="text-xs text-[hsl(var(--foreground))] font-medium">Preserve Details</span>
+                   <span className="text-[10px] font-mono text-[hsl(var(--primary))]">{generationSettings.autoOptimizeSettings.preserveDetails}%</span>
                  </div>
                  <input
                    type="range"
@@ -821,18 +821,18 @@ export const GeneratePanel: React.FC = () => {
                      ...prev,
                      autoOptimizeSettings: { ...prev.autoOptimizeSettings, preserveDetails: parseInt(e.target.value) }
                    }))}
-                   className="w-full h-1.5 rounded-full appearance-none bg-[#282c38] accent-[#f5c518] cursor-pointer"
+                   className="w-full h-1.5 rounded-full appearance-none bg-[hsl(var(--surface-4))] accent-[hsl(var(--primary))] cursor-pointer"
                  />
-                 <div className="flex justify-between text-[9px] text-[#6b7280]">
+                 <div className="flex justify-between text-[9px] text-[hsl(var(--muted-foreground))]">
                    <span>Aggressive</span>
                    <span>Maximum</span>
                  </div>
                </div>
 
                {/* Estimated Savings */}
-               <div className="p-2 rounded-lg bg-[#1a1d26] border border-[#2a2e3a] flex items-center gap-2">
-                 <Info className="w-3.5 h-3.5 text-[#38bdf8] flex-shrink-0" />
-                 <span className="text-[10px] text-[#8e95a5]">
+               <div className="p-2 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] flex items-center gap-2">
+                 <Info className="w-3.5 h-3.5 text-[hsl(var(--neon-blue))] flex-shrink-0" />
+                 <span className="text-[10px] text-[hsl(var(--muted-foreground))]">
                    Will reduce ~{Math.max(10, Math.round(100 - (generationSettings.autoOptimizeSettings.targetPolycount / 100000) * 100))}% of polygons
                    {generationSettings.autoOptimizeSettings.fixUVs && ' • Fix UV overlaps'}
                    {generationSettings.autoOptimizeSettings.preserveDetails > 50 && ' • High detail preservation'}
@@ -844,21 +844,21 @@ export const GeneratePanel: React.FC = () => {
        </div>
 
        {/* Bottom Sticky Action Button */}
-       <div className="p-3 border-t border-[#21242c] bg-[#0d0e12]">
+       <div className="p-3 border-t border-[hsl(var(--border))] bg-[hsl(var(--surface-0))]">
         <button
           id="btn-generate-model-action"
           onClick={handleGenerate}
           disabled={isExecuting}
-          className="w-full py-3 rounded-full bg-[#f5c518] hover:bg-[#eab308] text-[#111216] font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#f5c518]/20 active:scale-98 transition-all disabled:opacity-50"
+          className="w-full py-3 rounded-full bg-[hsl(var(--primary))] hover:brightness-110 text-[hsl(var(--primary-foreground))] font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-[hsl(var(--primary))]/20 active:scale-98 transition-all disabled:opacity-50"
         >
           {isExecuting ? (
             <>
-              <RefreshCw className="w-4 h-4 animate-spin text-[#111216]" />
+              <RefreshCw className="w-4 h-4 animate-spin text-[hsl(var(--primary-foreground))]" />
               <span>{executionStep || `Generating 3D Asset (${executionProgress || 35}%)...`}</span>
             </>
           ) : (
             <>
-              <Sparkles className="w-4 h-4 text-[#111216]" />
+              <Sparkles className="w-4 h-4 text-[hsl(var(--primary-foreground))]" />
               <span>Generate {currentMode === 'text-to-3d' ? 'from Text Prompt' : 'from Reference Image'}</span>
             </>
           )}

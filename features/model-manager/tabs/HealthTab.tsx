@@ -112,7 +112,7 @@ export function HealthTab({ modelId, autoRefresh = true }: HealthTabProps) {
       case 'warning':
         return <AlertTriangle className="w-5 h-5 text-[hsl(var(--neon-amber))]" />;
       default:
-        return <AlertTriangle className="w-5 h-5 text-gray-400" />;
+        return <AlertTriangle className="w-5 h-5 text-muted-foreground" />;
     }
   };
 

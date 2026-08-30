@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Pause, Play, X, Download, Clock } from 'lucide-react';
+import { AlertCircle, Pause, Play, X, Download, Clock, CheckCircle } from 'lucide-react';
 
 interface DownloadItem {
   id: string;
@@ -17,7 +17,7 @@ interface DownloadItem {
   total_size: number;
 }
 
-// Bug 6 Fix: Track download speed with history
+// Track download speed with history
 interface DownloadSpeedTracker {
   previousSize: number;
   previousTime: number;
@@ -25,20 +25,41 @@ interface DownloadSpeedTracker {
   speedHistory: number[]; // for smoothing
 }
 
+const POLL_INTERVAL = 5000; // Reduced from 1s to 5s to prevent UI freezing
+
 export function DownloadProgress() {
   const [downloads, setDownloads] = useState<DownloadItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isActive, setIsActive] = useState(true);
   
-  // Bug 6 Fix: Speed tracking state
+  // Speed tracking state
   const speedTrackersRef = useRef<Map<string, DownloadSpeedTracker>>(new Map());
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Pause polling when tab is hidden to save resources
+  useEffect(() => {
+    const onVisibility = () => {
+      setIsActive(!document.hidden);
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
 
   useEffect(() => {
     fetchDownloads();
-    const interval = setInterval(fetchDownloads, 1000);
-    return () => clearInterval(interval);
-  }, []);
+    // Only poll when tab is active — prevents unnecessary re-renders when hidden
+    if (isActive) {
+      intervalRef.current = setInterval(fetchDownloads, POLL_INTERVAL);
+    }
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [isActive]);
 
-  // Bug 6 Fix: Calculate download speed
+  // Calculate download speed
   const calculateSpeed = useCallback((downloadId: string, currentSize: number): number => {
     const now = Date.now();
     const tracker = speedTrackersRef.current.get(downloadId);
@@ -75,12 +96,12 @@ export function DownloadProgress() {
 
   const fetchDownloads = async () => {
     try {
-      const res = await fetch('/api/v1/download/queue');
+      const res = await fetch('/api/v1/download/queue', { signal: AbortSignal.timeout(8000) });
       const data = await res.json();
       if (data.success) {
         setDownloads(data.data.queue || []);
         
-        // Bug 6 Fix: Calculate speeds when data updates
+        // Calculate speeds when data updates
         const queue = data.data.queue || [];
         queue.forEach((item: DownloadItem) => {
           if (item.status === 'downloading') {
@@ -89,7 +110,7 @@ export function DownloadProgress() {
         });
       }
     } catch (error) {
-      console.error('Failed to fetch downloads:', error);
+      // Silently fail — backend might be temporarily unavailable
     } finally {
       setLoading(false);
     }

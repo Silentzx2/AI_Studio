@@ -18,15 +18,23 @@ else:
     async_db_url = database_url.replace("postgresql://", "postgresql+asyncpg://")
     sync_db_url = database_url.replace("postgresql://", "postgresql+psycopg2://")
 
+# Async engine — pool sized for concurrent frontend polling + background tasks.
+# pool_size=20 handles ~15 concurrent SSE + API requests without contention.
 _async_engine_kwargs = {
     "echo": settings.debug,
     "pool_pre_ping": True,
-    "pool_size": 10,
-    "max_overflow": 20,
+    "pool_size": 20,
+    "max_overflow": 30,
+    "pool_recycle": 3600,  # Recycle connections hourly to prevent stale connections
 }
+# Sync engine for celery workers — explicit pool to avoid exhausting DB
+# connections when many workers run concurrently.
 _sync_engine_kwargs = {
     "echo": settings.debug,
     "pool_pre_ping": True,
+    "pool_size": 5,
+    "max_overflow": 10,
+    "pool_recycle": 3600,
 }
 
 # Async engine

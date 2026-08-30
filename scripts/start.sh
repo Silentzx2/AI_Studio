@@ -350,20 +350,40 @@ if u.port: print(u.port)
 fi
 
 # Start PostgreSQL if not running
-if ! pg_isready -h "$_DB_HOST" -p "$_DB_PORT" -U "$_DB_USER" &>/dev/null; then
+if ! pg_isready -h "$_DB_HOST" -p "$_DB_PORT" &>/dev/null; then
   info "Starting PostgreSQL..."
   if command -v systemctl &>/dev/null; then
     sudo systemctl start postgresql 2>/dev/null || true
   fi
   # Try direct start if systemctl failed or unavailable
-  if ! pg_isready -h "$_DB_HOST" -p "$_DB_PORT" -U "$_DB_USER" &>/dev/null; then
+  if ! pg_isready -h "$_DB_HOST" -p "$_DB_PORT" &>/dev/null; then
     sudo service postgresql start 2>/dev/null || sudo pg_ctlcluster $(ls /etc/postgresql/ 2>/dev/null | head -1) main start 2>/dev/null || true
   fi
   sleep 2
 fi
 
+# Ensure ai_studio user exists (connect as postgres first)
+if pg_isready -h "$_DB_HOST" -p "$_DB_PORT" &>/dev/null; then
+  # Try to create user as postgres (trust auth for local socket)
+  sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$_DB_USER'" 2>/dev/null | grep -q 1 || {
+    info "Creating PostgreSQL user '$_DB_USER'..."
+    sudo -u postgres psql -c "CREATE USER $_DB_USER WITH PASSWORD '$_DB_PASS';" 2>/dev/null || true
+  }
+  # Ensure password is correct
+  sudo -u postgres psql -c "ALTER USER $_DB_USER WITH PASSWORD '$_DB_PASS';" 2>/dev/null || true
+  # Ensure pg_hba.conf allows md5 auth for ai_studio
+  _PG_HBA="$(sudo -u postgres psql -t -c "SHOW hba_file;" 2>/dev/null | xargs)"
+  if [[ -f "${_PG_HBA:-}" ]]; then
+    if ! grep -q "host.*$_DB_USER.*127.0.0.1/32.*md5" "$_PG_HBA" 2>/dev/null; then
+      echo "host $_DB_USER $_DB_USER 127.0.0.1/32 md5" | sudo tee -a "$_PG_HBA" > /dev/null 2>&1 || true
+      echo "host $_DB_USER $_DB_USER ::1/128 md5" | sudo tee -a "$_PG_HBA" > /dev/null 2>&1 || true
+      sudo service postgresql reload 2>/dev/null || true
+    fi
+  fi
+fi
+
 _PG_READY=false
-if pg_isready -h "$_DB_HOST" -p "$_DB_PORT" -U "$_DB_USER" &>/dev/null; then
+if pg_isready -h "$_DB_HOST" -p "$_DB_PORT" &>/dev/null; then
   if PGPASSWORD="$_DB_PASS" psql -h "$_DB_HOST" -p "$_DB_PORT" -U "$_DB_USER" -d postgres -c "SELECT 1;" &>/dev/null; then
     _PG_READY=true
     log "PostgreSQL authentication successful (user=$_DB_USER, host=$_DB_HOST)"
@@ -381,19 +401,14 @@ if [[ "$_PG_READY" == "true" ]]; then
     err "Invalid database name '$_DB_NAME' — must match [a-zA-Z_][a-zA-Z0-9_]*"
     exit 1
   fi
-  PGPASSWORD="$_DB_PASS" psql -h "$_DB_HOST" -p "$_DB_PORT" -U "$_DB_USER" -d postgres 2>/dev/null << EOF || true
-DO \$\$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = '$_DB_NAME') THEN
-    CREATE DATABASE $_DB_NAME;
-    RAISE NOTICE 'Created $_DB_NAME database';
-  ELSE
-    RAISE NOTICE 'Database $_DB_NAME already exists';
-  END IF;
-END
-\$\$;
-EOF
-  log "PostgreSQL ready"
+  # Create database if it doesn't exist (run as postgres — ai_studio can't create DBs)
+  if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='$_DB_NAME'" 2>/dev/null | grep -q 1; then
+    info "Creating database '$_DB_NAME'..."
+    sudo -u postgres psql -c "CREATE DATABASE $_DB_NAME OWNER $_DB_USER;" 2>/dev/null || true
+  fi
+  # Grant permissions
+  sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $_DB_NAME TO $_DB_USER;" 2>/dev/null || true
+  log "PostgreSQL ready (user=$_DB_USER, db=$_DB_NAME)"
 fi
 echo ""
 

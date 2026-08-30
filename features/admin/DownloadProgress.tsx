@@ -1,7 +1,7 @@
 "use client";
 
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Download, GitBranch, Package, CheckCircle, XCircle,
   Zap, Clock, HardDrive,
@@ -74,11 +74,28 @@ export function DownloadProgress({
 }) {
   const [state, setState] = useState<DownloadState | null>(null);
   const esRef = useRef<EventSource | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Use refs for callbacks to avoid recreating SSE on every render
+  const onCompleteRef = useRef(onComplete);
+  const onErrorRef = useRef(onError);
+  onCompleteRef.current = onComplete;
+  onErrorRef.current = onError;
 
-  useEffect(() => {
+  const connectSSE = useCallback(() => {
+    // Clean up any existing connection first
+    if (esRef.current) {
+      esRef.current.close();
+      esRef.current = null;
+    }
+
     const url = `${apiBase}/api/v1/admin/install/stream/${encodeURIComponent(modelId)}`;
     const es = new EventSource(url);
     esRef.current = es;
+
+    es.onopen = () => {
+      reconnectAttemptsRef.current = 0;
+    };
 
     es.onmessage = (evt) => {
       try {
@@ -87,17 +104,39 @@ export function DownloadProgress({
         setState(data);
         if (data.status === 'completed') {
           es.close();
-          onComplete?.();
+          esRef.current = null;
+          onCompleteRef.current?.();
         } else if (data.status === 'failed') {
           es.close();
-          onError?.(data.error || 'Download failed');
+          esRef.current = null;
+          onErrorRef.current?.(data.error || 'Download failed');
         }
       } catch { /* ignore parse errors */ }
     };
 
-    es.onerror = () => { es.close(); };
-    return () => { es.close(); };
+    es.onerror = () => {
+      es.close();
+      esRef.current = null;
+      // Attempt reconnect with exponential backoff (max 30s) only if not completed/failed
+      const currentState = state;
+      if (currentState?.status !== 'completed' && currentState?.status !== 'failed') {
+        reconnectAttemptsRef.current++;
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current - 1), 30000);
+        reconnectTimerRef.current = setTimeout(connectSSE, delay);
+      }
+    };
   }, [modelId, apiBase]);
+
+  useEffect(() => {
+    connectSSE();
+    return () => {
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+      if (esRef.current) {
+        esRef.current.close();
+        esRef.current = null;
+      }
+    };
+  }, [connectSSE]);
 
   if (!state || state.status === 'idle' || state.status === 'starting') {
     return (

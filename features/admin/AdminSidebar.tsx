@@ -34,16 +34,15 @@ export default function AdminSidebar({
 }) {
   return (
     <aside
-      className="w-60 shrink-0 h-full flex flex-col"
+      className="w-60 shrink-0 h-full flex flex-col border-r border-[hsl(var(--border))]"
       style={{
-        background: 'hsl(var(--surface-0) / 0.95)',
+        background: 'hsl(var(--card) / 0.95)',
         backdropFilter: 'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
-        borderRight: '1px solid hsl(var(--admin-accent) / 0.12)',
       }}
     >
       {/* Logo */}
-      <div className="px-5 py-5" style={{ borderBottom: '1px solid hsl(var(--admin-accent) / 0.10)' }}>
+      <div className="px-5 py-5" style={{ borderBottom: '1px solid hsl(var(--border) / 0.5)' }}>
         <div className="flex items-center gap-3">
           <div
             className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
@@ -168,7 +167,7 @@ export default function AdminSidebar({
       </nav>
 
       {/* System status indicator */}
-      <div className="px-3 py-2" style={{ borderTop: '1px solid hsl(var(--admin-accent) / 0.08)' }}>
+      <div className="px-3 py-2" style={{ borderTop: '1px solid hsl(var(--border) / 0.5)' }}>
         <div className="flex items-center gap-2 px-2 py-2 rounded-lg bg-[hsl(var(--neon-green))]/05 border border-[hsl(var(--neon-green)/0.1)]">
           <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--neon-green))] animate-pulse shrink-0" />
           <span className="text-[11px] text-[hsl(var(--neon-green))] font-medium">System Online</span>
@@ -176,7 +175,7 @@ export default function AdminSidebar({
       </div>
 
       {/* User footer */}
-      <div className="px-3 py-3" style={{ borderTop: '1px solid hsl(var(--admin-accent) / 0.08)' }}>
+      <div className="px-3 py-3" style={{ borderTop: '1px solid hsl(var(--border) / 0.5)' }}>
         <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-[hsl(var(--primary)/0.05)] transition-colors cursor-pointer group">
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold text-[hsl(var(--foreground))]"
