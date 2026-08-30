@@ -77,15 +77,15 @@ export async function GET(
     const response = await fetch(targetUrl, {
       method: 'GET',
       headers: getForwardingHeaders(request),
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(120000),
     });
     
     return createProxyResponse(response);
   } catch (error) {
     console.error(`[API Proxy] GET ${fullPath} failed:`, error);
     return NextResponse.json(
-      { success: false, message: `Backend unavailable at ${BACKEND_URL} — is the backend service running?` },
-      { status: 502 }
+      { success: false, message: `Backend unavailable or timed out at ${BACKEND_URL}` },
+      { status: 504 }
     );
   }
 }
@@ -129,15 +129,15 @@ export async function POST(
       method: 'POST',
       headers,
       body: body || undefined,
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(600000), // 10 minutes for generation/uploads
     });
     
     return createProxyResponse(response);
   } catch (error) {
     console.error(`[API Proxy] POST ${fullPath} failed:`, error);
     return NextResponse.json(
-      { success: false, message: `Backend unavailable at ${BACKEND_URL} — is the backend service running?` },
-      { status: 502 }
+      { success: false, message: `Backend connection error or timeout at ${BACKEND_URL}` },
+      { status: 504 }
     );
   }
 }

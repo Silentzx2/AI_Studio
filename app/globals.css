@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: 0 0% %;
+  --background: 0 0% 5%;
   --foreground: 0 0% 98%;
   --card: 0 0% 10%;
   --card-foreground: 0 0% 98%;
@@ -591,8 +591,9 @@
 
   /* ── Panel / Sidebar Styles ─────────────────────────────── */
 
-  .panel-glass {
+.panel-glass {
     background: hsl(var(--surface-1));
+    border-right: 1px solid hsl(var(--border));
   }
 
   .panel-header {
@@ -1704,13 +1705,10 @@ html { font-size: var(--base-font-size, 16px); }
 * { border-radius: var(--border-radius, 0); }
 button, input, textarea, select { border-radius: var(--border-radius, 0.75rem); }
 
-/* ── Glass Effect (gated by --glass-enabled) ── */
 .glass-effect,
 .glass-card {
-  backdrop-filter: blur(var(--glass-blur, 12px)) saturate(1.2);
-  -webkit-backdrop-filter: blur(var(--glass-blur, 12px)) saturate(1.2);
-  background: hsl(var(--card) / calc(var(--glass-bg-opacity, 0.08) * var(--glass-enabled, 1)));
-  border: 1px solid hsl(var(--foreground) / calc(var(--glass-border-opacity, 0.1) * var(--glass-enabled, 1)));
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
 }
 .glass-subtle {
   background: hsl(var(--surface-2));
@@ -1725,9 +1723,7 @@ button, input, textarea, select { border-radius: var(--border-radius, 0.75rem); 
   border: 1px solid hsl(var(--border));
 }
 .glass-frosted {
-  background: hsl(var(--surface-1) / var(--nav-bg-opacity, 1));
-  backdrop-filter: blur(var(--nav-backdrop-blur, 0px));
-  -webkit-backdrop-filter: blur(var(--nav-backdrop-blur, 0px));
+  background: hsl(var(--surface-1));
   border: 1px solid hsl(var(--border) / 0.5);
 }
 .glass-card {
@@ -2388,9 +2384,9 @@ html.reduced-animations *::after {
 /* ── Typography Utilities ── */
 
 
-/* ── Glass Panel System (Tripo3D Reference) ── */
+/* ── Glass Panel System (Preserved for Viewport) ── */
 
-.glass-panel {
+.glass-panel-preserved {
   background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -2398,7 +2394,7 @@ html.reduced-animations *::after {
   border-radius: 1.5625rem;
 }
 
-.glass-panel-subtle {
+.glass-panel-subtle-preserved {
   background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -2406,11 +2402,23 @@ html.reduced-animations *::after {
   border-radius: 0.625rem;
 }
 
+/* ── Glass Panel System (Now Solid for Workspace) ── */
+
+.glass-panel {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 1.5625rem;
+}
+
+.glass-panel-subtle {
+  background: hsl(var(--surface-2));
+  border: 1px solid hsl(var(--border) / 0.5);
+  border-radius: 0.625rem;
+}
+
 .glass-panel-strong {
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: hsl(var(--surface-1));
+  border: 1px solid hsl(var(--border));
   border-radius: 1rem;
 }
 

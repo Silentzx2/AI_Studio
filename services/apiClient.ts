@@ -71,10 +71,9 @@ async function parseErrorMessage(res: Response): Promise<string> {
   return `HTTP ${res.status}: ${res.statusText || 'Request failed'}`;
 }
 
-// Default timeout for API requests (30s)
-// Some endpoints like /runtime/status and /runtime/options can take 5+ seconds
-// due to health checks and provider discovery
-const DEFAULT_TIMEOUT_MS = 30000;
+// Default timeout for API requests (10m)
+// Generation tasks and large uploads can take several minutes
+const DEFAULT_TIMEOUT_MS = 600000;
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController();
@@ -241,7 +240,7 @@ export const apiClient = {
       xhr.ontimeout = () => reject(new Error('Upload timeout - file may be too large'));
 
       xhr.open('POST', `${API_URL}${path}`);
-      xhr.timeout = 120000; // 2 minutes for large files
+      xhr.timeout = 600000; // 10 minutes for large files
       xhr.send(formData);
     });
   },

@@ -1,27 +1,37 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
+import dynamic from 'next/dynamic';
 import { useWorkspace } from './store/WorkspaceContext';
 import { TopHeader } from './Header/TopHeader';
 import { LeftNavigation } from './Navigation/LeftNavigation';
-import { MeshViewer } from './Viewport/MeshViewer';
-import { GeneratePanel } from './Panels/GeneratePanel';
-import { WorldGenToolPanel } from './Panels/WorldGenToolPanel';
-import { TexturePanel } from './Panels/TexturePanel';
-import { RemeshPanel } from './Panels/RemeshPanel';
-import { SecondaryPanel } from './Panels/SecondaryPanels';
-import { RightAssetsPanel } from './RightPanel/RightAssetsPanel';
-import { RightPropertyPanel } from './RightPanel/RightPropertyPanel';
-import { RightPromptPanel } from './RightPanel/RightPromptPanel';
-import { OutputsPage } from './Dashboard/OutputsPage';
-import { SystemPage } from './Dashboard/SystemPage';
-import { StudioDashboard } from './Dashboard/StudioDashboard';
-import { ExportModal } from './Modals/ExportModal';
-import { SettingsModal } from './Modals/SettingsModal';
-import { DccBridgeModal } from './Modals/DccBridgeModal';
-import { ProgressOverlay } from './Notifications/ProgressOverlay';
+
+// Dynamic imports for heavy 3D components and panels
+const MeshViewer = dynamic(() => import('./Viewport/MeshViewer').then(mod => mod.MeshViewer), { 
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-[hsl(var(--surface-0))] animate-pulse" />
+});
+
+const GeneratePanel = dynamic(() => import('./Panels/GeneratePanel').then(mod => mod.GeneratePanel), { ssr: false });
+const WorldGenToolPanel = dynamic(() => import('./Panels/WorldGenToolPanel').then(mod => mod.WorldGenToolPanel), { ssr: false });
+const TexturePanel = dynamic(() => import('./Panels/TexturePanel').then(mod => mod.TexturePanel), { ssr: false });
+const RemeshPanel = dynamic(() => import('./Panels/RemeshPanel').then(mod => mod.RemeshPanel), { ssr: false });
+const SecondaryPanel = dynamic(() => import('./Panels/SecondaryPanels').then(mod => mod.SecondaryPanel), { ssr: false });
+
+const RightAssetsPanel = dynamic(() => import('./RightPanel/RightAssetsPanel').then(mod => mod.RightAssetsPanel), { ssr: false });
+const RightPropertyPanel = dynamic(() => import('./RightPanel/RightPropertyPanel').then(mod => mod.RightPropertyPanel), { ssr: false });
+const RightPromptPanel = dynamic(() => import('./RightPanel/RightPromptPanel').then(mod => mod.RightPromptPanel), { ssr: false });
+
+const OutputsPage = dynamic(() => import('./Dashboard/OutputsPage').then(mod => mod.OutputsPage), { ssr: false });
+const SystemPage = dynamic(() => import('./Dashboard/SystemPage').then(mod => mod.SystemPage), { ssr: false });
+const StudioDashboard = dynamic(() => import('./Dashboard/StudioDashboard').then(mod => mod.StudioDashboard), { ssr: false });
+
+const ExportModal = dynamic(() => import('./Modals/ExportModal').then(mod => mod.ExportModal), { ssr: false });
+const SettingsModal = dynamic(() => import('./Modals/SettingsModal').then(mod => mod.SettingsModal), { ssr: false });
+const DccBridgeModal = dynamic(() => import('./Modals/DccBridgeModal').then(mod => mod.DccBridgeModal), { ssr: false });
+const ProgressOverlay = dynamic(() => import('./Notifications/ProgressOverlay').then(mod => mod.ProgressOverlay), { ssr: false });
 import { FolderOpen, Sliders, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import type { ToolType } from './types';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
@@ -47,7 +57,56 @@ export const WorkspaceShell: React.FC = () => {
     rightPanelMode, setRightPanelMode,
     isLeftPanelOpen, isRightPanelOpen,
     setIsLeftPanelOpen, setIsRightPanelOpen,
+    leftPanelWidth, setLeftPanelWidth,
+    rightPanelWidth, setRightPanelWidth,
   } = useWorkspace();
+
+  const [isResizingLeft, setIsResizingLeft] = React.useState(false);
+  const [isResizingRight, setIsResizingRight] = React.useState(false);
+
+  const startResizingLeft = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingLeft(true);
+  }, []);
+
+  const startResizingRight = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingRight(true);
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    setIsResizingLeft(false);
+    setIsResizingRight(false);
+  }, []);
+
+  const resize = useCallback((e: MouseEvent) => {
+    if (isResizingLeft) {
+      const newWidth = e.clientX - 64; // Subtract nav width
+      if (newWidth > 200 && newWidth < 600) {
+        setLeftPanelWidth(newWidth);
+      }
+    }
+    if (isResizingRight) {
+      const newWidth = window.innerWidth - e.clientX;
+      if (newWidth > 200 && newWidth < 600) {
+        setRightPanelWidth(newWidth);
+      }
+    }
+  }, [isResizingLeft, isResizingRight, setLeftPanelWidth, setRightPanelWidth]);
+
+  useEffect(() => {
+    if (isResizingLeft || isResizingRight) {
+      window.addEventListener('mousemove', resize);
+      window.addEventListener('mouseup', stopResizing);
+    } else {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    }
+    return () => {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    };
+  }, [isResizingLeft, isResizingRight, resize, stopResizing]);
 
   useEffect(() => {
     const rawPath = pathname?.toLowerCase() ?? '';
@@ -88,7 +147,7 @@ export const WorkspaceShell: React.FC = () => {
       case 'worldgen': return <WorldGenToolPanel />;
       case 'remesh': return <RemeshPanel />;
       case 'texture': return <TexturePanel />;
-      case 'edit': case 'upscale': case 'pbr': return <SecondaryPanel tool={activeTool} />;
+      case 'segment': case 'edit': case 'upscale': case 'pbr': return <SecondaryPanel tool={activeTool} />;
       default: return <GeneratePanel />;
     }
   };
@@ -98,117 +157,143 @@ export const WorkspaceShell: React.FC = () => {
       <div className="flex-shrink-0 relative z-50">
         <TopHeader />
       </div>
-      <div className="flex flex-1 overflow-hidden relative">
-        <LeftNavigation />
-        <div className="flex flex-1 overflow-hidden relative">
-           {/* Workspace mode: left panel + viewport + right panel in a row with smooth transitions */}
+      <div className="flex flex-1 overflow-hidden relative bg-[#22242a]">
+        {/* Left tool rail - docked solid dark toolbar */}
+        <div className="z-30 h-full flex-shrink-0 relative">
+          <LeftNavigation />
+        </div>
+
+        {/* Center Workspace & 3D Stage */}
+        <div className="flex-1 h-full relative overflow-hidden">
+          {/* Continuous Full-Bleed 3D Viewport in Background */}
+          {mainNav === 'workspace' && (
+            <main id="center-viewport-stage" className="absolute inset-0 z-0 overflow-hidden bg-[#22242a]">
+              <MeshViewer />
+            </main>
+          )}
+
+          {/* Floating Context Tool Panel (Left) */}
           <AnimatePresence initial={false}>
             {mainNav === 'workspace' && isLeftPanelOpen && (
               <motion.aside
                 id="context-tool-panel-container"
-                initial={{ opacity: 0, x: -10 }}
+                initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                transition={{ duration: 0.15, ease: 'easeOut' }}
-                className="w-72 h-full bg-[hsl(var(--card))] border-r border-[hsl(var(--border))] flex flex-col flex-shrink-0 z-10 overflow-hidden"
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.16, ease: 'easeOut' }}
+                style={{ width: leftPanelWidth }}
+                className="absolute left-3 top-3 bottom-3 bg-[#14161b] border border-[#272a34] rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.85)] flex flex-col z-20 overflow-hidden group/panel"
               >
-                <div className="h-8 px-2.5 flex items-center justify-between border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] flex-shrink-0">
-                   <span className="text-[10px] font-bold tracking-wider text-[#F9CF00] uppercase">Tools</span>
-                   <SimpleTooltip label="Collapse panel">
-                     <button
-                       onClick={() => setIsLeftPanelOpen(false)}
-                       className="p-1 rounded-md text-[hsl(var(--muted-foreground))] hover:text-[#F9CF00] hover:bg-[hsl(var(--surface-1))] transition-colors"
-                     >
-                       <PanelLeftClose className="w-4 h-4" />
-                     </button>
-                   </SimpleTooltip>
-                 </div>
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.div
-                    key={activeTool}
-                    initial={{ opacity: 0, x: -6 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 6 }}
-                    transition={{ duration: 0.12, ease: 'easeOut' }}
-                    className="h-full w-full flex flex-col overflow-hidden"
-                  >
-                    {renderToolPanel()}
-                  </motion.div>
-                </AnimatePresence>
+                <div className="flex-1 overflow-hidden relative">
+                  {/* Floating Collapse Button */}
+                  <div className="absolute top-3.5 right-3.5 z-20">
+                    <SimpleTooltip label="Collapse panel" side="left">
+                      <button
+                        onClick={() => setIsLeftPanelOpen(false)}
+                        className="p-1.5 rounded-lg bg-[#1c1f26] border border-[#2e323e] text-zinc-300 hover:text-[#F9CF00] hover:bg-[#252832] transition-all shadow-md"
+                      >
+                        <PanelLeftClose className="w-4 h-4 stroke-[2.2]" />
+                      </button>
+                    </SimpleTooltip>
+                  </div>
+
+                  <AnimatePresence mode="wait" initial={false}>
+                    <motion.div
+                      key={activeTool}
+                      initial={{ opacity: 0, x: -6 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 6 }}
+                      transition={{ duration: 0.12, ease: 'easeOut' }}
+                      className="h-full w-full flex flex-col overflow-hidden"
+                    >
+                      {renderToolPanel()}
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+
+                {/* Resize Handle Left */}
+                <div
+                  onMouseDown={startResizingLeft}
+                  className="absolute right-0 top-0 w-1.5 h-full cursor-col-resize z-30 group-hover/panel:bg-[#F9CF00]/40 hover:bg-[#F9CF00]/70 transition-colors"
+                />
               </motion.aside>
             )}
           </AnimatePresence>
 
-          <main id="center-viewport-stage" className="flex-1 h-full relative overflow-hidden bg-[hsl(var(--card))]">
-            {mainNav === 'workspace' && <MeshViewer />}
+          {/* Left collapsed toggle button */}
+          {mainNav === 'workspace' && !isLeftPanelOpen && (
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 z-20">
+              <SimpleTooltip label="Open Tool Panel">
+                <button
+                  onClick={() => setIsLeftPanelOpen(true)}
+                  className="w-7 h-14 rounded-r-xl bg-[#14161b] border border-l-0 border-[#272a34] text-zinc-300 hover:text-[#F9CF00] transition-colors flex items-center justify-center shadow-2xl"
+                >
+                  <PanelLeftOpen className="w-4 h-4" />
+                </button>
+              </SimpleTooltip>
+            </div>
+          )}
 
-            {/* Left collapsed toggle - inside viewport so it sits at viewport edge */}
-            {mainNav === 'workspace' && !isLeftPanelOpen && (
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 z-20">
-                <SimpleTooltip label="Open Tool Panel">
-                  <button
-                    onClick={() => setIsLeftPanelOpen(true)}
-                    className="w-6 h-14 rounded-r-lg bg-[hsl(var(--surface-1))] border border-l-0 border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[#F9CF00] transition-colors flex items-center justify-center"
-                  >
-                    <PanelLeftOpen className="w-3.5 h-3.5" />
-                  </button>
-                </SimpleTooltip>
-              </div>
-            )}
-
-            {/* Right collapsed toggle - inside viewport so it sits at viewport edge */}
-            {mainNav === 'workspace' && !isRightPanelOpen && (
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 z-20">
-                <SimpleTooltip label="Open Right Panel">
-                  <button
-                    onClick={() => setIsRightPanelOpen(true)}
-                    className="w-6 h-14 rounded-l-lg bg-[hsl(var(--surface-1))] border border-r-0 border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[#F9CF00] transition-colors flex items-center justify-center"
-                  >
-                    <PanelRightOpen className="w-3.5 h-3.5" />
-                  </button>
-                </SimpleTooltip>
-              </div>
-            )}
-          </main>
-
+          {/* Floating Asset Store & Inspector (Right) */}
           <AnimatePresence initial={false}>
             {mainNav === 'workspace' && isRightPanelOpen && (
               <motion.aside
                 id="right-inspector-assets-column"
-                initial={{ opacity: 0, x: 10 }}
+                initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                transition={{ duration: 0.15, ease: 'easeOut' }}
-                className="w-72 h-full bg-[hsl(var(--card))] border-l border-[var(--ws-border,hsl(var(--border)))] flex flex-col flex-shrink-0 z-10 overflow-hidden"
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.16, ease: 'easeOut' }}
+                style={{ width: rightPanelWidth }}
+                className="absolute right-3 top-3 bottom-3 bg-[#14161b] border border-[#272a34] rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.85)] flex flex-col z-20 overflow-hidden group/right"
               >
-                <div className="h-8 px-2.5 flex items-center justify-between border-b border-[var(--ws-border,hsl(var(--border)))] bg-[hsl(var(--card))] flex-shrink-0">
+                {/* Resize Handle Right */}
+                <div
+                  onMouseDown={startResizingRight}
+                  className="absolute left-0 top-0 w-1.5 h-full cursor-col-resize z-30 group-hover/right:bg-[#F9CF00]/40 hover:bg-[#F9CF00]/70 transition-colors"
+                />
+
+                <div className="h-10 px-3.5 flex items-center justify-between border-b border-[#272a34] bg-[#181b22] flex-shrink-0">
+                   <span className="text-[11px] font-bold tracking-wider text-[#F9CF00] uppercase">Asset Studio</span>
                    <SimpleTooltip label="Collapse panel">
                      <button
                        onClick={() => setIsRightPanelOpen(false)}
-                       className="p-1 rounded-md text-[hsl(var(--muted-foreground))] hover:text-[#F9CF00] hover:bg-[hsl(var(--surface-1))] transition-colors"
+                       className="p-1.5 rounded-lg text-zinc-300 hover:text-[#F9CF00] hover:bg-[#252832] transition-colors"
                      >
-                       <PanelRightClose className="w-4 h-4" />
+                       <PanelRightClose className="w-4 h-4 stroke-[2.2]" />
                      </button>
                    </SimpleTooltip>
-                   <span className="text-[10px] font-bold tracking-wider text-[#F9CF00] uppercase">Inspector</span>
                  </div>
-                 <div className="flex items-center p-0.5 bg-[hsl(var(--card))] border-b border-[var(--ws-border,hsl(var(--border)))]">
-                    <button id="tab-btn-assets" onClick={() => setRightPanelMode('assets')} className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${rightPanelMode === 'assets' ? 'bg-[var(--ws-tab-active-bg,hsl(var(--surface-2)))] text-[#F9CF00] shadow-sm' : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))]'}`}>
-                      <FolderOpen className="w-3 h-3" /><span>Assets</span>
+                 <div className="flex items-center p-1.5 bg-[#181b22] border-b border-[#272a34] gap-1.5">
+                    <button id="tab-btn-assets" onClick={() => setRightPanelMode('assets')} className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${rightPanelMode === 'assets' ? 'bg-[#252832] text-[#F9CF00] border border-[#343846] shadow-sm font-bold' : 'text-zinc-400 hover:text-white hover:bg-[#20232b]'}`}>
+                      <FolderOpen className="w-3.5 h-3.5 stroke-[2.2]" /><span>Assets</span>
                     </button>
-                    <button id="tab-btn-prompt" onClick={() => setRightPanelMode('prompt')} className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${rightPanelMode === 'prompt' ? 'bg-[var(--ws-tab-active-bg,hsl(var(--surface-2)))] text-[#F9CF00] shadow-sm' : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))]'}`}>
+                    <button id="tab-btn-prompt" onClick={() => setRightPanelMode('prompt')} className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${rightPanelMode === 'prompt' ? 'bg-[#252832] text-[#F9CF00] border border-[#343846] shadow-sm font-bold' : 'text-zinc-400 hover:text-white hover:bg-[#20232b]'}`}>
                       <span>Prompt</span>
                     </button>
-                    <button id="tab-btn-properties" onClick={() => setRightPanelMode('properties')} className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${rightPanelMode === 'properties' || rightPanelMode === 'property' ? 'bg-[var(--ws-tab-active-bg,hsl(var(--surface-2)))] text-[#F9CF00] shadow-sm' : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))]'}`}>
-                      <Sliders className="w-3 h-3" /><span>Property</span>
+                    <button id="tab-btn-properties" onClick={() => setRightPanelMode('properties')} className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${rightPanelMode === 'properties' || rightPanelMode === 'property' ? 'bg-[#252832] text-[#F9CF00] border border-[#343846] shadow-sm font-bold' : 'text-zinc-400 hover:text-white hover:bg-[#20232b]'}`}>
+                      <Sliders className="w-3.5 h-3.5 stroke-[2.2]" /><span>Property</span>
                     </button>
                  </div>
-                <div className="flex-1 overflow-hidden">
+                <div className="flex-1 overflow-hidden bg-[#14161b]">
                   {rightPanelMode === 'assets' ? <RightAssetsPanel /> : rightPanelMode === 'prompt' ? <RightPromptPanel /> : <RightPropertyPanel />}
                 </div>
               </motion.aside>
             )}
           </AnimatePresence>
+
+          {/* Right collapsed toggle button */}
+          {mainNav === 'workspace' && !isRightPanelOpen && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 z-20">
+              <SimpleTooltip label="Open Asset Store / Inspector">
+                <button
+                  onClick={() => setIsRightPanelOpen(true)}
+                  className="w-7 h-14 rounded-l-xl bg-[#14161b] border border-r-0 border-[#272a34] text-zinc-300 hover:text-[#F9CF00] transition-colors flex items-center justify-center shadow-2xl"
+                >
+                  <PanelRightOpen className="w-4 h-4" />
+                </button>
+              </SimpleTooltip>
+            </div>
+          )}
         </div>
 
         {/* Dashboard/Assets/System overlays with smooth Framer Motion transition */}

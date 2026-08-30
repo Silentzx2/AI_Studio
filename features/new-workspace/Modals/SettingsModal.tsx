@@ -26,25 +26,8 @@ export const SettingsModal: React.FC = () => {
   });
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; msg: string } | null>(null);
-  const [nodeCount, setNodeCount] = useState<number | null>(null);
-  const [nodeError, setNodeError] = useState<string | null>(null);
-
-  React.useEffect(() => {
-    if (!isSettingsOpen) return;
-    let cancelled = false;
-    apiClient.getSystemStats().then(stats => {
-      if (!cancelled) {
-        setNodeCount(stats.status === 'online' ? 1 : 0);
-        setNodeError(null);
-      }
-    }).catch(error => {
-      if (!cancelled) {
-        setNodeCount(null);
-        setNodeError(error instanceof Error ? error.message : 'Unable to reach backend');
-      }
-    });
-    return () => { cancelled = true; };
-  }, [isSettingsOpen]);
+  const nodeCount = systemStats.status === 'online' ? 1 : 0;
+  const nodeError = systemStats.status === 'offline' ? 'Backend is offline' : null;
 
   if (!isSettingsOpen) return null;
 
@@ -70,44 +53,44 @@ export const SettingsModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[hsl(var(--surface-1))] p-4 select-none animate-in fade-in duration-200">
-      <div className="w-full max-w-xl rounded-2xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 select-none animate-in fade-in duration-200">
+      <div className="w-full max-w-xl rounded-2xl bg-[#111] border border-[#1a1a1a] shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 bg-[hsl(var(--surface-1))] border-b border-[hsl(var(--border))]">
+        <div className="flex items-center justify-between px-5 py-4 bg-[#111] border-b border-[#1a1a1a]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] flex items-center justify-center text-[hsl(var(--primary))]">
+            <div className="w-8 h-8 rounded-lg bg-[#1a1a1a] border border-[#222] flex items-center justify-center text-[#F9CF00]">
               <Server className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-[hsl(var(--foreground))]">FastAPI Backend Configuration</h3>
-              <p className="text-[11px] text-[hsl(var(--muted-foreground))]">Connect to local or cloud FastAPI + 3D Generation Pipeline instance</p>
+              <h3 className="font-bold text-sm text-white">Backend Configuration</h3>
+              <p className="text-[11px] text-[#666]">Connect to local or cloud 3D Generation Pipeline</p>
             </div>
           </div>
           <button
             onClick={() => setIsSettingsOpen(false)}
-            className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]"
+            className="p-1.5 rounded-lg text-[#666] hover:text-white hover:bg-[#1a1a1a]"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-5 space-y-4 text-xs">
+        <div className="p-5 space-y-4 text-xs bg-[#0d0d0d]">
           {/* Host & Port Input */}
           <div className="space-y-1.5">
-            <label className="font-medium text-[hsl(var(--foreground))]">Backend Server URL</label>
+            <label className="font-medium text-[#888]">Backend Server URL</label>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={host}
                 onChange={(e) => setHost(e.target.value)}
                 placeholder="/api/v1"
-                className="flex-1 px-3 py-2 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] text-xs font-mono text-[hsl(var(--foreground))] focus:border-[hsl(var(--primary))] outline-none"
+                className="flex-1 px-3 py-2 rounded-xl bg-[#111] border border-[#1a1a1a] text-xs font-mono text-white focus:border-[#F9CF00] outline-none"
               />
               <button
                 onClick={handleTestConnection}
                 disabled={testing}
-                className="px-4 py-2 rounded-xl bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] text-[hsl(var(--primary))] font-bold text-xs flex items-center gap-1.5 transition-colors"
+                className="px-4 py-2 rounded-xl bg-[#1a1a1a] hover:bg-[#222] border border-[#222] text-[#F9CF00] font-bold text-xs flex items-center gap-1.5 transition-colors"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${testing ? 'animate-spin' : ''}`} />
                 <span>{testing ? 'Testing...' : 'Test Link'}</span>
@@ -118,48 +101,48 @@ export const SettingsModal: React.FC = () => {
           {/* Test Status Banner */}
           {testResult && (
             <div className={`p-3 rounded-xl border flex items-center gap-2.5 ${
-              testResult.success ? 'bg-[hsl(var(--neon-green)/0.1)] border-[hsl(var(--neon-green))]/40 text-[hsl(var(--neon-green))]' : 'bg-[hsl(var(--destructive)/0.1)] border-[hsl(var(--destructive))]/40 text-[hsl(var(--destructive))]'
+              testResult.success ? 'bg-green-500/10 border-green-500/40 text-green-500' : 'bg-red-500/10 border-red-500/40 text-red-500'
             }`}>
-              {testResult.success ? <CheckCircle2 className="w-4 h-4 text-[hsl(var(--neon-green))] flex-shrink-0" /> : <AlertCircle className="w-4 h-4 text-[hsl(var(--destructive))] flex-shrink-0" />}
+              {testResult.success ? <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />}
               <span className="text-xs">{testResult.msg}</span>
             </div>
           )}
 
           {/* Node registry status (real /object_info data) */}
           <div className="space-y-2 pt-2">
-            <span className="font-semibold text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Backend Status & Hardware</span>
-            <div className="p-3 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] space-y-2">
+            <span className="font-semibold text-xs text-[#444] uppercase tracking-wider">Backend Status & Hardware</span>
+            <div className="p-3 rounded-xl bg-[#111] border border-[#1a1a1a] space-y-2">
               {nodeError ? (
-                <div className="text-[11px] text-[hsl(var(--destructive))]">Backend unreachable: {nodeError}</div>
+                <div className="text-[11px] text-red-500">Backend unreachable: {nodeError}</div>
               ) : (
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[hsl(var(--foreground))]">FastAPI Status</span>
-                    <span className={`text-[11px] font-mono font-bold ${systemStats.status === 'online' ? 'text-[hsl(var(--neon-green))]' : 'text-[hsl(var(--destructive))]'}`}>
+                    <span className="text-[#888]">FastAPI Status</span>
+                    <span className={`text-[11px] font-mono font-bold ${systemStats.status === 'online' ? 'text-green-500' : 'text-red-500'}`}>
                       {systemStats.status === 'online' ? `Online (${systemStats.lastPingMs}ms)` : 'Offline'}
                     </span>
                   </div>
                   {systemStats.gpu && systemStats.gpu !== 'Unavailable' && (
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-[hsl(var(--muted-foreground))]">GPU</span>
-                      <span className="font-mono text-[hsl(var(--foreground))] truncate max-w-[280px]">{systemStats.gpu}</span>
+                      <span className="text-[#666]">GPU</span>
+                      <span className="font-mono text-white truncate max-w-[280px]">{systemStats.gpu}</span>
                     </div>
                   )}
                   {systemStats.vramUsedGb != null && (
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-[hsl(var(--muted-foreground))]">VRAM</span>
-                      <span className="font-mono text-[hsl(var(--neon-blue))]">{systemStats.vramUsedGb} / {systemStats.vramTotalGb || '?'} GB</span>
+                      <span className="text-[#666]">VRAM</span>
+                      <span className="font-mono text-blue-400">{systemStats.vramUsedGb} / {systemStats.vramTotalGb || '?'} GB</span>
                     </div>
                   )}
                   {systemStats.pythonVersion && (
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-[hsl(var(--muted-foreground))]">Python / PyTorch</span>
-                      <span className="font-mono text-[hsl(var(--muted-foreground))]">{systemStats.pythonVersion} {systemStats.torchVersion ? `· PyTorch ${systemStats.torchVersion}` : ''}</span>
+                      <span className="text-[#666]">Python / PyTorch</span>
+                      <span className="font-mono text-[#666]">{systemStats.pythonVersion} {systemStats.torchVersion ? `· PyTorch ${systemStats.torchVersion}` : ''}</span>
                     </div>
                   )}
                 </div>
               )}
-              <div className="text-[10px] text-[hsl(var(--muted-foreground))] pt-1 border-t border-[hsl(var(--surface-1))]">AI 3D Studio connects via /api/v1 (proxied to backend on localhost:8000).</div>
+              <div className="text-[10px] text-[#444] pt-1 border-t border-[#1a1a1a]">AI 3D Studio connects via /api/v1 (proxied to backend on localhost:8000).</div>
             </div>
           </div>
 
@@ -256,18 +239,18 @@ export const SettingsModal: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2.5 px-5 py-3.5 bg-[hsl(var(--surface-1))] border-t border-[hsl(var(--border))]">
+        <div className="flex items-center justify-end gap-2.5 px-5 py-3.5 bg-[#111] border-t border-[#1a1a1a]">
           <button
             onClick={() => setIsSettingsOpen(false)}
-            className="px-4 py-2 rounded-xl bg-[hsl(var(--surface-2))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))] font-medium text-xs transition-colors"
+            className="px-4 py-2 rounded-xl bg-[#1a1a1a] text-[#888] hover:bg-[#222] font-medium text-xs transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-5 py-2 rounded-xl bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))] text-[hsl(var(--surface-1))] font-bold text-xs shadow-md shadow-[hsl(var(--primary))]/20 transition-all"
+            className="px-5 py-2 rounded-xl bg-[#F9CF00] hover:bg-[#e6bf00] text-black font-bold text-xs shadow-md transition-all"
           >
-            Save
+            Save Changes
           </button>
         </div>
       </div>

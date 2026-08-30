@@ -561,7 +561,7 @@ useEffect(() => {
   const currentSection = SETTINGS_SECTIONS.find((s) => s.id === activeSection);
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen bg-[hsl(var(--tripo-gray-3,var(--background)))]">
 
 
       {/* Main Content Area */}
@@ -575,19 +575,19 @@ useEffect(() => {
           <div
             className={`
               ${sidebarOpen ? 'w-80' : 'w-20'} 
-              border-r border-border bg-card transition-all duration-300 flex flex-col flex-shrink-0
+              border-r border-border bg-[hsl(var(--tripo-gray-2,var(--card)))] transition-all duration-300 flex flex-col flex-shrink-0
             `}
           >
             <div className="p-6 space-y-6 flex-1 overflow-y-auto">
               {sidebarOpen && (
-                <div className="relative sticky top-0 bg-card z-10 pb-2">
+                <div className="relative sticky top-0 bg-[hsl(var(--tripo-gray-2,var(--card)))] z-10 pb-2">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input
                     type="text"
                     placeholder="Search settings..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className="w-full pl-9 pr-4 py-2 bg-[hsl(var(--tripo-gray-3))] border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                   />
                 </div>
               )}
@@ -725,7 +725,7 @@ useEffect(() => {
             )}
 
             {/* Content header */}
-            <div className="border-b border-border bg-card sticky top-0 z-20">
+            <div className="border-b border-border bg-[hsl(var(--tripo-gray-2,var(--card)))] sticky top-0 z-20">
               <div className="p-6 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div>

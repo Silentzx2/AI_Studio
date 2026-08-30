@@ -86,42 +86,40 @@ export function OverviewTab() {
   const storageTotal = overview?.storage_total_gb ?? runtime?.storage_total_gb ?? 1;
 
   return (
-    <div className="p-4 lg:p-6 space-y-6 max-w-[1600px] mx-auto">
+    <div className="p-4 lg:p-6 space-y-5 max-w-5xl mx-auto">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="relative overflow-hidden rounded-3xl glass-card p-6 lg:p-8"
+        transition={{ duration: 0.3 }}
+        className="relative overflow-hidden rounded-2xl bg-[#1e2026] border border-[#2f333e] p-6"
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--neon-purple)/0.08)] via-transparent to-[hsl(var(--neon-blue)/0.08)]" />
-        <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-[hsl(var(--neon-purple)/0.1)] blur-[80px]" />
         <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <Badge variant="neon">
-                <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--neon-purple))] animate-pulse" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#F9CF00]/15 text-[#F9CF00] border border-[#F9CF00]/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#F9CF00] animate-pulse" />
                 System Online
-              </Badge>
-              <span className="text-xs text-muted-foreground">Uptime: {overview?.uptime ?? '—'}</span>
+              </span>
+              <span className="text-xs text-zinc-400 font-mono">Uptime: {overview?.uptime ?? '—'}</span>
             </div>
-            <h1 className="text-2xl lg:text-3xl font-bold tracking-tight mb-1">
-              Welcome back to <span className="text-gradient">AI 3D Studio</span>
+            <h1 className="text-2xl font-bold tracking-tight text-white mb-1">
+              Welcome to <span className="text-[#F9CF00]">AI 3D Studio</span>
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-zinc-400">
               Your AI generation engine is running. {overview?.active_jobs ?? 0} active jobs, {overview?.queued_jobs ?? 0} in queue.
             </p>
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">Today</p>
-              <p className="text-2xl font-bold font-mono">{overview?.completed_today ?? 0}</p>
-              <p className="text-xs text-[hsl(var(--neon-green))]">models generated</p>
+              <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Today</p>
+              <p className="text-2xl font-bold font-mono text-white">{overview?.completed_today ?? 0}</p>
+              <p className="text-[11px] text-[#F9CF00] font-medium">models generated</p>
             </div>
-            <div className="w-px h-12 bg-border" />
+            <div className="w-px h-10 bg-[#2f333e]" />
             <div className="text-right">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">Success Rate</p>
-              <p className="text-2xl font-bold font-mono text-[hsl(var(--neon-green))]">{overview?.success_rate != null ? `${overview.success_rate}%` : '—'}</p>
-              <p className="text-xs text-muted-foreground">last 24h</p>
+              <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Success Rate</p>
+              <p className="text-2xl font-bold font-mono text-emerald-400">{overview?.success_rate != null ? `${overview.success_rate}%` : '—'}</p>
+              <p className="text-[11px] text-zinc-400 font-medium">last 24h</p>
             </div>
           </div>
         </div>
@@ -130,26 +128,20 @@ export function OverviewTab() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {quickActions.map((action, i) => {
           const Icon = action.icon;
-          const colorMap = {
-            purple: 'from-[hsl(var(--neon-purple)/0.15)] to-[hsl(var(--neon-purple)/0.05)] border-[hsl(var(--neon-purple)/0.2)] text-[hsl(var(--neon-purple))]',
-            blue: 'from-[hsl(var(--neon-blue)/0.15)] to-[hsl(var(--neon-blue)/0.05)] border-[hsl(var(--neon-blue)/0.2)] text-[hsl(var(--neon-blue))]',
-            cyan: 'from-[hsl(var(--neon-cyan)/0.15)] to-[hsl(var(--neon-cyan)/0.05)] border-[hsl(var(--neon-cyan)/0.2)] text-[hsl(var(--neon-cyan))]',
-            green: 'from-emerald-500/15 to-emerald-500/5 border-[hsl(var(--neon-green)/0.2)] text-[hsl(var(--neon-green))]',
-          };
           return (
             <motion.a
               key={action.label}
               href={action.href}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 + i * 0.05 }}
-              whileHover={{ scale: 1.02, y: -2 }}
-              className={`relative flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-br ${colorMap[action.color]} border cursor-pointer transition-all`}
+              transition={{ delay: 0.05 + i * 0.03 }}
+              whileHover={{ scale: 1.02 }}
+              className="flex items-center gap-3 p-3.5 rounded-xl bg-[#1e2026] border border-[#2f333e] hover:border-[#F9CF00]/50 hover:bg-[#282b34] transition-all"
             >
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-[hsl(var(--surface-2))]">
-                <Icon className="w-5 h-5" />
+              <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#181a20] text-[#F9CF00]">
+                <Icon className="w-4 h-4 stroke-[2.2]" />
               </div>
-              <span className="text-sm font-medium text-foreground">{action.label}</span>
+              <span className="text-xs font-bold text-white">{action.label}</span>
             </motion.a>
           );
         })}

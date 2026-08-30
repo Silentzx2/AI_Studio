@@ -1,6 +1,7 @@
 export type ToolType =
   | 'model'
   | 'worldgen'
+  | 'segment'
   | 'remesh'
   | 'texture'
   | 'edit'
@@ -10,7 +11,7 @@ export type ToolType =
 
 export interface ActiveTask {
   id: string;
-  type: 'image-to-3d' | 'segment' | 'retopo' | 'texture';
+  type: 'image-to-3d' | 'segment' | 'remesh' | 'texture';
   title: string;
   inputImage?: string;
   startedAt: number;

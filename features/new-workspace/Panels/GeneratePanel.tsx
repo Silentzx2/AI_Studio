@@ -20,6 +20,7 @@ import {
   Loader2,
   Wrench
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { useRuntimeOptions } from '@/hooks/useBackendData';
 import { useUploadProgress } from '@/hooks/useUploadProgress';
@@ -71,7 +72,8 @@ export const GeneratePanel: React.FC = () => {
   const activeModelId = generationSettings.aiModel || '';
   const activeModelObj = providersList.find(m => m.id === activeModelId) || providersList[0];
   
-
+  // Spring transition for tactile feel
+  const springTransition = { type: 'spring' as const, stiffness: 400, damping: 25 };
 
   useEffect(() => {
     if (!activeModelId && providersList.length > 0) {
@@ -153,111 +155,133 @@ export const GeneratePanel: React.FC = () => {
     }));
   };
 
+  const SAMPLE_PRESETS = [
+    {
+      id: 'mech-sentinel',
+      name: 'Mech Sentinel',
+      url: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="%231a1c23"/><polygon points="150,40 230,100 210,240 90,240 70,100" fill="%232e3440" stroke="%23F9CF00" stroke-width="4"/><circle cx="150" cy="120" r="35" fill="%23F9CF00"/><circle cx="150" cy="120" r="15" fill="%23111"/><rect x="110" y="180" width="80" height="40" rx="8" fill="%23434c5e" stroke="%23d8dee9" stroke-width="2"/><text x="150" y="270" text-anchor="middle" fill="%23eceff4" font-family="sans-serif" font-size="12" font-weight="bold">MECH SENTINEL</text></svg>',
+    },
+    {
+      id: 'cyber-drone',
+      name: 'Cyber Drone',
+      url: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="%231a1c23"/><circle cx="150" cy="140" r="70" fill="%232b303c" stroke="%2338bdf8" stroke-width="4"/><path d="M120,130 Q150,110 180,130" stroke="%2338bdf8" stroke-width="8" stroke-linecap="round" fill="none"/><circle cx="130" cy="155" r="8" fill="%23F9CF00"/><circle cx="170" cy="155" r="8" fill="%23F9CF00"/><text x="150" y="260" text-anchor="middle" fill="%23eceff4" font-family="sans-serif" font-size="12" font-weight="bold">CYBER DROID</text></svg>',
+    },
+    {
+      id: 'sci-fi-helmet',
+      name: 'Sci-Fi Helmet',
+      url: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="%231a1c23"/><path d="M90,80 Q150,30 210,80 Q240,160 210,230 Q150,260 90,230 Q60,160 90,80 Z" fill="%232e3440" stroke="%23a855f7" stroke-width="4"/><path d="M100,120 Q150,90 200,120 Q210,160 195,180 Q150,200 105,180 Z" fill="%23F9CF00"/><text x="150" y="270" text-anchor="middle" fill="%23eceff4" font-family="sans-serif" font-size="12" font-weight="bold">HELMET MK-IV</text></svg>',
+    },
+    {
+      id: 'obsidian-blade',
+      name: 'Obsidian Blade',
+      url: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="%231a1c23"/><path d="M150,30 L175,170 L150,190 L125,170 Z" fill="%233b4252" stroke="%2310b981" stroke-width="3"/><rect x="110" y="190" width="80" height="12" rx="4" fill="%234c566a"/><rect x="142" y="202" width="16" height="60" rx="3" fill="%232e3440" stroke="%23F9CF00" stroke-width="2"/><circle cx="150" cy="272" r="10" fill="%23F9CF00"/><text x="150" y="292" text-anchor="middle" fill="%23eceff4" font-family="sans-serif" font-size="11" font-weight="bold">OBSIDIAN BLADE</text></svg>',
+    },
+  ];
+
   const handleGenerate = () => {
-    generateImageTo3D(generationSettings.image ?? undefined);
+    if (!generationSettings.image) {
+      const defaultImg = SAMPLE_PRESETS[0].url;
+      setGenerationSettings(prev => ({ ...prev, image: defaultImg }));
+      generateImageTo3D(defaultImg);
+    } else {
+      generateImageTo3D(generationSettings.image);
+    }
   };
 
   return (
-    <div id="panel-generate-model" className="flex flex-col h-full bg-[hsl(var(--card))] text-xs select-none">
-      {/* Header title */}
-      <div className="p-3 pb-2 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))]">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#F9CF00]" />
-            <h2 className="text-xs font-bold text-[hsl(var(--foreground))]">Generate 3D Model</h2>
-          </div>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[hsl(var(--surface-3))] text-[#F9CF00] border border-[#F9CF00]/20">
-            FastAPI-3D
-          </span>
-        </div>
-      </div>
-
+    <div id="panel-generate-model" className="flex flex-col h-full bg-[#14161b] text-xs select-none">
       {/* Main Body */}
-      <div className="flex-1 overflow-hidden p-3 space-y-3">
+      <div className="flex-1 overflow-y-auto p-4 space-y-5 no-scrollbar">
         {/* Notice Message Toast/Banner */}
-        {noticeMessage && (
-          <div className="p-2.5 rounded-xl bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/50 text-[hsl(var(--primary))] text-[11px] flex items-center justify-between gap-2 animate-in fade-in shadow-md">
-            <div className="flex items-center gap-1.5 flex-1 min-w-0">
-              <Info className="w-3.5 h-3.5 flex-shrink-0 text-[hsl(var(--primary))]" />
-              <span className="leading-tight">{noticeMessage}</span>
-            </div>
-            <button 
-              onClick={() => setNoticeMessage(null)}
-              className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] p-0.5 rounded cursor-pointer transition-colors"
+        <AnimatePresence>
+          {noticeMessage && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="p-3 rounded-xl bg-[#F9CF00]/15 border border-[#F9CF00]/40 text-[#F9CF00] text-[11px] flex items-center justify-between gap-2 overflow-hidden shadow-lg"
             >
-              <X className="w-3 h-3" />
-            </button>
-          </div>
-        )}
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <Info className="w-4 h-4 flex-shrink-0" />
+                <span className="leading-tight font-medium">{noticeMessage}</span>
+              </div>
+              <button 
+                onClick={() => setNoticeMessage(null)}
+                className="text-zinc-400 hover:text-white p-1 rounded transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Top Tab Switcher */}
-        <div className="space-y-1">
-          <div className="flex items-center p-1 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
-            <button
-              id="tab-image-to-3d"
-              onClick={handleImageTo3DTabClick}
-              className={`flex-1 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
-                currentMode === 'image-to-3d'
-                  ? 'bg-[#F9CF00] text-[hsl(var(--primary-foreground))] shadow-md'
-                  : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
-              }`}
-            >
-              <ImageIcon className="w-3.5 h-3.5" />
-            </button>
-          </div>
+        <div className="p-1 rounded-xl bg-[#1c1f26] border border-[#272a34] flex">
+          <button
+            id="tab-image-to-3d"
+            onClick={handleImageTo3DTabClick}
+            className={`flex-1 py-2.5 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all ${
+              currentMode === 'image-to-3d'
+                ? 'bg-[#F9CF00] text-black shadow-md'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            <ImageIcon className="w-4 h-4 stroke-[2.2]" />
+            <span>Image to 3D</span>
+          </button>
         </div>
 
         {/* Generation Panel Content */}
         {currentMode === 'image-to-3d' && (
-          <div className="space-y-2 animate-in fade-in duration-200">
+          <div className="space-y-4">
             {/* Sub-Action Icon Bar (Upload, Crop, Wand, Edit) */}
-            <div className="flex items-center justify-between px-2 py-1.5 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
-              <SimpleTooltip label="Upload Reference Image">
+            <div className="flex items-center justify-around px-1 py-1.5 rounded-xl bg-[#1c1f26] border border-[#272a34]">
+              <SimpleTooltip label="Upload Image">
                 <button
                   onClick={() => { setSubAction('upload'); fileInputRef.current?.click(); }}
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    subAction === 'upload' ? 'bg-[hsl(var(--surface-3))] text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+                  className={`flex-1 flex items-center justify-center py-2 rounded-lg transition-all ${
+                    subAction === 'upload' ? 'bg-[#2b2f3a] text-[#F9CF00]' : 'text-zinc-400 hover:text-white'
                   }`}
                 >
-                  <ImageIcon className="w-4 h-4" />
+                  <Upload className="w-4 h-4 stroke-[2.2]" />
                 </button>
               </SimpleTooltip>
 
-              <SimpleTooltip label="Crop & Align Subject">
+              <SimpleTooltip label="Crop Image">
                 <button
                   onClick={() => setSubAction('crop')}
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    subAction === 'crop' ? 'bg-[hsl(var(--surface-3))] text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+                  className={`flex-1 flex items-center justify-center py-2 rounded-lg transition-all ${
+                    subAction === 'crop' ? 'bg-[#2b2f3a] text-[#F9CF00]' : 'text-zinc-400 hover:text-white'
                   }`}
                 >
-                  <Crop className="w-4 h-4" />
+                  <Crop className="w-4 h-4 stroke-[2.2]" />
                 </button>
               </SimpleTooltip>
 
-              <SimpleTooltip label="AI Image Enhance">
+              <SimpleTooltip label="AI Magic Wand">
                 <button
                   onClick={() => setSubAction('wand')}
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    subAction === 'wand' ? 'bg-[hsl(var(--surface-3))] text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+                  className={`flex-1 flex items-center justify-center py-2 rounded-lg transition-all ${
+                    subAction === 'wand' ? 'bg-[#2b2f3a] text-[#F9CF00]' : 'text-zinc-400 hover:text-white'
                   }`}
                 >
-                  <Wand2 className="w-4 h-4" />
+                  <Wand2 className="w-4 h-4 stroke-[2.2]" />
                 </button>
               </SimpleTooltip>
 
-              <SimpleTooltip label="Paint Mask / Edit">
+              <SimpleTooltip label="Edit Image">
                 <button
                   onClick={() => setSubAction('edit')}
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    subAction === 'edit' ? 'bg-[hsl(var(--surface-3))] text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+                  className={`flex-1 flex items-center justify-center py-2 rounded-lg transition-all ${
+                    subAction === 'edit' ? 'bg-[#2b2f3a] text-[#F9CF00]' : 'text-zinc-400 hover:text-white'
                   }`}
                 >
-                  <Pencil className="w-4 h-4" />
+                  <Pencil className="w-4 h-4 stroke-[2.2]" />
                 </button>
               </SimpleTooltip>
             </div>
 
-            {/* Image Dropzone Area with Checkerboard Background */}
+            {/* Image Dropzone Area */}
             <input 
               ref={fileInputRef}
               type="file" 
@@ -266,162 +290,165 @@ export const GeneratePanel: React.FC = () => {
               onChange={handleFileUpload} 
             />
             
-            <div 
+            <motion.div 
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={`relative w-full aspect-video rounded-2xl border-2 border-dashed cursor-pointer overflow-hidden group transition-all flex flex-col items-center justify-center p-3 ${
-                isDragOver
-                  ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10'
-                  : 'border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/60'
-              }`}
-              style={{
-                backgroundImage: `
-                  linear-gradient(45deg, hsl(var(--surface-2)) 25%, transparent 25%), 
-                  linear-gradient(-45deg, hsl(var(--surface-2)) 25%, transparent 25%), 
-                  linear-gradient(45deg, transparent 75%, hsl(var(--surface-2)) 75%), 
-                  linear-gradient(-45deg, transparent 75%, hsl(var(--surface-2)) 75%)
-                `,
-                backgroundSize: '16px 16px',
-                backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
-                backgroundColor: 'hsl(var(--surface-1))'
+              animate={{ 
+                scale: isDragOver ? 1.03 : 1,
+                borderColor: isDragOver ? '#F9CF00' : uploadError ? '#ef4444' : '#272a34',
+                backgroundColor: isDragOver ? 'rgba(249, 207, 0, 0.08)' : '#1c1f26',
               }}
+              transition={springTransition}
+              whileHover={{ scale: 1.01, borderColor: '#3d4252' }}
+              whileTap={{ scale: 0.98 }}
+              className="relative w-full aspect-square rounded-2xl border-2 border-dashed cursor-pointer overflow-hidden transition-colors flex flex-col items-center justify-center p-4 group/dropzone"
             >
               {uploadProgress.active ? (
-                <div className="text-center space-y-2 w-full px-3">
-                  <Loader2 className="w-8 h-8 mx-auto animate-spin text-[hsl(var(--primary))]" />
-                  <div className="font-semibold text-xs text-[hsl(var(--foreground))]">Uploading...</div>
-                  <div className="w-full bg-[hsl(var(--surface-3))] rounded-full h-2 overflow-hidden">
-                    <div
-                      className="bg-[hsl(var(--primary))] h-full rounded-full transition-all duration-200"
-                      style={{ width: `${uploadProgress.percent}%` }}
+                <div className="text-center space-y-4 w-full px-6 z-10">
+                  <Loader2 className="w-10 h-10 mx-auto animate-spin text-[#F9CF00]" />
+                  <div className="font-bold text-xs text-white">Uploading Asset...</div>
+                  <div className="w-full bg-[#2b2f3a] rounded-full h-1.5 overflow-hidden shadow-inner">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${uploadProgress.percent}%` }}
+                      className="bg-[#F9CF00] h-full rounded-full"
                     />
                   </div>
-                  <div className="text-[10px] text-[hsl(var(--muted-foreground))]">
+                  <div className="text-[10px] text-zinc-400 font-mono">
                     {uploadProgress.percent}% ({(uploadProgress.loadedBytes / 1024 / 1024).toFixed(1)}/{(uploadProgress.totalBytes / 1024 / 1024).toFixed(1)} MB)
                   </div>
                 </div>
               ) : generationSettings.image ? (
-                <div className="relative w-full h-full">
-                  <img 
+                <div className="relative w-full h-full group z-10">
+                  <motion.img 
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
                     src={generationSettings.image} 
                     alt="Source reference" 
                     className="w-full h-full object-contain" 
                   />
-                  <div className="absolute inset-0 bg-[hsl(var(--surface-0))]/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-xs font-semibold text-[hsl(var(--primary))]">
-                    Click to change reference image
-                  </div>
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    whileHover={{ opacity: 1 }}
+                    className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex flex-col items-center justify-center transition-opacity text-xs font-bold text-[#F9CF00] gap-2"
+                  >
+                    <div className="p-2 rounded-full bg-[#F9CF00] text-black">
+                      <RefreshCw className="w-5 h-5 stroke-[2.2]" />
+                    </div>
+                    <span>Replace Image</span>
+                  </motion.div>
                 </div>
               ) : (
-                <div className="text-center space-y-1.5">
-                  <div className={`w-9 h-9 mx-auto rounded-full bg-[hsl(var(--surface-3))] border border-[hsl(var(--border))] flex items-center justify-center transition-colors ${
-                    isDragOver ? 'text-[hsl(var(--primary))] border-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))] group-hover:text-[hsl(var(--primary))]'
+                <div className="text-center space-y-4 z-10">
+                  <motion.div 
+                    animate={{ 
+                      y: isDragOver ? -5 : 0,
+                      scale: isDragOver ? 1.1 : 1
+                    }}
+                    className={`w-14 h-14 mx-auto rounded-2xl bg-[#282b34] border border-[#3d4252] flex items-center justify-center transition-all ${
+                    isDragOver ? 'text-[#F9CF00] border-[#F9CF00]' : 'text-zinc-400 group-hover/dropzone:text-[#F9CF00] group-hover/dropzone:border-[#F9CF00]/40'
                   }`}>
-                    <Upload className="w-4 h-4" />
+                    <Upload className="w-6 h-6 stroke-[2.2]" />
+                  </motion.div>
+                  <div className="space-y-1">
+                    <div className="font-bold text-sm text-white tracking-tight">
+                      {isDragOver ? 'Drop to Upload' : 'Drop Reference Image'}
+                    </div>
+                    <div className="text-[10px] text-zinc-400 max-w-[160px] mx-auto font-medium">
+                      PNG, JPG, or WEBP up to 20MB
+                    </div>
                   </div>
-                  <div className="font-semibold text-xs text-[hsl(var(--foreground))]">
-                    {isDragOver ? 'Drop image here' : 'Upload JPG, PNG, WEBP'}
-                  </div>
-                  <div className="text-[10px] text-[hsl(var(--muted-foreground))]">Drag reference image or click to browse</div>
+                  {!isDragOver && (
+                    <button className="px-4 py-1.5 rounded-lg bg-[#282b34] border border-[#3d4252] text-[10px] font-bold text-[#F9CF00] hover:bg-[#F9CF00] hover:text-black transition-all">
+                      Browse Files
+                    </button>
+                  )}
                 </div>
               )}
-            </div>
+            </motion.div>
 
             {uploadError && (
-              <div className="flex items-center gap-1 text-[10px] text-[hsl(var(--destructive))]">
-                <AlertCircle className="w-3 h-3" />
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-[11px] text-red-400 font-medium"
+              >
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 <span>{uploadError}</span>
-              </div>
+              </motion.div>
             )}
 
-            {/* Auto Remove Background Toggle */}
-            <div className="p-2.5 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] flex items-center justify-between">
-              <div>
-                <span className="text-xs text-[hsl(var(--foreground))] font-medium block">BiRefNet Alpha Matting</span>
-                <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Isolates foreground subject with clean alpha mask</span>
+            {/* Quick Reference Sample Concepts */}
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center justify-between text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
+                <span>Sample Concepts</span>
+                <span className="text-[#F9CF00] text-[9px] font-normal">Click to Load</span>
               </div>
-              <button
-                onClick={() => setGenerationSettings(prev => ({ ...prev, removeBackground: !prev.removeBackground }))}
-                className={`w-9 h-5 rounded-full p-0.5 transition-colors ${
-                  generationSettings.removeBackground !== false ? 'bg-[#F9CF00]' : 'bg-[hsl(var(--surface-4))]'
-                }`}
-              >
-                <div className={`w-4 h-4 rounded-full bg-[hsl(var(--surface-0))] transition-transform ${
-                  generationSettings.removeBackground !== false ? 'translate-x-4' : 'translate-x-0'
-                }`} />
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                {SAMPLE_PRESETS.map(preset => {
+                  const isSelected = generationSettings.image === preset.url;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => setGenerationSettings(prev => ({ ...prev, image: preset.url }))}
+                      className={`p-2 rounded-xl border flex items-center gap-2.5 transition-all text-left group ${
+                        isSelected
+                          ? 'bg-[#F9CF00] border-[#F9CF00] text-black shadow-md'
+                          : 'bg-[#1c1f26] border-[#272a34] text-zinc-300 hover:border-[#F9CF00]/50 hover:text-white'
+                      }`}
+                    >
+                      <img src={preset.url} alt={preset.name} className="w-7 h-7 rounded-lg bg-black/40 object-cover flex-shrink-0" />
+                      <span className="text-[11px] font-bold truncate">{preset.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
 
-
         {/* AI Model Generator Choice */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <label className="text-[11px] font-semibold text-[hsl(var(--foreground))] flex items-center gap-1">
-              <Zap className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
-              <span>Generation Architecture</span>
+            <label className="text-[11px] font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-[#F9CF00] stroke-[2.2]" />
+              <span>Model Selection</span>
             </label>
-            <span className="text-[10px] text-[hsl(var(--muted-foreground))]">
-              Image Reconstruction
-            </span>
           </div>
 
           {optionsLoading ? (
-            <div className="flex items-center justify-center p-4 text-[hsl(var(--muted-foreground))]">
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              <span className="text-[10px]">Loading models...</span>
+            <div className="flex items-center justify-center p-6 text-zinc-400">
+              <Loader2 className="w-5 h-5 animate-spin mr-2" />
+              <span className="text-[11px]">Syncing Models...</span>
             </div>
           ) : providersList.length === 0 ? (
-            <div className="p-3 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] text-[10px] text-[hsl(var(--muted-foreground))] text-center">
-              No models available. Install models via Settings.
+            <div className="p-4 rounded-xl bg-[#1c1f26] border border-[#272a34] text-[11px] text-zinc-400 text-center italic">
+              No models found in workspace.
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-1 gap-2">
               {providersList.map(m => {
                 const isSelected = activeModelId === m.id;
-                const isInstalled = m.installed || m.status === 'ready';
-                const vramGb = m.vram_required_mb ? (m.vram_required_mb / 1024).toFixed(0) : '?';
-
+                
                 return (
                   <button
                     key={m.id}
                     onClick={() => handleModelSelect(m)}
-                    className={`p-2 rounded-xl text-left border transition-all relative cursor-pointer ${
+                    className={`p-3 rounded-xl text-left border transition-all relative ${
                       isSelected
-                        ? 'bg-[#F9CF00]/10 border-[#F9CF00] shadow-sm ring-1 ring-[#F9CF00]/30'
-                        : 'bg-[hsl(var(--surface-1))] border-[hsl(var(--border))] hover:border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]'
+                        ? 'bg-[#F9CF00] border-[#F9CF00] text-black font-bold'
+                        : 'bg-[#1c1f26] border-[#272a34] text-zinc-300 hover:border-[#3d4252] hover:text-white'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1 min-w-0">
-                        {!isInstalled && (
-                          <SimpleTooltip label="Not installed">
-                            <span className="w-2 h-2 rounded-full bg-[#F9CF00] flex-shrink-0" />
-                          </SimpleTooltip>
-                        )}
-                        <span className={`font-bold text-xs truncate ${
-                          isSelected 
-                            ? 'text-[#F9CF00]' 
-                            : 'text-[hsl(var(--foreground))]'
-                        }`}>
-                          {m.label}
-                        </span>
-                      </div>
-
-                      <span className={`text-[8px] font-mono px-1 rounded ${
-                        isSelected
-                          ? 'bg-[#F9CF00]/20 text-[#F9CF00]'
-                          : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--foreground))]'
-                      }`}>
-                        {`${vramGb}GB`}
+                      <span className="font-bold text-xs truncate">
+                        {m.label}
                       </span>
+                      {isSelected && <Sparkles className="w-3 h-3 stroke-[2.2]" />}
                     </div>
-
-                    <span className="text-[10px] text-[hsl(var(--muted-foreground))] block mt-0.5 truncate">
-                      {m.low_vram_supported ? 'Low-VRAM supported' : `Image Reconstruction`}
-                    </span>
                   </button>
                 );
               })}
@@ -429,273 +456,66 @@ export const GeneratePanel: React.FC = () => {
           )}
         </div>
 
-        {/* Accordion 1: General Settings */}
-        <div className="border border-[hsl(var(--border))] rounded-xl overflow-hidden bg-[hsl(var(--card))]">
-          <button
-            onClick={() => setGeneralSettingsOpen(!generalSettingsOpen)}
-            className="w-full px-3 py-2.5 flex items-center justify-between font-bold text-xs text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))] transition-colors"
-          >
-            <div className="flex items-center gap-1.5">
-              <Sliders className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
-              <span>General Mesh Settings</span>
+        {/* Low VRAM Mode - dynamically shown according to model support */}
+        {activeModelObj?.low_vram_supported && (
+          <div className="p-3.5 rounded-xl bg-[#1c1f26] border border-[#272a34] flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-xs text-white font-bold flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-[#F9CF00]" />
+                Low VRAM Mode
+              </span>
+              <span className="text-[10px] text-zinc-400">
+                Optimized for GPUs with ≤{activeModelObj.low_vram_required_mb ? Math.round(activeModelObj.low_vram_required_mb / 1024) : 8}GB VRAM
+              </span>
             </div>
-            {generalSettingsOpen ? <ChevronDown className="w-3.5 h-3.5 text-[hsl(var(--muted-foreground))]" /> : <ChevronRight className="w-3.5 h-3.5 text-[hsl(var(--muted-foreground))]" />}
-          </button>
+            <button
+              id="btn-toggle-low-vram"
+              onClick={() => setGenerationSettings(prev => ({ ...prev, lowVram: !prev.lowVram }))}
+              className={`w-10 h-5 rounded-full p-1 transition-all duration-200 ${
+                generationSettings.lowVram ? 'bg-[#F9CF00]' : 'bg-[#2b2f3a]'
+              }`}
+            >
+              <div className={`w-3 h-3 rounded-full bg-black transition-transform ${
+                generationSettings.lowVram ? 'translate-x-5' : 'translate-x-0'
+              }`} />
+            </button>
+          </div>
+        )}
+      </div>
 
-          {generalSettingsOpen && (
-            <div className="p-3 pt-1 border-t border-[hsl(var(--border))] space-y-2.5">
-              {/* Ultra Mesh Quality Toggle */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-xs text-[hsl(var(--foreground))] font-medium block">Ultra Mesh Quality</span>
-                  <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Dense multi-view voxel reconstruction</span>
-                </div>
-                <button
-                  onClick={() => setUltraMeshQuality(!ultraMeshQuality)}
-                  className={`w-9 h-5 rounded-full p-0.5 transition-all duration-200 cursor-pointer ${
-                    ultraMeshQuality ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-4))]'
-                  }`}
-                >
-                  <div className={`w-4 h-4 rounded-full bg-[hsl(var(--primary-foreground))] transition-transform ${
-                    ultraMeshQuality ? 'translate-x-4' : 'translate-x-0'
-                  }`} />
-                </button>
-              </div>
-
-              {/* 8K Texture Toggle */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-[hsl(var(--foreground))] font-medium">8K Texture Baking</span>
-                    <span className="px-1 py-0.2 rounded bg-[hsl(var(--destructive))] text-white text-[8px] font-bold">Ultra</span>
-                  </div>
-                  <span className="text-[10px] text-[hsl(var(--muted-foreground))]">High-res multi-channel PBR map generation</span>
-                </div>
-                <button
-                  onClick={() => setTexture8k(!texture8k)}
-                  className={`w-9 h-5 rounded-full p-0.5 transition-all duration-200 cursor-pointer ${
-                    texture8k ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-4))]'
-                  }`}
-                >
-                  <div className={`w-4 h-4 rounded-full bg-[hsl(var(--primary-foreground))] transition-transform ${
-                    texture8k ? 'translate-x-4' : 'translate-x-0'
-                  }`} />
-                </button>
-              </div>
-
-              {/* Quad Topology Checkbox */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-xs text-[hsl(var(--foreground))] font-medium block">Quad-Dominant Topology</span>
-                  <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Subdivision-ready edge loop flow</span>
-                </div>
-                <button
-                  onClick={() => setGenerationSettings(prev => ({ ...prev, quadTopology: !prev.quadTopology }))}
-                  className={`w-9 h-5 rounded-full p-0.5 transition-all duration-200 cursor-pointer ${
-                    generationSettings.quadTopology !== false ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-4))]'
-                  }`}
-                >
-                  <div className={`w-4 h-4 rounded-full bg-[hsl(var(--primary-foreground))] transition-transform ${
-                    generationSettings.quadTopology !== false ? 'translate-x-4' : 'translate-x-0'
-                  }`} />
-                </button>
-              </div>
-
-              {/* Low VRAM Optimization Mode Toggle - Conditionally rendered based on model support */}
-              {activeModelObj?.low_vram_supported && (
-                <div className="flex items-center justify-between pt-1 border-t border-[hsl(var(--border))]">
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-[hsl(var(--foreground))] font-medium">Low VRAM Mode</span>
-                      <span className="px-1 py-0.2 rounded bg-[hsl(var(--neon-blue))]/20 text-[hsl(var(--neon-blue))] border border-[hsl(var(--neon-blue))]/30 text-[8px] font-mono font-bold">
-                        {activeModelObj.low_vram_required_mb ? `<${Math.round(activeModelObj.low_vram_required_mb / 1024)}GB` : '<8GB'}
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Sequential offload &amp; chunked VRAM pipeline</span>
-                  </div>
-                  <button
-                    id="toggle-low-vram-mode"
-                    onClick={() => setGenerationSettings(prev => ({ ...prev, lowVram: !prev.lowVram }))}
-                    className={`w-9 h-5 rounded-full p-0.5 transition-all duration-200 cursor-pointer ${
-                      generationSettings.lowVram ? 'bg-[hsl(var(--neon-blue))]' : 'bg-[hsl(var(--surface-4))]'
-                    }`}
-                  >
-                    <div className={`w-4 h-4 rounded-full bg-[hsl(var(--primary-foreground))] transition-transform ${
-                      generationSettings.lowVram ? 'translate-x-4' : 'translate-x-0'
-                    }`} />
-                  </button>
-                </div>
-              )}
-
-               {/* Privacy Setting (Public / Private) */}
-               <div className="flex items-center justify-between pt-1 border-t border-[hsl(var(--border))]">
-                 <div className="flex items-center gap-1.5 text-xs text-[hsl(var(--muted-foreground))]">
-                   <Globe className="w-3.5 h-3.5" />
-                   <span>Privacy</span>
-                 </div>
-                 <div className="relative">
-                   <button
-                     onClick={() => setPrivacyMenuOpen(!privacyMenuOpen)}
-                     className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--surface-4))] text-[11px] font-semibold text-[hsl(var(--foreground))] hover:border-[hsl(var(--primary))]/50 transition-colors"
-                   >
-                     <span className="capitalize">{privacy}</span>
-                     <ChevronDown className="w-3 h-3 text-[hsl(var(--muted-foreground))]" />
-                   </button>
-
-                   {privacyMenuOpen && (
-                     <div className="absolute right-0 bottom-full mb-1 w-28 py-1 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] shadow-xl z-50">
-                        <button
-                          onClick={() => { setPrivacy('public'); setPrivacyMenuOpen(false); }}
-                          className="w-full text-left px-2.5 py-1 text-[11px] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-3))]"
-                        >
-                          🌐 Public
-                        </button>
-                        <button
-                          onClick={() => { setPrivacy('private'); setPrivacyMenuOpen(false); }}
-                          className="w-full text-left px-2.5 py-1 text-[11px] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-3))]"
-                        >
-                         🔒 Private
-                       </button>
-                     </div>
-                   )}
-                 </div>
-               </div>
-             </div>
-           )}
-         </div>
-
-          {/* Accordion 2: Auto-Optimize Settings */}
-          <div className="border border-[hsl(var(--border))] rounded-xl overflow-hidden bg-[hsl(var(--card))]">
-           <button
-             onClick={() => setGenerationSettings(prev => ({ ...prev, autoOptimize: !prev.autoOptimize }))}
-             className="w-full px-3 py-2.5 flex items-center justify-between font-bold text-xs text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))] transition-colors"
-           >
-             <div className="flex items-center gap-1.5">
-               <Wrench className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
-               <span>Auto-Optimize Mesh</span>
-               {generationSettings.autoOptimize && (
-                 <span className="px-1.5 py-0.5 rounded bg-[hsl(var(--neon-green))]/20 text-[hsl(var(--neon-green))] text-[8px] font-bold">ON</span>
-               )}
-             </div>
-             <div className="flex items-center gap-2">
-               {generationSettings.autoOptimize && (
-                 <span className="text-[10px] text-[hsl(var(--muted-foreground))]">~{Math.round(100 - (generationSettings.autoOptimizeSettings.targetPolycount / 100000) * 100)}% reduction</span>
-               )}
-                <div className={`w-9 h-5 rounded-full p-0.5 transition-all duration-200 ${
-                  generationSettings.autoOptimize ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-4))]'
-                }`}>
-                 <div className={`w-4 h-4 rounded-full bg-[hsl(var(--primary-foreground))] transition-transform ${
-                   generationSettings.autoOptimize ? 'translate-x-4' : 'translate-x-0'
-                 }`} />
-               </div>
-             </div>
-           </button>
-
-           {generationSettings.autoOptimize && (
-             <div className="p-3 pt-1 border-t border-[hsl(var(--border))] space-y-3 animate-in fade-in duration-200">
-               {/* Target Polycount Slider */}
-               <div className="space-y-1.5">
-                 <div className="flex items-center justify-between">
-                   <span className="text-xs text-[hsl(var(--foreground))] font-medium">Target Polycount</span>
-                   <span className="text-[10px] font-mono text-[hsl(var(--primary))]">{generationSettings.autoOptimizeSettings.targetPolycount.toLocaleString()} tris</span>
-                 </div>
-                 <input
-                   type="range"
-                   min={5000}
-                   max={100000}
-                   step={5000}
-                   value={generationSettings.autoOptimizeSettings.targetPolycount}
-                   onChange={(e) => setGenerationSettings(prev => ({
-                     ...prev,
-                     autoOptimizeSettings: { ...prev.autoOptimizeSettings, targetPolycount: parseInt(e.target.value) }
-                   }))}
-                   className="w-full h-1.5 rounded-full appearance-none bg-[hsl(var(--surface-4))] accent-[hsl(var(--primary))] cursor-pointer"
-                 />
-                 <div className="flex justify-between text-[9px] text-[hsl(var(--muted-foreground))]">
-                   <span>5K</span>
-                   <span>100K</span>
-                 </div>
-               </div>
-
-               {/* Fix UVs Checkbox */}
-               <div className="flex items-center justify-between">
-                 <div>
-                   <span className="text-xs text-[hsl(var(--foreground))] font-medium block">Fix UV Mapping</span>
-                   <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Repair overlapping UVs &amp; fill islands</span>
-                 </div>
-                 <button
-                   onClick={() => setGenerationSettings(prev => ({
-                     ...prev,
-                     autoOptimizeSettings: { ...prev.autoOptimizeSettings, fixUVs: !prev.autoOptimizeSettings.fixUVs }
-                   }))}
-                   className={`w-9 h-5 rounded-full p-0.5 transition-colors ${
-                     generationSettings.autoOptimizeSettings.fixUVs ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-4))]'
-                   }`}
-                 >
-                   <div className={`w-4 h-4 rounded-full bg-[hsl(var(--primary-foreground))] transition-transform ${
-                     generationSettings.autoOptimizeSettings.fixUVs ? 'translate-x-4' : 'translate-x-0'
-                   }`} />
-                 </button>
-               </div>
-
-               {/* Preserve Details Slider */}
-               <div className="space-y-1.5">
-                 <div className="flex items-center justify-between">
-                   <span className="text-xs text-[hsl(var(--foreground))] font-medium">Preserve Details</span>
-                   <span className="text-[10px] font-mono text-[hsl(var(--primary))]">{generationSettings.autoOptimizeSettings.preserveDetails}%</span>
-                 </div>
-                 <input
-                   type="range"
-                   min={0}
-                   max={100}
-                   step={5}
-                   value={generationSettings.autoOptimizeSettings.preserveDetails}
-                   onChange={(e) => setGenerationSettings(prev => ({
-                     ...prev,
-                     autoOptimizeSettings: { ...prev.autoOptimizeSettings, preserveDetails: parseInt(e.target.value) }
-                   }))}
-                   className="w-full h-1.5 rounded-full appearance-none bg-[hsl(var(--surface-4))] accent-[hsl(var(--primary))] cursor-pointer"
-                 />
-                 <div className="flex justify-between text-[9px] text-[hsl(var(--muted-foreground))]">
-                   <span>Aggressive</span>
-                   <span>Maximum</span>
-                 </div>
-               </div>
-
-               {/* Estimated Savings */}
-               <div className="p-2 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] flex items-center gap-2">
-                 <Info className="w-3.5 h-3.5 text-[hsl(var(--neon-blue))] flex-shrink-0" />
-                 <span className="text-[10px] text-[hsl(var(--muted-foreground))]">
-                   Will reduce ~{Math.max(10, Math.round(100 - (generationSettings.autoOptimizeSettings.targetPolycount / 100000) * 100))}% of polygons
-                   {generationSettings.autoOptimizeSettings.fixUVs && ' • Fix UV overlaps'}
-                   {generationSettings.autoOptimizeSettings.preserveDetails > 50 && ' • High detail preservation'}
-                 </span>
-               </div>
-             </div>
-           )}
-         </div>
-       </div>
-
-        {/* Bottom Sticky Action Button */}
-        <div className="p-3 border-t border-[hsl(var(--border))] bg-[hsl(var(--card))]">
-         <button
-           id="btn-generate-model-action"
-           onClick={handleGenerate}
-           disabled={isExecuting}
-           className="w-full py-3 rounded-full bg-[#F9CF00] hover:brightness-110 text-[hsl(var(--primary-foreground))] font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#F9CF00]/20 active:scale-98 transition-all disabled:opacity-50"
-         >
+      {/* Bottom Sticky Action Button */}
+      <div className="p-4 border-t border-[#272a34] bg-[#14161b]">
+        <button
+          id="btn-generate-model-action"
+          onClick={handleGenerate}
+          disabled={isExecuting}
+          className={`w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-3 shadow-2xl transition-all active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed ${
+            isExecuting 
+              ? 'bg-[#2b2f3a] text-[#F9CF00] border border-[#F9CF00]/20' 
+              : 'bg-[#F9CF00] text-black shadow-[#F9CF00]/20 hover:bg-[#ffe033]'
+          }`}
+        >
           {isExecuting ? (
             <>
-              <RefreshCw className="w-4 h-4 animate-spin text-[hsl(var(--primary-foreground))]" />
-              <span>{executionStep || `Generating 3D Asset (${executionProgress || 35}%)...`}</span>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span>{executionStep || 'GENERATING...'}</span>
             </>
           ) : (
             <>
-              <Sparkles className="w-4 h-4 text-[hsl(var(--primary-foreground))]" />
-              <span>Generate from Reference Image</span>
+              <Sparkles className="w-5 h-5 stroke-[2.2]" />
+              <span>GENERATE 3D ASSET</span>
             </>
           )}
         </button>
+        {isExecuting && (
+          <div className="mt-3 w-full bg-[#2b2f3a] h-1.5 rounded-full overflow-hidden">
+            <motion.div 
+              initial={{ width: 0 }}
+              animate={{ width: `${executionProgress || 0}%` }}
+              className="bg-[#F9CF00] h-full rounded-full"
+            />
+          </div>
+        )}
       </div>
     </div>
   );

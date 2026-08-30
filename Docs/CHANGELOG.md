@@ -1,5 +1,25 @@
 # AI 3D Studio — Changelog
 
+## [v3.9.8] - 2026-08-30
+
+### Changed
+- **Global UI Redesign**: Replaced all remaining glassy and transparent effects with solid colors (`#050505`, `#0d0d0d`) across all tool panels to improve visual consistency and follow user request.
+- **Viewport Tools**: Explicitly preserved glass effects for the `MeshViewer` tool rail (using `.glass-panel-subtle`) while solidifying the rest of the workspace.
+- **Tool Panel Optimization**: Removed redundant headers and "Tools" label from all left panels (`Generate`, `Remesh`, `Texture`, `Secondary`, `WorldGen`) to maximize vertical space and match reference design.
+- **Navigation**: Re-integrated `Segment` and `Retopo` tools into the `LeftNavigation` rail with updated icons.
+- **WorkspaceShell**: Cleaned up the `context-tool-panel-container` by removing the fixed header and adding a floating, translucent collapse button.
+
+### Added
+- **Enhanced Animations**: Integrated `framer-motion` into file upload and drag-and-drop areas in `GeneratePanel`, `WorldGenToolBar`, and `TexturePanel` with smooth hover and scale transitions.
+
+### Fixed
+- **API Timeout (320s Issue)**: Increased the `DEFAULT_TIMEOUT_MS` in `apiClient.ts` and the `AbortSignal.timeout` in the proxy route (`/app/api/v1/[...path]/route.ts`) to 600,000ms (10 minutes). This fixes the 320,000ms response errors and large file upload failures.
+- **XHR Upload Timeout**: Increased `apiClient.uploadFile` timeout to 10 minutes to match the backend proxy.
+
+### Verification
+- TypeScript compilation: PASS (`npx tsc --noEmit`)
+- Build: PASS (`npm run build`)
+
 ## [v3.9.7] - 2026-08-30
 
 ### Added
