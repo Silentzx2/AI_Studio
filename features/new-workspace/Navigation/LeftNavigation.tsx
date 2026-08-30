@@ -33,7 +33,7 @@ export const LeftNavigation: React.FC = () => {
     <nav
       id="left-tool-rail"
       aria-label="3D Studio Toolset"
-      className="w-[4.2rem] h-full bg-[var(--ws-nav-bg,hsl(var(--surface-0)))] border-r border-[var(--ws-border,hsl(var(--border)))] flex flex-col items-center py-2 justify-between z-20 select-none flex-shrink-0"
+      className="w-[4.2rem] h-full bg-[hsl(var(--surface-0))] border-r border-[hsl(var(--border))] flex flex-col items-center py-2 justify-between z-20 select-none flex-shrink-0"
     >
       {/* Top Primary Toolset */}
       <div className="flex flex-col items-center gap-1 w-full px-1 overflow-y-auto overflow-x-hidden">
@@ -42,10 +42,10 @@ export const LeftNavigation: React.FC = () => {
           <button
             id="tool-btn-dashboard"
             onClick={() => navigateToMainNav('dashboard')}
-            className={`group relative w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
+              className={`group relative w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
               mainNav === 'dashboard'
-                ? 'bg-[var(--ws-active-bg,hsl(var(--surface-2)))] text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/50 shadow-lg shadow-[hsl(var(--primary))]/15 ring-1 ring-[hsl(var(--primary))]/30'
-                : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-1)))]'
+                ? 'bg-[hsl(var(--surface-2))] text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/50 shadow-lg shadow-[hsl(var(--primary))]/15 ring-1 ring-[hsl(var(--primary))]/30'
+                : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-1))]'
             }`}
           >
             <LayoutDashboard className="w-5 h-5 mb-0.5" />

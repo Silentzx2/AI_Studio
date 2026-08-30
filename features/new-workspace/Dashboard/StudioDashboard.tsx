@@ -72,7 +72,7 @@ export const StudioDashboard: React.FC = () => {
               <Box className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-[hsl(var(--foreground))]">Image to 3D Mesh</h3>
+              <h3 className="font-bold text-sm text-[hsl(var(--foreground))]">3D Mesh Generation</h3>
               <p className="text-[hsl(var(--muted-foreground))] text-[11px] mt-1">Generate 3D meshes using the installed FastAPI + 3D-Pack workflows.</p>
             </div>
           </div>

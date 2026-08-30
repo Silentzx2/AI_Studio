@@ -190,7 +190,7 @@ export const GeneratePanel: React.FC = () => {
           </div>
         )}
 
-        {/* Top Tab Switcher: Image to 3D */}
+        {/* Top Tab Switcher */}
         <div className="space-y-1">
           <div className="flex items-center p-1 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
             <button
@@ -203,14 +203,13 @@ export const GeneratePanel: React.FC = () => {
               }`}
             >
               <ImageIcon className="w-3.5 h-3.5" />
-              <span>Image to 3D</span>
             </button>
           </div>
         </div>
 
-        {/* IMAGE TO 3D */}
+        {/* Generation Panel Content */}
         {currentMode === 'image-to-3d' && (
-          <div className="space-y-3 animate-in fade-in duration-200">
+          <div className="space-y-2 animate-in fade-in duration-200">
             {/* Sub-Action Icon Bar (Upload, Crop, Wand, Edit) */}
             <div className="flex items-center justify-between px-2 py-1.5 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
               <SimpleTooltip label="Upload Reference Image">

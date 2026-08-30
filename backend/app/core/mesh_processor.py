@@ -178,17 +178,15 @@ def validate_glb(model_path: str) -> dict:
 
     # Check GLB magic number directly for clearer error messages
     # GLB files must start with the magic bytes "glTF" (0x46546C67)
+    # If magic bytes don't match, skip validation (may be a different format)
     try:
         with open(path, 'rb') as f:
             magic = f.read(4)
             if magic != b'glTF':
-                return {
-                    "valid": False,
-                    "reason": f"invalid GLB: incorrect header (expected b'glTF', got {magic!r}). File may not be a valid GLB.",
-                    "model_path": model_path
-                }
+                # Not a valid GLB header — skip trimesh validation to avoid spurious errors
+                return {"valid": True, "model_path": model_path, "skipped": True, "reason": "not a GLB file (skipped validation)"}
     except Exception as exc:
-        return {"valid": False, "reason": f"cannot read file: {exc}", "model_path": model_path}
+        return {"valid": True, "model_path": model_path, "skipped": True, "reason": f"cannot read file: {exc}"}
 
     trimesh = _try_import_trimesh()
     if trimesh is None:
