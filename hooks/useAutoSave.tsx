@@ -7,7 +7,7 @@ export type AutoSaveStatus = 'idle' | 'saving' | 'saved' | 'error' | 'modified';
 export function useAutoSave<T>(
   data: T,
   saveAction: (data: T) => Promise<void> | void,
-  delay: number = 800,
+  delay: number = 5000,
   skipInitial: boolean = true,
   autoSave: boolean = true
 ) {

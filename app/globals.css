@@ -566,9 +566,7 @@
   /* ── Panel / Sidebar Styles ─────────────────────────────── */
 
   .panel-glass {
-    background: hsl(var(--surface-1) / var(--nav-bg-opacity, 0.85));
-    backdrop-filter: blur(var(--nav-backdrop-blur, 24px)) saturate(190%);
-    -webkit-backdrop-filter: blur(var(--nav-backdrop-blur, 24px)) saturate(190%);
+    background: hsl(var(--surface-1));
   }
 
   .panel-header {
@@ -601,11 +599,10 @@
   /* ── Tooltip Premium ────────────────────────────────────── */
 
   .tooltip-premium {
-    background: hsl(var(--surface-3) / 0.95);
-    backdrop-filter: blur(4px);
-    border: 1px solid hsl(var(--border) / 0.5);
+    background: hsl(var(--surface-3));
+    border: 1px solid hsl(var(--border));
     border-radius: 0.5rem;
-    box-shadow: 0 4px 16px hsl(var(--surface-0) / 0.4);
+    box-shadow: 0 4px 16px hsl(var(--surface-0));
   }
 
   /* ── Empty State ────────────────────────────────────────── */
@@ -653,43 +650,37 @@
   /* ── Premium Dialog / Modal / Sheet Styles ────────────────── */
 
   .dialog-premium {
-    background: hsl(var(--surface-1) / 0.92);
-    backdrop-filter: blur(8px) saturate(120%);
-    -webkit-backdrop-filter: blur(8px) saturate(120%);
-    border: 1px solid hsl(var(--border) / 0.5);
+    background: hsl(var(--surface-1));
+    border: 1px solid hsl(var(--border));
     border-radius: 1rem;
     box-shadow:
-      0 0 0 1px hsl(var(--surface-0) / 0.5),
-      0 8px 32px hsl(var(--surface-0) / 0.6),
-      0 24px 80px hsl(var(--surface-0) / 0.4),
+      0 0 0 1px hsl(var(--surface-0)),
+      0 8px 32px hsl(var(--surface-0)),
+      0 24px 80px hsl(var(--surface-0)),
       0 0 80px hsl(var(--neon-purple) / 0.04);
   }
 
   .sheet-premium {
-    background: hsl(var(--surface-1) / 0.95);
-    backdrop-filter: blur(6px) saturate(120%);
-    -webkit-backdrop-filter: blur(6px) saturate(120%);
-    border: 1px solid hsl(var(--border) / 0.4);
+    background: hsl(var(--surface-1));
+    border: 1px solid hsl(var(--border));
     box-shadow:
-      -4px 0 24px hsl(var(--surface-0) / 0.4),
-      -8px 0 48px hsl(var(--surface-0) / 0.2);
+      -4px 0 24px hsl(var(--surface-0)),
+      -8px 0 48px hsl(var(--surface-0));
   }
 
   .dropdown-premium {
-    background: hsl(var(--surface-2) / 0.95);
-    backdrop-filter: blur(6px) saturate(120%);
-    -webkit-backdrop-filter: blur(6px) saturate(120%);
-    border: 1px solid hsl(var(--border) / 0.5);
+    background: hsl(var(--surface-2));
+    border: 1px solid hsl(var(--border));
     border-radius: 0.75rem;
     box-shadow:
-      0 4px 16px hsl(var(--surface-0) / 0.5),
-      0 12px 40px hsl(var(--surface-0) / 0.3),
-      0 0 0 1px hsl(var(--surface-0) / 0.3);
+      0 4px 16px hsl(var(--surface-0)),
+      0 12px 40px hsl(var(--surface-0)),
+      0 0 0 1px hsl(var(--surface-0));
     padding: 0.25rem;
   }
 
   .popover-premium {
-    background: hsl(var(--surface-2) / 0.96);
+    background: hsl(var(--surface-2));
     backdrop-filter: blur(6px) saturate(120%);
     -webkit-backdrop-filter: blur(6px) saturate(120%);
     border: 1px solid hsl(var(--border) / 0.5);
@@ -711,7 +702,7 @@
   .table-premium td {
     padding: 0.625rem 0.875rem;
     text-align: left;
-    border-bottom: 1px solid hsl(var(--border) / 0.25);
+    border-bottom: 1px solid hsl(var(--border));
   }
 
   .table-row-hover tr {
@@ -737,14 +728,12 @@
   /* ── Premium Toast / Notification Styles ──────────────────── */
 
   .toast-premium {
-    background: hsl(var(--surface-2) / 0.92);
-    backdrop-filter: blur(4px) saturate(120%);
-    -webkit-backdrop-filter: blur(4px) saturate(120%);
-    border: 1px solid hsl(var(--border) / 0.5);
+    background: hsl(var(--surface-2));
+    border: 1px solid hsl(var(--border));
     border-radius: 0.75rem;
     box-shadow:
-      0 4px 16px hsl(var(--surface-0) / 0.5),
-      0 12px 40px hsl(var(--surface-0) / 0.25);
+      0 4px 16px hsl(var(--surface-0)),
+      0 12px 40px hsl(var(--surface-0));
     padding: 0.875rem 1rem;
     animation: fade-in-up 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   }
@@ -769,18 +758,14 @@
   /* ── Enhanced Card Variants ───────────────────────────────── */
 
   .card-glass-hover {
-    background: hsl(var(--surface-1) / 0.4);
-    backdrop-filter: blur(4px) saturate(120%);
-    -webkit-backdrop-filter: blur(4px) saturate(120%);
-    border: 1px solid hsl(var(--border) / 0.3);
+    background: hsl(var(--surface-1));
+    border: 1px solid hsl(var(--border));
     border-radius: 1rem;
     transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .card-glass-hover:hover {
-    background: hsl(var(--surface-1) / 0.6);
-    backdrop-filter: blur(24px) saturate(200%);
-    -webkit-backdrop-filter: blur(24px) saturate(200%);
-    border-color: hsl(var(--border) / 0.5);
+    background: hsl(var(--surface-2));
+    border-color: hsl(var(--border));
     box-shadow:
       0 8px 32px hsl(var(--surface-0) / 0.4),
       0 0 40px hsl(var(--neon-purple) / 0.03);

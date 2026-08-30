@@ -69,7 +69,7 @@ export function JobsTab() {
             {filtered.length} jobs · {jobs.filter(j => j.status === 'completed').length} completed · {jobs.filter(j => j.status === 'failed').length} failed
           </p>
         </div>
-        <button onClick={load} className="p-2 rounded-xl glass border border-[hsl(var(--border)/0.5)] text-muted-foreground hover:text-foreground transition-colors">
+        <button onClick={load} className="p-2 rounded-xl glass border border-[hsl(var(--border))] text-muted-foreground hover:text-foreground transition-colors">
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
@@ -83,7 +83,7 @@ export function JobsTab() {
               'px-3 py-1.5 rounded-xl text-xs font-medium capitalize transition-all border',
               filter === f
                 ? 'bg-[hsl(var(--neon-purple)/0.15)] text-foreground border-[hsl(var(--neon-purple)/0.3)]'
-                : 'glass text-muted-foreground border-[hsl(var(--border)/0.5)] hover:text-foreground'
+                : 'glass text-muted-foreground border-[hsl(var(--border))] hover:text-foreground'
             )}
           >
             {f}

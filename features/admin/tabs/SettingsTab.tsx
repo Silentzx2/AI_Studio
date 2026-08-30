@@ -135,7 +135,7 @@ export function SettingsTab() {
             value={hfToken}
             onChange={(e) => setHfToken(e.target.value)}
             placeholder="hf_xxxxxxxxxxxxxxxxxxxx"
-            className="flex-1 h-10 px-4 rounded-xl glass text-sm border border-[hsl(var(--border)/0.5)] focus:border-[hsl(var(--neon-purple)/0.4)] focus:outline-none font-mono"
+            className="flex-1 h-10 px-4 rounded-xl glass text-sm border border-[hsl(var(--border))] focus:border-[hsl(var(--neon-purple)/0.4)] focus:outline-none font-mono"
           />
           <NeonButton variant="primary" size="md" onClick={handleSaveToken} disabled={saving || !hfToken.trim()}>
             <Save className="w-3.5 h-3.5" />

@@ -403,7 +403,7 @@ export function ModelsTab() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => load()}
-            className="p-2 rounded-xl glass border border-[hsl(var(--border)/0.5)] text-muted-foreground hover:text-[hsl(var(--muted-foreground))] transition-colors"
+            className="p-2 rounded-xl glass border border-[hsl(var(--border))] text-muted-foreground hover:text-[hsl(var(--muted-foreground))] transition-colors"
             title="Refresh models"
           >
             <RefreshCw className="w-4 h-4" />
@@ -414,7 +414,7 @@ export function ModelsTab() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search models..."
-              className="w-64 h-9 pl-9 pr-4 rounded-xl glass text-sm border border-[hsl(var(--border)/0.5)] focus:border-[hsl(var(--border))] focus:outline-none transition-colors"
+              className="w-64 h-9 pl-9 pr-4 rounded-xl glass text-sm border border-[hsl(var(--border))] focus:border-[hsl(var(--border))] focus:outline-none transition-colors"
             />
           </div>
         </div>
@@ -431,7 +431,7 @@ export function ModelsTab() {
                 'px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all border',
                 category === cat
                   ? 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] border-[hsl(var(--border)/0.3)]'
-                  : 'glass text-muted-foreground border-[hsl(var(--border)/0.5)] hover:text-[hsl(var(--muted-foreground))]'
+                  : 'glass text-muted-foreground border-[hsl(var(--border))] hover:text-[hsl(var(--muted-foreground))]'
               )}
             >
               {cat}
@@ -610,7 +610,7 @@ export function ModelsTab() {
                         {model.loaded ? (
                           <button
                             onClick={() => adminService.modelAction(model.id, 'unload')}
-                            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl glass border border-[hsl(var(--border)/0.5)] text-xs text-muted-foreground hover:text-[hsl(var(--muted-foreground))] transition-colors"
+                            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl glass border border-[hsl(var(--border))] text-xs text-muted-foreground hover:text-[hsl(var(--muted-foreground))] transition-colors"
                           >
                             <Pause className="w-3.5 h-3.5" /> Unload
                           </button>
@@ -624,7 +624,7 @@ export function ModelsTab() {
                         )}
                         <button
                           onClick={() => handleUninstall(model)}
-                          className="flex items-center justify-center w-9 h-9 rounded-xl glass border border-[hsl(var(--border)/0.5)] text-muted-foreground hover:text-[hsl(var(--destructive))] hover:border-[hsl(var(--destructive)/0.2)] transition-colors"
+                          className="flex items-center justify-center w-9 h-9 rounded-xl glass border border-[hsl(var(--border))] text-muted-foreground hover:text-[hsl(var(--destructive))] hover:border-[hsl(var(--destructive)/0.2)] transition-colors"
                           title="Uninstall"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
