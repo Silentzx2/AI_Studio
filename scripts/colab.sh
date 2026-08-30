@@ -35,6 +35,9 @@ NC='\033[0m'
 log()   { echo -e "${GREEN}[COLAB]${NC}  ✔ $*"; }
 info()  { echo -e "${CYAN}[INFO]${NC}   ℹ $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC}   ⚠ $*"; }
+ok()    { echo -e "${GREEN}[OK]${NC}    ✓ $*"; }
+err()   { echo -e "${RED}[ERR]${NC}    ✗ $*"; }
+head_() { echo -e "\n${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n  ${BOLD}${MAGENTA}➜ $*\n"; }
 err()   { echo -e "${RED}[ERROR]{NC}  ✖ $*" >&2; }
 step()  { echo -e "\n${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n  ${BOLD}${MAGENTA}➜ Step $*${NC}\n"; }
 done_() { echo -e "  ${GREEN}${BOLD}✔ Done!${NC}"; }
