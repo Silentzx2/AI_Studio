@@ -15,8 +15,16 @@ interface Task {
   metadata?: Record<string, unknown>;
 }
 
-const POLL_INTERVAL = 3000;
+const POLL_INTERVAL = 5000;  // Increased from 3s to 5s to reduce backend load
 const MAX_RECONNECT_ATTEMPTS = 30;
+
+// Stop polling when tab is hidden to save resources
+let documentVisible = true;
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    documentVisible = !document.hidden;
+  });
+}
 
 // ponytail: only poll tasks that map to a real backend generation job (uuid).
 // Local placeholder ids (created before POST returns) and non-generation tasks

@@ -1702,31 +1702,50 @@ async def storage_info():
 # Installation
 # ---------------------------------------------------------------------------
 
+# Simple in-memory cache for install status to prevent database overload
+# from rapid frontend polling. TTL is short enough to stay fresh but long
+# enough to absorb burst traffic.
+_install_status_cache: dict = {}
+_install_status_cache_time: float = 0
+_INSTALL_STATUS_CACHE_TTL = 10  # seconds
+
+
+def _get_cached_install_status() -> dict:
+    """Return cached install status, refreshing if TTL expired."""
+    global _install_status_cache, _install_status_cache_time
+    now = time.time()
+    if now - _install_status_cache_time > _INSTALL_STATUS_CACHE_TTL or not _install_status_cache:
+        from runtime.installer import get_persisted_install_status, get_install_status
+        live = get_install_status()
+        persisted = get_persisted_install_status()
+        result: dict = {}
+        for provider_name, live_entry in live.items():
+            entry = dict(live_entry)
+            db_entry = persisted.get(provider_name)
+            if db_entry:
+                for key, value in db_entry.items():
+                    if key == "overall_state":
+                        continue
+                    entry.setdefault(key, value)
+            result[provider_name] = entry
+        for provider_name, db_entry in persisted.items():
+            if provider_name in result:
+                continue
+            entry = dict(db_entry)
+            if entry.get("overall_state") == "READY":
+                entry["overall_state"] = "UNKNOWN"
+                entry["installed"] = False
+            result[provider_name] = entry
+        _install_status_cache = result
+        _install_status_cache_time = now
+    return _install_status_cache
+
 
 @router.get("/install/status")
 async def install_status():
-    from runtime.installer import get_persisted_install_status, get_install_status
-    live = get_install_status()
-    persisted = get_persisted_install_status()
-    # Live checks are authoritative for readiness. Persisted DB state may supply
-    # historical and in-flight task details (lock owner, task id, last preflight
-    # result, timestamps) but must never override a live BLOCKED/PARTIAL/FAILED
-    # state or resurrect a stale READY.
-    result: dict = {}
-    for provider_name, live_entry in live.items():
-        entry = dict(live_entry)
-        db_entry = persisted.get(provider_name)
-        if db_entry:
-            for key, value in db_entry.items():
-                if key == "overall_state":
-                    continue
-                entry.setdefault(key, value)
-        result[provider_name] = entry
-    # Backward-compat: preserve DB-only providers, but never resurrect a stale
-    # READY when no live check confirms the provider is actually ready.
-    for provider_name, db_entry in persisted.items():
-        if provider_name in result:
-            continue
+    # Use cached result to prevent database overload from rapid polling
+    result = _get_cached_install_status()
+    return {"data": result, "cached": True, "cache_age": time.time() - _install_status_cache_time}
         entry = dict(db_entry)
         overall = entry.pop("overall_state", None)
         blocking_reason = entry.pop("blocking_reason", None)
@@ -1878,14 +1897,13 @@ async def admin_runtime_status():
 
     from runtime.engine import get_engine
     from runtime.gpu import get_gpu_info
-    from runtime.installer import get_install_status
 
     from app.core.providers.registry import get_registry
 
     engine = get_engine()
     gpu = get_gpu_info()
     registry = get_registry()
-    install = get_install_status()
+    install = _get_cached_install_status()  # Use cached result
     available = registry.list_available_providers()
     all_providers = registry.list_providers()
     loaded_names = set(engine._loaded.keys()) if hasattr(engine, "_loaded") else set()
