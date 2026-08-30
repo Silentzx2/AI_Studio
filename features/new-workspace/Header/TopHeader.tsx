@@ -29,21 +29,21 @@ export const TopHeader: React.FC = () => {
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
 
   return (
-    <header 
+    <header
       id="persistent-top-header"
-      className="h-14 w-full bg-[#0d0e12] border-b border-[#21242c] px-4 flex items-center justify-between z-30 select-none flex-shrink-0"
+      className="h-14 w-full bg-[var(--ws-bg,hsl(var(--surface-0)))] border-b border-[var(--ws-border,hsl(var(--border)))] px-4 flex items-center justify-between z-30 select-none flex-shrink-0"
     >
       {/* Left Branding & Mode Dropdown */}
       <div className="flex items-center gap-6">
         {/* Brand Studio Logo (NEXUS 3D) matching Reference Image */}
-        <div 
+        <div
           onClick={() => navigateToMain('dashboard')}
           className="flex items-center gap-2 cursor-pointer group"
         >
-          <div className="w-6 h-6 rounded-md bg-[#f5c518] flex items-center justify-center shadow-md shadow-[#f5c518]/20 group-hover:scale-105 transition-transform">
-            <span className="text-[#111216] font-black text-xs">▲</span>
+          <div className="w-6 h-6 rounded-md bg-[hsl(var(--primary))] flex items-center justify-center shadow-md shadow-[hsl(var(--primary))]/20 group-hover:scale-105 transition-transform">
+            <span className="text-[hsl(var(--primary-foreground))] font-black text-xs">▲</span>
           </div>
-          <span className="font-extrabold text-sm tracking-wider text-[#f3f4f6] uppercase font-mono">
+          <span className="font-extrabold text-sm tracking-wider text-[var(--ws-text,hsl(var(--foreground)))] uppercase font-mono">
             3D Studio
           </span>
         </div>
@@ -53,40 +53,40 @@ export const TopHeader: React.FC = () => {
           <button
             id="btn-workspace-switcher"
             onClick={() => setWorkspaceMenuOpen(!workspaceMenuOpen)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#16181f] border border-[#272b36] text-xs font-semibold text-[#f5c518] hover:border-[#f5c518]/50 transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[hsl(var(--surface-1))] border border-[var(--ws-border,hsl(var(--border)))] text-xs font-semibold text-[hsl(var(--primary))] hover:border-[hsl(var(--primary))]/50 transition-colors"
           >
             <span>3D Workspace</span>
-            <ChevronDown className="w-3.5 h-3.5 text-[#9ca3af]" />
+            <ChevronDown className="w-3.5 h-3.5 text-[hsl(var(--muted-foreground))]" />
           </button>
 
           {workspaceMenuOpen && (
-            <div className="absolute top-full left-0 mt-1.5 w-52 py-1.5 rounded-xl bg-[#181a20] border border-[#303542] shadow-2xl z-50">
+            <div className="absolute top-full left-0 mt-1.5 w-52 py-1.5 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] shadow-2xl z-50">
               <button
                 onClick={() => { navigateToTool('model'); setWorkspaceMenuOpen(false); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-[#e5e7eb] hover:bg-[#232731]"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]"
               >
-                <Box className="w-4 h-4 text-[#f5c518]" />
+                <Box className="w-4 h-4 text-[hsl(var(--primary))]" />
                 <span>3D Model Studio</span>
               </button>
               <button
                 onClick={() => { navigateToTool('retopo'); setWorkspaceMenuOpen(false); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-[#e5e7eb] hover:bg-[#232731]"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]"
               >
-                <Hexagon className="w-4 h-4 text-[#f5c518]" />
+                <Hexagon className="w-4 h-4 text-[hsl(var(--primary))]" />
                 <span>Quad Retopology</span>
               </button>
               <button
                 onClick={() => { navigateToTool('texture'); setWorkspaceMenuOpen(false); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-[#e5e7eb] hover:bg-[#232731]"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]"
               >
-                <Layers className="w-4 h-4 text-[#f5c518]" />
+                <Layers className="w-4 h-4 text-[hsl(var(--primary))]" />
                 <span>PBR Texture Studio</span>
               </button>
               <button
                 onClick={() => { navigateToTool('segment'); setWorkspaceMenuOpen(false); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-[#e5e7eb] hover:bg-[#232731]"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))]"
               >
-                <Sliders className="w-4 h-4 text-[#f5c518]" />
+                <Sliders className="w-4 h-4 text-[hsl(var(--primary))]" />
                 <span>Segmentation</span>
               </button>
             </div>
@@ -100,8 +100,8 @@ export const TopHeader: React.FC = () => {
             onClick={() => navigateToMain('dashboard')}
             className={`px-3 py-1.5 rounded-lg transition-colors ${
               mainNav === 'dashboard'
-                ? 'text-[#f5c518] font-bold'
-                : 'text-[#9ca3af] hover:text-[#f3f4f6]'
+                ? 'text-[hsl(var(--primary))] font-bold'
+                : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
             }`}
           >
             Home
@@ -112,8 +112,8 @@ export const TopHeader: React.FC = () => {
             onClick={() => navigateToMain('assets')}
             className={`px-3 py-1.5 rounded-lg transition-colors ${
               mainNav === 'assets'
-                ? 'text-[#f5c518] font-bold'
-                : 'text-[#9ca3af] hover:text-[#f3f4f6]'
+                ? 'text-[hsl(var(--primary))] font-bold'
+                : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
             }`}
           >
             Assets
@@ -122,7 +122,7 @@ export const TopHeader: React.FC = () => {
           <button
             id="nav-link-system"
             onClick={() => navigateToMain('system')}
-            className={`px-3 py-1.5 rounded-lg transition-colors ${mainNav === 'system' ? 'text-[#f5c518] font-bold' : 'text-[#9ca3af] hover:text-[#f3f4f6]'}`}
+            className={`px-3 py-1.5 rounded-lg transition-colors ${mainNav === 'system' ? 'text-[hsl(var(--primary))] font-bold' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'}`}
           >
             System
           </button>
@@ -136,9 +136,9 @@ export const TopHeader: React.FC = () => {
             <button
               id="btn-dcc-bridge"
               onClick={() => setIsDccBridgeOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#16181f] border border-[#272b36] hover:border-[#3b4150] text-xs text-[#cbd5e1] transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[hsl(var(--surface-1))] border border-[var(--ws-border,hsl(var(--border)))] hover:border-[hsl(var(--border))] text-xs text-[hsl(var(--foreground))] transition-colors"
             >
-              <Cable className="w-3.5 h-3.5 text-[#f5c518]" />
+              <Cable className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
               <span className="font-medium">DCC Bridge</span>
             </button>
           </SimpleTooltip>
@@ -149,16 +149,16 @@ export const TopHeader: React.FC = () => {
             onClick={() => setIsSettingsOpen(true)}
             className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-mono transition-all ${
               systemStats.status === 'online'
-                ? 'bg-[#121b18] border-[#22c55e]/40 text-[#86efac] hover:border-[#22c55e]'
-                : 'bg-[#1e1616] border-[#ef4444]/40 text-[#fca5a5] hover:border-[#ef4444]'
+                ? 'bg-[hsl(var(--status-online))]/10 border-[hsl(var(--status-online))]/40 text-[hsl(var(--status-online))] hover:border-[hsl(var(--status-online))]'
+                : 'bg-[hsl(var(--destructive))]/10 border-[hsl(var(--destructive))]/40 text-[hsl(var(--destructive))] hover:border-[hsl(var(--destructive))]'
             }`}
           >
-          <div className={`w-2 h-2 rounded-full ${systemStats.status === 'online' ? 'bg-[#22c55e] shadow-[0_0_8px_#22c55e] animate-pulse' : 'bg-[#ef4444]'}`} />
-          <span className="text-[11px] font-sans font-medium text-[#e2e8f0]">
+          <div className={`w-2 h-2 rounded-full ${systemStats.status === 'online' ? 'bg-[hsl(var(--status-online))] shadow-[0_0_8px_hsl(var(--status-online))] animate-pulse' : 'bg-[hsl(var(--destructive))]'}`} />
+          <span className="text-[11px] font-sans font-medium text-[hsl(var(--foreground))]">
             FastAPI {systemStats.status === 'online' ? '8000' : 'Offline'}
           </span>
           {systemStats.status === 'online' && (
-            <span className="text-[10px] text-[#4ade80] font-mono font-semibold px-1 rounded bg-[#22c55e]/10">
+            <span className="text-[10px] text-[hsl(var(--status-online))] font-mono font-semibold px-1 rounded bg-[hsl(var(--status-online))]/10">
               {systemStats.vramUsedGb != null ? `${systemStats.vramUsedGb}G` : `${systemStats.lastPingMs}ms`}
             </span>
           )}
@@ -168,7 +168,7 @@ export const TopHeader: React.FC = () => {
         <SimpleTooltip label="Settings">
           <button
             onClick={() => router.push('/settings')}
-            className="p-1.5 rounded-lg text-[#9ca3af] hover:text-[#f3f4f6] hover:bg-[#1c1e24] transition-colors"
+            className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))] transition-colors"
           >
             <Sun className="w-4 h-4" />
           </button>
@@ -177,7 +177,7 @@ export const TopHeader: React.FC = () => {
         <SimpleTooltip label="Notifications">
           <button
             aria-label="Notifications"
-            className="p-1.5 rounded-lg text-[#9ca3af] hover:text-[#f3f4f6] hover:bg-[#1c1e24] transition-colors"
+            className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))] transition-colors"
           >
             <Bell className="w-4 h-4" />
           </button>
@@ -186,9 +186,9 @@ export const TopHeader: React.FC = () => {
         {/* Profile Avatar */}
         <div
           onClick={() => router.push('/settings')}
-          className="w-7 h-7 rounded-full bg-[#242732] border border-[#3c4252] flex items-center justify-center text-xs font-bold text-[#f5c518] cursor-pointer hover:border-[#f5c518] transition-colors"
+          className="w-7 h-7 rounded-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] flex items-center justify-center text-xs font-bold text-[hsl(var(--primary))] cursor-pointer hover:border-[hsl(var(--primary))] transition-colors"
         >
-          <User className="w-4 h-4 text-[#cbd5e1]" />
+          <User className="w-4 h-4 text-[hsl(var(--foreground))]" />
         </div>
       </div>
     </header>

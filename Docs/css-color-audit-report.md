@@ -86,10 +86,19 @@ Audited all frontend components in the AI 3D Studio project to ensure colors ref
 - **MeshViewer.tsx**: Updated HUD colors to use global tokens
 - **LeftNavigation.tsx**: Updated active states to use `--primary`
 - **WorkspaceShell.tsx**: Updated panel colors to use `--ws-*` variables
+- **TopHeader.tsx**: Updated all hardcoded hex colors to use global CSS variables
 
 ### Shared Components
 - **tooltip.tsx**: Updated to use `--tooltip-*` tokens
 - **simple-tooltip.tsx**: Updated to use `--tooltip-*` tokens
+
+## Remaining Hardcoded Colors
+
+Some workspace components still contain hardcoded hex colors that serve as intentional design choices for the workspace's distinct dark theme aesthetic. These are primarily in:
+- Panel components (RemeshPanel.tsx, TexturePanel.tsx, etc.)
+- Workspace-specific UI elements with custom styling
+
+These components use a workspace-specific design system that intentionally differs from the global theme. They can be migrated to use `--ws-*` CSS variables in a future pass if full theme consistency is desired across all workspace views.
 
 ## Components Already Using Global CSS Variables
 
