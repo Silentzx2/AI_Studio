@@ -23,7 +23,7 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
 
   if (tool === 'retopo') {
     return (
-      <div className="flex flex-col h-full overflow-y-auto px-3 py-3 space-y-3 text-xs select-none">
+      <div className="flex flex-col h-full overflow-hidden px-3 py-3 space-y-3 text-xs select-none">
         <div className="flex items-center gap-2 pb-1">
           <div className="w-6 h-6 rounded-md bg-[hsl(var(--primary))]/20 flex items-center justify-center text-[hsl(var(--primary))]">
             <Hexagon className="w-3.5 h-3.5" />
@@ -92,7 +92,7 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
 
   if (tool === 'edit') {
     return (
-      <div className="flex flex-col h-full overflow-y-auto px-3 py-3 space-y-3 text-xs select-none">
+      <div className="flex flex-col h-full overflow-hidden px-3 py-3 space-y-3 text-xs select-none">
         <div className="flex items-center gap-2 pb-1">
           <div className="w-6 h-6 rounded-md bg-[hsl(var(--primary))]/20 flex items-center justify-center text-[hsl(var(--primary))]">
             <Pencil className="w-3.5 h-3.5" />
@@ -113,7 +113,7 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
 
   if (tool === 'upscale') {
     return (
-      <div className="flex flex-col h-full overflow-y-auto px-3 py-3 space-y-3 text-xs select-none">
+      <div className="flex flex-col h-full overflow-hidden px-3 py-3 space-y-3 text-xs select-none">
         <div className="flex items-center gap-2 pb-1">
           <div className="w-6 h-6 rounded-md bg-[hsl(var(--primary))]/20 flex items-center justify-center text-[hsl(var(--primary))]">
             <Maximize className="w-3.5 h-3.5" />
@@ -145,7 +145,7 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
 
   if (tool === 'pbr') {
     return (
-      <div className="flex flex-col h-full overflow-y-auto px-3 py-3 space-y-3 text-xs select-none">
+      <div className="flex flex-col h-full overflow-hidden px-3 py-3 space-y-3 text-xs select-none">
         <div className="flex items-center gap-2 pb-1">
           <div className="w-6 h-6 rounded-md bg-[hsl(var(--primary))]/20 flex items-center justify-center text-[hsl(var(--primary))]">
             <Palette className="w-3.5 h-3.5" />

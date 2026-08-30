@@ -25,7 +25,7 @@ export default function NotFound() {
 
       {/* Main Content Card with Rotating Border */}
       <div className="relative z-10 p-[1px] rounded-3xl glow-border">
-        <div className="relative bg-background/80 backdrop-blur-xl rounded-3xl border border-[hsl(var(--border)/0.5)] p-10 sm:p-16 flex flex-col items-center gap-8 shadow-2xl">
+        <div className="relative bg-background rounded-3xl border border-[hsl(var(--border))] p-10 sm:p-16 flex flex-col items-center gap-8 shadow-2xl">
           
           {/* Floating Icon */}
           <div 

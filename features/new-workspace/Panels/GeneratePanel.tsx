@@ -1,22 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Sparkles, 
-  Upload, 
-  Image as ImageIcon, 
-  Type,
-  Crop, 
-  Wand2, 
-  Pencil, 
-  ChevronDown, 
-  ChevronRight, 
-  Zap, 
+import {
+  Sparkles,
+  Upload,
+  Image as ImageIcon,
+  Crop,
+  Wand2,
+  Pencil,
+  ChevronDown,
+  ChevronRight,
+  Zap,
   Globe,
   Sliders,
   RefreshCw,
-  FileText,
   Dices,
-  Trash2, 
-  Lock,
+  Trash2,
   AlertCircle,
   Info,
   X,
@@ -36,7 +33,6 @@ interface ProviderOption {
   installed?: boolean;
   status?: string;
   vram_required_mb?: number;
-  supports_text_to_3d?: boolean;
   supports_image_to_3d?: boolean;
   workspace_compatibility?: string[];
   low_vram_supported?: boolean;
@@ -48,7 +44,6 @@ export const GeneratePanel: React.FC = () => {
     isExecuting, 
     executionProgress, 
     executionStep,
-    generateTextTo3D,
     generateImageTo3D,
     generationSettings,
     setGenerationSettings
@@ -72,28 +67,11 @@ export const GeneratePanel: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const samplePrompts = [
-    'A fierce goblin warrior with spiked steel shoulder armor and glowing amber eyes',
-    'Futuristic cybernetic drone with sleek matte-carbon body and blue neon thrusters',
-    'Medieval stone watchtower covered in creeping ivy and wooden roof beams',
-    'Stylized low-poly fantasy treasure chest with gold trim and glowing gemstones'
-  ];
-
-  const currentMode = generationSettings.mode || 'text-to-3d';
+  const currentMode = generationSettings.mode || 'image-to-3d';
   const activeModelId = generationSettings.aiModel || '';
   const activeModelObj = providersList.find(m => m.id === activeModelId) || providersList[0];
   
-  const isCurrentModelTextTo3DLocked = activeModelObj ? !activeModelObj.supports_text_to_3d : false;
 
-  useEffect(() => {
-    if (currentMode === 'text-to-3d' && isCurrentModelTextTo3DLocked) {
-      const firstTextCapable = providersList.find(m => m.supports_text_to_3d);
-      if (firstTextCapable) {
-        setGenerationSettings(prev => ({ ...prev, aiModel: firstTextCapable.id }));
-        setNoticeMessage(`${activeModelObj?.label || 'Model'} does not support Text-to-3D. Switched to ${firstTextCapable.label}.`);
-      }
-    }
-  }, [currentMode, isCurrentModelTextTo3DLocked, activeModelId, setGenerationSettings, providersList]);
 
   useEffect(() => {
     if (!activeModelId && providersList.length > 0) {
@@ -163,39 +141,11 @@ export const GeneratePanel: React.FC = () => {
     if (file) processImageFile(file);
   };
 
-  const handleTextTo3DTabClick = () => {
-    if (isCurrentModelTextTo3DLocked) {
-      const firstTextCapable = providersList.find(m => m.supports_text_to_3d);
-      if (firstTextCapable) {
-        setGenerationSettings(prev => ({ 
-          ...prev, 
-          mode: 'text-to-3d', 
-          aiModel: firstTextCapable.id 
-        }));
-        setNoticeMessage(`Switched to ${firstTextCapable.label} to unlock Text-to-3D prompt mode.`);
-      }
-    } else {
-      setGenerationSettings(prev => ({ ...prev, mode: 'text-to-3d' }));
-    }
-  };
-
   const handleImageTo3DTabClick = () => {
-    setGenerationSettings(prev => ({ ...prev, mode: 'image-to-3d', prompt: '' }));
+    setGenerationSettings(prev => ({ ...prev, mode: 'image-to-3d' }));
   };
 
   const handleModelSelect = (model: ProviderOption) => {
-    if (currentMode === 'text-to-3d' && !model.supports_text_to_3d) {
-      setGenerationSettings(prev => ({
-        ...prev,
-        aiModel: model.id,
-        mode: 'image-to-3d',
-        prompt: '',
-        lowVram: model.low_vram_supported ? prev.lowVram : false,
-      }));
-      setNoticeMessage(`${model.label} is an Image-to-3D model. Switched to Image to 3D mode.`);
-      return;
-    }
-
     setGenerationSettings(prev => ({
       ...prev,
       aiModel: model.id,
@@ -204,15 +154,7 @@ export const GeneratePanel: React.FC = () => {
   };
 
   const handleGenerate = () => {
-    if (currentMode === 'text-to-3d') {
-      if (isCurrentModelTextTo3DLocked) {
-        setNoticeMessage(`${activeModelObj?.label || 'Model'} does not support Text-to-3D. Please switch model or use Image-to-3D.`);
-        return;
-      }
-      generateTextTo3D(generationSettings.prompt);
-    } else {
-      generateImageTo3D(generationSettings.image ?? undefined);
-    }
+    generateImageTo3D(generationSettings.image ?? undefined);
   };
 
   return (
@@ -230,8 +172,8 @@ export const GeneratePanel: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Scrollable Body */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+      {/* Main Body */}
+      <div className="flex-1 overflow-hidden p-3 space-y-3">
         {/* Notice Message Toast/Banner */}
         {noticeMessage && (
           <div className="p-2.5 rounded-xl bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/50 text-[hsl(var(--primary))] text-[11px] flex items-center justify-between gap-2 animate-in fade-in shadow-md">
@@ -248,36 +190,9 @@ export const GeneratePanel: React.FC = () => {
           </div>
         )}
 
-        {/* Top Tab Switcher: Text to 3D vs Image to 3D */}
+        {/* Top Tab Switcher: Image to 3D */}
         <div className="space-y-1">
           <div className="flex items-center p-1 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
-            {/* Tab 1: Text to 3D (With Lock status when active model doesn't support Text to 3D) */}
-            <button
-              id="tab-text-to-3d"
-              onClick={handleTextTo3DTabClick}
-              className={`flex-1 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all relative ${
-                currentMode === 'text-to-3d'
-                  ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-md'
-                  : isCurrentModelTextTo3DLocked
-                  ? 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-3))]'
-                  : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
-              }`}
-            >
-              {isCurrentModelTextTo3DLocked && currentMode !== 'text-to-3d' ? (
-                <Lock className="w-3.5 h-3.5 text-[hsl(var(--destructive))]" />
-              ) : (
-                <Type className="w-3.5 h-3.5" />
-              )}
-              <span>Text to 3D</span>
-
-              {isCurrentModelTextTo3DLocked && currentMode !== 'text-to-3d' && (
-                <span className="text-[7.5px] font-mono px-1 py-0.2 rounded bg-[hsl(var(--destructive))]/20 text-[hsl(var(--destructive))] border border-[hsl(var(--destructive))]/30">
-                  Locked
-                </span>
-              )}
-            </button>
-
-            {/* Tab 2: Image to 3D (Always supported by TripoSR, InstantMesh, Hunyuan3D, Large-3D) */}
             <button
               id="tab-image-to-3d"
               onClick={handleImageTo3DTabClick}
@@ -291,80 +206,9 @@ export const GeneratePanel: React.FC = () => {
               <span>Image to 3D</span>
             </button>
           </div>
-
-          {/* Helper caption if locked */}
-          {isCurrentModelTextTo3DLocked && (
-            <div className="px-1 flex items-center gap-1 text-[10px] text-[hsl(var(--destructive))]">
-              <Lock className="w-2.5 h-2.5 flex-shrink-0" />
-              <span>{activeModelObj?.label || 'Model'} is Image-to-3D only. Click 'Text to 3D' to switch models.</span>
-            </div>
-          )}
         </div>
 
-        {/* MODE 1: TEXT TO 3D */}
-        {currentMode === 'text-to-3d' && (
-          <div className="space-y-3 animate-in fade-in duration-200">
-            {/* Prompt Input Box */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-[11px] font-semibold text-[hsl(var(--foreground))] flex items-center gap-1">
-                  <FileText className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
-                  <span>Prompt Description</span>
-                </label>
-                <button
-                  onClick={() => {
-                    const random = samplePrompts[Math.floor(Math.random() * samplePrompts.length)];
-                    setGenerationSettings(prev => ({ ...prev, prompt: random }));
-                  }}
-                  className="text-[10px] text-[hsl(var(--primary))] hover:underline flex items-center gap-1 cursor-pointer transition-colors"
-                >
-                  <Dices className="w-3 h-3" />
-                  <span>Surprise Me</span>
-                </button>
-              </div>
-
-              <div className="relative">
-                <textarea
-                  id="input-text-to-3d-prompt"
-                  value={generationSettings.prompt || ''}
-                  onChange={(e) => setGenerationSettings(prev => ({ ...prev, prompt: e.target.value }))}
-                  placeholder="Describe your 3D asset in detail (e.g., A menacing cybernetic goblin with glowing orange armor, high poly, highly detailed)..."
-                  rows={4}
-                  className="w-full p-2.5 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] focus:border-[hsl(var(--primary))] outline-none text-xs text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))] leading-relaxed resize-none transition-colors"
-                />
-                {generationSettings.prompt && (
-                  <button
-                    onClick={() => setGenerationSettings(prev => ({ ...prev, prompt: '' }))}
-                    className="absolute right-2.5 bottom-2.5 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--destructive))] p-1"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Quick Inspiration Tags */}
-            <div className="space-y-1">
-              <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Quick Add Modifiers:</span>
-              <div className="flex flex-wrap gap-1">
-                {['Realistic PBR', 'Game Ready Low-Poly', 'Cinematic 8K', 'Stylized Fantasy', 'Subdivision Quad Mesh'].map(tag => (
-                  <button
-                    key={tag}
-                    onClick={() => {
-                      const cur = generationSettings.prompt ? `${generationSettings.prompt}, ${tag}` : tag;
-                      setGenerationSettings(prev => ({ ...prev, prompt: cur }));
-                    }}
-                    className="px-2 py-1 rounded-lg bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-3))] border border-[hsl(var(--border))] text-[10px] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors cursor-pointer"
-                  >
-                    +{tag}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* MODE 2: IMAGE TO 3D */}
+        {/* IMAGE TO 3D */}
         {currentMode === 'image-to-3d' && (
           <div className="space-y-3 animate-in fade-in duration-200">
             {/* Sub-Action Icon Bar (Upload, Crop, Wand, Edit) */}
@@ -513,7 +357,7 @@ export const GeneratePanel: React.FC = () => {
         )}
 
 
-        {/* AI Model Generator Choice (With Lock Indicators for models not supporting Text-to-3D) */}
+        {/* AI Model Generator Choice */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-[11px] font-semibold text-[hsl(var(--foreground))] flex items-center gap-1">
@@ -521,7 +365,7 @@ export const GeneratePanel: React.FC = () => {
               <span>Generation Architecture</span>
             </label>
             <span className="text-[10px] text-[hsl(var(--muted-foreground))]">
-              {currentMode === 'text-to-3d' ? 'Prompt Diffusion' : 'Image Reconstruction'}
+              Image Reconstruction
             </span>
           </div>
 
@@ -538,7 +382,6 @@ export const GeneratePanel: React.FC = () => {
             <div className="grid grid-cols-2 gap-1.5">
               {providersList.map(m => {
                 const isSelected = activeModelId === m.id;
-                const isLockedInCurrentMode = currentMode === 'text-to-3d' && !m.supports_text_to_3d;
                 const isInstalled = m.installed || m.status === 'ready';
                 const vramGb = m.vram_required_mb ? (m.vram_required_mb / 1024).toFixed(0) : '?';
 
@@ -547,27 +390,20 @@ export const GeneratePanel: React.FC = () => {
                     key={m.id}
                     onClick={() => handleModelSelect(m)}
                     className={`p-2 rounded-xl text-left border transition-all relative cursor-pointer ${
-                      isLockedInCurrentMode
-                        ? 'bg-[hsl(var(--destructive))]/5 border-[hsl(var(--destructive))]/20 text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--destructive))]/60'
-                        : isSelected
+                      isSelected
                         ? 'bg-[hsl(var(--primary))]/10 border-[hsl(var(--primary))] shadow-sm ring-1 ring-[hsl(var(--primary))]/30'
                         : 'bg-[hsl(var(--surface-1))] border-[hsl(var(--border))] hover:border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1 min-w-0">
-                        {isLockedInCurrentMode && (
-                          <Lock className="w-3 h-3 text-[hsl(var(--destructive))] flex-shrink-0" />
-                        )}
                         {!isInstalled && (
                           <SimpleTooltip label="Not installed">
                             <span className="w-2 h-2 rounded-full bg-[hsl(var(--primary))] flex-shrink-0" />
                           </SimpleTooltip>
                         )}
                         <span className={`font-bold text-xs truncate ${
-                          isLockedInCurrentMode 
-                            ? 'text-[hsl(var(--destructive))]' 
-                            : isSelected 
+                          isSelected 
                             ? 'text-[hsl(var(--primary))]' 
                             : 'text-[hsl(var(--foreground))]'
                         }`}>
@@ -576,18 +412,16 @@ export const GeneratePanel: React.FC = () => {
                       </div>
 
                       <span className={`text-[8px] font-mono px-1 rounded ${
-                        isLockedInCurrentMode
-                          ? 'bg-[hsl(var(--destructive))]/20 text-[hsl(var(--destructive))]'
-                          : isSelected
+                        isSelected
                           ? 'bg-[hsl(var(--primary))]/20 text-[hsl(var(--primary))]'
                           : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--foreground))]'
                       }`}>
-                        {isLockedInCurrentMode ? 'Img-Only' : `${vramGb}GB`}
+                        {`${vramGb}GB`}
                       </span>
                     </div>
 
                     <span className="text-[10px] text-[hsl(var(--muted-foreground))] block mt-0.5 truncate">
-                      {isLockedInCurrentMode ? 'Requires Image Input' : (m.low_vram_supported ? 'Low-VRAM supported' : `Image Reconstruction`)}
+                      {m.low_vram_supported ? 'Low-VRAM supported' : `Image Reconstruction`}
                     </span>
                   </button>
                 );
@@ -859,7 +693,7 @@ export const GeneratePanel: React.FC = () => {
           ) : (
             <>
               <Sparkles className="w-4 h-4 text-[hsl(var(--primary-foreground))]" />
-              <span>Generate {currentMode === 'text-to-3d' ? 'from Text Prompt' : 'from Reference Image'}</span>
+              <span>Generate from Reference Image</span>
             </>
           )}
         </button>

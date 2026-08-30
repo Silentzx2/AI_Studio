@@ -114,22 +114,7 @@ export const ProgressOverlay: React.FC = () => {
         {/* Body Content */}
         {!isMinimized && (
           <div className="p-3.5 space-y-3">
-            {/* Task Prompt / Input preview */}
-            {activeTask.type === 'text-to-3d' && activeTask.promptText && (
-              <div className="p-2.5 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] text-xs space-y-1">
-                <div className="flex items-center justify-between text-[10px] text-[hsl(var(--muted-foreground))]">
-                  <span className="font-semibold uppercase tracking-wider flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-[hsl(var(--primary))]" />
-                    Text-to-3D Prompt
-                  </span>
-                  <span>Active generation workflow</span>
-                </div>
-                <p className="text-[hsl(var(--foreground))] italic line-clamp-2 text-[11px] leading-relaxed">
-                  "{activeTask.promptText}"
-                </p>
-              </div>
-            )}
-
+            {/* Task Input preview */}
             {activeTask.type === 'image-to-3d' && (
               <div className="p-2 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] flex items-center gap-2.5 text-xs">
                 {activeTask.inputImage ? (

@@ -5,7 +5,7 @@
  * All sections properly implemented with error handling
  */
 
-import React, { Suspense, useState, useMemo, useEffect } from 'react';
+import React, { Suspense, useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ChevronRight,
@@ -28,6 +28,7 @@ import {
   Pin,
   PinOff,
   Server,
+  Check,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -269,6 +270,34 @@ function SettingsContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [pinnedSections, setPinnedSections] = useState<string[]>([]);
   const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+  const [showSavedIndicator, setShowSavedIndicator] = useState(false);
+  const saveFunctionsRef = useRef<Record<string, () => Promise<void>>>({});
+  const savedIndicatorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Register a save function for a section
+  const registerSaveFunction = useCallback((sectionId: string, saveFn: () => Promise<void>) => {
+    saveFunctionsRef.current[sectionId] = saveFn;
+  }, []);
+
+  // Show "Saved" indicator for 2 seconds
+  const triggerSavedIndicator = useCallback(() => {
+    if (savedIndicatorTimeoutRef.current) {
+      clearTimeout(savedIndicatorTimeoutRef.current);
+    }
+    setShowSavedIndicator(true);
+    savedIndicatorTimeoutRef.current = setTimeout(() => {
+      setShowSavedIndicator(false);
+    }, 2000);
+  }, []);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (savedIndicatorTimeoutRef.current) {
+        clearTimeout(savedIndicatorTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -383,6 +412,19 @@ useEffect(() => {
   }, [searchQuery]);
 
   const handleSectionClick = (sectionId: string) => {
+    // Don't save if clicking the same section
+    if (sectionId === activeSection) return;
+
+    // Save current section data before switching (VS Code style)
+    const saveFn = saveFunctionsRef.current[activeSection];
+    if (saveFn) {
+      saveFn().then(() => {
+        triggerSavedIndicator();
+      }).catch(() => {
+        // Continue switching even if save fails
+      });
+    }
+
     setError(null);
     router.push(`/settings?section=${sectionId}`);
   };
@@ -403,13 +445,13 @@ useEffect(() => {
         case 'workspace':
           return (
             <Suspense fallback={<SectionLoading />}>
-              <WorkspaceSection />
+              <WorkspaceSection onSaveRegister={(fn) => registerSaveFunction('workspace', fn)} />
             </Suspense>
           );
         case 'generation':
           return (
             <Suspense fallback={<SectionLoading />}>
-              <GenerationSection />
+              <GenerationSection onSaveRegister={(fn) => registerSaveFunction('generation', fn)} />
             </Suspense>
           );
         case 'storage':
@@ -480,7 +522,7 @@ useEffect(() => {
         case 'notifications':
           return (
             <Suspense fallback={<SectionLoading />}>
-              <NotificationsSection />
+              <NotificationsSection onSaveRegister={(fn) => registerSaveFunction('notifications', fn)} />
             </Suspense>
           );
         case 'shortcuts':
@@ -492,13 +534,13 @@ useEffect(() => {
         case 'network':
           return (
             <Suspense fallback={<SectionLoading />}>
-              <NetworkSection />
+              <NetworkSection onSaveRegister={(fn) => registerSaveFunction('network', fn)} />
             </Suspense>
           );
         case 'advanced':
           return (
             <Suspense fallback={<SectionLoading />}>
-              <AdvancedSection />
+              <AdvancedSection onSaveRegister={(fn) => registerSaveFunction('advanced', fn)} />
             </Suspense>
           );
         default:
@@ -684,14 +726,22 @@ useEffect(() => {
             )}
 
             {/* Content header */}
-            <div className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-20">
+            <div className="border-b border-border bg-card sticky top-0 z-20">
               <div className="p-6 flex items-center justify-between">
-                <div>
-                  <h1 className="text-2xl font-bold">{currentSection?.label || 'Settings'}</h1>
-                  {currentSection?.description && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {currentSection.description}
-                    </p>
+                <div className="flex items-center gap-3">
+                  <div>
+                    <h1 className="text-2xl font-bold">{currentSection?.label || 'Settings'}</h1>
+                    {currentSection?.description && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {currentSection.description}
+                      </p>
+                    )}
+                  </div>
+                  {showSavedIndicator && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[hsl(var(--neon-green)/0.15)] text-[hsl(var(--neon-green))] text-xs font-medium">
+                      <Check className="w-3 h-3" />
+                      Saved
+                    </span>
                   )}
                 </div>
                 

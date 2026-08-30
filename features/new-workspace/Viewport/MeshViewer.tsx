@@ -976,7 +976,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               <div className="flex items-center justify-between">
                 <span className="text-[9px] text-[hsl(var(--muted-foreground))]">Show Grid</span>
                 <button onClick={() => patchEnv({ gridVisible: !environmentSettings.gridVisible })} className={`w-7 h-3.5 rounded-full transition-colors relative ${environmentSettings.gridVisible ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--border))]'}`}>
-                  <div className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white transition-transform ${environmentSettings.gridVisible ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+                  <div className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-[hsl(var(--primary-foreground))] transition-transform ${environmentSettings.gridVisible ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
                 </button>
               </div>
 

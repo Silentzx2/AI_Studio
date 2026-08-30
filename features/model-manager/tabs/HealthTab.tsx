@@ -306,7 +306,7 @@ function SingleModelHealthView({
       {/* Summary */}
       {health.summary && (
         <div className="grid grid-cols-4 gap-2 text-center">
-          <div className="bg-[hsl(var(--surface-0)/0.2)] rounded-lg p-2">
+          <div className="bg-[hsl(var(--surface-0))] rounded-lg p-2">
             <p className="text-lg font-bold text-[hsl(var(--foreground))]">{health.summary.total_checks}</p>
             <p className="text-xs text-[hsl(var(--foreground))]/50">Checks</p>
           </div>
@@ -330,7 +330,7 @@ function SingleModelHealthView({
         <p className="text-sm font-medium text-[hsl(var(--foreground))]/70 uppercase tracking-wider">Detailed Checks</p>
         
         {health.checks && Object.entries(health.checks).map(([checkName, result]) => (
-          <div key={checkName} className="bg-[hsl(var(--surface-0)/0.2)] rounded-lg p-3">
+          <div key={checkName} className="bg-[hsl(var(--surface-0))] rounded-lg p-3">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 text-[hsl(var(--foreground))]/80">
                 {getCheckIcon(checkName)}

@@ -6,8 +6,6 @@ import { apiClient } from '@/services/apiClient';
 export interface AppState {
   // ── Generation ──
   mode: GenerationMode;
-  prompt: string;
-  negativePrompt: string;
   quality: QualityPreset;
   generateTexture: boolean;
   autoRig: boolean;
@@ -107,8 +105,6 @@ export interface AppState {
 
   // ── Actions ──
   setMode: (mode: GenerationMode) => void;
-  setPrompt: (prompt: string) => void;
-  setNegativePrompt: (prompt: string) => void;
   setQuality: (quality: QualityPreset) => void;
   setGenerateTexture: (v: boolean) => void;
   setAutoRig: (v: boolean) => void;
@@ -181,9 +177,7 @@ type ActionKeys = {
 type AppStateData = Omit<AppState, ActionKeys>;
 
 const DEFAULT_STATE: AppStateData = {
-  mode: 'text-to-3d',
-  prompt: '',
-  negativePrompt: '',
+  mode: 'image-to-3d',
   quality: 'standard',
   generateTexture: true,
   autoRig: false,
@@ -250,8 +244,6 @@ export const useAppStore = create<AppState>()(
 
       // ── Generation Actions ──
       setMode: (mode) => set({ mode }),
-      setPrompt: (prompt) => set({ prompt }),
-      setNegativePrompt: (negativePrompt) => set({ negativePrompt }),
       setQuality: (quality) => set({ quality }),
       setGenerateTexture: (generateTexture) => set({ generateTexture }),
       setAutoRig: (autoRig) => set({ autoRig }),
@@ -307,9 +299,7 @@ export const useAppStore = create<AppState>()(
       },
       resetGeneration: () =>
         set({
-          mode: 'text-to-3d',
-          prompt: '',
-          negativePrompt: '',
+          mode: 'image-to-3d',
           quality: 'standard',
           generateTexture: true,
           autoRig: false,
@@ -539,8 +529,6 @@ export const useAppStore = create<AppState>()(
       partialize: (state) => ({
         // Generation state
         mode: state.mode,
-        prompt: state.prompt,
-        negativePrompt: state.negativePrompt,
         quality: state.quality,
         generateTexture: state.generateTexture,
         autoRig: state.autoRig,

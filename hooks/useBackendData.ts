@@ -75,7 +75,7 @@ export function useRuntimeOptions() {
       esRef.current = null;
     };
 
-    // Fetch full options data (deduped — 30s TTL)
+    // Fetch full options data (deduped — 60s TTL)
     const fetchOptions = async () => {
       try {
         const data = await dedupedGet<any>('/api/v1/runtime/options', TTL.OPTIONS);

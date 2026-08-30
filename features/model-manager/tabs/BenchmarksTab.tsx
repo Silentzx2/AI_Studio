@@ -226,7 +226,7 @@ export function BenchmarksTab({ modelId }: BenchmarksTabProps) {
               {/* Metrics Grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {/* Inference Time */}
-                <div className="bg-[hsl(var(--surface-0)/0.2)] rounded-lg p-3">
+                <div className="bg-[hsl(var(--surface-0))] rounded-lg p-3">
                   <div className="flex items-center gap-2 text-[hsl(var(--foreground))]/50 text-sm mb-1">
                     <Clock className="w-4 h-4" />
                     Inference Time
@@ -239,7 +239,7 @@ export function BenchmarksTab({ modelId }: BenchmarksTabProps) {
                 </div>
 
                 {/* Throughput */}
-                <div className="bg-[hsl(var(--surface-0)/0.2)] rounded-lg p-3">
+                <div className="bg-[hsl(var(--surface-0))] rounded-lg p-3">
                   <div className="flex items-center gap-2 text-[hsl(var(--foreground))]/50 text-sm mb-1">
                     <TrendingUp className="w-4 h-4" />
                     Throughput
@@ -252,7 +252,7 @@ export function BenchmarksTab({ modelId }: BenchmarksTabProps) {
                 </div>
 
                 {/* Memory Usage */}
-                <div className="bg-[hsl(var(--surface-0)/0.2)] rounded-lg p-3">
+                <div className="bg-[hsl(var(--surface-0))] rounded-lg p-3">
                   <div className="flex items-center gap-2 text-[hsl(var(--foreground))]/50 text-sm mb-1">
                     <HardDrive className="w-4 h-4" />
                     Memory Usage
@@ -265,7 +265,7 @@ export function BenchmarksTab({ modelId }: BenchmarksTabProps) {
                 </div>
 
                 {/* GPU Utilization */}
-                <div className="bg-[hsl(var(--surface-0)/0.2)] rounded-lg p-3">
+                <div className="bg-[hsl(var(--surface-0))] rounded-lg p-3">
                   <div className="flex items-center gap-2 text-[hsl(var(--foreground))]/50 text-sm mb-1">
                     <Cpu className="w-4 h-4" />
                     GPU Utilization

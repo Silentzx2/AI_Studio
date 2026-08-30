@@ -400,7 +400,7 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
 
       {/* HUD: Topology + Orientation (matches reference) */}
       <div className="absolute top-4 right-4 z-10 flex items-center gap-3">
-        <div className="bg-[var(--ws-hud-bg,hsl(var(--surface-1)))]/90 backdrop-blur-md border border-[var(--ws-hud-border,hsl(var(--border)))] rounded-xl px-3.5 py-2 shadow-xl space-y-1 text-xs font-mono">
+        <div className="bg-[var(--ws-hud-bg,hsl(var(--surface-1)))]/90 border border-[var(--ws-hud-border,hsl(var(--border)))] rounded-xl px-3.5 py-2 shadow-xl space-y-1 text-xs font-mono">
           <div className="flex items-center justify-between gap-4">
             <span className="text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] text-[11px]">World</span>
             <span className="text-[var(--ws-text,hsl(var(--foreground)))] font-semibold text-[11px] capitalize">
@@ -416,7 +416,7 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
         <SimpleTooltip label="Reset Camera">
           <button
             onClick={resetCamera}
-            className="w-11 h-11 rounded-xl bg-[var(--ws-hud-bg,hsl(var(--surface-1)))]/90 backdrop-blur-md border border-[var(--ws-hud-border,hsl(var(--border)))] flex items-center justify-center cursor-pointer hover:border-[hsl(var(--primary))] shadow-xl group transition-all"
+            className="w-11 h-11 rounded-xl bg-[var(--ws-hud-bg,hsl(var(--surface-1)))]/90 border border-[var(--ws-hud-border,hsl(var(--border)))] flex items-center justify-center cursor-pointer hover:border-[hsl(var(--primary))] shadow-xl group transition-all"
           >
             <div className="relative w-6 h-6 flex items-center justify-center">
               <span className="text-[9px] font-bold text-[hsl(var(--destructive))] absolute -top-1">Y</span>
@@ -429,7 +429,7 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
       </div>
 
       {/* Right floating tool rail */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-1.5 bg-[var(--ws-hud-bg,#12141a)]/90 backdrop-blur-md border border-[var(--ws-hud-border,#232733)] p-1.5 rounded-2xl shadow-2xl">
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-1.5 bg-[var(--ws-hud-bg,hsl(var(--surface-1)))]/90 border border-[var(--ws-hud-border,hsl(var(--border)))] p-1.5 rounded-2xl shadow-2xl">
         <SimpleTooltip label={interaction === 'orbit' ? 'Switch to Pan Mode' : 'Switch to Orbit Mode'}>
           <button
             onClick={() => setInteraction(interaction === 'orbit' ? 'pan' : 'orbit')}
@@ -445,7 +445,7 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
         <SimpleTooltip label="Capture Viewport Screenshot">
           <button
             onClick={handleScreenshot}
-            className="p-2 rounded-xl text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)] transition-all"
+            className="p-2 rounded-xl text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-2)))] transition-all"
           >
             <Camera className="w-4 h-4" />
           </button>
@@ -477,7 +477,7 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
         <SimpleTooltip label="Reset Camera">
           <button
             onClick={resetCamera}
-            className="p-2 rounded-xl text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)] transition-all"
+            className="p-2 rounded-xl text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-2)))] transition-all"
           >
             <RotateCcw className="w-4 h-4" />
           </button>
@@ -485,7 +485,7 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
         <SimpleTooltip label="Frame World">
           <button
             onClick={fitToScreen}
-            className="p-2 rounded-xl text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)] transition-all"
+            className="p-2 rounded-xl text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-2)))] transition-all"
           >
             <Compass className="w-4 h-4" />
           </button>
@@ -494,7 +494,7 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
 
       {/* Bottom center view mode switcher */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-[var(--ws-hud-bg,hsl(var(--surface-1)))]/95 backdrop-blur-md border border-[var(--ws-hud-border,hsl(var(--border)))] shadow-2xl">
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-[var(--ws-hud-bg,hsl(var(--surface-1)))]/95 border border-[var(--ws-hud-border,hsl(var(--border)))] shadow-2xl">
           {([
             { id: 'world', label: 'World', Icon: Box },
             { id: 'terrain', label: 'Terrain', Icon: Mountain },

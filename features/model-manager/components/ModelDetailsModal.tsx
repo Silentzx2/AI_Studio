@@ -112,12 +112,12 @@ export function ModelDetailsModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/70"
         onClick={onClose}
       />
 
       {/* Modal Content */}
-      <div className="relative w-full max-w-3xl max-h-[85vh] overflow-hidden rounded-xl border border-[hsl(var(--border))/0.2] bg-[hsl(var(--surface-0))/0.95] shadow-2xl">
+      <div className="relative w-full max-w-3xl max-h-[85vh] overflow-hidden rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--surface-0))] shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-[hsl(var(--border))]/[0.3]">
           <div className="flex items-center gap-4">
@@ -221,12 +221,12 @@ export function ModelDetailsModal({
                         )}
                       </div>
                       {installStatus.components.native_build.current_step && (
-                        <div className="text-xs text-[hsl(var(--foreground))]/70 bg-[hsl(var(--surface-2)/0.4)] p-3 rounded-lg">
+                        <div className="text-xs text-[hsl(var(--foreground))]/70 bg-[hsl(var(--surface-2))] p-3 rounded-lg">
                           <span className="font-medium">Current step:</span> {installStatus.components.native_build.current_step}
                         </div>
                       )}
                       {installStatus.components.native_build.output && (
-                        <div className="text-xs text-[hsl(var(--foreground))]/60 bg-[hsl(var(--surface-2)/0.2)] p-3 rounded-lg font-mono whitespace-pre-wrap max-h-40 overflow-y-auto">
+                        <div className="text-xs text-[hsl(var(--foreground))]/60 bg-[hsl(var(--surface-2))] p-3 rounded-lg font-mono whitespace-pre-wrap max-h-40 overflow-y-auto">
                           {installStatus.components.native_build.output}
                         </div>
                       )}
@@ -266,7 +266,7 @@ export function ModelDetailsModal({
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-[hsl(var(--border))]/[0.3] bg-[hsl(var(--surface-0)/0.2)]">
+        <div className="flex items-center justify-end gap-3 p-6 border-t border-[hsl(var(--border))] bg-[hsl(var(--surface-0))]">
           <Button
             variant="outline"
             onClick={onClose}
@@ -394,7 +394,7 @@ function HealthTabContent({ health }: { health: any }) {
     <div className="space-y-4">
       {/* Summary */}
       {health.summary && (
-        <Card className="bg-[hsl(var(--surface-0)/0.3)] border-[hsl(var(--border))]/[0.3] p-4">
+        <Card className="bg-[hsl(var(--surface-0))] border-[hsl(var(--border))] p-4">
           <div className="grid grid-cols-4 gap-4 text-center">
             <div>
               <p className="text-2xl font-bold text-[hsl(var(--foreground))]">{health.summary.total_checks}</p>

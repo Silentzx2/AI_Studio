@@ -44,7 +44,7 @@ function ToggleRow({
       aria-checked={on}
       className="w-full flex items-center justify-between py-1.5 group"
     >
-      <span className="text-[11px] text-[var(--ws-text-muted,#8e95a5)] group-hover:text-[var(--ws-text,#f3f4f6)] transition-colors">
+      <span className="text-[11px] text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] group-hover:text-[var(--ws-text,hsl(var(--foreground)))] transition-colors">
         {label}
       </span>
       <span
@@ -70,7 +70,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 }) => {
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-5">
+      <div className="flex-1 overflow-hidden scrollbar-thin p-4 space-y-5">
         {/* Render Style */}
         <section className="space-y-2">
           <h3 className="panel-section-label">Render Style</h3>
@@ -96,13 +96,13 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         {/* Generation settings summary */}
         <section className="space-y-2">
           <h3 className="panel-section-label">Generation Settings</h3>
-          <div className="rounded-xl border border-[var(--ws-border,#232733)] bg-[var(--ws-panel,#101115)] px-3 py-2 space-y-1.5">
+          <div className="rounded-xl border border-[var(--ws-border,hsl(var(--border)))] bg-[var(--ws-panel,hsl(var(--surface-0)))] px-3 py-2 space-y-1.5">
             {DISPLAY_ITEMS.map((item) => (
               <div key={item.key} className="flex items-center justify-between">
-                <span className="text-[11px] text-[var(--ws-text-muted,#8e95a5)]">
+                <span className="text-[11px] text-[var(--ws-text-muted,hsl(var(--muted-foreground)))]">
                   {item.label}
                 </span>
-                <span className="text-[11px] text-[var(--ws-text,#f3f4f6)] font-medium">
+                <span className="text-[11px] text-[var(--ws-text,hsl(var(--foreground)))] font-medium">
                   {String(settings[item.key])}
                 </span>
               </div>
@@ -115,7 +115,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         {/* Generation toggles */}
         <section className="space-y-2">
           <h3 className="panel-section-label">Generation</h3>
-          <div className="rounded-xl border border-[var(--ws-border,#232733)] bg-[var(--ws-panel,#101115)] px-3 py-2">
+          <div className="rounded-xl border border-[var(--ws-border,hsl(var(--border)))] bg-[var(--ws-panel,hsl(var(--surface-0)))] px-3 py-2">
             <ToggleRow label="Auto Optimize" on={settings.autoOptimize} onChange={onToggleOptimize} />
             <ToggleRow label="Texture Atlas" on={settings.textureAtlas} onChange={onToggleAtlas} />
           </div>

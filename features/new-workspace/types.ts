@@ -11,9 +11,8 @@ export type ToolType =
 
 export interface ActiveTask {
   id: string;
-  type: 'text-to-3d' | 'image-to-3d' | 'segment' | 'retopo' | 'texture';
+  type: 'image-to-3d' | 'segment' | 'retopo' | 'texture';
   title: string;
-  promptText?: string;
   inputImage?: string;
   startedAt: number;
   status: 'queued' | 'running' | 'completed' | 'failed' | 'interrupted';
@@ -159,9 +158,8 @@ export interface AutoOptimizeSettings {
 }
 
 export interface GenerationSettings {
-  mode: 'image-to-3d' | 'text-to-3d';
+  mode: 'image-to-3d';
   image: string | null;
-  prompt: string;
   aiModel: string;
   meshQuality: 'low' | 'medium' | 'high' | 'ultra';
   textureQuality: 'low' | 'medium' | 'high' | '8k';

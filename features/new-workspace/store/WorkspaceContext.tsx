@@ -89,7 +89,6 @@ interface WorkspaceContextType {
   segmentationSettings: SegmentationSettings;
   setSegmentationSettings: React.Dispatch<React.SetStateAction<SegmentationSettings>>;
   generate3DModel: () => Promise<void>;
-  generateTextTo3D: (customPrompt?: string, extraParams?: Record<string, unknown>) => Promise<void>;
   generateImageTo3D: (customImage?: string) => Promise<void>;
   runModelGeneration: () => Promise<void>;
   runRemeshGeneration: () => Promise<void>;
@@ -161,9 +160,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const dismissActiveTask = useCallback(() => setActiveTask(null), []);
 
   const [generationSettings, setGenerationSettings] = useState<GenerationSettings>({
-    mode: 'text-to-3d',
+    mode: 'image-to-3d',
     image: null,
-    prompt: appStore.prompt || '',
     aiModel: '', meshQuality: 'high', textureQuality: 'high',
     quadTopology: false, seed: 42891, guidanceScale: 7.5, removeBackground: true,
     lowVram: false,
@@ -355,7 +353,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     void refreshSystemStats();
     void refreshHistory();
 
-    // Poll system stats every 15s (reduced frequency to avoid UI blocking)
+    // Poll system stats every 20s (reduced frequency to avoid UI blocking)
     const pollStats = () => {
       if (cancelled) return;
       if (typeof document === 'undefined' || !document.hidden) {
@@ -364,10 +362,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           refreshSystemStats().finally(() => { isStatsPending = false; });
         }
       }
-      statsTimeoutId = setTimeout(pollStats, 15000);
+      statsTimeoutId = setTimeout(pollStats, 20000);
     };
 
-    // Poll history every 30s (less frequent — only new completed jobs)
+    // Poll history every 60s (less frequent — only new completed jobs)
     const pollHistory = () => {
       if (cancelled) return;
       if (typeof document === 'undefined' || !document.hidden) {
@@ -377,11 +375,11 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           );
         }
       }
-      historyTimeoutId = setTimeout(pollHistory, 30000);
+      historyTimeoutId = setTimeout(pollHistory, 60000);
     };
 
-    statsTimeoutId = setTimeout(pollStats, 15000);
-    historyTimeoutId = setTimeout(pollHistory, 30000);
+    statsTimeoutId = setTimeout(pollStats, 20000);
+    historyTimeoutId = setTimeout(pollHistory, 60000);
     return () => {
       cancelled = true;
       clearTimeout(statsTimeoutId);
@@ -491,41 +489,6 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setActiveTask({ id: promptId ?? `task-${type}-${Date.now()}`, type, title, startedAt: Date.now(), status: 'queued', progress: 0, currentStep: 'Queued' });
   }, []);
 
-  const generateTextTo3D = useCallback(async (customPrompt?: string, extraParams?: Record<string, unknown>) => {
-    const promptToUse = (customPrompt ?? generationSettings.prompt).trim();
-    if (!promptToUse) { setExecutionStep('Enter a text prompt'); return; }
-    startTask('text-to-3d', 'Text-to-3D generation');
-    try {
-      const res = await fetch('/api/v1/generation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode: 'text-to-3d',
-          prompt: promptToUse,
-          provider: generationSettings.aiModel,
-          quality: generationSettings.meshQuality,
-          guidance_scale: generationSettings.guidanceScale,
-          seed: generationSettings.seed,
-          generate_texture: true,
-          auto_rig: false,
-          low_vram: Boolean(generationSettings.lowVram),
-          vram_mode: generationSettings.lowVram ? 'low' : (generationSettings.vramMode || 'auto'),
-          workspace: 'mesh-generation',
-          auto_optimize: generationSettings.autoOptimize,
-          auto_optimize_settings: generationSettings.autoOptimizeSettings,
-          ...extraParams,
-        }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json() as { job_id?: string; id?: string };
-      setActiveTask(prev => prev ? { ...prev, id: data.job_id ?? data.id ?? prev.id, status: 'running', currentStep: 'Processing' } : prev);
-      setExecutionStep('Generation submitted');
-    } catch (e) {
-      setExecutionStep(e instanceof Error ? e.message : 'Failed to submit generation');
-      setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: 'Submission failed' } : prev);
-    }
-  }, [generationSettings.prompt, generationSettings.aiModel, generationSettings.meshQuality, generationSettings.guidanceScale, generationSettings.seed, generationSettings.lowVram, generationSettings.vramMode, generationSettings.autoOptimize, generationSettings.autoOptimizeSettings, startTask]);
-
   const generateImageTo3D = useCallback(async (customImage?: string) => {
     const imageToUse = customImage ?? generationSettings.image;
     if (!imageToUse) { setExecutionStep('Upload an image first'); return; }
@@ -556,9 +519,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [generationSettings.image, generationSettings.aiModel, generationSettings.meshQuality, generationSettings.lowVram, generationSettings.vramMode, generationSettings.autoOptimize, generationSettings.autoOptimizeSettings, startTask]);
 
   const generate3DModel = useCallback(async () => {
-    if (generationSettings.mode === 'text-to-3d') return generateTextTo3D();
     return generateImageTo3D();
-  }, [generationSettings.mode, generateTextTo3D, generateImageTo3D]);
+  }, [generateImageTo3D]);
 
   const runRemeshGeneration = useCallback(async () => {
     startTask('retopo', 'Remesh / retopology');
@@ -637,7 +599,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          mode: 'text-to-3d',
+          mode: 'image-to-3d',
           quality: 'standard',
           prompt: `workflow:${Object.keys(workflow).join(',')}`,
           workspace: 'mesh-generation',
@@ -739,11 +701,11 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     environmentSettings, setEnvironmentSettings]);
 
   const generationActionsValue = useMemo(() => ({
-    generate3DModel, generateTextTo3D, generateImageTo3D,
+    generate3DModel, generateImageTo3D,
     runModelGeneration: generate3DModel,
     runRemeshGeneration, runTextureGeneration,
     runSegmentationGeneration, queueWorkflow,
-  }), [generate3DModel, generateTextTo3D, generateImageTo3D,
+  }), [generate3DModel, generateImageTo3D,
     runRemeshGeneration, runTextureGeneration,
     runSegmentationGeneration, queueWorkflow]);
 

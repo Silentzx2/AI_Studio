@@ -228,19 +228,19 @@ export function StorageTab() {
 
           {/* Quick Metrics Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-            <div className="p-3 rounded-lg bg-[hsl(var(--surface-2)/0.6)] border border-[hsl(var(--border)/0.4)]">
+            <div className="p-3 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
               <span className="text-[10px] uppercase font-bold text-[hsl(var(--muted-foreground))] tracking-wider">Used Space</span>
               <p className="text-lg font-bold font-mono text-[hsl(var(--foreground))] mt-0.5">{formatGB(data?.used || 0)}</p>
             </div>
-            <div className="p-3 rounded-lg bg-[hsl(var(--surface-2)/0.6)] border border-[hsl(var(--border)/0.4)]">
+            <div className="p-3 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
               <span className="text-[10px] uppercase font-bold text-[hsl(var(--muted-foreground))] tracking-wider">Free Headroom</span>
               <p className="text-lg font-bold font-mono text-[hsl(var(--neon-green))] mt-0.5">{formatGB(data?.available || 0)}</p>
             </div>
-            <div className="p-3 rounded-lg bg-[hsl(var(--surface-2)/0.6)] border border-[hsl(var(--border)/0.4)]">
+            <div className="p-3 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
               <span className="text-[10px] uppercase font-bold text-[hsl(var(--muted-foreground))] tracking-wider">Utilization</span>
               <p className="text-lg font-bold font-mono text-[hsl(var(--foreground))] mt-0.5">{usagePercent.toFixed(1)}%</p>
             </div>
-            <div className="p-3 rounded-lg bg-[hsl(var(--surface-2)/0.6)] border border-[hsl(var(--border)/0.4)]">
+            <div className="p-3 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
               <span className="text-[10px] uppercase font-bold text-[hsl(var(--muted-foreground))] tracking-wider">Storage Health</span>
               <p className="text-xs font-bold text-[hsl(var(--neon-green))] mt-1 flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Normal

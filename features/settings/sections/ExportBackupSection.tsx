@@ -164,12 +164,12 @@ export function ExportBackupSection() {
       
       {status && (
         <div className={`p-4 rounded-lg flex items-start gap-3 border ${
-          status.type === 'success' ? 'bg-[hsl(var(--neon-green)/0.1)] border-[hsl(var(--neon-green)/0.2)] text-[hsl(var(--neon-green))]' : 'bg-[hsl(var(--destructive)/0.1)] border-[hsl(var(--destructive)/0.2)] text-[hsl(var(--destructive))]'
+          status.type === 'success' ? 'bg-[hsl(var(--neon-green))]/10 border-[hsl(var(--neon-green))]/20 text-[hsl(var(--neon-green))]' : 'bg-[hsl(var(--destructive))]/10 border-[hsl(var(--destructive))]/20 text-[hsl(var(--destructive))]'
         }`}>
           {status.type === 'success' ? <Check className="w-5 h-5 mt-0.5" /> : <AlertCircle className="w-5 h-5 mt-0.5" />}
           <div>
             <p className="font-medium">{status.type === 'success' ? 'Success' : 'Error'}</p>
-            <p className="text-sm mt-1 opacity-90">{status.message}</p>
+            <p className="text-sm mt-1">{status.message}</p>
           </div>
         </div>
       )}

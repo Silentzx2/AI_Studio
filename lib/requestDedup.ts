@@ -19,11 +19,11 @@ const inFlight = new Map<string, Promise<unknown>>();
 
 /** Default TTLs by endpoint pattern (ms) */
 export const TTL = {
-  OPTIONS: 30_000,   // /runtime/options — rarely changes
+  OPTIONS: 60_000,   // /runtime/options — rarely changes
   SYSTEM_INFO: 15_000, // /system/info — moderate change rate
   SYSTEM_GPU: 15_000,  // /system/gpu — moderate change rate
   RUNTIME_STATUS: 10_000, // /runtime/status — frequent updates
-  HISTORY: 30_000,    // /generation/history — event-driven preferred
+  HISTORY: 60_000,    // /generation/history — event-driven preferred
 } as const;
 
 /** Get the appropriate TTL for a given URL path */

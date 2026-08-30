@@ -133,7 +133,7 @@ export const TexturePanel: React.FC = () => {
   };
 
   return (
-    <div id="panel-texture" className="flex flex-col h-full overflow-y-auto px-3 py-3 space-y-3 text-xs select-none">
+    <div id="panel-texture" className="flex flex-col h-full overflow-hidden px-3 py-3 space-y-3 text-xs select-none">
       {/* Title Header (Screenshot 2) */}
       <div className="flex items-center gap-2 pb-1">
         <Sparkles className="w-4 h-4 text-[hsl(var(--primary))]" />
@@ -225,10 +225,10 @@ export const TexturePanel: React.FC = () => {
                   isSelected ? 'border-[hsl(var(--primary))] shadow-md shadow-[hsl(var(--primary))]/20 scale-105' : 'border-[hsl(var(--border))] opacity-75 group-hover:opacity-100'
                 }`}>
                   <div className={`w-full h-full ${
-                    style.id === 'realistic' ? 'bg-[radial-gradient(circle_at_35%_25%,#d6b18a_0,transparent_35%),linear-gradient(135deg,#463226,#9f704d)]' :
-                    style.id === 'game' ? 'bg-[radial-gradient(circle_at_70%_35%,#7d8fa8_0,transparent_35%),linear-gradient(135deg,#1f2b39,#516579)]' :
-                    style.id === 'stylized' ? 'bg-[radial-gradient(circle_at_40%_30%,hsl(var(--primary))_0,transparent_30%),linear-gradient(135deg,#4c2b8a,#1f172f)]' :
-                    'bg-[radial-gradient(circle_at_50%_25%,#f3a3b8_0,transparent_28%),linear-gradient(135deg,#3e1d31,#8d4967)]'
+                    style.id === 'realistic' ? 'bg-[radial-gradient(circle_at_35%_25%,hsl(33,43%,65%)_0,transparent_35%),linear-gradient(135deg,hsl(23,26%,21%),hsl(29,39%,45%))]' :
+                    style.id === 'game' ? 'bg-[radial-gradient(circle_at_70%_35%,hsl(215,19%,54%)_0,transparent_35%),linear-gradient(135deg,hsl(215,30%,17%),hsl(215,19%,39%))]' :
+                    style.id === 'stylized' ? 'bg-[radial-gradient(circle_at_40%_30%,hsl(var(--primary))_0,transparent_30%),linear-gradient(135deg,hsl(265,53%,35%),hsl(265,28%,14%))]' :
+                    'bg-[radial-gradient(circle_at_50%_25%,hsl(345,75%,80%)_0,transparent_28%),linear-gradient(135deg,hsl(315,35%,18%),hsl(330,35%,42%))]'
                   }`} />
                 </div>
                 <span className={`text-[10px] mt-1 font-medium transition-colors ${

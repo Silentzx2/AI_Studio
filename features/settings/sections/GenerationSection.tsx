@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useAppStore } from '@/stores/useAppStore';
 
-export function GenerationSection() {
+export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: () => Promise<void>) => void }) {
   const { options, loading: optionsLoading, error: optionsError } = useRuntimeOptions();
   const { settings, loading: settingsLoading } = useSystemSettings();
   const batchGenerationEnabled = useAppStore((s) => s.batchGenerationEnabled);
@@ -26,7 +26,7 @@ export function GenerationSection() {
   const [batchEnabled, setBatchEnabled] = useState<boolean>(batchGenerationEnabled);
   const [saving, setSaving] = useState(false);
 
-  const { Indicator } = useAutoSave({ provider, quality, outputFormat, resolution, steps, lowVram, batchEnabled }, async (data) => {
+  const { Indicator, save } = useAutoSave({ provider, quality, outputFormat, resolution, steps, lowVram, batchEnabled }, async (data) => {
     if (!data.provider) return;
     try {
       const config = {
@@ -53,7 +53,14 @@ export function GenerationSection() {
     } catch {
       // Fallback: just local storage
     }
-  }, 1000, true);
+  }, 1000, true, false);
+
+  // Register save function with parent for section-switch saving
+  useEffect(() => {
+    if (onSaveRegister) {
+      onSaveRegister(save);
+    }
+  }, [save, onSaveRegister]);
 
   const rawList = options?.three_d_models || options?.providers || [
     { id: 'hunyuan3d-1.0', label: 'HunYuan 3D' },
@@ -299,7 +306,7 @@ export function GenerationSection() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="p-4 rounded-xl bg-[hsl(var(--surface-2)/0.6)] border border-[hsl(var(--border)/0.5)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="p-4 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="space-y-1">
               <span className="text-sm font-semibold text-[hsl(var(--foreground))] flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-[hsl(var(--neon-blue))]" />
@@ -314,7 +321,7 @@ export function GenerationSection() {
             <span className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap self-start sm:self-auto ${
               lowVram
                 ? 'bg-[hsl(var(--neon-blue))]/15 text-[hsl(var(--neon-blue))] border border-[hsl(var(--neon-blue))]/30'
-                : 'bg-[hsl(var(--muted)/0.5)] text-[hsl(var(--muted-foreground))]'
+                : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'
             }`}>
               {lowVram ? 'Low VRAM Active' : 'Full VRAM Mode'}
             </span>
@@ -353,7 +360,7 @@ export function GenerationSection() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="p-4 rounded-xl bg-[hsl(var(--surface-2)/0.6)] border border-[hsl(var(--border)/0.5)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="p-4 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="space-y-1">
               <span className="text-sm font-semibold text-[hsl(var(--foreground))] flex items-center gap-1.5">
                 <Zap className="w-4 h-4 text-[hsl(var(--neon-cyan))]" />
@@ -365,8 +372,8 @@ export function GenerationSection() {
             </div>
             <span className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap self-start sm:self-auto ${
               batchEnabled
-                ? 'bg-[hsl(var(--neon-cyan)/0.15)] text-[hsl(var(--neon-cyan))] border border-[hsl(var(--neon-cyan)/0.3)]'
-                : 'bg-[hsl(var(--muted)/0.5)] text-[hsl(var(--muted-foreground))]'
+                ? 'bg-[hsl(var(--neon-cyan))]/15 text-[hsl(var(--neon-cyan))] border border-[hsl(var(--neon-cyan))]/30'
+                : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'
             }`}>
               {batchEnabled ? 'Active in Workspace' : 'Standard Mode'}
             </span>

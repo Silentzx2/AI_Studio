@@ -1,7 +1,25 @@
 import type { ApiResponse } from '@/types';
+import { dedupedGet, invalidateDedup } from '@/lib/requestDedup';
 
-// ponytail: cache disabled — returns null until a caching strategy is implemented
-function getCacheService(): { get: <T>(k: string) => T | null; set: <T>(k: string, v: T) => void; keys: () => string[]; delete: (k: string) => void; clear: () => void } | null { return null; }
+// Simple in-memory cache for GET responses — replaces the null cache service
+const _responseCache = new Map<string, { data: unknown; expiresAt: number }>();
+
+function getCacheService(): { get: <T>(k: string) => T | null; set: <T>(k: string, v: T) => void; keys: () => string[]; delete: (k: string) => void; clear: () => void } {
+  return {
+    get: <T>(k: string) => {
+      const entry = _responseCache.get(k);
+      if (entry && entry.expiresAt > Date.now()) return entry.data as T;
+      if (entry) _responseCache.delete(k);
+      return null;
+    },
+    set: <T>(k: string, v: T) => {
+      _responseCache.set(k, { data: v, expiresAt: Date.now() + 30_000 });
+    },
+    keys: () => Array.from(_responseCache.keys()),
+    delete: (k: string) => { _responseCache.delete(k); },
+    clear: () => { _responseCache.clear(); },
+  };
+}
 
 /**
  * API Client for backend communication
@@ -158,7 +176,11 @@ export const apiClient = {
       const cached = cache.get<T>(cacheKey);
       if (cached !== null) return Promise.resolve(cached);
     }
-    const makeRequest = retry ? requestWithRetry : request;
+    // Use dedupedGet for status/info endpoints to coalesce concurrent requests
+    const isDedupable = /\/api\/v1\/(runtime\/status|runtime\/health|runtime\/options|system\/info|system\/gpu|admin\/install\/status)/.test(path);
+    const makeRequest = isDedupable
+      ? () => dedupedGet<T>(path)
+      : (retry ? requestWithRetry : request);
     return makeRequest<T>(path).then((data) => {
       if (useCache && cache) cache.set(cacheKey, data);
       return data;

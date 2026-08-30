@@ -101,7 +101,7 @@ async def runtime_root():
 
 @router.get("/health")
 async def runtime_health():
-    cached = get_cached("runtime_health", ttl_seconds=5)
+    cached = get_cached("runtime_health", ttl_seconds=10)
     if cached is not None:
         return success(cached)
     from runtime.gpu import get_gpu_info
@@ -152,7 +152,7 @@ async def runtime_health():
 
 @router.get("/options")
 async def get_runtime_options():
-    cached = get_cached("runtime_options", ttl_seconds=30)
+    cached = get_cached("runtime_options", ttl_seconds=60)
     if cached is not None:
         return success(cached)
     try:

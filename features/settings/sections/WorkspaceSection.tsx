@@ -18,17 +18,24 @@ interface WorkspaceConfig {
   clearHistoryOnExit: boolean;
 }
 
-export function WorkspaceSection() {
+export function WorkspaceSection({ onSaveRegister }: { onSaveRegister?: (save: () => Promise<void>) => void }) {
   const [config, setConfig] = useState<WorkspaceConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const { Indicator } = useAutoSave(config, async (data) => {
+  const { Indicator, save } = useAutoSave(config, async (data) => {
     if (!data) return;
     await apiClient.post('/api/v1/settings/workspace', data);
-  }, 1000, true);
+  }, 1000, true, false);
+
+  // Register save function with parent for section-switch saving
+  useEffect(() => {
+    if (onSaveRegister) {
+      onSaveRegister(save);
+    }
+  }, [save, onSaveRegister]);
 
   useEffect(() => {
     let active = true;

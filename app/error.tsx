@@ -85,7 +85,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
           {/* Terminal Style Error Message */}
           {error.message && (
             <div 
-              className="relative mt-4 px-5 py-4 rounded-xl bg-black/50 border border-[hsl(var(--destructive)/0.2)] max-w-md text-left overflow-hidden backdrop-blur-sm"
+              className="relative mt-4 px-5 py-4 rounded-xl bg-black/50 border border-[hsl(var(--destructive)/0.2)] max-w-md text-left overflow-hidden"
               style={{ animation: 'fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.5s forwards', opacity: 0 }}
             >
               {/* Scanline inside terminal */}

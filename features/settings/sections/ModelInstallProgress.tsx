@@ -271,7 +271,7 @@ export function ModelInstallProgress({
 
       {/* Error */}
       {isFailed && state.error && (
-        <div className="flex items-start gap-2 text-xs text-[hsl(var(--destructive))] bg-[hsl(var(--destructive)/0.08)] p-2 rounded-lg">
+        <div className="flex items-start gap-2 text-xs text-[hsl(var(--destructive))] bg-[hsl(var(--destructive))]/10 p-2 rounded-lg">
           <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />
           <span className="break-all">{state.error}</span>
         </div>

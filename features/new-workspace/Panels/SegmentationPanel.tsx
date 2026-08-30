@@ -15,7 +15,7 @@ export const SegmentationPanel: React.FC = () => {
   const parts = ['Whole Character', 'Head', 'Torso', 'Left Arm', 'Right Arm', 'Legs', 'Accessory'];
 
   return (
-    <div id="panel-segmentation" className="flex flex-col h-full overflow-y-auto px-3 py-3 space-y-3 text-xs select-none">
+    <div id="panel-segmentation" className="flex flex-col h-full overflow-hidden px-3 py-3 space-y-3 text-xs select-none">
       <div className="flex items-center gap-2 pb-1">
         <Layers3 className="w-4 h-4 text-primary" />
         <div>

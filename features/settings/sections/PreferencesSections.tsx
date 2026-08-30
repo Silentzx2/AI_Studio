@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -20,7 +20,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
-export function NotificationsSection() {
+export function NotificationsSection({ onSaveRegister }: { onSaveRegister?: (save: () => Promise<void>) => void }) {
   const [settings, setSettings] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('notificationSettings');
@@ -37,11 +37,18 @@ export function NotificationsSection() {
     };
   });
   
-  const { Indicator } = useAutoSave(settings, (data) => {
+  const { Indicator, save } = useAutoSave(settings, (data) => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('notificationSettings', JSON.stringify(data));
     }
-  });
+  }, 1000, true, false);
+
+  // Register save function with parent for section-switch saving
+  useEffect(() => {
+    if (onSaveRegister) {
+      onSaveRegister(save);
+    }
+  }, [save, onSaveRegister]);
 
   return (
     <div className="p-6 space-y-6">
@@ -136,7 +143,7 @@ export function ShortcutsSection() {
   );
 }
 
-export function NetworkSection() {
+export function NetworkSection({ onSaveRegister }: { onSaveRegister?: (save: () => Promise<void>) => void }) {
   const [settings, setSettings] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('networkSettings');
@@ -151,11 +158,18 @@ export function NetworkSection() {
     };
   });
   
-  const { Indicator } = useAutoSave(settings, (data) => {
+  const { Indicator, save } = useAutoSave(settings, (data) => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('networkSettings', JSON.stringify(data));
     }
-  });
+  }, 1000, true, false);
+
+  // Register save function with parent for section-switch saving
+  useEffect(() => {
+    if (onSaveRegister) {
+      onSaveRegister(save);
+    }
+  }, [save, onSaveRegister]);
 
   return (
     <div className="p-6 space-y-6">
@@ -194,7 +208,7 @@ export function NetworkSection() {
   );
 }
 
-export function AdvancedSection() {
+export function AdvancedSection({ onSaveRegister }: { onSaveRegister?: (save: () => Promise<void>) => void }) {
   const [settings, setSettings] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('advancedSettings');
@@ -209,11 +223,18 @@ export function AdvancedSection() {
     };
   });
   
-  const { Indicator } = useAutoSave(settings, (data) => {
+  const { Indicator, save } = useAutoSave(settings, (data) => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('advancedSettings', JSON.stringify(data));
     }
-  });
+  }, 1000, true, false);
+
+  // Register save function with parent for section-switch saving
+  useEffect(() => {
+    if (onSaveRegister) {
+      onSaveRegister(save);
+    }
+  }, [save, onSaveRegister]);
 
   const handleResetDefaults = () => {
     const keysToReset = [

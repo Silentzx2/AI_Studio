@@ -287,7 +287,7 @@ export const RightAssetsPanel: React.FC = () => {
       </div>
 
       {/* Main Asset Grid Body */}
-      <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
+      <div className="flex-1 overflow-hidden p-2.5 space-y-2">
         {filteredAssets.length === 0 && (
           <div className="py-14 px-4 text-center text-[hsl(var(--muted-foreground))]">
             <FolderOpen className="w-8 h-8 mx-auto mb-3 text-[hsl(var(--muted-foreground))]" />

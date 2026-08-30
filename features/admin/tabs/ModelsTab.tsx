@@ -455,7 +455,7 @@ export function ModelsTab() {
             { key: 'remesh', label: 'Remesh & Refine', desc: 'Enable mesh optimization and remeshing' },
             { key: 'textureGen', label: 'Texture Generation', desc: 'Enable AI texture mapping for 3D objects' },
           ] as const).map(({ key, label, desc }) => (
-            <div key={key} className="flex items-center justify-between p-3 rounded-lg border border-[hsl(var(--border)/0.5)] bg-[hsl(var(--surface-0)/0.5)]">
+            <div key={key} className="flex items-center justify-between p-3 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--surface-0))]">
               <div>
                 <p className="text-sm font-medium">{label}</p>
                 <p className="text-xs text-muted-foreground">{desc}</p>
@@ -568,18 +568,18 @@ export function ModelsTab() {
                   {/* Meta grid */}
                   <div className="grid grid-cols-2 gap-2 text-xs mb-3">
                     {model.size_mb > 0 && (
-                      <div className="flex flex-col gap-0.5 bg-[hsl(var(--surface-2)/0.4)] p-2 rounded-lg border border-[hsl(var(--border)/0.4)]">
+                      <div className="flex flex-col gap-0.5 bg-[hsl(var(--surface-2))] p-2 rounded-lg border border-[hsl(var(--border))]">
                         <span className="text-[10px] text-muted-foreground uppercase">Size</span>
                         <span className="font-bold text-[hsl(var(--muted-foreground))] text-[11px]">{(model.size_mb / 1024).toFixed(1)} GB</span>
                       </div>
                     )}
                     {model.vram_required_mb ? (
-                      <div className="flex flex-col gap-0.5 bg-[hsl(var(--surface-2)/0.4)] p-2 rounded-lg border border-[hsl(var(--border)/0.4)]">
+                      <div className="flex flex-col gap-0.5 bg-[hsl(var(--surface-2))] p-2 rounded-lg border border-[hsl(var(--border))]">
                         <span className="text-[10px] text-muted-foreground uppercase">VRAM</span>
                         <span className="font-bold text-[hsl(var(--muted-foreground))] text-[11px]">{(model.vram_required_mb / 1024).toFixed(1)} GB</span>
                       </div>
                     ) : (
-                      <div className="flex flex-col gap-0.5 bg-[hsl(var(--surface-2)/0.4)] p-2 rounded-lg border border-[hsl(var(--border)/0.4)]">
+                      <div className="flex flex-col gap-0.5 bg-[hsl(var(--surface-2))] p-2 rounded-lg border border-[hsl(var(--border))]">
                         <span className="text-[10px] text-muted-foreground uppercase">Category</span>
                         <span className="font-bold text-[hsl(var(--muted-foreground))] text-[11px] capitalize">{model.type || 'N/A'}</span>
                       </div>

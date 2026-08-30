@@ -41,13 +41,13 @@ const WorldGenInner: React.FC = () => {
   const [turntable, setTurntable] = useState(false);
   const [mode, setMode] = useState<ViewportMode>('world');
   const [modelUrl, setModelUrl] = useState<string | null>(null);
-  const [generationMode, setGenerationMode] = useState<'text' | 'image'>('text');
+  const [generationMode, setGenerationMode] = useState<'image'>('image');
 
   const {
     isExecuting,
     executionProgress,
     executionStep,
-    generateTextTo3D,
+    generateImageTo3D,
     activeTask,
     assets,
     setGenerationSettings,
@@ -64,11 +64,7 @@ const WorldGenInner: React.FC = () => {
     setSettings((p) => ({ ...p, ...patch }));
 
   const handleGenerate = () => {
-    if (generationMode === 'text' && !settings.prompt.trim()) {
-      toast.error('Please enter a prompt');
-      return;
-    }
-    if (generationMode === 'image' && !settings.environmentUpload) {
+    if (!settings.environmentUpload) {
       toast.error('Please upload a reference image');
       return;
     }
@@ -85,12 +81,10 @@ const WorldGenInner: React.FC = () => {
       density: settings.density,
     };
 
-    if (generationMode === 'image') {
-      extraParams.mode = 'image-to-3d';
-      extraParams.reference_image_url = settings.environmentUpload?.previewUrl;
-    }
+    extraParams.mode = 'image-to-3d';
+    extraParams.reference_image_url = settings.environmentUpload?.previewUrl;
 
-    generateTextTo3D(settings.prompt, extraParams);
+    generateImageTo3D(settings.environmentUpload?.previewUrl);
   };
 
   const handleImageUpload = () => {
@@ -99,7 +93,7 @@ const WorldGenInner: React.FC = () => {
 
   // When generation completed, load latest generated model into viewer
   useEffect(() => {
-    if (activeTask?.status === 'completed' && activeTask.type === 'text-to-3d') {
+    if (activeTask?.status === 'completed' && activeTask.type === 'image-to-3d') {
       const latest = assets.find(a => a.category === 'generation' && a.source?.viewUrl);
       if (latest?.source?.viewUrl) {
         setModelUrl(latest.source.viewUrl);
@@ -115,7 +109,7 @@ const WorldGenInner: React.FC = () => {
     <>
       <div
         id="worldgen-root"
-        className="flex flex-col h-screen w-screen overflow-hidden bg-[var(--ws-bg,#0d0e12)] text-[var(--ws-text,#f3f4f6)]"
+        className="flex flex-col h-screen w-screen overflow-hidden bg-[var(--ws-bg,hsl(var(--surface-0)))] text-[var(--ws-text,hsl(var(--foreground)))]"
       >
       <TopHeader />
       <input

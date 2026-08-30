@@ -1,4 +1,4 @@
-export type GenerationMode = 'text-to-3d' | 'image-to-3d';
+export type GenerationMode = 'image-to-3d';
 export type QualityPreset = 'low-poly' | 'standard' | 'high-poly' | 'ultra' | 'draft';
 export type GenerationStatus = 'idle' | 'uploading' | 'queued' | 'processing' | 'generating' | 'texturing' | 'completed' | 'failed' | 'cancelled';
 export type ExportFormat = 'glb' | 'fbx' | 'obj' | 'stl';

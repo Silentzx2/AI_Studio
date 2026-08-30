@@ -8,7 +8,6 @@ import {
   SlidersHorizontal,
   Upload,
   RefreshCw,
-  Type,
   Image,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -21,8 +20,8 @@ interface WorldGenToolBarProps {
   isExecuting?: boolean;
   executionProgress?: number;
   executionStep?: string;
-  generationMode?: 'text' | 'image';
-  onGenerationModeChange?: (mode: 'text' | 'image') => void;
+  generationMode?: 'image';
+  onGenerationModeChange?: (mode: 'image') => void;
   onImageUpload?: () => void;
 }
 
@@ -66,9 +65,9 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
   onGenerationModeChange,
   onImageUpload,
 }) => {
-  const [internalMode, setInternalMode] = React.useState<'text' | 'image'>('text');
+  const [internalMode, setInternalMode] = React.useState<'image'>('image');
   const mode = externalMode ?? internalMode;
-  const setMode = (m: 'text' | 'image') => {
+  const setMode = (m: 'image') => {
     setInternalMode(m);
     onGenerationModeChange?.(m);
   };
@@ -95,43 +94,17 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
         className="hidden"
         onChange={handleReferenceImageUpload}
       />
-      <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-5">
-        {/* Prompt input */}
+      <div className="flex-1 overflow-hidden scrollbar-thin p-4 space-y-5">
+        {/* Image to World */}
         <section className="space-y-2">
           <h3 className="panel-section-label flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
-            Prompt
+            Image to World
           </h3>
-          {/* Mode selector tabs */}
-          <div className="flex gap-0.5">
-            <button
-              onClick={() => setMode('text')}
-              className={`flex-1 py-1.5 text-[10px] font-semibold rounded-l-lg flex items-center justify-center gap-1 transition-all ${
-                mode === 'text'
-                  ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
-                  : 'border border-[var(--ws-border,hsl(var(--border)))] text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-2)))]'
-              }`}
-            >
-              <Type className="w-3 h-3" />
-              Text to World
-            </button>
-            <button
-              onClick={() => setMode('image')}
-              className={`flex-1 py-1.5 text-[10px] font-semibold rounded-r-lg flex items-center justify-center gap-1 transition-all ${
-                mode === 'image'
-                  ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
-                  : 'border border-[var(--ws-border,hsl(var(--border)))] text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-2)))]'
-              }`}
-            >
-              <Image className="w-3 h-3" />
-              Image to World
-            </button>
-          </div>
-          {mode === 'image' ? (
-            <div className="space-y-2">
+          <div className="space-y-2">
               {/* Reference image upload area */}
               {settings.referenceImage ? (
-                <div className="relative rounded-lg border border-[var(--ws-border,#232733)] bg-[var(--ws-panel,#101115)] overflow-hidden">
+                <div className="relative rounded-lg border border-[var(--ws-border,hsl(var(--border)))] bg-[var(--ws-panel,hsl(var(--surface-0)))] overflow-hidden">
                   <img
                     src={settings.referenceImage.previewUrl}
                     alt={settings.referenceImage.name}
@@ -143,7 +116,7 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
                   >
                     Remove
                   </button>
-                  <div className="px-2 py-1 text-[10px] text-[var(--ws-text-muted,#8e95a5)] truncate">
+                  <div className="px-2 py-1 text-[10px] text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] truncate">
                     {settings.referenceImage.name}
                   </div>
                 </div>
@@ -166,49 +139,11 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
                 className="w-full rounded-lg border border-[var(--ws-border,hsl(var(--border)))] bg-[var(--ws-panel,hsl(var(--surface-1)))] px-3 py-2 text-xs text-[var(--ws-text,hsl(var(--foreground)))] placeholder:text-[hsl(var(--muted-foreground))] resize-none focus:outline-none focus:border-[hsl(var(--primary))]/50 transition-colors"
               />
             </div>
-          ) : (
-            <>
-              <textarea
-                value={settings.prompt}
-                onChange={(e) => onChange({ prompt: e.target.value })}
-                placeholder="Describe the world you want to generate..."
-                rows={3}
-                className="w-full rounded-lg border border-[var(--ws-border,hsl(var(--border)))] bg-[var(--ws-panel,hsl(var(--surface-1)))] px-3 py-2 text-xs text-[var(--ws-text,hsl(var(--foreground)))] placeholder:text-[hsl(var(--muted-foreground))] resize-none focus:outline-none focus:border-[hsl(var(--primary))]/50 transition-colors"
-              />
-              {/* Optional reference image in text mode */}
-              {settings.referenceImage ? (
-                <div className="flex items-center gap-2 rounded-lg border border-[var(--ws-border,hsl(var(--border)))] bg-[var(--ws-panel,hsl(var(--surface-1)))] p-1.5">
-                  <img
-                    src={settings.referenceImage.previewUrl}
-                    alt={settings.referenceImage.name}
-                    className="w-8 h-8 rounded object-cover"
-                  />
-                  <span className="flex-1 text-[10px] text-[var(--ws-text,hsl(var(--foreground)))] truncate">
-                    {settings.referenceImage.name}
-                  </span>
-                  <button
-                    onClick={() => onChange({ referenceImage: null })}
-                    className="text-[10px] text-[hsl(var(--destructive))] hover:text-[hsl(var(--destructive))] transition-colors"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => referenceImageInputRef.current?.click()}
-                  className="flex items-center gap-1.5 text-[10px] text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[hsl(var(--primary))] transition-colors"
-                >
-                  <Upload className="w-3 h-3" />
-                  Add optional reference image
-                </button>
-              )}
-            </>
-          )}
-        </section>
+          </section>
 
-        <div className="section-divider" />
+          <div className="section-divider" />
 
-        {/* Mood */}
+          {/* Mood */}
         <section className="space-y-2">
           <h3 className="panel-section-label">Mood</h3>
           <div className="flex flex-wrap gap-1.5">
@@ -330,7 +265,7 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
           <h3 className="panel-section-label">Parameters</h3>
           <div className="space-y-2">
             <div>
-              <div className="flex justify-between text-[10px] text-[var(--ws-text-muted,#8e95a5)] mb-1">
+              <div className="flex justify-between text-[10px] text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] mb-1">
                 <span>Guidance</span>
                 <span>{settings.guidance.toFixed(1)}</span>
               </div>
@@ -345,7 +280,7 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
               />
             </div>
             <div>
-              <div className="flex justify-between text-[10px] text-[var(--ws-text-muted,#8e95a5)] mb-1">
+              <div className="flex justify-between text-[10px] text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] mb-1">
                 <span>Size</span>
                 <span>{settings.size.toFixed(1)}</span>
               </div>
@@ -360,7 +295,7 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
               />
             </div>
             <div>
-              <div className="flex justify-between text-[10px] text-[var(--ws-text-muted,#8e95a5)] mb-1">
+              <div className="flex justify-between text-[10px] text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] mb-1">
                 <span>Density</span>
                 <span>{settings.density.toFixed(2)}</span>
               </div>

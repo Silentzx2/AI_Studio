@@ -138,7 +138,7 @@ export const RightPropertyPanel: React.FC = () => {
   return (
     <div 
       id="panel-properties-inspector" 
-      className="flex flex-col h-full bg-[hsl(var(--surface-1))] text-xs select-none overflow-y-auto"
+      className="flex flex-col h-full bg-[hsl(var(--surface-1))] text-xs select-none overflow-hidden"
     >
       {/* Header with Asset Meta */}
       <div className="p-2.5 border-b border-[hsl(var(--border))] flex items-center justify-between">

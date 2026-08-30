@@ -38,7 +38,7 @@ export const RemeshPanel: React.FC = () => {
   };
 
   return (
-    <div id="panel-remesh" className="flex flex-col h-full overflow-y-auto px-3 py-3 space-y-3 text-xs select-none">
+    <div id="panel-remesh" className="flex flex-col h-full overflow-hidden px-3 py-3 space-y-3 text-xs select-none">
       {/* Title Header (Screenshot 1) */}
       <div className="flex items-center justify-between pb-1">
         <div className="flex items-center gap-2">
