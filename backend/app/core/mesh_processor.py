@@ -147,10 +147,16 @@ def get_mesh_stats(model_path: str) -> dict:
         return {"polygon_count": 0, "vertex_count": 0, "file_size": Path(model_path).stat().st_size}
 
     try:
-        mesh = trimesh.load(model_path, force="mesh")
+        loaded = trimesh.load(model_path, force="scene")
+        if isinstance(loaded, trimesh.Scene):
+            meshes = [g for g in loaded.geometry.values() if isinstance(g, trimesh.Trimesh)]
+            face_count = sum(len(m.faces) for m in meshes)
+            vertex_count = sum(len(m.vertices) for m in meshes)
+        else:
+            face_count, vertex_count = len(loaded.faces), len(loaded.vertices)
         return {
-            "polygon_count": len(mesh.faces),
-            "vertex_count": len(mesh.vertices),
+            "polygon_count": face_count,
+            "vertex_count": vertex_count,
             "file_size": Path(model_path).stat().st_size,
         }
     except Exception as exc:

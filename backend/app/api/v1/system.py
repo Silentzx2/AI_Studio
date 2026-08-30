@@ -10,6 +10,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import text
 from pydantic import BaseModel, Field
 
+from app.config import get_settings
 from app.core.cache import get_cached, set_cached
 
 router = APIRouter(prefix="/system", tags=["system"])
@@ -306,7 +307,7 @@ async def get_storage_info():
         import shutil
         from pathlib import Path
         
-        storage_path = Path("./storage")
+        storage_path = Path(get_settings().storage_local_path)
         
         total, used, free = shutil.disk_usage(storage_path if storage_path.exists() else "/")
         
@@ -474,7 +475,7 @@ async def get_system_statistics():
 
     # Storage breakdown
     try:
-        storage_path = Path("./storage")
+        storage_path = Path(get_settings().storage_local_path)
         if storage_path.exists():
             stats["storage_models_mb"] = round(
                 sum(f.stat().st_size for f in (storage_path / "models").rglob("*") if f.is_file()) / (1024 ** 2), 2
@@ -565,7 +566,7 @@ async def test_connection():
     # Test Storage
     try:
         from pathlib import Path
-        storage_path = Path("./storage")
+        storage_path = Path(get_settings().storage_local_path)
         storage_path.mkdir(parents=True, exist_ok=True)
         
         # Try writing a test file

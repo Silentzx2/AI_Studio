@@ -40,7 +40,10 @@ export function OverviewTab() {
 
   useEffect(() => {
     setTimeout(() => load(), 0);
-    const interval = setInterval(load, 10000);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      load();
+    }, 15000);
     return () => clearInterval(interval);
   }, [load]);
 
@@ -169,7 +172,7 @@ export function OverviewTab() {
 
       {/* Real-time Recharts Line Chart for VRAM and GPU Utilization */}
       <GlassCard className="p-5 lg:p-6" delay={0.3}>
-        <GpuVramLineChart height={280} autoPoll pollIntervalMs={3000} />
+        <GpuVramLineChart height={280} autoPoll pollIntervalMs={15000} />
       </GlassCard>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

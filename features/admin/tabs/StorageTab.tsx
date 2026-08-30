@@ -68,7 +68,10 @@ export function StorageTab() {
 
   useEffect(() => {
     fetchStorage();
-    const interval = setInterval(() => fetchStorage(true), 15000);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      fetchStorage(true);
+    }, 30000);
     return () => clearInterval(interval);
   }, [fetchStorage]);
 

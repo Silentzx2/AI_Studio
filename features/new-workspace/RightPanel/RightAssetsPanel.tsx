@@ -170,7 +170,6 @@ export const RightAssetsPanel: React.FC = () => {
     if (assetFilter === 'all') return true;
     if (assetFilter === 'models') return a.category === 'generation' || a.category === 'mesh';
     if (assetFilter === 'textures') return a.category === 'texture' || a.tags?.includes('PBR');
-    if (assetFilter === 'images') return a.tags?.includes('character') || a.tags?.includes('sculpture');
     return true;
   });
 
@@ -181,11 +180,11 @@ export const RightAssetsPanel: React.FC = () => {
   return (
     <div id="panel-assets-library" className="flex flex-col h-full bg-[hsl(var(--surface-1))] text-xs select-none">
       {/* Hidden file input for uploading custom 3D files */}
-      <input 
+      <input
         ref={fileInputRef}
-        type="file" 
-        accept=".glb,.gltf,.obj,.fbx,.stl,.ply" 
-        className="hidden" 
+        type="file"
+        accept=".glb,.gltf,.obj,.fbx,.stl,.ply"
+        className="hidden"
         onChange={handleModelUpload}
       />
 
@@ -340,9 +339,9 @@ export const RightAssetsPanel: React.FC = () => {
                 </span>
               </>
             )}
-          </div>
+           </div>
 
-          {uploadError && (
+           {uploadError && (
             <div className="flex items-center gap-1 text-[10px] text-[hsl(var(--destructive))] px-1">
               <AlertCircle className="w-3 h-3" />
               <span>{uploadError}</span>

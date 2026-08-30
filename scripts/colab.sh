@@ -326,15 +326,34 @@ colab_start_services() {
         return 1
     fi
 
-    # ── Colab Keep-Alive ──────────────────────────────────────────────────
-    KEEPALIVE_PID_FILE="$PID_DIR/colab_keepalive.pid"
-    if [[ -f "$KEEPALIVE_PID_FILE" ]]; then
-        kill_by_pid_file "$KEEPALIVE_PID_FILE"
+    # ── Colab Keep-Alive (Browser-Level) ───────────────────────────────────
+    # Colab kills background processes (nohup/sleep) during idle cleanup.
+    # The ONLY reliable keepalive is browser JS that simulates user activity.
+    # Auto-inject via IPython if available; otherwise print instructions.
+    KEEPALIVE_JS_PY="${PROJECT_ROOT}/scripts/colab_keepalive_js.py"
+    if command -v python3 &>/dev/null; then
+        python3 -c "
+try:
+    from IPython.display import Javascript, display
+    display(Javascript('''
+        (function(){
+            setInterval(function(){
+                try { document.body.dispatchEvent(new MouseEvent('click',{bubbles:true})); } catch(e){}
+                try { document.dispatchEvent(new KeyboardEvent('keydown',{key:' ',bubbles:true})); } catch(e){}
+            }, 60000);
+            console.log('[keepalive] auto-injected');
+        })();
+    '''))
+    print('[keepalive] Browser keep-alive auto-injected.')
+except Exception as e:
+    print(f'[keepalive] Auto-inject failed ({e}). Run manually:')
+    print('    exec(open(\"${KEEPALIVE_JS_PY}\").read())')
+" 2>/dev/null || {
+            log "IPython not available — run manually: exec(open('${KEEPALIVE_JS_PY}').read())"
+        }
+    else
+        log "Python3 not available — run manually: exec(open('${KEEPALIVE_JS_PY}').read())"
     fi
-    nohup bash -c 'trap "exit 0" TERM INT; while true; do curl -sf http://localhost:8000/api/v1/health >/dev/null 2>&1 || true; sleep 45; done' \
-        > "$LOG_DIR/keepalive.log" 2>&1 &
-    echo $! > "$KEEPALIVE_PID_FILE"
-    log "Colab keep-alive started (PID: $(cat "$KEEPALIVE_PID_FILE"))"
 
     # ── Start Celery Worker ───────────────────────────────────────────────
     step "Starting Celery Worker..."
@@ -371,13 +390,13 @@ colab_start_services() {
     FRONTEND_PID_FILE="$PID_DIR/frontend.pid"
     kill_by_pid_file "$FRONTEND_PID_FILE"
 
-    FRONTEND_RUN_CMD="npm run dev"
+    FRONTEND_RUN_CMD="npm run build && npm start"
     if ! command -v npm &>/dev/null; then
         err "npm not found — cannot start frontend"
     else
         (
             export NEXT_PUBLIC_API_URL=http://localhost:8000
-            nohup npm run dev > "$LOG_DIR/frontend.log" 2>&1 &
+            nohup npm start > "$LOG_DIR/frontend.log" 2>&1 &
             write_pid "$FRONTEND_PID_FILE" $!
         )
         log "Frontend started (PID: $(cat $FRONTEND_PID_FILE))"
@@ -1416,19 +1435,34 @@ if ! curl -sf http://localhost:8000/api/v1/health &>/dev/null; then
     exit 1
 fi
 
-# ── Colab Keep-Alive ────────────────────────────────────────────────────────
-# Prevents idle disconnections in Google Colab during long-running tasks
-# (model downloads, generation) by keeping a lightweight background loop
-# that periodically pings the API health endpoint. Consumes negligible
-# resources: a single curl every 45s, all output to /dev/null.
-KEEPALIVE_PID_FILE="$PID_DIR/colab_keepalive.pid"
-if [[ -f "$KEEPALIVE_PID_FILE" ]]; then
-    kill_by_pid_file "$KEEPALIVE_PID_FILE"
+# ── Colab Keep-Alive (Browser-Level) ───────────────────────────────────────
+# Colab kills background processes (nohup/sleep) during idle cleanup.
+# The ONLY reliable keepalive is browser JS that simulates user activity.
+# Auto-inject via IPython if available; otherwise print instructions.
+KEEPALIVE_JS_PY="${PROJECT_ROOT}/scripts/colab_keepalive_js.py"
+if command -v python3 &>/dev/null; then
+    python3 -c "
+try:
+    from IPython.display import Javascript, display
+    display(Javascript('''
+        (function(){
+            setInterval(function(){
+                try { document.body.dispatchEvent(new MouseEvent('click',{bubbles:true})); } catch(e){}
+                try { document.dispatchEvent(new KeyboardEvent('keydown',{key:' ',bubbles:true})); } catch(e){}
+            }, 60000);
+            console.log('[keepalive] auto-injected');
+        })();
+    '''))
+    print('[keepalive] Browser keep-alive auto-injected.')
+except Exception as e:
+    print(f'[keepalive] Auto-inject failed ({e}). Run manually:')
+    print('    exec(open(\"${KEEPALIVE_JS_PY}\").read())')
+" 2>/dev/null || {
+        log "IPython not available — run manually: exec(open('${KEEPALIVE_JS_PY}').read())"
+    }
+else
+    log "Python3 not available — run manually: exec(open('${KEEPALIVE_JS_PY}').read())"
 fi
-nohup bash -c 'trap "exit 0" TERM INT; while true; do curl -sf http://localhost:8000/api/v1/health >/dev/null 2>&1 || true; sleep 45; done' \
-    > "$LOG_DIR/keepalive.log" 2>&1 &
-echo $! > "$KEEPALIVE_PID_FILE"
-log "Colab keep-alive started (PID: $(cat "$KEEPALIVE_PID_FILE"))"
 
 # ── Browser-Level Keep-Alive (JavaScript injection) ─────────────────────────
 # The network ping above keeps the VM active, but Colab's browser-level idle
@@ -1560,8 +1594,32 @@ for i in {1..15}; do
 done
 
 
-# ── Post-startup preflight validation (Colab-safe) ─────────────────────────
-run_preflight || warn "Preflight validation had issues — see output above"
+# ── Service Watchdog ───────────────────────────────────────────────────────
+# Lightweight monitor that restarts services if they die unexpectedly.
+# Runs in background. Complements the browser JS keepalive (which prevents
+# Colab idle cleanup). This handles crashes/OOM, not idle disconnects.
+(
+    while true; do
+        sleep 30
+        # Check backend API
+        if [[ -f "$PID_DIR/api.pid" ]] && ! kill -0 "$(cat "$PID_DIR/api.pid")" 2>/dev/null; then
+            warn "Backend API died — restarting..."
+            kill_by_pid_file "$PID_DIR/api.pid"
+            nohup env "$(cat .env 2>/dev/null | xargs)" uvicorn app.main:app --host 0.0.0.0 --port 8000 \
+                > "$LOG_DIR/api.log" 2>&1 &
+            write_pid "$PID_DIR/api.pid" $!
+        fi
+        # Check frontend
+        if [[ -f "$PID_DIR/frontend.pid" ]] && ! kill -0 "$(cat "$PID_DIR/frontend.pid")" 2>/dev/null; then
+            warn "Frontend died — restarting..."
+            kill_by_pid_file "$PID_DIR/frontend.pid"
+            nohup env NEXT_PUBLIC_API_URL=http://localhost:8000 npm start \
+                > "$LOG_DIR/frontend.log" 2>&1 &
+            write_pid "$PID_DIR/frontend.pid" $!
+        fi
+    done
+) > "$LOG_DIR/watchdog.log" 2>&1 &
+log "Service watchdog started (PID: $!)"
 
 # ── Cloudflare Tunnel ──────────────────────────────────────────────────────
 step "Setting up Cloudflare Tunnel for external access..."

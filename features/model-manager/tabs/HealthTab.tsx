@@ -90,7 +90,10 @@ export function HealthTab({ modelId, autoRefresh = true }: HealthTabProps) {
     let interval: NodeJS.Timeout | null = null;
     
     if (autoRefresh) {
-      interval = setInterval(fetchHealthStatus, 30000); // 30 seconds
+      interval = setInterval(() => {
+        if (typeof document !== 'undefined' && document.hidden) return;
+        fetchHealthStatus();
+      }, 30000);
     } else {
       fetchHealthStatus();
     }

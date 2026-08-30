@@ -34,7 +34,10 @@ export function JobsTab() {
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, 10000);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      load();
+    }, 30000);
     return () => clearInterval(interval);
   }, [load]);
 

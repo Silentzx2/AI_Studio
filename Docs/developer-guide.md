@@ -484,6 +484,95 @@ The `features/new-workspace/lib/uploadDiagnostics.ts` module provides debugging 
 
 The `UploadDiagnosticModal.tsx` provides a UI for invoking diagnostics. To use it, import and render the modal with the file you're attempting to upload.
 
+## Asset Upload & Persistence
+
+### Upload Flow
+
+1. User selects file in `RightAssetsPanel` (assets panel)
+2. Frontend validates file type/size/client-side structure (`fileValidation.ts`)
+3. File uploads to backend via `apiClient.uploadFile()` (XHR with progress)
+4. Backend stores file in `storage_local_path/models/` or `uploads/`
+5. Backend generates thumbnail for GLB/GLTF (`mesh_processor.py:render_thumbnail`)
+6. Backend returns `{ url, thumbnail_url, mesh_stats }`
+7. Frontend creates a `ModelAsset` and adds it via `addAsset()`
+8. Asset appears immediately in the assets panel
+
+### Asset Persistence
+
+`WorkspaceContext.refreshHistory()` polls generation history every 60s. It rebuilds the assets array as `[...newHistory, ...persistedLocals]`. **Uploaded assets must include `source.type: 'upload'` or `'input'`** so they survive the rebuild. Assets with only `source.localUrl` are local-preview-only and also persist.
+
+```typescript
+// WorkspaceContext.tsx — refreshHistory filter
+const local = prev.filter(a =>
+  a.source?.localUrl ||
+  a.source?.type === 'upload' ||
+  a.source?.type === 'input'
+);
+return [...newParsed, ...local];
+```
+
+### Image Upload
+
+Images for 3D generation are uploaded via the generation panel (NOT the assets panel). The flow:
+1. Frontend uploads to `POST /api/v1/upload/image`
+2. Backend saves to `storage_local_path/uploads/` with UUID filename
+3. Backend returns `{ url }` pointing to `/api/v1/upload/uploads/{filename}`
+4. Image URL is used for generation — it stays in backend storage only
+5. Images do NOT appear in the assets panel (by design — keeps the panel focused on 3D models)
+
+The assets panel's `fetchUploadedAssets` only fetches models from `/api/v1/upload/assets`, skipping images entirely.
+
+### Thumbnail Generation
+
+- **GLB/GLTF**: Backend renders a 3D preview via trimesh, falls back to PIL-generated placeholder
+- **OBJ/FBX/STL**: No thumbnail generated (by design) — frontend shows format badge fallback
+- **Images**: The image URL itself serves as the thumbnail
+
+### URL Resolution
+
+- `/static/models/...` and `/static/thumbnails/...` → served by backend `/static` mount, proxied via `app/static/[...path]/route.ts`
+- `/api/v1/upload/uploads/...` → served by backend `download_uploaded_image` endpoint, proxied via `app/api/v1/[...path]/route.ts`
+
+## Storage Path
+
+The storage path is resolved from the backend module location, NOT from CWD:
+
+- **Config**: `backend/app/config.py` — `storage_local_path` defaults to absolute `backend/storage/`
+- **Why**: The backend can be launched from `backend/` directory (via `cd backend && uvicorn`) or from project root. Using `Path(__file__).resolve().parent / "storage"` ensures the path is always correct regardless of launch directory.
+- **Subdirectories**: `models/`, `uploads/`, `thumbnails/`, `exports/`, `images/`
+- **Scripts**: `start.sh` and `colab.sh` both create `backend/storage/` at project root level
+
+## Database Overload Prevention
+
+The frontend has multiple polling loops that can overwhelm the backend in resource-constrained environments (Colab). All admin tab polling loops include `document.hidden` guards — they pause when the browser tab is in the background.
+
+| Component | Endpoint | Interval | Tab-Aware |
+|-----------|----------|----------|-----------|
+| WorkspaceContext | runtime/status | 20s | ✅ |
+| WorkspaceContext | generation/history | 60s | ✅ |
+| RuntimeTab | runtime/status + logs | 10s | ✅ |
+| OverviewTab | admin/overview | 15s | ✅ |
+| QueueTab | admin/queue/status | 15s | ✅ |
+| JobsTab | admin/jobs | 30s | ✅ |
+| StorageTab | system/storage | 30s | ✅ |
+| GpuVramLineChart | runtime/status | 15s | ✅ |
+| HealthTab | models/health/all | 30s | ✅ |
+
+This reduces total API calls from ~100/min to ~25/min when tab is active, and ~0 when backgrounded.
+
+## Colab Keep-Alive
+
+Google Colab kills background processes (nohup, sleep) during idle cleanup. The old `nohup curl` keepalive was unreliable.
+
+**Current approach:**
+1. **Browser JS keepalive** (primary): Auto-injects via IPython on startup — simulates mouse/keyboard activity every 60s
+2. **Service watchdog** (secondary): Background loop checks services every 30s, restarts any that died
+
+If IPython is unavailable, run manually:
+```python
+exec(open('scripts/colab_keepalive_js.py').read())
+```
+
 ## Compare View
 
 The compare view consists of two components:

@@ -3,6 +3,8 @@ import os
 import platform
 import shutil
 
+from app.config import get_settings
+
 try:
     import torch
     HAS_TORCH = True
@@ -37,7 +39,7 @@ class CompatibilityManager:
             
         # Disk Space
         min_disk_mb = manifest.get("disk_space_mb", 0)
-        storage_path = os.environ.get("STORAGE_LOCAL_PATH", "./storage")
+        storage_path = get_settings().storage_local_path
         if os.path.exists(storage_path):
             total, used, free = shutil.disk_usage(storage_path)
             free_mb = free // (1024 * 1024)

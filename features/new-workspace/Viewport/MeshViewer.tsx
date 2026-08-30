@@ -176,7 +176,6 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const isTurntableRef = useRef(isTurntable);
   const blobUrlRef = useRef<string | null>(null);
   const toastTimeoutRef = useRef<number | null>(null);
-  const needsRenderRef = useRef(true);
 
   // Cleanup blob URLs on unmount
   useEffect(() => {
@@ -219,7 +218,6 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     if (keyLightRef.current) keyLightRef.current.intensity = environmentSettings.keyLightIntensity;
     if (fillLightRef.current) fillLightRef.current.intensity = environmentSettings.fillLightIntensity;
     if (rimLightRef.current) rimLightRef.current.intensity = environmentSettings.rimLightIntensity;
-    needsRenderRef.current = true;
   }, [environmentSettings]);
 
   // Initialize Three.js Scene once
@@ -246,7 +244,9 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
       powerPreference: 'high-performance'
     });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // ponytail: cap pixel ratio at 1.5 for FPS. Retina 2x = 4x pixels; 1.5x = 2.25x.
+    // Upgrade path: adaptive ratio based on renderer.info.render.fps
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.info.autoReset = false;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.5;
@@ -272,8 +272,10 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     const mainKeyLight = new THREE.DirectionalLight(0xfff5ea, 3.0);
     mainKeyLight.position.set(4, 6, 5);
     mainKeyLight.castShadow = true;
-    mainKeyLight.shadow.mapSize.width = 1024;
-    mainKeyLight.shadow.mapSize.height = 1024;
+    // ponytail: 512 shadow map is enough for studio preview. 1024 = 4x GPU cost.
+    // Upgrade path: adaptive quality based on mesh complexity
+    mainKeyLight.shadow.mapSize.width = 512;
+    mainKeyLight.shadow.mapSize.height = 512;
     mainKeyLight.shadow.bias = -0.0001;
     scene.add(mainKeyLight);
     keyLightRef.current = mainKeyLight;
@@ -307,10 +309,9 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     scene.add(meshGroup);
     currentMeshGroupRef.current = meshGroup;
 
-    // 8. Animation & Render Loop (setAnimationLoop for better performance)
+    // 8. Animation & Render Loop — always render (OrbitControls damping requires update() every frame)
     const timer = new THREE.Timer();
     const animate = () => {
-      if (!needsRenderRef.current && !isTurntableRef.current) return;
       timer.update();
       const delta = timer.getDelta();
 
@@ -321,7 +322,6 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
       controls.update();
       renderer.info.reset();
       renderer.render(scene, camera);
-      needsRenderRef.current = false;
     };
     renderer.setAnimationLoop(animate);
 
@@ -376,7 +376,6 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     if (gridHelperRef.current) {
       gridHelperRef.current.visible = showGrid;
     }
-    needsRenderRef.current = true;
   }, [showGrid]);
 
   // Load the real selected asset into the persistent viewport.
@@ -437,7 +436,6 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               }
             });
             frameCamera(gltf.scene);
-            needsRenderRef.current = true;
           }
         } else if (format === 'obj') {
           // ponytail: verify response is text before parsing as OBJ
@@ -475,7 +473,6 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             });
             group.add(object);
             frameCamera(object);
-            needsRenderRef.current = true;
           }
         } else if (format === 'ply') {
           const response = await fetch(sourceUrl);
@@ -502,7 +499,6 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           mesh.receiveShadow = true;
           group.add(mesh);
           frameCamera(mesh);
-          needsRenderRef.current = true;
         } else {
           throw new Error(`No browser preview is available for ${currentAsset.format}.`);
         }
@@ -566,7 +562,6 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         break;
     }
     ctrl.update();
-    needsRenderRef.current = true;
   }, []);
 
   const resetCamera = useCallback(() => {

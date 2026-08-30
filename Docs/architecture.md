@@ -419,6 +419,12 @@ so a multi-model install could exhaust disk before the last model finished.
 The bulk install path now fails fast with a clear error if the cumulative
 size exceeds available space.
 
+#### Storage Path
+- **Location**: `backend/storage/` (absolute path resolved from `config.py` module location)
+- **Subdirectories**: `models/`, `uploads/`, `thumbnails/`, `exports/`, `images/`
+- **Config**: `storage_local_path` in `backend/app/config.py` — defaults to absolute `backend/storage/` regardless of CWD
+- **Mount**: `app.mount("/static", BinaryStaticFiles(directory=settings.storage_local_path))` serves files via `/static` proxy
+
 #### 3D Model Upload
 - **Endpoint**: `POST /api/v1/upload/model` handles GLB, GLTF, FBX, OBJ, STL
 - **Storage**: Files saved to `storage_local_path/models/`
@@ -433,8 +439,20 @@ size exceeds available space.
 
 #### Client-Side File Validation
 - **Module**: `features/new-workspace/lib/fileValidation.ts`
-- **Features**: GLB magic bytes validation (`glTF` header), GLB structure validation (version, length, chunk headers), truncation detection, format-specific checks for OBJ/STL/PLY
+- **Features**: GLB magic bytes validation (`glTF` header at bytes `0x67, 0x6c, 0x54, 0x46`), GLB structure validation (version, length, chunk headers), truncation detection, format-specific checks for OBJ/STL/PLY
 - **Limits**: 100MB upload limit, 150MB preview limit
+
+#### Asset Persistence
+- **Problem**: `WorkspaceContext.refreshHistory()` rebuilds the assets array every 60s, filtering out assets without `source.localUrl`. Uploaded models/images were purged because they use `source.type: 'input'`/`'upload'` instead.
+- **Fix**: The filter now preserves assets with `source.localUrl` OR `source.type === 'upload'` OR `source.type === 'input'`
+- **Code**: `features/new-workspace/store/WorkspaceContext.tsx` — `refreshHistory` callback
+
+#### Image Upload
+- **Endpoint**: `POST /api/v1/upload/image` handles PNG, JPG, WebP
+- **Storage**: Files saved to `storage_local_path/uploads/`
+- **Frontend**: `RightAssetsPanel.tsx` has a dedicated image upload card (camera icon) separate from the 3D model upload
+- **Asset Type**: Images are stored as `category: 'texture'` with tags `['Uploaded', 'Image']`
+- **Filter**: Assets panel "Images" filter matches `tags?.includes('Image')`
 
 #### Upload Diagnostics
 - **Module**: `features/new-workspace/lib/uploadDiagnostics.ts`
@@ -467,7 +485,12 @@ size exceeds available space.
 - **Chunked file upload**: `backend/app/api/v1/upload.py` now streams uploads in chunks instead of buffering entire files in memory, preventing memory exhaustion on large uploads
 - **Memoized workspace context**: `WorkspaceContext.tsx` split into smaller memoized selectors to prevent cascading re-renders when any context value changes
 - **Blob URL model loading**: `MeshViewer.tsx` now uses blob URLs to eliminate redundant network fetches when loading models into Three.js
-- **Animation loop gating**: Animation loop now stops when no model is loaded, eliminating unnecessary GPU computation
+- **Always-on render loop**: Animation loop removed `needsRenderRef` gating — loop always runs, fixing "frozen until auto-rotate toggle" bug and keeping OrbitControls damping alive
+- **Performance**: Pixel ratio cap reduced to 1.5×, shadow maps reduced to 512×512 for higher FPS
+- **Asset persistence**: `refreshHistory` preserves uploaded models (`source.type: 'input'`/`'upload'`), no longer purges them every 60s
+- **Image upload removed from assets panel**: Images stay in backend storage only; assets panel shows 3D models only
+- **DB overload fix**: All admin tab polling loops now have tab-hidden guards; intervals increased (RuntimeTab 5s→10s, OverviewTab 10s→15s, GpuVramLineChart 3s→15s)
+- **Colab keepalive**: Replaced broken `nohup` background curl (killed by Colab idle cleanup) with auto-injected browser JS keepalive + service watchdog
 
 #### Performance Improvements (v4.4.10)
 - **Parallelized health checks**: `backend/app/api/v1/health.py` now runs provider health checks concurrently using `asyncio.gather` instead of sequentially, reducing health endpoint latency from O(n) to O(1)

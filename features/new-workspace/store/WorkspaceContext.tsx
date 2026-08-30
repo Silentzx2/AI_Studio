@@ -269,7 +269,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setAssets(prev => {
       const existingIds = new Set(prev.map(a => a.id));
       const newParsed = parsed.filter(a => !existingIds.has(a.id));
-      const local = prev.filter(a => a.source?.localUrl);
+      // Keep local assets AND uploaded assets (input/upload types)
+      const local = prev.filter(a => a.source?.localUrl || a.source?.type === 'upload' || a.source?.type === 'input');
       return [...newParsed, ...local];
     });
   }, []);
@@ -279,27 +280,14 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     refreshHistoryRef.current = refreshHistory;
   }, [refreshHistory]);
 
-  // Fetch uploaded assets from backend on mount (persistence across refresh)
+  // Fetch uploaded MODELS from backend on mount (persistence across refresh)
+  // NOTE: Images are NOT fetched — they stay in backend storage only.
   useEffect(() => {
     const fetchUploadedAssets = async () => {
       try {
         const res = await fetch('/api/v1/upload/assets');
         if (!res.ok) return;
         const data = await res.json();
-        const uploadedImages = (data?.data?.images || data?.images || []).map((img: any) => ({
-          id: img.id || img.filename,
-          name: img.name || img.filename,
-          category: 'texture' as const,
-          meshType: 'custom' as const,
-          thumbnail: img.url || '',
-          faces: 0, vertices: 0, triangles: 0,
-          statsAvailable: false,
-          source: { filename: img.filename, subfolder: '', type: 'upload', viewUrl: img.url || '' },
-          topology: 'Triangle' as const,
-          format: img.format || 'PNG',
-          dateCreated: img.created_at || '',
-          tags: ['Uploaded', 'Image'],
-        }));
         const uploadedModels = (data?.data?.models || data?.models || []).map((m: any) => {
           const meshStats = m.mesh_stats;
           return {
@@ -319,10 +307,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             tags: ['Uploaded', 'Model'],
           };
         });
-        // Merge uploaded assets without duplicates
+        // Merge uploaded models without duplicates
         setAssets(prev => {
           const existingIds = new Set(prev.map(a => a.id));
-          const newAssets = [...uploadedImages, ...uploadedModels].filter(a => !existingIds.has(a.id));
+          const newAssets = uploadedModels.filter(a => !existingIds.has(a.id));
           return [...prev, ...newAssets];
         });
       } catch (err) {

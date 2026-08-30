@@ -30,7 +30,10 @@ export function QueueTab() {
 
   useEffect(() => {
     setTimeout(() => load(), 0);
-    const interval = setInterval(load, 5000);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      load();
+    }, 15000);
     return () => clearInterval(interval);
   }, [load]);
 

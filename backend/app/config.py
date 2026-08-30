@@ -4,11 +4,17 @@ GPU-ONLY MODE: This application requires an NVIDIA GPU.
 Configuration defaults reflect GPU-first architecture.
 """
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 from typing import Literal
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Backend root directory (where this config.py lives)
+_BACKEND_DIR = Path(__file__).resolve().parent
+# Project root (parent of backend/)
+_PROJECT_DIR = _BACKEND_DIR.parent
 
 
 class Settings(BaseSettings):
@@ -32,7 +38,8 @@ class Settings(BaseSettings):
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/1"
     storage_backend: Literal["local", "s3"] = "local"
-    storage_local_path: str = "./storage"
+    # Absolute default: always backend/storage regardless of CWD
+    storage_local_path: str = str(_BACKEND_DIR / "storage")
     s3_bucket: str = ""
     s3_region: str = "us-east-1"
     aws_access_key_id: str = ""
@@ -45,8 +52,8 @@ class Settings(BaseSettings):
     trellis_api_url: str = "http://localhost:7861"
     instant_mesh_api_url: str = "http://localhost:7862"
     runtime_mode: Literal["local", "api"] = "local"
-    third_party_dir: str = "./third_party"
-    weights_dir: str = "./third_party/weights"
+    third_party_dir: str = str(_BACKEND_DIR / "third_party")
+    weights_dir: str = str(_BACKEND_DIR / "third_party" / "weights")
     cuda_device: str = "auto"
     max_vram_mb: int = 0
     vram_safety_margin_mb: int = 2048

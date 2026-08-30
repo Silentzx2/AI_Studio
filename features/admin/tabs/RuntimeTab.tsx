@@ -43,7 +43,10 @@ export function RuntimeTab() {
 
   useEffect(() => {
     setTimeout(() => load(), 0);
-    const interval = setInterval(load, 5000);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      load();
+    }, 10000);
     return () => clearInterval(interval);
   }, [load]);
 
@@ -238,7 +241,7 @@ export function RuntimeTab() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <GlassCard className="p-5 lg:col-span-2" delay={0.3}>
-          <GpuVramLineChart height={240} autoPoll pollIntervalMs={3000} />
+           <GpuVramLineChart height={240} autoPoll pollIntervalMs={15000} />
         </GlassCard>
 
         <GlassCard className="p-5" delay={0.35}>

@@ -107,8 +107,16 @@
 - **Security hardening**: Terminal command allowlist (replaces blocklist), path traversal protection in static proxy, CORS origin restriction, proxy route timeouts
 - **Memory leak fixes**: Three.js texture/material disposal on model swap, SSE connection cleanup on timeout
 - **Runtime bug fixes**: Broken lazy initialization in `models_api.py`, undefined variables in `runtime.py`, missing import in `installation_workers.py`, `output_path` NameError in `mesh_processor.py`
-- **Performance improvements**: Chunked file upload, memoized workspace context, blob URL model loading, animation loop gating
+- **Performance improvements**: Chunked file upload, memoized workspace context, blob URL model loading, always-on render loop (removed needsRenderRef gating)
 - **Frontend fixes**: Double-fetch elimination in `MeshViewer`, null-safe `searchParams` access in settings page, `getQueue` endpoint correction
+- **Asset persistence fix**: `refreshHistory` no longer purges uploaded models — assets with `source.type: 'upload'`/`'input'` now survive the 60s history rebuild
+- **Image upload removed from assets panel**: Images stay in backend storage only; assets panel shows 3D models only (reduces DB load)
+- **Render loop freeze fix**: Removed `needsRenderRef` gate that stopped rendering when nothing changed — viewer now always renders, fixing the "frozen until auto-rotate toggle" bug
+- **MeshViewer HUD stats fix**: `get_mesh_stats` correctly handles `trimesh.Scene` objects; poly count/faces/vertices now display for uploaded GLB/GLTF models
+- **DB overload fix**: All admin tab polling loops now have `document.hidden` guards; intervals increased (RuntimeTab 5s→10s, OverviewTab 10s→15s, QueueTab 5s→15s, JobsTab 10s→30s, StorageTab 15s→30s, GpuVramLineChart 3s→15s)
+- **Colab keepalive fix**: Replaced broken `nohup` background curl (killed by Colab idle cleanup) with auto-injected browser JS keepalive + service watchdog
+- **Performance**: MeshViewer pixel ratio cap reduced to 1.5×, shadow maps reduced to 512×512
+- **Storage path fix**: `storage_local_path` now resolves to absolute `backend/storage/` from module location, not CWD — fixes path mismatch when launching from different directories
 
 ### Files changed
 - `backend/app/api/v1/models_api.py` — fixed lazy initialization
@@ -119,10 +127,24 @@
 - `app/api/v1/[...path]/route.ts` — added timeouts to PUT/DELETE routes
 - `app/static/[...path]/route.ts` — added path traversal protection
 - `app/settings/page.tsx` — null-safe `searchParams` access
-- `features/new-workspace/Viewport/MeshViewer.tsx` — blob URL loading, animation loop gating
-- `features/new-workspace/Viewport/CompareViewport.tsx` — Three.js memory leak fixes
+- `features/new-workspace/Viewport/MeshViewer.tsx` — blob URL loading, always-on render loop (removed needsRenderRef), reduced pixel ratio cap (1.5) and shadow map size (512)
+- `features/new-workspace/RightPanel/RightAssetsPanel.tsx` — removed image upload card (images stay in backend storage only)
 - `features/new-workspace/lib/api.ts` — fixed `getQueue` endpoint
-- `features/new-workspace/store/WorkspaceContext.tsx` — split memo to prevent cascading re-renders
+- `features/new-workspace/lib/fileValidation.ts` — fixed GLB magic bytes constant (0x47 → 0x67)
+- `features/new-workspace/store/WorkspaceContext.tsx` — split memo to prevent cascading re-renders, asset persistence fix in refreshHistory, images excluded from fetchUploadedAssets
+- `features/admin/tabs/RuntimeTab.tsx` — polling interval 5s→10s, added tab-hidden guard
+- `features/admin/tabs/OverviewTab.tsx` — polling interval 10s→15s, added tab-hidden guard, chart 3s→15s
+- `features/admin/tabs/QueueTab.tsx` — polling interval 5s→15s, added tab-hidden guard
+- `features/admin/tabs/JobsTab.tsx` — polling interval 10s→30s, added tab-hidden guard
+- `features/admin/tabs/StorageTab.tsx` — polling interval 15s→30s, added tab-hidden guard
+- `features/model-manager/tabs/HealthTab.tsx` — added tab-hidden guard
+- `components/monitoring/GpuVramLineChart.tsx` — default poll interval increased
+- `backend/app/config.py` — storage path now absolute from module location
+- `backend/app/api/v1/system.py` — use `settings.storage_local_path` instead of hardcoded `./storage`
+- `backend/app/core/managers/compatibility_manager.py` — use `settings.storage_local_path`
+- `scripts/colab.sh` — replaced broken nohup keepalive with browser JS auto-inject + service watchdog
+- `services/adminService.ts` — SSE connection cleanup
+- `stores/useAppStore.ts` — CORS origin restriction
 - `services/adminService.ts` — SSE connection cleanup
 - `stores/useAppStore.ts` — CORS origin restriction
 
