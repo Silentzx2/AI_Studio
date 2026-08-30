@@ -194,6 +194,21 @@ colab_start_services() {
         return 1
     fi
 
+    # ── Ensure PostgreSQL is running ─────────────────────────────────────
+    if ! pg_isready -q 2>/dev/null; then
+        info "Starting PostgreSQL..."
+        sudo service postgresql start 2>/dev/null \
+            || sudo pg_ctlcluster "$(ls /etc/postgresql/ 2>/dev/null | head -1)" main start 2>/dev/null \
+            || sudo -u postgres pg_ctl -D "/var/lib/postgresql/$(ls /var/lib/postgresql/ 2>/dev/null | head -1)/main" -l /tmp/pg.log start 2>/dev/null \
+            || warn "Could not start PostgreSQL"
+        sleep 2
+    fi
+    if pg_isready -q 2>/dev/null; then
+        log "PostgreSQL is running"
+    else
+        warn "PostgreSQL not responding — migrations will be skipped"
+    fi
+
     # ── Ensure Redis is available ─────────────────────────────────────────
     if ! command -v redis-server &>/dev/null; then
         info "Installing Redis..."
@@ -229,16 +244,20 @@ colab_start_services() {
         log "Celery fallback active: eager execution + memory broker (no Redis)"
     fi
 
-    # ── Run migrations ────────────────────────────────────────────────────
+    # ── Run migrations (only if PostgreSQL is running) ──────────────────
     step "Running database migrations..."
-    (
-        cd backend
-        if "$PYTHON_BIN" -m alembic upgrade head 2>&1; then
-            log "Migrations complete"
-        else
-            warn "Migrations skipped or failed (may already be applied)"
-        fi
-    )
+    if pg_isready -q 2>/dev/null; then
+        (
+            cd backend
+            if "$PYTHON_BIN" -m alembic upgrade head 2>&1; then
+                log "Migrations complete"
+            else
+                warn "Migrations skipped or failed (may already be applied)"
+            fi
+        )
+    else
+        warn "Skipping migrations — PostgreSQL not running"
+    fi
 
     # ── Start Backend API ─────────────────────────────────────────────────
     step "Starting Backend API (http://localhost:8000)..."
@@ -386,17 +405,28 @@ colab_stop_services() {
     info "Waiting for services to fully stop..."
     sleep 2
 
-    # Stop PostgreSQL (if started by us)
+    # Stop PostgreSQL (if running)
     if command -v pg_isready &>/dev/null && pg_isready -q 2>/dev/null; then
         info "Stopping PostgreSQL..."
-        sudo service postgresql stop 2>/dev/null || sudo pg_ctlcluster $(ls /etc/postgresql/ 2>/dev/null | head -1) main stop 2>/dev/null || true
+        sudo service postgresql stop 2>/dev/null \
+            || sudo pg_ctlcluster "$(ls /etc/postgresql/ 2>/dev/null | head -1)" main stop 2>/dev/null \
+            || sudo -u postgres pg_ctl -D "/var/lib/postgresql/$(ls /var/lib/postgresql/ 2>/dev/null | head -1)/main" stop 2>/dev/null \
+            || true
+        # Verify it stopped
+        sleep 2
+        if pg_isready -q 2>/dev/null; then
+            warn "PostgreSQL did not stop gracefully — forcing..."
+            sudo pg_ctlcluster "$(ls /etc/postgresql/ 2>/dev/null | head -1)" main stop -m immediate 2>/dev/null || true
+            sleep 1
+        fi
         log "PostgreSQL stopped"
     fi
 
-    # Stop Redis (if started by us)
+    # Stop Redis (if running)
     if command -v redis-cli &>/dev/null && redis-cli ping 2>/dev/null | grep -q PONG; then
         info "Stopping Redis..."
         redis-cli shutdown nosave 2>/dev/null || sudo service redis-server stop 2>/dev/null || true
+        sleep 1
         log "Redis stopped"
     fi
 

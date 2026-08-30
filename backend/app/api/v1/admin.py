@@ -1746,19 +1746,6 @@ async def install_status():
     # Use cached result to prevent database overload from rapid polling
     result = _get_cached_install_status()
     return {"data": result, "cached": True, "cache_age": time.time() - _install_status_cache_time}
-        entry = dict(db_entry)
-        overall = entry.pop("overall_state", None)
-        blocking_reason = entry.pop("blocking_reason", None)
-        if overall == "ready":
-            entry["state"] = "blocked"
-            entry["blocking_reason"] = blocking_reason or "No live readiness confirmation"
-        else:
-            entry["state"] = overall or "blocked"
-            entry["blocking_reason"] = blocking_reason
-        entry.setdefault("source", "persisted")
-        entry.setdefault("installed", False)
-        result[provider_name] = entry
-    return success(result)
 
 
 @router.post("/install/provider")
