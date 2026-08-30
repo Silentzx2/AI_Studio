@@ -153,6 +153,326 @@ detect_cuda_version() {
     echo "121"
 }
 
+# ── Colab Service Management Functions ─────────────────────────────────────
+# These functions manage services independently of the bootstrap flow,
+# allowing start/stop/restart without re-running the full setup.
+
+colab_start_services() {
+    head_ "Starting AI 3D Studio Services (Colab)"
+
+    # ── Variables ─────────────────────────────────────────────────────────
+    PYTHON_BIN="${PROJECT_ROOT}/backend/.venv/bin/python"
+    PID_DIR="${PROJECT_ROOT}/.pids"
+    LOG_DIR="${PROJECT_ROOT}/logs"
+    mkdir -p "$PID_DIR" "$LOG_DIR"
+
+    if [[ ! -x "$PYTHON_BIN" ]]; then
+        err "Backend venv not found. Run full setup first: bash scripts/colab.sh"
+        return 1
+    fi
+
+    # ── Ensure Redis is available ─────────────────────────────────────────
+    if ! command -v redis-server &>/dev/null; then
+        info "Installing Redis..."
+        sudo apt-get update -qq 2>/dev/null && sudo apt-get install -y redis-server 2>/dev/null || {
+            warn "Could not install Redis — using in-memory fallback"
+        }
+    fi
+
+    REDIS_AVAILABLE=false
+    if command -v redis-server &>/dev/null; then
+        if ! redis-cli ping &>/dev/null 2>&1; then
+            info "Starting Redis (daemonized)..."
+            redis-server --daemonize yes 2>/dev/null || warn "Failed to start Redis"
+        fi
+        if redis-cli ping &>/dev/null 2>&1; then
+            log "Redis is running"
+            REDIS_AVAILABLE=true
+        else
+            warn "Redis not responding — using in-memory fallback"
+        fi
+    else
+        warn "Redis not available — using in-memory fallback"
+    fi
+
+    if [[ "$REDIS_AVAILABLE" != "true" ]]; then
+        export CELERY_TASK_ALWAYS_EAGER=1
+        export CELERY_BROKER_URL="memory://"
+        export CELERY_RESULT_BACKEND="cache+memory://"
+        export REDIS_URL="memory://"
+        sed -i 's|^REDIS_URL=.*|REDIS_URL=memory://|' .env 2>/dev/null || true
+        sed -i 's|^CELERY_BROKER_URL=.*|CELERY_BROKER_URL=memory://|' .env 2>/dev/null || true
+        sed -i 's|^CELERY_RESULT_BACKEND=.*|CELERY_RESULT_BACKEND=cache+memory://|' .env 2>/dev/null || true
+        log "Celery fallback active: eager execution + memory broker (no Redis)"
+    fi
+
+    # ── Run migrations ────────────────────────────────────────────────────
+    step "Running database migrations..."
+    (
+        cd backend
+        if "$PYTHON_BIN" -m alembic upgrade head 2>&1; then
+            log "Migrations complete"
+        else
+            warn "Migrations skipped or failed (may already be applied)"
+        fi
+    )
+
+    # ── Start Backend API ─────────────────────────────────────────────────
+    step "Starting Backend API (http://localhost:8000)..."
+    kill_by_pid_file "$PID_DIR/api.pid"
+    (
+        cd backend
+        nohup $PYTHON_BIN -m uvicorn app.main:app \
+            --host 0.0.0.0 \
+            --port 8000 \
+            --log-level info \
+            > "$LOG_DIR/api.log" 2>&1 &
+        write_pid "$PID_DIR/api.pid" $!
+    )
+    log "Backend API started (PID: $(cat $PID_DIR/api.pid))"
+
+    # Wait for API to be ready
+    info "Waiting for API to be healthy (timeout: 60s)..."
+    for i in {1..30}; do
+        if curl -sf http://localhost:8000/api/v1/health &>/dev/null; then
+            log "API is healthy"
+            break
+        fi
+        echo -n "."
+        sleep 2
+    done
+
+    if ! curl -sf http://localhost:8000/api/v1/health &>/dev/null; then
+        err "Backend API failed to become healthy. See logs/api.log"
+        return 1
+    fi
+
+    # ── Colab Keep-Alive ──────────────────────────────────────────────────
+    KEEPALIVE_PID_FILE="$PID_DIR/colab_keepalive.pid"
+    if [[ -f "$KEEPALIVE_PID_FILE" ]]; then
+        kill_by_pid_file "$KEEPALIVE_PID_FILE"
+    fi
+    nohup bash -c 'trap "exit 0" TERM INT; while true; do curl -sf http://localhost:8000/api/v1/health >/dev/null 2>&1 || true; sleep 45; done' \
+        > "$LOG_DIR/keepalive.log" 2>&1 &
+    echo $! > "$KEEPALIVE_PID_FILE"
+    log "Colab keep-alive started (PID: $(cat "$KEEPALIVE_PID_FILE"))"
+
+    # ── Start Celery Worker ───────────────────────────────────────────────
+    step "Starting Celery Worker..."
+    kill_by_pid_file "$PID_DIR/worker.pid"
+    CELERY_BROKER_ARG=""
+    CELERY_BACKEND_ARG=""
+    if [[ "$REDIS_AVAILABLE" != "true" ]]; then
+        CELERY_BROKER_ARG="--broker memory://"
+        CELERY_BACKEND_ARG="--backend cache+memory://"
+    fi
+    (
+        cd backend
+        set -a; source ../.env 2>/dev/null || true; set +a
+        nohup $PYTHON_BIN -m celery -A app.workers.celery_app worker \
+            $CELERY_BROKER_ARG \
+            $CELERY_BACKEND_ARG \
+            --loglevel=info \
+            --concurrency=1 \
+            -B \
+            -Q generation,images \
+            > "$LOG_DIR/worker.log" 2>&1 &
+        write_pid "$PID_DIR/worker.pid" $!
+    )
+    log "Celery Worker started (PID: $(cat $PID_DIR/worker.pid))"
+
+    # ── Start Frontend ────────────────────────────────────────────────────
+    step "Starting Frontend (http://localhost:3000)..."
+
+    if [[ ! -d node_modules ]]; then
+        info "Installing npm dependencies..."
+        npm ci --prefer-offline --no-audit 2>&1 | grep -E '(added|up to date)' || true
+    fi
+
+    FRONTEND_PID_FILE="$PID_DIR/frontend.pid"
+    kill_by_pid_file "$FRONTEND_PID_FILE"
+
+    FRONTEND_RUN_CMD="npm run dev"
+    if ! command -v npm &>/dev/null; then
+        err "npm not found — cannot start frontend"
+    else
+        (
+            export NEXT_PUBLIC_API_URL=http://localhost:8000
+            nohup npm run dev > "$LOG_DIR/frontend.log" 2>&1 &
+            write_pid "$FRONTEND_PID_FILE" $!
+        )
+        log "Frontend started (PID: $(cat $FRONTEND_PID_FILE))"
+    fi
+
+    # ── Summary ───────────────────────────────────────────────────────────
+    echo ""
+    echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║${NC}  ${GREEN}✅ All Services Started${NC}"
+    echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "  ${BOLD}Endpoints:${NC}"
+    echo -e "    Frontend       ${CYAN}http://localhost:3000${NC}"
+    echo -e "    Backend API    ${CYAN}http://localhost:8000${NC}"
+    echo -e "    API Docs       ${CYAN}http://localhost:8000/docs${NC}"
+    echo ""
+    echo -e "  ${BOLD}Management:${NC}"
+    echo -e "    Stop           : bash scripts/colab.sh --stop"
+    echo -e "    Restart        : bash scripts/colab.sh --restart"
+    echo ""
+}
+
+colab_stop_services() {
+    head_ "Stopping AI 3D Studio Services (Colab)"
+
+    PID_DIR="${PROJECT_ROOT}/.pids"
+
+    if [[ ! -d "$PID_DIR" ]]; then
+        warn "No PID directory found — services may not be running"
+        return 0
+    fi
+
+    # Stop Frontend
+    if [[ -f "$PID_DIR/frontend.pid" ]]; then
+        info "Stopping Frontend..."
+        kill_by_pid_file "$PID_DIR/frontend.pid"
+        log "Frontend stopped"
+    fi
+
+    # Stop Celery Worker
+    if [[ -f "$PID_DIR/worker.pid" ]]; then
+        info "Stopping Celery Worker..."
+        kill_by_pid_file "$PID_DIR/worker.pid"
+        log "Celery Worker stopped"
+    fi
+
+    # Stop Keep-Alive
+    if [[ -f "$PID_DIR/colab_keepalive.pid" ]]; then
+        info "Stopping Keep-Alive..."
+        kill_by_pid_file "$PID_DIR/colab_keepalive.pid"
+        log "Keep-Alive stopped"
+    fi
+
+    # Stop Backend API
+    if [[ -f "$PID_DIR/api.pid" ]]; then
+        info "Stopping Backend API..."
+        kill_by_pid_file "$PID_DIR/api.pid"
+        log "Backend API stopped"
+    fi
+
+    log "All services stopped"
+}
+
+colab_restart_services() {
+    colab_stop_services
+    echo ""
+    colab_start_services
+}
+
+# ── Colab Interactive Launcher ────────────────────────────────────────────
+# Interactive menu for managing Colab services.
+
+colab_interactive() {
+    while true; do
+        echo ""
+        echo -e "${CYAN}${BOLD}╔════════════════════════════════════════════════════════════╗${NC}"
+        echo -e "${CYAN}${BOLD}║${NC}           ${BOLD}AI 3D Studio — Colab Launcher${NC}                 ${CYAN}${BOLD}║${NC}"
+        echo -e "${CYAN}${BOLD}╠════════════════════════════════════════════════════════════╣${NC}"
+        echo -e "${CYAN}${BOLD}║${NC}                                                            ${CYAN}${BOLD}║${NC}"
+        echo -e "${CYAN}${BOLD}║${NC}  ${GREEN}[1]${NC} ${BOLD}Setup${NC}      — Full bootstrap + start all services     ${CYAN}${BOLD}║${NC}"
+        echo -e "${CYAN}${BOLD}║${NC}  ${GREEN}[2]${NC} ${BOLD}Start${NC}      — Start services (skip setup)             ${CYAN}${BOLD}║${NC}"
+        echo -e "${CYAN}${BOLD}║${NC}  ${GREEN}[3]${NC} ${BOLD}Stop${NC}       — Stop all running services               ${CYAN}${BOLD}║${NC}"
+        echo -e "${CYAN}${BOLD}║${NC}  ${GREEN}[4]${NC} ${BOLD}Restart${NC}    — Stop + Start services                    ${CYAN}${BOLD}║${NC}"
+        echo -e "${CYAN}${BOLD}║${NC}  ${GREEN}[5]${NC} ${BOLD}Status${NC}     — Check service status                     ${CYAN}${BOLD}║${NC}"
+        echo -e "${CYAN}${BOLD}║${NC}                                                            ${CYAN}${BOLD}║${NC}"
+        echo -e "${CYAN}${BOLD}║${NC}  ${RED}[q]${NC} ${BOLD}Quit${NC}                                                 ${CYAN}${BOLD}║${NC}"
+        echo -e "${CYAN}${BOLD}║${NC}                                                            ${CYAN}${BOLD}║${NC}"
+        echo -e "${CYAN}${BOLD}╚════════════════════════════════════════════════════════════╝${NC}"
+        echo ""
+        read -rp "  Choice: " choice
+        echo ""
+        case "$choice" in
+            1)
+                # Full setup is handled by the main flow below
+                RUN_FULL_SETUP=true
+                return 0
+                ;;
+            2)
+                colab_start_services
+                return 0
+                ;;
+            3)
+                colab_stop_services
+                return 0
+                ;;
+            4)
+                colab_restart_services
+                return 0
+                ;;
+            5)
+                _colab_show_status
+                ;;
+            q|Q)
+                echo -e "${GREEN}  Goodbye! 👋${NC}"
+                exit 0
+                ;;
+            *)
+                echo -e "${RED}  Invalid choice${NC}"
+                ;;
+        esac
+    done
+}
+
+_colab_show_status() {
+    PID_DIR="${PROJECT_ROOT}/.pids"
+    echo -e "${CYAN}Service Status:${NC}"
+
+    # Backend API
+    if [[ -f "$PID_DIR/api.pid" ]] && kill -0 "$(cat "$PID_DIR/api.pid")" 2>/dev/null; then
+        echo -e "${GREEN}●${NC} Backend API (PID: $(cat "$PID_DIR/api.pid"))"
+    else
+        echo -e "${RED}●${NC} Backend API"
+    fi
+
+    # Celery Worker
+    if [[ -f "$PID_DIR/worker.pid" ]] && kill -0 "$(cat "$PID_DIR/worker.pid")" 2>/dev/null; then
+        echo -e "${GREEN}●${NC} Celery Worker (PID: $(cat "$PID_DIR/worker.pid"))"
+    else
+        echo -e "${RED}●${NC} Celery Worker"
+    fi
+
+    # Frontend
+    if [[ -f "$PID_DIR/frontend.pid" ]] && kill -0 "$(cat "$PID_DIR/frontend.pid")" 2>/dev/null; then
+        echo -e "${GREEN}●${NC} Frontend (PID: $(cat "$PID_DIR/frontend.pid"))"
+    else
+        echo -e "${RED}●${NC} Frontend"
+    fi
+
+    # PostgreSQL
+    if command -v pg_isready &>/dev/null; then
+        pg_isready -q 2>/dev/null && echo -e "${GREEN}●${NC} PostgreSQL" || echo -e "${RED}●${NC} PostgreSQL"
+    else
+        echo -e "${RED}●${NC} PostgreSQL"
+    fi
+
+    # Redis
+    if command -v redis-cli &>/dev/null; then
+        redis-cli ping 2>/dev/null | grep -q PONG && echo -e "${GREEN}●${NC} Redis" || echo -e "${RED}●${NC} Redis"
+    else
+        echo -e "${RED}●${NC} Redis"
+    fi
+    echo ""
+}
+
+# ── Interactive Launcher (default when no flags) ─────────────────────────
+# If no setup flags were passed, show the interactive menu.
+
+if [[ "$SKIP_START" != "true" && "$REPOS_ONLY" != "true" && "$WEIGHTS_ONLY" != "true" ]]; then
+    colab_interactive
+    # If user chose Setup (option 1), continue with full bootstrap
+    if [[ "${RUN_FULL_SETUP:-}" != "true" ]]; then
+        exit 0
+    fi
+fi
 # ── Step 1: Environment Setup ─────────────────────────────────────────────
 
 step "1/6 Google Colab environment setup"
@@ -859,326 +1179,6 @@ if [[ "$REPOS_ONLY" == "true" ]]; then
     exit 0
 fi
 
-# ── Colab Service Management Functions ─────────────────────────────────────
-# These functions manage services independently of the bootstrap flow,
-# allowing start/stop/restart without re-running the full setup.
-
-colab_start_services() {
-    head_ "Starting AI 3D Studio Services (Colab)"
-
-    # ── Variables ─────────────────────────────────────────────────────────
-    PYTHON_BIN="${PROJECT_ROOT}/backend/.venv/bin/python"
-    PID_DIR="${PROJECT_ROOT}/.pids"
-    LOG_DIR="${PROJECT_ROOT}/logs"
-    mkdir -p "$PID_DIR" "$LOG_DIR"
-
-    if [[ ! -x "$PYTHON_BIN" ]]; then
-        err "Backend venv not found. Run full setup first: bash scripts/colab.sh"
-        return 1
-    fi
-
-    # ── Ensure Redis is available ─────────────────────────────────────────
-    if ! command -v redis-server &>/dev/null; then
-        info "Installing Redis..."
-        sudo apt-get update -qq 2>/dev/null && sudo apt-get install -y redis-server 2>/dev/null || {
-            warn "Could not install Redis — using in-memory fallback"
-        }
-    fi
-
-    REDIS_AVAILABLE=false
-    if command -v redis-server &>/dev/null; then
-        if ! redis-cli ping &>/dev/null 2>&1; then
-            info "Starting Redis (daemonized)..."
-            redis-server --daemonize yes 2>/dev/null || warn "Failed to start Redis"
-        fi
-        if redis-cli ping &>/dev/null 2>&1; then
-            log "Redis is running"
-            REDIS_AVAILABLE=true
-        else
-            warn "Redis not responding — using in-memory fallback"
-        fi
-    else
-        warn "Redis not available — using in-memory fallback"
-    fi
-
-    if [[ "$REDIS_AVAILABLE" != "true" ]]; then
-        export CELERY_TASK_ALWAYS_EAGER=1
-        export CELERY_BROKER_URL="memory://"
-        export CELERY_RESULT_BACKEND="cache+memory://"
-        export REDIS_URL="memory://"
-        sed -i 's|^REDIS_URL=.*|REDIS_URL=memory://|' .env 2>/dev/null || true
-        sed -i 's|^CELERY_BROKER_URL=.*|CELERY_BROKER_URL=memory://|' .env 2>/dev/null || true
-        sed -i 's|^CELERY_RESULT_BACKEND=.*|CELERY_RESULT_BACKEND=cache+memory://|' .env 2>/dev/null || true
-        log "Celery fallback active: eager execution + memory broker (no Redis)"
-    fi
-
-    # ── Run migrations ────────────────────────────────────────────────────
-    step "Running database migrations..."
-    (
-        cd backend
-        if "$PYTHON_BIN" -m alembic upgrade head 2>&1; then
-            log "Migrations complete"
-        else
-            warn "Migrations skipped or failed (may already be applied)"
-        fi
-    )
-
-    # ── Start Backend API ─────────────────────────────────────────────────
-    step "Starting Backend API (http://localhost:8000)..."
-    kill_by_pid_file "$PID_DIR/api.pid"
-    (
-        cd backend
-        nohup $PYTHON_BIN -m uvicorn app.main:app \
-            --host 0.0.0.0 \
-            --port 8000 \
-            --log-level info \
-            > "$LOG_DIR/api.log" 2>&1 &
-        write_pid "$PID_DIR/api.pid" $!
-    )
-    log "Backend API started (PID: $(cat $PID_DIR/api.pid))"
-
-    # Wait for API to be ready
-    info "Waiting for API to be healthy (timeout: 60s)..."
-    for i in {1..30}; do
-        if curl -sf http://localhost:8000/api/v1/health &>/dev/null; then
-            log "API is healthy"
-            break
-        fi
-        echo -n "."
-        sleep 2
-    done
-
-    if ! curl -sf http://localhost:8000/api/v1/health &>/dev/null; then
-        err "Backend API failed to become healthy. See logs/api.log"
-        return 1
-    fi
-
-    # ── Colab Keep-Alive ──────────────────────────────────────────────────
-    KEEPALIVE_PID_FILE="$PID_DIR/colab_keepalive.pid"
-    if [[ -f "$KEEPALIVE_PID_FILE" ]]; then
-        kill_by_pid_file "$KEEPALIVE_PID_FILE"
-    fi
-    nohup bash -c 'trap "exit 0" TERM INT; while true; do curl -sf http://localhost:8000/api/v1/health >/dev/null 2>&1 || true; sleep 45; done' \
-        > "$LOG_DIR/keepalive.log" 2>&1 &
-    echo $! > "$KEEPALIVE_PID_FILE"
-    log "Colab keep-alive started (PID: $(cat "$KEEPALIVE_PID_FILE"))"
-
-    # ── Start Celery Worker ───────────────────────────────────────────────
-    step "Starting Celery Worker..."
-    kill_by_pid_file "$PID_DIR/worker.pid"
-    CELERY_BROKER_ARG=""
-    CELERY_BACKEND_ARG=""
-    if [[ "$REDIS_AVAILABLE" != "true" ]]; then
-        CELERY_BROKER_ARG="--broker memory://"
-        CELERY_BACKEND_ARG="--backend cache+memory://"
-    fi
-    (
-        cd backend
-        set -a; source ../.env 2>/dev/null || true; set +a
-        nohup $PYTHON_BIN -m celery -A app.workers.celery_app worker \
-            $CELERY_BROKER_ARG \
-            $CELERY_BACKEND_ARG \
-            --loglevel=info \
-            --concurrency=1 \
-            -B \
-            -Q generation,images \
-            > "$LOG_DIR/worker.log" 2>&1 &
-        write_pid "$PID_DIR/worker.pid" $!
-    )
-    log "Celery Worker started (PID: $(cat $PID_DIR/worker.pid))"
-
-    # ── Start Frontend ────────────────────────────────────────────────────
-    step "Starting Frontend (http://localhost:3000)..."
-
-    if [[ ! -d node_modules ]]; then
-        info "Installing npm dependencies..."
-        npm ci --prefer-offline --no-audit 2>&1 | grep -E '(added|up to date)' || true
-    fi
-
-    FRONTEND_PID_FILE="$PID_DIR/frontend.pid"
-    kill_by_pid_file "$FRONTEND_PID_FILE"
-
-    FRONTEND_RUN_CMD="npm run dev"
-    if ! command -v npm &>/dev/null; then
-        err "npm not found — cannot start frontend"
-    else
-        (
-            export NEXT_PUBLIC_API_URL=http://localhost:8000
-            nohup npm run dev > "$LOG_DIR/frontend.log" 2>&1 &
-            write_pid "$FRONTEND_PID_FILE" $!
-        )
-        log "Frontend started (PID: $(cat $FRONTEND_PID_FILE))"
-    fi
-
-    # ── Summary ───────────────────────────────────────────────────────────
-    echo ""
-    echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║${NC}  ${GREEN}✅ All Services Started${NC}"
-    echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
-    echo ""
-    echo -e "  ${BOLD}Endpoints:${NC}"
-    echo -e "    Frontend       ${CYAN}http://localhost:3000${NC}"
-    echo -e "    Backend API    ${CYAN}http://localhost:8000${NC}"
-    echo -e "    API Docs       ${CYAN}http://localhost:8000/docs${NC}"
-    echo ""
-    echo -e "  ${BOLD}Management:${NC}"
-    echo -e "    Stop           : bash scripts/colab.sh --stop"
-    echo -e "    Restart        : bash scripts/colab.sh --restart"
-    echo ""
-}
-
-colab_stop_services() {
-    head_ "Stopping AI 3D Studio Services (Colab)"
-
-    PID_DIR="${PROJECT_ROOT}/.pids"
-
-    if [[ ! -d "$PID_DIR" ]]; then
-        warn "No PID directory found — services may not be running"
-        return 0
-    fi
-
-    # Stop Frontend
-    if [[ -f "$PID_DIR/frontend.pid" ]]; then
-        info "Stopping Frontend..."
-        kill_by_pid_file "$PID_DIR/frontend.pid"
-        log "Frontend stopped"
-    fi
-
-    # Stop Celery Worker
-    if [[ -f "$PID_DIR/worker.pid" ]]; then
-        info "Stopping Celery Worker..."
-        kill_by_pid_file "$PID_DIR/worker.pid"
-        log "Celery Worker stopped"
-    fi
-
-    # Stop Keep-Alive
-    if [[ -f "$PID_DIR/colab_keepalive.pid" ]]; then
-        info "Stopping Keep-Alive..."
-        kill_by_pid_file "$PID_DIR/colab_keepalive.pid"
-        log "Keep-Alive stopped"
-    fi
-
-    # Stop Backend API
-    if [[ -f "$PID_DIR/api.pid" ]]; then
-        info "Stopping Backend API..."
-        kill_by_pid_file "$PID_DIR/api.pid"
-        log "Backend API stopped"
-    fi
-
-    log "All services stopped"
-}
-
-colab_restart_services() {
-    colab_stop_services
-    echo ""
-    colab_start_services
-}
-
-# ── Colab Interactive Launcher ────────────────────────────────────────────
-# Interactive menu for managing Colab services.
-
-colab_interactive() {
-    while true; do
-        echo ""
-        echo -e "${CYAN}${BOLD}╔════════════════════════════════════════════════════════════╗${NC}"
-        echo -e "${CYAN}${BOLD}║${NC}           ${BOLD}AI 3D Studio — Colab Launcher${NC}                 ${CYAN}${BOLD}║${NC}"
-        echo -e "${CYAN}${BOLD}╠════════════════════════════════════════════════════════════╣${NC}"
-        echo -e "${CYAN}${BOLD}║${NC}                                                            ${CYAN}${BOLD}║${NC}"
-        echo -e "${CYAN}${BOLD}║${NC}  ${GREEN}[1]${NC} ${BOLD}Setup${NC}      — Full bootstrap + start all services     ${CYAN}${BOLD}║${NC}"
-        echo -e "${CYAN}${BOLD}║${NC}  ${GREEN}[2]${NC} ${BOLD}Start${NC}      — Start services (skip setup)             ${CYAN}${BOLD}║${NC}"
-        echo -e "${CYAN}${BOLD}║${NC}  ${GREEN}[3]${NC} ${BOLD}Stop${NC}       — Stop all running services               ${CYAN}${BOLD}║${NC}"
-        echo -e "${CYAN}${BOLD}║${NC}  ${GREEN}[4]${NC} ${BOLD}Restart${NC}    — Stop + Start services                    ${CYAN}${BOLD}║${NC}"
-        echo -e "${CYAN}${BOLD}║${NC}  ${GREEN}[5]${NC} ${BOLD}Status${NC}     — Check service status                     ${CYAN}${BOLD}║${NC}"
-        echo -e "${CYAN}${BOLD}║${NC}                                                            ${CYAN}${BOLD}║${NC}"
-        echo -e "${CYAN}${BOLD}║${NC}  ${RED}[q]${NC} ${BOLD}Quit${NC}                                                 ${CYAN}${BOLD}║${NC}"
-        echo -e "${CYAN}${BOLD}║${NC}                                                            ${CYAN}${BOLD}║${NC}"
-        echo -e "${CYAN}${BOLD}╚════════════════════════════════════════════════════════════╝${NC}"
-        echo ""
-        read -rp "  Choice: " choice
-        echo ""
-        case "$choice" in
-            1)
-                # Full setup is handled by the main flow below
-                RUN_FULL_SETUP=true
-                return 0
-                ;;
-            2)
-                colab_start_services
-                return 0
-                ;;
-            3)
-                colab_stop_services
-                return 0
-                ;;
-            4)
-                colab_restart_services
-                return 0
-                ;;
-            5)
-                _colab_show_status
-                ;;
-            q|Q)
-                echo -e "${GREEN}  Goodbye! 👋${NC}"
-                exit 0
-                ;;
-            *)
-                echo -e "${RED}  Invalid choice${NC}"
-                ;;
-        esac
-    done
-}
-
-_colab_show_status() {
-    PID_DIR="${PROJECT_ROOT}/.pids"
-    echo -e "${CYAN}Service Status:${NC}"
-
-    # Backend API
-    if [[ -f "$PID_DIR/api.pid" ]] && kill -0 "$(cat "$PID_DIR/api.pid")" 2>/dev/null; then
-        echo -e "${GREEN}●${NC} Backend API (PID: $(cat "$PID_DIR/api.pid"))"
-    else
-        echo -e "${RED}●${NC} Backend API"
-    fi
-
-    # Celery Worker
-    if [[ -f "$PID_DIR/worker.pid" ]] && kill -0 "$(cat "$PID_DIR/worker.pid")" 2>/dev/null; then
-        echo -e "${GREEN}●${NC} Celery Worker (PID: $(cat "$PID_DIR/worker.pid"))"
-    else
-        echo -e "${RED}●${NC} Celery Worker"
-    fi
-
-    # Frontend
-    if [[ -f "$PID_DIR/frontend.pid" ]] && kill -0 "$(cat "$PID_DIR/frontend.pid")" 2>/dev/null; then
-        echo -e "${GREEN}●${NC} Frontend (PID: $(cat "$PID_DIR/frontend.pid"))"
-    else
-        echo -e "${RED}●${NC} Frontend"
-    fi
-
-    # PostgreSQL
-    if command -v pg_isready &>/dev/null; then
-        pg_isready -q 2>/dev/null && echo -e "${GREEN}●${NC} PostgreSQL" || echo -e "${RED}●${NC} PostgreSQL"
-    else
-        echo -e "${RED}●${NC} PostgreSQL"
-    fi
-
-    # Redis
-    if command -v redis-cli &>/dev/null; then
-        redis-cli ping 2>/dev/null | grep -q PONG && echo -e "${GREEN}●${NC} Redis" || echo -e "${RED}●${NC} Redis"
-    else
-        echo -e "${RED}●${NC} Redis"
-    fi
-    echo ""
-}
-
-# ── Interactive Launcher (default when no flags) ─────────────────────────
-# If no setup flags were passed, show the interactive menu.
-
-if [[ "$SKIP_START" != "true" && "$REPOS_ONLY" != "true" && "$WEIGHTS_ONLY" != "true" ]]; then
-    colab_interactive
-    # If user chose Setup (option 1), continue with full bootstrap
-    if [[ "${RUN_FULL_SETUP:-}" != "true" ]]; then
-        exit 0
-    fi
-fi
 
 # ── Step 6: Start Services ────────────────────────────────────────────────
 
