@@ -195,16 +195,53 @@ colab_start_services() {
     fi
 
     # ── Ensure PostgreSQL is running ─────────────────────────────────────
+    # Detect installed PostgreSQL version dynamically
+    PG_VERSION="$(ls /etc/postgresql/ 2>/dev/null | sort -V | tail -1)"
+    if [[ -z "$PG_VERSION" ]]; then
+        PG_VERSION="14"
+    fi
+    export PG_VERSION
+    info "Detected PostgreSQL version: $PG_VERSION"
+
     if ! pg_isready -q 2>/dev/null; then
-        info "Starting PostgreSQL..."
+        info "Starting PostgreSQL $PG_VERSION..."
         sudo service postgresql start 2>/dev/null \
-            || sudo pg_ctlcluster "$(ls /etc/postgresql/ 2>/dev/null | head -1)" main start 2>/dev/null \
-            || sudo -u postgres pg_ctl -D "/var/lib/postgresql/$(ls /var/lib/postgresql/ 2>/dev/null | head -1)/main" -l /tmp/pg.log start 2>/dev/null \
+            || sudo pg_ctlcluster "$PG_VERSION" main start 2>/dev/null \
+            || sudo -u postgres pg_ctl -D "/var/lib/postgresql/$PG_VERSION/main" -l /tmp/pg.log start 2>/dev/null \
             || warn "Could not start PostgreSQL"
         sleep 2
     fi
     if pg_isready -q 2>/dev/null; then
-        log "PostgreSQL is running"
+        log "PostgreSQL $PG_VERSION is running"
+        # Ensure PostgreSQL listens on 127.0.0.1 (fixes socket.gaierror in Colab)
+        PG_CONF="/etc/postgresql/$PG_VERSION/main/postgresql.conf"
+        if [[ -f "$PG_CONF" ]] && ! grep -q "^listen_addresses.*127.0.0.1" "$PG_CONF" 2>/dev/null; then
+            echo "listen_addresses = '127.0.0.1'" | sudo tee -a "$PG_CONF" > /dev/null 2>&1 || true
+            sudo service postgresql reload 2>/dev/null || true
+            info "Configured PostgreSQL to listen on 127.0.0.1"
+        fi
+        # Ensure pg_hba.conf allows local connections
+        PG_HBA="/etc/postgresql/$PG_VERSION/main/pg_hba.conf"
+        if [[ -f "$PG_HBA" ]] && ! grep -q "host.*all.*all.*127.0.0.1/32.*trust" "$PG_HBA" 2>/dev/null; then
+            echo "host all all 127.0.0.1/32 trust" | sudo tee -a "$PG_HBA" > /dev/null 2>&1 || true
+            echo "host all all ::1/128 trust" | sudo tee -a "$PG_HBA" > /dev/null 2>&1 || true
+            sudo service postgresql reload 2>/dev/null || true
+            info "Configured pg_hba.conf for local connections"
+        fi
+        # Ensure database and user exist (fixes missing DB after reinstall)
+        if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='ai_studio'" 2>/dev/null | grep -q 1; then
+            info "Creating database 'ai_studio'..."
+            sudo -u postgres psql -c "CREATE USER ai_studio WITH PASSWORD 'ai_studio_dev';" 2>/dev/null || true
+            sudo -u postgres psql -c "CREATE DATABASE ai_studio OWNER ai_studio;" 2>/dev/null || true
+            sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ai_studio TO ai_studio;" 2>/dev/null || true
+            log "Database 'ai_studio' created"
+        fi
+        # Test actual TCP connection (not just pg_isready which uses unix socket)
+        if PGPASSWORD="ai_studio_dev" psql -h 127.0.0.1 -U ai_studio -d ai_studio -c "SELECT 1" &>/dev/null; then
+            log "TCP connection to PostgreSQL verified"
+        else
+            warn "TCP connection failed — migrations may fail"
+        fi
     else
         warn "PostgreSQL not responding — migrations will be skipped"
     fi
@@ -407,16 +444,16 @@ colab_stop_services() {
 
     # Stop PostgreSQL (if running)
     if command -v pg_isready &>/dev/null && pg_isready -q 2>/dev/null; then
-        info "Stopping PostgreSQL..."
+        info "Stopping PostgreSQL ${PG_VERSION:-$(ls /etc/postgresql/ 2>/dev/null | sort -V | tail -1)}..."
         sudo service postgresql stop 2>/dev/null \
-            || sudo pg_ctlcluster "$(ls /etc/postgresql/ 2>/dev/null | head -1)" main stop 2>/dev/null \
-            || sudo -u postgres pg_ctl -D "/var/lib/postgresql/$(ls /var/lib/postgresql/ 2>/dev/null | head -1)/main" stop 2>/dev/null \
+            || sudo pg_ctlcluster "${PG_VERSION:-$(ls /etc/postgresql/ 2>/dev/null | sort -V | tail -1)}" main stop 2>/dev/null \
+            || sudo -u postgres pg_ctl -D "/var/lib/postgresql/${PG_VERSION:-$(ls /etc/postgresql/ 2>/dev/null | sort -V | tail -1)}/main" stop 2>/dev/null \
             || true
         # Verify it stopped
         sleep 2
         if pg_isready -q 2>/dev/null; then
             warn "PostgreSQL did not stop gracefully — forcing..."
-            sudo pg_ctlcluster "$(ls /etc/postgresql/ 2>/dev/null | head -1)" main stop -m immediate 2>/dev/null || true
+            sudo pg_ctlcluster "${PG_VERSION:-$(ls /etc/postgresql/ 2>/dev/null | sort -V | tail -1)}" main stop -m immediate 2>/dev/null || true
             sleep 1
         fi
         log "PostgreSQL stopped"
