@@ -50,6 +50,8 @@
 
 @theme {
   --radius: var(--radius, 0.75rem);
+  --radius-25: 1.5625rem;
+  --radius-10: 0.625rem;
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
   --color-card: hsl(var(--card));
@@ -82,8 +84,32 @@
   --color-tripo-gray-200: hsl(var(--tripo-gray-200));
   --color-tripo-gray-300: hsl(var(--tripo-gray-300));
   --color-tripo-yellow-1: hsl(var(--tripo-yellow-1));
+  --color-tripo-yellow-2: #F9CF00;
   --color-tripo-white-5: hsl(var(--tripo-white-5));
   --color-tripo-white-10: hsl(var(--tripo-white-10));
+  --shadow-header-float: 0 2px 40px 0 rgba(0, 0, 0, 0.3);
+  --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  --backdrop-blur-20: 20px;
+  --backdrop-blur-14: 14px;
+}
+
+/* Custom radius utilities for Tailwind v4 */
+@utility rounded-25 {
+  border-radius: var(--radius-25);
+}
+@utility rounded-10 {
+  border-radius: var(--radius-10);
+}
+@utility shadow-header-float {
+  box-shadow: var(--shadow-header-float);
+}
+@utility backdrop-blur-20 {
+  backdrop-filter: blur(var(--backdrop-blur-20));
+  -webkit-backdrop-filter: blur(var(--backdrop-blur-20));
+}
+@utility backdrop-blur-14 {
+  backdrop-filter: blur(var(--backdrop-blur-14));
+  -webkit-backdrop-filter: blur(var(--backdrop-blur-14));
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2362,6 +2388,57 @@ html.reduced-animations *::after {
 /* ── Typography Utilities ── */
 
 
+/* ── Glass Panel System (Tripo3D Reference) ── */
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.5625rem;
+}
+
+.glass-panel-subtle {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 0.625rem;
+}
+
+.glass-panel-strong {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+}
+
+/* ── Gradient Border (Reference Header Button) ── */
+
+.gradient-border-header {
+  position: relative;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+.gradient-border-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(249, 207, 0, 0.4), rgba(255, 255, 255, 0.1), rgba(249, 207, 0, 0.2));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ── Yellow Accent Text ── */
+
+.text-accent-yellow {
+  color: #F9CF00;
+}
 
 /* ═══════════════════════════════════════════════════════════════
    ACCESSIBILITY — Respect prefers-reduced-motion

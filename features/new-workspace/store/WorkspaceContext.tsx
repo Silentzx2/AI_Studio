@@ -9,7 +9,6 @@ import {
   GenerationSettings,
   RemeshSettings,
   TextureSettings,
-  SegmentationSettings,
   ActiveTask,
   EnvironmentSettings,
 } from '../types';
@@ -86,14 +85,11 @@ interface WorkspaceContextType {
   setRemeshSettings: React.Dispatch<React.SetStateAction<RemeshSettings>>;
   textureSettings: TextureSettings;
   setTextureSettings: React.Dispatch<React.SetStateAction<TextureSettings>>;
-  segmentationSettings: SegmentationSettings;
-  setSegmentationSettings: React.Dispatch<React.SetStateAction<SegmentationSettings>>;
   generate3DModel: () => Promise<void>;
   generateImageTo3D: (customImage?: string) => Promise<void>;
   runModelGeneration: () => Promise<void>;
   runRemeshGeneration: () => Promise<void>;
   runTextureGeneration: () => Promise<void>;
-  runSegmentationGeneration: () => Promise<void>;
   queueWorkflow: (workflow: Record<string, unknown>, type: ActiveTask['type'], title: string) => Promise<void>;
   navigateToTool: (tool: ToolType) => void;
   navigateToMain: (nav: MainNavRoute) => void;
@@ -104,8 +100,7 @@ const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefin
 
 const TOOL_TO_ROUTE: Record<ToolType, string> = {
   model: '/workspace/generate',
-  segment: '/workspace/segment',
-  retopo: '/workspace/retopo',
+  worldgen: '/workspace/worldgen',
   remesh: '/workspace/remesh',
   texture: '/workspace/texture',
   edit: '/workspace/edit',
@@ -181,11 +176,6 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     referenceImage: null,
     prompt: '',
     maps: { albedo: true, normal: true, roughness: true, metallic: true, ao: true, height: false },
-  });
-
-  const [segmentationSettings, setSegmentationSettings] = useState<SegmentationSettings>({
-    mode: 'auto', target: 'character', selectedPart: 'Whole Character',
-    feather: 0.15, preserveTextures: true,
   });
 
   const [environmentSettings, setEnvironmentSettings] = useState<EnvironmentSettings>({
@@ -569,29 +559,6 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [textureSettings.style, textureSettings.prompt, startTask]);
 
-  const runSegmentationGeneration = useCallback(async () => {
-    startTask('segment', 'Segmentation');
-    try {
-      const res = await fetch('/api/v1/generation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode: 'render',
-          quality: 'standard',
-          workspace: 'post-processing',
-          prompt: `segment:${segmentationSettings.target}:${segmentationSettings.selectedPart}`,
-        }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json() as { job_id?: string; id?: string };
-      setActiveTask(prev => prev ? { ...prev, id: data.job_id ?? data.id ?? prev.id, status: 'running', currentStep: 'Processing' } : prev);
-      setExecutionStep('Segmentation submitted');
-    } catch (e) {
-      setExecutionStep(e instanceof Error ? e.message : 'Segmentation failed');
-      setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: 'Submission failed' } : prev);
-    }
-  }, [segmentationSettings.target, segmentationSettings.selectedPart, startTask]);
-
   const queueWorkflow = useCallback(async (workflow: Record<string, unknown>, type: ActiveTask['type'], title: string) => {
     startTask(type, title);
     try {
@@ -692,22 +659,20 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     generationSettings, setGenerationSettings,
     remeshSettings, setRemeshSettings,
     textureSettings, setTextureSettings,
-    segmentationSettings, setSegmentationSettings,
     environmentSettings, setEnvironmentSettings,
   }), [generationSettings, setGenerationSettings,
     remeshSettings, setRemeshSettings,
     textureSettings, setTextureSettings,
-    segmentationSettings, setSegmentationSettings,
     environmentSettings, setEnvironmentSettings]);
 
   const generationActionsValue = useMemo(() => ({
     generate3DModel, generateImageTo3D,
     runModelGeneration: generate3DModel,
     runRemeshGeneration, runTextureGeneration,
-    runSegmentationGeneration, queueWorkflow,
+    queueWorkflow,
   }), [generate3DModel, generateImageTo3D,
     runRemeshGeneration, runTextureGeneration,
-    runSegmentationGeneration, queueWorkflow]);
+    queueWorkflow]);
 
   const value = React.useMemo(() => ({
     ...viewportValue, ...toolValue, ...assetValue, ...systemValue,

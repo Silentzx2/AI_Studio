@@ -339,13 +339,14 @@ The frontend uses a modern persistent workspace: ONE global 3D viewport (`MeshVi
 ```
 
 #### New Component Organization (`/features/new-workspace/`)
-- **WorkspaceShell**: Entry point — renders TopHeader, LeftNavigation, tool panels, MeshViewer, right panels, modals
+- **WorkspaceShell**: Entry point — renders TopHeader, tool panels, MeshViewer, right panels, modals
 - **Viewport/MeshViewer.tsx**: Full Three.js viewport with 3-point lighting, floor grid, turntable auto-rotation, camera presets, drag-and-drop asset loading
-- **Navigation/LeftNavigation.tsx**: Vertical icon rail with 8 tool buttons
-- **Panels/**: Tool-specific panels (GeneratePanel, TexturePanel, RiggingPanel, AnimatePanel, RemeshPanel, SegmentationPanel, SecondaryPanels)
-- **RightPanel/**: Contextual panels (RightAssetsPanel, RightPropertyPanel, RightPromptPanel)
-- **Header/TopHeader.tsx**: Brand logo, workspace mode switcher, navigation links, backend status pill
+- **Navigation/LeftNavigation.tsx**: Vertical icon rail with 8 tool buttons (not rendered in WorldGen page)
+- **Panels/**: Tool-specific panels (GeneratePanel, TexturePanel, RiggingPanel, AnimatePanel, RemeshPanel, SecondaryPanels, WorldGenToolPanel)
+- **RightPanel/​**: Contextual panels (RightAssetsPanel, RightPromptPanel) — RightPropertyPanel removed from WorldGen
+- **Header/TopHeader.tsx**: Brand logo, workspace mode switcher, navigation links, backend status pill (solid theme, no glass/transparent effects)
 - **Modals/**: ExportModal, SettingsModal, DccBridgeModal
+- **WorldGen integration**: WorldGen now uses standard WorkspaceShell with MeshViewer; WorldGenToolPanel renders as left tool panel; WorldGenShell, WorldMeshViewer, PropertiesPanel removed
 - **Notifications/ProgressOverlay.tsx**: Real-time generation progress overlay
 - **Dashboard/**: StudioDashboard, SystemPage, OutputsPage
 - **store/WorkspaceContext.tsx**: React Context for UI state, bridged to Zustand via `lib/storeAdapter.ts`

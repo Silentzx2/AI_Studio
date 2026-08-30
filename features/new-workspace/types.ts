@@ -1,7 +1,6 @@
 export type ToolType =
   | 'model'
-  | 'segment'
-  | 'retopo'
+  | 'worldgen'
   | 'remesh'
   | 'texture'
   | 'edit'

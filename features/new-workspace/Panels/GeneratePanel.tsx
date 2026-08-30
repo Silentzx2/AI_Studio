@@ -158,15 +158,15 @@ export const GeneratePanel: React.FC = () => {
   };
 
   return (
-    <div id="panel-generate-model" className="flex flex-col h-full bg-[hsl(var(--surface-1))] text-xs select-none">
+    <div id="panel-generate-model" className="flex flex-col h-full bg-[hsl(var(--card))] text-xs select-none">
       {/* Header title */}
-      <div className="p-3 pb-2 border-b border-[hsl(var(--border))]">
+      <div className="p-3 pb-2 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[hsl(var(--primary))]" />
+            <Sparkles className="w-4 h-4 text-[#F9CF00]" />
             <h2 className="text-xs font-bold text-[hsl(var(--foreground))]">Generate 3D Model</h2>
           </div>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[hsl(var(--surface-3))] text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/20">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[hsl(var(--surface-3))] text-[#F9CF00] border border-[#F9CF00]/20">
             FastAPI-3D
           </span>
         </div>
@@ -198,7 +198,7 @@ export const GeneratePanel: React.FC = () => {
               onClick={handleImageTo3DTabClick}
               className={`flex-1 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
                 currentMode === 'image-to-3d'
-                  ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-md'
+                  ? 'bg-[#F9CF00] text-[hsl(var(--primary-foreground))] shadow-md'
                   : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
               }`}
             >
@@ -344,7 +344,7 @@ export const GeneratePanel: React.FC = () => {
               <button
                 onClick={() => setGenerationSettings(prev => ({ ...prev, removeBackground: !prev.removeBackground }))}
                 className={`w-9 h-5 rounded-full p-0.5 transition-colors ${
-                  generationSettings.removeBackground !== false ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-4))]'
+                  generationSettings.removeBackground !== false ? 'bg-[#F9CF00]' : 'bg-[hsl(var(--surface-4))]'
                 }`}
               >
                 <div className={`w-4 h-4 rounded-full bg-[hsl(var(--surface-0))] transition-transform ${
@@ -390,7 +390,7 @@ export const GeneratePanel: React.FC = () => {
                     onClick={() => handleModelSelect(m)}
                     className={`p-2 rounded-xl text-left border transition-all relative cursor-pointer ${
                       isSelected
-                        ? 'bg-[hsl(var(--primary))]/10 border-[hsl(var(--primary))] shadow-sm ring-1 ring-[hsl(var(--primary))]/30'
+                        ? 'bg-[#F9CF00]/10 border-[#F9CF00] shadow-sm ring-1 ring-[#F9CF00]/30'
                         : 'bg-[hsl(var(--surface-1))] border-[hsl(var(--border))] hover:border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]'
                     }`}
                   >
@@ -398,12 +398,12 @@ export const GeneratePanel: React.FC = () => {
                       <div className="flex items-center gap-1 min-w-0">
                         {!isInstalled && (
                           <SimpleTooltip label="Not installed">
-                            <span className="w-2 h-2 rounded-full bg-[hsl(var(--primary))] flex-shrink-0" />
+                            <span className="w-2 h-2 rounded-full bg-[#F9CF00] flex-shrink-0" />
                           </SimpleTooltip>
                         )}
                         <span className={`font-bold text-xs truncate ${
                           isSelected 
-                            ? 'text-[hsl(var(--primary))]' 
+                            ? 'text-[#F9CF00]' 
                             : 'text-[hsl(var(--foreground))]'
                         }`}>
                           {m.label}
@@ -412,7 +412,7 @@ export const GeneratePanel: React.FC = () => {
 
                       <span className={`text-[8px] font-mono px-1 rounded ${
                         isSelected
-                          ? 'bg-[hsl(var(--primary))]/20 text-[hsl(var(--primary))]'
+                          ? 'bg-[#F9CF00]/20 text-[#F9CF00]'
                           : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--foreground))]'
                       }`}>
                         {`${vramGb}GB`}
@@ -430,7 +430,7 @@ export const GeneratePanel: React.FC = () => {
         </div>
 
         {/* Accordion 1: General Settings */}
-        <div className="border border-[hsl(var(--border))] rounded-xl overflow-hidden bg-[hsl(var(--surface-1))]">
+        <div className="border border-[hsl(var(--border))] rounded-xl overflow-hidden bg-[hsl(var(--card))]">
           <button
             onClick={() => setGeneralSettingsOpen(!generalSettingsOpen)}
             className="w-full px-3 py-2.5 flex items-center justify-between font-bold text-xs text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))] transition-colors"
@@ -564,8 +564,8 @@ export const GeneratePanel: React.FC = () => {
            )}
          </div>
 
-         {/* Accordion 2: Auto-Optimize Settings */}
-         <div className="border border-[hsl(var(--border))] rounded-xl overflow-hidden bg-[hsl(var(--surface-1))]">
+          {/* Accordion 2: Auto-Optimize Settings */}
+          <div className="border border-[hsl(var(--border))] rounded-xl overflow-hidden bg-[hsl(var(--card))]">
            <button
              onClick={() => setGenerationSettings(prev => ({ ...prev, autoOptimize: !prev.autoOptimize }))}
              className="w-full px-3 py-2.5 flex items-center justify-between font-bold text-xs text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-2))] transition-colors"
@@ -676,14 +676,14 @@ export const GeneratePanel: React.FC = () => {
          </div>
        </div>
 
-       {/* Bottom Sticky Action Button */}
-       <div className="p-3 border-t border-[hsl(var(--border))] bg-[hsl(var(--surface-0))]">
-        <button
-          id="btn-generate-model-action"
-          onClick={handleGenerate}
-          disabled={isExecuting}
-          className="w-full py-3 rounded-full bg-[hsl(var(--primary))] hover:brightness-110 text-[hsl(var(--primary-foreground))] font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-[hsl(var(--primary))]/20 active:scale-98 transition-all disabled:opacity-50"
-        >
+        {/* Bottom Sticky Action Button */}
+        <div className="p-3 border-t border-[hsl(var(--border))] bg-[hsl(var(--card))]">
+         <button
+           id="btn-generate-model-action"
+           onClick={handleGenerate}
+           disabled={isExecuting}
+           className="w-full py-3 rounded-full bg-[#F9CF00] hover:brightness-110 text-[hsl(var(--primary-foreground))] font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#F9CF00]/20 active:scale-98 transition-all disabled:opacity-50"
+         >
           {isExecuting ? (
             <>
               <RefreshCw className="w-4 h-4 animate-spin text-[hsl(var(--primary-foreground))]" />

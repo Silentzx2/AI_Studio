@@ -231,7 +231,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
     // 1. Scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x14161c);
+    scene.background = new THREE.Color(0x0a0b0e);
     sceneRef.current = scene;
 
     // 2. Camera
@@ -708,7 +708,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
   return (
     <div 
-      className={`relative w-full h-full overflow-hidden select-none ${className}`}
+      className={`relative w-full h-full overflow-hidden select-none bg-[hsl(var(--surface-0))] ${className}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -783,7 +783,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         <>
           {/* Top-Right Topology & Orientation HUD (Reference Image) */}
           <div className="absolute top-4 right-4 z-10 flex items-center gap-3">
-            <div className="bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-xl px-3.5 py-2 shadow-xl space-y-1 text-xs font-mono">
+            <div className="glass-panel-subtle rounded-[var(--radius-10)] px-3.5 py-2 shadow-xl space-y-1 text-xs font-mono">
               <div className="flex items-center justify-between gap-4">
                 <span className="text-[hsl(var(--muted-foreground))] text-[11px]">Topology</span>
                 <span className="text-[hsl(var(--foreground))] font-semibold text-[11px] flex items-center gap-1">
@@ -799,29 +799,29 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             </div>
 
             {/* 3D Axis Orientation Widget / Gizmo */}
-            <SimpleTooltip label="Reset Orbit Camera">
+            <SimpleTooltip side="left" label="Reset Orbit Camera">
               <div
                 onClick={resetCamera}
-                className="w-11 h-11 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] flex items-center justify-center cursor-pointer hover:border-[hsl(var(--primary))] shadow-xl group transition-all"
+                className="w-11 h-11 rounded-[var(--radius-10)] glass-panel-subtle flex items-center justify-center cursor-pointer hover:border-[#F9CF00] shadow-xl group transition-all"
               >
                 <div className="relative w-6 h-6 flex items-center justify-center">
                   <span className="text-[9px] font-bold text-[hsl(var(--destructive))] absolute -top-1">Y</span>
                   <span className="text-[9px] font-bold text-[hsl(var(--neon-green))] absolute -right-1">X</span>
                   <span className="text-[9px] font-bold text-[hsl(var(--neon-blue))] absolute -bottom-1">Z</span>
-                  <div className="w-2 h-2 rounded-full bg-[hsl(var(--primary))] group-hover:scale-125 transition-transform" />
+                  <div className="w-2 h-2 rounded-full bg-[#F9CF00] group-hover:scale-125 transition-transform" />
                 </div>
               </div>
             </SimpleTooltip>
           </div>
 
           {/* Right Floating Tool Rail (Hand, Camera, Grid, Help, Turntable) */}
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-1.3 bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] p-1.5 rounded-2xl shadow-2xl">
-            <SimpleTooltip label={interactionMode === 'orbit' ? 'Switch to Pan Mode' : 'Switch to Orbit Mode'}>
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-1.3 glass-panel-subtle p-1.5 rounded-2xl shadow-2xl">
+            <SimpleTooltip side="left" label={interactionMode === 'orbit' ? 'Switch to Pan Mode' : 'Switch to Orbit Mode'}>
               <button
                 onClick={() => setInteractionMode(interactionMode === 'orbit' ? 'pan' : 'orbit')}
                 className={`p-2 rounded-xl transition-all ${
                   interactionMode === 'pan' 
-                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-1))]' 
+                    ? 'bg-[#F9CF00] text-[hsl(var(--surface-1))]' 
                     : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-1))]'
                 }`}
               >
@@ -829,7 +829,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               </button>
             </SimpleTooltip>
 
-            <SimpleTooltip label="Capture 3D Viewport Screenshot">
+            <SimpleTooltip side="left" label="Capture 3D Viewport Screenshot">
               <button
                 onClick={handleScreenshot}
                 className="p-2 rounded-xl text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-1))] transition-all"
@@ -838,12 +838,12 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               </button>
             </SimpleTooltip>
 
-            <SimpleTooltip label={showGrid ? 'Hide Floor Grid' : 'Show Floor Grid'}>
+            <SimpleTooltip side="left" label={showGrid ? 'Hide Floor Grid' : 'Show Floor Grid'}>
               <button
                 onClick={() => setShowGrid(!showGrid)}
                 className={`p-2 rounded-xl transition-all ${
                   showGrid 
-                    ? 'text-[hsl(var(--primary))] bg-[hsl(var(--surface-2))]' 
+                    ? 'text-[#F9CF00] bg-[hsl(var(--surface-2))]' 
                     : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-1))]'
                 }`}
               >
@@ -851,12 +851,12 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               </button>
             </SimpleTooltip>
 
-            <SimpleTooltip label={isTurntable ? 'Pause Turntable 360°' : 'Start Turntable 360°'}>
+            <SimpleTooltip side="left" label={isTurntable ? 'Pause Turntable 360°' : 'Start Turntable 360°'}>
               <button
                 onClick={() => setIsTurntable(!isTurntable)}
                 className={`p-2 rounded-xl transition-all ${
                   isTurntable 
-                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-1))]' 
+                    ? 'bg-[#F9CF00] text-[hsl(var(--surface-1))]' 
                     : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-1))]'
                 }`}
               >
@@ -864,7 +864,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               </button>
             </SimpleTooltip>
 
-            <SimpleTooltip label="Reset Camera (Hotkey: F)">
+            <SimpleTooltip side="left" label="Reset Camera (Hotkey: F)">
               <button
                 onClick={resetCamera}
                 className="p-2 rounded-xl text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-1))] transition-all"
@@ -873,12 +873,12 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               </button>
             </SimpleTooltip>
 
-            <SimpleTooltip label="Environment Settings — Lighting, Grid, Camera">
+            <SimpleTooltip side="left" label="Environment Settings — Lighting, Grid, Camera">
               <button
                 onClick={() => setShowEnvironmentPanel(!showEnvironmentPanel)}
                 className={`p-2 rounded-xl transition-all ${
                   showEnvironmentPanel
-                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--surface-1))]'
+                    ? 'bg-[#F9CF00] text-[hsl(var(--surface-1))]'
                     : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-1))]'
                 }`}
               >
@@ -889,7 +889,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
           {/* Environment Settings Panel */}
           {showEnvironmentPanel && (
-            <div className="absolute right-16 top-1/2 -translate-y-1/2 z-20 w-72 bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] rounded-2xl shadow-2xl p-4 space-y-3">
+            <div className="absolute right-16 top-1/2 -translate-y-1/2 z-20 w-72 glass-panel rounded-2xl shadow-2xl p-4 space-y-3">
               <h3 className="text-[10px] font-bold tracking-wider text-[hsl(var(--primary))] uppercase">Environment Settings</h3>
 
               {/* Presets Section */}
@@ -974,11 +974,11 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             </div>
           )}
 
-          {/* Shading Material Swatches Bar (Bottom Center - Exact Match to Screenshot) */}
+          {/* Shading Material Swatches Bar (Bottom Center) */}
           <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] shadow-2xl">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl glass-panel-subtle shadow-2xl">
               {/* Textured / PBR */}
-              <SimpleTooltip label="PBR Textured">
+              <SimpleTooltip side="left" label="PBR Textured">
                 <button
                   onClick={() => setShadingMode('textured')}
                   className={`w-7 h-7 rounded-full overflow-hidden border-2 transition-transform ${
@@ -999,7 +999,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               </SimpleTooltip>
 
               {/* Clay */}
-              <SimpleTooltip label="Matte Clay">
+              <SimpleTooltip side="left" label="Matte Clay">
                 <button
                   onClick={() => setShadingMode('clay')}
                   className={`w-7 h-7 rounded-full bg-[hsl(var(--muted-foreground))] border-2 transition-transform ${
@@ -1009,7 +1009,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               </SimpleTooltip>
 
               {/* White Ceramic */}
-              <SimpleTooltip label="Ceramic Gloss">
+              <SimpleTooltip side="left" label="Ceramic Gloss">
                 <button
                   onClick={() => setShadingMode('matcap-ceramic')}
                   className={`w-7 h-7 rounded-full bg-[hsl(var(--foreground))] border-2 transition-transform ${
@@ -1019,7 +1019,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               </SimpleTooltip>
 
               {/* Chrome Metallic */}
-              <SimpleTooltip label="Chrome Metallic">
+              <SimpleTooltip side="left" label="Chrome Metallic">
                 <button
                   onClick={() => setShadingMode('matcap-chrome')}
                   className={`w-7 h-7 rounded-full bg-gradient-to-tr from-[hsl(var(--surface-2))] via-[hsl(var(--muted-foreground))] to-[hsl(var(--foreground))] border-2 transition-transform ${
@@ -1029,7 +1029,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               </SimpleTooltip>
 
               {/* Wireframe */}
-              <SimpleTooltip label="Topology Wireframe">
+              <SimpleTooltip side="left" label="Topology Wireframe">
                 <button
                   onClick={() => setShadingMode('wireframe')}
                   className={`w-7 h-7 rounded-full bg-[hsl(var(--surface-1))] border-2 flex items-center justify-center text-[10px] text-[hsl(var(--neon-green))] transition-transform ${
@@ -1041,7 +1041,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               </SimpleTooltip>
 
               {/* Normal Map */}
-              <SimpleTooltip label="Tangent Normals">
+              <SimpleTooltip side="left" label="Tangent Normals">
                 <button
                   onClick={() => setShadingMode('matcap-normal')}
                   className={`w-7 h-7 rounded-full bg-gradient-to-br from-[hsl(var(--neon-pink))] via-[hsl(var(--neon-purple))] to-[hsl(var(--neon-cyan))] border-2 transition-transform ${
@@ -1051,7 +1051,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               </SimpleTooltip>
 
               {/* Gold Matcap */}
-              <SimpleTooltip label="Gold Lustre">
+              <SimpleTooltip side="left" label="Gold Lustre">
                 <button
                   onClick={() => setShadingMode('matcap-gold')}
                   className={`w-7 h-7 rounded-full bg-gradient-to-br from-[hsl(var(--neon-amber))] to-[hsl(var(--neon-amber))] border-2 transition-transform ${
@@ -1061,7 +1061,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               </SimpleTooltip>
 
               {/* Dark Obsidian */}
-              <SimpleTooltip label="X-Ray Silhouette">
+              <SimpleTooltip side="left" label="X-Ray Silhouette">
                 <button
                   onClick={() => setShadingMode('xray')}
                   className={`w-7 h-7 rounded-full bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] border-2 transition-transform ${
@@ -1071,7 +1071,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               </SimpleTooltip>
 
               {/* Turquoise Stylized */}
-              <SimpleTooltip label="Turquoise Gem">
+              <SimpleTooltip side="left" label="Turquoise Gem">
                 <button
                   onClick={() => setShadingMode('matcap-turquoise')}
                   className={`w-7 h-7 rounded-full bg-[hsl(var(--neon-cyan))] border-2 transition-transform ${
@@ -1088,7 +1088,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             <div className="relative">
               <button
                 onClick={() => setCameraMenuOpen(!cameraMenuOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] text-xs font-semibold text-[hsl(var(--foreground))] hover:border-[hsl(var(--primary))]/50 shadow-xl transition-all"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-[var(--radius-10)] glass-panel-subtle text-xs font-semibold text-[hsl(var(--foreground))] hover:border-[#F9CF00]/50 shadow-xl transition-all"
               >
                 <RotateCw className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
                 <span className="capitalize">{cameraPreset} View</span>
@@ -1122,7 +1122,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                   controlsRef.current.update();
                 }
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] text-xs font-semibold text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:border-[hsl(var(--border))] shadow-xl transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-10)] glass-panel-subtle text-xs font-semibold text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:border-[hsl(var(--border))] shadow-xl transition-all"
             >
               <span>Snap</span>
             </button>
@@ -1130,16 +1130,16 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             {/* 3D Print Preparation */}
             <button
               onClick={() => setIsExportModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] text-xs font-semibold text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:border-[hsl(var(--border))] shadow-xl transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-10)] glass-panel-subtle text-xs font-semibold text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:border-[hsl(var(--border))] shadow-xl transition-all"
             >
               <Printer className="w-3.5 h-3.5 text-[hsl(var(--neon-purple))]" />
               <span>3D Print</span>
             </button>
 
-            {/* Direct Export 3D Bundle Button (Purple/Indigo theme matching reference image) */}
+            {/* Direct Export 3D Bundle Button */}
             <button
               onClick={() => setIsExportModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-[hsl(var(--neon-purple))] hover:bg-[hsl(var(--neon-purple))] text-white text-xs font-bold shadow-xl shadow-[hsl(var(--neon-purple))]/25 active:scale-95 transition-all"
+              className="flex items-center gap-2 px-4 py-1.5 rounded-[var(--radius-10)] bg-[hsl(var(--neon-purple))] hover:bg-[hsl(var(--neon-purple))] text-white text-xs font-bold shadow-xl shadow-[hsl(var(--neon-purple))]/25 active:scale-95 transition-all"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Export</span>

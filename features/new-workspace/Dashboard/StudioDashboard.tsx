@@ -5,8 +5,7 @@ import {
   Layers,
   Sliders,
   ArrowRight,
-  FolderOpen,
-  Scissors
+  FolderOpen
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { GpuVramLineChart } from '@/components/monitoring/GpuVramLineChart';
@@ -122,25 +121,7 @@ export const StudioDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Segmentation */}
-        <div
-          onClick={() => handleLaunchTool('segment')}
-          className="p-5 rounded-2xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/60 hover:bg-[hsl(var(--surface-2))] cursor-pointer transition-all group flex flex-col justify-between"
-        >
-          <div className="space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-[hsl(var(--surface-2))] flex items-center justify-center text-[hsl(var(--primary))] group-hover:scale-110 transition-transform">
-              <Scissors className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-sm text-[hsl(var(--foreground))]">Mesh Segmentation</h3>
-              <p className="text-[hsl(var(--muted-foreground))] text-[11px] mt-1">Isolate regions and parts for downstream 3D workflows.</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 text-[hsl(var(--primary))] font-bold text-xs pt-4">
-            <span>Launch Tool</span>
-            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-          </div>
-        </div>
+        {/* Mesh Segmentation card removed */}
 
       </div>
 

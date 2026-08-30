@@ -2,9 +2,7 @@ import React from 'react';
 import {
   Box,
   Hexagon,
-  Scissors,
   Layers,
-  Activity,
   Settings,
   Sparkles,
   LayoutDashboard,
@@ -13,7 +11,6 @@ import {
 import { useRouter, usePathname } from 'next/navigation';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { ToolType } from '../types';
-import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 
 export const LeftNavigation: React.FC = () => {
   const router = useRouter();
@@ -33,143 +30,99 @@ export const LeftNavigation: React.FC = () => {
     <nav
       id="left-tool-rail"
       aria-label="3D Studio Toolset"
-      className="w-[4.2rem] h-full bg-[hsl(var(--surface-0))] border-r border-[hsl(var(--border))] flex flex-col items-center py-2 justify-between z-20 select-none flex-shrink-0"
+      className="w-20 h-full bg-[hsl(var(--surface-0))] border-r border-[hsl(var(--border)/0.5)] flex flex-col items-center py-2 justify-between z-20 select-none flex-shrink-0"
     >
       {/* Top Primary Toolset */}
-      <div className="flex flex-col items-center gap-1 w-full px-1 overflow-y-auto overflow-x-hidden">
+      <div className="flex flex-col items-stretch gap-1 w-full px-1.5 overflow-y-auto overflow-x-hidden">
         {/* 1. Dashboard / Overview */}
-        <SimpleTooltip label="Dashboard & Model Overview">
-          <button
-            id="tool-btn-dashboard"
-            onClick={() => navigateToMainNav('dashboard')}
-              className={`group relative w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
-              mainNav === 'dashboard'
-                ? 'bg-[hsl(var(--surface-2))] text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/50 shadow-lg shadow-[hsl(var(--primary))]/15 ring-1 ring-[hsl(var(--primary))]/30'
-                : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-1))]'
-            }`}
-          >
-            <LayoutDashboard className="w-5 h-5 mb-0.5" />
-            <span className="text-[9.5px] font-bold leading-tight text-center">Overview</span>
-          </button>
-        </SimpleTooltip>
+        <button
+          id="tool-btn-dashboard"
+          onClick={() => navigateToMainNav('dashboard')}
+          className={`group relative w-full py-2 flex flex-col items-center justify-center rounded-lg transition-all box-border ${
+            mainNav === 'dashboard'
+              ? 'bg-[#F9CF00]/10 text-[#F9CF00] border border-[#F9CF00]/40'
+              : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-1))]'
+          }`}
+        >
+          <LayoutDashboard className="w-4 h-4 mb-0.5" />
+          <span className="text-[8px] font-bold leading-tight text-center">Overview</span>
+        </button>
 
-        {/* 2. 3D Model Generation (Unified Text-to-3D & Image-to-3D) */}
-        <SimpleTooltip label="3D Generator (Text-to-3D & Image-to-3D AI Models)">
-          <button
-            id="tool-btn-model"
-            onClick={() => handleToolClick('model')}
-            className={`group relative w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
-              mainNav === 'workspace' && activeTool === 'model'
-                ? 'bg-[var(--ws-active-bg,hsl(var(--surface-2)))] text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/50 shadow-lg shadow-[hsl(var(--primary))]/15 ring-1 ring-[hsl(var(--primary))]/30'
-                : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-1)))]'
-            }`}
-          >
-            <div className="relative">
-              <Box className="w-5 h-5 mb-0.5" />
-              <Sparkles className="w-2.5 h-2.5 text-[hsl(var(--primary))] absolute -top-1 -right-2" />
-            </div>
-            <span className="text-[9.5px] font-bold leading-tight text-center">3D Gen</span>
+        {/* 2. 3D Model Generation */}
+        <button
+          id="tool-btn-model"
+          onClick={() => handleToolClick('model')}
+          className={`group relative w-full py-2 flex flex-col items-center justify-center rounded-lg transition-all box-border ${
+            mainNav === 'workspace' && activeTool === 'model'
+              ? 'bg-[#F9CF00]/10 text-[#F9CF00] border border-[#F9CF00]/40'
+              : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-1)))]'
+          }`}
+        >
+          <div className="relative">
+            <Box className="w-4 h-4 mb-0.5" />
+            <Sparkles className="w-2 h-2 text-[#F9CF00] absolute -top-1 -right-1.5" />
+          </div>
+          <span className="text-[8px] font-bold leading-tight text-center">3D Gen</span>
 
-            {/* SOTA Badge */}
-            <span className="mt-0.5 px-1 py-0.2 rounded bg-[hsl(var(--primary))]/20 text-[7px] font-mono font-bold text-[hsl(var(--primary))] tracking-tight">
-              AI 3D
-            </span>
-          </button>
-        </SimpleTooltip>
+          {/* SOTA Badge */}
+          <span className="mt-0.5 px-1 py-0.2 rounded bg-[#F9CF00]/20 text-[6px] font-mono font-bold text-[#F9CF00] tracking-tight">
+            AI 3D
+          </span>
+        </button>
 
         {/* 3. WorldGen */}
-        <SimpleTooltip label="WorldGen — Environment & World Generation">
-          <button
-            id="tool-btn-worldgen"
-            onClick={() => router.push('/workspace/worldgen')}
-            className={`w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
-              pathname?.startsWith('/workspace/worldgen')
-                ? 'bg-[var(--ws-active-bg,hsl(var(--surface-2)))] text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/30 shadow-lg shadow-[hsl(var(--primary))]/10'
-                : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-1)))]'
-            }`}
-          >
-            <Globe className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px] font-medium leading-none">World</span>
-          </button>
-        </SimpleTooltip>
+        <button
+          id="tool-btn-worldgen"
+          onClick={() => handleToolClick('worldgen')}
+          className={`w-full py-2 flex flex-col items-center justify-center rounded-lg transition-all box-border ${
+            mainNav === 'workspace' && activeTool === 'worldgen'
+              ? 'bg-[#F9CF00]/10 text-[#F9CF00] border border-[#F9CF00]/40'
+              : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-1)))]'
+          }`}
+        >
+          <Globe className="w-4 h-4 mb-0.5" />
+          <span className="text-[8px] font-medium leading-none">World</span>
+        </button>
 
-        {/* 4. Segmentation */}
-        <SimpleTooltip label="Segment 3D Mesh">
-          <button
-            id="tool-btn-segment"
-            onClick={() => handleToolClick('segment')}
-            className={`w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
-              mainNav === 'workspace' && activeTool === 'segment'
-                ? 'bg-[var(--ws-active-bg,hsl(var(--surface-2)))] text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/30 shadow-lg shadow-[hsl(var(--primary))]/10'
-                : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-1)))]'
-            }`}
-          >
-            <Scissors className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px] font-medium leading-none">Segment</span>
-          </button>
-        </SimpleTooltip>
+        {/* 4. Remesh */}
+        <button
+          id="tool-btn-remesh"
+          onClick={() => handleToolClick('remesh')}
+          className={`w-full py-2 flex flex-col items-center justify-center rounded-lg transition-all box-border ${
+            mainNav === 'workspace' && activeTool === 'remesh'
+              ? 'bg-[#F9CF00]/10 text-[#F9CF00] border border-[#F9CF00]/40'
+              : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-1)))]'
+          }`}
+        >
+          <Hexagon className="w-4 h-4 mb-0.5" />
+          <span className="text-[8px] font-medium leading-none">Remesh</span>
+        </button>
 
-        {/* 5. Retopo */}
-        <SimpleTooltip label="Retopology">
-          <button
-            id="tool-btn-retopo"
-            onClick={() => handleToolClick('retopo')}
-            className={`w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
-              mainNav === 'workspace' && (activeTool === 'retopo' || activeTool === 'remesh')
-                ? 'bg-[var(--ws-active-bg,hsl(var(--surface-2)))] text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/30 shadow-lg shadow-[hsl(var(--primary))]/10'
-                : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-1)))]'
-            }`}
-          >
-            <Hexagon className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px] font-medium leading-none">Retopo</span>
-          </button>
-        </SimpleTooltip>
-
-        {/* 6. Remesh */}
-        <SimpleTooltip label="Remesh">
-          <button
-            id="tool-btn-remesh"
-            onClick={() => handleToolClick('remesh')}
-            className={`w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
-              mainNav === 'workspace' && activeTool === 'remesh'
-                ? 'bg-[var(--ws-active-bg,hsl(var(--surface-2)))] text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/30 shadow-lg shadow-[hsl(var(--primary))]/10'
-                : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-1)))]'
-            }`}
-          >
-            <Hexagon className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px] font-medium leading-none">Remesh</span>
-          </button>
-        </SimpleTooltip>
-
-        {/* 7. Texture / PBR Maps */}
-        <SimpleTooltip label="Texture & PBR Materials">
-          <button
-            id="tool-btn-texture"
-            onClick={() => handleToolClick('texture')}
-            className={`w-full py-2 flex flex-col items-center justify-center rounded-xl transition-all ${
-              mainNav === 'workspace' && (activeTool === 'texture' || activeTool === 'pbr')
-                ? 'bg-[var(--ws-active-bg,hsl(var(--surface-2)))] text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/30 shadow-lg shadow-[hsl(var(--primary))]/10'
-                : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-1)))]'
-            }`}
-          >
-            <Layers className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px] font-medium leading-none">Texture</span>
-          </button>
-        </SimpleTooltip>
+        {/* 5. Texture / PBR Maps */}
+        <button
+          id="tool-btn-texture"
+          onClick={() => handleToolClick('texture')}
+          className={`w-full py-2 flex flex-col items-center justify-center rounded-lg transition-all box-border ${
+            mainNav === 'workspace' && (activeTool === 'texture' || activeTool === 'pbr')
+              ? 'bg-[#F9CF00]/10 text-[#F9CF00] border border-[#F9CF00]/40'
+              : 'text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-1)))]'
+          }`}
+        >
+          <Layers className="w-4 h-4 mb-0.5" />
+          <span className="text-[8px] font-medium leading-none">Texture</span>
+        </button>
 
         {/* Bottom Pipeline & Settings */}
       </div>
-      <div className="flex flex-col items-center gap-1.5 w-full px-1.5 pt-2 border-t border-[var(--ws-border,hsl(var(--border)))]">
+      <div className="flex flex-col items-center gap-1.5 w-full px-1.5 pt-2 border-t border-[var(--ws-border,hsl(var(--border)/0.5))]">
         {/* Settings - navigates to /settings page */}
-        <SimpleTooltip label="Settings & Configuration">
-          <button
-            id="tool-btn-settings"
-            onClick={() => router.push('/settings')}
-            className="w-full p-2 flex flex-col items-center justify-center rounded-xl text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-1)))] transition-colors"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
-        </SimpleTooltip>
+        <button
+          id="tool-btn-settings"
+          onClick={() => router.push('/settings')}
+          className="w-full p-2 flex flex-col items-center justify-center rounded-lg text-[var(--ws-text-muted,hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,hsl(var(--surface-1)))] transition-colors"
+        >
+          <Settings className="w-4 h-4" />
+        </button>
       </div>
     </nav>
   );

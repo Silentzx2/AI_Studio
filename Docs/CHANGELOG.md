@@ -1,5 +1,53 @@
 # AI 3D Studio — Changelog
 
+## [v3.9.7] - 2026-08-30
+
+### Added
+- **WorldGenToolPanel**: New self-contained workspace panel (`features/new-workspace/Panels/WorldGenToolPanel.tsx`) wrapping `WorldGenToolBar` with its own state, integrated into the standard `WorkspaceShell` so WorldGen uses the same MeshViewer as all other tools.
+
+### Changed
+- **WorldGen integration**: WorldGen now runs inside the standard `WorkspaceShell` rather than a separate page. The `/workspace/worldgen` route renders `WorkspaceShell` with `WorldGenToolPanel` in the left panel and the shared `MeshViewer` in the viewport. Tool switching no longer destroys and recreates the page — only the left toolbar changes.
+- **LeftNavigation**: WorldGen button now navigates to the `worldgen` tool via the standard workspace routing, instead of a separate `/workspace/worldgen` page.
+- **TopHeader dropdown**: Added "World Generation" entry to the workspace mode switcher dropdown; renamed "Quad Retopology" label to "Quad Remesh" for accuracy.
+
+### Removed
+- **Segmentation feature**: Completely removed from workspace — `SegmentationPanel.tsx` deleted, `segment` removed from `ToolType`, `TOOL_TO_ROUTE`, `ROUTE_SEGMENT_TO_TOOL`, LeftNavigation button, TopHeader dropdown button, and all related state (`segmentationSettings`, `runSegmentationGeneration`) from `WorkspaceContext`.
+- **Retopology page**: Removed from workspace navigation and routing — `retopo` removed from `ROUTE_SEGMENT_TO_TOOL`; `SecondaryPanel` now handles `remesh` directly instead of `retopo`.
+- **WorldGenShell.tsx**: Deleted — its functionality (settings state, image upload, generate call) folded into `WorldGenToolPanel`; WorldGen now shares `WorkspaceShell` and `MeshViewer` instead of having a separate shell with its own `WorldMeshViewer`.
+- **WorldMeshViewer.tsx**: Deleted — the standalone viewport viewer replaced by the standard `MeshViewer`.
+- **PropertiesPanel.tsx**: Deleted (was already not exported).
+
+### Fixed
+- **Overview page overlap**: Dashboard/Assets/System overlays in `WorkspaceShell` had `absolute inset-0` causing content to overlap with the TopHeader — added `top-[60px]` offset so overlays start below the header.
+
+### Verification
+- TypeScript compilation: PASS (`npx tsc --noEmit`)
+- Build: PASS (`npm run build`)
+- All routes prerendered successfully
+
+## [v3.9.6] - 2026-08-30
+
+### Added
+- **WorldGen UI Transformation**: WorldGen left panel (`WorldGenToolBar`) fully restyled to match GeneratePanel visual style — yellow `#F9CF00` accent, glassmorphism panels (`bg-[hsl(var(--card))]`), `rounded-2xl` corners, consistent spacing and typography.
+- **WorldGenShell cleanup**: PropertiesPanel completely removed from WorldGen workspace (no longer rendered, removed from exports, index.ts cleaned).
+- **Settings page solidification**: Settings page now uses solid TopHeader only — LeftNavigation removed from settings section.
+- **TopHeader solidification**: TopHeader made completely solid — removed `backdrop-blur-14`, translucent `bg-white/20` divider, `hover:bg-white/5` nav buttons. All effects replaced with solid `hsl(var(--surface-*))` colors.
+
+### Changed
+- **WorldGen ToolBar structure**: Copied GeneratePanel visual patterns (header badge, rounded-2xl cards, shadow-md active states, yellow `#F9CF00` accents, `accent-[#F9CF00]` sliders) while preserving WorldGen logic (image upload, Mood/Shape/Quality/Seed/Parameters/Environment, Generate button).
+- **Removed from WorldGenToolBar**: "General Mesh Settings" accordion and "Generation Architecture" model list — left as empty space for future WorldGen-specific additions.
+- **WorldGenShell layout**: Right properties panel removed; only left tool panel + center viewport remain.
+
+### Removed
+- **PropertiesPanel**: No longer exported from `features/WORLDGEN/index.ts` (file retained but unused).
+- **LeftNavigation from Settings**: Settings page no longer imports or renders the collapsible left rail.
+- **Glass/transparent effects from TopHeader**: All backdrop-blur and opacity-based backgrounds replaced with solid colors.
+
+### Verification
+- TypeScript compilation: PASS (`npx tsc --noEmit`)
+- Build: PASS (`npm run build`)
+- All routes prerendered successfully
+
 ## [v3.9.5] - 2026-08-30
 
 ### Removed

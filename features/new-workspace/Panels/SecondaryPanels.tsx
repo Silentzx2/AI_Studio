@@ -21,7 +21,7 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
     setRemeshSettings,
   } = useWorkspace();
 
-  if (tool === 'retopo') {
+  if (tool === 'remesh') {
     return (
       <div className="flex flex-col h-full overflow-hidden px-3 py-3 space-y-3 text-xs select-none">
         <div className="flex items-center gap-2 pb-1">
@@ -29,13 +29,13 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
             <Hexagon className="w-3.5 h-3.5" />
           </div>
           <div>
-            <h2 className="text-xs font-bold text-[hsl(var(--foreground))]">Quad Retopology</h2>
-            <p className="text-[10px] text-[hsl(var(--muted-foreground))]">Anatomical flow & Game-Ready Quads</p>
+            <h2 className="text-xs font-bold text-[hsl(var(--foreground))]">Adaptive Remesh</h2>
+            <p className="text-[10px] text-[hsl(var(--muted-foreground))]">Quad topology, decimation & boundary protection</p>
           </div>
         </div>
 
         <p className="text-[hsl(var(--muted-foreground))]">
-          Convert triangulated or high-poly dense voxel sculpts into clean, quad-dominant sub-d cage topology.
+          Decimate, remesh, and optimize meshes with adaptive edge collapse and boundary preservation.
         </p>
 
         <div className="space-y-1.5">

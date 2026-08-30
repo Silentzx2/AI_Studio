@@ -433,7 +433,7 @@ export const RightPropertyPanel: React.FC = () => {
         )}
 
         {/* CASE B: Tool is Retopo / Remesh */}
-        {(activeTool === 'remesh' || activeTool === 'retopo') && (
+        {(activeTool === 'remesh') && (
           <div className="space-y-3 p-3 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))]">
             <span className="font-bold text-[11px] text-[hsl(var(--muted-foreground))] uppercase tracking-wider flex items-center gap-1.5">
               <Hexagon className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />

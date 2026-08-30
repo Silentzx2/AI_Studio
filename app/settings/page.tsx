@@ -46,7 +46,7 @@ import {
 
 // Import workspace layout components
 import { TopHeader } from '@/features/new-workspace/Header/TopHeader';
-import { LeftNavigation } from '@/features/new-workspace/Navigation/LeftNavigation';
+
 
 // Import existing admin/settings components (reuse)
 import {
@@ -562,8 +562,7 @@ useEffect(() => {
 
   return (
     <div className="flex h-screen bg-background">
-      {/* Left Navigation Rail */}
-      <LeftNavigation />
+
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
