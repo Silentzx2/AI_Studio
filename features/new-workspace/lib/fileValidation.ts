@@ -23,8 +23,8 @@ const ALLOWED_MIME_TYPES = [
 const MAX_UPLOAD_SIZE = 100 * 1024 * 1024; // 100MB for backend upload
 const MAX_PREVIEW_SIZE = 150 * 1024 * 1024; // 150MB for local preview
 
-// GLB magic bytes: "glTF" in ASCII (little-endian uint32)
-const GLB_MAGIC_BYTES = new Uint8Array([0x47, 0x6c, 0x54, 0x46]);
+// GLB magic bytes: "glTF" in ASCII (little-endian uint32 = 0x46546C67)
+const GLB_MAGIC_BYTES = new Uint8Array([0x67, 0x6c, 0x54, 0x46]);
 
 function readFileBytes(file: File, start: number, end: number): Promise<ArrayBuffer> {
   return file.slice(start, end).arrayBuffer();

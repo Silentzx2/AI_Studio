@@ -466,7 +466,7 @@ Clears all cached entries. Called after configuration changes or model installat
 
 The `features/new-workspace/lib/fileValidation.ts` module provides client-side validation for 3D file uploads:
 
-- **GLB magic bytes**: Validates the `glTF` header (bytes `0x47, 0x6c, 0x54, 0x46`)
+- **GLB magic bytes**: Validates the `glTF` header (bytes `0x67, 0x6c, 0x54, 0x46`)
 - **GLB structure**: Checks version, total length, and chunk headers
 - **Truncation detection**: Compares declared file size against actual size
 - **Format-specific checks**: Basic validation for OBJ, STL, PLY formats
