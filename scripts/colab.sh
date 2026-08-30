@@ -382,12 +382,47 @@ colab_stop_services() {
         log "Backend API stopped"
     fi
 
+    # Stop Celery Worker (additional wait for graceful shutdown)
+    info "Waiting for services to fully stop..."
+    sleep 2
+
+    # Stop PostgreSQL (if started by us)
+    if command -v pg_isready &>/dev/null && pg_isready -q 2>/dev/null; then
+        info "Stopping PostgreSQL..."
+        sudo service postgresql stop 2>/dev/null || sudo pg_ctlcluster $(ls /etc/postgresql/ 2>/dev/null | head -1) main stop 2>/dev/null || true
+        log "PostgreSQL stopped"
+    fi
+
+    # Stop Redis (if started by us)
+    if command -v redis-cli &>/dev/null && redis-cli ping 2>/dev/null | grep -q PONG; then
+        info "Stopping Redis..."
+        redis-cli shutdown nosave 2>/dev/null || sudo service redis-server stop 2>/dev/null || true
+        log "Redis stopped"
+    fi
+
     log "All services stopped"
 }
 
 colab_restart_services() {
+    head_ "Restarting AI 3D Studio Services (Colab)"
+    
+    # Stop all services
     colab_stop_services
-    echo ""
+    
+    # Wait for ports to be released
+    info "Waiting for ports to be released..."
+    sleep 3
+    
+    # Verify ports are free
+    for i in {1..10}; do
+        if ! curl -sf http://localhost:8000/api/v1/health &>/dev/null; then
+            break
+        fi
+        info "Waiting for API to stop... ($i/10)"
+        sleep 2
+    done
+    
+    # Start all services
     colab_start_services
 }
 
