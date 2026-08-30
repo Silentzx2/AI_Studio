@@ -833,8 +833,9 @@ def install_resolved_deps(
                 cwd=repo_dir,
             )
             if code != 0:
-                _log(f"Normal deps install failed: {output[:300]}")
+                _log(f"Batch install failed, retrying one-by-one...")
                 # Try one-by-one to isolate failures
+                one_by_one_ok = 0
                 for spec in normal_specs:
                     code2, out2 = _run_uv(
                         ["pip", "install", "--python", str(venv_python), spec],
@@ -842,9 +843,11 @@ def install_resolved_deps(
                     )
                     if code2 == 0:
                         installed.append(spec)
+                        one_by_one_ok += 1
                     else:
                         failed.append(spec)
                         _log(f"Failed to install {spec}: {out2[:200]}")
+                _log(f"One-by-one retry: {one_by_one_ok}/{len(normal_specs)} succeeded")
             else:
                 installed.extend(normal_specs)
 
