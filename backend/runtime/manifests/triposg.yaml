@@ -52,8 +52,8 @@ dependencies:
   - accelerate
   wheels:
     diso:
-      available: true
-      mode: pypi
+      available: false
+      reason: PyPI wheel requires compilation; source build with CUDA toolkit needed.
   fallbacks: {}
   optional: []
   representation_required:
