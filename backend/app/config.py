@@ -11,14 +11,16 @@ from typing import Literal
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Backend root directory (where this config.py lives)
+# Backend root directory (where this config.py lives: backend/app/)
 _BACKEND_DIR = Path(__file__).resolve().parent
 # Project root (parent of backend/)
 _PROJECT_DIR = _BACKEND_DIR.parent
+# .env file at project root — absolute so pydantic-settings finds it regardless of CWD
+_ENV_FILE = str(_BACKEND_DIR.parent.parent / ".env")
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=_ENV_FILE, extra="ignore")
 
     app_name: str = "AI 3D Studio API"
     app_version: str = "3.0.0"
@@ -38,8 +40,8 @@ class Settings(BaseSettings):
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/1"
     storage_backend: Literal["local", "s3"] = "local"
-    # Absolute default: always backend/storage regardless of CWD
-    storage_local_path: str = str(_BACKEND_DIR / "storage")
+    # Absolute default: backend/storage regardless of CWD
+    storage_local_path: str = str(_PROJECT_DIR / "storage")
     s3_bucket: str = ""
     s3_region: str = "us-east-1"
     aws_access_key_id: str = ""
@@ -82,6 +84,21 @@ class Settings(BaseSettings):
             if normalized in {"debug", "development", "dev"}:
                 return True
         return value
+
+    @field_validator("storage_local_path", mode="before")
+    @classmethod
+    def resolve_storage_path(cls, value: Any) -> str:
+        """Resolve relative STORAGE_LOCAL_PATH against project root, not CWD.
+
+        The .env may contain a relative path (e.g. ./backend/storage) which
+        would break when the backend runs from a different directory (e.g.
+        `cd backend && uvicorn ...`).  Always anchor to the project root
+        so the path is stable regardless of launch directory.
+        """
+        p = Path(str(value))
+        if not p.is_absolute():
+            p = (_BACKEND_DIR.parent.parent / p).resolve()
+        return str(p)
 
     @property
     def sync_database_url(self) -> str:
