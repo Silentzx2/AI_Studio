@@ -104,7 +104,7 @@ export function DownloadProgress({
       <div className="flex items-center gap-2.5 py-2">
         <span
           className="w-2 h-2 rounded-full animate-pulse"
-          style={{ background: 'rgba(168,85,247,0.9)', boxShadow: '0 0 6px rgba(168,85,247,0.6)' }}
+          style={{ background: 'hsl(var(--admin-accent) / 0.9)', boxShadow: '0 0 6px hsl(var(--admin-accent) / 0.6)' }}
         />
         <span className="text-xs text-[hsl(var(--muted-foreground))]">Preparing installation...</span>
       </div>
@@ -116,16 +116,16 @@ export function DownloadProgress({
   const pct = Math.min(100, Math.max(0, state.percent ?? 0));
 
   const barGradient = isDone
-    ? 'linear-gradient(90deg, rgba(16,185,129,0.9), rgba(52,211,153,0.9))'
+    ? 'linear-gradient(90deg, hsl(var(--neon-green) / 0.9), hsl(var(--neon-green) / 0.8))'
     : isFailed
-    ? 'linear-gradient(90deg, rgba(239,68,68,0.9), rgba(248,113,113,0.9))'
-    : 'linear-gradient(90deg, rgba(124,58,237,0.9), rgba(168,85,247,0.9))';
+    ? 'linear-gradient(90deg, hsl(var(--destructive) / 0.9), hsl(var(--destructive) / 0.8))'
+    : 'linear-gradient(90deg, hsl(var(--admin-accent-deep) / 0.9), hsl(var(--admin-accent) / 0.9))';
 
   const barGlow = isDone
-    ? 'rgba(16,185,129,0.50)'
+    ? 'hsl(var(--neon-green) / 0.50)'
     : isFailed
-    ? 'rgba(239,68,68,0.50)'
-    : 'rgba(168,85,247,0.50)';
+    ? 'hsl(var(--destructive) / 0.50)'
+    : 'hsl(var(--admin-accent) / 0.50)';
 
   return (
     <div className="space-y-2">
@@ -159,7 +159,7 @@ export function DownloadProgress({
       {/* Progress bar */}
       <div
         className="h-1.5 w-full rounded-full overflow-hidden"
-        style={{ background: 'rgba(255,255,255,0.06)' }}
+        style={{ background: 'hsl(var(--foreground) / 0.06)' }}
       >
         <div
           className="h-full rounded-full transition-all duration-300"
@@ -201,7 +201,7 @@ export function DownloadProgress({
       {state.log && !isDone && !isFailed && (
         <p
           className="text-[11px] font-mono truncate"
-          style={{ color: 'rgba(168,85,247,0.50)' }}
+          style={{ color: 'hsl(var(--admin-accent) / 0.50)' }}
           title={state.log}
         >
           {state.log}

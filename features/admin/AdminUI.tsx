@@ -6,11 +6,11 @@ export function Card({ children, className }: { children: React.ReactNode; class
     <div
       className={cn('rounded-xl p-4', className)}
       style={{
-        background: 'rgba(8,5,20,0.70)',
+        background: 'hsl(var(--surface-1) / 0.70)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
-        border: '1px solid rgba(168,85,247,0.12)',
-        boxShadow: '0 4px 24px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.03)',
+        border: '1px solid hsl(var(--admin-accent) / 0.12)',
+        boxShadow: '0 4px 24px hsl(var(--surface-0) / 0.40), inset 0 1px 0 hsl(var(--foreground) / 0.03)',
       }}
     >
       {children}
@@ -53,7 +53,7 @@ export function StatusDot({ ok }: { ok: boolean }) {
     <span
       className={cn(
         'inline-block w-2 h-2 rounded-full',
-        ok ? 'bg-[hsl(var(--neon-green))] shadow-[0_0_6px_rgba(52,211,153,0.6)]' : 'bg-[hsl(var(--destructive))] shadow-[0_0_6px_rgba(248,113,113,0.5)]',
+        ok ? 'bg-[hsl(var(--neon-green))] shadow-[0_0_6px_hsl(var(--neon-green)/0.6)]' : 'bg-[hsl(var(--destructive))] shadow-[0_0_6px_hsl(var(--destructive)/0.5)]',
       )}
     />
   );
@@ -66,8 +66,8 @@ export function Spinner({ size = 16 }: { size?: number }) {
       style={{
         width: size,
         height: size,
-        border: `2px solid rgba(168,85,247,0.20)`,
-        borderTopColor: 'rgba(168,85,247,0.9)',
+        border: `2px solid hsl(var(--admin-accent) / 0.20)`,
+        borderTopColor: 'hsl(var(--admin-accent) / 0.9)',
       }}
     />
   );
@@ -99,13 +99,13 @@ export function ActionButton({
   const size = small ? 'px-2.5 py-1.5 text-xs' : 'px-4 py-2 text-sm';
   const cls = {
     default: 'bg-slate-700/50 hover:bg-slate-600/60 text-[hsl(var(--muted-foreground))] border border-slate-600/40 hover:border-slate-500/60 hover:text-[hsl(var(--foreground))]',
-    primary: 'text-[hsl(var(--foreground))] border border-[hsl(var(--neon-purple)/0.3)] hover:border-violet-400/50 hover:shadow-[0_0_16px_rgba(168,85,247,0.25)]',
+    primary: 'text-[hsl(var(--foreground))] border border-[hsl(var(--neon-purple)/0.3)] hover:border-violet-400/50 hover:shadow-[0_0_16px_hsl(var(--admin-accent)/0.25)]',
     danger:  'bg-red-600/20 hover:bg-red-600/30 text-[hsl(var(--destructive))] border border-[hsl(var(--destructive)/0.2)] hover:border-[hsl(var(--destructive)/0.4)]',
     success: 'bg-emerald-600/20 hover:bg-emerald-600/30 text-[hsl(var(--neon-green))] border border-[hsl(var(--neon-green)/0.2)] hover:border-[hsl(var(--neon-green))]/40',
   }[variant];
 
   const primaryStyle = variant === 'primary' ? {
-    background: 'linear-gradient(135deg, rgba(124,58,237,0.60) 0%, rgba(168,85,247,0.50) 100%)',
+    background: 'linear-gradient(135deg, hsl(var(--admin-accent-deep) / 0.60) 0%, hsl(var(--admin-accent) / 0.50) 100%)',
   } : {};
 
   return (
@@ -122,24 +122,24 @@ export function ActionButton({
 
 export function ProgressBar({ value, color = 'violet' }: { value: number; color?: 'violet' | 'cyan' | 'emerald' | 'amber' | 'red' }) {
   const gradient = {
-    violet: 'linear-gradient(90deg, rgba(124,58,237,0.9), rgba(168,85,247,0.9))',
-    cyan:   'linear-gradient(90deg, rgba(6,182,212,0.9), rgba(59,130,246,0.9))',
-    emerald:'linear-gradient(90deg, rgba(16,185,129,0.9), rgba(52,211,153,0.9))',
-    amber:  'linear-gradient(90deg, rgba(245,158,11,0.9), rgba(251,191,36,0.9))',
-    red:    'linear-gradient(90deg, rgba(239,68,68,0.9), rgba(248,113,113,0.9))',
+    violet: 'linear-gradient(90deg, hsl(var(--admin-accent-deep) / 0.9), hsl(var(--admin-accent) / 0.9))',
+    cyan:   'linear-gradient(90deg, hsl(var(--neon-cyan) / 0.9), hsl(var(--neon-blue) / 0.9))',
+    emerald:'linear-gradient(90deg, hsl(var(--neon-green) / 0.8), hsl(var(--neon-green) / 0.9))',
+    amber:  'linear-gradient(90deg, hsl(var(--neon-amber) / 0.8), hsl(var(--neon-amber) / 0.9))',
+    red:    'linear-gradient(90deg, hsl(var(--destructive) / 0.8), hsl(var(--destructive) / 0.9))',
   }[color];
 
   const pct = Math.min(100, Math.max(0, value));
   const glowColor = {
-    violet: 'rgba(168,85,247,0.50)',
-    cyan:   'rgba(6,182,212,0.50)',
-    emerald:'rgba(16,185,129,0.50)',
-    amber:  'rgba(245,158,11,0.50)',
-    red:    'rgba(239,68,68,0.50)',
+    violet: 'hsl(var(--admin-accent) / 0.50)',
+    cyan:   'hsl(var(--neon-cyan) / 0.50)',
+    emerald:'hsl(var(--neon-green) / 0.50)',
+    amber:  'hsl(var(--neon-amber) / 0.50)',
+    red:    'hsl(var(--destructive) / 0.50)',
   }[color];
 
   return (
-    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'hsl(var(--foreground) / 0.06)' }}>
       <div
         className="h-full rounded-full transition-all duration-700"
         style={{
@@ -163,7 +163,7 @@ export function DataTable({
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr style={{ borderBottom: '1px solid rgba(168,85,247,0.10)' }}>
+           <tr style={{ borderBottom: '1px solid hsl(var(--admin-accent) / 0.10)' }}>
             {headers.map((h) => (
               <th key={h} className="text-left py-2.5 px-3 text-[11px] font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">
                 {h}
@@ -176,7 +176,7 @@ export function DataTable({
             <tr
               key={i}
               className="transition-colors hover:bg-[hsl(var(--primary)/0.04)]"
-              style={{ borderBottom: '1px solid rgba(168,85,247,0.06)' }}
+              style={{ borderBottom: '1px solid hsl(var(--admin-accent) / 0.06)' }}
             >
               {row.map((cell, j) => (
                 <td key={j} className="py-2.5 px-3 text-[hsl(var(--muted-foreground))] text-sm">{cell}</td>
@@ -222,11 +222,11 @@ export function MetricCard({
   }[color];
 
   const iconBg = {
-    violet: 'rgba(168,85,247,0.10)',
-    cyan:   'rgba(6,182,212,0.10)',
-    emerald:'rgba(16,185,129,0.10)',
-    amber:  'rgba(245,158,11,0.10)',
-    red:    'rgba(239,68,68,0.10)',
+    violet: 'hsl(var(--admin-accent) / 0.10)',
+    cyan:   'hsl(var(--neon-cyan) / 0.10)',
+    emerald:'hsl(var(--neon-green) / 0.10)',
+    amber:  'hsl(var(--neon-amber) / 0.10)',
+    red:    'hsl(var(--destructive) / 0.10)',
   }[color];
 
   return (

@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import type { AdminOverview, AdminLog, AdminJob, AdminModel, QueueStatus, TerminalCommand, InstallProgress } from '@/types';
+import type { AdminOverview, AdminLog, AdminJob, AdminModel, QueueStatus, InstallProgress } from '@/types';
 
 /**
  * Admin Service - handles all admin panel API calls
@@ -78,26 +78,6 @@ export const adminService = {
 
   async saveHFToken(token: string): Promise<void> {
     await apiClient.post('/api/v1/admin/settings/hf-token', { token });
-  },
-
-  async runCommand(command: string): Promise<TerminalCommand> {
-    const res = await apiClient.post<{ data: TerminalCommand }>('/api/v1/admin/terminal', { command });
-    return res?.data || {
-      id: `cmd-${Date.now()}`,
-      command,
-      output: '(no output)',
-      timestamp: new Date().toISOString(),
-      exit_code: 0,
-    };
-  },
-
-  async commandHistory(): Promise<TerminalCommand[]> {
-    try {
-      const res = await apiClient.get<{ data: { history: TerminalCommand[] } }>('/api/v1/admin/terminal/history');
-      return res?.data?.history || [];
-    } catch {
-      return [];
-    }
   },
 
   async queueStatus(): Promise<QueueStatus | null> {

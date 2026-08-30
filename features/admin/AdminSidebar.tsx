@@ -4,7 +4,7 @@ import type { AdminTab } from './AdminShell';
 import {
   LayoutDashboard, Layers, Package, ListOrdered,
   Cpu, ScrollText, Settings, Activity,
-  BriefcaseBusiness, Terminal, ChevronRight, ExternalLink,
+  BriefcaseBusiness, ChevronRight, ExternalLink,
   Boxes,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -22,7 +22,6 @@ const PRIMARY_NAV: { id: AdminTab | null; label: string; icon: React.ElementType
 const ADMIN_NAV: { id: AdminTab; label: string; icon: React.ElementType }[] = [
   { id: 'health', label: 'Health', icon: Activity },
   { id: 'jobs', label: 'Jobs', icon: BriefcaseBusiness },
-  { id: 'terminal', label: 'Terminal', icon: Terminal },
   { id: 'settings', label: 'Config', icon: Settings },
 ];
 
@@ -37,20 +36,20 @@ export default function AdminSidebar({
     <aside
       className="w-60 shrink-0 h-full flex flex-col"
       style={{
-        background: 'rgba(6,3,16,0.95)',
+        background: 'hsl(var(--surface-0) / 0.95)',
         backdropFilter: 'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
-        borderRight: '1px solid rgba(168,85,247,0.12)',
+        borderRight: '1px solid hsl(var(--admin-accent) / 0.12)',
       }}
     >
       {/* Logo */}
-      <div className="px-5 py-5" style={{ borderBottom: '1px solid rgba(168,85,247,0.10)' }}>
+      <div className="px-5 py-5" style={{ borderBottom: '1px solid hsl(var(--admin-accent) / 0.10)' }}>
         <div className="flex items-center gap-3">
           <div
             className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
             style={{
-              background: 'linear-gradient(135deg, rgba(168,85,247,0.9) 0%, rgba(124,58,237,0.8) 100%)',
-              boxShadow: '0 0 16px rgba(168,85,247,0.40)',
+              background: 'linear-gradient(135deg, hsl(var(--admin-accent) / 0.9) 0%, hsl(var(--admin-accent-deep) / 0.8) 100%)',
+              boxShadow: '0 0 16px hsl(var(--admin-accent) / 0.40)',
             }}
           >
             <Boxes size={18} className="text-[hsl(var(--foreground))]" />
@@ -119,7 +118,7 @@ export default function AdminSidebar({
               {isActive && (
                 <span
                   className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full"
-                  style={{ background: 'linear-gradient(to bottom, rgba(168,85,247,0.9), rgba(124,58,237,0.6))' }}
+                  style={{ background: 'linear-gradient(to bottom, hsl(var(--admin-accent) / 0.9), hsl(var(--admin-accent-deep) / 0.6))' }}
                 />
               )}
               {content}
@@ -147,7 +146,7 @@ export default function AdminSidebar({
                 {isActive && (
                   <span
                     className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-r-full"
-                    style={{ background: 'linear-gradient(to bottom, rgba(168,85,247,0.8), rgba(124,58,237,0.5))' }}
+                    style={{ background: 'linear-gradient(to bottom, hsl(var(--admin-accent) / 0.8), hsl(var(--admin-accent-deep) / 0.5))' }}
                   />
                 )}
                 <div className={cn(
@@ -169,7 +168,7 @@ export default function AdminSidebar({
       </nav>
 
       {/* System status indicator */}
-      <div className="px-3 py-2" style={{ borderTop: '1px solid rgba(168,85,247,0.08)' }}>
+      <div className="px-3 py-2" style={{ borderTop: '1px solid hsl(var(--admin-accent) / 0.08)' }}>
         <div className="flex items-center gap-2 px-2 py-2 rounded-lg bg-[hsl(var(--neon-green))]/05 border border-[hsl(var(--neon-green)/0.1)]">
           <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--neon-green))] animate-pulse shrink-0" />
           <span className="text-[11px] text-[hsl(var(--neon-green))] font-medium">System Online</span>
@@ -177,11 +176,11 @@ export default function AdminSidebar({
       </div>
 
       {/* User footer */}
-      <div className="px-3 py-3" style={{ borderTop: '1px solid rgba(168,85,247,0.08)' }}>
+      <div className="px-3 py-3" style={{ borderTop: '1px solid hsl(var(--admin-accent) / 0.08)' }}>
         <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-[hsl(var(--primary)/0.05)] transition-colors cursor-pointer group">
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold text-[hsl(var(--foreground))]"
-            style={{ background: 'linear-gradient(135deg, rgba(168,85,247,0.8), rgba(99,51,189,0.8))' }}
+            style={{ background: 'linear-gradient(135deg, hsl(var(--admin-accent) / 0.8), hsl(var(--admin-accent-deep) / 0.8))' }}
           >
             Z
           </div>

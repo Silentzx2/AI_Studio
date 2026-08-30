@@ -99,7 +99,7 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
         {/* Prompt input */}
         <section className="space-y-2">
           <h3 className="panel-section-label flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-[#f5c518]" />
+            <Sparkles className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
             Prompt
           </h3>
           {/* Mode selector tabs */}
@@ -108,8 +108,8 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
               onClick={() => setMode('text')}
               className={`flex-1 py-1.5 text-[10px] font-semibold rounded-l-lg flex items-center justify-center gap-1 transition-all ${
                 mode === 'text'
-                  ? 'bg-[#f5c518] text-[#111216]'
-                  : 'border border-[var(--ws-border,#232733)] text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
+                  ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
+                  : 'border border-[var(--ws-border,#hsl(var(--border)))] text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,#hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,#hsl(var(--surface-2)))]'
               }`}
             >
               <Type className="w-3 h-3" />
@@ -119,8 +119,8 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
               onClick={() => setMode('image')}
               className={`flex-1 py-1.5 text-[10px] font-semibold rounded-r-lg flex items-center justify-center gap-1 transition-all ${
                 mode === 'image'
-                  ? 'bg-[#f5c518] text-[#111216]'
-                  : 'border border-[var(--ws-border,#232733)] text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
+                  ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
+                  : 'border border-[var(--ws-border,#hsl(var(--border)))] text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,#hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,#hsl(var(--surface-2)))]'
               }`}
             >
               <Image className="w-3 h-3" />
@@ -139,7 +139,7 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
                   />
                   <button
                     onClick={() => onChange({ referenceImage: null })}
-                    className="absolute top-1.5 right-1.5 px-2 py-0.5 rounded-md bg-black/70 text-[10px] text-[#ef4444] hover:text-[#f87171] transition-colors"
+                    className="absolute top-1.5 right-1.5 px-2 py-0.5 rounded-md bg-[hsl(var(--surface-0))]/70 text-[10px] text-[hsl(var(--destructive))] hover:text-[hsl(var(--destructive))] transition-colors"
                   >
                     Remove
                   </button>
@@ -150,7 +150,7 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
               ) : (
                 <button
                   onClick={() => referenceImageInputRef.current?.click()}
-                  className="w-full py-6 rounded-lg border-2 border-dashed border-[var(--ws-border,#232733)] bg-[var(--ws-panel,#101115)] text-[var(--ws-text-muted,#8e95a5)] hover:border-[#f5c518]/50 hover:text-[#f5c518] transition-colors flex flex-col items-center justify-center gap-2"
+                  className="w-full py-6 rounded-lg border-2 border-dashed border-[var(--ws-border,#hsl(var(--border)))] bg-[var(--ws-panel,#hsl(var(--surface-1)))] text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] hover:border-[hsl(var(--primary))]/50 hover:text-[hsl(var(--primary))] transition-colors flex flex-col items-center justify-center gap-2"
                 >
                   <Upload className="w-5 h-5" />
                   <span className="text-[11px] font-medium">Upload Reference Image</span>
@@ -163,7 +163,7 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
                 onChange={(e) => onChange({ prompt: e.target.value })}
                 placeholder="Describe the desired world based on the reference image..."
                 rows={2}
-                className="w-full rounded-lg border border-[var(--ws-border,#232733)] bg-[var(--ws-panel,#101115)] px-3 py-2 text-xs text-[var(--ws-text,#f3f4f6)] placeholder:text-[#4b5563] resize-none focus:outline-none focus:border-[#f5c518]/50 transition-colors"
+                className="w-full rounded-lg border border-[var(--ws-border,#hsl(var(--border)))] bg-[var(--ws-panel,#hsl(var(--surface-1)))] px-3 py-2 text-xs text-[var(--ws-text,#hsl(var(--foreground)))] placeholder:text-[hsl(var(--muted-foreground))] resize-none focus:outline-none focus:border-[hsl(var(--primary))]/50 transition-colors"
               />
             </div>
           ) : (
@@ -173,22 +173,22 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
                 onChange={(e) => onChange({ prompt: e.target.value })}
                 placeholder="Describe the world you want to generate..."
                 rows={3}
-                className="w-full rounded-lg border border-[var(--ws-border,#232733)] bg-[var(--ws-panel,#101115)] px-3 py-2 text-xs text-[var(--ws-text,#f3f4f6)] placeholder:text-[#4b5563] resize-none focus:outline-none focus:border-[#f5c518]/50 transition-colors"
+                className="w-full rounded-lg border border-[var(--ws-border,#hsl(var(--border)))] bg-[var(--ws-panel,#hsl(var(--surface-1)))] px-3 py-2 text-xs text-[var(--ws-text,#hsl(var(--foreground)))] placeholder:text-[hsl(var(--muted-foreground))] resize-none focus:outline-none focus:border-[hsl(var(--primary))]/50 transition-colors"
               />
               {/* Optional reference image in text mode */}
               {settings.referenceImage ? (
-                <div className="flex items-center gap-2 rounded-lg border border-[var(--ws-border,#232733)] bg-[var(--ws-panel,#101115)] p-1.5">
+                <div className="flex items-center gap-2 rounded-lg border border-[var(--ws-border,#hsl(var(--border)))] bg-[var(--ws-panel,#hsl(var(--surface-1)))] p-1.5">
                   <img
                     src={settings.referenceImage.previewUrl}
                     alt={settings.referenceImage.name}
                     className="w-8 h-8 rounded object-cover"
                   />
-                  <span className="flex-1 text-[10px] text-[var(--ws-text,#f3f4f6)] truncate">
+                  <span className="flex-1 text-[10px] text-[var(--ws-text,#hsl(var(--foreground)))] truncate">
                     {settings.referenceImage.name}
                   </span>
                   <button
                     onClick={() => onChange({ referenceImage: null })}
-                    className="text-[10px] text-[#ef4444] hover:text-[#f87171] transition-colors"
+                    className="text-[10px] text-[hsl(var(--destructive))] hover:text-[hsl(var(--destructive))] transition-colors"
                   >
                     Remove
                   </button>
@@ -196,7 +196,7 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
               ) : (
                 <button
                   onClick={() => referenceImageInputRef.current?.click()}
-                  className="flex items-center gap-1.5 text-[10px] text-[var(--ws-text-muted,#8e95a5)] hover:text-[#f5c518] transition-colors"
+                  className="flex items-center gap-1.5 text-[10px] text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] hover:text-[hsl(var(--primary))] transition-colors"
                 >
                   <Upload className="w-3 h-3" />
                   Add optional reference image
@@ -218,8 +218,8 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
                 onClick={() => onChange({ mood: m.id })}
                 className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
                   settings.mood === m.id
-                    ? 'bg-[#f5c518] text-[#111216]'
-                    : 'text-[var(--ws-text-muted,#8e95a5)] border border-[var(--ws-border,#232733)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
+                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
+                    : 'text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] border border-[var(--ws-border,#hsl(var(--border)))] hover:text-[var(--ws-text,#hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,#hsl(var(--surface-2)))]'
                 }`}
               >
                 {m.label}
@@ -240,8 +240,8 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
                 onClick={() => onChange({ shape: s.id })}
                 className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
                   settings.shape === s.id
-                    ? 'bg-[#f5c518] text-[#111216]'
-                    : 'text-[var(--ws-text-muted,#8e95a5)] border border-[var(--ws-border,#232733)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
+                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
+                    : 'text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] border border-[var(--ws-border,#hsl(var(--border)))] hover:text-[var(--ws-text,#hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,#hsl(var(--surface-2)))]'
                 }`}
               >
                 {s.label}
@@ -255,12 +255,12 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
         {/* Preset & Resolution */}
         <section className="space-y-3">
           <h3 className="panel-section-label flex items-center gap-1.5">
-            <SlidersHorizontal className="w-3.5 h-3.5 text-[#f5c518]" />
+            <SlidersHorizontal className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
             Quality
           </h3>
           <div className="space-y-2">
             <div>
-              <span className="text-[10px] text-[var(--ws-text-muted,#8e95a5)] uppercase tracking-wider">Preset</span>
+              <span className="text-[10px] text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] uppercase tracking-wider">Preset</span>
               <div className="flex gap-1.5 mt-1">
                 {PRESETS.map((p) => (
                   <button
@@ -268,8 +268,8 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
                     onClick={() => onChange({ preset: p.id })}
                     className={`flex-1 px-2 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${
                       settings.preset === p.id
-                        ? 'bg-[#f5c518] text-[#111216]'
-                        : 'text-[var(--ws-text-muted,#8e95a5)] border border-[var(--ws-border,#232733)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
+                        ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
+                        : 'text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] border border-[var(--ws-border,#hsl(var(--border)))] hover:text-[var(--ws-text,#hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,#hsl(var(--surface-2)))]'
                     }`}
                   >
                     {p.label}
@@ -278,7 +278,7 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
               </div>
             </div>
             <div>
-              <span className="text-[10px] text-[var(--ws-text-muted,#8e95a5)] uppercase tracking-wider">Resolution</span>
+              <span className="text-[10px] text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] uppercase tracking-wider">Resolution</span>
               <div className="flex gap-1.5 mt-1">
                 {RESOLUTIONS.map((r) => (
                   <button
@@ -286,8 +286,8 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
                     onClick={() => onChange({ resolution: r.id })}
                     className={`flex-1 px-2 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${
                       settings.resolution === r.id
-                        ? 'bg-[#f5c518] text-[#111216]'
-                        : 'text-[var(--ws-text-muted,#8e95a5)] border border-[var(--ws-border,#232733)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
+                        ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
+                        : 'text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] border border-[var(--ws-border,#hsl(var(--border)))] hover:text-[var(--ws-text,#hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,#hsl(var(--surface-2)))]'
                     }`}
                   >
                     {r.label}
@@ -303,7 +303,7 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
         {/* Seed */}
         <section className="space-y-2">
           <h3 className="panel-section-label flex items-center gap-1.5">
-            <Dice5 className="w-3.5 h-3.5 text-[#f5c518]" />
+            <Dice5 className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
             Seed
           </h3>
           <div className="flex items-center gap-2">
@@ -311,11 +311,11 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
               type="number"
               value={settings.seed}
               onChange={(e) => onChange({ seed: parseInt(e.target.value, 10) || 0 })}
-              className="flex-1 rounded-lg border border-[var(--ws-border,#232733)] bg-[var(--ws-panel,#101115)] px-3 py-1.5 text-xs text-[var(--ws-text,#f3f4f6)] focus:outline-none focus:border-[#f5c518]/50 transition-colors"
+              className="flex-1 rounded-lg border border-[var(--ws-border,#hsl(var(--border)))] bg-[var(--ws-panel,#hsl(var(--surface-1)))] px-3 py-1.5 text-xs text-[var(--ws-text,#hsl(var(--foreground)))] focus:outline-none focus:border-[hsl(var(--primary))]/50 transition-colors"
             />
             <button
               onClick={() => onChange({ seed: Math.floor(Math.random() * 99999) })}
-              className="p-1.5 rounded-lg border border-[var(--ws-border,#232733)] text-[var(--ws-text-muted,#8e95a5)] hover:text-[#f5c518] hover:border-[#f5c518]/50 transition-colors"
+              className="p-1.5 rounded-lg border border-[var(--ws-border,#hsl(var(--border)))] text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] hover:text-[hsl(var(--primary))] hover:border-[hsl(var(--primary))]/50 transition-colors"
               title="Random seed"
             >
               <Dice5 className="w-3.5 h-3.5" />
@@ -382,30 +382,30 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
         {/* Environment upload */}
         <section className="space-y-2">
           <h3 className="panel-section-label flex items-center gap-1.5">
-            <Upload className="w-3.5 h-3.5 text-[#f5c518]" />
+            <Upload className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
             Environment
           </h3>
           {settings.environmentUpload ? (
-            <div className="rounded-lg border border-[var(--ws-border,#232733)] bg-[var(--ws-panel,#101115)] p-2 space-y-1">
+            <div className="rounded-lg border border-[var(--ws-border,#hsl(var(--border)))] bg-[var(--ws-panel,#hsl(var(--surface-1)))] p-2 space-y-1">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-[var(--ws-text,#f3f4f6)] truncate max-w-[160px]">
+                <span className="text-[11px] text-[var(--ws-text,#hsl(var(--foreground)))] truncate max-w-[160px]">
                   {settings.environmentUpload.name}
                 </span>
                 <button
                   onClick={() => onChange({ environmentUpload: null })}
-                  className="text-[10px] text-[#ef4444] hover:text-[#f87171] transition-colors"
+                  className="text-[10px] text-[hsl(var(--destructive))] hover:text-[hsl(var(--destructive))] transition-colors"
                 >
                   Remove
                 </button>
               </div>
-              <span className="text-[9px] text-[var(--ws-text-muted,#8e95a5)]">
+              <span className="text-[9px] text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))]">
                 {(settings.environmentUpload.sizeBytes / 1024).toFixed(1)} KB
               </span>
             </div>
           ) : (
             <button
               onClick={onImageUpload}
-              className="w-full py-3 rounded-lg border border-dashed border-[var(--ws-border,#232733)] bg-[var(--ws-panel,#101115)] text-[11px] text-[var(--ws-text-muted,#8e95a5)] hover:border-[#f5c518]/50 hover:text-[#f5c518] transition-colors flex items-center justify-center gap-1.5"
+              className="w-full py-3 rounded-lg border border-dashed border-[var(--ws-border,#hsl(var(--border)))] bg-[var(--ws-panel,#hsl(var(--surface-1)))] text-[11px] text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] hover:border-[hsl(var(--primary))]/50 hover:text-[hsl(var(--primary))] transition-colors flex items-center justify-center gap-1.5"
             >
               <Upload className="w-3.5 h-3.5" />
               Upload Environment Image
@@ -415,11 +415,11 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
       </div>
 
       {/* Generate button */}
-      <div className="p-4 border-t border-[#1a1d26]">
+      <div className="p-4 border-t border-[var(--ws-border,#hsl(var(--border)))]">
         <button
           onClick={onGenerate}
           disabled={isExecuting}
-          className="w-full py-2.5 rounded-lg bg-[#f5c518] text-[#111216] text-xs font-bold flex items-center justify-center gap-2 hover:bg-[#e6b800] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-2.5 rounded-lg bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] text-xs font-bold flex items-center justify-center gap-2 hover:bg-[hsl(var(--primary))]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isExecuting ? (
             <>

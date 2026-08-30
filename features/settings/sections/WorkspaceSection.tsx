@@ -195,7 +195,7 @@ export function WorkspaceSection() {
               </div>
 
               <Button 
-                variant="outline" 
+                variant="destructive" 
                 className="w-full"
                 onClick={clearHistory}
                 disabled={saving}

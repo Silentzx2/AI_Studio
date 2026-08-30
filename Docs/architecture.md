@@ -369,13 +369,8 @@ The frontend uses a modern persistent workspace: ONE global 3D viewport (`MeshVi
 - `NodesPanel.tsx` / `NodeList.tsx` — ComfyUI-style node graph editor (not needed, FastAPI handles all generation)
 - `SecondaryPanels.tsx` image pre-processor — GPT-Img tab removed (image-to-3D still available in GeneratePanel)
 
-#### Theme System
-- `stores/useThemeStore.ts` — Zustand store for workspace colors (14 color properties)
-- `components/AppearanceProvider.tsx` — Outputs CSS custom properties for all workspace colors
-- `features/settings/sections/AppearanceSection.tsx` — Color pickers + preset swatches in Settings → Appearance
 - All workspace components use `var(--ws-*, fallback)` for colors
-- Default theme preserved (dark with gold accent) — user can customize via Appearance settings
-- Settings persist to localStorage and apply live without page reload
+- Default theme preserved (dark with gold accent)
 - `/3D-SPACE/` — old 3D components (Canvas3D, AssetPanel, GenerationControls)
 - All ComfyUI-specific code and `react-router-dom` dependency from workspace
 

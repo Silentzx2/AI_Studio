@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, Key, Save, Trash2, Cpu, HardDrive, Server, Wifi, RefreshCw, Palette } from 'lucide-react';
+import { Settings, Key, Save, Trash2, Cpu, HardDrive, Server, Wifi, RefreshCw } from 'lucide-react';
 import { GlassCard } from '@/components/premium/GlassCard';
 import { Badge } from '@/components/premium/Badge';
 import { NeonButton } from '@/components/premium/NeonButton';
@@ -88,17 +88,6 @@ export function SettingsTab() {
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
         <p className="text-sm text-muted-foreground mt-1">System configuration & API keys</p>
       </div>
-
-      <GlassCard className="p-5" delay={0.03}>
-        <div className="flex items-center gap-2 mb-3">
-          <Palette className="w-4 h-4 text-[hsl(var(--neon-purple))]" />
-          <h3 className="text-sm font-semibold">Theme Manager</h3>
-          <Badge variant="neon" className="ml-auto">Global</Badge>
-        </div>
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          Wallpaper controls were removed. Use the Appearance page to tune global UI color, density, motion, and theme behavior.
-        </p>
-      </GlassCard>
 
       <GlassCard className="p-5" delay={0.05}>
         <div className="flex items-center gap-2 mb-4">

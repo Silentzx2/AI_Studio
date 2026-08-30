@@ -156,6 +156,26 @@ detect_cuda_version() {
     echo "121"
 }
 
+# ── Helper: Write PID ─────────────────────────────────────────────────────
+write_pid() {
+    local pid_file=$1
+    local pid=$2
+    mkdir -p "$(dirname "$pid_file")"
+    echo "$pid" > "$pid_file"
+}
+
+# ── Helper: Kill by PID file ──────────────────────────────────────────────
+kill_by_pid_file() {
+    local pid_file=$1
+    if [[ -f "$pid_file" ]]; then
+        local pid=$(cat "$pid_file" 2>/dev/null || echo "")
+        if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+            kill "$pid" 2>/dev/null || true
+            rm -f "$pid_file"
+        fi
+    fi
+}
+
 # ── Colab Service Management Functions ─────────────────────────────────────
 # These functions manage services independently of the bootstrap flow,
 # allowing start/stop/restart without re-running the full setup.
@@ -1263,26 +1283,6 @@ step "Running database migrations..."
         warn "Migrations skipped or failed (may already be applied)"
     fi
 )
-
-# ── Helper: Write PID ─────────────────────────────────────────────────────
-write_pid() {
-    local pid_file=$1
-    local pid=$2
-    mkdir -p "$(dirname "$pid_file")"
-    echo "$pid" > "$pid_file"
-}
-
-# ── Helper: Kill by PID file ──────────────────────────────────────────────
-kill_by_pid_file() {
-    local pid_file=$1
-    if [[ -f "$pid_file" ]]; then
-        local pid=$(cat "$pid_file" 2>/dev/null || echo "")
-        if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-            kill "$pid" 2>/dev/null || true
-            rm -f "$pid_file"
-        fi
-    fi
-}
 
 # ── Start Backend API ─────────────────────────────────────────────────────
 step "Starting Backend API (http://localhost:8000)..."

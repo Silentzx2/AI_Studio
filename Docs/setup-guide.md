@@ -1183,25 +1183,9 @@ rm -rf .pids
 
 ---
 
-## Customizing Workspace Appearance
+## Workspace Theme
 
-The workspace theme can be customized via **Settings → Appearance → Workspace Colors**.
-
-### Theme Controls
-
-- **Preset Swatches**: Choose from 6 presets (Default Dark, Midnight, Charcoal, Deep Navy, Forest, Warm Dark)
-- **Color Pickers**: Customize 14 individual color properties:
-  - **Surfaces**: Background, panel, viewport colors
-  - **Text & Borders**: Primary text, muted text, border colors
-  - **Interactive States**: Active button, hover background, accent color
-  - **UI Elements**: Navigation bar, tab bar, dropdown, HUD colors
-
-### How It Works
-
-- Colors apply **live** to the workspace (no page reload)
-- Settings persist to `localStorage` automatically
-- Use **Reset** to restore the default dark theme
-- Default theme: dark background (#0d0e12) with gold accent (#f5c518)
+The workspace uses a static dark theme (dark background #0d0e12 with gold accent #f5c518). Theme customization via the Appearance page has been removed.
 
 After successful installation:
 

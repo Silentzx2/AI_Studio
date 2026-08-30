@@ -14,7 +14,6 @@ import {
   Cpu,
   Database,
   AlertCircle,
-  Sun,
   Bell,
   Keyboard,
   Network,
@@ -60,14 +59,12 @@ import {
   StorageTab,
   ConnectionsTab,
   OverviewTab,
-  TerminalTab,
 } from '@/features/admin/tabs';
 
 // Import new settings sections
 import {
   GeneralSection,
   WorkspaceSection,
-  AppearanceSection,
   GenerationSection,
   ExportBackupSection,
   NotificationsSection,
@@ -174,13 +171,6 @@ const SETTINGS_SECTIONS: SettingsSection[] = [
 
   // PREFERENCES
   {
-    id: 'appearance',
-    label: 'Appearance',
-    icon: <Sun className="w-4 h-4" />,
-    group: 'preferences',
-    description: 'Theme and visual preferences',
-  },
-  {
     id: 'notifications',
     label: 'Notifications',
     icon: <Bell className="w-4 h-4" />,
@@ -209,13 +199,6 @@ const SETTINGS_SECTIONS: SettingsSection[] = [
     icon: <Shield className="w-4 h-4" />,
     group: 'advanced',
     description: 'Security and authentication',
-  },
-  {
-    id: 'developer',
-    label: 'Developer',
-    icon: <Code className="w-4 h-4" />,
-    group: 'advanced',
-    description: 'Developer tools and debugging',
   },
   {
     id: 'advanced',
@@ -352,8 +335,6 @@ useEffect(() => {
 
   const getKeysForSection = (sectionId: string): string[] => {
     switch (sectionId) {
-      case 'appearance':
-        return ['appearance_settings'];
       case 'generation':
         return ['generationSettings', 'gen_advanced_settings'];
       case 'notifications':
@@ -425,12 +406,6 @@ useEffect(() => {
               <WorkspaceSection />
             </Suspense>
           );
-        case 'appearance':
-          return (
-            <Suspense fallback={<SectionLoading />}>
-              <AppearanceSection />
-            </Suspense>
-          );
         case 'generation':
           return (
             <Suspense fallback={<SectionLoading />}>
@@ -493,12 +468,6 @@ useEffect(() => {
           return (
             <Suspense fallback={<SectionLoading />}>
               <SettingsTab />
-            </Suspense>
-          );
-        case 'developer':
-          return (
-            <Suspense fallback={<SectionLoading />}>
-              <TerminalTab />
             </Suspense>
           );
         case 'export':
@@ -729,10 +698,10 @@ useEffect(() => {
                 {getKeysForSection(activeSection).length > 0 && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
-                        <RotateCcw className="w-4 h-4" />
-                        Reset Section
-                      </Button>
+                       <Button variant="destructive" size="sm" className="gap-2">
+                         <RotateCcw className="w-4 h-4" />
+                         Reset Section
+                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>

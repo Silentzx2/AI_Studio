@@ -41,7 +41,7 @@ const config: Config = {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
-        chart: { '1': 'hsl(var(--chart-1))', '2': 'hsl(var(--chart-2))', '3': 'hsl(var(--chart-3))', '4': 'hsl(var(--chart-4))', '5': 'hsl(var(--chart-5))' },
+        chart: { '1': 'hsl(var(--chart-1))', '2': 'hsl(var(--chart-2))', '3': 'hsl(var(--chart-3))', '4': 'hsl(var(--chart-4))', '5': 'hsl(var(--chart-5))', gpu: 'hsl(var(--chart-1))', vram: 'hsl(var(--chart-2))', cpu: 'hsl(var(--chart-3))', temp: 'hsl(var(--chart-4))' },
         surface: { '0': 'hsl(var(--surface-0))', '1': 'hsl(var(--surface-1))', '2': 'hsl(var(--surface-2))', '3': 'hsl(var(--surface-3))' },
         neon: { purple: 'hsl(var(--neon-purple))', blue: 'hsl(var(--neon-blue))', cyan: 'hsl(var(--neon-cyan))', pink: 'hsl(var(--neon-pink))', green: 'hsl(var(--neon-green))', amber: 'hsl(var(--neon-amber))' },
         'tripo-gray': {
@@ -60,6 +60,10 @@ const config: Config = {
           '5': 'hsl(var(--tripo-white-5))',
           '10': 'hsl(var(--tripo-white-10))',
         },
+        tooltip: { bg: 'hsl(var(--tooltip-bg))', border: 'hsl(var(--tooltip-border))', fg: 'hsl(var(--tooltip-fg))' },
+        log: { info: 'hsl(var(--log-info))', success: 'hsl(var(--log-success))', warn: 'hsl(var(--log-warn))', error: 'hsl(var(--log-error))', debug: 'hsl(var(--log-debug))' },
+        admin: { accent: 'hsl(var(--admin-accent))', 'accent-deep': 'hsl(var(--admin-accent-deep))' },
+        status: { online: 'hsl(var(--status-online))', offline: 'hsl(var(--status-offline))', busy: 'hsl(var(--status-busy))' },
       },
       keyframes: {
         'accordion-down': { from: { height: '0' }, to: { height: 'var(--radix-accordion-content-height)' } },

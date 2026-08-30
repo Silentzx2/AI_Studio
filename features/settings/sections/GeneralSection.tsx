@@ -265,7 +265,7 @@ export function GeneralSection() {
               {isChecking ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Activity className="w-4 h-4 mr-2" />}
               {isChecking ? 'Running Checks...' : 'Run Initialization Check'}
             </Button>
-            <Button variant="outline" onClick={fetchSystemInfo} disabled={loading}>
+            <Button variant="default" onClick={fetchSystemInfo} disabled={loading}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Refresh Information
             </Button>

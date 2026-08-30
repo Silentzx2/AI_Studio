@@ -9,7 +9,6 @@ import { LogsTab } from '@/features/admin/tabs/LogsTab';
 import { JobsTab } from '@/features/admin/tabs/JobsTab';
 import { QueueTab } from '@/features/admin/tabs/QueueTab';
 import { HealthTab } from '@/features/admin/tabs/HealthTab';
-import { TerminalTab } from '@/features/admin/tabs/TerminalTab';
 import { SettingsTab } from '@/features/admin/tabs/SettingsTab';
 
 function AdminPageContent() {
@@ -24,7 +23,6 @@ function AdminPageContent() {
       case 'jobs': return <JobsTab />;
       case 'queue': return <QueueTab />;
       case 'health': return <HealthTab />;
-      case 'terminal': return <TerminalTab />;
       case 'settings': return <SettingsTab />;
       default: return <OverviewTab />;
     }

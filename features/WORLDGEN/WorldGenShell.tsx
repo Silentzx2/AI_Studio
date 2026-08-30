@@ -145,14 +145,14 @@ const WorldGenInner: React.FC = () => {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
-              className="w-80 h-full bg-[#0f1015] border-r border-[#1a1d26] flex flex-col flex-shrink-0 z-10 overflow-hidden"
+              className="w-80 h-full bg-[var(--ws-panel,#hsl(var(--surface-1)))] border-r border-[var(--ws-border,#hsl(var(--border)))] flex flex-col flex-shrink-0 z-10 overflow-hidden"
             >
-              <div className="h-9 px-3 flex items-center justify-between border-b border-[#1a1d26] bg-[#0c0d12]">
-                <span className="text-[10px] font-bold tracking-wider text-[#9ca3af] uppercase">Settings</span>
+              <div className="h-9 px-3 flex items-center justify-between border-b border-[var(--ws-border,#hsl(var(--border)))] bg-[var(--ws-panel,#hsl(var(--surface-1)))]">
+                <span className="text-[10px] font-bold tracking-wider text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] uppercase">Settings</span>
                 <button
                   onClick={() => setIsLeftOpen(false)}
                   title="Collapse panel"
-                  className="p-1 rounded-md text-[#6b7280] hover:text-[#f5c518] hover:bg-[#1a1d26] transition-colors"
+                  className="p-1 rounded-md text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] hover:text-[hsl(var(--primary))] hover:bg-[var(--ws-hover-bg,#hsl(var(--surface-2)))] transition-colors"
                 >
                   <PanelLeftClose className="w-4 h-4" />
                 </button>
@@ -173,7 +173,7 @@ const WorldGenInner: React.FC = () => {
         </AnimatePresence>
 
         {/* Center viewport - auto-expands when panels collapse */}
-        <main className="flex-1 h-full relative overflow-hidden bg-[#0a0b0e]">
+        <main className="flex-1 h-full relative overflow-hidden bg-[var(--ws-viewport,#hsl(var(--surface-0)))]">
           <WorldMeshViewer
             mode={mode}
             showGrid={showGrid}
@@ -189,7 +189,7 @@ const WorldGenInner: React.FC = () => {
               <button
                 onClick={() => setIsLeftOpen(true)}
                 title="Open Settings"
-                className="w-6 h-14 rounded-r-lg bg-[#16181f] border border-l-0 border-[#272b36] text-[#6b7280] hover:text-[#f5c518] transition-colors flex items-center justify-center"
+                className="w-6 h-14 rounded-r-lg bg-[var(--ws-panel,#hsl(var(--surface-1)))] border border-l-0 border-[var(--ws-border,#hsl(var(--border)))] text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] hover:text-[hsl(var(--primary))] transition-colors flex items-center justify-center"
               >
                 <PanelLeftOpen className="w-3.5 h-3.5" />
               </button>
@@ -201,7 +201,7 @@ const WorldGenInner: React.FC = () => {
               <button
                 onClick={() => setIsRightOpen(true)}
                 title="Open Properties"
-                className="w-6 h-14 rounded-l-lg bg-[#16181f] border border-r-0 border-[#272b36] text-[#6b7280] hover:text-[#f5c518] transition-colors flex items-center justify-center"
+                className="w-6 h-14 rounded-l-lg bg-[var(--ws-panel,#hsl(var(--surface-1)))] border border-r-0 border-[var(--ws-border,#hsl(var(--border)))] text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] hover:text-[hsl(var(--primary))] transition-colors flex items-center justify-center"
               >
                 <PanelRightOpen className="w-3.5 h-3.5" />
               </button>
@@ -217,14 +217,14 @@ const WorldGenInner: React.FC = () => {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 10 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
-              className="w-80 h-full bg-[#0f1015] border-l border-[#1a1d26] flex flex-col flex-shrink-0 z-10 overflow-hidden"
+              className="w-80 h-full bg-[var(--ws-panel,#hsl(var(--surface-1)))] border-l border-[var(--ws-border,#hsl(var(--border)))] flex flex-col flex-shrink-0 z-10 overflow-hidden"
             >
-              <div className="h-9 px-3 flex items-center justify-between border-b border-[#1a1d26] bg-[#0c0d12]">
-                <span className="text-[10px] font-bold tracking-wider text-[#9ca3af] uppercase">Properties</span>
+              <div className="h-9 px-3 flex items-center justify-between border-b border-[var(--ws-border,#hsl(var(--border)))] bg-[var(--ws-panel,#hsl(var(--surface-1)))]">
+                <span className="text-[10px] font-bold tracking-wider text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] uppercase">Properties</span>
                 <button
                   onClick={() => setIsRightOpen(false)}
                   title="Collapse panel"
-                  className="p-1 rounded-md text-[#6b7280] hover:text-[#f5c518] hover:bg-[#1a1d26] transition-colors"
+                  className="p-1 rounded-md text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] hover:text-[hsl(var(--primary))] hover:bg-[var(--ws-hover-bg,#hsl(var(--surface-2)))] transition-colors"
                 >
                   <PanelRightClose className="w-4 h-4" />
                 </button>

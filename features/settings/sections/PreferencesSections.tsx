@@ -221,7 +221,6 @@ export function AdvancedSection() {
       'networkSettings',
       'advancedSettings',
       'generationSettings',
-      'appearance_settings',
       'uiPreferences',
       'SETTINGS_RAY_TRACING',
       'SETTINGS_ANTI_ALIASING',
@@ -299,7 +298,7 @@ export function AdvancedSection() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will permanently reset all non-critical configurations (appearance, UI preferences, notifications, and advanced settings) back to their initial factory state. You will lose all customized preferences.
+                    This will permanently reset all non-critical configurations (UI preferences, notifications, and advanced settings) back to their initial factory state. You will lose all customized preferences.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

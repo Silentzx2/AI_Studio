@@ -20,7 +20,6 @@ export function ExportBackupSection() {
         'networkSettings',
         'advancedSettings',
         'generationSettings',
-        'appearance_settings',
         'uiPreferences',
         'SETTINGS_RAY_TRACING',
         'SETTINGS_ANTI_ALIASING',
@@ -64,7 +63,6 @@ export function ExportBackupSection() {
         'networkSettings',
         'advancedSettings',
         'generationSettings',
-        'appearance_settings',
         'uiPreferences',
         'SETTINGS_RAY_TRACING',
         'SETTINGS_ANTI_ALIASING',
@@ -189,9 +187,9 @@ export function ExportBackupSection() {
             <p className="text-sm text-muted-foreground mb-4">
               This will include your general settings, UI preferences, and generation parameters. It does NOT include any 3D models or generated assets.
             </p>
-            <Button onClick={handleExport} disabled={exporting} className="w-full">
-              {exporting ? 'Exporting...' : 'Download Backup File'}
-            </Button>
+             <Button variant="default" onClick={handleExport} disabled={exporting} className="w-full">
+               {exporting ? 'Exporting...' : 'Download Backup File'}
+             </Button>
           </CardContent>
         </Card>
 

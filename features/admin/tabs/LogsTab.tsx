@@ -13,11 +13,11 @@ import { toast } from "sonner";
 type LevelKey = "all" | "info" | "success" | "warn" | "error" | "debug";
 
 const LEVEL_STYLE: Record<string, { badge: string; text: string; label: string }> = {
-  info:    { badge: "bg-[#0284c7]/20 text-[#38bdf8] border-[#0284c7]/40", text: "text-[#38bdf8]", label: "INFO" },
-  success: { badge: "bg-[#16a34a]/20 text-[#4ade80] border-[#16a34a]/40", text: "text-[#4ade80]", label: "OK  " },
-  warn:    { badge: "bg-[#d97706]/20 text-[#fbbf24] border-[#d97706]/40", text: "text-[#fbbf24]", label: "WARN" },
-  error:   { badge: "bg-[#dc2626]/20 text-[#f87171] border-[#dc2626]/40", text: "text-[#f87171]", label: "ERR " },
-  debug:   { badge: "bg-[#9333ea]/20 text-[#c084fc] border-[#9333ea]/40", text: "text-[#c084fc]", label: "DBG " },
+  info:    { badge: "bg-[hsl(var(--log-info))]/20 text-[hsl(var(--log-info))] border-[hsl(var(--log-info))]/40", text: "text-[hsl(var(--log-info))]", label: "INFO" },
+  success: { badge: "bg-[hsl(var(--log-success))]/20 text-[hsl(var(--log-success))] border-[hsl(var(--log-success))]/40", text: "text-[hsl(var(--log-success))]", label: "OK  " },
+  warn:    { badge: "bg-[hsl(var(--log-warn))]/20 text-[hsl(var(--log-warn))] border-[hsl(var(--log-warn))]/40", text: "text-[hsl(var(--log-warn))]", label: "WARN" },
+  error:   { badge: "bg-[hsl(var(--log-error))]/20 text-[hsl(var(--log-error))] border-[hsl(var(--log-error))]/40", text: "text-[hsl(var(--log-error))]", label: "ERR " },
+  debug:   { badge: "bg-[hsl(var(--log-debug))]/20 text-[hsl(var(--log-debug))] border-[hsl(var(--log-debug))]/40", text: "text-[hsl(var(--log-debug))]", label: "DBG " },
 };
 
 function formatTime(ts: string): string {
@@ -219,7 +219,7 @@ export function LogsTab() {
     return (
       <>
         {text.slice(0, idx)}
-        <span className="bg-[#f59e0b]/40 text-[#fde68a] font-bold px-0.5 rounded">
+        <span className="bg-[hsl(var(--log-warn))]/40 text-[hsl(var(--log-warn))] font-bold px-0.5 rounded">
           {text.slice(idx, idx + query.length)}
         </span>
         {text.slice(idx + query.length)}
@@ -228,23 +228,23 @@ export function LogsTab() {
   };
 
   return (
-    <div id="page-terminal-logs" className="flex flex-col h-[calc(100vh-130px)] min-h-[550px] bg-[#07080b] rounded-xl border border-[#1d2029] overflow-hidden text-xs select-none">
+    <div id="page-terminal-logs" className="flex flex-col h-[calc(100vh-130px)] min-h-[550px] bg-[hsl(var(--surface-0))] rounded-xl border border-[hsl(var(--border))] overflow-hidden text-xs select-none">
       {/* ── Terminal Title Bar ── */}
-      <div className="flex items-center justify-between px-3.5 py-2 bg-[#0d0e14] border-b border-[#1c1f28]">
+      <div className="flex items-center justify-between px-3.5 py-2 bg-[hsl(var(--surface-1))] border-b border-[hsl(var(--border))]">
         {/* Terminal dots & command path */}
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]/80 border border-[#ef4444]" />
-            <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]/80 border border-[#f59e0b]" />
-            <span className="w-2.5 h-2.5 rounded-full bg-[#22c55e]/80 border border-[#22c55e]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[hsl(var(--destructive))]/80 border border-[hsl(var(--destructive))]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[hsl(var(--log-warn))]/80 border border-[hsl(var(--log-warn))]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[hsl(var(--log-success))]/80 border border-[hsl(var(--log-success))]" />
           </div>
-          <div className="flex items-center gap-1.5 font-mono text-[11px] text-[#9ca3af] truncate">
-            <Terminal className="w-3.5 h-3.5 text-[#38bdf8]" />
-            <span className="text-[#38bdf8] font-semibold">fastapi@studio</span>
-            <span className="text-[#64748b]">:</span>
-            <span className="text-[#e2e8f0]">~/logs</span>
-            <span className="text-[#64748b]">$</span>
-            <span className="text-[#cbd5e1] font-normal">tail -f app.log</span>
+          <div className="flex items-center gap-1.5 font-mono text-[11px] text-[hsl(var(--muted-foreground))] truncate">
+            <Terminal className="w-3.5 h-3.5 text-[hsl(var(--log-info))]" />
+            <span className="text-[hsl(var(--log-info))] font-semibold">fastapi@studio</span>
+            <span className="text-[hsl(var(--muted-foreground))]">:</span>
+            <span className="text-[hsl(var(--foreground))]">~/logs</span>
+            <span className="text-[hsl(var(--muted-foreground))]">$</span>
+            <span className="text-[hsl(var(--foreground))] font-normal">tail -f app.log</span>
           </div>
         </div>
 
@@ -255,14 +255,14 @@ export function LogsTab() {
             onClick={() => setLive((v) => !v)}
             className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-semibold flex items-center gap-1.5 transition-all ${
               live
-                ? "bg-[#22c55e]/15 text-[#4ade80] border border-[#22c55e]/30 shadow-sm"
-                : "bg-[#334155]/20 text-[#94a3b8] border border-[#475569]/30"
+                ? "bg-[hsl(var(--log-success))]/15 text-[hsl(var(--log-success))] border border-[hsl(var(--log-success))]/30 shadow-sm"
+                : "bg-[hsl(var(--surface-2))]/20 text-[hsl(var(--muted-foreground))] border border-[hsl(var(--border))]/30"
             }`}
             title={live ? "Click to pause live streaming" : "Click to resume live streaming"}
           >
             {live ? (
               <>
-                <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--log-success))] animate-pulse" />
                 <span>LIVE</span>
               </>
             ) : (
@@ -276,17 +276,17 @@ export function LogsTab() {
           {/* Copy */}
           <button
             onClick={handleCopy}
-            className="px-2 py-1 rounded-md bg-[#13151c] hover:bg-[#1a1d26] border border-[#232733] text-[#cbd5e1] hover:text-[#ffffff] flex items-center gap-1 transition-colors"
+            className="px-2 py-1 rounded-md bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-3))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:text-[hsl(var(--foreground))] flex items-center gap-1 transition-colors"
             title="Copy filtered logs"
           >
-            {copied ? <Check className="w-3.5 h-3.5 text-[#22c55e]" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? <Check className="w-3.5 h-3.5 text-[hsl(var(--log-success))]" /> : <Copy className="w-3.5 h-3.5" />}
             <span className="font-mono text-[10.5px]">Copy</span>
           </button>
 
           {/* Download */}
           <button
             onClick={handleDownload}
-            className="px-2 py-1 rounded-md bg-[#13151c] hover:bg-[#1a1d26] border border-[#232733] text-[#cbd5e1] hover:text-[#ffffff] flex items-center gap-1 transition-colors"
+            className="px-2 py-1 rounded-md bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-3))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:text-[hsl(var(--foreground))] flex items-center gap-1 transition-colors"
             title="Download log file"
           >
             <Download className="w-3.5 h-3.5" />
@@ -297,7 +297,7 @@ export function LogsTab() {
           <button
             onClick={handleClear}
             disabled={isClearing}
-            className="px-2 py-1 rounded-md bg-[#1f1316] hover:bg-[#2d171b] border border-[#451e24] text-[#fca5a5] hover:text-[#f87171] flex items-center gap-1 transition-colors disabled:opacity-50"
+            className="px-2 py-1 rounded-md bg-[hsl(var(--destructive))]/10 hover:bg-[hsl(var(--destructive))]/20 border border-[hsl(var(--destructive))]/30 text-[hsl(var(--destructive))] hover:text-[hsl(var(--destructive))] flex items-center gap-1 transition-colors disabled:opacity-50"
             title="Clear all application logs"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -308,16 +308,16 @@ export function LogsTab() {
           <button
             onClick={() => fetchLogs()}
             disabled={loading}
-            className="p-1 rounded-md bg-[#13151c] hover:bg-[#1a1d26] border border-[#232733] text-[#9ca3af] hover:text-[#f3f4f6] transition-colors"
+            className="p-1 rounded-md bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-3))] border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
             title="Refresh logs from server"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-[#38bdf8]" : ""}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-[hsl(var(--log-info))]" : ""}`} />
           </button>
         </div>
       </div>
 
       {/* ── Filter & Search Toolbar ── */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2 bg-[#090a0f] border-b border-[#171922]">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2 bg-[hsl(var(--surface-1))] border-b border-[hsl(var(--border))]">
         {/* Level Badges */}
         <div className="flex items-center gap-1 flex-wrap">
           {(["all", "info", "success", "warn", "error", "debug"] as LevelKey[]).map((lvl) => {
@@ -329,13 +329,13 @@ export function LogsTab() {
                 onClick={() => setLevel(lvl)}
                 className={`px-2 py-0.5 rounded text-[10.5px] font-mono uppercase font-semibold transition-all flex items-center gap-1 ${
                   isSelected
-                    ? "bg-[#2563eb] text-white shadow-sm"
-                    : "bg-[#11131a] text-[#8e95a5] hover:bg-[#181b24] hover:text-[#cbd5e1] border border-[#1e222d]"
+                    ? "bg-[hsl(var(--log-info))] text-white shadow-sm"
+                    : "bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--surface-3))] hover:text-[hsl(var(--foreground))] border border-[hsl(var(--border))]"
                 }`}
               >
                 <span>{lvl}</span>
                 <span className={`text-[9px] px-1 py-0.2 rounded ${
-                  isSelected ? "bg-black/30 text-white" : "bg-[#191d26] text-[#6b7280]"
+                  isSelected ? "bg-black/30 text-white" : "bg-[hsl(var(--surface-3))] text-[hsl(var(--muted-foreground))]"
                 }`}>
                   {count}
                 </span>
@@ -348,14 +348,14 @@ export function LogsTab() {
         <div className="flex items-center gap-2">
           {/* Source dropdown */}
           <div className="flex items-center gap-1">
-            <span className="text-[10px] text-[#64748b] font-mono">SRC:</span>
+            <span className="text-[10px] text-[hsl(var(--muted-foreground))] font-mono">SRC:</span>
             <select
               value={sourceFilter}
               onChange={(e) => setSourceFilter(e.target.value)}
-              className="bg-[#11131a] border border-[#1e222d] rounded px-1.5 py-0.5 text-[10.5px] font-mono text-[#cbd5e1] focus:outline-none focus:border-[#38bdf8]"
+              className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded px-1.5 py-0.5 text-[10.5px] font-mono text-[hsl(var(--foreground))] focus:outline-none focus:border-[hsl(var(--log-info))]"
             >
               {sources.map((s) => (
-                <option key={s} value={s} className="bg-[#11131a] text-[#cbd5e1]">
+                <option key={s} value={s} className="bg-[hsl(var(--surface-2))] text-[hsl(var(--foreground))]">
                   {s.toUpperCase()}
                 </option>
               ))}
@@ -364,18 +364,18 @@ export function LogsTab() {
 
           {/* Search box */}
           <div className="relative">
-            <Search className="w-3 h-3 text-[#64748b] absolute left-2 top-1/2 -translate-y-1/2" />
+            <Search className="w-3 h-3 text-[hsl(var(--muted-foreground))] absolute left-2 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search logs..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-6 pr-5 py-0.5 w-36 lg:w-48 bg-[#11131a] border border-[#1e222d] rounded text-[11px] font-mono text-[#e2e8f0] placeholder-[#475569] focus:outline-none focus:border-[#38bdf8]"
+              className="pl-6 pr-5 py-0.5 w-36 lg:w-48 bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] rounded text-[11px] font-mono text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))] focus:outline-none focus:border-[hsl(var(--log-info))]"
             />
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-[#e2e8f0]"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
               >
                 <X className="w-2.5 h-2.5" />
               </button>
@@ -387,8 +387,8 @@ export function LogsTab() {
             onClick={() => setWrap((w) => !w)}
             className={`px-1.5 py-0.5 rounded text-[10.5px] font-mono flex items-center gap-1 border transition-colors ${
               wrap
-                ? "bg-[#38bdf8]/15 border-[#38bdf8]/40 text-[#38bdf8]"
-                : "bg-[#11131a] border-[#1e222d] text-[#64748b] hover:text-[#94a3b8]"
+                ? "bg-[hsl(var(--log-info))]/15 border-[hsl(var(--log-info))]/40 text-[hsl(var(--log-info))]"
+                : "bg-[hsl(var(--surface-2))] border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
             }`}
             title="Toggle word wrap"
           >
@@ -402,18 +402,18 @@ export function LogsTab() {
       <div
         ref={terminalRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto overflow-x-auto p-3 font-mono text-[11.5px] leading-relaxed bg-[#050608] text-[#cbd5e1] space-y-0.5 scrollbar-thin scrollbar-thumb-[#1e222d]"
+        className="flex-1 overflow-y-auto overflow-x-auto p-3 font-mono text-[11.5px] leading-relaxed bg-[hsl(var(--surface-0))] text-[hsl(var(--foreground))] space-y-0.5 scrollbar-thin scrollbar-thumb-[hsl(var(--border))]"
       >
         {loading && logs.length === 0 ? (
-          <div className="flex items-center justify-center h-48 text-[#64748b] font-mono">
-            <RefreshCw className="w-4 h-4 animate-spin mr-2 text-[#38bdf8]" />
+          <div className="flex items-center justify-center h-48 text-[hsl(var(--muted-foreground))] font-mono">
+            <RefreshCw className="w-4 h-4 animate-spin mr-2 text-[hsl(var(--log-info))]" />
             <span>Streaming logs from backend...</span>
           </div>
         ) : filteredLogs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 text-[#64748b] font-mono space-y-1">
-            <Terminal className="w-6 h-6 text-[#334155]" />
+          <div className="flex flex-col items-center justify-center h-48 text-[hsl(var(--muted-foreground))] font-mono space-y-1">
+            <Terminal className="w-6 h-6 text-[hsl(var(--muted-foreground))]" />
             <span>No log entries match the current filter.</span>
-            <span className="text-[10px] text-[#475569]">Try clearing search or changing the log level.</span>
+            <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Try clearing search or changing the log level.</span>
           </div>
         ) : (
           filteredLogs.map((l, index) => {
@@ -421,18 +421,18 @@ export function LogsTab() {
             return (
               <div
                 key={l.id || `${l.timestamp}-${index}`}
-                className={`flex items-start gap-2 px-1.5 py-0.5 rounded hover:bg-[#10121a] transition-colors ${
+                className={`flex items-start gap-2 px-1.5 py-0.5 rounded hover:bg-[hsl(var(--surface-2))] transition-colors ${
                   wrap ? "flex-wrap" : "whitespace-pre"
                 }`}
               >
                 {/* Line number */}
-                <span className="text-[#475569] select-none text-[10px] w-8 text-right flex-shrink-0 font-mono">
+                <span className="text-[hsl(var(--muted-foreground))] select-none text-[10px] w-8 text-right flex-shrink-0 font-mono">
                   {index + 1}
                 </span>
 
                 {/* Timestamp */}
                 <span
-                  className="text-[#64748b] select-none flex-shrink-0 font-mono text-[10.5px]"
+                  className="text-[hsl(var(--muted-foreground))] select-none flex-shrink-0 font-mono text-[10.5px]"
                   title={formatFullTs(l.timestamp)}
                 >
                   {formatTime(l.timestamp)}
@@ -446,12 +446,12 @@ export function LogsTab() {
                 </span>
 
                 {/* Source tag */}
-                <span className="text-[#a78bfa] font-semibold flex-shrink-0">
+                <span className="text-[hsl(var(--log-debug))] font-semibold flex-shrink-0">
                   [{l.source || "sys"}]
                 </span>
 
                 {/* Log message content */}
-                <span className={`text-[#e2e8f0] flex-1 ${wrap ? "break-words" : ""}`}>
+                <span className={`text-[hsl(var(--foreground))] flex-1 ${wrap ? "break-words" : ""}`}>
                   {highlightMatch(l.message, search)}
                 </span>
               </div>
@@ -466,7 +466,7 @@ export function LogsTab() {
         <div className="relative">
           <button
             onClick={jumpToBottom}
-            className="absolute bottom-3 right-4 px-3 py-1.5 rounded-full bg-[#38bdf8] hover:bg-[#0ea5e9] text-[#0f172a] font-mono font-bold text-[11px] shadow-lg flex items-center gap-1.5 animate-bounce z-10 transition-transform active:scale-95"
+            className="absolute bottom-3 right-4 px-3 py-1.5 rounded-full bg-[hsl(var(--log-info))] hover:bg-[hsl(var(--log-info))]/90 text-[hsl(var(--surface-0))] font-mono font-bold text-[11px] shadow-lg flex items-center gap-1.5 animate-bounce z-10 transition-transform active:scale-95"
           >
             <ArrowDown className="w-3.5 h-3.5" />
             <span>Jump to latest</span>
@@ -475,25 +475,25 @@ export function LogsTab() {
       )}
 
       {/* ── Terminal Status Bar Footer ── */}
-      <div className="flex items-center justify-between px-3.5 py-1.5 bg-[#090a0f] border-t border-[#171922] font-mono text-[10.5px] text-[#64748b]">
+      <div className="flex items-center justify-between px-3.5 py-1.5 bg-[hsl(var(--surface-1))] border-t border-[hsl(var(--border))] font-mono text-[10.5px] text-[hsl(var(--muted-foreground))]">
         <div className="flex items-center gap-3">
           <span>
-            LINES: <strong className="text-[#cbd5e1]">{filteredLogs.length}</strong> / {logs.length}
+            LINES: <strong className="text-[hsl(var(--foreground))]">{filteredLogs.length}</strong> / {logs.length}
           </span>
           <span>
-            AUTO-SCROLL: <strong className={autoScroll ? "text-[#4ade80]" : "text-[#94a3b8]"}>{autoScroll ? "ON" : "OFF"}</strong>
+            AUTO-SCROLL: <strong className={autoScroll ? "text-[hsl(var(--log-success))]" : "text-[hsl(var(--muted-foreground))]"}>{autoScroll ? "ON" : "OFF"}</strong>
           </span>
           <span>
-            WRAP: <strong className={wrap ? "text-[#38bdf8]" : "text-[#94a3b8]"}>{wrap ? "ON" : "OFF"}</strong>
+            WRAP: <strong className={wrap ? "text-[hsl(var(--log-info))]" : "text-[hsl(var(--muted-foreground))]"}>{wrap ? "ON" : "OFF"}</strong>
           </span>
         </div>
 
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e]" />
-            <span className="text-[#94a3b8]">Uvicorn / FastAPI Log Sink</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--log-success))]" />
+            <span className="text-[hsl(var(--muted-foreground))]">Uvicorn / FastAPI Log Sink</span>
           </span>
-          <span className="text-[#475569]">UTF-8</span>
+          <span className="text-[hsl(var(--muted-foreground))]">UTF-8</span>
         </div>
       </div>
     </div>

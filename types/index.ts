@@ -279,14 +279,6 @@ export interface QueueStatus {
 }
 
 
-export interface TerminalCommand {
-  id: string;
-  command: string;
-  output: string;
-  timestamp: string;
-  exit_code: number;
-}
-
 export interface InstallProgress {
   model_id: string;
   phase: string;

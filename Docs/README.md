@@ -803,12 +803,10 @@ ai-3d-studio/
 │   │   ├── QueueTab.tsx
 │   │   ├── RuntimeTab.tsx
 │   │   ├── SettingsTab.tsx
-│   │   ├── StorageTab.tsx
-│   │   └── TerminalTab.tsx
+│   │   └── StorageTab.tsx
 │   ├── settings/sections/             # Settings page sections
 │   │   ├── GeneralSection.tsx
 │   │   ├── WorkspaceSection.tsx
-│   │   ├── AppearanceSection.tsx
 │   │   ├── GenerationSection.tsx
 │   │   ├── ExportBackupSection.tsx
 │   │   └── PreferencesSections/
@@ -841,7 +839,6 @@ ai-3d-studio/
 ├── stores/                            # Zustand state stores
 │   ├── useGenerationStore.ts
 │   ├── useProjectStore.ts
-│   ├── useThemeStore.ts
 │   └── useUIStore.ts
 │
 ├── services/                          # API client layer

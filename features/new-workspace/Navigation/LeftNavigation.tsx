@@ -33,7 +33,7 @@ export const LeftNavigation: React.FC = () => {
     <nav
       id="left-tool-rail"
       aria-label="3D Studio Toolset"
-      className="w-16 h-full bg-[var(--ws-nav-bg,#0f1015)] border-r border-[var(--ws-border,#21242c)] flex flex-col items-center py-2 justify-between z-20 select-none flex-shrink-0"
+      className="w-[4.2rem] h-full bg-[var(--ws-nav-bg,#0f1015)] border-r border-[var(--ws-border,#21242c)] flex flex-col items-center py-2 justify-between z-20 select-none flex-shrink-0"
     >
       {/* Top Primary Toolset */}
       <div className="flex flex-col items-center gap-1 w-full px-1 overflow-y-auto overflow-x-hidden">

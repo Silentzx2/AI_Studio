@@ -1,4 +1,4 @@
-"""Settings endpoints — appearance and user preferences stored server-side."""
+"""Settings endpoints — user preferences stored server-side."""
 
 import threading
 
@@ -12,13 +12,6 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 # In-memory store (replace with DB-backed store if persistence across restarts needed)
 # ponytail: per-process — multi-worker deployments need a shared backend (DB/Redis).
 # TODO: Migrate to DB-backed storage for persistence and multi-worker consistency
-_appearance_store: dict = {
-    "theme": "dark",
-    "accentColor": "#f97316",
-    "fontSize": "md",
-    "density": "normal",
-}
-
 _workspace_store: dict = {
     "defaultLocation": "/workspace/projects",
     "autoSave": True,
@@ -41,13 +34,6 @@ _generation_store: dict = {
 _settings_lock = threading.Lock()
 
 
-class AppearanceConfig(BaseModel):
-    theme: str = "dark"
-    accentColor: str = "#f97316"
-    fontSize: str = "md"
-    density: str = "normal"
-
-
 class WorkspaceConfig(BaseModel):
     defaultLocation: str = Field(default="/workspace/projects")
     autoSave: bool = Field(default=True)
@@ -64,27 +50,6 @@ class GenerationConfig(BaseModel):
     steps: int | None = None
     low_vram: bool | None = None
     batch_generation_enabled: bool | None = None
-
-
-@router.get("/appearance")
-async def get_appearance():
-    cached = get_cached("settings_appearance", ttl_seconds=30)
-    if cached is not None:
-        return cached
-    with _settings_lock:
-        result = dict(_appearance_store)
-    set_cached("settings_appearance", result)
-    return result
-
-
-@router.post("/appearance")
-async def save_appearance(config: AppearanceConfig):
-    with _settings_lock:
-        _appearance_store.update(config.model_dump())
-        result = {"success": True, "data": dict(_appearance_store)}
-    invalidate_pattern("settings_")
-    set_cached("settings_appearance", result["data"])
-    return result
 
 
 @router.get("/workspace")

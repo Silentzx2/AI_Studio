@@ -400,29 +400,29 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
 
       {/* HUD: Topology + Orientation (matches reference) */}
       <div className="absolute top-4 right-4 z-10 flex items-center gap-3">
-        <div className="bg-[var(--ws-hud-bg,#12141a)]/90 backdrop-blur-md border border-[var(--ws-hud-border,#232733)] rounded-xl px-3.5 py-2 shadow-xl space-y-1 text-xs font-mono">
+        <div className="bg-[var(--ws-hud-bg,#hsl(var(--surface-1)))]/90 backdrop-blur-md border border-[var(--ws-hud-border,#hsl(var(--border)))] rounded-xl px-3.5 py-2 shadow-xl space-y-1 text-xs font-mono">
           <div className="flex items-center justify-between gap-4">
-            <span className="text-[var(--ws-text-muted,#8e95a5)] text-[11px]">World</span>
-            <span className="text-[var(--ws-text,#f3f4f6)] font-semibold text-[11px] capitalize">
+            <span className="text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] text-[11px]">World</span>
+            <span className="text-[var(--ws-text,#hsl(var(--foreground)))] font-semibold text-[11px] capitalize">
               {mode}
             </span>
           </div>
           <div className="flex items-center justify-between gap-4">
-            <span className="text-[var(--ws-text-muted,#8e95a5)] text-[11px]">Terrain</span>
-            <span className="text-[#22c55e] font-semibold text-[11px]">Ready</span>
+            <span className="text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] text-[11px]">Terrain</span>
+            <span className="text-[hsl(var(--status-online))] font-semibold text-[11px]">Ready</span>
           </div>
         </div>
 
         <SimpleTooltip label="Reset Camera">
           <button
             onClick={resetCamera}
-            className="w-11 h-11 rounded-xl bg-[var(--ws-hud-bg,#12141a)]/90 backdrop-blur-md border border-[var(--ws-hud-border,#232733)] flex items-center justify-center cursor-pointer hover:border-[#f5c518] shadow-xl group transition-all"
+            className="w-11 h-11 rounded-xl bg-[var(--ws-hud-bg,#hsl(var(--surface-1)))]/90 backdrop-blur-md border border-[var(--ws-hud-border,#hsl(var(--border)))] flex items-center justify-center cursor-pointer hover:border-[hsl(var(--primary))] shadow-xl group transition-all"
           >
             <div className="relative w-6 h-6 flex items-center justify-center">
-              <span className="text-[9px] font-bold text-[#ef4444] absolute -top-1">Y</span>
-              <span className="text-[9px] font-bold text-[#22c55e] absolute -right-1">X</span>
-              <span className="text-[9px] font-bold text-[#3b82f6] absolute -bottom-1">Z</span>
-              <div className="w-2 h-2 rounded-full bg-[#f5c518] group-hover:scale-125 transition-transform" />
+              <span className="text-[9px] font-bold text-[hsl(var(--destructive))] absolute -top-1">Y</span>
+              <span className="text-[9px] font-bold text-[hsl(var(--status-online))] absolute -right-1">X</span>
+              <span className="text-[9px] font-bold text-[hsl(var(--neon-blue))] absolute -bottom-1">Z</span>
+              <div className="w-2 h-2 rounded-full bg-[hsl(var(--primary))] group-hover:scale-125 transition-transform" />
             </div>
           </button>
         </SimpleTooltip>
@@ -435,8 +435,8 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
             onClick={() => setInteraction(interaction === 'orbit' ? 'pan' : 'orbit')}
             className={`p-2 rounded-xl transition-all ${
               interaction === 'pan'
-                ? 'bg-[#f5c518] text-[#111216]'
-                : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
+                ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
+                : 'text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,#hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,#hsl(var(--surface-2)))]'
             }`}
           >
             <Hand className="w-4 h-4" />
@@ -455,8 +455,8 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
             onClick={onToggleGrid}
             className={`p-2 rounded-xl transition-all ${
               showGrid
-                ? 'text-[#f5c518] bg-[var(--ws-active-bg,#1a1d26)]'
-                : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
+                ? 'text-[hsl(var(--primary))] bg-[var(--ws-active-bg,#hsl(var(--surface-2)))]'
+                : 'text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,#hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,#hsl(var(--surface-2)))]'
             }`}
           >
             <GridIcon className="w-4 h-4" />
@@ -467,8 +467,8 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
             onClick={onToggleTurntable}
             className={`p-2 rounded-xl transition-all ${
               turntable
-                ? 'bg-[#f5c518] text-[#111216]'
-                : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
+                ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
+                : 'text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,#hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,#hsl(var(--surface-2)))]'
             }`}
           >
             <RotateCw className="w-4 h-4" />
@@ -494,7 +494,7 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
 
       {/* Bottom center view mode switcher */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-[var(--ws-hud-bg,#12141a)]/95 backdrop-blur-md border border-[var(--ws-hud-border,#232733)] shadow-2xl">
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-[var(--ws-hud-bg,#hsl(var(--surface-1)))]/95 backdrop-blur-md border border-[var(--ws-hud-border,#hsl(var(--border)))] shadow-2xl">
           {([
             { id: 'world', label: 'World', Icon: Box },
             { id: 'terrain', label: 'Terrain', Icon: Mountain },
@@ -504,8 +504,8 @@ export const WorldMeshViewer: React.FC<WorldMeshViewerProps> = ({
               <button
                 className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-all ${
                   mode === id
-                    ? 'bg-[#f5c518] text-[#111216]'
-                    : 'text-[var(--ws-text-muted,#8e95a5)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
+                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
+                    : 'text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] hover:text-[var(--ws-text,#hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,#hsl(var(--surface-2)))]'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />

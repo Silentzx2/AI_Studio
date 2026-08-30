@@ -49,7 +49,7 @@ function ToggleRow({
       </span>
       <span
         className={`w-7 h-3.5 rounded-full relative transition-colors duration-200 ${
-          on ? 'bg-[#f5c518]' : 'bg-[#232733]'
+          on ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--surface-3))]'
         }`}
       >
         <span
@@ -81,8 +81,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 onClick={() => onStyleChange(s.id)}
                 className={`flex-1 px-2 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${
                   settings.style === s.id
-                    ? 'bg-[#f5c518] text-[#111216]'
-                    : 'text-[var(--ws-text-muted,#8e95a5)] border border-[var(--ws-border,#232733)] hover:text-[var(--ws-text,#f3f4f6)] hover:bg-[var(--ws-hover-bg,#1f232e)]'
+                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
+                    : 'text-[var(--ws-text-muted,#hsl(var(--muted-foreground)))] border border-[var(--ws-border,#hsl(var(--border)))] hover:text-[var(--ws-text,#hsl(var(--foreground)))] hover:bg-[var(--ws-hover-bg,#hsl(var(--surface-2)))]'
                 }`}
               >
                 {s.label}

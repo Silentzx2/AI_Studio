@@ -340,7 +340,6 @@ _CACHE_TTLS: dict[str, int] = {
     "/api/v1/runtime/health": 5,
     "/api/v1/runtime/status": 10,
     "/api/v1/runtime/options": 30,
-    "/api/v1/settings/appearance": 30,
     "/api/v1/settings/workspace": 30,
     "/api/v1/settings/generation": 30,
     "/api/v1/models/": 30,

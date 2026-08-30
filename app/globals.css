@@ -1527,11 +1527,9 @@ input[type="radio"], [role="switch"], [role="checkbox"],
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   THEME ENGINE — Single source of truth for all visual styling
-   AppearanceProvider writes runtime CSS variables + data attributes
-   on :root / <html> on every theme change. Everything below reads
-   from those variables so a single store update transforms the UI.
-   ═══════════════════════════════════════════════════════════════ */
+    THEME ENGINE — Single source of truth for all visual styling
+    CSS custom properties defined here are the static defaults.
+    ═══════════════════════════════════════════════════════════════ */
 
 :root,
 html.dark {
@@ -1611,7 +1609,7 @@ html.light {
 }
 
 :root {
-  /* Runtime variables — set by AppearanceProvider.applyGlobalTheme() */
+  /* Static defaults — previously overridden at runtime by AppearanceProvider */
   --radius: 0.75rem;
   --radius-sm: 0.5rem;
   --radius-lg: 1rem;
@@ -1632,6 +1630,30 @@ html.light {
   --accent-gradient-from: var(--primary);
   --accent-gradient-to: 48 80% 65%;
   --border-radius: 0.75rem;
+
+  /* ── Semantic color tokens ── */
+  --tooltip-bg: var(--surface-2);
+  --tooltip-border: var(--border);
+  --tooltip-fg: var(--foreground);
+
+  --chart-gpu: var(--neon-purple);
+  --chart-vram: var(--neon-cyan);
+  --chart-cpu: var(--neon-green);
+  --chart-temp: var(--neon-amber);
+
+  --log-info: var(--neon-blue);
+  --log-success: var(--neon-green);
+  --log-warn: var(--neon-amber);
+  --log-error: var(--destructive);
+  --log-debug: var(--neon-purple);
+
+  --status-online: var(--neon-green);
+  --status-offline: var(--destructive);
+  --status-busy: var(--neon-amber);
+
+  --admin-accent: var(--neon-purple);
+  --admin-accent-deep: 265 80% 45%;
+  --admin-surface-tint: 265 80% 58%;
 }
 
 /* ── Base application of font size & radius ── */
