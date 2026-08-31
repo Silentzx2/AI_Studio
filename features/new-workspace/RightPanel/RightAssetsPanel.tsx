@@ -178,7 +178,7 @@ export const RightAssetsPanel: React.FC = () => {
   const paginatedAssets = filteredAssets.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
 
   return (
-    <div id="panel-assets-library" className="flex flex-col h-full bg-[#181a20] text-xs select-none">
+    <div id="panel-assets-library" className="flex flex-col h-full bg-[#191A1D] text-xs select-none">
       {/* Hidden file input for uploading custom 3D files */}
       <input
         ref={fileInputRef}
@@ -189,20 +189,20 @@ export const RightAssetsPanel: React.FC = () => {
       />
 
       {/* Top Action Sub-bar */}
-      <div className="p-2.5 border-b border-[#2f333e] bg-[#1e2026] space-y-2">
+      <div className="px-2 py-1.5 border-b border-white/[0.08] bg-[#16181D]">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             {/* Grid / All View */}
             <SimpleTooltip label="All Assets">
               <button
                 onClick={() => { setShowFavoritesOnly(false); setAssetFilter('all'); }}
-                className={`p-1.5 rounded-lg transition-colors ${
+                className={`p-1 rounded-md transition-colors ${
                   !showFavoritesOnly && assetFilter === 'all'
-                    ? 'bg-[#2b2f3a] text-[#F9CF00] border border-[#3d4252]'
-                    : 'text-zinc-400 hover:text-white hover:bg-[#282b34]'
+                    ? 'bg-[#25262A] text-[#F9CF00]'
+                    : 'text-zinc-400 hover:text-white'
                 }`}
               >
-                <GridIcon className="w-3.5 h-3.5 stroke-[2.2]" />
+                <GridIcon className="w-3 h-3" />
               </button>
             </SimpleTooltip>
 
@@ -210,13 +210,13 @@ export const RightAssetsPanel: React.FC = () => {
             <SimpleTooltip label="Favorites Only">
               <button
                 onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-                className={`p-1.5 rounded-lg transition-colors ${
+                className={`p-1 rounded-md transition-colors ${
                   showFavoritesOnly
-                    ? 'bg-[#2b2f3a] text-[#F9CF00] border border-[#3d4252]'
-                    : 'text-zinc-400 hover:text-white hover:bg-[#282b34]'
+                    ? 'bg-[#25262A] text-[#F9CF00]'
+                    : 'text-zinc-400 hover:text-white'
                 }`}
               >
-                <Star className="w-3.5 h-3.5 stroke-[2.2]" />
+                <Star className="w-3 h-3" />
               </button>
             </SimpleTooltip>
 
@@ -225,33 +225,33 @@ export const RightAssetsPanel: React.FC = () => {
               <SimpleTooltip label="Filter by Category">
                 <button
                   onClick={() => setFilterMenuOpen(!filterMenuOpen)}
-                  className={`p-1.5 rounded-lg transition-colors ${
+                  className={`p-1 rounded-md transition-colors ${
                     assetFilter !== 'all'
-                      ? 'bg-[#2b2f3a] text-[#F9CF00] border border-[#3d4252]'
-                      : 'text-zinc-400 hover:text-white hover:bg-[#282b34]'
+                      ? 'bg-[#25262A] text-[#F9CF00]'
+                      : 'text-zinc-400 hover:text-white'
                   }`}
                 >
-                  <Filter className="w-3.5 h-3.5 stroke-[2.2]" />
+                  <Filter className="w-3 h-3" />
                 </button>
               </SimpleTooltip>
 
               {filterMenuOpen && (
-                <div className="absolute top-full left-0 mt-1.5 w-36 py-1 rounded-xl bg-[#252830] border border-[#383d4a] shadow-2xl z-50 text-xs">
+                <div className="absolute top-full left-0 mt-1 w-32 py-1 rounded-xl bg-[#202125] border border-white/[0.1] shadow-2xl z-50 text-[10px]">
                   <button
                     onClick={() => { setAssetFilter('all'); setFilterMenuOpen(false); }}
-                    className="w-full text-left px-2.5 py-1.5 hover:bg-[#303440] text-zinc-200"
+                    className="w-full text-left px-2 py-1 hover:bg-[#28292E] text-zinc-200"
                   >
                     All Assets
                   </button>
                   <button
                     onClick={() => { setAssetFilter('models'); setFilterMenuOpen(false); }}
-                    className="w-full text-left px-2.5 py-1.5 hover:bg-[#303440] text-zinc-200"
+                    className="w-full text-left px-2 py-1 hover:bg-[#28292E] text-zinc-200"
                   >
                     3D Models
                   </button>
                   <button
                     onClick={() => { setAssetFilter('textures'); setFilterMenuOpen(false); }}
-                    className="w-full text-left px-2.5 py-1.5 hover:bg-[#303440] text-zinc-200"
+                    className="w-full text-left px-2 py-1 hover:bg-[#28292E] text-zinc-200"
                   >
                     PBR Textures
                   </button>
@@ -261,88 +261,72 @@ export const RightAssetsPanel: React.FC = () => {
           </div>
 
           {/* Manage Button */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-zinc-200 hover:text-[#F9CF00] hover:bg-[#282b34] border border-[#2f333e] transition-colors cursor-pointer"
+              className="px-2 py-0.5 rounded-md text-[10px] font-bold text-zinc-200 hover:text-[#F9CF00] hover:bg-[#25262A] border border-white/[0.08] transition-colors cursor-pointer"
             >
               <span>Import</span>
-            </button>
-            <button
-              onClick={() => {
-                setDiagnosticFile(null);
-                setIsDiagnosticOpen(true);
-              }}
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-[#F9CF00] hover:bg-[#282b34] border border-[#2f333e] transition-colors"
-            >
-              <SimpleTooltip label="Diagnose upload issues">
-                <span className="flex items-center justify-center">
-                  <Search className="w-3.5 h-3.5 stroke-[2.2]" />
-                </span>
-              </SimpleTooltip>
             </button>
           </div>
         </div>
       </div>
 
       {/* Main Asset Grid Body */}
-      <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
+      <div className="flex-1 overflow-y-auto p-2 space-y-2 no-scrollbar">
         {filteredAssets.length === 0 && (
-          <div className="py-14 px-4 text-center text-zinc-400">
-            <FolderOpen className="w-8 h-8 mx-auto mb-3 text-zinc-500" />
-            <div className="text-xs font-semibold text-zinc-300">No real outputs yet</div>
-            <div className="text-[10px] mt-1 text-zinc-500">Run a generation workflow or import a local 3D file.</div>
+          <div className="py-8 px-2 text-center text-zinc-400">
+            <FolderOpen className="w-6 h-6 mx-auto mb-2 text-zinc-500" />
+            <div className="text-[11px] font-semibold text-zinc-300">No outputs yet</div>
+            <div className="text-[9px] mt-0.5 text-zinc-500">Run a generation workflow or import a 3D file.</div>
           </div>
         )}
-        <div className="grid grid-cols-2 gap-2.5">
-          {/* Upload 3D Model Card (Matching Reference Image) */}
+        <div className="grid grid-cols-2 gap-1.5">
+          {/* Upload 3D Model Card */}
           <div
             id="btn-upload-3d-model-card"
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`group relative rounded-xl border border-dashed cursor-pointer p-3 flex flex-col items-center justify-center text-center aspect-square transition-all ${
+            className={`group relative rounded-xl border border-dashed cursor-pointer p-2 flex flex-col items-center justify-center text-center aspect-square transition-all ${
               isDragOver
-                ? 'border-[#F9CF00] bg-[#F9CF00]/10 scale-105'
-                : 'border-[#2f333e] hover:border-[#F9CF00]/60 bg-[#1e2026] hover:bg-[#252830]'
+                ? 'border-[#F9CF00] bg-[#F9CF00]/10'
+                : 'border-white/[0.1] hover:border-[#F9CF00]/60 bg-[#141518] hover:bg-[#1A1B1F]'
             }`}
           >
             {uploadProgress.active ? (
-              <div className="flex flex-col items-center justify-center space-y-1 w-full">
-                <Loader2 className="w-6 h-6 animate-spin text-[#F9CF00]" />
-                <div className="w-full bg-[#282b34] rounded-full h-1.5 overflow-hidden">
+              <div className="flex flex-col items-center justify-center space-y-1 w-full px-1">
+                <Loader2 className="w-4 h-4 animate-spin text-[#F9CF00]" />
+                <div className="w-full bg-[#25262A] rounded-full h-1 overflow-hidden">
                   <div
                     className="bg-[#F9CF00] h-full rounded-full transition-all duration-200"
                     style={{ width: `${uploadProgress.percent}%` }}
                   />
                 </div>
-                <span className="text-[9px] text-zinc-400">
-                  {uploadProgress.percent}% ({(uploadProgress.loadedBytes / 1024 / 1024).toFixed(1)}/{(uploadProgress.totalBytes / 1024 / 1024).toFixed(1)} MB)
+                <span className="text-[8px] text-zinc-400">
+                  {uploadProgress.percent}%
                 </span>
               </div>
             ) : (
               <>
-                <div className={`w-8 h-8 rounded-full bg-[#282b34] border border-[#3d4250] flex items-center justify-center transition-all mb-1.5 ${
-                  isDragOver ? 'text-[#F9CF00] border-[#F9CF00] scale-110' : 'text-zinc-400 group-hover:text-[#F9CF00] group-hover:scale-105'
+                <div className={`w-6 h-6 rounded-full bg-[#25262A] border border-white/[0.08] flex items-center justify-center transition-all mb-1 ${
+                  isDragOver ? 'text-[#F9CF00] border-[#F9CF00]' : 'text-zinc-400 group-hover:text-[#F9CF00]'
                 }`}>
-                  <Box className="w-4 h-4 stroke-[2.2]" />
+                  <Box className="w-3 h-3" />
                 </div>
-                <span className="text-[11px] font-bold text-white leading-tight block">
-                  {isDragOver ? 'Drop model here' : 'Upload 3D Model'}
+                <span className="text-[10px] font-bold text-white leading-tight block">
+                  {isDragOver ? 'Drop here' : 'Import'}
                 </span>
-                <span className="text-[9px] text-zinc-400 mt-0.5 block">
-                  OBJ, FBX, STL, GLB
-                </span>
-                <span className="text-[9px] text-zinc-500 block">
-                  Size ≤150MB
+                <span className="text-[8px] text-zinc-500 block">
+                  GLB, OBJ, FBX
                 </span>
               </>
             )}
            </div>
 
            {uploadError && (
-            <div className="flex items-center gap-1 text-[10px] text-rose-400 px-1">
+            <div className="col-span-2 flex items-center gap-1 text-[9px] text-rose-400 px-1">
               <AlertCircle className="w-3 h-3" />
               <span>{uploadError}</span>
             </div>
@@ -365,13 +349,13 @@ export const RightAssetsPanel: React.FC = () => {
                 onClick={() => setCurrentAsset(asset)}
                 className={`group relative rounded-xl overflow-hidden cursor-grab active:cursor-grabbing transition-all aspect-square flex flex-col ${
                   isSelected
-                    ? 'ring-2 ring-[#F9CF00] bg-[#252830] shadow-lg shadow-[#F9CF00]/15'
-                    : 'border border-[#2f333e] bg-[#1e2026] hover:border-[#3d4252] hover:bg-[#252830]'
+                    ? 'ring-2 ring-[#F9CF00] bg-[#25262A] shadow-md shadow-[#F9CF00]/15'
+                    : 'border border-white/[0.08] bg-[#141518] hover:border-white/[0.18] hover:bg-[#1A1B1F]'
                 }`}
                 title={`Click or drag "${asset.name}" into 3D Viewport`}
               >
                 {/* 3D Asset Thumbnail */}
-                <div className="relative w-full flex-1 bg-[#14161b] overflow-hidden">
+                <div className="relative w-full flex-1 bg-[#121316] overflow-hidden">
                   {asset.thumbnail ? (
                     <img
                       src={asset.thumbnail}
@@ -380,45 +364,33 @@ export const RightAssetsPanel: React.FC = () => {
                       crossOrigin="anonymous"
                     />
                   ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-[#252830] to-[#14161b] gap-1 p-2">
-                      <div className="w-10 h-10 rounded-lg bg-[#282b34] border border-[#3d4252] flex items-center justify-center">
-                        <Box className="w-5 h-5 text-zinc-400 stroke-[2.2]" />
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-[#16181D] gap-0.5 p-1">
+                      <div className="w-6 h-6 rounded-md bg-[#202125] border border-white/[0.08] flex items-center justify-center">
+                        <Box className="w-3.5 h-3.5 text-zinc-400" />
                       </div>
-                      <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">
+                      <span className="text-[8px] font-bold text-zinc-400 uppercase">
                         {asset.format}
                       </span>
-                      {asset.statsAvailable && (
-                        <span className="text-[8px] text-zinc-500">
-                          {asset.faces.toLocaleString()} faces
-                        </span>
-                      )}
                     </div>
                   )}
 
-                  {/* Info Badge (i) on bottom-left of thumbnail */}
-                  <div className="absolute bottom-1.5 left-1.5 w-4 h-4 rounded-full bg-[#1e2026]/90 border border-[#3d4252] flex items-center justify-center text-zinc-400 text-[9px] font-mono">
-                    i
+                  {/* Tripo style Generation time badge on bottom right */}
+                  <div className="absolute bottom-1 right-1 px-1 py-0.2 rounded bg-black/70 text-[8px] font-mono text-zinc-300">
+                    20s
                   </div>
 
                   {isSelected && (
-                    <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-[#F9CF00] flex items-center justify-center text-black shadow">
-                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                    <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-[#F9CF00] flex items-center justify-center text-black shadow">
+                      <Check className="w-2 h-2 stroke-[3]" />
                     </div>
                   )}
                 </div>
 
                 {/* Bottom Asset Label */}
-                <div className="px-2 py-1 bg-[#1e2026] border-t border-[#2f333e] flex items-center justify-between gap-1">
-                  <div className="flex flex-col min-w-0">
-                    <span className={`text-[10px] truncate ${isSelected ? 'text-[#F9CF00] font-bold' : 'text-zinc-200 font-medium'}`}>
-                      {asset.name}
-                    </span>
-                    {asset.statsAvailable && (
-                      <span className="text-[8px] text-zinc-400 truncate">
-                        {asset.format} · {asset.faces.toLocaleString()} faces
-                      </span>
-                    )}
-                  </div>
+                <div className="px-1.5 py-1 bg-[#16181D] border-t border-white/[0.06] flex items-center justify-between gap-1">
+                  <span className={`text-[9px] truncate ${isSelected ? 'text-[#F9CF00] font-bold' : 'text-zinc-200'}`}>
+                    {asset.name}
+                  </span>
 
                   {/* 3-Dots Menu */}
                   <div className="relative">
@@ -429,18 +401,18 @@ export const RightAssetsPanel: React.FC = () => {
                       }}
                       className="p-0.5 rounded text-zinc-400 hover:text-white"
                     >
-                      <MoreVertical className="w-3 h-3" />
+                      <MoreVertical className="w-2.5 h-2.5" />
                     </button>
 
                       {activeMenuAssetId === asset.id && (
-                        <div className="absolute right-0 bottom-full mb-1 w-28 py-1 rounded-lg bg-[#252830] border border-[#3d4252] shadow-xl z-50 text-[10px]">
+                        <div className="absolute right-0 bottom-full mb-1 w-24 py-1 rounded-lg bg-[#202125] border border-white/[0.1] shadow-xl z-50 text-[9px]">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               duplicateAsset(asset.id);
                               setActiveMenuAssetId(null);
                             }}
-                           className="w-full text-left px-2 py-1 text-zinc-200 hover:bg-[#303440] flex items-center gap-1"
+                           className="w-full text-left px-2 py-1 text-zinc-200 hover:bg-[#28292E] flex items-center gap-1"
                          >
                            <Copy className="w-2.5 h-2.5 text-[#F9CF00]" />
                            <span>Duplicate</span>

@@ -18,8 +18,13 @@ import {
   Info,
   X,
   Loader2,
-  Wrench
+  Wrench,
+  Box,
+  Check,
+  Package,
+  Layers
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { useRuntimeOptions } from '@/hooks/useBackendData';
@@ -30,6 +35,8 @@ import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 interface ProviderOption {
   id: string;
   label: string;
+  name?: string;
+  description?: string;
   available?: boolean;
   installed?: boolean;
   status?: string;
@@ -40,7 +47,17 @@ interface ProviderOption {
   low_vram_required_mb?: number;
 }
 
+const FALLBACK_MODELS: ProviderOption[] = [
+  { id: 'trellis', label: 'Trellis 3D (v1.0)', description: 'High-fidelity geometry & 16-bit PBR maps', available: true, installed: true, vram_required_mb: 8192 },
+  { id: 'triposr', label: 'TripoSR (Fast)', description: 'Ultra-fast feedforward 3D reconstruction (<1s)', available: true, installed: true, vram_required_mb: 4096 },
+  { id: 'hunyuan3d-1.0', label: 'Tencent HunYuan 3D', description: 'Detailed high-polygon geometric reconstruction', available: true, installed: true, vram_required_mb: 10240 },
+  { id: 'tripo-v3', label: 'Tripo v3.1 Studio', description: 'Production-ready assets with optimized topology', available: true, installed: true, vram_required_mb: 8192 },
+  { id: 'instantmesh', label: 'InstantMesh', description: 'Fast multi-view large reconstruction model', available: true, installed: false, vram_required_mb: 6144 },
+  { id: 'shap-e', label: 'Shap-E (OpenAI)', description: 'Lightweight implicit 3D generator (CPU compatible)', available: true, installed: false, vram_required_mb: 2048 },
+];
+
 export const GeneratePanel: React.FC = () => {
+  const router = useRouter();
   const { 
     isExecuting, 
     executionProgress, 
@@ -51,9 +68,11 @@ export const GeneratePanel: React.FC = () => {
   } = useWorkspace();
 
   const { options: runtimeOptions, loading: optionsLoading } = useRuntimeOptions();
-  const providersList: ProviderOption[] = runtimeOptions?.three_d_models || [];
+  const rawProviders: ProviderOption[] = runtimeOptions?.three_d_models || [];
+  const providersList: ProviderOption[] = rawProviders.length > 0 ? rawProviders : FALLBACK_MODELS;
 
   const [generalSettingsOpen, setGeneralSettingsOpen] = useState(true);
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [subAction, setSubAction] = useState<'upload' | 'crop' | 'wand' | 'edit'>('upload');
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -69,8 +88,8 @@ export const GeneratePanel: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currentMode = generationSettings.mode || 'image-to-3d';
-  const activeModelId = generationSettings.aiModel || '';
-  const activeModelObj = providersList.find(m => m.id === activeModelId) || providersList[0];
+  const activeModelId = generationSettings.aiModel || providersList[0]?.id || 'trellis';
+  const activeModelObj = providersList.find(m => m.id === activeModelId) || providersList[0] || FALLBACK_MODELS[0];
   
   // Spring transition for tactile feel
   const springTransition = { type: 'spring' as const, stiffness: 400, damping: 25 };
@@ -189,9 +208,17 @@ export const GeneratePanel: React.FC = () => {
   };
 
   return (
-    <div id="panel-generate-model" className="flex flex-col h-full bg-[#14161b] text-xs select-none">
+    <div id="panel-generate-model" className="flex flex-col h-full bg-[#191A1D] text-xs select-none">
+      {/* Panel Header */}
+      <div className="px-3 py-2.5 border-b border-white/[0.08] flex items-center justify-between">
+        <span className="font-bold text-[11px] text-white flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-[#F9CF00]" />
+          <span>Generate Model</span>
+        </span>
+      </div>
+
       {/* Main Body */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-5 no-scrollbar">
+      <div className="flex-1 overflow-y-auto px-2.5 py-2.5 space-y-3 no-scrollbar">
         {/* Notice Message Toast/Banner */}
         <AnimatePresence>
           {noticeMessage && (
@@ -199,316 +226,322 @@ export const GeneratePanel: React.FC = () => {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="p-3 rounded-xl bg-[#F9CF00]/15 border border-[#F9CF00]/40 text-[#F9CF00] text-[11px] flex items-center justify-between gap-2 overflow-hidden shadow-lg"
+              className="p-2 rounded-xl bg-[#F9CF00]/15 border border-[#F9CF00]/40 text-[#F9CF00] text-[10px] flex items-center justify-between gap-2 overflow-hidden"
             >
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <Info className="w-4 h-4 flex-shrink-0" />
+              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                <Info className="w-3.5 h-3.5 flex-shrink-0" />
                 <span className="leading-tight font-medium">{noticeMessage}</span>
               </div>
               <button 
                 onClick={() => setNoticeMessage(null)}
-                className="text-zinc-400 hover:text-white p-1 rounded transition-colors"
+                className="text-zinc-400 hover:text-white p-0.5 rounded transition-colors"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-3 h-3" />
               </button>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Top Tab Switcher */}
-        <div className="p-1 rounded-xl bg-[#1c1f26] border border-[#272a34] flex">
-          <button
-            id="tab-image-to-3d"
-            onClick={handleImageTo3DTabClick}
-            className={`flex-1 py-2.5 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all ${
-              currentMode === 'image-to-3d'
-                ? 'bg-[#F9CF00] text-black shadow-md'
-                : 'text-zinc-400 hover:text-white'
-            }`}
+        {/* Input Box (Border with Stylized Outline) */}
+        <div className="rounded-xl border border-white/[0.12] bg-[#141518] p-2 space-y-2">
+          {/* Sub-Action Icon Bar (Single Image, Multiview, Text, Sketch) */}
+          <div className="flex items-center justify-between px-1 py-1 rounded-lg bg-[#1A1B1F] border border-white/[0.06]">
+            <SimpleTooltip label="Single Image to 3D">
+              <button
+                onClick={() => { setSubAction('upload'); fileInputRef.current?.click(); }}
+                className={`p-1 rounded-md transition-all ${
+                  subAction === 'upload' ? 'bg-[#25262A] text-[#F9CF00]' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+              </button>
+            </SimpleTooltip>
+
+            <SimpleTooltip label="Multiview Images / Mesh">
+              <button
+                onClick={() => setSubAction('crop')}
+                className={`p-1 rounded-md transition-all ${
+                  subAction === 'crop' ? 'bg-[#25262A] text-[#F9CF00]' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                <Box className="w-3.5 h-3.5" />
+              </button>
+            </SimpleTooltip>
+
+            <SimpleTooltip label="Text Prompt to 3D">
+              <button
+                onClick={() => setSubAction('wand')}
+                className={`p-1 rounded-md transition-all ${
+                  subAction === 'wand' ? 'bg-[#25262A] text-[#F9CF00]' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                <Wand2 className="w-3.5 h-3.5" />
+              </button>
+            </SimpleTooltip>
+
+            <SimpleTooltip label="Draw / Sketch to 3D">
+              <button
+                onClick={() => setSubAction('edit')}
+                className={`p-1 rounded-md transition-all ${
+                  subAction === 'edit' ? 'bg-[#25262A] text-[#F9CF00]' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            </SimpleTooltip>
+          </div>
+
+          {/* Image Dropzone Area */}
+          <input 
+            ref={fileInputRef}
+            type="file" 
+            accept="image/jpeg,image/png,image/webp" 
+            className="hidden" 
+            onChange={handleFileUpload} 
+          />
+          
+          <motion.div 
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            animate={{ 
+              scale: isDragOver ? 1.02 : 1,
+              borderColor: isDragOver ? '#F9CF00' : uploadError ? '#ef4444' : 'rgba(255,255,255,0.08)',
+            }}
+            transition={springTransition}
+            className="relative w-full h-36 rounded-lg border border-dashed border-white/[0.1] cursor-pointer overflow-hidden flex flex-col items-center justify-center p-2 group/dropzone bg-[#191A1D]/50 hover:bg-[#191A1D]"
           >
-            <ImageIcon className="w-4 h-4 stroke-[2.2]" />
-            <span>Image to 3D</span>
-          </button>
+            {uploadProgress.active ? (
+              <div className="text-center space-y-2 w-full px-2 z-10">
+                <Loader2 className="w-6 h-6 mx-auto animate-spin text-[#F9CF00]" />
+                <div className="font-bold text-[10px] text-white">Uploading...</div>
+                <div className="w-full bg-[#25262A] rounded-full h-1 overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${uploadProgress.percent}%` }}
+                    className="bg-[#F9CF00] h-full rounded-full"
+                  />
+                </div>
+              </div>
+            ) : generationSettings.image ? (
+              <div className="relative w-full h-full group z-10">
+                <motion.img 
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  src={generationSettings.image} 
+                  alt="Source reference" 
+                  className="w-full h-full object-contain" 
+                />
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity text-[10px] font-bold text-[#F9CF00] gap-1">
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Replace</span>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center space-y-1.5 z-10">
+                <div className={`w-8 h-8 mx-auto rounded-full bg-[#25262A] border border-white/[0.08] flex items-center justify-center transition-all ${
+                  isDragOver ? 'text-[#F9CF00] border-[#F9CF00]' : 'text-zinc-400 group-hover/dropzone:text-[#F9CF00]'
+                }`}>
+                  <Upload className="w-4 h-4" />
+                </div>
+                <div className="space-y-0.5">
+                  <div className="font-bold text-[10px] text-zinc-200">
+                    Upload JPG, PNG, WEBP
+                  </div>
+                  <div className="text-[9px] text-zinc-500">
+                    Size ≤ 20MB
+                  </div>
+                </div>
+              </div>
+            )}
+          </motion.div>
+
+          {/* Quick Presets / Generate Image for 3D link */}
+          <div className="flex items-center justify-between text-[9px] pt-0.5">
+            <span className="text-zinc-400">Sample Concept</span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (SAMPLE_PRESETS[0]) setGenerationSettings(prev => ({ ...prev, image: SAMPLE_PRESETS[0].url }));
+              }}
+              className="text-[#F9CF00] hover:underline"
+            >
+              Load Sample &gt;
+            </button>
+          </div>
         </div>
 
-        {/* Generation Panel Content */}
-        {currentMode === 'image-to-3d' && (
-          <div className="space-y-4">
-            {/* Sub-Action Icon Bar (Upload, Crop, Wand, Edit) */}
-            <div className="flex items-center justify-around px-1 py-1.5 rounded-xl bg-[#1c1f26] border border-[#272a34]">
-              <SimpleTooltip label="Upload Image">
-                <button
-                  onClick={() => { setSubAction('upload'); fileInputRef.current?.click(); }}
-                  className={`flex-1 flex items-center justify-center py-2 rounded-lg transition-all ${
-                    subAction === 'upload' ? 'bg-[#2b2f3a] text-[#F9CF00]' : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  <Upload className="w-4 h-4 stroke-[2.2]" />
-                </button>
-              </SimpleTooltip>
+        {/* General Settings Accordion (Geometry & Texture) */}
+        <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2 space-y-1.5">
+          <div className="flex items-center justify-between text-[10px] font-semibold text-zinc-300">
+            <span>Geometry &amp; Texture</span>
+            <ChevronRight className="w-3 h-3 text-zinc-500" />
+          </div>
+        </div>
 
-              <SimpleTooltip label="Crop Image">
-                <button
-                  onClick={() => setSubAction('crop')}
-                  className={`flex-1 flex items-center justify-center py-2 rounded-lg transition-all ${
-                    subAction === 'crop' ? 'bg-[#2b2f3a] text-[#F9CF00]' : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  <Crop className="w-4 h-4 stroke-[2.2]" />
-                </button>
-              </SimpleTooltip>
+        {/* Members Only Section (Tripo Style) */}
+        <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2 space-y-2">
+          <div className="flex items-center gap-1 text-[10px] font-bold text-[#F9CF00]">
+            <Sparkles className="w-3 h-3" />
+            <span>Members Only</span>
+          </div>
 
-              <SimpleTooltip label="AI Magic Wand">
-                <button
-                  onClick={() => setSubAction('wand')}
-                  className={`flex-1 flex items-center justify-center py-2 rounded-lg transition-all ${
-                    subAction === 'wand' ? 'bg-[#2b2f3a] text-[#F9CF00]' : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  <Wand2 className="w-4 h-4 stroke-[2.2]" />
-                </button>
-              </SimpleTooltip>
-
-              <SimpleTooltip label="Edit Image">
-                <button
-                  onClick={() => setSubAction('edit')}
-                  className={`flex-1 flex items-center justify-center py-2 rounded-lg transition-all ${
-                    subAction === 'edit' ? 'bg-[#2b2f3a] text-[#F9CF00]' : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  <Pencil className="w-4 h-4 stroke-[2.2]" />
-                </button>
-              </SimpleTooltip>
-            </div>
-
-            {/* Image Dropzone Area */}
-            <input 
-              ref={fileInputRef}
-              type="file" 
-              accept="image/jpeg,image/png,image/webp" 
-              className="hidden" 
-              onChange={handleFileUpload} 
-            />
-            
-            <motion.div 
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              animate={{ 
-                scale: isDragOver ? 1.03 : 1,
-                borderColor: isDragOver ? '#F9CF00' : uploadError ? '#ef4444' : '#272a34',
-                backgroundColor: isDragOver ? 'rgba(249, 207, 0, 0.08)' : '#1c1f26',
-              }}
-              transition={springTransition}
-              whileHover={{ scale: 1.01, borderColor: '#3d4252' }}
-              whileTap={{ scale: 0.98 }}
-              className="relative w-full aspect-square rounded-2xl border-2 border-dashed cursor-pointer overflow-hidden transition-colors flex flex-col items-center justify-center p-4 group/dropzone"
+          {/* Generate in Parts Toggle */}
+          <div className="flex items-center justify-between text-[10px]">
+            <span className="text-zinc-300 flex items-center gap-1">
+              <span>Generate in Parts</span>
+              <span className="text-[8px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold">Trial x1</span>
+            </span>
+            <button
+              onClick={() => setGenerationSettings(prev => ({ ...prev, lowVram: !prev.lowVram }))}
+              className={`w-7 h-3.5 rounded-full p-0.5 transition-colors relative ${generationSettings.lowVram ? 'bg-[#F9CF00]' : 'bg-[#25262A]'}`}
             >
-              {uploadProgress.active ? (
-                <div className="text-center space-y-4 w-full px-6 z-10">
-                  <Loader2 className="w-10 h-10 mx-auto animate-spin text-[#F9CF00]" />
-                  <div className="font-bold text-xs text-white">Uploading Asset...</div>
-                  <div className="w-full bg-[#2b2f3a] rounded-full h-1.5 overflow-hidden shadow-inner">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${uploadProgress.percent}%` }}
-                      className="bg-[#F9CF00] h-full rounded-full"
-                    />
-                  </div>
-                  <div className="text-[10px] text-zinc-400 font-mono">
-                    {uploadProgress.percent}% ({(uploadProgress.loadedBytes / 1024 / 1024).toFixed(1)}/{(uploadProgress.totalBytes / 1024 / 1024).toFixed(1)} MB)
-                  </div>
-                </div>
-              ) : generationSettings.image ? (
-                <div className="relative w-full h-full group z-10">
-                  <motion.img 
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    src={generationSettings.image} 
-                    alt="Source reference" 
-                    className="w-full h-full object-contain" 
-                  />
-                  <motion.div 
-                    initial={{ opacity: 0 }}
-                    whileHover={{ opacity: 1 }}
-                    className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex flex-col items-center justify-center transition-opacity text-xs font-bold text-[#F9CF00] gap-2"
-                  >
-                    <div className="p-2 rounded-full bg-[#F9CF00] text-black">
-                      <RefreshCw className="w-5 h-5 stroke-[2.2]" />
-                    </div>
-                    <span>Replace Image</span>
-                  </motion.div>
-                </div>
-              ) : (
-                <div className="text-center space-y-4 z-10">
-                  <motion.div 
-                    animate={{ 
-                      y: isDragOver ? -5 : 0,
-                      scale: isDragOver ? 1.1 : 1
-                    }}
-                    className={`w-14 h-14 mx-auto rounded-2xl bg-[#282b34] border border-[#3d4252] flex items-center justify-center transition-all ${
-                    isDragOver ? 'text-[#F9CF00] border-[#F9CF00]' : 'text-zinc-400 group-hover/dropzone:text-[#F9CF00] group-hover/dropzone:border-[#F9CF00]/40'
-                  }`}>
-                    <Upload className="w-6 h-6 stroke-[2.2]" />
-                  </motion.div>
-                  <div className="space-y-1">
-                    <div className="font-bold text-sm text-white tracking-tight">
-                      {isDragOver ? 'Drop to Upload' : 'Drop Reference Image'}
-                    </div>
-                    <div className="text-[10px] text-zinc-400 max-w-[160px] mx-auto font-medium">
-                      PNG, JPG, or WEBP up to 20MB
-                    </div>
-                  </div>
-                  {!isDragOver && (
-                    <button className="px-4 py-1.5 rounded-lg bg-[#282b34] border border-[#3d4252] text-[10px] font-bold text-[#F9CF00] hover:bg-[#F9CF00] hover:text-black transition-all">
-                      Browse Files
-                    </button>
-                  )}
-                </div>
-              )}
-            </motion.div>
-
-            {uploadError && (
-              <motion.div 
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-[11px] text-red-400 font-medium"
-              >
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                <span>{uploadError}</span>
-              </motion.div>
-            )}
-
-            {/* Quick Reference Sample Concepts */}
-            <div className="space-y-2 pt-1">
-              <div className="flex items-center justify-between text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
-                <span>Sample Concepts</span>
-                <span className="text-[#F9CF00] text-[9px] font-normal">Click to Load</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {SAMPLE_PRESETS.map(preset => {
-                  const isSelected = generationSettings.image === preset.url;
-                  return (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      onClick={() => setGenerationSettings(prev => ({ ...prev, image: preset.url }))}
-                      className={`p-2 rounded-xl border flex items-center gap-2.5 transition-all text-left group ${
-                        isSelected
-                          ? 'bg-[#F9CF00] border-[#F9CF00] text-black shadow-md'
-                          : 'bg-[#1c1f26] border-[#272a34] text-zinc-300 hover:border-[#F9CF00]/50 hover:text-white'
-                      }`}
-                    >
-                      <img src={preset.url} alt={preset.name} className="w-7 h-7 rounded-lg bg-black/40 object-cover flex-shrink-0" />
-                      <span className="text-[11px] font-bold truncate">{preset.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+              <div className={`w-2.5 h-2.5 rounded-full bg-black transition-transform ${generationSettings.lowVram ? 'translate-x-3.5' : 'translate-x-0'}`} />
+            </button>
           </div>
-        )}
 
-        {/* AI Model Generator Choice */}
-        <div className="space-y-3">
+          {/* 8K Texture Toggle */}
+          <div className="flex items-center justify-between text-[10px]">
+            <span className="text-zinc-300 flex items-center gap-1">
+              <span>8K Texture</span>
+              <span className="text-[8px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold">Trial x1</span>
+            </span>
+            <button
+              className="w-7 h-3.5 rounded-full p-0.5 bg-[#25262A] relative"
+            >
+              <div className="w-2.5 h-2.5 rounded-full bg-zinc-500 translate-x-0" />
+            </button>
+          </div>
+
+          {/* Privacy Dropdown */}
+          <div className="flex items-center justify-between text-[10px] pt-1 border-t border-white/[0.06]">
+            <span className="text-zinc-400">Privacy</span>
+            <span className="text-zinc-300 font-semibold flex items-center gap-1">
+              <span>Public</span>
+              <ChevronDown className="w-2.5 h-2.5 text-zinc-500" />
+            </span>
+          </div>
+        </div>
+
+        {/* AI Model Generator Choice (Interactive Available Models Selector) */}
+        <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2 space-y-1 relative">
           <div className="flex items-center justify-between">
-            <label className="text-[11px] font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-              <Zap className="w-3.5 h-3.5 text-[#F9CF00] stroke-[2.2]" />
-              <span>Model Selection</span>
-            </label>
+            <span className="text-[9px] text-zinc-400 font-semibold uppercase tracking-wider">AI 3D Model</span>
+            <button
+              onClick={() => router.push('/settings?section=models')}
+              className="text-[9px] text-[#F9CF00] hover:underline flex items-center gap-0.5"
+            >
+              <Package className="w-2.5 h-2.5" />
+              <span>Manage Models</span>
+            </button>
           </div>
 
-          {optionsLoading ? (
-            <div className="flex items-center justify-center p-6 text-zinc-400">
-              <Loader2 className="w-5 h-5 animate-spin mr-2" />
-              <span className="text-[11px]">Syncing Models...</span>
+          {/* Model Selector Button */}
+          <button
+            id="btn-select-ai-model"
+            type="button"
+            onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
+            className="w-full flex items-center justify-between p-1.5 rounded-lg bg-[#191A1D] border border-white/[0.08] hover:border-white/[0.16] hover:bg-[#202125] transition-all text-left cursor-pointer"
+          >
+            <div className="flex flex-col min-w-0 pr-2">
+              <span className="font-bold text-[10px] text-white flex items-center gap-1.5 truncate">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#F9CF00]" />
+                <span className="truncate">{activeModelObj.label || activeModelObj.name || activeModelId}</span>
+              </span>
+              <span className="text-[8px] text-zinc-400 truncate">
+                {activeModelObj.description || 'Production 3D Mesh Generation'}
+              </span>
             </div>
-          ) : providersList.length === 0 ? (
-            <div className="p-4 rounded-xl bg-[#1c1f26] border border-[#272a34] text-[11px] text-zinc-400 text-center italic">
-              No models found in workspace.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-2">
-              {providersList.map(m => {
-                const isSelected = activeModelId === m.id;
-                
+            <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${modelDropdownOpen ? 'rotate-180 text-[#F9CF00]' : ''}`} />
+          </button>
+
+          {/* Dropdown Menu */}
+          {modelDropdownOpen && (
+            <div className="absolute left-0 right-0 top-full mt-1 bg-[#191A1D] border border-white/[0.12] rounded-xl p-1.5 shadow-2xl z-50 space-y-1 max-h-56 overflow-y-auto">
+              <div className="text-[8px] font-bold uppercase tracking-wider text-zinc-500 px-1 py-0.5">
+                Available Generation Models ({providersList.length})
+              </div>
+              {providersList.map((m) => {
+                const isSelected = (m.id || m.name) === (activeModelObj.id || activeModelObj.name);
                 return (
                   <button
-                    key={m.id}
-                    onClick={() => handleModelSelect(m)}
-                    className={`p-3 rounded-xl text-left border transition-all relative ${
-                      isSelected
-                        ? 'bg-[#F9CF00] border-[#F9CF00] text-black font-bold'
-                        : 'bg-[#1c1f26] border-[#272a34] text-zinc-300 hover:border-[#3d4252] hover:text-white'
+                    key={m.id || m.name}
+                    onClick={() => {
+                      setGenerationSettings(prev => ({ ...prev, aiModel: m.id || m.name || '' }));
+                      setModelDropdownOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-all ${
+                      isSelected 
+                        ? 'bg-[#F9CF00] text-black shadow-sm font-bold' 
+                        : 'text-zinc-200 hover:bg-[#25262A] hover:text-white'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs truncate">
-                        {m.label}
-                      </span>
-                      {isSelected && <Sparkles className="w-3 h-3 stroke-[2.2]" />}
+                    <div className="flex flex-col min-w-0 pr-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold truncate">{m.label || m.name}</span>
+                        {m.vram_required_mb ? (
+                          <span className={`text-[7px] px-1 py-0.2 rounded font-mono ${
+                            isSelected ? 'bg-black/15 text-black' : 'bg-white/[0.08] text-zinc-400'
+                          }`}>
+                            {Math.round(m.vram_required_mb / 1024)}GB
+                          </span>
+                        ) : null}
+                      </div>
+                      {m.description && (
+                        <span className={`text-[8px] truncate ${isSelected ? 'text-black/80' : 'text-zinc-400'}`}>
+                          {m.description}
+                        </span>
+                      )}
                     </div>
+                    {isSelected && <Check className="w-3.5 h-3.5 text-black flex-shrink-0" />}
                   </button>
                 );
               })}
+
+              <div className="pt-1 border-t border-white/[0.08]">
+                <button
+                  onClick={() => {
+                    setModelDropdownOpen(false);
+                    router.push('/settings?section=models');
+                  }}
+                  className="w-full py-1.5 px-2 rounded-lg bg-[#141518] hover:bg-[#202125] text-zinc-300 hover:text-[#F9CF00] text-[9px] font-bold flex items-center justify-center gap-1 transition-colors"
+                >
+                  <Package className="w-3 h-3" />
+                  <span>Download / Manage Model Weights</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
-
-        {/* Low VRAM Mode - dynamically shown according to model support */}
-        {activeModelObj?.low_vram_supported && (
-          <div className="p-3.5 rounded-xl bg-[#1c1f26] border border-[#272a34] flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-xs text-white font-bold flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5 text-[#F9CF00]" />
-                Low VRAM Mode
-              </span>
-              <span className="text-[10px] text-zinc-400">
-                Optimized for GPUs with ≤{activeModelObj.low_vram_required_mb ? Math.round(activeModelObj.low_vram_required_mb / 1024) : 8}GB VRAM
-              </span>
-            </div>
-            <button
-              id="btn-toggle-low-vram"
-              onClick={() => setGenerationSettings(prev => ({ ...prev, lowVram: !prev.lowVram }))}
-              className={`w-10 h-5 rounded-full p-1 transition-all duration-200 ${
-                generationSettings.lowVram ? 'bg-[#F9CF00]' : 'bg-[#2b2f3a]'
-              }`}
-            >
-              <div className={`w-3 h-3 rounded-full bg-black transition-transform ${
-                generationSettings.lowVram ? 'translate-x-5' : 'translate-x-0'
-              }`} />
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Bottom Sticky Action Button */}
-      <div className="p-4 border-t border-[#272a34] bg-[#14161b]">
+      <div className="p-3 border-t border-white/[0.08] bg-[#16181D]">
         <button
           id="btn-generate-model-action"
           onClick={handleGenerate}
           disabled={isExecuting}
-          className={`w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-3 shadow-2xl transition-all active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed ${
+          className={`w-full h-10 rounded-xl font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${
             isExecuting 
-              ? 'bg-[#2b2f3a] text-[#F9CF00] border border-[#F9CF00]/20' 
-              : 'bg-[#F9CF00] text-black shadow-[#F9CF00]/20 hover:bg-[#ffe033]'
+              ? 'bg-[#25262A] text-[#F9CF00] border border-[#F9CF00]/20' 
+              : 'bg-[#F9CF00] text-black hover:bg-[#ffe033]'
           }`}
         >
           {isExecuting ? (
             <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span>{executionStep || 'GENERATING...'}</span>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>{executionStep || 'Generating 3D Model...'}</span>
             </>
           ) : (
             <>
-              <Sparkles className="w-5 h-5 stroke-[2.2]" />
-              <span>GENERATE 3D ASSET</span>
+              <Sparkles className="w-4 h-4 stroke-[2.5]" />
+              <span>GENERATE 3D MODEL</span>
             </>
           )}
         </button>
         {isExecuting && (
-          <div className="mt-3 w-full bg-[#2b2f3a] h-1.5 rounded-full overflow-hidden">
+          <div className="mt-2 w-full bg-[#25262A] h-1.5 rounded-full overflow-hidden">
             <motion.div 
               initial={{ width: 0 }}
               animate={{ width: `${executionProgress || 0}%` }}

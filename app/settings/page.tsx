@@ -269,6 +269,33 @@ function SettingsContent() {
   const [error, setError] = useState<Error | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [pinnedSections, setPinnedSections] = useState<string[]>([]);
+  const [draggedPinId, setDraggedPinId] = useState<string | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedPinId(id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOverPinned = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (!draggedPinId || draggedPinId === targetId) return;
+
+    const currentPinned = [...pinnedSections];
+    const draggedIndex = currentPinned.indexOf(draggedPinId);
+    const targetIndex = currentPinned.indexOf(targetId);
+
+    if (draggedIndex !== -1 && targetIndex !== -1) {
+      currentPinned.splice(draggedIndex, 1);
+      currentPinned.splice(targetIndex, 0, draggedPinId);
+      setPinnedSections(currentPinned);
+      localStorage.setItem('ai3d:settings:pinnedSections', JSON.stringify(currentPinned));
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedPinId(null);
+  };
   const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   const [showSavedIndicator, setShowSavedIndicator] = useState(false);
   const saveFunctionsRef = useRef<Record<string, () => Promise<void>>>({});
@@ -561,9 +588,7 @@ useEffect(() => {
   const currentSection = SETTINGS_SECTIONS.find((s) => s.id === activeSection);
 
   return (
-    <div className="flex h-screen bg-[hsl(var(--tripo-gray-3,var(--background)))]">
-
-
+    <div className="flex h-screen bg-[#0D0E10] text-white">
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Header */}
@@ -571,23 +596,23 @@ useEffect(() => {
 
         {/* Settings Content */}
         <div className="flex-1 flex overflow-hidden">
-          {/* Settings Sidebar */}
+          {/* Settings Sidebar (Compact and Clean) */}
           <div
             className={`
-              ${sidebarOpen ? 'w-80' : 'w-20'} 
-              border-r border-border bg-[hsl(var(--tripo-gray-2,var(--card)))] transition-all duration-300 flex flex-col flex-shrink-0
+              ${sidebarOpen ? 'w-64' : 'w-16'} 
+              border-r border-white/[0.08] bg-[#14161b] transition-all duration-200 flex flex-col flex-shrink-0
             `}
           >
-            <div className="p-6 space-y-6 flex-1 overflow-y-auto">
+            <div className="p-3.5 space-y-4 flex-1 overflow-y-auto">
               {sidebarOpen && (
-                <div className="relative sticky top-0 bg-[hsl(var(--tripo-gray-2,var(--card)))] z-10 pb-2">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <div className="relative sticky top-0 bg-[#14161b] z-10 pb-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
                   <input
                     type="text"
                     placeholder="Search settings..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 bg-[hsl(var(--tripo-gray-3))] border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className="w-full pl-8 pr-3 py-1.5 bg-[#191A1D] border border-white/[0.08] rounded-lg text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-[#F9CF00]"
                   />
                 </div>
               )}
@@ -604,7 +629,14 @@ useEffect(() => {
                       const section = SETTINGS_SECTIONS.find(s => s.id === pinnedId);
                       if (!section) return null;
                       return (
-                        <div key={`pinned-${section.id}`} className="relative group">
+                        <div
+                          key={`pinned-${section.id}`}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, section.id)}
+                          onDragOver={(e) => handleDragOverPinned(e, section.id)}
+                          onDragEnd={handleDragEnd}
+                          className={`relative group cursor-grab active:cursor-grabbing ${draggedPinId === section.id ? 'opacity-40' : ''}`}
+                        >
                           <button
                             onClick={() => handleSectionClick(section.id)}
                             className={`

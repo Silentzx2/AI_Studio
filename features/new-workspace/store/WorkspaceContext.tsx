@@ -126,8 +126,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [activeRightTab, setActiveRightTab] = useState<'assets' | 'property' | 'properties' | 'prompt'>('assets');
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
-  const [leftPanelWidth, setLeftPanelWidth] = useState(288); // Default 72*4 = 288px
-  const [rightPanelWidth, setRightPanelWidth] = useState(288);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(184); // Tripo style ~184px
+  const [rightPanelWidth, setRightPanelWidth] = useState(188); // Tripo style ~188px
   const [assetFilter, setAssetFilter] = useState<string>('all');
 
   // React Query for System Stats
@@ -145,7 +145,40 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     await queryRefetchSystemStats();
   }, [queryRefetchSystemStats]);
 
-  const [localAssets, setLocalAssets] = useState<ModelAsset[]>([]);
+  const [localAssets, setLocalAssets] = useState<ModelAsset[]>([
+    {
+      id: 'sample-mech-sentinel',
+      name: 'Mech Sentinel MK-IV',
+      category: 'generation',
+      thumbnail: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="%231a1c23"/><polygon points="150,40 230,100 210,240 90,240 70,100" fill="%232e3440" stroke="%23F9CF00" stroke-width="4"/><circle cx="150" cy="120" r="35" fill="%23F9CF00"/><circle cx="150" cy="120" r="15" fill="%23111"/><rect x="110" y="180" width="80" height="40" rx="8" fill="%23434c5e" stroke="%23d8dee9" stroke-width="2"/><text x="150" y="270" text-anchor="middle" fill="%23eceff4" font-family="sans-serif" font-size="12" font-weight="bold">MECH SENTINEL</text></svg>',
+      faces: 38420,
+      vertices: 19212,
+      triangles: 38420,
+      statsAvailable: true,
+      source: { filename: 'mech_sentinel.glb', subfolder: 'presets', type: 'output', viewUrl: '' },
+      topology: 'Triangle',
+      format: 'GLB',
+      dateCreated: '2025-01-15',
+      tags: ['Sample', 'Mech', 'Hard Surface'],
+      meshType: 'custom',
+    },
+    {
+      id: 'sample-cyber-drone',
+      name: 'Cyber Drone Scout',
+      category: 'generation',
+      thumbnail: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="%231a1c23"/><circle cx="150" cy="140" r="70" fill="%232b303c" stroke="%2338bdf8" stroke-width="4"/><path d="M120,130 Q150,110 180,130" stroke="%2338bdf8" stroke-width="8" stroke-linecap="round" fill="none"/><circle cx="130" cy="155" r="8" fill="%23F9CF00"/><circle cx="170" cy="155" r="8" fill="%23F9CF00"/><text x="150" y="260" text-anchor="middle" fill="%23eceff4" font-family="sans-serif" font-size="12" font-weight="bold">CYBER DROID</text></svg>',
+      faces: 24600,
+      vertices: 12302,
+      triangles: 24600,
+      statsAvailable: true,
+      source: { filename: 'cyber_drone.glb', subfolder: 'presets', type: 'output', viewUrl: '' },
+      topology: 'Triangle',
+      format: 'GLB',
+      dateCreated: '2025-01-15',
+      tags: ['Sample', 'Drone', 'Sci-Fi'],
+      meshType: 'custom',
+    }
+  ]);
 
   // React Query for History
   const { data: historyAssets } = useQuery({
@@ -209,15 +242,19 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setAssets(() => {
       const all = [...history, ...uploaded, ...local];
       const seen = new Set();
-      return all.filter(a => {
+      const filtered = all.filter(a => {
         if (seen.has(a.id)) return false;
         seen.add(a.id);
         return true;
       });
+      if (!selectedAssetIdRef.current && filtered.length > 0) {
+        setSelectedAssetId(filtered[0].id);
+      }
+      return filtered;
     });
   }, [historyAssets, uploadedAssets, localAssets]);
 
-  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  const [selectedAssetId, setSelectedAssetId] = useState<string | null>('sample-mech-sentinel');
   const selectedAssetIdRef = useRef(selectedAssetId);
   const mainNavRef = useRef(mainNav);
 
@@ -708,6 +745,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }), [activeTool, setActiveTool, mainNav, setMainNav,
     activeRightTab, setActiveRightTab,
     isLeftPanelOpen, setIsLeftPanelOpen,
+    leftPanelWidth, setLeftPanelWidth,
+    rightPanelWidth, setRightPanelWidth,
     isRightPanelOpen, setIsRightPanelOpen,
     navigateToTool, navigateToMain]);
 

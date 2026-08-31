@@ -19,7 +19,12 @@ import {
   UploadCloud,
   Search,
   Sun,
-  Move
+  Move,
+  Box,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  Compass
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { CameraViewPreset, ModelAsset } from '../types';
@@ -125,17 +130,19 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     isExecuting,
     executionProgress,
     activeTool,
+    setActiveTool,
     setIsExportModalOpen,
     generate3DModel,
     viewportResetTrigger,
     isLeftPanelOpen,
+    setIsLeftPanelOpen,
     leftPanelWidth,
     isRightPanelOpen,
     rightPanelWidth
   } = useWorkspace();
 
-  const rightOffset = isRightPanelOpen ? (rightPanelWidth + 24) : 16;
-  const leftOffset = isLeftPanelOpen ? (leftPanelWidth + 24) : 16;
+  const rightOffset = isRightPanelOpen ? (rightPanelWidth + 12) : 12;
+  const leftOffset = isLeftPanelOpen ? (leftPanelWidth + 12) : 12;
 
   const [isLoading, setIsLoading] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
@@ -472,6 +479,73 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     }
 
     if (!currentAsset?.source?.viewUrl && !currentAsset?.source?.localUrl) {
+      if (currentAsset) {
+        // Procedural high-detail 3D hero model for sample & generated assets without remote URLs
+        const modelGroup = new THREE.Group();
+        const isDrone = currentAsset.id.includes('drone') || currentAsset.name.toLowerCase().includes('drone');
+
+        if (isDrone) {
+          // Cyber Drone Scout
+          const coreGeo = new THREE.SphereGeometry(0.75, 32, 24);
+          const coreMat = new THREE.MeshStandardMaterial({
+            color: 0x222630,
+            metalness: 0.85,
+            roughness: 0.2,
+          });
+          const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+          coreMesh.castShadow = true;
+          coreMesh.receiveShadow = true;
+          modelGroup.add(coreMesh);
+
+          const ringGeo = new THREE.TorusGeometry(1.2, 0.07, 16, 64);
+          const ringMat = new THREE.MeshStandardMaterial({
+            color: 0xF9CF00,
+            metalness: 0.9,
+            roughness: 0.15,
+          });
+          const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+          ringMesh.rotation.x = Math.PI / 2;
+          ringMesh.castShadow = true;
+          modelGroup.add(ringMesh);
+
+          for (let i = 0; i < 4; i++) {
+            const angle = (i * Math.PI) / 2 + Math.PI / 4;
+            const podGeo = new THREE.CylinderGeometry(0.12, 0.18, 0.45, 16);
+            const podMat = new THREE.MeshStandardMaterial({ color: 0x3d4454, metalness: 0.7, roughness: 0.3 });
+            const podMesh = new THREE.Mesh(podGeo, podMat);
+            podMesh.position.set(Math.cos(angle) * 1.1, 0.1, Math.sin(angle) * 1.1);
+            podMesh.castShadow = true;
+            modelGroup.add(podMesh);
+          }
+        } else {
+          // Mech Sentinel Compound Sculpt
+          const baseGeo = new THREE.DodecahedronGeometry(0.85, 1);
+          const baseMat = new THREE.MeshStandardMaterial({
+            color: 0x272b36,
+            metalness: 0.8,
+            roughness: 0.25,
+          });
+          const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+          baseMesh.castShadow = true;
+          baseMesh.receiveShadow = true;
+          modelGroup.add(baseMesh);
+
+          const accentGeo = new THREE.TorusKnotGeometry(0.48, 0.12, 64, 16, 2, 3);
+          const accentMat = new THREE.MeshStandardMaterial({
+            color: 0xF9CF00,
+            metalness: 0.85,
+            roughness: 0.15,
+          });
+          const accentMesh = new THREE.Mesh(accentGeo, accentMat);
+          accentMesh.position.y = 0.05;
+          accentMesh.castShadow = true;
+          modelGroup.add(accentMesh);
+        }
+
+        group.add(modelGroup);
+        frameCamera(modelGroup);
+        computeMeshStats(modelGroup);
+      }
       setIsLoading(false);
       return;
     }
@@ -761,6 +835,24 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     applyCameraPreset('perspective');
   }, [applyCameraPreset]);
 
+  const handleZoomIn = useCallback(() => {
+    if (cameraRef.current && controlsRef.current) {
+      const target = controlsRef.current.target;
+      cameraRef.current.position.lerp(target, 0.22);
+      controlsRef.current.update();
+    }
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    if (cameraRef.current && controlsRef.current) {
+      const target = controlsRef.current.target;
+      const dir = new THREE.Vector3().subVectors(cameraRef.current.position, target);
+      dir.multiplyScalar(1.28);
+      cameraRef.current.position.addVectors(target, dir);
+      controlsRef.current.update();
+    }
+  }, []);
+
   const frameCamera = useCallback((object: THREE.Object3D) => {
     const camera = cameraRef.current;
     const controls = controlsRef.current;
@@ -999,24 +1091,109 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         </div>
       )}
 
+      {/* Empty State Overlay when no asset is active */}
+      {!currentAsset && !isLoading && !isExecuting && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none p-4">
+          <div className="max-w-xs w-full p-5 rounded-2xl bg-[#14161b]/95 border border-[#272a34] shadow-2xl backdrop-blur-md text-center pointer-events-auto space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-[#1c1f26] border border-[#272a34] flex items-center justify-center mx-auto text-[#F9CF00]">
+              <Box className="w-6 h-6 stroke-[2.2]" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="font-bold text-sm text-white">3D Viewport Ready</h3>
+              <p className="text-[11px] text-zinc-400 leading-relaxed">
+                Generate a 3D asset from the left panel, or drag and drop a GLB/OBJ file directly here.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={() => {
+                  setIsLeftPanelOpen(true);
+                  setActiveTool('model');
+                }}
+                className="w-full py-2.5 px-3 rounded-xl bg-[#F9CF00] hover:bg-[#ebd024] text-black font-extrabold text-[11px] flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Generate 3D Asset</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Persistent Viewport Overlays */}
       {showOverlayUI && (
         <>
-          {/* Top-Right Topology HUD */}
+          {/* Top-Right: Topology HUD & Unobtrusive Zoom/Orbit Controller Set */}
           <div 
             style={{ right: `${rightOffset}px` }} 
-            className="absolute top-4 z-10 flex items-center gap-3 transition-all duration-200"
+            className="absolute top-3.5 z-10 flex items-center gap-2 transition-all duration-200"
           >
-            <div className="bg-[#14161b] border border-[#272a34] rounded-2xl px-4 py-2.5 shadow-2xl space-y-1.5 text-xs font-mono min-w-[140px]">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-zinc-400 text-[10px] uppercase tracking-wider font-semibold">Topology</span>
-                <span className="text-[#F9CF00] font-bold text-[11px] flex items-center gap-1">
-                  {currentAsset?.topology || (meshStats ? 'Triangle' : '—')} <ChevronDown className="w-3 h-3 text-zinc-500" />
+            {/* Unobtrusive Corner Zoom / Orbit Controller Set (Tripo Style) */}
+            <div className="flex items-center gap-0.5 p-1 rounded-xl bg-[#14161b]/90 backdrop-blur-md border border-[#272a34] shadow-2xl text-zinc-300">
+              {/* Orbit/Pan Mode Toggle with Active Visual Indicator */}
+              <SimpleTooltip side="bottom" label={`Mode: ${interactionMode === 'pan' ? 'Pan' : 'Orbit'} (Click to toggle)`}>
+                <button
+                  id="btn-corner-orbit-toggle"
+                  onClick={() => setInteractionMode(interactionMode === 'pan' ? 'orbit' : 'pan')}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                    interactionMode === 'orbit'
+                      ? 'bg-[#1f222a] text-[#F9CF00] border border-[#F9CF00]/40 shadow-sm'
+                      : 'bg-[#1f222a] text-zinc-300 hover:text-white'
+                  }`}
+                >
+                  <Compass className="w-3 h-3 text-[#F9CF00]" />
+                  <span className="capitalize">{interactionMode}</span>
+                </button>
+              </SimpleTooltip>
+
+              <div className="w-px h-3.5 bg-[#272a34] mx-0.5" />
+
+              {/* Zoom In */}
+              <SimpleTooltip side="bottom" label="Zoom In (+)">
+                <button
+                  id="btn-corner-zoom-in"
+                  onClick={handleZoomIn}
+                  className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-[#1f222a] transition-all cursor-pointer"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+              </SimpleTooltip>
+
+              {/* Zoom Out */}
+              <SimpleTooltip side="bottom" label="Zoom Out (-)">
+                <button
+                  id="btn-corner-zoom-out"
+                  onClick={handleZoomOut}
+                  className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-[#1f222a] transition-all cursor-pointer"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+              </SimpleTooltip>
+
+              {/* Fit / Focus View */}
+              <SimpleTooltip side="bottom" label="Reset Focus / Center (Hotkey: F)">
+                <button
+                  id="btn-corner-fit-view"
+                  onClick={resetCamera}
+                  className="p-1 rounded-lg text-zinc-400 hover:text-[#F9CF00] hover:bg-[#1f222a] transition-all cursor-pointer"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                </button>
+              </SimpleTooltip>
+            </div>
+
+            {/* Topology HUD */}
+            <div className="bg-[#14161b]/90 backdrop-blur-md border border-[#272a34] rounded-xl px-3 py-1.5 shadow-2xl flex items-center gap-3 text-xs font-mono">
+              <div className="flex items-center gap-1.5">
+                <span className="text-zinc-500 text-[10px] uppercase font-semibold">Topology</span>
+                <span className="text-[#F9CF00] font-bold text-[10px]">
+                  {currentAsset?.topology || (meshStats ? 'Triangle' : '—')}
                 </span>
               </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-zinc-400 text-[10px] uppercase tracking-wider font-semibold">Geometry</span>
-                <span className="text-[#00FF9D] font-bold text-[11px]">
+              <div className="w-px h-3 bg-[#272a34]" />
+              <div className="flex items-center gap-1.5">
+                <span className="text-zinc-500 text-[10px] uppercase font-semibold">Geometry</span>
+                <span className="text-[#00FF9D] font-bold text-[10px]">
                   {currentAsset?.statsAvailable 
                     ? `${currentAsset.faces.toLocaleString()} / ${currentAsset.vertices.toLocaleString()}` 
                     : meshStats 
