@@ -26,6 +26,7 @@ _async_engine_kwargs = {
     "pool_size": 20,
     "max_overflow": 30,
     "pool_recycle": 3600,  # Recycle connections hourly to prevent stale connections
+    "pool_timeout": 5,  # Fail fast when pool is exhausted
 }
 # Sync engine for celery workers — explicit pool to avoid exhausting DB
 # connections when many workers run concurrently.
@@ -35,6 +36,7 @@ _sync_engine_kwargs = {
     "pool_size": 5,
     "max_overflow": 10,
     "pool_recycle": 3600,
+    "pool_timeout": 5,
 }
 
 # Async engine

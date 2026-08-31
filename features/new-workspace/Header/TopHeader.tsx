@@ -11,13 +11,19 @@ import {
   Zap,
   Package,
   Settings,
-  Sparkles
+  Sparkles,
+  Menu
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 
-export const TopHeader: React.FC = () => {
+interface TopHeaderProps {
+  onMobileMenuToggle?: () => void;
+  isMobileNavOpen?: boolean;
+}
+
+export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobileNavOpen }) => {
   const router = useRouter();
   const {
     mainNav,
@@ -34,14 +40,23 @@ export const TopHeader: React.FC = () => {
   return (
     <header
       id="persistent-top-header"
-      className="h-[42px] px-3 bg-[#0D0E10] flex items-center justify-between border-b border-white/[0.08] select-none z-50 text-xs w-full flex-shrink-0"
+      className="h-[42px] px-2 md:px-3 bg-[#0D0E10] flex items-center justify-between border-b border-white/[0.08] select-none z-50 text-xs w-full flex-shrink-0 min-w-0"
     >
       {/* Left Branding & Mode Dropdown */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 md:gap-3 min-w-0 overflow-hidden">
+        {/* Mobile menu button */}
+        <button
+          onClick={onMobileMenuToggle}
+          className="md:hidden p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#191A1D] transition-colors flex-shrink-0"
+          aria-label={isMobileNavOpen ? 'Close menu' : 'Open menu'}
+        >
+          <Menu className="w-4 h-4" />
+        </button>
+
         {/* Brand Studio Logo (AI 3D Studio) */}
         <div
           onClick={() => navigateToMain('dashboard')}
-          className="flex items-center gap-2 cursor-pointer group p-1"
+          className="flex items-center gap-2 cursor-pointer group p-1 flex-shrink-0"
         >
           {/* Stylized Logo Cube */}
           <div className="w-5 h-5 rounded-[5px] bg-[#F9CF00] flex items-center justify-center text-black font-black text-[10px] shadow-sm tracking-tighter">
@@ -49,13 +64,13 @@ export const TopHeader: React.FC = () => {
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
             </svg>
           </div>
-          <span className="font-extrabold text-xs tracking-wider text-white uppercase font-sans">
+          <span className="font-extrabold text-xs tracking-wider text-white uppercase font-sans hidden sm:inline">
             AI 3D STUDIO
           </span>
         </div>
 
-        {/* 3D Workspace Mode Switcher Dropdown */}
-        <div className="relative">
+        {/* 3D Workspace Mode Switcher Dropdown - hidden on mobile */}
+        <div className="relative hidden md:block">
           <button
             id="btn-workspace-switcher"
             onClick={() => setWorkspaceMenuOpen(!workspaceMenuOpen)}
@@ -101,11 +116,11 @@ export const TopHeader: React.FC = () => {
           )}
         </div>
 
-        {/* Divider */}
-        <div className="h-3.5 w-px bg-white/[0.1] mx-0.5" />
+        {/* Divider - hidden on mobile */}
+        <div className="h-3.5 w-px bg-white/[0.1] mx-0.5 hidden md:block" />
 
-        {/* Center/Left Top Navigation Links */}
-        <nav className="flex items-center gap-1 text-[11px] font-medium">
+        {/* Center/Left Top Navigation Links - hidden on mobile */}
+        <nav className="flex items-center gap-1 text-[11px] font-medium hidden md:flex">
           <button
             id="nav-link-home"
             onClick={() => navigateToMain('dashboard')}
@@ -145,46 +160,46 @@ export const TopHeader: React.FC = () => {
       </div>
 
       {/* Right: FastAPI Status Pill, AI Models, DCC Bridge, Settings, Profile */}
-      <div className="flex items-center gap-2">
-        {/* Restored FastAPI Status Pill */}
-        <SimpleTooltip 
-          label={`FastAPI Backend: ${systemStats.status.toUpperCase()} • GPU: ${systemStats.gpu || 'Auto/CUDA'} • ${systemStats.vramUsedGb != null ? `${systemStats.vramUsedGb}GB VRAM` : 'Ready'}`} 
+      <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
+        {/* Restored FastAPI Status Pill - text hidden on small screens */}
+        <SimpleTooltip
+          label={`FastAPI Backend: ${systemStats.status.toUpperCase()} • GPU: ${systemStats.gpu || 'Auto/CUDA'} • ${systemStats.vramUsedGb != null ? `${systemStats.vramUsedGb}GB VRAM` : 'Ready'}`}
           side="bottom"
         >
           <button
             id="btn-fastapi-status-pill"
             onClick={() => navigateToMain('system')}
-            className="flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-[#191A1D] border border-white/[0.08] hover:bg-[#25262A] hover:border-white/[0.16] text-[11px] text-zinc-300 transition-all shadow-sm cursor-pointer"
+            className="flex items-center gap-1.5 h-7 px-2 md:px-2.5 rounded-full bg-[#191A1D] border border-white/[0.08] hover:bg-[#25262A] hover:border-white/[0.16] text-[11px] text-zinc-300 transition-all shadow-sm cursor-pointer"
           >
             <span className="relative flex h-2 w-2">
               <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${systemStats.status === 'online' ? 'bg-emerald-400' : 'bg-rose-400'}`} />
               <span className={`relative inline-flex rounded-full h-2 w-2 ${systemStats.status === 'online' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
             </span>
-            <span className="font-bold text-white tracking-wide">FastAPI</span>
-            <span className="text-zinc-500 text-[10px] uppercase font-mono">
+            <span className="font-bold text-white tracking-wide hidden lg:inline">FastAPI</span>
+            <span className="text-zinc-500 text-[10px] uppercase font-mono hidden sm:inline">
               {systemStats.status === 'online' ? 'Online' : 'Offline'}
             </span>
           </button>
         </SimpleTooltip>
 
-        {/* AI Models Button */}
+        {/* AI Models Button - hidden on small mobile */}
         <SimpleTooltip label="Manage AI 3D Models & Weights" side="bottom">
           <button
             id="btn-header-models"
             onClick={() => router.push('/settings?section=models')}
-            className="flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-[#191A1D] border border-white/[0.08] hover:bg-[#25262A] hover:border-white/[0.15] text-[11px] text-zinc-300 transition-all shadow-sm cursor-pointer"
+            className="hidden sm:flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-[#191A1D] border border-white/[0.08] hover:bg-[#25262A] hover:border-white/[0.15] text-[11px] text-zinc-300 transition-all shadow-sm cursor-pointer"
           >
             <Package className="w-3 h-3 text-[#F9CF00]" />
-            <span className="font-semibold">AI Models</span>
+            <span className="font-semibold hidden md:inline">AI Models</span>
           </button>
         </SimpleTooltip>
 
-        {/* DCC Bridge Button */}
+        {/* DCC Bridge Button - hidden on mobile */}
         <SimpleTooltip label="Connect to Blender / Unreal Engine / Maya via DCC Bridge" side="bottom">
           <button
             id="btn-dcc-bridge"
             onClick={() => setIsDccBridgeOpen(true)}
-            className="flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-[#191A1D] border border-white/[0.08] hover:bg-[#25262A] hover:border-white/[0.15] text-[11px] text-zinc-300 transition-all shadow-sm cursor-pointer"
+            className="hidden md:flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-[#191A1D] border border-white/[0.08] hover:bg-[#25262A] hover:border-white/[0.15] text-[11px] text-zinc-300 transition-all shadow-sm cursor-pointer"
           >
             <Cable className="w-3 h-3 text-[#F9CF00]" />
             <span className="font-semibold">DCC Bridge</span>

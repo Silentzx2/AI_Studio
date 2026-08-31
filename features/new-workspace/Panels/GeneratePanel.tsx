@@ -22,54 +22,47 @@ import {
   Box,
   Check,
   Package,
-  Layers
+  Layers,
+  AlertTriangle
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import { useWorkspace } from '../store/WorkspaceContext';
-import { useRuntimeOptions } from '@/hooks/useBackendData';
+import { useManifestModels, type ManifestModel } from '@/hooks/useManifestModels';
 import { useUploadProgress } from '@/hooks/useUploadProgress';
 import { apiClient } from '@/services/apiClient';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 
-interface ProviderOption {
-  id: string;
-  label: string;
-  name?: string;
-  description?: string;
-  available?: boolean;
-  installed?: boolean;
-  status?: string;
-  vram_required_mb?: number;
-  supports_image_to_3d?: boolean;
-  workspace_compatibility?: string[];
-  low_vram_supported?: boolean;
-  low_vram_required_mb?: number;
-}
-
-const FALLBACK_MODELS: ProviderOption[] = [
-  { id: 'trellis', label: 'Trellis 3D (v1.0)', description: 'High-fidelity geometry & 16-bit PBR maps', available: true, installed: true, vram_required_mb: 8192 },
-  { id: 'triposr', label: 'TripoSR (Fast)', description: 'Ultra-fast feedforward 3D reconstruction (<1s)', available: true, installed: true, vram_required_mb: 4096 },
-  { id: 'hunyuan3d-1.0', label: 'Tencent HunYuan 3D', description: 'Detailed high-polygon geometric reconstruction', available: true, installed: true, vram_required_mb: 10240 },
-  { id: 'tripo-v3', label: 'Tripo v3.1 Studio', description: 'Production-ready assets with optimized topology', available: true, installed: true, vram_required_mb: 8192 },
-  { id: 'instantmesh', label: 'InstantMesh', description: 'Fast multi-view large reconstruction model', available: true, installed: false, vram_required_mb: 6144 },
-  { id: 'shap-e', label: 'Shap-E (OpenAI)', description: 'Lightweight implicit 3D generator (CPU compatible)', available: true, installed: false, vram_required_mb: 2048 },
-];
-
 export const GeneratePanel: React.FC = () => {
   const router = useRouter();
-  const { 
-    isExecuting, 
-    executionProgress, 
+  const {
+    isExecuting,
+    executionProgress,
     executionStep,
     generateImageTo3D,
     generationSettings,
     setGenerationSettings
   } = useWorkspace();
 
-  const { options: runtimeOptions, loading: optionsLoading } = useRuntimeOptions();
-  const rawProviders: ProviderOption[] = runtimeOptions?.three_d_models || [];
-  const providersList: ProviderOption[] = rawProviders.length > 0 ? rawProviders : FALLBACK_MODELS;
+  // Manifest-driven: only mesh-capable models with weights + repo present
+  const { meshCapableModels, loading: optionsLoading } = useManifestModels();
+  const providersList = meshCapableModels;
+
+  // Status pill logic — shows what's wrong with the selected model
+  const getStatusInfo = () => {
+    const selected = providersList.find(m => m.id === generationSettings.aiModel);
+    if (!selected) {
+      if (providersList.length === 0) return { label: 'No models installed', tone: 'warn' as const };
+      return null;
+    }
+    if (selected.available) return null; // ready → no pill
+    if (selected.status === 'weights_missing') return { label: 'Weights missing', tone: 'warn' as const };
+    if (!selected.installed) return { label: 'Model not installed', tone: 'warn' as const };
+    if (selected.status) return { label: selected.status, tone: 'warn' as const };
+    return { label: 'Not ready', tone: 'warn' as const };
+  };
+
+  const statusInfo = getStatusInfo();
 
   const [generalSettingsOpen, setGeneralSettingsOpen] = useState(true);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
@@ -78,7 +71,7 @@ export const GeneratePanel: React.FC = () => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const { progress: uploadProgress, startUpload, updateProgress, finishUpload, failUpload } = useUploadProgress();
-  
+
   // Toggles & Settings
   const [ultraMeshQuality, setUltraMeshQuality] = useState(true);
   const [texture8k, setTexture8k] = useState(false);
@@ -88,9 +81,9 @@ export const GeneratePanel: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currentMode = generationSettings.mode || 'image-to-3d';
-  const activeModelId = generationSettings.aiModel || providersList[0]?.id || 'trellis';
-  const activeModelObj = providersList.find(m => m.id === activeModelId) || providersList[0] || FALLBACK_MODELS[0];
-  
+  const activeModelId = generationSettings.aiModel || providersList[0]?.id || '';
+  const activeModelObj = providersList.find(m => m.id === activeModelId) || providersList[0];
+
   // Spring transition for tactile feel
   const springTransition = { type: 'spring' as const, stiffness: 400, damping: 25 };
 
@@ -166,7 +159,7 @@ export const GeneratePanel: React.FC = () => {
     setGenerationSettings(prev => ({ ...prev, mode: 'image-to-3d' }));
   };
 
-  const handleModelSelect = (model: ProviderOption) => {
+  const handleModelSelect = (model: ManifestModel) => {
     setGenerationSettings(prev => ({
       ...prev,
       aiModel: model.id,
@@ -215,6 +208,12 @@ export const GeneratePanel: React.FC = () => {
           <Sparkles className="w-3.5 h-3.5 text-[#F9CF00]" />
           <span>Generate Model</span>
         </span>
+        {statusInfo && (
+          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[9px] font-bold">
+            <AlertTriangle className="w-2.5 h-2.5" />
+            {statusInfo.label}
+          </span>
+        )}
       </div>
 
       {/* Main Body */}
@@ -447,10 +446,10 @@ export const GeneratePanel: React.FC = () => {
             <div className="flex flex-col min-w-0 pr-2">
               <span className="font-bold text-[10px] text-white flex items-center gap-1.5 truncate">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#F9CF00]" />
-                <span className="truncate">{activeModelObj.label || activeModelObj.name || activeModelId}</span>
+                <span className="truncate">{activeModelObj?.label || activeModelId || 'No model available'}</span>
               </span>
               <span className="text-[8px] text-zinc-400 truncate">
-                {activeModelObj.description || 'Production 3D Mesh Generation'}
+                {activeModelObj?.available ? 'Ready for generation' : 'Select a model'}
               </span>
             </div>
             <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${modelDropdownOpen ? 'rotate-180 text-[#F9CF00]' : ''}`} />
@@ -460,44 +459,48 @@ export const GeneratePanel: React.FC = () => {
           {modelDropdownOpen && (
             <div className="absolute left-0 right-0 top-full mt-1 bg-[#191A1D] border border-white/[0.12] rounded-xl p-1.5 shadow-2xl z-50 space-y-1 max-h-56 overflow-y-auto">
               <div className="text-[8px] font-bold uppercase tracking-wider text-zinc-500 px-1 py-0.5">
-                Available Generation Models ({providersList.length})
+                Mesh-Capable Models ({providersList.length})
               </div>
-              {providersList.map((m) => {
-                const isSelected = (m.id || m.name) === (activeModelObj.id || activeModelObj.name);
-                return (
-                  <button
-                    key={m.id || m.name}
-                    onClick={() => {
-                      setGenerationSettings(prev => ({ ...prev, aiModel: m.id || m.name || '' }));
-                      setModelDropdownOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-all ${
-                      isSelected 
-                        ? 'bg-[#F9CF00] text-black shadow-sm font-bold' 
-                        : 'text-zinc-200 hover:bg-[#25262A] hover:text-white'
-                    }`}
-                  >
-                    <div className="flex flex-col min-w-0 pr-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-bold truncate">{m.label || m.name}</span>
-                        {m.vram_required_mb ? (
-                          <span className={`text-[7px] px-1 py-0.2 rounded font-mono ${
-                            isSelected ? 'bg-black/15 text-black' : 'bg-white/[0.08] text-zinc-400'
-                          }`}>
-                            {Math.round(m.vram_required_mb / 1024)}GB
-                          </span>
-                        ) : null}
-                      </div>
-                      {m.description && (
+              {providersList.length === 0 ? (
+                <div className="px-2 py-3 text-[10px] text-zinc-400 text-center">
+                  No mesh-capable models installed. Install a model to generate 3D.
+                </div>
+              ) : (
+                providersList.map((m) => {
+                  const isSelected = m.id === (activeModelObj?.id || activeModelId);
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => {
+                        setGenerationSettings(prev => ({ ...prev, aiModel: m.id }));
+                        setModelDropdownOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-all ${
+                        isSelected
+                          ? 'bg-[#F9CF00] text-black shadow-sm font-bold'
+                          : 'text-zinc-200 hover:bg-[#25262A] hover:text-white'
+                      }`}
+                    >
+                      <div className="flex flex-col min-w-0 pr-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold truncate">{m.label}</span>
+                          {m.vram_required_mb ? (
+                            <span className={`text-[7px] px-1 py-0.2 rounded font-mono ${
+                              isSelected ? 'bg-black/15 text-black' : 'bg-white/[0.08] text-zinc-400'
+                            }`}>
+                              {Math.round(m.vram_required_mb / 1024)}GB
+                            </span>
+                          ) : null}
+                        </div>
                         <span className={`text-[8px] truncate ${isSelected ? 'text-black/80' : 'text-zinc-400'}`}>
-                          {m.description}
+                          {m.low_vram_supported ? 'Low VRAM supported' : `Requires ${Math.round((m.vram_required_mb || 0) / 1024)}GB VRAM`}
                         </span>
-                      )}
-                    </div>
-                    {isSelected && <Check className="w-3.5 h-3.5 text-black flex-shrink-0" />}
-                  </button>
-                );
-              })}
+                      </div>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-black flex-shrink-0" />}
+                    </button>
+                  );
+                })
+              )}
 
               <div className="pt-1 border-t border-white/[0.08]">
                 <button

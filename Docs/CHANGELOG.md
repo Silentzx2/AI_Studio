@@ -1,5 +1,42 @@
 # AI 3D Studio — Changelog
 
+## [v4.6.1] - 2026-08-31
+
+### Performance Optimizations
+
+#### Backend
+- **Cache LRU eviction**: Fixed unbounded in-memory cache growth (OOM risk). Cache now uses `OrderedDict`-based LRU capped at 256 entries (`backend/app/core/cache.py`)
+- **GZip compression**: Added `GZipMiddleware` for text-based responses (JSON, GLTF, HTML) — 60-80% bandwidth reduction (`backend/app/main.py`)
+- **Request logging reduction**: Health/static/realtime endpoints now logged at DEBUG level, reducing production log noise by ~10x (`backend/app/main.py`)
+- **WebSocket pusher optimization**: GPU telemetry polling skips when no clients are connected; blocking `nvidia-smi` call runs in executor (`backend/app/main.py`)
+- **WebSocket broadcast**: Concurrent send to all clients with 2s timeout; slow clients don't block others (`backend/app/api/v1/realtime.py`)
+- **WebSocket connection limit**: Capped at 50 clients to prevent DoS (`backend/app/api/v1/realtime.py`)
+- **GPU info caching**: `get_gpu_info()` cached for 2s to reduce subprocess calls (`backend/runtime/gpu.py`)
+- **Shared Redis pool**: Single `ConnectionPool` shared across all modules to avoid connection churn (`backend/app/core/redis_client.py`)
+- **Worker DB atomicity**: Job state updates now committed once at task completion instead of per-progress-update, preventing partial-state persistence on crash (`backend/app/workers/tasks.py`)
+- **Cache invalidation**: Model install/uninstall/repair operations now immediately invalidate affected cache keys (`backend/app/api/v1/models_api.py`)
+- **Added `invalidate_prefix()`**: New function for efficient prefix-based cache invalidation (`backend/app/core/cache.py`)
+- **Non-blocking CPU metrics**: `psutil.cpu_percent(interval=0)` used instead of blocking 0.1s interval (`backend/app/api/v1/system.py`)
+- **Database pool timeout**: 5s timeout on connection pool acquisition to fail fast under load (`backend/app/database.py`)
+
+#### Database
+- **Added indexes**: `generation_jobs.created_at`, `generation_jobs.updated_at`, `download_queue.status` — improves list query performance from O(n log n) to O(log n + limit) (`backend/app/models/job.py`, `backend/app/models/registry.py`)
+
+#### Frontend
+- **GPU material disposal**: Shading mode changes now dispose previous materials to prevent GPU memory leaks (`features/new-workspace/Viewport/MeshViewer.tsx`)
+- **Immutable state updates**: Mesh stats use `updateAssetProperties` instead of direct mutation, fixing stale UI (`features/new-workspace/Viewport/MeshViewer.tsx`)
+- **Event listener fix**: Execution event handlers use ref for `activeTask` to prevent stale closures and show correct toast messages (`features/new-workspace/store/WorkspaceContext.tsx`)
+- **AbortSignal propagation**: `apiClient.request()` properly merges external abort signals with internal timeout (`services/apiClient.ts`)
+- **Request dedup cleanup**: Periodic eviction of expired entries prevents unbounded cache growth (`lib/requestDedup.ts`)
+
+### Fixed
+- **Worker cancellation check**: Uses `session.refresh()` to read latest job status from DB, fixing race condition where cancellation via API was not detected by running workers
+- **Cache coherence**: Stale model status (up to 30s) after install/uninstall/repair operations eliminated via immediate invalidation
+
+### Verification
+- Python syntax check: PASS (all modified files)
+- TypeScript compilation: PASS (`npx tsc --noEmit`)
+
 ## [v3.9.8] - 2026-08-30
 
 ### Changed

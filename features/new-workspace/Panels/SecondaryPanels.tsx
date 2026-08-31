@@ -23,17 +23,17 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
 
   if (tool === 'segment') {
     return (
-      <div className="flex flex-col h-full overflow-y-auto px-4 py-4 space-y-4 text-xs select-none bg-[#14161b]">
+      <div id="panel-segment" className="flex flex-col h-full overflow-y-auto px-2.5 py-2.5 space-y-3 text-xs select-none bg-[#191A1D]">
         <div className="space-y-1.5">
           <span className="text-[11px] font-bold uppercase tracking-wider text-[#F9CF00]">Mesh Segmentation</span>
-          <p className="text-[11px] text-zinc-400 font-medium">Decompose mesh into semantic functional sub-meshes for animation & rigging.</p>
+          <p className="text-[10px] text-zinc-400 font-medium">Decompose mesh into semantic functional sub-meshes for animation & rigging.</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 mt-1">
+        <div className="grid grid-cols-2 gap-1.5">
           {['Auto Semantic Split', 'Joints & Limbs', 'Armor & Apparel', 'Loose Islands'].map((mode, i) => (
             <button
               key={mode}
-              className={`p-3 rounded-xl border text-left font-bold transition-all ${
+              className={`p-1.5 rounded-lg border text-left font-bold text-[10px] transition-all ${
                 i === 0
                   ? 'bg-[#F9CF00] border-[#F9CF00] text-black shadow-md'
                   : 'bg-[#1c1f26] border-[#272a34] text-zinc-300 hover:text-white hover:border-[#3d4252]'
@@ -44,12 +44,12 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
           ))}
         </div>
 
-        <div className="p-3.5 rounded-xl bg-[#1c1f26] border border-[#272a34] space-y-2">
-          <div className="flex items-center justify-between text-[11px]">
+        <div className="p-2 rounded-lg bg-[#1c1f26] border border-[#272a34] space-y-1.5">
+          <div className="flex items-center justify-between text-[10px]">
             <span className="text-zinc-400">Target Mesh:</span>
-            <span className="font-mono text-[#F9CF00] font-bold truncate max-w-[140px]">{currentAsset ? currentAsset.name : 'Active Model'}</span>
+            <span className="font-mono text-[#F9CF00] font-bold truncate max-w-[120px]">{currentAsset ? currentAsset.name : 'Active Model'}</span>
           </div>
-          <div className="flex items-center justify-between text-[11px]">
+          <div className="flex items-center justify-between text-[10px]">
             <span className="text-zinc-400">Estimated Parts:</span>
             <span className="font-mono text-emerald-400 font-bold">5 Sub-meshes</span>
           </div>
@@ -58,7 +58,7 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
         <button
           onClick={() => void runRemeshGeneration()}
           disabled={isExecuting}
-          className="w-full py-3.5 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-black text-xs flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-50"
+          className="w-full h-10 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Layers className="w-4 h-4 stroke-[2.2]" />
           <span>EXECUTE SEGMENTATION</span>
@@ -69,7 +69,7 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
 
   if (tool === 'remesh') {
     return (
-      <div className="flex flex-col h-full overflow-y-auto px-4 py-4 space-y-4 text-xs select-none bg-[#14161b]">
+      <div id="panel-remesh-secondary" className="flex flex-col h-full overflow-y-auto px-2.5 py-2.5 space-y-3 text-xs select-none bg-[#191A1D]">
         <div className="space-y-1.5">
           <span className="text-[11px] font-bold uppercase tracking-wider text-[#F9CF00]">Target Polycount</span>
           <div className="grid grid-cols-3 gap-1.5">
@@ -81,7 +81,7 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
               <button
                 key={q.label}
                 onClick={() => setRemeshSettings(prev => ({ ...prev, targetFaces: q.faces }))}
-                className={`p-2.5 rounded-xl border font-bold transition-all ${
+                className={`p-1.5 rounded-lg border font-bold text-[10px] transition-all ${
                   remeshSettings.targetFaces === q.faces
                     ? 'bg-[#F9CF00] border-[#F9CF00] text-black shadow-md'
                     : 'bg-[#1c1f26] border-[#272a34] text-zinc-300 hover:text-white hover:border-[#3d4252]'
@@ -93,12 +93,12 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
           </div>
         </div>
 
-        <div className="p-3 rounded-xl bg-[#1c1f26] border border-[#272a34] space-y-2">
-          <div className="flex items-center justify-between text-[11px]">
+        <div className="p-2 rounded-lg bg-[#1c1f26] border border-[#272a34] space-y-1.5">
+          <div className="flex items-center justify-between text-[10px]">
             <span className="text-zinc-400">Current Topology:</span>
             <span className="font-mono text-[#F9CF00] font-bold">{currentAsset ? (currentAsset.statsAvailable ? `${currentAsset.topology} (${currentAsset.faces.toLocaleString()} faces)` : 'Geometry stats unavailable') : 'No asset selected'}</span>
           </div>
-          <div className="flex items-center justify-between text-[11px]">
+          <div className="flex items-center justify-between text-[10px]">
             <span className="text-zinc-400">Edge Loop Flow:</span>
             <span className="font-mono text-emerald-400 font-bold">Anatomical</span>
           </div>
@@ -107,7 +107,7 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
         <button
           onClick={() => void runRemeshGeneration()}
           disabled={isExecuting}
-          className="w-full py-3.5 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-black text-xs flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-50"
+          className="w-full h-10 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Hexagon className="w-4 h-4 stroke-[2.2]" />
           <span>EXECUTE QUAD RETOPO</span>
@@ -118,11 +118,11 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
 
   if (tool === 'edit') {
     return (
-      <div className="flex flex-col h-full overflow-y-auto px-4 py-4 space-y-4 text-xs select-none bg-[#14161b]">
+      <div id="panel-edit" className="flex flex-col h-full overflow-y-auto px-2.5 py-2.5 space-y-3 text-xs select-none bg-[#191A1D]">
         <span className="text-[11px] font-bold uppercase tracking-wider text-[#F9CF00]">Sculpt Brushes</span>
-        <div className="grid grid-cols-2 gap-2 mt-1">
+        <div className="grid grid-cols-2 gap-1.5">
           {['Grab / Move', 'Smooth', 'Inflate', 'Pinch', 'Flatten', 'Clay Strips'].map((brush) => (
-            <button key={brush} className="p-3 rounded-xl bg-[#1c1f26] border border-[#272a34] text-white hover:text-[#F9CF00] hover:border-[#F9CF00] font-bold text-left transition-all">
+            <button key={brush} className="p-1.5 rounded-lg bg-[#1c1f26] border border-[#272a34] text-zinc-300 hover:text-[#F9CF00] hover:border-[#F9CF00] font-bold text-[10px] text-left transition-all">
               {brush}
             </button>
           ))}
@@ -133,12 +133,12 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
 
   if (tool === 'upscale') {
     return (
-      <div className="flex flex-col h-full overflow-y-auto px-4 py-4 space-y-4 text-xs select-none bg-[#14161b]">
+      <div id="panel-upscale" className="flex flex-col h-full overflow-y-auto px-2.5 py-2.5 space-y-3 text-xs select-none bg-[#191A1D]">
         <div className="space-y-1.5">
           <span className="text-[11px] font-bold uppercase tracking-wider text-[#F9CF00]">Upscale Factor</span>
           <div className="grid grid-cols-3 gap-1.5">
             {['2X Super', '4X Ultra', '8K Production'].map((f) => (
-              <button key={f} className="p-2.5 rounded-xl bg-[#1c1f26] border border-[#272a34] text-white font-bold hover:text-[#F9CF00] hover:border-[#F9CF00] transition-colors">
+              <button key={f} className="p-1.5 rounded-lg bg-[#1c1f26] border border-[#272a34] text-zinc-300 font-bold text-[10px] hover:text-[#F9CF00] hover:border-[#F9CF00] transition-all">
                 {f}
               </button>
             ))}
@@ -147,7 +147,7 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
         <button
           onClick={() => void runRemeshGeneration()}
           disabled={isExecuting}
-          className="w-full py-3.5 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-black text-xs flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-50"
+          className="w-full h-10 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Maximize className="w-4 h-4 stroke-[2.2]" />
           <span>EXECUTE 3D UPSCALE</span>
@@ -158,14 +158,14 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
 
   if (tool === 'pbr') {
     return (
-      <div className="flex flex-col h-full overflow-y-auto px-4 py-4 space-y-4 text-xs select-none bg-[#14161b]">
-        <div className="p-4 rounded-xl bg-[#1c1f26] border border-[#272a34]">
-          <p className="text-zinc-300 leading-relaxed font-medium">Bake physically based rendering channels (Albedo, Normal, Roughness, Metallic, Height, AO) using 3D Generation Pipeline nodes.</p>
+      <div id="panel-pbr" className="flex flex-col h-full overflow-y-auto px-2.5 py-2.5 space-y-3 text-xs select-none bg-[#191A1D]">
+        <div className="p-2.5 rounded-lg bg-[#1c1f26] border border-[#272a34]">
+          <p className="text-zinc-300 leading-relaxed font-medium text-[10px]">Bake physically based rendering channels (Albedo, Normal, Roughness, Metallic, Height, AO) using 3D Generation Pipeline nodes.</p>
         </div>
         <button
           onClick={() => void runTextureGeneration()}
           disabled={isExecuting}
-          className="w-full py-3.5 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-black text-xs flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-50"
+          className="w-full h-10 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Palette className="w-4 h-4 stroke-[2.2]" />
           <span>BAKE PBR TEXTURE SET</span>
@@ -175,11 +175,11 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
   }
 
   return (
-    <div className="flex flex-col h-full items-center justify-center px-4 py-4 text-xs select-none bg-[#14161b]">
-      <div className="w-12 h-12 rounded-xl bg-[#1c1f26] border border-[#272a34] flex items-center justify-center text-zinc-400 mb-3">
-        <Layers className="w-6 h-6 stroke-[2.2]" />
+    <div className="flex flex-col h-full items-center justify-center px-2.5 py-2.5 text-xs select-none bg-[#191A1D]">
+      <div className="w-10 h-10 rounded-lg bg-[#1c1f26] border border-[#272a34] flex items-center justify-center text-zinc-400 mb-2">
+        <Layers className="w-5 h-5 stroke-[2.2]" />
       </div>
-      <p className="text-zinc-400 text-center font-medium">This tool is not available yet.</p>
+      <p className="text-zinc-400 text-center font-medium text-[10px]">This tool is not available yet.</p>
     </div>
   );
 };

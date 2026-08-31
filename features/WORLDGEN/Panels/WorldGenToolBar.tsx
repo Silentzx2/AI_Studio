@@ -87,7 +87,7 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#181a20] text-xs select-none overflow-hidden border-r border-[#2f333e]">
+    <div className="flex flex-col h-full bg-transparent text-xs select-none overflow-hidden">
       {/* Main Body */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6 no-scrollbar">
         {/* Image to World */}

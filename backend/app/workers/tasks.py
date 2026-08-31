@@ -49,7 +49,9 @@ def _update_job(session: Session, job_id: str, **kwargs) -> None:
     for k, v in kwargs.items():
         setattr(job, k, v)
     job.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
-    session.commit()
+    # No commit — let the outer SyncSession context manager handle a single
+    # atomic commit at the end. This avoids partial-state persistence on crash
+    # and reduces DB round-trips during generation.
 
 
 class _JobCancelled(Exception):
@@ -61,8 +63,10 @@ class _JobCancelled(Exception):
 def _ensure_not_cancelled(session: Session, job_id: str) -> None:
     from app.models.job import GenerationJob
     job = session.get(GenerationJob, job_id)
-    if job and job.status == "cancelled":
-        raise _JobCancelled(job_id)
+    if job:
+        session.refresh(job)
+        if job.status == "cancelled":
+            raise _JobCancelled(job_id)
 
 
 def _resolve_reference_image(reference: str | None, job_id: str) -> str | None:

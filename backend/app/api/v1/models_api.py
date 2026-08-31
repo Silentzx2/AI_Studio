@@ -5,7 +5,7 @@ import threading
 
 from fastapi import APIRouter, HTTPException, Query
 
-from app.core.cache import get_cached, set_cached
+from app.core.cache import get_cached, invalidate, invalidate_prefix, set_cached
 from app.core.installer.plugin_installer import PluginInstaller
 from app.core.managers.health_manager import HealthManager
 from app.workers.installation_workers import uninstall_model as uninstall_task
@@ -175,6 +175,11 @@ async def uninstall_model_endpoint(model_id: str):
 
     # Dispatch uninstall task
     uninstall_task.delay(model_id)
+
+    # Invalidate cached model data
+    invalidate("models_list")
+    invalidate(f"model_status_{model_id}")
+    invalidate_prefix("list_models")
     
     return {
         "success": True,
@@ -195,6 +200,11 @@ async def repair_model_endpoint(model_id: str):
     # Dispatch repair task (or run synchronously for response)
     from app.workers.installation_workers import repair_model as run_repair
     result = run_repair.delay(model_id)
+
+    # Invalidate cached model data
+    invalidate("models_list")
+    invalidate(f"model_status_{model_id}")
+    invalidate_prefix("list_models")
     
     return {
         "success": True,

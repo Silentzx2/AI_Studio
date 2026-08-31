@@ -202,12 +202,15 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     setMeshStats({ faces, vertices: verts, triangles });
 
     if (currentAsset) {
-      currentAsset.faces = faces;
-      currentAsset.vertices = verts;
-      currentAsset.triangles = triangles;
-      currentAsset.statsAvailable = true;
+      // Use immutable update to trigger React re-render
+      updateAssetProperties(currentAsset.id, {
+        faces,
+        vertices: verts,
+        triangles,
+        statsAvailable: true,
+      });
     }
-  }, [currentAsset]);
+  }, [currentAsset, updateAssetProperties]);
 
   // Internal Three.js references
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -706,6 +709,16 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
         const orig = child.userData.originalMaterial;
 
+        // Dispose previous non-original material to prevent GPU memory leak
+        const prevMat = child.material;
+        if (prevMat && prevMat !== orig && !child.userData.shadingMaterials?.includes(prevMat)) {
+          if (Array.isArray(prevMat)) {
+            prevMat.forEach(m => { if (m !== orig) disposeMaterial(m); });
+          } else {
+            disposeMaterial(prevMat);
+          }
+        }
+
         switch (shadingMode) {
           case 'textured':
             child.material = orig;
@@ -788,6 +801,12 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           default:
             child.material = orig;
             break;
+        }
+
+        // Track shading materials for cleanup on unmount
+        if (!child.userData.shadingMaterials) child.userData.shadingMaterials = [];
+        if (child.material !== orig && !child.userData.shadingMaterials.includes(child.material)) {
+          child.userData.shadingMaterials.push(child.material);
         }
       }
     });

@@ -10,9 +10,16 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
+import time
 from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
+
+# GPU info cache — avoids redundant torch imports + NVML queries
+# ponytail: Simple TTL cache. Upgrade to shared cache if multi-process.
+_gpu_cache_ts = 0.0
+_gpu_cache_info: GPUInfo | None = None
+_GPU_CACHE_TTL = 2.0  # seconds
 
 
 class GPURequiredError(Exception):
@@ -62,7 +69,20 @@ _normalize_cuda_env()
 
 
 def get_gpu_info() -> GPUInfo:
-    """Return current GPU / CUDA state."""
+    """Return current GPU / CUDA state (cached for 2s to reduce subprocess calls)."""
+    global _gpu_cache_ts, _gpu_cache_info
+    now = time.monotonic()
+    if _gpu_cache_info is not None and (now - _gpu_cache_ts) < _GPU_CACHE_TTL:
+        return _gpu_cache_info
+
+    info = _query_gpu_info()
+    _gpu_cache_info = info
+    _gpu_cache_ts = now
+    return info
+
+
+def _query_gpu_info() -> GPUInfo:
+    """Actual GPU query (uncached)."""
     # Re-normalize in case env was set after module load
     _normalize_cuda_env()
     cuda_visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")

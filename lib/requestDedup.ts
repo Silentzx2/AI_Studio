@@ -16,6 +16,7 @@ interface CacheEntry<T> {
 
 const cache = new Map<string, CacheEntry<unknown>>();
 const inFlight = new Map<string, Promise<unknown>>();
+let lastCleanup = 0;
 
 /** Default TTLs by endpoint pattern (ms) */
 export const TTL = {
@@ -34,6 +35,19 @@ function resolveTtl(path: string): number {
   if (path.includes('/runtime/status')) return TTL.RUNTIME_STATUS;
   if (path.includes('/generation/history')) return TTL.HISTORY;
   return 5_000; // default 5s
+}
+
+/** Periodically evict expired entries to prevent unbounded growth */
+function evictExpired(): void {
+  const now = Date.now();
+  // Run cleanup at most once per 30s
+  if (now - lastCleanup < 30_000) return;
+  lastCleanup = now;
+  for (const [key, entry] of cache) {
+    if (entry.expiresAt <= now) {
+      cache.delete(key);
+    }
+  }
 }
 
 /**
@@ -70,6 +84,7 @@ export async function dedupedGet<T>(path: string, ttl?: number): Promise<T> {
     })
     .finally(() => {
       inFlight.delete(path);
+      evictExpired();
     });
 
   inFlight.set(path, promise);

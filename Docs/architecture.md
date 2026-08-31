@@ -341,12 +341,11 @@ The frontend uses a modern persistent workspace: ONE global 3D viewport (`MeshVi
 #### New Component Organization (`/features/new-workspace/`)
 - **WorkspaceShell**: Entry point — renders TopHeader, tool panels, MeshViewer, right panels, modals
 - **Viewport/MeshViewer.tsx**: Full Three.js viewport with 3-point lighting, floor grid, turntable auto-rotation, camera presets, drag-and-drop asset loading
-- **Navigation/LeftNavigation.tsx**: Vertical icon rail with 8 tool buttons (not rendered in WorldGen page)
-- **Panels/**: Tool-specific panels (GeneratePanel, TexturePanel, RiggingPanel, AnimatePanel, RemeshPanel, SecondaryPanels, WorldGenToolPanel)
-- **RightPanel/​**: Contextual panels (RightAssetsPanel, RightPromptPanel) — RightPropertyPanel removed from WorldGen
-- **Header/TopHeader.tsx**: Brand logo, workspace mode switcher, navigation links, backend status pill (solid theme, no glass/transparent effects)
+- **Navigation/LeftNavigation.tsx**: Vertical icon rail with tool buttons; responsive drawer on mobile (`md:` breakpoint)
+- **Panels/**: Tool-specific panels (GeneratePanel, TexturePanel, RemeshPanel, SecondaryPanels, WorldGenToolPanel)
+- **RightPanel/**: Contextual panels (RightAssetsPanel, RightPropertyPanel)
+- **Header/TopHeader.tsx**: Brand logo, workspace mode switcher, navigation links, backend status pill
 - **Modals/**: ExportModal, SettingsModal, DccBridgeModal
-- **WorldGen integration**: WorldGen now uses standard WorkspaceShell with MeshViewer; WorldGenToolPanel renders as left tool panel; WorldGenShell, WorldMeshViewer, PropertiesPanel removed
 - **Notifications/ProgressOverlay.tsx**: Real-time generation progress overlay
 - **Dashboard/**: StudioDashboard, SystemPage, OutputsPage
 - **store/WorkspaceContext.tsx**: React Context for UI state, bridged to Zustand via `lib/storeAdapter.ts`
@@ -365,10 +364,36 @@ The frontend uses a modern persistent workspace: ONE global 3D viewport (`MeshVi
 - No ComfyUI backend required; existing FastAPI handles all generation
 - API client in `features/new-workspace/lib/api.ts` provides system stats, history, job management
 
-#### Dead Code Removed
-- `/features/workspace/` — old workspace UI (backed up to `/tmp/workspace-ui-old-backup.tar.gz`)
-- `NodesPanel.tsx` / `NodeList.tsx` — ComfyUI-style node graph editor (not needed, FastAPI handles all generation)
-- `SecondaryPanels.tsx` image pre-processor — GPT-Img tab removed (image-to-3D still available in GeneratePanel)
+#### Frontend Model Selection (Manifest-Driven)
+
+The model selector is fully manifest-driven — no hardcoded model lists:
+
+- **`hooks/useManifestModels.ts`**: Consumes `/api/v1/runtime/options` and filters models by capability:
+  - `meshCapableModels`: Models with `supports_image_to_3d` OR `supports_text_to_3d` + `available`
+  - `textureCapableModels`: Models with `supports.texture_generation` + `available`
+  - `worldgenModel`: WorldGen model (excluded from other selectors — it has its own page)
+- **GeneratePanel**: Shows only mesh-capable models; filters out `worldgen`
+- **TexturePanel**: Shows only texture-capable models; filters out `worldgen`
+- **WorldGenToolPanel**: No model selector — single status pill shows model state
+
+#### Status Pills
+
+Each tool panel header shows a status pill indicating model availability:
+- **Green "Ready"**: Model is available and weights are present
+- **Amber "Weights missing"**: Model installed but weights not downloaded
+- **Amber "Model not installed"**: Model not installed
+- **Amber with status text**: Any other non-ready state
+- **No pill**: Everything is fine (or model is ready)
+
+#### Responsive Design
+
+The workspace is fully responsive for mobile and tablet:
+- **Desktop (md+)**: Fixed 58px left rail, 264px left panel, 196px right panel
+- **Mobile (<md)**: Left navigation becomes a slide-out drawer; panels become full-screen overlays
+- **TopHeader**: Hamburger menu on mobile; some buttons hidden on small screens
+- **Tool panels**: Full-screen drawers on mobile with close button
+- **Dashboard overlays**: Full-width on mobile, offset by 58px on desktop
+- All desktop behavior is preserved exactly using `md:` breakpoints
 
 - All workspace components use `var(--ws-*, fallback)` for colors
 - Default theme preserved (dark with gold accent)
@@ -574,6 +599,36 @@ In-memory caching with TTL reduces redundant computation and improves response t
 - Stale entries are evicted on read and via periodic background cleanup
 - Cache keys include query parameters for endpoint-specific invalidation
 - Manual cache clear via `POST /api/v1/system/cache/clear`
+
+### Cache Eviction Strategy
+
+- **LRU eviction**: Cache is capped at 256 entries (`OrderedDict`-based LRU)
+- **TTL per endpoint**: Each cached value has its own TTL
+- **State-driven invalidation**: Model install/uninstall/repair operations invalidate affected cache keys immediately
+- **Prefix invalidation**: `invalidate_prefix()` removes all keys matching a prefix
+
+### Performance Optimizations (v4.6.1+)
+
+- **GZip compression**: Text-based responses (JSON, GLTF, HTML) are compressed via `GZipMiddleware` (minimum 1000 bytes)
+- **Conditional request logging**: Health/static/realtime endpoints logged at DEBUG level to reduce production log noise
+- **WebSocket pusher optimization**: GPU polling skips when no clients are connected; blocking `nvidia-smi` call runs in executor
+- **WebSocket broadcast**: Concurrent send to all clients with 2s timeout; slow clients don't block others
+- **WebSocket connection limit**: Capped at 50 clients to prevent DoS
+- **GPU info caching**: `get_gpu_info()` cached for 2s to reduce subprocess calls
+- **Shared Redis pool**: Single `ConnectionPool` shared across all modules to avoid connection churn
+- **Worker DB atomicity**: Job state updates committed once at task completion instead of per-progress-update
+- **Database indexes**: Added indexes on `generation_jobs.created_at`, `generation_jobs.updated_at`, and `download_queue.status`
+- **Database pool timeout**: 5s timeout on connection pool acquisition to fail fast under load
+- **Cache invalidation**: Model install/uninstall/repair operations invalidate affected cache keys immediately
+- **Client-side dedup cleanup**: Periodic eviction of expired entries in the frontend request deduplication cache
+- **Non-blocking CPU metrics**: `psutil.cpu_percent(interval=0)` used instead of blocking 0.1s interval
+
+#### Frontend Performance (v4.6.1+)
+- **GPU material disposal**: Shading mode changes now dispose previous materials to prevent GPU memory leaks
+- **Immutable state updates**: Mesh stats use `updateAssetProperties` instead of direct mutation (fixes stale UI)
+- **Event listener fix**: Execution event handlers use ref for `activeTask` to prevent stale closures
+- **AbortSignal propagation**: `apiClient.request()` properly merges external abort signals with internal timeout
+- **Request dedup cleanup**: Periodic eviction of expired entries prevents unbounded cache growth
 
 ## SSE System Stream (v4.6.0+)
 

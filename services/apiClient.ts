@@ -77,11 +77,14 @@ const DEFAULT_TIMEOUT_MS = 600000;
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController();
+  // Support external abort signals (merge with internal timeout signal)
+  const signals = [controller.signal];
+  if (init?.signal) signals.push(init.signal);
   const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
   try {
     const res = await fetch(`${API_URL}${path}`, {
       ...init,
-      signal: controller.signal,
+      signal: AbortSignal.any(signals),
       headers: { 'Content-Type': 'application/json', ...init?.headers },
     });
     clearTimeout(timeoutId);

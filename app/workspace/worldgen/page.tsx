@@ -1,12 +1,5 @@
-'use client';
-
-import React from 'react';
-import { useRouter } from 'next/navigation';
+import { WorkspaceShell } from '@/features/new-workspace/WorkspaceShell';
 
 export default function WorkspaceWorldGenPage() {
-  const router = useRouter();
-  React.useEffect(() => {
-    router.replace('/workspace/worldgen');
-  }, [router]);
-  return null;
+  return <WorkspaceShell />;
 }

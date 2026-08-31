@@ -296,8 +296,13 @@ async def lifespan(app: FastAPI):
         while True:
             await asyncio.sleep(10)
             try:
+                # Skip expensive GPU polling when no clients connected
+                from app.api.v1.realtime import _clients
+                if not _clients:
+                    continue
+                # Run blocking nvidia-smi call in executor to avoid blocking event loop
                 from runtime.gpu import get_gpu_info
-                gpu = get_gpu_info()
+                gpu = await asyncio.get_event_loop().run_in_executor(None, get_gpu_info)
                 await push_update("gpu", {
                     "available": gpu.available,
                     "devices": gpu.devices,
@@ -333,6 +338,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# GZip compression for text-based responses (JSON, GLTF, HTML)
+# Binary files (GLB, images) are already compressed or would bloat
+from fastapi.middleware.gzip import GZipMiddleware
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
 # Cached endpoint TTLs for HTTP cache headers
@@ -372,10 +382,18 @@ async def request_timing_middleware(request: Request, call_next):
     if cache_control:
         response.headers["Cache-Control"] = cache_control
 
-    logger.info(
-        "%s %s → %d (%.1fms)",
-        request.method, request.url.path, response.status_code, elapsed_ms
-    )
+    # Skip logging for high-frequency health/static endpoints to reduce noise
+    _skip_log_paths = ("/static", "/api/v1/health", "/api/v1/realtime")
+    if not request.url.path.startswith(_skip_log_paths):
+        logger.info(
+            "%s %s → %d (%.1fms)",
+            request.method, request.url.path, response.status_code, elapsed_ms
+        )
+    else:
+        logger.debug(
+            "%s %s → %d (%.1fms)",
+            request.method, request.url.path, response.status_code, elapsed_ms
+        )
 
     return response
 

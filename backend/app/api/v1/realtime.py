@@ -12,22 +12,33 @@ logger = logging.getLogger(__name__)
 
 # Connected WebSocket clients
 _clients: set[WebSocket] = set()
+_MAX_WS_CLIENTS = 50
 
 
 async def broadcast(message: dict) -> None:
-    """Send a message to all connected clients."""
+    """Send a message to all connected clients with timeout."""
     disconnected: set[WebSocket] = set()
-    for client in _clients:
+
+    async def _send(client: WebSocket) -> None:
         try:
-            await client.send_json(message)
+            await asyncio.wait_for(client.send_json(message), timeout=2.0)
         except Exception:
             disconnected.add(client)
-    _clients.difference_update(disconnected)
+
+    # Send concurrently to all clients; slow clients don't block others
+    await asyncio.gather(*[_send(c) for c in _clients], return_exceptions=True)
+    if disconnected:
+        _clients.difference_update(disconnected)
 
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket for real-time system status, GPU, and health updates."""
+    # Reject connections beyond the limit (DoS protection)
+    if len(_clients) >= _MAX_WS_CLIENTS:
+        await websocket.close(code=1013, reason="Too many connections")
+        return
+
     await websocket.accept()
     _clients.add(websocket)
     logger.info("WebSocket client connected (total: %d)", len(_clients))

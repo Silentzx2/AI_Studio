@@ -373,7 +373,7 @@ npm run lint     # Lint check (eslint)
 
 ## WorldGen Model
 
-WorldGen is a **dedicated workspace tab** model for text/image-to-3D scene generation via Gaussian Splatting. Unlike general providers (Hunyuan3D, Trellis, etc.), WorldGen runs in its own workspace tab rather than the shared provider pool.
+WorldGen is a **dedicated workspace page** for text/image-to-3D scene generation via Gaussian Splatting. Unlike general providers (Hunyuan3D, Trellis, etc.), WorldGen runs in its own workspace page rather than the shared provider pool.
 
 ### Key Details
 - **Provider ID**: `worldgen`
@@ -385,12 +385,15 @@ WorldGen is a **dedicated workspace tab** model for text/image-to-3D scene gener
 - **CUDA**: 12.4
 - **VRAM**: 10 GB minimum, 24 GB recommended
 - **Weights**: ~20 GB (LeoXie/WorldGen + FLUX.1-dev + auxiliary models)
-- **Workspace tab**: `world-generation`
+- **Route**: `/workspace/worldgen` (dedicated page, not dynamic route)
 
 ### Architecture Notes
 - WorldGen is registered in the provider map (`_PROVIDER_MAP` in `runtime/engine.py` and `_RUNTIME_PROVIDER_MAP` in `app/core/providers/registry.py`) for capability gating
 - It uses the same manifest-driven installation pipeline as other models (Stage A: runtime, Stage B: weights)
-- The workspace tab is rendered as a dedicated UI, not part of the general mesh-generation workspace
+- The workspace page renders via `WorkspaceShell` with `WorldGenToolPanel` as the left tool panel
+- WorldGen is excluded from the model selectors in GeneratePanel and TexturePanel
+- WorldGen page shows a status pill instead of a model selector (single model, no selection needed)
+- `app/workspace/worldgen/page.tsx` renders `<WorkspaceShell />` directly (no redirect loop)
 
 ### Generation Modes
 - **Text-to-World**: Generate 3D scenes from text descriptions
@@ -408,6 +411,36 @@ WorldGen is a **dedicated workspace tab** model for text/image-to-3D scene gener
 | `guidance` | float | Guidance scale |
 | `size` | string | Scene size |
 | `density` | float | Object density |
+
+## Frontend Patterns
+
+### Manifest-Driven Model Selection
+
+The model selector is fully manifest-driven — no hardcoded model lists:
+
+```typescript
+// hooks/useManifestModels.ts
+const { meshCapableModels, textureCapableModels, worldgenModel } = useManifestModels();
+```
+
+- `meshCapableModels`: Models with `supports_image_to_3d` OR `supports_text_to_3d` + `available`
+- `textureCapableModels`: Models with `supports.texture_generation` + `available`
+- `worldgenModel`: WorldGen model (excluded from other selectors)
+
+### Status Pills
+
+Each tool panel header shows a status pill indicating model availability:
+- **Green "Ready"**: Model is available and weights are present
+- **Amber "Weights missing"**: Model installed but weights not downloaded
+- **Amber "Model not installed"**: Model not installed
+- **No pill**: Everything is fine
+
+### Responsive Design
+
+The workspace uses `md:` breakpoints for responsive behavior:
+- **Desktop (md+)**: Fixed 58px left rail, 264px left panel, 196px right panel
+- **Mobile (<md)**: Left navigation becomes a slide-out drawer; panels become full-screen overlays
+- All desktop behavior is preserved exactly
 
 ## Caching Patterns (v4.6.0+)
 
@@ -456,11 +489,26 @@ POST /api/v1/system/cache/clear
 
 Clears all cached entries. Called after configuration changes or model installation.
 
+### Automatic Cache Invalidation (v4.6.1+)
+
+The backend now automatically invalidates affected cache entries when model state changes:
+
+- **Model uninstall**: Invalidates `models_list`, `model_status_{id}`, and `list_models*` keys
+- **Model repair**: Same invalidation as uninstall
+- **Cache function**: `invalidate_prefix(prefix)` removes all keys starting with a prefix
+
+### LRU Eviction (v4.6.1+)
+
+The cache now uses an `OrderedDict`-based LRU eviction strategy capped at 256 entries.
+This prevents unbounded memory growth in long-running processes. When the cache is full,
+the least recently used entry is evicted to make room for new entries.
+
 ### Frontend Integration
 
 - **`useRealtime` hook**: WebSocket client with auto-reconnect; falls back to polling
 - **`useSSE` hook**: SSE client for system stream; falls back to polling
 - Polling intervals: 60s (status), 10s (GPU chart)
+- **Client-side dedup**: `lib/requestDedup.ts` coalesces concurrent requests with TTL caching and periodic eviction
 
 ## Client-Side File Validation
 

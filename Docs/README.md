@@ -89,6 +89,13 @@
 | **Real-time WebSocket** | `WS /api/v1/realtime/ws` for instant GPU telemetry & health push | ✅ | v4.6.0 |
 | **SSE System Stream** | `GET /api/v1/system/stream` for system event streaming | ✅ | v4.6.0 |
 | **In-Memory Caching** | TTL-based caching layer (5-30s per endpoint) | ✅ | v4.6.0 |
+| **LRU Cache Eviction** | Bounded cache (256 entries) with LRU eviction prevents OOM | ✅ | v4.6.1 |
+| **GZip Compression** | Text response compression (60-80% bandwidth reduction) | ✅ | v4.6.1 |
+| **DB Index Optimization** | Indexes on created_at, updated_at, status for fast queries | ✅ | v4.6.1 |
+| **Cache Invalidation** | Immediate cache coherence on model state changes | ✅ | v4.6.1 |
+| **GPU Info Caching** | 2s TTL cache on GPU queries reduces subprocess calls | ✅ | v4.6.1 |
+| **Shared Redis Pool** | Single connection pool shared across all modules | ✅ | v4.6.1 |
+| **WebSocket Hardening** | Connection limit, concurrent broadcast, send timeout | ✅ | v4.6.1 |
 
 
 ### Current Model & Runtime Catalog
@@ -473,6 +480,8 @@ For complete configuration options, see [Setup Guide - Configuration](docs/setup
 - **Right Asset Panel**: 248px asset library with Tripo-style shadows and rounded corners
 - **Center Viewer**: Full-height 3D canvas with Tripo gray background
 - **Workspace Compatibility**: Each model declares which workspaces it supports. The UI only shows compatible models in each workspace tab, preventing invalid selections.
+- **Responsive Design**: Full mobile and tablet support with slide-out drawers and full-screen panels (desktop layout preserved via `md:` breakpoints)
+- **Status Pills**: Each tool panel shows model availability status (ready/weights missing/not installed)
 
 ### Workspace Types
 

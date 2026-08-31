@@ -433,7 +433,7 @@ async def get_system_statistics():
 
     # CPU
     try:
-        stats["cpu_percent"] = psutil.cpu_percent(interval=0.1)
+        stats["cpu_percent"] = psutil.cpu_percent(interval=0)  # non-blocking
         stats["cpu_count"] = psutil.cpu_count()
     except Exception:
         stats["cpu_percent"] = 0
@@ -548,15 +548,11 @@ async def test_connection():
         import asyncio
         import redis
 
-        from app.config import get_settings
-        settings = get_settings()
+        from app.core.redis_client import get_redis
 
         def _redis_check():
-            r = redis.from_url(settings.redis_url)
-            try:
-                r.ping()
-            finally:
-                r.close()
+            r = get_redis()
+            r.ping()
 
         await asyncio.to_thread(_redis_check)
         results["redis"] = {"status": "connected", "ok": True}

@@ -30,7 +30,7 @@ class DownloadQueue(Base):
 
     id = Column(_DB_UUID, primary_key=True, default=uuid.uuid4)
     model_id = Column(String, index=True)
-    status = Column(String, default="pending") # pending, downloading, paused, completed, failed, cancelled
+    status = Column(String, default="pending", index=True) # pending, downloading, paused, completed, failed, cancelled
     priority = Column(Integer, default=1)
     bytes_downloaded = Column(BigInteger, default=0)
     total_bytes = Column(BigInteger, default=0)

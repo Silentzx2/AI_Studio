@@ -7,13 +7,21 @@ import {
   CircleDashed,
   Layers,
   Settings,
+  Pencil,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { ToolType } from '../types';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 
-export const LeftNavigation: React.FC = () => {
+interface LeftNavigationProps {
+  /** When true, renders as a wide drawer with full labels instead of icon rail */
+  isMobileDrawer?: boolean;
+  /** Callback after a tool is selected in mobile drawer (closes drawer) */
+  onToolSelect?: () => void;
+}
+
+export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer = false, onToolSelect }) => {
   const router = useRouter();
   const {
     activeTool,
@@ -24,11 +32,91 @@ export const LeftNavigation: React.FC = () => {
 
   const handleToolClick = (tool: ToolType) => {
     navigateToTool(tool);
+    onToolSelect?.();
+  };
+
+  const handleMainNavClick = (nav: 'dashboard' | 'assets' | 'system') => {
+    navigateToMainNav(nav);
+    onToolSelect?.();
   };
 
   const isActive = (tool: ToolType) => mainNav === 'workspace' && activeTool === tool;
   const isOverviewActive = mainNav === 'dashboard';
 
+  // Mobile drawer: wide list with full labels
+  if (isMobileDrawer) {
+    return (
+      <nav
+        id="left-tool-rail-mobile"
+        aria-label="3D Studio Toolset"
+        className="h-full bg-[#0D0E10] flex flex-col select-none overflow-y-auto"
+      >
+        <div className="flex-1 w-full py-2 px-2 space-y-1">
+          <MobileNavItem
+            id="tool-btn-overview"
+            icon={<LayoutDashboard className="w-4 h-4" />}
+            label="Studio Overview"
+            active={isOverviewActive}
+            onClick={() => handleMainNavClick('dashboard')}
+          />
+          <div className="h-px bg-white/[0.08] my-1" />
+          <MobileNavItem
+            id="tool-btn-model"
+            icon={<Box className="w-4 h-4" />}
+            label="3D Model Generation"
+            active={isActive('model')}
+            onClick={() => handleToolClick('model')}
+          />
+          <MobileNavItem
+            id="tool-btn-remesh"
+            icon={<CircleDashed className="w-4 h-4" />}
+            label="Quad Remesh (Poly)"
+            active={isActive('remesh')}
+            onClick={() => handleToolClick('remesh')}
+          />
+          <MobileNavItem
+            id="tool-btn-texture"
+            icon={<Layers className="w-4 h-4" />}
+            label="PBR Texture Maps"
+            active={isActive('texture')}
+            onClick={() => handleToolClick('texture')}
+          />
+          <MobileNavItem
+            id="tool-btn-segment"
+            icon={<Scissors className="w-4 h-4" />}
+            label="Mesh Segmentation"
+            active={isActive('segment')}
+            onClick={() => handleToolClick('segment')}
+          />
+          <MobileNavItem
+            id="tool-btn-worldgen"
+            icon={<Globe className="w-4 h-4" />}
+            label="World Generation"
+            active={isActive('worldgen')}
+            onClick={() => handleToolClick('worldgen')}
+          />
+          <MobileNavItem
+            id="tool-btn-edit"
+            icon={<Pencil className="w-4 h-4" />}
+            label="Sculpt / Edit"
+            active={isActive('edit')}
+            onClick={() => handleToolClick('edit')}
+          />
+        </div>
+        <div className="px-2 py-2 border-t border-white/[0.08]">
+          <MobileNavItem
+            id="tool-btn-settings"
+            icon={<Settings className="w-4 h-4" />}
+            label="Settings"
+            active={false}
+            onClick={() => { router.push('/settings'); onToolSelect?.(); }}
+          />
+        </div>
+      </nav>
+    );
+  }
+
+  // Desktop: original icon rail (unchanged)
   return (
     <nav
       id="left-tool-rail"
@@ -152,3 +240,25 @@ export const LeftNavigation: React.FC = () => {
     </nav>
   );
 };
+
+/** Internal component for mobile drawer nav items */
+const MobileNavItem: React.FC<{
+  id: string;
+  icon: React.ReactNode;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}> = ({ id, icon, label, active, onClick }) => (
+  <button
+    id={id}
+    onClick={onClick}
+    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer ${
+      active
+        ? 'bg-[#F9CF00] text-black font-extrabold'
+        : 'text-zinc-300 hover:text-white hover:bg-[#191A1D]'
+    }`}
+  >
+    <span className="flex-shrink-0">{icon}</span>
+    <span className="text-sm font-semibold truncate">{label}</span>
+  </button>
+);

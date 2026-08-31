@@ -141,6 +141,7 @@ export interface TextureSettings {
   resolution: '1K' | '2K' | '4K' | '8K';
   referenceImage: string | null;
   prompt: string;
+  modelId: string;
   maps: {
     albedo: boolean;
     normal: boolean;

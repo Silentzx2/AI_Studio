@@ -390,7 +390,8 @@ async def generation_progress_stream(job_id: str, request: Request):
             raise HTTPException(status_code=404, detail="Job not found")
 
     async def _event_generator():
-        r = redis.from_url(settings.redis_url, decode_responses=True)
+        from app.core.redis_client import get_redis
+        r = get_redis()
         pubsub = r.pubsub()
         channel = f"job_progress:{job_id}"
         await pubsub.subscribe(channel)

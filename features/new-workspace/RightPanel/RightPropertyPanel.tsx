@@ -156,7 +156,7 @@ export const RightPropertyPanel: React.FC = () => {
         </span>
       </div>
 
-      <div className="p-2.5 space-y-3">
+      <div className="flex-1 overflow-y-auto p-2.5 space-y-3 no-scrollbar">
         {/* 1. Object Transform Section */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">

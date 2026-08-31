@@ -17,7 +17,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI 3D Studio — Transform Ideas Into Stunning 3D Models",
+  title: "AI 3D Studio — 3D Models",
   description:
     "Generate production-ready 3D assets from text prompts or reference images with AI. Professional tools for game developers, artists, and creators.",
   keywords: [
@@ -32,9 +32,6 @@ export const metadata: Metadata = {
     "AI",
     "3D models",
   ],
-  icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
-  },
 };
 
 export default function RootLayout({

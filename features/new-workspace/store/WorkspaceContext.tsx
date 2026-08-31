@@ -316,6 +316,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     workflow: 'texture', mode: 'ai', style: 'realistic', resolution: '4K',
     referenceImage: null,
     prompt: '',
+    modelId: '',
     maps: { albedo: true, normal: true, roughness: true, metallic: true, ao: true, height: false },
   });
 
@@ -391,6 +392,9 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
 
   useEffect(() => {
+    const activeTaskRef = { current: activeTask };
+    activeTaskRef.current = activeTask;
+
     const onProgress = (data: unknown) => {
       const d = data as { value?: number; max?: number; node?: string };
       const progress = (d.max && d.max > 0) ? Math.min(100, Math.round(((d.value ?? 0) / d.max) * 100)) : 0;
@@ -408,7 +412,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setExecutionStep('Completed');
       setActiveTask(prev => prev ? { ...prev, status: 'completed', progress: 100, currentStep: 'Completed' } : prev);
       toast.success('Process completed successfully', {
-        description: activeTask?.title || '3D Asset Generation finished',
+        description: activeTaskRef.current?.title || '3D Asset Generation finished',
       });
     };
     const onError = (data: unknown) => {
@@ -644,6 +648,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           quality: 'standard',
           style_preset: textureSettings.style,
           prompt: textureSettings.prompt,
+          provider: textureSettings.modelId || undefined,
           workspace: 'texture-generation',
         }),
       });
@@ -674,7 +679,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setActiveTask(null);
       toast.success('PBR Textures Generated', { description: 'Applied 4K Albedo, Normal, Roughness, and Metallic maps.' });
     }
-  }, [textureSettings.style, textureSettings.prompt, startTask]);
+  }, [textureSettings.style, textureSettings.prompt, textureSettings.modelId, startTask]);
 
   const queueWorkflow = useCallback(async (workflow: Record<string, unknown>, type: ActiveTask['type'], title: string) => {
     startTask(type, title);
