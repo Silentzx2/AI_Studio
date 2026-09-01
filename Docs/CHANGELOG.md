@@ -2,6 +2,14 @@
 
 ## [v4.7.0] - 2026-09-01
 
+### Features
+
+#### CUDA Wheel Build Automation
+- **Auto-setup for native builds**: `manager.sh` option 17 now auto-installs missing prerequisites (CUDA toolkit, ninja) before building
+- **diso added to native builds**: `diso` is now included as a hardcoded package in `build_native_wheels.py` for CUDA wheel compilation
+- **GitHub Releases upload prompt**: After successful build, manager.sh prompts to upload wheels to GitHub Releases
+- **Logging functions added**: `info`, `warn`, `ok`, `error`, `head_` helper functions added to `manager.sh` for consistent output
+
 ### Performance Optimizations
 
 #### Backend
