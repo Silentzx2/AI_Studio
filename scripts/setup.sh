@@ -620,8 +620,8 @@ setup_env() {
   else
     cat > .env << 'ENVEOF'
 # ── Database (localhost) ──────────────────────────────────
-DATABASE_URL=postgresql+asyncpg://ai_studio:ai_studio_dev@localhost:5432/ai_studio
-DATABASE_SYNC_URL=postgresql://ai_studio:ai_studio_dev@localhost:5432/ai_studio
+DATABASE_URL=postgresql+asyncpg://ai_studio:ai_studio_dev@127.0.0.1:5432/ai_studio?sslmode=disable
+DATABASE_SYNC_URL=postgresql://ai_studio:ai_studio_dev@127.0.0.1:5432/ai_studio
 
 # ── Redis / Celery (localhost) ────────────────────────────
 REDIS_URL=redis://localhost:6379/0
