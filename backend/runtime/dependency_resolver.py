@@ -799,6 +799,21 @@ def install_resolved_deps(
         proc.wait()
         return proc.returncode, "\n".join(lines)
 
+    def _install_one_by_one(specs: list[str], venv_python: Path, repo_dir: Path,
+                            installed: list[str], failed: list[str],
+                            log_fn: Callable[[str], None]) -> None:
+        """Install packages one-by-one to isolate failures."""
+        for spec in specs:
+            code, out = _run_uv(
+                ["pip", "install", "--python", str(venv_python), spec],
+                cwd=repo_dir,
+            )
+            if code == 0:
+                installed.append(spec)
+            else:
+                failed.append(spec)
+                log_fn(f"Failed to install {spec}: {out[:200]}")
+
     py_ver = _py_ver_str()
     cuda_ver = _cuda_ver_short()
     torch_ver = _get_torch_ver()
@@ -828,26 +843,35 @@ def install_resolved_deps(
 
         if normal_specs:
             _log(f"Installing {len(normal_specs)} normal dependencies into {venv_python}...")
-            code, output = _run_uv(
-                ["pip", "install", "--python", str(venv_python), *normal_specs],
-                cwd=repo_dir,
-            )
-            if code != 0:
-                _log(f"Batch install failed, retrying one-by-one...")
-                # Try one-by-one to isolate failures
-                one_by_one_ok = 0
-                for spec in normal_specs:
-                    code2, out2 = _run_uv(
-                        ["pip", "install", "--python", str(venv_python), spec],
+            # Install in smaller batches for reliability — large batches
+            # can fail due to network timeouts or resource limits.
+            BATCH_SIZE = 8
+            if len(normal_specs) <= BATCH_SIZE:
+                # Small enough for single batch
+                code, output = _run_uv(
+                    ["pip", "install", "--python", str(venv_python), *normal_specs],
+                    cwd=repo_dir,
+                )
+                if code == 0:
+                    installed.extend(normal_specs)
+                else:
+                    _log(f"Batch install failed, retrying one-by-one...")
+                    _install_one_by_one(normal_specs, venv_python, repo_dir, installed, failed, _log)
+            else:
+                # Split into smaller batches
+                for i in range(0, len(normal_specs), BATCH_SIZE):
+                    chunk = normal_specs[i:i + BATCH_SIZE]
+                    _log(f"  Batch {i // BATCH_SIZE + 1}/{(len(normal_specs) - 1) // BATCH_SIZE + 1}: {len(chunk)} packages")
+                    code, output = _run_uv(
+                        ["pip", "install", "--python", str(venv_python), *chunk],
                         cwd=repo_dir,
                     )
-                    if code2 == 0:
-                        installed.append(spec)
-                        one_by_one_ok += 1
+                    if code == 0:
+                        installed.extend(chunk)
                     else:
-                        failed.append(spec)
-                        _log(f"Failed to install {spec}: {out2[:200]}")
-                _log(f"One-by-one retry: {one_by_one_ok}/{len(normal_specs)} succeeded")
+                        _log(f"  Sub-batch failed, retrying {len(chunk)} packages one-by-one...")
+                        _install_one_by_one(chunk, venv_python, repo_dir, installed, failed, _log)
+                _log(f"Installed {len(installed)}/{len(normal_specs)} normal dependencies")
             else:
                 installed.extend(normal_specs)
 
