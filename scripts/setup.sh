@@ -291,53 +291,213 @@ install_cuda() {
     warn "Skipping CUDA (no GPU)"
     return 0
   fi
-  head_ "Installing CUDA Toolkit"
-  if nvcc --version &>/dev/null 2>&1; then
-    log "CUDA already installed: $(nvcc --version | head -1)"
-    return 0
+  head_ "CUDA Toolkit 12.4 — Detection & Installation"
+
+  # ── Detect NVIDIA driver ──────────────────────────────────────────────────
+  local DRIVER_VER=""
+  local DRIVER_MAJOR=""
+  if command -v nvidia-smi &>/dev/null; then
+    DRIVER_VER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 || true)
+    DRIVER_MAJOR=$(echo "$DRIVER_VER" | awk -F. '{print $1}')
+    log "NVIDIA driver: ${CYAN}${DRIVER_VER}${NC}"
+  else
+    err "nvidia-smi not found — NVIDIA driver not installed or GPU not detected"
+    return 1
   fi
 
-  # Detect OS and arch for the correct CUDA keyring URL
+  # ── Detect installed CUDA Toolkit version ─────────────────────────────────
+  local CURRENT_CUDA=""
+  local NVCC_PATH=""
+  if command -v nvcc &>/dev/null; then
+    NVCC_PATH=$(command -v nvcc)
+    CURRENT_CUDA=$(nvcc --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
+    log "CUDA toolkit found: ${CYAN}${CURRENT_CUDA}${NC} at ${NVCC_PATH}"
+  elif [[ -L /usr/local/cuda ]] && [[ -e /usr/local/cuda/bin/nvcc ]]; then
+    NVCC_PATH="/usr/local/cuda/bin/nvcc"
+    CURRENT_CUDA=$("$NVCC_PATH" --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
+    log "CUDA toolkit found: ${CYAN}${CURRENT_CUDA}${NC} via /usr/local/cuda symlink"
+  else
+    info "No CUDA toolkit found — will install CUDA 12.4"
+  fi
+
+  # ── Check if CUDA 12.4 is already active ──────────────────────────────────
+  if [[ -n "$CURRENT_CUDA" ]]; then
+    local CUDA_MINOR
+    CUDA_MINOR=$(echo "$CURRENT_CUDA" | awk -F. '{print $1$2}')
+    if [[ "$CUDA_MINOR" == "124" ]]; then
+      ok "CUDA 12.4 is already installed and active — no changes needed"
+      _persist_cuda_paths
+      _verify_cuda
+      return 0
+    else
+      warn "CUDA ${CURRENT_CUDA} installed — need to switch to CUDA 12.4"
+    fi
+  fi
+
+  # ── Install CUDA Toolkit 12.4 ─────────────────────────────────────────────
+  info "Installing CUDA Toolkit 12.4..."
+
+  # Check OS support
   local OS_ID; OS_ID=$(. /etc/os-release && echo "$ID")
-  local UBUNTU_VER; UBUNTU_VER=$(lsb_release -rs | tr -d '.')
+  local UBUNTU_VER=""
+  if [[ "$OS_ID" == "ubuntu" ]]; then
+    UBUNTU_VER=$(lsb_release -rs)
+    local UBUNTU_MAJOR
+    UBUNTU_MAJOR=$(echo "$UBUNTU_VER" | awk -F. '{print $1}')
+    if [[ "$UBUNTU_MAJOR" -lt 20 ]]; then
+      warn "Ubuntu ${UBUNTU_VER} may not fully support CUDA 12.4 — proceeding anyway"
+    fi
+  elif [[ "$OS_ID" != "debian" ]]; then
+    warn "Unsupported OS: ${OS_ID} — CUDA 12.4 install may fail"
+  fi
+
+  # Check architecture
   local ARCH; ARCH=$(dpkg --print-architecture)
-  # Debian uses a different repo path
+  if [[ "$ARCH" != "amd64" && "$ARCH" != "arm64" ]]; then
+    err "Unsupported architecture: ${ARCH}"
+    return 1
+  fi
+
+  # Install NVIDIA CUDA keyring
+  local KEYRING_URL=""
   if [[ "$OS_ID" == "debian" ]]; then
     local DEBIAN_VER; DEBIAN_VER=$(lsb_release -rs)
     KEYRING_URL="https://developer.download.nvidia.com/compute/cuda/repos/debian${DEBIAN_VER}/${ARCH}/cuda-keyring_1.1-1_all.deb"
   else
-    KEYRING_URL="https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VER}/${ARCH}/cuda-keyring_1.1-1_all.deb"
+    local UBUNTU_VER_NODOT; UBUNTU_VER_NODOT=$(lsb_release -rs | tr -d '.')
+    KEYRING_URL="https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VER_NODOT}/${ARCH}/cuda-keyring_1.1-1_all.deb"
   fi
-  wget -q "$KEYRING_URL" -O /tmp/cuda-keyring.deb || {
-    warn "Failed to download CUDA keyring — skipping CUDA install"
-    return 0
-  }
-  dpkg -i /tmp/cuda-keyring.deb
-  rm -f /tmp/cuda-keyring.deb
-  apt-get update -qq
-  apt-get install -y cuda-toolkit || {
-    warn "Failed to install CUDA toolkit — containers may fall back to CPU"
-    return 0
-  }
-  log "CUDA toolkit installed"
 
-  # Persist PATH/LD_LIBRARY_PATH
+  info "Downloading CUDA keyring..."
+  wget -q "$KEYRING_URL" -O /tmp/cuda-keyring.deb || {
+    warn "Failed to download CUDA keyring — skipping CUDA 12.4 install"
+    warn "Install manually: https://developer.nvidia.com/cuda-downloads"
+    return 0
+  }
+  dpkg -i /tmp/cuda-keyring.deb || {
+    warn "Failed to install CUDA keyring"
+    rm -f /tmp/cuda-keyring.deb
+    return 0
+  }
+  rm -f /tmp/cuda-keyring.deb
+
+  apt-get update -qq
+
+  # Install CUDA 12.4 toolkit (without driver — preserve existing driver)
+  apt-get install -y cuda-toolkit-12-4 || {
+    warn "Failed to install CUDA toolkit 12.4 — falling back to generic cuda-toolkit"
+    apt-get install -y cuda-toolkit || {
+      warn "Failed to install CUDA toolkit — may use CPU fallback"
+      return 0
+    }
+  }
+
+  # ── Point /usr/local/cuda to CUDA 12.4 ────────────────────────────────────
+  if [[ -d /usr/local/cuda-12.4 ]]; then
+    # Remove old symlink if it exists (never remove a real directory)
+    if [[ -L /usr/local/cuda ]]; then
+      rm -f /usr/local/cuda
+    elif [[ -d /usr/local/cuda ]]; then
+      # Backup existing real directory
+      mv /usr/local/cuda /usr/local/cuda-old-backup 2>/dev/null || true
+    fi
+    ln -sf /usr/local/cuda-12.4 /usr/local/cuda
+    ok "/usr/local/cuda → /usr/local/cuda-12.4"
+  elif [[ -d /usr/local/cuda ]]; then
+    ok "CUDA toolkit installed at /usr/local/cuda"
+  else
+    warn "CUDA toolkit installed but location unknown — check /usr/local/"
+  fi
+
+  # ── Persist PATH and LD_LIBRARY_PATH ───────────────────────────────────────
+  _persist_cuda_paths
+
+  # ── Verify installation ───────────────────────────────────────────────────
+  _verify_cuda
+}
+
+# ── Persist CUDA environment variables ──────────────────────────────────────────
+_persist_cuda_paths() {
   cat > /etc/profile.d/cuda.sh << 'CUDA_ENV'
 export PATH=/usr/local/cuda/bin:$PATH
-export LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}"
+export LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}
 CUDA_ENV
   chmod +x /etc/profile.d/cuda.sh
-  # Apply for this session too
+
+  # Apply for this session
   export PATH="/usr/local/cuda/bin:$PATH"
   export LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}"
 
-  # Headless Qt rendering for pymeshlab / PyQt apps on servers without a display.
-  # This must be set globally so background services launched by start.sh inherit it.
-  cat > /etc/profile.d/qt_offscreen.sh << 'QT_ENV'
-export QT_QPA_PLATFORM=offscreen
-QT_ENV
-  chmod +x /etc/profile.d/qt_offscreen.sh
-  export QT_QPA_PLATFORM=offscreen
+  # Also write to /etc/ld.so.conf.d for persistent library loading
+  if [[ -d /usr/local/cuda/lib64 ]]; then
+    echo "/usr/local/cuda/lib64" > /etc/ld.so.conf.d/cuda.conf
+    ldconfig 2>/dev/null || true
+  fi
+
+  ok "CUDA environment configured (persisted to /etc/profile.d/cuda.sh)"
+}
+
+# ── Verify CUDA is working ─────────────────────────────────────────────────────
+_verify_cuda() {
+  echo ""
+  info "Verifying CUDA installation..."
+
+  # Check nvcc
+  if command -v nvcc &>/dev/null; then
+    local VER
+    VER=$(nvcc --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
+    ok "nvcc: CUDA ${VER}"
+  elif [[ -x /usr/local/cuda/bin/nvcc ]]; then
+    local VER
+    VER=$(/usr/local/cuda/bin/nvcc --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
+    ok "/usr/local/cuda/bin/nvcc: CUDA ${VER}"
+  else
+    warn "nvcc not found in PATH — CUDA toolkit may not be properly installed"
+    return 1
+  fi
+
+  # Sanity check: CUDA can see the GPU
+  if command -v nvidia-smi &>/dev/null; then
+    local GPU_COUNT
+    GPU_COUNT=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | wc -l)
+    if [[ "$GPU_COUNT" -gt 0 ]]; then
+      ok "GPU accessible: ${GPU_COUNT} device(s) found"
+      nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>/dev/null | head -5 | while IFS= read -r line; do
+        echo "    ${CYAN}${line}${NC}"
+      done
+    else
+      warn "No GPUs visible to nvidia-smi"
+    fi
+  fi
+
+  # Test CUDA runtime: compile and run a tiny program
+  if command -v nvcc &>/dev/null || [[ -x /usr/local/cuda/bin/nvcc ]]; then
+    local NVCC_BIN
+    NVCC_BIN=$(command -v nvcc 2>/dev/null || echo "/usr/local/cuda/bin/nvcc")
+    local TMP_CUDA; TMP_CUDA=$(mktemp /tmp/cuda_test_XXXXXX.cu)
+    cat > "$TMP_CUDA" << 'CUDA_TEST'
+#include <stdio.h>
+__global__ void kernel() { printf("CUDA works! Thread %d\n", threadIdx.x); }
+int main() {
+    kernel<<<1, 1>>>();
+    cudaError_t err = cudaDeviceSynchronize();
+    if (err != cudaSuccess) { printf("CUDA error: %s\n", cudaGetErrorString(err)); return 1; }
+    printf("CUDA runtime OK\n");
+    return 0;
+}
+CUDA_TEST
+    local TMP_BIN; TMP_BIN="${TMP_CUDA%.cu}"
+    if "$NVCC_BIN" -o "$TMP_BIN" "$TMP_CUDA" 2>/dev/null; then
+      if "$TMP_BIN" 2>/dev/null; then
+        ok "CUDA runtime sanity check passed"
+      else
+        warn "CUDA program compiled but failed to run — driver issue?"
+      fi
+    else
+      warn "CUDA compilation sanity check failed"
+    fi
+    rm -f "$TMP_CUDA" "$TMP_BIN"
+  fi
 }
 
 install_postgresql() {
@@ -929,13 +1089,20 @@ BANNER
   else
     warn "Skipping PostgreSQL/Redis system install (user mode) — start.sh will use SQLite/broker fallbacks."
   fi
+  install_cuda           || warn "CUDA install had issues — may use CPU fallback"
   install_python         || { err "Python installation failed — aborting"; exit 1; }
   install_uv             || { err "uv installation failed — aborting"; exit 1; }
   install_node           || { err "Node.js installation failed — aborting"; exit 1; }
 
   # Non-critical steps — warn but continue
   install_blender        || warn "Blender install skipped — post-processing may be unavailable"
-  # install_cuda           || warn "CUDA install had issues — may use CPU fallback"
+  
+  # Headless Qt rendering for pymeshlab / PyQt apps on servers without a display.
+  cat > /etc/profile.d/qt_offscreen.sh << 'QT_ENV'
+export QT_QPA_PLATFORM=offscreen
+QT_ENV
+  chmod +x /etc/profile.d/qt_offscreen.sh
+  export QT_QPA_PLATFORM=offscreen
 
   # Project setup
   setup_folders

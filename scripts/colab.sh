@@ -156,6 +156,183 @@ detect_cuda_version() {
     echo "121"
 }
 
+# ── CUDA 12.4 Toolkit Setup ──────────────────────────────────────────────────
+# Ensures CUDA Toolkit 12.4 is installed and active. Idempotent: detects existing
+# CUDA, installs 12.4 if missing or wrong version, configures paths, verifies.
+
+setup_cuda_124() {
+  head_ "CUDA Toolkit 12.4 — Detection & Installation"
+
+  # ── Detect NVIDIA driver ──────────────────────────────────────────────────
+  local DRIVER_VER=""
+  if command -v nvidia-smi &>/dev/null; then
+    DRIVER_VER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 || true)
+    log "NVIDIA driver: ${CYAN}${DRIVER_VER}${NC}"
+  else
+    warn "nvidia-smi not found — skipping CUDA setup"
+    return 0
+  fi
+
+  # ── Detect installed CUDA Toolkit version ─────────────────────────────────
+  local CURRENT_CUDA=""
+  if command -v nvcc &>/dev/null; then
+    CURRENT_CUDA=$(nvcc --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
+    log "CUDA toolkit found: ${CYAN}${CURRENT_CUDA}${NC}"
+  elif [[ -L /usr/local/cuda ]] && [[ -e /usr/local/cuda/bin/nvcc ]]; then
+    CURRENT_CUDA=$(/usr/local/cuda/bin/nvcc --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
+    log "CUDA toolkit found: ${CYAN}${CURRENT_CUDA}${NC} via /usr/local/cuda symlink"
+  else
+    info "No CUDA toolkit found — will install CUDA 12.4"
+  fi
+
+  # ── Check if CUDA 12.4 is already active ──────────────────────────────────
+  if [[ -n "$CURRENT_CUDA" ]]; then
+    local CUDA_MINOR
+    CUDA_MINOR=$(echo "$CURRENT_CUDA" | awk -F. '{print $1$2}')
+    if [[ "$CUDA_MINOR" == "124" ]]; then
+      ok "CUDA 12.4 is already installed and active — no changes needed"
+      _colab_persist_cuda_paths
+      _colab_verify_cuda
+      return 0
+    else
+      warn "CUDA ${CURRENT_CUDA} installed — need to switch to CUDA 12.4"
+    fi
+  fi
+
+  # ── Install CUDA Toolkit 12.4 ─────────────────────────────────────────────
+  info "Installing CUDA Toolkit 12.4..."
+
+  # Install NVIDIA CUDA keyring
+  local ARCH; ARCH=$(dpkg --print-architecture)
+  local UBUNTU_VER_NODOT; UBUNTU_VER_NODOT=$(lsb_release -rs | tr -d '.')
+  local KEYRING_URL="https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VER_NODOT}/${ARCH}/cuda-keyring_1.1-1_all.deb"
+
+  wget -q "$KEYRING_URL" -O /tmp/cuda-keyring.deb || {
+    warn "Failed to download CUDA keyring — skipping CUDA 12.4 install"
+    return 0
+  }
+  dpkg -i /tmp/cuda-keyring.deb || {
+    warn "Failed to install CUDA keyring"
+    rm -f /tmp/cuda-keyring.deb
+    return 0
+  }
+  rm -f /tmp/cuda-keyring.deb
+
+  apt-get update -qq
+
+  # Install CUDA 12.4 toolkit (without driver — preserve existing driver)
+  apt-get install -y cuda-toolkit-12-4 || {
+    warn "Failed to install CUDA toolkit 12.4 — falling back to generic cuda-toolkit"
+    apt-get install -y cuda-toolkit || {
+      warn "Failed to install CUDA toolkit"
+      return 0
+    }
+  }
+
+  # ── Point /usr/local/cuda to CUDA 12.4 ────────────────────────────────────
+  if [[ -d /usr/local/cuda-12.4 ]]; then
+    if [[ -L /usr/local/cuda ]]; then
+      rm -f /usr/local/cuda
+    elif [[ -d /usr/local/cuda ]]; then
+      mv /usr/local/cuda /usr/local/cuda-old-backup 2>/dev/null || true
+    fi
+    ln -sf /usr/local/cuda-12.4 /usr/local/cuda
+    ok "/usr/local/cuda → /usr/local/cuda-12.4"
+  elif [[ -d /usr/local/cuda ]]; then
+    ok "CUDA toolkit installed at /usr/local/cuda"
+  else
+    warn "CUDA toolkit installed but location unknown"
+  fi
+
+  _colab_persist_cuda_paths
+  _colab_verify_cuda
+}
+
+# ── Persist CUDA environment variables ──────────────────────────────────────────
+_colab_persist_cuda_paths() {
+  cat > /etc/profile.d/cuda.sh << 'CUDA_ENV'
+export PATH=/usr/local/cuda/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}
+CUDA_ENV
+  chmod +x /etc/profile.d/cuda.sh
+
+  # Apply for this session
+  export PATH="/usr/local/cuda/bin:$PATH"
+  export LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}"
+
+  # Also write to /etc/ld.so.conf.d for persistent library loading
+  if [[ -d /usr/local/cuda/lib64 ]]; then
+    echo "/usr/local/cuda/lib64" > /etc/ld.so.conf.d/cuda.conf
+    ldconfig 2>/dev/null || true
+  fi
+
+  ok "CUDA environment configured (persisted to /etc/profile.d/cuda.sh)"
+}
+
+# ── Verify CUDA is working ─────────────────────────────────────────────────────
+_colab_verify_cuda() {
+  echo ""
+  info "Verifying CUDA installation..."
+
+  # Check nvcc
+  local NVCC_BIN=""
+  if command -v nvcc &>/dev/null; then
+    NVCC_BIN=$(command -v nvcc)
+  elif [[ -x /usr/local/cuda/bin/nvcc ]]; then
+    NVCC_BIN="/usr/local/cuda/bin/nvcc"
+  fi
+
+  if [[ -n "$NVCC_BIN" ]]; then
+    local VER
+    VER=$("$NVCC_BIN" --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
+    ok "nvcc: CUDA ${VER}"
+  else
+    warn "nvcc not found — CUDA toolkit may not be properly installed"
+    return 1
+  fi
+
+  # Sanity check: CUDA can see the GPU
+  if command -v nvidia-smi &>/dev/null; then
+    local GPU_COUNT
+    GPU_COUNT=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | wc -l)
+    if [[ "$GPU_COUNT" -gt 0 ]]; then
+      ok "GPU accessible: ${GPU_COUNT} device(s) found"
+      nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>/dev/null | head -5 | while IFS= read -r line; do
+        echo "    ${CYAN}${line}${NC}"
+      done
+    else
+      warn "No GPUs visible to nvidia-smi"
+    fi
+  fi
+
+  # Test CUDA runtime: compile and run a tiny program
+  if [[ -n "$NVCC_BIN" ]]; then
+    local TMP_CUDA; TMP_CUDA=$(mktemp /tmp/cuda_test_XXXXXX.cu)
+    cat > "$TMP_CUDA" << 'CUDA_TEST'
+#include <stdio.h>
+__global__ void kernel() { printf("CUDA works! Thread %d\n", threadIdx.x); }
+int main() {
+    kernel<<<1, 1>>>();
+    cudaError_t err = cudaDeviceSynchronize();
+    if (err != cudaSuccess) { printf("CUDA error: %s\n", cudaGetErrorString(err)); return 1; }
+    printf("CUDA runtime OK\n");
+    return 0;
+}
+CUDA_TEST
+    local TMP_BIN; TMP_BIN="${TMP_CUDA%.cu}"
+    if "$NVCC_BIN" -o "$TMP_BIN" "$TMP_CUDA" 2>/dev/null; then
+      if "$TMP_BIN" 2>/dev/null; then
+        ok "CUDA runtime sanity check passed"
+      else
+        warn "CUDA program compiled but failed to run — driver issue?"
+      fi
+    else
+      warn "CUDA compilation sanity check failed"
+    fi
+    rm -f "$TMP_CUDA" "$TMP_BIN"
+  fi
+}
+
 # ── Helper: Write PID ─────────────────────────────────────────────────────
 write_pid() {
     local pid_file=$1
@@ -687,6 +864,11 @@ GPU_TYPE=$(detect_gpu)
 CUDA_VERSION=$(detect_cuda_version)
 log "GPU : ${CYAN}${GPU_TYPE}${NC}"
 log "CUDA: ${CYAN}cu${CUDA_VERSION}${NC}"
+
+# ── Ensure CUDA Toolkit 12.4 is installed and active ──────────────────────────
+if [[ "$GPU_TYPE" == "gpu" ]]; then
+  setup_cuda_124 || warn "CUDA 12.4 setup had issues — may use existing version"
+fi
 
 # ── Install Blender ──────────────────────────────────────────────────────
 install_blender() {
