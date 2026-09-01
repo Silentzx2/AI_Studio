@@ -823,7 +823,8 @@ cmd_build_wheels() {
 
     # Check PyTorch CUDA
     if python3 -c "import torch; assert torch.cuda.is_available()" 2>/dev/null; then
-        ok "PyTorch CUDA: $(python3 -c 'import torch; print(torch.__version__, \"CUDA\", torch.version.cuda)')"
+        torch_info=$(python3 -c "import torch; print(f'{torch.__version__} CUDA {torch.version.cuda}')")
+        ok "PyTorch CUDA: $torch_info"
     else
         warn "PyTorch CUDA not available — builds may fail"
         echo "  Install PyTorch with CUDA: pip install torch --index-url https://download.pytorch.org/whl/cu124"
