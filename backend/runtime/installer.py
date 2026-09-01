@@ -2365,6 +2365,8 @@ def install_provider(
             "blocking_reason": final_status.get("blocking_reason"),
             "native_build_task_id": native_build_task_id,
         })
+        # Invalidate install status cache so next request reflects new state
+        invalidate_install_status_cache()
         return {
             "success": True,
             "state": final_status.get("state", "blocked"),

@@ -40,18 +40,34 @@ class RuntimeHealth:
 
     @classmethod
     async def check_all(cls) -> dict:
+        # Run independent checks concurrently using thread pool to avoid
+        # blocking the event loop on subprocess and filesystem calls.
+        import asyncio
+        gpu, cuda, blender, python, providers, repos, weights, resources, storage, services, env = await asyncio.gather(
+            asyncio.to_thread(cls._check_gpu),
+            asyncio.to_thread(cls._check_cuda),
+            asyncio.to_thread(cls._check_blender),
+            asyncio.to_thread(cls._check_python),
+            asyncio.to_thread(cls._check_providers),
+            asyncio.to_thread(cls._check_repositories),
+            asyncio.to_thread(cls._check_weights),
+            asyncio.to_thread(cls._check_system_resources),
+            asyncio.to_thread(cls._check_storage),
+            asyncio.to_thread(cls._check_services),
+            asyncio.to_thread(cls._check_environment),
+        )
         return {
-            "gpu": cls._check_gpu(),
-            "cuda": cls._check_cuda(),
-            "blender": cls._check_blender(),
-            "python": cls._check_python(),
-            "providers": cls._check_providers(),
-            "repositories": cls._check_repositories(),
-            "weights": cls._check_weights(),
-            "system_resources": cls._check_system_resources(),
-            "storage": cls._check_storage(),
-            "services": cls._check_services(),
-            "environment": cls._check_environment(),
+            "gpu": gpu,
+            "cuda": cuda,
+            "blender": blender,
+            "python": python,
+            "providers": providers,
+            "repositories": repos,
+            "weights": weights,
+            "system_resources": resources,
+            "storage": storage,
+            "services": services,
+            "environment": env,
         }
 
     # -------------------------------------------------------------------------

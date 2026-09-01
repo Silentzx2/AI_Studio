@@ -31,7 +31,7 @@ class CompatibilityCheckRequest(BaseModel):
 async def get_system_info():
     """Get comprehensive system information."""
     
-    cached = get_cached("system_info", ttl_seconds=15)
+    cached = get_cached("system_info", ttl_seconds=30)
     if cached is not None:
         return {"success": True, "data": cached}
     

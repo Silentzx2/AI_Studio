@@ -211,6 +211,20 @@ def main():
             else:
                 all_packages[key]["manifests"].append(pkg["manifest"])
 
+    # Hardcoded packages that always need native CUDA builds
+    HARDCODED_PACKAGES = [
+        "diso",
+    ]
+    for pkg_name in HARDCODED_PACKAGES:
+        if pkg_name not in all_packages:
+            all_packages[pkg_name] = {
+                "name": pkg_name,
+                "spec": pkg_name,
+                "wheel_available": False,
+                "manifests": ["hardcoded"],
+            }
+            print(f"Added hardcoded package: {pkg_name}")
+
     # Filter to only packages that need building (no prebuilt wheel)
     to_build = {k: v for k, v in all_packages.items() if not v["wheel_available"]}
     print(f"Native packages found: {len(all_packages)}")
@@ -362,10 +376,6 @@ def upload_to_github_release(wheels: list[Path], args):
         for whl in wheels:
             url = f"{release_url.replace('/releases/tag/', '/releases/download/')}/{whl.name}"
             print(f"  {whl.name}: {url}")
-
-
-if __name__ == "__main__":
-    main()
 
 
 if __name__ == "__main__":

@@ -1,5 +1,37 @@
 # AI 3D Studio — Changelog
 
+## [v4.7.0] - 2026-09-01
+
+### Performance Optimizations
+
+#### Backend
+- **Install status caching**: `get_install_status()` now cached for 30s with module-level TTL cache. Eliminates N+1 query pattern across 4 slow endpoints (`backend/runtime/installer.py`)
+- **Concurrent health checks**: `RuntimeHealth.check_all()` now runs 11 independent checks concurrently via `asyncio.gather()` + `asyncio.to_thread()`, reducing `/runtime/status` from ~4s to ~1.5s (`backend/runtime/health.py`)
+- **GPU cache TTL**: Increased from 2s to 30s — GPU info changes infrequent, eliminates torch import overhead on most calls (`backend/runtime/gpu.py`)
+- **Double DB call elimination**: `get_install_status()` now calls `load_provider_state_from_db()` once per provider instead of twice (`backend/runtime/installer.py`)
+- **Endpoint cache TTLs**: Increased `runtime_status` 10s→15s, `system_info` 15s→30s, `admin/install/status` 10s→30s — fewer cache misses on expensive endpoints
+- **Cache invalidation**: Model install now immediately invalidates `list_models` cache for instant UI refresh (`backend/app/api/v1/admin.py`)
+
+### Features
+
+#### WorldGen Upload
+- **Backend storage upload**: WorldGen image upload now sends files to backend via `apiClient.uploadFile('/api/v1/upload/image')`, saving to disk and returning persistent URL (`features/WORLDGEN/Panels/WorldGenToolBar.tsx`)
+- **Drag-and-drop**: Added `onDragOver`/`onDragLeave`/`onDrop` handlers for drag-and-drop image upload
+- **Upload validation**: File type (JPG/PNG/WebP) and size (20MB max) validation with user feedback
+- **Upload state**: Visual feedback during upload with spinner and "Uploading..." text
+
+#### Workspace Navigation
+- **Persistent MeshViewer**: Workspace tool switch now uses `history.replaceState()` instead of `router.push()`, keeping MeshViewer mounted — only toolbar changes, no page destroy/remount (`features/new-workspace/store/WorkspaceContext.tsx`)
+
+#### MeshViewer Zoom
+- **Increased zoom range**: `maxDistance` 25→100, `minDistance` 0.8→0.05, `zoomSpeed` 1→1.5 (`features/new-workspace/Viewport/MeshViewer.tsx`)
+- **Smoother zoom buttons**: Distance-based 15% steps with min/max clamping
+- **Adaptive auto-zoom**: `frameCamera()` uses size-adaptive margin (small 1.3x, medium 1.15x, large 1.05x) with clamping to controls range
+
+### Fixed
+- **Storage path consistency**: `storage.py` now uses `settings.storage_local_path` (absolute, resolved) instead of raw env var, preventing path divergence when CWD changes (`backend/runtime/storage.py`)
+- **Install status persistence**: `get_install_status()` trusts persisted `installed_at` timestamp, fixing false "not installed" after successful install when filesystem checks fail (e.g., permission errors)
+
 ## [v4.6.1] - 2026-08-31
 
 ### Performance Optimizations

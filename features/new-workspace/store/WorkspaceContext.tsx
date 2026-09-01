@@ -710,8 +710,14 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     mainNavRef.current = 'workspace';
     setIsLeftPanelOpen(true);
     const route = TOOL_TO_ROUTE[tool] || '/workspace/generate';
-    if (pathname !== route) router.push(route);
-  }, [pathname, router, setMainNav, setActiveTool, setIsLeftPanelOpen]);
+    if (pathname !== route) {
+      // Use replaceState instead of router.push to avoid full page remount.
+      // This keeps the MeshViewer mounted while updating the URL.
+      if (typeof window !== 'undefined') {
+        window.history.replaceState(null, '', route);
+      }
+    }
+  }, [pathname, setMainNav, setActiveTool, setIsLeftPanelOpen]);
 
   const navigateToMain = useCallback((nav: MainNavRoute) => {
     if (mainNavRef.current === nav) return;

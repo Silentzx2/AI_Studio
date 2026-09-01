@@ -1088,7 +1088,7 @@ async def list_models():
 
         from runtime.engine import get_engine
         from runtime.installer import (
-            get_install_status,
+            get_install_status_cached,
         )
         from runtime.manifest_loader import (
             get_all_provider_metadata,
@@ -1099,7 +1099,7 @@ async def list_models():
         engine = get_engine()
         storage = get_storage_config()
         loaded_names = set(engine._loaded.keys()) if hasattr(engine, "_loaded") else set()
-        install_status = get_install_status()
+        install_status = get_install_status_cached()
         models = []
         for name, meta in get_all_provider_metadata().items():
             inst = install_status.get(name, {})
@@ -1258,7 +1258,7 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
                 clone_repo,
                 download_weights,
                 install_repo_deps,
-                get_install_status,
+                get_install_status_cached,
                 persist_provider_state,
             )
             from runtime.manifest_loader import (
@@ -1335,7 +1335,7 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
                     _dl_update(model_id, log=f"Preflight error: {exc}")
 
                 # Get final status
-                final_status = get_install_status().get(model_id, {})
+                final_status = get_install_status_cached().get(model_id, {})
                 _dl_update(model_id, status="completed", percent=100,
                            state=final_status.get("state", "ready"),
                            log=f"Repair complete. State: {final_status.get('state')}")
@@ -1794,7 +1794,7 @@ async def storage_info():
 # enough to absorb burst traffic.
 _install_status_cache: dict = {}
 _install_status_cache_time: float = 0
-_INSTALL_STATUS_CACHE_TTL = 10  # seconds
+_INSTALL_STATUS_CACHE_TTL = 30  # seconds — install state changes infrequently
 
 
 def _get_cached_install_status() -> dict:
@@ -1802,8 +1802,8 @@ def _get_cached_install_status() -> dict:
     global _install_status_cache, _install_status_cache_time
     now = time.time()
     if now - _install_status_cache_time > _INSTALL_STATUS_CACHE_TTL or not _install_status_cache:
-        from runtime.installer import get_persisted_install_status, get_install_status
-        live = get_install_status()
+        from runtime.installer import get_persisted_install_status, get_install_status_cached
+        live = get_install_status_cached()
         persisted = get_persisted_install_status()
         result: dict = {}
         for provider_name, live_entry in live.items():
@@ -2073,12 +2073,12 @@ async def admin_runtime_action(req: RuntimeActionRequest):
 @router.get("/providers")
 async def list_providers():
     from runtime.engine import get_engine
-    from runtime.installer import get_install_status
+    from runtime.installer import get_install_status_cached
     from runtime.manifest_loader import get_all_provider_metadata
 
     engine = get_engine()
     loaded_names = set(engine._loaded.keys()) if hasattr(engine, "_loaded") else set()
-    install_status = get_install_status()
+    install_status = get_install_status_cached()
     providers = []
     for name, meta in get_all_provider_metadata().items():
         inst = install_status.get(name, {})

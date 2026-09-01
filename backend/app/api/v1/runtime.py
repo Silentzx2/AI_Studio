@@ -82,7 +82,7 @@ async def _build_runtime_status_payload() -> dict[str, Any]:
 
 @router.get("/status")
 async def runtime_status():
-    cached = get_cached("runtime_status", ttl_seconds=10)
+    cached = get_cached("runtime_status", ttl_seconds=15)
     if cached is not None:
         return success(cached)
     try:
@@ -116,8 +116,8 @@ async def runtime_health():
     # ponytail: surface per-provider state with READY/PARTIAL/FAILED/SKIPPED/
     # NOT_INSTALLED distinction (see Issue 9). The UI can show a clear
     # reason for each non-ready provider instead of a binary healthy/degraded.
-    from runtime.installer import get_install_status
-    install_status = get_install_status() or {}
+    from runtime.installer import get_install_status_cached
+    install_status = get_install_status_cached() or {}
     provider_states: dict[str, dict] = {}
     for name, info in install_status.items():
         if isinstance(info, dict):
@@ -167,14 +167,14 @@ async def get_runtime_options():
         from runtime.manifest_loader import get_all_provider_metadata  # noqa: PLC0415
         from app.core.providers.registry import get_registry
         from app.core.registry.model_registry import ModelRegistry
-        from runtime.installer import get_install_status
+        from runtime.installer import get_install_status_cached
 
         gpu = get_gpu_info()
         registry = get_registry()
 
         # Cache per-request to avoid repeated YAML reloads and disk I/O
         provider_meta = get_all_provider_metadata()
-        install_status = get_install_status() or {}
+        install_status = get_install_status_cached() or {}
 
         # --- Build three_d_models from manifests ---
         three_d_models = []

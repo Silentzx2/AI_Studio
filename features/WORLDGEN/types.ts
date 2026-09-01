@@ -21,6 +21,8 @@ export interface EnvironmentUpload {
   name: string;
   previewUrl: string;
   sizeBytes: number;
+  width?: number;
+  height?: number;
 }
 
 export interface WorldGenSettings {

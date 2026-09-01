@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import {
   Sparkles,
   Wand2,
@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
+import { apiClient } from '@/services/apiClient';
 import type { WorldGenSettings, WorldGenMood, WorldGenShape, GenerationPreset } from '../types';
 
 interface WorldGenToolBarProps {
@@ -74,20 +75,86 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
   };
 
   const referenceImageInputRef = useRef<HTMLInputElement>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const uploadToBackend = useCallback(async (file: File) => {
+    // Validate file type
+    const validTypes = ['image/png', 'image/jpeg', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Invalid file type. Use JPG, PNG, or WebP.');
+      return;
+    }
+    // Validate file size (20MB)
+    const MAX_SIZE = 20 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      toast.error('File too large. Maximum size is 20MB.');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const res = await apiClient.uploadFile<{ url: string; width: number; height: number }>(
+        '/api/v1/upload/image',
+        file,
+      );
+      onChange({
+        referenceImage: {
+          name: file.name,
+          previewUrl: res.url,
+          sizeBytes: file.size,
+          width: res.width,
+          height: res.height,
+        },
+      });
+      toast.success('Image uploaded successfully');
+    } catch (err) {
+      toast.error(`Failed to upload image: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsUploading(false);
+    }
+  }, [onChange]);
 
   const handleReferenceImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const previewUrl = URL.createObjectURL(file);
-      onChange({
-        referenceImage: { name: file.name, previewUrl, sizeBytes: file.size },
-      });
+      uploadToBackend(file);
     }
     e.target.value = '';
   };
 
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      uploadToBackend(file);
+    }
+  }, [uploadToBackend]);
+
   return (
     <div className="flex flex-col h-full bg-transparent text-xs select-none overflow-hidden">
+      {/* Hidden file input for image upload */}
+      <input
+        ref={referenceImageInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        onChange={handleReferenceImageUpload}
+        className="hidden"
+      />
       {/* Main Body */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6 no-scrollbar">
         {/* Image to World */}
@@ -118,13 +185,31 @@ export const WorldGenToolBar: React.FC<WorldGenToolBarProps> = ({
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
                 onClick={() => referenceImageInputRef.current?.click()}
-                className="w-full py-10 rounded-2xl border-2 border-dashed border-[#2f333e] bg-[#1e2026] text-zinc-400 hover:border-[#F9CF00] hover:text-[#F9CF00] transition-all flex flex-col items-center justify-center gap-3 shadow-xl"
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`w-full py-10 rounded-2xl border-2 border-dashed bg-[#1e2026] transition-all flex flex-col items-center justify-center gap-3 shadow-xl ${
+                  isDragOver
+                    ? 'border-[#F9CF00] text-[#F9CF00] bg-[#F9CF00]/5'
+                    : 'border-[#2f333e] text-zinc-400 hover:border-[#F9CF00] hover:text-[#F9CF00]'
+                } ${isUploading ? 'opacity-60 pointer-events-none' : ''}`}
               >
-                <Upload className="w-6 h-6 stroke-[2.2]" />
-                <div className="flex flex-col items-center gap-1">
-                  <span className="text-[11px] font-bold text-white">Upload Reference Image</span>
-                  <span className="text-[9px] text-zinc-400">JPG, PNG, WebP (Max 20MB)</span>
-                </div>
+                {isUploading ? (
+                  <>
+                    <RefreshCw className="w-6 h-6 animate-spin stroke-[2.2]" />
+                    <span className="text-[11px] font-bold text-white">Uploading...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-6 h-6 stroke-[2.2]" />
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-[11px] font-bold text-white">
+                        {isDragOver ? 'Drop image here' : 'Upload Reference Image'}
+                      </span>
+                      <span className="text-[9px] text-zinc-400">JPG, PNG, WebP (Max 20MB) or drag & drop</span>
+                    </div>
+                  </>
+                )}
               </motion.button>
             )}
             <textarea

@@ -36,9 +36,16 @@ class StorageConfig:
         self.runtime_cache_dir = Path(
             os.environ.get("RUNTIME_CACHE_DIR", str(self.backend_root / ".runtime_cache"))
         )
-        self.storage_dir = Path(
-            os.environ.get("STORAGE_LOCAL_PATH", str(self.backend_root / "storage"))
-        )
+        # Use settings.storage_local_path for consistent absolute path resolution.
+        # Falls back to env var only if settings import fails (e.g. standalone scripts).
+        try:
+            from app.config import get_settings
+            self.storage_dir = Path(get_settings().storage_local_path)
+        except Exception:
+            p = Path(os.environ.get("STORAGE_LOCAL_PATH", str(self.backend_root / "storage")))
+            if not p.is_absolute():
+                p = (self.backend_root.parent / p).resolve()
+            self.storage_dir = p
         self._configure_hf_environment()
 
     # ------------------------------------------------------------------

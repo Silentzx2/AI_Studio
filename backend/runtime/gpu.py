@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 # ponytail: Simple TTL cache. Upgrade to shared cache if multi-process.
 _gpu_cache_ts = 0.0
 _gpu_cache_info: GPUInfo | None = None
-_GPU_CACHE_TTL = 2.0  # seconds
+_GPU_CACHE_TTL = 30.0  # seconds — GPU info changes infrequently
 
 
 class GPURequiredError(Exception):

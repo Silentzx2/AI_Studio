@@ -331,8 +331,9 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
-    controls.maxDistance = 25;
-    controls.minDistance = 0.8;
+    controls.maxDistance = 100;    // Increased from 25 — allow much further zoom out
+    controls.minDistance = 0.05;   // Decreased from 0.8 — allow much closer zoom in
+    controls.zoomSpeed = 1.5;     // Increased scroll-wheel zoom speed
     controls.target.set(0, 0.4, 0);
     controlsRef.current = controls;
 
@@ -857,7 +858,18 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const handleZoomIn = useCallback(() => {
     if (cameraRef.current && controlsRef.current) {
       const target = controlsRef.current.target;
-      cameraRef.current.position.lerp(target, 0.22);
+      const dir = new THREE.Vector3().subVectors(cameraRef.current.position, target);
+      const distance = dir.length();
+      // Zoom 15% of current distance, but clamp to minDistance
+      const zoomAmount = Math.max(distance * 0.15, 0.1);
+      dir.normalize().multiplyScalar(zoomAmount);
+      cameraRef.current.position.sub(dir);
+      // Clamp to min/max
+      const newDist = cameraRef.current.position.distanceTo(target);
+      if (newDist < controlsRef.current.minDistance) {
+        const clamped = dir.normalize().multiplyScalar(controlsRef.current.minDistance);
+        cameraRef.current.position.copy(target).add(clamped);
+      }
       controlsRef.current.update();
     }
   }, []);
@@ -866,8 +878,15 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     if (cameraRef.current && controlsRef.current) {
       const target = controlsRef.current.target;
       const dir = new THREE.Vector3().subVectors(cameraRef.current.position, target);
-      dir.multiplyScalar(1.28);
+      // Zoom out 15% of current distance
+      dir.multiplyScalar(1.15);
       cameraRef.current.position.addVectors(target, dir);
+      // Clamp to maxDistance
+      const newDist = cameraRef.current.position.distanceTo(target);
+      if (newDist > controlsRef.current.maxDistance) {
+        const clamped = dir.normalize().multiplyScalar(controlsRef.current.maxDistance);
+        cameraRef.current.position.copy(target).add(clamped);
+      }
       controlsRef.current.update();
     }
   }, []);
@@ -887,14 +906,26 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
     if (radius === 0 || !isFinite(radius)) return;
 
+    // Adaptive margin based on model size:
+    // Small models (<1): more margin (1.3x) so they don't fill the entire view
+    // Medium models (1-5): moderate margin (1.15x)
+    // Large models (>5): less margin (1.05x) so they fit comfortably
+    const marginFactor = radius < 1 ? 1.3 : radius < 5 ? 1.15 : 1.05;
+
     const fov = camera.fov * (Math.PI / 180);
-    const distance = radius / Math.sin(fov / 2);
+    const distance = (radius / Math.sin(fov / 2)) * marginFactor;
+
+    // Clamp to controls min/max with small buffer
+    const clampedDistance = Math.max(
+      controls.minDistance * 1.2,
+      Math.min(controls.maxDistance * 0.9, distance)
+    );
 
     const dir = new THREE.Vector3(1, 0.4, 1).normalize();
-    camera.position.copy(center).add(dir.multiplyScalar(distance * 1.1));
+    camera.position.copy(center).add(dir.multiplyScalar(clampedDistance));
 
-    camera.near = Math.max(0.01, distance / 100);
-    camera.far = distance * 100;
+    camera.near = Math.max(0.01, clampedDistance / 100);
+    camera.far = clampedDistance * 100;
     camera.updateProjectionMatrix();
 
     controls.target.copy(center);

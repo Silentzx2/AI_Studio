@@ -20,6 +20,12 @@ BOLD='\033[1m'
 DIM='\033[2m'
 NC='\033[0m'
 
+# ── Logging helpers ──────────────────────────────────────────────────────────
+info()  { echo -e "${CYAN}[INFO]${NC}   $*"; }
+warn()  { echo -e "${YELLOW}[WARN]${NC}   $*"; }
+ok()    { echo -e "${GREEN}[OK]${NC}    $*"; }
+error() { echo -e "${RED}[ERROR]${NC}  $*"; }
+
 # ── Header helper ───────────────────────────────────────────────────────────
 head_() {
     echo -e "\n${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -781,23 +787,49 @@ cmd_build_wheels() {
     head_ "Building Native CUDA Wheels"
     echo ""
     echo "  This will build CUDA extension wheels for packages that don't have"
-    echo "  prebuilt wheels (diffoctreerast, vox2seq, diff-gaussian-rasterization)."
+    echo "  prebuilt wheels (diffoctreerast, vox2seq, diff-gaussian-rasterization, diso)."
     echo ""
     echo "  Requirements: CUDA toolkit (nvcc), ninja, PyTorch with CUDA"
     echo "  Output: ./wheels/ directory"
     echo ""
 
-    # Check prerequisites
+    # ── Auto-setup: install missing prerequisites ──────────────────────────────
+    info "Checking build prerequisites..."
+
+    # Check/install CUDA toolkit
     if ! command -v nvcc &>/dev/null; then
-        warn "nvcc not found — CUDA toolkit required"
-        echo "  Install: sudo apt-get install -y nvidia-cuda-toolkit"
-        return 1
+        warn "nvcc not found — attempting to install CUDA toolkit..."
+        if command -v apt-get &>/dev/null; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq nvidia-cuda-toolkit 2>/dev/null || {
+                warn "Failed to install CUDA toolkit automatically"
+                echo "  Install manually: sudo apt-get install -y nvidia-cuda-toolkit"
+                echo "  Or download from: https://developer.nvidia.com/cuda-downloads"
+                return 1
+            }
+        else
+            warn "apt-get not found — cannot auto-install CUDA toolkit"
+            echo "  Install CUDA toolkit manually: https://developer.nvidia.com/cuda-downloads"
+            return 1
+        fi
+    fi
+    ok "CUDA toolkit: $(nvcc --version | grep release | sed 's/.*release //;s/,.*//')"
+
+    # Check/install ninja
+    if ! command -v ninja &>/dev/null; then
+        warn "ninja not found — installing..."
+        pip install ninja 2>/dev/null || { warn "Failed to install ninja"; return 1; }
+    fi
+    ok "ninja: $(ninja --version)"
+
+    # Check PyTorch CUDA
+    if python3 -c "import torch; assert torch.cuda.is_available()" 2>/dev/null; then
+        ok "PyTorch CUDA: $(python3 -c 'import torch; print(torch.__version__, \"CUDA\", torch.version.cuda)')"
+    else
+        warn "PyTorch CUDA not available — builds may fail"
+        echo "  Install PyTorch with CUDA: pip install torch --index-url https://download.pytorch.org/whl/cu124"
     fi
 
-    if ! command -v ninja &>/dev/null; then
-        info "Installing ninja..."
-        pip install ninja || { warn "Failed to install ninja"; return 1; }
-    fi
+    echo ""
 
     # Create output directory
     mkdir -p wheels
@@ -812,7 +844,13 @@ cmd_build_wheels() {
         echo ""
         ls -lh wheels/*.whl | awk '{print "  " $9 " (" $5 ")"}'
         echo ""
-        info "Upload these wheels to GitHub Releases, then update manifest URLs."
+        read -rp "  Upload to GitHub Releases? [y/N]: " upload
+        if [[ "$upload" =~ ^[Yy]$ ]]; then
+            info "Uploading to GitHub Releases..."
+            python scripts/build_native_wheels.py --output-dir ./wheels --upload
+        else
+            info "Upload skipped. Run manually with: python scripts/build_native_wheels.py --output-dir ./wheels --upload"
+        fi
     else
         warn "No wheels were built — check errors above"
     fi
