@@ -231,6 +231,15 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Runtime engine initialization failed: {exc}")
         logger.info("Continuing with degraded functionality")
 
+    # Warm up expensive caches in background so first requests are fast
+    try:
+        from runtime.installer import get_install_status_cached
+        import asyncio
+        asyncio.create_task(asyncio.to_thread(get_install_status_cached))
+        logger.info("Cache warming initiated (install status)")
+    except Exception as exc:
+        logger.warning(f"Cache warming failed: {exc}")
+
     
     # Database connection test
     try:
