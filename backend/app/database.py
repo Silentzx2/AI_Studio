@@ -16,15 +16,16 @@ database_url = settings.database_url
 # asyncpg uses ssl=False/True/SSLContext instead of sslmode
 def _process_db_url(url: str, driver: str) -> tuple[str, dict]:
     """Process database URL for the given driver, handling SSL differences."""
+    # Default sslmode
+    sslmode = "disable"
+    
     # Strip sslmode from query params since asyncpg/psycopg2 handle it differently
     if "sslmode=" in url:
         # Extract sslmode value
-        sslmode = "disable"
-        if "sslmode=" in url:
-            import re
-            m = re.search(r"[?&]sslmode=([^&]+)", url)
-            if m:
-                sslmode = m.group(1)
+        import re
+        m = re.search(r"[?&]sslmode=([^&]+)", url)
+        if m:
+            sslmode = m.group(1)
         # Remove sslmode from URL
         url = re.sub(r"[?&]sslmode=[^&]*", "", url)
         url = url.replace("?", "&") if "?" in url else url  # cleanup
