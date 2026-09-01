@@ -930,7 +930,7 @@ if [[ ! -f .env ]]; then
     else
         warn "No .env.example found — creating minimal .env"
         cat > .env << 'ENVEOF'
-DATABASE_URL=postgresql+asyncpg://ai_studio:ai_studio_dev@127.0.0.1:5432/ai_studio?sslmode=disable
+DATABASE_URL=postgresql+asyncpg://ai_studio:ai_studio_dev@127.0.0.1:5432/ai_studio
 REDIS_URL=redis://localhost:6379/0
 CELERY_BROKER_URL=redis://localhost:6379/0
 CELERY_RESULT_BACKEND=redis://localhost:6379/1
@@ -948,11 +948,11 @@ set -a
 source .env
 set +a
 
-export DATABASE_URL="postgresql+asyncpg://ai_studio:ai_studio_dev@127.0.0.1:5432/ai_studio?sslmode=disable"
+export DATABASE_URL="postgresql+asyncpg://ai_studio:ai_studio_dev@127.0.0.1:5432/ai_studio"
 export BACKEND_URL="http://localhost:8000"
 
 # Update .env file to match
-sed -i 's|^DATABASE_URL=.*|DATABASE_URL=postgresql+asyncpg://ai_studio:ai_studio_dev@127.0.0.1:5432/ai_studio?sslmode=disable|' .env 2>/dev/null || true
+sed -i 's|^DATABASE_URL=.*|DATABASE_URL=postgresql+asyncpg://ai_studio:ai_studio_dev@127.0.0.1:5432/ai_studio|' .env 2>/dev/null || true
 
 log "Environment configured (PostgreSQL mode)"
 

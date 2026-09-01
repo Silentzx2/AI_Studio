@@ -11,12 +11,48 @@ settings = get_settings()
 
 # PostgreSQL only — asyncpg for async, psycopg2 for sync
 database_url = settings.database_url
-if "+asyncpg" in database_url:
-    async_db_url = database_url
-    sync_db_url = database_url.replace("+asyncpg", "+psycopg2")
-else:
-    async_db_url = database_url.replace("postgresql://", "postgresql+asyncpg://")
-    sync_db_url = database_url.replace("postgresql://", "postgresql+psycopg2://")
+
+# Handle SSL mode for asyncpg (doesn't support sslmode query param)
+# asyncpg uses ssl=False/True/SSLContext instead of sslmode
+def _process_db_url(url: str, driver: str) -> tuple[str, dict]:
+    """Process database URL for the given driver, handling SSL differences."""
+    # Strip sslmode from query params since asyncpg/psycopg2 handle it differently
+    if "sslmode=" in url:
+        # Extract sslmode value
+        sslmode = "disable"
+        if "sslmode=" in url:
+            import re
+            m = re.search(r"[?&]sslmode=([^&]+)", url)
+            if m:
+                sslmode = m.group(1)
+        # Remove sslmode from URL
+        url = re.sub(r"[?&]sslmode=[^&]*", "", url)
+        url = url.replace("?", "&") if "?" in url else url  # cleanup
+        # Remove trailing ? or &
+        url = url.rstrip("?&")
+    
+    # Build connect_args based on driver and sslmode
+    connect_args = {}
+    if driver == "asyncpg":
+        # asyncpg: ssl=False to disable, ssl=True for default, ssl=SSLContext for custom
+        if sslmode in ("disable", "allow", "prefer"):
+            connect_args["ssl"] = False
+        elif sslmode in ("require", "verify-ca", "verify-full"):
+            connect_args["ssl"] = True
+    elif driver == "psycopg2":
+        # psycopg2 uses sslmode in URL or connect_args
+        connect_args["sslmode"] = sslmode
+    
+    return url, connect_args
+
+# Process URLs for both drivers
+async_db_url, async_connect_args = _process_db_url(database_url, "asyncpg")
+if "+asyncpg" not in async_db_url:
+    async_db_url = async_db_url.replace("postgresql://", "postgresql+asyncpg://")
+
+sync_db_url, sync_connect_args = _process_db_url(database_url, "psycopg2")
+if "+psycopg2" not in sync_db_url:
+    sync_db_url = sync_db_url.replace("postgresql://", "postgresql+psycopg2://")
 
 # Async engine — pool sized for concurrent frontend polling + background tasks.
 # pool_size=20 handles ~15 concurrent SSE + API requests without contention.
@@ -27,6 +63,7 @@ _async_engine_kwargs = {
     "max_overflow": 30,
     "pool_recycle": 3600,  # Recycle connections hourly to prevent stale connections
     "pool_timeout": 5,  # Fail fast when pool is exhausted
+    "connect_args": async_connect_args,
 }
 # Sync engine for celery workers — explicit pool to avoid exhausting DB
 # connections when many workers run concurrently.
@@ -37,6 +74,7 @@ _sync_engine_kwargs = {
     "max_overflow": 10,
     "pool_recycle": 3600,
     "pool_timeout": 5,
+    "connect_args": sync_connect_args,
 }
 
 # Async engine

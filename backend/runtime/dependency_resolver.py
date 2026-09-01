@@ -872,8 +872,7 @@ def install_resolved_deps(
                         _log(f"  Sub-batch failed, retrying {len(chunk)} packages one-by-one...")
                         _install_one_by_one(chunk, venv_python, repo_dir, installed, failed, _log)
                 _log(f"Installed {len(installed)}/{len(normal_specs)} normal dependencies")
-            else:
-                installed.extend(normal_specs)
+            # Normal specs already added to installed in the if/else branches above
 
     # Resolve native deps with wheel-first logic
     # Collect all native deps that need decisions
