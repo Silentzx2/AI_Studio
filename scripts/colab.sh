@@ -205,7 +205,9 @@ setup_cuda_124() {
   # Install NVIDIA CUDA keyring
   local ARCH; ARCH=$(dpkg --print-architecture)
   local UBUNTU_VER_NODOT; UBUNTU_VER_NODOT=$(lsb_release -rs | tr -d '.')
-  local KEYRING_URL="https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VER_NODOT}/${ARCH}/cuda-keyring_1.1-1_all.deb"
+  # NVIDIA uses x86_64 in URLs (not amd64) for Ubuntu 24.04+
+  local URL_ARCH="x86_64"
+  local KEYRING_URL="https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VER_NODOT}/${URL_ARCH}/cuda-keyring_1.1-1_all.deb"
 
   wget -q "$KEYRING_URL" -O /tmp/cuda-keyring.deb || {
     warn "Failed to download CUDA keyring — skipping CUDA 12.4 install"

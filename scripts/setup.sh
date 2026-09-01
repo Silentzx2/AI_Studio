@@ -365,7 +365,9 @@ install_cuda() {
     KEYRING_URL="https://developer.download.nvidia.com/compute/cuda/repos/debian${DEBIAN_VER}/${ARCH}/cuda-keyring_1.1-1_all.deb"
   else
     local UBUNTU_VER_NODOT; UBUNTU_VER_NODOT=$(lsb_release -rs | tr -d '.')
-    KEYRING_URL="https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VER_NODOT}/${ARCH}/cuda-keyring_1.1-1_all.deb"
+    # NVIDIA uses x86_64 in URLs (not amd64) for Ubuntu 24.04+
+    local URL_ARCH="x86_64"
+    KEYRING_URL="https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VER_NODOT}/${URL_ARCH}/cuda-keyring_1.1-1_all.deb"
   fi
 
   info "Downloading CUDA keyring..."
