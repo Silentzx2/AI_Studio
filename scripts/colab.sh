@@ -462,13 +462,29 @@ colab_start_services() {
 
     # ── Run migrations (only if PostgreSQL is running) ──────────────────
     step "Running database migrations..."
-    if pg_isready -q 2>/dev/null; then
+    if pg_isready -h 127.0.0.1 -p 5432 -q 2>/dev/null; then
+        # Wait for full readiness (max 15s)
+        for i in $(seq 1 15); do
+            if PGPASSWORD=ai_studio_dev psql -h 127.0.0.1 -U ai_studio -d ai_studio -c "SELECT 1" &>/dev/null; then
+                break
+            fi
+            sleep 1
+        done
         (
             cd backend
-            if "$PYTHON_BIN" -m alembic upgrade head 2>&1; then
+            MIGRATION_OK=false
+            for attempt in 1 2 3; do
+                if "$PYTHON_BIN" -m alembic upgrade head 2>&1; then
+                    MIGRATION_OK=true
+                    break
+                fi
+                warn "Migration attempt $attempt failed — retrying in 3s..."
+                sleep 3
+            done
+            if [[ "$MIGRATION_OK" == "true" ]]; then
                 log "Migrations complete"
             else
-                warn "Migrations skipped or failed (may already be applied)"
+                warn "Migrations failed after 3 attempts"
             fi
         )
     else
@@ -1580,14 +1596,42 @@ fi
 
 # ── Run migrations ────────────────────────────────────────────────────────
 step "Running database migrations..."
-(
-    cd backend
-    if "$PYTHON_BIN" -m alembic upgrade head 2>&1; then
-        log "Migrations complete"
-    else
-        warn "Migrations skipped or failed (may already be applied)"
+
+# Wait for PostgreSQL to be fully ready (max 30s)
+PG_READY=false
+for i in $(seq 1 30); do
+    if pg_isready -h 127.0.0.1 -p 5432 -q 2>/dev/null; then
+        # Test actual connection with the app user
+        if PGPASSWORD=ai_studio_dev psql -h 127.0.0.1 -U ai_studio -d ai_studio -c "SELECT 1" &>/dev/null; then
+            PG_READY=true
+            break
+        fi
     fi
-)
+    sleep 1
+done
+
+if [[ "$PG_READY" == "true" ]]; then
+    (
+        cd backend
+        # Retry migrations up to 3 times
+        MIGRATION_OK=false
+        for attempt in 1 2 3; do
+            if "$PYTHON_BIN" -m alembic upgrade head 2>&1; then
+                MIGRATION_OK=true
+                break
+            fi
+            warn "Migration attempt $attempt failed — retrying in 3s..."
+            sleep 3
+        done
+        if [[ "$MIGRATION_OK" == "true" ]]; then
+            log "Migrations complete"
+        else
+            warn "Migrations failed after 3 attempts — services may not function correctly"
+        fi
+    )
+else
+    warn "PostgreSQL not ready after 30s — skipping migrations"
+fi
 
 # ── Start Backend API ─────────────────────────────────────────────────────
 step "Starting Backend API (http://localhost:8000)..."
