@@ -33,6 +33,7 @@ _INSTALL_STATUS_TTL = 30.0  # seconds — install state changes infrequently
 
 def get_install_status_cached() -> dict:
     """Cached wrapper for get_install_status(). TTL 30s."""
+    global _install_status_cache
     now = time.monotonic()
     if now - _install_status_cache[0] < _INSTALL_STATUS_TTL:
         return _install_status_cache[1]
