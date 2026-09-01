@@ -498,6 +498,7 @@ class InstallRequest(BaseModel):
 @router.post("/install")
 async def install_runtime(req: InstallRequest, background_tasks: BackgroundTasks):
     from runtime.installer import RuntimeInstaller, resolve_install_targets
+    from app.core.cache import invalidate
 
     # ponytail: Section 1 — must resolve targets; no more silent "install everything"
     targets = req.models if req.models else None
@@ -513,6 +514,8 @@ async def install_runtime(req: InstallRequest, background_tasks: BackgroundTasks
             skip_weights=req.skip_weights,
             models=targets,
         )
+        # Invalidate runtime options cache so newly installed models appear immediately
+        invalidate("runtime_options")
 
     # Run blocking install in thread executor to avoid blocking the event loop
     background_tasks.add_task(asyncio.to_thread, _run)
@@ -527,6 +530,7 @@ async def prepare_runtime(req: InstallRequest, background_tasks: BackgroundTasks
     resolves native dependencies via wheel-first logic.
     """
     from runtime.installer import RuntimeInstaller, resolve_install_targets
+    from app.core.cache import invalidate
 
     targets = req.models if req.models else None
     if not targets:
@@ -539,6 +543,8 @@ async def prepare_runtime(req: InstallRequest, background_tasks: BackgroundTasks
             models=targets,
             allow_native_build=False,
         )
+        # Invalidate runtime options cache so newly installed models appear immediately
+        invalidate("runtime_options")
 
     # Run blocking task in thread executor to avoid blocking the event loop
     background_tasks.add_task(asyncio.to_thread, _run)
@@ -554,6 +560,7 @@ async def download_weights(req: InstallRequest, background_tasks: BackgroundTask
     the caller to /prepare-runtime first.
     """
     from runtime.installer import RuntimeInstaller, resolve_install_targets
+    from app.core.cache import invalidate
 
     targets = req.models if req.models else None
     if not targets:
@@ -563,6 +570,8 @@ async def download_weights(req: InstallRequest, background_tasks: BackgroundTask
 
     def _run() -> None:
         RuntimeInstaller().download_weights(models=targets)
+        # Invalidate runtime options cache so newly installed models appear immediately
+        invalidate("runtime_options")
 
     # Run blocking task in thread executor to avoid blocking the event loop
     background_tasks.add_task(asyncio.to_thread, _run)
@@ -629,6 +638,7 @@ class RepoActionRequest(BaseModel):
 async def update_repo(req: RepoActionRequest, background_tasks: BackgroundTasks):
     from runtime.installer import clone_repo
     from runtime.manifest_loader import REPOS
+    from app.core.cache import invalidate
 
     # ponytail: update only the specific repo, not everything
     if req.repo not in REPOS:
@@ -636,6 +646,7 @@ async def update_repo(req: RepoActionRequest, background_tasks: BackgroundTasks)
 
     def _run() -> None:
         clone_repo(req.repo)
+        invalidate("runtime_options")
 
     # Run blocking task in thread executor to avoid blocking the event loop
     background_tasks.add_task(asyncio.to_thread, _run)
@@ -649,6 +660,7 @@ async def repair_repo(req: RepoActionRequest, background_tasks: BackgroundTasks)
     from runtime.installer import clone_repo, install_repo_deps
     from runtime.manifest_loader import REPOS
     from runtime.storage import get_storage_config
+    from app.core.cache import invalidate
 
     # ponytail: repair only the specific repo, not everything.
     # Re-clone the repo and rebuild its isolated venv/deps (runtime prep).
@@ -663,6 +675,7 @@ async def repair_repo(req: RepoActionRequest, background_tasks: BackgroundTasks)
             shutil.rmtree(str(repo_path), ignore_errors=True)
         clone_repo(req.repo)
         install_repo_deps(req.repo)
+        invalidate("runtime_options")
 
     # Run blocking task in thread executor to avoid blocking the event loop
     background_tasks.add_task(asyncio.to_thread, _run)
@@ -674,12 +687,14 @@ async def remove_repo(req: RepoActionRequest):
     import shutil
 
     from runtime.storage import get_storage_config
+    from app.core.cache import invalidate
 
     storage = get_storage_config()
     repo_path = storage.get_repo_path(req.repo)
     if not repo_path.exists():
         raise HTTPException(status_code=404, detail=f"Repository '{req.repo}' not found.")
     shutil.rmtree(str(repo_path), ignore_errors=True)
+    invalidate("runtime_options")
     return success({"repo": req.repo, "removed": True})
 
 

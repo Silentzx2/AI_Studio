@@ -886,6 +886,8 @@ log "CUDA: ${CYAN}cu${CUDA_VERSION}${NC}"
 # ── Ensure CUDA Toolkit 12.4 is installed and active ──────────────────────────
 if [[ "$GPU_TYPE" == "gpu" ]]; then
   setup_cuda_124 || warn "CUDA 12.4 setup had issues — may use existing version"
+  # Force CUDA 12.4 for PyTorch wheel index to match the installed toolkit
+  CUDA_VERSION=124
 fi
 
 # ── Install Blender ──────────────────────────────────────────────────────

@@ -935,9 +935,14 @@ def _uv_install(
     if has_pillow:
         if log_cb:
             log_cb("Ensuring Pillow C extension is properly installed...")
+        # Uninstall first to ensure clean reinstall with C extension
+        _run_uv(
+            ["pip", "uninstall", "--python", str(venv_python), "-y", "pillow"],
+            cwd=repo_dir,
+        )
         _run_uv(
             ["pip", "install", "--python", str(venv_python),
-             "--force-reinstall", "--no-cache-dir", "pillow"],
+             "--force-reinstall", "--no-cache-dir", "--no-binary", "pillow", "pillow"],
             cwd=repo_dir,
         )
 
@@ -984,20 +989,29 @@ def _verify_and_fix_critical_packages(venv_python: Path, repo_dir: Path, req_blo
     """Verify critical packages can be imported, force-reinstall if corrupted.
 
     The list of critical packages comes from the manifest's
-    `preflight.import_packages` section. If absent, falls back to a minimal
-    default list. ponytail: packages from previous failed installs can be
-    partially extracted or missing C extensions. This checks the key packages
-    and force-reinstalls any that fail to import.
+    `preflight.import_packages` section, merged with a default list that
+    includes PIL (which often has C extension issues). ponytail: packages
+    from previous failed installs can be partially extracted or missing
+    C extensions. This checks the key packages and force-reinstalls any
+    that fail to import.
     """
     preflight = (manifest or {}).get("preflight", {}) or {}
-    critical = preflight.get("import_packages", []) or ["torch", "transformers", "diffusers", "numpy", "PIL"]
+    manifest_critical = preflight.get("import_packages", []) or []
+    # Always include PIL in critical packages since its C extension (_imaging)
+    # is prone to corruption/missing across different install paths.
+    critical = list(dict.fromkeys([*manifest_critical, "torch", "transformers", "diffusers", "numpy", "PIL"]))
     uv_path = shutil.which("uv")
     for pkg in critical:
         if not re.search(rf"\b{re.escape(pkg)}\b", req_blob, re.IGNORECASE):
             continue
-        import_name = "PIL" if pkg == "PIL" else pkg
+        # Special handling for PIL: check the C extension (_imaging) directly
+        # since `import PIL` can succeed even when _imaging is missing.
+        if pkg == "PIL":
+            import_check = "from PIL import _imaging; print('ok')"
+        else:
+            import_check = f"import {pkg}; print('ok')"
         code, output = _run(
-            [str(venv_python), "-c", f"import {import_name}; print('ok')"],
+            [str(venv_python), "-c", import_check],
             cwd=str(repo_dir),
         )
         if code != 0 or "ok" not in output:

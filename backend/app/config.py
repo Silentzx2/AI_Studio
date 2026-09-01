@@ -13,10 +13,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Backend root directory (where this config.py lives: backend/app/)
 _BACKEND_DIR = Path(__file__).resolve().parent
-# Project root (parent of backend/)
-_PROJECT_DIR = _BACKEND_DIR.parent
+# Project root (parent of backend/) - go up two levels: backend/app -> backend -> project_root
+_PROJECT_DIR = _BACKEND_DIR.parent.parent
 # .env file at project root — absolute so pydantic-settings finds it regardless of CWD
-_ENV_FILE = str(_BACKEND_DIR.parent.parent / ".env")
+_ENV_FILE = str(_PROJECT_DIR / ".env")
 
 
 class Settings(BaseSettings):
@@ -40,8 +40,8 @@ class Settings(BaseSettings):
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/1"
     storage_backend: Literal["local", "s3"] = "local"
-    # Absolute default: backend/storage regardless of CWD
-    storage_local_path: str = str(_PROJECT_DIR / "storage")
+    # Absolute default: project_root/backend/storage regardless of CWD
+    storage_local_path: str = str(_PROJECT_DIR / "backend" / "storage")
     s3_bucket: str = ""
     s3_region: str = "us-east-1"
     aws_access_key_id: str = ""

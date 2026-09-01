@@ -159,8 +159,21 @@ class RuntimeEngine:
             )
 
         free_mb = gpu.free_vram_mb
-        needed = get_model_vram_required(requested)
-        if needed == 0 or free_mb >= needed:
+        # Use plan_vram_usage with mode="auto" so low-VRAM mode is considered
+        # when normal footprint doesn't fit. This allows models like WorldGen
+        # (recommended 24GB, minimum 10GB) to run on 14GB GPUs in low-VRAM mode.
+        try:
+            from runtime.capability import plan_vram_usage
+            plan = plan_vram_usage(requested, "auto")
+            needed = plan.get("vram_required_mb") or 0
+            resolved_mode = plan.get("mode", "normal")
+            fits = bool(plan.get("fits", False)) or plan.get("cpu_only", False)
+        except Exception:
+            # Fallback to simple check
+            needed = get_model_vram_required(requested)
+            fits = needed == 0 or free_mb >= needed
+            resolved_mode = "normal"
+        if fits:
             if mode in PROVIDER_MODES.get(requested, set()):
                 return requested
             logger.warning(
