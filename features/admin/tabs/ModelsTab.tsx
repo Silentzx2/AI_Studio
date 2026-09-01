@@ -22,13 +22,13 @@ import { toast } from 'sonner';
 
 // ─── Phase labels for install progress ───────────────────────────────────────
 const PHASE_META: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  repo:     { label: 'Cloning repository',     icon: <Boxes size={13} />,          color: 'text-[hsl(var(--muted-foreground))]' },
-  venv:     { label: 'Creating virtualenv',    icon: <Zap size={13} />,            color: 'text-[hsl(var(--muted-foreground))]' },
-  deps:     { label: 'Installing dependencies', icon: <Download size={13} />,       color: 'text-[hsl(var(--muted-foreground))]' },
-  weights:  { label: 'Downloading weights',    icon: <HardDrive size={13} />,      color: 'text-[hsl(var(--muted-foreground))]' },
-  extract:  { label: 'Extracting files',       icon: <Loader2 size={13} />,        color: 'text-[hsl(var(--muted-foreground))]' },
-  verify:   { label: 'Verifying install',      icon: <CheckCircle size={13} />,    color: 'text-[hsl(var(--muted-foreground))]' },
-  complete: { label: 'Installation complete',  icon: <CheckCircle size={13} />,    color: 'text-[hsl(var(--muted-foreground))]' },
+  repo:     { label: 'Cloning repository',     icon: <Boxes size={13} />,          color: 'text-[hsl(var(--blue-500))]' },
+  venv:     { label: 'Creating virtualenv',    icon: <Zap size={13} />,            color: 'text-[hsl(var(--amber-500))]' },
+  deps:     { label: 'Installing dependencies', icon: <Download size={13} />,       color: 'text-[hsl(var(--cyan-500))]' },
+  weights:  { label: 'Downloading weights',    icon: <HardDrive size={13} />,      color: 'text-[hsl(var(--purple-500))]' },
+  extract:  { label: 'Extracting files',       icon: <Loader2 size={13} />,        color: 'text-[hsl(var(--orange-500))]' },
+  verify:   { label: 'Verifying install',      icon: <CheckCircle size={13} />,    color: 'text-[hsl(var(--green-500))]' },
+  complete: { label: 'Installation complete',  icon: <CheckCircle size={13} />,    color: 'text-[hsl(var(--green-500))]' },
 };
 
 function fmtBytes(n: number): string {
@@ -93,26 +93,28 @@ function InstallProgressInline({
   const bytesTotal = progress.bytes_total ?? 0;
   const bytesDownloaded = progress.bytes_downloaded ?? 0;
 
+  const barColor = isDone ? 'green' : isFailed ? 'amber' : progress.phase === 'weights' ? 'purple' : progress.phase === 'deps' ? 'cyan' : progress.phase === 'venv' ? 'amber' : progress.phase === 'repo' ? 'blue' : 'purple';
+
   return (
     <div className="mt-3 space-y-2.5 p-3 rounded-xl card-minimal">
       {/* Phase + percent */}
       <div className="flex items-center justify-between">
         <div className={cn('flex items-center gap-1.5 text-xs font-medium', phase.color)}>
-          {isDone ? <CheckCircle size={12} className="text-[hsl(var(--muted-foreground))]" /> :
+          {isDone ? <CheckCircle size={12} className="text-[hsl(var(--green-500))]" /> :
            isFailed ? <AlertCircle size={12} className="text-[hsl(var(--destructive))]" /> :
            phase.icon}
           <span>{isDone ? 'Installation complete' : isFailed ? 'Installation failed' : phase.label}</span>
         </div>
         <span className={cn(
           'text-sm font-bold font-mono',
-          isDone ? 'text-[hsl(var(--muted-foreground))]' : isFailed ? 'text-[hsl(var(--destructive))]' : 'text-[hsl(var(--primary))]'
+          isDone ? 'text-[hsl(var(--green-500))]' : isFailed ? 'text-[hsl(var(--destructive))]' : phase.color
         )}>
           {pct.toFixed(1)}%
         </span>
       </div>
 
       {/* Progress bar */}
-      <ProgressBar value={pct} color="purple" size="md" />
+      <ProgressBar value={pct} color={barColor} size="md" showGlow />
 
       {/* Stats row */}
       {!isDone && !isFailed && (
@@ -393,11 +395,11 @@ export function ModelsTab() {
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Boxes className="w-6 h-6 text-[hsl(var(--muted-foreground))]" />
+            <Boxes className="w-6 h-6 text-[hsl(var(--purple-500))]" />
             AI Models
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {installedCount} installed · {totalSizeGB.toFixed(1)} GB used · {models.length} total
+            <span className="text-[hsl(var(--green-500))] font-semibold">{installedCount}</span> installed · {totalSizeGB.toFixed(1)} GB used · <span className="text-[hsl(var(--muted-foreground))]">{models.length}</span> total
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -444,7 +446,7 @@ export function ModelsTab() {
       <GlassCard className="p-4" hover>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold flex items-center gap-2">
-            <Zap className="w-4 h-4 text-[hsl(var(--muted-foreground))]" />
+            <Zap className="w-4 h-4 text-[hsl(var(--amber-500))]" />
             Global AI Capabilities
           </h2>
           <span className="text-xs text-muted-foreground">Feature toggles used across the workspace</span>
@@ -492,21 +494,21 @@ export function ModelsTab() {
                       <div className={cn(
                         'flex items-center justify-center w-11 h-11 rounded-xl border relative',
                         model.installed
-                          ? 'bg-[hsl(var(--surface-3))] border-[hsl(var(--border)/0.3)]'
+                          ? 'bg-[hsl(var(--green-500)/0.08)] border-[hsl(var(--green-500)/0.2)]'
                           : 'bg-[hsl(var(--surface-2))] border-[hsl(var(--border))]'
                       )}>
-                        <Boxes className={cn('w-5 h-5', model.installed ? 'text-[hsl(var(--muted-foreground))]' : 'text-muted-foreground')} />
+                        <Boxes className={cn('w-5 h-5', model.installed ? 'text-[hsl(var(--green-500))]' : 'text-muted-foreground')} />
                         {/* Status dot */}
                         <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
                           {isDownloading ? (
                             <>
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[hsl(var(--muted-foreground))] opacity-75" />
-                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[hsl(var(--muted-foreground))]" />
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[hsl(var(--blue-500))] opacity-75" />
+                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[hsl(var(--blue-500))]" />
                             </>
                           ) : model.installed ? (
                             <>
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[hsl(var(--muted-foreground))] opacity-30" />
-                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[hsl(var(--muted-foreground))]" />
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[hsl(var(--green-500))] opacity-30" />
+                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[hsl(var(--green-500))]" />
                             </>
                           ) : (
                             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-muted-foreground/40" />
@@ -617,7 +619,7 @@ export function ModelsTab() {
                         ) : (
                           <button
                             onClick={() => adminService.modelAction(model.id, 'load')}
-                            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl glass border border-[hsl(var(--border)/0.3)] text-xs text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--surface-3))] transition-colors"
+                            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl bg-[hsl(var(--green-500)/0.08)] border border-[hsl(var(--green-500)/0.2)] text-xs text-[hsl(var(--green-500))] hover:bg-[hsl(var(--green-500)/0.15)] transition-colors"
                           >
                             <Play className="w-3.5 h-3.5" /> Load
                           </button>
@@ -652,9 +654,9 @@ export function ModelsTab() {
                     ) : (
                       <button
                         onClick={() => handleInstall(model)}
-                        className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border)/0.3)] text-xs font-medium text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--border))] transition-all"
+                        className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl bg-[hsl(var(--purple-500)/0.08)] border border-[hsl(var(--purple-500)/0.2)] text-xs font-medium text-[hsl(var(--purple-500))] hover:bg-[hsl(var(--purple-500)/0.15)] transition-all"
                       >
-                        <Download className="w-3.5 h-3.5 text-[hsl(var(--muted-foreground))]" />
+                        <Download className="w-3.5 h-3.5" />
                         Install
                       </button>
                     )}

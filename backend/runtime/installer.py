@@ -23,6 +23,27 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# Module-level cache for expensive operations
+# ---------------------------------------------------------------------------
+
+_install_status_cache: tuple[float, dict] = (0.0, {})
+_INSTALL_STATUS_TTL = 30.0  # seconds — install state changes infrequently
+
+def get_install_status_cached() -> dict:
+    """Cached wrapper for get_install_status(). TTL 30s."""
+    now = time.monotonic()
+    if now - _install_status_cache[0] < _INSTALL_STATUS_TTL:
+        return _install_status_cache[1]
+    result = get_install_status()
+    _install_status_cache = (now, result)
+    return result
+
+def invalidate_install_status_cache() -> None:
+    """Call after install/uninstall to force fresh status on next request."""
+    global _install_status_cache
+    _install_status_cache = (0.0, {})
 from .storage import get_storage_config
 logger = logging.getLogger(__name__)
 
@@ -2522,12 +2543,13 @@ def get_install_status() -> dict:
         native_task_id = None
         native_current_step = None
         native_output = None
+        # Single DB load for both native_build and preflight state (was 2 calls per provider)
+        db_state = load_provider_state_from_db(name)
         if native_req:
             persisted_native = None
-            db_s = load_provider_state_from_db(name)
-            if db_s and db_s.get("native_build_state"):
-                persisted_native = db_s["native_build_state"]
-                native_task_id = db_s.get("native_build_task_id")
+            if db_state and db_state.get("native_build_state"):
+                persisted_native = db_state["native_build_state"]
+                native_task_id = db_state.get("native_build_task_id")
             else:
                 persisted_entry = persisted_state.get("repos", {}).get(name)
                 if persisted_entry and persisted_entry.get("native_build_state"):
@@ -2549,25 +2571,24 @@ def get_install_status() -> dict:
             vram_required = manifest["hardware"].get("minimum_vram_mb", meta.get("vram_required_mb", 0))
         else:
             vram_required = meta.get("vram_required_mb", 0)
-        # --- preflight result from persisted state ---
-        db_preflight_state = load_provider_state_from_db(name)
+        # --- preflight result from persisted state (reuses db_state from above) ---
         try:
             from runtime.preflight import PreflightResult
         except ImportError:
             from preflight import PreflightResult
         preflight_result_for_state = None
-        if db_preflight_state:
-            if db_preflight_state.get("preflight_passed") is True:
+        if db_state:
+            if db_state.get("preflight_passed") is True:
                 preflight_result_for_state = PreflightResult(passed=True)
-            elif db_preflight_state.get("preflight_passed") is False:
+            elif db_state.get("preflight_passed") is False:
                 preflight_result_for_state = PreflightResult(passed=False, error_detail="Preflight did not pass")
             else:
-                last_result = db_preflight_state.get("last_preflight_result")
+                last_result = db_state.get("last_preflight_result")
                 if isinstance(last_result, dict) and "passed" in last_result:
                     preflight_result_for_state = PreflightResult(**last_result)
         preflight_checks = None
-        if db_preflight_state and isinstance(db_preflight_state.get("last_preflight_result"), dict):
-            preflight_checks = db_preflight_state["last_preflight_result"].get("checks")
+        if db_state and isinstance(db_state.get("last_preflight_result"), dict):
+            preflight_checks = db_state["last_preflight_result"].get("checks")
         # --- preflight ---
         preflight_state = _determine_preflight_state(name, repo_ok, venv_ok, weight_ok, native_req, missing_aux, manifest, preflight_result=preflight_result_for_state)
         # --- cuda ---
@@ -2582,7 +2603,12 @@ def get_install_status() -> dict:
         # live state is authoritative: do not resurrect stale DB READY
         source = "live"
         persisted_entry = persisted_state.get("repos", {}).get(name)
-        installed_legacy = repo_ok and weight_ok
+        # Persisted install state is authoritative for `installed` — if
+        # install_provider() recorded an installed_at timestamp, the model
+        # is installed even if a transient filesystem check (e.g. permission
+        # error on .venv/bin/python) fails.
+        was_installed = bool(persisted_entry and persisted_entry.get("installed_at"))
+        installed_legacy = was_installed or (repo_ok and weight_ok)
         # --- capabilities (from manifest when available, else metadata) ---
         capabilities = _build_capability_states(name, meta, manifest, native_state=native_state, preflight_checks=preflight_checks)
         status[name] = {

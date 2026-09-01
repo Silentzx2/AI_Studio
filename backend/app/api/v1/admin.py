@@ -1232,6 +1232,9 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
 
                     _dl_update(model_id, status="completed", percent=100,
                                phase="complete", log="Installation complete")
+                    # Invalidate model list cache so next poll reflects new state
+                    from app.core.cache import invalidate
+                    invalidate("list_models")
                     logger.info("Provider %s installed.", model_id)
                 else:
                     err = result.get("error", "Unknown error")
