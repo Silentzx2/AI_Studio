@@ -656,6 +656,23 @@ colab_start_services() {
     echo -e "    Stop           : bash scripts/colab.sh --stop"
     echo -e "    Restart        : bash scripts/colab.sh --restart"
     echo ""
+    echo -e "  ${BOLD}Auto-restart (survives Colab idle cleanup):${NC}"
+    echo -e "    Watchdog       : bash scripts/colab_watch.sh"
+    echo ""
+    echo -e "  ${YELLOW}Note:${NC} Colab kills background processes during idle cleanup, so"
+    echo -e "  services can turn off after a few minutes. The watchdog auto-restarts"
+    echo -e "  them — no manual keep-alive required."
+    echo ""
+
+    # ── Auto-restart Watchdog ──────────────────────────────────────────────
+    # Colab kills background processes during idle cleanup, so the API,
+    # Celery, and Frontend can die minutes after this script returns. The
+    # watchdog runs indefinitely in the terminal and auto-restarts any
+    # service that goes down — no manual keep-alive required.
+    kill_by_pid_file "$PID_DIR/watchdog.pid"
+    nohup bash scripts/colab_watch.sh > "$LOG_DIR/watchdog.log" 2>&1 &
+    write_pid "$PID_DIR/watchdog.pid" $!
+    log "Watchdog started (PID: $(cat $PID_DIR/watchdog.pid)) — auto-restarts services if Colab kills them."
 }
 
 colab_stop_services() {
@@ -694,6 +711,13 @@ colab_stop_services() {
         info "Stopping Backend API..."
         kill_by_pid_file "$PID_DIR/api.pid"
         log "Backend API stopped"
+    fi
+
+    # Stop Watchdog (if running)
+    if [[ -f "$PID_DIR/watchdog.pid" ]]; then
+        info "Stopping Watchdog..."
+        kill_by_pid_file "$PID_DIR/watchdog.pid"
+        log "Watchdog stopped"
     fi
 
     # Stop Celery Worker (additional wait for graceful shutdown)
