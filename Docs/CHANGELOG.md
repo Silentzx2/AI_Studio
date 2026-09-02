@@ -25,6 +25,11 @@
 - `python -m compileall -q backend` — PASS
 - `node_modules/.bin/tsc --noEmit` — PASS (0 errors)
 - `bash -n scripts/colab.sh scripts/setup.sh` — PASS
+- WorldGen weights repo verified against upstream: `LeoXie/WorldGen` is the
+  **official** weights repo (the author's README links it), containing
+  `models--WorldGen-Flux-Lora/worldgen_img2scene.safetensors` (44.9MB) +
+  `worldgen_text2scene.safetensors` (34.6MB) = 79.6MB total — matching the
+  ~70MB the user downloaded. The repo is NOT wrong.
 
 ## [v4.7.5] - 2026-09-02
 
