@@ -315,21 +315,29 @@ alembic upgrade head
 
 ### 5. Frontend Setup
 
+The standard Next.js production workflow is used everywhere — Colab, local
+`start.sh`, supervisor restart, and watchdog recovery:
+
 ```bash
 cd ..
 
 # Install Node.js dependencies
 npm install
 
-# Copy environment if needed
-cp .env.example .env.local
-
-# Build for production
+# Build for production (build once; the supervisor restarts without rebuilding)
 npm run build
 
-# Or start development server
+# Start the production server — the ONLY production entrypoint
+npm start
+
+# Or start the development server (hot reload)
 npm run dev
 ```
+
+> The standalone server (`node .next/standalone/server.js`) is **not** the
+> normal runtime entrypoint. It is only used by the Docker packaging path
+> (`scripts/package-production.sh`), which builds with
+> `AI_STUDIO_STANDALONE=1`. Do not start it manually for normal operation.
 
 ### 6. Start Services
 
@@ -1002,16 +1010,15 @@ bash scripts/start.sh        # Starts everything (interactive mode selection)
 
 # Option 2: Manual frontend-only restart (advanced)
 # 1. Find and kill only the frontend process
-pkill -f "next start"        # For production mode
-pkill -f "next dev"          # For dev mode
-pkill -f "next-server"       # Alternative process name
+pkill -f "next start"        # production mode (npm start)
+pkill -f "next-server"       # process name used by `next start`
 
 # 2. Remove frontend PID file
 rm -f .pids/frontend.pid
 
-# 3. Restart frontend manually
+# 3. Restart frontend manually (standard production command)
 cd /path/to/AI_Studio
-NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev > logs/frontend.log 2>&1 &
+NEXT_PUBLIC_API_URL=http://localhost:8000 npm start > logs/frontend.log 2>&1 &
 echo $! > .pids/frontend.pid
 ```
 

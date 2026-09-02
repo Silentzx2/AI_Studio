@@ -1,5 +1,49 @@
 # AI 3D Studio — Changelog
 
+## [v4.7.9] - 2026-09-02
+
+### Fixed
+
+#### Colab frontend startup used a custom standalone server instead of `npm start`
+
+The normal AI 3D Studio frontend runtime now uses the standard Next.js
+production workflow everywhere — Colab bootstrap, `start.sh`, supervisor
+restart, and watchdog recovery:
+
+```bash
+npm run build
+npm start
+```
+
+Root cause: `next.config.ts` had `output: 'standalone'` unconditionally, and
+Next.js 16.3.0 refuses to run `next start` when standalone output is enabled
+(`"next start" does not work with "output: standalone" configuration`). The
+Colab scripts therefore started `node .next/standalone/server.js` directly,
+which diverged from the standard production path, broke restart parity, and
+left a per-environment startup branch to maintain.
+
+Changes:
+- `next.config.ts` — `output: 'standalone'` is now opt-in via the
+  `AI_STUDIO_STANDALONE=1` env var. It is only enabled by the Docker
+  packaging path (`scripts/package-production.sh`).
+- `scripts/colab.sh` — frontend starts with `npm start` after a one-time
+  `npm run build`; build failure reports `Frontend build FAILED` and startup
+  aborts. A real HTTP readiness gate (root page 200 + a `_next/static` CSS
+  asset 200) must pass before `Frontend ✓ Healthy`; `STARTUP FAILED` is
+  printed if API or frontend is unhealthy before the summary banner.
+- `scripts/colab_watch.sh` — `start_frontend()` uses `npm start`; builds
+  once if `.next` is missing, restarts with `npm start` only.
+- `scripts/ensure-build-and-start.js` — prefers `npm start`; falls back to
+  the standalone server only when `AI_STUDIO_STANDALONE=1` is explicitly set.
+- `Docs/setup-guide.md` — documents `npm run build` / `npm start` as the
+  single production entrypoint.
+
+### Verification
+- `npm run build` — PASS (no `.next/standalone` produced, as expected)
+- `npm start` — root HTTP 200, CSS 200, JS 200, `next-server` process running
+- `bash -n` on colab.sh / colab_watch.sh / stop.sh — PASS
+- `node --check` on ensure-build-and-start.js — PASS
+
 ## [v4.7.8] - 2026-09-02
 
 ### Removed

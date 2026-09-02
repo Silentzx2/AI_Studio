@@ -176,10 +176,10 @@ start_worker() {
 start_frontend() {
     stop_pid frontend
 
-    # next.config.ts uses output: "standalone". Never fall back to `npm start`
-    # here: the standalone server is the deterministic production entrypoint.
-    if [[ ! -f "${PROJECT_ROOT}/.next/standalone/server.js" ]]; then
-        info "Frontend standalone server missing; building..."
+    # Normal Next.js production workflow: `npm run build` then `npm start`.
+    # Build once if the build output is missing; restarts use `npm start`.
+    if [[ ! -d "${PROJECT_ROOT}/.next" ]]; then
+        info "Frontend build missing; building..."
         if ! (
             cd "${PROJECT_ROOT}" &&
             npm run build > "${LOG_DIR}/frontend_build.log" 2>&1
@@ -190,13 +190,13 @@ start_frontend() {
     fi
 
     : > "${LOG_DIR}/frontend.log"
-    info "Starting Next.js standalone server..."
+    info "Starting Next.js production server (npm start)..."
     (
         cd "${PROJECT_ROOT}" || exit 1
         export HOSTNAME="$FRONTEND_HOST"
         export PORT=3000
         export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-http://localhost:8000}"
-        exec node .next/standalone/server.js
+        exec npm start
     ) >> "${LOG_DIR}/frontend.log" 2>&1 &
     write_pid frontend "$!"
 

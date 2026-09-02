@@ -16,7 +16,14 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  output: 'standalone',
+  // ponytail: standalone output is ONLY enabled for the Docker packaging path
+  // (scripts/package-production.sh, which runs `node .next/standalone/server.js`
+  // inside its entrypoint). For the normal runtime — Colab, local start.sh,
+  // supervisor restart, watchdog recovery — the standard `npm start` /
+  // `next start` production server is used instead. Next.js 16 refuses to run
+  // `next start` when output is 'standalone', so leaving it on unconditionally
+  // broke the standard production workflow. Toggle via AI_STUDIO_STANDALONE=1.
+  ...(process.env.AI_STUDIO_STANDALONE === '1' ? { output: 'standalone' } : {}),
   transpilePackages: ['motion', 'three'],
 
   // Prevents turbopack from resolving workspace root to a parent directory

@@ -358,8 +358,16 @@ celery -A app.workers.celery_app worker --loglevel=info
 
 # Frontend setup (in project root)
 npm install
-npm run dev  # Starts on http://localhost:3000
+npm run build   # production build (build once)
+npm start       # standard Next.js production server — the normal entrypoint
+# npm run dev   # development server (hot reload)
 ```
+
+> The standalone server (`node .next/standalone/server.js`) is **not** the
+> normal runtime entrypoint. It is only used by the Docker packaging path
+> (`scripts/package-production.sh`, which builds with
+> `AI_STUDIO_STANDALONE=1`). Use `npm start` for Colab, local, supervisor
+> restart, and watchdog recovery.
 
 See [Setup Guide](docs/setup-guide.md) for detailed instructions.
 

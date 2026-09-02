@@ -600,31 +600,32 @@ colab_start_services() {
     FRONTEND_PID_FILE="$PID_DIR/frontend.pid"
     kill_by_pid_file "$FRONTEND_PID_FILE"
 
-    # next.config.ts uses output: 'standalone', so `npm start` does NOT work —
-    # the server is .next/standalone/server.js. Build first if needed.
-    if [[ ! -d .next/standalone ]]; then
-        info "Building frontend (first run)..."
-        npm run build > "$LOG_DIR/frontend_build.log" 2>&1 || {
-            err "Frontend build failed — see logs/frontend_build.log"
-        }
-    fi
-    if ! command -v npm &>/dev/null; then
-        err "npm not found — cannot start frontend"
-    else
-        (
-            export NEXT_PUBLIC_API_URL=http://localhost:8000
-            if [[ -f .next/standalone/server.js ]]; then
-                nohup node .next/standalone/server.js > "$LOG_DIR/frontend.log" 2>&1 &
-            else
-                nohup npm start > "$LOG_DIR/frontend.log" 2>&1 &
-            fi
-            write_pid "$FRONTEND_PID_FILE" $!
-        )
-        log "Frontend started (PID: $(cat $FRONTEND_PID_FILE))"
+    # Normal Next.js production workflow: `npm run build` then `npm start`.
+    # Build once here; the supervisor restarts with `npm start` only.
+    if [[ ! -d .next ]]; then
+        info "Building Next.js for production..."
+        if ! npm run build > "$LOG_DIR/frontend_build.log" 2>&1; then
+            err "Frontend build FAILED — see logs/frontend_build.log"
+            return 1
+        fi
     fi
 
+    if ! command -v npm &>/dev/null; then
+        err "npm not found — cannot start frontend"
+        return 1
+    fi
+
+    (
+        export HOSTNAME=0.0.0.0
+        export PORT=3000
+        export NEXT_PUBLIC_API_URL=http://localhost:8000
+        nohup npm start > "$LOG_DIR/frontend.log" 2>&1 &
+        write_pid "$FRONTEND_PID_FILE" $!
+    )
+    log "Frontend started (npm start, PID: $(cat $FRONTEND_PID_FILE))"
+
     # ── Post-Start Verification ────────────────────────────────────────────
-    # Verify every service is actually alive before declaring success. Colab
+    # Verify every service is actually serving before declaring success. Colab
     # can silently drop background processes; catching it here gives the user
     # a clear action instead of a vague "services turned off" later.
     info "Verifying services are alive..."
@@ -634,16 +635,16 @@ colab_start_services() {
         if curl -sf "http://localhost:${port}/" &>/dev/null; then
             log "${name} OK (port ${port})"
         else
-            warn "${name} NOT RESPONDING on port ${port}"
+            err "${name} NOT RESPONDING on port ${port}"
             all_ok=false
         fi
     done
     if [[ "$all_ok" == "true" ]]; then
         log "All services verified running"
     else
-        warn "Some services failed to start. Check logs/frontend.log and logs/api.log"
-        warn "On Colab, background processes may be killed by idle cleanup —"
-        warn "run the keep-alive in a notebook cell (see below) to keep them alive."
+        err "One or more required services failed to start."
+        err "STARTUP FAILED — check logs/api.log and logs/frontend.log"
+        return 1
     fi
 
     # ── Summary ───────────────────────────────────────────────────────────
@@ -1823,40 +1824,59 @@ if [[ ! -d node_modules ]]; then
 fi
 
 if [[ ! -d .next ]]; then
-    info "Building Next.js..."
-    npm run build 2>&1 | tail -5
+    info "Building Next.js for production..."
+    if ! npm run build > "$LOG_DIR/frontend_build.log" 2>&1; then
+        err "Frontend build FAILED — see logs/frontend_build.log"
+        exit 1
+    fi
 fi
 
 kill_by_pid_file "$PID_DIR/frontend.pid"
 
-# next.config.ts uses output: "standalone". `npm start` is not the correct
-# runtime entrypoint for a standalone build; start the generated server
-# directly so the frontend process does not exit immediately.
-if [[ ! -f ".next/standalone/server.js" ]]; then
-    info "Standalone server not found — rebuilding Next.js..."
-    npm run build > "$LOG_DIR/frontend_build.log" 2>&1 || {
-        err "Next.js standalone build failed. See logs/frontend_build.log"
-        exit 1
-    }
+if ! command -v npm &>/dev/null; then
+    err "npm not found — cannot start frontend"
+    exit 1
 fi
 
 nohup env HOSTNAME=0.0.0.0 PORT=3000 NEXT_PUBLIC_API_URL=http://localhost:8000 \
-    node .next/standalone/server.js \
+    npm start \
     > "$LOG_DIR/frontend.log" 2>&1 &
 write_pid "$PID_DIR/frontend.pid" $!
 
-log "Frontend started (standalone server, PID: $(cat $PID_DIR/frontend.pid))"
+log "Frontend started (npm start, PID: $(cat $PID_DIR/frontend.pid))"
 
-# Wait for Frontend to be ready
-info "Waiting for Frontend (timeout: 30s)..."
-for i in {1..15}; do
-    if curl -sf http://localhost:3000 &>/dev/null; then
-        log "Frontend is ready"
+# Wait for Frontend to be ready. Do not report success until the root page
+# actually responds — a PID alone is not readiness (see spec §9).
+info "Waiting for Frontend to serve HTTP (timeout: 60s)..."
+FRONTEND_READY=false
+for i in {1..30}; do
+    if curl -fsS --max-time 3 http://127.0.0.1:3000/ >/dev/null 2>&1; then
+        FRONTEND_READY=true
         break
     fi
     echo -n "."
     sleep 2
 done
+
+if [[ "$FRONTEND_READY" != "true" ]]; then
+    err "Frontend did not become healthy. See logs/frontend.log"
+    err "STARTUP FAILED"
+    exit 1
+fi
+
+# Verify Next.js serves static assets correctly (spec §6).
+if CSS_PATH=$(curl -s --max-time 3 http://127.0.0.1:3000/ 2>/dev/null \
+        | grep -oE 'href="(/_next/static/[^"]+\.css)"' \
+        | head -1 | sed 's/href="//;s/"$//'); then
+    if curl -fsS --max-time 3 "http://127.0.0.1:3000${CSS_PATH}" >/dev/null 2>&1; then
+        log "Frontend static assets OK (${CSS_PATH})"
+    else
+        warn "Frontend CSS asset returned non-200: ${CSS_PATH}"
+    fi
+else
+    warn "Could not locate a CSS asset link on the rendered page"
+fi
+log "Frontend ✓ Healthy"
 
 
 # ── Service Watchdog / Foreground Supervisor ───────────────────────────────
@@ -1917,6 +1937,19 @@ start_tunnel() {
 
 CF_API_URL=""
 CF_FRONTEND_URL=""
+
+# Final readiness gate (spec §10): do NOT print "All Services Started" unless
+# every required service is actually serving HTTP. A PID alone is not health.
+FINAL_API_OK=false
+FINAL_FRONTEND_OK=false
+curl -fsS --max-time 3 http://127.0.0.1:8000/api/v1/health >/dev/null 2>&1 && FINAL_API_OK=true
+curl -fsS --max-time 3 http://127.0.0.1:3000/ >/dev/null 2>&1 && FINAL_FRONTEND_OK=true
+
+if [[ "$FINAL_API_OK" != "true" || "$FINAL_FRONTEND_OK" != "true" ]]; then
+    err "Required service(s) unhealthy before summary (API=${FINAL_API_OK} Frontend=${FINAL_FRONTEND_OK})"
+    err "STARTUP FAILED — check logs/api.log and logs/frontend.log"
+    exit 1
+fi
 
 if install_cloudflared; then
     CF_API_URL=$(start_tunnel 8000 "Backend API")
