@@ -9,6 +9,7 @@ from manifests — they are not hardcoded configuration.
 from __future__ import annotations
 import logging
 import re
+import time
 from pathlib import Path
 logger = logging.getLogger(__name__)
 _MANIFEST_DIR = Path(__file__).resolve().parent / "manifests"
@@ -17,6 +18,23 @@ _MANIFEST_DIR = Path(__file__).resolve().parent / "manifests"
 # adding its manifest, not editing a Python provider/file-name mapping.
 # Required top-level keys in every manifest.
 _REQUIRED_KEYS = {"name", "source", "environment", "dependencies", "weights", "hardware", "capabilities", "preflight"}
+
+# ponytail: manifest parsing is pure CPU + YAML decode and is called from many
+# hot paths (runtime status, health checks, options). Without a cache every
+# /runtime/status request re-parsed all 6 manifests 3+ times, adding seconds.
+# Cache is short (30s) and invalidated explicitly on manifest edits via
+# invalidate_manifest_cache(). Upgrade path: watch the manifests dir for
+# filesystem changes instead of a fixed TTL.
+_manifest_cache: dict[str, dict] = {}
+_manifest_cache_ts: float = 0.0
+_MANIFEST_TTL = 30.0
+
+
+def invalidate_manifest_cache() -> None:
+    """Drop the cached manifests so the next read re-parses from disk."""
+    global _manifest_cache, _manifest_cache_ts
+    _manifest_cache = {}
+    _manifest_cache_ts = 0.0
 
 
 def _manifest_path(provider_name: str) -> Path:
@@ -83,7 +101,15 @@ def load_manifest(provider_name: str) -> dict:
     return data
 
 def list_manifests() -> list[str]:
-    """Return provider names discovered from all YAML manifests."""
+    """Return provider names discovered from all YAML manifests.
+
+    Cached alongside load_all_manifests() — re-globbing + parsing the name
+    field of every manifest on every call is pure waste on hot paths.
+    """
+    global _manifest_cache, _manifest_cache_ts
+    now = time.monotonic()
+    if _manifest_cache and (now - _manifest_cache_ts) < _MANIFEST_TTL:
+        return list(_manifest_cache.keys())
     providers: list[str] = []
     for path in sorted(_MANIFEST_DIR.glob("*.yaml")):
         try:
@@ -97,13 +123,24 @@ def list_manifests() -> list[str]:
 
 
 def load_all_manifests() -> dict[str, dict]:
-    """Load all manifests into a dict: provider_name -> manifest."""
+    """Load all manifests into a dict: provider_name -> manifest.
+
+    Cached for _MANIFEST_TTL seconds — parsing all 6 manifests is pure CPU +
+    YAML decode and is hit from many hot paths (runtime status, health checks,
+    options), so a cache cuts /runtime/status from seconds to milliseconds.
+    """
+    global _manifest_cache, _manifest_cache_ts
+    now = time.monotonic()
+    if _manifest_cache and (now - _manifest_cache_ts) < _MANIFEST_TTL:
+        return _manifest_cache
     result: dict[str, dict] = {}
     for provider_name in list_manifests():
         try:
             result[provider_name] = load_manifest(provider_name)
         except Exception as exc:
             logger.warning("Skipping invalid manifest %s: %s", provider_name, exc)
+    _manifest_cache = result
+    _manifest_cache_ts = now
     return result
 
 
@@ -185,6 +222,11 @@ def get_provider_metadata(provider_name: str) -> dict:
     This is a generated compatibility view; data originates from YAML manifests.
     """
     manifest = load_manifest(provider_name)
+    return _build_provider_metadata(provider_name, manifest)
+
+
+def _build_provider_metadata(provider_name: str, manifest: dict) -> dict:
+    """Build PROVIDER_METADATA-compatible dict from an already-loaded manifest."""
     hw = manifest.get("hardware", {}) or {}
     caps = manifest.get("capabilities", {}) or {}
     source = manifest.get("source", {}) or {}
@@ -221,9 +263,11 @@ def get_provider_metadata(provider_name: str) -> dict:
 def get_all_provider_metadata() -> dict[str, dict]:
     """Build PROVIDER_METADATA-compatible dict for all providers.
 
-    This is a generated compatibility view; data originates from YAML manifests.
+    Built from the cached manifest dict so a full scan does not re-parse
+    every YAML on each call — that was the dominant cost of /runtime/status.
     """
-    return {pid: get_provider_metadata(pid) for pid in list_manifests()}
+    manifests = load_all_manifests()
+    return {pid: _build_provider_metadata(pid, m) for pid, m in manifests.items()}
 
 
 # Compatibility views generated from manifests — NOT hardcoded configuration.

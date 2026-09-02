@@ -2519,7 +2519,11 @@ def get_install_status() -> dict:
         # --- repo ---
         if repo_name:
             rp = storage.get_repo_path(repo_name)
-            repo_ok = rp.exists() and (rp / ".git").exists()
+            try:
+                repo_ok = rp.exists() and (rp / ".git").exists()
+            except (PermissionError, OSError) as exc:
+                logger.debug("Cannot stat repo for %s: %s", name, exc)
+                repo_ok = False
             repo_state = "ok" if repo_ok else "missing"
         else:
             repo_ok = True
@@ -2529,7 +2533,18 @@ def get_install_status() -> dict:
         venv_path_str = None
         if repo_name:
             venv_python = storage.get_model_venv_path(repo_name) / "bin" / "python"
-            venv_ok = venv_python.exists()
+            # ponytail: .exists() can raise PermissionError when the parent
+            # directory isn't traversable by this process (e.g. a per-model
+            # venv written by a different user, like DetailGen3D). Without a
+            # guard the exception propagates out of get_install_status() and
+            # crashes /runtime/status and the registry build. Treat an
+            # unreadable venv as missing — the provider can't load from it
+            # anyway — and record the reason so the UI can explain it.
+            try:
+                venv_ok = venv_python.exists()
+            except (PermissionError, OSError) as exc:
+                logger.debug("Cannot stat venv python for %s: %s", name, exc)
+                venv_ok = False
             venv_path_str = str(venv_python.parent.parent) if venv_ok else str(venv_python.parent.parent)
         venv_state = "ok" if venv_ok else "missing"
         # --- weights ---

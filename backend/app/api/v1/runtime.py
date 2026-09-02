@@ -61,11 +61,29 @@ async def _build_runtime_status_payload() -> dict[str, Any]:
         eng_health = {}
 
     worker_count = 0
+    # ponytail: celery inspect can block for many seconds probing a broker that
+    # isn't reachable (e.g. Redis connection refused on Colab). It must never
+    # serialize the /runtime/status response. Run it off the event loop with a
+    # short deadline and cache the result briefly so repeated cache misses
+    # don't each pay the full probe cost.
     try:
         from app.workers.celery_app import celery_app
-        inspect = celery_app.control.inspect(timeout=1.0)
-        stats = inspect.stats() or {}
-        worker_count = len(stats)
+        from app.core.cache import get_cached as _get_cached, set_cached as _set_cached
+
+        cached_workers = _get_cached("runtime_workers", ttl_seconds=10)
+        if cached_workers is not None:
+            worker_count = int(cached_workers)
+        else:
+            async def _probe():
+                return await asyncio.to_thread(
+                    lambda: len(celery_app.control.inspect(timeout=1.0).stats() or {})
+                )
+
+            try:
+                worker_count = await asyncio.wait_for(_probe(), timeout=1.5)
+            except Exception:
+                worker_count = 0
+            _set_cached("runtime_workers", worker_count)
     except Exception:
         pass
 
@@ -257,7 +275,12 @@ async def get_runtime_options():
 
         # ponytail: Overlay authoritative on-disk install state so PROVIDER_METADATA
         # models (which skip the registry merge due to seen_ids) still report
-        # installed/status correctly.
+        # installed/status correctly. `available` is overlaid too: it comes
+        # from registry.get_availability(), which is backed by an lru_cache'd
+        # registry built ONCE per process from get_install_status() at first
+        # request — so a model installed after startup would show
+        # available=false forever and never appear in the selector. Derive
+        # availability from the live install state instead.
         try:
             install_map = {str(k).lower(): v for k, v in install_status.items()}
             for m in three_d_models:
@@ -266,6 +289,11 @@ async def get_runtime_options():
                 if ist:
                     m["installed"] = bool(ist.get("installed", m.get("installed", False)))
                     m["status"] = ist.get("status") or m.get("status") or ("ready" if m["installed"] else "not_installed")
+                    live_state = ist.get("state") or ""
+                    m["available"] = bool(
+                        live_state in ("runtime_ready", "ready")
+                        or (m["installed"] and not ist.get("blocking_reason"))
+                    )
         except Exception as install_exc:
             logger.warning("Could not overlay install state into runtime options: %s", install_exc)
 

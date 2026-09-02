@@ -38,13 +38,36 @@ class RuntimeHealth:
         str(Path.home() / ".local" / "bin" / "blender"),
     ]
 
+    # ponytail: GPU detection cold-imports torch (~3-5s on first import), and
+    # _check_gpu runs on every /runtime/status cache miss. Caching the GPU
+    # result separately with a long TTL amortizes that import across requests
+    # instead of paying it on every 15s payload cache miss. Hardware state
+    # changes rarely, so a long TTL is safe; the GPU status is also surfaced
+    # by /system/gpu and the health endpoint for freshness when needed.
+    _gpu_cache: tuple[float, dict] = (0.0, {})
+    _GPU_TTL = 60.0
+
+    @classmethod
+    def _get_cached_gpu(cls) -> dict:
+        import time
+        now = time.monotonic()
+        if cls._gpu_cache[1] and (now - cls._gpu_cache[0]) < cls._GPU_TTL:
+            return cls._gpu_cache[1]
+        result = cls._check_gpu()
+        cls._gpu_cache = (now, result)
+        return result
+
+    @classmethod
+    def invalidate_gpu_cache(cls) -> None:
+        cls._gpu_cache = (0.0, {})
+
     @classmethod
     async def check_all(cls) -> dict:
         # Run independent checks concurrently using thread pool to avoid
         # blocking the event loop on subprocess and filesystem calls.
         import asyncio
         gpu, cuda, blender, python, providers, repos, weights, resources, storage, services, env = await asyncio.gather(
-            asyncio.to_thread(cls._check_gpu),
+            asyncio.to_thread(cls._get_cached_gpu),
             asyncio.to_thread(cls._check_cuda),
             asyncio.to_thread(cls._check_blender),
             asyncio.to_thread(cls._check_python),
