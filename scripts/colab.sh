@@ -724,6 +724,28 @@ colab_stop_services() {
         kill_by_pid_file "$PID_DIR/watchdog.pid"
         log "Watchdog stopped"
     fi
+    # ── Stop the Colab foreground supervisor first ─────────────────────────────
+    # When colab.sh is running, the supervisor owns API/Celery/frontend. If the
+    # supervisor remains alive, it would correctly interpret a manual stop as a
+    # service failure and restart the services. Terminate the supervisor first.
+    SUPERVISOR_PID_FILE="${PROJECT_ROOT}/.pids/supervisor.pid"
+    if [[ -f "$SUPERVISOR_PID_FILE" ]]; then
+        supervisor_pid="$(cat "$SUPERVISOR_PID_FILE" 2>/dev/null || true)"
+        if [[ "$supervisor_pid" =~ ^[0-9]+$ ]] && kill -0 "$supervisor_pid" 2>/dev/null; then
+            info "Stopping Colab foreground supervisor (PID: $supervisor_pid)..."
+            kill -TERM "$supervisor_pid" 2>/dev/null || true
+            for _ in {1..20}; do
+                kill -0 "$supervisor_pid" 2>/dev/null || break
+                sleep 0.5
+            done
+            if kill -0 "$supervisor_pid" 2>/dev/null; then
+                warn "Supervisor did not exit gracefully; force killing it."
+                kill -KILL "$supervisor_pid" 2>/dev/null || true
+            fi
+        fi
+        rm -f "$SUPERVISOR_PID_FILE"
+    fi
+
 
     # Stop Celery Worker (additional wait for graceful shutdown)
     info "Waiting for services to fully stop..."
@@ -810,7 +832,10 @@ colab_interactive() {
                 ;;
             2)
                 colab_start_services
-                return 0
+                # Keep the Colab shell/session alive by making the supervisor
+                # the foreground process. Without this, Colab can reap the
+                # background service tree when the launcher returns.
+                exec bash "${PROJECT_ROOT}/scripts/colab_watch.sh" --foreground
                 ;;
             3)
                 colab_stop_services
@@ -818,7 +843,8 @@ colab_interactive() {
                 ;;
             4)
                 colab_restart_services
-                return 0
+                # Continue as a foreground supervisor after restart.
+                exec bash "${PROJECT_ROOT}/scripts/colab_watch.sh" --foreground
                 ;;
             5)
                 _colab_show_status
@@ -1751,105 +1777,15 @@ if ! curl -sf http://localhost:8000/api/v1/health &>/dev/null; then
     exit 1
 fi
 
-# ── Colab Keep-Alive (Browser-Level) ───────────────────────────────────────
-# Colab kills background processes (nohup/sleep) during idle cleanup.
-# The ONLY reliable keepalive is browser JS that simulates user activity.
-# Auto-inject via IPython if available; otherwise print instructions.
-KEEPALIVE_JS_PY="${PROJECT_ROOT}/scripts/colab_keepalive_js.py"
-if command -v python3 &>/dev/null; then
-    python3 -c "
-try:
-    from IPython.display import Javascript, display
-    display(Javascript('''
-        (function(){
-            setInterval(function(){
-                try { document.body.dispatchEvent(new MouseEvent('click',{bubbles:true})); } catch(e){}
-                try { document.dispatchEvent(new KeyboardEvent('keydown',{key:' ',bubbles:true})); } catch(e){}
-            }, 60000);
-            console.log('[keepalive] auto-injected');
-        })();
-    '''))
-    print('[keepalive] Browser keep-alive auto-injected.')
-except Exception as e:
-    print(f'[keepalive] Auto-inject failed ({e}). Run manually:')
-    print('    exec(open(\"${KEEPALIVE_JS_PY}\").read())')
-" 2>/dev/null || {
-        log "IPython not available — run manually: exec(open('${KEEPALIVE_JS_PY}').read())"
-    }
-else
-    log "Python3 not available — run manually: exec(open('${KEEPALIVE_JS_PY}').read())"
-fi
+# ── Service lifetime: foreground supervisor ─────────────────────────────────
+# IMPORTANT: The Colab runtime is still alive while this script runs. Keep the
+# application service supervisor in the foreground rather than relying on
+# browser-side synthetic activity. This prevents the shell that launched the
+# services from returning while the application is still being tested.
+info "Colab service supervisor will remain attached to this terminal."
 
-# ── Browser-Level Keep-Alive (JavaScript injection) ─────────────────────────
-# The network ping above keeps the VM active, but Colab's browser-level idle
-# detection (Chrome throttles inactive tabs) can still disconnect. The script
-# below generates a Python file the user runs in a Colab cell to inject JS
-# that simulates periodic mouse clicks and keyboard activity.
-KEEPALIVE_JS_PY="${PROJECT_ROOT}/scripts/colab_keepalive_js.py"
-cat > "$KEEPALIVE_JS_PY" << 'JSKEEP'
-#!/usr/bin/env python3
-"""
-Colab browser-level keep-alive.
-
-Run this in a Colab cell AFTER the API is up:
-    exec(open('scripts/colab_keepalive_js.py').read())
-
-Injects JavaScript that simulates periodic mouse clicks and keyboard
-activity to prevent Colab's browser idle-detection from disconnecting
-the runtime. Complements the network-level keep-alive curl loop.
-"""
-from IPython.display import Javascript, display
-
-JS_CODE = """
-(function() {
-    var clicks = 0;
-
-    function simulateActivity() {
-        // Simulate a mouse click on the page body
-        try {
-            var evt = new MouseEvent('click', {
-                bubbles: true,
-                cancelable: true,
-                view: window
-            });
-            document.body.dispatchEvent(evt);
-        } catch (e) {}
-
-        // Simulate a harmless keypress (Space) to trigger keyboard activity
-        try {
-            var ke = new KeyboardEvent('keydown', {
-                key: ' ',
-                bubbles: true,
-                cancelable: true
-            });
-            document.dispatchEvent(ke);
-        } catch (e) {}
-
-        // Try to click the "Connect" button (selectors vary by Colab version)
-        try {
-            var btn = document.querySelector('colab-connect-button') ||
-                      document.querySelector('[aria-label*="Connect"]') ||
-                      document.querySelector('[aria-label*="connect"]');
-            if (btn) btn.click();
-        } catch (e) {}
-
-        clicks++;
-        if (clicks % 10 === 0) {
-            console.log('[keepalive] simulated activity: ' + clicks + ' cycles');
-        }
-    }
-
-    // Run immediately, then every 60 seconds
-    simulateActivity();
-    setInterval(simulateActivity, 60000);
-})();
-"""
-
-display(Javascript(JS_CODE))
-print("[keep-alive] Browser-level keep-alive injected. Simulating mouse+keyboard activity every 60s.")
-print("[keep-alive] Keep this cell's output visible. If the runtime disconnects, re-run this cell.")
-JSKEEP
-    log "Browser keep-alive script generated: scripts/colab_keepalive_js.py"
+# Browser keep-alive is intentionally not used as a service-lifetime mechanism.
+# The foreground supervisor below owns the application services.
 
 # ── Start Celery Worker ───────────────────────────────────────────────────
 step "Starting Celery Worker..."
@@ -1892,11 +1828,24 @@ if [[ ! -d .next ]]; then
 fi
 
 kill_by_pid_file "$PID_DIR/frontend.pid"
-nohup env NEXT_PUBLIC_API_URL=http://localhost:8000 npm start \
+
+# next.config.ts uses output: "standalone". `npm start` is not the correct
+# runtime entrypoint for a standalone build; start the generated server
+# directly so the frontend process does not exit immediately.
+if [[ ! -f ".next/standalone/server.js" ]]; then
+    info "Standalone server not found — rebuilding Next.js..."
+    npm run build > "$LOG_DIR/frontend_build.log" 2>&1 || {
+        err "Next.js standalone build failed. See logs/frontend_build.log"
+        exit 1
+    }
+fi
+
+nohup env HOSTNAME=0.0.0.0 PORT=3000 NEXT_PUBLIC_API_URL=http://localhost:8000 \
+    node .next/standalone/server.js \
     > "$LOG_DIR/frontend.log" 2>&1 &
 write_pid "$PID_DIR/frontend.pid" $!
 
-log "Frontend started (PID: $(cat $PID_DIR/frontend.pid))"
+log "Frontend started (standalone server, PID: $(cat $PID_DIR/frontend.pid))"
 
 # Wait for Frontend to be ready
 info "Waiting for Frontend (timeout: 30s)..."
@@ -1910,32 +1859,9 @@ for i in {1..15}; do
 done
 
 
-# ── Service Watchdog ───────────────────────────────────────────────────────
-# Lightweight monitor that restarts services if they die unexpectedly.
-# Runs in background. Complements the browser JS keepalive (which prevents
-# Colab idle cleanup). This handles crashes/OOM, not idle disconnects.
-(
-    while true; do
-        sleep 30
-        # Check backend API
-        if [[ -f "$PID_DIR/api.pid" ]] && ! kill -0 "$(cat "$PID_DIR/api.pid")" 2>/dev/null; then
-            warn "Backend API died — restarting..."
-            kill_by_pid_file "$PID_DIR/api.pid"
-            nohup env "$(cat .env 2>/dev/null | xargs)" uvicorn app.main:app --host 0.0.0.0 --port 8000 \
-                > "$LOG_DIR/api.log" 2>&1 &
-            write_pid "$PID_DIR/api.pid" $!
-        fi
-        # Check frontend
-        if [[ -f "$PID_DIR/frontend.pid" ]] && ! kill -0 "$(cat "$PID_DIR/frontend.pid")" 2>/dev/null; then
-            warn "Frontend died — restarting..."
-            kill_by_pid_file "$PID_DIR/frontend.pid"
-            nohup env NEXT_PUBLIC_API_URL=http://localhost:8000 npm start \
-                > "$LOG_DIR/frontend.log" 2>&1 &
-            write_pid "$PID_DIR/frontend.pid" $!
-        fi
-    done
-) > "$LOG_DIR/watchdog.log" 2>&1 &
-log "Service watchdog started (PID: $!)"
+# ── Service Watchdog / Foreground Supervisor ───────────────────────────────
+# Do NOT run a second background watchdog. The single foreground supervisor is
+# responsible for keeping the Colab session attached and recovering services.
 
 # ── Cloudflare Tunnel ──────────────────────────────────────────────────────
 step "Setting up Cloudflare Tunnel for external access..."
@@ -2026,21 +1952,13 @@ if [[ -z "$CF_FRONTEND_URL" && -z "$CF_API_URL" ]]; then
     echo -e "    Click the 🔗 icon next to the output cell or visit the localhost URLs above."
     echo ""
 fi
-echo -e "  ${BOLD}Colab Keep-Alive:${NC}"
-echo -e "    Network loop   : running in background (PID: $(cat "$KEEPALIVE_PID_FILE" 2>/dev/null || echo '?'))"
-echo -e "    Browser JS     : run in a cell → ${BOLD}exec(open('scripts/colab_keepalive_js.py').read())${NC}"
+echo -e "  ${BOLD}Service Supervisor:${NC} foreground Colab supervisor is active"
+echo -e "    The terminal cell stays running while API, Celery, and Frontend are supervised."
+echo -e "    Stop cleanly with ${GREEN}Ctrl+C${NC} or run ${GREEN}bash scripts/stop.sh${NC} from another shell."
 echo ""
-echo -e "  ${BOLD}Logs:${NC}"
-echo -e "    API      ${CYAN}logs/api.log${NC}"
-echo -e "    Worker   ${CYAN}logs/worker.log${NC}"
-echo -e "    Frontend ${CYAN}logs/frontend.log${NC}"
-echo -e "    Keep-Alive ${CYAN}logs/keepalive.log${NC}"
-echo ""
-echo -e "  ${BOLD}Management:${NC}"
-echo -e "    Stop services  : bash scripts/stop.sh"
-echo -e "    View status    : bash manager.sh"
-echo ""
-echo -e "  ${YELLOW}Note:${NC} A two-layer keep-alive is active to prevent idle disconnections:
-    network pings every 45s + browser JS simulating mouse/keyboard activity every 60s.
-    If the Colab runtime disconnects, re-run: ${GREEN}bash scripts/colab.sh${NC}"
-echo ""
+
+# Keep this process attached to the Colab terminal. The previous implementation
+# returned from the launcher while all three services were background jobs; that
+# made the service tree vulnerable to Colab shell cleanup. A single foreground
+# supervisor removes that lifecycle race and can restart an individual service.
+exec bash "${PROJECT_ROOT}/scripts/colab_watch.sh" --foreground
