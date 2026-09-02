@@ -198,12 +198,7 @@ async def get_runtime_options():
         three_d_models = []
         seen_ids: set[str] = set()
         for name, meta in provider_meta.items():
-            # WorldGen is declared category=world_generation in its manifest,
-            # but it is still a 3D-generation provider (emits splats/meshes) and
-            # is surfaced in the World workspace panel via three_d_models.
-            # Excluding it here silently broke the World panel: the model
-            # selector showed nothing even after a successful install.
-            if meta.get("category") not in ("3d_generation", "world_generation"):
+            if meta.get("category") != "3d_generation":
                 continue
             avail = registry.get_availability(name)
             vram_req = meta.get("vram_required_mb", 0)

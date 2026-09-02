@@ -38,7 +38,7 @@ for arg in "$@"; do
             echo "  --models=A,B,C      Download specific models (comma-separated)"
             echo "  --hf-token=TOKEN    HuggingFace token for gated models"
             echo ""
-            echo "Available models: hunyuan3d-2.1, hunyuan3d-2-mini, trellis, worldgen, detailgen3d, triposg"
+            echo "Available models: hunyuan3d-2.1, hunyuan3d-2-mini, trellis, detailgen3d, triposg"
             exit 0
             ;;
     esac

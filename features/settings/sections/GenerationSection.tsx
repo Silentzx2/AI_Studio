@@ -66,8 +66,7 @@ export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: 
     { id: 'hunyuan3d-1.0', label: 'HunYuan 3D' },
     { id: 'trellis', label: 'Trellis' },
   ];
-  // WorldGen is a dedicated workspace tab model, not a general provider
-  const providersList = rawList.filter((p: any) => (p.id || p.name) !== 'worldgen');
+  const providersList = rawList;
 
   const selectedModelObj = providersList.find((p: any) => (p.id || p.name) === provider);
 

@@ -7,7 +7,6 @@ import {
   User,
   Cable,
   Hexagon,
-  Globe,
   Zap,
   Package,
   Settings,
@@ -84,34 +83,27 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobi
 
           {workspaceMenuOpen && (
             <div className="absolute top-full left-0 mt-1 w-48 py-1 rounded-xl bg-[#191A1D] border border-white/[0.12] shadow-2xl z-50">
-              <button
-                onClick={() => { navigateToTool('model'); setWorkspaceMenuOpen(false); }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-zinc-200 hover:bg-[#25262A] hover:text-[#F9CF00] transition-colors"
-              >
-                <Box className="w-3.5 h-3.5 text-[#F9CF00]" />
-                <span>3D Model Studio</span>
-              </button>
-              <button
-                onClick={() => { navigateToTool('remesh'); setWorkspaceMenuOpen(false); }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-zinc-200 hover:bg-[#25262A] hover:text-[#F9CF00] transition-colors"
-              >
-                <Hexagon className="w-3.5 h-3.5 text-[#F9CF00]" />
-                <span>Quad Remesh (Poly)</span>
-              </button>
-              <button
-                onClick={() => { navigateToTool('worldgen'); setWorkspaceMenuOpen(false); }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-zinc-200 hover:bg-[#25262A] hover:text-[#F9CF00] transition-colors"
-              >
-                <Globe className="w-3.5 h-3.5 text-[#F9CF00]" />
-                <span>World Generation</span>
-              </button>
-              <button
-                onClick={() => { navigateToTool('texture'); setWorkspaceMenuOpen(false); }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-zinc-200 hover:bg-[#25262A] hover:text-[#F9CF00] transition-colors"
-              >
-                <Layers className="w-3.5 h-3.5 text-[#F9CF00]" />
-                <span>PBR Texture Studio</span>
-              </button>
+<button
+                 onClick={() => { navigateToTool('model'); setWorkspaceMenuOpen(false); }}
+                 className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-zinc-200 hover:bg-[#25262A] hover:text-[#F9CF00] transition-colors"
+               >
+                 <Box className="w-3.5 h-3.5 text-[#F9CF00]" />
+                 <span>3D Model Studio</span>
+               </button>
+               <button
+                 onClick={() => { navigateToTool('remesh'); setWorkspaceMenuOpen(false); }}
+                 className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-zinc-200 hover:bg-[#25262A] hover:text-[#F9CF00] transition-colors"
+               >
+                 <Hexagon className="w-3.5 h-3.5 text-[#F9CF00]" />
+                 <span>Quad Remesh (Poly)</span>
+               </button>
+               <button
+                 onClick={() => { navigateToTool('texture'); setWorkspaceMenuOpen(false); }}
+                 className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-zinc-200 hover:bg-[#25262A] hover:text-[#F9CF00] transition-colors"
+               >
+                 <Layers className="w-3.5 h-3.5 text-[#F9CF00]" />
+                 <span>PBR Texture Studio</span>
+               </button>
             </div>
           )}
         </div>

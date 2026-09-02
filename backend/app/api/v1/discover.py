@@ -267,17 +267,6 @@ async def get_featured_models(limit: int = Query(10, ge=1, le=50)):
             "difficulty": "beginner"
         },
         {
-            "id": "worldgen",
-            "name": "WorldGen",
-            "provider": "internal",
-            "category": "text-to-3d",
-            "description": "Text/image-to-3D scene generation via Gaussian Splatting",
-            "tags": ["featured", "scene-generation", "gaussian-splatting"],
-            "capabilities": ["text-to-3d", "image-to-3d", "gaussian-splatting", "mesh-export"],
-            "min_vram_mb": 10240,
-            "difficulty": "intermediate"
-        },
-        {
             "id": "instant-mesh",
             "name": "Instant Mesh",
             "provider": "internal",

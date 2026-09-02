@@ -1158,7 +1158,7 @@ _selected = _os.environ.get("COLAB_SELECTED_REPOS", "").strip()
 if _selected:
     COLAB_ALLOWED_REPOS = set(_selected.split(","))
 else:
-    COLAB_ALLOWED_REPOS = {"TripoSG", "TRELLIS", "Hunyuan3D-2mini", "WorldGen"}
+    COLAB_ALLOWED_REPOS = {"TripoSG", "TRELLIS", "Hunyuan3D-2mini"}
 
 # Map repos to their providers for Colab gating
 repos_to_prepare = []
@@ -1314,7 +1314,7 @@ except Exception as exc:
 
 storage = get_storage_config()
 # Colab: only preflight models that were prepared
-COLAB_ALLOWED_REPOS = {"TripoSG", "TRELLIS", "Hunyuan3D-2mini", "WorldGen"}
+COLAB_ALLOWED_REPOS = {"TripoSG", "TRELLIS", "Hunyuan3D-2mini"}
 ran = skipped = 0
 
 for repo_name in sorted(REPOS.keys()):

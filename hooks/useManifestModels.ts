@@ -36,13 +36,12 @@ export interface ManifestModel {
 }
 
 export interface UseManifestModelsResult {
-  meshCapableModels: ManifestModel[];
-  textureCapableModels: ManifestModel[];
-  worldgenModel: ManifestModel | null;
-  allModels: ManifestModel[];
-  loading: boolean;
-  error: string | null;
-}
+    meshCapableModels: ManifestModel[];
+    textureCapableModels: ManifestModel[];
+    allModels: ManifestModel[];
+    loading: boolean;
+    error: string | null;
+  }
 
 export function useManifestModels(): UseManifestModelsResult {
   const { options, loading, error } = useRuntimeOptions();
@@ -54,8 +53,6 @@ export function useManifestModels(): UseManifestModelsResult {
 
   const meshCapableModels = useMemo(() => {
     return allModels.filter((m) => {
-      // Exclude worldgen — it has its own dedicated page
-      if (m.id === 'worldgen') return false;
       // Must be available (manifest + weights + repo present)
       if (!m.available) return false;
       // Must support at least one mesh-generation pathway
@@ -70,8 +67,6 @@ export function useManifestModels(): UseManifestModelsResult {
 
   const textureCapableModels = useMemo(() => {
     return allModels.filter((m) => {
-      // Exclude worldgen — it has its own dedicated page
-      if (m.id === 'worldgen') return false;
       // Must be available
       if (!m.available) return false;
       // Must explicitly support texture generation
@@ -81,14 +76,9 @@ export function useManifestModels(): UseManifestModelsResult {
     });
   }, [allModels]);
 
-  const worldgenModel = useMemo(() => {
-    return allModels.find((m) => m.id === 'worldgen') || null;
-  }, [allModels]);
-
   return {
     meshCapableModels,
     textureCapableModels,
-    worldgenModel,
     allModels,
     loading,
     error,

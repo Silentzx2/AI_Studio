@@ -2,7 +2,6 @@ import React from 'react';
 import {
   LayoutDashboard,
   Box,
-  Globe,
   Scissors,
   CircleDashed,
   Layers,
@@ -87,13 +86,6 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
             label="Mesh Segmentation"
             active={isActive('segment')}
             onClick={() => handleToolClick('segment')}
-          />
-          <MobileNavItem
-            id="tool-btn-worldgen"
-            icon={<Globe className="w-4 h-4" />}
-            label="World Generation"
-            active={isActive('worldgen')}
-            onClick={() => handleToolClick('worldgen')}
           />
           <MobileNavItem
             id="tool-btn-edit"
@@ -204,22 +196,6 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
           >
             <Scissors className="w-[17px] h-[17px] mb-0.5 flex-shrink-0" />
             <span className="text-[8.5px] font-extrabold leading-none text-center tracking-tight truncate w-full px-0.5">Segment</span>
-          </button>
-        </SimpleTooltip>
-
-        {/* 5. World Generation */}
-        <SimpleTooltip side="right" label="3D World Generation & Environments">
-          <button
-            id="tool-btn-worldgen"
-            onClick={() => handleToolClick('worldgen')}
-            className={`w-full h-[45px] py-1 px-0.5 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer flex-shrink-0 ${
-              isActive('worldgen')
-                ? 'bg-[#F9CF00] text-black font-extrabold shadow-md'
-                : 'text-zinc-400 hover:text-white hover:bg-[#191A1D]'
-            }`}
-          >
-            <Globe className="w-[17px] h-[17px] mb-0.5 flex-shrink-0" />
-            <span className="text-[8.5px] font-extrabold leading-none text-center tracking-tight truncate w-full px-0.5">World</span>
           </button>
         </SimpleTooltip>
       </div>

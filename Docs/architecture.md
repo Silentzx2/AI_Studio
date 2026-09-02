@@ -37,7 +37,7 @@ truth for how a generation job reaches a model on the GPU.
 ┌───────────────────────────────▼─────────────────────────────┐
 │   Local Providers (app/core/providers/*_local.py)            │
 │  Hunyuan3D 2.1 / 2 / 2-Mini, TRELLIS, TripoSG,             │
-│  DetailGen3D, WorldGen, Mock                               │
+│  DetailGen3D, Mock                               │
 │  - each calls _add_model_env() BEFORE imports so the         │
 │    per-model .venv packages win over the backend's           │
 │  - load on device via accelerate_loader                      │
@@ -67,7 +67,7 @@ and `app/core/providers/registry.py::_RUNTIME_PROVIDER_MAP` (validation +
 | `trellis` | `TRELLISLocalProvider` | no (native CUDA build) |
 | `triposg` | `TripoSGLocalProvider` | no |
 | `detailgen3d` | `DetailGen3DProvider` | no |
-| `worldgen` | `WorldGenProvider` | no (dedicated workspace tab) |
+
 | `mock` | `MockProvider` | n/a (testing) |
 
 Aliases `hunyuan3d` / `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`.
@@ -342,7 +342,7 @@ The frontend uses a modern persistent workspace: ONE global 3D viewport (`MeshVi
 - **WorkspaceShell**: Entry point — renders TopHeader, tool panels, MeshViewer, right panels, modals
 - **Viewport/MeshViewer.tsx**: Full Three.js viewport with 3-point lighting, floor grid, turntable auto-rotation, camera presets, drag-and-drop asset loading
 - **Navigation/LeftNavigation.tsx**: Vertical icon rail with tool buttons; responsive drawer on mobile (`md:` breakpoint)
-- **Panels/**: Tool-specific panels (GeneratePanel, TexturePanel, RemeshPanel, SecondaryPanels, WorldGenToolPanel)
+- **Panels/**: Tool-specific panels (GeneratePanel, TexturePanel, RemeshPanel, SecondaryPanels)
 - **RightPanel/**: Contextual panels (RightAssetsPanel, RightPropertyPanel)
 - **Header/TopHeader.tsx**: Brand logo, workspace mode switcher, navigation links, backend status pill
 - **Modals/**: ExportModal, SettingsModal, DccBridgeModal
@@ -371,10 +371,6 @@ The model selector is fully manifest-driven — no hardcoded model lists:
 - **`hooks/useManifestModels.ts`**: Consumes `/api/v1/runtime/options` and filters models by capability:
   - `meshCapableModels`: Models with `supports_image_to_3d` OR `supports_text_to_3d` + `available`
   - `textureCapableModels`: Models with `supports.texture_generation` + `available`
-  - `worldgenModel`: WorldGen model (excluded from other selectors — it has its own page)
-- **GeneratePanel**: Shows only mesh-capable models; filters out `worldgen`
-- **TexturePanel**: Shows only texture-capable models; filters out `worldgen`
-- **WorldGenToolPanel**: No model selector — single status pill shows model state
 
 #### Status Pills
 

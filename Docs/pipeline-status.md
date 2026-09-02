@@ -9,7 +9,7 @@
 ## v3.9.5 — Solid Colors, Text-to-3D Removal & Performance (2026-08-30)
 
 ### What changed
-- **Removed Text to 3D from workspace**: The general Text-to-3D feature was removed from the workspace UI. WorldGen remains as the sole text/image-to-3D scene provider at `/workspace/worldgen`.
+- **Removed Text to 3D from workspace**: The general Text-to-3D feature was removed from the workspace UI. There is no longer any text/image-to-3D scene provider — WorldGen was removed entirely in v4.7.8 (see below).
 - **Solid color theme**: All transparency/opacity-based colors replaced with solid color values for consistent rendering across the application.
 - **Request deduplication**: Added request deduplication for API polling to eliminate redundant network calls and improve frontend responsiveness.
 - **CSS variable fixes**: Fixed broken CSS variable definitions that caused UI elements to appear gray or invisible.
@@ -19,6 +19,24 @@
 - TypeScript compilation: PASS (`npx tsc --noEmit`)
 - Build: PASS (`npm run build`)
 - All routes prerendered successfully
+
+## v4.7.8 — WorldGen Model Removal (2026-09-02)
+
+### What changed
+- **WorldGen model removed entirely**: The WorldGen scene-generation provider was removed because it did not meet the project's requirements. Removed the manifest (`backend/runtime/manifests/worldgen.yaml`), the provider (`backend/app/core/providers/worldgen_provider.py`), the preflight smoke tests, the registry/engine/discover entries, the `/workspace/worldgen` page and its `WorldGenToolPanel`/`WorldGenToolBar` components, the World nav button, and the World menu item. The `world-generation` manifest category is no longer accepted by `three_d_models`.
+- **Frontend cleanup**: `hooks/useManifestModels` no longer exposes `worldgenModel` or filters it out of `meshCapableModels`/`textureCapableModels`; `GenerationSection` no longer excludes `worldgen` from the provider list.
+
+### Files removed
+- `backend/runtime/manifests/worldgen.yaml`
+- `backend/app/core/providers/worldgen_provider.py`
+- `features/WORLDGEN/` (toolbar, types, index)
+- `features/new-workspace/Panels/WorldGenToolPanel.tsx`
+- `app/workspace/worldgen/page.tsx`
+
+### Verification
+- `python -m compileall -q backend` — PASS
+- `node_modules/.bin/tsc --noEmit` — PASS (0 errors)
+- `runtime/test_dependency_manifest_contract.py` — PASS
 
 ## v4.6.0 — WorldGen Integration, Real-time Push, Caching & Bug Fixes
 
@@ -852,7 +870,7 @@ The current workspace model pickers are backed by the live registry snapshot and
 
 ### Registered model ids
 
-`hunyuan3d-2.1`, `hunyuan3d-2-mini`, `trellis`, `triposg`, `detailgen3d`, `worldgen` (plus `mock` for testing; aliases `hunyuan3d` / `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`). As of v3.8.7 all are switchable via `/runtime/provider` and resolvable via `get_provider()` (the registry map was synced with the engine). WorldGen is a **dedicated workspace tab** model — it is registered for capability gating but runs in its own workspace tab rather than the general provider pool.
+`hunyuan3d-2.1`, `hunyuan3d-2-mini`, `trellis`, `triposg`, `detailgen3d` (plus `mock` for testing; aliases `hunyuan3d` / `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`). As of v3.8.7 all are switchable via `/runtime/provider` and resolvable via `get_provider()` (the registry map was synced with the engine).
 
 ### Capability summary
 
@@ -863,7 +881,6 @@ The current workspace model pickers are backed by the live registry snapshot and
 | Trellis | 3D generation | mesh-generation, texture-generation | image-to-3D, text-to-3D, texture generation | 8 GB |
 | TripoSG | 3D generation | mesh-generation | image-to-3D (no texture) | 8 GB |
 | DetailGen3D | Post-processing | post-processing | detail enhancement | 4 GB |
-| WorldGen | World generation | world-generation | text/image-to-3D scene generation, Gaussian Splatting | 10 GB (24 GB recommended) |
 
 ### Workspace compatibility rules
 
@@ -873,7 +890,6 @@ The current workspace model pickers are backed by the live registry snapshot and
 - **animation**: —
 - **remesh**: detailgen3d
 - **post-processing**: hunyuan3d-2.1, hunyuan3d-2, detailgen3d
-- **world-generation**: worldgen
 
 ### Feature gating rules
 

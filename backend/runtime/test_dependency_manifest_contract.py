@@ -25,7 +25,6 @@ def main() -> None:
         "hunyuan3d-2-mini",
         "trellis",
         "triposg",
-        "worldgen",
     }
     assert set(manifests) == expected, (set(manifests), expected)
 
@@ -41,19 +40,6 @@ def main() -> None:
     assert _manifest_dependency_config(trellis, "build_env", "nvdiffrast") == {
         "TORCH_CUDA_ARCH_LIST": "7.0 7.5 8.0 8.6 8.9 9.0",
     }
-
-    worldgen = manifests["worldgen"]
-    assert worldgen["environment"]["python"] == "3.11"
-    assert str(worldgen["environment"]["torch"]) == "2.7.0"
-    assert worldgen["hardware"]["minimum_vram_mb"] == 10240
-    assert worldgen["hardware"]["recommended_vram_mb"] == 24576
-    assert worldgen["capabilities"]["shape"]["supports_text_to_3d"] is True
-    assert worldgen["capabilities"]["shape"]["supports_image_to_3d"] is True
-    worldgen_resolved = resolve_dependencies(Path("/tmp/no-such-model-repo"), worldgen, target_python="3.11")
-    worldgen_names = [dep.name for dep in worldgen_resolved]
-    assert "torch" in worldgen_names
-    assert "diffusers" in worldgen_names
-    assert "pytorch3d" in worldgen_names
 
     print("dependency manifest contract: PASS")
 

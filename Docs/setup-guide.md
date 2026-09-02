@@ -74,7 +74,6 @@
 | **Trellis** | 8 GB (12 GB native-build) | High quality | ~60 seconds |
 | **TripoSG** | 8 GB | image-to-3D | ~60 seconds |
 | **Hunyuan3D-2.1** | 21 GB texture / 29 GB combined | High quality | ~90 seconds |
-| **WorldGen** | 10 GB (24 GB recommended) | Scene generation / Gaussian Splatting | ~60 seconds |
 
 > VRAM figures are the verified normal-footprint requirements. Hunyuan3D-2.1 (29 GB peak / 10 GB low-VRAM combined) also supports a verified **low-VRAM** mode (CPU offload) for constrained GPUs; Hunyuan3D-2-Mini (6 GB peak) uses the same low-VRAM machinery. TRELLIS, TripoSG, and DetailGen3D do not support low-VRAM mode (they require a native CUDA build or have no verified low-VRAM path).
 
@@ -214,29 +213,8 @@ This reduces install time and CUDA build failures, especially on Python 3.12.
 | `trellis` | `TRELLIS` | 3D Generation |
 | `triposg` | `TripoSG` | 3D Generation |
 | `detailgen3d` | `DetailGen3D` | Post-processing |
-| `worldgen` | `WorldGen` | World Generation |
 
 > **Note**: `Hunyuan3D-2mini` is a **separate repo entry** from `Hunyuan3D-2`. They share the same GitHub URL (`Tencent-Hunyuan/Hunyuan3D-2.git`) but have independent manifests, weights paths, and venvs. This allows the mini variant to be installed and updated independently.
-
-### WorldGen Setup
-
-WorldGen requires specific environment configuration:
-
-| Setting | Value |
-|---------|-------|
-| **Python** | 3.11 |
-| **Torch** | 2.7.0 |
-| **CUDA** | 12.4 |
-| **VRAM** | 10 GB minimum, 24 GB recommended |
-| **Weights** | ~20 GB (LeoXie/WorldGen + FLUX.1-dev + auxiliary models) |
-
-WorldGen runs in its own dedicated workspace tab at `/workspace/worldgen` and supports:
-- **Text-to-World**: Generate 3D scenes from text descriptions
-- **Image-to-World**: Generate 3D scenes from reference images
-
-Parameters: mood, shape, style, preset, resolution, seed, guidance, size, density
-
-> **Note**: WorldGen uses Python 3.11 and Torch 2.7.0, which differs from other models. The manifest-driven installer handles this automatically.
 
 ### Colab Preparation Policy
 
@@ -248,7 +226,6 @@ Colab mode is a testing environment — all models are installable regardless of
 | Hunyuan3D-2mini | 6 GB | 4 GB | Optimized for low VRAM |
 | TripoSG | 8 GB | 2 GB | Image-to-3D |
 | Hunyuan3D 2.1 | 29 GB | 14 GB | Full pipeline ~29 GB |
-| WorldGen | 10 GB | ~20 GB | Scene generation via Gaussian Splatting (LeoXie/WorldGen + FLUX.1-dev + aux models) |
 
 > **Note**: Models requiring native CUDA builds (TRELLIS) need the CUDA toolkit (`nvcc`) to compile extensions. On Colab, the toolkit may be unavailable — the runtime will still install but native extensions may fail to compile. On VPS/full-GPU hosts with CUDA toolkit installed, all models work without restrictions.
 
@@ -428,7 +405,7 @@ MAX_UPLOAD_SIZE=52428800  # 50MB
 AI_PROVIDER=hunyuan3d-2.1
 RUNTIME_MODE=local
 
-# Options: mock, hunyuan3d-2.1, hunyuan3d-2-mini, trellis, triposg, detailgen3d, worldgen
+# Options: mock, hunyuan3d-2.1, hunyuan3d-2-mini, trellis, triposg, detailgen3d
 # (aliases: hunyuan3d, hunyuan3d-1.0 -> hunyuan3d-2.1)
 
 # ===== GPU SETTINGS =====
@@ -1292,6 +1269,6 @@ See `Docs/INSTALLATION_STATES.md` for the full state reference.
 - The workspace model pickers read from `GET /api/v1/pipelines/workspace-models`.
 - Runtime status comes from `GET /api/v1/runtime/status` and `GET /api/v1/runtime/health`.
 - Runtime options for the UI come from `GET /api/v1/runtime/options`.
-- The current model ids exposed by the registry are: `hunyuan3d-2.1`, `hunyuan3d-2-mini`, `trellis`, `triposg`, `detailgen3d`, `worldgen` (plus `mock`; aliases `hunyuan3d` / `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`). As of v3.8.7 the registry map is synced with the engine, so `hunyuan3d-2-mini` and `triposg` are also switchable via `/runtime/provider` and resolvable via `get_provider()` (previously these silently fell back to mock).
+- The current model ids exposed by the registry are: `hunyuan3d-2.1`, `hunyuan3d-2-mini`, `trellis`, `triposg`, `detailgen3d` (plus `mock`; aliases `hunyuan3d` / `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`). As of v3.8.7 the registry map is synced with the engine, so `hunyuan3d-2-mini` and `triposg` are also switchable via `/runtime/provider` and resolvable via `get_provider()` (previously these silently fell back to mock).
 - The backend does not expose a bare `GET /api/v1/runtime` route.
-- Supported workspace types: `mesh-generation`, `texture-generation`, `rigging`, `animation`, `remesh`, `post-processing`, `world-generation` (WorldGen is a dedicated workspace tab model).
+- Supported workspace types: `mesh-generation`, `texture-generation`, `rigging`, `animation`, `remesh`, `post-processing`.

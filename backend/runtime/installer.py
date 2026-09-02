@@ -1385,8 +1385,8 @@ def clone_repo(repo_name: str, log_cb: Callable | None = None) -> dict:
     if code != 0:
         return {"success": False, "error": f"git clone failed (exit {code})", "output": out}
     # ponytail: Only init submodules when the manifest explicitly requests it.
-    # Some repos (e.g. WorldGen) have SSH submodule URLs that fail in Colab.
-    # Failure is non-fatal: repos without submodules just no-op here.
+    # Some repos use SSH submodule URLs that fail in Colab; failure is
+    # non-fatal — repos without submodules just no-op here.
     repo_cfg_local = REPOS.get(repo_name, {})
     if repo_cfg_local.get("submodules", False):
         _run(["git", "submodule", "update", "--init", "--recursive"], cwd=dest, log_cb=log_cb)

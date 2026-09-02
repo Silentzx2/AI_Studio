@@ -19,7 +19,7 @@ from app.core.providers.registry import _RUNTIME_PROVIDER_MAP as _PROVIDER_MAP
 
 logger = logging.getLogger(__name__)
 
-PROVIDER_PRIORITY = ["hunyuan3d-2.1", "trellis", "hunyuan3d-2-mini", "triposg", "detailgen3d", "worldgen", "mock"]
+PROVIDER_PRIORITY = ["hunyuan3d-2.1", "trellis", "hunyuan3d-2-mini", "triposg", "detailgen3d", "mock"]
 
 # ponytail: mode support matrix. Used by get_best_provider_name to avoid
 # silently falling back to a provider that can't handle the requested mode
@@ -32,7 +32,6 @@ PROVIDER_MODES: dict[str, set[str]] = {
     "trellis": {"image-to-3d", "texture-generation"},
     "triposg": {"image-to-3d"},
     "detailgen3d": {"remesh", "post-processing"},
-    "worldgen": {"text-to-3d", "image-to-3d"},
     "mock": {"text-to-3d", "image-to-3d", "remesh", "texture-generation", "rigging"},
 }
 
@@ -161,8 +160,8 @@ class RuntimeEngine:
 
         free_mb = gpu.free_vram_mb
         # Use plan_vram_usage with mode="auto" so low-VRAM mode is considered
-        # when normal footprint doesn't fit. This allows models like WorldGen
-        # (recommended 24GB, minimum 10GB) to run on 14GB GPUs in low-VRAM mode.
+        # when normal footprint doesn't fit (e.g. a 24GB-recommended model on a
+        # 14GB GPU runs in low-VRAM mode instead of failing).
         try:
             from runtime.capability import plan_vram_usage
             plan = plan_vram_usage(requested, "auto")

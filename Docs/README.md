@@ -64,7 +64,7 @@
 | Feature | Description | Status | Version |
 |---------|-------------|--------|---------|
 | **Image-to-3D** | Convert 2D images to 3D models | ✅ | v1 |
-| **WorldGen** | Text/image-to-3D scene generation (Gaussian Splatting) | ✅ | v3.9 |
+
 | **Model Discovery** | Browse models from 5+ sources | ✅ | V2 |
 | **Smart Download** | Resumable, chunked downloads with mirror fallback | ✅ | V2 |
 | **Health Monitoring** | Comprehensive system & model diagnostics | ✅ | V2 |
@@ -112,21 +112,7 @@
 | **Trellis** | 3D generation | ~16 GB | ~60s | image-to-3D, texture generation |
 | **TripoSG** | 3D generation | ~8 GB | ~60s | image-to-3D (rectified-flow, no texture) |
 | **DetailGen3D** | Post-processing | ~4 GB | ~15s | detail enhancement (mesh refinement, no texture) |
-| **WorldGen** | World generation | 10 GB (24 GB recommended) | ~60s | text/image-to-3D scene generation, Gaussian Splatting |
 
-### WorldGen Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `mood` | string | Scene mood/atmosphere |
-| `shape` | string | Shape complexity |
-| `style` | string | Visual style preset |
-| `preset` | string | Generation preset |
-| `resolution` | string | Output resolution |
-| `seed` | integer | Random seed for reproducibility |
-| `guidance` | float | Guidance scale |
-| `size` | string | Scene size |
-| `density` | float | Object density |
 
 > **Note**: `Hunyuan3D-2mini` is a **separate repo entry** from `Hunyuan3D-2.1`. They share the same GitHub URL but have independent manifests, weights paths, and venvs — allowing the mini variant to be installed and updated independently.
 
@@ -141,7 +127,7 @@ The backend pipelines API drives workspace model pickers and feature gating (the
 - Runtime health and provider data come from `/api/v1/runtime/status`, `/api/v1/runtime/health`, and `/api/v1/runtime/options`.
 - The backend also registers a bare `GET /api/v1/runtime` route (returns the same payload as `/status`).
 - Supported workspace types: `mesh-generation`, `texture-generation`, `rigging`, `animation`, `remesh`, `post-processing`, `world-generation`.
-- Current model catalog: `hunyuan3d-2.1`, `hunyuan3d-2-mini`, `trellis`, `triposg`, `detailgen3d`, `worldgen` (plus `mock`).
+- Current model catalog: `hunyuan3d-2.1`, `hunyuan3d-2-mini`, `trellis`, `triposg`, `detailgen3d` (plus `mock`).
 - Supported workspace types: `mesh-generation`, `texture-generation`, `rigging`, `animation`, `remesh`, `post-processing`, `world-generation`.
 
 
@@ -401,7 +387,7 @@ Colab mode automatically:
 | TRELLIS | 16 GB | Official: ≥16 GB required |
 | DetailGen3D | 4 GB | Geometry enhancement |
 | TripoSG | 8 GB | Image-to-3D |
-| WorldGen | 10 GB (24 GB recommended) | Scene generation via Gaussian Splatting |
+
 
 > **Note**: Models requiring native CUDA builds (TRELLIS) need the CUDA toolkit (`nvcc`) to compile extensions. On Colab, the toolkit may be unavailable — the runtime will still install but native extensions may fail to compile. On VPS/full-GPU hosts with CUDA toolkit installed, all models work without restrictions.
 
@@ -436,7 +422,7 @@ CELERY_RESULT_BACKEND=redis://localhost:6379/1
 
 # ===== AI PROVIDER =====
 AI_PROVIDER=hunyuan3d-2.1
-# Options: mock, hunyuan3d-2.1, hunyuan3d-2-mini, trellis, triposg, detailgen3d, worldgen
+# Options: mock, hunyuan3d-2.1, hunyuan3d-2-mini, trellis, triposg, detailgen3d
 # (aliases: hunyuan3d, hunyuan3d-1.0 -> hunyuan3d-2.1)
 
 # ===== GPU SETTINGS =====
@@ -468,7 +454,7 @@ For complete configuration options, see [Setup Guide - Configuration](docs/setup
 ### Basic Workflow
 
 1. **Open the app** at http://localhost:3000
-2. **Choose generation mode**: Image-to-3D (or WorldGen for scene generation)
+2. **Choose generation mode**: Image-to-3D
 3. **Enter prompt** describing your desired 3D model
 4. **Select quality**: Low-poly / Standard / High-poly
 5. **(Optional) Upload reference image** for image-to-3D
@@ -498,7 +484,7 @@ For complete configuration options, see [Setup Guide - Configuration](docs/setup
 | **Animation** | Generate skeletal animations | — |
 | **Remesh** | Retopology and mesh optimization | DetailGen3D |
 | **Post-Processing** | Detail enhancement and mesh polishing | Hunyuan3D 2.1, DetailGen3D |
-| **World Generation** | Text/image-to-3D scene generation via Gaussian Splatting | WorldGen |
+
 
 ### Model Manager Interface (NEW in V2)
 
@@ -906,7 +892,7 @@ ai-3d-studio/
 │   │   │   │   ├── trellis_local.py
 │   │   │   │   ├── instant_mesh.py
 │   │   │   │   ├── detailgen3d.py
-│   │   │   │   ├── worldgen_provider.py
+
 │   │   │   │   └── mock.py
 │   │   │   ├── managers/
 │   │   │   │   ├── compatibility_manager.py

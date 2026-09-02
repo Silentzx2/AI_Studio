@@ -15,8 +15,7 @@ const MeshViewer = dynamic(() => import('./Viewport/MeshViewer').then(mod => mod
 });
 
 const GeneratePanel = dynamic(() => import('./Panels/GeneratePanel').then(mod => mod.GeneratePanel), { ssr: false });
-const WorldGenToolPanel = dynamic(() => import('./Panels/WorldGenToolPanel').then(mod => mod.WorldGenToolPanel), { ssr: false });
-const TexturePanel = dynamic(() => import('./Panels/TexturePanel').then(mod => mod.TexturePanel), { ssr: false });
+    const TexturePanel = dynamic(() => import('./Panels/TexturePanel').then(mod => mod.TexturePanel), { ssr: false });
 const RemeshPanel = dynamic(() => import('./Panels/RemeshPanel').then(mod => mod.RemeshPanel), { ssr: false });
 const SecondaryPanel = dynamic(() => import('./Panels/SecondaryPanels').then(mod => mod.SecondaryPanel), { ssr: false });
 
@@ -37,11 +36,10 @@ import type { ToolType } from './types';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 
 const ROUTE_SEGMENT_TO_TOOL: Record<string, ToolType> = {
-  'generate': 'model',
-  'model': 'model',
-  '3d-gen': 'model',
-  'worldgen': 'worldgen',
-  'remesh': 'remesh',
+'generate': 'model',
+    'model': 'model',
+    '3d-gen': 'model',
+    'remesh': 'remesh',
   'texture': 'texture',
   'textures': 'texture',
   'edit': 'edit',
@@ -111,7 +109,6 @@ export const WorkspaceShell: React.FC = () => {
   const renderToolPanel = () => {
     switch (activeTool) {
       case 'model': return <GeneratePanel />;
-      case 'worldgen': return <WorldGenToolPanel />;
       case 'remesh': return <RemeshPanel />;
       case 'texture': return <TexturePanel />;
       case 'segment': case 'edit': case 'upscale': case 'pbr': return <SecondaryPanel tool={activeTool} />;

@@ -35,7 +35,6 @@ _RUNTIME_PROVIDER_MAP = {
     "trellis": ("app.core.providers.trellis_local", "TRELLISLocalProvider"),
     "triposg": ("app.core.providers.triposg_local", "TripoSGLocalProvider"),
     "detailgen3d": ("app.core.providers.detailgen3d", "DetailGen3DProvider"),
-    "worldgen": ("app.core.providers.worldgen_provider", "WorldGenLocalProvider"),
     "mock": ("app.core.providers.mock", "MockProvider"),
 }
 
@@ -108,7 +107,6 @@ _KNOWN_PROVIDERS = [
     "triposg",
     "instant-mesh",
     "detailgen3d",
-    "worldgen",
 ]
 
 

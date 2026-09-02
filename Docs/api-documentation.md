@@ -1221,7 +1221,7 @@ All of these are valid `AI_PROVIDER` values and are switchable via `POST /api/v1
 - `trellis` — image-to-3D, texture (8 GB VRAM; native CUDA build — excluded from one-click install)
 - `triposg` — image-to-3D (rectified-flow, no texture; 8 GB VRAM)
 - `detailgen3d` — post-processing detail enhancement (4 GB VRAM)
-- `worldgen` — text/image-to-3D scene generation via Gaussian Splatting (10 GB VRAM minimum, 24 GB recommended; dedicated workspace tab)
+
 - `mock` — testing provider (no VRAM)
 
 Aliases `hunyuan3d` and `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`.

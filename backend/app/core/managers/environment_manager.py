@@ -393,7 +393,6 @@ class EnvironmentManager:
             "detailgen3d": 4.0,
             "hunyuan3d": 16.0,
             "trellis": 8.0,
-            "worldgen": 24.0,
             "mock": 0.0,
         }
         return estimates.get(model_name.lower(), 2.0)

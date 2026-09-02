@@ -42,13 +42,6 @@ class GenerationRequest(BaseModel):
     # Built-in remesh settings. These are applied by the CPU/GPU mesh optimizer
     # against the selected source GLB; no AI provider is loaded for remesh jobs.
     remesh_settings: dict | None = None
-    # WorldGen-specific parameters (only used when provider is "worldgen")
-    mood: str | None = None
-    shape: str | None = None
-    style: str | None = None
-    preset: str | None = None
-    size: float | None = None
-    density: float | None = None
 
     @field_validator("reference_image_url", mode="before")
     @classmethod

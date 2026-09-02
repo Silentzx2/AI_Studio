@@ -1,5 +1,22 @@
 # AI 3D Studio — Changelog
 
+## [v4.7.8] - 2026-09-02
+
+### Removed
+
+#### WorldGen model entirely
+WorldGen did not meet the project's requirements, so it was removed end-to-end:
+
+- **Backend**: deleted `backend/runtime/manifests/worldgen.yaml` and `backend/app/core/providers/worldgen_provider.py`; removed `worldgen` from `_KNOWN_PROVIDERS`/`_RUNTIME_PROVIDER_MAP` (`registry.py`), `PROVIDER_PRIORITY`/`PROVIDER_MODES` (`engine.py`), the `worldgen` entry in `discover.py`, the VRAM estimate in `environment_manager.py`, the preflight smoke tests in `preflight.py`, and the `world_generation` category acceptance in `runtime.py`. Removed the WorldGen-specific fields (`mood`/`shape`/`style`/`preset`/`size`/`density`) from `schemas/generation.py` and their persistence in `generation.py`.
+- **Frontend**: deleted `features/WORLDGEN/`, `features/new-workspace/Panels/WorldGenToolPanel.tsx`, and `app/workspace/worldgen/page.tsx`; removed the World nav button from `LeftNavigation.tsx`, the World menu item from `TopHeader.tsx`, the `worldgen` tool from `WorkspaceShell.tsx`/`types.ts`/`WorkspaceContext.tsx`, the `worldgenModel` hook from `useManifestModels.ts`, and the exclusion filter from `GenerationSection.tsx`.
+- **Scripts**: removed `WorldGen` from `COLAB_ALLOWED_REPOS` in `scripts/colab.sh` (2 places) and from `scripts/update-models.sh`.
+- **Docs**: removed WorldGen from `setup-guide.md`, `README.md`, `architecture.md`, `api-documentation.md`, and `pipeline-status.md`; added a `v4.7.8` removal entry to `pipeline-status.md` and this changelog.
+
+### Verification
+- `python -m compileall -q backend` — PASS
+- `node_modules/.bin/tsc --noEmit` — PASS (0 errors)
+- `runtime/test_dependency_manifest_contract.py` — PASS
+
 ## [v4.7.7] - 2026-09-02
 
 ### Fixed

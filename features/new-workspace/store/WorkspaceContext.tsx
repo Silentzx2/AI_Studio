@@ -104,16 +104,15 @@ interface WorkspaceContextType {
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
 
 const TOOL_TO_ROUTE: Record<ToolType, string> = {
-  model: '/workspace/generate',
-  worldgen: '/workspace/worldgen',
-  remesh: '/workspace/remesh',
-  texture: '/workspace/texture',
-  edit: '/workspace/edit',
-  upscale: '/workspace/upscale',
-  pbr: '/workspace/pbr',
-  environment: '/workspace/generate',
-  segment: '/workspace/segment',
-};
+    model: '/workspace/generate',
+    remesh: '/workspace/remesh',
+    texture: '/workspace/texture',
+    edit: '/workspace/edit',
+    upscale: '/workspace/upscale',
+    pbr: '/workspace/pbr',
+    environment: '/workspace/generate',
+    segment: '/workspace/segment',
+  };
 
 async function parseApiData<T>(response: Response): Promise<T> {
   const payload = await response.json();
