@@ -1,5 +1,18 @@
 # AI 3D Studio — Changelog
 
+## [v4.7.5] - 2026-09-02
+
+### Added
+
+#### Auto third_party permission normalization (766) in Colab scripts
+- New `fix_third_party_permissions()` helper in `scripts/colab.sh` forces `rwxrw-r--` (766) on files and `rwxrwxr-x` (775) on directories under `backend/third_party/`. Per-model venvs/weights can be written by a different user than the API/Celery processes that load them, so previously generated artifacts could end up unreadable at inference time.
+- Called from both the setup path (Step 3) and `colab_start_services()` (covers manager.sh choices 1, 2, and 4 — restart included), so permissions are normalized on every startup, not just first setup.
+- `scripts/setup.sh` applies the same 766/775 split to `backend/third_party` (previously lumped into the generic `chmod -R 755`).
+
+### Verification
+- `bash -n scripts/colab.sh scripts/setup.sh` — PASS
+- Helper tested in isolation: 600/700 → 766/775 as expected
+
 ## [v4.7.4] - 2026-09-02
 
 ### Fixed

@@ -354,6 +354,24 @@ kill_by_pid_file() {
     fi
 }
 
+# ── Helper: Ensure third_party files are world-rwx (766) ──────────────────
+# Colab runs as root but the per-model venvs/weights are often written by a
+# different user (or by uv as the invoking user), so generated artifacts can
+# end up unreadable by the API/Celery processes that later load them. Force
+# rwxrw-r-- (766) on the whole third_party tree so every owner can read and
+# write model files. Directories get 775 (rwxrwxr-x) so traversal works.
+fix_third_party_permissions() {
+    local dir="${PROJECT_ROOT}/backend/third_party"
+    if [[ ! -d "$dir" ]]; then
+        return 0
+    fi
+    # Directories: rwxrwxr-x
+    find "$dir" -type d -exec chmod 775 {} + 2>/dev/null || true
+    # Files: rwxrw-r-- (owner+group rwx, others r)
+    find "$dir" -type f -exec chmod 766 {} + 2>/dev/null || true
+    log "third_party permissions set to 766 (files) / 775 (dirs)"
+}
+
 # ── Colab Service Management Functions ─────────────────────────────────────
 # These functions manage services independently of the bootstrap flow,
 # allowing start/stop/restart without re-running the full setup.
@@ -371,6 +389,12 @@ colab_start_services() {
         err "Backend venv not found. Run full setup first: bash scripts/colab.sh"
         return 1
     fi
+
+    # ── Normalize third_party file permissions (766) ───────────────────────
+    # Per-model venvs/weights can be written by a different user than the
+    # API/Celery processes that load them; force world-rwx so nothing is
+    # unreadable at inference time.
+    fix_third_party_permissions
 
     # ── Ensure PostgreSQL is running ─────────────────────────────────────
     # Detect installed PostgreSQL version dynamically
@@ -978,9 +1002,13 @@ mkdir -p backend/storage/images
 mkdir -p backend/third_party/.hf_cache/hub
 mkdir -p backend/.runtime_cache
 mkdir -p logs
-mkdir -p .pids
+    mkdir -p .pids
 
-log "Project directories created"
+    # Ensure third_party files are world-rwx (766) so per-model venvs/weights
+    # are readable/writable by every process that loads them.
+    fix_third_party_permissions
+
+    log "Project directories created"
 
 # ── Step 4: Backend Python environment ────────────────────────────────────
 

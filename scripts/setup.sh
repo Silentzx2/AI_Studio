@@ -604,7 +604,15 @@ setup_folders() {
     logs; do
     mkdir -p "$dir"
   done
-  chmod -R 755 backend/storage backend/third_party backend/.runtime_cache logs
+  # Runtime-owned dirs: 755 is fine (created and written by one user).
+  chmod -R 755 backend/storage backend/.runtime_cache logs
+  # third_party holds per-model venvs/weights that may be written by a
+  # different user than the API/Celery processes that load them — use
+  # 766 (files) / 775 (dirs) so every owner can read AND write.
+  if [[ -d backend/third_party ]]; then
+    find backend/third_party -type d -exec chmod 775 {} + 2>/dev/null || true
+    find backend/third_party -type f -exec chmod 766 {} + 2>/dev/null || true
+  fi
   log "Project directories created"
 }
 
