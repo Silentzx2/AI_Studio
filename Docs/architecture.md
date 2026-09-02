@@ -630,6 +630,27 @@ In-memory caching with TTL reduces redundant computation and improves response t
 - **AbortSignal propagation**: `apiClient.request()` properly merges external abort signals with internal timeout
 - **Request dedup cleanup**: Periodic eviction of expired entries prevents unbounded cache growth
 
+## Settings Persistence (v4.7.2+)
+
+- **Storage**: PostgreSQL `settings` table (key-value store)
+- **Cache**: Redis used as read-through cache layer
+- **Migration**: `backend/alembic/versions/0005_settings_table.py`
+- **Module**: `backend/app/api/v1/settings.py` — async DB reads/writes
+
+## Rate Limiting (v4.7.2+)
+
+- **Mechanism**: Redis sorted sets for sliding-window rate limiting
+- **Limit**: 10 requests/minute per IP on generation endpoint
+- **Response**: HTTP 429 with `Retry-After` header when exceeded
+- **Module**: `backend/app/api/v1/generation.py` — `_check_rate_limit()` helper
+
+## Celery Install Tasks (v4.7.2+)
+
+- **Tasks**: `install_runtime`, `prepare_runtime`, `download_weights`, `update_repo`, `repair_repo`
+- **Durability**: All install operations survive process restarts
+- **Tracking**: Returns `task_id` for progress monitoring
+- **Module**: `backend/app/workers/installation_workers.py`
+
 ## SSE System Stream (v4.6.0+)
 
 - **Route**: `GET /api/v1/system/stream`

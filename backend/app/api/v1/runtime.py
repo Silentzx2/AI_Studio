@@ -8,7 +8,7 @@ import os
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -165,7 +165,7 @@ async def get_runtime_options():
             TEXTURE_MODELS,
         )
         from runtime.manifest_loader import get_all_provider_metadata  # noqa: PLC0415
-        from app.core.providers.registry import get_registry
+        from app.core.providers.registry import get_registry, is_standalone_generation_provider
         from app.core.registry.model_registry import ModelRegistry
         from runtime.installer import get_install_status_cached
 
@@ -191,6 +191,7 @@ async def get_runtime_options():
                 "vram_required_mb": vram_req,
                 "supports_text_to_3d": meta.get("supports_text_to_3d", False),
                 "supports_image_to_3d": meta.get("supports_image_to_3d", False),
+                "supports_standalone_generation": is_standalone_generation_provider(name),
                 "workspace_compatibility": meta.get("workspace_compatibility", []),
                 "low_vram_supported": meta.get("low_vram_supported", False),
                 "low_vram_required_mb": meta.get("low_vram_required_mb", 0),
@@ -232,6 +233,7 @@ async def get_runtime_options():
                     "vram_required_mb": vram_req,
                     "supports_text_to_3d": bool(caps.get("text_to_3d")),
                     "supports_image_to_3d": bool(caps.get("image_to_3d")),
+                    "supports_standalone_generation": is_standalone_generation_provider(mid),
                     "workspace_compatibility": ws_compat,
                     "low_vram_supported": bool(m.get("low_vram_supported") or caps.get("low_vram_supported") or manifest.get("low_vram_supported", False)),
                     "low_vram_required_mb": int(m.get("low_vram_required_mb") or manifest.get("low_vram_required_mb", 0)),
@@ -496,9 +498,8 @@ class InstallRequest(BaseModel):
 
 
 @router.post("/install")
-async def install_runtime(req: InstallRequest, background_tasks: BackgroundTasks):
-    from runtime.installer import RuntimeInstaller, resolve_install_targets
-    from app.core.cache import invalidate
+async def install_runtime(req: InstallRequest):
+    from runtime.installer import resolve_install_targets
 
     # ponytail: Section 1 — must resolve targets; no more silent "install everything"
     targets = req.models if req.models else None
@@ -508,74 +509,56 @@ async def install_runtime(req: InstallRequest, background_tasks: BackgroundTasks
             "Pass a 'models' list with specific model IDs."
         )
 
-    # TODO: Dispatch to Celery for long-running operations to avoid blocking event loop
-    def _run() -> None:
-        RuntimeInstaller().full_install(
-            skip_weights=req.skip_weights,
-            models=targets,
-        )
-        # Invalidate runtime options cache so newly installed models appear immediately
-        invalidate("runtime_options")
-
-    # Run blocking install in thread executor to avoid blocking the event loop
-    background_tasks.add_task(asyncio.to_thread, _run)
-    return success({"started": True}, "Installation started in background.")
+    # Dispatch to Celery for durable background execution
+    from app.workers.installation_workers import install_runtime
+    task = install_runtime.delay(targets, skip_weights=req.skip_weights)
+    return success(
+        {"started": True, "task_id": task.id, "models": targets},
+        "Installation started in background.",
+    )
 
 
 @router.post("/prepare-runtime")
-async def prepare_runtime(req: InstallRequest, background_tasks: BackgroundTasks):
+async def prepare_runtime(req: InstallRequest):
     """Stage A: prepare model runtimes only. No weights downloaded.
 
     Clones repos, creates per-model venvs, installs dependencies,
     resolves native dependencies via wheel-first logic.
     """
-    from runtime.installer import RuntimeInstaller, resolve_install_targets
-    from app.core.cache import invalidate
-
     targets = req.models if req.models else None
     if not targets:
         return error(
             "No models specified. Pass a 'models' list with specific model IDs."
         )
 
-    def _run() -> None:
-        RuntimeInstaller().prepare_runtime(
-            models=targets,
-            allow_native_build=False,
-        )
-        # Invalidate runtime options cache so newly installed models appear immediately
-        invalidate("runtime_options")
-
-    # Run blocking task in thread executor to avoid blocking the event loop
-    background_tasks.add_task(asyncio.to_thread, _run)
-    return success({"started": True}, "Runtime preparation started in background.")
+    from app.workers.installation_workers import prepare_runtime
+    task = prepare_runtime.delay(targets)
+    return success(
+        {"started": True, "task_id": task.id, "models": targets},
+        "Runtime preparation started in background.",
+    )
 
 
 @router.post("/download-weights")
-async def download_weights(req: InstallRequest, background_tasks: BackgroundTasks):
+async def download_weights(req: InstallRequest):
     """Stage B: download model weights only. Runtime must be ready first.
 
     Checks that each model's runtime is ready before downloading.
     If runtime is not ready, returns an error for that model directing
     the caller to /prepare-runtime first.
     """
-    from runtime.installer import RuntimeInstaller, resolve_install_targets
-    from app.core.cache import invalidate
-
     targets = req.models if req.models else None
     if not targets:
         return error(
             "No models specified. Pass a 'models' list with specific model IDs."
         )
 
-    def _run() -> None:
-        RuntimeInstaller().download_weights(models=targets)
-        # Invalidate runtime options cache so newly installed models appear immediately
-        invalidate("runtime_options")
-
-    # Run blocking task in thread executor to avoid blocking the event loop
-    background_tasks.add_task(asyncio.to_thread, _run)
-    return success({"started": True}, "Weight download started in background.")
+    from app.workers.installation_workers import download_weights
+    task = download_weights.delay(targets)
+    return success(
+        {"started": True, "task_id": task.id, "models": targets},
+        "Weight download started in background.",
+    )
 
 
 @router.get("/legacy-weights")
@@ -635,32 +618,24 @@ class RepoActionRequest(BaseModel):
 
 
 @router.post("/update")
-async def update_repo(req: RepoActionRequest, background_tasks: BackgroundTasks):
-    from runtime.installer import clone_repo
+async def update_repo(req: RepoActionRequest):
     from runtime.manifest_loader import REPOS
-    from app.core.cache import invalidate
 
     # ponytail: update only the specific repo, not everything
     if req.repo not in REPOS:
         return error(f"Unknown repo: {req.repo}. Available: {list(REPOS.keys())}")
 
-    def _run() -> None:
-        clone_repo(req.repo)
-        invalidate("runtime_options")
-
-    # Run blocking task in thread executor to avoid blocking the event loop
-    background_tasks.add_task(asyncio.to_thread, _run)
-    return success({"repo": req.repo, "started": True}, "Update started.")
+    from app.workers.installation_workers import update_repo
+    task = update_repo.delay(req.repo)
+    return success(
+        {"repo": req.repo, "task_id": task.id, "started": True},
+        "Update started.",
+    )
 
 
 @router.post("/repair")
-async def repair_repo(req: RepoActionRequest, background_tasks: BackgroundTasks):
-    import shutil
-
-    from runtime.installer import clone_repo, install_repo_deps
+async def repair_repo(req: RepoActionRequest):
     from runtime.manifest_loader import REPOS
-    from runtime.storage import get_storage_config
-    from app.core.cache import invalidate
 
     # ponytail: repair only the specific repo, not everything.
     # Re-clone the repo and rebuild its isolated venv/deps (runtime prep).
@@ -668,18 +643,12 @@ async def repair_repo(req: RepoActionRequest, background_tasks: BackgroundTasks)
     if req.repo not in REPOS:
         return error(f"Unknown repo: {req.repo}. Available: {list(REPOS.keys())}")
 
-    def _run() -> None:
-        storage = get_storage_config()
-        repo_path = storage.get_repo_path(req.repo)
-        if repo_path.exists():
-            shutil.rmtree(str(repo_path), ignore_errors=True)
-        clone_repo(req.repo)
-        install_repo_deps(req.repo)
-        invalidate("runtime_options")
-
-    # Run blocking task in thread executor to avoid blocking the event loop
-    background_tasks.add_task(asyncio.to_thread, _run)
-    return success({"repo": req.repo, "started": True}, "Repair started.")
+    from app.workers.installation_workers import repair_repo
+    task = repair_repo.delay(req.repo)
+    return success(
+        {"repo": req.repo, "task_id": task.id, "started": True},
+        "Repair started.",
+    )
 
 
 @router.post("/remove")

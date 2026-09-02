@@ -5,7 +5,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
-from app.utils.response import success
+from app.utils.response import error, success
 
 router = APIRouter(tags=["Jobs"])
 logger = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ async def list_jobs(limit: int = 50, offset: int = 0, status: str = ""):
             )
     except Exception as exc:
         logger.warning("DB unavailable for list_jobs: %s", exc)
-        return success({"jobs": [], "offset": offset, "limit": limit, "count": 0})
+        return error("Failed to retrieve jobs from the database.")
 
 
 @router.get("/{job_id}")
@@ -93,7 +93,7 @@ async def get_job(job_id: str):
         raise
     except Exception as exc:
         logger.warning("DB unavailable for get_job: %s", exc)
-        return success({"id": job_id, "status": "unknown"})
+        return error("Failed to retrieve the requested job from the database.")
 
 
 @router.delete("/{job_id}")

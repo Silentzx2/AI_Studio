@@ -1663,7 +1663,7 @@ async def admin_list_jobs(limit: int = Query(50, ge=1, le=200), status: str = ""
             })
     except Exception as exc:
         logger.warning("DB unavailable for admin_list_jobs: %s", exc)
-        return success({"jobs": []})
+        return error("Failed to retrieve admin jobs from the database.")
 
 
 # ---------------------------------------------------------------------------

@@ -7,7 +7,6 @@ from typing import Any
 
 from app.core.providers.base import BaseProvider, ProviderResult, _add_model_env
 from app.core.managers.vram_tracker import vram_tracker
-from app.core.mesh_processor import write_placeholder_mesh
 from runtime.accelerate_loader import safe_unload, verify_gpu_placement
 from runtime.storage import get_storage_config
 
@@ -118,34 +117,12 @@ class TripoSGLocalProvider(BaseProvider):
         # NameError on `prepare_image`/`self.pipe`. Return an explicit error result
         # instead of a misleading placeholder mesh.
         if not self.is_loaded:
-            logger.error("TripoSG generate called but model is not loaded (missing dependencies?)")
-            stats = write_placeholder_mesh(glb_path)
-            return ProviderResult(
-                model_path=str(glb_path),
-                thumbnail_path="",
-                polygon_count=stats["polygon_count"],
-                vertex_count=stats["vertex_count"],
-                texture_resolution="",
-                has_rig=False,
-                file_size=glb_path.stat().st_size,
-                metadata={"provider": "triposg", "device": self.device, "error": "model not loaded"},
-            )
+            raise RuntimeError("TripoSG model is not loaded; install its runtime and weights before generation")
 
         # Resolve reference image
         image_path = getattr(request, "reference_image_url", None)
         if not image_path:
-            logger.warning("No reference image provided for TripoSG; using placeholder.")
-            stats = write_placeholder_mesh(glb_path)
-            return ProviderResult(
-                model_path=str(glb_path),
-                thumbnail_path="",
-                polygon_count=stats["polygon_count"],
-                vertex_count=stats["vertex_count"],
-                texture_resolution="",
-                has_rig=False,
-                file_size=glb_path.stat().st_size,
-                metadata={"provider": "triposg", "device": self.device},
-            )
+            raise ValueError("TripoSG requires a reference image for image-to-3d generation")
 
         if progress_callback:
             await progress_callback(10, "generating", "Preparing image for TripoSG...")
@@ -199,17 +176,7 @@ class TripoSGLocalProvider(BaseProvider):
             )
         except Exception as exc:
             logger.exception("TripoSG generation failed: %s", exc)
-            stats = write_placeholder_mesh(glb_path)
-            return ProviderResult(
-                model_path=str(glb_path),
-                thumbnail_path="",
-                polygon_count=stats["polygon_count"],
-                vertex_count=stats["vertex_count"],
-                texture_resolution="",
-                has_rig=False,
-                file_size=glb_path.stat().st_size,
-                metadata={"provider": "triposg", "device": self.device, "error": str(exc)},
-            )
+            raise RuntimeError(f"TripoSG generation failed: {exc}") from exc
 
     async def health_check(self) -> bool:
         return _HAS_DEPS and self.is_loaded

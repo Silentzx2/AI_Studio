@@ -12,7 +12,6 @@ from typing import Any
 
 from app.core.providers.base import BaseProvider, ProviderResult, _add_model_env
 from app.core.managers.vram_tracker import vram_tracker
-from app.core.mesh_processor import write_placeholder_mesh
 from runtime.accelerate_loader import safe_unload, verify_gpu_placement
 from runtime.storage import get_storage_config
 
@@ -101,18 +100,7 @@ class WorldGenLocalProvider(BaseProvider):
 
         # If the model failed to load, return an explicit error result.
         if not self.is_loaded:
-            logger.error("WorldGen generate called but model is not loaded (missing dependencies?)")
-            stats = write_placeholder_mesh(str(output_path / "model.glb"))
-            return ProviderResult(
-                model_path=str(ply_path),
-                thumbnail_path="",
-                polygon_count=0,
-                vertex_count=0,
-                texture_resolution="",
-                has_rig=False,
-                file_size=0,
-                metadata={"provider": "worldgen", "device": self.device, "error": "model not loaded"},
-            )
+            raise RuntimeError("WorldGen model is not loaded; install its runtime and weights before generation")
 
         # Determine mode from request
         mode = "t2s"
@@ -172,17 +160,7 @@ class WorldGenLocalProvider(BaseProvider):
             )
         except Exception as exc:
             logger.exception("WorldGen generation failed: %s", exc)
-            stats = write_placeholder_mesh(str(output_path / "model.glb"))
-            return ProviderResult(
-                model_path=str(output_path / "model.glb"),
-                thumbnail_path="",
-                polygon_count=stats["polygon_count"],
-                vertex_count=stats["vertex_count"],
-                texture_resolution="",
-                has_rig=False,
-                file_size=output_path.joinpath("model.glb").stat().st_size,
-                metadata={"provider": "worldgen", "device": self.device, "error": str(exc)},
-            )
+            raise RuntimeError(f"WorldGen generation failed: {exc}") from exc
 
     async def health_check(self) -> bool:
         return _HAS_DEPS and self.is_loaded

@@ -39,6 +39,9 @@ class GenerationRequest(BaseModel):
     # Auto-optimize: post-generation mesh cleanup (decimation + UV fix)
     auto_optimize: bool = False
     auto_optimize_settings: AutoOptimizeSettings | None = None
+    # Built-in remesh settings. These are applied by the CPU/GPU mesh optimizer
+    # against the selected source GLB; no AI provider is loaded for remesh jobs.
+    remesh_settings: dict | None = None
     # WorldGen-specific parameters (only used when provider is "worldgen")
     mood: str | None = None
     shape: str | None = None

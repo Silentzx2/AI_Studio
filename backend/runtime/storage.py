@@ -277,11 +277,13 @@ class StorageConfig:
                                         key=lambda p: p.stat().st_mtime,
                                         reverse=True,
                                     )
-                                    if versions:
-                                        return versions[0]
+                                    for version in versions:
+                                        if _safe_exists(version) and self._has_real_weight_files(version):
+                                            return version
                                 except (PermissionError, OSError):
                                     pass
-                            return candidate
+                            if self._has_real_weight_files(candidate):
+                                return candidate
             except (PermissionError, OSError):
                 continue
         return None

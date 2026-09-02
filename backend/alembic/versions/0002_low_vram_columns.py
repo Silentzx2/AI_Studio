@@ -6,6 +6,7 @@ Create Date: 2026-08-10 00:00:00.000000
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 revision = "0002_low_vram_columns"
 down_revision = "0001_initial"
@@ -32,11 +33,10 @@ def _add_column_if_missing(table: str, column: str, col_type, **kwargs) -> None:
     create_all() in main.py may have already created these columns on fresh
     databases. Using try/except avoids migration failures in that case.
     """
-    try:
+    bind = op.get_bind()
+    existing = {col["name"] for col in inspect(bind).get_columns(table)}
+    if column not in existing:
         op.add_column(table, sa.Column(column, col_type, **kwargs))
-    except Exception:
-        # Column may already exist from create_all() — safe to skip.
-        pass
 
 
 def downgrade() -> None:

@@ -9,6 +9,7 @@ from pathlib import Path
 
 from celery import shared_task
 
+from app.core.cache import invalidate
 from app.core.installer.plugin_installer import PluginInstaller
 from app.core.managers.health_manager import HealthManager
 
@@ -278,11 +279,142 @@ def cleanup_unused_models(days_unused: int = 30):
 @shared_task(
     bind=True,
     max_retries=2,
+    default_retry_delay=120,
+    soft_time_limit=7200,
+    time_limit=7500,
+)
+def install_runtime(self, models: list[str], skip_weights: bool = False) -> dict:
+    """Full installation: prepare runtime + download weights.
+
+    Durable Celery task that survives worker restarts. Replaces the
+    Fire-and-forget BackgroundTasks + asyncio.to_thread pattern.
+    """
+    from runtime.installer import RuntimeInstaller
+
+    try:
+        logger.info("Celery install_runtime started for models=%s", models)
+        RuntimeInstaller().full_install(skip_weights=skip_weights, models=models)
+        # Invalidate runtime options cache so newly installed models appear
+        invalidate("runtime_options")
+        logger.info("Celery install_runtime completed for models=%s", models)
+        return {"success": True, "models": models, "skip_weights": skip_weights}
+    except Exception as exc:
+        logger.exception("Celery install_runtime failed for models=%s", models)
+        # Let Celery handle retry logic
+        raise self.retry(exc=exc)
+
+
+@shared_task(
+    bind=True,
+    max_retries=2,
+    default_retry_delay=120,
+    soft_time_limit=7200,
+    time_limit=7500,
+)
+def prepare_runtime(self, models: list[str]) -> dict:
+    """Stage A: prepare model runtimes only. No weights downloaded.
+
+    Clones repos, creates per-model venvs, installs dependencies.
+    """
+    from runtime.installer import RuntimeInstaller
+
+    try:
+        logger.info("Celery prepare_runtime started for models=%s", models)
+        RuntimeInstaller().prepare_runtime(models=models, allow_native_build=False)
+        invalidate("runtime_options")
+        logger.info("Celery prepare_runtime completed for models=%s", models)
+        return {"success": True, "models": models, "stage": "runtime_prepared"}
+    except Exception as exc:
+        logger.exception("Celery prepare_runtime failed for models=%s", models)
+        raise self.retry(exc=exc)
+
+
+@shared_task(
+    bind=True,
+    max_retries=3,
+    default_retry_delay=180,
+    soft_time_limit=14400,
+    time_limit=14700,
+)
+def download_weights(self, models: list[str]) -> dict:
+    """Stage B: download model weights only. Runtime must be ready first.
+
+    Checks that each model's runtime is ready before downloading.
+    """
+    from runtime.installer import RuntimeInstaller, get_install_status
+
+    try:
+        logger.info("Celery download_weights started for models=%s", models)
+        # Verify runtime readiness before downloading
+        status = get_install_status()
+        not_ready = []
+        for model in models:
+            inst = status.get(model, {})
+            if not inst.get("venv_ready", False):
+                not_ready.append(model)
+        if not_ready:
+            raise RuntimeError(
+                f"Runtime not ready for: {', '.join(not_ready)}. "
+                f"Run prepare_runtime first."
+            )
+        RuntimeInstaller().download_weights(models=models)
+        invalidate("runtime_options")
+        logger.info("Celery download_weights completed for models=%s", models)
+        return {"success": True, "models": models, "stage": "weights_downloaded"}
+    except Exception as exc:
+        logger.exception("Celery download_weights failed for models=%s", models)
+        raise self.retry(exc=exc)
+
+
+@shared_task(
+    bind=True,
+    max_retries=2,
     default_retry_delay=300,
     soft_time_limit=3600,
     time_limit=3900,
 )
-def run_native_build(self, provider_name: str, task_id: str) -> dict:
+def update_repo(self, repo: str) -> dict:
+    """Update (re-clone) a single provider repo."""
+    from runtime.installer import clone_repo
+
+    try:
+        logger.info("Celery update_repo started for repo=%s", repo)
+        clone_repo(repo)
+        invalidate("runtime_options")
+        logger.info("Celery update_repo completed for repo=%s", repo)
+        return {"success": True, "repo": repo}
+    except Exception as exc:
+        logger.exception("Celery update_repo failed for repo=%s", repo)
+        raise self.retry(exc=exc)
+
+
+@shared_task(
+    bind=True,
+    max_retries=2,
+    default_retry_delay=300,
+    soft_time_limit=3600,
+    time_limit=3900,
+)
+def repair_repo(self, repo: str) -> dict:
+    """Repair a provider repo: re-clone and rebuild venv/deps."""
+    import shutil
+
+    from runtime.installer import clone_repo, install_repo_deps, get_storage_config
+
+    try:
+        logger.info("Celery repair_repo started for repo=%s", repo)
+        storage = get_storage_config()
+        repo_path = storage.get_repo_path(repo)
+        if repo_path.exists():
+            shutil.rmtree(str(repo_path), ignore_errors=True)
+        clone_repo(repo)
+        install_repo_deps(repo)
+        invalidate("runtime_options")
+        logger.info("Celery repair_repo completed for repo=%s", repo)
+        return {"success": True, "repo": repo}
+    except Exception as exc:
+        logger.exception("Celery repair_repo failed for repo=%s", repo)
+        raise self.retry(exc=exc)
     """Run the native CUDA extension build for a provider in the background.
 
     Runs on the dedicated ``installation`` queue. Owns the native-build lock

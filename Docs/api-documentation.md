@@ -1,6 +1,6 @@
 # AI 3D Studio - Complete API Documentation
 
-> **Version**: 4.6.0
+> **Version**: 4.7.2
 > **Base URL**: `http://localhost:8000` (Backend API)  
 > **API Prefix**: `/api/v1`  
 > **Documentation**: Interactive docs at `/docs` (Swagger UI)

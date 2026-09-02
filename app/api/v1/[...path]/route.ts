@@ -267,7 +267,7 @@ function createProxyResponse(response: Response): NextResponse {
 async function streamResponse(targetUrl: string, request: NextRequest): Promise<NextResponse> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 min timeout for SSE
+    const timeoutId = setTimeout(() => controller.abort(), 1800000); // 30 min safety timeout; jobs can run longer than 5 min
     
     const response = await fetch(targetUrl, {
       method: 'GET',

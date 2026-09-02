@@ -7,7 +7,6 @@ from typing import Any
 
 from app.core.providers.base import BaseProvider, ProviderResult
 from app.core.managers.vram_tracker import vram_tracker
-from app.core.mesh_processor import write_placeholder_mesh
 from runtime.accelerate_loader import safe_unload, verify_gpu_placement
 from runtime.storage import get_storage_config
 
@@ -119,8 +118,7 @@ class DetailGen3DProvider(BaseProvider):
         if not self.is_loaded:
             loaded = await self.load()
             if not loaded:
-                logger.warning("VRAM Allocation failed for DetailGen3D. Falling back to coarse GLB.")
-                return coarse_glb_path
+                raise RuntimeError("DetailGen3D could not load its model/weights for refinement")
 
         logger.info("Detailing mesh %s using image %s (guidance=%s)", coarse_glb_path, image_path, guidance)
         if progress_callback:
@@ -128,17 +126,14 @@ class DetailGen3DProvider(BaseProvider):
 
         coarse_path = Path(coarse_glb_path)
         if not coarse_path.exists():
-            logger.warning("Coarse mesh file %s not found. Falling back.", coarse_glb_path)
-            return coarse_glb_path
+            raise RuntimeError(f"Coarse mesh file not found: {coarse_glb_path}")
 
         refined_path = coarse_path.parent / f"{coarse_path.stem}_detailed.glb"
         try:
             # Prepare reference image
-            if image_path and Path(image_path).exists():
-                image = Image.open(image_path).convert("RGB")
-            else:
-                logger.warning("No reference image provided; using blank white image.")
-                image = Image.new("RGB", (512, 512), (255, 255, 255))
+            if not image_path or not Path(image_path).exists():
+                raise RuntimeError("DetailGen3D refinement requires a valid local reference image")
+            image = Image.open(image_path).convert("RGB")
 
             # Encode coarse mesh to latent
             surface = self._load_mesh_points(coarse_glb_path)
@@ -174,25 +169,13 @@ class DetailGen3DProvider(BaseProvider):
             logger.info("DetailGen3D refinement complete: %s", refined_path)
             return str(refined_path)
         except Exception as exc:
-            logger.exception("DetailGen3D failed, falling back to coarse GLB: %s", exc)
-            return coarse_glb_path
+            logger.exception("DetailGen3D refinement failed: %s", exc)
+            raise RuntimeError(f"DetailGen3D refinement failed: {exc}") from exc
 
     async def generate(self, request: Any, output_dir: str, progress_callback: Any = None) -> ProviderResult:
-        if not self.is_loaded:
-            await self.load()
-        output_path = Path(output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
-        glb_path = output_path / "model.glb"
-        stats = write_placeholder_mesh(glb_path)
-        return ProviderResult(
-            model_path=str(glb_path),
-            thumbnail_path="",
-            polygon_count=stats["polygon_count"],
-            vertex_count=stats["vertex_count"],
-            texture_resolution="4096x4096",
-            has_rig=False,
-            file_size=glb_path.stat().st_size,
-            metadata={"provider": "detailgen3d", "device": self.device},
+        raise RuntimeError(
+            "DetailGen3D public generation is not implemented; use its mesh-refinement API "
+            "with an existing coarse mesh instead of a synthetic placeholder."
         )
 
     async def health_check(self) -> bool:

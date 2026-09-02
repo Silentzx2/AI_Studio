@@ -15,7 +15,7 @@
 
 <p align="center">
 
-  <img src="https://img.shields.io/badge/Version-4.7.0-8A2BE2?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Version-4.7.2-8A2BE2?style=for-the-badge">
 
   <img src="https://img.shields.io/badge/Pipeline-V2-Complete-success?style=for-the-badge">
 
@@ -96,6 +96,11 @@
 | **GPU Info Caching** | 2s TTL cache on GPU queries reduces subprocess calls | ✅ | v4.6.1 |
 | **Shared Redis Pool** | Single connection pool shared across all modules | ✅ | v4.6.1 |
 | **WebSocket Hardening** | Connection limit, concurrent broadcast, send timeout | ✅ | v4.6.1 |
+| **Settings Persistence** | PostgreSQL-backed settings survive restarts | ✅ | v4.7.2 |
+| **Celery Install Jobs** | Durable Celery tasks for all install operations | ✅ | v4.7.2 |
+| **Rate Limiting** | Redis-backed sliding-window rate limiting (10 req/min) | ✅ | v4.7.2 |
+| **DetailGen3D Guard** | Post-processing-only provider properly gated | ✅ | v4.7.2 |
+| **Decimation Validation** | Explicit backend check for mesh optimization | ✅ | v4.7.2 |
 
 
 ### Current Model & Runtime Catalog

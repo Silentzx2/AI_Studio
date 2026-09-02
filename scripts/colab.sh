@@ -36,9 +36,8 @@ log()   { echo -e "${GREEN}[COLAB]${NC}  ✔ $*"; }
 info()  { echo -e "${CYAN}[INFO]${NC}   ℹ $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC}   ⚠ $*"; }
 ok()    { echo -e "${GREEN}[OK]${NC}    ✓ $*"; }
-err()   { echo -e "${RED}[ERR]${NC}    ✗ $*"; }
-head_() { echo -e "\n${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n  ${BOLD}${MAGENTA}➜ $*\n"; }
-err()   { echo -e "${RED}[ERROR]{NC}  ✖ $*" >&2; }
+err()   { echo -e "${RED}[ERR]${NC}    ✗ $*" >&2; }
+head_() { echo -e "\n${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n  ${BOLD}${MAGENTA}➜ $*${NC}\n"; }
 step()  { echo -e "\n${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n  ${BOLD}${MAGENTA}➜ Step $*${NC}\n"; }
 done_() { echo -e "  ${GREEN}${BOLD}✔ Done!${NC}"; }
 
@@ -484,7 +483,8 @@ colab_start_services() {
             if [[ "$MIGRATION_OK" == "true" ]]; then
                 log "Migrations complete"
             else
-                warn "Migrations failed after 3 attempts"
+                err "Migrations failed after 3 attempts — refusing to start services against an unknown schema."
+                exit 1
             fi
         )
     else
@@ -1628,7 +1628,8 @@ if [[ "$PG_READY" == "true" ]]; then
         if [[ "$MIGRATION_OK" == "true" ]]; then
             log "Migrations complete"
         else
-            warn "Migrations failed after 3 attempts — services may not function correctly"
+            err "Migrations failed after 3 attempts — refusing to start services against an unknown schema."
+            exit 1
         fi
     )
 else

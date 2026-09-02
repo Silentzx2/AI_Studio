@@ -61,9 +61,15 @@ def clean_mesh(input_path: str, output_path: str, target_faces: int | None = Non
 
     mesh = trimesh.load(input_path, force="mesh")
 
-    # Basic cleanup
-    mesh.remove_degenerate_faces()
-    mesh.remove_duplicate_faces()
+    # Basic cleanup (trimesh API differs across supported releases).
+    if hasattr(mesh, "remove_degenerate_faces"):
+        mesh.remove_degenerate_faces()
+    else:
+        mesh.update_faces(mesh.nondegenerate_faces())
+    if hasattr(mesh, "remove_duplicate_faces"):
+        mesh.remove_duplicate_faces()
+    else:
+        mesh.update_faces(mesh.unique_faces())
     mesh.merge_vertices()
     mesh.fix_normals()
 

@@ -27,9 +27,9 @@ PROVIDER_PRIORITY = ["hunyuan3d-2.1", "trellis", "hunyuan3d-2-mini", "triposg", 
 PROVIDER_MODES: dict[str, set[str]] = {
     "hunyuan3d": {"text-to-3d", "image-to-3d"},
     "hunyuan3d-1.0": {"text-to-3d", "image-to-3d"},
-    "hunyuan3d-2.1": {"text-to-3d", "image-to-3d"},
-    "hunyuan3d-2-mini": {"image-to-3d"},
-    "trellis": {"image-to-3d"},
+    "hunyuan3d-2.1": {"text-to-3d", "image-to-3d", "texture-generation"},
+    "hunyuan3d-2-mini": {"image-to-3d", "texture-generation"},
+    "trellis": {"image-to-3d", "texture-generation"},
     "triposg": {"image-to-3d"},
     "detailgen3d": {"remesh", "post-processing"},
     "worldgen": {"text-to-3d", "image-to-3d"},
@@ -55,6 +55,7 @@ class RuntimeEngine:
     def __init__(self) -> None:
         self.gpu = _GPUScheduler()
         self._loaded: dict[str, Any] = {}
+        self._loaded_modes: dict[str, str] = {}
         self._lock = asyncio.Lock()
         self._initialized = False
         self._storage = get_storage_config()
@@ -173,9 +174,12 @@ class RuntimeEngine:
             needed = get_model_vram_required(requested)
             fits = needed == 0 or free_mb >= needed
             resolved_mode = "normal"
-        if fits:
+        requested_available = requested == "mock" and self._is_mock_allowed() or self._check_provider_available(requested)
+        if fits and requested_available:
             if mode in PROVIDER_MODES.get(requested, set()):
                 return requested
+        elif fits and not requested_available:
+            logger.warning("Requested provider '%s' is not installed/available", requested)
             logger.warning(
                 "Provider '%s' fits VRAM but does not support mode '%s'",
                 requested, mode,
@@ -221,18 +225,45 @@ class RuntimeEngine:
 
     async def load_provider(self, name: str, vram_mode: str = "auto", low_vram: bool = False) -> Any:
         async with self._lock:
+            requested = "low" if low_vram else vram_mode
+            # The scheduler is a single-GPU slot tracker. Keep exactly one
+            # provider loaded at a time, and reload when an explicit low/normal
+            # mode differs from the currently loaded instance.
             if name in self._loaded:
-                return self._loaded[name]
+                loaded_mode = self._loaded_modes.get(name, "normal")
+                if requested in ("auto", loaded_mode):
+                    return self._loaded[name]
+                provider = self._loaded.pop(name)
+                self._loaded_modes.pop(name, None)
+                try:
+                    if hasattr(provider, "unload"):
+                        loop = asyncio.get_running_loop()
+                        await loop.run_in_executor(None, provider.unload)
+                except Exception as exc:
+                    logger.warning("Error reloading '%s' for vram mode change: %s", name, exc)
+                self.gpu.release(name)
+            for loaded_name in list(self._loaded.keys()):
+                provider = self._loaded.pop(loaded_name)
+                self._loaded_modes.pop(loaded_name, None)
+                try:
+                    if hasattr(provider, "unload"):
+                        loop = asyncio.get_running_loop()
+                        await loop.run_in_executor(None, provider.unload)
+                except Exception as exc:
+                    logger.warning("Error unloading previous provider '%s': %s", loaded_name, exc)
+                self.gpu.release(loaded_name)
             # ponytail: Auto VRAM planner — resolve normal vs low mode and the
             # VRAM footprint to gate device selection on the mode actually used.
+            requested = "low" if low_vram else vram_mode
             try:
                 from runtime.capability import plan_vram_usage
-                requested = "low" if low_vram else vram_mode
                 plan = plan_vram_usage(name, requested)
                 resolved_mode = plan.get("mode")
                 vram_needed = plan.get("vram_required_mb") or 0
                 if resolved_mode == "unavailable":
-                    raise RuntimeError(plan.get("reason", f"Low VRAM mode unavailable for {name}"))
+                    raise RuntimeError(plan.get("reason", f"Requested VRAM mode '{requested}' is unavailable for {name}"))
+            except RuntimeError:
+                raise
             except Exception:
                 vram_needed = get_model_vram_required(name)
                 resolved_mode = "normal"
@@ -255,6 +286,7 @@ class RuntimeEngine:
                 # Safe: assignment happens inside `async with self._lock` after
                 # the executor future resolves, so no concurrent mutation is possible.
                 self._loaded[name] = provider
+                self._loaded_modes[name] = resolved_mode
                 logger.info("Provider '%s' loaded (vram_mode=%s)", name, resolved_mode)
                 return provider
             except Exception as exc:
@@ -267,6 +299,7 @@ class RuntimeEngine:
             if name not in self._loaded:
                 return
             provider = self._loaded.pop(name)
+            self._loaded_modes.pop(name, None)
             if hasattr(provider, "unload"):
                 try:
                     loop = asyncio.get_running_loop()

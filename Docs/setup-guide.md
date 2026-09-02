@@ -1,6 +1,6 @@
 # AI 3D Studio - Setup & Installation Guide
 
-> **Version**: 4.6.0 (Performance Optimizations & Bug Fixes)
+> **Version**: 4.7.2 (Bug Fixes & Hardening)
 > **Difficulty**: Intermediate  
 > **Estimated Time**: 15-30 minutes (runtime only; weights are on-demand)
 
@@ -332,11 +332,8 @@ cp ../env.example .env
 # Configure environment
 nano .env
 
-# Run database migrations
+# Run database migrations (the only supported schema-management path)
 alembic upgrade head
-
-# Or create tables directly
-python -c "from app.models.registry import Base; from app.database import engine; Base.metadata.create_all(engine)"
 ```
 
 ### 5. Frontend Setup

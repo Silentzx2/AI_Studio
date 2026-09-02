@@ -73,7 +73,7 @@ async def generation_history(limit: int = 20, offset: int = 0):
             )
     except Exception as exc:
         logger.warning("DB unavailable for history: %s", exc)
-        return success({"jobs": [], "total": 0, "offset": offset, "limit": limit})
+        return error("Failed to retrieve generation history from the database.")
 
 
 CREDIT_COSTS = {
@@ -109,18 +109,50 @@ async def estimate_cost(quality: str = "standard", generate_texture: bool = True
 
 # TODO: Add rate limiting middleware
 @router.post("")
-async def create_generation(req: GenerationRequest):
+async def create_generation(req: GenerationRequest, request: Request):
     """Submit a new 3D generation job."""
+    # Redis-backed rate limiting: 10 requests per minute per IP
+    client_ip = request.client.host if request.client else "unknown"
+    if not await _check_rate_limit(client_ip, max_requests=10, window_seconds=60):
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded. Maximum 10 generation requests per minute.",
+        )
     job_id = str(uuid.uuid4())
-    provider = req.provider or settings.ai_provider
     now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    # Workspace selection is authoritative when the UI opens a dedicated tool.
+    if req.workspace and req.mode == "text-to-3d" and req.workspace in _WORKSPACE_MODE_MAP:
+        req.mode = _WORKSPACE_MODE_MAP[req.workspace]
+
+    builtin_provider = {
+        "remesh": "builtin-remesh",
+        "render": "builtin-render",
+    }.get(req.mode)
+    provider = builtin_provider or req.provider or settings.ai_provider
+
+    # Reject post-processing-only providers (e.g. DetailGen3D) as standalone
+    # generation targets. They are only valid as a detail/refinement stage.
+    from app.core.providers.registry import is_standalone_generation_provider
+    if not builtin_provider and not is_standalone_generation_provider(provider):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Provider '{provider}' is a post-processing-only provider and "
+                f"cannot be used for standalone generation. It is available as a "
+                f"detail/refinement stage after generation."
+            ),
+        )
 
     # Low VRAM guard: reject an explicit low-vram request for a provider that
     # has no verified low-VRAM execution path instead of silently running in
     # normal mode (and likely OOMing). 'auto' is never rejected — the worker
     # resolves a fitting mode at runtime.
     try:
-        from runtime.capability import supports_low_vram  # noqa: PLC0415
+        if builtin_provider:
+            supports_low_vram = lambda _provider: True
+        else:
+            from runtime.capability import supports_low_vram  # noqa: PLC0415
         if req.low_vram and not supports_low_vram(provider):
             raise HTTPException(
                 status_code=400,
@@ -147,8 +179,11 @@ async def create_generation(req: GenerationRequest):
     # (repo cloned, venv created, weights downloaded) — otherwise it fails
     # with cryptic "module not found" or "weights not found" errors.
     try:
-        from runtime.installer import get_install_status  # noqa: PLC0415
-        status = get_install_status()
+        if builtin_provider:
+            status = {provider: {"installed": True, "repo_ready": True, "venv_ready": True, "weights_ready": True}}
+        else:
+            from runtime.installer import get_install_status  # noqa: PLC0415
+            status = get_install_status()
         inst = status.get(provider, {})
         if not inst.get("installed", False):
             missing = []
@@ -172,22 +207,21 @@ async def create_generation(req: GenerationRequest):
         logger.warning("Installation check failed for %s: %s", provider, exc)
         pass  # Soft fail: don't block if check itself errors
 
-    # Validate workspace/provider compatibility if workspace is specified
-    if req.workspace:
+    # Validate workspace/provider compatibility if workspace is specified.
+    # Built-in remesh/render paths do not have manifest-backed model providers.
+    if req.workspace and not builtin_provider:
         try:
             from runtime.manifest_loader import get_provider_metadata
             meta = get_provider_metadata(provider)
             if not is_compatible_with_workspace(meta, req.workspace):
-                logger.warning(
-                    "Incompatible workspace '%s' for provider '%s'",
-                    req.workspace, provider,
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Provider '{provider}' is incompatible with workspace '{req.workspace}'.",
                 )
-        except Exception:
-            pass  # Soft validation: don't block generation if check fails
-
-        # Auto-map workspace to generation mode if not explicitly provided
-        if req.mode == "text-to-3d" and req.workspace in _WORKSPACE_MODE_MAP:
-            req.mode = _WORKSPACE_MODE_MAP[req.workspace]
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.warning("Workspace/provider compatibility check failed: %s", exc)
 
     from app.database import AsyncSessionLocal
     from app.models.job import GenerationJob
@@ -218,6 +252,7 @@ async def create_generation(req: GenerationRequest):
                     "workspace": req.workspace,
                     "auto_optimize": req.auto_optimize,
                     "auto_optimize_settings": req.auto_optimize_settings.model_dump() if req.auto_optimize_settings else None,
+                    "remesh_settings": req.remesh_settings,
                     "mood": req.mood,
                     "shape": req.shape,
                     "style": req.style,
@@ -446,3 +481,37 @@ def _get_stage_message(stage: str, progress: int) -> str:
         "failed": "Generation failed",
     }
     return messages.get(stage, f"Processing... {progress}%")
+
+
+async def _check_rate_limit(client_ip: str, max_requests: int, window_seconds: int) -> bool:
+    """Redis-backed sliding-window rate limiter.
+
+    Returns True if the request is allowed, False if rate limited.
+    Uses a Redis sorted set to track request timestamps per IP.
+    """
+    try:
+        from app.core.redis_client import get_async_redis
+
+        r = await get_async_redis()
+        key = f"rate_limit:gen:{client_ip}"
+        now = datetime.now(timezone.utc).timestamp()
+        window_start = now - window_seconds
+
+        pipe = r.pipeline()
+        # Remove entries outside the window
+        pipe.zremrangebyscore(key, 0, window_start)
+        # Count current entries in window
+        pipe.zcard(key)
+        # Add current request
+        pipe.zadd(key, {f"{now}:{uuid.uuid4()}": now})
+        # Set expiry on the key
+        pipe.expire(key, window_seconds)
+        results = await pipe.execute()
+
+        # results[1] is the count of existing entries before adding current
+        current_count = results[1]
+        return current_count < max_requests
+    except Exception as exc:
+        # Never block generation on rate-limit check failure
+        logger.warning("Rate limit check failed for %s: %s", client_ip, exc)
+        return True

@@ -163,7 +163,8 @@ class ApiClient {
     try {
       const res = await fetch(`${API_BASE}/jobs?status=queued&limit=50`, { signal: AbortSignal.timeout(4000) });
       if (!res.ok) return { running: [], pending: [] };
-      const data = await res.json() as { jobs?: unknown[] };
+      const payload = await res.json();
+      const data = (payload?.data ?? payload) as { jobs?: unknown[] };
       return { running: data.jobs ?? [], pending: [] };
     } catch {
       return { running: [], pending: [] };
@@ -174,7 +175,8 @@ class ApiClient {
     try {
       const res = await fetch(`${API_BASE}/generation/history?limit=${maxItems}`, { signal: AbortSignal.timeout(8000) });
       if (!res.ok) return {};
-      const data = await res.json() as { jobs?: Array<Record<string, unknown>> };
+      const payload = await res.json();
+      const data = (payload?.data ?? payload) as { jobs?: Array<Record<string, unknown>> };
       const result: Record<string, HistoryItem> = {};
       (data.jobs ?? []).forEach((j, i) => {
         const jobId = (j.id ?? j.job_id ?? `job-${i}`) as string;

@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from app.core.providers.base import BaseProvider, ProviderResult
-from app.core.mesh_processor import get_mesh_stats, write_placeholder_mesh
+from app.core.mesh_processor import get_mesh_stats
 from app.schemas.generation import GenerationRequest
 from runtime.accelerate_loader import (
     verify_gpu_placement as _verify_gpu_placement,
@@ -51,9 +51,7 @@ class TRELLISLocalProvider(BaseProvider):
         if self._pipeline is not None:
             return
         if not self.weights_dir.exists():
-            logger.warning("TRELLIS weights not found at %s. Using simulated fallback.", self.weights_dir)
-            self._mock_fallback = True
-            return
+            raise RuntimeError(f"TRELLIS weights not found at {self.weights_dir}")
         self._mock_fallback = False
         _log_gpu_memory("before_trellis_load")
         try:
@@ -113,25 +111,6 @@ class TRELLISLocalProvider(BaseProvider):
 
         await cb(5, "preparing", "Loading TRELLIS pipeline...", "info")
         await loop.run_in_executor(None, self._ensure_loaded)
-        if getattr(self, "_mock_fallback", False):
-            await cb(15, "generating", "Running simulated TRELLIS reconstruction...", "info")
-            await asyncio.sleep(1.0)
-            await cb(70, "generating", "TRELLIS simulated complete.", "success")
-            out = Path(output_dir)
-            out.mkdir(parents=True, exist_ok=True)
-            mesh_path = str(out / "model.glb")
-            stats = write_placeholder_mesh(mesh_path)
-            return ProviderResult(
-                model_path=mesh_path,
-                thumbnail_path="",
-                polygon_count=stats["polygon_count"],
-                vertex_count=stats["vertex_count"],
-                texture_resolution="2048x2048" if request.generate_texture else None,
-                has_rig=False,
-                file_size=stats["file_size"],
-                metadata={"provider": self.name, "device": self.device, "simulated": True},
-            )
-
         await cb(15, "generating", "Running TRELLIS reconstruction...", "info")
 
         _log_gpu_memory("before_trellis_inference")

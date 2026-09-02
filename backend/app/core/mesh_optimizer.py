@@ -8,6 +8,44 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# Module-level cache for backend availability (checked once per process)
+_DECIMATION_BACKEND_AVAILABLE: bool | None = None
+
+
+def _check_decimation_backend() -> bool:
+    """Check whether at least one decimation backend is available.
+
+    Returns True if trimesh's simplify_quadric_decimation OR pymeshlab
+    is available. Caches the result to avoid repeated imports.
+    """
+    global _DECIMATION_BACKEND_AVAILABLE
+    if _DECIMATION_BACKEND_AVAILABLE is not None:
+        return _DECIMATION_BACKEND_AVAILABLE
+
+    # trimesh's simplify_quadric_decimation is the primary backend
+    try:
+        import trimesh
+        # Verify the method actually exists (it requires fast_simplification or
+        # Open3D backend at runtime)
+        if hasattr(trimesh, "Trimesh") and hasattr(
+            trimesh.Trimesh, "simplify_quadric_decimation"
+        ):
+            _DECIMATION_BACKEND_AVAILABLE = True
+            return True
+    except ImportError:
+        pass
+
+    # PyMeshLab is the fallback backend
+    try:
+        import pymeshlab  # noqa: F401
+        _DECIMATION_BACKEND_AVAILABLE = True
+        return True
+    except ImportError:
+        pass
+
+    _DECIMATION_BACKEND_AVAILABLE = False
+    return False
+
 
 def _try_import_trimesh():
     try:
@@ -57,6 +95,28 @@ def optimize_mesh(
             "error": "trimesh not installed",
         }
 
+    # Validate decimation backend availability BEFORE processing
+    # so we fail fast with a clear error instead of silently returning
+    # an un-decimated mesh.
+    if not _check_decimation_backend():
+        logger.warning(
+            "No decimation backend available — install fast_simplification "
+            "(pip install fast-simplification) or pymeshlab for trimesh decimation"
+        )
+        import shutil
+        shutil.copy(input_path, output_path)
+        return {
+            "original_polycount": 0,
+            "optimized_polycount": 0,
+            "reduction_percent": 0.0,
+            "uv_fixes_applied": False,
+            "success": False,
+            "error": (
+                "No decimation backend available. Install fast-simplification "
+                "(pip install fast-simplification) or pymeshlab to enable mesh decimation."
+            ),
+        }
+
     try:
         mesh = trimesh.load(input_path, force="mesh")
     except Exception as exc:
@@ -75,9 +135,15 @@ def optimize_mesh(
     original_polycount = len(mesh.faces)
     original_vertex_count = len(mesh.vertices)
 
-    # Basic cleanup
-    mesh.remove_degenerate_faces()
-    mesh.remove_duplicate_faces()
+    # Basic cleanup (trimesh API differs across supported releases).
+    if hasattr(mesh, "remove_degenerate_faces"):
+        mesh.remove_degenerate_faces()
+    else:
+        mesh.update_faces(mesh.nondegenerate_faces())
+    if hasattr(mesh, "remove_duplicate_faces"):
+        mesh.remove_duplicate_faces()
+    else:
+        mesh.update_faces(mesh.unique_faces())
     mesh.merge_vertices()
 
     # UV fixing: repair overlapping UVs by re-unwrapping if requested
@@ -138,17 +204,24 @@ def optimize_mesh(
                     original_polycount, optimized_polycount, target_polycount, preserve_details,
                 )
         except Exception as exc:
-            logger.warning("Quadric decimation failed, trying vertex clustering: %s", exc)
+            logger.warning("Quadric decimation failed: %s", exc)
             try:
-                # Fallback: simple vertex clustering via trimesh
-                ratio = target_polycount / original_polycount
-                if ratio < 1.0:
-                    mesh = mesh.simplify_vertex_clustering(
-                        aggregation=1.0 - ratio
-                    )
-                    optimized_polycount = len(mesh.faces)
+                import pymeshlab
+                ms = pymeshlab.MeshSet()
+                ms.add_mesh(pymeshlab.Mesh(vertex_matrix=mesh.vertices, face_matrix=mesh.faces), "mesh")
+                ms.meshing_decimation_quadric_edge_collapse(targetfacenum=adjusted_target)
+                current = ms.current_mesh()
+                import numpy as np
+                mesh = trimesh.Trimesh(
+                    vertices=np.asarray(current.vertex_matrix()),
+                    faces=np.asarray(current.face_matrix()),
+                    process=False,
+                )
+                optimized_polycount = len(mesh.faces)
+            except ImportError:
+                logger.warning("PyMeshLab not installed — keeping cleaned mesh without decimation")
             except Exception as exc2:
-                logger.warning("Vertex clustering also failed: %s", exc2)
+                logger.warning("PyMeshLab decimation also failed: %s", exc2)
 
     # Recalculate normals for clean shading
     try:

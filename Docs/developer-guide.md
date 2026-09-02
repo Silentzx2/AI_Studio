@@ -643,6 +643,43 @@ The `backend/app/core/mesh_optimizer.py` module provides post-generation mesh op
 
 Configuration is exposed via the GeneratePanel settings (`auto_optimize`, `target_polycount`, `preserve_details`).
 
+## Settings Persistence (v4.7.2+)
+
+Settings are stored in PostgreSQL and cached in Redis:
+
+```python
+from app.models.setting import Setting
+
+# Read setting (with Redis cache)
+value = await Setting.get(session, "default_provider", fallback="hunyuan3d-2.1")
+
+# Write setting (invalidates Redis cache)
+await Setting.set(session, "default_provider", "trellis")
+```
+
+## Rate Limiting (v4.7.2+)
+
+The generation endpoint uses Redis-backed sliding-window rate limiting:
+
+```python
+from app.api.v1.generation import _check_rate_limit
+
+# In your endpoint:
+await _check_rate_limit(request, max_requests=10, window_seconds=60)
+```
+
+## Celery Install Tasks (v4.7.2+)
+
+Long-running install operations use Celery for durability:
+
+```python
+from app.workers.installation_workers import prepare_runtime, download_weights
+
+# Dispatch as Celery task
+task = prepare_runtime.delay("hunyuan3d-2.1")
+print(f"Task ID: {task.id}")
+```
+
 ## Security Best Practices (v4.4.9+)
 
 When contributing to AI 3D Studio, follow these security guidelines:

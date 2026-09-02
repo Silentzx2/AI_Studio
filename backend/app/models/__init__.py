@@ -2,6 +2,7 @@
 from app.database import Base
 from app.models.job import GenerationJob, VramAuditLog
 from app.models.registry import DownloadQueue, DownloadChunk, InstalledModel, ModelCapability, ModelDependency, ProviderInstallState
+from app.models.setting import Setting
 
 __all__ = [
     "Base",
@@ -13,4 +14,5 @@ __all__ = [
     "ModelCapability",
     "ModelDependency",
     "ProviderInstallState",
+    "Setting",
 ]

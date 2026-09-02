@@ -11,6 +11,7 @@ import asyncio
 import base64
 import json
 import logging
+import inspect
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,7 +39,13 @@ _redis = redis_sync.from_url(settings.redis_url, decode_responses=True)
 
 def _publish(job_id: str, payload: dict) -> None:
     channel = f"job_progress:{job_id}"
-    _redis.publish(channel, json.dumps(payload))
+    try:
+        _redis.publish(channel, json.dumps(payload))
+    except Exception as exc:
+        # Redis is a progress transport, not the job source of truth. A broker
+        # outage must not fail an otherwise valid generation task because the
+        # frontend can fall back to DB status polling.
+        logger.warning("Progress publish failed for job %s: %s", job_id, exc)
 
 
 def _update_job(session: Session, job_id: str, **kwargs) -> None:
@@ -273,6 +280,10 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             })
             _update_job(session, job_id, progress=progress, stage=stage)
+            # The frontend also polls the DB as a durable fallback to SSE.
+            # Commit each published progress point so both channels observe
+            # the same authoritative state.
+            session.commit()
 
         async def progress_callback(progress: int, stage: str, message: str, level: str = "info") -> None:
             sync_publish(progress, stage, message, level)
@@ -283,33 +294,38 @@ async def _async_generate(task: Task, job_id: str) -> dict:
 
         provider_name = job.provider
 
-        # Installation guard in worker (defense in depth)
-        if provider_name != "mock":
-            try:
-                from runtime.installer import get_install_status
-                status = get_install_status()
-                inst = status.get(provider_name, {})
-                if not inst.get("installed", False):
-                    missing = []
-                    if not inst.get("repo_ready", True):
-                        missing.append("repo")
-                    if not inst.get("venv_ready", True):
-                        missing.append("venv")
-                    if not inst.get("weights_ready", True):
-                        missing.append("weights")
-                    raise RuntimeError(
-                        f"Model '{provider_name}' is not installed. "
-                        f"Missing: {', '.join(missing) or 'unknown'}. "
-                        f"Install it first via Model Manager or POST /api/v1/runtime/install."
-                    )
-            except RuntimeError:
-                raise
-            except Exception as exc:
-                logger.warning("Worker install check failed for %s: %s", provider_name, exc)
-
         try:
-            # 1. GPU scheduling — select best available provider
-            if engine:
+            # Installation guard in worker (defense in depth)
+            if provider_name not in {"mock", "builtin-remesh", "builtin-render"}:
+                try:
+                    from runtime.installer import get_install_status
+                    status = get_install_status()
+                    inst = status.get(provider_name, {})
+                    if not inst.get("installed", False):
+                        missing = []
+                        if not inst.get("repo_ready", True):
+                            missing.append("repo")
+                        if not inst.get("venv_ready", True):
+                            missing.append("venv")
+                        if not inst.get("weights_ready", True):
+                            missing.append("weights")
+                        raise RuntimeError(
+                            f"Model '{provider_name}' is not installed. "
+                            f"Missing: {', '.join(missing) or 'unknown'}. "
+                            f"Install it first via Model Manager or POST /api/v1/runtime/install."
+                        )
+                except RuntimeError:
+                    raise
+                except Exception as exc:
+                    logger.warning("Worker install check failed for %s: %s", provider_name, exc)
+
+            # 1. Built-in mesh workflow needs no AI provider. Other modes are
+            # scheduled through RuntimeEngine.
+            out_dir = str(model_output_dir(job_id))
+            provider = None
+            provider_result = None
+
+            if job.mode != "remesh" and engine:
                 provider_name = await engine.get_best_provider_name(job.provider, mode=job.mode)
                 if provider_name != job.provider:
                     _update_job(session, job_id, provider=provider_name)
@@ -335,6 +351,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 generate_texture=job.generate_texture,
                 auto_rig=job.auto_rig,
                 reference_image_url=_resolve_reference_image(job.reference_image_url, job_id),
+                remesh_settings=meta.get("remesh_settings"),
                 mood=meta.get("mood"),
                 shape=meta.get("shape"),
                 style=meta.get("style"),
@@ -343,69 +360,98 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 density=meta.get("density"),
             )
 
-            # 4. Load provider via RuntimeEngine (enforces VRAM scheduling)
-            # ponytail: Low VRAM mode — resolve the job's requested mode and
-            # pass it to the engine so the Auto VRAM planner picks the fitting
-            # footprint (normal vs low). On OOM, retry once in low mode.
+            # 4. Resolve VRAM mode for AI providers. Built-in mesh workflows do
+            # not acquire a model slot.
             vram_mode = _resolve_job_vram_mode(job)
             if vram_mode == "low":
                 sync_publish(5, "preparing", "Low VRAM mode requested — using memory-optimized loading.", "info")
 
-            # FALLBACK (Issue #6): Use direct provider instantiation if engine unavailable
-            provider = None
-            if job.mode != "render":
-                if engine:
-                    provider = await engine.load_provider(provider_name, vram_mode=vram_mode)
-                else:
-                    # Direct provider loading with device from fallback VRAM check
-                    logger.info("Loading provider %s directly on device %s", provider_name, device)
-                    provider = get_provider(provider_name, device=device or "cuda:0")
-
-            # 5. AI generation (Skip if pure render mode)
             _ensure_not_cancelled(session, job_id)
-            out_dir = str(model_output_dir(job_id))
-            provider_result = None
 
-            if job.mode == "render":
-                # For render mode, the reference image is the GLB to render
-                glb_to_process = request.reference_image_url
-                if not glb_to_process or not Path(glb_to_process).exists():
-                     # Fallback to current model if URL didn't resolve to local path
-                     glb_to_process = request.reference_image_url
-
+            if job.mode == "remesh":
+                source_mesh = request.reference_image_url
+                if not source_mesh or not Path(source_mesh).exists():
+                    raise RuntimeError("Remesh requires a selected local GLB/mesh asset. Select a model in the workspace and try again.")
+                remesh_settings = request.remesh_settings or {}
+                target_faces = int(remesh_settings.get("targetFaces") or 30000)
+                target_faces = max(1000, min(target_faces, 500000))
+                sync_publish(12, "remeshing", f"Remeshing mesh to approximately {target_faces:,} triangles.", "info")
+                from app.core.mesh_optimizer import optimize_mesh
+                remeshed_path = str(Path(out_dir) / "remeshed.glb")
+                result = optimize_mesh(
+                    input_path=source_mesh,
+                    output_path=remeshed_path,
+                    target_polycount=target_faces,
+                    fix_uvs=bool(remesh_settings.get("preserveUVs", True)),
+                    preserve_details=float(remesh_settings.get("detailPreservation", 75.0)),
+                )
+                if not result.get("success"):
+                    raise RuntimeError(result.get("error") or "Mesh remeshing/optimization failed")
                 from app.core.providers.base import ProviderResult
                 provider_result = ProviderResult(
-                    model_path=glb_to_process,
+                    model_path=remeshed_path,
                     thumbnail_path="",
-                    polygon_count=0,
-                    vertex_count=0,
+                    polygon_count=int(result.get("optimized_polycount") or 0),
+                    vertex_count=int(result.get("optimized_vertex_count") or 0),
+                    texture_resolution=None,
                     has_rig=False,
-                    file_size=0
+                    file_size=Path(remeshed_path).stat().st_size,
+                    metadata={"operation": "remesh", "optimizer": result},
                 )
+                sync_publish(20, "remeshing", "Remesh complete.", "success")
             else:
-                try:
-                    provider_result = await provider.generate(request, out_dir, progress_callback)
-                except Exception as gen_exc:
-                    # OOM recovery: retry once in low VRAM mode when supported.
-                    if (
-                        _is_oom_error(gen_exc)
-                        and vram_mode != "low"
-                        and                         _can_retry_low_vram(job_id, provider_name)
-                    ):
-                        logger.warning(
-                            "Job %s OOM'd in vram_mode=%s — retrying in low VRAM mode", job_id, vram_mode
-                        )
-                        _update_job(session, job_id, low_vram=True, vram_mode="low")
-                        if engine:
-                            try:
-                                await engine.unload_provider(provider_name)
-                            except Exception:
-                                pass
-                            provider = await engine.load_provider(provider_name, vram_mode="low")
-                        sync_publish(5, "preparing", "Out of memory detected — retrying with low VRAM mode.", "warn")
-                        provider_result = await provider.generate(request, out_dir, progress_callback)
+                # 5. Load provider via RuntimeEngine (enforces VRAM scheduling)
+                if job.mode != "render":
+                    if engine:
+                        provider = await engine.load_provider(provider_name, vram_mode=vram_mode)
                     else:
-                        raise
+                        logger.info("Loading provider %s directly on device %s", provider_name, device)
+                        provider = get_provider(
+                            provider_name,
+                            device=device or "cuda:0",
+                            low_vram=(vram_mode == "low"),
+                        )
+
+                # 6. AI generation (skip model loading for render mode)
+                if job.mode == "render":
+                    glb_to_process = request.reference_image_url
+                    if not glb_to_process or not Path(glb_to_process).exists():
+                        raise RuntimeError("Render requires a selected local GLB/mesh asset.")
+                    from app.core.providers.base import ProviderResult
+                    provider_result = ProviderResult(
+                        model_path=glb_to_process,
+                        thumbnail_path="",
+                        polygon_count=0,
+                        vertex_count=0,
+                        texture_resolution=None,
+                        has_rig=False,
+                        file_size=Path(glb_to_process).stat().st_size,
+                        metadata={"operation": "render"},
+                    )
+                else:
+                    try:
+                        provider_result = await provider.generate(request, out_dir, progress_callback)
+                    except Exception as gen_exc:
+                        # OOM recovery: retry once in low VRAM mode when supported.
+                        if (
+                            _is_oom_error(gen_exc)
+                            and vram_mode != "low"
+                            and _can_retry_low_vram(job_id, provider_name)
+                        ):
+                            logger.warning(
+                                "Job %s OOM'd in vram_mode=%s — retrying in low VRAM mode", job_id, vram_mode
+                            )
+                            _update_job(session, job_id, low_vram=True, vram_mode="low")
+                            if engine:
+                                try:
+                                    await engine.unload_provider(provider_name)
+                                except Exception:
+                                    pass
+                                provider = await engine.load_provider(provider_name, vram_mode="low")
+                            sync_publish(5, "preparing", "Out of memory detected — retrying with low VRAM mode.", "warn")
+                            provider_result = await provider.generate(request, out_dir, progress_callback)
+                        else:
+                            raise
 
             # 5b. Output validation — reject corrupt/empty GLB output before
             # the UI ever sees it.
@@ -610,6 +656,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 file_size=stats.get("file_size", provider_result.file_size),
                 download_urls=download_urls,
             )
+            session.commit()
 
             _publish(job_id, {
                 "job_id": job_id,
@@ -630,6 +677,13 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                     await engine.unload_provider(provider_name)
                 except Exception:
                     pass
+            elif provider is not None and hasattr(provider, "unload"):
+                try:
+                    result = provider.unload()
+                    if inspect.isawaitable(result):
+                        await result
+                except Exception:
+                    pass
             _publish(job_id, {
                 "job_id": job_id,
                 "status": "cancelled",
@@ -643,13 +697,25 @@ async def _async_generate(task: Task, job_id: str) -> dict:
 
         except Exception as exc:
             logger.exception("Generation task failed for job %s", job_id)
-            # Always unload on failure to free VRAM
+            # Always unload on failure to free VRAM, including the direct-provider fallback.
             if engine:
                 try:
                     await engine.unload_provider(provider_name)
                 except Exception:
                     pass
+            elif provider is not None and hasattr(provider, "unload"):
+                try:
+                    result = provider.unload()
+                    if inspect.isawaitable(result):
+                        await result
+                except Exception:
+                    pass
             _update_job(session, job_id, status="failed", stage="failed", error_message=str(exc))
+            try:
+                session.commit()
+            except Exception:
+                session.rollback()
+                logger.exception("Could not persist failed state for job %s", job_id)
             _publish(job_id, {
                 "job_id": job_id,
                 "status": "failed",

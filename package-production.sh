@@ -141,8 +141,8 @@ backend/storage/thumbnails/
 # Turbopack cache
 .next/turbopack/
 
-# Keep .env — it's needed for config defaults
-!.env
+# Never bake deployment secrets into the production image.
+.env
 !.env.example
 
 # Keep all source, venvs, repos, and build artifacts
@@ -221,14 +221,13 @@ RUN set -eux; \
 ENV NODE_ENV=production
 ENV PYTHONUNBUFFERED=1
 
-# Database: default to SQLite so container boots without external DB.
-# Set DATABASE_URL to PostgreSQL DSN at runtime if you have an external DB.
-ENV DATABASE_URL=sqlite:///./backend/storage/studio.db
-ENV DATABASE_SYNC_URL=sqlite:///./backend/storage/studio.db
+# Database: use the PostgreSQL service started by the entrypoint by default.
+# Override DATABASE_URL at runtime for an external PostgreSQL instance.
+ENV DATABASE_URL=postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/ai3dstudio
 ENV REDIS_URL=redis://localhost:6379/0
 ENV CELERY_BROKER_URL=redis://localhost:6379/0
 ENV CELERY_RESULT_BACKEND=redis://localhost:6379/1
-ENV AI_PROVIDER=trellis
+ENV AI_PROVIDER=hunyuan3d-2.1
 ENV RUNTIME_MODE=local
 ENV CUDA_DEVICE=auto
 ENV STORAGE_LOCAL_PATH=./backend/storage
@@ -277,8 +276,9 @@ case "${1:-start}" in
         if command -v pg_createcluster >/dev/null 2>&1 && [[ ! -d "${PG_DATA_DIR}" ]]; then
             echo "[ENTRYPOINT] Initializing PostgreSQL cluster..."
             pg_createcluster "${PG_VERSION}" main
-            sed -i "s/^#listen_addresses.*/listen_addresses = '*'/" "${PG_CONF_DIR}/postgresql.conf" || true
-            echo "host all all 0.0.0.0/0 md5" >> "${PG_CONF_DIR}/pg_hba.conf" || true
+            sed -i "s/^#listen_addresses.*/listen_addresses = 'localhost'/" "${PG_CONF_DIR}/postgresql.conf" || true
+            echo "host all all 127.0.0.1/32 md5" >> "${PG_CONF_DIR}/pg_hba.conf" || true
+            echo "host all all ::1/128 md5" >> "${PG_CONF_DIR}/pg_hba.conf" || true
             su - postgres -c "psql -c \"ALTER USER postgres PASSWORD 'postgres';\"" 2>/dev/null || true
             su - postgres -c "psql -c \"CREATE DATABASE ai3dstudio;\"" 2>/dev/null || true
         fi
@@ -289,7 +289,7 @@ case "${1:-start}" in
             pg_ctlcluster "${PG_VERSION}" main start 2>/dev/null || true
         fi
         sleep 2
-        pg_isready -q 2>/dev/null || echo "[ENTRYPOINT] PostgreSQL not ready (SQLite fallback active)"
+        pg_isready -q 2>/dev/null || { echo "[ENTRYPOINT] PostgreSQL is not ready"; exit 1; }
 
         # ── Redis ───────────────────────────────────────────────────────────
         redis-server --daemonize yes 2>/dev/null || true
@@ -299,7 +299,7 @@ case "${1:-start}" in
         # ── Migrations ─────────────────────────────────────────────────────
         echo "[ENTRYPOINT] Running database migrations..."
         cd "$WORKDIR/backend"
-        "$WORKDIR/backend/.venv/bin/python" -m alembic upgrade head 2>/dev/null || echo "[ENTRYPOINT] Migrations skipped or already applied"
+        "$WORKDIR/backend/.venv/bin/python" -m alembic upgrade head
         cd "$WORKDIR"
 
         # ── Backend API ────────────────────────────────────────────────────

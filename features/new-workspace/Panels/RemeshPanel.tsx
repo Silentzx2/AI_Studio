@@ -290,11 +290,11 @@ export const RemeshPanel: React.FC = () => {
         <button
           id="btn-action-generate-remesh"
           onClick={runRemeshGeneration}
-          disabled={isExecuting}
+          disabled={isExecuting || (!currentAsset?.source?.viewUrl && !currentAsset?.source?.localUrl)}
           className="w-full h-10 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Sliders className="w-4 h-4 stroke-[2.2]" />
-          <span>{isExecuting ? 'Remeshing Topology...' : 'GENERATE REMESH'}</span>
+          <span>{isExecuting ? 'Remeshing Topology...' : currentAsset ? 'GENERATE REMESH' : 'SELECT A MODEL'}</span>
         </button>
 
         <p className="text-center text-[9px] text-zinc-400">

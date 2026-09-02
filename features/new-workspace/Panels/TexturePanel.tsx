@@ -25,7 +25,8 @@ export const TexturePanel: React.FC = () => {
     setTextureSettings,
     runTextureGeneration,
     isExecuting,
-    systemStats
+    systemStats,
+    currentAsset
   } = useWorkspace();
 
   // Manifest-driven: only texture-capable models with weights + repo present
@@ -541,11 +542,11 @@ export const TexturePanel: React.FC = () => {
         <button
           id="btn-action-generate-texture"
           onClick={runTextureGeneration}
-          disabled={isExecuting}
+          disabled={isExecuting || (!textureSettings.referenceImage && !currentAsset?.source?.viewUrl && !currentAsset?.source?.localUrl)}
           className="w-full h-10 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Sparkles className="w-4 h-4 stroke-[2.2]" />
-          <span>{isExecuting ? 'Baking PBR Textures...' : 'GENERATE TEXTURE'}</span>
+          <span>{isExecuting ? 'Baking PBR Textures...' : (!textureSettings.referenceImage && !currentAsset ? 'SELECT A MODEL' : 'GENERATE TEXTURE')}</span>
         </button>
       </div>
       </div>

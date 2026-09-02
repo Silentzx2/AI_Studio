@@ -39,6 +39,20 @@ _RUNTIME_PROVIDER_MAP = {
     "mock": ("app.core.providers.mock", "MockProvider"),
 }
 
+# Providers that only support post-processing (detail/refinement) and must
+# never be offered as standalone generation targets in the UI.
+_POST_PROCESSING_ONLY_PROVIDERS = frozenset({"detailgen3d"})
+
+
+def is_standalone_generation_provider(name: str) -> bool:
+    """Return True if ``name`` can be used as a standalone generation provider.
+
+    Post-processing-only providers (e.g. DetailGen3D) return False so the
+    frontend can exclude them from generation-target selectors while still
+    offering them as a detail/refinement stage.
+    """
+    return name.lower() not in _POST_PROCESSING_ONLY_PROVIDERS
+
 
 def _canonical_runtime_provider_name(name: str) -> str:
     return _RUNTIME_PROVIDER_ALIASES.get(name, name)
@@ -196,7 +210,7 @@ def validate_provider_switch(name: str) -> tuple[bool, str]:
     return False, f"Unknown provider: {name}"
 
 
-def get_provider(name: str, device: str | None = None):
+def get_provider(name: str, device: str | None = None, low_vram: bool = False):
     """Return a provider instance for download or 3D generation flows."""
     normalized = _canonical_runtime_provider_name(name)
 
@@ -207,7 +221,11 @@ def get_provider(name: str, device: str | None = None):
         module_path, class_name = runtime_entry
         module = importlib.import_module(module_path)
         provider_cls = getattr(module, class_name)
-        return provider_cls(device=device or "cuda:0")
+        target_device = device or "cuda:0"
+        try:
+            return provider_cls(device=target_device, low_vram=low_vram)
+        except TypeError:
+            return provider_cls(device=target_device)
 
     try:
         return ProviderRegistry.get_provider(normalized)

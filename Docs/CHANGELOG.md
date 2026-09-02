@@ -1,5 +1,57 @@
 # AI 3D Studio — Changelog
 
+## [v4.7.2] - 2026-09-02
+
+### Fixed (REMAINING_BUGS.md Resolution)
+
+#### DetailGen3D Generation Guard
+- **Post-processing-only provider**: DetailGen3D is now explicitly marked as a post-processing provider and excluded from standalone generation. Attempting to use it as a standalone provider returns a clear 400 error (`backend/app/core/providers/registry.py`, `backend/app/api/v1/generation.py`, `backend/app/api/v1/runtime.py`)
+
+#### Settings Persistence
+- **Database-backed settings**: Settings are now persisted in PostgreSQL via a new `settings` key-value table, surviving restarts and shared across workers. Redis used as read-through cache (`backend/app/models/setting.py`, `backend/app/api/v1/settings.py`, `backend/alembic/versions/0005_settings_table.py`)
+
+#### Celery Tasks for Install Operations
+- **Durable install jobs**: All install/prepare-runtime/download-weights/update/repair operations now dispatch Celery tasks instead of FastAPI BackgroundTasks, ensuring durability across restarts (`backend/app/workers/installation_workers.py`, `backend/app/api/v1/runtime.py`)
+
+#### Rate Limiting
+- **Redis-backed rate limiting**: Generation endpoint enforces 10 requests/minute per IP using sliding-window rate limiting via Redis sorted sets (`backend/app/api/v1/generation.py`)
+
+#### Decimation Backend Validation
+- **Explicit backend check**: Mesh optimizer validates at least one decimation backend (trimesh or pymeshlab) is available before processing, failing fast with a clear error (`backend/app/core/mesh_optimizer.py`)
+
+#### Frontend Compile Fix
+- **Code ordering**: Moved `addAsset` declaration before useEffect to fix block-scoped variable error (`features/new-workspace/store/WorkspaceContext.tsx`)
+
+### Verification
+- Python syntax check: PASS (all 22 modified files)
+- TypeScript compilation: PASS (`npx tsc --noEmit`)
+
+## [v4.7.1] - 2026-09-01
+
+### Fixed
+- **Alembic-only schema management**: application startup no longer calls `create_all()` or ad-hoc `ALTER TABLE`; schema changes are owned by Alembic migrations.
+- **Migration error visibility**: migration helpers no longer swallow arbitrary column-add failures.
+- **Generation job lifecycle**: frontend generation requests now unwrap the API response envelope, poll the authoritative DB job status, and persist real completion/failure/cancel states.
+- **Real cancellation**: Workspace cancellation now calls the backend cancel endpoint instead of only changing client state.
+- **Worker failure persistence**: failed jobs are committed before the worker re-raises, preventing rollback to `processing`.
+- **Model lifecycle cleanup**: direct provider fallbacks unload models on failure/cancel, and RuntimeEngine enforces a single loaded GPU provider with explicit VRAM-mode tracking.
+- **No fabricated model success**: non-mock providers no longer emit placeholder GLBs when dependencies/weights/inference fail.
+- **Remesh pipeline**: remesh jobs now consume the selected local/static mesh and use the existing mesh optimizer without loading an AI provider.
+- **Render job construction**: render-mode `ProviderResult` now supplies all required fields.
+- **Trimesh compatibility**: mesh cleanup no longer depends on removed `remove_*_faces()` APIs.
+- **Production packaging**: package defaults now use PostgreSQL, fail hard on migration/readiness errors, avoid baking `.env` secrets, and default to Hunyuan3D 2.1 when stripped models are absent.
+- **Texture references**: uploaded texture-panel references are now sent to the backend instead of being ignored.
+- **SSE lifetime**: generation stream proxy timeout increased to cover long-running inference.
+- **Frontend compile defect**: removed duplicate `rightPanelWidth` state declaration.
+
+### Verification
+- Python syntax: PASS (`python -m compileall -q backend`)
+- Shell syntax: PASS (`bash -n manager.sh package-production.sh scripts/*.sh`)
+- Backend contract tests: PASS (`3 passed`)
+- Remesh optimizer smoke test: PASS (valid GLB output)
+- TypeScript syntactic scan: PASS (159 TS/TSX files, 0 parse diagnostics)
+- Full `npm ci` / Next build could not be completed in the audit container because dependency installation timed out and the local `node_modules` was incomplete.
+
 ## [v4.7.0] - 2026-09-01
 
 ### Features

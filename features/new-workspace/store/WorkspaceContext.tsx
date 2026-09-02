@@ -83,7 +83,7 @@ interface WorkspaceContextType {
   isExecuting: boolean;
   executionProgress: number;
   executionStep: string;
-  cancelExecution: () => void;
+  cancelExecution: () => Promise<void>;
   generationSettings: GenerationSettings;
   setGenerationSettings: React.Dispatch<React.SetStateAction<GenerationSettings>>;
   remeshSettings: RemeshSettings;
@@ -114,6 +114,23 @@ const TOOL_TO_ROUTE: Record<ToolType, string> = {
   environment: '/workspace/generate',
   segment: '/workspace/segment',
 };
+
+async function parseApiData<T>(response: Response): Promise<T> {
+  const payload = await response.json();
+  if (payload?.success === false) {
+    throw new Error(payload?.message || 'Backend request failed');
+  }
+  return (payload?.data ?? payload) as T;
+}
+
+async function parseApiError(response: Response): Promise<Error> {
+  try {
+    const payload = await response.json();
+    return new Error(payload?.detail || payload?.message || `Backend returned HTTP ${response.status}`);
+  } catch {
+    return new Error(`Backend returned HTTP ${response.status}`);
+  }
+}
 
 export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const appStore = useAppStore();
@@ -432,6 +449,81 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return () => { off1(); off2(); off3(); off4(); };
   }, []);
 
+  const addAsset = useCallback((asset: ModelAsset) => {
+    setLocalAssets(prev => [asset, ...prev]);
+    setAssets(prev => [asset, ...prev]);
+    setSelectedAssetId(asset.id);
+  }, []);
+
+  useEffect(() => {
+    const task = activeTask;
+    if (!task || task.status === 'completed' || task.status === 'failed' || task.status === 'interrupted') return;
+    const jobId = task.id;
+    const isBackendJob = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId);
+    if (!isBackendJob) return;
+
+    let stopped = false;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/v1/generation/${encodeURIComponent(jobId)}/status`, { cache: 'no-store' });
+        if (!res.ok) throw await parseApiError(res);
+        const data = await parseApiData<{
+          status: 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
+          progress?: number; stage?: string; message?: string; error_message?: string | null; result?: {
+            model_url?: string; thumbnail_url?: string; polygon_count?: number; vertex_count?: number; file_size?: number;
+          };
+        }>(res);
+        if (stopped) return;
+
+        const progress = Math.max(0, Math.min(100, Number(data.progress ?? 0)));
+        setExecutionProgress(progress);
+        setExecutionStep(data.message || data.stage || 'Processing');
+
+        if (data.status === 'completed') {
+          setIsExecuting(false);
+          setExecutionProgress(100);
+          setExecutionStep('Completed');
+          setActiveTask(prev => prev ? { ...prev, status: 'completed', progress: 100, currentStep: 'Completed' } : null);
+          if (data.result?.model_url) {
+            const result = data.result;
+            const outputAsset: ModelAsset = {
+              id: jobId,
+              name: `Generated_${jobId.slice(0, 8)}`,
+              category: 'generation',
+              thumbnail: result.thumbnail_url || '',
+              faces: result.polygon_count ?? 0,
+              vertices: result.vertex_count ?? 0,
+              triangles: result.polygon_count ?? 0,
+              statsAvailable: (result.polygon_count ?? 0) > 0,
+              source: { filename: `${jobId}.glb`, subfolder: 'generated', type: 'output', viewUrl: result.model_url },
+              topology: 'Triangle',
+              format: 'GLB',
+              dateCreated: new Date().toISOString().split('T')[0],
+              tags: ['AI Generated'],
+              meshType: 'custom',
+            };
+            addAsset(outputAsset);
+          }
+          toast.success('Generation complete', { description: 'The backend produced a valid output and the model is ready.' });
+        } else if (data.status === 'failed' || data.status === 'cancelled') {
+          const message = data.error_message || data.message || (data.status === 'cancelled' ? 'Generation cancelled' : 'Generation failed');
+          setIsExecuting(false);
+          setExecutionStep(message);
+          setActiveTask(prev => prev ? { ...prev, status: data.status === 'cancelled' ? 'interrupted' : 'failed', currentStep: message, progress } : null);
+          if (data.status === 'failed') toast.error('Generation failed', { description: message });
+        }
+      } catch (error) {
+        if (stopped) return;
+        // Do not mark a real backend job failed for one transient polling error.
+        if (error instanceof Error) setExecutionStep(`Syncing job status… ${error.message}`);
+      }
+    };
+
+    void poll();
+    const timer = window.setInterval(() => void poll(), 1500);
+    return () => { stopped = true; window.clearInterval(timer); };
+  }, [activeTask, addAsset]);
+
   const selectAsset = useCallback((id: string) => {
     setSelectedAssetId(id);
     // Increment viewport trigger to force MeshViewer reload
@@ -478,25 +570,32 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
   }, []);
 
-  const addAsset = useCallback((asset: ModelAsset) => {
-    setLocalAssets(prev => [asset, ...prev]);
-    setAssets(prev => [asset, ...prev]);
-    setSelectedAssetId(asset.id);
-  }, []);
-
   const resetCamera = useCallback(() => {
     setViewportResetTrigger(prev => prev + 1);
   }, []);
 
   const fitToScreen = useCallback(() => setViewportResetTrigger(prev => prev + 1), []);
 
-  const cancelExecution = useCallback(() => {
-    setIsExecuting(false);
-    setExecutionProgress(0);
-    setExecutionStep('');
-    setActiveTask(prev => prev ? { ...prev, status: 'interrupted', currentStep: 'Execution cancelled' } : null);
-    apiClient.cancelExecution();
-  }, []);
+  const cancelExecution = useCallback(async () => {
+    const jobId = activeTask?.id;
+    if (!jobId) return;
+
+    try {
+      const res = await fetch(`/api/v1/generation/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' });
+      if (!res.ok) throw await parseApiError(res);
+      const data = await parseApiData<{ status?: string }>(res);
+      if (data.status === 'cancelled') {
+        setIsExecuting(false);
+        setExecutionProgress(0);
+        setExecutionStep('Execution cancelled');
+        setActiveTask(prev => prev ? { ...prev, status: 'interrupted', currentStep: 'Execution cancelled' } : null);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to cancel generation job';
+      setExecutionStep(message);
+      toast.error('Cancel failed', { description: message });
+    }
+  }, [activeTask?.id]);
 
   const startTask = useCallback((type: ActiveTask['type'], title: string, promptId?: string) => {
     setIsExecuting(true);
@@ -507,20 +606,20 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const generateImageTo3D = useCallback(async (customImage?: string) => {
     const imageToUse = customImage ?? generationSettings.image;
-    if (!imageToUse) { 
-      setExecutionStep('Please select or upload an image first'); 
+    if (!imageToUse) {
+      setExecutionStep('Please select or upload an image first');
       toast.error('Image required', { description: 'Select or upload a reference image to generate a 3D model.' });
-      return; 
+      return;
     }
     startTask('image-to-3d', 'Image-to-3D generation');
-    
+
     try {
       const res = await fetch('/api/v1/generation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mode: 'image-to-3d',
-          provider: generationSettings.aiModel || 'tripo3d',
+          provider: generationSettings.aiModel || undefined,
           reference_image_url: imageToUse,
           quality: generationSettings.meshQuality || 'high',
           low_vram: Boolean(generationSettings.lowVram),
@@ -529,60 +628,20 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           auto_optimize_settings: generationSettings.autoOptimizeSettings,
         }),
       });
-      
-      if (res.ok) {
-        const data = await res.json() as { job_id?: string; id?: string };
-        setActiveTask(prev => prev ? { ...prev, id: data.job_id ?? data.id ?? prev.id, status: 'running', currentStep: 'Processing on GPU' } : prev);
-        setExecutionStep('Image-to-3D generation submitted');
-        return;
-      }
-      throw new Error(`Server returned ${res.status}`);
-    } catch {
-      // Fallback to client-side pipeline simulation if backend worker is offline
-      const steps = [
-        { pct: 18, msg: 'Preprocessing Reference Image...' },
-        { pct: 42, msg: 'Reconstructing Volumetric Geometry...' },
-        { pct: 68, msg: 'Extracting High-Res Mesh Surface...' },
-        { pct: 88, msg: 'Optimizing Topology & Baking Maps...' },
-        { pct: 100, msg: 'Finalizing 3D Asset...' },
-      ];
-
-      for (let i = 0; i < steps.length; i++) {
-        await new Promise(resolve => setTimeout(resolve, 800));
-        setExecutionProgress(steps[i].pct);
-        setExecutionStep(steps[i].msg);
-        setActiveTask(prev => prev ? { ...prev, progress: steps[i].pct, status: 'running', currentStep: steps[i].msg } : prev);
-      }
-
-      const newAssetId = `asset-gen-${Date.now()}`;
-      const newAsset: ModelAsset = {
-        id: newAssetId,
-        name: `Generated_Model_${Date.now().toString().slice(-4)}`,
-        category: 'generation',
-        thumbnail: imageToUse.startsWith('data:') || imageToUse.startsWith('http') ? imageToUse : '',
-        faces: 42800,
-        vertices: 21500,
-        triangles: 42800,
-        statsAvailable: true,
-        source: { filename: `model_${Date.now()}.glb`, subfolder: 'generated', type: 'output', viewUrl: '' },
-        topology: generationSettings.quadTopology ? 'Quad' : 'Triangle',
-        format: 'GLB',
-        dateCreated: new Date().toISOString().split('T')[0],
-        tags: ['AI Generated', generationSettings.aiModel || 'Tripo3D', 'New'],
-        meshType: 'custom',
-      };
-
-      addAsset(newAsset);
+      if (!res.ok) throw await parseApiError(res);
+      const data = await parseApiData<{ job_id?: string; id?: string; status?: string }>(res);
+      const jobId = data.job_id ?? data.id;
+      if (!jobId) throw new Error('Backend did not return a generation job ID');
+      setActiveTask(prev => prev ? { ...prev, id: jobId, inputImage: imageToUse, status: 'queued', currentStep: 'Queued on backend' } : prev);
+      setExecutionStep('Generation queued on backend');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Generation submission failed';
       setIsExecuting(false);
-      setExecutionProgress(100);
-      setExecutionStep('Completed');
-      setActiveTask(prev => prev ? { ...prev, status: 'completed', progress: 100, currentStep: 'Completed' } : null);
-      
-      toast.success('3D Model Generated Successfully', {
-        description: `Created ${newAsset.name} with ${newAsset.faces.toLocaleString()} faces.`,
-      });
+      setExecutionStep(message);
+      setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: message } : null);
+      toast.error('Generation failed', { description: message });
     }
-  }, [generationSettings.image, generationSettings.aiModel, generationSettings.meshQuality, generationSettings.lowVram, generationSettings.vramMode, generationSettings.autoOptimize, generationSettings.autoOptimizeSettings, generationSettings.quadTopology, startTask, addAsset]);
+  }, [generationSettings.image, generationSettings.aiModel, generationSettings.meshQuality, generationSettings.lowVram, generationSettings.vramMode, generationSettings.autoOptimize, generationSettings.autoOptimizeSettings, startTask]);
 
   const generate3DModel = useCallback(async () => {
     return generateImageTo3D();
@@ -597,45 +656,27 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         body: JSON.stringify({
           mode: 'remesh',
           quality: 'standard',
-          preserve_uvs: remeshSettings.preserveUVs,
+          reference_image_url: currentAsset?.source?.localUrl || currentAsset?.source?.viewUrl || undefined,
+          remesh_settings: remeshSettings,
+          generate_texture: false,
+          auto_rig: false,
           workspace: 'remesh',
         }),
       });
-      if (res.ok) {
-        const data = await res.json() as { job_id?: string; id?: string };
-        setActiveTask(prev => prev ? { ...prev, id: data.job_id ?? data.id ?? prev.id, status: 'running', currentStep: 'Processing' } : prev);
-        setExecutionStep('Remesh submitted');
-        return;
-      }
-      throw new Error(`Server returned ${res.status}`);
-    } catch {
-      // Client simulation
-      const steps = [
-        { pct: 30, msg: 'Computing Surface Curvature & Flow...' },
-        { pct: 65, msg: 'Generating Uniform Quad Patch Network...' },
-        { pct: 100, msg: 'Quad Retopology Complete' },
-      ];
-      for (let i = 0; i < steps.length; i++) {
-        await new Promise(resolve => setTimeout(resolve, 700));
-        setExecutionProgress(steps[i].pct);
-        setExecutionStep(steps[i].msg);
-      }
-      if (currentAsset) {
-        updateAssetProperties(currentAsset.id, {
-          topology: 'Quad',
-          faces: remeshSettings.targetFaces || 25000,
-          vertices: Math.round((remeshSettings.targetFaces || 25000) * 0.52),
-          triangles: (remeshSettings.targetFaces || 25000) * 2,
-          statsAvailable: true,
-        });
-      }
+      if (!res.ok) throw await parseApiError(res);
+      const data = await parseApiData<{ job_id?: string; id?: string }>(res);
+      const jobId = data.job_id ?? data.id;
+      if (!jobId) throw new Error('Backend did not return a remesh job ID');
+      setActiveTask(prev => prev ? { ...prev, id: jobId, status: 'queued', currentStep: 'Queued on backend' } : prev);
+      setExecutionStep('Remesh queued on backend');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Remesh submission failed';
       setIsExecuting(false);
-      setExecutionProgress(100);
-      setExecutionStep('Completed');
-      setActiveTask(null);
-      toast.success('Retopology Complete', { description: `Optimized to ${remeshSettings.targetFaces.toLocaleString()} target polygons.` });
+      setExecutionStep(message);
+      setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: message } : null);
+      toast.error('Remesh failed', { description: message });
     }
-  }, [remeshSettings.preserveUVs, remeshSettings.targetFaces, currentAsset, startTask, updateAssetProperties]);
+  }, [remeshSettings, currentAsset, startTask]);
 
   const runTextureGeneration = useCallback(async () => {
     startTask('texture', 'Texture generation');
@@ -650,36 +691,23 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           prompt: textureSettings.prompt,
           provider: textureSettings.modelId || undefined,
           workspace: 'texture-generation',
+          reference_image_url: textureSettings.referenceImage || currentAsset?.source?.localUrl || currentAsset?.source?.viewUrl || undefined,
         }),
       });
-      if (res.ok) {
-        const data = await res.json() as { job_id?: string; id?: string };
-        setActiveTask(prev => prev ? { ...prev, id: data.job_id ?? data.id ?? prev.id, status: 'running', currentStep: 'Processing' } : prev);
-        setExecutionStep('Texture generation submitted');
-        return;
-      }
-      throw new Error(`Server returned ${res.status}`);
-    } catch {
-      // Client simulation
-      const steps = [
-        { pct: 25, msg: 'Synthesizing PBR Albedo Map...' },
-        { pct: 60, msg: 'Computing Normal & Roughness Channels...' },
-        { pct: 90, msg: 'Baking Ambient Occlusion & Metallic...' },
-        { pct: 100, msg: 'Texture Maps Ready' },
-      ];
-      for (let i = 0; i < steps.length; i++) {
-        await new Promise(resolve => setTimeout(resolve, 750));
-        setExecutionProgress(steps[i].pct);
-        setExecutionStep(steps[i].msg);
-      }
-      setShadingModeState('textured');
+      if (!res.ok) throw await parseApiError(res);
+      const data = await parseApiData<{ job_id?: string; id?: string }>(res);
+      const jobId = data.job_id ?? data.id;
+      if (!jobId) throw new Error('Backend did not return a texture job ID');
+      setActiveTask(prev => prev ? { ...prev, id: jobId, status: 'queued', currentStep: 'Queued on backend' } : prev);
+      setExecutionStep('Texture generation queued on backend');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Texture generation submission failed';
       setIsExecuting(false);
-      setExecutionProgress(100);
-      setExecutionStep('Completed');
-      setActiveTask(null);
-      toast.success('PBR Textures Generated', { description: 'Applied 4K Albedo, Normal, Roughness, and Metallic maps.' });
+      setExecutionStep(message);
+      setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: message } : null);
+      toast.error('Texture generation failed', { description: message });
     }
-  }, [textureSettings.style, textureSettings.prompt, textureSettings.modelId, startTask]);
+  }, [textureSettings, currentAsset, startTask]);
 
   const queueWorkflow = useCallback(async (workflow: Record<string, unknown>, type: ActiveTask['type'], title: string) => {
     startTask(type, title);
@@ -695,8 +723,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json() as { job_id?: string; id?: string };
-      setActiveTask(prev => prev ? { ...prev, id: data.job_id ?? data.id ?? prev.id, status: 'running', currentStep: 'Processing' } : prev);
+      const data = await parseApiData<{ job_id?: string; id?: string }>(res);
+      const jobId = data.job_id ?? data.id;
+      if (!jobId) throw new Error('Backend did not return a workflow job ID');
+      setActiveTask(prev => prev ? { ...prev, id: jobId, status: 'queued', currentStep: 'Queued on backend' } : prev);
       setExecutionStep('Workflow queued');
     } catch (e) {
       setExecutionStep(e instanceof Error ? e.message : 'Workflow failed');
