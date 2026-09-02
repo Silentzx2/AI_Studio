@@ -591,10 +591,18 @@ colab_start_services() {
 
     # ── Start Frontend ────────────────────────────────────────────────────
     step "Starting Frontend (http://localhost:3000)..."
+    export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+    if [[ -s "$NVM_DIR/nvm.sh" ]]; then
+        source "$NVM_DIR/nvm.sh"
+    fi
+
 
     if [[ ! -d node_modules ]]; then
         info "Installing npm dependencies..."
-        npm ci --prefer-offline --no-audit 2>&1 | grep -E '(added|up to date)' || true
+        if ! npm ci --prefer-offline --no-audit > "$LOG_DIR/npm_install.log" 2>&1; then
+            err "npm install FAILED — see logs/npm_install.log"
+            return 1
+        fi
     fi
 
     FRONTEND_PID_FILE="$PID_DIR/frontend.pid"
@@ -630,15 +638,31 @@ colab_start_services() {
     # a clear action instead of a vague "services turned off" later.
     info "Verifying services are alive..."
     local all_ok=true
-    for svc in api:8000 frontend:3000; do
-        name="${svc%%:*}"; port="${svc##*:}"
-        if curl -sf "http://localhost:${port}/" &>/dev/null; then
-            log "${name} OK (port ${port})"
-        else
-            err "${name} NOT RESPONDING on port ${port}"
-            all_ok=false
+
+    if curl -sf "http://127.0.0.1:8000/api/v1/health" &>/dev/null; then
+        log "api OK"
+    else
+        err "api NOT RESPONDING on port 8000"
+        all_ok=false
+    fi
+
+    local frontend_ok=false
+    for i in {1..30}; do
+        if curl -sf "http://127.0.0.1:3000/" &>/dev/null; then
+            frontend_ok=true
+            break
         fi
+        sleep 2
     done
+
+    if [[ "$frontend_ok" == "true" ]]; then
+        log "frontend OK"
+    else
+        err "frontend NOT RESPONDING on port 3000"
+        all_ok=false
+    fi
+
+
     if [[ "$all_ok" == "true" ]]; then
         log "All services verified running"
     else
