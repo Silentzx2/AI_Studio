@@ -28,8 +28,27 @@ target_metadata = Base.metadata
 
 
 def get_database_url():
-    """Get database URL from environment and convert to asyncpg driver."""
+    """Get database URL, preferring the active environment over the ini default.
+
+    Resolution order:
+    1. $DATABASE_URL (explicit override — set by colab.sh/native startup)
+    2. settings.database_url (reads project-root .env, the same source the
+       app uses — always resolves to a real host like 127.0.0.1 in native/Colab)
+    3. alembic.ini sqlalchemy.url (last resort; the shipped value targets a
+       Docker Compose 'postgres' service name that does not exist outside Docker)
+
+    Previously the ini value was tried before the settings value, so on the
+    Colab restart path (which does not source .env) alembic fell back to the
+    Docker hostname and failed with socket.gaierror on every attempt.
+    """
     database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        try:
+            from app.config import get_settings
+
+            database_url = get_settings().database_url
+        except Exception:
+            database_url = None
     if not database_url:
         database_url = config.get_main_option("sqlalchemy.url")
 

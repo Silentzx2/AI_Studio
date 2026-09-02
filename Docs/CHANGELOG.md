@@ -1,5 +1,19 @@
 # AI 3D Studio — Changelog
 
+## [v4.7.4] - 2026-09-02
+
+### Fixed
+
+#### Alembic migration URL resolves to Docker-only hostname on Colab restart (Colab/native)
+- **Root cause**: `backend/alembic/env.py:get_database_url()` fell back to `alembic.ini`'s `sqlalchemy.url` (`postgresql+asyncpg://ai_studio:ai_studio_dev@postgres:5432/ai_studio`) when `$DATABASE_URL` was unset. That `postgres` hostname is a Docker Compose service name that does not exist in Colab. The Colab **restart** path (`manager.sh` choice 4 → `colab_restart_services` → `colab_start_services`) never sources `.env` and never exports `DATABASE_URL`, so every migration attempt failed with `socket.gaierror: [Errno -2] Name or service not known` — distinct from the earlier `KeyError` chain bug (v4.7.3), which is now fixed. The setup path (choice 1) worked because it sources `.env` and exports `DATABASE_URL` at Step 2.
+- **Fix**: `get_database_url()` now prefers, in order: `$DATABASE_URL` → `get_settings().database_url` (reads project-root `.env`, the same source the app uses — always `127.0.0.1` in native/Colab) → ini fallback. Also corrected `alembic.ini`'s default `sqlalchemy.url` from the Docker `postgres` host to `127.0.0.1` so a bare `alembic upgrade head` resolves correctly everywhere.
+- **Files**: `backend/alembic/env.py`, `backend/alembic.ini`
+
+### Verification
+- `python -m alembic history` — chain resolves, single head
+- `python -m py_compile alembic/env.py alembic/versions/*.py` — all compile
+- Restart-path URL resolution: `get_settings().database_url` → `...@127.0.0.1:5432/ai_studio` (verified without `DATABASE_URL` env set)
+
 ## [v4.7.3] - 2026-09-02
 
 ### Fixed
