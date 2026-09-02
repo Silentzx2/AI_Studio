@@ -10,7 +10,7 @@ from app.database import Base
 from app.models.registry import _DB_JSON, _DB_UUID
 
 
-revision = "0003"
+revision = "0003_provider_install_state"
 down_revision = "0002_low_vram_columns"
 branch_labels = None
 depends_on = None

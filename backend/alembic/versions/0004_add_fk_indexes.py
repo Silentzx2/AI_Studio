@@ -6,8 +6,8 @@ Create Date: 2026-08-26 00:00:00.000000
 """
 from alembic import op
 
-revision = "0004"
-down_revision = "0003"
+revision = "0004_add_fk_indexes"
+down_revision = "0003_provider_install_state"
 branch_labels = None
 depends_on = None
 

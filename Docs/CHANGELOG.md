@@ -1,5 +1,19 @@
 # AI 3D Studio — Changelog
 
+## [v4.7.3] - 2026-09-02
+
+### Fixed
+
+#### Alembic migration chain broken on fresh checkout (Colab/native)
+- **Root cause**: Revision `0003_provider_install_state` and `0004_add_fk_indexes` declared their `revision` ids using the short form (`"0003"` / `"0004"`), while their downstream revisions referenced the full filename ids (`down_revision = "0004_add_fk_indexes"` in `0005_settings_table.py`, `down_revision = "0003_provider_install_state"` in `0004_add_fk_indexes.py`). Alembic builds its revision map keyed by each revision's own `revision` id, then looks up `down_revision` in that map — the short ids were never inserted, so `map_[downrev]` raised `KeyError: '0004_add_fk_indexes'` (and later `'0003_provider_install_state'`) when building the chain. `alembic upgrade head` failed deterministically on every attempt, which `scripts/colab.sh`'s 3× retry loop reported as "Migration attempt N failed" before exiting 1.
+- **Fix**: Align all revision ids to the full filename form — `0003_provider_install_state.py` now declares `revision = "0003_provider_install_state"`, `0004_add_fk_indexes.py` declares `revision = "0004_add_fk_indexes"`. Chain now resolves: `base -> 0001_initial -> 0002_low_vram_columns -> 0003_provider_install_state -> 0004_add_fk_indexes -> 0005_settings_table (head)`.
+- **Files**: `backend/alembic/versions/0003_provider_install_state.py`, `backend/alembic/versions/0004_add_fk_indexes.py`
+
+### Verification
+- `python -m alembic history` — chain resolves, single head
+- `python -m py_compile alembic/versions/*.py` — all 5 modules compile
+- `python -m compileall -q backend` — PASS
+
 ## [v4.7.2] - 2026-09-02
 
 ### Fixed (REMAINING_BUGS.md Resolution)
