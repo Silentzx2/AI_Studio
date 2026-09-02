@@ -1,5 +1,28 @@
 # AI 3D Studio — Changelog
 
+## [v4.7.7] - 2026-09-02
+
+### Fixed
+
+#### `/runtime/status` taking 3.6–8.7s per request
+Three separate causes, all on the cache-miss path:
+
+1. **Celery worker probe blocking** — `celery_app.control.inspect(timeout=1.0).stats()` blocked ~8.7s probing a Redis broker that wasn't reachable (connection refused on Colab), and it serialized the response. Now run off the event loop with a 1.5s deadline and the worker count is cached for 10s.
+2. **`get_install_status()` crashing on unreadable venvs** — `venv_python.exists()` and `repo_path.exists()` raised `PermissionError` when the per-model venv was written by a different user (DetailGen3D). No guard meant the exception propagated and crashed the endpoint and the `lru_cache`d registry build. Both now treat an unreadable path as missing and log the reason.
+3. **Cold `import torch` on every payload cache miss** — `_check_gpu` imported torch (~3-5s) on every miss. Cached the GPU result for 60s so the import is amortized across requests. Also cached `load_all_manifests()`/`list_manifests()` (30s TTL) so `/runtime/status` no longer re-parses all 6 manifests 3+ times.
+
+Verified: cold payload 8.7s → 2.3s, warm 0.35s.
+
+#### Installed model hidden in the selector after install
+`get_registry()` is `@lru_cache`d — built **once per process** from `get_install_status()` — so `three_d_models[].available` went stale forever after an install. The runtime options endpoint already overlaid `installed`/`status` from live install state; now it also derives `available` from the live state, so a newly installed provider appears immediately.
+
+### Verification
+- `python -m compileall -q backend` — PASS
+- `node_modules/.bin/tsc --noEmit` — PASS (0 errors)
+- `bash -n scripts/colab.sh scripts/setup.sh` — PASS
+- Payload timing: cold 2.3s, warm 0.35s
+- Overlay: WorldGen `available=True` after a `runtime_ready` install
+
 ## [v4.7.6] - 2026-09-02
 
 ### Fixed
