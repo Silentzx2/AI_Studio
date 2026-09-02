@@ -372,6 +372,64 @@ fix_third_party_permissions() {
     log "third_party permissions set to 766 (files) / 775 (dirs)"
 }
 
+# ── Helper: Ensure Node.js / npm is available ────────────────────────────────
+# Colab menu/start mode can call colab_start_services() before the full
+# bootstrap reaches the frontend setup section. Initialize NVM when present,
+# discover system Node/npm locations, and install Node 20 only when necessary.
+ensure_node_npm() {
+    # Prefer an existing NVM installation.
+    export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+    if [[ -s "$NVM_DIR/nvm.sh" ]]; then
+        # shellcheck disable=SC1090
+        source "$NVM_DIR/nvm.sh"
+        if command -v nvm &>/dev/null; then
+            if [[ -f "$PROJECT_ROOT/.nvmrc" ]]; then
+                nvm use --silent >/dev/null 2>&1 || true
+            elif nvm current >/dev/null 2>&1 && [[ "$(nvm current 2>/dev/null)" == "none" ]]; then
+                nvm use --silent 20 >/dev/null 2>&1 || true
+            fi
+        fi
+    fi
+
+    # Recover common system locations in non-interactive Colab shells.
+    for dir in /usr/local/bin /usr/bin "$HOME/.local/bin"; do
+        if [[ -d "$dir" && ":$PATH:" != *":$dir:"* ]]; then
+            export PATH="$dir:$PATH"
+        fi
+    done
+
+    if command -v node &>/dev/null && command -v npm &>/dev/null; then
+        log "Node.js available: $(node --version 2>/dev/null || echo unknown), npm $(npm --version 2>/dev/null || echo unknown)"
+        return 0
+    fi
+
+    info "Node.js/npm not found — installing Node.js 20..."
+    if command -v curl &>/dev/null; then
+        curl -fsSL https://deb.nodesource.com/setup_20.x 2>/dev/null | sudo -E bash - 2>/dev/null || {
+            err "Failed to configure NodeSource repository"
+            return 1
+        }
+        sudo apt-get install -y nodejs >/dev/null 2>&1 || {
+            err "Failed to install Node.js 20"
+            return 1
+        }
+    else
+        err "curl is required to install Node.js/npm"
+        return 1
+    fi
+
+    hash -r 2>/dev/null || true
+    export PATH="/usr/local/bin:/usr/bin:$PATH"
+
+    if ! command -v node &>/dev/null || ! command -v npm &>/dev/null; then
+        err "Node.js/npm installation completed but binaries are still unavailable"
+        err "PATH=$PATH"
+        return 1
+    fi
+
+    log "Node.js ready: $(node --version 2>/dev/null || echo unknown), npm $(npm --version 2>/dev/null || echo unknown)"
+}
+
 # ── Colab Service Management Functions ─────────────────────────────────────
 # These functions manage services independently of the bootstrap flow,
 # allowing start/stop/restart without re-running the full setup.
@@ -591,11 +649,12 @@ colab_start_services() {
 
     # ── Start Frontend ────────────────────────────────────────────────────
     step "Starting Frontend (http://localhost:3000)..."
-    export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
-    if [[ -s "$NVM_DIR/nvm.sh" ]]; then
-        source "$NVM_DIR/nvm.sh"
-    fi
 
+    cd "$PROJECT_ROOT"
+    if ! ensure_node_npm; then
+        err "Frontend cannot start because Node.js/npm is unavailable."
+        return 1
+    fi
 
     if [[ ! -d node_modules ]]; then
         info "Installing npm dependencies..."
@@ -616,11 +675,6 @@ colab_start_services() {
             err "Frontend build FAILED — see logs/frontend_build.log"
             return 1
         fi
-    fi
-
-    if ! command -v npm &>/dev/null; then
-        err "npm not found — cannot start frontend"
-        return 1
     fi
 
     (
@@ -1185,21 +1239,11 @@ fi
 
 step "5/6 Setting up frontend"
 
-# Ensure Node.js / npm is available (Colab may not have it)
-if ! command -v npm &>/dev/null; then
-    warn "Node.js/npm not found — attempting to install..."
-    if command -v curl &>/dev/null; then
-        curl -fsSL https://deb.nodesource.com/setup_20.x 2>/dev/null | sudo bash - 2>/dev/null || true
-        sudo apt-get install -y nodejs 2>/dev/null || true
-    fi
-fi
-
-if ! command -v npm &>/dev/null; then
-    err "Node.js/npm not found and auto-install failed. Install manually: https://nodejs.org/"
+# Ensure Node.js / npm is available before any frontend npm command.
+if ! ensure_node_npm; then
+    err "Node.js/npm setup failed — cannot continue frontend setup."
     exit 1
 fi
-
-log "Node.js available: $(node --version 2>/dev/null || echo 'unknown')"
 
 # Install frontend deps
 if [[ ! -d node_modules ]]; then
@@ -1857,11 +1901,7 @@ fi
 
 kill_by_pid_file "$PID_DIR/frontend.pid"
 
-if ! command -v npm &>/dev/null; then
-    err "npm not found — cannot start frontend"
-    exit 1
-fi
-
+# Node/npm was validated before any npm command; keep this start path simple.
 nohup env HOSTNAME=0.0.0.0 PORT=3000 NEXT_PUBLIC_API_URL=http://localhost:8000 \
     npm start \
     > "$LOG_DIR/frontend.log" 2>&1 &
