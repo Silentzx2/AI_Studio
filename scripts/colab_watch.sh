@@ -61,13 +61,21 @@ restart_worker() {
 }
 
 restart_frontend() {
-    if [[ ! -d "${PROJECT_ROOT}/.next" ]]; then
+    # next.config.ts uses output: 'standalone', so the server is
+    # .next/standalone/server.js — `npm start` does NOT work with that
+    # config and exits immediately. Build first if needed, then run the
+    # standalone server directly.
+    if [[ ! -d "${PROJECT_ROOT}/.next/standalone" ]]; then
         ( cd "$PROJECT_ROOT" && npm run build > "$LOG_DIR/frontend_build.log" 2>&1 ) || true
     fi
     (
-        cd "$PROJECT_ROOT"
+        cd "${PROJECT_ROOT}"
         export NEXT_PUBLIC_API_URL=http://localhost:8000
-        nohup npm start > "$LOG_DIR/frontend.log" 2>&1 &
+        if [[ -f "${PROJECT_ROOT}/.next/standalone/server.js" ]]; then
+            nohup node .next/standalone/server.js > "$LOG_DIR/frontend.log" 2>&1 &
+        else
+            nohup npm start > "$LOG_DIR/frontend.log" 2>&1 &
+        fi
         write_pid "$PID_DIR/frontend.pid" $!
     )
 }

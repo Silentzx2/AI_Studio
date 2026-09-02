@@ -600,8 +600,9 @@ colab_start_services() {
     FRONTEND_PID_FILE="$PID_DIR/frontend.pid"
     kill_by_pid_file "$FRONTEND_PID_FILE"
 
-    # next start requires a prior build; build first if .next is missing.
-    if [[ ! -d .next ]]; then
+    # next.config.ts uses output: 'standalone', so `npm start` does NOT work —
+    # the server is .next/standalone/server.js. Build first if needed.
+    if [[ ! -d .next/standalone ]]; then
         info "Building frontend (first run)..."
         npm run build > "$LOG_DIR/frontend_build.log" 2>&1 || {
             err "Frontend build failed — see logs/frontend_build.log"
@@ -612,7 +613,11 @@ colab_start_services() {
     else
         (
             export NEXT_PUBLIC_API_URL=http://localhost:8000
-            nohup npm start > "$LOG_DIR/frontend.log" 2>&1 &
+            if [[ -f .next/standalone/server.js ]]; then
+                nohup node .next/standalone/server.js > "$LOG_DIR/frontend.log" 2>&1 &
+            else
+                nohup npm start > "$LOG_DIR/frontend.log" 2>&1 &
+            fi
             write_pid "$FRONTEND_PID_FILE" $!
         )
         log "Frontend started (PID: $(cat $FRONTEND_PID_FILE))"
@@ -833,23 +838,24 @@ _colab_show_status() {
     PID_DIR="${PROJECT_ROOT}/.pids"
     echo -e "${CYAN}Service Status:${NC}"
 
-    # Backend API
-    if [[ -f "$PID_DIR/api.pid" ]] && kill -0 "$(cat "$PID_DIR/api.pid")" 2>/dev/null; then
-        echo -e "${GREEN}●${NC} Backend API (PID: $(cat "$PID_DIR/api.pid"))"
+    # Backend API — verify via HTTP, not just PID liveness (kill -0 gives
+    # false negatives on Colab's PID namespaces).
+    if curl -sf http://127.0.0.1:8000/api/v1/health >/dev/null 2>&1; then
+        echo -e "${GREEN}●${NC} Backend API (port 8000)"
     else
         echo -e "${RED}●${NC} Backend API"
     fi
 
-    # Celery Worker
+    # Celery Worker — no HTTP endpoint, check PID liveness.
     if [[ -f "$PID_DIR/worker.pid" ]] && kill -0 "$(cat "$PID_DIR/worker.pid")" 2>/dev/null; then
         echo -e "${GREEN}●${NC} Celery Worker (PID: $(cat "$PID_DIR/worker.pid"))"
     else
         echo -e "${RED}●${NC} Celery Worker"
     fi
 
-    # Frontend
-    if [[ -f "$PID_DIR/frontend.pid" ]] && kill -0 "$(cat "$PID_DIR/frontend.pid")" 2>/dev/null; then
-        echo -e "${GREEN}●${NC} Frontend (PID: $(cat "$PID_DIR/frontend.pid"))"
+    # Frontend — verify via HTTP.
+    if curl -sf http://127.0.0.1:3000/ >/dev/null 2>&1; then
+        echo -e "${GREEN}●${NC} Frontend (port 3000)"
     else
         echo -e "${RED}●${NC} Frontend"
     fi
@@ -866,6 +872,13 @@ _colab_show_status() {
         redis-cli ping 2>/dev/null | grep -q PONG && echo -e "${GREEN}●${NC} Redis" || echo -e "${RED}●${NC} Redis"
     else
         echo -e "${RED}●${NC} Redis"
+    fi
+
+    # Watchdog — report whether the auto-restart loop is running.
+    if [[ -f "$PID_DIR/watchdog.pid" ]] && kill -0 "$(cat "$PID_DIR/watchdog.pid")" 2>/dev/null; then
+        echo -e "${GREEN}●${NC} Watchdog (auto-restart, PID: $(cat "$PID_DIR/watchdog.pid"))"
+    else
+        echo -e "${YELLOW}●${NC} Watchdog (not running — services may die on idle cleanup)"
     fi
     echo ""
 }
