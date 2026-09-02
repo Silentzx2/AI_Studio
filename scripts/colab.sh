@@ -546,32 +546,23 @@ colab_start_services() {
     fi
 
     # ── Colab Keep-Alive (Browser-Level) ───────────────────────────────────
-    # Colab kills background processes (nohup/sleep) during idle cleanup.
-    # The ONLY reliable keepalive is browser JS that simulates user activity.
-    # Auto-inject via IPython if available; otherwise print instructions.
+    # Colab kills background processes (nohup/sleep) during idle cleanup, so
+    # uvicorn/celery/npm die a few minutes after the cell that started them
+    # finishes. The ONLY reliable keep-alive is browser JS that dispatches
+    # synthetic events. The script must run in a Colab NOTEBOOK CELL, not
+    # from inside !bash (IPython.display only works in the notebook kernel).
     KEEPALIVE_JS_PY="${PROJECT_ROOT}/scripts/colab_keepalive_js.py"
-    if command -v python3 &>/dev/null; then
-        python3 -c "
-try:
-    from IPython.display import Javascript, display
-    display(Javascript('''
-        (function(){
-            setInterval(function(){
-                try { document.body.dispatchEvent(new MouseEvent('click',{bubbles:true})); } catch(e){}
-                try { document.dispatchEvent(new KeyboardEvent('keydown',{key:' ',bubbles:true})); } catch(e){}
-            }, 60000);
-            console.log('[keepalive] auto-injected');
-        })();
-    '''))
-    print('[keepalive] Browser keep-alive auto-injected.')
-except Exception as e:
-    print(f'[keepalive] Auto-inject failed ({e}). Run manually:')
-    print('    exec(open(\"${KEEPALIVE_JS_PY}\").read())')
-" 2>/dev/null || {
-            log "IPython not available — run manually: exec(open('${KEEPALIVE_JS_PY}').read())"
-        }
+    if [[ -f "$KEEPALIVE_JS_PY" ]]; then
+        log "Keep-alive script ready at: $KEEPALIVE_JS_PY"
+        log ""
+        log "  >>> RUN THIS IN A COLAB CELL TO KEEP SERVICES ALIVE:"
+        log "  >>> exec(open('${KEEPALIVE_JS_PY}').read())"
+        log ""
+        log "  (Colab kills background processes during idle cleanup — without"
+        log "   this, the frontend and API turn off after a few minutes.)"
     else
-        log "Python3 not available — run manually: exec(open('${KEEPALIVE_JS_PY}').read())"
+        warn "Keep-alive script missing: $KEEPALIVE_JS_PY"
+        warn "Without it, Colab idle cleanup will kill the frontend/API after a few minutes."
     fi
 
     # ── Start Celery Worker ───────────────────────────────────────────────
@@ -609,7 +600,13 @@ except Exception as e:
     FRONTEND_PID_FILE="$PID_DIR/frontend.pid"
     kill_by_pid_file "$FRONTEND_PID_FILE"
 
-    FRONTEND_RUN_CMD="npm run build && npm start"
+    # next start requires a prior build; build first if .next is missing.
+    if [[ ! -d .next ]]; then
+        info "Building frontend (first run)..."
+        npm run build > "$LOG_DIR/frontend_build.log" 2>&1 || {
+            err "Frontend build failed — see logs/frontend_build.log"
+        }
+    fi
     if ! command -v npm &>/dev/null; then
         err "npm not found — cannot start frontend"
     else
@@ -619,6 +616,29 @@ except Exception as e:
             write_pid "$FRONTEND_PID_FILE" $!
         )
         log "Frontend started (PID: $(cat $FRONTEND_PID_FILE))"
+    fi
+
+    # ── Post-Start Verification ────────────────────────────────────────────
+    # Verify every service is actually alive before declaring success. Colab
+    # can silently drop background processes; catching it here gives the user
+    # a clear action instead of a vague "services turned off" later.
+    info "Verifying services are alive..."
+    local all_ok=true
+    for svc in api:8000 frontend:3000; do
+        name="${svc%%:*}"; port="${svc##*:}"
+        if curl -sf "http://localhost:${port}/" &>/dev/null; then
+            log "${name} OK (port ${port})"
+        else
+            warn "${name} NOT RESPONDING on port ${port}"
+            all_ok=false
+        fi
+    done
+    if [[ "$all_ok" == "true" ]]; then
+        log "All services verified running"
+    else
+        warn "Some services failed to start. Check logs/frontend.log and logs/api.log"
+        warn "On Colab, background processes may be killed by idle cleanup —"
+        warn "run the keep-alive in a notebook cell (see below) to keep them alive."
     fi
 
     # ── Summary ───────────────────────────────────────────────────────────
