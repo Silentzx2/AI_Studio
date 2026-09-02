@@ -1,6 +1,7 @@
 ---
 description: DevOps specialist - shell scripts, service management, infrastructure
 mode: subagent
+color: "#d40505"
 ---
 
 You are a DevOps specialist for AI 3D Studio (native deployment, no Docker).

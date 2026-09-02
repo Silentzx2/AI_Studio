@@ -1,23 +1,19 @@
 {
   "$schema": "https://app.kilo.ai/config.json",
-  "default_agent": "orchestrator",
+  "default_agent": "ELITE_CODE",
   "instructions": [
-    ".kilo/rules/*.md"
+    ".kilo/rules/*.md",
+    ".kilo/agent/ELITE_CODE.md",
+    "AGENTS.md"
   ],
   "permission": {
     "bash": "allow",
-    "edit": {
-      "backend/**": "allow",
-      "app/**": "allow",
-      "features/**": "allow",
-      "types/**": "allow",
-      "*.md": "allow",
-      ".kilo/**": "allow",
-      "*": "ask"
-    },
+    "edit": "allow",
     "read": "allow",
     "task": "allow",
     "webfetch": "allow",
-    "websearch": "allow"
+    "websearch": "allow",
+    "glob": "allow",
+    "grep": "allow"
   }
 }
