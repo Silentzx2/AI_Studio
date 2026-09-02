@@ -1,5 +1,31 @@
 # AI 3D Studio — Changelog
 
+## [v4.7.6] - 2026-09-02
+
+### Fixed
+
+#### Redis async rate limiter bound to a sync pool (`object Connection can't be used in 'await'`)
+- `app/core/redis_client.py:get_async_redis()` returned an async Redis client bound to the **sync** `redis.ConnectionPool`. The async client awaits its Connection objects, and sync Connections raise `TypeError: object Connection can't be used in 'await' expression` — which surfaced as `Rate limit check failed for 127.0.0.1: object Connection can't be used in 'await' expression` on every generation request (it was swallowed by the limiter's catch-all, so it only blocked rate limiting, not generation itself).
+- Now maintains a dedicated `redis.asyncio.ConnectionPool` (`_async_pool`) and binds the async client to it. Sync and async pools are not interchangeable.
+- Also fixed the same bug in `generation_progress_stream`'s SSE generator, which used the sync client with `await pubsub.subscribe(...)`.
+
+#### Sync DB engine built with the asyncpg driver + `sslmode` connect arg
+- `app/database.py` stripped `?sslmode=...` from the URL but only normalized the driver prefix via `replace("postgresql://", ...)`. A URL like `postgresql+asyncpg://...?sslmode=disable` still carried the `+asyncpg` prefix into the **sync** engine, and `_process_db_url` then added `connect_args["sslmode"]` — asyncpg's `connect()` rejects `sslmode`, raising `connect() got an unexpected keyword argument 'sslmode'`. This broke `persist_provider_state` (which uses the sync `SessionLocal`) during installs.
+- Now normalizes any driver prefix: `re.sub(r"postgresql(\+\w+)?://", "postgresql+psycopg2://", ...)`.
+
+#### WorldGen absent from the World workspace selector after install
+- `app/api/v1/runtime.py` built `three_d_models` by filtering `meta.get("category") != "3d_generation"`, but WorldGen's manifest declares `hardware.category: world_generation` — so WorldGen was **never included** in `three_d_models`. `WorldGenToolPanel` reads `worldgenModel` from that list, so the World panel showed nothing even after a successful install.
+- Now accepts both `3d_generation` and `world_generation` categories. WorldGen is genuinely a 3D-generation provider (emits splats/meshes) and belongs in the selector.
+- Frontend cache: `lib/requestDedup.ts` cached `/runtime/options` for 60s and `invalidateDedup` was never called anywhere, so a just-installed model was hidden until TTL expiry. Reduced `TTL.OPTIONS` to 10s. Also fixed `hooks/useBackendData.ts` which spread `prev` last, letting stale options override the fresh response.
+
+#### Install completion reported false success
+- `admin.py:_handle_model_action` marked `status="completed"` whenever `install_provider()` returned `success=True`, but that function can return `success=True` with `state` `blocked`/`partial` (weights downloaded, runtime deps never installed). The UI then claimed a ready model that was not loadable. Now reports the actual `state` (`completed`/`partial`/`blocked`).
+
+### Verification
+- `python -m compileall -q backend` — PASS
+- `node_modules/.bin/tsc --noEmit` — PASS (0 errors)
+- `bash -n scripts/colab.sh scripts/setup.sh` — PASS
+
 ## [v4.7.5] - 2026-09-02
 
 ### Added

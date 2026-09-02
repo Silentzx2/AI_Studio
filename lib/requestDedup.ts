@@ -20,11 +20,16 @@ let lastCleanup = 0;
 
 /** Default TTLs by endpoint pattern (ms) */
 export const TTL = {
-  OPTIONS: 60_000,   // /runtime/options — rarely changes
-  SYSTEM_INFO: 15_000, // /system/info — moderate change rate
-  SYSTEM_GPU: 15_000,  // /system/gpu — moderate change rate
-  RUNTIME_STATUS: 10_000, // /runtime/status — frequent updates
-  HISTORY: 60_000,    // /generation/history — event-driven preferred
+    // /runtime/options carries the model selector list, which changes whenever
+    // a provider is installed/unloaded. A long TTL here hid newly installed
+    // models from the selector for up to a minute (the dedup cache was never
+    // invalidated after install completed). Keep it short so installs surface
+    // quickly; the endpoint is light and polled by one hook.
+    OPTIONS: 10_000,
+    SYSTEM_INFO: 15_000, // /system/info — moderate change rate
+    SYSTEM_GPU: 15_000,  // /system/gpu — moderate change rate
+    RUNTIME_STATUS: 10_000, // /runtime/status — frequent updates
+    HISTORY: 60_000,    // /generation/history — event-driven preferred
 } as const;
 
 /** Get the appropriate TTL for a given URL path */

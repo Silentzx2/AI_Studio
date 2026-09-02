@@ -1230,12 +1230,24 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
                         rp = storage.get_repo_path(repo_name)
                         logger.info("Repo for %s at: %s", model_id, rp)
 
-                    _dl_update(model_id, status="completed", percent=100,
-                               phase="complete", log="Installation complete")
+                    # Report the ACTUAL install state, not a blanket success.
+                    # install_provider() can return success=True with state
+                    # "blocked"/"partial" (e.g. weights downloaded but the
+                    # per-model runtime deps never installed), and marking
+                    # that "completed" made the UI claim a ready model that
+                    # was not loadable. Surface the real state so the
+                    # progress UI shows the true outcome.
+                    final_state = result.get("state") or "completed"
+                    final_state = final_state if final_state in (
+                        "completed", "partial", "blocked",
+                    ) else "completed"
+                    _dl_update(model_id, status=final_state, percent=100,
+                               phase="complete",
+                               log=f"Installation complete (state={final_state})")
                     # Invalidate model list cache so next poll reflects new state
                     from app.core.cache import invalidate
                     invalidate("list_models")
-                    logger.info("Provider %s installed.", model_id)
+                    logger.info("Provider %s installed (state=%s).", model_id, final_state)
                 else:
                     err = result.get("error", "Unknown error")
                     _dl_update(model_id, status="failed", error=err,

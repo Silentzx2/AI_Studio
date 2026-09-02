@@ -1,5 +1,6 @@
 
 from collections.abc import AsyncGenerator, Generator
+import re
 
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -52,8 +53,15 @@ if "+asyncpg" not in async_db_url:
     async_db_url = async_db_url.replace("postgresql://", "postgresql+asyncpg://")
 
 sync_db_url, sync_connect_args = _process_db_url(database_url, "psycopg2")
+# Normalize the driver prefix. _process_db_url only strips the ?sslmode=...
+# query param, so a URL like "postgresql+asyncpg://...?sslmode=disable" still
+# carries the +asyncpg prefix here — a naive replace("postgresql://", ...)
+# does NOT match "postgresql+asyncpg://" and leaves the SYNC engine built with
+# the asyncpg driver + connect_args["sslmode"]. asyncpg.connect() then raises
+# "connect() got an unexpected keyword argument 'sslmode'" (this broke
+# persist_provider_state during installs). Match any existing driver prefix.
 if "+psycopg2" not in sync_db_url:
-    sync_db_url = sync_db_url.replace("postgresql://", "postgresql+psycopg2://")
+    sync_db_url = re.sub(r"postgresql(\+\w+)?://", "postgresql+psycopg2://", sync_db_url)
 
 # Async engine — pool sized for concurrent frontend polling + background tasks.
 # pool_size=20 handles ~15 concurrent SSE + API requests without contention.

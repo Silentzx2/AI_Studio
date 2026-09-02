@@ -80,7 +80,10 @@ export function useRuntimeOptions() {
       try {
         const data = await dedupedGet<any>('/api/v1/runtime/options', TTL.OPTIONS);
         if (active) {
-          setOptions((prev: any) => ({ ...(data?.data ?? data ?? {}), ...prev }));
+          // Fresh data MUST win over prev: spreading prev last would let the
+          // stale model list (pre-install) override the just-updated options,
+          // so a newly installed provider never appears in the selector.
+          setOptions((prev: any) => ({ ...prev, ...(data?.data ?? data ?? {}) }));
           setError(null);
           setLoading(false);
         }
