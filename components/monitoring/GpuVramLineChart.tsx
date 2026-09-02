@@ -61,7 +61,7 @@ export function GpuVramLineChart({
         gpu: 0,
         vram: 0,
         vramUsedGb: 0,
-        vramTotalGb: systemStats.vramTotalGb || 24,
+        vramTotalGb: systemStats.vramTotalGb || 0,
         cpu: 0,
         ram: 0,
         temp: 0,
@@ -126,7 +126,7 @@ export function GpuVramLineChart({
 
       const gpuUtil = Math.round(status?.gpu_utilization ?? 0);
       const vramUsedMb = status?.vram_used_mb ?? ((systemStats.vramUsedGb || 0) * 1024);
-      const vramTotalMb = status?.vram_total_mb ?? ((systemStats.vramTotalGb || 24) * 1024);
+      const vramTotalMb = status?.vram_total_mb ?? ((systemStats.vramTotalGb || 0) * 1024);
       const vramPct = vramTotalMb > 0 ? Math.min(100, Math.round((vramUsedMb / vramTotalMb) * 100)) : 0;
       const vramUsedGb = Number((vramUsedMb / 1024).toFixed(2));
       const vramTotalGb = Number((vramTotalMb / 1024).toFixed(1));
@@ -182,7 +182,7 @@ export function GpuVramLineChart({
     gpu: 0,
     vram: 0,
     vramUsedGb: 0,
-    vramTotalGb: 24,
+    vramTotalGb: 0,
     cpu: 0,
     temp: 0,
   };
@@ -263,7 +263,7 @@ export function GpuVramLineChart({
                   </span>
                 </h3>
                 <p className="text-[11px] text-[hsl(var(--muted-foreground))]">
-                  Live Recharts metrics from local FastAPI server (http://localhost:8000)
+                  Live telemetry from the FastAPI runtime
                 </p>
               </div>
             </div>
@@ -284,7 +284,7 @@ export function GpuVramLineChart({
               <Zap className="w-3.5 h-3.5 text-[hsl(var(--chart-vram))]" />
               <span className="text-[hsl(var(--muted-foreground))] text-[11px]">VRAM:</span>
               <span className="font-mono font-bold text-[hsl(var(--chart-vram))]">
-                {latest.vramUsedGb} / {latest.vramTotalGb} GB ({latest.vram}%)
+                {latest.vramTotalGb > 0 ? `${latest.vramUsedGb} / ${latest.vramTotalGb} GB (${latest.vram}%)` : 'Unavailable'}
               </span>
             </div>
 

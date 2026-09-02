@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   Hexagon,
-  Pencil,
   Maximize,
   Palette,
   Layers
@@ -13,10 +12,7 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
   const {
     isExecuting,
     currentAsset,
-    setActiveTool,
     runRemeshGeneration,
-    runTextureGeneration,
-    systemStats,
     remeshSettings,
     setRemeshSettings,
   } = useWorkspace();
@@ -33,7 +29,10 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
           {['Auto Semantic Split', 'Joints & Limbs', 'Armor & Apparel', 'Loose Islands'].map((mode, i) => (
             <button
               key={mode}
-              className={`p-1.5 rounded-lg border text-left font-bold text-[10px] transition-all ${
+              type="button"
+              disabled
+              title="Segmentation backend is not implemented"
+              className={`p-1.5 rounded-lg border text-left font-bold text-[10px] transition-all opacity-60 cursor-not-allowed ${
                 i === 0
                   ? 'bg-[#F9CF00] border-[#F9CF00] text-black shadow-md'
                   : 'bg-[#1c1f26] border-[#272a34] text-zinc-300 hover:text-white hover:border-[#3d4252]'
@@ -47,21 +46,17 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
         <div className="p-2 rounded-lg bg-[#1c1f26] border border-[#272a34] space-y-1.5">
           <div className="flex items-center justify-between text-[10px]">
             <span className="text-zinc-400">Target Mesh:</span>
-            <span className="font-mono text-[#F9CF00] font-bold truncate max-w-[120px]">{currentAsset ? currentAsset.name : 'Active Model'}</span>
+            <span className="font-mono text-[#F9CF00] font-bold truncate max-w-[120px]">{currentAsset?.name || 'No asset selected'}</span>
           </div>
-          <div className="flex items-center justify-between text-[10px]">
-            <span className="text-zinc-400">Estimated Parts:</span>
-            <span className="font-mono text-emerald-400 font-bold">5 Sub-meshes</span>
-          </div>
+          <div className="text-[9px] text-zinc-500">Semantic segmentation backend is not installed in this build.</div>
         </div>
 
         <button
-          onClick={() => void runRemeshGeneration()}
-          disabled={isExecuting}
+          disabled={true}
           className="w-full h-10 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Layers className="w-4 h-4 stroke-[2.2]" />
-          <span>EXECUTE SEGMENTATION</span>
+          <span>SEGMENTATION UNAVAILABLE</span>
         </button>
       </div>
     );
@@ -100,17 +95,18 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
           </div>
           <div className="flex items-center justify-between text-[10px]">
             <span className="text-zinc-400">Edge Loop Flow:</span>
-            <span className="font-mono text-emerald-400 font-bold">Anatomical</span>
+            <span className="font-mono text-emerald-400 font-bold">Parameter-driven</span>
           </div>
         </div>
 
         <button
+          type="button"
           onClick={() => void runRemeshGeneration()}
-          disabled={isExecuting}
+          disabled={isExecuting || !currentAsset?.source?.viewUrl && !currentAsset?.source?.localUrl}
           className="w-full h-10 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Hexagon className="w-4 h-4 stroke-[2.2]" />
-          <span>EXECUTE QUAD RETOPO</span>
+          <span>{isExecuting ? 'Remeshing...' : currentAsset ? 'EXECUTE QUAD RETOPO' : 'SELECT A MODEL'}</span>
         </button>
       </div>
     );
@@ -122,7 +118,7 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
         <span className="text-[11px] font-bold uppercase tracking-wider text-[#F9CF00]">Sculpt Brushes</span>
         <div className="grid grid-cols-2 gap-1.5">
           {['Grab / Move', 'Smooth', 'Inflate', 'Pinch', 'Flatten', 'Clay Strips'].map((brush) => (
-            <button key={brush} className="p-1.5 rounded-lg bg-[#1c1f26] border border-[#272a34] text-zinc-300 hover:text-[#F9CF00] hover:border-[#F9CF00] font-bold text-[10px] text-left transition-all">
+            <button key={brush} type="button" disabled title="Sculpt backend is not implemented" className="p-1.5 rounded-lg bg-[#1c1f26] border border-[#272a34] text-zinc-400 font-bold text-[10px] text-left transition-all opacity-60 cursor-not-allowed">
               {brush}
             </button>
           ))}
@@ -138,19 +134,18 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
           <span className="text-[11px] font-bold uppercase tracking-wider text-[#F9CF00]">Upscale Factor</span>
           <div className="grid grid-cols-3 gap-1.5">
             {['2X Super', '4X Ultra', '8K Production'].map((f) => (
-              <button key={f} className="p-1.5 rounded-lg bg-[#1c1f26] border border-[#272a34] text-zinc-300 font-bold text-[10px] hover:text-[#F9CF00] hover:border-[#F9CF00] transition-all">
+              <button key={f} type="button" disabled title="3D upscale backend is not implemented" className="p-1.5 rounded-lg bg-[#1c1f26] opacity-60 cursor-not-allowed border border-[#272a34] text-zinc-300 font-bold text-[10px] hover:text-[#F9CF00] hover:border-[#F9CF00] transition-all">
                 {f}
               </button>
             ))}
           </div>
         </div>
         <button
-          onClick={() => void runRemeshGeneration()}
-          disabled={isExecuting}
+          disabled={true}
           className="w-full h-10 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Maximize className="w-4 h-4 stroke-[2.2]" />
-          <span>EXECUTE 3D UPSCALE</span>
+          <span>UPSCALE UNAVAILABLE</span>
         </button>
       </div>
     );
@@ -163,12 +158,13 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
           <p className="text-zinc-300 leading-relaxed font-medium text-[10px]">Bake physically based rendering channels (Albedo, Normal, Roughness, Metallic, Height, AO) using 3D Generation Pipeline nodes.</p>
         </div>
         <button
-          onClick={() => void runTextureGeneration()}
-          disabled={isExecuting}
-          className="w-full h-10 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          type="button"
+          disabled
+          title="Dedicated PBR baking backend is not implemented"
+          className="w-full h-10 rounded-xl bg-zinc-700 text-zinc-400 font-extrabold text-xs flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
         >
           <Palette className="w-4 h-4 stroke-[2.2]" />
-          <span>BAKE PBR TEXTURE SET</span>
+          <span>PBR BAKING UNAVAILABLE</span>
         </button>
       </div>
     );

@@ -555,7 +555,22 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     updateAssetProperties(asset.id, { materialConfig: { ...cur, ...updates } });
   }, [updateAssetProperties]);
 
-  const deleteAsset = useCallback((id: string) => {
+  const deleteAsset = useCallback(async (id: string) => {
+    const asset = assets.find(a => a.id === id);
+    if (!asset) return;
+
+    const isUploadedAsset = asset.source?.type === 'upload' || asset.tags?.includes('User-Upload') || asset.tags?.includes('Uploaded');
+    if (isUploadedAsset && asset.source?.filename) {
+      try {
+        const res = await fetch(`/api/v1/upload/assets/${encodeURIComponent(asset.source.filename)}`, { method: 'DELETE' });
+        if (!res.ok) throw await parseApiError(res);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to delete uploaded asset from backend';
+        toast.error('Delete failed', { description: message });
+        return;
+      }
+    }
+
     setLocalAssets(prev => prev.filter(a => a.id !== id));
     setAssets(prev => {
       const next = prev.filter(a => a.id !== id);
@@ -568,7 +583,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
       return next;
     });
-  }, []);
+  }, [assets]);
 
   const resetCamera = useCallback(() => {
     setViewportResetTrigger(prev => prev + 1);

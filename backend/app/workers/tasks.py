@@ -105,11 +105,15 @@ def _resolve_reference_image(reference: str | None, job_id: str) -> str | None:
         "/api/v1/upload/uploads/",
         "/api/v1/uploads/",
         "/static/uploads/",
+        "/static/models/",
         "/uploads/",
     )
 
     if any(path.startswith(prefix) for prefix in upload_prefixes):
-        candidate = Path(settings.storage_local_path) / "uploads" / Path(path).name
+        if path.startswith("/static/models/"):
+            candidate = Path(settings.storage_local_path) / "models" / Path(path).name
+        else:
+            candidate = Path(settings.storage_local_path) / "uploads" / Path(path).name
         if candidate.exists():
             return str(candidate)
 

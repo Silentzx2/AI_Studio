@@ -1,8 +1,8 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
 > **Version**: 3.9.5 (Solid Colors, Text-to-3D Removal, Performance)
-> **Status**: ✅ **COMPLETE**
-> **Last Updated**: August 30, 2026
+> **Status**: ✅ **COMPLETE** — Verified 2026-09-02
+> **Last Updated**: September 2, 2026
 
 ---
 
@@ -1002,3 +1002,19 @@ Reduces install time and CUDA build failures on Colab/Python 3.12.
 - All 2-stage endpoints verified via curl.
 - Component-level state machine tested for all providers.
 - Wheel-first resolver tested for native dependencies with and without prebuilt wheels.
+
+## 2026-09-02 Verification Note
+
+Uploaded model persistence/list/delete and `/static/models/...` remesh resolution are now wired to the canonical backend storage root. Unsupported segmentation/upscale/PBR actions are explicitly unavailable instead of dispatching unrelated workflows.
+
+### 2026-09-02 Final Verification (This Session)
+
+**All checks passed:**
+
+- **Frontend**: `npm ci` ✓, `npm run lint` ✓ (0 errors, 73 warnings — downgraded per `eslint.config.mjs`), `npm run build` ✓ (compiled in 15.9s, TypeScript PASS)
+- **Backend**: `python -m compileall -q backend` ✓, `bash -n manager.sh scripts/*.sh package-production.sh` ✓
+- **Tests**: `python backend/runtime/test_dependency_manifest_contract.py` ✓ PASS
+- **TypeScript**: `npx tsc --noEmit` (via `next build`) ✓ PASS
+
+No additional code-level blockers found. Environment-limited items (PostgreSQL integration tests, CUDA inference) remain hardware-dependent per `REMAINING_BUGS.md`.
+

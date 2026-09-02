@@ -142,7 +142,7 @@ export const SettingsModal: React.FC = () => {
                   )}
                 </div>
               )}
-              <div className="text-[10px] text-[#444] pt-1 border-t border-[#1a1a1a]">AI 3D Studio connects via /api/v1 (proxied to backend on localhost:8000).</div>
+              <div className="text-[10px] text-[#444] pt-1 border-t border-[#1a1a1a]">AI 3D Studio connects through the configured /api/v1 backend proxy.</div>
             </div>
           </div>
 

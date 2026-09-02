@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+import json
 import logging
 import os
 import uuid
@@ -29,6 +30,7 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 SUPPORTED_FORMATS = {".png", ".jpg", ".jpeg", ".webp"}
+MODEL_EXTENSIONS = {".glb", ".gltf", ".fbx", ".obj", ".stl", ".ply"}
 ALLOWED_MIME_TYPES = {
     "image/png": ".png",
     "image/jpeg": ".jpg",
@@ -125,7 +127,8 @@ async def upload_image(file: UploadFile = File(...)):
         # Generate unique filename
         unique_id = str(uuid.uuid4())
         stored_filename = f"upload_{unique_id}{file_ext}"
-        upload_dir = Path(settings.storage_local_path) / "uploads"
+        from app.utils.storage import _local_root
+        upload_dir = _local_root() / "uploads"
         upload_dir.mkdir(parents=True, exist_ok=True)
         file_path = upload_dir / stored_filename
 
@@ -155,7 +158,7 @@ async def upload_image(file: UploadFile = File(...)):
 async def upload_model(file: UploadFile = File(...)):  # noqa: C901
     """Upload a 3D model file (.glb, .gltf, .fbx, .obj, .stl)."""
     # Validate file type
-    allowed_extensions = {'.glb', '.gltf', '.fbx', '.obj', '.stl'}
+    allowed_extensions = MODEL_EXTENSIONS
     ext = Path(file.filename or '').suffix.lower()
     if ext not in allowed_extensions:
         raise HTTPException(
@@ -165,7 +168,9 @@ async def upload_model(file: UploadFile = File(...)):  # noqa: C901
 
     # Validate file size (max 100MB) and write in chunks to avoid loading entire file into memory
     max_size = 100 * 1024 * 1024
-    models_dir = Path(settings.storage_local_path) / "models"
+    from app.utils.storage import _local_root
+    storage_root = _local_root()
+    models_dir = storage_root / "models"
     models_dir.mkdir(parents=True, exist_ok=True)
 
     unique_name = f"{uuid.uuid4().hex[:12]}{ext}"
@@ -189,28 +194,47 @@ async def upload_model(file: UploadFile = File(...)):  # noqa: C901
         file_path.unlink(missing_ok=True)
         raise HTTPException(status_code=422, detail="Empty file")
 
-    # Validate GLB/GLTF file integrity
-    if ext in {'.glb', '.gltf'}:
+    # Validate GLB/GLTF file integrity before exposing the asset to the UI.
+    if ext == '.glb':
         try:
             from app.core.mesh_processor import validate_glb
             validation = validate_glb(str(file_path))
             if not validation.get("valid", False):
-                logger.warning(
-                    "GLB validation reported a problem for %s but upload will continue: %s",
-                    unique_name,
-                    validation.get("reason", "unknown validation issue"),
+                file_path.unlink(missing_ok=True)
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Invalid GLB file: {validation.get('reason', 'validation failed')}",
                 )
         except HTTPException:
             raise
         except Exception as exc:
-            logger.warning(f"GLB validation failed for {unique_name}: {exc}")
-            # Don't block upload on validation error, just log
+            file_path.unlink(missing_ok=True)
+            raise HTTPException(status_code=422, detail=f"GLB validation failed: {exc}") from exc
+    elif ext == '.gltf':
+        try:
+            document = json.loads(file_path.read_text(encoding='utf-8'))
+            if not isinstance(document, dict) or not isinstance(document.get('asset'), dict):
+                raise ValueError("missing required top-level 'asset' object")
+            external_refs = []
+            for section in ('buffers', 'images'):
+                for item in document.get(section, []) or []:
+                    uri = item.get('uri') if isinstance(item, dict) else None
+                    if uri and not str(uri).startswith('data:'):
+                        external_refs.append(str(uri))
+            if external_refs:
+                raise ValueError(
+                    "references external resources that were not uploaded with the .gltf: "
+                    + ', '.join(external_refs[:5])
+                )
+        except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as exc:
+            file_path.unlink(missing_ok=True)
+            raise HTTPException(status_code=422, detail=f"Invalid GLTF file: {exc}") from exc
 
     # Generate thumbnail for GLB/GLTF files
     thumbnail_url = None
     if ext in {'.glb', '.gltf'}:
         try:
-            thumbnails_dir = Path(settings.storage_local_path) / "thumbnails"
+            thumbnails_dir = storage_root / "thumbnails"
             thumbnails_dir.mkdir(parents=True, exist_ok=True)
             thumb_filename = f"{Path(unique_name).stem}.png"
             thumb_path = thumbnails_dir / thumb_filename
@@ -245,8 +269,10 @@ async def upload_model(file: UploadFile = File(...)):  # noqa: C901
     logger.info(f"Uploaded model: {os.path.basename(file.filename or '')} -> {unique_name} ({total_size} bytes)")
 
     return success({
+        "id": unique_name,
         "url": url,
         "filename": file.filename,
+        "stored_filename": unique_name,
         "size": total_size,
         "format": ext.lstrip('.'),
         "thumbnail_url": thumbnail_url,
@@ -263,7 +289,9 @@ async def list_uploaded_assets():
         from datetime import datetime
         
         # 1. Image Uploads
-        upload_dir = Path(settings.storage_local_path) / "uploads"
+        from app.utils.storage import _local_root
+        storage_root = _local_root()
+        upload_dir = storage_root / "uploads"
         images = []
         if upload_dir.exists():
             for f in upload_dir.iterdir():
@@ -284,12 +312,12 @@ async def list_uploaded_assets():
         images.sort(key=lambda x: x["created_at"], reverse=True)
 
         # 2. Model Uploads
-        models_dir = Path(settings.storage_local_path) / "models"
-        thumbnails_dir = Path(settings.storage_local_path) / "thumbnails"
+        models_dir = storage_root / "models"
+        thumbnails_dir = storage_root / "thumbnails"
         models = []
         if models_dir.exists():
             for f in models_dir.iterdir():
-                if f.is_file() and f.suffix.lower() in {'.glb', '.gltf', '.fbx', '.obj', '.stl'}:
+                if f.is_file() and f.suffix.lower() in MODEL_EXTENSIONS:
                     stat = f.stat()
                     # Check for existing thumbnail
                     thumbnail_url = None
@@ -344,8 +372,8 @@ async def list_uploaded_assets():
 async def download_uploaded_image(filename: str):
     """Retrieve an uploaded image by filename."""
     try:
-        upload_dir = Path(settings.storage_local_path) / "uploads"
-        upload_dir.mkdir(parents=True, exist_ok=True)
+        from app.utils.storage import _local_root
+        upload_dir = _local_root() / "uploads"
         upload_dir_real = upload_dir.resolve()
 
         file_path = (upload_dir / filename).resolve()
@@ -380,13 +408,14 @@ async def download_uploaded_image(filename: str):
 async def delete_uploaded_asset(filename: str):
     """Delete an uploaded image or model file."""
     try:
-        storage_dir = Path(settings.storage_local_path).resolve()
+        from app.utils.storage import _local_root
+        storage_dir = _local_root().resolve()
 
         # Check uploads dir (images)
-        file_path = (Path(settings.storage_local_path) / "uploads" / filename).resolve()
+        file_path = (storage_dir / "uploads" / filename).resolve()
         if not file_path.exists():
             # Check models dir (models)
-            file_path = (Path(settings.storage_local_path) / "models" / filename).resolve()
+            file_path = (storage_dir / "models" / filename).resolve()
 
         # Security: prevent directory traversal - validate BEFORE any fs operation
         if not str(file_path).startswith(str(storage_dir) + "/") and file_path != storage_dir:
@@ -396,6 +425,13 @@ async def delete_uploaded_asset(filename: str):
             raise HTTPException(status_code=404, detail="File not found")
 
         file_path.unlink()
+
+        # Remove generated thumbnail alongside GLB/GLTF uploads to prevent
+        # orphaned storage entries. Other formats do not create thumbnails.
+        if file_path.suffix.lower() in {".glb", ".gltf"}:
+            thumb_path = storage_dir / "thumbnails" / f"{file_path.stem}.png"
+            thumb_path.unlink(missing_ok=True)
+
         return success({"deleted": True, "filename": filename})
     except HTTPException:
         raise

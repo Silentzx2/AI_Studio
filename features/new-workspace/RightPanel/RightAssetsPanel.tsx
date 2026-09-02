@@ -47,7 +47,6 @@ export const RightAssetsPanel: React.FC = () => {
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
   const [diagnosticFile, setDiagnosticFile] = useState<File | null>(null);
 
-  const MAX_MODEL_SIZE = 150 * 1024 * 1024; // 150MB
   const ACCEPTED_MODEL_EXTS = ['glb', 'gltf', 'obj', 'fbx', 'stl', 'ply'];
   const ITEMS_PER_PAGE = 8;
 
@@ -84,7 +83,9 @@ export const RightAssetsPanel: React.FC = () => {
       const result = await apiClient.uploadFile<{
         url: string;
         thumbnail_url?: string;
+        id?: string;
         filename: string;
+        stored_filename?: string;
         size: number;
         mesh_stats?: { polygon_count: number; vertex_count: number };
       }>(
@@ -108,7 +109,7 @@ export const RightAssetsPanel: React.FC = () => {
 
       const meshStats = result?.mesh_stats;
       const newAsset: ModelAsset = {
-        id: `user-upload-${Date.now()}`,
+        id: result?.id || result?.stored_filename || `user-upload-${Date.now()}`,
         name: file.name.replace(/\.[^/.]+$/, ""),
         category: 'mesh',
         meshType: 'custom',
@@ -117,7 +118,7 @@ export const RightAssetsPanel: React.FC = () => {
         vertices: meshStats?.vertex_count || 0,
         triangles: meshStats?.polygon_count || 0,
         statsAvailable: !!(meshStats && meshStats.polygon_count > 0),
-        source: { filename: file.name, subfolder: '', type: 'input', viewUrl: resolveUrl(result?.url) },
+        source: { filename: result?.stored_filename || file.name, subfolder: '', type: 'upload', viewUrl: resolveUrl(result?.url) },
         topology: 'Triangle',
         format: (() => {
           if (ext === 'obj') return 'OBJ';
@@ -319,7 +320,7 @@ export const RightAssetsPanel: React.FC = () => {
                   {isDragOver ? 'Drop here' : 'Import'}
                 </span>
                 <span className="text-[8px] text-zinc-500 block">
-                  GLB, OBJ, FBX
+                  GLB, GLTF, OBJ, FBX, STL, PLY
                 </span>
               </>
             )}
@@ -374,10 +375,6 @@ export const RightAssetsPanel: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Tripo style Generation time badge on bottom right */}
-                  <div className="absolute bottom-1 right-1 px-1 py-0.2 rounded bg-black/70 text-[8px] font-mono text-zinc-300">
-                    20s
-                  </div>
 
                   {isSelected && (
                     <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-[#F9CF00] flex items-center justify-center text-black shadow">

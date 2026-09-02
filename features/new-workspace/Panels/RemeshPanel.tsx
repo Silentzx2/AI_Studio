@@ -7,11 +7,9 @@ import {
   Check,
   Sparkles,
   ArrowLeft,
-  AlertCircle,
-  AlertTriangle
+  AlertCircle
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
-import { useManifestModels } from '@/hooks/useManifestModels';
 
 export const RemeshPanel: React.FC = () => {
   const {
@@ -19,27 +17,10 @@ export const RemeshPanel: React.FC = () => {
     setRemeshSettings,
     runRemeshGeneration,
     isExecuting,
-    setActiveTool,
     currentAsset,
-    systemStats,
-    generationSettings
   } = useWorkspace();
 
-  // Status pill — shows status of the selected 3D model
-  const { meshCapableModels } = useManifestModels();
-  const getRemeshStatusInfo = () => {
-    const selected = meshCapableModels.find(m => m.id === generationSettings.aiModel);
-    if (!selected) {
-      if (meshCapableModels.length === 0) return { label: 'No models installed', tone: 'warn' as const };
-      return null;
-    }
-    if (selected.available) return null;
-    if (selected.status === 'weights_missing') return { label: 'Weights missing', tone: 'warn' as const };
-    if (!selected.installed) return { label: 'Model not installed', tone: 'warn' as const };
-    if (selected.status) return { label: selected.status, tone: 'warn' as const };
-    return { label: 'Not ready', tone: 'warn' as const };
-  };
-  const remeshStatusInfo = getRemeshStatusInfo();
+
 
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
@@ -64,12 +45,6 @@ export const RemeshPanel: React.FC = () => {
           <Sliders className="w-3.5 h-3.5 text-[#F9CF00]" />
           <span>Quad Remesh</span>
         </span>
-        {remeshStatusInfo && (
-          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[9px] font-bold">
-            <AlertTriangle className="w-2.5 h-2.5" />
-            {remeshStatusInfo.label}
-          </span>
-        )}
       </div>
       <div className="flex-1 overflow-y-auto px-2.5 py-2.5 space-y-3 no-scrollbar">
       {/* Tabs: Auto Remesh | Manual Remesh */}
