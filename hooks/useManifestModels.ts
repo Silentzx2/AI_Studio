@@ -53,8 +53,12 @@ export function useManifestModels(): UseManifestModelsResult {
 
   const meshCapableModels = useMemo(() => {
     return allModels.filter((m) => {
-      // Must be available (manifest + weights + repo present)
-      if (!m.available) return false;
+      // ponytail: list EVERY mesh-capable model in the selector, installed or
+      // not. Previously this filtered on `available` (weights+repo+preflight
+      // ready), so a model the user had installed but not yet preflighted, or
+      // any model at all before install, was invisible — the selector showed
+      // "No model available" forever. Color-coding in the UI now signals
+      // readiness; the list itself must be complete.
       // Must support at least one mesh-generation pathway
       const supportsMesh =
         m.supports_image_to_3d === true ||
@@ -67,8 +71,9 @@ export function useManifestModels(): UseManifestModelsResult {
 
   const textureCapableModels = useMemo(() => {
     return allModels.filter((m) => {
-      // Must be available
-      if (!m.available) return false;
+      // ponytail: same completeness rule as mesh-capable — texture models
+      // should appear even when not yet installed so the user can see what's
+      // available and what needs installing.
       // Must explicitly support texture generation
       const supportsTexture =
         m.supports?.texture_generation === true;

@@ -449,7 +449,7 @@ export const GeneratePanel: React.FC = () => {
                 <span className="truncate">{activeModelObj?.label || activeModelId || 'No model available'}</span>
               </span>
               <span className="text-[8px] text-zinc-400 truncate">
-                {activeModelObj?.available ? 'Ready for generation' : 'Select a model'}
+                {activeModelObj?.available ? 'Ready for generation' : activeModelObj?.installed ? 'Installed · awaiting preflight' : 'Not installed'}
               </span>
             </div>
             <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${modelDropdownOpen ? 'rotate-180 text-[#F9CF00]' : ''}`} />
@@ -468,6 +468,27 @@ export const GeneratePanel: React.FC = () => {
               ) : (
                 providersList.map((m) => {
                   const isSelected = m.id === (activeModelObj?.id || activeModelId);
+                  // ponytail: color-code readiness — ready=green,
+                  // installed-but-not-preflight=amber, not-installed=gray.
+                  // The list is complete (useManifestModels no longer hides
+                  // uninstalled models), so the user always sees every option.
+                  const isReady = m.available === true;
+                  const isInstalled = m.installed === true;
+                  const rowBase = isSelected
+                    ? 'bg-[#F9CF00] text-black shadow-sm font-bold'
+                    : isReady
+                      ? 'text-white hover:bg-[#25262A]'
+                      : isInstalled
+                        ? 'text-amber-300/90 hover:bg-[#25262A]'
+                        : 'text-zinc-500 opacity-70 hover:bg-[#25262A] hover:opacity-100';
+                  const badgeText = isReady ? 'Ready' : isInstalled ? 'Installed' : 'Not installed';
+                  const badgeClass = isSelected
+                    ? 'bg-black/15 text-black'
+                    : isReady
+                      ? 'bg-emerald-500/20 text-emerald-300'
+                      : isInstalled
+                        ? 'bg-amber-500/20 text-amber-300'
+                        : 'bg-white/[0.06] text-zinc-500';
                   return (
                     <button
                       key={m.id}
@@ -478,12 +499,15 @@ export const GeneratePanel: React.FC = () => {
                       className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-all ${
                         isSelected
                           ? 'bg-[#F9CF00] text-black shadow-sm font-bold'
-                          : 'text-zinc-200 hover:bg-[#25262A] hover:text-white'
+                          : rowBase
                       }`}
                     >
                       <div className="flex flex-col min-w-0 pr-2">
                         <div className="flex items-center gap-1.5">
                           <span className="text-[10px] font-bold truncate">{m.label}</span>
+                          <span className={`text-[7px] px-1 py-0.2 rounded font-mono ${badgeClass}`}>
+                            {badgeText}
+                          </span>
                           {m.vram_required_mb ? (
                             <span className={`text-[7px] px-1 py-0.2 rounded font-mono ${
                               isSelected ? 'bg-black/15 text-black' : 'bg-white/[0.08] text-zinc-400'
