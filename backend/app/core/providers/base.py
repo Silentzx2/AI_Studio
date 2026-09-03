@@ -81,6 +81,15 @@ def _add_model_env(repo_name: str) -> None:
     _SHARED_PKGS = [
         "accelerate", "huggingface_hub", "transformers", "diffusers",
         "pydantic", "requests", "httpx", "urllib3",
+        # PIL must be purged too. It is NOT in the shared list above, so a
+        # provider that loaded first (e.g. TripoSG, whose Pillow install is
+        # broken — no _imaging extension) leaves PIL cached in sys.modules.
+        # When a later provider (Hunyuan3D-2mini's hy3dgen) then does
+        # `from PIL import Image`, Python reuses the stale module from the
+        # wrong venv instead of importing fresh from the correct one:
+        #   ImportError: cannot import name '_imaging' from 'PIL'
+        # Purging PIL forces a fresh import from the just-prepended venv.
+        "PIL",
     ]
     for mod_name in list(sys.modules.keys()):
         for pkg in _SHARED_PKGS:
