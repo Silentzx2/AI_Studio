@@ -1729,6 +1729,21 @@ def download_weights(
         monitor_thread.join(timeout=5)
         if log_cb:
             log_cb(f"Download complete: {path}")
+        # ponytail: persist installed_at so the model reports as
+        # installed even if Stage A was skipped and weights are
+        # downloaded directly. Also invalidate caches so the UI
+        # reflects the new state immediately.
+        state = _load_state()
+        state.setdefault("repos", {})[provider_name] = {
+            "installed_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+        }
+        state["last_updated"] = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+        _save_state(state)
+        try:
+            reset_provider()
+            invalidate_install_status_cache()
+        except Exception:
+            pass
         return {"success": True, "path": path, "action": "downloaded"}
 
     except Exception as exc:
@@ -1922,6 +1937,23 @@ def prepare_runtime(
         else:
             runtime_state = "runtime_failed"
             blocking_reason = "Critical component not ready (venv or deps)"
+
+        # ponytail: Stage A must persist installed_at so the model
+        # appears as installed in the UI immediately. Without this,
+        # get_install_status() reports installed=False until weights
+        # are downloaded (Stage B), leaving the model gray/"Not
+        # installed" in the dropdown forever.
+        state = _load_state()
+        state.setdefault("repos", {})[provider_name] = {
+            "installed_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+        }
+        state["last_updated"] = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+        _save_state(state)
+        try:
+            reset_provider()
+            invalidate_install_status_cache()
+        except Exception:
+            pass
 
         return {
             "success": True,
