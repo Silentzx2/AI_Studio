@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import shutil
 
@@ -10,10 +11,45 @@ class PluginManager:
         self.registry = ModelRegistry()
         
     async def get_all_models(self):
-        installed = await self.registry.get_installed_models()
+        # Use the runtime installer as the authoritative source for installed state.
+        # The DB registry is metadata-only; cross-reference with runtime installer
+        # to determine what is genuinely installed on the filesystem.
+        from runtime.installer import get_install_status
+        rt = await get_install_status()
+        
+        # Also fetch from DB registry for additional metadata
+        db_installed = await self.registry.get_installed_models()
+        db_installed_ids = {m["id"] for m in db_installed}
+        
+        # Merge: a model is "installed" if the runtime installer confirms it.
+        # The DB registry may have stale rows, so we defer to runtime truth.
+        installed = []
+        for mid, state in rt.get("components", {}).items():
+            if state.get("state") in ("complete", "passed", "found"):
+                manifest = await self.registry.get_model_manifest(mid) if hasattr(self.registry, "get_model_manifest") else None
+                if manifest is None:
+                    # Manifest may not be in DB yet; still mark installed if runtime has it
+                    installed.append({
+                        "id": mid,
+                        "label": mid,
+                        "name": mid,
+                        "manifest": {},
+                        "installed": True,
+                        "status": "ready",
+                    })
+                else:
+                    installed.append({
+                        "id": mid,
+                        "label": manifest.get("name", mid),
+                        "name": mid,
+                        "manifest": manifest,
+                        "installed": True,
+                        "status": rt.get("state", "unknown"),
+                    })
+        
         available = await self.registry.get_available_models()
         return {"installed": installed, "available": available}
-        
+    
     async def install_model(self, model_id: str, background_tasks=None):
         available = await self.registry.get_available_models()
         model_data = next((m for m in available if m["id"] == model_id), None)
@@ -61,9 +97,11 @@ class PluginManager:
             await self.registry.update_status(model_id, "broken")
         
     async def uninstall_model(self, model_id: str):
-        # Delete from DB
+        # 1. Remove from DB registry (metadata only)
         await self.registry.delete_model(model_id)
-        # Also delete model weights from backend/third_party (runtime installer uninstall)
+        
+        # 2. Remove from runtime installer (actual weights/files)
+        # The runtime installer handles third_party/<repo>/weights/ layout
         try:
             from runtime.installer import uninstall_provider
             result = uninstall_provider(model_id)
@@ -71,7 +109,9 @@ class PluginManager:
                 logger.warning(f"Weight removal warning for {model_id}: {result.get('error')}")
         except Exception as e:
             logger.warning(f"Weight removal failed for {model_id}: {e}")
-        # We should also delete files from storage
-        path = f"./storage/models/{model_id}"
-        if os.path.exists(path):
-            shutil.rmtree(path, ignore_errors=True)
+        
+        # 3. Do NOT delete from ./storage/models/ — that is the registry's
+        #    metadata-only location. The canonical runtime weights live in
+        #    third_party/<repo>/weights/ which uninstall_provider() handles.
+        #    Deleting ./storage/models/ would remove a stale DB artifact but
+        #    would NOT remove the actual model weights.
