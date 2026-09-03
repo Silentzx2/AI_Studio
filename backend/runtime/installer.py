@@ -2763,9 +2763,12 @@ def _check_auxiliary_weights(provider_name: str, storage, manifest: dict | None 
 def _check_cuda_status() -> tuple[str, str]:
     """Return (state, version_string) for CUDA availability."""
     try:
-        import torch
+        # Normalize CUDA_VISIBLE_DEVICES before importing torch — torch
+        # caches the env var at import time, so normalization must happen
+        # first or it is too late.
         from runtime.gpu import _normalize_cuda_env
         _normalize_cuda_env()
+        import torch
         if torch.cuda.is_available():
             return "ok", torch.version.cuda or "unknown"
     except Exception:
@@ -2777,9 +2780,15 @@ def _check_vram_status(required_mb: int) -> tuple[str, int]:
     """Return (state, available_mb) for VRAM."""
     available_mb = 0
     try:
-        import torch
+        # Normalize CUDA_VISIBLE_DEVICES BEFORE importing torch — torch
+        # caches the env var at import time, so the normalization has to
+        # happen first or it is too late. The health check works because it
+        # imports runtime.gpu (which normalizes at module level) before
+        # touching torch; this function imported torch raw and therefore
+        # always saw available_mb=0 even with a 14GB GPU present.
         from runtime.gpu import _normalize_cuda_env
         _normalize_cuda_env()
+        import torch
         if torch.cuda.is_available():
             available_mb = torch.cuda.get_device_properties(0).total_mem // (1024 * 1024)
     except Exception:
