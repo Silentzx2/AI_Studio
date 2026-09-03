@@ -256,6 +256,17 @@ class StorageConfig:
                     per_model_dir2 = self.get_repo_path(meta["repo"]) / "weights"
                     if _safe_exists(per_model_dir2) and self._has_real_weight_files(per_model_dir2, recursive=False):
                         return per_model_dir2
+                # ponytail: _resolve_weight_key() returns the PROVIDER NAME
+                # (e.g. "triposg"), not the metadata weight_key
+                # ("VAST-AI/TripoSG"). get_install_status() passes that
+                # resolved value to get_weight_path(), so the weight_key
+                # match above misses and the fallback below never runs.
+                # Match by provider name too so the download-target subdir is
+                # found regardless of which form of the key is passed.
+                elif _pname == weight_key and meta.get("repo"):
+                    per_model_dir = self.get_repo_path(meta["repo"]) / "weights" / _pname
+                    if _safe_exists(per_model_dir) and self._has_real_weight_files(per_model_dir):
+                        return per_model_dir
         except Exception:
             pass
 
@@ -327,6 +338,15 @@ class StorageConfig:
                     p2 = self.get_repo_path(meta["repo"]) / "weights"
                     if _safe_exists(p2) and p2 not in paths:
                         paths.append(p2)
+                # ponytail: _resolve_weight_key() returns the provider name
+                # (e.g. "triposg"), not the metadata weight_key
+                # ("VAST-AI/TripoSG"). Match by provider name too so the
+                # download-target subdir is found regardless of which form
+                # of the key is passed in.
+                elif _pname == weight_key and meta.get("repo"):
+                    p1c = self.get_repo_path(meta["repo"]) / "weights" / _pname
+                    if _safe_exists(p1c) and p1c not in paths:
+                        paths.append(p1c)
         except Exception:
             pass
         try:
