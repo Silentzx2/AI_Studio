@@ -2462,15 +2462,20 @@ def uninstall_provider(provider_name: str, log_cb: Callable | None = None) -> di
     # 1. Remove per-model weights directory (new layout)
     repo_name = meta.get("repo")
     if repo_name:
-        per_model_weights = storage.get_repo_path(repo_name) / "weights" / weight_key
-        if per_model_weights.exists():
-            try:
-                shutil.rmtree(str(per_model_weights), ignore_errors=True)
-                removed_paths.append(str(per_model_weights))
-                if log_cb:
-                    log_cb(f"Removed per-model weights: {per_model_weights}")
-            except Exception as exc:
-                errors.append(f"Failed to remove {per_model_weights}: {exc}")
+        # ponytail: weights actually live at weights/<provider_name>, not
+        # weights/<weight_key> — weight_key for TripoSG is "VAST-AI/TripoSG"
+        # (with a slash), so the weight_key path never existed. Clean up both
+        # so removal works regardless of which layout the download used.
+        for sub in (weight_key, provider_name):
+            per_model_weights = storage.get_repo_path(repo_name) / "weights" / sub
+            if per_model_weights.exists():
+                try:
+                    shutil.rmtree(str(per_model_weights), ignore_errors=True)
+                    removed_paths.append(str(per_model_weights))
+                    if log_cb:
+                        log_cb(f"Removed per-model weights: {per_model_weights}")
+                except Exception as exc:
+                    errors.append(f"Failed to remove {per_model_weights}: {exc}")
     
     # 2. Remove legacy centralized weights directory (fallback)
     legacy_weights = storage.weights_dir / weight_key
