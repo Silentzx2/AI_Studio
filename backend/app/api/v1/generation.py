@@ -206,10 +206,15 @@ async def create_generation(req: GenerationRequest, request: Request):
                 comps = inst.get("components", {}) or {}
                 if comps.get("preflight", {}).get("state") not in ("passed", None):
                     missing.append("preflight")
+                vram_status = inst.get("vram_status")
+                vram_detail = ""
+                if vram_status == "insufficient":
+                    vram_detail = f" VRAM insufficient: {inst.get('vram_available_mb', 0)} MB available."
                 detail = (
                     f"Model '{provider}' is not ready for generation "
                     f"(state: {overall_state or 'unknown'}). "
-                    f"Missing: {', '.join(missing) or 'unknown'}. "
+                    f"Missing: {', '.join(missing) or 'unknown'}."
+                    f"{vram_detail} "
                     f"Please finish installing it from the Model Manager or run:"
                     f" POST /api/v1/runtime/install with {{\"models\": [\"{provider}\"]}}"
                 )

@@ -57,6 +57,15 @@ from detailgen3d.pipelines.pipeline_detailgen3d import DetailGen3DPipeline
 pipe = DetailGen3DPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__).to("cpu")
     print("ok")
     """,
+    "hunyuan3d-2-mini": """
+import torch
+from PIL import Image
+from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
+pipe = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__, subfolder="hunyuan3d-dit-v2-mini")
+img = Image.new("RGB", (256, 256))
+mesh = pipe(image=img, num_inference_steps=1, octree_resolution=380, num_chunks=20000, generator=torch.manual_seed(12345), output_type="trimesh")
+print("ok")
+""",
 }
 
 _CAPABILITY_SMOKE_TESTS: dict[str, dict[str, str]] = {
@@ -103,21 +112,20 @@ print("ok")
     "hunyuan3d-2-mini": {
         "shape": """
 import torch
-import numpy as np
-from hy3dgen.pipelines import Hunyuan3DPipeline
-pipe = Hunyuan3DPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__)
-point_cloud = torch.randn(1, 3, 32, 32)
-mesh = pipe(point_cloud)
+from PIL import Image
+from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
+pipe = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__, subfolder="hunyuan3d-dit-v2-mini")
+img = Image.new("RGB", (256, 256))
+mesh = pipe(image=img, num_inference_steps=1, octree_resolution=380, num_chunks=20000, generator=torch.manual_seed(12345), output_type="trimesh")
 print("ok")
 """,
         "texture_pbr": """
 import torch
-import numpy as np
 from PIL import Image
-from hy3dgen.pipelines import Hunyuan3DPipeline
-pipe = Hunyuan3DPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__)
+from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
+pipe = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__, subfolder="hunyuan3d-dit-v2-mini")
 img = Image.new("RGB", (256, 256))
-mesh = pipe(img)
+mesh = pipe(image=img, num_inference_steps=1, octree_resolution=380, num_chunks=20000, generator=torch.manual_seed(12345), output_type="trimesh")
 print("ok")
 """,
     },

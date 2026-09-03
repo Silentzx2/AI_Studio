@@ -24,6 +24,16 @@
 #### Non-texture models rejected instead of coerced to mesh-only
 - A client sending `generate_texture=true` for TripoSG/Hunyuan3D-2mini previously got a 400. Now coerced to `generate_texture=false` and proceeds mesh-only (the UI hides the toggle for these models anyway; this is a defensive default for API callers).
 
+#### Generation blocked by `vram_insufficient` despite model being fully installed
+- `_compute_overall_state()` in `backend/runtime/installer.py` conflated installation readiness with runtime VRAM capacity. When free GPU VRAM was below the manifest's `minimum_vram_mb`, the overall state became `"vram_insufficient"`, which both the API guard (`POST /api/v1/generation`) and the worker guard (`generate_3d_model` Celery task) treated as a hard block — even though `RuntimeEngine` can legitimately decide to run in low-VRAM mode at execution time.
+- **Fix**: Removed the VRAM check from `_compute_overall_state()`. Installation state now reflects only genuine installation prerequisites (repo, venv, weights, auxiliary weights, native build, CUDA, preflight). VRAM capacity is exposed as a separate `vram_status` field and evaluated at execution time by `RuntimeEngine` via `plan_vram_usage()` / `resolve_vram_mode()` / `select_device()` / `load_provider()`.
+- Added `vram_status` and `vram_available_mb` as top-level fields in `get_install_status()` output, so callers can distinguish installation readiness from runtime capacity.
+- Updated error messages in both the API guard and the worker guard to include VRAM details when `vram_status` is `"insufficient"`.
+
+#### Hunyuan3D-2-mini preflight used wrong pipeline class
+- The preflight smoke test for `hunyuan3d-2-mini` imported `from hy3dgen.pipelines import Hunyuan3DPipeline` and ran a point-cloud-style test, but the actual `Hunyuan3D2MiniLocalProvider` uses `from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline` with image input and a `hunyuan3d-dit-v2-mini` subfolder.
+- **Fix**: Updated both `_PROVIDER_SMOKE_TESTS` and `_CAPABILITY_SMOKE_TESTS` for `hunyuan3d-2-mini` in `backend/runtime/preflight.py` to use `Hunyuan3DDiTFlowMatchingPipeline` from `hy3dgen.shapegen` with the correct `subfolder` and image-based invocation matching the real provider.
+
 ### Added & Improved
 
 #### Texture Toggle with Per-Mode VRAM Display & Gating

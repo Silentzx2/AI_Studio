@@ -316,11 +316,20 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                             missing.append("venv")
                         if not inst.get("weights_ready", True):
                             missing.append("weights")
+                        comps = inst.get("components", {}) or {}
+                        if comps.get("preflight", {}).get("state") not in ("passed", None):
+                            missing.append("preflight")
+                        vram_status = inst.get("vram_status")
+                        vram_detail = ""
+                        if vram_status == "insufficient":
+                            vram_detail = f" VRAM insufficient: {inst.get('vram_available_mb', 0)} MB available."
                         raise RuntimeError(
                             f"Model '{provider_name}' is not ready for generation "
                             f"(state: {overall_state or 'unknown'}). "
-                            f"Missing: {', '.join(missing) or 'unknown'}. "
-                            f"Install it first via Model Manager or POST /api/v1/runtime/install."
+                            f"Missing: {', '.join(missing) or 'unknown'}."
+                            f"{vram_detail} "
+                            f"Please finish installing it from the Model Manager or run:"
+                            f" POST /api/v1/runtime/install with {{\"models\": [\"{provider_name}\"]}}"
                         )
                 except RuntimeError:
                     raise

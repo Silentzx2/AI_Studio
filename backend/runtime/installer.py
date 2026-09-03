@@ -2684,6 +2684,8 @@ def get_install_status() -> dict:
             # New authoritative fields.
             "state": overall_state,
             "source": source,
+            "vram_status": vram_state,
+            "vram_available_mb": vram_available,
             "components": {
                 "repo": {"state": repo_state, "path": str(storage.get_repo_path(repo_name)) if repo_name else None},
                 "venv": {"state": venv_state, "path": venv_path_str},
@@ -2873,7 +2875,12 @@ def _compute_overall_state(
     vram_state: str,
     manifest: dict | None = None,
 ) -> tuple[str, str | None]:
-    """Compute overall install state and blocking reason."""
+    """Compute overall install state and blocking reason.
+
+    Installation readiness is separate from runtime VRAM capacity.
+    VRAM is evaluated at execution time by RuntimeEngine via
+    plan_vram_usage() / resolve_vram_mode() / select_device() / load_provider().
+    """
     # If manifest says any enabled capability needs native build, treat as native_req.
     if manifest and "capabilities" in manifest:
         cap_native_req = any(
@@ -2917,8 +2924,8 @@ def _compute_overall_state(
         # native_state == "complete" → fall through to preflight gating below
     if cuda_state == "unavailable":
         return "cuda_incompatible", "CUDA not available"
-    if vram_state == "insufficient":
-        return "vram_insufficient", "Insufficient VRAM"
+    # VRAM is a runtime concern, not installation state.
+    # RuntimeEngine decides VRAM at execution time via plan_vram_usage().
     if preflight_state == "not_implemented":
         # Cannot be READY without real preflight.
         return "blocked", f"Preflight not implemented for {provider_name}"
