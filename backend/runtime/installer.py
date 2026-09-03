@@ -2764,6 +2764,8 @@ def _check_cuda_status() -> tuple[str, str]:
     """Return (state, version_string) for CUDA availability."""
     try:
         import torch
+        from runtime.gpu import _normalize_cuda_env
+        _normalize_cuda_env()
         if torch.cuda.is_available():
             return "ok", torch.version.cuda or "unknown"
     except Exception:
@@ -2776,6 +2778,8 @@ def _check_vram_status(required_mb: int) -> tuple[str, int]:
     available_mb = 0
     try:
         import torch
+        from runtime.gpu import _normalize_cuda_env
+        _normalize_cuda_env()
         if torch.cuda.is_available():
             available_mb = torch.cuda.get_device_properties(0).total_mem // (1024 * 1024)
     except Exception:
