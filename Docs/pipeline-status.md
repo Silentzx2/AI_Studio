@@ -22,6 +22,11 @@
 - Linter: PASS (`npm run lint`, 0 errors)
 - Backend: `python -m compileall -q backend` PASS, `test_dependency_manifest_contract.py` PASS
 
+#### Generation accepted for a model still downloading its weights
+- `POST /api/v1/generation` accepted a job for `triposg` while its ~8 GB weights were still downloading, and the worker crashed with `RuntimeError: TripoSG model is not loaded`.
+- Root cause: the install guard gated on the legacy `installed` boolean, which `installer.py` sets as `was_installed or (repo_ok and weight_ok)` — and `was_installed` is True once `install_provider()` recorded an `installed_at` timestamp, so `installed` was True mid-download while `state` was still `discovered`/`weights_downloading`.
+- Fixed in three places to gate on the authoritative `state` field: `backend/app/api/v1/generation.py` (API guard), `backend/app/workers/tasks.py` (worker defense-in-depth), and `backend/app/api/v1/runtime.py` (model selector `installed`/`available` flags).
+
 ## v4.8.0 — Model Selector Manifest Listing, Backend Storage Persistence & Mock Cleanup (2026-09-03)
 
 ### What changed

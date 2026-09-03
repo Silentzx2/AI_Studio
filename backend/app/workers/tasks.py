@@ -305,7 +305,10 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                     from runtime.installer import get_install_status
                     status = get_install_status()
                     inst = status.get(provider_name, {})
-                    if not inst.get("installed", False):
+                    # Gated on the authoritative `state`, not the legacy
+                    # `installed` boolean — see generation.py for why.
+                    overall_state = inst.get("state")
+                    if overall_state != "ready":
                         missing = []
                         if not inst.get("repo_ready", True):
                             missing.append("repo")
@@ -314,7 +317,8 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                         if not inst.get("weights_ready", True):
                             missing.append("weights")
                         raise RuntimeError(
-                            f"Model '{provider_name}' is not installed. "
+                            f"Model '{provider_name}' is not ready for generation "
+                            f"(state: {overall_state or 'unknown'}). "
                             f"Missing: {', '.join(missing) or 'unknown'}. "
                             f"Install it first via Model Manager or POST /api/v1/runtime/install."
                         )

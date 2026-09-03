@@ -4,6 +4,15 @@
 
 ### Fixed
 
+#### Generation accepted for a model still downloading its weights
+- `POST /api/v1/generation` accepted a job for `triposg` while its ~8 GB weights were still downloading, and the worker crashed with `RuntimeError: TripoSG model is not loaded`.
+- Root cause: the install guard gated on the legacy `installed` boolean. `installer.py` computes `installed_legacy = was_installed or (repo_ok and weight_ok)`, and `was_installed` is True once `install_provider()` ever recorded an `installed_at` timestamp — so `installed` was True mid-download while `state` was still `discovered`/`weights_downloading`.
+- Now all three layers gate on the authoritative `state` field instead:
+  - `backend/app/api/v1/generation.py` — API guard
+  - `backend/app/workers/tasks.py` — worker defense-in-depth guard
+  - `backend/app/api/v1/runtime.py` — model selector `installed`/`available` flags, so the UI no longer shows "Installed" mid-download
+- Verified: `triposg` reports `state: discovered` → guard rejects generation.
+
 #### Texture toggle never showed its VRAM warning
 - `hooks/useManifestModels.ts` read `free_vram_mb`/`gpu_available` from the runtime options payload, but `GET /api/v1/runtime/options` never exposed them — so the UI's VRAM gate silently fell back to "no GPU detected" and the 16 GB warning never appeared.
 - `backend/app/api/v1/runtime.py` now includes `free_vram_mb` and `total_vram_mb` in the options payload (sourced from the existing `GPUInfo`).

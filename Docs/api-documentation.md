@@ -155,6 +155,7 @@ Content-Type: application/json
 | Code | Condition |
 |------|-----------|
 | `400` | Insufficient VRAM for textured generation — the texture capability exceeds free GPU VRAM (includes safety margin). Disable texture to generate mesh-only, or switch to a smaller model. |
+| `400` | Model is not ready for generation — its install `state` is not `ready` (e.g. `discovered`, `weights_downloading`, `native_build_running`, `blocked`). Finish the install in the Model Manager before generating. |
 | `400` | Model is not installed (repo/venv/weights missing) |
 | `400` | Provider is post-processing-only and cannot be used as a standalone generation target |
 | `429` | Rate limit exceeded (10 requests/minute per IP) |

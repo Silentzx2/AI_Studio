@@ -203,15 +203,18 @@ async def get_runtime_options():
             avail = registry.get_availability(name)
             vram_req = meta.get("vram_required_mb", 0)
             status_entry = install_status.get(name, {}) if isinstance(install_status, dict) else {}
-            is_installed = bool(
-                status_entry.get("installed", False)
-                or avail.get("installed", False)
-                or avail.get("available", False)
-                or status_entry.get("state") in ("runtime_ready", "ready", "installed")
-            )
+            # Gated on the authoritative `state`, not the legacy `installed`
+            # boolean — installer.py sets installed_legacy = was_installed or
+            # (repo_ok and weight_ok), and was_installed is True once
+            # install_provider() recorded an installed_at timestamp. So
+            # `installed` can be True while weights are still downloading,
+            # which made the model selector show "Installed" mid-download and
+            # let the generation API accept a job for a not-yet-ready model.
+            overall_state = status_entry.get("state")
+            is_installed = overall_state == "ready"
             is_available = bool(
                 avail.get("available", False)
-                or status_entry.get("state") in ("runtime_ready", "ready")
+                or overall_state in ("runtime_ready", "ready")
             )
             model_status = "ready" if is_available else ("installed" if is_installed else "not_installed")
 

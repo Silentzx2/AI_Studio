@@ -178,34 +178,51 @@ async def create_generation(req: GenerationRequest, request: Request):
     # Installation guard: block generation if the model isn't installed
     # (repo cloned, venv created, weights downloaded) — otherwise it fails
     # with cryptic "module not found" or "weights not found" errors.
-    try:
-        if builtin_provider:
-            status = {provider: {"installed": True, "repo_ready": True, "venv_ready": True, "weights_ready": True}}
-        else:
-            from runtime.installer import get_install_status  # noqa: PLC0415
-            status = get_install_status()
-        inst = status.get(provider, {})
-        if not inst.get("installed", False):
-            missing = []
-            if not inst.get("repo_ready", True):
-                missing.append("repo")
-            if not inst.get("venv_ready", True):
-                missing.append("venv")
-            if not inst.get("weights_ready", True):
-                missing.append("weights")
-            detail = (
-                f"Model '{provider}' is not installed. "
-                f"Missing: {', '.join(missing) or 'unknown'}. "
-                f"Please install it first from the Model Manager or run:"
-                f" POST /api/v1/runtime/install with {{\"models\": [\"{provider}\"]}}"
-            )
-            logger.warning("Blocked generation for uninstalled model: provider=%s missing=%s", provider, missing)
-            raise HTTPException(status_code=400, detail=detail)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.warning("Installation check failed for %s: %s", provider, exc)
-        pass  # Soft fail: don't block if check itself errors
+# Installation guard: block generation if the model isn't ready.
+        # Gated on the AUTHORITATIVE `state` field, NOT the legacy `installed`
+        # boolean. installer.py computes installed_legacy = was_installed or
+        # (repo_ok and weight_ok), and was_installed is True once install_provider()
+        # ever recorded an installed_at timestamp — so `installed` can be True
+        # while weights are still downloading (the exact case that produced
+        # "TripoSG model is not loaded" at worker time). `state` is the
+        # authoritative readiness field (discovered / weights_downloading /
+        # native_build_running / blocked / ready / ...).
+        try:
+            if builtin_provider:
+                state = {provider: {"installed": True, "repo_ready": True, "venv_ready": True, "weights_ready": True}}
+            else:
+                from runtime.installer import get_install_status  # noqa: PLC0415
+                state = get_install_status()
+            inst = state.get(provider, {})
+            overall_state = inst.get("state")
+            if overall_state != "ready":
+                missing = []
+                if not inst.get("repo_ready", True):
+                    missing.append("repo")
+                if not inst.get("venv_ready", True):
+                    missing.append("venv")
+                if not inst.get("weights_ready", True):
+                    missing.append("weights")
+                comps = inst.get("components", {}) or {}
+                if comps.get("preflight", {}).get("state") not in ("passed", None):
+                    missing.append("preflight")
+                detail = (
+                    f"Model '{provider}' is not ready for generation "
+                    f"(state: {overall_state or 'unknown'}). "
+                    f"Missing: {', '.join(missing) or 'unknown'}. "
+                    f"Please finish installing it from the Model Manager or run:"
+                    f" POST /api/v1/runtime/install with {{\"models\": [\"{provider}\"]}}"
+                )
+                logger.warning(
+                    "Blocked generation for not-ready model: provider=%s state=%s missing=%s",
+                    provider, overall_state, missing,
+                )
+                raise HTTPException(status_code=400, detail=detail)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.warning("Installation check failed for %s: %s", provider, exc)
+            pass  # Soft fail: don't block if check itself errors
 
     # Validate workspace/provider compatibility if workspace is specified.
     # Built-in remesh/render paths do not have manifest-backed model providers.
