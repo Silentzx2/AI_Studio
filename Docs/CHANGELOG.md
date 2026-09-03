@@ -1,5 +1,39 @@
 # AI 3D Studio — Changelog
 
+## [v4.8.0] - 2026-09-03
+
+### Added & Improved
+
+#### Texture Toggle with Per-Mode VRAM Display & Gating
+- New capability-aware **Generate Texture** toggle in the Generate panel. It only appears for models whose manifest declares a texture capability (Hunyuan3D 2.1, TRELLIS) and is hidden for models that cannot texture (TripoSG, Hunyuan3D-2mini).
+- The toggle shows the **active-mode VRAM** on its own row, sourced from the manifest's per-capability `vram_required_mb` (e.g. TRELLIS: texture 16 GB vs mesh-only 8 GB) — never a hardcoded UI constant.
+- Disabling texture sends `generate_texture=false` so the backend skips the `texture_pbr` capability and runs shape-only, dropping the footprint (e.g. 16 GB → 8 GB).
+- Backend VRAM gate in `POST /api/v1/generation`: textured generation is rejected with a clear 400 when the texture capability exceeds free GPU VRAM (includes the safety margin), instead of failing at runtime with an OOM.
+- Defaults the toggle per model: ON for texture-capable models, OFF otherwise.
+
+#### Model Selector Complete Manifest Listing & Color Coding
+- Pre-listed all manifest catalog models across 3D generation and texturing workflows regardless of current installation status.
+- Implemented visual indicators with color coding: Green badge for installed and ready models, Gray/muted tone for uninstalled models with installation status pills.
+- Added smart selection logic defaulting to the first available installed model.
+
+#### Model Uploads and Backend Storage Persistence
+- Fixed 3D model uploads from `MeshViewer` (drag-and-drop) and `RightAssetsPanel` to persist directly to `backend/storage/models` rather than relying solely on ephemeral client-side Blob URLs.
+- Added resilient direct storage upload, list, delete, and streaming static file handlers in `/app/api/v1/[...path]/route.ts` and `/app/static/[...path]/route.ts`.
+- Ensured models uploaded or generated in the workspace automatically sync with `backend/storage/models` and are immediately selectable.
+
+#### Removed Mock and Placeholder Models
+- Removed hardcoded mock assets (`Mech Sentinel MK-IV`, `Cyber Drone Scout`) from `WorkspaceContext.tsx`.
+- Removed automatic placeholder mock injection during generation when an image is not selected in `GeneratePanel.tsx`.
+- Viewport cleanly handles empty asset states with guided interactive CTA.
+
+#### Turbopack Filesystem Root Resolution
+- Resolved Next.js 16 Turbopack build panic caused by external directory symlinks by establishing `backend/storage` within the application workspace.
+
+### Verification
+- Turbopack production build: PASS (`npm run build`)
+- Linter verification: PASS (`npm run lint`, 0 errors)
+- Static file serving & direct storage endpoints tested and verified.
+
 ## [v4.7.9] - 2026-09-02
 
 ### Fixed

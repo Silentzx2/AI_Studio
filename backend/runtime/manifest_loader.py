@@ -11,6 +11,9 @@ import logging
 import re
 import time
 from pathlib import Path
+
+from app.core.providers.registry import is_standalone_generation_provider
+
 logger = logging.getLogger(__name__)
 _MANIFEST_DIR = Path(__file__).resolve().parent / "manifests"
 # Provider names are discovered from manifest `name` fields.
@@ -203,7 +206,7 @@ def _build_weight_registry() -> dict[str, dict]:
     return result
 
 
-def _build_flat_capabilities(capabilities: dict) -> dict:
+def _build_flat_capabilities(capabilities: dict, provider_name: str = "") -> dict:
     """Build the flat capabilities dict (supports_* booleans) from manifest capabilities."""
     flat = {}
     for cap_name, cap_info in capabilities.items():
@@ -213,6 +216,28 @@ def _build_flat_capabilities(capabilities: dict) -> dict:
         for key, value in cap_info.items():
             if key.startswith("supports_"):
                 flat[key] = value
+
+    shape_cap = capabilities.get("shape", {}) if isinstance(capabilities.get("shape"), dict) else {}
+    tex_cap = capabilities.get("texture_pbr", {}) or capabilities.get("texture", {})
+    if not isinstance(tex_cap, dict):
+        tex_cap = {}
+    detail_cap = capabilities.get("detail_enhancement", {}) if isinstance(capabilities.get("detail_enhancement"), dict) else {}
+
+    shape_enabled = bool(shape_cap.get("enabled", False))
+    tex_enabled = bool(tex_cap.get("enabled", False))
+    is_standalone = is_standalone_generation_provider(provider_name) if provider_name else True
+
+    if "supports_text_to_3d" not in flat:
+        flat["supports_text_to_3d"] = shape_enabled and (
+            bool(shape_cap.get("supports_text_to_3d", False)) or provider_name in ("hunyuan3d-2.1",)
+        )
+    if "supports_image_to_3d" not in flat:
+        flat["supports_image_to_3d"] = shape_enabled and is_standalone
+    if "supports_texture_generation" not in flat:
+        flat["supports_texture_generation"] = tex_enabled or bool(tex_cap.get("supports_texture_generation", False))
+    if "supports_detail_enhancement" not in flat:
+        flat["supports_detail_enhancement"] = bool(detail_cap.get("enabled", False))
+
     return flat
 
 
@@ -240,19 +265,36 @@ def _build_provider_metadata(provider_name: str, manifest: dict) -> dict:
         if isinstance(v, dict) and v.get("enabled", True)
     )
 
+    flat_caps = _build_flat_capabilities(caps, provider_name)
+    shape_cap = caps.get("shape", {}) if isinstance(caps.get("shape"), dict) else {}
+    tex_cap = caps.get("texture_pbr", {}) or caps.get("texture", {})
+    if not isinstance(tex_cap, dict):
+        tex_cap = {}
+    detail_cap = caps.get("detail_enhancement", {}) if isinstance(caps.get("detail_enhancement"), dict) else {}
+
+    shape_enabled = bool(shape_cap.get("enabled", False))
+    tex_enabled = bool(tex_cap.get("enabled", False))
+    is_standalone = is_standalone_generation_provider(provider_name)
+
+    supports_text = flat_caps.get("supports_text_to_3d", shape_enabled and provider_name in ("hunyuan3d-2.1",))
+    supports_image = flat_caps.get("supports_image_to_3d", shape_enabled and is_standalone)
+    supports_tex = flat_caps.get("supports_texture_generation", tex_enabled)
+    supports_detail = flat_caps.get("supports_detail_enhancement", bool(detail_cap.get("enabled", False)))
+
     return {
         "label": manifest.get("label", provider_name),
         "category": hw.get("category", "3d_generation"),
-        "supports_text_to_3d": caps.get("shape", {}).get("supports_text_to_3d", False),
-        "supports_image_to_3d": caps.get("shape", {}).get("supports_image_to_3d", False),
-        "supports_texture": caps.get("texture_pbr", {}).get("supports_texture_generation", False),
+        "supports_text_to_3d": supports_text,
+        "supports_image_to_3d": supports_image,
+        "supports_texture": supports_tex,
+        "supports_detail_enhancement": supports_detail,
         "vram_required_mb": hw.get("recommended_vram_mb", 0),
         "low_vram_supported": hw.get("low_vram_supported", False),
         "low_vram_required_mb": hw.get("low_vram_required_mb", 0),
         "low_vram_strategy": hw.get("low_vram_strategy", []),
         "native_build_required": native_build_required,
         "install_method": runtime.get("install_method", "uv_requirements"),
-        "capabilities": _build_flat_capabilities(caps),
+        "capabilities": flat_caps,
         "repo": source.get("local_dir"),
         "weight_key": weights.get("primary", {}).get("repo"),
         "workspace_compatibility": runtime.get("workspace_compatibility", []),

@@ -118,7 +118,7 @@ export const RightAssetsPanel: React.FC = () => {
         vertices: meshStats?.vertex_count || 0,
         triangles: meshStats?.polygon_count || 0,
         statsAvailable: !!(meshStats && meshStats.polygon_count > 0),
-        source: { filename: result?.stored_filename || file.name, subfolder: '', type: 'upload', viewUrl: resolveUrl(result?.url) },
+        source: { filename: result?.stored_filename || file.name, subfolder: 'models', type: 'upload', viewUrl: resolveUrl(result?.url) },
         topology: 'Triangle',
         format: (() => {
           if (ext === 'obj') return 'OBJ';

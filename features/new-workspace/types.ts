@@ -171,6 +171,7 @@ export interface GenerationSettings {
   vramMode?: 'auto' | 'normal' | 'low';
   autoOptimize: boolean;
   autoOptimizeSettings: AutoOptimizeSettings;
+  generateTexture?: boolean;
 }
 
 

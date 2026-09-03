@@ -1,10 +1,23 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 3.9.5 (Solid Colors, Text-to-3D Removal, Performance)
-> **Status**: ✅ **COMPLETE** — Verified 2026-09-02
-> **Last Updated**: September 2, 2026
+> **Version**: 4.8.0 (Model Selector Manifest Listing, Backend Storage Persistence, Mock Removal)
+> **Status**: ✅ **COMPLETE** — Verified 2026-09-03
+> **Last Updated**: September 3, 2026
 
 ---
+
+## v4.8.0 — Model Selector Manifest Listing, Backend Storage Persistence & Mock Cleanup (2026-09-03)
+
+### What changed
+- **Manifest-Driven Model Catalog in UI**: Pre-lists all YAML manifest models in both generation and texturing dropdowns. Models dynamically reflect installation status: Green badges for installed/ready, Gray tones for uninstalled models with status pills.
+- **Backend Storage Upload & Persistence**: Drag-and-dropped 3D assets in `MeshViewer` and uploaded assets in `RightAssetsPanel` now upload directly to `backend/storage/models` via `/api/v1/upload/model`. Resilient filesystem fallback routes serve static files and manage assets even if proxy services encounter upstream delays.
+- **Unwanted Mock Removal**: Removed hardcoded mock assets (`sample-mech-sentinel`, `sample-cyber-drone`) and stopped automatic mock image injection during generation.
+- **Turbopack Build Fix**: Canonicalized `backend/storage` internally to prevent Turbopack panics regarding filesystem root boundaries.
+
+### Verification
+- TypeScript compilation: PASS (`npx tsc --noEmit`)
+- Next.js Build: PASS (`npm run build`)
+- Linter: PASS (`npm run lint`, 0 errors)
 
 ## v3.9.5 — Solid Colors, Text-to-3D Removal & Performance (2026-08-30)
 

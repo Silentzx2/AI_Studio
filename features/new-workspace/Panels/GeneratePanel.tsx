@@ -45,7 +45,7 @@ export const GeneratePanel: React.FC = () => {
   } = useWorkspace();
 
   // Manifest-driven: only mesh-capable models with weights + repo present
-  const { meshCapableModels, loading: optionsLoading } = useManifestModels();
+  const { meshCapableModels, loading: optionsLoading, gpuAvailable, freeVramMb } = useManifestModels();
   const providersList = meshCapableModels;
 
   // Status pill logic — shows what's wrong with the selected model
@@ -73,8 +73,6 @@ export const GeneratePanel: React.FC = () => {
   const { progress: uploadProgress, startUpload, updateProgress, finishUpload, failUpload } = useUploadProgress();
 
   // Toggles & Settings
-  const [ultraMeshQuality, setUltraMeshQuality] = useState(true);
-  const [texture8k, setTexture8k] = useState(false);
   const [privacy, setPrivacy] = useState<'public' | 'private'>('public');
   const [privacyMenuOpen, setPrivacyMenuOpen] = useState(false);
 
@@ -84,8 +82,35 @@ export const GeneratePanel: React.FC = () => {
   const activeModelId = generationSettings.aiModel || providersList[0]?.id || '';
   const activeModelObj = providersList.find(m => m.id === activeModelId) || providersList[0];
 
+  // Texture toggle: only meaningful for models whose manifest declares a
+  // texture capability. The active-mode VRAM comes from the manifest
+  // (shape-only vs shape+texture), so disabling texture can drop the
+  // footprint dramatically (e.g. TRELLIS 16 GB -> 8 GB).
+  const supportsTexture = Boolean(
+    activeModelObj?.supports_texture ?? activeModelObj?.supports?.texture_generation
+  );
+  const activeVramMb = generationSettings.generateTexture !== false
+    ? (activeModelObj?.texture_vram_mb || activeModelObj?.vram_required_mb || 0)
+    : (activeModelObj?.shape_vram_mb || activeModelObj?.vram_required_mb || 0);
+  const vramSufficient = !gpuAvailable || !activeVramMb || freeVramMb >= activeVramMb;
+  const vramNotice = vramSufficient
+    ? null
+    : `Texture needs ~${Math.round(activeVramMb / 1024)} GB, only ${Math.round(freeVramMb / 1024)} GB available — disable texture to generate mesh-only (~${Math.round((activeModelObj?.shape_vram_mb || 0) / 1024)} GB) or switch model.`;
+
   // Spring transition for tactile feel
   const springTransition = { type: 'spring' as const, stiffness: 400, damping: 25 };
+
+  // Sync the texture toggle with the selected model. Only ever force the
+  // toggle OFF for models whose manifest has no texture capability (e.g.
+  // TripoSG) — never force it ON, so a user's deliberate mesh-only choice on
+  // a texture-capable model survives a model switch.
+  useEffect(() => {
+    if (!activeModelId || !activeModelObj || supportsTexture) return;
+    setGenerationSettings(prev => {
+      if (prev.generateTexture === false) return prev;
+      return { ...prev, generateTexture: false };
+    });
+  }, [activeModelId, supportsTexture]);
 
   useEffect(() => {
     if (!activeModelId && providersList.length > 0) {
@@ -191,13 +216,17 @@ export const GeneratePanel: React.FC = () => {
   ];
 
   const handleGenerate = () => {
-    if (!generationSettings.image) {
-      const defaultImg = SAMPLE_PRESETS[0].url;
-      setGenerationSettings(prev => ({ ...prev, image: defaultImg }));
-      generateImageTo3D(defaultImg);
-    } else {
-      generateImageTo3D(generationSettings.image);
+    if (vramNotice) {
+      setNoticeMessage(vramNotice);
+      setTimeout(() => setNoticeMessage(null), 5000);
+      return;
     }
+    if (!generationSettings.image) {
+      setNoticeMessage('Please upload or select a reference image first before generating.');
+      setTimeout(() => setNoticeMessage(null), 4000);
+      return;
+    }
+    generateImageTo3D(generationSettings.image);
   };
 
   return (
@@ -371,12 +400,58 @@ export const GeneratePanel: React.FC = () => {
           </div>
         </div>
 
-        {/* General Settings Accordion (Geometry & Texture) */}
-        <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2 space-y-1.5">
+        {/* Geometry & Texture — Texture toggle + active-mode VRAM */}
+        <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2 space-y-2">
           <div className="flex items-center justify-between text-[10px] font-semibold text-zinc-300">
             <span>Geometry &amp; Texture</span>
-            <ChevronRight className="w-3 h-3 text-zinc-500" />
+            <span className="text-[8px] text-zinc-500 font-normal">
+              {activeVramMb ? `${Math.round(activeVramMb / 1024)} GB active` : '—'}
+            </span>
           </div>
+
+          {supportsTexture ? (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-zinc-300 flex items-center gap-1">
+                  <span>Generate Texture</span>
+                  <SimpleTooltip
+                    label={
+                      generationSettings.generateTexture !== false
+                        ? `Runs the texture_pbr capability (~${Math.round((activeModelObj?.texture_vram_mb || 0) / 1024)} GB). Disable to generate mesh-only (~${Math.round((activeModelObj?.shape_vram_mb || 0) / 1024)} GB).`
+                        : `Mesh-only mode: runs the shape capability only (~${Math.round((activeModelObj?.shape_vram_mb || 0) / 1024)} GB).`
+                    }
+                  >
+                    <Info className="w-3 h-3 text-zinc-500" />
+                  </SimpleTooltip>
+                </span>
+                <button
+                  id="btn-toggle-texture"
+                  type="button"
+                  onClick={() => setGenerationSettings(prev => ({
+                    ...prev,
+                    generateTexture: prev.generateTexture === false ? true : false,
+                  }))}
+                  className={`w-7 h-3.5 rounded-full p-0.5 transition-colors relative ${
+                    generationSettings.generateTexture !== false ? 'bg-emerald-500' : 'bg-[#25262A]'
+                  }`}
+                >
+                  <div className={`w-2.5 h-2.5 rounded-full bg-white transition-transform ${
+                    generationSettings.generateTexture !== false ? 'translate-x-3.5' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+              {vramNotice && (
+                <div className="flex items-start gap-1.5 px-1.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[9px] text-amber-300">
+                  <AlertTriangle className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                  <span className="leading-tight">{vramNotice}</span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-[9px] text-zinc-500 px-1">
+              {activeModelObj?.label || 'This model'} does not support texture generation.
+            </div>
+          )}
         </div>
 
         {/* Members Only Section (Tripo Style) */}
@@ -397,19 +472,6 @@ export const GeneratePanel: React.FC = () => {
               className={`w-7 h-3.5 rounded-full p-0.5 transition-colors relative ${generationSettings.lowVram ? 'bg-[#F9CF00]' : 'bg-[#25262A]'}`}
             >
               <div className={`w-2.5 h-2.5 rounded-full bg-black transition-transform ${generationSettings.lowVram ? 'translate-x-3.5' : 'translate-x-0'}`} />
-            </button>
-          </div>
-
-          {/* 8K Texture Toggle */}
-          <div className="flex items-center justify-between text-[10px]">
-            <span className="text-zinc-300 flex items-center gap-1">
-              <span>8K Texture</span>
-              <span className="text-[8px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold">Trial x1</span>
-            </span>
-            <button
-              className="w-7 h-3.5 rounded-full p-0.5 bg-[#25262A] relative"
-            >
-              <div className="w-2.5 h-2.5 rounded-full bg-zinc-500 translate-x-0" />
             </button>
           </div>
 
@@ -445,11 +507,15 @@ export const GeneratePanel: React.FC = () => {
           >
             <div className="flex flex-col min-w-0 pr-2">
               <span className="font-bold text-[10px] text-white flex items-center gap-1.5 truncate">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#F9CF00]" />
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  (activeModelObj?.available || activeModelObj?.installed)
+                    ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]'
+                    : 'bg-zinc-500'
+                }`} />
                 <span className="truncate">{activeModelObj?.label || activeModelId || 'No model available'}</span>
               </span>
               <span className="text-[8px] text-zinc-400 truncate">
-                {activeModelObj?.available ? 'Ready for generation' : activeModelObj?.installed ? 'Installed · awaiting preflight' : 'Not installed'}
+                {activeModelObj?.available ? 'Ready for generation' : activeModelObj?.installed ? 'Installed · ready' : 'Not installed · click to configure'}
               </span>
             </div>
             <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${modelDropdownOpen ? 'rotate-180 text-[#F9CF00]' : ''}`} />
@@ -504,8 +570,15 @@ export const GeneratePanel: React.FC = () => {
                     >
                       <div className="flex flex-col min-w-0 pr-2">
                         <div className="flex items-center gap-1.5">
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                            isSelected
+                              ? 'bg-black'
+                              : isReady || isInstalled
+                                ? 'bg-emerald-400'
+                                : 'bg-zinc-500'
+                          }`} />
                           <span className="text-[10px] font-bold truncate">{m.label}</span>
-                          <span className={`text-[7px] px-1 py-0.2 rounded font-mono ${badgeClass}`}>
+                          <span className={`text-[7px] px-1 py-0.2 rounded font-mono border ${badgeClass}`}>
                             {badgeText}
                           </span>
                           {m.vram_required_mb ? (

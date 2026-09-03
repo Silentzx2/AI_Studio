@@ -143,6 +143,36 @@ def get_model_metadata(provider_id: str) -> dict[str, Any]:
         return {}
 
 
+def get_capability_vram_mb(provider_id: str, capability: str = "shape") -> int:
+    """Return the VRAM (MB) required by a specific manifest capability.
+
+    Reads ``manifest["capabilities"][<capability>]["vram_required_mb"]`` — the
+    per-capability footprint. Falls back to the model's top-level
+    ``vram_required_mb`` when the capability is absent or has no explicit value.
+
+    This is the single source of truth for the UI's per-mode VRAM display and
+    the generation API's VRAM gate: shape-only (e.g. 8 GB) vs shape+texture
+    (e.g. 16 GB) both come from here, never from a hardcoded UI constant.
+    """
+    try:
+        from runtime.manifest_loader import load_manifest  # noqa: PLC0415
+        manifest = load_manifest(provider_id)
+    except Exception:
+        return 0
+    caps = manifest.get("capabilities") or {}
+    cap = caps.get(capability)
+    if isinstance(cap, dict) and cap.get("vram_required_mb"):
+        try:
+            return int(cap["vram_required_mb"])
+        except (TypeError, ValueError):
+            return 0
+    # Fall back to the model's overall VRAM requirement
+    try:
+        return int(get_model_vram_required(provider_id))
+    except Exception:
+        return 0
+
+
 # ---------------------------------------------------------------------------
 # Low VRAM mode + Auto VRAM planner
 # ---------------------------------------------------------------------------

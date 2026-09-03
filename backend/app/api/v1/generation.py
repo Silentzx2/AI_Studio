@@ -223,6 +223,56 @@ async def create_generation(req: GenerationRequest, request: Request):
         except Exception as exc:
             logger.warning("Workspace/provider compatibility check failed: %s", exc)
 
+    # Texture VRAM gate: generating with texture uses the manifest's
+    # capabilities.texture_pbr (or .texture) footprint, which is materially
+    # larger than shape-only (e.g. 16 GB vs 8 GB). Verify the active
+    # capability fits the GPU before queuing so the user gets a clear answer
+    # instead of a runtime OOM.
+    if not builtin_provider and req.generate_texture:
+        try:
+            from runtime.capability import (
+                get_capability_vram_mb,
+                get_detected_free_vram_mb,
+                get_vram_safety_margin_mb,
+            )
+            from runtime.manifest_loader import get_provider_metadata
+
+            meta = get_provider_metadata(provider)
+            caps = meta.get("capabilities") or {}
+            has_texture_cap = any(
+                isinstance(c, dict) and c.get("enabled")
+                for key, c in caps.items()
+                if key in ("texture_pbr", "texture")
+            )
+            if not has_texture_cap:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Model '{provider}' does not support texture generation. "
+                        f"Disable texture or choose a texture-capable model "
+                        f"(Hunyuan3D 2.1, TRELLIS)."
+                    ),
+                )
+            needed = get_capability_vram_mb(provider, "texture_pbr") or get_capability_vram_mb(provider, "texture")
+            free = get_detected_free_vram_mb()
+            margin = get_vram_safety_margin_mb()
+            if free and needed and free < needed + margin:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Insufficient VRAM for textured generation with '{provider}': "
+                        f"texture needs ~{round(needed / 1024)} GB, "
+                        f"{round(free / 1024)} GB available "
+                        f"(includes {round(margin / 1024)} GB safety margin). "
+                        f"Disable texture to generate mesh-only (~{round(get_capability_vram_mb(provider, 'shape') / 1024)} GB), "
+                        f"or switch to a smaller model."
+                    ),
+                )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.warning("Texture VRAM check failed for %s: %s", provider, exc)
+
     from app.database import AsyncSessionLocal
     from app.models.job import GenerationJob
     from app.workers.tasks import generate_3d_model

@@ -202,11 +202,43 @@ async def get_runtime_options():
                 continue
             avail = registry.get_availability(name)
             vram_req = meta.get("vram_required_mb", 0)
+            status_entry = install_status.get(name, {}) if isinstance(install_status, dict) else {}
+            is_installed = bool(
+                status_entry.get("installed", False)
+                or avail.get("installed", False)
+                or avail.get("available", False)
+                or status_entry.get("state") in ("runtime_ready", "ready", "installed")
+            )
+            is_available = bool(
+                avail.get("available", False)
+                or status_entry.get("state") in ("runtime_ready", "ready")
+            )
+            model_status = "ready" if is_available else ("installed" if is_installed else "not_installed")
+
+            # Per-capability VRAM from the manifest: shape-only vs textured
+            # generation differ materially (e.g. 8 GB vs 16 GB), so the UI can
+            # show the active-mode footprint and gate the texture toggle.
+            try:
+                from runtime.capability import get_capability_vram_mb  # noqa: PLC0415
+                shape_vram_mb = get_capability_vram_mb(name, "shape")
+                texture_vram_mb = (
+                    get_capability_vram_mb(name, "texture_pbr")
+                    or get_capability_vram_mb(name, "texture")
+                )
+            except Exception:
+                shape_vram_mb = vram_req
+                texture_vram_mb = vram_req
+
             three_d_models.append({
                 "id": name,
                 "label": meta["label"],
-                "available": avail.get("available", False),
+                "available": is_available,
+                "installed": is_installed,
+                "status": model_status,
                 "vram_required_mb": vram_req,
+                "shape_vram_mb": shape_vram_mb,
+                "texture_vram_mb": texture_vram_mb,
+                "supports_texture": meta.get("supports_texture", False),
                 "supports_text_to_3d": meta.get("supports_text_to_3d", False),
                 "supports_image_to_3d": meta.get("supports_image_to_3d", False),
                 "supports_standalone_generation": is_standalone_generation_provider(name),
@@ -218,7 +250,7 @@ async def get_runtime_options():
                     "image_to_3d": meta.get("supports_image_to_3d", False),
                     "texture_generation": meta.get("supports_texture", False),
                     "rigging_animation": False,
-                    "detail_enhancement": False,
+                    "detail_enhancement": meta.get("supports_detail_enhancement", False),
                     "part_separation": False,
                 },
             })
@@ -242,6 +274,17 @@ async def get_runtime_options():
                 caps = manifest.get("capabilities") or {}
                 ws_compat = m.get("workspace_compatibility") or manifest.get("workspace_compatibility") or []
                 vram_req = m.get("vram_required_mb") or manifest.get("recommended_vram_mb", 0)
+                shape_vram_mb = vram_req
+                texture_vram_mb = vram_req
+                try:
+                    from runtime.capability import get_capability_vram_mb  # noqa: PLC0415
+                    shape_vram_mb = get_capability_vram_mb(mid, "shape") or vram_req
+                    texture_vram_mb = (
+                        get_capability_vram_mb(mid, "texture_pbr")
+                        or get_capability_vram_mb(mid, "texture")
+                    ) or vram_req
+                except Exception:
+                    pass
                 three_d_models.append({
                     "id": m.get("id", mid),
                     "label": m.get("label") or m.get("name") or mid,
@@ -249,6 +292,9 @@ async def get_runtime_options():
                     "installed": bool(m.get("installed", False)),
                     "status": m.get("status", "not_installed"),
                     "vram_required_mb": vram_req,
+                    "shape_vram_mb": shape_vram_mb,
+                    "texture_vram_mb": texture_vram_mb,
+                    "supports_texture": bool(caps.get("texture_generation")),
                     "supports_text_to_3d": bool(caps.get("text_to_3d")),
                     "supports_image_to_3d": bool(caps.get("image_to_3d")),
                     "supports_standalone_generation": is_standalone_generation_provider(mid),

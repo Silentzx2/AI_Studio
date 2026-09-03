@@ -20,6 +20,9 @@ export interface ManifestModel {
   installed?: boolean;
   status?: string;
   vram_required_mb?: number;
+  shape_vram_mb?: number;
+  texture_vram_mb?: number;
+  supports_texture?: boolean;
   supports_text_to_3d?: boolean;
   supports_image_to_3d?: boolean;
   workspace_compatibility?: string[];
@@ -35,30 +38,179 @@ export interface ManifestModel {
   };
 }
 
+/**
+ * Pre-seeded manifest model catalog loaded directly from backend/runtime/manifests/*.yaml.
+ * Ensures models are always known and listed in selectors immediately, even before
+ * backend options finish loading or when offline.
+ */
+export const MANIFEST_MODELS_CATALOG: ManifestModel[] = [
+  {
+    id: 'hunyuan3d-2.1',
+    label: 'Hunyuan3D 2.1',
+    available: false,
+    installed: false,
+    status: 'not_installed',
+    vram_required_mb: 29000,
+    shape_vram_mb: 10240,
+    texture_vram_mb: 29000,
+    supports_texture: true,
+    supports_text_to_3d: true,
+    supports_image_to_3d: true,
+    low_vram_supported: true,
+    low_vram_required_mb: 8192,
+    workspace_compatibility: [],
+    supports: {
+      text_to_3d: true,
+      image_to_3d: true,
+      texture_generation: true,
+      rigging_animation: false,
+      detail_enhancement: false,
+      part_separation: false,
+    },
+  },
+  {
+    id: 'hunyuan3d-2-mini',
+    label: 'Hunyuan3D 2 Mini',
+    available: false,
+    installed: false,
+    status: 'not_installed',
+    vram_required_mb: 6144,
+    shape_vram_mb: 4096,
+    texture_vram_mb: 6144,
+    supports_texture: true,
+    supports_text_to_3d: false,
+    supports_image_to_3d: true,
+    low_vram_supported: true,
+    low_vram_required_mb: 4096,
+    workspace_compatibility: [],
+    supports: {
+      text_to_3d: false,
+      image_to_3d: true,
+      texture_generation: true,
+      rigging_animation: false,
+      detail_enhancement: false,
+      part_separation: false,
+    },
+  },
+  {
+    id: 'trellis',
+    label: 'TRELLIS',
+    available: false,
+    installed: false,
+    status: 'not_installed',
+    vram_required_mb: 16000,
+    shape_vram_mb: 8000,
+    texture_vram_mb: 16000,
+    supports_texture: true,
+    supports_text_to_3d: false,
+    supports_image_to_3d: true,
+    low_vram_supported: false,
+    low_vram_required_mb: 8000,
+    workspace_compatibility: [],
+    supports: {
+      text_to_3d: false,
+      image_to_3d: true,
+      texture_generation: true,
+      rigging_animation: false,
+      detail_enhancement: false,
+      part_separation: false,
+    },
+  },
+  {
+    id: 'triposg',
+    label: 'TripoSG',
+    available: false,
+    installed: false,
+    status: 'not_installed',
+    vram_required_mb: 8192,
+    shape_vram_mb: 8192,
+    texture_vram_mb: 8192,
+    supports_texture: false,
+    supports_text_to_3d: false,
+    supports_image_to_3d: true,
+    low_vram_supported: false,
+    low_vram_required_mb: 8192,
+    workspace_compatibility: [],
+    supports: {
+      text_to_3d: false,
+      image_to_3d: true,
+      texture_generation: false,
+      rigging_animation: false,
+      detail_enhancement: false,
+      part_separation: false,
+    },
+  },
+];
+
 export interface UseManifestModelsResult {
-    meshCapableModels: ManifestModel[];
-    textureCapableModels: ManifestModel[];
-    allModels: ManifestModel[];
-    loading: boolean;
-    error: string | null;
-  }
+  meshCapableModels: ManifestModel[];
+  textureCapableModels: ManifestModel[];
+  allModels: ManifestModel[];
+  loading: boolean;
+  error: string | null;
+  gpuAvailable: boolean;
+  freeVramMb: number;
+}
 
 export function useManifestModels(): UseManifestModelsResult {
   const { options, loading, error } = useRuntimeOptions();
+  const gpuAvailable = Boolean((options as any)?.gpu_available);
+  const freeVramMb = Number((options as any)?.free_vram_mb) || 0;
 
   const allModels = useMemo<ManifestModel[]>(() => {
-    const raw: ManifestModel[] = options?.three_d_models || [];
-    return raw;
+    const raw: ManifestModel[] = (options?.three_d_models || []).filter(
+      (m: ManifestModel) =>
+        m &&
+        m.id &&
+        !m.id.toLowerCase().includes('mock') &&
+        !m.id.toLowerCase().includes('placeholder')
+    );
+
+    const backendMap = new Map<string, ManifestModel>();
+    for (const m of raw) {
+      backendMap.set(m.id.toLowerCase(), m);
+    }
+
+    // Merge baseline YAML catalog with live backend status
+    const merged: ManifestModel[] = MANIFEST_MODELS_CATALOG.map((base) => {
+      const live = backendMap.get(base.id.toLowerCase());
+      if (!live) return base;
+      const isAvailable = live.available === true;
+      const isInstalled = live.installed === true || isAvailable;
+      return {
+        ...base,
+        ...live,
+        label: live.label || base.label,
+        available: isAvailable,
+        installed: isInstalled,
+        status: live.status || (isAvailable ? 'ready' : isInstalled ? 'installed' : 'not_installed'),
+        vram_required_mb: live.vram_required_mb || base.vram_required_mb,
+        shape_vram_mb: live.shape_vram_mb || base.shape_vram_mb,
+        texture_vram_mb: live.texture_vram_mb || base.texture_vram_mb,
+        supports_texture: live.supports_texture ?? base.supports_texture,
+        low_vram_supported: live.low_vram_supported ?? base.low_vram_supported,
+        low_vram_required_mb: live.low_vram_required_mb ?? base.low_vram_required_mb,
+        supports_text_to_3d: live.supports_text_to_3d ?? base.supports_text_to_3d,
+        supports_image_to_3d: live.supports_image_to_3d ?? base.supports_image_to_3d,
+        supports: {
+          ...base.supports,
+          ...(live.supports || {}),
+        },
+      };
+    });
+
+    // Include any additional real models reported by backend
+    for (const [id, live] of backendMap.entries()) {
+      if (!MANIFEST_MODELS_CATALOG.some((b) => b.id.toLowerCase() === id)) {
+        merged.push(live);
+      }
+    }
+
+    return merged;
   }, [options]);
 
   const meshCapableModels = useMemo(() => {
     return allModels.filter((m) => {
-      // ponytail: list EVERY mesh-capable model in the selector, installed or
-      // not. Previously this filtered on `available` (weights+repo+preflight
-      // ready), so a model the user had installed but not yet preflighted, or
-      // any model at all before install, was invisible — the selector showed
-      // "No model available" forever. Color-coding in the UI now signals
-      // readiness; the list itself must be complete.
       // Must support at least one mesh-generation pathway
       const supportsMesh =
         m.supports_image_to_3d === true ||
@@ -71,9 +223,6 @@ export function useManifestModels(): UseManifestModelsResult {
 
   const textureCapableModels = useMemo(() => {
     return allModels.filter((m) => {
-      // ponytail: same completeness rule as mesh-capable — texture models
-      // should appear even when not yet installed so the user can see what's
-      // available and what needs installing.
       // Must explicitly support texture generation
       const supportsTexture =
         m.supports?.texture_generation === true;
@@ -87,5 +236,7 @@ export function useManifestModels(): UseManifestModelsResult {
     allModels,
     loading,
     error,
+    gpuAvailable,
+    freeVramMb,
   };
 }

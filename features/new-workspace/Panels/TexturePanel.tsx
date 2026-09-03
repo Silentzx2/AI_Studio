@@ -41,10 +41,11 @@ export const TexturePanel: React.FC = () => {
 
   const springTransition = { type: 'spring' as const, stiffness: 400, damping: 25 };
 
-  // Auto-select first texture-capable model when none selected
+  // Auto-select first texture-capable model when none selected (prefer installed)
   useEffect(() => {
     if (!textureSettings.modelId && textureCapableModels.length > 0) {
-      setTextureSettings(prev => ({ ...prev, modelId: textureCapableModels[0].id }));
+      const firstAvailable = textureCapableModels.find(m => m.installed) || textureCapableModels[0];
+      setTextureSettings(prev => ({ ...prev, modelId: firstAvailable.id }));
     }
   }, [textureCapableModels, textureSettings.modelId, setTextureSettings]);
 
@@ -262,17 +263,26 @@ export const TexturePanel: React.FC = () => {
         </div>
 
         <button
+          id="btn-select-texture-model"
           type="button"
           onClick={() => setTextureModelDropdownOpen(!textureModelDropdownOpen)}
           className="w-full flex items-center justify-between p-1.5 rounded-lg bg-[#191A1D] border border-white/[0.08] hover:border-white/[0.16] hover:bg-[#202125] transition-all text-left cursor-pointer"
         >
           <div className="flex flex-col min-w-0 pr-2">
             <span className="font-bold text-[10px] text-white flex items-center gap-1.5 truncate">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#F9CF00]" />
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                (activeTextureModel?.available || activeTextureModel?.installed)
+                  ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]'
+                  : 'bg-zinc-500'
+              }`} />
               <span className="truncate">{activeTextureModel?.label || 'No texture model available'}</span>
             </span>
             <span className="text-[8px] text-zinc-400 truncate">
-              {activeTextureModel?.available ? 'Ready for texture generation' : 'Install a texture-capable model'}
+              {activeTextureModel?.available
+                ? 'Ready for texture generation'
+                : activeTextureModel?.installed
+                  ? 'Installed · ready'
+                  : 'Not installed · click to configure'}
             </span>
           </div>
           <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${textureModelDropdownOpen ? 'rotate-180 text-[#F9CF00]' : ''}`} />
@@ -285,11 +295,25 @@ export const TexturePanel: React.FC = () => {
             </div>
             {textureCapableModels.length === 0 ? (
               <div className="px-2 py-3 text-[10px] text-zinc-400 text-center">
-                No texture-capable models installed. Install a model with texture support.
+                No texture-capable models configured.
               </div>
             ) : (
               textureCapableModels.map((m) => {
                 const isSelected = m.id === (activeTextureModel?.id || textureSettings.modelId);
+                const isReady = m.available === true;
+                const isInstalled = m.installed === true || isReady;
+                const rowBase = isSelected
+                  ? 'bg-[#F9CF00] text-black shadow-sm font-bold'
+                  : isInstalled
+                    ? 'text-white hover:bg-[#25262A]'
+                    : 'text-zinc-400 opacity-80 hover:bg-[#25262A] hover:opacity-100';
+                const badgeText = isReady ? 'Ready' : isInstalled ? 'Installed' : 'Not installed';
+                const badgeClass = isSelected
+                  ? 'bg-black/15 text-black border-transparent'
+                  : isInstalled
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                    : 'bg-zinc-800 text-zinc-400 border-zinc-700/50';
+
                 return (
                   <button
                     key={m.id}
@@ -300,12 +324,22 @@ export const TexturePanel: React.FC = () => {
                     className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-all ${
                       isSelected
                         ? 'bg-[#F9CF00] text-black shadow-sm font-bold'
-                        : 'text-zinc-200 hover:bg-[#25262A] hover:text-white'
+                        : rowBase
                     }`}
                   >
                     <div className="flex flex-col min-w-0 pr-2">
                       <div className="flex items-center gap-1.5">
+                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                          isSelected
+                            ? 'bg-black'
+                            : isInstalled
+                              ? 'bg-emerald-400'
+                              : 'bg-zinc-500'
+                        }`} />
                         <span className="text-[10px] font-bold truncate">{m.label}</span>
+                        <span className={`text-[7px] px-1 py-0.2 rounded font-mono border ${badgeClass}`}>
+                          {badgeText}
+                        </span>
                         {m.vram_required_mb ? (
                           <span className={`text-[7px] px-1 py-0.2 rounded font-mono ${
                             isSelected ? 'bg-black/15 text-black' : 'bg-white/[0.08] text-zinc-400'

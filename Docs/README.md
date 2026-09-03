@@ -15,7 +15,7 @@
 
 <p align="center">
 
-  <img src="https://img.shields.io/badge/Version-4.7.2-8A2BE2?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Version-4.8.0-8A2BE2?style=for-the-badge">
 
   <img src="https://img.shields.io/badge/Pipeline-V2-Complete-success?style=for-the-badge">
 
@@ -418,7 +418,7 @@ cp .env.example .env
 ENVIRONMENT=development
 DEBUG=true
 APP_NAME=AI 3D Studio
-APP_VERSION=4.6.0
+APP_VERSION=4.8.0
 
 # ===== DATABASE =====
 DATABASE_URL=postgresql+asyncpg://ai_studio:ai_studio_dev@localhost:5432/ai_studio
@@ -1126,5 +1126,5 @@ See [Pipeline Status Document](docs/pipeline-status.md) for detailed breakdown.
 ---
 
 <p align="center">
-   <sub>Last Updated: August 29, 2026 | Version 4.6.0
+   <sub>Last Updated: September 3, 2026 | Version 4.8.0
 </p>

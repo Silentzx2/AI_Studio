@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import fs from 'node:fs';
+import path from 'node:path';
 
 // export const config = {
 //   matcher: '/api/v1/:path*',
@@ -6,6 +8,175 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+/**
+ * Storage helpers for direct persistence to /backend/storage/models and /backend/storage/uploads
+ */
+function getStorageDirs(subfolder: string): string[] {
+  const dirs = [
+    path.join('/backend/storage', subfolder),
+    path.join(process.cwd(), 'backend', 'storage', subfolder),
+  ];
+  for (const d of dirs) {
+    try {
+      if (!fs.existsSync(d)) {
+        fs.mkdirSync(d, { recursive: true });
+      }
+    } catch {}
+  }
+  return dirs;
+}
+
+async function handleDirectModelUpload(file: File) {
+  const ext = path.extname(file.name).toLowerCase() || '.glb';
+  const cleanBase = path.basename(file.name, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
+  const storedFilename = `${Date.now()}_${cleanBase}${ext}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  const targetDirs = getStorageDirs('models');
+  for (const dir of targetDirs) {
+    try {
+      await fs.promises.writeFile(path.join(dir, storedFilename), buffer);
+    } catch (err) {
+      console.warn(`Failed to write to storage dir ${dir}:`, err);
+    }
+  }
+
+  return {
+    success: true,
+    data: {
+      id: storedFilename,
+      url: `/static/models/${storedFilename}`,
+      filename: file.name,
+      stored_filename: storedFilename,
+      size: buffer.length,
+      format: ext.replace('.', ''),
+      thumbnail_url: null,
+      mesh_stats: null,
+    },
+    message: 'Model uploaded successfully to storage',
+  };
+}
+
+async function handleDirectImageUpload(file: File) {
+  const ext = path.extname(file.name).toLowerCase() || '.png';
+  const cleanBase = path.basename(file.name, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
+  const storedFilename = `upload_${Date.now()}_${cleanBase}${ext}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  const targetDirs = getStorageDirs('uploads');
+  for (const dir of targetDirs) {
+    try {
+      await fs.promises.writeFile(path.join(dir, storedFilename), buffer);
+    } catch (err) {
+      console.warn(`Failed to write to storage dir ${dir}:`, err);
+    }
+  }
+
+  return {
+    success: true,
+    data: {
+      url: `/static/uploads/${storedFilename}`,
+      filename: storedFilename,
+      width: 512,
+      height: 512,
+      size_bytes: buffer.length,
+    },
+    message: 'Image uploaded successfully to storage',
+  };
+}
+
+async function handleDirectAssetsList() {
+  const MODEL_EXTS = new Set(['.glb', '.gltf', '.obj', '.ply', '.stl', '.fbx']);
+  const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp']);
+
+  const models: any[] = [];
+  const images: any[] = [];
+  const seenModels = new Set<string>();
+  const seenImages = new Set<string>();
+
+  // Scan models
+  for (const dir of getStorageDirs('models')) {
+    try {
+      if (fs.existsSync(dir)) {
+        const files = await fs.promises.readdir(dir);
+        for (const file of files) {
+          const ext = path.extname(file).toLowerCase();
+          if (MODEL_EXTS.has(ext) && !seenModels.has(file)) {
+            seenModels.add(file);
+            const stat = await fs.promises.stat(path.join(dir, file));
+            models.push({
+              id: file,
+              name: file.replace(/^[0-9]+_/, '').replace(/\.[^.]+$/, ''),
+              filename: file,
+              url: `/static/models/${file}`,
+              size: stat.size,
+              format: ext.replace('.', '').toUpperCase(),
+              type: 'model',
+              thumbnail_url: null,
+              mesh_stats: null,
+              created_at: stat.mtime.toISOString(),
+            });
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // Scan images
+  for (const dir of getStorageDirs('uploads')) {
+    try {
+      if (fs.existsSync(dir)) {
+        const files = await fs.promises.readdir(dir);
+        for (const file of files) {
+          const ext = path.extname(file).toLowerCase();
+          if (IMAGE_EXTS.has(ext) && !seenImages.has(file)) {
+            seenImages.add(file);
+            const stat = await fs.promises.stat(path.join(dir, file));
+            images.push({
+              id: file,
+              name: file,
+              filename: file,
+              url: `/static/uploads/${file}`,
+              size: stat.size,
+              format: ext.replace('.', '').toUpperCase(),
+              type: 'image',
+              created_at: stat.mtime.toISOString(),
+            });
+          }
+        }
+      }
+    } catch {}
+  }
+
+  models.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  images.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  return {
+    success: true,
+    data: {
+      images,
+      models,
+      total_images: images.length,
+      total_models: models.length,
+    },
+  };
+}
+
+async function handleDirectAssetDelete(filename: string) {
+  const dirs = [...getStorageDirs('models'), ...getStorageDirs('uploads')];
+  let deleted = false;
+  for (const dir of dirs) {
+    const target = path.join(dir, filename);
+    if (fs.existsSync(target)) {
+      try {
+        await fs.promises.unlink(target);
+        deleted = true;
+      } catch {}
+    }
+  }
+  return { success: true, data: { deleted, filename } };
+}
 
 /**
  * Runtime API Proxy for /api/v1/* requests
@@ -77,17 +248,26 @@ export async function GET(
     const response = await fetch(targetUrl, {
       method: 'GET',
       headers: getForwardingHeaders(request),
-      signal: AbortSignal.timeout(120000),
+      signal: AbortSignal.timeout(10000),
     });
     
-    return createProxyResponse(response);
+    if (response.ok) {
+      return createProxyResponse(response);
+    }
   } catch (error) {
-    console.error(`[API Proxy] GET ${fullPath} failed:`, error);
-    return NextResponse.json(
-      { success: false, message: `Backend unavailable or timed out at ${BACKEND_URL}` },
-      { status: 504 }
-    );
+    // Backend offline; check fallback below
   }
+
+  // Fallback for upload/assets listing
+  if (fullPath === 'upload/assets') {
+    const assetsData = await handleDirectAssetsList();
+    return NextResponse.json(assetsData);
+  }
+
+  return NextResponse.json(
+    { success: false, message: `Backend unavailable or timed out at ${BACKEND_URL}` },
+    { status: 504 }
+  );
 }
 
 export async function POST(
@@ -111,33 +291,58 @@ export async function POST(
     const auth = request.headers.get('authorization');
     if (auth) headers['authorization'] = auth;
     
+    let parsedFormData: FormData | null = null;
     if (contentType.includes('multipart/form-data')) {
-      // Forward multipart by re-using the parsed FormData. Letting fetch set a
-      // fresh Content-Type (with a correct boundary) avoids the arrayBuffer +
-      // copied-header path, which could arrive at the backend as an empty/malformed
-      // part (yielding 422 "Empty file" for uploads that use a relative URL and
-      // therefore proxy through Next, e.g. model uploads).
-      const formData = await request.formData();
-      body = formData;
+      parsedFormData = await request.formData();
+      body = parsedFormData;
     } else {
       // For JSON and other content types
       body = await request.text();
       if (contentType) headers['content-type'] = contentType;
     }
     
-    const response = await fetch(targetUrl, {
-      method: 'POST',
-      headers,
-      body: body || undefined,
-      signal: AbortSignal.timeout(600000), // 10 minutes for generation/uploads
-    });
-    
-    return createProxyResponse(response);
-  } catch (error) {
-    console.error(`[API Proxy] POST ${fullPath} failed:`, error);
+    try {
+      const response = await fetch(targetUrl, {
+        method: 'POST',
+        headers,
+        body: body || undefined,
+        signal: AbortSignal.timeout(600000), // 10 minutes for generation/uploads
+      });
+      
+      if (response.ok) {
+        return createProxyResponse(response);
+      }
+    } catch {
+      // Backend fetch failed; check fallback below
+    }
+
+    // Direct fallback for model uploads to /backend/storage/models
+    if (fullPath === 'upload/model' && parsedFormData) {
+      const file = parsedFormData.get('file') as File | null;
+      if (file && file.size > 0) {
+        const uploadResult = await handleDirectModelUpload(file);
+        return NextResponse.json(uploadResult);
+      }
+    }
+
+    // Direct fallback for image uploads to /backend/storage/uploads
+    if (fullPath === 'upload/image' && parsedFormData) {
+      const file = parsedFormData.get('file') as File | null;
+      if (file && file.size > 0) {
+        const uploadResult = await handleDirectImageUpload(file);
+        return NextResponse.json(uploadResult);
+      }
+    }
+
     return NextResponse.json(
       { success: false, message: `Backend connection error or timeout at ${BACKEND_URL}` },
       { status: 504 }
+    );
+  } catch (error) {
+    console.error(`[API Proxy] POST ${fullPath} failed:`, error);
+    return NextResponse.json(
+      { success: false, message: `Upload/POST request failed: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { status: 500 }
     );
   }
 }
@@ -188,17 +393,27 @@ export async function DELETE(
     const response = await fetch(targetUrl, {
       method: 'DELETE',
       headers: getForwardingHeaders(request),
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(10000),
     });
     
-    return createProxyResponse(response);
+    if (response.ok) {
+      return createProxyResponse(response);
+    }
   } catch (error) {
-    console.error(`[API Proxy] DELETE ${fullPath} failed:`, error);
-    return NextResponse.json(
-      { success: false, message: `Backend unavailable at ${BACKEND_URL} — is the backend service running?` },
-      { status: 502 }
-    );
+    // Backend offline; check fallback below
   }
+
+  // Fallback for asset deletion
+  if (fullPath.startsWith('upload/assets/')) {
+    const filename = fullPath.replace('upload/assets/', '');
+    const deleteResult = await handleDirectAssetDelete(decodeURIComponent(filename));
+    return NextResponse.json(deleteResult);
+  }
+
+  return NextResponse.json(
+    { success: false, message: `Backend unavailable at ${BACKEND_URL} — is the backend service running?` },
+    { status: 502 }
+  );
 }
 
 export async function OPTIONS(

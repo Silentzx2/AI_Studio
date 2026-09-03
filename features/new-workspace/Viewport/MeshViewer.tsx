@@ -29,6 +29,7 @@ import {
 import { useWorkspace } from '../store/WorkspaceContext';
 import { CameraViewPreset, ModelAsset } from '../types';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
+import { apiClient } from '@/services/apiClient';
 
 import { validate3DFile } from '../lib/fileValidation';
 
@@ -1035,9 +1036,12 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
       }
 
       const cleanName = file.name.replace(/\.[^/.]+$/, "");
+      const localBlobUrl = URL.createObjectURL(file);
 
-      const customAsset: ModelAsset = {
-        id: `dropped-file-${Date.now()}`,
+      // Create immediate preview asset
+      const tempId = `dropped-${Date.now()}`;
+      const tempAsset: ModelAsset = {
+        id: tempId,
         name: cleanName,
         category: 'mesh',
         meshType: 'custom',
@@ -1050,19 +1054,50 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         format: ext === 'OBJ' ? 'OBJ' : ext === 'PLY' ? 'PLY' : 'GLB',
         dateCreated: new Date().toISOString().split('T')[0],
         tags: ['Local Import', '3D Model', ext],
-        source: { filename: file.name, subfolder: '', type: 'input', viewUrl: URL.createObjectURL(file) }
+        source: { filename: file.name, subfolder: 'models', type: 'upload', viewUrl: localBlobUrl }
       };
 
-      // Revoke old blob URL if exists
       if (blobUrlRef.current) {
         URL.revokeObjectURL(blobUrlRef.current);
       }
-      blobUrlRef.current = customAsset.source?.viewUrl || null;
+      blobUrlRef.current = localBlobUrl;
 
-      addAsset(customAsset);
-      setCurrentAsset(customAsset);
-      setDropToastMessage(`Imported and loaded "${cleanName}"`);
-      setTimeout(() => setDropToastMessage(null), 3500);
+      // Load immediately into viewport for smooth UX
+      addAsset(tempAsset);
+      setCurrentAsset(tempAsset);
+      setDropToastMessage(`Saving "${cleanName}" to backend storage...`);
+
+      // Persist to backend storage (/backend/storage/models)
+      try {
+        const uploadRes = await apiClient.uploadFile<{
+          url: string;
+          id?: string;
+          filename: string;
+          stored_filename?: string;
+          size: number;
+        }>('/api/v1/upload/model', file);
+
+        const serverUrl = uploadRes?.url || `/static/models/${uploadRes?.stored_filename || file.name}`;
+        const finalAsset: ModelAsset = {
+          ...tempAsset,
+          id: uploadRes?.stored_filename || uploadRes?.id || tempId,
+          tags: ['Saved to Storage', '3D Model', ext],
+          source: {
+            filename: uploadRes?.stored_filename || file.name,
+            subfolder: 'models',
+            type: 'upload',
+            viewUrl: serverUrl,
+          },
+        };
+        addAsset(finalAsset);
+        setCurrentAsset(finalAsset);
+        setDropToastMessage(`Saved to storage and loaded "${cleanName}"`);
+        setTimeout(() => setDropToastMessage(null), 3000);
+      } catch (uploadErr) {
+        console.warn('Backend storage upload failed, keeping local preview:', uploadErr);
+        setDropToastMessage(`Loaded "${cleanName}" (Local preview)`);
+        setTimeout(() => setDropToastMessage(null), 3500);
+      }
     }
   };
 

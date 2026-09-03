@@ -150,6 +150,16 @@ Content-Type: application/json
 }
 ```
 
+#### Errors
+
+| Code | Condition |
+|------|-----------|
+| `400` | Model does not support texture generation (only texture-capable models can set `generate_texture: true`) |
+| `400` | Insufficient VRAM for textured generation — the texture capability exceeds free GPU VRAM (includes safety margin). Disable texture to generate mesh-only, or switch to a smaller model. |
+| `400` | Model is not installed (repo/venv/weights missing) |
+| `400` | Provider is post-processing-only and cannot be used as a standalone generation target |
+| `429` | Rate limit exceeded (10 requests/minute per IP) |
+
 ---
 
 ### Get Job Status
@@ -1330,6 +1340,18 @@ Returns the selectable runtime options used by the frontend:
 - `gpu_available`
 - `gpu_required`
 - `hf_token_configured`
+
+Each entry in `three_d_models` also carries per-capability VRAM from the manifest
+(the single source of truth for the UI's texture toggle and the generation
+VRAM gate):
+
+- `shape_vram_mb` — footprint of the shape capability only (mesh-only)
+- `texture_vram_mb` — footprint of the texture capability (shape + texture)
+- `supports_texture` — whether the model's manifest declares a texture capability
+
+These differ materially per model (e.g. TRELLIS: 8 GB shape-only vs 16 GB
+textured), so the frontend can show the active-mode cost and disable texture
+to drop the footprint.
 
 ### HuggingFace Token Status
 
