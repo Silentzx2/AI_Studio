@@ -238,6 +238,19 @@ class StorageConfig:
                     per_model_dir = self.get_repo_path(meta["repo"]) / "weights" / weight_key
                     if _safe_exists(per_model_dir) and self._has_real_weight_files(per_model_dir):
                         return per_model_dir
+                    # ponytail: the download writes to weights/<provider_name>,
+                    # but this check looked for weights/<weight_key>. For
+                    # TripoSG the weight_key is "VAST-AI/TripoSG" (with a
+                    # slash) and for hunyuan3d-2-mini it is
+                    # "tencent/Hunyuan3D-2mini" — so the status path
+                    # (repo/weights/VAST-AI/TripoSG) never existed while the
+                    # real weights sat at repo/weights/triposg. get_install_status()
+                    # therefore reported "weights_downloading" forever even
+                    # though the weights were fully downloaded. Check the
+                    # actual download target subdir too.
+                    per_model_dir = self.get_repo_path(meta["repo"]) / "weights" / _pname
+                    if _safe_exists(per_model_dir) and self._has_real_weight_files(per_model_dir):
+                        return per_model_dir
                     # ponytail: legacy flat fallback — weights directly in
                     # repo/weights (no per-model subdir). TOP-LEVEL check only.
                     per_model_dir2 = self.get_repo_path(meta["repo"]) / "weights"
@@ -302,8 +315,15 @@ class StorageConfig:
             for _pname, meta in provider_meta.items():
                 if meta.get("weight_key") == weight_key and meta.get("repo"):
                     p1 = self.get_repo_path(meta["repo"]) / "weights" / weight_key
-                    if _safe_exists(p1):
+                    if _safe_exists(p1) and p1 not in paths:
                         paths.append(p1)
+                    # ponytail: download actually writes to weights/<provider_name>,
+                    # not weights/<weight_key> (see get_weight_path). weight_key
+                    # for TripoSG is "VAST-AI/TripoSG", so the weight_key path
+                    # never existed — include the real download target.
+                    p1b = self.get_repo_path(meta["repo"]) / "weights" / _pname
+                    if _safe_exists(p1b) and p1b not in paths:
+                        paths.append(p1b)
                     p2 = self.get_repo_path(meta["repo"]) / "weights"
                     if _safe_exists(p2) and p2 not in paths:
                         paths.append(p2)
