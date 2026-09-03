@@ -1,10 +1,26 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.8.0 (Model Selector Manifest Listing, Backend Storage Persistence, Mock Removal)
+> **Version**: 4.8.0 (Model Selector Manifest Listing, Backend Storage Persistence, Mock Removal, Texture Toggle + VRAM Gate)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-03
 > **Last Updated**: September 3, 2026
 
 ---
+
+## v4.8.0 — Texture Toggle, Per-Mode VRAM & Gate Fixes (2026-09-03, follow-up)
+
+### What changed
+- **Capability-aware Texture toggle**: the Generate panel shows a "Generate Texture" toggle only for models whose manifest declares a texture capability (Hunyuan3D 2.1, TRELLIS); hidden for TripoSG and Hunyuan3D-2mini.
+- **Per-mode VRAM display**: the toggle row shows the active-mode VRAM sourced from the manifest's per-capability `vram_required_mb` (e.g. TRELLIS: texture 16 GB vs mesh-only 8 GB). Disabling texture sends `generate_texture=false` so the backend runs shape-only, dropping the footprint.
+- **Backend VRAM gate**: `POST /api/v1/generation` rejects textured generation with a clear 400 when the texture capability exceeds free GPU VRAM (incl. safety margin).
+- **`free_vram_mb`/`total_vram_mb` now exposed** in `GET /api/v1/runtime/options` — the UI's VRAM gate previously read fields the payload never published, so the warning never appeared.
+- **Gate now reads the raw manifest** (`load_manifest()`), not the flattened `get_provider_metadata()` view — previously `has_texture_cap` was False for every model, including texture-capable ones.
+- **Non-texture models coerced to mesh-only** instead of rejected (defensive default for API callers).
+
+### Verification
+- TypeScript compilation: PASS (`npx tsc --noEmit`)
+- Next.js Build: PASS (`npm run build`)
+- Linter: PASS (`npm run lint`, 0 errors)
+- Backend: `python -m compileall -q backend` PASS, `test_dependency_manifest_contract.py` PASS
 
 ## v4.8.0 — Model Selector Manifest Listing, Backend Storage Persistence & Mock Cleanup (2026-09-03)
 

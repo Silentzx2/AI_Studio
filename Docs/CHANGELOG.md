@@ -2,6 +2,19 @@
 
 ## [v4.8.0] - 2026-09-03
 
+### Fixed
+
+#### Texture toggle never showed its VRAM warning
+- `hooks/useManifestModels.ts` read `free_vram_mb`/`gpu_available` from the runtime options payload, but `GET /api/v1/runtime/options` never exposed them — so the UI's VRAM gate silently fell back to "no GPU detected" and the 16 GB warning never appeared.
+- `backend/app/api/v1/runtime.py` now includes `free_vram_mb` and `total_vram_mb` in the options payload (sourced from the existing `GPUInfo`).
+
+#### Texture gate would disable texture for every model
+- The VRAM gate read capabilities from `get_provider_metadata()`, which **flattens** capabilities into `supports_*` booleans — so `caps.get("texture_pbr")` was always `None` and `has_texture_cap` was False for Hunyuan3D 2.1 and TRELLIS too. Texture would have been coerced off for models that should texture.
+- Now reads the raw manifest via `load_manifest()`, which preserves the nested `{shape, texture_pbr, ...}` structure.
+
+#### Non-texture models rejected instead of coerced to mesh-only
+- A client sending `generate_texture=true` for TripoSG/Hunyuan3D-2mini previously got a 400. Now coerced to `generate_texture=false` and proceeds mesh-only (the UI hides the toggle for these models anyway; this is a defensive default for API callers).
+
 ### Added & Improved
 
 #### Texture Toggle with Per-Mode VRAM Display & Gating

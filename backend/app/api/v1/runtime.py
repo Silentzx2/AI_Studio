@@ -371,6 +371,8 @@ async def get_runtime_options():
             "gpu_options": gpu_options,
             "active_provider": settings.ai_provider,
             "gpu_available": gpu.available,
+            "free_vram_mb": gpu.free_vram_mb,
+            "total_vram_mb": gpu.total_vram_mb,
             "gpu_required": True,
             "hf_token_configured": bool(
                 os.environ.get("HUGGINGFACE_TOKEN") or settings.huggingface_token

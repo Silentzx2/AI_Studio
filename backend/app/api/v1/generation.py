@@ -235,27 +235,38 @@ async def create_generation(req: GenerationRequest, request: Request):
                 get_detected_free_vram_mb,
                 get_vram_safety_margin_mb,
             )
-            from runtime.manifest_loader import get_provider_metadata
+            # NOTE: use load_manifest(), NOT get_provider_metadata(). The
+            # metadata view flattens capabilities into supports_* booleans,
+            # so caps.get("texture_pbr") would be None there — reading it
+            # from the metadata view made has_texture_cap False for every
+            # model and silently disabled texture for Hunyuan3D 2.1/TRELLIS.
+            from runtime.manifest_loader import load_manifest
 
-            meta = get_provider_metadata(provider)
-            caps = meta.get("capabilities") or {}
+            manifest = load_manifest(provider)
+            caps = manifest.get("capabilities") or {}
             has_texture_cap = any(
                 isinstance(c, dict) and c.get("enabled")
                 for key, c in caps.items()
                 if key in ("texture_pbr", "texture")
             )
             if not has_texture_cap:
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        f"Model '{provider}' does not support texture generation. "
-                        f"Disable texture or choose a texture-capable model "
-                        f"(Hunyuan3D 2.1, TRELLIS)."
-                    ),
+                # ponytail: don't reject — coerce to mesh-only. A client that
+                # sends generate_texture=true for a model that cannot texture
+                # (TripoSG, Hunyuan3D-2mini) should still succeed, just without
+                # texture, rather than 400. The UI hides the toggle for these
+                # models anyway; this is a defensive default for API callers.
+                logger.info(
+                    "Coercing generate_texture=false for '%s': manifest has no texture capability",
+                    provider,
                 )
-            needed = get_capability_vram_mb(provider, "texture_pbr") or get_capability_vram_mb(provider, "texture")
-            free = get_detected_free_vram_mb()
-            margin = get_vram_safety_margin_mb()
+                req.generate_texture = False
+                needed = 0
+                free = 0
+                margin = 0
+            else:
+                needed = get_capability_vram_mb(provider, "texture_pbr") or get_capability_vram_mb(provider, "texture")
+                free = get_detected_free_vram_mb()
+                margin = get_vram_safety_margin_mb()
             if free and needed and free < needed + margin:
                 raise HTTPException(
                     status_code=400,

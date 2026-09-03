@@ -154,11 +154,12 @@ Content-Type: application/json
 
 | Code | Condition |
 |------|-----------|
-| `400` | Model does not support texture generation (only texture-capable models can set `generate_texture: true`) |
 | `400` | Insufficient VRAM for textured generation — the texture capability exceeds free GPU VRAM (includes safety margin). Disable texture to generate mesh-only, or switch to a smaller model. |
 | `400` | Model is not installed (repo/venv/weights missing) |
 | `400` | Provider is post-processing-only and cannot be used as a standalone generation target |
 | `429` | Rate limit exceeded (10 requests/minute per IP) |
+
+> **Texture default:** `generate_texture` defaults to `true`. A model whose manifest has no texture capability (TripoSG, Hunyuan3D-2mini) is **coerced to mesh-only** rather than rejected — it still succeeds, just without texture.
 
 ---
 
@@ -1338,6 +1339,8 @@ Returns the selectable runtime options used by the frontend:
 - `gpu_options`
 - `active_provider`
 - `gpu_available`
+- `free_vram_mb` — free VRAM (MB) of the first GPU, or 0 when no GPU is detected. Used by the UI's texture VRAM gate.
+- `total_vram_mb` — total VRAM (MB) of the first GPU.
 - `gpu_required`
 - `hf_token_configured`
 
