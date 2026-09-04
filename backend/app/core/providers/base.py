@@ -179,26 +179,38 @@ def _add_model_env(repo_name: str) -> None:
 
     venv_dir = storage.get_model_venv_path(repo_name)
     if venv_dir.exists():
-        site_packages = glob.glob(str(venv_dir / "lib" / "python*" / "site-packages"))
-        # Prepend the backend-Python overlay FIRST so C extensions compiled
-        # for the backend (e.g. Pillow's _imaging) win over the venv-Python
-        # copies. See _backend_overlay_site_packages().
         overlay = _backend_overlay_site_packages(venv_dir)
-        if str(overlay) not in site_packages:
-            site_packages = [str(overlay)] + site_packages
-        for sp in reversed(site_packages):  # insert in reverse so order is correct
-            if sp in sys.path:
-                sys.path.remove(sp)  # remove any existing
-            sys.path.insert(0, sp)    # prepend at front
+        overlay_str = str(overlay.resolve())
+        # Collect any other per-model venv site-packages (e.g. python3.10)
+        venv_sps = [
+            str(Path(p).resolve())
+            for p in glob.glob(str(venv_dir / "lib" / "python*" / "site-packages"))
+            if str(Path(p).resolve()) != overlay_str
+        ]
+
+        # Remove these paths from sys.path if already present
+        for p in [overlay_str, repo_path] + venv_sps:
+            while p in sys.path:
+                sys.path.remove(p)
 
         # Move the backend .venv to the end of sys.path so that the per-model
         # venv is the sole source for fresh imports during model loading.
         # Backend packages already in sys.modules are unaffected.
         _backend_venv = (Path(__file__).resolve().parent.parent.parent.parent / ".venv").resolve()
-        _backend_sp = str(_backend_venv / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}" / "site-packages")
-        if _backend_sp in sys.path:
+        _backend_sp = str((_backend_venv / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}" / "site-packages").resolve())
+        while _backend_sp in sys.path:
             sys.path.remove(_backend_sp)
-            sys.path.append(_backend_sp)
+        sys.path.append(_backend_sp)
+
+        # Prepend in strict order:
+        # sys.path[0] -> overlay_str (backend C-extensions like Pillow's _imaging ALWAYS win)
+        # sys.path[1] -> repo_path (local repo code)
+        # sys.path[2...] -> venv_sps (per-model packages like hy3dgen)
+        for sp in reversed(venv_sps):
+            sys.path.insert(0, sp)
+        if repo_path:
+            sys.path.insert(0, repo_path)
+        sys.path.insert(0, overlay_str)
 
     # CRITICAL: Remove all shared packages and their submodules from sys.modules
     # so they are re-imported fresh from the newly-prepended per-model venv.
@@ -207,25 +219,32 @@ def _add_model_env(repo_name: str) -> None:
     #   2. Module __file__ attributes don't update on reload
     #   3. Parent package imports (e.g. diffusers -> diffusers.utils) may
     #      still reference the old submodule object
-    try:
-        from PIL import _imaging  # noqa: F401
-        backend_pil_working = True
-    except Exception:
-        backend_pil_working = False
-
     _SHARED_PKGS = [
         "accelerate", "huggingface_hub", "transformers", "diffusers",
         "pydantic", "requests", "httpx", "urllib3",
     ]
-    # Only purge PIL if it is not working or needs to be loaded fresh from overlay
-    if not backend_pil_working:
-        _SHARED_PKGS.append("PIL")
 
     for mod_name in list(sys.modules.keys()):
         for pkg in _SHARED_PKGS:
             if mod_name == pkg or mod_name.startswith(pkg + "."):
                 del sys.modules[mod_name]
                 break
+
+    # Ensure Pillow is verified and working in sys.modules.
+    # If a broken Pillow was previously cached in sys.modules (e.g. from a venv
+    # Python C-extension), purge and load it fresh from the overlay at sys.path[0].
+    try:
+        from PIL import _imaging  # noqa: F401
+    except Exception:
+        for mod_name in list(sys.modules.keys()):
+            if mod_name == "PIL" or mod_name.startswith("PIL."):
+                del sys.modules[mod_name]
+        try:
+            import PIL
+            from PIL import _imaging  # noqa: F401
+            logger.info("_add_model_env: successfully loaded verified PIL from %s", getattr(PIL, "__file__", "overlay"))
+        except Exception as exc:
+            logger.error("_add_model_env: failed to load working PIL from overlay: %s", exc)
 
 
 class DownloadProvider(ABC):

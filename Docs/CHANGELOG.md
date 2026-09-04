@@ -6,10 +6,14 @@
 
 #### Pillow C-extension `_imaging` Import Crash in Model Provider Environments
 - **Symptom**: During generation or model loading (e.g., `Hunyuan3D-2mini` / `hy3dgen`), inference crashed with `ImportError: cannot import name '_imaging' from 'PIL'`.
-- **Root Cause**: In `backend/app/core/providers/base.py`, `_fix_pillow()` tested the overlay directory with `sys.path.insert(0, overlay)`. If the backend Python already had Pillow installed in its system site-packages, the subprocess succeeded without actually placing a working Pillow into `overlay`. Then `_add_model_env()` removed `PIL` from `sys.modules` and prepended the model venv's `site-packages` (which had a broken or mismatched Pillow C extension), causing `hy3dgen` to import the broken `_imaging`.
+- **Root Cause**:
+  1. In `_add_model_env()` in `backend/app/core/providers/base.py`, `site_packages` glob matched both `python3.10` and `python3.12` (the overlay). Iterating over `reversed(site_packages)` inserted `overlay` first, and then inserted `python3.10/site-packages` at index 0 of `sys.path`. This pushed the Python 3.10 site-packages in front of the overlay.
+  2. When `hy3dgen` executed `from PIL import Image`, Python resolved `PIL` from `sys.path[0]` (`python3.10/site-packages/PIL/Image.py`), which tried to load the Python 3.10 C-extension (`_imaging.cpython-310-*.so`) in the Python 3.12 worker process and failed.
+  3. Furthermore, testing `from PIL import _imaging` while `sys.path[0]` pointed to `python3.10` caused `backend_pil_working` to be `False`, which deleted all `PIL` modules from `sys.modules`.
 - **Fix**:
-  - `_fix_pillow()` now isolates `sys.path` to verify the overlay directory directly. If Pillow is missing from `overlay` but available in backend Python, it copies the working backend Pillow (including C-extensions and dist-info) directly into `overlay`. If absent, it installs Pillow with target set to `overlay`.
-  - In `_add_model_env()`, `PIL` is no longer blindly purged from `sys.modules` if `from PIL import _imaging` is already working in the active backend interpreter.
+  - `_add_model_env()` now cleanly separates `overlay` from other venv `site-packages`.
+  - `sys.path` ordering is strictly enforced: `sys.path[0]` is guaranteed to be `overlay` (backend-compatible C-extensions), followed by `repo_path`, followed by per-model `venv_sps`.
+  - Removed `PIL` from `_SHARED_PKGS` module purge list. Added explicit verification that re-imports from `overlay` and caches in `sys.modules` if existing cache is corrupted.
 
 #### Model Installation Status Reported as "Not Installed" & Preflight Failure
 - **Symptom**: Fully downloaded models consistently showed as "Not installed" or "Preflight pending" in the UI.

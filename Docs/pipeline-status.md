@@ -9,7 +9,10 @@
 ## v4.9.0 — Pillow Isolation Fix, Preflight State & Weight Path Resolution (2026-09-04)
 
 ### What changed
-- **Pillow C-extension Overlay Isolation (`_imaging` fix)**: `_fix_pillow()` in `backend/app/core/providers/base.py` now isolates `sys.path` when testing overlay compatibility. It automatically copies the working backend Python Pillow C-extensions into the overlay directory instead of relying on broken venv C-extensions. In addition, `_add_model_env()` no longer purges `PIL` from `sys.modules` if `from PIL import _imaging` is already functional.
+- **Pillow C-extension Overlay Isolation (`_imaging` fix)**:
+  - `_fix_pillow()` in `backend/app/core/providers/base.py` isolates `sys.path` when testing overlay compatibility, copying or installing backend-compiled Pillow C-extensions directly into the overlay directory.
+  - In `_add_model_env()`, `sys.path` ordering is strictly enforced: `sys.path[0]` is guaranteed to be `overlay` (backend-compatible C-extensions), preventing Python 3.10 venv site-packages from taking precedence over the overlay and attempting to load mismatched `.so` binaries.
+  - Removed `PIL` from `_SHARED_PKGS` module purge list and added verification that caches working PIL into `sys.modules`.
 - **Robust Model Weight Path Resolution**: `storage.get_weight_path()` now recursively checks model subdirectories (e.g. `weights/hunyuan3d-dit-v2-mini`), provider aliases, and name variations, preventing models from failing checks due to subfolder nesting.
 - **Authoritative Preflight & Install State Recovery**:
   - `installer.py`: `get_install_status()` now checks both `db_state` and `install_state.json` (`persisted_state`) so preflight and install status are preserved across reloads.
