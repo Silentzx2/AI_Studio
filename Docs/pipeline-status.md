@@ -1,8 +1,15 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.9.3 (NumPy C-Extension Overlay for Cross-Python ABI)
+> **Version**: 4.9.4 (NumPy & PyMeshLab C-Extension Overlay for Cross-Python ABI)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-04
 > **Last Updated**: September 4, 2026
+
+---
+
+## v4.9.4 — PyMeshLab C-Extension Overlay (2026-09-04)
+
+### What changed
+- **PyMeshLab added to `_fix_overlay_packages` and `_VERIFY_MODULES`**: `pymeshlab.pmeshlab` C extension compiled for Python 3.10 crashes when loaded by Python 3.12 backend (`ModuleNotFoundError: No module named 'pymeshlab.pmeshlab'`). This blocked Hunyuan3D-2mini's `postprocessors.py` import chain. Same overlay fix as numpy/pillow/regex/safetensors.
 
 ---
 

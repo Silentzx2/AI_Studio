@@ -149,6 +149,7 @@ def _fix_overlay_packages(repo_name: str) -> bool:
         ("pillow", "PIL", "from PIL import _imaging; print('ok')"),
         ("regex", "regex", "from regex import _regex; print('ok')"),
         ("safetensors", "safetensors", "import safetensors; from safetensors import _safetensors_rust; print('ok')"),
+        ("pymeshlab", "pymeshlab", "from pymeshlab import pmeshlab; print('ok')"),
     ]
     all_ok = True
     for pkg_name, import_name, check_stmt in packages:
@@ -264,6 +265,7 @@ def _add_model_env(repo_name: str) -> None:
         ("PIL", "from PIL import _imaging"),
         ("regex", "from regex import _regex"),
         ("safetensors", "from safetensors import _safetensors_rust"),
+        ("pymeshlab", "from pymeshlab import pmeshlab"),
     ]
     for mod_pkg, test_code in _VERIFY_MODULES:
         try:
