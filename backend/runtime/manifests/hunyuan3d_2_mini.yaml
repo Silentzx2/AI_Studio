@@ -56,10 +56,18 @@ dependencies:
 weights:
   primary:
     repo: tencent/Hunyuan3D-2mini
-  auxiliary: []
+  auxiliary:
+    - name: hunyuan3d-2.1
+      repo: tencent/Hunyuan3D-2.1
+      required: false
+      description: "Paint/PBR weights from Hunyuan3D-2.1 required for optional texture generation stage"
   size_estimate_gb: 8
   allow_patterns:
   - hunyuan3d-dit-v2-mini/*
+  - hunyuan3d-vae-v2-mini/*
+  - '*.json'
+  - '*.yaml'
+  - '*.safetensors'
   ignore_patterns:
   - '*.ckpt'
 hardware:

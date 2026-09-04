@@ -152,6 +152,11 @@ weights:
 hardware:
   minimum_vram_mb: 8000
   recommended_vram_mb: 16000
+  low_vram_supported: true
+  low_vram_required_mb: 6000
+  low_vram_strategy:
+    - cpu_offload
+    - fp16
 capabilities:
   shape:
     enabled: true

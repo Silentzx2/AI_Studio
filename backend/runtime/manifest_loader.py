@@ -12,7 +12,17 @@ import re
 import time
 from pathlib import Path
 
-from app.core.providers.registry import is_standalone_generation_provider
+_POST_PROCESSING_ONLY_PROVIDERS = frozenset({"detailgen3d"})
+
+
+def is_standalone_generation_provider(name: str) -> bool:
+    """Return True if ``name`` can be used as a standalone generation provider.
+
+    Post-processing-only providers (e.g. DetailGen3D) return False so the
+    frontend can exclude them from generation-target selectors while still
+    offering them as a detail/refinement stage.
+    """
+    return name.lower() not in _POST_PROCESSING_ONLY_PROVIDERS
 
 logger = logging.getLogger(__name__)
 _MANIFEST_DIR = Path(__file__).resolve().parent / "manifests"
@@ -203,6 +213,22 @@ def _build_weight_registry() -> dict[str, dict]:
             "allow_patterns": weights.get("allow_patterns"),
             "ignore_patterns": weights.get("ignore_patterns"),
         }
+        # Register auxiliary weights so download_weights() can look them up
+        for aux in weights.get("auxiliary", []) or []:
+            if not isinstance(aux, dict):
+                continue
+            aux_repo = aux.get("repo")
+            if not aux_repo:
+                continue
+            aux_entry = {
+                "repo": aux_repo,
+                "size_estimate_gb": aux.get("size_estimate_gb", 2.0),
+                "allow_patterns": aux.get("allow_patterns"),
+                "ignore_patterns": aux.get("ignore_patterns"),
+            }
+            if aux.get("name"):
+                result.setdefault(aux["name"], aux_entry)
+            result.setdefault(aux_repo, aux_entry)
     return result
 
 

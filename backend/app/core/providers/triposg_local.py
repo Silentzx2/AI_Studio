@@ -74,13 +74,28 @@ class TripoSGLocalProvider(BaseProvider):
             logger.error("TripoSG weights not found")
             vram_tracker.release("triposg")
             return False
-        # RMBG weights are downloaded lazily by the provider (matches official script)
-        self.rmbg_weights_dir = self.triposg_weights_dir.parent / "RMBG-1.4"
+        # RMBG weights resolution (auxiliary model or adjacent weights)
+        resolved_rmbg = storage.get_weight_path("RMBG-1.4") or storage.get_weight_path("briaai/RMBG-1.4")
+        if resolved_rmbg:
+            self.rmbg_weights_dir = Path(resolved_rmbg)
+        elif (self.triposg_weights_dir.parent / "RMBG-1.4").exists():
+            self.rmbg_weights_dir = self.triposg_weights_dir.parent / "RMBG-1.4"
+        elif (self.triposg_weights_dir / "RMBG-1.4").exists():
+            self.rmbg_weights_dir = self.triposg_weights_dir / "RMBG-1.4"
+        else:
+            self.rmbg_weights_dir = self.triposg_weights_dir.parent / "RMBG-1.4"
+
         try:
             # Load RMBG for background removal
-            self.rmbg_net = BriaRMBG.from_pretrained(
-                str(self.rmbg_weights_dir), local_files_only=True, trust_remote_code=True
-            ).to(self.device)
+            if self.rmbg_weights_dir.exists():
+                self.rmbg_net = BriaRMBG.from_pretrained(
+                    str(self.rmbg_weights_dir), local_files_only=True, trust_remote_code=True
+                ).to(self.device)
+            else:
+                logger.info("RMBG-1.4 weights not found locally at %s, fetching from Hub...", self.rmbg_weights_dir)
+                self.rmbg_net = BriaRMBG.from_pretrained(
+                    "briaai/RMBG-1.4", local_files_only=False, trust_remote_code=True
+                ).to(self.device)
             self.rmbg_net.eval()
 
             # Load TripoSG pipeline

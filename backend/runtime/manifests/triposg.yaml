@@ -72,11 +72,16 @@ dependencies:
 weights:
   primary:
     repo: VAST-AI/TripoSG
-  auxiliary: []
+  auxiliary:
+    - name: RMBG-1.4
+      repo: briaai/RMBG-1.4
+      required: true
+      description: "BRIA RMBG-1.4 background removal weights for image preprocessing"
   size_estimate_gb: 8
 hardware:
   minimum_vram_mb: 8192
   recommended_vram_mb: 8192
+  low_vram_supported: false
 capabilities:
   shape:
     enabled: true

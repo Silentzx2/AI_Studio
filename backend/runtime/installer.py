@@ -1665,7 +1665,19 @@ def download_weights(
 ) -> dict:
     model_cfg = HF_MODELS.get(provider_name)
     if not model_cfg:
-        return {"success": False, "error": f"No HF model config for: {provider_name}"}
+        for cfg in HF_MODELS.values():
+            if cfg.get("repo") == provider_name:
+                model_cfg = cfg
+                break
+        if not model_cfg and "/" in provider_name:
+            model_cfg = {
+                "repo": provider_name,
+                "size_estimate_gb": 3.0,
+                "allow_patterns": None,
+                "ignore_patterns": None,
+            }
+        if not model_cfg:
+            return {"success": False, "error": f"No HF model config for: {provider_name}"}
 
     storage = get_storage_config()
     size_gb = model_cfg["size_estimate_gb"]

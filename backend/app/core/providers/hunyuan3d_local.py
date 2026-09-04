@@ -374,11 +374,18 @@ class Hunyuan3D2MiniLocalProvider(_HunyuanBase):
         try:
             from hy3dgen.texgen import Hunyuan3DPaintPipeline
             from runtime.storage import get_storage_config
-            tex_dir = (
-                get_storage_config().get_repo_path("Hunyuan3D-2.1")
+            storage = get_storage_config()
+            resolved = storage.get_weight_path(self._TEX_SOURCE)
+            tex_dir = Path(resolved) if resolved else (
+                storage.get_repo_path("Hunyuan3D-2.1")
                 / "weights" / self._TEX_SOURCE
             )
-            if not (tex_dir / "hunyuan3d-delight-v2-0").exists():
+            has_paint = (
+                (tex_dir / "hunyuan3d-delight-v2-0").exists()
+                or (tex_dir / "hunyuan3d-paintpbr-v2-1").exists()
+                or (tex_dir / "hunyuan3d-paint-v2-0").exists()
+            )
+            if not has_paint:
                 logger.warning(
                     "Hunyuan3D-2 Mini texture generation needs the "
                     "paint weights under %s -- skipping texture.", tex_dir,
