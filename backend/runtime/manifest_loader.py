@@ -62,8 +62,25 @@ def _manifest_path(provider_name: str) -> Path:
     filename_match = _MANIFEST_DIR / f"{safe}.yaml"
     if filename_match.exists():
         return filename_match
-    # Fall back to the manifest's canonical `name` field. This supports names
-    # whose filename intentionally differs (for example hunyuan3d_21.yaml).
+    alt_safe = safe.replace(".", "")
+    if (_MANIFEST_DIR / f"{alt_safe}.yaml").exists():
+        return _MANIFEST_DIR / f"{alt_safe}.yaml"
+    alt_safe_under = safe.replace(".", "_")
+    if (_MANIFEST_DIR / f"{alt_safe_under}.yaml").exists():
+        return _MANIFEST_DIR / f"{alt_safe_under}.yaml"
+
+    # Fast header scan for `name: ...` without requiring PyYAML
+    for path in candidates:
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                for line in f:
+                    m = re.match(r"^name:\s*['\"]?([^'\"#\n]+)['\"]?", line.strip())
+                    if m and m.group(1).strip().lower() == wanted:
+                        return path
+        except OSError:
+            continue
+
+    # Fall back to the manifest's canonical `name` field via yaml parser.
     try:
         import yaml
     except ImportError as exc:
@@ -315,6 +332,8 @@ def _build_provider_metadata(provider_name: str, manifest: dict) -> dict:
         "supports_texture": supports_tex,
         "supports_detail_enhancement": supports_detail,
         "vram_required_mb": hw.get("recommended_vram_mb", 0),
+        "shape_vram_mb": shape_cap.get("vram_required_mb", hw.get("minimum_vram_mb", 0)),
+        "texture_vram_mb": tex_cap.get("vram_required_mb", 0),
         "low_vram_supported": hw.get("low_vram_supported", False),
         "low_vram_required_mb": hw.get("low_vram_required_mb", 0),
         "low_vram_strategy": hw.get("low_vram_strategy", []),

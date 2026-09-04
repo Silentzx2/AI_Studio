@@ -18,6 +18,7 @@ import { apiClient } from '../lib/api';
 import { useAppStore } from '@/stores/useAppStore';
 import { useViewerStore } from '@/stores/useViewerStore';
 import { shadingModeToPreset, presetToShadingMode } from '@/lib/storeAdapter';
+import { diagnoseJobError } from '@/lib/jobDiagnostics';
 import { useRouter, usePathname } from 'next/navigation';
 
 interface WorkspaceContextType {
@@ -477,7 +478,21 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           const message = data.error_message || data.message || (data.status === 'cancelled' ? 'Generation cancelled' : 'Generation failed');
           setIsExecuting(false);
           setExecutionStep(message);
-          setActiveTask(prev => prev ? { ...prev, status: data.status === 'cancelled' ? 'interrupted' : 'failed', currentStep: message, progress } : null);
+          const diagnostic = data.status === 'failed' ? diagnoseJobError({
+            id: jobId,
+            status: 'failed',
+            error: message,
+            error_message: message,
+            provider: task.provider || '',
+          } as any) : null;
+          setActiveTask(prev => prev ? {
+            ...prev,
+            status: data.status === 'cancelled' ? 'interrupted' : 'failed',
+            currentStep: message,
+            errorMessage: message,
+            diagnostic,
+            progress
+          } : null);
           if (data.status === 'failed') toast.error('Generation failed', { description: message });
         }
       } catch (error) {
@@ -580,11 +595,20 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [activeTask?.id]);
 
-  const startTask = useCallback((type: ActiveTask['type'], title: string, promptId?: string) => {
+  const startTask = useCallback((type: ActiveTask['type'], title: string, promptId?: string, provider?: string) => {
     setIsExecuting(true);
     setExecutionProgress(0);
     setExecutionStep('Queued');
-    setActiveTask({ id: promptId ?? `task-${type}-${Date.now()}`, type, title, startedAt: Date.now(), status: 'queued', progress: 0, currentStep: 'Queued' });
+    setActiveTask({
+      id: promptId ?? `task-${type}-${Date.now()}`,
+      type,
+      title,
+      startedAt: Date.now(),
+      status: 'queued',
+      progress: 0,
+      currentStep: 'Queued',
+      provider,
+    });
   }, []);
 
   const generateImageTo3D = useCallback(async (customImage?: string) => {
@@ -594,7 +618,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       toast.error('Image required', { description: 'Select or upload a reference image to generate a 3D model.' });
       return;
     }
-    startTask('image-to-3d', 'Image-to-3D generation');
+    startTask('image-to-3d', 'Image-to-3D generation', undefined, generationSettings.aiModel);
 
     try {
       const res = await fetch('/api/v1/generation', {
@@ -622,10 +646,17 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const message = error instanceof Error ? error.message : 'Generation submission failed';
       setIsExecuting(false);
       setExecutionStep(message);
-      setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: message } : null);
+      const diagnostic = diagnoseJobError({
+        id: 'submit-error',
+        status: 'failed',
+        error: message,
+        error_message: message,
+        provider: generationSettings.aiModel || '',
+      } as any);
+      setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: message, errorMessage: message, diagnostic } : null);
       toast.error('Generation failed', { description: message });
     }
-  }, [generationSettings.image, generationSettings.aiModel, generationSettings.meshQuality, generationSettings.lowVram, generationSettings.vramMode, generationSettings.autoOptimize, generationSettings.autoOptimizeSettings, startTask]);
+  }, [generationSettings.image, generationSettings.aiModel, generationSettings.meshQuality, generationSettings.lowVram, generationSettings.vramMode, generationSettings.autoOptimize, generationSettings.autoOptimizeSettings, generationSettings.generateTexture, startTask]);
 
   const generate3DModel = useCallback(async () => {
     return generateImageTo3D();
@@ -641,6 +672,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           mode: 'remesh',
           quality: 'standard',
           reference_image_url: currentAsset?.source?.localUrl || currentAsset?.source?.viewUrl || undefined,
+          source_mesh_url: currentAsset?.source?.localUrl || currentAsset?.source?.viewUrl || undefined,
           remesh_settings: remeshSettings,
           generate_texture: false,
           auto_rig: false,
@@ -657,14 +689,16 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const message = error instanceof Error ? error.message : 'Remesh submission failed';
       setIsExecuting(false);
       setExecutionStep(message);
-      setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: message } : null);
+      setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: message, errorMessage: message } : null);
       toast.error('Remesh failed', { description: message });
     }
   }, [remeshSettings, currentAsset, startTask]);
 
   const runTextureGeneration = useCallback(async () => {
-    startTask('texture', 'Texture generation');
+    startTask('texture', 'Texture generation', undefined, textureSettings.modelId);
     try {
+      const sourceMeshUrl = currentAsset?.source?.localUrl || currentAsset?.source?.viewUrl || undefined;
+      const refImageUrl = textureSettings.referenceImage || undefined;
       const res = await fetch('/api/v1/generation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -675,7 +709,11 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           prompt: textureSettings.prompt,
           provider: textureSettings.modelId || undefined,
           workspace: 'texture-generation',
-          reference_image_url: textureSettings.referenceImage || currentAsset?.source?.localUrl || currentAsset?.source?.viewUrl || undefined,
+          reference_image_url: refImageUrl || sourceMeshUrl,
+          source_mesh_url: sourceMeshUrl,
+          low_vram: Boolean(textureSettings.lowVram),
+          vram_mode: textureSettings.lowVram ? 'low' : 'auto',
+          generate_texture: true,
         }),
       });
       if (!res.ok) throw await parseApiError(res);
@@ -688,7 +726,14 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const message = error instanceof Error ? error.message : 'Texture generation submission failed';
       setIsExecuting(false);
       setExecutionStep(message);
-      setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: message } : null);
+      const diagnostic = diagnoseJobError({
+        id: 'submit-error',
+        status: 'failed',
+        error: message,
+        error_message: message,
+        provider: textureSettings.modelId || '',
+      } as any);
+      setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: message, errorMessage: message, diagnostic } : null);
       toast.error('Texture generation failed', { description: message });
     }
   }, [textureSettings, currentAsset, startTask]);

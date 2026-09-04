@@ -10,8 +10,10 @@ import {
   AlertCircle,
   Loader2,
   Package,
-  AlertTriangle
+  AlertTriangle,
+  Gauge
 } from 'lucide-react';
+import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import { useWorkspace } from '../store/WorkspaceContext';
@@ -50,6 +52,7 @@ export const TexturePanel: React.FC = () => {
   }, [textureCapableModels, textureSettings.modelId, setTextureSettings]);
 
   const activeTextureModel = textureCapableModels.find(m => m.id === textureSettings.modelId) || textureCapableModels[0];
+  const supportsLowVram = Boolean(activeTextureModel?.low_vram_supported);
 
   // Status pill logic — shows what's wrong with the selected texture model
   const getTextureStatusInfo = () => {
@@ -318,7 +321,11 @@ export const TexturePanel: React.FC = () => {
                   <button
                     key={m.id}
                     onClick={() => {
-                      setTextureSettings(prev => ({ ...prev, modelId: m.id }));
+                      setTextureSettings(prev => ({
+                        ...prev,
+                        modelId: m.id,
+                        lowVram: m.low_vram_supported ? prev.lowVram : false,
+                      }));
                       setTextureModelDropdownOpen(false);
                     }}
                     className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-all ${
@@ -373,6 +380,46 @@ export const TexturePanel: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Low VRAM Mode Toggle — Conditionally rendered: hidden if model doesn't support low VRAM */}
+      {supportsLowVram && (
+        <div className="p-2.5 rounded-xl bg-[#141518] border border-white/[0.08] space-y-1.5">
+          <div className="flex items-center justify-between text-[10px]">
+            <span className="text-zinc-300 flex items-center gap-1.5 font-medium">
+              <Gauge className="w-3.5 h-3.5 text-[#F9CF00]" />
+              <span className="font-semibold">Low VRAM Mode</span>
+              <SimpleTooltip
+                label={`Enables sequential layer offloading and memory optimization for ${activeTextureModel?.label || 'this model'} (<${activeTextureModel?.low_vram_required_mb ? Math.round(activeTextureModel.low_vram_required_mb / 1024) : 4} GB VRAM).`}
+              >
+                <HelpCircle className="w-3 h-3 text-zinc-500 cursor-help" />
+              </SimpleTooltip>
+            </span>
+            <button
+              id="btn-texture-toggle-low-vram"
+              type="button"
+              role="switch"
+              aria-checked={Boolean(textureSettings.lowVram)}
+              onClick={() => setTextureSettings(prev => ({ ...prev, lowVram: !prev.lowVram }))}
+              className={`w-7 h-3.5 rounded-full p-0.5 transition-colors relative cursor-pointer ${
+                textureSettings.lowVram ? 'bg-[#F9CF00]' : 'bg-[#25262A]'
+              }`}
+            >
+              <div
+                className={`w-2.5 h-2.5 rounded-full bg-black transition-transform ${
+                  textureSettings.lowVram ? 'translate-x-3.5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+          <div className="text-[9px] text-zinc-400">
+            {textureSettings.lowVram ? (
+              <span className="text-[#F9CF00]">Sequential offload active (&lt;8GB GPU mode)</span>
+            ) : (
+              <span>Full VRAM mode (~{Math.round(((activeTextureModel?.texture_vram_mb || activeTextureModel?.vram_required_mb) || 0) / 1024)} GB required)</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* AI Texture Style Visual Cards */}
       <div className="space-y-1.5">

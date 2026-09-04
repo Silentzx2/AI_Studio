@@ -26,6 +26,7 @@ class GenerationRequest(BaseModel):
     generate_texture: bool = True
     auto_rig: bool = False
     reference_image_url: str | None = None
+    source_mesh_url: str | None = None
     detail_pass: bool = False
     detail_guidance: float = 7.5
     # Low VRAM mode: True forces low-VRAM execution; vram_mode may be
@@ -43,7 +44,7 @@ class GenerationRequest(BaseModel):
     # against the selected source GLB; no AI provider is loaded for remesh jobs.
     remesh_settings: dict | None = None
 
-    @field_validator("reference_image_url", mode="before")
+    @field_validator("reference_image_url", "source_mesh_url", mode="before")
     @classmethod
     def empty_str_to_none(cls, v):
         if v == "":

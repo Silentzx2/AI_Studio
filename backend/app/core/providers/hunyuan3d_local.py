@@ -174,9 +174,15 @@ class _HunyuanBase(BaseProvider):
 
         _log_gpu_memory(f"before_{self.model_key}_inference")
 
-        if request.mode == "texture-generation" and request.reference_image_url and request.reference_image_url.endswith(".glb"):
+        source_mesh = request.source_mesh_url or (
+            request.reference_image_url
+            if request.reference_image_url and any(request.reference_image_url.lower().endswith(ext) for ext in (".glb", ".gltf", ".obj"))
+            else None
+        )
+
+        if request.mode == "texture-generation" and source_mesh:
             # Use existing mesh for re-texturing
-            mesh_path = request.reference_image_url
+            mesh_path = source_mesh
             await cb(10, "texturing", "Using existing mesh for material synthesis...", "info")
         elif request.mode == "image-to-3d" and request.reference_image_url:
             mesh_path = await loop.run_in_executor(
@@ -191,7 +197,7 @@ class _HunyuanBase(BaseProvider):
         await cb(70, "generating", "Mesh generation complete.", "success")
 
         tex_res: str | None = None
-        if request.generate_texture:
+        if request.generate_texture or request.mode == "texture-generation":
             await cb(75, "texturing", "Generating PBR textures...", "info")
             await loop.run_in_executor(None, lambda: self._texture(request, mesh_path, output_dir))
             tex_res = "2048x2048"
@@ -421,6 +427,7 @@ class Hunyuan3D2MiniLocalProvider(_HunyuanBase):
             mesh = trimesh.load(mesh_path)
             img = Image.open(request.reference_image_url).convert("RGBA")
             textured = self._tex(mesh, image=img)
-            textured.export(mesh_path)  # overwrite the shape with the textured mesh
+            out_glb = str(Path(output_dir) / "model.glb") if output_dir else mesh_path
+            textured.export(out_glb)
         except Exception as exc:
             logger.warning("Texture generation failed: %s", exc)

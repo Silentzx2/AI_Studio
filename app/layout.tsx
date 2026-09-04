@@ -17,9 +17,12 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI 3D Studio — 3D Models",
-  description:
-    "Generate production-ready 3D assets from text prompts or reference images with AI. Professional tools for game developers, artists, and creators.",
+  title: "AI 3D Studio",
+  description: "Production-ready 3D generation and model management studio",
+  openGraph: {
+    title: "AI 3D Studio",
+    description: "Production-ready 3D generation and model management studio",
+  },
   keywords: [
     "AI 3D",
     "3D generation",

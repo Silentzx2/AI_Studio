@@ -1,3 +1,5 @@
+import type { JobDiagnostic } from '@/lib/jobDiagnostics';
+
 export type ToolType =
   | 'model'
   | 'segment'
@@ -21,6 +23,9 @@ export interface ActiveTask {
   queuePosition?: number;
   totalPending?: number;
   estimatedRemainingSec?: number;
+  provider?: string;
+  errorMessage?: string;
+  diagnostic?: JobDiagnostic | null;
 }
 
 export type MainNavRoute = 'workspace' | 'dashboard' | 'assets' | 'system' | 'settings';
@@ -149,6 +154,7 @@ export interface TextureSettings {
     ao: boolean;
     height: boolean;
   };
+  lowVram?: boolean;
 }
 
 export interface AutoOptimizeSettings {

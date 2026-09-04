@@ -1,5 +1,51 @@
 # AI 3D Studio — Changelog
 
+## [v4.9.4] - 2026-09-04
+
+### Added / Fixed
+
+#### Low VRAM Toggle in Texture Generation Panel (`TexturePanel.tsx`)
+- Added a model-adaptive **Low VRAM Mode** toggle directly in `TexturePanel.tsx`.
+- **Conditional Visibility Logic**: The toggle dynamically checks `activeTextureModel?.low_vram_supported`. If the model does not support low VRAM, the toggle is completely hidden; if supported (e.g. Hunyuan3D-2 Mini, Hunyuan3D-2.1, TRELLIS), the toggle appears with sequential offload status and tooltip explanations.
+- Preserves low VRAM mode when switching between compatible models, resetting gracefully when switching to non-supported models.
+
+#### End-to-End Texture Generation & Existing Mesh Re-Texturing
+- **Backend Schema (`GenerationRequest`)**: Added `source_mesh_url` field to `backend/app/schemas/generation.py`.
+- **API & Task Pipeline**: Updated `backend/app/api/v1/generation.py` and `backend/app/workers/tasks.py` to route `source_mesh_url` to provider calls for `texture-generation` and `remesh` modes, resolving URLs and local paths accurately.
+- **Provider Support (`hunyuan3d_local.py`)**: Updated `_texture()` to accept `source_mesh_url` for texturing existing 3D meshes without requiring full shape regeneration, saving to `model.glb` in output directory.
+- **Workspace State (`WorkspaceContext.tsx`)**: Updated `runTextureGeneration()` to supply `source_mesh_url`, `low_vram`, `vram_mode`, and provider ID to generation requests.
+
+#### Job Failure Diagnostics & "Try Repair" Action Button (`ProgressOverlay.tsx`)
+- Extended `ProgressOverlay.tsx` to handle `failed` and `interrupted` task states with diagnostic information.
+- Integrated `diagnoseJobError` in `WorkspaceContext.tsx` during status polling and job submission failures to populate `activeTask.diagnostic`.
+- Added a one-click **"Try Repair"** button in `ProgressOverlay.tsx` that calls `adminService.repairProvider(providerId)` to automatically re-initialize broken runtime environments, reinstall C-extension overlays, and rerun preflight checks.
+- Added a "Dismiss" action to clear failed overlay notifications cleanly.
+
+## [v4.9.3] - 2026-09-04
+
+### Fixed / Added
+
+#### Model Manifest Audit & Weight Registry Integration
+- **Hunyuan3D-2 Mini (`hunyuan3d_2_mini.yaml`)**:
+  - Added `hunyuan3d-vae-v2-mini/*`, `*.json`, `*.yaml`, and `*.safetensors` to `allow_patterns` so that ShapeVAE and configuration files are downloaded alongside DiT weights, preventing missing-model failures on load.
+  - Formalized auxiliary weight dependency on `tencent/Hunyuan3D-2.1` in the manifest for the optional paint/texture pipeline stage.
+  - Updated `Hunyuan3D2MiniLocalProvider._load_tex` in `hunyuan3d_local.py` to resolve paint weights via canonical `storage.get_weight_path("hunyuan3d-2.1")` and recognize `hunyuan3d-paintpbr-v2-1`, `hunyuan3d-delight-v2-0`, or `hunyuan3d-paint-v2-0`.
+- **TripoSG (`triposg.yaml`)**:
+  - Registered `briaai/RMBG-1.4` under `weights.auxiliary` in the manifest so RMBG background removal weights are formally managed by the installer.
+  - Updated `TripoSGLocalProvider` in `triposg_local.py` to resolve RMBG weights through `storage.get_weight_path("RMBG-1.4")` before falling back to Hub download.
+  - Added explicit `low_vram_supported: false` under hardware configuration so the Low VRAM toggle correctly hides when TripoSG is active.
+- **TRELLIS (`trellis.yaml`)**:
+  - Added explicit `low_vram_supported: true`, `low_vram_required_mb: 6000`, and `low_vram_strategy: [cpu_offload, fp16]` under hardware configuration to expose the Low VRAM toggle in the UI.
+- **Manifest Loader & Installer (`manifest_loader.py`, `installer.py`)**:
+  - Updated `_build_weight_registry()` in `manifest_loader.py` to register all auxiliary weights into `HF_MODELS` by both alias and Hugging Face repository name.
+  - Decoupled `is_standalone_generation_provider` from heavy provider imports (`CivitAIProvider`) so manifest validation scripts can run standalone without `aiohttp`.
+  - Added fallback in `installer.py:download_weights()` for direct Hugging Face repository identifiers (`user/repo`).
+  - Optimized `_manifest_path()` resolution in `manifest_loader.py` to handle filename dot variants (e.g. `hunyuan3d-2.1` -> `hunyuan3d_21.yaml`) and fast regex name scanning, eliminating redundant YAML parses on hot lookup paths.
+- **Application Metadata & Layout Synchronization**:
+  - Aligned `metadata.json` (`AI 3D Studio`) with Next.js entry point `app/layout.tsx` `<title>`, description, and OpenGraph tags.
+- **Settings Navigation Visual Clarity (`app/settings/page.tsx`)**:
+  - Updated `SETTINGS_SECTIONS` with consistent, distinct Lucide icons for every section (`LayoutGrid`, `Sparkles`, `Boxes`, `History`, `Activity`, `ScrollText`, `ShieldCheck`, `SlidersHorizontal`, `Download`), eliminating duplicate icons and improving visual hierarchy across all settings groups.
+
 ## [v4.9.2] - 2026-09-04
 
 ### Fixed

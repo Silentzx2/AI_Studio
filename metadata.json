@@ -1,5 +1,5 @@
 {
-  "name": "AI Studio 3D",
+  "name": "AI 3D Studio",
   "description": "Production-ready 3D generation and model management studio",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

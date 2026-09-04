@@ -99,21 +99,26 @@ def _resolve_reference_image(reference: str | None, job_id: str) -> str | None:
             logger.warning("Failed to decode reference image data URL: %s", exc)
             return reference
 
+    if Path(reference).exists():
+        return reference
+
     parsed = urlparse(reference)
     path = unquote(parsed.path if parsed.scheme else reference)
+
+    if "/static/" in path:
+        rel = path.split("/static/", 1)[-1].lstrip("/")
+        candidate = Path(settings.storage_local_path) / rel
+        if candidate.exists():
+            return str(candidate)
+
     upload_prefixes = (
         "/api/v1/upload/uploads/",
         "/api/v1/uploads/",
-        "/static/uploads/",
-        "/static/models/",
         "/uploads/",
     )
 
     if any(path.startswith(prefix) for prefix in upload_prefixes):
-        if path.startswith("/static/models/"):
-            candidate = Path(settings.storage_local_path) / "models" / Path(path).name
-        else:
-            candidate = Path(settings.storage_local_path) / "uploads" / Path(path).name
+        candidate = Path(settings.storage_local_path) / "uploads" / Path(path).name
         if candidate.exists():
             return str(candidate)
 
@@ -351,6 +356,20 @@ async def _async_generate(task: Task, job_id: str) -> dict:
 
             # 3. Build generation request
             meta = job.processing_metadata or {}
+            source_mesh_raw = meta.get("source_mesh_url")
+            ref_img_raw = job.reference_image_url
+
+            resolved_source_mesh = _resolve_reference_image(source_mesh_raw, job_id) if source_mesh_raw else None
+            resolved_ref_image = _resolve_reference_image(ref_img_raw, job_id) if ref_img_raw else None
+
+            # Fallback: if source_mesh wasn't explicitly set but reference_image points to a 3D mesh
+            if not resolved_source_mesh and resolved_ref_image:
+                clean_ref = resolved_ref_image.split("?")[0].lower()
+                if any(clean_ref.endswith(ext) for ext in (".glb", ".gltf", ".obj")):
+                    resolved_source_mesh = resolved_ref_image
+                    if job.mode in ("remesh", "texture-generation"):
+                        resolved_ref_image = None
+
             request = GenerationRequest(
                 mode=job.mode,
                 prompt=enhanced,
@@ -359,7 +378,8 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 style_preset=job.style_preset,
                 generate_texture=job.generate_texture,
                 auto_rig=job.auto_rig,
-                reference_image_url=_resolve_reference_image(job.reference_image_url, job_id),
+                reference_image_url=resolved_ref_image,
+                source_mesh_url=resolved_source_mesh,
                 remesh_settings=meta.get("remesh_settings"),
                 mood=meta.get("mood"),
                 shape=meta.get("shape"),
@@ -378,7 +398,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             _ensure_not_cancelled(session, job_id)
 
             if job.mode == "remesh":
-                source_mesh = request.reference_image_url
+                source_mesh = request.source_mesh_url or request.reference_image_url
                 if not source_mesh or not Path(source_mesh).exists():
                     raise RuntimeError("Remesh requires a selected local GLB/mesh asset. Select a model in the workspace and try again.")
                 remesh_settings = request.remesh_settings or {}

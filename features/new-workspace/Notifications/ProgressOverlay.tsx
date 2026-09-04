@@ -10,8 +10,11 @@ import {
   Minimize2, 
   StopCircle, 
   Clock, 
-  ArrowRight
+  ArrowRight,
+  Wrench
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { adminService } from '@/services/adminService';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 import { useWorkspace } from '../store/WorkspaceContext';
 
@@ -26,6 +29,28 @@ export const ProgressOverlay: React.FC = () => {
 
   const [isMinimized, setIsMinimized] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [isRepairing, setIsRepairing] = useState(false);
+  const [repaired, setRepaired] = useState(false);
+
+  const handleRepair = async () => {
+    const providerId = activeTask?.diagnostic?.providerId || activeTask?.provider;
+    if (!providerId) return;
+    setIsRepairing(true);
+    toast.info(`Attempting repair for ${activeTask?.diagnostic?.providerLabel || providerId}...`, {
+      description: 'Re-initializing runtime environment and running preflight check.',
+    });
+    try {
+      await adminService.repairProvider(providerId);
+      setRepaired(true);
+      toast.success(`${activeTask?.diagnostic?.providerLabel || providerId} repair initiated`, {
+        description: 'Environment re-initialized. You can now retry your generation.',
+      });
+    } catch (err: any) {
+      toast.error(`Repair failed: ${err?.message || 'Unknown error'}`);
+    } finally {
+      setIsRepairing(false);
+    }
+  };
 
   // Timer for tracking task duration
   useEffect(() => {
@@ -221,6 +246,58 @@ export const ProgressOverlay: React.FC = () => {
                     <span>Bake Textures</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
+                </div>
+              )}
+
+              {(isFailed || isInterrupted) && (
+                <div className="w-full flex items-center justify-between gap-2">
+                  <div className="flex flex-col min-w-0 pr-1">
+                    <span className="text-[11px] text-[hsl(var(--destructive))] font-semibold truncate flex items-center gap-1">
+                      <XCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      {activeTask.diagnostic?.issueDescription || activeTask.errorMessage || activeTask.currentStep || 'Generation failed'}
+                    </span>
+                    {activeTask.diagnostic?.suggestedAction && (
+                      <span className="text-[9px] text-[hsl(var(--muted-foreground))] truncate">
+                        {activeTask.diagnostic.suggestedAction}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {(activeTask.diagnostic || activeTask.provider) && (
+                      <button
+                        id="btn-progress-try-repair"
+                        type="button"
+                        onClick={handleRepair}
+                        disabled={isRepairing}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[hsl(var(--destructive))] hover:bg-[hsl(var(--destructive)/0.85)] text-white text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {isRepairing ? (
+                          <>
+                            <RefreshCw className="w-3 h-3 animate-spin" />
+                            <span>Repairing...</span>
+                          </>
+                        ) : repaired ? (
+                          <>
+                            <CheckCircle2 className="w-3 h-3 text-emerald-300" />
+                            <span>Repaired</span>
+                          </>
+                        ) : (
+                          <>
+                            <Wrench className="w-3 h-3" />
+                            <span>Try Repair</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                    <button
+                      id="btn-progress-dismiss-failed"
+                      type="button"
+                      onClick={dismissActiveTask}
+                      className="px-2.5 py-1.5 rounded-lg bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-3))] text-xs font-medium text-[hsl(var(--foreground))] transition-colors cursor-pointer"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
