@@ -45,35 +45,44 @@ def _fix_pillow(repo_name: str) -> bool:
     storage = get_storage_config()
     venv_python = storage.get_model_venv_python(repo_name)
     if venv_python is None:
+        logger.warning("_fix_pillow: venv_python is None for %s", repo_name)
         return False
     # Check if _imaging is importable
     code, out = _run([str(venv_python), "-c", "from PIL import _imaging; print('ok')"])
+    logger.info("_fix_pillow: %s check code=%d out=%r", repo_name, code, out[:100])
     if code == 0 and "ok" in out:
+        logger.info("_fix_pillow: %s PIL is OK", repo_name)
         return True
     # PIL is broken — force-reinstall using the venv Python
     logger.warning("Pillow C extension broken for %s — force-reinstalling...", repo_name)
     import shutil
     uv_path = shutil.which("uv")
     if uv_path:
+        logger.info("_fix_pillow: %s running uv pip install pillow", repo_name)
         _run([uv_path, "pip", "install", "--python", str(venv_python),
               "--force-reinstall", "--no-cache-dir", "pillow"])
+    else:
+        logger.warning("_fix_pillow: %s uv not found, trying venv python -m pip", repo_name)
+        _run([str(venv_python), "-m", "pip", "install", "--force-reinstall",
+              "--no-cache-dir", "pillow"])
     # Re-check
     code, out = _run([str(venv_python), "-c", "from PIL import _imaging; print('ok')"])
+    logger.info("_fix_pillow: %s re-check code=%d out=%r", repo_name, code, out[:100])
     return code == 0 and "ok" in out
 
 
 def _run(cmd: list[str], cwd: str | None = None) -> tuple[int, str]:
     """Run a command and return (returncode, output)."""
     import subprocess
-    proc = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, cwd=cwd,
-    )
-    lines: list[str] = []
-    for line in proc.stdout:
-        lines.append(line.rstrip())
-    proc.wait()
-    return proc.returncode, "\n".join(lines)
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True,
+            cwd=cwd, timeout=120,
+        )
+        return result.returncode, result.stdout + result.stderr
+    except Exception as exc:
+        logger.error("_run: exception for %s: %s", cmd[0] if cmd else "?", exc)
+        return -1, str(exc)
 
 
 def _add_model_env(repo_name: str) -> None:
