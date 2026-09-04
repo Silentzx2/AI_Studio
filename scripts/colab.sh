@@ -541,6 +541,11 @@ colab_start_services() {
         log "Celery fallback active: eager execution + memory broker (no Redis)"
     fi
 
+    # Strip empty KEY= lines from .env so empty strings don't override defaults
+    if [[ -f .env ]]; then
+        sed -i -E '/^[A-Za-z0-9_]+=[[:space:]]*$/d' .env 2>/dev/null || true
+    fi
+
     # ── Run migrations (only if PostgreSQL is running) ──────────────────
     step "Running database migrations..."
     if pg_isready -h 127.0.0.1 -p 5432 -q 2>/dev/null; then
@@ -1127,6 +1132,11 @@ ENVIRONMENT=development
 ENVEOF
         log "Created minimal .env with PostgreSQL"
     fi
+fi
+
+# Strip unpopulated KEY= lines from .env so empty strings don't override defaults
+if [[ -f .env ]]; then
+    sed -i -E '/^[A-Za-z0-9_]+=[[:space:]]*$/d' .env 2>/dev/null || true
 fi
 
 # Load .env

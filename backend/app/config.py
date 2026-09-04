@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 from typing import Literal
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Backend root directory (where this config.py lives: backend/app/)
@@ -74,14 +74,31 @@ class Settings(BaseSettings):
     low_vram: bool = False
     vram_mode: str = "auto"
 
+    @model_validator(mode="before")
+    @classmethod
+    def clean_empty_strings(cls, data: Any) -> Any:
+        """Strip empty string environment variables so Pydantic falls back to field defaults.
+
+        When .env contains unpopulated variables (e.g. `DEBUG=` or `MAX_VRAM_MB=`) or when
+        a shell script exports empty environment variables, Pydantic would otherwise receive
+        `""` and fail with ValidationError for non-string fields (bool, int, Literal).
+        """
+        if isinstance(data, dict):
+            return {
+                k: v
+                for k, v in data.items()
+                if v is not None and not (isinstance(v, str) and v.strip() == "")
+            }
+        return data
+
     @field_validator("debug", mode="before")
     @classmethod
     def parse_debug(cls, value: Any) -> Any:
         if isinstance(value, str):
             normalized = value.strip().lower()
-            if normalized in {"release", "production", "prod"}:
+            if not normalized or normalized in {"release", "production", "prod", "false", "0", "no", "off"}:
                 return False
-            if normalized in {"debug", "development", "dev"}:
+            if normalized in {"debug", "development", "dev", "true", "1", "yes", "on"}:
                 return True
         return value
 
@@ -95,6 +112,8 @@ class Settings(BaseSettings):
         `cd backend && uvicorn ...`).  Always anchor to the project root
         so the path is stable regardless of launch directory.
         """
+        if not value:
+            return str(_PROJECT_DIR / "backend" / "storage")
         p = Path(str(value))
         if not p.is_absolute():
             p = (_BACKEND_DIR.parent.parent / p).resolve()
@@ -111,6 +130,13 @@ class Settings(BaseSettings):
     @classmethod
     def parse_cors(cls, v):
         if isinstance(v, str):
+            if not v.strip():
+                return [
+                    "http://localhost:3000",
+                    "http://localhost:3001",
+                    "http://127.0.0.1:3000",
+                    "http://127.0.0.1:3001",
+                ]
             import json
             try:
                 return json.loads(v)

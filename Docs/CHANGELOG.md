@@ -4,6 +4,14 @@
 
 ### Added / Fixed
 
+#### Settings Empty-String Environment Variable Resilience (Pydantic ValidationError Fix)
+- **Root Cause Resolution**: When `.env.example` was copied to `.env` in Colab or native setups, unpopulated variables (`DEBUG=`, `ENVIRONMENT=`, `STORAGE_BACKEND=`, `MAX_VRAM_MB=`, etc.) exported empty strings (`""`) into `os.environ`. Pydantic v2 failed with 12 validation errors on `Settings` instantiation during `alembic upgrade head`.
+- **Pre-Validation Sanitization (`backend/app/config.py`)**: Added `@model_validator(mode="before")` (`clean_empty_strings`) to `Settings` to filter out empty string variables before field type validation, allowing all fields to cleanly fall back to their declared defaults.
+- **Enhanced Field Validators**: Hardened `parse_debug`, `resolve_storage_path`, and `parse_cors` to gracefully handle blank or empty values.
+- **Populated `.env.example` Defaults**: Updated `/.env.example` with sensible default values instead of bare empty assignments.
+- **Automated Script Sanitization (`scripts/colab.sh`)**: Added cleanup steps in `colab.sh` to prune unpopulated `KEY=` lines from `.env` prior to sourcing and before running database migrations.
+- **Self-Check Regression Test (`backend/runtime/test_settings_empty_env.py`)**: Added an assert-based self-check verifying that `Settings()` initializes successfully with empty string environment variables.
+
 #### Low VRAM Toggle in Texture Generation Panel (`TexturePanel.tsx`)
 - Added a model-adaptive **Low VRAM Mode** toggle directly in `TexturePanel.tsx`.
 - **Conditional Visibility Logic**: The toggle dynamically checks `activeTextureModel?.low_vram_supported`. If the model does not support low VRAM, the toggle is completely hidden; if supported (e.g. Hunyuan3D-2 Mini, Hunyuan3D-2.1, TRELLIS), the toggle appears with sequential offload status and tooltip explanations.
