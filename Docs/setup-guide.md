@@ -966,7 +966,7 @@ chmod +x manager.sh
 | **12** | Cloudflare | Tunnel management (Colab/remote access) |
 | **13** | Update/Install Models | Model installation and verification |
 | **14** | Manage Individual Service | Start/Stop/Restart/Status/Logs for a specific service |
-| **17** | Build Native CUDA Wheels | Build CUDA extension wheels for diffoctreerast, vox2seq, diff-gaussian-rasterization, diso |
+| **17** | Build Native CUDA Wheels | Build CUDA extension wheels using unified script; output to `.wheels/` directory; enforces CUDA 12.4 |
 | **q** | Quit | Exit the manager |
 
 ---

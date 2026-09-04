@@ -782,78 +782,56 @@ _menu_top() {
 _menu_bottom() {
   echo -e "${BOLD}${MAGENTA}  ╚════════════════════════════════════════════════════════╝${NC}"
 }
-
 cmd_build_wheels() {
     head_ "Building Native CUDA Wheels"
     echo ""
     echo "  This will build CUDA extension wheels for packages that don't have"
     echo "  prebuilt wheels (diffoctreerast, vox2seq, diff-gaussian-rasterization, diso)."
     echo ""
-    echo "  Requirements: CUDA toolkit (nvcc), ninja, PyTorch with CUDA"
-    echo "  Output: ./wheels/ directory"
+    echo "  Requirements: CUDA 12.4 toolkit, ninja, PyTorch with CUDA"
+    echo "  Output: .wheels/ directory (consistent with GitHub workflow)"
     echo ""
 
-    # ── Auto-setup: install missing prerequisites ──────────────────────────────
-    info "Checking build prerequisites..."
-
-    # Check/install CUDA toolkit
+    # ── Enforce CUDA 12.4 ────────────────────────────────────────────────────
     if ! command -v nvcc &>/dev/null; then
-        warn "nvcc not found — attempting to install CUDA toolkit..."
+        warn "nvcc not found — attempting CUDA 12.4 toolkit installation..."
         if command -v apt-get &>/dev/null; then
-            sudo apt-get update -qq && sudo apt-get install -y -qq nvidia-cuda-toolkit 2>/dev/null || {
-                warn "Failed to install CUDA toolkit automatically"
-                echo "  Install manually: sudo apt-get install -y nvidia-cuda-toolkit"
+            sudo apt-get update -qq && sudo apt-get install -y -qq cuda-toolkit-12-4 2>/dev/null || {
+                warn "Failed to install CUDA toolkit 12.4 automatically"
+                echo "  Install manually: sudo apt-get install -y cuda-toolkit-12-4"
                 echo "  Or download from: https://developer.nvidia.com/cuda-downloads"
                 return 1
             }
         else
             warn "apt-get not found — cannot auto-install CUDA toolkit"
-            echo "  Install CUDA toolkit manually: https://developer.nvidia.com/cuda-downloads"
+            echo "  Install CUDA toolkit 12.4 manually: https://developer.nvidia.com/cuda-downloads"
             return 1
         fi
     fi
     ok "CUDA toolkit: $(nvcc --version | grep release | sed 's/.*release //;s/,.*//')"
 
-    # Check/install ninja
-    if ! command -v ninja &>/dev/null; then
-        warn "ninja not found — installing..."
-        pip install ninja 2>/dev/null || { warn "Failed to install ninja"; return 1; }
-    fi
-    ok "ninja: $(ninja --version)"
+    # ── Build wheels using unified script with CUDA 12.4 enforcement ────────
+    step "Running unified wheels builder..."
+    bash scripts/build-native-wheels.sh --output-dir .wheels --python 3.12 --cuda 12.4
 
-    # Check PyTorch CUDA
-    if python3 -c "import torch; assert torch.cuda.is_available()" 2>/dev/null; then
-        torch_info=$(python3 -c "import torch; print(f'{torch.__version__} CUDA {torch.version.cuda}')")
-        ok "PyTorch CUDA: $torch_info"
-    else
-        warn "PyTorch CUDA not available — builds may fail"
-        echo "  Install PyTorch with CUDA: pip install torch --index-url https://download.pytorch.org/whl/cu124"
-    fi
-
+    # ── Report results ───────────────────────────────────────────────────────
     echo ""
-
-    # Create output directory
-    mkdir -p wheels
-
-    # Run the build script
-    info "Starting native wheel builds..."
-    python scripts/build_native_wheels.py --output-dir ./wheels
-
-    echo ""
-    if [ "$(ls -A wheels/*.whl 2>/dev/null)" ]; then
-        ok "Wheels built successfully!"
+    if [ "$(ls -A .wheels/*.whl 2>/dev/null)" ]; then
+        ok "Wheels built successfully in .wheels/!"
         echo ""
-        ls -lh wheels/*.whl | awk '{print "  " $9 " (" $5 ")"}'
+        ls -lh .wheels/*.whl | awk '{print "  " $9 " (" $5 ")"}'
         echo ""
         read -rp "  Upload to GitHub Releases? [y/N]: " upload
         if [[ "$upload" =~ ^[Yy]$ ]]; then
             info "Uploading to GitHub Releases..."
-            python scripts/build_native_wheels.py --output-dir ./wheels --upload
+            bash scripts/build-native-wheels.sh --output-dir .wheels --upload
         else
-            info "Upload skipped. Run manually with: python scripts/build_native_wheels.py --output-dir ./wheels --upload"
+            info "Upload skipped. Run manually with: bash scripts/build-native-wheels.sh --output-dir .wheels --upload"
         fi
     else
         warn "No wheels were built — check errors above"
+        warn "On CPU-only hosts, this is expected; build on GPU host (Colab/VPS) for CUDA support"
+        warn "The .wheels/ directory is pre-configured; rebuild on GPU host when available"
     fi
 }
 

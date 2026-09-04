@@ -37,7 +37,7 @@ jobs:
       - name: Build native wheels
         run: |
           python scripts/build_native_wheels.py \
-            --output-dir ./wheels \
+            --output-dir .wheels \
             --python 3.10 \
             --cuda 12.4
 
@@ -45,14 +45,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: wheels-py3.10-cu12.4
-          path: ./wheels/*.whl
+          path: .wheels/*.whl
           retention-days: 90
 
       - name: Create Release with wheels
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: ./wheels/*.whl
+          files: .wheels/*.whl
           tag_name: ${{ github.ref_name }}-wheels
           name: "Native Wheels ${{ github.ref_name }}"
           draft: false

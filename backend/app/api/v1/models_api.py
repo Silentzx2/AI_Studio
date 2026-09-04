@@ -3,7 +3,7 @@
 import asyncio
 import threading
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.core.cache import get_cached, invalidate, invalidate_prefix, set_cached
 from app.core.installer.plugin_installer import PluginInstaller
