@@ -1,8 +1,20 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.9.2 (Cross-Python C-Extension Overlay & regex ABI Resolution)
+> **Version**: 4.9.3 (NumPy C-Extension Overlay for Cross-Python ABI)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-04
 > **Last Updated**: September 4, 2026
+
+---
+
+## v4.9.3 — NumPy C-Extension Overlay for Cross-Python ABI (2026-09-04)
+
+### What changed
+- **NumPy added to `_fix_overlay_packages`**: `numpy._core.multiarray` C extension compiled for Python 3.10 model venvs crashes when loaded by the Python 3.12 backend (`AttributeError: module 'numpy._core' has no attribute 'multiarray'`). This cascaded through `accelerate → transformers → CLIPVisionModelWithProjection`, causing all model loads to fail. NumPy now gets the same overlay treatment as Pillow, regex, and safetensors.
+- **NumPy added to `_SHARED_PKGS`**: Stale 3.10-compiled numpy modules in `sys.modules` are now purged before model loading, ensuring the overlay version wins on re-import.
+- **NumPy added to `_VERIFY_MODULES`**: Runtime verification catches ABI-incompatible numpy cached from previous imports and forces clean reload from overlay.
+
+### Root cause
+The existing `_patch_numpy_legacy_aliases()` only patched missing *attribute names* (`np.long`, `np.ulong`) but did not address the underlying C extension ABI mismatch when Python 3.12 tries to load numpy's `_core.multiarray` compiled for Python 3.10.
 
 ---
 

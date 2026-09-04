@@ -145,6 +145,7 @@ def _fix_overlay_packages(repo_name: str) -> bool:
     have working backend-Python builds in the model's overlay directory.
     """
     packages = [
+        ("numpy", "numpy", "import numpy; from numpy._core import multiarray; print('ok')"),
         ("pillow", "PIL", "from PIL import _imaging; print('ok')"),
         ("regex", "regex", "from regex import _regex; print('ok')"),
         ("safetensors", "safetensors", "import safetensors; from safetensors import _safetensors_rust; print('ok')"),
@@ -245,7 +246,7 @@ def _add_model_env(repo_name: str) -> None:
     #   3. Parent package imports (e.g. diffusers -> diffusers.utils) may
     #      still reference the old submodule object
     _SHARED_PKGS = [
-        "accelerate", "huggingface_hub", "transformers", "diffusers",
+        "numpy", "accelerate", "huggingface_hub", "transformers", "diffusers",
         "pydantic", "requests", "httpx", "urllib3",
     ]
 
@@ -259,6 +260,7 @@ def _add_model_env(repo_name: str) -> None:
     # If an ABI-incompatible version was previously cached (e.g. from a Python 3.10
     # venv C-extension), purge and reload fresh from the overlay at sys.path[0].
     _VERIFY_MODULES = [
+        ("numpy", "from numpy._core import multiarray"),
         ("PIL", "from PIL import _imaging"),
         ("regex", "from regex import _regex"),
         ("safetensors", "from safetensors import _safetensors_rust"),
