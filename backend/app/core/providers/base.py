@@ -247,7 +247,7 @@ def _add_model_env(repo_name: str) -> None:
     #   3. Parent package imports (e.g. diffusers -> diffusers.utils) may
     #      still reference the old submodule object
     _SHARED_PKGS = [
-        "numpy", "accelerate", "huggingface_hub", "transformers", "diffusers",
+        "accelerate", "huggingface_hub", "transformers", "diffusers",
         "pydantic", "requests", "httpx", "urllib3",
     ]
 

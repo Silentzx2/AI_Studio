@@ -1,8 +1,19 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.9.4 (NumPy & PyMeshLab C-Extension Overlay for Cross-Python ABI)
+> **Version**: 4.9.5 (Fix NumPy C-Extension Double-Load Crash)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-04
 > **Last Updated**: September 4, 2026
+
+---
+
+## v4.9.5 — Fix NumPy C-Extension Double-Load Crash (2026-09-04)
+
+### What changed
+- **Removed `numpy` from `_SHARED_PKGS`**: numpy's C extension (`_multiarray_umath`) is loaded at the C/dlopen level and cannot be loaded twice per process. Purging numpy from `sys.modules` caused `ImportError: cannot load module more than once per process` when model code re-imported numpy from the overlay path. The backend's numpy is already Python 3.12 compiled — it works, don't purge it.
+- numpy remains in `_fix_overlay_packages` (ensures a 3.12 build exists in the overlay directory) and `_VERIFY_MODULES` (verifies ABI without purging on success).
+
+### Root cause
+v4.9.3 added numpy to `_SHARED_PKGS` which unconditionally deletes all `numpy.*` entries from `sys.modules`. Unlike pure-Python packages (transformers, accelerate), numpy's C core extension is loaded via `dlopen` and Python's import system cannot reload it from a different path in the same process.
 
 ---
 
