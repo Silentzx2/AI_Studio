@@ -2779,27 +2779,22 @@ def _check_cuda_status() -> tuple[str, str]:
 
 
 def _check_vram_status(required_mb: int) -> tuple[str, int]:
-    """Return (state, available_mb) for VRAM."""
-    available_mb = 0
+    """Return (state, free_vram_mb) for the first CUDA device."""
+    free_mb = 0
     try:
-        # Normalize CUDA_VISIBLE_DEVICES BEFORE importing torch — torch
-        # caches the env var at import time, so the normalization has to
-        # happen first or it is too late. The health check works because it
-        # imports runtime.gpu (which normalizes at module level) before
-        # touching torch; this function imported torch raw and therefore
-        # always saw available_mb=0 even with a 14GB GPU present.
         from runtime.gpu import _normalize_cuda_env
         _normalize_cuda_env()
         import torch
         if torch.cuda.is_available():
-            available_mb = torch.cuda.get_device_properties(0).total_mem // (1024 * 1024)
-    except Exception:
-        pass
+            free_bytes, _total_bytes = torch.cuda.mem_get_info(0)
+            free_mb = free_bytes // (1024 * 1024)
+    except Exception as exc:
+        logger.debug("Unable to query free VRAM: %s", exc)
     if required_mb <= 0:
-        return "ok", available_mb
-    if available_mb >= required_mb:
-        return "ok", available_mb
-    return "insufficient", available_mb
+        return "ok", free_mb
+    if free_mb >= required_mb:
+        return "ok", free_mb
+    return "insufficient", free_mb
 
 
 def _determine_preflight_state(

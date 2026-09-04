@@ -299,37 +299,29 @@ async def _async_generate(task: Task, job_id: str) -> dict:
         provider_name = job.provider
 
         try:
-            # Installation guard in worker (defense in depth)
+            # Installation guard in worker (defense in depth). Only missing
+            # installation prerequisites block here; RuntimeEngine handles
+            # dynamic VRAM/preflight decisions at execution time.
             if provider_name not in {"mock", "builtin-remesh", "builtin-render"}:
                 try:
                     from runtime.installer import get_install_status
                     status = get_install_status()
                     inst = status.get(provider_name, {})
-                    # Gated on the authoritative `state`, not the legacy
-                    # `installed` boolean — see generation.py for why.
-                    overall_state = inst.get("state")
-                    if overall_state != "ready":
-                        missing = []
-                        if not inst.get("repo_ready", True):
-                            missing.append("repo")
-                        if not inst.get("venv_ready", True):
-                            missing.append("venv")
-                        if not inst.get("weights_ready", True):
-                            missing.append("weights")
-                        comps = inst.get("components", {}) or {}
-                        if comps.get("preflight", {}).get("state") not in ("passed", None):
-                            missing.append("preflight")
-                        vram_status = inst.get("vram_status")
-                        vram_detail = ""
-                        if vram_status == "insufficient":
-                            vram_detail = f" VRAM insufficient: {inst.get('vram_available_mb', 0)} MB available."
+                    missing = []
+                    if not inst.get("repo_ready", True):
+                        missing.append("repo")
+                    if not inst.get("venv_ready", True):
+                        missing.append("venv")
+                    if not inst.get("weights_ready", True):
+                        missing.append("weights")
+                    comps = inst.get("components", {}) or {}
+                    native_state = (comps.get("native_build", {}) or {}).get("state")
+                    if native_state in ("failed", "running", "pending"):
+                        missing.append(f"native_build:{native_state}")
+                    if missing:
                         raise RuntimeError(
-                            f"Model '{provider_name}' is not ready for generation "
-                            f"(state: {overall_state or 'unknown'}). "
-                            f"Missing: {', '.join(missing) or 'unknown'}."
-                            f"{vram_detail} "
-                            f"Please finish installing it from the Model Manager or run:"
-                            f" POST /api/v1/runtime/install with {{\"models\": [\"{provider_name}\"]}}"
+                            f"Model '{provider_name}' is not installed/usable yet. "
+                            f"Missing: {', '.join(missing)}."
                         )
                 except RuntimeError:
                     raise

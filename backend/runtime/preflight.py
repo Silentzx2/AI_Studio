@@ -445,7 +445,7 @@ def run_preflight_for_provider(
                 import torch
                 available_mb = 0
                 if torch.cuda.is_available():
-                    available_mb = torch.cuda.get_device_properties(0).total_mem // (1024 * 1024)
+                    available_mb = torch.cuda.get_device_properties(0).total_memory // (1024 * 1024)
                 vram_ok = available_mb >= vram_required
                 checks["vram"] = {
                     "passed": vram_ok,
@@ -466,12 +466,11 @@ def run_preflight_for_provider(
         code_r, output = _run_in_venv(venv_python, smoke_code, timeout_sec=120)
         ok = code_r == 0 and "ok" in output
         # If import failed due to missing module, treat as skipped
-        is_import_error = "ModuleNotFoundError" in (output or "") and "No module named" in (output or "")
         checks["model_load"] = {
-            "passed": ok or is_import_error,
+            "passed": ok,
             "detail": output[:500] if output else "No output",
         }
-        if not ok and not is_import_error:
+        if not ok:
             all_passed = False
     # --- Capability smoke tests (runs inside model venv) ---
     # ponytail: on Colab/CPU-only, many packages can't be imported. Treat
@@ -498,12 +497,11 @@ def run_preflight_for_provider(
                 cap_r, cap_output = _run_in_venv(venv_python, cap_code, timeout_sec=120)
                 cap_ok = cap_r == 0 and "ok" in cap_output
                 # If import failed, treat as skipped rather than failed
-                is_import_error = "ModuleNotFoundError" in (cap_output or "") and "No module named" in (cap_output or "")
                 checks[f"capability_smoke.{cap_name}"] = {
-                    "passed": cap_ok or is_import_error,
+                    "passed": cap_ok,
                     "detail": cap_output[:500] if cap_output else "No output",
                 }
-                if not cap_ok and not is_import_error:
+                if not cap_ok:
                     all_passed = False
     return PreflightResult(
         passed=all_passed,

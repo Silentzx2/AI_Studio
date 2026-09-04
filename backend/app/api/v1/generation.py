@@ -175,59 +175,38 @@ async def create_generation(req: GenerationRequest, request: Request):
     except Exception:
         pass  # Soft fail: never block generation on a capability-check error
 
-    # Installation guard: block generation if the model isn't installed
-    # (repo cloned, venv created, weights downloaded) — otherwise it fails
-    # with cryptic "module not found" or "weights not found" errors.
-# Installation guard: block generation if the model isn't ready.
-        # Gated on the AUTHORITATIVE `state` field, NOT the legacy `installed`
-        # boolean. installer.py computes installed_legacy = was_installed or
-        # (repo_ok and weight_ok), and was_installed is True once install_provider()
-        # ever recorded an installed_at timestamp — so `installed` can be True
-        # while weights are still downloading (the exact case that produced
-        # "TripoSG model is not loaded" at worker time). `state` is the
-        # authoritative readiness field (discovered / weights_downloading /
-        # native_build_running / blocked / ready / ...).
-        try:
-            if builtin_provider:
-                state = {provider: {"installed": True, "repo_ready": True, "venv_ready": True, "weights_ready": True}}
-            else:
-                from runtime.installer import get_install_status  # noqa: PLC0415
-                state = get_install_status()
-            inst = state.get(provider, {})
-            overall_state = inst.get("state")
-            if overall_state != "ready":
-                missing = []
-                if not inst.get("repo_ready", True):
-                    missing.append("repo")
-                if not inst.get("venv_ready", True):
-                    missing.append("venv")
-                if not inst.get("weights_ready", True):
-                    missing.append("weights")
-                comps = inst.get("components", {}) or {}
-                if comps.get("preflight", {}).get("state") not in ("passed", None):
-                    missing.append("preflight")
-                vram_status = inst.get("vram_status")
-                vram_detail = ""
-                if vram_status == "insufficient":
-                    vram_detail = f" VRAM insufficient: {inst.get('vram_available_mb', 0)} MB available."
-                detail = (
-                    f"Model '{provider}' is not ready for generation "
-                    f"(state: {overall_state or 'unknown'}). "
-                    f"Missing: {', '.join(missing) or 'unknown'}."
-                    f"{vram_detail} "
-                    f"Please finish installing it from the Model Manager or run:"
-                    f" POST /api/v1/runtime/install with {{\"models\": [\"{provider}\"]}}"
-                )
-                logger.warning(
-                    "Blocked generation for not-ready model: provider=%s state=%s missing=%s",
-                    provider, overall_state, missing,
-                )
-                raise HTTPException(status_code=400, detail=detail)
-        except HTTPException:
-            raise
-        except Exception as exc:
-            logger.warning("Installation check failed for %s: %s", provider, exc)
-            pass  # Soft fail: don't block if check itself errors
+    # Installation guard: block only when required installation prerequisites are missing.
+    # Runtime VRAM and preflight are execution concerns handled by RuntimeEngine.
+    try:
+        if builtin_provider:
+            state = {provider: {"repo_ready": True, "venv_ready": True, "weights_ready": True}}
+        else:
+            from runtime.installer import get_install_status  # noqa: PLC0415
+            state = get_install_status()
+        inst = state.get(provider, {})
+        missing = []
+        if not inst.get("repo_ready", True):
+            missing.append("repo")
+        if not inst.get("venv_ready", True):
+            missing.append("venv")
+        if not inst.get("weights_ready", True):
+            missing.append("weights")
+        comps = inst.get("components", {}) or {}
+        native_state = (comps.get("native_build", {}) or {}).get("state")
+        if native_state in ("failed", "running", "pending"):
+            missing.append(f"native_build:{native_state}")
+        if missing:
+            detail = (
+                f"Model '{provider}' is not installed/usable yet. "
+                f"Missing: {', '.join(missing)}."
+            )
+            logger.warning("Blocked generation for missing installation prerequisites: provider=%s missing=%s", provider, missing)
+            raise HTTPException(status_code=400, detail=detail)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Installation check failed for %s: %s", provider, exc)
+        # Soft-fail the diagnostic guard; RuntimeEngine/provider loading remains authoritative.
 
     # Validate workspace/provider compatibility if workspace is specified.
     # Built-in remesh/render paths do not have manifest-backed model providers.
