@@ -994,6 +994,10 @@ def _verify_and_fix_critical_packages(venv_python: Path, repo_dir: Path, req_blo
     from previous failed installs can be partially extracted or missing
     C extensions. This checks the key packages and force-reinstalls any
     that fail to import.
+
+    Also installs a backend-Python Pillow overlay so in-process inference
+    (running in backend Python 3.12) can load the C extension even when the
+    per-model venv was created with a different Python (e.g. 3.10).
     """
     preflight = (manifest or {}).get("preflight", {}) or {}
     manifest_critical = preflight.get("import_packages", []) or []
@@ -1033,6 +1037,50 @@ def _verify_and_fix_critical_packages(venv_python: Path, repo_dir: Path, req_blo
                          "--force-reinstall", "--no-cache-dir", pkg_name],
                         cwd=str(repo_dir),
                     )
+
+    # ---- Backend-Python Pillow overlay --------------------------------------
+    # The per-model venv is created with the manifest's `environment.python`
+    # (e.g. 3.10), but in-process inference runs in the backend Python (3.12).
+    # C extensions compiled for the venv Python cannot be loaded by the backend.
+    # Install a backend-Python Pillow into a sibling overlay dir and ensure it
+    # takes precedence via sys.path in _add_model_env() (mirrors _backend_torch_stack()).
+    if re.search(r"\bpillow\b", req_blob, re.IGNORECASE) or any("pillow" in d.lower() for d in (manifest or {}).get("dependencies", {}).get("python", [])):
+        try:
+            import sys as _sys
+            backend_py = str(Path(_sys.executable))
+            venv_dir = repo_dir.parent / ".venv"  # installer runs from repo_dir; venv is sibling
+            # Try to find venv dir more robustly
+            for cand in (repo_dir.parent / ".venv", repo_dir / ".venv"):
+                if cand.exists():
+                    venv_dir = cand
+                    break
+            if venv_dir.exists():
+                overlay = venv_dir / "lib" / f"python{_sys.version_info.major}.{_sys.version_info.minor}" / "site-packages"
+                overlay.mkdir(parents=True, exist_ok=True)
+                # Check if backend can import _imaging from overlay
+                check_code = (
+                    f"import sys; sys.path.insert(0, {str(overlay)!r}); "
+                    f"from PIL import _imaging; print('ok')"
+                )
+                bcode, bout = _run([backend_py, "-c", check_code], cwd=str(repo_dir))
+                if bcode != 0 or "ok" not in bout:
+                    logger.info("Installing backend-Python Pillow overlay for %s...", repo_dir.name)
+                    if uv_path:
+                        _run(
+                            [uv_path, "pip", "install", "--python", backend_py,
+                             "--target", str(overlay),
+                             "--force-reinstall", "--no-cache-dir", "pillow"],
+                            cwd=str(repo_dir),
+                        )
+                    else:
+                        _run(
+                            [backend_py, "-m", "pip", "install",
+                             "--target", str(overlay),
+                             "--force-reinstall", "--no-cache-dir", "pillow"],
+                            cwd=str(repo_dir),
+                        )
+        except Exception as exc:
+            logger.warning("Backend Pillow overlay install skipped/failed for %s: %s", repo_dir.name, exc)
 
 
 # ---------------------------------------------------------------------------

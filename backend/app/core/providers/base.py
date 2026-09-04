@@ -32,43 +32,80 @@ def _patch_numpy_legacy_aliases() -> None:
         _np.ulong = _np.uint
 
 
-def _fix_pillow(repo_name: str) -> bool:
-    """Force-reinstall Pillow in the per-model venv if _imaging is broken.
+def _backend_overlay_site_packages(venv_dir: Path) -> Path:
+    """Return the backend-Python overlay site-packages dir for a model venv.
 
-    When the per-model venv's Pillow C extension (_imaging) is corrupted
-    or missing, `from PIL import Image` fails with ImportError.
-    This function detects that and force-reinstalls Pillow using the
-    venv's own Python, which pulls a prebuilt wheel with the working
-    C extension. Returns True if PIL is working after the fix.
+    ponytail: per-model venvs are created with the manifest's
+    `environment.python` (e.g. 3.10), but all in-process providers run in
+    the backend interpreter (3.12). C extensions compiled for the venv
+    Python (Pillow's `_imaging`) cannot be loaded by the backend, so we
+    install a backend-Python copy into a sibling overlay directory and
+    prepend it to sys.path — mirroring `_backend_torch_stack()` for torch.
+    Preflight (venv Python) keeps using the venv's own packages.
+    """
+    overlay = venv_dir / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}" / "site-packages"
+    overlay.mkdir(parents=True, exist_ok=True)
+    return overlay
+
+
+def _fix_pillow(repo_name: str) -> bool:
+    """Ensure Pillow works in BOTH the venv Python (preflight) and the
+    backend Python (in-process inference).
+
+    The venv's Pillow C extension is compiled for the venv's Python, which
+    may differ from the backend's. The backend cannot load a venv-Python
+    C extension, so we install a backend-Python copy into an overlay dir
+    and prepend it to sys.path. Returns True if the backend can import
+    _imaging after the fix.
     """
     from runtime.storage import get_storage_config
     storage = get_storage_config()
     venv_python = storage.get_model_venv_python(repo_name)
+    venv_dir = storage.get_model_venv_path(repo_name)
     if venv_python is None:
         logger.warning("_fix_pillow: venv_python is None for %s", repo_name)
         return False
-    # Check if _imaging is importable
+    # 1) Venv-Python check (preflight compatibility)
     code, out = _run([str(venv_python), "-c", "from PIL import _imaging; print('ok')"])
-    logger.info("_fix_pillow: %s check code=%d out=%r", repo_name, code, out[:100])
-    if code == 0 and "ok" in out:
-        logger.info("_fix_pillow: %s PIL is OK", repo_name)
+    logger.info("_fix_pillow: %s venv check code=%d out=%r", repo_name, code, out[:100])
+    if code != 0 or "ok" not in out:
+        logger.warning("Pillow C extension broken for %s (venv) — force-reinstalling...", repo_name)
+        import shutil
+        uv_path = shutil.which("uv")
+        if uv_path:
+            _run([uv_path, "pip", "install", "--python", str(venv_python),
+                  "--force-reinstall", "--no-cache-dir", "pillow"])
+        else:
+            _run([str(venv_python), "-m", "pip", "install", "--force-reinstall",
+                  "--no-cache-dir", "pillow"])
+        code, out = _run([str(venv_python), "-c", "from PIL import _imaging; print('ok')"])
+        logger.info("_fix_pillow: %s venv re-check code=%d out=%r", repo_name, code, out[:100])
+    # 2) Backend-Python check (in-process inference) — overlay dir
+    overlay = _backend_overlay_site_packages(venv_dir)
+    backend_py = str(Path(sys.executable))
+    check_code = (
+        f"import sys; sys.path.insert(0, {str(overlay)!r}); "
+        f"from PIL import _imaging; print('ok')"
+    )
+    bcode, bout = _run([backend_py, "-c", check_code])
+    logger.info("_fix_pillow: %s backend overlay check code=%d out=%r", repo_name, bcode, bout[:100])
+    if bcode == 0 and "ok" in bout:
         return True
-    # PIL is broken — force-reinstall using the venv Python
-    logger.warning("Pillow C extension broken for %s — force-reinstalling...", repo_name)
+    # Backend can't import _imaging from the overlay — install backend-Python Pillow
+    logger.warning("Pillow not importable by backend Python for %s — installing overlay...", repo_name)
     import shutil
     uv_path = shutil.which("uv")
     if uv_path:
-        logger.info("_fix_pillow: %s running uv pip install pillow", repo_name)
-        _run([uv_path, "pip", "install", "--python", str(venv_python),
+        _run([uv_path, "pip", "install", "--python", backend_py,
+              "--target", str(overlay),
               "--force-reinstall", "--no-cache-dir", "pillow"])
     else:
-        logger.warning("_fix_pillow: %s uv not found, trying venv python -m pip", repo_name)
-        _run([str(venv_python), "-m", "pip", "install", "--force-reinstall",
-              "--no-cache-dir", "pillow"])
-    # Re-check
-    code, out = _run([str(venv_python), "-c", "from PIL import _imaging; print('ok')"])
-    logger.info("_fix_pillow: %s re-check code=%d out=%r", repo_name, code, out[:100])
-    return code == 0 and "ok" in out
+        _run([backend_py, "-m", "pip", "install",
+              "--target", str(overlay),
+              "--force-reinstall", "--no-cache-dir", "pillow"])
+    bcode, bout = _run([backend_py, "-c", check_code])
+    logger.info("_fix_pillow: %s backend overlay re-check code=%d out=%r", repo_name, bcode, bout[:100])
+    return bcode == 0 and "ok" in bout
 
 
 def _run(cmd: list[str], cwd: str | None = None) -> tuple[int, str]:
@@ -115,6 +152,12 @@ def _add_model_env(repo_name: str) -> None:
     venv_dir = storage.get_model_venv_path(repo_name)
     if venv_dir.exists():
         site_packages = glob.glob(str(venv_dir / "lib" / "python*" / "site-packages"))
+        # Prepend the backend-Python overlay FIRST so C extensions compiled
+        # for the backend (e.g. Pillow's _imaging) win over the venv-Python
+        # copies. See _backend_overlay_site_packages().
+        overlay = _backend_overlay_site_packages(venv_dir)
+        if str(overlay) not in site_packages:
+            site_packages = [str(overlay)] + site_packages
         for sp in reversed(site_packages):  # insert in reverse so order is correct
             if sp in sys.path:
                 sys.path.remove(sp)  # remove any existing
