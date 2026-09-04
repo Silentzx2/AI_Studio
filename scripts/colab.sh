@@ -1172,6 +1172,26 @@ mkdir -p logs
 
     log "Project directories created"
 
+# ── Step 3.5: System Dependencies for C Extensions ──────────────────────────
+# Install system-level build deps for PIL, imageio, and native extensions
+# Required on Colab to prevent "PIL C extension" and compilation failures
+
+step "3.5/6 Installing system dependencies for image processing & C extensions"
+
+# Check if running on Colab
+if [[ -n "${COLAB_RELEASE_TAG:-}" ]]; then
+    info "Detected Google Colab — installing system build dependencies..."
+    # Suppress output and errors; these packages should exist
+    sudo apt-get update -qq >/dev/null 2>&1 || apt-get update -qq >/dev/null 2>&1
+    sudo apt-get install -y -qq \
+        build-essential libpng-dev libjpeg-dev zlib1g-dev libharfbuzz-dev \
+        libfreetype6-dev liblcms2-dev libopenjp2-7-dev libtiff-dev libwebp-dev \
+        ninja-build pkg-config >/dev/null 2>&1 || true
+    ok "System build dependencies installed for Colab"
+else
+    info "Non-Colab environment — assuming system deps available"
+fi
+
 # ── Step 4: Backend Python environment ────────────────────────────────────
 
 step "4/6 Setting up backend Python environment"

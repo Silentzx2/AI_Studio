@@ -18,6 +18,8 @@
 8. [Troubleshooting](#troubleshooting)
 9. [Verification](#verification)
 
+**See also:** [Google Colab Setup Guide](./COLAB_SETUP.md) — For running on Google Colab (automatic system dependency installation)
+
 ---
 
 ## Prerequisites
@@ -42,6 +44,34 @@
 | **CentOS/RHEL 9** | ⚠️ Partial | SELinux adjustments needed |
 | **Windows WSL2** | ✅ Supported | Use Ubuntu distro |
 | **macOS** | ❌ Not Supported | No NVIDIA GPU support |
+
+### System Build Dependencies
+
+Before running setup scripts, install these system-level packages (required for C extensions, especially PIL/Pillow):
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get update
+sudo apt-get install -y build-essential pkg-config
+sudo apt-get install -y libpng-dev libjpeg-dev zlib1g-dev libfreetype6-dev
+sudo apt-get install -y libharfbuzz-dev liblcms2-dev libopenjp2-7-dev libtiff-dev libwebp-dev
+sudo apt-get install -y ninja-build  # For native extension builds
+```
+
+**CentOS/RHEL:**
+```bash
+sudo yum groupinstall -y "Development Tools"
+sudo yum install -y libpng-devel libjpeg-turbo-devel zlib-devel freetype-devel
+sudo yum install -y harfbuzz-devel lcms2-devel ninja-build
+```
+
+These packages enable:
+- **Pillow (PIL)** — Image processing with C extensions
+- **imageio / imageio-ffmpeg** — Video/image I/O
+- **Native PyTorch extensions** — CUDA/CUDNN bindings
+- **Model-specific packages** — flash-attn, xformers, etc.
+
+> **Colab users**: The `scripts/colab.sh` script automatically installs these. No manual action needed.
 
 ---
 

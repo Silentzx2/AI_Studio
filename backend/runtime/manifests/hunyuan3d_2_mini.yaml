@@ -27,6 +27,8 @@ dependencies:
     - rembg
     - onnxruntime
     - Pillow>=10.0
+    - imageio
+    - imageio-ffmpeg
     - omegaconf
   imports:
   - torch

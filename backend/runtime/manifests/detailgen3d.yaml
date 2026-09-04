@@ -20,6 +20,8 @@ environment:
 dependencies:
   python:
    - Pillow>=10.0
+   - imageio
+   - imageio-ffmpeg
    - diffusers
    - transformers==4.49.0
    - einops
@@ -34,6 +36,8 @@ dependencies:
    - typeguard
    - peft==0.17.1
    - pymeshlab==2022.2.post4
+   - tqdm
+   - rembg
   imports:
    - torch
    - transformers
