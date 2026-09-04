@@ -45,6 +45,8 @@ class _HunyuanBase(BaseProvider):
         self.weights_dir = Path(resolved) if resolved else storage.get_model_weights_dir(self.repo_name)
 
     def _ensure_loaded(self) -> None:
+        # CRITICAL: Set up per-model environment to ensure correct package versions
+        _add_model_env(self.repo_name)
         if self._model is not None:
             return
         if not self.weights_dir.exists():

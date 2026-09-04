@@ -68,7 +68,7 @@ third_party/*/weights/
 .runtime_cache/
 storage/
 next-env.d.ts
-.kilo/plans
+.kilo/plans/*
 scripts/.cloudflare_tunnels
 .opencode/opencode.json
 .blackboxcli/

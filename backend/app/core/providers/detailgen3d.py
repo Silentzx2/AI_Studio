@@ -1,4 +1,9 @@
 """DetailGen3D provider — post-processes 3D coarse meshes with details."""
+# CRITICAL: Set up per-model env BEFORE any other imports to ensure per-model
+# venv packages take precedence.
+from app.core.providers.base import _add_model_env
+_add_model_env("DetailGen3D")
+
 import asyncio
 import logging
 import sys
