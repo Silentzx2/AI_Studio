@@ -232,6 +232,7 @@ export interface AdminJob {
   error?: string;
   mode?: string;
   error_message?: string;
+  provider?: string;
 }
 
 export interface AdminModel {

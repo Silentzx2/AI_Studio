@@ -1,5 +1,24 @@
 # AI 3D Studio — Changelog
 
+## [v4.9.1] - 2026-09-04
+
+### Added / Changed
+
+#### Job Status Polling Diagnostics & "Try Repair" Action Button
+- **Feature**: Both `JobsTab` and `QueueTab` (in admin monitoring) as well as the model manager queue now detect and diagnose specific `RuntimeError` messages (e.g., `'Hunyuan3D-2 Mini load failed'`, PyTorch/CUDA out-of-memory, missing weights, missing dependencies, or uninitialized provider environments).
+- **Behavior**:
+  - Provides a one-click **"Try Repair"** action button that invokes `/api/v1/admin/repair/{provider_name}` to re-initialize the model's runtime environment, verify dependencies, and rerun preflight checks.
+  - Diagnostic error banner and explanation details are presented directly next to the failed job with clear, non-cryptic remediation advice.
+  - Implemented adaptive polling frequency (faster 3.5s interval during active jobs, relaxing to 12s when idle) to minimize unnecessary network traffic while ensuring instant feedback.
+
+#### Model-Adaptive "Low VRAM Mode" Toggle Button
+- **Feature**: Added a dedicated **Low VRAM Mode** toggle to the primary 3D generation control panel (`GeneratePanel.tsx`) and updated `GenerationSection.tsx` with conditional rendering.
+- **Conditional Visibility Logic**:
+  - The Low VRAM toggle is **strictly visible only when the selected model supports low VRAM** (`model.low_vram_supported === true`).
+  - For models that do not declare low VRAM offloading support, the toggle is cleanly hidden from the UI to avoid user confusion and invalid execution configurations.
+  - Automatically resets/coerces `lowVram` state when switching to unsupported models.
+  - Decoupled "Generate in Parts" trial toggle from `lowVram` state in the workspace panel.
+
 ## [v4.9.0] - 2026-09-04
 
 ### Fixed

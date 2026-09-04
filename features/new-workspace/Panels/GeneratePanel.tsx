@@ -23,7 +23,8 @@ import {
   Check,
   Package,
   Layers,
-  AlertTriangle
+  AlertTriangle,
+  Gauge
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
@@ -75,6 +76,7 @@ export const GeneratePanel: React.FC = () => {
   // Toggles & Settings
   const [privacy, setPrivacy] = useState<'public' | 'private'>('public');
   const [privacyMenuOpen, setPrivacyMenuOpen] = useState(false);
+  const [generateInParts, setGenerateInParts] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -89,6 +91,8 @@ export const GeneratePanel: React.FC = () => {
   const supportsTexture = Boolean(
     activeModelObj?.supports_texture ?? activeModelObj?.supports?.texture_generation
   );
+  // Low VRAM toggle: only supported when model manifest explicitly enables low_vram_supported
+  const supportsLowVram = Boolean(activeModelObj?.low_vram_supported);
   const activeVramMb = generationSettings.generateTexture !== false
     ? (activeModelObj?.texture_vram_mb || activeModelObj?.vram_required_mb || 0)
     : (activeModelObj?.shape_vram_mb || activeModelObj?.vram_required_mb || 0);
@@ -452,6 +456,46 @@ export const GeneratePanel: React.FC = () => {
               {activeModelObj?.label || 'This model'} does not support texture generation.
             </div>
           )}
+
+          {/* Low VRAM Mode Toggle — Conditionally rendered: hidden if model doesn't support low VRAM */}
+          {supportsLowVram && (
+            <div className="pt-2 border-t border-white/[0.06] space-y-1">
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-zinc-300 flex items-center gap-1 font-medium">
+                  <Gauge className="w-3 h-3 text-[#F9CF00]" />
+                  <span>Low VRAM Mode</span>
+                  <SimpleTooltip
+                    label={`Enables sequential layer offloading and memory optimization for ${activeModelObj?.label || 'this model'} (<${activeModelObj?.low_vram_required_mb ? Math.round(activeModelObj.low_vram_required_mb / 1024) : 4} GB VRAM).`}
+                  >
+                    <Info className="w-3 h-3 text-zinc-500" />
+                  </SimpleTooltip>
+                </span>
+                <button
+                  id="btn-toggle-low-vram"
+                  type="button"
+                  role="switch"
+                  aria-checked={Boolean(generationSettings.lowVram)}
+                  onClick={() => setGenerationSettings(prev => ({ ...prev, lowVram: !prev.lowVram }))}
+                  className={`w-7 h-3.5 rounded-full p-0.5 transition-colors relative cursor-pointer ${
+                    generationSettings.lowVram ? 'bg-[#F9CF00]' : 'bg-[#25262A]'
+                  }`}
+                >
+                  <div
+                    className={`w-2.5 h-2.5 rounded-full bg-black transition-transform ${
+                      generationSettings.lowVram ? 'translate-x-3.5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+              <div className="text-[9px] text-zinc-400">
+                {generationSettings.lowVram ? (
+                  <span className="text-[#F9CF00]">Sequential offload active (&lt;8GB GPU mode)</span>
+                ) : (
+                  <span>Full VRAM mode (~{Math.round((activeVramMb || 0) / 1024)} GB required)</span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Members Only Section (Tripo Style) */}
@@ -468,10 +512,11 @@ export const GeneratePanel: React.FC = () => {
               <span className="text-[8px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold">Trial x1</span>
             </span>
             <button
-              onClick={() => setGenerationSettings(prev => ({ ...prev, lowVram: !prev.lowVram }))}
-              className={`w-7 h-3.5 rounded-full p-0.5 transition-colors relative ${generationSettings.lowVram ? 'bg-[#F9CF00]' : 'bg-[#25262A]'}`}
+              type="button"
+              onClick={() => setGenerateInParts(prev => !prev)}
+              className={`w-7 h-3.5 rounded-full p-0.5 transition-colors relative cursor-pointer ${generateInParts ? 'bg-[#F9CF00]' : 'bg-[#25262A]'}`}
             >
-              <div className={`w-2.5 h-2.5 rounded-full bg-black transition-transform ${generationSettings.lowVram ? 'translate-x-3.5' : 'translate-x-0'}`} />
+              <div className={`w-2.5 h-2.5 rounded-full bg-black transition-transform ${generateInParts ? 'translate-x-3.5' : 'translate-x-0'}`} />
             </button>
           </div>
 

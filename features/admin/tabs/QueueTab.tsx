@@ -3,7 +3,19 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Trash2, Activity, Users, Clock, Zap, RefreshCw, AlertCircle } from 'lucide-react';
+import {
+  Trash2,
+  Activity,
+  Users,
+  Clock,
+  Zap,
+  RefreshCw,
+  AlertCircle,
+  AlertTriangle,
+  Wrench,
+  CheckCircle2,
+  Loader2,
+} from 'lucide-react';
 import { GlassCard } from '@/components/premium/GlassCard';
 import { MetricCard } from '@/components/premium/MetricCard';
 import { Badge } from '@/components/premium/Badge';
@@ -11,31 +23,71 @@ import { NeonButton } from '@/components/premium/NeonButton';
 import { StatusDot } from '@/components/premium/StatusDot';
 import { Spinner } from '@/components/premium/Spinner';
 import { adminService } from '@/services/adminService';
-import type { QueueStatus } from '@/types';
+import { diagnoseJobError, type JobDiagnostic } from '@/lib/jobDiagnostics';
+import type { QueueStatus, AdminJob } from '@/types';
 import { toast } from 'sonner';
 
 export function QueueTab() {
   const [queue, setQueue] = useState<QueueStatus | null>(null);
+  const [failedJobs, setFailedJobs] = useState<AdminJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [repairingJobs, setRepairingJobs] = useState<Record<string, boolean>>({});
+  const [repairedJobs, setRepairedJobs] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
     try {
-      const data = await adminService.queueStatus();
-      setQueue(data);
-      setError(!data ? 'Failed to load queue status' : null);
+      const [queueData, jobsData] = await Promise.allSettled([
+        adminService.queueStatus(),
+        adminService.listJobs(),
+      ]);
+
+      if (queueData.status === 'fulfilled' && queueData.value) {
+        setQueue(queueData.value);
+        setError(null);
+      } else {
+        setError('Failed to load queue status');
+      }
+
+      if (jobsData.status === 'fulfilled') {
+        setFailedJobs((jobsData.value || []).filter(j => j.status === 'failed'));
+      }
     } catch { /* ignore */ }
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    setTimeout(() => load(), 0);
+    load();
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
       load();
-    }, 15000);
+    }, 12000);
     return () => clearInterval(interval);
   }, [load]);
+
+  const handleRepair = async (job: AdminJob, diag: JobDiagnostic) => {
+    const key = job.id;
+    setRepairingJobs(prev => ({ ...prev, [key]: true }));
+
+    toast.info(`Initiating repair for ${diag.providerLabel}...`, {
+      description: 'Re-initializing runtime environment, dependencies, and running preflight check.',
+    });
+
+    try {
+      await adminService.repairProvider(diag.providerId);
+      setRepairedJobs(prev => ({ ...prev, [key]: true }));
+      toast.success(`${diag.providerLabel} repair initiated`, {
+        description: 'Runtime environment is being re-initialized in the background.',
+      });
+      await load();
+    } catch (err: any) {
+      toast.error(`Failed to repair ${diag.providerLabel}`, {
+        description: err?.message || 'Unable to trigger provider repair.',
+      });
+    } finally {
+      setRepairingJobs(prev => ({ ...prev, [key]: false }));
+    }
+  };
 
   const handlePurge = async () => {
     try {
@@ -46,6 +98,10 @@ export function QueueTab() {
       toast.error('Failed to purge queue');
     }
   };
+
+  const repairableJobs = failedJobs
+    .map(job => ({ job, diag: diagnoseJobError(job) }))
+    .filter((item): item is { job: AdminJob; diag: JobDiagnostic } => item.diag !== null);
 
   if (loading && !queue) {
     return (
@@ -72,10 +128,14 @@ export function QueueTab() {
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Job Queue</h1>
-          <p className="text-sm text-muted-foreground mt-1">Celery task queue monitoring</p>
+          <p className="text-sm text-muted-foreground mt-1">Celery task queue &amp; runtime monitoring</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={load} className="p-2 rounded-xl glass border border-[hsl(var(--border)/0.5)] text-muted-foreground hover:text-foreground transition-colors">
+          <button
+            onClick={() => { setLoading(true); load(); }}
+            title="Refresh queue"
+            className="p-2 rounded-xl glass border border-[hsl(var(--border)/0.5)] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          >
             <RefreshCw className="w-4 h-4" />
           </button>
           <NeonButton variant="destructive" size="sm" onClick={handlePurge}>
@@ -90,6 +150,73 @@ export function QueueTab() {
         <MetricCard label="Reserved" value={queue?.reserved ?? 0} icon={Zap} color="cyan" delay={0.15} />
         <MetricCard label="Workers" value={queue?.workers ?? 0} icon={Users} color="green" delay={0.2} />
       </div>
+
+      {/* Runtime Errors & Repair Actions */}
+      {repairableJobs.length > 0 && (
+        <GlassCard className="p-5 border-[hsl(var(--destructive)/0.3)] bg-[hsl(var(--destructive)/0.04)] space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-semibold text-[hsl(var(--destructive))]">
+              <AlertTriangle className="w-4 h-4" />
+              <span>Provider Runtime Errors ({repairableJobs.length})</span>
+            </div>
+            <span className="text-xs text-muted-foreground">Requires environment re-initialization</span>
+          </div>
+
+          <div className="space-y-2">
+            {repairableJobs.map(({ job, diag }) => {
+              const isRepairing = Boolean(repairingJobs[job.id]);
+              const isRepaired = Boolean(repairedJobs[job.id]);
+
+              return (
+                <div
+                  key={job.id}
+                  className="p-3 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--destructive)/0.2)] flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                >
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-foreground">{diag.providerLabel}</span>
+                      <span className="text-[10px] font-mono text-muted-foreground">({job.id})</span>
+                      <Badge variant="error">{diag.issueDescription}</Badge>
+                    </div>
+                    <p className="text-[11px] font-mono text-muted-foreground break-all">
+                      {job.error || job.error_message}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      💡 {diag.suggestedAction}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {isRepaired && !isRepairing && (
+                      <span className="text-[11px] text-[hsl(var(--neon-green))] flex items-center gap-1 font-medium">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Repaired
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleRepair(job, diag)}
+                      disabled={isRepairing}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[hsl(var(--destructive))] text-white hover:bg-[hsl(var(--destructive)/0.85)] flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {isRepairing ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Repairing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Wrench className="w-3.5 h-3.5" />
+                          <span>Try Repair ({diag.providerLabel})</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </GlassCard>
+      )}
 
       <GlassCard className="p-5" delay={0.25}>
         <div className="flex items-center justify-between mb-4">

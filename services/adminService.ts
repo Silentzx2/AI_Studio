@@ -119,6 +119,7 @@ export const adminService = {
         completed_at: j.completed_at,
         error: j.error_message ?? j.error,
         mode: j.mode,
+        provider: j.provider,
         error_message: j.error_message,
       }));
     } catch {
@@ -136,14 +137,35 @@ export const adminService = {
   },
 
   /**
-   * Trigger a model action (install, uninstall, load, etc.)
+   * Trigger a model action (install, uninstall, load, repair, etc.)
    * Issue #7 Fix: Uses body-based endpoint instead of path-based
    */
-  async modelAction(modelId: string, action: 'install' | 'uninstall' | 'update' | 'load' | 'unload' | 'cancel'): Promise<void> {
+  async modelAction(modelId: string, action: 'install' | 'uninstall' | 'update' | 'load' | 'unload' | 'cancel' | 'repair'): Promise<void> {
     await apiClient.post('/api/v1/admin/models/action', {
       model_id: modelId,
       action,
     });
+  },
+
+  /**
+   * Attempt to re-initialize / repair a provider's runtime environment
+   */
+  async repairProvider(providerName: string): Promise<any> {
+    try {
+      const res: any = await apiClient.post(`/api/v1/admin/repair/${encodeURIComponent(providerName)}`);
+      return res?.data || res;
+    } catch {
+      try {
+        const res2: any = await apiClient.post('/api/v1/admin/models/action', {
+          model_id: providerName,
+          action: 'repair',
+        });
+        return res2?.data || res2;
+      } catch {
+        const res3: any = await apiClient.post('/api/v1/runtime/repair', { repo: providerName });
+        return res3?.data || res3;
+      }
+    }
   },
 
   /**
