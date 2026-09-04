@@ -80,23 +80,59 @@ clear_pid() {
     rm -f "${PID_DIR}/$1.pid"
 }
 
+free_port() {
+    local port=$1
+    [[ -n "$port" ]] || return 0
+    if command -v fuser >/dev/null 2>&1; then
+        fuser -k -TERM "${port}/tcp" 2>/dev/null || true
+        for _ in {1..10}; do
+            fuser "${port}/tcp" >/dev/null 2>&1 || break
+            sleep 0.2
+        done
+        if fuser "${port}/tcp" >/dev/null 2>&1; then
+            fuser -k -KILL "${port}/tcp" 2>/dev/null || true
+        fi
+    elif command -v lsof >/dev/null 2>&1; then
+        local port_pids
+        port_pids="$(lsof -ti :"${port}" 2>/dev/null || true)"
+        if [[ -n "$port_pids" ]]; then
+            echo "$port_pids" | xargs -r kill -9 2>/dev/null || true
+        fi
+    fi
+}
+
 stop_pid() {
     local service="$1"
     local pid
     pid="$(pid_of "$service")"
     if pid_alive "$pid"; then
         log "Stopping ${service} (PID ${pid})..."
-        kill -TERM "$pid" 2>/dev/null || true
-        for _ in {1..20}; do
+        kill -TERM -- -"$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
+        for _ in {1..15}; do
             pid_alive "$pid" || break
-            sleep 0.5
+            sleep 0.2
         done
         if pid_alive "$pid"; then
             warn "${service} did not exit gracefully; sending SIGKILL."
-            kill -KILL "$pid" 2>/dev/null || true
+            kill -KILL -- -"$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null || true
         fi
     fi
     clear_pid "$service"
+
+    case "$service" in
+        frontend)
+            pkill -TERM -f "next start" 2>/dev/null || true
+            pkill -TERM -f "next-server" 2>/dev/null || true
+            free_port 3000
+            ;;
+        api)
+            pkill -TERM -f "uvicorn app.main:app" 2>/dev/null || true
+            free_port 8000
+            ;;
+        worker)
+            pkill -TERM -f "celery.*app.workers.celery_app" 2>/dev/null || true
+            ;;
+    esac
 }
 
 wait_http() {
@@ -117,6 +153,7 @@ wait_http() {
 
 start_api() {
     stop_pid api
+    free_port 8000
     : > "${LOG_DIR}/api.log"
     info "Starting FastAPI..."
     (
@@ -175,6 +212,7 @@ start_worker() {
 
 start_frontend() {
     stop_pid frontend
+    free_port 3000
 
     # Normal Next.js production workflow: `npm run build` then `npm start`.
     # Build once if the build output is missing; restarts use `npm start`.
@@ -285,8 +323,19 @@ SUPERVISOR_PID_FILE="${PID_DIR}/supervisor.pid"
 if [[ -f "$SUPERVISOR_PID_FILE" ]]; then
     old_pid="$(cat "$SUPERVISOR_PID_FILE" 2>/dev/null || true)"
     if [[ "$old_pid" =~ ^[0-9]+$ ]] && kill -0 "$old_pid" 2>/dev/null && [[ "$old_pid" != "$$" ]]; then
-        warn "Supervisor already running (PID ${old_pid})."
-        exit 1
+        if [[ "${1:-}" == "--foreground" ]]; then
+            info "Stopping existing supervisor (PID ${old_pid}) to take over in foreground..."
+            kill -TERM "$old_pid" 2>/dev/null || true
+            for _ in {1..15}; do
+                kill -0 "$old_pid" 2>/dev/null || break
+                sleep 0.2
+            done
+            kill -KILL "$old_pid" 2>/dev/null || true
+            rm -f "$SUPERVISOR_PID_FILE"
+        else
+            warn "Supervisor already running (PID ${old_pid})."
+            exit 0
+        fi
     fi
 fi
 printf '%s\n' "$$" > "$SUPERVISOR_PID_FILE"

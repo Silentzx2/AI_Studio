@@ -94,6 +94,10 @@ BACKEND_PYTHON_VERSION="${BACKEND_PYTHON_VERSION:-3.12}"
 
 for arg in "$@"; do
     case "$arg" in
+        --stop)          ACTION="stop" ;;
+        --restart)       ACTION="restart" ;;
+        --start)         ACTION="start" ;;
+        --status)        ACTION="status" ;;
         --skip-start)    SKIP_START=true ;;
         --repos-only)    REPOS_ONLY=true ;;
         --weights-only)  WEIGHTS_ONLY=true ;;
@@ -101,6 +105,10 @@ for arg in "$@"; do
             echo "Usage: bash scripts/colab.sh [OPTIONS]"
             echo ""
             echo "Options:"
+            echo "  --start          Start all services and run supervisor"
+            echo "  --stop           Stop all running services"
+            echo "  --restart        Restart all services"
+            echo "  --status         Check service status"
             echo "  --skip-start     Setup only, don't start services"
             echo "  --repos-only     Only clone repos and install deps"
             echo "  --weights-only   Only download weights"
@@ -342,15 +350,45 @@ write_pid() {
     echo "$pid" > "$pid_file"
 }
 
-# ── Helper: Kill by PID file ──────────────────────────────────────────────
+# ── Helper: Force-kill any process holding a TCP port ──────────────────────
+free_port() {
+    local port=$1
+    [[ -n "$port" ]] || return 0
+    if command -v fuser >/dev/null 2>&1; then
+        fuser -k -TERM "${port}/tcp" 2>/dev/null || true
+        for _ in {1..10}; do
+            fuser "${port}/tcp" >/dev/null 2>&1 || break
+            sleep 0.2
+        done
+        if fuser "${port}/tcp" >/dev/null 2>&1; then
+            fuser -k -KILL "${port}/tcp" 2>/dev/null || true
+        fi
+    elif command -v lsof >/dev/null 2>&1; then
+        local port_pids
+        port_pids="$(lsof -ti :"${port}" 2>/dev/null || true)"
+        if [[ -n "$port_pids" ]]; then
+            echo "$port_pids" | xargs -r kill -9 2>/dev/null || true
+        fi
+    fi
+}
+
+# ── Helper: Kill by PID file (graceful TERM -> KILL with process group) ────
 kill_by_pid_file() {
     local pid_file=$1
     if [[ -f "$pid_file" ]]; then
         local pid=$(cat "$pid_file" 2>/dev/null || echo "")
-        if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-            kill "$pid" 2>/dev/null || true
-            rm -f "$pid_file"
+        if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+            # Attempt to kill process group first, then direct PID
+            kill -TERM -- -"$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
+            for _ in {1..15}; do
+                kill -0 "$pid" 2>/dev/null || break
+                sleep 0.2
+            done
+            if kill -0 "$pid" 2>/dev/null; then
+                kill -KILL -- -"$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null || true
+            fi
         fi
+        rm -f "$pid_file"
     fi
 }
 
@@ -584,6 +622,8 @@ colab_start_services() {
     # ── Start Backend API ─────────────────────────────────────────────────
     step "Starting Backend API (http://localhost:8000)..."
     kill_by_pid_file "$PID_DIR/api.pid"
+    pkill -TERM -f "uvicorn app.main:app" 2>/dev/null || true
+    free_port 8000
     (
         cd backend
         nohup $PYTHON_BIN -m uvicorn app.main:app \
@@ -634,6 +674,7 @@ colab_start_services() {
     # ── Start Celery Worker ───────────────────────────────────────────────
     step "Starting Celery Worker..."
     kill_by_pid_file "$PID_DIR/worker.pid"
+    pkill -TERM -f "celery -A app.workers.celery_app worker" 2>/dev/null || true
     CELERY_BROKER_ARG=""
     CELERY_BACKEND_ARG=""
     if [[ "$REDIS_AVAILABLE" != "true" ]]; then
@@ -674,6 +715,9 @@ colab_start_services() {
 
     FRONTEND_PID_FILE="$PID_DIR/frontend.pid"
     kill_by_pid_file "$FRONTEND_PID_FILE"
+    pkill -TERM -f "next start" 2>/dev/null || true
+    pkill -TERM -f "next-server" 2>/dev/null || true
+    free_port 3000
 
     # Normal Next.js production workflow: `npm run build` then `npm start`.
     # Build once here; the supervisor restarts with `npm start` only.
@@ -776,58 +820,19 @@ colab_stop_services() {
 
     PID_DIR="${PROJECT_ROOT}/.pids"
 
-    if [[ ! -d "$PID_DIR" ]]; then
-        warn "No PID directory found — services may not be running"
-        return 0
-    fi
-
-    # Stop Frontend
-    if [[ -f "$PID_DIR/frontend.pid" ]]; then
-        info "Stopping Frontend..."
-        kill_by_pid_file "$PID_DIR/frontend.pid"
-        log "Frontend stopped"
-    fi
-
-    # Stop Celery Worker
-    if [[ -f "$PID_DIR/worker.pid" ]]; then
-        info "Stopping Celery Worker..."
-        kill_by_pid_file "$PID_DIR/worker.pid"
-        log "Celery Worker stopped"
-    fi
-
-    # Stop Keep-Alive
-    if [[ -f "$PID_DIR/colab_keepalive.pid" ]]; then
-        info "Stopping Keep-Alive..."
-        kill_by_pid_file "$PID_DIR/colab_keepalive.pid"
-        log "Keep-Alive stopped"
-    fi
-
-    # Stop Backend API
-    if [[ -f "$PID_DIR/api.pid" ]]; then
-        info "Stopping Backend API..."
-        kill_by_pid_file "$PID_DIR/api.pid"
-        log "Backend API stopped"
-    fi
-
-    # Stop Watchdog (if running)
-    if [[ -f "$PID_DIR/watchdog.pid" ]]; then
-        info "Stopping Watchdog..."
-        kill_by_pid_file "$PID_DIR/watchdog.pid"
-        log "Watchdog stopped"
-    fi
-    # ── Stop the Colab foreground supervisor first ─────────────────────────────
-    # When colab.sh is running, the supervisor owns API/Celery/frontend. If the
-    # supervisor remains alive, it would correctly interpret a manual stop as a
-    # service failure and restart the services. Terminate the supervisor first.
-    SUPERVISOR_PID_FILE="${PROJECT_ROOT}/.pids/supervisor.pid"
+    # ── 1. Stop the Colab foreground supervisor and watchdog FIRST ─────────────
+    # If the supervisor remains alive while we terminate services, it will
+    # interpret the stop as a failure and immediately restart them.
+    SUPERVISOR_PID_FILE="${PID_DIR}/supervisor.pid"
     if [[ -f "$SUPERVISOR_PID_FILE" ]]; then
+        local supervisor_pid
         supervisor_pid="$(cat "$SUPERVISOR_PID_FILE" 2>/dev/null || true)"
         if [[ "$supervisor_pid" =~ ^[0-9]+$ ]] && kill -0 "$supervisor_pid" 2>/dev/null; then
             info "Stopping Colab foreground supervisor (PID: $supervisor_pid)..."
             kill -TERM "$supervisor_pid" 2>/dev/null || true
-            for _ in {1..20}; do
+            for _ in {1..15}; do
                 kill -0 "$supervisor_pid" 2>/dev/null || break
-                sleep 0.5
+                sleep 0.2
             done
             if kill -0 "$supervisor_pid" 2>/dev/null; then
                 warn "Supervisor did not exit gracefully; force killing it."
@@ -837,10 +842,44 @@ colab_stop_services() {
         rm -f "$SUPERVISOR_PID_FILE"
     fi
 
+    if [[ -f "$PID_DIR/watchdog.pid" ]]; then
+        info "Stopping Watchdog..."
+        kill_by_pid_file "$PID_DIR/watchdog.pid"
+        log "Watchdog stopped"
+    fi
+    pkill -KILL -f "colab_watch.sh" 2>/dev/null || true
 
-    # Stop Celery Worker (additional wait for graceful shutdown)
-    info "Waiting for services to fully stop..."
-    sleep 2
+    # ── 2. Stop Frontend (process group + node children + port 3000) ───────────
+    info "Stopping Frontend..."
+    kill_by_pid_file "$PID_DIR/frontend.pid"
+    pkill -TERM -f "next start" 2>/dev/null || true
+    pkill -TERM -f "next-server" 2>/dev/null || true
+    free_port 3000
+    log "Frontend stopped"
+
+    # ── 3. Stop Celery Worker ──────────────────────────────────────────────────
+    info "Stopping Celery Worker..."
+    kill_by_pid_file "$PID_DIR/worker.pid"
+    pkill -TERM -f "celery.*app.workers.celery_app" 2>/dev/null || true
+    log "Celery Worker stopped"
+
+    # ── 4. Stop Backend API ────────────────────────────────────────────────────
+    info "Stopping Backend API..."
+    kill_by_pid_file "$PID_DIR/api.pid"
+    pkill -TERM -f "uvicorn app.main:app" 2>/dev/null || true
+    free_port 8000
+    log "Backend API stopped"
+
+    # ── 5. Stop Keep-Alive ─────────────────────────────────────────────────────
+    if [[ -f "$PID_DIR/colab_keepalive.pid" ]]; then
+        info "Stopping Keep-Alive..."
+        kill_by_pid_file "$PID_DIR/colab_keepalive.pid"
+        pkill -f "colab_keepalive" 2>/dev/null || true
+        log "Keep-Alive stopped"
+    fi
+
+    # Clean up stale PID and restart counters
+    rm -f "${PID_DIR}"/*.pid "${PID_DIR}"/*.restart-count 2>/dev/null || true
 
     # Stop PostgreSQL (if running)
     if command -v pg_isready &>/dev/null && pg_isready -q 2>/dev/null; then
@@ -849,8 +888,7 @@ colab_stop_services() {
             || sudo pg_ctlcluster "${PG_VERSION:-$(ls /etc/postgresql/ 2>/dev/null | sort -V | tail -1)}" main stop 2>/dev/null \
             || sudo -u postgres pg_ctl -D "/var/lib/postgresql/${PG_VERSION:-$(ls /etc/postgresql/ 2>/dev/null | sort -V | tail -1)}/main" stop 2>/dev/null \
             || true
-        # Verify it stopped
-        sleep 2
+        sleep 1
         if pg_isready -q 2>/dev/null; then
             warn "PostgreSQL did not stop gracefully — forcing..."
             sudo pg_ctlcluster "${PG_VERSION:-$(ls /etc/postgresql/ 2>/dev/null | sort -V | tail -1)}" main stop -m immediate 2>/dev/null || true
@@ -872,23 +910,16 @@ colab_stop_services() {
 
 colab_restart_services() {
     head_ "Restarting AI 3D Studio Services (Colab)"
-    
-    # Stop all services
+
+    # Stop all services cleanly
     colab_stop_services
-    
+
     # Wait for ports to be released
-    info "Waiting for ports to be released..."
-    sleep 3
-    
-    # Verify ports are free
-    for i in {1..10}; do
-        if ! curl -sf http://localhost:8000/api/v1/health &>/dev/null; then
-            break
-        fi
-        info "Waiting for API to stop... ($i/10)"
-        sleep 2
-    done
-    
+    info "Ensuring all ports are released..."
+    free_port 8000
+    free_port 3000
+    sleep 2
+
     # Start all services
     colab_start_services
 }
@@ -999,6 +1030,28 @@ _colab_show_status() {
     fi
     echo ""
 }
+
+# ── Handle CLI Action Flags ──────────────────────────────────────────────
+if [[ -n "${ACTION:-}" ]]; then
+    case "$ACTION" in
+        stop)
+            colab_stop_services
+            exit 0
+            ;;
+        restart)
+            colab_restart_services
+            exec bash "${PROJECT_ROOT}/scripts/colab_watch.sh" --foreground
+            ;;
+        start)
+            colab_start_services
+            exec bash "${PROJECT_ROOT}/scripts/colab_watch.sh" --foreground
+            ;;
+        status)
+            _colab_show_status
+            exit 0
+            ;;
+    esac
+fi
 
 # ── Interactive Launcher (default when no flags) ─────────────────────────
 # If no setup flags were passed, show the interactive menu.
@@ -1859,6 +1912,8 @@ fi
 # ── Start Backend API ─────────────────────────────────────────────────────
 step "Starting Backend API (http://localhost:8000)..."
 kill_by_pid_file "$PID_DIR/api.pid"
+pkill -TERM -f "uvicorn app.main:app" 2>/dev/null || true
+free_port 8000
 (
     cd backend
     nohup $PYTHON_BIN -m uvicorn app.main:app \
@@ -1899,6 +1954,7 @@ info "Colab service supervisor will remain attached to this terminal."
 # ── Start Celery Worker ───────────────────────────────────────────────────
 step "Starting Celery Worker..."
 kill_by_pid_file "$PID_DIR/worker.pid"
+pkill -TERM -f "celery -A app.workers.celery_app worker" 2>/dev/null || true
 # When Redis is absent the env already points CELERY_BROKER_URL at memory://;
 # pass it explicitly too so the worker boots without a Redis connection.
 CELERY_BROKER_ARG=""
@@ -1940,9 +1996,12 @@ if [[ ! -d .next ]]; then
 fi
 
 kill_by_pid_file "$PID_DIR/frontend.pid"
+pkill -TERM -f "next start" 2>/dev/null || true
+pkill -TERM -f "next-server" 2>/dev/null || true
+free_port 3000
 
 # Node/npm was validated before any npm command; keep this start path simple.
-local effective_backend_url="${BACKEND_URL:-http://127.0.0.1:8000}"
+effective_backend_url="${BACKEND_URL:-http://127.0.0.1:8000}"
 if [[ "$effective_backend_url" == *"api:8000"* ]]; then
     effective_backend_url="http://127.0.0.1:8000"
 fi

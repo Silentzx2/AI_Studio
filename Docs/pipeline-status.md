@@ -1,8 +1,22 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.9.6 (Remove NumPy from Overlay System Entirely)
+> **Version**: 4.9.7 (Colab Service Lifecycle, EADDRINUSE Port Freeing, and CLI Actions)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-04
 > **Last Updated**: September 4, 2026
+
+---
+
+## v4.9.7 — Colab Service Lifecycle, EADDRINUSE Fix & CLI Actions (2026-09-04)
+
+### What changed
+- **EADDRINUSE 3000 & 8000 Resolution**: Added `free_port()` helper using `fuser` and `lsof` to force-kill orphaned processes and release TCP ports before starting Next.js and FastAPI across `scripts/colab.sh`, `scripts/colab_watch.sh`, and `scripts/stop.sh`.
+- **Next.js Server Process Group Termination**: Stopping frontend now targets both the parent process (`npm start`) and child node workers (`next start`, `next-server`), preventing UI processes from remaining alive after `stop` or failing on `restart`.
+- **Service Termination Order in `colab_stop_services`**: Termination order adjusted to stop `supervisor.pid` and `watchdog.pid` before application services, preventing supervisor auto-restart loops during intentional shutdown.
+- **Supervisor Foreground Takeover**: When `colab_watch.sh --foreground` is invoked, it now gracefully replaces any existing background supervisor instead of exiting immediately and causing Colab cell termination.
+- **CLI Action Flags in `colab.sh`**: Added explicit support for `--start`, `--stop`, `--restart`, and `--status` arguments.
+
+### Root cause
+In Colab, `kill "$pid"` on `npm start` left the underlying `node` server orphaned and bound to port 3000. Subsequent restart attempts failed with `Error: listen EADDRINUSE: address already in use :::3000`. Concurrently, `colab_stop_services` stopped the supervisor after stopping the services, causing the supervisor to detect a failure and immediately re-trigger service launches.
 
 ---
 
