@@ -93,7 +93,10 @@ export function diagnoseJobError(job: AdminJob): JobDiagnostic | null {
   let issueDescription = `${providerLabel} runtime environment error`;
   let suggestedAction = `Re-initialize ${providerLabel} environment and run preflight`;
 
-  if (/cannot import name '_imaging'|pillow/i.test(rawError)) {
+  if (/cannot import name '_regex'|regex/i.test(rawError)) {
+    issueDescription = 'regex C-extension ABI mismatch (Python 3.10 vs 3.12)';
+    suggestedAction = `Rebuild backend overlay with Python 3.12 regex C-extension and repair runtime`;
+  } else if (/cannot import name '_imaging'|pillow/i.test(rawError)) {
     issueDescription = 'Pillow C-extension incompatibility in model virtualenv';
     suggestedAction = `Rebuild runtime overlay and reinstall Pillow C-extensions for ${providerLabel}`;
   } else if (/load failed/i.test(rawError)) {

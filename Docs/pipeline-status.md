@@ -1,8 +1,21 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.9.0 (Pillow Isolation Fix, Preflight State & Weight Path Resolution)
+> **Version**: 4.9.2 (Cross-Python C-Extension Overlay & regex ABI Resolution)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-04
 > **Last Updated**: September 4, 2026
+
+---
+
+## v4.9.2 — Cross-Python C-Extension Overlay & regex ABI Resolution (2026-09-04)
+
+### What changed
+- **General C-Extension Overlay Engine (`_fix_overlay_packages`)**:
+  - Generalized model virtualenv overlay handling in `backend/app/core/providers/base.py` to support `regex` (`_regex`), `pillow` (`_imaging`), and `safetensors` (`_safetensors_rust`).
+  - When backend Python 3.12 loads a model whose virtualenv was provisioned with Python 3.10 (such as `Hunyuan3D-2mini`), ABI-incompatible C extensions now automatically get copied or compiled into the backend overlay directory (`lib/python3.12/site-packages`) and prepended to `sys.path[0]`.
+  - In `_add_model_env()`, stale or partially imported modules in `sys.modules` (`regex`, `PIL`, `safetensors`) are purged and cleanly reloaded from the Python 3.12 overlay, preventing circular import and uninitialized module errors.
+  - Updated `backend/runtime/installer.py` to proactively stage backend builds for `regex` and `pillow` during repository installation.
+- **Frontend Error Diagnostics & Repair Guidance**:
+  - Updated `lib/jobDiagnostics.ts` to identify `regex` C-extension ABI errors and offer actionable diagnostic guidance and one-click repair.
 
 ---
 

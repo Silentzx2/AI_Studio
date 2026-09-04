@@ -48,92 +48,117 @@ def _backend_overlay_site_packages(venv_dir: Path) -> Path:
     return overlay
 
 
-def _fix_pillow(repo_name: str) -> bool:
-    """Ensure Pillow works in BOTH the venv Python (preflight) and the
-    backend Python (in-process inference).
+def _fix_c_package_overlay(repo_name: str, pkg_name: str, import_name: str, check_stmt: str) -> bool:
+    """Ensure a C-extension package works in BOTH the venv Python (preflight)
+    and the backend Python (in-process inference).
 
-    The venv's Pillow C extension is compiled for the venv's Python, which
-    may differ from the backend's. The backend cannot load a venv-Python
-    C extension, so we install a backend-Python copy into an overlay dir
-    and prepend it to sys.path. Returns True if the backend can import
-    _imaging after the fix.
+    When a model venv is created with a different Python (e.g. 3.10) than the
+    backend worker (3.12), C extensions like `_imaging` (Pillow) or `_regex` (regex)
+    compiled for 3.10 cannot be loaded by Python 3.12. We copy or install a
+    backend-Python build into the overlay directory and prepend it to sys.path.
     """
     from runtime.storage import get_storage_config
     storage = get_storage_config()
     venv_python = storage.get_model_venv_python(repo_name)
     venv_dir = storage.get_model_venv_path(repo_name)
-    if venv_python is None:
-        logger.warning("_fix_pillow: venv_python is None for %s", repo_name)
+    if venv_python is None or not venv_dir.exists():
         return False
+
     # 1) Venv-Python check (preflight compatibility)
-    code, out = _run([str(venv_python), "-c", "from PIL import _imaging; print('ok')"])
-    logger.info("_fix_pillow: %s venv check code=%d out=%r", repo_name, code, out[:100])
+    code, out = _run([str(venv_python), "-c", check_stmt])
+    logger.info("_fix_overlay[%s:%s]: venv check code=%d out=%r", repo_name, pkg_name, code, out[:100])
     if code != 0 or "ok" not in out:
-        logger.warning("Pillow C extension broken for %s (venv) — force-reinstalling...", repo_name)
+        logger.warning("%s C extension broken for %s (venv) — reinstalling in venv...", pkg_name, repo_name)
         import shutil
         uv_path = shutil.which("uv")
         if uv_path:
             _run([uv_path, "pip", "install", "--python", str(venv_python),
-                  "--force-reinstall", "--no-cache-dir", "pillow"])
+                  "--force-reinstall", "--no-cache-dir", pkg_name])
         else:
             _run([str(venv_python), "-m", "pip", "install", "--force-reinstall",
-                  "--no-cache-dir", "pillow"])
-        code, out = _run([str(venv_python), "-c", "from PIL import _imaging; print('ok')"])
-        logger.info("_fix_pillow: %s venv re-check code=%d out=%r", repo_name, code, out[:100])
+                  "--no-cache-dir", pkg_name])
+        code, out = _run([str(venv_python), "-c", check_stmt])
+        logger.info("_fix_overlay[%s:%s]: venv re-check code=%d out=%r", repo_name, pkg_name, code, out[:100])
+
     # 2) Backend-Python check (in-process inference) — overlay dir
     overlay = _backend_overlay_site_packages(venv_dir)
     backend_py = str(Path(sys.executable))
-    # Test that the overlay directory itself has a working Pillow with _imaging
     check_overlay_code = (
         f"import sys; sys.path = [{str(overlay)!r}] + [p for p in sys.path if 'site-packages' not in p and 'dist-packages' not in p]; "
-        f"from PIL import _imaging; print('ok')"
+        f"{check_stmt}"
     )
     bcode, bout = _run([backend_py, "-c", check_overlay_code])
-    logger.info("_fix_pillow: %s backend overlay check code=%d out=%r", repo_name, bcode, bout[:100])
+    logger.info("_fix_overlay[%s:%s]: backend overlay check code=%d out=%r", repo_name, pkg_name, bcode, bout[:100])
     if bcode == 0 and "ok" in bout:
         return True
 
-    # If backend Python has a working Pillow elsewhere (e.g. in its own environment),
-    # copy it directly into the overlay so it's guaranteed to be available at overlay site-packages
-    check_backend_code = "import PIL; from PIL import _imaging; print(PIL.__file__)"
+    # 3) Check if backend Python already has a working package in its environment, and copy it
+    check_backend_code = f"import {import_name}; {check_stmt}; print(getattr({import_name}, '__file__', ''))"
     bkcode, bkout = _run([backend_py, "-c", check_backend_code])
-    if bkcode == 0 and "PIL" in bkout:
+    if bkcode == 0 and ("ok" in bkout or import_name in bkout):
         try:
             import shutil
-            pil_file = Path(bkout.strip().splitlines()[-1])
-            src_pil_dir = pil_file.parent
-            dst_pil_dir = overlay / "PIL"
-            if src_pil_dir.is_dir() and (src_pil_dir != dst_pil_dir):
+            last_line = bkout.strip().splitlines()[-1]
+            if last_line and Path(last_line).exists():
+                mod_file = Path(last_line)
+                src_dir = mod_file.parent if mod_file.name == "__init__.py" else mod_file
+                dst_dir = overlay / (src_dir.name)
                 overlay.mkdir(parents=True, exist_ok=True)
-                if dst_pil_dir.exists():
-                    shutil.rmtree(str(dst_pil_dir), ignore_errors=True)
-                shutil.copytree(str(src_pil_dir), str(dst_pil_dir), symlinks=True)
-                for dist in src_pil_dir.parent.glob("pillow-*.dist-info"):
+                if src_dir.is_dir() and (src_dir != dst_dir):
+                    if dst_dir.exists():
+                        shutil.rmtree(str(dst_dir), ignore_errors=True)
+                    shutil.copytree(str(src_dir), str(dst_dir), symlinks=True)
+                elif src_dir.is_file():
+                    shutil.copy2(str(src_dir), str(dst_dir))
+                # Copy dist-info metadata if available
+                norm_pkg = pkg_name.lower().replace("-", "_")
+                for dist in src_dir.parent.glob(f"{norm_pkg}*.dist-info"):
                     dst_dist = overlay / dist.name
                     if not dst_dist.exists():
                         shutil.copytree(str(dist), str(dst_dist), symlinks=True)
                 bcode, bout = _run([backend_py, "-c", check_overlay_code])
                 if bcode == 0 and "ok" in bout:
-                    logger.info("_fix_pillow: %s successfully copied backend Pillow to overlay", repo_name)
+                    logger.info("_fix_overlay[%s:%s]: copied backend package to overlay successfully", repo_name, pkg_name)
                     return True
         except Exception as exc:
-            logger.warning("_fix_pillow: failed copying backend Pillow to overlay: %s", exc)
+            logger.warning("_fix_overlay[%s:%s]: failed copying backend package to overlay: %s", repo_name, pkg_name, exc)
 
-    # Backend can't import _imaging from the overlay — install backend-Python Pillow
-    logger.warning("Pillow not importable by backend Python for %s — installing overlay...", repo_name)
+    # 4) Install directly into overlay using backend Python
+    logger.warning("%s C extension missing or incompatible for %s — installing into overlay...", pkg_name, repo_name)
     import shutil
     uv_path = shutil.which("uv")
     if uv_path:
         _run([uv_path, "pip", "install", "--python", backend_py,
               "--target", str(overlay),
-              "--force-reinstall", "--no-cache-dir", "pillow"])
+              "--force-reinstall", "--no-cache-dir", pkg_name])
     else:
         _run([backend_py, "-m", "pip", "install",
               "--target", str(overlay),
-              "--force-reinstall", "--no-cache-dir", "pillow"])
+              "--force-reinstall", "--no-cache-dir", pkg_name])
     bcode, bout = _run([backend_py, "-c", check_overlay_code])
-    logger.info("_fix_pillow: %s backend overlay re-check code=%d out=%r", repo_name, bcode, bout[:100])
+    logger.info("_fix_overlay[%s:%s]: backend overlay re-check code=%d out=%r", repo_name, pkg_name, bcode, bout[:100])
     return bcode == 0 and "ok" in bout
+
+
+def _fix_overlay_packages(repo_name: str) -> bool:
+    """Ensure all critical C-extension packages (Pillow, regex, safetensors)
+    have working backend-Python builds in the model's overlay directory.
+    """
+    packages = [
+        ("pillow", "PIL", "from PIL import _imaging; print('ok')"),
+        ("regex", "regex", "from regex import _regex; print('ok')"),
+        ("safetensors", "safetensors", "import safetensors; from safetensors import _safetensors_rust; print('ok')"),
+    ]
+    all_ok = True
+    for pkg_name, import_name, check_stmt in packages:
+        ok = _fix_c_package_overlay(repo_name, pkg_name, import_name, check_stmt)
+        if not ok:
+            all_ok = False
+    return all_ok
+
+
+# Backward compatibility alias
+_fix_pillow = _fix_overlay_packages
 
 
 def _run(cmd: list[str], cwd: str | None = None) -> tuple[int, str]:
@@ -230,21 +255,26 @@ def _add_model_env(repo_name: str) -> None:
                 del sys.modules[mod_name]
                 break
 
-    # Ensure Pillow is verified and working in sys.modules.
-    # If a broken Pillow was previously cached in sys.modules (e.g. from a venv
-    # Python C-extension), purge and load it fresh from the overlay at sys.path[0].
-    try:
-        from PIL import _imaging  # noqa: F401
-    except Exception:
-        for mod_name in list(sys.modules.keys()):
-            if mod_name == "PIL" or mod_name.startswith("PIL."):
-                del sys.modules[mod_name]
+    # Ensure critical C-extension modules are verified and working in sys.modules.
+    # If an ABI-incompatible version was previously cached (e.g. from a Python 3.10
+    # venv C-extension), purge and reload fresh from the overlay at sys.path[0].
+    _VERIFY_MODULES = [
+        ("PIL", "from PIL import _imaging"),
+        ("regex", "from regex import _regex"),
+        ("safetensors", "from safetensors import _safetensors_rust"),
+    ]
+    for mod_pkg, test_code in _VERIFY_MODULES:
         try:
-            import PIL
-            from PIL import _imaging  # noqa: F401
-            logger.info("_add_model_env: successfully loaded verified PIL from %s", getattr(PIL, "__file__", "overlay"))
-        except Exception as exc:
-            logger.error("_add_model_env: failed to load working PIL from overlay: %s", exc)
+            exec(test_code)
+        except Exception:
+            for mod_name in list(sys.modules.keys()):
+                if mod_name == mod_pkg or mod_name.startswith(mod_pkg + "."):
+                    del sys.modules[mod_name]
+            try:
+                exec(test_code)
+                logger.info("_add_model_env: successfully verified %s from overlay", mod_pkg)
+            except Exception as exc:
+                logger.debug("_add_model_env: module %s not loaded or optional: %s", mod_pkg, exc)
 
 
 class DownloadProvider(ABC):

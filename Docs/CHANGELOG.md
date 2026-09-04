@@ -1,5 +1,23 @@
 # AI 3D Studio — Changelog
 
+## [v4.9.2] - 2026-09-04
+
+### Fixed
+
+#### `regex` C-extension ABI Incompatibility During In-Process Model Loading
+- **Symptom**: During model loading (e.g., `Hunyuan3D-2 Mini` calling `from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline`), inference crashed with:
+  `RuntimeError: Hunyuan3D-2 Mini load failed: cannot import name '_regex' from partially initialized module 'regex' (most likely due to a circular import)`.
+- **Root Cause**:
+  1. Per-model virtual environments (e.g. `Hunyuan3D-2mini/.venv`) are configured with Python 3.10, whereas the backend API and Celery worker processes execute on Python 3.12.
+  2. When `hy3dgen` or other pipelines import `transformers`, `transformers` executes `import regex as re`.
+  3. `regex` was resolving from `venv_sps` (`python3.10/site-packages/regex`), which contains `_regex.cpython-310-*.so`. Python 3.12 cannot load C extensions built for Python 3.10 due to ABI tag differences.
+  4. Previously, only Pillow (`_fix_pillow`) had overlay population logic; other critical C-extension packages like `regex` and `safetensors` were not being installed into or copied to the Python 3.12 overlay (`lib/python3.12/site-packages`).
+- **Fix**:
+  - `_fix_overlay_packages()` in `backend/app/core/providers/base.py`: Generalized the overlay management to verify and populate all critical C-extension packages (`pillow`, `regex`, `safetensors`) in the backend overlay directory before model loading. If the package exists in backend Python, it is copied directly; otherwise, it is installed targeting the overlay using backend Python.
+  - In `_add_model_env()`, critical C-extension modules (`PIL`, `regex`, `safetensors`) are validated and purged from `sys.modules` if broken, ensuring fresh loading from the Python 3.12 overlay at `sys.path[0]`.
+  - Updated `backend/runtime/installer.py` overlay installation to inspect dependencies for `transformers`/`regex` and install backend-Python builds into the overlay at install time.
+  - Enhanced `lib/jobDiagnostics.ts` to identify `regex` C-extension ABI errors and offer actionable diagnostic guidance and one-click repair.
+
 ## [v4.9.1] - 2026-09-04
 
 ### Added / Changed
