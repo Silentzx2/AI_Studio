@@ -195,7 +195,13 @@ start_frontend() {
         cd "${PROJECT_ROOT}" || exit 1
         export HOSTNAME="$FRONTEND_HOST"
         export PORT=3000
-        export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-http://localhost:8000}"
+        # In Colab/native environments, Docker hostname 'api' is not resolvable
+        local effective_backend_url="${BACKEND_URL:-http://127.0.0.1:8000}"
+        if [[ "$effective_backend_url" == *"api:8000"* ]]; then
+            effective_backend_url="http://127.0.0.1:8000"
+        fi
+        export BACKEND_URL="$effective_backend_url"
+        export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}"
         exec npm start
     ) >> "${LOG_DIR}/frontend.log" 2>&1 &
     write_pid frontend "$!"

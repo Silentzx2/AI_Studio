@@ -4,6 +4,17 @@
 
 ### Added / Fixed
 
+#### Frontend to FastAPI Connectivity Fix (`getaddrinfo ENOTFOUND api`)
+- **Root Cause Resolution**: Next.js API proxy routes (`app/api/v1/[...path]/route.ts`, `app/static/[...path]/route.ts`, and `app/api/v1/settings/route.ts`) were hardcoded to return `http://api:8000` whenever `NODE_ENV === 'production'`. In Colab, native VMs, or non-Docker environments, the service hostname `api` is not resolvable in DNS, causing all client requests (status, jobs, SSE streams, model downloads) to crash with `getaddrinfo ENOTFOUND api`.
+- **Loopback Defaulting (`127.0.0.1:8000`)**: Updated `getBackendUrl()` to default to `http://127.0.0.1:8000` (IPv4 loopback) whenever `BACKEND_URL` is unset or empty, matching where Uvicorn / FastAPI listens.
+- **Active Runtime Failover (`fetchWithBackendFallback`)**: Added resilient failover across GET, POST, PUT, DELETE, and SSE streams in `app/api/v1/[...path]/route.ts`, `app/static/[...path]/route.ts`, and `app/api/v1/settings/route.ts`. If an environment variable or legacy config still points to `api:8000`, the proxy catches the `ENOTFOUND` DNS error, fails over immediately to `http://127.0.0.1:8000`, and caches the loopback URL for all subsequent calls.
+- **Supervisor & Startup Script Exports (`colab_watch.sh`, `colab.sh`, `start.sh`)**: Updated frontend startup routines to explicitly export `BACKEND_URL="${BACKEND_URL:-http://127.0.0.1:8000}"` and sanitize any `api:8000` values to `127.0.0.1:8000`.
+
+#### Backend Environment Pre-Validation Helper (`backend/scripts/validate_env.py`)
+- **Dedicated Pre-Flight Validation Helper**: Created `backend/scripts/validate_env.py` providing schema validation and safe defaults for missing or empty environment variables (`DATABASE_URL`, `REDIS_URL`, `BACKEND_URL`, `STORAGE_LOCAL_PATH`, numeric ports/margins, and boolean feature flags).
+- **Migration Hook Integration**: Hooked `validate_env.py` execution prior to Alembic database migrations in `scripts/colab.sh` and `scripts/start.sh`, guaranteeing zero validation crashes before migrations run.
+- **Self-Check Test (`backend/runtime/test_validate_env.py`)**: Added runnable unit tests verifying boolean/integer parsing, driver adaptation (`postgresql+asyncpg://`), Docker hostname sanitization, and environment defaults.
+
 #### Settings Empty-String Environment Variable Resilience (Pydantic ValidationError Fix)
 - **Root Cause Resolution**: When `.env.example` was copied to `.env` in Colab or native setups, unpopulated variables (`DEBUG=`, `ENVIRONMENT=`, `STORAGE_BACKEND=`, `MAX_VRAM_MB=`, etc.) exported empty strings (`""`) into `os.environ`. Pydantic v2 failed with 12 validation errors on `Settings` instantiation during `alembic upgrade head`.
 - **Pre-Validation Sanitization (`backend/app/config.py`)**: Added `@model_validator(mode="before")` (`clean_empty_strings`) to `Settings` to filter out empty string variables before field type validation, allowing all fields to cleanly fall back to their declared defaults.

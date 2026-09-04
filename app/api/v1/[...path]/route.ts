@@ -198,19 +198,52 @@ async function handleDirectAssetDelete(filename: string) {
  * - SSE endpoints are handled with streaming responses
  */
 
-// Local dev -> localhost
-// Production fallback -> Docker service (api:8000)
+let activeBackendUrl: string | null = null;
+
+// Local dev & Colab -> loopback 127.0.0.1:8000
 // BACKEND_URL always takes precedence if provided.
 function getBackendUrl(): string {
+  if (activeBackendUrl) {
+    return activeBackendUrl;
+  }
+
   const value = process.env.BACKEND_URL?.trim();
 
   if (value && value !== 'undefined' && value !== 'null') {
     return value.replace(/\/+$/, '');
   }
 
-  return process.env.NODE_ENV === 'production'
-    ? 'http://api:8000'
-    : 'http://localhost:8000';
+  // Default to IPv4 loopback where FastAPI runs in native / Colab environments
+  return 'http://127.0.0.1:8000';
+}
+
+/**
+ * Resilient fetcher that forwards requests to the backend.
+ * If the configured backend URL uses Docker hostname 'api' but fails due to ENOTFOUND
+ * (e.g. in Colab or native execution outside Docker networks), it automatically fails
+ * over to 127.0.0.1:8000 and remembers the working address for subsequent requests.
+ */
+async function fetchWithBackendFallback(
+  url: string,
+  init: RequestInit
+): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch (error: any) {
+    const isDnsOrConnectionError =
+      error?.cause?.code === 'ENOTFOUND' ||
+      error?.code === 'ENOTFOUND' ||
+      error?.message?.includes('ENOTFOUND') ||
+      error?.message?.includes('fetch failed');
+
+    if (isDnsOrConnectionError && (url.includes('//api:8000') || url.includes('//api/'))) {
+      const fallbackUrl = url.replace(/\/\/api(:8000)?\//, '//127.0.0.1:8000/');
+      console.warn(`[API Proxy] Host 'api' unreachable; failing over to ${fallbackUrl}`);
+      activeBackendUrl = 'http://127.0.0.1:8000';
+      return await fetch(fallbackUrl, init);
+    }
+    throw error;
+  }
 }
 
 // SSE endpoints that need streaming responses
@@ -245,7 +278,7 @@ export async function GET(
   }
   
   try {
-    const response = await fetch(targetUrl, {
+    const response = await fetchWithBackendFallback(targetUrl, {
       method: 'GET',
       headers: getForwardingHeaders(request),
       signal: AbortSignal.timeout(10000),
@@ -302,7 +335,7 @@ export async function POST(
     }
     
     try {
-      const response = await fetch(targetUrl, {
+      const response = await fetchWithBackendFallback(targetUrl, {
         method: 'POST',
         headers,
         body: body || undefined,
@@ -359,7 +392,7 @@ export async function PUT(
   
   try {
     const body = await request.text();
-    const response = await fetch(targetUrl, {
+    const response = await fetchWithBackendFallback(targetUrl, {
       method: 'PUT',
       headers: {
         'content-type': request.headers.get('content-type') || 'application/json',
@@ -390,7 +423,7 @@ export async function DELETE(
   const targetUrl = `${BACKEND_URL}/api/v1/${fullPath}${request.nextUrl.search}`;
   
   try {
-    const response = await fetch(targetUrl, {
+    const response = await fetchWithBackendFallback(targetUrl, {
       method: 'DELETE',
       headers: getForwardingHeaders(request),
       signal: AbortSignal.timeout(10000),
@@ -484,7 +517,7 @@ async function streamResponse(targetUrl: string, request: NextRequest): Promise<
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 1800000); // 30 min safety timeout; jobs can run longer than 5 min
     
-    const response = await fetch(targetUrl, {
+    const response = await fetchWithBackendFallback(targetUrl, {
       method: 'GET',
       headers: {
         'accept': 'text/event-stream',

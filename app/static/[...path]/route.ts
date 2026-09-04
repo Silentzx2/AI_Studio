@@ -10,14 +10,17 @@ export const runtime = 'nodejs';
  * with local filesystem fallback to /backend/storage when backend is offline.
  */
 
+let activeBackendUrl: string | null = null;
+
 function getBackendUrl(): string {
+  if (activeBackendUrl) {
+    return activeBackendUrl;
+  }
   const value = process.env.BACKEND_URL?.trim();
   if (value && value !== 'undefined' && value !== 'null') {
     return value.replace(/\/+$/, '');
   }
-  return process.env.NODE_ENV === 'production'
-    ? 'http://api:8000'
-    : 'http://localhost:8000';
+  return 'http://127.0.0.1:8000';
 }
 
 function getMimeType(filePath: string): string {
@@ -91,10 +94,24 @@ export async function GET(
   const targetUrl = `${BACKEND_URL}/static/${fullPath}`;
 
   try {
-    const response = await fetch(targetUrl, {
-      method: 'GET',
-      signal: AbortSignal.timeout(10000),
-    });
+    let response: Response;
+    try {
+      response = await fetch(targetUrl, {
+        method: 'GET',
+        signal: AbortSignal.timeout(10000),
+      });
+    } catch (fetchErr: any) {
+      if (targetUrl.includes('//api:8000') || fetchErr?.cause?.code === 'ENOTFOUND') {
+        activeBackendUrl = 'http://127.0.0.1:8000';
+        const fallbackUrl = targetUrl.replace(/\/\/api(:8000)?\//, '//127.0.0.1:8000/');
+        response = await fetch(fallbackUrl, {
+          method: 'GET',
+          signal: AbortSignal.timeout(10000),
+        });
+      } else {
+        throw fetchErr;
+      }
+    }
 
     if (response.ok) {
       // Forward the response with appropriate headers

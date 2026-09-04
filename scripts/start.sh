@@ -441,6 +441,9 @@ echo ""
 step "3/6 Running database migrations..."
 (
     cd backend
+    if [[ -f scripts/validate_env.py ]]; then
+        $PYTHON_BIN scripts/validate_env.py --quiet 2>/dev/null || python3 scripts/validate_env.py --quiet 2>/dev/null || true
+    fi
     if $PYTHON_BIN -m alembic upgrade head 2>&1; then
         log "Migrations complete"
     else
@@ -527,7 +530,7 @@ npm run build 2>&1 | tail -5
 FRONTEND_RUN_CMD="npm start"
 
 # Start frontend
-NEXT_PUBLIC_API_URL=http://localhost:8000 setsid $FRONTEND_RUN_CMD \
+BACKEND_URL="${BACKEND_URL:-http://localhost:8000}" NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}" setsid $FRONTEND_RUN_CMD \
     > "$PROJECT_ROOT/logs/frontend.log" 2>&1 &
 write_pid "$FRONTEND_PID_FILE" $!
 

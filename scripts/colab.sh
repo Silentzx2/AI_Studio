@@ -558,6 +558,9 @@ colab_start_services() {
         done
         (
             cd backend
+            if [[ -f scripts/validate_env.py ]]; then
+                "$PYTHON_BIN" scripts/validate_env.py --quiet 2>/dev/null || python3 scripts/validate_env.py --quiet 2>/dev/null || true
+            fi
             MIGRATION_OK=false
             for attempt in 1 2 3; do
                 if "$PYTHON_BIN" -m alembic upgrade head 2>&1; then
@@ -685,7 +688,11 @@ colab_start_services() {
     (
         export HOSTNAME=0.0.0.0
         export PORT=3000
-        export NEXT_PUBLIC_API_URL=http://localhost:8000
+        export BACKEND_URL="${BACKEND_URL:-http://127.0.0.1:8000}"
+        if [[ "$BACKEND_URL" == *"api:8000"* ]]; then
+            BACKEND_URL="http://127.0.0.1:8000"
+        fi
+        export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}"
         nohup npm start > "$LOG_DIR/frontend.log" 2>&1 &
         write_pid "$FRONTEND_PID_FILE" $!
     )
@@ -1825,6 +1832,9 @@ done
 if [[ "$PG_READY" == "true" ]]; then
     (
         cd backend
+        if [[ -f scripts/validate_env.py ]]; then
+            "$PYTHON_BIN" scripts/validate_env.py --quiet 2>/dev/null || python3 scripts/validate_env.py --quiet 2>/dev/null || true
+        fi
         # Retry migrations up to 3 times
         MIGRATION_OK=false
         for attempt in 1 2 3; do
@@ -1932,7 +1942,11 @@ fi
 kill_by_pid_file "$PID_DIR/frontend.pid"
 
 # Node/npm was validated before any npm command; keep this start path simple.
-nohup env HOSTNAME=0.0.0.0 PORT=3000 NEXT_PUBLIC_API_URL=http://localhost:8000 \
+local effective_backend_url="${BACKEND_URL:-http://127.0.0.1:8000}"
+if [[ "$effective_backend_url" == *"api:8000"* ]]; then
+    effective_backend_url="http://127.0.0.1:8000"
+fi
+nohup env HOSTNAME=0.0.0.0 PORT=3000 BACKEND_URL="$effective_backend_url" NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}" \
     npm start \
     > "$LOG_DIR/frontend.log" 2>&1 &
 write_pid "$PID_DIR/frontend.pid" $!
