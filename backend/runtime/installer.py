@@ -942,7 +942,7 @@ def _uv_install(
         )
         _run_uv(
             ["pip", "install", "--python", str(venv_python),
-             "--force-reinstall", "--no-cache-dir", "--no-binary", "pillow", "pillow"],
+             "--force-reinstall", "--no-cache-dir", "pillow"],
             cwd=repo_dir,
         )
 
@@ -1002,7 +1002,11 @@ def _verify_and_fix_critical_packages(venv_python: Path, repo_dir: Path, req_blo
     critical = list(dict.fromkeys([*manifest_critical, "torch", "transformers", "diffusers", "numpy", "PIL"]))
     uv_path = shutil.which("uv")
     for pkg in critical:
-        if not re.search(rf"\b{re.escape(pkg)}\b", req_blob, re.IGNORECASE):
+        # Map import name to package name for regex check.
+        # PIL is the import name; the package is "Pillow" (with "low").
+        # \bPIL\b does NOT match "Pillow>=10.0" because "l" follows "PIL".
+        regex_pkg = "pillow" if pkg == "PIL" else pkg
+        if not re.search(rf"\b{re.escape(regex_pkg)}\b", req_blob, re.IGNORECASE):
             continue
         # Special handling for PIL: check the C extension (_imaging) directly
         # since `import PIL` can succeed even when _imaging is missing.
