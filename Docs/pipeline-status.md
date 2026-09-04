@@ -1,8 +1,25 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.9.5 (Fix NumPy C-Extension Double-Load Crash)
+> **Version**: 4.9.6 (Remove NumPy from Overlay System Entirely)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-04
 > **Last Updated**: September 4, 2026
+
+---
+
+## v4.9.6 — Remove NumPy from Overlay System Entirely (2026-09-04)
+
+### What changed
+- **Removed numpy from `_fix_overlay_packages`, `_SHARED_PKGS`, and `_VERIFY_MODULES`**: numpy is fundamentally different from pillow/regex/safetensors — its C extension (`_multiarray_umath`) is loaded via `dlopen` and cannot coexist with a second installation in the same process. The backend already has a working Python 3.12 numpy; the overlay system should not touch it at all.
+- `_patch_numpy_legacy_aliases()` remains — it only patches missing attribute names (`np.long`, `np.ulong`) on the already-loaded module without reinstalling or reimporting numpy.
+
+### Root cause
+v4.9.3–4.9.5 attempted to handle numpy through the overlay system (install 3.12 build into overlay, purge from sys.modules, verify ABI). But numpy's C core cannot be reloaded or replaced in a running process — any second `_multiarray_umath.so` on `sys.path` triggers `ImportError: cannot load module more than once per process`. The correct approach: leave the backend's numpy alone; `_add_model_env()` path ordering already prevents the 3.10 venv's numpy from winning.
+
+### Cleanup required
+After pulling this fix, delete stale overlay numpy from model venvs and restart Celery:
+```bash
+rm -rf backend/third_party/*/venv/lib/python3.12/site-packages/numpy*
+```
 
 ---
 
