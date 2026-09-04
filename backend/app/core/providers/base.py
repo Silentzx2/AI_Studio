@@ -32,6 +32,50 @@ def _patch_numpy_legacy_aliases() -> None:
         _np.ulong = _np.uint
 
 
+def _fix_pillow(repo_name: str) -> bool:
+    """Force-reinstall Pillow in the per-model venv if _imaging is broken.
+
+    When the per-model venv's Pillow C extension (_imaging) is corrupted
+    or missing, `from PIL import Image` fails with ImportError.
+    This function detects that and force-reinstalls Pillow using the
+    venv's own Python, which pulls a prebuilt wheel with the working
+    C extension. Returns True if PIL is working after the fix.
+    """
+    from runtime.storage import get_storage_config
+    storage = get_storage_config()
+    venv_python = storage.get_model_venv_python(repo_name)
+    if venv_python is None:
+        return False
+    # Check if _imaging is importable
+    code, out = _run([str(venv_python), "-c", "from PIL import _imaging; print('ok')"])
+    if code == 0 and "ok" in out:
+        return True
+    # PIL is broken — force-reinstall using the venv Python
+    logger.warning("Pillow C extension broken for %s — force-reinstalling...", repo_name)
+    import shutil
+    uv_path = shutil.which("uv")
+    if uv_path:
+        _run([uv_path, "pip", "install", "--python", str(venv_python),
+              "--force-reinstall", "--no-cache-dir", "pillow"])
+    # Re-check
+    code, out = _run([str(venv_python), "-c", "from PIL import _imaging; print('ok')"])
+    return code == 0 and "ok" in out
+
+
+def _run(cmd: list[str], cwd: str | None = None) -> tuple[int, str]:
+    """Run a command and return (returncode, output)."""
+    import subprocess
+    proc = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, cwd=cwd,
+    )
+    lines: list[str] = []
+    for line in proc.stdout:
+        lines.append(line.rstrip())
+    proc.wait()
+    return proc.returncode, "\n".join(lines)
+
+
 def _add_model_env(repo_name: str) -> None:
     """Make a model repo importable in-process from the backend worker.
 
@@ -44,6 +88,11 @@ def _add_model_env(repo_name: str) -> None:
     """
     # Must run before any model-stack import that touches numpy (e.g. scipy).
     _patch_numpy_legacy_aliases()
+
+    # Fix broken Pillow C extension before any model imports.
+    # This handles the case where the per-model venv's Pillow
+    # has a corrupted/missing _imaging C extension.
+    _fix_pillow(repo_name)
 
     from runtime.storage import get_storage_config
 

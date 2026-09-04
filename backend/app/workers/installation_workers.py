@@ -151,13 +151,41 @@ def repair_model(model_id: str):
                     pkg_name = pkg_info.get("name", "") if isinstance(pkg_info, dict) else pkg_info
                     if pkg_name:
                         try:
-                            # Try to install missing package
-                            import subprocess
-                            subprocess.run(
-                                ["pip", "install", "-q", pkg_name],
-                                capture_output=True,
-                                timeout=120
-                            )
+                            # Find the per-model venv Python path
+                            from runtime.storage import get_storage_config
+                            from app.core.registry.model_registry import PROVIDER_METADATA
+                            provider_name = model_id
+                            repo_name = None
+                            for pname, pmeta in PROVIDER_METADATA.items():
+                                if pname == provider_name and pmeta.get("repo"):
+                                    repo_name = pmeta["repo"]
+                                    break
+                            if repo_name:
+                                storage = get_storage_config()
+                                venv_python = storage.get_model_venv_python(repo_name)
+                                if venv_python:
+                                    import shutil
+                                    uv_path = shutil.which("uv")
+                                    if uv_path:
+                                        subprocess.run(
+                                            [uv_path, "pip", "install", "--python", str(venv_python), "-q", pkg_name],
+                                            capture_output=True, timeout=120
+                                        )
+                                    else:
+                                        subprocess.run(
+                                            [str(venv_python), "-m", "pip", "install", "-q", pkg_name],
+                                            capture_output=True, timeout=120
+                                        )
+                                else:
+                                    subprocess.run(
+                                        ["pip", "install", "-q", pkg_name],
+                                        capture_output=True, timeout=120
+                                    )
+                            else:
+                                subprocess.run(
+                                    ["pip", "install", "-q", pkg_name],
+                                    capture_output=True, timeout=120
+                                )
                             repairs_made.append(f"Installed missing package: {pkg_name}")
                         except Exception as e:
                             repairs_made.append(f"Failed to install {pkg_name}: {e}")
