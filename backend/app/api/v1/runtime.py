@@ -211,12 +211,22 @@ async def get_runtime_options():
             # which made the model selector show "Installed" mid-download and
             # let the generation API accept a job for a not-yet-ready model.
             overall_state = status_entry.get("state")
-            is_installed = overall_state == "ready"
+            is_installed = bool(
+                status_entry.get("installed")
+                or overall_state in ("ready", "partial", "runtime_ready", "runtime_partial", "blocked")
+            )
             is_available = bool(
                 avail.get("available", False)
                 or overall_state in ("runtime_ready", "ready")
             )
-            model_status = "ready" if is_available else ("installed" if is_installed else "not_installed")
+            if is_available:
+                model_status = "ready"
+            elif overall_state in ("partial", "runtime_partial"):
+                model_status = "partial"
+            elif is_installed:
+                model_status = "installed"
+            else:
+                model_status = overall_state or "not_installed"
 
             # Per-capability VRAM from the manifest: shape-only vs textured
             # generation differ materially (e.g. 8 GB vs 16 GB), so the UI can

@@ -1107,7 +1107,20 @@ async def list_models():
             repo_name = meta.get("repo")
             weight_key = meta.get("weight_key")
             repo_path = str(storage.get_repo_path(repo_name)) if repo_name else None
-            weight_path = str(storage.get_weight_path(weight_key)) if weight_key else None
+            wp_found = storage.get_weight_path(weight_key) if weight_key else None
+            if not wp_found:
+                wp_found = storage.get_weight_path(name)
+            weight_path = str(wp_found) if wp_found else None
+
+            inst_state = inst.get("state")
+            is_installed = bool(
+                inst.get("installed", False)
+                or (wp_found is not None and inst.get("repo_ready", False))
+                or inst_state in ("ready", "partial", "runtime_ready", "runtime_partial", "blocked")
+            )
+            is_available = bool(
+                is_installed and (inst_state in ("ready", "runtime_ready", "partial") or inst.get("installed", False))
+            )
 
             models.append({
                 "id": name,
@@ -1115,8 +1128,10 @@ async def list_models():
                 "name": meta.get("label", name),
                 "category": meta.get("category", "unknown"),
                 "type": meta.get("category", "unknown"),
-                "installed": inst.get("installed", False),
-                "available": inst.get("installed", False),
+                "state": inst_state,
+                "status": "ready" if is_available else ("partial" if inst_state in ("partial", "runtime_partial") else ("installed" if is_installed else (inst_state or "not_installed"))),
+                "installed": is_installed,
+                "available": is_available,
                 "loaded": name in loaded_names,
                 "active": name == settings.ai_provider,
                 "vram_required_mb": meta.get("vram_required_mb", 0),
@@ -1127,7 +1142,9 @@ async def list_models():
                 "repo_path": repo_path,
                 "repo_ready": inst.get("repo_ready", False),
                 "venv_ready": inst.get("venv_ready", False),
-                "weights_ready": inst.get("weights_ready", False),
+                "weights_ready": inst.get("weights_ready", False) or (wp_found is not None),
+                "components": inst.get("components", {}),
+                "blocking_reason": inst.get("blocking_reason"),
                 "native_build": inst.get("components", {}).get("native_build", {"state": "not_required"}),
                 # ponytail: size/repo live in HF_MODELS (keyed by provider id),
                 # NOT PROVIDER_METADATA — the latter only stores the REPOS key.

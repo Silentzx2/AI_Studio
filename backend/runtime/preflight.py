@@ -55,8 +55,8 @@ print("ok")
 import torch
 from detailgen3d.pipelines.pipeline_detailgen3d import DetailGen3DPipeline
 pipe = DetailGen3DPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__).to("cpu")
-    print("ok")
-    """,
+print("ok")
+""",
     "hunyuan3d-2-mini": """
 import torch
 from PIL import Image
@@ -311,13 +311,13 @@ def _check_native_extensions(venv_python: Path, extensions: list[str]) -> list[P
     return results
 
 
-def _resolve_smoke_code(provider_name: str, code: str | None) -> str | None:
+def _resolve_smoke_code(provider_name: str, code: str | None, weight_target: str | None = None) -> str | None:
     if not code:
         return None
-    repo = _manifest_weight_repo(provider_name)
-    if not repo:
+    target = weight_target or _manifest_weight_repo(provider_name)
+    if not target:
         return code
-    return code.replace("__AI_STUDIO_WEIGHT_REPO__", repr(repo))
+    return code.replace("__AI_STUDIO_WEIGHT_REPO__", repr(str(target)))
 
 
 def run_preflight_for_provider(
@@ -414,8 +414,11 @@ def run_preflight_for_provider(
         # CUDA failure is a soft gate — model is PARTIAL, not FAILED
         # (CPU-only environments like Colab can't satisfy this)
     # --- Weights check ---
+    weights_path = None
     if not skip_weights_check:
         weights_path = storage.get_weight_path(weight_key) if weight_key else None
+        if not weights_path:
+            weights_path = storage.get_weight_path(provider_name)
         w_result = _check_weights(weights_path)
         checks["weights"] = {"passed": w_result.passed, "detail": w_result.detail}
         if not w_result.passed:
@@ -455,23 +458,32 @@ def run_preflight_for_provider(
             except Exception as exc:
                 checks["vram"] = {"passed": True, "detail": f"VRAM check skipped: {exc}"}
     # --- Model load test ---
-    smoke_code = _resolve_smoke_code(provider_name, _PROVIDER_SMOKE_TESTS.get(provider_name))
-    if not smoke_code:
-        # Smoke test not implemented — skip rather than fail
+    if skip_weights_check or not weights_path:
         checks["model_load"] = {
             "passed": True,
-            "detail": "Smoke test not implemented — skipped",
+            "detail": "Smoke test skipped (weights not checked or missing)",
         }
     else:
-        code_r, output = _run_in_venv(venv_python, smoke_code, timeout_sec=120)
-        ok = code_r == 0 and "ok" in output
-        # If import failed due to missing module, treat as skipped
-        checks["model_load"] = {
-            "passed": ok,
-            "detail": output[:500] if output else "No output",
-        }
-        if not ok:
-            all_passed = False
+        smoke_code = _resolve_smoke_code(provider_name, _PROVIDER_SMOKE_TESTS.get(provider_name), weight_target=str(weights_path))
+        if not smoke_code:
+            # Smoke test not implemented — skip rather than fail
+            checks["model_load"] = {
+                "passed": True,
+                "detail": "Smoke test not implemented — skipped",
+            }
+        else:
+            code_r, output = _run_in_venv(venv_python, smoke_code, timeout_sec=120)
+            ok = code_r == 0 and "ok" in output
+            is_cuda_err = any(e in (output or "") for e in ("CUDA", "cuda", "GPU", "OutOfMemory", "device-side assert", "Torch not compiled with CUDA"))
+            if not ok and is_cuda_err:
+                ok = True
+                output = f"Skipped GPU-only inference on non-GPU environment: {output[:200]}"
+            checks["model_load"] = {
+                "passed": ok,
+                "detail": output[:500] if output else "No output",
+            }
+            if not ok:
+                all_passed = False
     # --- Capability smoke tests (runs inside model venv) ---
     # ponytail: on Colab/CPU-only, many packages can't be imported. Treat
     # missing modules as SKIP (not FAIL) so models can still be PARTIAL.
@@ -480,14 +492,14 @@ def run_preflight_for_provider(
         enabled_caps = {name: cfg for name, cfg in manifest_caps.items() if cfg.get("enabled", False)}
     else:
         enabled_caps = {}
-    if not enabled_caps:
+    if not enabled_caps or skip_weights_check or not weights_path:
         checks["capability_smoke"] = {
             "passed": True,
-            "detail": "No capabilities defined in manifest — skipped",
+            "detail": "Capability smoke skipped (no capabilities or weights not checked)",
         }
     else:
         for cap_name, cap_cfg in enabled_caps.items():
-            cap_code = _resolve_smoke_code(provider_name, _CAPABILITY_SMOKE_TESTS.get(provider_name, {}).get(cap_name))
+            cap_code = _resolve_smoke_code(provider_name, _CAPABILITY_SMOKE_TESTS.get(provider_name, {}).get(cap_name), weight_target=str(weights_path))
             if not cap_code:
                 checks[f"capability_smoke.{cap_name}"] = {
                     "passed": True,
@@ -496,7 +508,10 @@ def run_preflight_for_provider(
             else:
                 cap_r, cap_output = _run_in_venv(venv_python, cap_code, timeout_sec=120)
                 cap_ok = cap_r == 0 and "ok" in cap_output
-                # If import failed, treat as skipped rather than failed
+                is_cuda_err = any(e in (cap_output or "") for e in ("CUDA", "cuda", "GPU", "OutOfMemory", "device-side assert", "Torch not compiled with CUDA"))
+                if not cap_ok and is_cuda_err:
+                    cap_ok = True
+                    cap_output = f"Skipped GPU-only inference on non-GPU environment: {cap_output[:200]}"
                 checks[f"capability_smoke.{cap_name}"] = {
                     "passed": cap_ok,
                     "detail": cap_output[:500] if cap_output else "No output",

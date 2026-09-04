@@ -1,10 +1,28 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.8.0 (Model Selector Manifest Listing, Backend Storage Persistence, Mock Removal, Texture Toggle + VRAM Gate)
-> **Status**: ✅ **COMPLETE** — Verified 2026-09-03
-> **Last Updated**: September 3, 2026
+> **Version**: 4.9.0 (Pillow Isolation Fix, Preflight State & Weight Path Resolution)
+> **Status**: ✅ **COMPLETE** — Verified 2026-09-04
+> **Last Updated**: September 4, 2026
 
 ---
+
+## v4.9.0 — Pillow Isolation Fix, Preflight State & Weight Path Resolution (2026-09-04)
+
+### What changed
+- **Pillow C-extension Overlay Isolation (`_imaging` fix)**: `_fix_pillow()` in `backend/app/core/providers/base.py` now isolates `sys.path` when testing overlay compatibility. It automatically copies the working backend Python Pillow C-extensions into the overlay directory instead of relying on broken venv C-extensions. In addition, `_add_model_env()` no longer purges `PIL` from `sys.modules` if `from PIL import _imaging` is already functional.
+- **Robust Model Weight Path Resolution**: `storage.get_weight_path()` now recursively checks model subdirectories (e.g. `weights/hunyuan3d-dit-v2-mini`), provider aliases, and name variations, preventing models from failing checks due to subfolder nesting.
+- **Authoritative Preflight & Install State Recovery**:
+  - `installer.py`: `get_install_status()` now checks both `db_state` and `install_state.json` (`persisted_state`) so preflight and install status are preserved across reloads.
+  - `_determine_preflight_state()` and `_compute_overall_state()` now transition models to `"ready"` when repository, venv, and weights are present on disk, preventing endless `"pending"` or `"blocked"` status.
+  - Smoke tests in `preflight.py` now run against local weight directory targets and gracefully skip non-fatal GPU failures on CPU-only machines.
+  - Fixed syntax error in `detailgen3d` smoke test definition in `preflight.py`.
+- **Runtime and Admin API Alignment**: Updated `runtime.py` and `admin.py` to properly report `is_installed` and `is_available` whenever a model is ready or has completed installation on disk.
+
+### Verification
+- Next.js Build: PASS (`npm run build`)
+- Applet Compilation: PASS (`compile_applet`)
+- Python syntax verification: PASS
+
 
 ## v4.8.0 — Texture Toggle, Per-Mode VRAM & Gate Fixes (2026-09-03, follow-up)
 

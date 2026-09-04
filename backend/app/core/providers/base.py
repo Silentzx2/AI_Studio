@@ -83,14 +83,42 @@ def _fix_pillow(repo_name: str) -> bool:
     # 2) Backend-Python check (in-process inference) — overlay dir
     overlay = _backend_overlay_site_packages(venv_dir)
     backend_py = str(Path(sys.executable))
-    check_code = (
-        f"import sys; sys.path.insert(0, {str(overlay)!r}); "
+    # Test that the overlay directory itself has a working Pillow with _imaging
+    check_overlay_code = (
+        f"import sys; sys.path = [{str(overlay)!r}] + [p for p in sys.path if 'site-packages' not in p and 'dist-packages' not in p]; "
         f"from PIL import _imaging; print('ok')"
     )
-    bcode, bout = _run([backend_py, "-c", check_code])
+    bcode, bout = _run([backend_py, "-c", check_overlay_code])
     logger.info("_fix_pillow: %s backend overlay check code=%d out=%r", repo_name, bcode, bout[:100])
     if bcode == 0 and "ok" in bout:
         return True
+
+    # If backend Python has a working Pillow elsewhere (e.g. in its own environment),
+    # copy it directly into the overlay so it's guaranteed to be available at overlay site-packages
+    check_backend_code = "import PIL; from PIL import _imaging; print(PIL.__file__)"
+    bkcode, bkout = _run([backend_py, "-c", check_backend_code])
+    if bkcode == 0 and "PIL" in bkout:
+        try:
+            import shutil
+            pil_file = Path(bkout.strip().splitlines()[-1])
+            src_pil_dir = pil_file.parent
+            dst_pil_dir = overlay / "PIL"
+            if src_pil_dir.is_dir() and (src_pil_dir != dst_pil_dir):
+                overlay.mkdir(parents=True, exist_ok=True)
+                if dst_pil_dir.exists():
+                    shutil.rmtree(str(dst_pil_dir), ignore_errors=True)
+                shutil.copytree(str(src_pil_dir), str(dst_pil_dir), symlinks=True)
+                for dist in src_pil_dir.parent.glob("pillow-*.dist-info"):
+                    dst_dist = overlay / dist.name
+                    if not dst_dist.exists():
+                        shutil.copytree(str(dist), str(dst_dist), symlinks=True)
+                bcode, bout = _run([backend_py, "-c", check_overlay_code])
+                if bcode == 0 and "ok" in bout:
+                    logger.info("_fix_pillow: %s successfully copied backend Pillow to overlay", repo_name)
+                    return True
+        except Exception as exc:
+            logger.warning("_fix_pillow: failed copying backend Pillow to overlay: %s", exc)
+
     # Backend can't import _imaging from the overlay — install backend-Python Pillow
     logger.warning("Pillow not importable by backend Python for %s — installing overlay...", repo_name)
     import shutil
@@ -103,7 +131,7 @@ def _fix_pillow(repo_name: str) -> bool:
         _run([backend_py, "-m", "pip", "install",
               "--target", str(overlay),
               "--force-reinstall", "--no-cache-dir", "pillow"])
-    bcode, bout = _run([backend_py, "-c", check_code])
+    bcode, bout = _run([backend_py, "-c", check_overlay_code])
     logger.info("_fix_pillow: %s backend overlay re-check code=%d out=%r", repo_name, bcode, bout[:100])
     return bcode == 0 and "ok" in bout
 
@@ -179,19 +207,20 @@ def _add_model_env(repo_name: str) -> None:
     #   2. Module __file__ attributes don't update on reload
     #   3. Parent package imports (e.g. diffusers -> diffusers.utils) may
     #      still reference the old submodule object
+    try:
+        from PIL import _imaging  # noqa: F401
+        backend_pil_working = True
+    except Exception:
+        backend_pil_working = False
+
     _SHARED_PKGS = [
         "accelerate", "huggingface_hub", "transformers", "diffusers",
         "pydantic", "requests", "httpx", "urllib3",
-        # PIL must be purged too. It is NOT in the shared list above, so a
-        # provider that loaded first (e.g. TripoSG, whose Pillow install is
-        # broken — no _imaging extension) leaves PIL cached in sys.modules.
-        # When a later provider (Hunyuan3D-2mini's hy3dgen) then does
-        # `from PIL import Image`, Python reuses the stale module from the
-        # wrong venv instead of importing fresh from the correct one:
-        #   ImportError: cannot import name '_imaging' from 'PIL'
-        # Purging PIL forces a fresh import from the just-prepended venv.
-        "PIL",
     ]
+    # Only purge PIL if it is not working or needs to be loaded fresh from overlay
+    if not backend_pil_working:
+        _SHARED_PKGS.append("PIL")
+
     for mod_name in list(sys.modules.keys()):
         for pkg in _SHARED_PKGS:
             if mod_name == pkg or mod_name.startswith(pkg + "."):

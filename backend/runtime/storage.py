@@ -234,80 +234,100 @@ class StorageConfig:
             from runtime.manifest_loader import get_all_provider_metadata  # noqa: PLC0415
             provider_meta = get_all_provider_metadata()
             for _pname, meta in provider_meta.items():
-                if meta.get("weight_key") == weight_key and meta.get("repo"):
-                    per_model_dir = self.get_repo_path(meta["repo"]) / "weights" / weight_key
-                    if _safe_exists(per_model_dir) and self._has_real_weight_files(per_model_dir):
-                        return per_model_dir
-                    # ponytail: the download writes to weights/<provider_name>,
-                    # but this check looked for weights/<weight_key>. For
-                    # TripoSG the weight_key is "VAST-AI/TripoSG" (with a
-                    # slash) and for hunyuan3d-2-mini it is
-                    # "tencent/Hunyuan3D-2mini" — so the status path
-                    # (repo/weights/VAST-AI/TripoSG) never existed while the
-                    # real weights sat at repo/weights/triposg. get_install_status()
-                    # therefore reported "weights_downloading" forever even
-                    # though the weights were fully downloaded. Check the
-                    # actual download target subdir too.
-                    per_model_dir = self.get_repo_path(meta["repo"]) / "weights" / _pname
-                    if _safe_exists(per_model_dir) and self._has_real_weight_files(per_model_dir):
-                        return per_model_dir
-                    # ponytail: legacy flat fallback — weights directly in
-                    # repo/weights (no per-model subdir). TOP-LEVEL check only.
-                    per_model_dir2 = self.get_repo_path(meta["repo"]) / "weights"
-                    if _safe_exists(per_model_dir2) and self._has_real_weight_files(per_model_dir2, recursive=False):
-                        return per_model_dir2
-                # ponytail: _resolve_weight_key() returns the PROVIDER NAME
-                # (e.g. "triposg"), not the metadata weight_key
-                # ("VAST-AI/TripoSG"). get_install_status() passes that
-                # resolved value to get_weight_path(), so the weight_key
-                # match above misses and the fallback below never runs.
-                # Match by provider name too so the download-target subdir is
-                # found regardless of which form of the key is passed.
-                elif _pname == weight_key and meta.get("repo"):
-                    per_model_dir = self.get_repo_path(meta["repo"]) / "weights" / _pname
-                    if _safe_exists(per_model_dir) and self._has_real_weight_files(per_model_dir):
-                        return per_model_dir
+                repo_name = meta.get("repo")
+                if not repo_name:
+                    continue
+                is_match = (
+                    meta.get("weight_key") == weight_key
+                    or _pname == weight_key
+                    or _pname.replace("-", "_") == weight_key.replace("-", "_")
+                    or (meta.get("weight_key") and meta["weight_key"].split("/")[-1].lower() == weight_key.split("/")[-1].lower())
+                    or (repo_name.lower() == weight_key.lower())
+                )
+                if not is_match:
+                    continue
+
+                weights_dir = self.get_repo_path(repo_name) / "weights"
+                if not _safe_exists(weights_dir):
+                    continue
+
+                candidates = [
+                    weights_dir / weight_key,
+                    weights_dir / _pname,
+                    weights_dir / _pname.replace("-", "_"),
+                    weights_dir / _pname.replace("_", "-"),
+                    weights_dir / repo_name,
+                    weights_dir / weight_key.split("/")[-1],
+                ]
+                if meta.get("weight_key"):
+                    candidates.append(weights_dir / meta["weight_key"].split("/")[-1])
+                for cand in candidates:
+                    if _safe_exists(cand) and self._has_real_weight_files(cand):
+                        return cand
+
+                # Check subdirectories in weights_dir (e.g. hunyuan3d-dit-v2-mini)
+                try:
+                    for sub in weights_dir.iterdir():
+                        if sub.is_dir() and not sub.name.startswith("."):
+                            if self._has_real_weight_files(sub):
+                                return sub
+                except (PermissionError, OSError):
+                    pass
+
+                # Check top-level weights_dir itself
+                if self._has_real_weight_files(weights_dir, recursive=True):
+                    return weights_dir
         except Exception:
             pass
 
         # 2. LEGACY centralized location (deprecated — read-only fallback)
         try:
-            direct = self.weights_dir / weight_key
-            if _safe_exists(direct) and self._has_real_weight_files(direct):
-                logger.info(
-                    "Using legacy weight path for %s (deprecated: %s). "
-                    "Consider migrating to per-model location.",
-                    weight_key, direct,
-                )
-                return direct
+            legacy_candidates = [
+                self.weights_dir / weight_key,
+                self.weights_dir / weight_key.split("/")[-1],
+                self.weights_dir / weight_key.replace("-", "_"),
+                self.weights_dir / weight_key.replace("_", "-"),
+            ]
+            for direct in legacy_candidates:
+                if _safe_exists(direct) and self._has_real_weight_files(direct):
+                    logger.info(
+                        "Using legacy weight path for %s (deprecated: %s). "
+                        "Consider migrating to per-model location.",
+                        weight_key, direct,
+                    )
+                    return direct
         except PermissionError:
             pass
 
         # 3. HuggingFace cache locations (cache, NOT final storage)
-        slug = weight_key.replace("/", "--")
+        slugs = [
+            weight_key.replace("/", "--"),
+            weight_key.split("/")[-1],
+        ]
         for cache_dir in self.hf_cache_dirs:
             try:
                 for hub_dir in (cache_dir / "hub", cache_dir):
                     if not _safe_exists(hub_dir):
                         continue
-                    for prefix in ("models--", ""):
-                        candidate = hub_dir / f"{prefix}{slug}"
-                        if _safe_exists(candidate):
-                            snapshots = candidate / "snapshots"
-                            if _safe_exists(snapshots):
-                                try:
-                                    versions = sorted(
-                                        snapshots.iterdir(),
-                                        key=lambda p: p.stat().st_mtime,
-                                        reverse=True,
-                                    )
-                                    for version in versions:
-                                        if _safe_exists(version) and self._has_real_weight_files(version):
-                                            return version
-                                except (PermissionError, OSError):
-                                    pass
-                            if self._has_real_weight_files(candidate):
-                                return candidate
+                    for slug in slugs:
+                        for prefix in ("models--", ""):
+                            candidate = hub_dir / f"{prefix}{slug}"
+                            if _safe_exists(candidate):
+                                snapshots = candidate / "snapshots"
+                                if _safe_exists(snapshots):
+                                    try:
+                                        versions = sorted(
+                                            snapshots.iterdir(),
+                                            key=lambda p: p.stat().st_mtime,
+                                            reverse=True,
+                                        )
+                                        for version in versions:
+                                            if _safe_exists(version) and self._has_real_weight_files(version):
+                                                return version
+                                    except (PermissionError, OSError):
+                                        pass
+                                if self._has_real_weight_files(candidate):
+                                    return candidate
             except (PermissionError, OSError):
                 continue
         return None

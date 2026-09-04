@@ -1,6 +1,32 @@
 # AI 3D Studio — Changelog
 
-## [v4.8.0] - 2026-09-03
+## [v4.9.0] - 2026-09-04
+
+### Fixed
+
+#### Pillow C-extension `_imaging` Import Crash in Model Provider Environments
+- **Symptom**: During generation or model loading (e.g., `Hunyuan3D-2mini` / `hy3dgen`), inference crashed with `ImportError: cannot import name '_imaging' from 'PIL'`.
+- **Root Cause**: In `backend/app/core/providers/base.py`, `_fix_pillow()` tested the overlay directory with `sys.path.insert(0, overlay)`. If the backend Python already had Pillow installed in its system site-packages, the subprocess succeeded without actually placing a working Pillow into `overlay`. Then `_add_model_env()` removed `PIL` from `sys.modules` and prepended the model venv's `site-packages` (which had a broken or mismatched Pillow C extension), causing `hy3dgen` to import the broken `_imaging`.
+- **Fix**:
+  - `_fix_pillow()` now isolates `sys.path` to verify the overlay directory directly. If Pillow is missing from `overlay` but available in backend Python, it copies the working backend Pillow (including C-extensions and dist-info) directly into `overlay`. If absent, it installs Pillow with target set to `overlay`.
+  - In `_add_model_env()`, `PIL` is no longer blindly purged from `sys.modules` if `from PIL import _imaging` is already working in the active backend interpreter.
+
+#### Model Installation Status Reported as "Not Installed" & Preflight Failure
+- **Symptom**: Fully downloaded models consistently showed as "Not installed" or "Preflight pending" in the UI.
+- **Root Cause**:
+  1. `backend/runtime/installer.py`: `get_install_status()` checked `db_state` for `preflight_passed`, but `install_provider()` persisted preflight state to `install_state.json` via `_save_state()`. When `db_state` was empty, `preflight_result_for_state` remained `None`.
+  2. `_determine_preflight_state()` returned `"pending"` when `smoke_inference: true` was in the manifest, which `_compute_overall_state()` mapped to `"blocked"`, preventing the model from ever reaching `"ready"`.
+  3. `backend/app/api/v1/runtime.py` and `backend/app/api/v1/admin.py` checked `overall_state == "ready"` to compute `is_installed`. When `overall_state` was `"partial"` or `"blocked"`, `is_installed` became `False`, resetting the model status in the UI to `"not_installed"`.
+  4. `backend/runtime/storage.py`: `get_weight_path()` checked rigid directory paths, failing when weights were downloaded into subdirectories (e.g. `weights/hunyuan3d-dit-v2-mini`) or when provider name and weight key casing differed.
+  5. `backend/runtime/preflight.py`: Preflight smoke inference attempted to run without weights or failed with CUDA errors on CPU environments, hard-failing the preflight check.
+- **Fix**:
+  - `storage.get_weight_path()` now recursively inspects subdirectories under model weight directories and checks provider name variations, casing, and repo names.
+  - `installer.py` checks both `db_state` and `persisted_state` (`install_state.json`) for `preflight_passed` and `installed_at`.
+  - `installer._determine_preflight_state()` and `_compute_overall_state()` return `"ready"` when repos, venvs, and weights are present on disk.
+  - `preflight.py` smoke inference uses local disk weight paths, skips inference when weights are not yet downloaded, and gracefully handles CPU environments.
+  - Fixed indentation error in `preflight.py` smoke test for `detailgen3d`.
+  - `runtime.py` and `admin.py` properly reflect `is_installed` and `is_available` for partially installed and ready models.
+
 
 ### Fixed
 

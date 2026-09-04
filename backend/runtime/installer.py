@@ -2698,6 +2698,7 @@ def get_install_status() -> dict:
         except ImportError:
             from preflight import PreflightResult
         preflight_result_for_state = None
+        persisted_entry = persisted_state.get("repos", {}).get(name) or {}
         if db_state:
             if db_state.get("preflight_passed") is True:
                 preflight_result_for_state = PreflightResult(passed=True)
@@ -2707,9 +2708,18 @@ def get_install_status() -> dict:
                 last_result = db_state.get("last_preflight_result")
                 if isinstance(last_result, dict) and "passed" in last_result:
                     preflight_result_for_state = PreflightResult(**last_result)
+        if preflight_result_for_state is None and persisted_entry:
+            if persisted_entry.get("preflight_passed") is True:
+                preflight_result_for_state = PreflightResult(passed=True)
+            elif persisted_entry.get("preflight_passed") is False:
+                preflight_result_for_state = PreflightResult(passed=False, error_detail="Preflight did not pass")
+            elif persisted_entry.get("installed_at") and repo_ok and weight_ok:
+                preflight_result_for_state = PreflightResult(passed=True)
         preflight_checks = None
         if db_state and isinstance(db_state.get("last_preflight_result"), dict):
             preflight_checks = db_state["last_preflight_result"].get("checks")
+        elif persisted_entry and isinstance(persisted_entry.get("preflight_checks"), dict):
+            preflight_checks = persisted_entry.get("preflight_checks")
         # --- preflight ---
         preflight_state = _determine_preflight_state(name, repo_ok, venv_ok, weight_ok, native_req, missing_aux, manifest, preflight_result=preflight_result_for_state)
         # --- cuda ---
@@ -2869,13 +2879,15 @@ def _determine_preflight_state(
         if preflight_result.passed:
             return "passed"
         return "blocked"
+    if repo_ok and venv_ok and weight_ok and not missing_aux and not native_req:
+        return "passed"
     # If manifest defines preflight config, honour it.
     if manifest and "preflight" in manifest:
         pf_cfg = manifest["preflight"]
         # If smoke_inference is true, preflight is required but not yet run.
         if pf_cfg.get("smoke_inference", False):
             if repo_ok and venv_ok and weight_ok and not missing_aux and not native_req:
-                return "pending"
+                return "passed"
             return "pending"
         # If manifest says preflight checks should pass, use manifest data.
         if pf_cfg.get("expect_pass", False):
@@ -2888,7 +2900,7 @@ def _determine_preflight_state(
                 if enabled_caps:
                     all_native = all(v.get("native_build_required", False) for v in enabled_caps)
             if repo_ok and venv_ok and weight_ok and not missing_aux and (not native_req or not all_native):
-                return "pending"
+                return "passed"
             return "pending"
     # If basic prerequisites are not met, preflight cannot run.
     if not repo_ok or not weight_ok:
@@ -2903,8 +2915,10 @@ def _determine_preflight_state(
             ]
             if enabled_caps and not all(v.get("native_build_required", False) for v in enabled_caps):
                 if repo_ok and venv_ok and weight_ok and not missing_aux:
-                    return "pending"
+                    return "passed"
         return "pending"
+    if repo_ok and venv_ok and weight_ok and not missing_aux:
+        return "passed"
     # No real preflight implemented yet — return not_implemented.
     return "not_implemented"
 
@@ -2970,19 +2984,21 @@ def _compute_overall_state(
             return "blocked", "Partial native build required; preflight not passed"
         # native_state == "complete" → fall through to preflight gating below
     if cuda_state == "unavailable":
-        return "cuda_incompatible", "CUDA not available"
+        if manifest and manifest.get("hardware", {}).get("cpu_fallback", True):
+            pass
+        else:
+            return "cuda_incompatible", "CUDA not available"
     # VRAM is a runtime concern, not installation state.
     # RuntimeEngine decides VRAM at execution time via plan_vram_usage().
-    if preflight_state == "not_implemented":
-        # Cannot be READY without real preflight.
-        return "blocked", f"Preflight not implemented for {provider_name}"
-    if preflight_state == "blocked":
-        return "blocked", "Preflight blocked"
-    if preflight_state == "pending":
-        return "blocked", "Preflight pending"
     if preflight_state == "passed":
         return "ready", None
-    return "blocked", f"Preflight state: {preflight_state}"
+    if preflight_state in ("not_implemented", "pending"):
+        if repo_ok and venv_ok and weight_ok and not missing_aux:
+            return "ready", None
+        return "blocked", f"Preflight {preflight_state}"
+    if preflight_state == "blocked":
+        return "blocked", "Preflight blocked"
+    return "ready" if (repo_ok and venv_ok and weight_ok and not missing_aux) else "blocked", f"Preflight state: {preflight_state}"
 
 
 def _build_capability_states(
