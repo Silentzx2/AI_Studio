@@ -1,8 +1,19 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.9.8 (CORS Dynamic Origin, API Proxy Forwarding, Postgres DSN Normalization, and Migration Status)
+> **Version**: 4.9.9 (Auto-Rebuild on Source Change, Shadow Route Removal, and Global Page Backend Fetch)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-05
 > **Last Updated**: September 5, 2026
+
+---
+
+## v4.9.9 — Auto-Rebuild on Source Change & Shadow Route Removal (2026-09-05)
+
+### What changed
+- **Automatic Next.js Production Rebuild**: `scripts/colab.sh` and `scripts/colab_watch.sh` now check whether any source files in `app`, `services`, `features`, `components`, `hooks`, or `lib` are newer than `.next/BUILD_ID`. When source files are modified or updated via `git pull`, Next.js is automatically rebuilt before `npm start` instead of running stale compiled `.next` artifacts.
+- **Removed Rogue Shadow Route `app/api/v1/settings/route.ts`**: This deprecated route returned 404 for `/api/v1/settings` and shadowed the dynamic API proxy `app/api/v1/[...path]/route.ts`. Removing it allows all `/api/v1/settings/*` calls to reach FastAPI backend cleanly.
+
+### Root cause
+`scripts/colab.sh` and `colab_watch.sh` previously checked `if [[ ! -d .next ]]`, which skipped `npm run build` whenever `.next` was already present. After pulling git changes, `npm start` continued running the pre-existing build containing hardcoded CORS origins and outdated endpoints. Additionally, `app/api/v1/settings/route.ts` was an unused stub that intercepted `/api/v1/settings` with a hardcoded 404 response.
 
 ---
 

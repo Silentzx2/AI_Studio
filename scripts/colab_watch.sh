@@ -215,9 +215,15 @@ start_frontend() {
     free_port 3000
 
     # Normal Next.js production workflow: `npm run build` then `npm start`.
-    # Build once if the build output is missing; restarts use `npm start`.
-    if [[ ! -d "${PROJECT_ROOT}/.next" ]]; then
-        info "Frontend build missing; building..."
+    local needs_build=false
+    if [[ ! -d "${PROJECT_ROOT}/.next" ]] || [[ ! -f "${PROJECT_ROOT}/.next/BUILD_ID" ]]; then
+        needs_build=true
+    elif [[ -n $(find "${PROJECT_ROOT}/app" "${PROJECT_ROOT}/services" "${PROJECT_ROOT}/features" "${PROJECT_ROOT}/components" "${PROJECT_ROOT}/hooks" "${PROJECT_ROOT}/lib" -newer "${PROJECT_ROOT}/.next/BUILD_ID" -type f 2>/dev/null | head -1) ]]; then
+        needs_build=true
+    fi
+
+    if [[ "$needs_build" == "true" ]]; then
+        info "Frontend build missing or source changed; building..."
         if ! (
             cd "${PROJECT_ROOT}" &&
             npm run build > "${LOG_DIR}/frontend_build.log" 2>&1

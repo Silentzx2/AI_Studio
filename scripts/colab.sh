@@ -721,8 +721,15 @@ colab_start_services() {
     free_port 3000
 
     # Normal Next.js production workflow: `npm run build` then `npm start`.
-    # Build once here; the supervisor restarts with `npm start` only.
-    if [[ ! -d .next ]]; then
+    # Rebuild if .next is missing or if source files were modified since last build.
+    local needs_build=false
+    if [[ ! -d .next ]] || [[ ! -f .next/BUILD_ID ]]; then
+        needs_build=true
+    elif [[ -n $(find app services features components hooks lib -newer .next/BUILD_ID -type f 2>/dev/null | head -1) ]]; then
+        needs_build=true
+    fi
+
+    if [[ "$needs_build" == "true" ]]; then
         info "Building Next.js for production..."
         if ! npm run build > "$LOG_DIR/frontend_build.log" 2>&1; then
             err "Frontend build FAILED — see logs/frontend_build.log"
