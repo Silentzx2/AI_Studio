@@ -16,7 +16,9 @@
   - Implemented automatic 5-minute (300s) model retention in VRAM: models are kept loaded after inference completes so consecutive requests with the same model are instant (zero load time).
   - Seamless auto-swap on model change: if a different model is selected and "Generate" is clicked, `RuntimeEngine.load_provider` unloads the currently active provider first, purges CUDA cache, and loads the new model without VRAM overlap.
   - Scheduled retention expiration in `vram_health_worker.py` and `RuntimeEngine.unload_expired_providers`: models idle for >300s are automatically deallocated to free GPU memory.
-  - Configurable via `model_keep_alive_seconds: int = 300` in `app/config.py`.
+- **TripoSG BriaRMBG Kwarg Fix (`backend/app/core/providers/triposg_local.py`)**:
+  - Removed unsupported `trust_remote_code=True` argument from `BriaRMBG.from_pretrained()`, which raised `TypeError: BriaRMBG.__init__() got an unexpected keyword argument 'trust_remote_code'` because `ModelHubMixin` forwards unknown arguments to `__init__()`.
+  - Added graceful try/except wrapper around `BriaRMBG` loading so TripoSG can proceed smoothly even if RMBG fails.
 
 ---
 

@@ -164,16 +164,20 @@ class TripoSGLocalProvider(BaseProvider):
 
         try:
             # Load RMBG for background removal
-            if self.rmbg_weights_dir.exists():
-                self.rmbg_net = BriaRMBG.from_pretrained(
-                    str(self.rmbg_weights_dir), local_files_only=True, trust_remote_code=True
-                ).to(self.device)
-            else:
-                logger.info("RMBG-1.4 weights not found locally at %s, fetching from Hub...", self.rmbg_weights_dir)
-                self.rmbg_net = BriaRMBG.from_pretrained(
-                    "briaai/RMBG-1.4", local_files_only=False, trust_remote_code=True
-                ).to(self.device)
-            self.rmbg_net.eval()
+            try:
+                if self.rmbg_weights_dir.exists():
+                    self.rmbg_net = BriaRMBG.from_pretrained(
+                        str(self.rmbg_weights_dir), local_files_only=True
+                    ).to(self.device)
+                else:
+                    logger.info("RMBG-1.4 weights not found locally at %s, fetching from Hub...", self.rmbg_weights_dir)
+                    self.rmbg_net = BriaRMBG.from_pretrained(
+                        "briaai/RMBG-1.4", local_files_only=False
+                    ).to(self.device)
+                self.rmbg_net.eval()
+            except Exception as rmbg_exc:
+                logger.warning("BriaRMBG load failed (%s); proceeding without dedicated RMBG", rmbg_exc)
+                self.rmbg_net = None
 
             # Load TripoSG pipeline
             self.pipe = TripoSGPipeline.from_pretrained(str(self.triposg_weights_dir)).to(

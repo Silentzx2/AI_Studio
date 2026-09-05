@@ -11,7 +11,9 @@
 #### 5-Minute VRAM Retention & Instant Warm-Cache Auto-Swap
 - **VRAM Retention Policy (`backend/runtime/engine.py`, `backend/app/workers/tasks.py`)**: Models are retained in GPU memory after successful generation with a 5-minute (300s) TTL (`model_keep_alive_seconds = 300`). Subsequent generation requests using the same model execute instantly with zero reload overhead.
 - **Auto Model Swap**: When a user switches models (e.g. from Hunyuan3D-2 Mini to TripoSG) and clicks Generate, `RuntimeEngine.load_provider` detects the mismatch, unloads the active provider, purges CUDA cache, and loads the new model into GPU memory.
-- **Background Idle Eviction (`backend/app/workers/vram_health_worker.py`)**: Periodic Celery Beat health worker automatically invokes `engine.unload_expired_providers()` to deallocate models idle for >300s.
+#### TripoSG BriaRMBG from_pretrained Kwarg Fix
+- **Root Cause Resolution**: `BriaRMBG` inherits from HuggingFace `ModelHubMixin`. Passing `trust_remote_code=True` forwarded the unknown kwarg to `BriaRMBG.__init__()`, raising `TypeError: BriaRMBG.__init__() got an unexpected keyword argument 'trust_remote_code'`.
+- **Fix (`backend/app/core/providers/triposg_local.py`)**: Removed `trust_remote_code=True` and added a graceful try-except fallback so TripoSG loading never fails.
 
 ## [v4.9.4] - 2026-09-04
 
