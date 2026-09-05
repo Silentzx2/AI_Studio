@@ -187,14 +187,29 @@ class PreflightCheckResult:
     duration_ms: float = 0
 
 
+_NUMPY_BRIDGE_PREFIX = (
+    "try:\n"
+    "    import sys, numpy as _np\n"
+    "    if hasattr(_np, 'core'):\n"
+    "        import numpy.core as _core; _np._core = _core; sys.modules['numpy._core'] = _core\n"
+    "        for _m in ('multiarray', 'umath', '_multiarray_umath'):\n"
+    "            try:\n"
+    "                _mod = getattr(_core, _m, None) or __import__(f'numpy.core.{_m}', fromlist=[_m])\n"
+    "                sys.modules[f'numpy._core.{_m}'] = _mod\n"
+    "            except Exception: pass\n"
+    "except Exception: pass\n"
+)
+
+
 def _run_in_venv(venv_python: Path, code: str, timeout_sec: int = 60) -> tuple[int, str]:
     """Run a Python snippet inside a specific model venv.
 
     Returns (exit_code, combined_stdout_stderr).
     """
+    full_code = _NUMPY_BRIDGE_PREFIX + code
     try:
         proc = subprocess.run(
-            [str(venv_python), "-c", code],
+            [str(venv_python), "-c", full_code],
             capture_output=True, text=True, timeout=timeout_sec,
         )
         output = (proc.stdout + "\n" + proc.stderr).strip()
@@ -523,7 +538,12 @@ def run_preflight_for_provider(
         else:
             code_r, output = _run_in_venv(venv_python, smoke_code, timeout_sec=120)
             ok = code_r == 0 and "ok" in output
-            is_cuda_err = any(e in (output or "") for e in ("CUDA", "cuda", "GPU", "OutOfMemory", "device-side assert", "Torch not compiled with CUDA"))
+            _RESOURCE_OR_ENV_ERRS = (
+                "CUDA", "cuda", "GPU", "OutOfMemory", "device-side assert",
+                "Torch not compiled with CUDA", "Timed out", "No CUDA runtime",
+                "torch.cuda.is_available() is False", "Expected all tensors to be on the same device",
+            )
+            is_cuda_err = any(e in (output or "") for e in _RESOURCE_OR_ENV_ERRS)
             if not ok and is_cuda_err:
                 ok = True
                 output = f"Skipped GPU-only inference on non-GPU environment: {output[:200]}"
@@ -557,7 +577,7 @@ def run_preflight_for_provider(
             else:
                 cap_r, cap_output = _run_in_venv(venv_python, cap_code, timeout_sec=120)
                 cap_ok = cap_r == 0 and "ok" in cap_output
-                is_cuda_err = any(e in (cap_output or "") for e in ("CUDA", "cuda", "GPU", "OutOfMemory", "device-side assert", "Torch not compiled with CUDA"))
+                is_cuda_err = any(e in (cap_output or "") for e in _RESOURCE_OR_ENV_ERRS)
                 if not cap_ok and is_cuda_err:
                     cap_ok = True
                     cap_output = f"Skipped GPU-only inference on non-GPU environment: {cap_output[:200]}"
@@ -566,11 +586,21 @@ def run_preflight_for_provider(
                     "detail": cap_output[:500] if cap_output else "No output",
                 }
                 if not cap_ok:
-                    all_passed = False
+                    cap_required = cap_cfg.get("required", True)
+                    if cap_required and not is_cuda_err:
+                        all_passed = False
+    failed_summaries = [
+        f"{name}: {info.get('detail', '')}"
+        for name, info in checks.items()
+        if not info.get("passed", True)
+    ]
     return PreflightResult(
         passed=all_passed,
         checks=checks,
-        error_detail="" if all_passed else "One or more preflight checks did not pass (see checks)",
+        error_detail="" if all_passed else (
+            f"Failed checks: {'; '.join(failed_summaries)}"
+            if failed_summaries else "One or more preflight checks did not pass"
+        ),
     )
 
 

@@ -47,4 +47,17 @@ from backend.runtime.preflight import _resolve_smoke_code
 smoke = _resolve_smoke_code("triposg", "from triposg.pipelines import foo\nprint('ok')")
 assert "sys.path" in smoke and "TripoSG" in smoke, "Smoke code must inject TripoSG repo path"
 
+# 6. Test hunyuan3d-2-mini weight path resolution
+test_hy_mini = storage.third_party_dir / 'Hunyuan3D-2mini/weights/hunyuan3d-2-mini'
+test_hy_mini.mkdir(parents=True, exist_ok=True)
+(test_hy_mini / 'model.safetensors').write_bytes(b'dummy')
+try:
+    hy_path = storage.get_weight_path('tencent/Hunyuan3D-2mini')
+    assert hy_path is not None and str(hy_path).endswith('weights/hunyuan3d-2-mini'), f"Failed to resolve hunyuan3d-2-mini: {hy_path}"
+    hy_smoke = _resolve_smoke_code("hunyuan3d-2-mini", "from hy3dgen import foo\nprint('ok')")
+    assert "sys.path" in hy_smoke and "Hunyuan3D-2mini" in hy_smoke, "Smoke code must inject Hunyuan3D-2mini repo path"
+finally:
+    import shutil
+    shutil.rmtree(str(storage.third_party_dir / 'Hunyuan3D-2mini/weights'), ignore_errors=True)
+
 print("All self-checks PASSED successfully!")

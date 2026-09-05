@@ -1,8 +1,26 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.9.13 (TripoSG Preflight, Auxiliary Weights Resolution & Native Extension Gating)
+> **Version**: 4.9.14 (Hunyuan3D-2 Mini Weight Path Resolution, Venv NumPy Bridge & Preflight Error Diagnostics)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-05
 > **Last Updated**: September 5, 2026
+
+---
+
+## v4.9.14 — Hunyuan3D-2 Mini Weight Path Resolution, Venv NumPy Bridge & Preflight Error Diagnostics (2026-09-05)
+
+### What changed
+- **Venv-Wide NumPy Compatibility Bridge (`backend/runtime/preflight.py`)**:
+  - `_run_in_venv()` now prepends `_NUMPY_BRIDGE_PREFIX` across all venv executions. This guarantees that `_check_imports` (`diffusers`, `accelerate`, `transformers`), CUDA checks, and smoke tests never crash with `AttributeError: module 'numpy._core' has no attribute 'multiarray'` in NumPy 1.26.x environments.
+- **Accurate Subdirectory Weight Path Resolution (`backend/runtime/storage.py`)**:
+  - Added `_get_provider_metadata()` with resilient import fallbacks across `storage.py`.
+  - When resolving weights for snapshot repos where files are saved to `third_party/<repo>/weights/<provider_name>` (e.g. `Hunyuan3D-2mini/weights/hunyuan3d-2-mini`), `get_weight_path` now returns the exact model directory rather than the parent `weights` folder, allowing `subfolder="hunyuan3d-dit-v2-mini"` in diffusers pipelines to locate model checkpoints.
+- **Preflight Resource Failure Resilience & Diagnostic Details (`backend/runtime/preflight.py`)**:
+  - Broadened runtime resource error detection in smoke inference to include `Timed out`, `OutOfMemory`, `Torch not compiled with CUDA`, and `torch.cuda.is_available() is False`. Resource exhaustion or timeouts during smoke inference are classified as environment/resource constraints rather than installation corruption.
+  - Gated capability smoke failures on `cap_required` so optional capabilities (e.g., texture relying on uninstalled Hunyuan3D-2.1 weights) do not fail image-to-shape installation.
+  - Formatted `PreflightResult.error_detail` to explicitly enumerate failed checks and reasons instead of generic `"One or more preflight checks did not pass"`.
+
+### Root cause
+Hunyuan3D-2 Mini installation reported `state=blocked` because: (1) `_run_in_venv` was executing `_check_imports` without the NumPy bridge, causing `diffusers`/`accelerate` imports to raise `AttributeError: module 'numpy._core' has no attribute 'multiarray'`; (2) `storage.get_weight_path("tencent/Hunyuan3D-2mini")` returned the parent `weights/` directory instead of `weights/hunyuan3d-2-mini/`, breaking subfolder lookups; and (3) smoke inference timeouts or GPU memory errors on busy Colab environments caused preflight to fail without descriptive error logging.
 
 ---
 

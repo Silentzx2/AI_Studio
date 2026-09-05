@@ -16,6 +16,22 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+def _get_provider_metadata() -> dict[str, dict]:
+    try:
+        from runtime.manifest_loader import get_all_provider_metadata
+        return get_all_provider_metadata()
+    except (ImportError, ValueError):
+        try:
+            from .manifest_loader import get_all_provider_metadata
+            return get_all_provider_metadata()
+        except (ImportError, ValueError):
+            try:
+                from backend.runtime.manifest_loader import get_all_provider_metadata
+                return get_all_provider_metadata()
+            except Exception:
+                return {}
+
+
 @dataclass
 class StorageConfig:
     """Centralized storage configuration — single source of truth."""
@@ -146,8 +162,7 @@ class StorageConfig:
         if not _safe_exists(self.weights_dir):
             return legacy
         try:
-            from runtime.manifest_loader import get_all_provider_metadata  # noqa: PLC0415
-            provider_meta = get_all_provider_metadata()
+            provider_meta = _get_provider_metadata()
             # Build reverse map: weight_key -> repo_name
             wk_to_repo: dict[str, str] = {}
             for _pname, meta in provider_meta.items():
@@ -231,8 +246,7 @@ class StorageConfig:
         """
         # 1. CANONICAL per-model location: third_party/<repo_name>/weights/<weight_key>
         try:
-            from runtime.manifest_loader import get_all_provider_metadata  # noqa: PLC0415
-            provider_meta = get_all_provider_metadata()
+            provider_meta = _get_provider_metadata()
             for _pname, meta in provider_meta.items():
                 repo_name = meta.get("repo")
                 if not repo_name:
@@ -374,8 +388,7 @@ class StorageConfig:
         paths: list[Path] = []
         # ponytail: Section 2 — also check per-model locations
         try:
-            from runtime.manifest_loader import get_all_provider_metadata  # noqa: PLC0415
-            provider_meta = get_all_provider_metadata()
+            provider_meta = _get_provider_metadata()
             for _pname, meta in provider_meta.items():
                 if meta.get("weight_key") == weight_key and meta.get("repo"):
                     p1 = self.get_repo_path(meta["repo"]) / "weights" / weight_key
