@@ -247,7 +247,7 @@ class _HunyuanBase(BaseProvider):
                 processed = True
                 logger.info("Background removed via hy3dgen.rembg.BackgroundRemover")
             except Exception as exc:
-                logger.debug("hy3dgen BackgroundRemover not available: %s", exc)
+                logger.info("hy3dgen BackgroundRemover unavailable: %s", exc)
 
             if not processed:
                 try:
@@ -256,7 +256,7 @@ class _HunyuanBase(BaseProvider):
                     processed = True
                     logger.info("Background removed via rembg.remove")
                 except Exception as exc:
-                    logger.debug("rembg.remove fallback failed: %s", exc)
+                    logger.info("rembg.remove fallback unavailable: %s", exc)
 
             # 3. Try BriaRMBG (pure PyTorch, no onnxruntime dependency)
             if not processed:
@@ -279,7 +279,7 @@ class _HunyuanBase(BaseProvider):
                     processed = True
                     logger.info("Background removed via BriaRMBG (PyTorch)")
                 except Exception as exc:
-                    logger.debug("BriaRMBG fallback failed: %s", exc)
+                    logger.info("BriaRMBG fallback unavailable: %s", exc)
 
             # 4. Color-threshold fallback for solid/uniform background (pure PIL, zero extra deps)
             if not processed:
@@ -303,7 +303,7 @@ class _HunyuanBase(BaseProvider):
                         processed = True
                         logger.info("Background removed via solid color-masking fallback")
                 except Exception as exc:
-                    logger.debug("Color-masking fallback failed: %s", exc)
+                    logger.info("Color-masking fallback skipped: %s", exc)
 
             if not processed:
                 logger.warning(
