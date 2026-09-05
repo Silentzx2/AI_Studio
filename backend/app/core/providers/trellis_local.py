@@ -55,6 +55,11 @@ class TRELLISLocalProvider(BaseProvider):
         self._mock_fallback = False
         _log_gpu_memory("before_trellis_load")
         try:
+            from runtime.gpu import enable_fast_cuda_acceleration
+            enable_fast_cuda_acceleration()
+        except Exception:
+            pass
+        try:
             from trellis.pipelines import TrellisImageTo3DPipeline
             logger.info("Loading TRELLIS from %s on %s", self.weights_dir, self.device)
             self._pipeline = TrellisImageTo3DPipeline.from_pretrained(str(self.weights_dir))
@@ -134,11 +139,13 @@ class TRELLISLocalProvider(BaseProvider):
         )
 
     def _run(self, request: GenerationRequest, output_dir: str) -> str:
+        import torch
         from PIL import Image
         img = Image.open(request.reference_image_url).convert("RGBA")
-        outputs = self._pipeline.run(img, seed=42)
-        dest = str(Path(output_dir) / "model.glb")
-        self._pipeline.export_model(outputs, dest)
+        with torch.inference_mode():
+            outputs = self._pipeline.run(img, seed=42)
+            dest = str(Path(output_dir) / "model.glb")
+            self._pipeline.export_model(outputs, dest)
         return dest
 
     async def health_check(self) -> bool:

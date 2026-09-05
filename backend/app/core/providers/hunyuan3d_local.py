@@ -47,6 +47,11 @@ class _HunyuanBase(BaseProvider):
     def _ensure_loaded(self) -> None:
         # CRITICAL: Set up per-model environment to ensure correct package versions
         _add_model_env(self.repo_name)
+        try:
+            from runtime.gpu import enable_fast_cuda_acceleration
+            enable_fast_cuda_acceleration()
+        except Exception:
+            pass
         if self._model is not None:
             return
         if not self.weights_dir.exists():
@@ -282,24 +287,28 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
             logger.warning("Hunyuan3D tex pipeline unavailable: %s", exc)
 
     def _text_to_3d(self, request: GenerationRequest, output_dir: str) -> str:
+        import torch
         out = Path(output_dir)
         out.mkdir(parents=True, exist_ok=True)
         steps = {"low-poly": 20, "standard": 35, "high-poly": 50}.get(request.quality, 35)
-        result = self._model(
-            prompt=request.prompt,
-            negative_prompt=request.negative_prompt or "",
-            num_inference_steps=steps,
-        )
+        with torch.inference_mode():
+            result = self._model(
+                prompt=request.prompt,
+                negative_prompt=request.negative_prompt or "",
+                num_inference_steps=steps,
+            )
         dest = str(out / "mesh.glb")
         result.meshes[0].export(dest)
         return dest
 
     def _image_to_3d(self, request: GenerationRequest, output_dir: str) -> str:
+        import torch
         from PIL import Image
         out = Path(output_dir)
         out.mkdir(parents=True, exist_ok=True)
         img = Image.open(request.reference_image_url)
-        result = self._model(image=img)
+        with torch.inference_mode():
+            result = self._model(image=img)
         dest = str(out / "mesh.glb")
         result.meshes[0].export(dest)
         return dest
@@ -310,7 +319,9 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
         if self._tex is None:
             return
         try:
-            result = self._tex(mesh_path=mesh_path, prompt=request.prompt)
+            import torch
+            with torch.inference_mode():
+                result = self._tex(mesh_path=mesh_path, prompt=request.prompt)
             result.mesh.export(str(Path(output_dir) / "model.glb"))
         except Exception as exc:
             logger.warning("Texture generation failed: %s", exc)
@@ -368,14 +379,15 @@ class Hunyuan3D2MiniLocalProvider(_HunyuanBase):
         # ponytail: steps/octree_resolution/num_chunks match the official
         # shape_gen_mini.py reference; quality scales inference steps only.
         steps = {"low-poly": 20, "standard": 30, "high-poly": 50}.get(request.quality, 30)
-        result = self._model(
-            image=img,
-            num_inference_steps=steps,
-            octree_resolution=380,
-            num_chunks=20000,
-            generator=torch.manual_seed(12345),
-            output_type="trimesh",
-        )[0]
+        with torch.inference_mode():
+            result = self._model(
+                image=img,
+                num_inference_steps=steps,
+                octree_resolution=380,
+                num_chunks=20000,
+                generator=torch.manual_seed(12345),
+                output_type="trimesh",
+            )[0]
         dest = str(out / "mesh.glb")
         result.export(dest)
         return dest

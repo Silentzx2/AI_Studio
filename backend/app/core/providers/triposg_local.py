@@ -67,6 +67,11 @@ class TripoSGLocalProvider(BaseProvider):
             except Exception as exc:
                 logger.error("TripoSG dependencies not installed: %s", exc)
                 return False
+        try:
+            from runtime.gpu import enable_fast_cuda_acceleration
+            enable_fast_cuda_acceleration()
+        except Exception:
+            pass
         # Allocate ~8 GB of VRAM using VRAMAllocationTracker
         success = vram_tracker.allocate("triposg", 8.0, reason="triposg_model_load")
         if not success:
@@ -157,7 +162,7 @@ class TripoSGLocalProvider(BaseProvider):
                 await progress_callback(30, "generating", "Running TripoSG inference...")
 
             # Run inference
-            with torch.no_grad():
+            with torch.inference_mode():
                 outputs = self.pipe(
                     image=img_pil,
                     generator=torch.Generator(device=self.pipe.device).manual_seed(42),
