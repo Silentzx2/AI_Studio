@@ -146,6 +146,7 @@ def _fix_overlay_packages(repo_name: str, force: bool = False) -> bool:
         ("regex", "regex", "from regex import _regex; print('ok')"),
         ("safetensors", "safetensors", "import safetensors; from safetensors import _safetensors_rust; print('ok')"),
         ("pymeshlab", "pymeshlab", "from pymeshlab import pmeshlab; print('ok')"),
+        ("scipy", "scipy", "from scipy._lib import _ccallback_c; print('ok')"),
     ]
     all_ok = True
     for pkg_name, import_name, check_stmt in packages:

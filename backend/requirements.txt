@@ -36,6 +36,7 @@ Pillow==11.1.0
 
 # 3D mesh processing
 trimesh==4.5.3
+scipy>=1.11.0
 
 # Tensor operations (TripoSR dependency)
 einops>=0.7.0

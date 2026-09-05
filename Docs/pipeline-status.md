@@ -1,8 +1,19 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.3 (NumPy 2.x DeprecationWarning Suppression in Bridge, Cleaned Error Surfacing & TripoSG Smoke Alignment)
+> **Version**: 5.0.4 (SciPy C-Extension Backend Overlay Bridge & Py3.10/3.12 ABI Incompatibility Fix)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-05
 > **Last Updated**: September 5, 2026
+
+---
+
+## v5.0.4 — SciPy C-Extension Backend Overlay Bridge (2026-09-05)
+
+### What changed
+- **SciPy C-Extension Overlay Protection (`backend/app/core/providers/base.py`)**:
+  - Added `scipy` (`from scipy._lib import _ccallback_c`) to `_fix_overlay_packages` alongside Pillow, regex, safetensors, and pymeshlab.
+  - When the backend Celery worker (Python 3.12) activates a model venv (Python 3.10), it ensures a Python 3.12-compatible SciPy build resides in the overlay folder at `sys.path[0]`. This eliminates `ImportError: cannot import name '_ccallback_c' from 'scipy._lib'` triggered when `transformers` imports `scipy.optimize.linear_sum_assignment`.
+- **Pre-installed SciPy in Backend (`backend/requirements.txt`)**:
+  - Added `scipy>=1.11.0` to backend requirements to guarantee immediate availability for overlay copying.
 
 ---
 
