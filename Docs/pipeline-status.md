@@ -1,8 +1,21 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.6 (torchaudio & torchvision C-Extension Overlay Bridge & Py3.10/3.12 ABI Fix)
+> **Version**: 5.0.7 (torchvision Native Backend Pre-import & Circular Import Fix)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-05
 > **Last Updated**: September 5, 2026
+
+---
+
+## v5.0.7 — torchvision Native Backend Pre-import & Operator Registry Fix (2026-09-05)
+
+### What changed
+- **torchvision Native Backend Loading (`backend/app/core/providers/base.py`)**:
+  - `torchvision` registers C++ operators into PyTorch's dispatcher and links to private shared libraries (`torchvision.libs/libpng16...`). Copying just the `torchvision` package folder without `.libs` causes `UserWarning: Failed to load image Python extension: libpng...`.
+  - Furthermore, purging `torchvision` from `sys.modules` (`_SHARED_PKGS`) caused `AttributeError: partially initialized module 'torchvision' has no attribute 'extension'` due to circular imports during operator meta-registration.
+  - Resolved by:
+    1. Pre-importing `torchvision` directly from the backend Python 3.12 environment at worker startup before `sys.path` modification, mirroring how PyTorch `torch` is handled.
+    2. Excluding `torchvision` and `torchaudio` from `_SHARED_PKGS` and `_VERIFY_MODULES` so they remain globally registered and intact in `sys.modules`.
+    3. Auto-cleaning any partial overlay copies of `torchvision` / `torchaudio` so backend Python 3.12 native builds are always used.
 
 ---
 

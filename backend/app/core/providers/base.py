@@ -39,6 +39,25 @@ def _backend_overlay_site_packages(venv_dir: Path) -> Path:
     return overlay
 
 
+# Pre-import torchvision from backend Python 3.12 and initialize torchaudio stub
+# BEFORE any model environment modifies sys.path or purges sys.modules.
+try:
+    import torchvision
+except Exception as _exc:
+    logger.debug("base.py: torchvision pre-import: %s", _exc)
+
+if "torchaudio" not in sys.modules:
+    try:
+        import torchaudio
+    except Exception:
+        import types
+        _m = types.ModuleType("torchaudio")
+        _m.__version__ = "2.5.1"
+        _m.is_available = lambda: False
+        _m.list_audio_backends = lambda: []
+        sys.modules["torchaudio"] = _m
+
+
 def _fix_c_package_overlay(repo_name: str, pkg_name: str, import_name: str, check_stmt: str) -> bool:
     """Ensure a C-extension package works in BOTH the venv Python (preflight)
     and the backend Python (in-process inference).
@@ -155,11 +174,25 @@ _VERIFIED_OVERLAYS: set[str] = set()
 
 
 def _fix_overlay_packages(repo_name: str, force: bool = False) -> bool:
-    """Ensure all critical C-extension packages (Pillow, regex, safetensors, scipy, torchvision, torchaudio)
+    """Ensure all critical C-extension packages (Pillow, regex, safetensors, scipy)
     have working backend-Python builds in the model's overlay directory.
     """
     if not force and repo_name in _VERIFIED_OVERLAYS:
         return True
+
+    # Clean up any partial torchvision/torchaudio copies in overlay (they lack private .libs and break C-extensions)
+    try:
+        from runtime.storage import get_storage_config
+        venv_dir = get_storage_config().get_model_venv_path(repo_name)
+        if venv_dir.exists():
+            overlay = _backend_overlay_site_packages(venv_dir)
+            for bad_pkg in ("torchvision", "torchaudio"):
+                bad_dir = overlay / bad_pkg
+                if bad_dir.exists():
+                    import shutil
+                    shutil.rmtree(str(bad_dir), ignore_errors=True)
+    except Exception:
+        pass
 
     packages = [
         ("pillow", "PIL", "from PIL import _imaging; print('ok')"),
@@ -167,8 +200,6 @@ def _fix_overlay_packages(repo_name: str, force: bool = False) -> bool:
         ("safetensors", "safetensors", "import safetensors; from safetensors import _safetensors_rust; print('ok')"),
         ("pymeshlab", "pymeshlab", "from pymeshlab import pmeshlab; print('ok')"),
         ("scipy", "scipy", "from scipy._lib import _ccallback_c; print('ok')"),
-        ("torchvision", "torchvision", "import torchvision; print('ok')"),
-        ("torchaudio", "torchaudio", "import torchaudio; print('ok')"),
     ]
     all_ok = True
     for pkg_name, import_name, check_stmt in packages:
@@ -269,7 +300,7 @@ def _add_model_env(repo_name: str) -> None:
     #      still reference the old submodule object
     _SHARED_PKGS = [
         "accelerate", "huggingface_hub", "transformers", "diffusers",
-        "pydantic", "requests", "httpx", "urllib3", "scipy", "torchvision",
+        "pydantic", "requests", "httpx", "urllib3", "scipy",
     ]
 
     for mod_name in list(sys.modules.keys()):
@@ -278,7 +309,15 @@ def _add_model_env(repo_name: str) -> None:
                 del sys.modules[mod_name]
                 break
 
-    # Prevent Py3.10/3.12 torchaudio ABI crash in transformers audio_utils
+    # CRITICAL: Ensure torchvision and torchaudio are present in sys.modules
+    # from backend Python 3.12 so they are NEVER loaded from a Py3.10 model venv
+    # or re-imported midway through C++ operator registration.
+    if "torchvision" not in sys.modules:
+        try:
+            import torchvision
+        except Exception as exc:
+            logger.debug("torchvision pre-import: %s", exc)
+
     if "torchaudio" not in sys.modules:
         try:
             import torchaudio
@@ -299,8 +338,6 @@ def _add_model_env(repo_name: str) -> None:
         ("safetensors", "from safetensors import _safetensors_rust"),
         ("pymeshlab", "from pymeshlab import pmeshlab"),
         ("scipy", "from scipy._lib import _ccallback_c"),
-        ("torchvision", "import torchvision"),
-        ("torchaudio", "import torchaudio"),
     ]
     for mod_pkg, test_code in _VERIFY_MODULES:
         try:
