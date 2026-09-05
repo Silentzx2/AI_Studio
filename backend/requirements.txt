@@ -33,6 +33,8 @@ aiofiles==24.1.0
 # Image processing
 # NOTE: Pillow requires C extensions. On Linux, install: build-essential libpng-dev libjpeg-dev zlib1g-dev libfreetype6-dev
 Pillow==11.1.0
+rembg<=2.0.69
+onnxruntime
 
 # 3D mesh processing
 trimesh==4.5.3

@@ -11,7 +11,11 @@
 ### What changed
 - **Hunyuan3D Background Preprocessing (`backend/app/core/providers/hunyuan3d_local.py`)**:
   - Fixed root cause of spherical blob / balloon geometry outputs when generating from opaque reference images. Without background removal, Hunyuan3D's DiT treats the opaque rectangular bounding box as foreground geometry, wrapping the entire image plane into a swollen sphere during iso-surface marching cubes.
-  - Implemented `_preprocess_image` on `_HunyuanBase`, automatically removing solid backgrounds using `hy3dgen.rembg.BackgroundRemover` (with fallback to `rembg.remove`) while preserving existing transparent RGBA silhouettes.
+  - Implemented `_preprocess_image` on `_HunyuanBase` with a 4-tier background removal strategy:
+    1. Direct preservation of existing transparent RGBA/WebP silhouettes (`alpha < 240`).
+    2. `hy3dgen.rembg.BackgroundRemover` / `rembg.remove` (added `rembg<=2.0.69` and `onnxruntime` to `backend/requirements.txt`).
+    3. `BriaRMBG` (pure PyTorch RMBG-1.4 pipeline, zero onnxruntime dependency).
+    4. Solid corner-color threshold masking (pure PIL, zero dependencies).
 - **5-Minute VRAM Retention & Instant Warm-Cache Policy (`backend/runtime/engine.py`, `backend/app/workers/tasks.py`, `backend/app/workers/vram_health_worker.py`)**:
   - Implemented automatic 5-minute (300s) model retention in VRAM: models are kept loaded after inference completes so consecutive requests with the same model are instant (zero load time).
   - Seamless auto-swap on model change: if a different model is selected and "Generate" is clicked, `RuntimeEngine.load_provider` unloads the currently active provider first, purges CUDA cache, and loads the new model without VRAM overlap.

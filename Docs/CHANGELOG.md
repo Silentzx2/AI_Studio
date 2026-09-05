@@ -6,7 +6,7 @@
 
 #### Hunyuan3D Solid Background Preprocessing (Fix Sphere / Blob Output)
 - **Root Cause Resolution**: When generating 3D meshes from standard opaque images (JPG / PNG with full 255 alpha), Hunyuan3D-2's DiT flow matching treats the solid rectangular bounding background as geometry, causing the iso-surface marching cubes decoder to wrap the entire image into a swollen spherical blob.
-- **Automated Alpha Masking & Centering (`backend/app/core/providers/hunyuan3d_local.py`)**: Added `_preprocess_image` to `_HunyuanBase`. If an input image does not already possess transparent alpha, it automatically removes the background using `hy3dgen.rembg.BackgroundRemover` (with fallback to `rembg.remove`).
+- **Automated Alpha Masking & Centering (`backend/app/core/providers/hunyuan3d_local.py`, `backend/requirements.txt`)**: Added `_preprocess_image` to `_HunyuanBase` with 4-tier background removal: direct transparent RGBA/WebP preservation, `hy3dgen.rembg`/`rembg` (added `rembg<=2.0.69` and `onnxruntime` to backend requirements), pure PyTorch `BriaRMBG`, and pure PIL uniform background color-masking.
 
 #### 5-Minute VRAM Retention & Instant Warm-Cache Auto-Swap
 - **VRAM Retention Policy (`backend/runtime/engine.py`, `backend/app/workers/tasks.py`)**: Models are retained in GPU memory after successful generation with a 5-minute (300s) TTL (`model_keep_alive_seconds = 300`). Subsequent generation requests using the same model execute instantly with zero reload overhead.

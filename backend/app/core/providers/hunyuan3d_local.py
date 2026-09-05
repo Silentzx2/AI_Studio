@@ -258,6 +258,53 @@ class _HunyuanBase(BaseProvider):
                 except Exception as exc:
                     logger.debug("rembg.remove fallback failed: %s", exc)
 
+            # 3. Try BriaRMBG (pure PyTorch, no onnxruntime dependency)
+            if not processed:
+                try:
+                    from runtime.storage import get_storage_config
+                    storage = get_storage_config()
+                    triposg_scripts = storage.get_repo_path("TripoSG") / "scripts"
+                    if triposg_scripts.exists() and str(triposg_scripts) not in sys.path:
+                        sys.path.insert(0, str(triposg_scripts))
+                    from briarmbg import BriaRMBG
+                    from image_process import prepare_image
+                    rmbg_dir = storage.get_weight_path("RMBG-1.4") or storage.get_weight_path("briaai/RMBG-1.4")
+                    if rmbg_dir and Path(rmbg_dir).exists():
+                        rmbg_net = BriaRMBG.from_pretrained(str(rmbg_dir), local_files_only=True).to(self.device)
+                    else:
+                        rmbg_net = BriaRMBG.from_pretrained("briaai/RMBG-1.4", local_files_only=False).to(self.device)
+                    rmbg_net.eval()
+                    import numpy as np
+                    img = prepare_image(image_path, bg_color=np.array([1.0, 1.0, 1.0]), rmbg_net=rmbg_net)
+                    processed = True
+                    logger.info("Background removed via BriaRMBG (PyTorch)")
+                except Exception as exc:
+                    logger.debug("BriaRMBG fallback failed: %s", exc)
+
+            # 4. Color-threshold fallback for solid/uniform background (pure PIL, zero extra deps)
+            if not processed:
+                try:
+                    corners = [
+                        img.getpixel((0, 0)),
+                        img.getpixel((img.width - 1, 0)),
+                        img.getpixel((0, img.height - 1)),
+                        img.getpixel((img.width - 1, img.height - 1)),
+                    ]
+                    c0 = corners[0][:3]
+                    if all(all(abs(c[i] - c0[i]) < 12 for i in range(3)) for c in corners):
+                        img_rgba = img.convert("RGBA")
+                        data = img_rgba.getdata()
+                        new_data = [
+                            (255, 255, 255, 0) if all(abs(p[i] - c0[i]) < 18 for i in range(3)) else p
+                            for p in data
+                        ]
+                        img_rgba.putdata(new_data)
+                        img = img_rgba
+                        processed = True
+                        logger.info("Background removed via solid color-masking fallback")
+                except Exception as exc:
+                    logger.debug("Color-masking fallback failed: %s", exc)
+
             if not processed:
                 logger.warning(
                     "Background removal unavailable; Hunyuan3D may generate spherical blob without transparent background"
