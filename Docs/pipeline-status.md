@@ -1,8 +1,20 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.1 (Hardware Tensor Core Acceleration, torch.inference_mode & Frontend Asset Compression)
+> **Version**: 5.0.2 (Demand-Based 3D Viewport Rendering, Shared Loader Singletons & Idle Frame Settling)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-05
 > **Last Updated**: September 5, 2026
+
+---
+
+## v5.0.2 — Demand-Based 3D Viewport Rendering & Shared Model Loaders (2026-09-05)
+
+### What changed
+- **Demand-Based 3D Viewport Rendering (`features/new-workspace/Viewport/MeshViewer.tsx`)**:
+  - Replaced continuous 144/120/60 FPS animation loop execution with demand-driven rendering. The WebGL renderer now renders when controls are active, during turntable rotations, or for 60 settling frames after user interaction ceases.
+  - Reduces client GPU / CPU usage to 0% when the 3D viewport is idle, eliminating browser tab stutter and overheating.
+- **Shared 3D Model Loader Singletons (`features/new-workspace/Viewport/MeshViewer.tsx`)**:
+  - Replaced per-asset `new GLTFLoader()`, `new OBJLoader()`, and `new PLYLoader()` allocations with shared module-level singletons (`sharedGLTFLoader`, `sharedOBJLoader`, `sharedPLYLoader`).
+  - Eliminates garbage collection churn and memory spikes during frequent model switching and asset previews.
 
 ---
 

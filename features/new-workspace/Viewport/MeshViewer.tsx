@@ -38,6 +38,11 @@ const disposeMaterial = (material: THREE.Material) => {
   material.dispose();
 };
 
+// Reusable loaders to avoid GC churn on frequent model switching
+const sharedGLTFLoader = new GLTFLoader();
+const sharedOBJLoader = new OBJLoader();
+const sharedPLYLoader = new PLYLoader();
+
 interface MeshViewerProps {
   className?: string;
   showOverlayUI?: boolean;
@@ -396,19 +401,33 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     scene.add(meshGroup);
     currentMeshGroupRef.current = meshGroup;
 
-    // 8. Animation & Render Loop — always render (OrbitControls damping requires update() every frame)
+    // 8. Animation & Render Loop — demand-based rendering with idle settling to save browser GPU
     const timer = new THREE.Timer();
+    let idleFrames = 0;
+
+    controls.addEventListener('change', () => {
+      idleFrames = 0;
+    });
+
     const animate = () => {
       timer.update();
       const delta = timer.getDelta();
 
-      if (isTurntableRef.current && meshGroup && meshGroup.children.length > 0) {
+      const turntableActive = Boolean(isTurntableRef.current && meshGroup && meshGroup.children.length > 0);
+      if (turntableActive) {
         meshGroup.rotation.y += delta * 0.45;
       }
 
-      controls.update();
-      renderer.info.reset();
-      renderer.render(scene, camera);
+      const controlsChanged = controls.update();
+      if (turntableActive || controlsChanged || idleFrames < 60) {
+        if (turntableActive || controlsChanged) {
+          idleFrames = 0;
+        } else {
+          idleFrames++;
+        }
+        renderer.info.reset();
+        renderer.render(scene, camera);
+      }
     };
     renderer.setAnimationLoop(animate);
 
@@ -421,6 +440,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
         renderer.setSize(w, h);
+        idleFrames = 0;
+        renderer.render(scene, camera);
       }
     });
     resizeObserver.observe(container);
@@ -580,7 +601,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           }
           const blob = await response.blob();
           const blobUrl = URL.createObjectURL(blob);
-          const loader = new GLTFLoader();
+          const loader = sharedGLTFLoader;
           const gltf = await loader.loadAsync(blobUrl);
           URL.revokeObjectURL(blobUrl);
           if (!cancelled) {
@@ -607,7 +628,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           }
           const blob = await objResponse.blob();
           const blobUrl = URL.createObjectURL(blob);
-          const loader = new OBJLoader();
+          const loader = sharedOBJLoader;
           const object = await loader.loadAsync(blobUrl);
           URL.revokeObjectURL(blobUrl);
           if (!cancelled) {
@@ -643,7 +664,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             }
           }
           const buffer = await response.arrayBuffer();
-          const loader = new PLYLoader();
+          const loader = sharedPLYLoader;
           const geometry = loader.parse(buffer);
           geometry.computeVertexNormals();
           const material = new THREE.MeshStandardMaterial({
