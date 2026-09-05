@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     cpu_fallback: bool = False
     lazy_model_loading: bool = True
     auto_unload_after_job: bool = True
+    model_keep_alive_seconds: int = 300
     blender_executable: str = "blender"
     blender_enabled: bool = True
     blender_timeout: int = 300

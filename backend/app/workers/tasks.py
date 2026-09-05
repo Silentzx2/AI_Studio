@@ -497,12 +497,23 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 except Exception as exc:
                     logger.warning("Output validation skipped for job %s: %s", job_id, exc)
 
-            # 6. Unload model from VRAM before running Blender
+            # 6. Model retention & warm-cache policy: keep loaded in VRAM for 5 minutes
+            # Consecutive requests with the same model are instant; if a different model
+            # is selected, RuntimeEngine.load_provider unloads this one first.
+            keep_alive = getattr(settings, "model_keep_alive_seconds", 300)
             if provider:
-                if engine and settings.auto_unload_after_job:
-                    await engine.unload_provider(provider_name)
+                if engine:
+                    engine.touch_provider(provider_name)
+                    if keep_alive == 0 and settings.auto_unload_after_job:
+                        await engine.unload_provider(provider_name)
+                    else:
+                        logger.info(
+                            "Warm-cache: retained provider '%s' in VRAM (keep-alive=%ss)",
+                            provider_name, keep_alive,
+                        )
                 elif hasattr(provider, "unload"):
-                    provider.unload()
+                    if keep_alive == 0 and settings.auto_unload_after_job:
+                        provider.unload()
 
             # 7. Blender post-processing
             blender_result = {}
@@ -556,6 +567,10 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                     detail_vram = get_model_vram_required("detailgen3d")
                     if detail_vram > 0:
                         vram_ok, vram_msg = check_vram_sufficient(detail_vram, device=device or "cuda:0")
+                        if not vram_ok and engine:
+                            logger.info("Unloading warm-cached provider '%s' to free VRAM for DetailGen3D", provider_name)
+                            await engine.unload_provider(provider_name)
+                            vram_ok, vram_msg = check_vram_sufficient(detail_vram, device=device or "cuda:0")
                         if not vram_ok:
                             logger.warning("DetailGen3D skipped: %s", vram_msg)
                             sync_publish(85, "postprocessing", f"DetailGen3D skipped: {vram_msg}", "warning")

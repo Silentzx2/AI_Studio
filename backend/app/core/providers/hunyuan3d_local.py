@@ -227,6 +227,42 @@ class _HunyuanBase(BaseProvider):
             metadata={"provider": self.model_key, "device": self.device},
         )
 
+    def _preprocess_image(self, image_path: str) -> Any:
+        from PIL import Image
+        img = Image.open(image_path)
+        has_transparency = False
+        if img.mode == "RGBA":
+            extrema = img.getextrema()
+            if len(extrema) == 4 and extrema[3][0] < 240:
+                has_transparency = True
+        if not has_transparency:
+            processed = False
+            try:
+                from hy3dgen.rembg import BackgroundRemover
+                remover = BackgroundRemover()
+                img = remover(img)
+                processed = True
+                logger.info("Background removed via hy3dgen.rembg.BackgroundRemover")
+            except Exception as exc:
+                logger.debug("hy3dgen BackgroundRemover not available: %s", exc)
+
+            if not processed:
+                try:
+                    import rembg
+                    img = rembg.remove(img)
+                    processed = True
+                    logger.info("Background removed via rembg.remove")
+                except Exception as exc:
+                    logger.debug("rembg.remove fallback failed: %s", exc)
+
+            if not processed:
+                logger.warning(
+                    "Background removal unavailable; Hunyuan3D may generate spherical blob without transparent background"
+                )
+        if img.mode != "RGBA":
+            img = img.convert("RGBA")
+        return img
+
     def _text_to_3d(self, request: GenerationRequest, output_dir: str) -> str:
         raise NotImplementedError
 
@@ -303,10 +339,9 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
 
     def _image_to_3d(self, request: GenerationRequest, output_dir: str) -> str:
         import torch
-        from PIL import Image
         out = Path(output_dir)
         out.mkdir(parents=True, exist_ok=True)
-        img = Image.open(request.reference_image_url)
+        img = self._preprocess_image(request.reference_image_url)
         with torch.inference_mode():
             result = self._model(image=img)
         dest = str(out / "mesh.glb")
@@ -372,10 +407,9 @@ class Hunyuan3D2MiniLocalProvider(_HunyuanBase):
 
     def _image_to_3d(self, request: GenerationRequest, output_dir: str) -> str:
         import torch
-        from PIL import Image
         out = Path(output_dir)
         out.mkdir(parents=True, exist_ok=True)
-        img = Image.open(request.reference_image_url).convert("RGBA")
+        img = self._preprocess_image(request.reference_image_url)
         # ponytail: steps/octree_resolution/num_chunks match the official
         # shape_gen_mini.py reference; quality scales inference steps only.
         steps = {"low-poly": 20, "standard": 30, "high-poly": 50}.get(request.quality, 30)

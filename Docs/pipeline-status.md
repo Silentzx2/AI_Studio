@@ -1,8 +1,22 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.9 (scikit-image Cython Overlay Bridge & TripoSG scripts sys.path Resolution)
+> **Version**: 5.0.10 (Hunyuan3D Background Removal & 5-Minute VRAM Warm-Cache Retention)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-05
 > **Last Updated**: September 5, 2026
+
+---
+
+## v5.0.10 — Hunyuan3D Background Removal & 5-Minute VRAM Warm-Cache Retention (2026-09-05)
+
+### What changed
+- **Hunyuan3D Background Preprocessing (`backend/app/core/providers/hunyuan3d_local.py`)**:
+  - Fixed root cause of spherical blob / balloon geometry outputs when generating from opaque reference images. Without background removal, Hunyuan3D's DiT treats the opaque rectangular bounding box as foreground geometry, wrapping the entire image plane into a swollen sphere during iso-surface marching cubes.
+  - Implemented `_preprocess_image` on `_HunyuanBase`, automatically removing solid backgrounds using `hy3dgen.rembg.BackgroundRemover` (with fallback to `rembg.remove`) while preserving existing transparent RGBA silhouettes.
+- **5-Minute VRAM Retention & Instant Warm-Cache Policy (`backend/runtime/engine.py`, `backend/app/workers/tasks.py`, `backend/app/workers/vram_health_worker.py`)**:
+  - Implemented automatic 5-minute (300s) model retention in VRAM: models are kept loaded after inference completes so consecutive requests with the same model are instant (zero load time).
+  - Seamless auto-swap on model change: if a different model is selected and "Generate" is clicked, `RuntimeEngine.load_provider` unloads the currently active provider first, purges CUDA cache, and loads the new model without VRAM overlap.
+  - Scheduled retention expiration in `vram_health_worker.py` and `RuntimeEngine.unload_expired_providers`: models idle for >300s are automatically deallocated to free GPU memory.
+  - Configurable via `model_keep_alive_seconds: int = 300` in `app/config.py`.
 
 ---
 

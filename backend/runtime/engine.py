@@ -55,6 +55,7 @@ class RuntimeEngine:
         self.gpu = _GPUScheduler()
         self._loaded: dict[str, Any] = {}
         self._loaded_modes: dict[str, str] = {}
+        self._last_used: dict[str, float] = {}
         self._lock = asyncio.Lock()
         self._initialized = False
         self._storage = get_storage_config()
@@ -222,6 +223,42 @@ class RuntimeEngine:
             f"Reduce resolution, free VRAM, or enable the mock provider."
         )
 
+    def touch_provider(self, name: str) -> None:
+        import time
+        self._last_used[name] = time.time()
+
+    async def unload_expired_providers(self, max_age_seconds: float = 300.0) -> list[str]:
+        import time
+        now = time.time()
+        unloaded = []
+        async with self._lock:
+            for name, last_time in list(self._last_used.items()):
+                if now - last_time >= max_age_seconds:
+                    logger.info(
+                        "Provider '%s' idle for %.1fs (retention limit %ss) — auto-unloading from VRAM",
+                        name, now - last_time, max_age_seconds,
+                    )
+                    provider = self._loaded.pop(name, None)
+                    self._loaded_modes.pop(name, None)
+                    self._last_used.pop(name, None)
+                    if provider and hasattr(provider, "unload"):
+                        try:
+                            loop = asyncio.get_running_loop()
+                            await loop.run_in_executor(None, provider.unload)
+                        except Exception as exc:
+                            logger.warning("Error unloading expired provider '%s': %s", name, exc)
+                    self.gpu.release(name)
+                    try:
+                        import torch
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                            import gc
+                            gc.collect()
+                    except Exception:
+                        pass
+                    unloaded.append(name)
+        return unloaded
+
     async def load_provider(self, name: str, vram_mode: str = "auto", low_vram: bool = False) -> Any:
         async with self._lock:
             requested = "low" if low_vram else vram_mode
@@ -231,9 +268,11 @@ class RuntimeEngine:
             if name in self._loaded:
                 loaded_mode = self._loaded_modes.get(name, "normal")
                 if requested in ("auto", loaded_mode):
+                    self.touch_provider(name)
                     return self._loaded[name]
                 provider = self._loaded.pop(name)
                 self._loaded_modes.pop(name, None)
+                self._last_used.pop(name, None)
                 try:
                     if hasattr(provider, "unload"):
                         loop = asyncio.get_running_loop()
@@ -244,6 +283,7 @@ class RuntimeEngine:
             for loaded_name in list(self._loaded.keys()):
                 provider = self._loaded.pop(loaded_name)
                 self._loaded_modes.pop(loaded_name, None)
+                self._last_used.pop(loaded_name, None)
                 try:
                     if hasattr(provider, "unload"):
                         loop = asyncio.get_running_loop()
@@ -286,6 +326,7 @@ class RuntimeEngine:
                 # the executor future resolves, so no concurrent mutation is possible.
                 self._loaded[name] = provider
                 self._loaded_modes[name] = resolved_mode
+                self.touch_provider(name)
                 logger.info("Provider '%s' loaded (vram_mode=%s)", name, resolved_mode)
                 return provider
             except Exception as exc:
@@ -299,6 +340,7 @@ class RuntimeEngine:
                 return
             provider = self._loaded.pop(name)
             self._loaded_modes.pop(name, None)
+            self._last_used.pop(name, None)
             if hasattr(provider, "unload"):
                 try:
                     loop = asyncio.get_running_loop()

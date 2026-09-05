@@ -1,5 +1,18 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.10] - 2026-09-05
+
+### Added / Fixed
+
+#### Hunyuan3D Solid Background Preprocessing (Fix Sphere / Blob Output)
+- **Root Cause Resolution**: When generating 3D meshes from standard opaque images (JPG / PNG with full 255 alpha), Hunyuan3D-2's DiT flow matching treats the solid rectangular bounding background as geometry, causing the iso-surface marching cubes decoder to wrap the entire image into a swollen spherical blob.
+- **Automated Alpha Masking & Centering (`backend/app/core/providers/hunyuan3d_local.py`)**: Added `_preprocess_image` to `_HunyuanBase`. If an input image does not already possess transparent alpha, it automatically removes the background using `hy3dgen.rembg.BackgroundRemover` (with fallback to `rembg.remove`).
+
+#### 5-Minute VRAM Retention & Instant Warm-Cache Auto-Swap
+- **VRAM Retention Policy (`backend/runtime/engine.py`, `backend/app/workers/tasks.py`)**: Models are retained in GPU memory after successful generation with a 5-minute (300s) TTL (`model_keep_alive_seconds = 300`). Subsequent generation requests using the same model execute instantly with zero reload overhead.
+- **Auto Model Swap**: When a user switches models (e.g. from Hunyuan3D-2 Mini to TripoSG) and clicks Generate, `RuntimeEngine.load_provider` detects the mismatch, unloads the active provider, purges CUDA cache, and loads the new model into GPU memory.
+- **Background Idle Eviction (`backend/app/workers/vram_health_worker.py`)**: Periodic Celery Beat health worker automatically invokes `engine.unload_expired_providers()` to deallocate models idle for >300s.
+
 ## [v4.9.4] - 2026-09-04
 
 ### Added / Fixed

@@ -13,6 +13,25 @@ from app.workers.celery_app import celery_app
 @celery_app.task(name="app.workers.vram_health_worker.check_vram_health")
 def check_vram_health() -> dict:
     """Celery periodic task to monitor GPU memory and clean up if needed."""
+    # 0. Expire idle models past retention TTL (5 minutes / 300s)
+    try:
+        from runtime.engine import get_engine
+        engine = get_engine()
+        keep_alive = getattr(settings, "model_keep_alive_seconds", 300)
+        if keep_alive > 0 and engine:
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            if loop.is_running():
+                asyncio.create_task(engine.unload_expired_providers(keep_alive))
+            else:
+                loop.run_until_complete(engine.unload_expired_providers(keep_alive))
+    except Exception as exc:
+        logger.debug("Expired provider check: %s", exc)
+
     r = redis_sync.from_url(settings.redis_url, decode_responses=True)
     
     # 1. Check current VRAM usage
