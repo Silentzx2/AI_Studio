@@ -599,11 +599,24 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               throw new Error('Model file served as HTML — possible token/auth failure. Open DevTools for details.');
             }
           }
-          const blob = await response.blob();
-          const blobUrl = URL.createObjectURL(blob);
+          const arrayBuffer = await response.arrayBuffer();
+
+          // Truncation check for GLB binary format to avoid Three.js typed array length error
+          if (format === 'glb' && arrayBuffer.byteLength >= 12) {
+            const view = new DataView(arrayBuffer);
+            const magic = view.getUint32(0, true);
+            if (magic === 0x46546C67) { // 'glTF'
+              const declaredLength = view.getUint32(8, true);
+              if (declaredLength > arrayBuffer.byteLength) {
+                throw new Error(
+                  `Model file truncated: received ${arrayBuffer.byteLength} of ${declaredLength} bytes. Please try reloading.`
+                );
+              }
+            }
+          }
+
           const loader = sharedGLTFLoader;
-          const gltf = await loader.loadAsync(blobUrl);
-          URL.revokeObjectURL(blobUrl);
+          const gltf = await loader.parseAsync(arrayBuffer, '');
           if (!cancelled) {
             group.add(gltf.scene);
             gltf.scene.traverse((child) => {
@@ -1110,7 +1123,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             viewUrl: serverUrl,
           },
         };
-        addAsset(finalAsset);
+        // Update temp asset in place to avoid duplicate cards in the workspace
+        updateAssetProperties(tempId, finalAsset);
         setCurrentAsset(finalAsset);
         setDropToastMessage(`Saved to storage and loaded "${cleanName}"`);
         setTimeout(() => setDropToastMessage(null), 3000);

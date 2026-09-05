@@ -170,7 +170,12 @@ async function handleDirectAssetDelete(filename: string) {
     const target = path.join(dir, filename);
     if (fs.existsSync(target)) {
       try {
-        await fs.promises.unlink(target);
+        const stat = await fs.promises.stat(target);
+        if (stat.isDirectory()) {
+          await fs.promises.rm(target, { recursive: true, force: true });
+        } else {
+          await fs.promises.unlink(target);
+        }
         deleted = true;
       } catch {}
     }
@@ -436,6 +441,11 @@ export async function DELETE(
     const deleteResult = await handleDirectAssetDelete(decodeURIComponent(filename));
     return NextResponse.json(deleteResult);
   }
+  if (fullPath.startsWith('jobs/')) {
+    const jobId = fullPath.replace('jobs/', '');
+    const deleteResult = await handleDirectAssetDelete(decodeURIComponent(jobId));
+    return NextResponse.json(deleteResult);
+  }
 
   return NextResponse.json(
     { success: false, message: `Backend unavailable at ${BACKEND_URL} — is the backend service running?` },
@@ -490,7 +500,7 @@ function createProxyResponse(response: Response, request?: NextRequest): NextRes
   const headers = new Headers();
 
   // Forward relevant headers
-  const forwardHeaders = ['content-type', 'cache-control', 'etag', 'last-modified'];
+  const forwardHeaders = ['content-type', 'content-length', 'accept-ranges', 'content-range', 'cache-control', 'etag', 'last-modified'];
   for (const header of forwardHeaders) {
     const value = response.headers.get(header);
     if (value) headers.set(header, value);

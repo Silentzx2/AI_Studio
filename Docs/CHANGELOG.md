@@ -1,5 +1,26 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.11] - 2026-09-05
+
+### Added / Fixed
+
+#### 1. Static GLB Proxy Timeout & TypedArray Length Crash Fix
+- **Root Cause Resolution**: Next.js proxy route (`app/static/[...path]/route.ts`) imposed an aggressive 10-second `AbortSignal.timeout(10000)` on binary asset streaming without passing `Content-Length` or `Accept-Ranges` headers. Large GLB models aborted mid-stream over tunnels/Colab, causing `TimeoutError: failed to pipe response`. Three.js `GLTFLoader` then attempted to read truncated binary chunk views with `new Float32Array(...)`, crashing with `RangeError: Invalid typed array length`.
+- **Direct Disk-First Serving (`app/static/[...path]/route.ts`)**: The static proxy now checks local storage disk first (`backend/storage/...`) and serves files directly with known `Content-Length`, `Accept-Ranges: bytes`, and zero socket proxy latency.
+- **Extended 5-Minute Proxy Timeout & Header Forwarding**: If proxied through FastAPI, static model fetch timeout extended to 300s (5 minutes) and `content-length`, `accept-ranges`, and `content-range` headers are forwarded cleanly.
+- **MeshViewer Binary Header Validation (`features/new-workspace/Viewport/MeshViewer.tsx`)**: Replaced `response.blob() -> URL.createObjectURL -> loadAsync` with direct `await response.arrayBuffer()` and `sharedGLTFLoader.parseAsync(arrayBuffer, '')`. Validates GLB declared length (`view.getUint32(8, true)`) against downloaded buffer before parsing to catch incomplete downloads early with informative status.
+
+#### 2. Asset Deletion & Backend Storage Cleanup
+- **Single-Asset Delete Availability (`RightAssetsPanel.tsx`)**: Removed the `assets.length > 1` condition that hid the Delete button when only one model existed in the workspace.
+- **Job & Upload Deletion Handling (`WorkspaceContext.tsx`, `jobs.py`)**: `deleteAsset` now detects generated jobs (UUID / `generation` category) and calls `DELETE /api/v1/jobs/{job_id}`, alongside `DELETE /api/v1/upload/assets/{filename}` for uploads.
+- **Complete Storage Directory Cleanup (`backend/app/api/v1/jobs.py`, `app/api/v1/[...path]/route.ts`)**: Job deletion removes the entire `storage/models/{job_id}` directory recursively via `shutil.rmtree`, preventing orphaned files.
+- **Persistent Local Deletion & Query Invalidation**: Added `deletedAssetIds` state to immediately hide deleted assets in UI and invalidated React Query caches (`uploaded-assets`, `history-assets`) so background polling does not re-add deleted assets.
+
+#### 3. Asset Deduplication & Descriptive Model Naming
+- **Drag-and-Drop In-Place Update (`MeshViewer.tsx`)**: When dropping a 3D file, upload completion now updates the local preview asset in-place (`updateAssetProperties(tempId, finalAsset)`) instead of calling `addAsset` a second time, eliminating duplicate cards.
+- **Robust Multi-Key Deduplication (`WorkspaceContext.tsx`)**: Merged asset pipeline filters duplicates across local session, uploaded models, and generation history using canonical IDs, non-generic filenames, and normalized URLs.
+- **Descriptive Model Naming (`GeneratePanel.tsx`, `types.ts`, `WorkspaceContext.tsx`)**: Model generation now carries the image name or sample preset concept name into `prompt` and `task.inputImageName`. Generated models display clean titles (e.g. "Mech Sentinel", "Sci-Fi Helmet", "Car") instead of defaulting to generic "generate".
+
 ## [v5.0.10] - 2026-09-05
 
 ### Added / Fixed

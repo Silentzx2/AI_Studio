@@ -15,6 +15,7 @@ export interface ActiveTask {
   type: 'image-to-3d' | 'segment' | 'remesh' | 'texture';
   title: string;
   inputImage?: string;
+  inputImageName?: string;
   startedAt: number;
   status: 'queued' | 'running' | 'completed' | 'failed' | 'interrupted';
   progress: number; // 0 to 100
@@ -178,6 +179,8 @@ export interface GenerationSettings {
   autoOptimize: boolean;
   autoOptimizeSettings: AutoOptimizeSettings;
   generateTexture?: boolean;
+  prompt?: string;
+  imageName?: string;
 }
 
 

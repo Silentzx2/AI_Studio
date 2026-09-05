@@ -108,30 +108,26 @@ async def delete_job(job_id: str):
             if not job:
                 raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
 
-            # Optionally delete associated files
-            if job.model_url:
-                try:
-                    from pathlib import Path
-                    from app.config import get_settings
-                    _settings = get_settings()
-                    base = Path(_settings.storage_local_path)
+            # Delete associated files and directory from storage
+            try:
+                import shutil
+                from pathlib import Path
+                from app.config import get_settings
+                _settings = get_settings()
+                base = Path(_settings.storage_local_path)
+                job_dir = base / "models" / job_id
+                if job_dir.exists() and job_dir.is_dir():
+                    shutil.rmtree(job_dir, ignore_errors=True)
+                if job.model_url:
                     model_path = base / job.model_url.replace("/static/", "")
                     if model_path.exists():
                         model_path.unlink()
-                except Exception as e:
-                    logger.warning(f"Failed to delete model file for {job_id}: {e}")
-
-            if job.thumbnail_url:
-                try:
-                    from pathlib import Path
-                    from app.config import get_settings
-                    _settings = get_settings()
-                    base = Path(_settings.storage_local_path)
+                if job.thumbnail_url:
                     thumb_path = base / job.thumbnail_url.replace("/static/", "")
                     if thumb_path.exists():
                         thumb_path.unlink()
-                except Exception as e:
-                    logger.warning(f"Failed to delete thumbnail for {job_id}: {e}")
+            except Exception as e:
+                logger.warning(f"Failed to clean up storage files for {job_id}: {e}")
 
             await session.delete(job)
             await session.commit()

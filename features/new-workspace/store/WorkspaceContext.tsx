@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   ToolType,
@@ -133,6 +133,7 @@ async function parseApiError(response: Response): Promise<Error> {
 }
 
 export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const queryClient = useQueryClient();
   const appStore = useAppStore();
   const viewerStore = useViewerStore();
   const router = useRouter();
@@ -146,6 +147,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [leftPanelWidth, setLeftPanelWidth] = useState(184); // Tripo style ~184px
   const [rightPanelWidth, setRightPanelWidth] = useState(188); // Tripo style ~188px
   const [assetFilter, setAssetFilter] = useState<string>('all');
+  const [deletedAssetIds, setDeletedAssetIds] = useState<Set<string>>(() => new Set());
 
   // React Query for System Stats
   const { data: polledSystemStats, refetch: queryRefetchSystemStats } = useQuery({
@@ -169,16 +171,25 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     queryKey: ['history-assets'],
     queryFn: async () => {
       const history = await apiClient.getHistory();
-      return Object.entries(history).filter(([, h]) => h.status?.completed).map(([id, h], i) => ({
-        id: id || `hist-${i}`,
-        name: (h.prompt?.[1] as string)?.slice(0, 40) || 'Generated Model',
-        category: 'generation' as const,
-        thumbnail: '',
-        source: { filename: '', subfolder: 'output', type: 'output', viewUrl: '' },
-        meshType: 'custom' as const, faces: 0, vertices: 0, triangles: 0,
-        statsAvailable: false, topology: 'Triangle' as const, format: 'GLB' as const,
-        dateCreated: '', tags: ['Generated'], materials: [],
-      })) as ModelAsset[];
+      return Object.entries(history).filter(([, h]) => h.status?.completed).map(([id, h], i) => {
+        const rawPrompt = (h.prompt?.[1] as string)?.trim();
+        const promptName = rawPrompt && !rawPrompt.startsWith('workflow:') && rawPrompt !== 'generate'
+          ? (rawPrompt.charAt(0).toUpperCase() + rawPrompt.slice(1)).slice(0, 40)
+          : null;
+        const name = promptName || `Model_${id.slice(0, 8)}`;
+        const outputs = (h.outputs || {}) as Record<string, any>;
+        const outputUrl = (outputs.glb as string) || (outputs.model_url as string) || `/static/models/${id}/model.glb`;
+        return {
+          id: id || `hist-${i}`,
+          name,
+          category: 'generation' as const,
+          thumbnail: (outputs.thumbnail as string) || (outputs.thumbnail_url as string) || '',
+          source: { filename: `${id}.glb`, subfolder: 'generated', type: 'output', viewUrl: outputUrl },
+          meshType: 'custom' as const, faces: 0, vertices: 0, triangles: 0,
+          statsAvailable: false, topology: 'Triangle' as const, format: 'GLB' as const,
+          dateCreated: '', tags: ['AI Generated'], materials: [],
+        };
+      }) as ModelAsset[];
     },
     refetchInterval: 60000,
     staleTime: 30000,
@@ -193,9 +204,13 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const data = await res.json();
       return (data?.data?.models || data?.models || []).map((m: any) => {
         const meshStats = m.mesh_stats;
+        const cleanName = m.name?.replace(/^[0-9]+_/, '')?.replace(/\.[^.]+$/, '') || m.filename?.replace(/\.[^.]+$/, '') || '3D Model';
+        const formattedName = cleanName === 'model' || cleanName === 'generate'
+          ? `Model_${(m.id || m.filename).slice(0, 8)}`
+          : cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
         return {
           id: m.id || m.filename,
-          name: m.name || m.filename,
+          name: formattedName,
           category: 'mesh' as const,
           meshType: 'custom' as const,
           thumbnail: m.thumbnail_url || '',
@@ -224,20 +239,38 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const local = localAssets;
 
     setAssets(() => {
-      // Prioritize uploaded assets from backend/storage/models
-      const all = [...uploaded, ...history, ...local];
-      const seen = new Set();
+      // Prioritize local session assets, then uploaded, then history
+      const all = [...local, ...uploaded, ...history];
+      const seenIds = new Set<string>();
+      const seenFilenames = new Set<string>();
+      const seenUrls = new Set<string>();
+
       const filtered = all.filter(a => {
-        if (seen.has(a.id)) return false;
-        seen.add(a.id);
+        if (!a || !a.id) return false;
+        if (deletedAssetIds.has(a.id)) return false;
+        if (seenIds.has(a.id)) return false;
+
+        const fn = a.source?.filename?.trim();
+        if (fn && fn !== 'model.glb' && seenFilenames.has(fn)) return false;
+
+        const rawUrl = a.source?.viewUrl || a.source?.localUrl;
+        const normUrl = rawUrl?.replace(/^\/+/, '')?.toLowerCase();
+        if (normUrl && seenUrls.has(normUrl)) return false;
+
+        seenIds.add(a.id);
+        if (fn && fn !== 'model.glb') seenFilenames.add(fn);
+        if (normUrl) seenUrls.add(normUrl);
         return true;
       });
+
       if ((!selectedAssetIdRef.current || !filtered.some(a => a.id === selectedAssetIdRef.current)) && filtered.length > 0) {
         setSelectedAssetId(filtered[0].id);
+      } else if (filtered.length === 0) {
+        setSelectedAssetId(null);
       }
       return filtered;
     });
-  }, [historyAssets, uploadedAssets, localAssets]);
+  }, [historyAssets, uploadedAssets, localAssets, deletedAssetIds]);
 
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const selectedAssetIdRef = useRef(selectedAssetId);
@@ -419,8 +452,32 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
 
   const addAsset = useCallback((asset: ModelAsset) => {
-    setLocalAssets(prev => [asset, ...prev]);
-    setAssets(prev => [asset, ...prev]);
+    setLocalAssets(prev => {
+      const idx = prev.findIndex(a =>
+        a.id === asset.id ||
+        (asset.source?.filename && a.source?.filename && asset.source.filename !== 'model.glb' && a.source.filename === asset.source.filename) ||
+        (asset.source?.viewUrl && a.source?.viewUrl && asset.source.viewUrl === a.source.viewUrl)
+      );
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = { ...copy[idx], ...asset };
+        return copy;
+      }
+      return [asset, ...prev];
+    });
+    setAssets(prev => {
+      const idx = prev.findIndex(a =>
+        a.id === asset.id ||
+        (asset.source?.filename && a.source?.filename && asset.source.filename !== 'model.glb' && a.source.filename === asset.source.filename) ||
+        (asset.source?.viewUrl && a.source?.viewUrl && asset.source.viewUrl === a.source.viewUrl)
+      );
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = { ...copy[idx], ...asset };
+        return copy;
+      }
+      return [asset, ...prev];
+    });
     setSelectedAssetId(asset.id);
   }, []);
 
@@ -455,9 +512,13 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           setActiveTask(prev => prev ? { ...prev, status: 'completed', progress: 100, currentStep: 'Completed' } : null);
           if (data.result?.model_url) {
             const result = data.result;
+            const promptTitle = task.title && task.title !== 'Image-to-3D generation' && task.title !== 'generate' ? task.title : null;
+            const rawName = promptTitle || task.inputImageName || (task.inputImage ? task.inputImage.split('/').pop()?.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ') : null) || `Model_${jobId.slice(0, 6)}`;
+            const cleanName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+
             const outputAsset: ModelAsset = {
               id: jobId,
-              name: `Generated_${jobId.slice(0, 8)}`,
+              name: cleanName,
               category: 'generation',
               thumbnail: result.thumbnail_url || '',
               faces: result.polygon_count ?? 0,
@@ -542,31 +603,36 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const asset = assets.find(a => a.id === id);
     if (!asset) return;
 
-    const isUploadedAsset = asset.source?.type === 'upload' || asset.tags?.includes('User-Upload') || asset.tags?.includes('Uploaded');
-    if (isUploadedAsset && asset.source?.filename) {
-      try {
-        const res = await fetch(`/api/v1/upload/assets/${encodeURIComponent(asset.source.filename)}`, { method: 'DELETE' });
-        if (!res.ok) throw await parseApiError(res);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to delete uploaded asset from backend';
-        toast.error('Delete failed', { description: message });
-        return;
-      }
-    }
-
+    // Immediately mark as deleted locally so UI updates instantly
+    setDeletedAssetIds(prev => new Set(prev).add(id));
     setLocalAssets(prev => prev.filter(a => a.id !== id));
     setAssets(prev => {
       const next = prev.filter(a => a.id !== id);
       if (id === selectedAssetIdRef.current) {
-        if (next.length > 0) {
-          setSelectedAssetId(next[0].id);
-        } else {
-          setSelectedAssetId(null);
-        }
+        setSelectedAssetId(next.length > 0 ? next[0].id : null);
       }
       return next;
     });
-  }, [assets]);
+
+    const isJob = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ||
+      asset.category === 'generation' ||
+      asset.tags?.includes('AI Generated');
+
+    try {
+      if (isJob) {
+        await fetch(`/api/v1/jobs/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      }
+      if (asset.source?.filename) {
+        await fetch(`/api/v1/upload/assets/${encodeURIComponent(asset.source.filename)}`, { method: 'DELETE' });
+      }
+    } catch (err) {
+      console.warn('Backend delete request failed:', err);
+    }
+
+    // Invalidate React Query caches so refetch does not bring back stale entries
+    queryClient.invalidateQueries({ queryKey: ['uploaded-assets'] });
+    queryClient.invalidateQueries({ queryKey: ['history-assets'] });
+  }, [assets, queryClient]);
 
   const resetCamera = useCallback(() => {
     setViewportResetTrigger(prev => prev + 1);
@@ -618,7 +684,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       toast.error('Image required', { description: 'Select or upload a reference image to generate a 3D model.' });
       return;
     }
-    startTask('image-to-3d', 'Image-to-3D generation', undefined, generationSettings.aiModel);
+    const modelPrompt = generationSettings.prompt || generationSettings.imageName || '3D Model';
+    startTask('image-to-3d', modelPrompt, undefined, generationSettings.aiModel);
 
     try {
       const res = await fetch('/api/v1/generation', {
@@ -628,6 +695,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           mode: 'image-to-3d',
           provider: generationSettings.aiModel || undefined,
           reference_image_url: imageToUse,
+          prompt: modelPrompt,
           quality: generationSettings.meshQuality || 'high',
           generate_texture: generationSettings.generateTexture !== false,
           low_vram: Boolean(generationSettings.lowVram),
@@ -640,7 +708,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const data = await parseApiData<{ job_id?: string; id?: string; status?: string }>(res);
       const jobId = data.job_id ?? data.id;
       if (!jobId) throw new Error('Backend did not return a generation job ID');
-      setActiveTask(prev => prev ? { ...prev, id: jobId, inputImage: imageToUse, status: 'queued', currentStep: 'Queued on backend' } : prev);
+      setActiveTask(prev => prev ? { ...prev, id: jobId, inputImage: imageToUse, inputImageName: modelPrompt, status: 'queued', currentStep: 'Queued on backend' } : prev);
       setExecutionStep('Generation queued on backend');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Generation submission failed';

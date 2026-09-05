@@ -147,9 +147,12 @@ export const GeneratePanel: React.FC = () => {
         (loaded, total) => updateProgress(loaded)
       );
       finishUpload();
+      const cleanPrompt = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
       setGenerationSettings(prev => ({
         ...prev,
-        image: res.url
+        image: res.url,
+        prompt: cleanPrompt,
+        imageName: cleanPrompt,
       }));
     } catch (err) {
       failUpload();
@@ -395,7 +398,14 @@ export const GeneratePanel: React.FC = () => {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                if (SAMPLE_PRESETS[0]) setGenerationSettings(prev => ({ ...prev, image: SAMPLE_PRESETS[0].url }));
+                if (SAMPLE_PRESETS[0]) {
+                  setGenerationSettings(prev => ({
+                    ...prev,
+                    image: SAMPLE_PRESETS[0].url,
+                    prompt: SAMPLE_PRESETS[0].name,
+                    imageName: SAMPLE_PRESETS[0].name,
+                  }));
+                }
               }}
               className="text-[#F9CF00] hover:underline"
             >

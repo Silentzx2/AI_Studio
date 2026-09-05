@@ -414,19 +414,17 @@ export const RightAssetsPanel: React.FC = () => {
                            <Copy className="w-2.5 h-2.5 text-[#F9CF00]" />
                            <span>Duplicate</span>
                          </button>
-                         {assets.length > 1 && (
-                           <button
-                             onClick={(e) => {
-                               e.stopPropagation();
-                               deleteAsset(asset.id);
-                               setActiveMenuAssetId(null);
-                             }}
-                             className="w-full text-left px-2 py-1 text-rose-400 hover:bg-rose-500/10 flex items-center gap-1"
-                           >
-                             <Trash2 className="w-2.5 h-2.5" />
-                             <span>Delete</span>
-                           </button>
-                         )}
+                         <button
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             deleteAsset(asset.id);
+                             setActiveMenuAssetId(null);
+                           }}
+                           className="w-full text-left px-2 py-1 text-rose-400 hover:bg-rose-500/10 flex items-center gap-1"
+                         >
+                           <Trash2 className="w-2.5 h-2.5" />
+                           <span>Delete</span>
+                         </button>
                         </div>
                       )}
                   </div>

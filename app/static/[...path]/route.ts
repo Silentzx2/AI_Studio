@@ -65,6 +65,8 @@ async function tryServeFromDisk(fullPath: string): Promise<NextResponse | null> 
         const fileBuffer = await fs.promises.readFile(candidate);
         const headers = new Headers();
         headers.set('Content-Type', getMimeType(candidate));
+        headers.set('Content-Length', fileBuffer.length.toString());
+        headers.set('Accept-Ranges', 'bytes');
         headers.set('Cache-Control', 'public, max-age=3600');
         headers.set('X-Content-Type-Options', 'nosniff');
         headers.set('Access-Control-Allow-Origin', '*');
@@ -90,6 +92,12 @@ export async function GET(
     return new NextResponse('Invalid path', { status: 400 });
   }
 
+  // 1. Serve directly from disk when available (fastest, avoids socket timeouts)
+  const diskResponse = await tryServeFromDisk(fullPath);
+  if (diskResponse) {
+    return diskResponse;
+  }
+
   const BACKEND_URL = getBackendUrl();
   const targetUrl = `${BACKEND_URL}/static/${fullPath}`;
 
@@ -98,7 +106,7 @@ export async function GET(
     try {
       response = await fetch(targetUrl, {
         method: 'GET',
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(300000), // 5 min timeout for large 3D models
       });
     } catch (fetchErr: any) {
       if (targetUrl.includes('//api:8000') || fetchErr?.cause?.code === 'ENOTFOUND') {
@@ -106,7 +114,7 @@ export async function GET(
         const fallbackUrl = targetUrl.replace(/\/\/api(:8000)?\//, '//127.0.0.1:8000/');
         response = await fetch(fallbackUrl, {
           method: 'GET',
-          signal: AbortSignal.timeout(10000),
+          signal: AbortSignal.timeout(300000),
         });
       } else {
         throw fetchErr;
@@ -118,6 +126,15 @@ export async function GET(
       const headers = new Headers();
       const contentType = response.headers.get('content-type');
       if (contentType) headers.set('content-type', contentType);
+
+      const contentLength = response.headers.get('content-length');
+      if (contentLength) headers.set('content-length', contentLength);
+
+      const acceptRanges = response.headers.get('accept-ranges');
+      if (acceptRanges) headers.set('accept-ranges', acceptRanges);
+
+      const contentRange = response.headers.get('content-range');
+      if (contentRange) headers.set('content-range', contentRange);
 
       headers.set('Cache-Control', 'no-transform');
       headers.set('X-Content-Type-Options', 'nosniff');
@@ -139,13 +156,7 @@ export async function GET(
       });
     }
   } catch {
-    // Backend unreachable; attempt disk fallback below
-  }
-
-  // Fallback: Check physical storage directories on disk
-  const diskResponse = await tryServeFromDisk(fullPath);
-  if (diskResponse) {
-    return diskResponse;
+    // Backend unreachable and disk already checked
   }
 
   return NextResponse.json(
