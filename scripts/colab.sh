@@ -609,7 +609,8 @@ colab_start_services() {
                 sleep 3
             done
             if [[ "$MIGRATION_OK" == "true" ]]; then
-                log "Migrations complete"
+                "$PYTHON_BIN" -m alembic current 2>&1 || true
+                log "Migrations complete (schema at head)"
             else
                 err "Migrations failed after 3 attempts — refusing to start services against an unknown schema."
                 exit 1
@@ -1165,10 +1166,7 @@ install_blender() {
 
 install_blender || warn "Blender install skipped — post-processing may be unavailable"
 
-# Build-time frontend config must be set BEFORE `npm run build` (Next.js embeds
-# NEXT_PUBLIC_* at build time). Export early so both the build and `npm start`
-# inherit the same API URL.
-export NEXT_PUBLIC_API_URL="${BACKEND_URL:-http://localhost:8000}"
+export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}"
 
 # ── Step 2: Configure .env ────────────────────────────────────────────────
 
@@ -1899,7 +1897,8 @@ if [[ "$PG_READY" == "true" ]]; then
             sleep 3
         done
         if [[ "$MIGRATION_OK" == "true" ]]; then
-            log "Migrations complete"
+            "$PYTHON_BIN" -m alembic current 2>&1 || true
+            log "Migrations complete (schema at head)"
         else
             err "Migrations failed after 3 attempts — refusing to start services against an unknown schema."
             exit 1

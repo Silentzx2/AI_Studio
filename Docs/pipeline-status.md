@@ -1,8 +1,25 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.9.7 (Colab Service Lifecycle, EADDRINUSE Port Freeing, and CLI Actions)
-> **Status**: ✅ **COMPLETE** — Verified 2026-09-04
-> **Last Updated**: September 4, 2026
+> **Version**: 4.9.8 (CORS Dynamic Origin, API Proxy Forwarding, Postgres DSN Normalization, and Migration Status)
+> **Status**: ✅ **COMPLETE** — Verified 2026-09-05
+> **Last Updated**: September 5, 2026
+
+---
+
+## v4.9.8 — CORS Dynamic Origin, API Proxy Forwarding, Postgres DSN Normalization, and Migration Status (2026-09-05)
+
+### What changed
+- **Dynamic CORS Origin in Next.js API Proxy (`app/api/v1/[...path]/route.ts`)**: Removed hardcoded production `Access-Control-Allow-Origin: https://yourdomain.com` which blocked browser requests from Colab URLs and tunnels with `Failed to fetch`. The proxy now dynamically reflects the request origin and enables credentials.
+- **Unconditional Proxy Forwarding in `route.ts`**: Handled non-2xx responses (400, 422, 500) transparently through `createProxyResponse` instead of dropping them and returning generic 504 gateway timeouts.
+- **FastAPI CORS Regex in `backend/app/main.py`**: Added `allow_origin_regex=r"https?://.*"` to FastAPI's CORS middleware so direct or tunneled HTTP/HTTPS requests from Colab are accepted.
+- **Browser API URL Fallback in `services/apiClient.ts`**: If `API_URL` is set to localhost/127.0.0.1 but the browser is accessing from a remote host (Colab tunnel), `normalizeApiUrl` falls back to empty relative URL (`/api/v1/...`), ensuring requests go through the Next.js runtime proxy.
+- **EventSource Auto-Reconnect in `services/apiClient.ts`**: Prevented `es.onerror` from terminating SSE connections during browser auto-reconnects (`readyState === CONNECTING`).
+- **Postgres DSN Normalization in `backend/runtime/health.py`**: Cleaned `+psycopg2` / `+asyncpg` driver prefixes from `settings.sync_database_url` before passing to `psycopg2.connect()`, resolving `invalid dsn: missing "="` in service health checks.
+- **Alembic Migration Visibility in `scripts/colab.sh`**: Added `alembic current` display after running `alembic upgrade head` so applied revisions (head) are explicitly printed to the user.
+- **NEXT_PUBLIC_API_URL Colab Build Default**: Changed `export NEXT_PUBLIC_API_URL="${BACKEND_URL:-http://localhost:8000}"` to `export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}"` in `scripts/colab.sh`.
+
+### Root cause
+In production mode, the Next.js API proxy hardcoded `Access-Control-Allow-Origin: https://yourdomain.com`. Accessing the frontend via Colab or Cloudflare tunnels triggered CORS blocking on all browser fetches (`/api/v1/system/test/connection`, `/api/v1/admin/models`, `/api/v1/admin/logs`), manifesting as "Failed to fetch from backend", "No models found", and blank logs. In addition, `psycopg2.connect()` failed when passed SQLAlchemy driver prefixes (`postgresql+psycopg2://`), reporting Postgres as unavailable.
 
 ---
 

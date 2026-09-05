@@ -49,6 +49,16 @@ const PLACEHOLDER_API_URLS = new Set([
 function normalizeApiUrl(value: string | undefined): string {
   const trimmed = value?.trim() ?? '';
   if (!trimmed || PLACEHOLDER_API_URLS.has(trimmed.toLowerCase())) return '';
+  // If running in browser and the configured API_URL is localhost/127.0.0.1 while
+  // the page is accessed from a remote host (e.g. Colab tunnel, remote IP),
+  // return empty string so calls go through the Next.js same-origin API proxy.
+  if (typeof window !== 'undefined') {
+    const isLocalApi = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/i.test(trimmed);
+    const isPageLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isLocalApi && !isPageLocal) {
+      return '';
+    }
+  }
   return trimmed.replace(/\/+$/, '');
 }
 
@@ -269,12 +279,14 @@ export const apiClient = {
 
       es.onerror = () => {
         if (isClosed) return;
-        isClosed = true;
-        if (es) {
+        // EventSource auto-reconnects when readyState is CONNECTING (0).
+        // Only mark closed if the browser actually transitioned to CLOSED (2).
+        if (es && es.readyState === EventSource.CLOSED) {
+          isClosed = true;
           es.close();
           es = null;
+          onDone?.();
         }
-        onDone?.();
       };
     } catch (err) {
       isClosed = true;

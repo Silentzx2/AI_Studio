@@ -284,9 +284,7 @@ export async function GET(
       signal: AbortSignal.timeout(10000),
     });
     
-    if (response.ok) {
-      return createProxyResponse(response);
-    }
+    return createProxyResponse(response, request);
   } catch (error) {
     // Backend offline; check fallback below
   }
@@ -342,9 +340,7 @@ export async function POST(
         signal: AbortSignal.timeout(600000), // 10 minutes for generation/uploads
       });
       
-      if (response.ok) {
-        return createProxyResponse(response);
-      }
+      return createProxyResponse(response, request);
     } catch {
       // Backend fetch failed; check fallback below
     }
@@ -402,7 +398,7 @@ export async function PUT(
       signal: AbortSignal.timeout(30000),
     });
     
-    return createProxyResponse(response);
+    return createProxyResponse(response, request);
   } catch (error) {
     console.error(`[API Proxy] PUT ${fullPath} failed:`, error);
     return NextResponse.json(
@@ -429,9 +425,7 @@ export async function DELETE(
       signal: AbortSignal.timeout(10000),
     });
     
-    if (response.ok) {
-      return createProxyResponse(response);
-    }
+    return createProxyResponse(response, request);
   } catch (error) {
     // Backend offline; check fallback below
   }
@@ -453,15 +447,20 @@ export async function OPTIONS(
   request: NextRequest,
   context: { params: Promise<{ path: string[] }> }
 ) {
-  // Handle CORS preflight
+  // Handle CORS preflight - dynamically allow requesting origin
+  const origin = request.headers.get('origin') || '*';
+  const headers: Record<string, string> = {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
+    'Access-Control-Max-Age': '86400',
+  };
+  if (origin !== '*') {
+    headers['Access-Control-Allow-Credentials'] = 'true';
+  }
   return new NextResponse(null, {
     status: 204,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
-      'Access-Control-Max-Age': '86400',
-    },
+    headers,
   });
 }
 
@@ -487,7 +486,7 @@ function getAuthHeader(request: NextRequest): HeadersInit {
 }
 
 // Helper: Create response from backend response
-function createProxyResponse(response: Response): NextResponse {
+function createProxyResponse(response: Response, request?: NextRequest): NextResponse {
   const headers = new Headers();
 
   // Forward relevant headers
@@ -497,13 +496,14 @@ function createProxyResponse(response: Response): NextResponse {
     if (value) headers.set(header, value);
   }
 
-  // Security: use specific origin instead of wildcard
-  const allowedOrigin = process.env.NODE_ENV === 'production'
-    ? 'https://yourdomain.com'
-    : 'http://localhost:3000';
-  headers.set('Access-Control-Allow-Origin', allowedOrigin);
+  // Dynamic origin reflection to support local, Colab tunnels, and custom domains
+  const origin = request?.headers.get('origin') || '*';
+  headers.set('Access-Control-Allow-Origin', origin);
   headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Client-Info, Apikey');
+  if (origin !== '*') {
+    headers.set('Access-Control-Allow-Credentials', 'true');
+  }
 
   return new NextResponse(response.body, {
     status: response.status,

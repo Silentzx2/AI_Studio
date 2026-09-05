@@ -453,7 +453,8 @@ class RuntimeHealth:
             settings = get_settings()
             import psycopg2
             sync_url = settings.sync_database_url
-            conn = psycopg2.connect(sync_url, connect_timeout=2)
+            pg_dsn = sync_url.replace("+psycopg2", "").replace("+asyncpg", "")
+            conn = psycopg2.connect(pg_dsn, connect_timeout=2)
             conn.close()
             result["postgres"] = {"available": True}
             messages.append("Postgres OK")
