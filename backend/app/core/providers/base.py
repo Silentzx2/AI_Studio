@@ -75,7 +75,9 @@ def _fix_c_package_overlay(repo_name: str, pkg_name: str, import_name: str, chec
     overlay = _backend_overlay_site_packages(venv_dir)
     backend_py = str(Path(sys.executable))
     check_overlay_code = (
-        f"import sys; sys.path = [{str(overlay)!r}] + [p for p in sys.path if 'site-packages' not in p and 'dist-packages' not in p]; "
+        f"import sys; sys.path.insert(0, {str(overlay)!r}); "
+        f"import {import_name}; "
+        f"assert {str(overlay)!r} in getattr({import_name}, '__file__', ''), 'not in overlay'; "
         f"{check_stmt}"
     )
     bcode, bout = _run([backend_py, "-c", check_overlay_code])
@@ -267,7 +269,7 @@ def _add_model_env(repo_name: str) -> None:
     #      still reference the old submodule object
     _SHARED_PKGS = [
         "accelerate", "huggingface_hub", "transformers", "diffusers",
-        "pydantic", "requests", "httpx", "urllib3", "scipy",
+        "pydantic", "requests", "httpx", "urllib3", "scipy", "torchvision",
     ]
 
     for mod_name in list(sys.modules.keys()):
