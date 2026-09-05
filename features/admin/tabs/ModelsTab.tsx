@@ -523,8 +523,12 @@ export function ModelsTab() {
                             )}
                           </div>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <Badge variant={model.installed ? 'success' : 'default'} size="sm" dot>
-                              {model.installed ? 'Installed' : 'Available'}
+                            <Badge
+                              variant={model.installed ? 'success' : (model.repo_ready && model.venv_ready ? 'warning' : 'default')}
+                              size="sm"
+                              dot
+                            >
+                              {model.installed ? 'Installed' : (model.repo_ready && model.venv_ready ? 'Weights Missing' : 'Available')}
                             </Badge>
                             {model.native_build && (
                               <span className={cn(
@@ -657,7 +661,7 @@ export function ModelsTab() {
                         className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl bg-[hsl(var(--purple-500)/0.08)] border border-[hsl(var(--purple-500)/0.2)] text-xs font-medium text-[hsl(var(--purple-500))] hover:bg-[hsl(var(--purple-500)/0.15)] transition-all"
                       >
                         <Download className="w-3.5 h-3.5" />
-                        Install
+                        {model.repo_ready && model.venv_ready ? 'Install Weights' : 'Install'}
                       </button>
                     )}
                   </div>

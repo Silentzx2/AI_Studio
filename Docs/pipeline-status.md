@@ -1,8 +1,22 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.9.9 (Auto-Rebuild on Source Change, Shadow Route Removal, and Global Page Backend Fetch)
+> **Version**: 4.9.10 (Strict Weight-Gated Readiness & Settings AI Model Installation UX)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-05
 > **Last Updated**: September 5, 2026
+
+---
+
+## v4.9.10 — Strict Weight-Gated Readiness & Settings AI Model UX (2026-09-05)
+
+### What changed
+- **Strict Weight Verification for Models (`backend/app/api/v1/admin.py`)**: `list_models()` now strictly gates `installed = True`, `available = True`, and `status = "ready"` on physical weight files existing on disk (`wp_found is not None`). Providers with repository cloned and virtualenv created but missing weights are explicitly marked with `status: "weights_missing"`, `installed: False`, `available: False`, and informative blocking reason.
+- **Enhanced Settings UI (`features/admin/tabs/ModelsTab.tsx`)**:
+  - Model card badges reflect accurate status: `Installed` (green dot) when weights are present, `Weights Missing` (warning amber dot) when environment is ready but weights are missing, or `Available` (default) when uninstalled.
+  - Action button reflects true state: displays `Install Weights` or `Install` when weights are missing, and only displays `Load` / `Unload` / `Uninstall` when weights physically reside on disk.
+- **Scope Isolation**: These changes are specifically targeted to the `/settings` and `/admin` AI models presentation layer, preserving the core runtime pipeline and background workers without regressions.
+
+### Root cause
+Previously in `list_models()`, `is_installed` checked `inst_state in ("ready", "partial", "runtime_ready", "runtime_partial", "blocked")`. If the repository clone and virtualenv bootstrap had completed, `inst_state` was evaluated as ready/runtime_ready, marking `is_installed = True` even when model weights were completely absent. Consequently, the UI showed models as "Installed" with "Load" buttons instead of offering the "Install" button to download weights.
 
 ---
 

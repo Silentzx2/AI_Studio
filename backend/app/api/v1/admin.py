@@ -1112,15 +1112,28 @@ async def list_models():
                 wp_found = storage.get_weight_path(name)
             weight_path = str(wp_found) if wp_found else None
 
+            # Ponytail: For /settings AI models UI, strictly require weights on disk
+            # before marking a model as installed or ready.
+            # Repo and venv preparation alone does NOT mean the model is ready.
+            has_weights = wp_found is not None
+            repo_ready = bool(inst.get("repo_ready", False) or not repo_name)
+            venv_ready = bool(inst.get("venv_ready", False) or not repo_name)
             inst_state = inst.get("state")
-            is_installed = bool(
-                inst.get("installed", False)
-                or (wp_found is not None and inst.get("repo_ready", False))
-                or inst_state in ("ready", "partial", "runtime_ready", "runtime_partial", "blocked")
-            )
-            is_available = bool(
-                is_installed and (inst_state in ("ready", "runtime_ready", "partial") or inst.get("installed", False))
-            )
+
+            # Model is ONLY installed and ready if weights actually exist on disk
+            is_installed = bool(has_weights and repo_ready)
+            is_available = bool(is_installed and inst_state in ("ready", "runtime_ready", "partial"))
+
+            if is_available:
+                model_status = "ready"
+            elif is_installed:
+                model_status = "installed"
+            elif repo_ready and venv_ready:
+                model_status = "weights_missing"
+            elif repo_ready:
+                model_status = "venv_missing"
+            else:
+                model_status = "not_installed"
 
             models.append({
                 "id": name,
@@ -1128,8 +1141,8 @@ async def list_models():
                 "name": meta.get("label", name),
                 "category": meta.get("category", "unknown"),
                 "type": meta.get("category", "unknown"),
-                "state": inst_state,
-                "status": "ready" if is_available else ("partial" if inst_state in ("partial", "runtime_partial") else ("installed" if is_installed else (inst_state or "not_installed"))),
+                "state": "ready" if is_available else ("weights_missing" if (repo_ready and venv_ready and not has_weights) else (inst_state or "not_installed")),
+                "status": model_status,
                 "installed": is_installed,
                 "available": is_available,
                 "loaded": name in loaded_names,
@@ -1140,11 +1153,11 @@ async def list_models():
                 "supports_texture": meta.get("supports_texture", False),
                 "weight_path": weight_path,
                 "repo_path": repo_path,
-                "repo_ready": inst.get("repo_ready", False),
-                "venv_ready": inst.get("venv_ready", False),
-                "weights_ready": inst.get("weights_ready", False) or (wp_found is not None),
+                "repo_ready": repo_ready,
+                "venv_ready": venv_ready,
+                "weights_ready": has_weights,
                 "components": inst.get("components", {}),
-                "blocking_reason": inst.get("blocking_reason"),
+                "blocking_reason": None if has_weights else ("Weights not downloaded. Click Install to download model weights." if (repo_ready and venv_ready) else inst.get("blocking_reason")),
                 "native_build": inst.get("components", {}).get("native_build", {"state": "not_required"}),
                 # ponytail: size/repo live in HF_MODELS (keyed by provider id),
                 # NOT PROVIDER_METADATA — the latter only stores the REPOS key.
