@@ -11,6 +11,18 @@ class AutoOptimizeSettings(BaseModel):
     fix_uvs: bool = Field(True, description="Fix overlapping UVs and fill UV islands")
     preserve_details: float = Field(75.0, ge=0, le=100, description="Detail preservation percentage (0=aggressive, 100=max)")
 
+    @model_validator(mode="before")
+    @classmethod
+    def accept_camel_case(cls, data: object) -> object:
+        if isinstance(data, dict):
+            if "targetPolycount" in data and "target_polycount" not in data:
+                data["target_polycount"] = data["targetPolycount"]
+            if "fixUVs" in data and "fix_uvs" not in data:
+                data["fix_uvs"] = data["fixUVs"]
+            if "preserveDetails" in data and "preserve_details" not in data:
+                data["preserve_details"] = data["preserveDetails"]
+        return data
+
 
 class GenerationRequest(BaseModel):
     # ponytail: Extended modes to support remesh, texture-gen, and future pipeline steps

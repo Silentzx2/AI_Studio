@@ -1,5 +1,27 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.12] - 2026-09-05
+
+### Added / Fixed
+
+#### 1. Interactive Mesh Generation Settings in GeneratePanel (`GeneratePanel.tsx`, `WorkspaceContext.tsx`, `generation.py`, `tasks.py`, `mesh_optimizer.py`)
+- **Functional Mesh Gen UI**: Added a dedicated, collapsible **Mesh Gen Settings** section directly into the generation panel (`GeneratePanel.tsx`).
+- **Model-Aware Topology Presets**: Provides 1-click tailored presets and recommendations based on the selected AI model:
+  - *TripoSG*: Dense isosurfaces (~60k–80k tris) -> recommended 25k tris with 70% detail preservation.
+  - *Hunyuan3D*: High-detail marching cubes (~80k–120k tris) -> recommended 35k tris with 80% detail preservation.
+  - *TRELLIS*: Structured flexicubes (~40k–70k tris) -> recommended 30k tris with 75% detail preservation.
+- **Polycount Presets & Custom Sliders**: Quick preset buttons (`10k Low`, `30k Std`, `75k High`, `Raw Max`) alongside an interactive triangle slider (5,000 to 120,000 tris) and detail preservation slider (10% to 100%).
+- **UV Island & Normals Repair**: Toggle for automatic UV seam repair and normal recalculation during decimation.
+- **Bi-Directional Schema Compatibility (`backend/app/schemas/generation.py`)**: Added `@model_validator(mode="before")` on `AutoOptimizeSettings` to seamlessly parse both camelCase (`targetPolycount`, `fixUVs`, `preserveDetails`) and snake_case properties from any client.
+- **Texture-Preserving PyMeshLab Decimation (`backend/app/core/mesh_optimizer.py`)**: Enhanced PyMeshLab fallback in `optimize_mesh` to load the input mesh directly (`ms.load_new_mesh`) and apply `meshing_decimation_quadric_edge_collapse_with_texture`, guaranteeing UV coordinates, texture maps, and vertex colors are not stripped during decimation.
+
+#### 2. End-to-End Texture Generation Pipeline Fix (`hunyuan3d_local.py`, `triposg_local.py`)
+- **Root Cause Resolution (GLB Selection Bug)**: In `_HunyuanBase.generate()`, directory scanning `out.glob("*.glb")` listed alphabetical matches where `mesh.glb` (raw untextured geometry from `_image_to_3d`) preceded `model.glb` (textured model from `_texture`), causing the pipeline to return the untextured mesh and discard the textured output.
+- **Strict Output GLB Prioritization**: `_HunyuanBase.generate()` now strictly prioritizes `model.glb` (the textured asset) over `mesh.glb`.
+- **Informative Error Surfacing**: Replaced silent exception suppression in Hunyuan3D texturing pipelines (`_texture` and `_load_tex`) with informative progress callbacks (`await cb(85, "texturing", ...)`), alerting the user if paint weights are missing instead of falsely claiming "Textures applied."
+- **Hugging Face Snapshot Fallback**: When local paint weight paths (`storage/weights/hunyuan3d-2.1`) are absent, `_load_tex` falls back to loading directly via Hugging Face repo (`tencent/Hunyuan3D-2.1`).
+- **TripoSG Vertex Color & Material Retention**: Updated `TripoSGLocalProvider.generate()` to preserve vertex colors (`outputs[2]`) in exported GLBs.
+
 ## [v5.0.11] - 2026-09-05
 
 ### Added / Fixed

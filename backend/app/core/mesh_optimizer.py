@@ -208,16 +208,32 @@ def optimize_mesh(
             try:
                 import pymeshlab
                 ms = pymeshlab.MeshSet()
-                ms.add_mesh(pymeshlab.Mesh(vertex_matrix=mesh.vertices, face_matrix=mesh.faces), "mesh")
-                ms.meshing_decimation_quadric_edge_collapse(targetfacenum=adjusted_target)
-                current = ms.current_mesh()
-                import numpy as np
-                mesh = trimesh.Trimesh(
-                    vertices=np.asarray(current.vertex_matrix()),
-                    faces=np.asarray(current.face_matrix()),
-                    process=False,
-                )
-                optimized_polycount = len(mesh.faces)
+                try:
+                    ms.load_new_mesh(input_path)
+                except Exception:
+                    ms.add_mesh(pymeshlab.Mesh(vertex_matrix=mesh.vertices, face_matrix=mesh.faces), "mesh")
+                curr = ms.current_mesh()
+                has_tex = False
+                try:
+                    has_tex = curr.has_wedge_tex_coord() or curr.has_vertex_tex_coord()
+                except Exception:
+                    pass
+                if has_tex:
+                    ms.meshing_decimation_quadric_edge_collapse_with_texture(
+                        targetfacenum=adjusted_target,
+                        preserveboundary=True,
+                    )
+                else:
+                    ms.meshing_decimation_quadric_edge_collapse(
+                        targetfacenum=adjusted_target,
+                        preserveboundary=True,
+                        preservenormal=True,
+                        preservetopology=True,
+                    )
+                ms.save_current_mesh(output_path)
+                opt_mesh = trimesh.load(output_path, force="mesh")
+                optimized_polycount = len(opt_mesh.faces)
+                mesh = opt_mesh
             except ImportError:
                 logger.warning("PyMeshLab not installed — keeping cleaned mesh without decimation")
             except Exception as exc2:

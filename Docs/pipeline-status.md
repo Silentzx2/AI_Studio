@@ -1,8 +1,26 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.10 (Hunyuan3D Background Removal & 5-Minute VRAM Warm-Cache Retention)
+> **Version**: 5.0.12 (Mesh Generation Settings & Real Texture Generation Pipeline Fix)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-05
 > **Last Updated**: September 5, 2026
+
+---
+
+## v5.0.12 — Mesh Gen Settings & End-to-End Texture Generation Fix (2026-09-05)
+
+### What changed
+- **Interactive Mesh Generation Settings in GeneratePanel (`GeneratePanel.tsx`, `WorkspaceContext.tsx`, `generation.py`, `tasks.py`, `mesh_optimizer.py`)**:
+  - Added dedicated, collapsible **Mesh Gen Settings** section directly into `GeneratePanel.tsx`.
+  - Added 1-click model-aware presets tailored for TripoSG (~25k tris, 70% preserve), Hunyuan3D (~35k tris, 80% preserve), and TRELLIS (~30k tris, 75% preserve).
+  - Polycount presets (`10k Low`, `30k Std`, `75k High`, `Raw Max`), target slider (5,000–120,000 tris), detail preservation slider (10%–100%), and UV repair toggle.
+  - Full bidirectional compatibility in FastAPI Pydantic schema (`AutoOptimizeSettings`) accepting both camelCase and snake_case properties.
+  - Enhanced PyMeshLab decimation fallback with `meshing_decimation_quadric_edge_collapse_with_texture` to ensure textures, materials, and UVs are not stripped during decimation.
+- **Real Texture Generation Pipeline Fix (`hunyuan3d_local.py`, `triposg_local.py`)**:
+  - Resolved root cause where `_HunyuanBase.generate()` picked raw untextured `mesh.glb` instead of textured `model.glb` due to directory sorting.
+  - Strictly prioritize `model.glb` when texturing produces output.
+  - Replaced silent return in texturing pipelines with informative progress callbacks (`await cb(85, "texturing", ...)`), notifying users if paint weights are missing rather than falsely reporting "Textures applied."
+  - Added Hugging Face snapshot fallback when local paint weights directory is not found.
+  - Updated `TripoSGLocalProvider.generate()` to preserve vertex colors (`outputs[2]`) in exported GLBs.
 
 ---
 

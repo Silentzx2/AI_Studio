@@ -615,9 +615,9 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 try:
                     from app.core.mesh_optimizer import optimize_mesh
 
-                    target_polycount = auto_optimize_settings.get("target_polycount", 30000)
-                    fix_uvs = auto_optimize_settings.get("fix_uvs", True)
-                    preserve_details = auto_optimize_settings.get("preserve_details", 75.0)
+                    target_polycount = auto_optimize_settings.get("target_polycount") or auto_optimize_settings.get("targetPolycount") or 30000
+                    fix_uvs = auto_optimize_settings.get("fix_uvs") if "fix_uvs" in auto_optimize_settings else auto_optimize_settings.get("fixUVs", True)
+                    preserve_details = auto_optimize_settings.get("preserve_details") or auto_optimize_settings.get("preserveDetails") or 75.0
 
                     optimized_path = str(Path(glb_path).with_suffix(".optimized.glb"))
                     optimize_result = optimize_mesh(

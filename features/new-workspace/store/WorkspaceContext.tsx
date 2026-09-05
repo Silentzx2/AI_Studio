@@ -700,8 +700,15 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           generate_texture: generationSettings.generateTexture !== false,
           low_vram: Boolean(generationSettings.lowVram),
           vram_mode: generationSettings.lowVram ? 'low' : (generationSettings.vramMode || 'auto'),
-          auto_optimize: generationSettings.autoOptimize,
-          auto_optimize_settings: generationSettings.autoOptimizeSettings,
+          auto_optimize: Boolean(generationSettings.autoOptimize),
+          auto_optimize_settings: {
+            target_polycount: generationSettings.autoOptimizeSettings?.targetPolycount ?? 30000,
+            fix_uvs: generationSettings.autoOptimizeSettings?.fixUVs ?? true,
+            preserve_details: generationSettings.autoOptimizeSettings?.preserveDetails ?? 75,
+            targetPolycount: generationSettings.autoOptimizeSettings?.targetPolycount ?? 30000,
+            fixUVs: generationSettings.autoOptimizeSettings?.fixUVs ?? true,
+            preserveDetails: generationSettings.autoOptimizeSettings?.preserveDetails ?? 75,
+          },
         }),
       });
       if (!res.ok) throw await parseApiError(res);

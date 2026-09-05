@@ -256,10 +256,19 @@ class TripoSGLocalProvider(BaseProvider):
                 await progress_callback(80, "generating", "Exporting mesh...")
 
             # Convert to trimesh and export
-            mesh = trimesh.Trimesh(
-                outputs[0].astype(np.float32),
-                np.ascontiguousarray(outputs[1])
-            )
+            if isinstance(outputs, trimesh.Trimesh):
+                mesh = outputs
+            elif isinstance(outputs, (list, tuple)) and len(outputs) >= 3 and outputs[2] is not None:
+                mesh = trimesh.Trimesh(
+                    vertices=outputs[0].astype(np.float32),
+                    faces=np.ascontiguousarray(outputs[1]),
+                    vertex_colors=outputs[2],
+                )
+            else:
+                mesh = trimesh.Trimesh(
+                    vertices=outputs[0].astype(np.float32),
+                    faces=np.ascontiguousarray(outputs[1]),
+                )
             mesh.export(glb_path, file_type="glb")
 
             stats = {

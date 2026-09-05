@@ -77,12 +77,47 @@ export const GeneratePanel: React.FC = () => {
   const [privacy, setPrivacy] = useState<'public' | 'private'>('public');
   const [privacyMenuOpen, setPrivacyMenuOpen] = useState(false);
   const [generateInParts, setGenerateInParts] = useState(false);
+  const [meshSettingsOpen, setMeshSettingsOpen] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currentMode = generationSettings.mode || 'image-to-3d';
   const activeModelId = generationSettings.aiModel || providersList[0]?.id || '';
   const activeModelObj = providersList.find(m => m.id === activeModelId) || providersList[0];
+
+  const getModelMeshRecommendation = () => {
+    const id = (activeModelId || '').toLowerCase();
+    if (id.includes('triposg')) {
+      return {
+        label: 'TripoSG (Dense Isosurface ~60k–80k tris)',
+        tip: 'Decimation to 20k–30k recommended for smooth web rendering and clean topology.',
+        target: 25000,
+        preserve: 70,
+      };
+    }
+    if (id.includes('hunyuan')) {
+      return {
+        label: 'Hunyuan3D (High-Density ~80k–120k tris)',
+        tip: 'Decimation to 35k–50k preserves sharp details and delicate creases.',
+        target: 35000,
+        preserve: 80,
+      };
+    }
+    if (id.includes('trellis')) {
+      return {
+        label: 'TRELLIS (Structured Flexicubes ~40k–70k tris)',
+        tip: 'Decimation to 30k maintains crisp silhouettes and fast load times.',
+        target: 30000,
+        preserve: 75,
+      };
+    }
+    return {
+      label: 'Generative Mesh Pipeline',
+      tip: 'Auto-decimation to 30k recommended for game-ready polycount.',
+      target: 30000,
+      preserve: 75,
+    };
+  };
 
   // Texture toggle: only meaningful for models whose manifest declares a
   // texture capability. The active-mode VRAM comes from the manifest
@@ -417,7 +452,10 @@ export const GeneratePanel: React.FC = () => {
         {/* Geometry & Texture — Texture toggle + active-mode VRAM */}
         <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2 space-y-2">
           <div className="flex items-center justify-between text-[10px] font-semibold text-zinc-300">
-            <span>Geometry &amp; Texture</span>
+            <span className="flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-[#F9CF00]" />
+              <span>Texture Synthesis</span>
+            </span>
             <span className="text-[8px] text-zinc-500 font-normal">
               {activeVramMb ? `${Math.round(activeVramMb / 1024)} GB active` : '—'}
             </span>
@@ -426,12 +464,12 @@ export const GeneratePanel: React.FC = () => {
           {supportsTexture ? (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-[10px]">
-                <span className="text-zinc-300 flex items-center gap-1">
-                  <span>Generate Texture</span>
+                <span className="text-zinc-300 flex items-center gap-1 font-medium">
+                  <span>Generate PBR Texture</span>
                   <SimpleTooltip
                     label={
                       generationSettings.generateTexture !== false
-                        ? `Runs the texture_pbr capability (~${Math.round((activeModelObj?.texture_vram_mb || 0) / 1024)} GB). Disable to generate mesh-only (~${Math.round((activeModelObj?.shape_vram_mb || 0) / 1024)} GB).`
+                        ? `Runs the texture_pbr capability (~${Math.round((activeModelObj?.texture_vram_mb || 0) / 1024)} GB). Exports model with diffuse, normal, and roughness maps.`
                         : `Mesh-only mode: runs the shape capability only (~${Math.round((activeModelObj?.shape_vram_mb || 0) / 1024)} GB).`
                     }
                   >
@@ -445,7 +483,7 @@ export const GeneratePanel: React.FC = () => {
                     ...prev,
                     generateTexture: prev.generateTexture === false ? true : false,
                   }))}
-                  className={`w-7 h-3.5 rounded-full p-0.5 transition-colors relative ${
+                  className={`w-7 h-3.5 rounded-full p-0.5 transition-colors relative cursor-pointer ${
                     generationSettings.generateTexture !== false ? 'bg-emerald-500' : 'bg-[#25262A]'
                   }`}
                 >
@@ -453,6 +491,18 @@ export const GeneratePanel: React.FC = () => {
                     generationSettings.generateTexture !== false ? 'translate-x-3.5' : 'translate-x-0'
                   }`} />
                 </button>
+              </div>
+              <div className="text-[8px] flex items-center gap-1">
+                {generationSettings.generateTexture !== false ? (
+                  <span className="text-emerald-400 flex items-center gap-1">
+                    <Check className="w-2.5 h-2.5" />
+                    <span>Texture enabled · Output will be textured GLB</span>
+                  </span>
+                ) : (
+                  <span className="text-zinc-400">
+                    Texture disabled · Output will be untextured mesh
+                  </span>
+                )}
               </div>
               {vramNotice && (
                 <div className="flex items-start gap-1.5 px-1.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[9px] text-amber-300">
@@ -462,8 +512,9 @@ export const GeneratePanel: React.FC = () => {
               )}
             </div>
           ) : (
-            <div className="text-[9px] text-zinc-500 px-1">
-              {activeModelObj?.label || 'This model'} does not support texture generation.
+            <div className="flex items-center gap-1.5 text-[9px] text-zinc-400 bg-white/[0.02] p-1.5 rounded-lg border border-white/[0.04]">
+              <Info className="w-3 h-3 text-zinc-500 flex-shrink-0" />
+              <span>{activeModelObj?.label || 'This model'} generates geometry only. Switch to Hunyuan3D or TRELLIS for textured models.</span>
             </div>
           )}
 
@@ -504,6 +555,239 @@ export const GeneratePanel: React.FC = () => {
                   <span>Full VRAM mode (~{Math.round((activeVramMb || 0) / 1024)} GB required)</span>
                 )}
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* Mesh Generation & Topology Settings Card */}
+        <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2 space-y-2">
+          <div
+            className="flex items-center justify-between cursor-pointer select-none"
+            onClick={() => setMeshSettingsOpen(prev => !prev)}
+          >
+            <div className="flex items-center gap-1.5 text-[10px] font-semibold text-zinc-300">
+              <Box className="w-3.5 h-3.5 text-[#F9CF00]" />
+              <span>Mesh Gen Settings</span>
+              <SimpleTooltip label="Configures target polygon count, UV unwrapping, and topology decimation for all 3D models.">
+                <Info className="w-3 h-3 text-zinc-500" />
+              </SimpleTooltip>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded ${
+                generationSettings.autoOptimize
+                  ? 'bg-[#F9CF00]/15 text-[#F9CF00] border border-[#F9CF00]/30 font-bold'
+                  : 'bg-white/[0.06] text-zinc-400'
+              }`}>
+                {generationSettings.autoOptimize
+                  ? `${(generationSettings.autoOptimizeSettings?.targetPolycount || 30000).toLocaleString()} tris`
+                  : 'Raw Density'}
+              </span>
+              <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform ${meshSettingsOpen ? 'rotate-180 text-[#F9CF00]' : ''}`} />
+            </div>
+          </div>
+
+          {meshSettingsOpen && (
+            <div className="space-y-2.5 pt-1 border-t border-white/[0.06]">
+              {/* Model-Aware Recommendation Banner */}
+              {(() => {
+                const rec = getModelMeshRecommendation();
+                return (
+                  <div className="p-2 rounded-lg bg-white/[0.03] border border-white/[0.06] space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1 text-[9px] font-bold text-zinc-200">
+                        <Layers className="w-3 h-3 text-[#F9CF00]" />
+                        <span>{rec.label}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGenerationSettings(prev => ({
+                            ...prev,
+                            autoOptimize: true,
+                            meshQuality: 'medium',
+                            autoOptimizeSettings: {
+                              ...prev.autoOptimizeSettings,
+                              targetPolycount: rec.target,
+                              preserveDetails: rec.preserve,
+                              fixUVs: true,
+                            },
+                          }));
+                        }}
+                        className="text-[8px] px-1.5 py-0.5 rounded bg-[#F9CF00]/15 hover:bg-[#F9CF00]/25 text-[#F9CF00] font-bold transition-colors cursor-pointer"
+                      >
+                        Apply Recommended
+                      </button>
+                    </div>
+                    <div className="text-[8px] text-zinc-400 leading-tight">
+                      {rec.tip}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Auto Optimize / Decimation Switch */}
+              <div className="flex items-center justify-between text-[10px]">
+                <div>
+                  <span className="text-zinc-300 font-medium block">Optimize Mesh Topology</span>
+                  <span className="text-[8px] text-zinc-500">Decimate polygon count to target budget</span>
+                </div>
+                <button
+                  id="btn-toggle-auto-optimize"
+                  type="button"
+                  role="switch"
+                  aria-checked={Boolean(generationSettings.autoOptimize)}
+                  onClick={() => setGenerationSettings(prev => ({ ...prev, autoOptimize: !prev.autoOptimize }))}
+                  className={`w-7 h-3.5 rounded-full p-0.5 transition-colors relative cursor-pointer ${
+                    generationSettings.autoOptimize ? 'bg-[#F9CF00]' : 'bg-[#25262A]'
+                  }`}
+                >
+                  <div className={`w-2.5 h-2.5 rounded-full bg-black transition-transform ${
+                    generationSettings.autoOptimize ? 'translate-x-3.5' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+
+              {generationSettings.autoOptimize ? (
+                <div className="space-y-2 pt-1 border-t border-white/[0.04]">
+                  {/* Preset Buttons */}
+                  <div className="space-y-1">
+                    <span className="text-[9px] text-zinc-400 font-semibold uppercase tracking-wider">Polycount Presets</span>
+                    <div className="grid grid-cols-4 gap-1">
+                      {[
+                        { id: '10k', label: '10k Low', count: 10000, quality: 'low' as const },
+                        { id: '30k', label: '30k Std', count: 30000, quality: 'medium' as const },
+                        { id: '75k', label: '75k High', count: 75000, quality: 'high' as const },
+                        { id: 'raw', label: 'Raw Max', count: 0, quality: 'ultra' as const },
+                      ].map(preset => {
+                        const isPresetActive = preset.id === 'raw'
+                          ? !generationSettings.autoOptimize
+                          : generationSettings.autoOptimize && (generationSettings.autoOptimizeSettings?.targetPolycount === preset.count);
+                        return (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => {
+                              if (preset.id === 'raw') {
+                                setGenerationSettings(prev => ({
+                                  ...prev,
+                                  autoOptimize: false,
+                                  meshQuality: 'ultra',
+                                }));
+                              } else {
+                                setGenerationSettings(prev => ({
+                                  ...prev,
+                                  autoOptimize: true,
+                                  meshQuality: preset.quality,
+                                  autoOptimizeSettings: {
+                                    ...prev.autoOptimizeSettings,
+                                    targetPolycount: preset.count,
+                                  },
+                                }));
+                              }
+                            }}
+                            className={`py-1 px-1 rounded text-[8px] font-bold transition-all text-center cursor-pointer ${
+                              isPresetActive
+                                ? 'bg-[#F9CF00] text-black shadow-sm'
+                                : 'bg-[#191A1D] text-zinc-400 hover:text-zinc-200 hover:bg-[#202125] border border-white/[0.06]'
+                            }`}
+                          >
+                            {preset.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Target Polycount Slider */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[9px]">
+                      <span className="text-zinc-400">Target Polycount</span>
+                      <span className="font-mono text-[#F9CF00] font-bold">
+                        {(generationSettings.autoOptimizeSettings?.targetPolycount || 30000).toLocaleString()} tris
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={5000}
+                      max={120000}
+                      step={5000}
+                      value={generationSettings.autoOptimizeSettings?.targetPolycount || 30000}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        setGenerationSettings(prev => ({
+                          ...prev,
+                          autoOptimize: true,
+                          autoOptimizeSettings: {
+                            ...prev.autoOptimizeSettings,
+                            targetPolycount: val,
+                          },
+                        }));
+                      }}
+                      className="w-full h-1 rounded-full appearance-none bg-[#25262A] accent-[#F9CF00] cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Detail Preservation Slider */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[9px]">
+                      <span className="text-zinc-400">Preserve Details</span>
+                      <span className="font-mono text-[#F9CF00] font-bold">
+                        {generationSettings.autoOptimizeSettings?.preserveDetails ?? 75}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={10}
+                      max={100}
+                      step={5}
+                      value={generationSettings.autoOptimizeSettings?.preserveDetails ?? 75}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        setGenerationSettings(prev => ({
+                          ...prev,
+                          autoOptimizeSettings: {
+                            ...prev.autoOptimizeSettings,
+                            preserveDetails: val,
+                          },
+                        }));
+                      }}
+                      className="w-full h-1 rounded-full appearance-none bg-[#25262A] accent-[#F9CF00] cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Fix UVs and Clean Normals Toggle */}
+                  <div className="flex items-center justify-between text-[10px] pt-1 border-t border-white/[0.04]">
+                    <div>
+                      <span className="text-zinc-300 font-medium block">Repair UVs & Normals</span>
+                      <span className="text-[8px] text-zinc-500">Fixes overlapping UV islands and recalculates normals</span>
+                    </div>
+                    <button
+                      id="btn-toggle-fix-uvs"
+                      type="button"
+                      role="switch"
+                      aria-checked={Boolean(generationSettings.autoOptimizeSettings?.fixUVs ?? true)}
+                      onClick={() => setGenerationSettings(prev => ({
+                        ...prev,
+                        autoOptimizeSettings: {
+                          ...prev.autoOptimizeSettings,
+                          fixUVs: !(prev.autoOptimizeSettings?.fixUVs ?? true),
+                        },
+                      }))}
+                      className={`w-7 h-3.5 rounded-full p-0.5 transition-colors relative cursor-pointer ${
+                        (generationSettings.autoOptimizeSettings?.fixUVs ?? true) ? 'bg-emerald-500' : 'bg-[#25262A]'
+                      }`}
+                    >
+                      <div className={`w-2.5 h-2.5 rounded-full bg-white transition-transform ${
+                        (generationSettings.autoOptimizeSettings?.fixUVs ?? true) ? 'translate-x-3.5' : 'translate-x-0'
+                      }`} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-1.5 rounded-lg bg-white/[0.02] border border-white/[0.04] text-[8px] text-zinc-500">
+                  Mesh optimization is off. Models will export with raw full triangle density directly from the AI generator.
+                </div>
+              )}
             </div>
           )}
         </div>
