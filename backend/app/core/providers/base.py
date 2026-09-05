@@ -200,6 +200,7 @@ def _fix_overlay_packages(repo_name: str, force: bool = False) -> bool:
         ("safetensors", "safetensors", "import safetensors; from safetensors import _safetensors_rust; print('ok')"),
         ("pymeshlab", "pymeshlab", "from pymeshlab import pmeshlab; print('ok')"),
         ("scipy", "scipy", "from scipy._lib import _ccallback_c; print('ok')"),
+        ("scikit-image", "skimage", "from skimage.measure import _marching_cubes_lewiner_cy; print('ok')"),
     ]
     all_ok = True
     for pkg_name, import_name, check_stmt in packages:
@@ -300,7 +301,7 @@ def _add_model_env(repo_name: str) -> None:
     #      still reference the old submodule object
     _SHARED_PKGS = [
         "accelerate", "huggingface_hub", "transformers", "diffusers",
-        "pydantic", "requests", "httpx", "urllib3", "scipy",
+        "pydantic", "requests", "httpx", "urllib3", "scipy", "skimage",
     ]
 
     for mod_name in list(sys.modules.keys()):
@@ -338,6 +339,7 @@ def _add_model_env(repo_name: str) -> None:
         ("safetensors", "from safetensors import _safetensors_rust"),
         ("pymeshlab", "from pymeshlab import pmeshlab"),
         ("scipy", "from scipy._lib import _ccallback_c"),
+        ("skimage", "from skimage.measure import _marching_cubes_lewiner_cy"),
     ]
     for mod_pkg, test_code in _VERIFY_MODULES:
         try:

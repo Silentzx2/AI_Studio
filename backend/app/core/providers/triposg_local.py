@@ -82,6 +82,9 @@ def _ensure_diso_compatibility() -> None:
 # trellis_local, which call _add_model_env() at module level.
 _add_model_env("TripoSG")
 _ensure_diso_compatibility()
+for p in (str(TRIPOSG_REPO), str(TRIPOSG_SCRIPTS)):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 try:
     import torch
@@ -122,6 +125,9 @@ class TripoSGLocalProvider(BaseProvider):
             _fix_overlay_packages("TripoSG", force=True)
             _add_model_env("TripoSG")
             _ensure_diso_compatibility()
+            for p in (str(TRIPOSG_REPO), str(TRIPOSG_SCRIPTS)):
+                if p not in sys.path:
+                    sys.path.insert(0, p)
             try:
                 from triposg.pipelines.pipeline_triposg import TripoSGPipeline
                 from image_process import prepare_image

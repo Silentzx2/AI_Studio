@@ -1,8 +1,20 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.8 (Pipeline GPU Placement Guard & TripoSG diso Marching Cubes Fallback)
+> **Version**: 5.0.9 (scikit-image Cython Overlay Bridge & TripoSG scripts sys.path Resolution)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-05
 > **Last Updated**: September 5, 2026
+
+---
+
+## v5.0.9 — scikit-image Cython Overlay Bridge & TripoSG Scripts Path (2026-09-05)
+
+### What changed
+- **scikit-image Marching Cubes Cython Overlay Bridge (`backend/app/core/providers/base.py`)**:
+  - In Hunyuan3D-2 Mini, surface extraction (`hy3dgen/shapegen/models/autoencoders/surface_extractors.py`) calls `skimage.measure.marching_cubes`, which relies on compiled Cython extension `_marching_cubes_lewiner_cy`. Because `skimage` in `Hunyuan3D-2mini/.venv` was built for Python 3.10, loading it under Python 3.12 threw `ImportError: cannot import name '_marching_cubes_lewiner_cy' from 'skimage.measure'`.
+  - Added `scikit-image` to `_fix_overlay_packages`, `_SHARED_PKGS`, and `_VERIFY_MODULES` so a Python 3.12-compatible build is verified/installed into the model's overlay.
+  - Added `scikit-image>=0.21.0` to `backend/requirements.txt`.
+- **TripoSG Scripts Path Resolution (`backend/app/core/providers/triposg_local.py`)**:
+  - Prepend `TRIPOSG_SCRIPTS` (`TripoSG/scripts`) to `sys.path` before importing `image_process` and `briarmbg`, eliminating `No module named 'image_process'`.
 
 ---
 
