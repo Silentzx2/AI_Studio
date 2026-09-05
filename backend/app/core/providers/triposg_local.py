@@ -179,6 +179,14 @@ class TripoSGLocalProvider(BaseProvider):
                 logger.warning("BriaRMBG load failed (%s); proceeding without dedicated RMBG", rmbg_exc)
                 self.rmbg_net = None
 
+            # Ensure diffusers does not attempt to import broken onnxruntime C-extensions
+            try:
+                import diffusers.utils.import_utils as _diu
+                _diu.is_onnx_available = lambda: False
+                _diu.is_onnxruntime_available = lambda: False
+            except Exception:
+                pass
+
             # Load TripoSG pipeline
             self.pipe = TripoSGPipeline.from_pretrained(str(self.triposg_weights_dir)).to(
                 self.device, dtype=torch.float16

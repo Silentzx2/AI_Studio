@@ -11,9 +11,9 @@
 #### 5-Minute VRAM Retention & Instant Warm-Cache Auto-Swap
 - **VRAM Retention Policy (`backend/runtime/engine.py`, `backend/app/workers/tasks.py`)**: Models are retained in GPU memory after successful generation with a 5-minute (300s) TTL (`model_keep_alive_seconds = 300`). Subsequent generation requests using the same model execute instantly with zero reload overhead.
 - **Auto Model Swap**: When a user switches models (e.g. from Hunyuan3D-2 Mini to TripoSG) and clicks Generate, `RuntimeEngine.load_provider` detects the mismatch, unloads the active provider, purges CUDA cache, and loads the new model into GPU memory.
-#### TripoSG BriaRMBG from_pretrained Kwarg Fix
-- **Root Cause Resolution**: `BriaRMBG` inherits from HuggingFace `ModelHubMixin`. Passing `trust_remote_code=True` forwarded the unknown kwarg to `BriaRMBG.__init__()`, raising `TypeError: BriaRMBG.__init__() got an unexpected keyword argument 'trust_remote_code'`.
-- **Fix (`backend/app/core/providers/triposg_local.py`)**: Removed `trust_remote_code=True` and added a graceful try-except fallback so TripoSG loading never fails.
+#### Diffusers onnxruntime Stub Guard (TripoSG Pipeline Load Fix)
+- **Root Cause Resolution**: `diffusers` checks `issubclass(class_obj, diffusers.OnnxRuntimeModel)` on `from_pretrained`, which imports `onnx_utils.py` -> `import onnxruntime as ort`. When per-model Py3.10 venvs are prepended to `sys.path`, Python 3.12 attempted to load Py3.10 `onnxruntime_pybind11_state` C-extension, crashing with `ModuleNotFoundError: No module named 'onnxruntime.capi.onnxruntime_pybind11_state'`.
+- **Fix (`backend/app/core/providers/base.py`, `backend/app/core/providers/triposg_local.py`)**: Added onnxruntime stub guard in `_add_model_env()` and disabled `is_onnx_available` in `diffusers`, allowing pipeline loading to proceed cleanly.
 
 ## [v4.9.4] - 2026-09-04
 

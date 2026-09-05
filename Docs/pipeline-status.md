@@ -20,9 +20,11 @@
   - Implemented automatic 5-minute (300s) model retention in VRAM: models are kept loaded after inference completes so consecutive requests with the same model are instant (zero load time).
   - Seamless auto-swap on model change: if a different model is selected and "Generate" is clicked, `RuntimeEngine.load_provider` unloads the currently active provider first, purges CUDA cache, and loads the new model without VRAM overlap.
   - Scheduled retention expiration in `vram_health_worker.py` and `RuntimeEngine.unload_expired_providers`: models idle for >300s are automatically deallocated to free GPU memory.
-- **TripoSG BriaRMBG Kwarg Fix (`backend/app/core/providers/triposg_local.py`)**:
-  - Removed unsupported `trust_remote_code=True` argument from `BriaRMBG.from_pretrained()`, which raised `TypeError: BriaRMBG.__init__() got an unexpected keyword argument 'trust_remote_code'` because `ModelHubMixin` forwards unknown arguments to `__init__()`.
-  - Added graceful try/except wrapper around `BriaRMBG` loading so TripoSG can proceed smoothly even if RMBG fails.
+- **Diffusers onnxruntime Stub Guard (`backend/app/core/providers/base.py`, `backend/app/core/providers/triposg_local.py`)**:
+  - When `diffusers` loads pipelines (e.g. `TripoSGPipeline.from_pretrained`), it inspects `diffusers.OnnxRuntimeModel` which imports `diffusers/pipelines/onnx_utils.py` -> `import onnxruntime as ort`. When per-model Py3.10 venvs are prepended to `sys.path`, Python 3.12 attempted to load Py3.10 `onnxruntime_pybind11_state` C-extension, crashing with `ModuleNotFoundError: No module named 'onnxruntime.capi.onnxruntime_pybind11_state'`.
+  - Added a global `onnxruntime` stub guard in `_add_model_env()` and set `diffusers.utils.import_utils.is_onnx_available = lambda: False` so diffusers falls back to `dummy_onnx_objects` cleanly.
+- **VRAM Health Worker Event Loop Cleanup (`backend/app/workers/vram_health_worker.py`)**:
+  - Resolved `RuntimeWarning: coroutine 'RuntimeEngine.unload_expired_providers' was never awaited` in synchronous Celery task by executing expired provider unload via a clean, synchronous event loop instance.
 
 ---
 

@@ -330,6 +330,25 @@ def _add_model_env(repo_name: str) -> None:
             m.list_audio_backends = lambda: []
             sys.modules["torchaudio"] = m
 
+    # Prevent broken Python 3.10 onnxruntime C-extensions in per-model venvs
+    # from crashing diffusers/transformers during pipeline inspection.
+    try:
+        import onnxruntime
+        from onnxruntime.capi import _pybind_state
+    except Exception:
+        import types
+        ort_stub = types.ModuleType("onnxruntime")
+        ort_stub.__version__ = "1.16.0"
+        ort_stub.InferenceSession = None
+        ort_stub.SessionOptions = None
+        sys.modules["onnxruntime"] = ort_stub
+        try:
+            import diffusers.utils.import_utils as _diu
+            _diu.is_onnx_available = lambda: False
+            _diu.is_onnxruntime_available = lambda: False
+        except Exception:
+            pass
+
     # Ensure critical C-extension modules are verified and working in sys.modules.
     # If an ABI-incompatible version was previously cached (e.g. from a Python 3.10
     # venv C-extension), purge and reload fresh from the overlay at sys.path[0].

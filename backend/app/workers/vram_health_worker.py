@@ -21,14 +21,11 @@ def check_vram_health() -> dict:
         if keep_alive > 0 and engine:
             import asyncio
             try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
                 loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-            if loop.is_running():
-                asyncio.create_task(engine.unload_expired_providers(keep_alive))
-            else:
                 loop.run_until_complete(engine.unload_expired_providers(keep_alive))
+                loop.close()
+            except Exception as loop_exc:
+                logger.debug("Expired provider check failed: %s", loop_exc)
     except Exception as exc:
         logger.debug("Expired provider check: %s", exc)
 
