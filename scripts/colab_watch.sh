@@ -141,7 +141,7 @@ wait_http() {
     local started
     started="$(date +%s)"
     while true; do
-        if curl -fsS --max-time 3 "$url" >/dev/null 2>&1; then
+        if curl -fsS --max-time 5 "$url" >/dev/null 2>&1; then
             return 0
         fi
         if (( $(date +%s) - started >= timeout )); then
@@ -260,11 +260,11 @@ start_frontend() {
 }
 
 api_healthy() {
-    wait_http "http://127.0.0.1:8000/api/v1/health" 3
+    wait_http "http://127.0.0.1:8000/api/v1/health" 15
 }
 
 frontend_healthy() {
-    wait_http "http://127.0.0.1:3000/" 3
+    wait_http "http://127.0.0.1:3000/" 10
 }
 
 worker_healthy() {
@@ -378,8 +378,12 @@ else
     log "Frontend already healthy (PID $(pid_of frontend))"
 fi
 
-# Continuous foreground supervision. This is the critical Colab fix: the
-# launcher does NOT return while these services are expected to run.
+# Continuous foreground supervision with consecutive failure cushion.
+api_fails=0
+worker_fails=0
+frontend_fails=0
+MAX_CONSECUTIVE_FAILS=3
+
 while true; do
     api_ok=false
     worker_ok=false
@@ -387,23 +391,47 @@ while true; do
 
     if api_healthy; then
         api_ok=true
+        api_fails=0
         reset_restart_count_when_healthy api
     else
-        restart_with_backoff api || true
+        api_fails=$((api_fails + 1))
+        if (( api_fails >= MAX_CONSECUTIVE_FAILS )); then
+            warn "FastAPI unhealthy for ${api_fails} consecutive checks — triggering restart."
+            api_fails=0
+            restart_with_backoff api || true
+        else
+            warn "FastAPI health check missed (${api_fails}/${MAX_CONSECUTIVE_FAILS}); will retry before restarting."
+        fi
     fi
 
     if worker_healthy; then
         worker_ok=true
+        worker_fails=0
         reset_restart_count_when_healthy worker
     else
-        restart_with_backoff worker || true
+        worker_fails=$((worker_fails + 1))
+        if (( worker_fails >= MAX_CONSECUTIVE_FAILS )); then
+            warn "Celery worker unhealthy for ${worker_fails} consecutive checks — triggering restart."
+            worker_fails=0
+            restart_with_backoff worker || true
+        else
+            warn "Celery worker check missed (${worker_fails}/${MAX_CONSECUTIVE_FAILS}); will retry."
+        fi
     fi
 
     if frontend_healthy; then
         frontend_ok=true
+        frontend_fails=0
         reset_restart_count_when_healthy frontend
     else
-        restart_with_backoff frontend || true
+        frontend_fails=$((frontend_fails + 1))
+        if (( frontend_fails >= MAX_CONSECUTIVE_FAILS )); then
+            warn "Frontend unhealthy for ${frontend_fails} consecutive checks — triggering restart."
+            frontend_fails=0
+            restart_with_backoff frontend || true
+        else
+            warn "Frontend health check missed (${frontend_fails}/${MAX_CONSECUTIVE_FAILS}); will retry."
+        fi
     fi
 
     if [[ "$api_ok" == "true" && "$worker_ok" == "true" && "$frontend_ok" == "true" ]]; then

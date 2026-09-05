@@ -1,8 +1,28 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.9.10 (Strict Weight-Gated Readiness & Settings AI Model Installation UX)
+> **Version**: 4.9.11 (Download I/O Throttling, Health Check In-Memory Caching & Supervisor Stability)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-05
 > **Last Updated**: September 5, 2026
+
+---
+
+## v4.9.11 — Download I/O Throttling, Health Check Caching & Supervisor Stability (2026-09-05)
+
+### What changed
+- **Supervisor Stability & Failure Tolerance (`scripts/colab_watch.sh`)**:
+  - Increased `api_healthy` timeout from 3s to 15s and `wait_http` curl max-time from 3s to 5s to prevent false-positive service kills during heavy network downloads.
+  - Added a 3-consecutive-failure threshold before triggering `restart_with_backoff api` or worker/frontend restarts, preventing a single transient busy request from terminating active downloads.
+- **Fast In-Memory Caching & Non-Blocking Health Checks (`backend/app/api/v1/health.py`)**:
+  - Cached health check responses in memory for 8 seconds, allowing frequent supervisor and UI health pings to return in <1ms without touching PostgreSQL or disk.
+  - Replaced disk file creation/unlink tests with non-blocking `os.access(storage_path, os.W_OK)`.
+  - Added 1.5s timeout protection (`asyncio.wait_for`) to database and storage subchecks so health checks can never hang or exceed 1.5s even under peak I/O.
+- **Download State Disk Throttling (`backend/app/api/v1/admin.py`)**:
+  - Throttled `_dl_save_state` to write `install_progress.json` at most once every 2 seconds during active streaming (immediate on start, completed, failed), eliminating constant disk write contention while multi-gigabyte weight files are being written. Real-time updates remain instantaneous via memory SSE events.
+- **Filesystem Scan Throttling (`backend/runtime/installer.py`)**:
+  - Relaxed fallback `rglob` directory scan from 1.0s to 3.0s during `snapshot_download`, reducing recursive disk stat calls by ~70%.
+
+### Root cause
+During heavy multi-gigabyte weight downloads (e.g. TripoSG), continuous disk writes from `_dl_save_state` combined with `health.py` writing test files and running un-cached database queries caused `/api/v1/health` latency to spike to ~5 seconds. `scripts/colab_watch.sh` had a strict 3-second timeout and zero consecutive failure tolerance, causing it to immediately classify FastAPI as dead and execute `kill -KILL "$pid"` at ~82% download completion, abruptly severing client connections with `ECONNREFUSED`.
 
 ---
 

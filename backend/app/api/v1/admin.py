@@ -465,15 +465,27 @@ def _dl_state_path() -> Path:
         return Path(__file__).resolve().parent.parent.parent / ".runtime_cache" / "install_progress.json"
 
 
-def _dl_save_state() -> None:
-    """Persist current _DL_STATE to disk (best-effort, never raises)."""
+_last_dl_save_time = 0.0
+
+
+def _dl_save_state(force: bool = False) -> None:
+    """Persist current _DL_STATE to disk (best-effort, never raises).
+
+    Throttled to at most once every 2 seconds during active streaming,
+    or immediate when force=True (start, complete, fail).
+    """
+    global _last_dl_save_time
+    now = time.time()
+    if not force and (now - _last_dl_save_time < 2.0):
+        return
+    _last_dl_save_time = now
     try:
         path = _dl_state_path()
         path.parent.mkdir(parents=True, exist_ok=True)
         with _DL_LOCK:
             snapshot = {k: {kk: vv for kk, vv in s.items() if not kk.startswith("_")}
                         for k, s in _DL_STATE.items()}
-        path.write_text(json.dumps(snapshot, indent=2, default=str))
+        path.write_text(json.dumps(snapshot, default=str))
     except Exception:
         pass  # Disk write is best-effort
 
@@ -601,8 +613,9 @@ def _dl_update(model_id: str, **fields) -> None:
                 except Exception:
                     pass
 
-    # Persist to disk in background executor — never blocks the caller.
-    _DL_SAVE_EXECUTOR.submit(_dl_save_state)
+    # Persist to disk in background executor (throttled to avoid disk lockups)
+    force_save = fields.get("status") in ("completed", "failed", "starting")
+    _DL_SAVE_EXECUTOR.submit(_dl_save_state, force_save)
 
 
 def _dl_snapshot(model_id: str) -> dict:

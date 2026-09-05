@@ -1764,7 +1764,7 @@ def download_weights(
     stop_monitor = threading.Event()
 
     def _monitor() -> None:
-        while not stop_monitor.wait(timeout=1.0):
+        while not stop_monitor.wait(timeout=3.0):
             try:
                 current_bytes = sum(
                     f.stat().st_size

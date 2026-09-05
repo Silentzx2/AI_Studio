@@ -40,19 +40,25 @@ async def _check_redis() -> dict:
         return {"status": "error", "error": str(e)}
 
 
+import os
+import time
+
+_health_cache: dict | None = None
+_health_cache_time: float = 0.0
+_HEALTH_CACHE_TTL = 8.0  # seconds
+
+
 async def _check_storage() -> dict:
-    """Check storage directory writable."""
+    """Check storage directory writable without disk file write contention."""
     try:
         storage_path = Path(settings.storage_local_path)
         if not storage_path.exists():
             storage_path.mkdir(parents=True, exist_ok=True)
-        test_file = storage_path / ".health_check_write_test"
-        test_file.write_text("ok")
-        test_file.unlink()
+        writable = os.access(storage_path, os.W_OK)
         return {
-            "status": "ok",
+            "status": "ok" if writable else "error",
             "path": str(storage_path),
-            "writable": True,
+            "writable": writable,
         }
     except Exception as e:
         return {
@@ -89,31 +95,40 @@ async def _check_engine() -> dict:
 
 @router.get("")
 async def health() -> Dict[str, Any]:
-    """Comprehensive health check endpoint."""
+    """Comprehensive health check endpoint with in-memory caching to prevent DB/IO overload."""
+    global _health_cache, _health_cache_time
+    now = time.time()
+    if _health_cache is not None and (now - _health_cache_time < _HEALTH_CACHE_TTL):
+        return success(_health_cache)
+
+    async def _safe_run(coro, default_err):
+        try:
+            return await asyncio.wait_for(coro, timeout=1.5)
+        except Exception as exc:
+            return {"status": "degraded", "error": str(exc) or default_err}
+
+    db_task = _safe_run(_check_database(), "Database check timeout")
+    redis_task = _safe_run(_check_redis(), "Redis check timeout")
+    storage_task = _safe_run(_check_storage(), "Storage check timeout")
+    engine_task = _safe_run(_check_engine(), "Engine check timeout")
+
+    db_result, redis_result, storage_result, engine_result = await asyncio.gather(
+        db_task, redis_task, storage_task, engine_task
+    )
+
     health_status = {
         "status": "ok",
         "version": settings.app_version,
         "environment": settings.environment,
         "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
-        "services": {}
+        "services": {
+            "database": db_result,
+            "redis": redis_result,
+            "storage": storage_result,
+            "engine": engine_result,
+            "api": {"status": "ok"},
+        },
     }
-
-    # Run all health checks concurrently
-    db_task = asyncio.create_task(_check_database())
-    redis_task = asyncio.create_task(_check_redis())
-    storage_task = asyncio.create_task(_check_storage())
-    engine_task = asyncio.create_task(_check_engine())
-
-    db_result = await db_task
-    redis_result = await redis_task
-    storage_result = await storage_task
-    engine_result = await engine_task
-
-    health_status["services"]["database"] = db_result
-    health_status["services"]["redis"] = redis_result
-    health_status["services"]["storage"] = storage_result
-    health_status["services"]["engine"] = engine_result
-    health_status["services"]["api"] = {"status": "ok"}
 
     # Determine overall status
     overall_healthy = all(
@@ -124,4 +139,6 @@ async def health() -> Dict[str, Any]:
     if not overall_healthy:
         health_status["status"] = "degraded"
 
+    _health_cache = health_status
+    _health_cache_time = now
     return success(health_status)
