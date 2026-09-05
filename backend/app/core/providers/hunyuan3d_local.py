@@ -230,6 +230,9 @@ class _HunyuanBase(BaseProvider):
     def _preprocess_image(self, image_path: str) -> Any:
         from PIL import Image
         img = Image.open(image_path)
+        # Normalize non-standard modes (e.g. palette P with transparency, grayscale LA)
+        if img.mode not in ("RGBA", "RGB"):
+            img = img.convert("RGBA")
         has_transparency = False
         if img.mode == "RGBA":
             extrema = img.getextrema()

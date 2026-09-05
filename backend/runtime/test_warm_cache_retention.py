@@ -51,6 +51,7 @@ async def test_warm_cache_retention_and_model_swap():
 
 
 def test_image_transparency_detection():
+    import io
     # RGBA with transparency
     img_transparent = Image.new("RGBA", (10, 10), (255, 0, 0, 0))
     extrema = img_transparent.getextrema()
@@ -60,3 +61,13 @@ def test_image_transparency_detection():
     img_opaque = Image.new("RGBA", (10, 10), (255, 0, 0, 255))
     extrema_opaque = img_opaque.getextrema()
     assert extrema_opaque[3][0] == 255
+
+    # WebP with transparency
+    buf_webp = io.BytesIO()
+    img_transparent.save(buf_webp, format="WEBP")
+    buf_webp.seek(0)
+    loaded_webp = Image.open(buf_webp)
+    assert loaded_webp.format == "WEBP"
+    if loaded_webp.mode not in ("RGBA", "RGB"):
+        loaded_webp = loaded_webp.convert("RGBA")
+    assert loaded_webp.getextrema()[3][0] < 240
