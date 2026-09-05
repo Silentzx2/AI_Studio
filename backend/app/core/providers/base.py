@@ -30,9 +30,10 @@ def _patch_numpy_legacy_aliases() -> None:
     try:
         import numpy as _np
 
-        if not hasattr(_np, "long"):
+        # Avoid hasattr(_np, "long") which triggers NumPy 1.26+ FutureWarning
+        if "long" not in _np.__dict__:
             _np.long = _np.int_
-        if not hasattr(_np, "ulong"):
+        if "ulong" not in _np.__dict__:
             _np.ulong = _np.uint
 
         # Bridge numpy._core to numpy.core for accelerate/diffusers/transformers
@@ -40,6 +41,19 @@ def _patch_numpy_legacy_aliases() -> None:
             import numpy.core as _core
             _np._core = _core
             sys.modules["numpy._core"] = _core
+
+            # Explicitly ensure critical C-extension submodules are linked
+            for mod_name in ("multiarray", "umath", "_multiarray_umath"):
+                try:
+                    mod = getattr(_core, mod_name, None)
+                    if mod is None:
+                        mod = __import__(f"numpy.core.{mod_name}", fromlist=[mod_name])
+                    if mod is not None:
+                        setattr(_core, mod_name, mod)
+                        sys.modules[f"numpy._core.{mod_name}"] = mod
+                except Exception:
+                    pass
+
             for sub_name, sub_mod in list(sys.modules.items()):
                 if sub_name.startswith("numpy.core."):
                     core_suffix = sub_name[len("numpy.core."):]
@@ -164,10 +178,16 @@ def _fix_c_package_overlay(repo_name: str, pkg_name: str, import_name: str, chec
     return bcode == 0 and "ok" in bout
 
 
-def _fix_overlay_packages(repo_name: str) -> bool:
+_VERIFIED_OVERLAYS: set[str] = set()
+
+
+def _fix_overlay_packages(repo_name: str, force: bool = False) -> bool:
     """Ensure all critical C-extension packages (Pillow, regex, safetensors)
     have working backend-Python builds in the model's overlay directory.
     """
+    if not force and repo_name in _VERIFIED_OVERLAYS:
+        return True
+
     packages = [
         ("pillow", "PIL", "from PIL import _imaging; print('ok')"),
         ("regex", "regex", "from regex import _regex; print('ok')"),
@@ -179,6 +199,8 @@ def _fix_overlay_packages(repo_name: str) -> bool:
         ok = _fix_c_package_overlay(repo_name, pkg_name, import_name, check_stmt)
         if not ok:
             all_ok = False
+    if all_ok:
+        _VERIFIED_OVERLAYS.add(repo_name)
     return all_ok
 
 

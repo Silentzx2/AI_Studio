@@ -243,11 +243,12 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
         return "hunyuan3d-2.1"
 
     def __init__(self, device: str = "cuda", low_vram: bool = False) -> None:
-        _add_model_env("Hunyuan3D-2.1")
         super().__init__("hunyuan3d-2.1", "hunyuan3d-2.1", repo_name="Hunyuan3D-2.1", device=device, low_vram=low_vram)
 
     def _load_model(self) -> None:
         try:
+            from app.core.providers.base import _patch_numpy_legacy_aliases
+            _patch_numpy_legacy_aliases()
             from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
             logger.info("Loading Hunyuan3D-2.1 from %s on %s", self.weights_dir, self.device)
             self._load_model_with_accelerate(
@@ -336,11 +337,12 @@ class Hunyuan3D2MiniLocalProvider(_HunyuanBase):
         return "hunyuan3d-2-mini"
 
     def __init__(self, device: str = "cuda", low_vram: bool = False) -> None:
-        _add_model_env("Hunyuan3D-2mini")
         super().__init__("hunyuan3d-2-mini", "hunyuan3d-2-mini", repo_name="Hunyuan3D-2mini", device=device, low_vram=low_vram)
 
     def _load_model(self) -> None:
         try:
+            from app.core.providers.base import _patch_numpy_legacy_aliases
+            _patch_numpy_legacy_aliases()
             from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
             logger.info("Loading Hunyuan3D-2 Mini from %s on %s", self.weights_dir, self.device)
             self._load_model_with_accelerate(

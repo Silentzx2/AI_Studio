@@ -211,20 +211,33 @@ async def get_runtime_options():
             # which made the model selector show "Installed" mid-download and
             # let the generation API accept a job for a not-yet-ready model.
             overall_state = status_entry.get("state")
-            is_installed = bool(
-                status_entry.get("installed")
-                or overall_state in ("ready", "partial", "runtime_ready", "runtime_partial", "blocked")
-            )
+            from runtime.storage import get_storage_config
+            storage = get_storage_config()
+            weight_key = meta.get("weight_key")
+            wp_found = storage.get_weight_path(weight_key) if weight_key else None
+            if not wp_found:
+                wp_found = storage.get_weight_path(name)
+            has_weights = wp_found is not None or meta.get("repo") is None
+            repo_ready = bool(status_entry.get("repo_ready", False) or not meta.get("repo"))
+            venv_ready = bool(status_entry.get("venv_ready", False) or not meta.get("repo"))
+
+            # Strictly require weights on disk before marking as ready or installed
+            is_installed = bool(has_weights and repo_ready)
             is_available = bool(
-                avail.get("available", False)
-                or overall_state in ("runtime_ready", "ready")
+                is_installed and (
+                    avail.get("available", False)
+                    or overall_state in ("runtime_ready", "ready")
+                )
             )
+
             if is_available:
                 model_status = "ready"
-            elif overall_state in ("partial", "runtime_partial"):
-                model_status = "partial"
             elif is_installed:
                 model_status = "installed"
+            elif repo_ready and venv_ready:
+                model_status = "weights_missing"
+            elif overall_state in ("partial", "runtime_partial"):
+                model_status = "partial"
             else:
                 model_status = overall_state or "not_installed"
 

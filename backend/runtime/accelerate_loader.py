@@ -31,13 +31,19 @@ def accelerate_available() -> bool:
     module load time.
     """
     try:
+        from app.core.providers.base import _patch_numpy_legacy_aliases
+        _patch_numpy_legacy_aliases()
+    except Exception:
+        pass
+
+    try:
         import accelerate  # noqa: F401
         _ACCELERATE_AVAILABLE = True
         logger.debug("Accelerate available: %s", getattr(accelerate, "__version__", "?"))
         return True
-    except ImportError:
+    except (ImportError, AttributeError, Exception) as exc:
         _ACCELERATE_AVAILABLE = False
-        logger.debug("Accelerate not installed — using native device management")
+        logger.debug("Accelerate not available (%s) — using native device management", exc)
         return False
 
 

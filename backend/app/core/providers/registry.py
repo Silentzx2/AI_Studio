@@ -162,7 +162,14 @@ def get_registry() -> RuntimeProviderRegistry:
                 # can show the user what's wrong (see Issue 9).
                 overall_state = info.get("state", "unknown")
                 installed = info.get("installed", False)
-                if overall_state == "runtime_ready":
+                weights_ready = info.get("weights_ready", True)
+                if not weights_ready and name != "mock":
+                    registry.set_available(
+                        name,
+                        available=False,
+                        reason=info.get("blocking_reason", "Weights not downloaded"),
+                    )
+                elif overall_state == "runtime_ready":
                     registry.set_available(
                         name,
                         available=True,

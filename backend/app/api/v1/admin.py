@@ -2141,7 +2141,7 @@ async def list_providers():
             "id": name,
             "label": meta.get("label", name),
             "category": meta.get("category", "unknown"),
-            "installed": inst.get("installed", False),
+            "installed": bool(inst.get("installed", False) and inst.get("weights_ready", True)),
             "loaded": name in loaded_names,
             "active": name == settings.ai_provider,
             "vram_required_mb": meta.get("vram_required_mb", 0),

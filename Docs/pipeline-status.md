@@ -1240,3 +1240,18 @@ Uploaded model persistence/list/delete and `/static/models/...` remesh resolutio
 
 No additional code-level blockers found. Environment-limited items (PostgreSQL integration tests, CUDA inference) remain hardware-dependent per `REMAINING_BUGS.md`.
 
+## 2026-09-05 Update: Hunyuan3D & AI Model Readiness Hardening
+
+### 1. NumPy Legacy Bridge (`numpy._core` multiarray fix)
+- In NumPy 1.26.4, modern libraries (`accelerate`, `transformers`, `diffusers`) attempt `import numpy._core as np_core; np_core.multiarray._reconstruct`. The directory stub on disk caused `AttributeError: module 'numpy._core' has no attribute 'multiarray'`.
+- Bridged `numpy._core` to `numpy.core` in `backend/app/core/providers/base.py` and linked `multiarray`, `umath`, `_multiarray_umath` to `sys.modules["numpy._core.multiarray"]` without raising `FutureWarning`.
+- Added startup initialization in `backend/app/main.py`, `backend/app/workers/celery_app.py`, `backend/runtime/accelerate_loader.py`, and inside provider `_load_model()`.
+
+### 2. C-Extension Overlay Subprocess Cache
+- Added `_VERIFIED_OVERLAYS` set in `backend/app/core/providers/base.py` to prevent running 8 redundant Python subprocess checks (`_fix_overlay`) on every model inference request.
+- Removed premature `_add_model_env` invocations from `Hunyuan3D2MiniLocalProvider.__init__` and `Hunyuan3D21LocalProvider.__init__`, reserving environment activation strictly for `_ensure_loaded()`.
+
+### 3. Strict Weight-Gating for AI Models Page
+- Enforced that models in `/settings` (via `/api/v1/admin/models`, `/api/v1/admin/providers`, and `/api/v1/runtime/options`) are strictly marked `ready` or `installed` **only if model weights exist on disk**.
+- Models with only repository and virtualenv prepared report `weights_missing` instead of falsely advertising `ready`.
+
