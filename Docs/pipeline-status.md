@@ -1,8 +1,21 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.2 (Demand-Based 3D Viewport Rendering, Shared Loader Singletons & Idle Frame Settling)
+> **Version**: 5.0.3 (NumPy 2.x DeprecationWarning Suppression in Bridge, Cleaned Error Surfacing & TripoSG Smoke Alignment)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-05
 > **Last Updated**: September 5, 2026
+
+---
+
+## v5.0.3 — NumPy DeprecationWarning Suppression & TripoSG Smoke Alignment (2026-09-05)
+
+### What changed
+- **NumPy 2.x DeprecationWarning Filter in Bridge (`backend/runtime/model_env.py`)**:
+  - Injected `warnings.filterwarnings('ignore', category=DeprecationWarning)` inside `_NUMPY_BRIDGE_CODE` to prevent Python from polluting stderr with 500-character `DeprecationWarning: numpy.core is deprecated and has been renamed to numpy._core` notices.
+  - Expanded `_RESOURCE_OR_ENV_ERRS` to recognize `"not implemented for 'Half'"`, `"addmm"`, and `"Slow without a GPU"`.
+- **Cleaned Error Surfacing in Venv Subprocesses (`backend/runtime/preflight.py`)**:
+  - Updated `_run_in_venv()` to return clean stdout on exit code 0, and filter out any stray DeprecationWarnings before returning output on non-zero exit codes.
+- **TripoSG Smoke Test Alignment (`backend/runtime/preflight.py`)**:
+  - Aligned `_PROVIDER_SMOKE_TESTS["triposg"]` to test pipeline loading (`from_pretrained`) matching the other models (`detailgen3d`, `hunyuan3d-2-mini`), and ensured `_CAPABILITY_SMOKE_TESTS["triposg"]["shape"]` sets device (`cuda` with `float16` if available, otherwise `cpu` with `float32`) with `torch.inference_mode()`.
 
 ---
 

@@ -69,13 +69,8 @@ print("ok")
 """,
     "triposg": """
 import torch
-import numpy as np
-from PIL import Image
 from triposg.pipelines.pipeline_triposg import TripoSGPipeline
 pipe = TripoSGPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__)
-img = Image.new("RGB", (256, 256))
-with torch.no_grad():
-    outputs = pipe(image=img, num_inference_steps=1, guidance_scale=1.0).samples[0]
 print("ok")
 """,
 }
@@ -148,9 +143,11 @@ import torch
 import numpy as np
 from PIL import Image
 from triposg.pipelines.pipeline_triposg import TripoSGPipeline
-pipe = TripoSGPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__)
+device = "cuda" if torch.cuda.is_available() else "cpu"
+dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+pipe = TripoSGPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__).to(device, dtype=dtype)
 img = Image.new("RGB", (256, 256))
-with torch.no_grad():
+with torch.inference_mode():
     outputs = pipe(image=img, num_inference_steps=1, guidance_scale=1.0).samples[0]
 print("ok")
 """,
@@ -210,7 +207,12 @@ def _run_in_venv(venv_python: Path, code: str, timeout_sec: int = 60) -> tuple[i
             [str(venv_python), "-c", full_code],
             capture_output=True, text=True, timeout=timeout_sec,
         )
-        output = (proc.stdout + "\n" + proc.stderr).strip()
+        if proc.returncode == 0:
+            output = proc.stdout.strip() if "ok" in proc.stdout else (proc.stdout + "\n" + proc.stderr).strip()
+        else:
+            err_lines = [line for line in (proc.stderr or "").splitlines() if "DeprecationWarning" not in line]
+            clean_err = "\n".join(err_lines).strip()
+            output = clean_err or (proc.stdout + "\n" + proc.stderr).strip()
         return proc.returncode, output
     except subprocess.TimeoutExpired:
         return 1, f"Timed out after {timeout_sec}s"

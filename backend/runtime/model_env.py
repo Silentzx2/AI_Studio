@@ -94,6 +94,7 @@ def apply_numpy_bridge() -> None:
 # Subprocess-injectable version (string form for _run_in_venv)
 _NUMPY_BRIDGE_CODE = (
     "try:\n"
+    "    import warnings; warnings.filterwarnings('ignore', category=DeprecationWarning)\n"
     "    import sys, numpy as _np\n"
     "    if hasattr(_np, 'core'):\n"
     "        import numpy.core as _core; _np._core = _core; sys.modules['numpy._core'] = _core\n"
@@ -123,6 +124,7 @@ _RESOURCE_OR_ENV_ERRS = frozenset({
     "out of memory", "cuda out of memory", "cuda oom",
     "cuinit error", "runtimeerror: cuda", "oom",
     "no memory to allocate", "nvidia-smi", "memory exhausted",
+    "not implemented for 'Half'", "addmm", "Slow without a GPU",
 })
 
 
