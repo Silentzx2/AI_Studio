@@ -354,20 +354,8 @@ class RuntimeEngine:
 
 
 def _instantiate_provider(name: str, device: str, low_vram: bool = False) -> Any:
-    import importlib
-    entry = _PROVIDER_MAP.get(name)
-    if not entry:
-        raise ValueError(f"Unknown provider: {name}")
-    module_path, class_name = entry
-    mod = importlib.import_module(module_path)
-    cls = getattr(mod, class_name)
-    if name == "mock":
-        return cls()
-    try:
-        return cls(device=device, low_vram=low_vram)
-    except TypeError:
-        # Older providers may not accept the low_vram kwarg yet — keep loading.
-        return cls(device=device)
+    from app.core.providers.registry import get_provider
+    return get_provider(name, device=device, low_vram=low_vram)
 
 
 _engine: RuntimeEngine | None = None

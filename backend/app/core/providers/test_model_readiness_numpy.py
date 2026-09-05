@@ -60,4 +60,38 @@ finally:
     import shutil
     shutil.rmtree(str(storage.third_party_dir / 'Hunyuan3D-2mini/weights'), ignore_errors=True)
 
+# 7. Test model_env resolver and single source of truth
+from backend.runtime.model_env import (
+    resolve_model_env,
+    apply_numpy_bridge,
+    get_numpy_bridge_code,
+    is_resource_error,
+)
+for p in ("hunyuan3d-2.1", "hunyuan3d-2-mini", "trellis", "triposg", "detailgen3d"):
+    env = resolve_model_env(p)
+    assert env is not None, f"resolve_model_env failed for {p}"
+    assert env.provider_name == p
+    assert env.repo_name != ""
+    assert len(env.sys_path_entries) >= 2
+
+# 8. Test unified error classification
+assert is_resource_error("CUDA out of memory") is True
+assert is_resource_error("RuntimeError: cuinit error") is True
+assert is_resource_error("Torch not compiled with CUDA") is True
+assert is_resource_error("KeyError: 'foo'") is False
+assert is_resource_error("ValueError: invalid shape") is False
+
+# 9. Test triposg smoke test is defined in _PROVIDER_SMOKE_TESTS
+from backend.runtime.preflight import _PROVIDER_SMOKE_TESTS
+assert "triposg" in _PROVIDER_SMOKE_TESTS, "triposg must have a smoke test in _PROVIDER_SMOKE_TESTS"
+
+# 10. Test tasks.py _is_oom_error delegates to is_resource_error
+try:
+    from backend.app.workers.tasks import _is_oom_error
+    assert _is_oom_error(RuntimeError("CUDA out of memory")) is True
+    assert _is_oom_error(Exception("normal failure")) is False
+except ModuleNotFoundError:
+    assert is_resource_error(str(RuntimeError("CUDA out of memory"))) is True
+    assert is_resource_error(str(Exception("normal failure"))) is False
+
 print("All self-checks PASSED successfully!")

@@ -155,12 +155,12 @@ def _load_install_manifests() -> dict[str, dict]:
     actual repo/weights configuration in Python.
     """
     try:
+        from .model_env import _import_manifest_loader
+        _ml = _import_manifest_loader()
+        list_manifests = _ml.list_manifests
+        load_manifest = _ml.load_manifest
+    except Exception:
         from runtime.manifest_loader import list_manifests, load_manifest
-    except (ImportError, ValueError):
-        try:
-            from .manifest_loader import list_manifests, load_manifest
-        except (ImportError, ValueError):
-            from backend.runtime.manifest_loader import list_manifests, load_manifest
     result: dict[str, dict] = {}
     for provider in list_manifests():
         try:
@@ -243,12 +243,10 @@ def _canonical_provider_name(name: str) -> str:
 # PROVIDER_METADATA is now generated from YAML manifests via manifest_loader.
 # The "mock" testing provider is appended here because it has no manifest.
 try:
+    from .model_env import _import_manifest_loader
+    _MANIFEST_PROVIDER_METADATA = _import_manifest_loader().PROVIDER_METADATA
+except Exception:
     from runtime.manifest_loader import PROVIDER_METADATA as _MANIFEST_PROVIDER_METADATA
-except (ImportError, ValueError):
-    try:
-        from .manifest_loader import PROVIDER_METADATA as _MANIFEST_PROVIDER_METADATA
-    except (ImportError, ValueError):
-        from backend.runtime.manifest_loader import PROVIDER_METADATA as _MANIFEST_PROVIDER_METADATA
 
 PROVIDER_METADATA = {**_MANIFEST_PROVIDER_METADATA, "mock": {
     "label": "Mock (Testing)",

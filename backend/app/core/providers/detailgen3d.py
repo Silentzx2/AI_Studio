@@ -17,13 +17,6 @@ from runtime.storage import get_storage_config
 
 logger = logging.getLogger(__name__)
 
-# ponytail: DetailGen3D repo lives under the storage third_party dir (per-model
-# layout). The old parents[4]/third_party guess pointed at the project root and
-# never resolved (provider map bug). Resolve via get_storage_config.
-DETAILGEN3D_REPO = get_storage_config().get_repo_path("DetailGen3D")
-if str(DETAILGEN3D_REPO) not in sys.path:
-    sys.path.insert(0, str(DETAILGEN3D_REPO))
-
 try:
     import torch
     import trimesh

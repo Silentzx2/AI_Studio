@@ -151,21 +151,19 @@ def _wait_for_stable_file(path: str, timeout_seconds: float = 15.0, stable_check
     return p.exists() and p.stat().st_size > 0
 
 
-_OOM_MARKERS = (
-    "out of memory", "cuda out of memory", "cuda oom",
-    "cuinit error", "runtimeerror: cuda", "oom",
-    "no memory to allocate", "nvidia-smi", "memory exhausted",
-)
-
-
 def _is_oom_error(exc: BaseException) -> bool:
     """True when an exception is a GPU OOM / memory-exhaustion failure.
 
     Drives the low-VRAM fallback retry: only genuine memory failures retry in
     low mode, so a code bug is not masked by an expensive double run.
     """
-    msg = str(exc).lower()
-    return any(marker in msg for marker in _OOM_MARKERS)
+    try:
+        from runtime.model_env import is_resource_error
+        return is_resource_error(str(exc))
+    except ImportError:
+        # Fallback if model_env not available
+        msg = str(exc).lower()
+        return any(m in msg for m in ("out of memory", "cuda out of memory", "oom", "memory exhausted"))
 
 
 def _resolve_job_vram_mode(job) -> str:

@@ -1,8 +1,30 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.9.14 (Hunyuan3D-2 Mini Weight Path Resolution, Venv NumPy Bridge & Preflight Error Diagnostics)
+> **Version**: 5.0.0 (Unified Model Environment, Single Source of Truth, Deduplication & Manifest-Driven Smoke Tests)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-05
 > **Last Updated**: September 5, 2026
+
+---
+
+## v5.0.0 — Unified Model Environment, Single Source of Truth & Manifest-Driven Preflight (2026-09-05)
+
+### What changed
+- **Unified Model Environment Module (`backend/runtime/model_env.py`)**:
+  - Introduced `ModelEnv` dataclass and `resolve_model_env(provider_name)` as the **single source of truth** for all model lifecycle resolution (repo paths, scripts paths, venv binaries, site-packages, canonical weight directories, auxiliary weights, and CUDA/capability requirements).
+  - Consolidated NumPy 1.26.x `_core` $\leftrightarrow$ `core` bridge into `apply_numpy_bridge()` and `get_numpy_bridge_code()`, removing 10+ scattered, ad-hoc monkey patches across `base.py`, `preflight.py`, `tasks.py`, etc.
+  - Consolidated GPU/CUDA/OOM error classification into `is_resource_error(text)`, unifying disjoint pattern sets across Celery task retries and preflight soft-gating.
+  - Unified dynamic import resolution into `_import_manifest_loader()` and `_import_storage()`, eliminating fragile 3-5 level `try/except` chains across `installer.py`, `preflight.py`, and `storage.py`.
+- **Eliminated Double NumPy Bridge Bug (`backend/runtime/preflight.py`)**:
+  - Removed duplicate inline bridge injection inside `_resolve_smoke_code()` that previously ran the bridge twice per subprocess invocation.
+  - Added native support for manifest-driven smoke tests: providers can now declare `preflight.smoke_inference_code` and `capabilities.<cap>.smoke_test_code` directly in their YAML manifest without touching any Python code.
+  - Added missing `triposg` smoke test into `_PROVIDER_SMOKE_TESTS` and fixed `hunyuan3d-2-mini` texture smoke test to properly test paint pipeline readiness.
+- **Provider Import and Instantiation Deduplication**:
+  - Cleaned up redundant `sys.path.insert` operations in `triposg_local.py` and `detailgen3d.py`.
+  - Deduplicated `engine.py::_instantiate_provider` by delegating directly to `registry.py::get_provider`.
+  - Replaced `_patch_numpy_legacy_aliases()` in `base.py` and `_is_oom_error()` in `tasks.py` with thin wrappers delegating to `model_env.py`.
+
+### Root cause
+Previously, adding or maintaining any model required synchronized changes across 6+ separate files (`base.py`, `preflight.py`, `storage.py`, `installer.py`, `tasks.py`, `engine.py`). Divergent import fallback orders, duplicate NumPy bridge injections, disjoint OOM substring sets, and hardcoded Python smoke test dictionaries resulted in fragile `state=blocked` failure modes on new model additions.
 
 ---
 

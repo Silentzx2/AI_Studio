@@ -12,14 +12,8 @@ from runtime.storage import get_storage_config
 
 logger = logging.getLogger(__name__)
 
-# ponytail: TripoSG repo lives under the storage third_party dir (per-model
-# layout). The old parents[4]/third_party guess pointed at the project root and
-# never resolved (provider map bug). Resolve via get_storage_config.
 TRIPOSG_REPO = get_storage_config().get_repo_path("TripoSG")
 TRIPOSG_SCRIPTS = TRIPOSG_REPO / "scripts"
-for p in (TRIPOSG_REPO, TRIPOSG_SCRIPTS):
-    if str(p) not in sys.path:
-        sys.path.insert(0, str(p))
 
 # CRITICAL: prepend the per-model venv's site-packages (where diffusers and other
 # inference libs are installed by the manifest's dependencies.extra) to sys.path BEFORE

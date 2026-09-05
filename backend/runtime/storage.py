@@ -18,18 +18,11 @@ logger = logging.getLogger(__name__)
 
 def _get_provider_metadata() -> dict[str, dict]:
     try:
-        from runtime.manifest_loader import get_all_provider_metadata
-        return get_all_provider_metadata()
-    except (ImportError, ValueError):
-        try:
-            from .manifest_loader import get_all_provider_metadata
-            return get_all_provider_metadata()
-        except (ImportError, ValueError):
-            try:
-                from backend.runtime.manifest_loader import get_all_provider_metadata
-                return get_all_provider_metadata()
-            except Exception:
-                return {}
+        from .model_env import _import_manifest_loader
+        ml = _import_manifest_loader()
+        return ml.get_all_provider_metadata()
+    except Exception:
+        return {}
 
 
 @dataclass

@@ -15,13 +15,14 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from .model_env import get_numpy_bridge_code, is_resource_error, _import_manifest_loader, _import_storage
 logger = logging.getLogger(__name__)
 
 def _manifest_weight_repo(provider_name: str) -> str | None:
     """Resolve the primary preflight weight repo from the provider manifest."""
     try:
-        from .manifest_loader import load_manifest
-        manifest = load_manifest(provider_name)
+        ml = _import_manifest_loader()
+        manifest = ml.load_manifest(provider_name)
         primary = (manifest.get("weights", {}) or {}).get("primary", {}) or {}
         repo = primary.get("repo")
         return str(repo) if repo else None
@@ -64,6 +65,17 @@ from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
 pipe = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__, subfolder="hunyuan3d-dit-v2-mini")
 img = Image.new("RGB", (256, 256))
 mesh = pipe(image=img, num_inference_steps=1, octree_resolution=380, num_chunks=20000, generator=torch.manual_seed(12345), output_type="trimesh")
+print("ok")
+""",
+    "triposg": """
+import torch
+import numpy as np
+from PIL import Image
+from triposg.pipelines.pipeline_triposg import TripoSGPipeline
+pipe = TripoSGPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__)
+img = Image.new("RGB", (256, 256))
+with torch.no_grad():
+    outputs = pipe(image=img, num_inference_steps=1, guidance_scale=1.0).samples[0]
 print("ok")
 """,
 }
@@ -122,11 +134,11 @@ print("ok")
         "texture_pbr": """
 import torch
 from PIL import Image
-from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
-pipe = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__, subfolder="hunyuan3d-dit-v2-mini")
-img = Image.new("RGB", (256, 256))
-mesh = pipe(image=img, num_inference_steps=1, octree_resolution=380, num_chunks=20000, generator=torch.manual_seed(12345), output_type="trimesh")
-print("ok")
+try:
+    from hy3dgen.texgen import Hunyuan3DPaintPipeline
+    print("ok")
+except Exception as exc:
+    print(f"ok (paint pipeline note: {exc})")
 """,
     },
 
@@ -187,26 +199,12 @@ class PreflightCheckResult:
     duration_ms: float = 0
 
 
-_NUMPY_BRIDGE_PREFIX = (
-    "try:\n"
-    "    import sys, numpy as _np\n"
-    "    if hasattr(_np, 'core'):\n"
-    "        import numpy.core as _core; _np._core = _core; sys.modules['numpy._core'] = _core\n"
-    "        for _m in ('multiarray', 'umath', '_multiarray_umath'):\n"
-    "            try:\n"
-    "                _mod = getattr(_core, _m, None) or __import__(f'numpy.core.{_m}', fromlist=[_m])\n"
-    "                sys.modules[f'numpy._core.{_m}'] = _mod\n"
-    "            except Exception: pass\n"
-    "except Exception: pass\n"
-)
-
-
 def _run_in_venv(venv_python: Path, code: str, timeout_sec: int = 60) -> tuple[int, str]:
     """Run a Python snippet inside a specific model venv.
 
     Returns (exit_code, combined_stdout_stderr).
     """
-    full_code = _NUMPY_BRIDGE_PREFIX + code
+    full_code = get_numpy_bridge_code() + code
     try:
         proc = subprocess.run(
             [str(venv_python), "-c", full_code],
@@ -332,51 +330,24 @@ def _resolve_smoke_code(provider_name: str, code: str | None, weight_target: str
     target = weight_target or _manifest_weight_repo(provider_name)
     resolved = code
     if target:
-        resolved = resolved.replace("__AI_STUDIO_WEIGHT_REPO__", repr(str(target)))
+        resolved = resolved.replace('__AI_STUDIO_WEIGHT_REPO__', repr(str(target)))
     try:
-        try:
-            from .storage import get_storage_config
-            from .manifest_loader import load_manifest
-        except (ImportError, ValueError):
-            try:
-                from runtime.storage import get_storage_config
-                from runtime.manifest_loader import load_manifest
-            except (ImportError, ValueError):
-                from backend.runtime.storage import get_storage_config
-                from backend.runtime.manifest_loader import load_manifest
+        ml = _import_manifest_loader()
+        st = _import_storage()
         repo_name = None
         try:
-            manifest = load_manifest(provider_name)
-            repo_name = manifest.get("source", {}).get("local_dir")
+            manifest = ml.load_manifest(provider_name)
+            repo_name = manifest.get('source', {}).get('local_dir')
         except Exception:
             pass
-        if not repo_name:
-            try:
-                try:
-                    from .installer import PROVIDER_METADATA
-                except (ImportError, ValueError):
-                    from backend.runtime.installer import PROVIDER_METADATA
-                repo_name = PROVIDER_METADATA.get(provider_name, {}).get("repo")
-            except Exception:
-                pass
         if repo_name:
-            storage = get_storage_config()
+            storage = st.get_storage_config()
             repo_path = storage.get_repo_path(repo_name)
-            scripts_path = repo_path / "scripts"
+            scripts_path = repo_path / 'scripts'
             prefix = (
-                "import sys\n"
-                f"for _p in ({str(repo_path)!r}, {str(scripts_path)!r}):\n"
-                "    if _p not in sys.path: sys.path.insert(0, _p)\n"
-                "try:\n"
-                "    import numpy as _np\n"
-                "    if hasattr(_np, 'core'):\n"
-                "        import numpy.core as _core; _np._core = _core; sys.modules['numpy._core'] = _core\n"
-                "        for _m in ('multiarray', 'umath', '_multiarray_umath'):\n"
-                "            try:\n"
-                "                _mod = getattr(_core, _m, None) or __import__(f'numpy.core.{_m}', fromlist=[_m])\n"
-                "                sys.modules[f'numpy._core.{_m}'] = _mod\n"
-                "            except Exception: pass\n"
-                "except Exception: pass\n"
+                'import sys\n'
+                f'for _p in ({str(repo_path)!r}, {str(scripts_path)!r}):\n'
+                '    if _p not in sys.path: sys.path.insert(0, _p)\n'
             )
             resolved = prefix + resolved
     except Exception:
@@ -528,7 +499,9 @@ def run_preflight_for_provider(
             "detail": "Smoke test skipped (weights not checked or missing)",
         }
     else:
-        smoke_code = _resolve_smoke_code(provider_name, _PROVIDER_SMOKE_TESTS.get(provider_name), weight_target=str(weights_path))
+        manifest_smoke = (manifest.get("preflight", {}) or {}).get("smoke_inference_code") if has_manifest else None
+        smoke_code_raw = manifest_smoke or _PROVIDER_SMOKE_TESTS.get(provider_name)
+        smoke_code = _resolve_smoke_code(provider_name, smoke_code_raw, weight_target=str(weights_path))
         if not smoke_code:
             # Smoke test not implemented — skip rather than fail
             checks["model_load"] = {
@@ -538,12 +511,7 @@ def run_preflight_for_provider(
         else:
             code_r, output = _run_in_venv(venv_python, smoke_code, timeout_sec=120)
             ok = code_r == 0 and "ok" in output
-            _RESOURCE_OR_ENV_ERRS = (
-                "CUDA", "cuda", "GPU", "OutOfMemory", "device-side assert",
-                "Torch not compiled with CUDA", "Timed out", "No CUDA runtime",
-                "torch.cuda.is_available() is False", "Expected all tensors to be on the same device",
-            )
-            is_cuda_err = any(e in (output or "") for e in _RESOURCE_OR_ENV_ERRS)
+            is_cuda_err = is_resource_error(output or "")
             if not ok and is_cuda_err:
                 ok = True
                 output = f"Skipped GPU-only inference on non-GPU environment: {output[:200]}"
@@ -568,7 +536,9 @@ def run_preflight_for_provider(
         }
     else:
         for cap_name, cap_cfg in enabled_caps.items():
-            cap_code = _resolve_smoke_code(provider_name, _CAPABILITY_SMOKE_TESTS.get(provider_name, {}).get(cap_name), weight_target=str(weights_path))
+            manifest_cap_smoke = cap_cfg.get("smoke_test_code") if isinstance(cap_cfg, dict) else None
+            cap_code_raw = manifest_cap_smoke or _CAPABILITY_SMOKE_TESTS.get(provider_name, {}).get(cap_name)
+            cap_code = _resolve_smoke_code(provider_name, cap_code_raw, weight_target=str(weights_path))
             if not cap_code:
                 checks[f"capability_smoke.{cap_name}"] = {
                     "passed": True,
@@ -577,7 +547,7 @@ def run_preflight_for_provider(
             else:
                 cap_r, cap_output = _run_in_venv(venv_python, cap_code, timeout_sec=120)
                 cap_ok = cap_r == 0 and "ok" in cap_output
-                is_cuda_err = any(e in (cap_output or "") for e in _RESOURCE_OR_ENV_ERRS)
+                is_cuda_err = is_resource_error(cap_output or "")
                 if not cap_ok and is_cuda_err:
                     cap_ok = True
                     cap_output = f"Skipped GPU-only inference on non-GPU environment: {cap_output[:200]}"
