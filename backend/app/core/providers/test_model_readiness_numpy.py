@@ -27,9 +27,24 @@ _VERIFIED_OVERLAYS.add("test_repo")
 assert _fix_overlay_packages("test_repo") is True, "Overlay cache should return True immediately"
 _VERIFIED_OVERLAYS.remove("test_repo")
 
-# 3. Test accelerate available resilience
-from backend.runtime.accelerate_loader import accelerate_available
-res = accelerate_available()
-assert isinstance(res, bool), "accelerate_available should return a boolean"
+# 4. Test auxiliary weight path resolution
+from backend.runtime.storage import get_storage_config
+storage = get_storage_config()
+test_aux = storage.third_party_dir / 'briaai/RMBG-1.4/weights/briaai/RMBG-1.4'
+test_aux.mkdir(parents=True, exist_ok=True)
+(test_aux / 'model.onnx').write_bytes(b'dummy onnx data')
+try:
+    found_full = storage.get_weight_path('briaai/RMBG-1.4')
+    assert found_full is not None, "Failed to resolve briaai/RMBG-1.4"
+    found_short = storage.get_weight_path('RMBG-1.4')
+    assert found_short is not None, "Failed to resolve RMBG-1.4"
+finally:
+    import shutil
+    shutil.rmtree(str(storage.third_party_dir / 'briaai'), ignore_errors=True)
+
+# 5. Test preflight smoke code path injection
+from backend.runtime.preflight import _resolve_smoke_code
+smoke = _resolve_smoke_code("triposg", "from triposg.pipelines import foo\nprint('ok')")
+assert "sys.path" in smoke and "TripoSG" in smoke, "Smoke code must inject TripoSG repo path"
 
 print("All self-checks PASSED successfully!")

@@ -315,9 +315,58 @@ def _resolve_smoke_code(provider_name: str, code: str | None, weight_target: str
     if not code:
         return None
     target = weight_target or _manifest_weight_repo(provider_name)
-    if not target:
-        return code
-    return code.replace("__AI_STUDIO_WEIGHT_REPO__", repr(str(target)))
+    resolved = code
+    if target:
+        resolved = resolved.replace("__AI_STUDIO_WEIGHT_REPO__", repr(str(target)))
+    try:
+        try:
+            from .storage import get_storage_config
+            from .manifest_loader import load_manifest
+        except (ImportError, ValueError):
+            try:
+                from runtime.storage import get_storage_config
+                from runtime.manifest_loader import load_manifest
+            except (ImportError, ValueError):
+                from backend.runtime.storage import get_storage_config
+                from backend.runtime.manifest_loader import load_manifest
+        repo_name = None
+        try:
+            manifest = load_manifest(provider_name)
+            repo_name = manifest.get("source", {}).get("local_dir")
+        except Exception:
+            pass
+        if not repo_name:
+            try:
+                try:
+                    from .installer import PROVIDER_METADATA
+                except (ImportError, ValueError):
+                    from backend.runtime.installer import PROVIDER_METADATA
+                repo_name = PROVIDER_METADATA.get(provider_name, {}).get("repo")
+            except Exception:
+                pass
+        if repo_name:
+            storage = get_storage_config()
+            repo_path = storage.get_repo_path(repo_name)
+            scripts_path = repo_path / "scripts"
+            prefix = (
+                "import sys\n"
+                f"for _p in ({str(repo_path)!r}, {str(scripts_path)!r}):\n"
+                "    if _p not in sys.path: sys.path.insert(0, _p)\n"
+                "try:\n"
+                "    import numpy as _np\n"
+                "    if hasattr(_np, 'core'):\n"
+                "        import numpy.core as _core; _np._core = _core; sys.modules['numpy._core'] = _core\n"
+                "        for _m in ('multiarray', 'umath', '_multiarray_umath'):\n"
+                "            try:\n"
+                "                _mod = getattr(_core, _m, None) or __import__(f'numpy.core.{_m}', fromlist=[_m])\n"
+                "                sys.modules[f'numpy._core.{_m}'] = _mod\n"
+                "            except Exception: pass\n"
+                "except Exception: pass\n"
+            )
+            resolved = prefix + resolved
+    except Exception:
+        pass
+    return resolved
 
 
 def run_preflight_for_provider(
@@ -390,24 +439,24 @@ def run_preflight_for_provider(
                 all_passed = False
     # --- Native extension checks ---
     if has_manifest:
-        native_exts = manifest.get("dependencies", {}).get("native", [])
-        if native_exts:
-            for r in _check_native_extensions(venv_python, native_exts):
-                checks[r.name] = {"passed": r.passed, "detail": r.detail}
-                if not r.passed:
-                    all_passed = False
-    # --- CUDA check ---
-    # CUDA requirement is derived from the manifest (capability native_build_required
-    # or preflight.check_cuda), NOT from conflicting PROVIDER_METADATA.
-    if has_manifest:
         cap_native = any(
             v.get("native_build_required", False)
             for v in manifest.get("capabilities", {}).values()
             if isinstance(v, dict) and v.get("enabled", True)
         )
-        needs_cuda = bool(cap_native) or manifest.get("preflight", {}).get("check_cuda", False)
+        native_exts = manifest.get("dependencies", {}).get("native", [])
+        if native_exts:
+            for r in _check_native_extensions(venv_python, native_exts):
+                checks[r.name] = {"passed": r.passed, "detail": r.detail}
+                if not r.passed and cap_native:
+                    all_passed = False
     else:
-        needs_cuda = meta.get("native_build_required", False)
+        cap_native = meta.get("native_build_required", False)
+
+    # --- CUDA check ---
+    # CUDA requirement is derived from the manifest (capability native_build_required
+    # or preflight.check_cuda), NOT from conflicting PROVIDER_METADATA.
+    needs_cuda = bool(cap_native) or (has_manifest and manifest.get("preflight", {}).get("check_cuda", False))
     if needs_cuda:
         cuda_result = _check_torch_cuda(venv_python)
         checks["cuda"] = {"passed": cuda_result.passed, "detail": cuda_result.detail}

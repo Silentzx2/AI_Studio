@@ -154,7 +154,13 @@ def _load_install_manifests() -> dict[str, dict]:
     exposes compatibility views for existing callers without duplicating the
     actual repo/weights configuration in Python.
     """
-    from runtime.manifest_loader import list_manifests, load_manifest
+    try:
+        from runtime.manifest_loader import list_manifests, load_manifest
+    except (ImportError, ValueError):
+        try:
+            from .manifest_loader import list_manifests, load_manifest
+        except (ImportError, ValueError):
+            from backend.runtime.manifest_loader import list_manifests, load_manifest
     result: dict[str, dict] = {}
     for provider in list_manifests():
         try:
@@ -236,7 +242,13 @@ def _canonical_provider_name(name: str) -> str:
 
 # PROVIDER_METADATA is now generated from YAML manifests via manifest_loader.
 # The "mock" testing provider is appended here because it has no manifest.
-from runtime.manifest_loader import PROVIDER_METADATA as _MANIFEST_PROVIDER_METADATA
+try:
+    from runtime.manifest_loader import PROVIDER_METADATA as _MANIFEST_PROVIDER_METADATA
+except (ImportError, ValueError):
+    try:
+        from .manifest_loader import PROVIDER_METADATA as _MANIFEST_PROVIDER_METADATA
+    except (ImportError, ValueError):
+        from backend.runtime.manifest_loader import PROVIDER_METADATA as _MANIFEST_PROVIDER_METADATA
 
 PROVIDER_METADATA = {**_MANIFEST_PROVIDER_METADATA, "mock": {
     "label": "Mock (Testing)",

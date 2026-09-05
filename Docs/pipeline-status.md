@@ -1,8 +1,25 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.9.12 (NumPy 1.x / 2.x `numpy._core` Compatibility Bridge & Dynamic Model Dependency Loading)
+> **Version**: 4.9.13 (TripoSG Preflight, Auxiliary Weights Resolution & Native Extension Gating)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-05
 > **Last Updated**: September 5, 2026
+
+---
+
+## v4.9.13 — TripoSG Preflight, Auxiliary Weights Resolution & Native Extension Gating (2026-09-05)
+
+### What changed
+- **Auxiliary Weights Discovery Across Repos (`backend/runtime/storage.py`)**:
+  - `storage.get_weight_path()` now recursively scans all `third_party/**/weights` folders when resolving auxiliary weight keys (e.g. `briaai/RMBG-1.4` or `RMBG-1.4`). Previously, it only checked primary provider entries in `PROVIDER_METADATA`, returning `None` for secondary models downloaded by installers and causing preflight checks to fail with missing weights.
+- **Capability-Gated Native Extension Checks (`backend/runtime/preflight.py`)**:
+  - Gated `all_passed = False` for native dependencies (such as `diso` in TripoSG) on whether any enabled capability in the model manifest actually requires a native build (`cap_native`). Because `triposg.yaml` specifies `capabilities.shape.native_build_required: false`, optional unbuilt native extensions no longer fail preflight and block the provider.
+- **Smoke Inference Isolation & Repo Path Injection (`backend/runtime/preflight.py`)**:
+  - `_resolve_smoke_code()` automatically prepends the provider's third-party repository and `scripts` directory to `sys.path` and injects the NumPy `_core` compatibility bridge before running smoke tests. This prevents `ModuleNotFoundError: No module named 'triposg'` during preflight in isolated venv processes.
+- **Resilient Manifest Imports in Installer (`backend/runtime/installer.py`)**:
+  - Added relative/subpackage import fallbacks (`.manifest_loader`) so the installer module loads cleanly whether `backend` is the current working directory, on `PYTHONPATH`, or imported as `backend.runtime.installer`.
+
+### Root cause
+TripoSG installation ended with `state=blocked` because preflight failed on two counts: (1) `storage.get_weight_path("briaai/RMBG-1.4")` returned `None` because RMBG-1.4 is an auxiliary weight not present as a top-level provider in metadata, causing the auxiliary weight check to fail; and (2) `diso` was checked as a required native extension even though TripoSG's shape capability does not require a native build. In addition, the smoke inference script ran without the TripoSG third-party repo in `sys.path`.
 
 ---
 

@@ -280,6 +280,39 @@ class StorageConfig:
         except Exception:
             pass
 
+        # 1b. Direct auxiliary and per-repo weight resolution:
+        # e.g. briaai/RMBG-1.4 -> third_party/briaai/RMBG-1.4/weights/briaai/RMBG-1.4
+        # or third_party/<repo>/weights/<aux_name>
+        try:
+            short_key = weight_key.split("/")[-1].lower()
+            direct_cands = [
+                self.get_repo_path(weight_key) / "weights" / weight_key,
+                self.get_repo_path(weight_key) / "weights",
+                self.third_party_dir / weight_key / "weights" / weight_key,
+                self.third_party_dir / weight_key / "weights",
+                self.third_party_dir / weight_key.split("/")[-1] / "weights" / weight_key.split("/")[-1],
+                self.third_party_dir / weight_key.split("/")[-1] / "weights",
+            ]
+            if _safe_exists(self.third_party_dir):
+                for w_dir in self.third_party_dir.glob("**/weights"):
+                    if _safe_exists(w_dir):
+                        direct_cands.extend([
+                            w_dir / weight_key,
+                            w_dir / weight_key.split("/")[-1],
+                            w_dir / weight_key.replace("/", "--"),
+                        ])
+                        try:
+                            for sub in w_dir.rglob("*"):
+                                if sub.is_dir() and sub.name.lower() == short_key:
+                                    direct_cands.append(sub)
+                        except (PermissionError, OSError):
+                            pass
+            for cand in direct_cands:
+                if _safe_exists(cand) and self._has_real_weight_files(cand):
+                    return cand
+        except Exception:
+            pass
+
         # 2. LEGACY centralized location (deprecated — read-only fallback)
         try:
             legacy_candidates = [
