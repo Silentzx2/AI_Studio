@@ -20,6 +20,9 @@ from starlette.responses import Response
 from app.api.v1 import router as api_v1_router
 from app.api.v1.realtime import push_update
 from app.config import get_settings
+from app.core.providers.base import _patch_numpy_legacy_aliases
+
+_patch_numpy_legacy_aliases()
 
 # ---------------------------------------------------------------------------
 # Normalize CUDA_VISIBLE_DEVICES BEFORE any torch/CUDA import.

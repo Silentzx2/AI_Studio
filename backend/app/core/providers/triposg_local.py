@@ -59,11 +59,20 @@ class TripoSGLocalProvider(BaseProvider):
         logger.info("TripoSGLocalProvider initialized on %s", device)
 
     async def load(self) -> bool:
+        global _HAS_DEPS, TripoSGPipeline, prepare_image, BriaRMBG
         if self.is_loaded:
             return True
         if not _HAS_DEPS:
-            logger.error("TripoSG dependencies not installed")
-            return False
+            # Re-attempt import with model environment prepared and numpy._core bridged
+            _add_model_env("TripoSG")
+            try:
+                from triposg.pipelines.pipeline_triposg import TripoSGPipeline
+                from image_process import prepare_image
+                from briarmbg import BriaRMBG
+                _HAS_DEPS = True
+            except Exception as exc:
+                logger.error("TripoSG dependencies not installed: %s", exc)
+                return False
         # Allocate ~8 GB of VRAM using VRAMAllocationTracker
         success = vram_tracker.allocate("triposg", 8.0, reason="triposg_model_load")
         if not success:

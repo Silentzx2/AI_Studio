@@ -11,25 +11,49 @@ logger = logging.getLogger(__name__)
 
 
 def _patch_numpy_legacy_aliases() -> None:
-    """Restore numpy aliases removed in numpy>=1.24 that per-model deps still use.
+    """Restore numpy aliases removed in numpy>=1.24 and bridge numpy._core compatibility.
 
-    Root cause: the worker's active numpy (backend .venv / conda cloudspace, 1.26.4)
-    removed np.long / np.ulong, but _add_model_env prepends a per-model venv whose
-    scipy (1.18) references them at module level in scipy/sparse/_sputils.py:17.
-    Because numpy is already cached from the backend env, the per-model venv's numpy
-    never wins and scipy crashes with "module 'numpy' has no attribute 'long'".
-    Restore the aliases on the live numpy module before importing the model stack.
-
-    ponytail: masks a numpy-2 migration gap. Proper fix is aligning the worker's
-    numpy with the per-model venv (numpy 2.x) via the reload list; until then we
-    just restore the missing dtype aliases.
+    Root causes:
+    1. np.long / np.ulong: The worker's active numpy (backend .venv / conda cloudspace, 1.26.4)
+       removed np.long / np.ulong, but older scipy references them in scipy/sparse/_sputils.py.
+    2. numpy._core: In NumPy 1.26.x, an empty numpy._core stub directory exists without
+       multiarray. When modern libraries (accelerate, diffusers, transformers) attempt:
+           try:
+               import numpy._core as np_core
+           except ImportError:
+               import numpy.core as np_core
+       the import of numpy._core succeeds, but np_core.multiarray raises AttributeError!
+       We bridge numpy._core to numpy.core and register all submodules in sys.modules so
+       both numpy.core and numpy._core imports work transparently.
     """
-    import numpy as _np
+    import sys
+    try:
+        import numpy as _np
 
-    if not hasattr(_np, "long"):
-        _np.long = _np.int_
-    if not hasattr(_np, "ulong"):
-        _np.ulong = _np.uint
+        if not hasattr(_np, "long"):
+            _np.long = _np.int_
+        if not hasattr(_np, "ulong"):
+            _np.ulong = _np.uint
+
+        # Bridge numpy._core to numpy.core for accelerate/diffusers/transformers
+        if hasattr(_np, "core"):
+            import numpy.core as _core
+            _np._core = _core
+            sys.modules["numpy._core"] = _core
+            for sub_name, sub_mod in list(sys.modules.items()):
+                if sub_name.startswith("numpy.core."):
+                    core_suffix = sub_name[len("numpy.core."):]
+                    sys.modules.setdefault(f"numpy._core.{core_suffix}", sub_mod)
+            for attr in dir(_core):
+                if not attr.startswith("__"):
+                    try:
+                        val = getattr(_core, attr)
+                        if isinstance(val, type(sys)):  # module
+                            sys.modules.setdefault(f"numpy._core.{attr}", val)
+                    except Exception:
+                        pass
+    except Exception as exc:
+        logger.debug("Error patching numpy legacy aliases: %s", exc)
 
 
 def _backend_overlay_site_packages(venv_dir: Path) -> Path:
@@ -278,6 +302,9 @@ def _add_model_env(repo_name: str) -> None:
             except Exception as exc:
                 logger.debug("_add_model_env: module %s not loaded or optional: %s", mod_pkg, exc)
 
+    # Re-apply numpy compatibility bridge after environment and sys.path adjustments
+    _patch_numpy_legacy_aliases()
+
 
 class DownloadProvider(ABC):
     @abstractmethod
@@ -326,3 +353,8 @@ class BaseProvider(ABC):
     @abstractmethod
     async def health_check(self) -> bool:
         pass
+
+
+# Apply numpy compatibility bridge at module load time
+_patch_numpy_legacy_aliases()
+

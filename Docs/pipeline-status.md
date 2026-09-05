@@ -1,8 +1,23 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 4.9.11 (Download I/O Throttling, Health Check In-Memory Caching & Supervisor Stability)
+> **Version**: 4.9.12 (NumPy 1.x / 2.x `numpy._core` Compatibility Bridge & Dynamic Model Dependency Loading)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-05
 > **Last Updated**: September 5, 2026
+
+---
+
+## v4.9.12 — NumPy 1.x / 2.x `numpy._core` Compatibility Bridge (2026-09-05)
+
+### What changed
+- **NumPy `_core` Compatibility Bridge (`backend/app/core/providers/base.py`)**:
+  - `_patch_numpy_legacy_aliases()` now bridges `numpy._core` to `numpy.core` and registers all submodules (including `numpy._core.multiarray`) directly into `sys.modules`.
+  - Modern versions of `accelerate`, `diffusers`, and `transformers` attempt `import numpy._core as np_core` before falling back to `numpy.core`. In NumPy 1.26.x, an empty transition directory `numpy/_core/` exists on disk without `multiarray`, causing the `import numpy._core` attempt to succeed without raising `ImportError` but then crash with `AttributeError: module 'numpy._core' has no attribute 'multiarray'`. The bridge guarantees that any import of `numpy._core` or its submodules resolves to `numpy.core`'s fully functional implementations.
+  - Automatically invoked at FastAPI startup (`main.py`), Celery worker startup (`celery_app.py`), and whenever a provider prepares its environment (`_add_model_env`).
+- **Dynamic Dependency Re-Check for TripoSG (`backend/app/core/providers/triposg_local.py`)**:
+  - `TripoSGLocalProvider.load()` now re-attempts importing dependencies dynamically with `_add_model_env("TripoSG")` if `_HAS_DEPS` was initially false at module import time, allowing newly installed weights and dependencies to load without requiring a service reboot.
+
+### Root cause
+In NumPy 1.26.4, a stub directory `numpy/_core/` is included for transitional forward compatibility. When libraries like `accelerate.utils.other` or `diffusers` try `import numpy._core as np_core`, the import succeeded because the stub existed, but `np_core.multiarray` did not exist inside it. This crashed both Hunyuan3D-2 Mini and TripoSG with `AttributeError: module 'numpy._core' has no attribute 'multiarray'` during inference.
 
 ---
 

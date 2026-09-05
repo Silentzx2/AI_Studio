@@ -38,6 +38,9 @@ if _val.strip().lower() == 'all':
 from celery import Celery
 
 from app.config import get_settings
+from app.core.providers.base import _patch_numpy_legacy_aliases
+
+_patch_numpy_legacy_aliases()
 
 settings = get_settings()
 
