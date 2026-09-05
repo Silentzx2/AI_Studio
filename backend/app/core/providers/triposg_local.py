@@ -15,6 +15,65 @@ logger = logging.getLogger(__name__)
 TRIPOSG_REPO = get_storage_config().get_repo_path("TripoSG")
 TRIPOSG_SCRIPTS = TRIPOSG_REPO / "scripts"
 
+def _ensure_diso_compatibility() -> None:
+    """Ensure diso is importable in Python 3.12 without Py3.10 C-extension ABI mismatch."""
+    if "diso" in sys.modules:
+        return
+    try:
+        import diso
+        return
+    except Exception:
+        pass
+
+    import types
+    import torch
+    import numpy as np
+
+    class DiffMC:
+        def __init__(self, dtype=torch.float32):
+            self.dtype = dtype
+        def to(self, *args, **kwargs):
+            return self
+        def cuda(self, *args, **kwargs):
+            return self
+        def cpu(self, *args, **kwargs):
+            return self
+        def __call__(self, sdf, deform=None, normalize=True):
+            if isinstance(sdf, torch.Tensor):
+                arr = sdf.detach().cpu().numpy()
+            else:
+                arr = np.asarray(sdf)
+            if arr.ndim == 4:
+                arr = arr[0]
+            try:
+                from skimage import measure
+                try:
+                    verts, faces, normals, values = measure.marching_cubes(arr, level=0.0)
+                except Exception:
+                    verts, faces, normals, values = measure.marching_cubes(arr)
+            except Exception:
+                import trimesh
+                verts, faces = trimesh.voxel.ops.marching_cubes(arr > 0)
+            if normalize:
+                verts = (verts / (np.array(arr.shape) - 1.0)) - 0.5
+            v_t = torch.tensor(verts, dtype=self.dtype)
+            f_t = torch.tensor(faces.copy(), dtype=torch.int64)
+            if isinstance(sdf, torch.Tensor) and sdf.is_cuda:
+                v_t = v_t.to(sdf.device)
+                f_t = f_t.to(sdf.device)
+            return v_t, f_t
+
+    class DiffDMC(DiffMC):
+        pass
+
+    mod = types.ModuleType("diso")
+    mod.DiffMC = DiffMC
+    mod.DiffDMC = DiffDMC
+    mod.__version__ = "0.1.4"
+    sys.modules["diso"] = mod
+    logger.info("diso: injected marching-cubes fallback module to avoid Py3.10 C-extension ABI mismatch")
+
+
 # CRITICAL: prepend the per-model venv's site-packages (where diffusers and other
 # inference libs are installed by the manifest's dependencies.extra) to sys.path BEFORE
 # the dependency import check below. Without this, `import diffusers` fails at
@@ -22,6 +81,7 @@ TRIPOSG_SCRIPTS = TRIPOSG_REPO / "scripts"
 # they are installed in the per-model venv. This mirrors hunyuan3d_local /
 # trellis_local, which call _add_model_env() at module level.
 _add_model_env("TripoSG")
+_ensure_diso_compatibility()
 
 try:
     import torch
@@ -61,6 +121,7 @@ class TripoSGLocalProvider(BaseProvider):
             from app.core.providers.base import _fix_overlay_packages
             _fix_overlay_packages("TripoSG", force=True)
             _add_model_env("TripoSG")
+            _ensure_diso_compatibility()
             try:
                 from triposg.pipelines.pipeline_triposg import TripoSGPipeline
                 from image_process import prepare_image

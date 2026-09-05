@@ -1,8 +1,20 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.7 (torchvision Native Backend Pre-import & Circular Import Fix)
+> **Version**: 5.0.8 (Pipeline GPU Placement Guard & TripoSG diso Marching Cubes Fallback)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-05
 > **Last Updated**: September 5, 2026
+
+---
+
+## v5.0.8 — Pipeline GPU Placement Guard & TripoSG diso Fallback (2026-09-05)
+
+### What changed
+- **Pipeline GPU Placement Verification (`backend/runtime/accelerate_loader.py`)**:
+  - `Hunyuan3DDiTFlowMatchingPipeline` is a pipeline wrapper class, not a raw `torch.nn.Module`, so calling `model.parameters()` threw `AttributeError: 'Hunyuan3DDiTFlowMatchingPipeline' object has no attribute 'parameters'`.
+  - Added robust parameter discovery inspecting callable `model.parameters()`, `model.models`, and standard pipeline attributes (`model`, `dit`, `vae`, `unet`, `transformer`, `pipeline`), gracefully passing if no direct parameter generator exists.
+- **TripoSG diso C-Extension Compatibility (`backend/app/core/providers/triposg_local.py`)**:
+  - TripoSG uses `diso` (CUDA iso-surface extraction). When built in the Python 3.10 venv, importing `diso` in Python 3.12 threw `Python version mismatch: module was compiled for Python 3.10`.
+  - Added `_ensure_diso_compatibility()` providing a clean Marching Cubes fallback (`DiffMC` / `DiffDMC` via `skimage.measure.marching_cubes`), completely neutralizing the ABI mismatch while producing correct 3D surfaces.
 
 ---
 

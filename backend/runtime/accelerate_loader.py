@@ -207,15 +207,25 @@ def verify_gpu_placement(
 
         param = None
         try:
-            param = next(model.parameters())
-        except StopIteration:
-            if hasattr(model, "models") and model.models:
-                for m in model.models.values():
+            if hasattr(model, "parameters") and callable(model.parameters):
+                param = next(model.parameters(), None)
+            if param is None:
+                sub_candidates = []
+                if hasattr(model, "models") and isinstance(model.models, dict):
+                    sub_candidates.extend(model.models.values())
+                for attr in ("model", "dit", "vae", "unet", "transformer", "generator", "pipe", "pipeline"):
+                    sub = getattr(model, attr, None)
+                    if sub is not None and hasattr(sub, "parameters") and callable(sub.parameters):
+                        sub_candidates.append(sub)
+                for m in sub_candidates:
                     try:
-                        param = next(m.parameters())
-                        break
-                    except StopIteration:
+                        param = next(m.parameters(), None)
+                        if param is not None:
+                            break
+                    except (StopIteration, AttributeError, TypeError):
                         pass
+        except Exception as _exc:
+            logger.debug("verify_gpu_placement inspection for %s: %s", model_name, _exc)
 
         if param is not None:
             device_str = str(param.device)
