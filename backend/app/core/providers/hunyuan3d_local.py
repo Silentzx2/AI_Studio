@@ -243,6 +243,7 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
         return "hunyuan3d-2.1"
 
     def __init__(self, device: str = "cuda", low_vram: bool = False) -> None:
+        _add_model_env("Hunyuan3D-2.1")
         super().__init__("hunyuan3d-2.1", "hunyuan3d-2.1", repo_name="Hunyuan3D-2.1", device=device, low_vram=low_vram)
 
     def _load_model(self) -> None:
@@ -337,6 +338,7 @@ class Hunyuan3D2MiniLocalProvider(_HunyuanBase):
         return "hunyuan3d-2-mini"
 
     def __init__(self, device: str = "cuda", low_vram: bool = False) -> None:
+        _add_model_env("Hunyuan3D-2mini")
         super().__init__("hunyuan3d-2-mini", "hunyuan3d-2-mini", repo_name="Hunyuan3D-2mini", device=device, low_vram=low_vram)
 
     def _load_model(self) -> None:
