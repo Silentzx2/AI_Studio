@@ -1,8 +1,19 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.4 (SciPy C-Extension Backend Overlay Bridge & Py3.10/3.12 ABI Incompatibility Fix)
+> **Version**: 5.0.5 (SciPy Cache Purge, Overlay Verification & Provider Load Retry)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-05
 > **Last Updated**: September 5, 2026
+
+---
+
+## v5.0.5 — SciPy Cache Purge, Overlay Verification & Provider Load Retry (2026-09-05)
+
+### What changed
+- **SciPy Module Purge & Verification (`backend/app/core/providers/base.py`)**:
+  - Added `scipy` to `_SHARED_PKGS` to purge stale/incompatible scipy module cache upon model environment activation.
+  - Added `("scipy", "from scipy._lib import _ccallback_c")` to `_VERIFY_MODULES` to automatically purge and re-import SciPy from overlay if ABI verification fails.
+- **Provider Load Auto-Healing (`backend/app/core/providers/triposg_local.py`, `detailgen3d.py`)**:
+  - If initial module import failed at startup (`not _HAS_DEPS`), calling `load()` forcefully triggers `_fix_overlay_packages(..., force=True)` to repair C-extensions dynamically before generation.
 
 ---
 

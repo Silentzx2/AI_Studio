@@ -48,9 +48,18 @@ class DetailGen3DProvider(BaseProvider):
     async def load(self) -> bool:
         if self.is_loaded:
             return True
+        global _HAS_DEPS, DetailGen3DPipeline, generate_dense_grid_points
         if not _HAS_DEPS:
-            logger.error("DetailGen3D dependencies not installed")
-            return False
+            from app.core.providers.base import _fix_overlay_packages, _add_model_env
+            _fix_overlay_packages("DetailGen3D", force=True)
+            _add_model_env("DetailGen3D")
+            try:
+                from detailgen3d.pipelines.pipeline_detailgen3d import DetailGen3DPipeline
+                from detailgen3d.inference_utils import generate_dense_grid_points
+                _HAS_DEPS = True
+            except Exception as exc:
+                logger.error("DetailGen3D dependencies not installed: %s", exc)
+                return False
         # Allocate 4.0 GB of VRAM using VRAMAllocationTracker
         success = vram_tracker.allocate("detailgen3d", 4.0, reason="detailgen3d_model_load")
         if not success:

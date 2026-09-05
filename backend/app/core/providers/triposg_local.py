@@ -58,6 +58,8 @@ class TripoSGLocalProvider(BaseProvider):
             return True
         if not _HAS_DEPS:
             # Re-attempt import with model environment prepared and numpy._core bridged
+            from app.core.providers.base import _fix_overlay_packages
+            _fix_overlay_packages("TripoSG", force=True)
             _add_model_env("TripoSG")
             try:
                 from triposg.pipelines.pipeline_triposg import TripoSGPipeline

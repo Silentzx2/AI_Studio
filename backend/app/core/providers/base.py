@@ -247,7 +247,7 @@ def _add_model_env(repo_name: str) -> None:
     #      still reference the old submodule object
     _SHARED_PKGS = [
         "accelerate", "huggingface_hub", "transformers", "diffusers",
-        "pydantic", "requests", "httpx", "urllib3",
+        "pydantic", "requests", "httpx", "urllib3", "scipy",
     ]
 
     for mod_name in list(sys.modules.keys()):
@@ -264,6 +264,7 @@ def _add_model_env(repo_name: str) -> None:
         ("regex", "from regex import _regex"),
         ("safetensors", "from safetensors import _safetensors_rust"),
         ("pymeshlab", "from pymeshlab import pmeshlab"),
+        ("scipy", "from scipy._lib import _ccallback_c"),
     ]
     for mod_pkg, test_code in _VERIFY_MODULES:
         try:
