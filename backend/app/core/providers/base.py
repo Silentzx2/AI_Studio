@@ -114,7 +114,25 @@ def _fix_c_package_overlay(repo_name: str, pkg_name: str, import_name: str, chec
         except Exception as exc:
             logger.warning("_fix_overlay[%s:%s]: failed copying backend package to overlay: %s", repo_name, pkg_name, exc)
 
-    # 4) Install directly into overlay using backend Python
+    # 4) For torchaudio: if backend Python doesn't provide it, write a stub into overlay
+    if pkg_name == "torchaudio":
+        try:
+            ta_dir = overlay / "torchaudio"
+            ta_dir.mkdir(parents=True, exist_ok=True)
+            (ta_dir / "__init__.py").write_text(
+                '"""Stub torchaudio to prevent Py3.10/3.12 ABI mismatch in transformers."""\n'
+                '__version__ = "2.5.1"\n'
+                'def is_available(): return False\n'
+                'def list_audio_backends(): return []\n'
+            )
+            bcode, bout = _run([backend_py, "-c", check_overlay_code])
+            if bcode == 0 and "ok" in bout:
+                logger.info("_fix_overlay[%s:torchaudio]: stubbed torchaudio in overlay", repo_name)
+                return True
+        except Exception as exc:
+            logger.warning("_fix_overlay[%s:torchaudio]: failed creating stub: %s", repo_name, exc)
+
+    # 5) Install directly into overlay using backend Python
     logger.warning("%s C extension missing or incompatible for %s — installing into overlay...", pkg_name, repo_name)
     import shutil
     uv_path = shutil.which("uv")
@@ -135,7 +153,7 @@ _VERIFIED_OVERLAYS: set[str] = set()
 
 
 def _fix_overlay_packages(repo_name: str, force: bool = False) -> bool:
-    """Ensure all critical C-extension packages (Pillow, regex, safetensors)
+    """Ensure all critical C-extension packages (Pillow, regex, safetensors, scipy, torchvision, torchaudio)
     have working backend-Python builds in the model's overlay directory.
     """
     if not force and repo_name in _VERIFIED_OVERLAYS:
@@ -147,6 +165,8 @@ def _fix_overlay_packages(repo_name: str, force: bool = False) -> bool:
         ("safetensors", "safetensors", "import safetensors; from safetensors import _safetensors_rust; print('ok')"),
         ("pymeshlab", "pymeshlab", "from pymeshlab import pmeshlab; print('ok')"),
         ("scipy", "scipy", "from scipy._lib import _ccallback_c; print('ok')"),
+        ("torchvision", "torchvision", "import torchvision; print('ok')"),
+        ("torchaudio", "torchaudio", "import torchaudio; print('ok')"),
     ]
     all_ok = True
     for pkg_name, import_name, check_stmt in packages:
@@ -256,6 +276,18 @@ def _add_model_env(repo_name: str) -> None:
                 del sys.modules[mod_name]
                 break
 
+    # Prevent Py3.10/3.12 torchaudio ABI crash in transformers audio_utils
+    if "torchaudio" not in sys.modules:
+        try:
+            import torchaudio
+        except Exception:
+            import types
+            m = types.ModuleType("torchaudio")
+            m.__version__ = "2.5.1"
+            m.is_available = lambda: False
+            m.list_audio_backends = lambda: []
+            sys.modules["torchaudio"] = m
+
     # Ensure critical C-extension modules are verified and working in sys.modules.
     # If an ABI-incompatible version was previously cached (e.g. from a Python 3.10
     # venv C-extension), purge and reload fresh from the overlay at sys.path[0].
@@ -265,6 +297,8 @@ def _add_model_env(repo_name: str) -> None:
         ("safetensors", "from safetensors import _safetensors_rust"),
         ("pymeshlab", "from pymeshlab import pmeshlab"),
         ("scipy", "from scipy._lib import _ccallback_c"),
+        ("torchvision", "import torchvision"),
+        ("torchaudio", "import torchaudio"),
     ]
     for mod_pkg, test_code in _VERIFY_MODULES:
         try:

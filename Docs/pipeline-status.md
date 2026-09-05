@@ -1,8 +1,20 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.5 (SciPy Cache Purge, Overlay Verification & Provider Load Retry)
+> **Version**: 5.0.6 (torchaudio & torchvision C-Extension Overlay Bridge & Py3.10/3.12 ABI Fix)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-05
 > **Last Updated**: September 5, 2026
+
+---
+
+## v5.0.6 — torchaudio & torchvision Overlay Bridge & ABI Fix (2026-09-05)
+
+### What changed
+- **torchaudio & torchvision C-Extension Overlay Protection (`backend/app/core/providers/base.py`)**:
+  - Added `torchvision` and `torchaudio` to `_fix_overlay_packages` and `_VERIFY_MODULES`.
+  - When backend Python 3.12 runs in-process model loading with a Python 3.10 venv (e.g. `Hunyuan3D-2mini`), `transformers.models.clip` transitively loads `audio_utils.py` which executes `import torchaudio`. Previously, Python 3.12 picked up `torchaudio` from the Python 3.10 venv, failing with `ImportError: Python version mismatch: module was compiled for Python 3.10, but the interpreter version is incompatible: 3.12.14`.
+  - Resolved by:
+    1. Copying backend's Python 3.12 `torchvision` and `torchaudio` into the overlay folder (`sys.path[0]`).
+    2. Auto-generating a zero-overhead `torchaudio` stub package in overlay / `sys.modules` if backend lacks torchaudio, completely neutralizing the ABI mismatch while preserving all 3D pipeline features (which never use audio).
 
 ---
 
