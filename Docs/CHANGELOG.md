@@ -1,5 +1,28 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.17] - 2026-09-07
+
+### Added / Fixed
+
+#### 1. Hunyuan3D-2 Mini Installation & Gating Fix (`preflight.py`, `installer.py`, `model_env.py`, `hunyuan3d_local.py`)
+- **Transformers CVE-2025-32434 Bypass (`model_env.py`, `preflight.py`, `installer.py`, `hunyuan3d_local.py`)**:
+  - `transformers>=4.48.0` introduced a security check (`check_torch_load_is_safe`) blocking `.bin` weight loading via `torch.load` on PyTorch < 2.6.
+  - AI Studio relies on PyTorch 2.5.1 for compiled CUDA kernels (Trellis, Hunyuan3D, TripoSG). Upgrading to PyTorch 2.6 would break custom C++/CUDA extensions.
+  - Added `patch_transformers_torch_load_check()` in `backend/runtime/model_env.py` to idempotently patch `check_torch_load_is_safe` in model venvs upon dependency installation and preflight initialization.
+  - Added runtime bypass to `apply_numpy_bridge()`, `_NUMPY_BRIDGE_CODE`, and Hunyuan3D local provider `_load_model()`.
+- **Optional Auxiliary Weights Gating (`installer.py`, `preflight.py`)**:
+  - **Root Cause**: `get_install_status()` computed `missing_aux = [a for a in aux_weights if a["state"] == "missing"]` without checking `a.get("required", True)`. Hunyuan3D-2 Mini defines `hunyuan3d-2.1` texture weights as `required: false`. Because they were not downloaded during base shape installation, the installer marked `hunyuan3d-2-mini` as `state=blocked`.
+  - **Fix**: Updated `installer.py` to only gate installation on required auxiliary weights (`if a["state"] == "missing" and a.get("required", True)`).
+  - Updated `preflight.py` to allow optional auxiliary weights to pass checks (`passed = aux_result.passed if is_req else True`) and excluded optional checks from `failed_summaries`.
+- **Preflight Traceback Tail Preservation (`preflight.py`)**:
+  - Preserved the tail of error output (`output[-1000:]`) in `checks["model_load"]` and `checks["capability_smoke"]` so root cause Python tracebacks are not truncated by prefix slicing.
+- **ONNXRuntime & Torchaudio Stub `__spec__` Fix (`base.py`, `model_env.py`, `hunyuan3d_local.py`)**:
+  - **Root Cause**: `_add_model_env()` created stub modules (`types.ModuleType("onnxruntime")`) when host C-extension loading failed. In Python's import machinery, dynamic module stubs have `__spec__ = None`. When `diffusers` called `importlib.util.find_spec("onnxruntime")`, CPython raised `ValueError: onnxruntime.__spec__ is None` and crashed Hunyuan3D-2 Mini generation.
+  - **Fix**: Assigned valid `importlib.machinery.ModuleSpec` to `torchaudio`, `onnxruntime`, and `onnxruntime.capi` stubs across `backend/app/core/providers/base.py`, `apply_numpy_bridge()`, and `_NUMPY_BRIDGE_CODE`. Also explicitly disabled ONNX runtime lookups in diffusers within `hunyuan3d_local.py`.
+- **TripoSG Manifest & Smoke Test Fix (`triposg.yaml`, `preflight.py`)**:
+  - **Root Cause**: `triposg.yaml` pinned `numpy==1.22.3` (from legacy 2022 upstream) and omitted `scipy`. Modern `trimesh` and `PyTorch 2.5.1` require `numpy>=1.24` and `scipy` for spatial convex bounds operations (`trimesh.bounds`).
+  - **Fix**: Updated `triposg.yaml` to require `numpy>=1.24.4,<2.0` and added `scipy` to `dependencies.python`. Added `is_onnx_available` and `check_torch_load_is_safe` bypasses in TripoSG's capability smoke test in `preflight.py`.
+
 ## [v5.0.16] - 2026-09-07
 
 ### Added / Fixed

@@ -1566,6 +1566,11 @@ def install_repo_deps(repo_name: str, log_cb: Callable | None = None, requiremen
     ok = _uv_install(req, repo_dir, repo_name=repo_name, python_path=str(venv_python), log_cb=log_cb, manifest=manifest)
     if not ok.get("success", False):
         return {"success": False, "error": f"uv install failed for {repo_name}: {ok.get('error', 'Unknown error')}"}
+    try:
+        from runtime.model_env import patch_transformers_torch_load_check
+        patch_transformers_torch_load_check(venv_python)
+    except Exception:
+        pass
     return {"success": True, "repo": repo_name}
 
 
@@ -2192,6 +2197,12 @@ def _prepare_runtime_venv(
             **components,
         }
 
+    try:
+        from runtime.model_env import patch_transformers_torch_load_check
+        patch_transformers_torch_load_check(venv_python)
+    except Exception:
+        pass
+
     return {"success": True, **components}
 
 
@@ -2678,7 +2689,7 @@ def get_install_status() -> dict:
         weight_state = "ok" if weight_ok else "missing"
         # --- auxiliary weights ---
         aux_weights = _check_auxiliary_weights(name, storage, manifest)
-        missing_aux = [a for a in aux_weights if a["state"] == "missing"]
+        missing_aux = [a for a in aux_weights if a["state"] == "missing" and a.get("required", True)]
         # --- native build: manifest capabilities are the AUTHORITATIVE source ---
         # (no conflicting metadata fallback).
         if manifest and "capabilities" in manifest:

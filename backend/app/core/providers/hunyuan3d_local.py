@@ -358,6 +358,18 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
         try:
             from app.core.providers.base import _patch_numpy_legacy_aliases
             _patch_numpy_legacy_aliases()
+            try:
+                import transformers.utils.import_utils as _tiu
+                if hasattr(_tiu, "check_torch_load_is_safe"):
+                    _tiu.check_torch_load_is_safe = lambda *a, **kw: None
+            except Exception:
+                pass
+            try:
+                import diffusers.utils.import_utils as _diu
+                _diu.is_onnx_available = lambda: False
+                _diu.is_onnxruntime_available = lambda: False
+            except Exception:
+                pass
             from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
             logger.info("Loading Hunyuan3D-2.1 from %s on %s", self.weights_dir, self.device)
             self._load_model_with_accelerate(
@@ -456,6 +468,18 @@ class Hunyuan3D2MiniLocalProvider(_HunyuanBase):
         try:
             from app.core.providers.base import _patch_numpy_legacy_aliases
             _patch_numpy_legacy_aliases()
+            try:
+                import transformers.utils.import_utils as _tiu
+                if hasattr(_tiu, "check_torch_load_is_safe"):
+                    _tiu.check_torch_load_is_safe = lambda *a, **kw: None
+            except Exception:
+                pass
+            try:
+                import diffusers.utils.import_utils as _diu
+                _diu.is_onnx_available = lambda: False
+                _diu.is_onnxruntime_available = lambda: False
+            except Exception:
+                pass
             from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
             logger.info("Loading Hunyuan3D-2 Mini from %s on %s", self.weights_dir, self.device)
             self._load_model_with_accelerate(

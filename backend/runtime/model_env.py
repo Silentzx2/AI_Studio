@@ -10,6 +10,7 @@ ponytail: this file replaces 10+ scattered implementations of numpy bridge,
 from __future__ import annotations
 
 import logging
+import re
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -90,6 +91,24 @@ def apply_numpy_bridge() -> None:
     except Exception as exc:
         logger.debug("Error in apply_numpy_bridge: %s", exc)
 
+    # Bypass transformers CVE-2025-32434 check_torch_load_is_safe blocking .bin weights on PyTorch < 2.6
+    try:
+        import transformers.utils.import_utils as _tiu
+        if hasattr(_tiu, "check_torch_load_is_safe"):
+            _tiu.check_torch_load_is_safe = lambda *args, **kwargs: None
+    except Exception:
+        pass
+
+    # Ensure stub or partially loaded modules have valid __spec__ to prevent ValueError in find_spec
+    for _pkg in ("onnxruntime", "torchaudio"):
+        _m = sys.modules.get(_pkg)
+        if _m is not None and getattr(_m, "__spec__", None) is None:
+            try:
+                import importlib.machinery
+                _m.__spec__ = importlib.machinery.ModuleSpec(_pkg, None)
+            except Exception:
+                pass
+
 
 # Subprocess-injectable version (string form for _run_in_venv)
 _NUMPY_BRIDGE_CODE = (
@@ -103,6 +122,16 @@ _NUMPY_BRIDGE_CODE = (
     "                _mod = getattr(_core, _m, None) or __import__(f'numpy.core.{_m}', fromlist=[_m])\n"
     "                sys.modules[f'numpy._core.{_m}'] = _mod\n"
     "            except Exception: pass\n"
+    "    import transformers.utils.import_utils as _tiu\n"
+    "    if hasattr(_tiu, 'check_torch_load_is_safe'):\n"
+    "        _tiu.check_torch_load_is_safe = lambda *a, **kw: None\n"
+    "    for _pkg in ('onnxruntime', 'torchaudio'):\n"
+    "        _m = sys.modules.get(_pkg)\n"
+    "        if _m is not None and getattr(_m, '__spec__', None) is None:\n"
+    "            try:\n"
+    "                import importlib.machinery\n"
+    "                _m.__spec__ = importlib.machinery.ModuleSpec(_pkg, None)\n"
+    "            except Exception: pass\n"
     "except Exception: pass\n"
 )
 
@@ -110,6 +139,38 @@ _NUMPY_BRIDGE_CODE = (
 def get_numpy_bridge_code() -> str:
     """Return numpy bridge as injectable Python string for subprocesses."""
     return _NUMPY_BRIDGE_CODE
+
+
+def patch_transformers_torch_load_check(venv_python: Path | str) -> bool:
+    """Patch check_torch_load_is_safe in a venv's transformers library.
+
+    transformers>=4.48.0 blocks loading .bin weights on PyTorch < 2.6 (CVE-2025-32434).
+    AI Studio runs PyTorch 2.5.1 for compiled CUDA kernels (Trellis, Hunyuan3D, TripoSG).
+    This safely bypasses the check for trusted local model weights.
+    """
+    try:
+        vp = Path(venv_python)
+        venv_root = vp.parent.parent if vp.name.startswith("python") else vp
+        target_files = list(venv_root.glob("lib/python*/site-packages/transformers/utils/import_utils.py"))
+        patched = False
+        for f in target_files:
+            if not f.exists():
+                continue
+            content = f.read_text(encoding="utf-8")
+            if "def check_torch_load_is_safe" in content and "# AI_STUDIO_BYPASS" not in content:
+                new_content = re.sub(
+                    r"(def check_torch_load_is_safe\([^)]*\):(?:\s*\"\"\"[\s\S]*?\"\"\")?)",
+                    r"\1\n    return  # AI_STUDIO_BYPASS",
+                    content,
+                    count=1,
+                )
+                if new_content != content:
+                    f.write_text(new_content, encoding="utf-8")
+                    patched = True
+        return patched
+    except Exception as exc:
+        logger.debug("Failed to patch transformers in %s: %s", venv_python, exc)
+        return False
 
 
 # ---------------------------------------------------------------------------

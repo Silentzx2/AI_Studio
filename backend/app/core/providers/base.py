@@ -323,8 +323,10 @@ def _add_model_env(repo_name: str) -> None:
         try:
             import torchaudio
         except Exception:
-            import types
+            import types, importlib.machinery
             m = types.ModuleType("torchaudio")
+            m.__spec__ = importlib.machinery.ModuleSpec("torchaudio", None)
+            m.__file__ = "<stub>"
             m.__version__ = "2.5.1"
             m.is_available = lambda: False
             m.list_audio_backends = lambda: []
@@ -335,13 +337,23 @@ def _add_model_env(repo_name: str) -> None:
     try:
         import onnxruntime
         from onnxruntime.capi import _pybind_state
+        if getattr(onnxruntime, "__spec__", None) is None:
+            import importlib.machinery
+            onnxruntime.__spec__ = importlib.machinery.ModuleSpec("onnxruntime", None)
     except Exception:
-        import types
+        import types, importlib.machinery
         ort_stub = types.ModuleType("onnxruntime")
+        ort_stub.__spec__ = importlib.machinery.ModuleSpec("onnxruntime", None)
+        ort_stub.__file__ = "<stub>"
         ort_stub.__version__ = "1.16.0"
         ort_stub.InferenceSession = None
         ort_stub.SessionOptions = None
         sys.modules["onnxruntime"] = ort_stub
+        capi_stub = types.ModuleType("onnxruntime.capi")
+        capi_stub.__spec__ = importlib.machinery.ModuleSpec("onnxruntime.capi", None)
+        capi_stub.__file__ = "<stub>"
+        sys.modules["onnxruntime.capi"] = capi_stub
+        ort_stub.capi = capi_stub
         try:
             import diffusers.utils.import_utils as _diu
             _diu.is_onnx_available = lambda: False

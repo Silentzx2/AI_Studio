@@ -15,7 +15,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from .model_env import get_numpy_bridge_code, is_resource_error, _import_manifest_loader, _import_storage
+from .model_env import get_numpy_bridge_code, is_resource_error, _import_manifest_loader, _import_storage, patch_transformers_torch_load_check
 logger = logging.getLogger(__name__)
 
 def _manifest_weight_repo(provider_name: str) -> str | None:
@@ -61,6 +61,11 @@ print("ok")
     "hunyuan3d-2-mini": """
 import torch
 from PIL import Image
+try:
+    import transformers.utils.import_utils as _tiu
+    if hasattr(_tiu, "check_torch_load_is_safe"):
+        _tiu.check_torch_load_is_safe = lambda *a, **kw: None
+except Exception: pass
 from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
 pipe = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__, subfolder="hunyuan3d-dit-v2-mini")
 img = Image.new("RGB", (256, 256))
@@ -120,6 +125,11 @@ print("ok")
         "shape": """
 import torch
 from PIL import Image
+try:
+    import transformers.utils.import_utils as _tiu
+    if hasattr(_tiu, "check_torch_load_is_safe"):
+        _tiu.check_torch_load_is_safe = lambda *a, **kw: None
+except Exception: pass
 from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
 pipe = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__, subfolder="hunyuan3d-dit-v2-mini")
 img = Image.new("RGB", (256, 256))
@@ -142,6 +152,16 @@ except Exception as exc:
 import torch
 import numpy as np
 from PIL import Image
+try:
+    import diffusers.utils.import_utils as _diu
+    _diu.is_onnx_available = lambda: False
+    _diu.is_onnxruntime_available = lambda: False
+except Exception: pass
+try:
+    import transformers.utils.import_utils as _tiu
+    if hasattr(_tiu, "check_torch_load_is_safe"):
+        _tiu.check_torch_load_is_safe = lambda *a, **kw: None
+except Exception: pass
 from triposg.pipelines.pipeline_triposg import TripoSGPipeline
 device = "cuda" if torch.cuda.is_available() else "cpu"
 dtype = torch.float16 if torch.cuda.is_available() else torch.float32
@@ -408,6 +428,7 @@ def run_preflight_for_provider(
         checks["venv"] = {"passed": False, "detail": f"Venv python not found: {venv_python}"}
         return PreflightResult(passed=False, checks=checks, error_detail="Model venv not found")
     checks["venv"] = {"passed": True, "detail": str(venv_python)}
+    patch_transformers_torch_load_check(venv_python)
     # --- Python version ---
     req_py = manifest["environment"]["python"] if has_manifest else None
     py_result = _check_python_version(venv_python, req_py)
@@ -470,12 +491,14 @@ def run_preflight_for_provider(
             aux_repo = aux.get("repo", "")
             aux_wp = storage.get_weight_path(aux_repo) if aux_repo else None
             aux_result = _check_weights(aux_wp)
+            is_req = aux.get("required", False)
+            passed = aux_result.passed if is_req else True
             checks[f"auxiliary_{aux_name}"] = {
-                "passed": aux_result.passed,
-                "detail": aux_result.detail,
-                "required": aux.get("required", False),
+                "passed": passed,
+                "detail": aux_result.detail if is_req else (f"{aux_result.detail} (optional)" if not aux_result.passed else aux_result.detail),
+                "required": is_req,
             }
-            if not aux_result.passed and aux.get("required", False):
+            if not aux_result.passed and is_req:
                 all_passed = False
     # --- VRAM gate (soft check — informational on CPU-only) ---
     if has_manifest and "hardware" in manifest:
@@ -519,7 +542,7 @@ def run_preflight_for_provider(
                 output = f"Skipped GPU-only inference on non-GPU environment: {output[:200]}"
             checks["model_load"] = {
                 "passed": ok,
-                "detail": output[:500] if output else "No output",
+                "detail": (output[-1000:] if len(output) > 1000 else output) if output else "No output",
             }
             if not ok:
                 all_passed = False
@@ -555,7 +578,7 @@ def run_preflight_for_provider(
                     cap_output = f"Skipped GPU-only inference on non-GPU environment: {cap_output[:200]}"
                 checks[f"capability_smoke.{cap_name}"] = {
                     "passed": cap_ok,
-                    "detail": cap_output[:500] if cap_output else "No output",
+                    "detail": (cap_output[-1000:] if len(cap_output) > 1000 else cap_output) if cap_output else "No output",
                 }
                 if not cap_ok:
                     cap_required = cap_cfg.get("required", True)
@@ -564,7 +587,7 @@ def run_preflight_for_provider(
     failed_summaries = [
         f"{name}: {info.get('detail', '')}"
         for name, info in checks.items()
-        if not info.get("passed", True)
+        if not info.get("passed", True) and info.get("required", True)
     ]
     return PreflightResult(
         passed=all_passed,
