@@ -829,9 +829,11 @@ colab_start_services() {
     # watchdog runs indefinitely in the terminal and auto-restarts any
     # service that goes down — no manual keep-alive required.
     kill_by_pid_file "$PID_DIR/watchdog.pid"
-    nohup bash scripts/colab_watch.sh > "$LOG_DIR/watchdog.log" 2>&1 &
-    write_pid "$PID_DIR/watchdog.pid" $!
-    log "Watchdog started (PID: $(cat $PID_DIR/watchdog.pid)) — auto-restarts services if Colab kills them."
+    if [[ "${FOREGROUND_SUPERVISOR:-true}" != "true" ]]; then
+        nohup bash scripts/colab_watch.sh > "$LOG_DIR/watchdog.log" 2>&1 &
+        write_pid "$PID_DIR/watchdog.pid" $!
+        log "Watchdog started (PID: $(cat $PID_DIR/watchdog.pid)) — auto-restarts services if Colab kills them."
+    fi
 }
 
 colab_stop_services() {

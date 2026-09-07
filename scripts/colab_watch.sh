@@ -309,15 +309,8 @@ reset_restart_count_when_healthy() {
 
 cleanup() {
     trap - INT TERM EXIT
-    log "Supervisor stopping application services..."
-    stop_pid frontend
-    stop_pid worker
-    stop_pid api
-    rm -f \
-        "${PID_DIR}/api.restart-count" \
-        "${PID_DIR}/worker.restart-count" \
-        "${PID_DIR}/frontend.restart-count"
-    log "Supervisor stopped."
+    rm -f "$SUPERVISOR_PID_FILE"
+    log "Supervisor stopped (monitored services continue running)."
     exit 0
 }
 

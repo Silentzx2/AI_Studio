@@ -25,6 +25,9 @@
 - **Auditwheel `.libs` Shared Library Bundle Copying (`base.py`)**:
   - **Root Cause**: In-process model loading creates a Python 3.12 overlay directory for C-extensions (`_imaging`, `scipy`, etc.). When `_fix_c_package_overlay` copied `scipy` from backend site-packages to the overlay, it only copied the `scipy/` package folder and neglected auditwheel's companion `scipy.libs/` directory. When `transformers` imported `scipy.linalg._fblas`, the dynamic linker failed to find `libscipy_openblas-*.so`.
   - **Fix**: Updated `_fix_c_package_overlay` and `_fix_overlay_packages` in `backend/app/core/providers/base.py` to automatically copy and sync all `*.libs` shared library directories (such as `scipy.libs` and `pillow.libs`). Updated the overlay verification check for `scipy` to explicitly test `from scipy.linalg import _fblas` to ensure BLAS runtime linkage is fully operational.
+- **Supervisor Auto-Shutdown & Takeover Race Condition (`colab_watch.sh`, `colab.sh`)**:
+  - **Root Cause**: `colab_watch.sh` trapped `INT` and `TERM` signals and executed `cleanup()`, which stopped `frontend`, `worker`, and `api`. When `colab.sh` started a background watchdog and immediately executed `colab_watch.sh --foreground`, the foreground supervisor sent `SIGTERM` to the background supervisor to take over. The background supervisor interpreted `SIGTERM` as a system shutdown and terminated all running application services 1 second after startup.
+  - **Fix**: Decoupled supervisor process termination from service shutdown in `scripts/colab_watch.sh`. Terminating or interrupting the supervisor simply cleans up its PID file and exits while leaving application services running in the background. Guarded background watchdog startup in `scripts/colab.sh` so duplicate instances are not launched.
 
 ## [v5.0.16] - 2026-09-07
 
