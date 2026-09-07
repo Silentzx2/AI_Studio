@@ -144,8 +144,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [activeRightTab, setActiveRightTab] = useState<'assets' | 'property' | 'properties' | 'prompt'>('assets');
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
-  const [leftPanelWidth, setLeftPanelWidth] = useState(184); // Tripo style ~184px
-  const [rightPanelWidth, setRightPanelWidth] = useState(188); // Tripo style ~188px
+  const [leftPanelWidth, setLeftPanelWidth] = useState(320);
+  const [rightPanelWidth, setRightPanelWidth] = useState(280);
   const [assetFilter, setAssetFilter] = useState<string>('all');
   const [deletedAssetIds, setDeletedAssetIds] = useState<Set<string>>(() => new Set());
 

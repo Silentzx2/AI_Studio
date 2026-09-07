@@ -565,15 +565,15 @@ export const GeneratePanel: React.FC = () => {
             className="flex items-center justify-between cursor-pointer select-none"
             onClick={() => setMeshSettingsOpen(prev => !prev)}
           >
-            <div className="flex items-center gap-1.5 text-[10px] font-semibold text-zinc-300">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-200">
               <Box className="w-3.5 h-3.5 text-[#F9CF00]" />
               <span>Mesh Gen Settings</span>
               <SimpleTooltip label="Configures target polygon count, UV unwrapping, and topology decimation for all 3D models.">
-                <Info className="w-3 h-3 text-zinc-500" />
+                <Info className="w-3.5 h-3.5 text-zinc-500" />
               </SimpleTooltip>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded ${
+              <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${
                 generationSettings.autoOptimize
                   ? 'bg-[#F9CF00]/15 text-[#F9CF00] border border-[#F9CF00]/30 font-bold'
                   : 'bg-white/[0.06] text-zinc-400'
@@ -582,20 +582,20 @@ export const GeneratePanel: React.FC = () => {
                   ? `${(generationSettings.autoOptimizeSettings?.targetPolycount || 30000).toLocaleString()} tris`
                   : 'Raw Density'}
               </span>
-              <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform ${meshSettingsOpen ? 'rotate-180 text-[#F9CF00]' : ''}`} />
+              <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${meshSettingsOpen ? 'rotate-180 text-[#F9CF00]' : ''}`} />
             </div>
           </div>
 
           {meshSettingsOpen && (
-            <div className="space-y-2.5 pt-1 border-t border-white/[0.06]">
+            <div className="space-y-2.5 pt-1.5 border-t border-white/[0.06]">
               {/* Model-Aware Recommendation Banner */}
               {(() => {
                 const rec = getModelMeshRecommendation();
                 return (
-                  <div className="p-2 rounded-lg bg-white/[0.03] border border-white/[0.06] space-y-1">
+                  <div className="p-2.5 rounded-lg bg-white/[0.03] border border-white/[0.06] space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1 text-[9px] font-bold text-zinc-200">
-                        <Layers className="w-3 h-3 text-[#F9CF00]" />
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-200">
+                        <Layers className="w-3.5 h-3.5 text-[#F9CF00]" />
                         <span>{rec.label}</span>
                       </div>
                       <button
@@ -613,12 +613,12 @@ export const GeneratePanel: React.FC = () => {
                             },
                           }));
                         }}
-                        className="text-[8px] px-1.5 py-0.5 rounded bg-[#F9CF00]/15 hover:bg-[#F9CF00]/25 text-[#F9CF00] font-bold transition-colors cursor-pointer"
+                        className="text-[10px] px-2 py-0.5 rounded-md bg-[#F9CF00]/15 hover:bg-[#F9CF00]/25 text-[#F9CF00] font-bold transition-colors cursor-pointer"
                       >
                         Apply Recommended
                       </button>
                     </div>
-                    <div className="text-[8px] text-zinc-400 leading-tight">
+                    <div className="text-[10px] text-zinc-400 leading-tight">
                       {rec.tip}
                     </div>
                   </div>
@@ -626,10 +626,10 @@ export const GeneratePanel: React.FC = () => {
               })()}
 
               {/* Auto Optimize / Decimation Switch */}
-              <div className="flex items-center justify-between text-[10px]">
+              <div className="flex items-center justify-between text-xs">
                 <div>
-                  <span className="text-zinc-300 font-medium block">Optimize Mesh Topology</span>
-                  <span className="text-[8px] text-zinc-500">Decimate polygon count to target budget</span>
+                  <span className="text-zinc-200 font-semibold block">Optimize Mesh Topology</span>
+                  <span className="text-[10px] text-zinc-400">Decimate polygon count to target budget</span>
                 </div>
                 <button
                   id="btn-toggle-auto-optimize"
@@ -637,12 +637,12 @@ export const GeneratePanel: React.FC = () => {
                   role="switch"
                   aria-checked={Boolean(generationSettings.autoOptimize)}
                   onClick={() => setGenerationSettings(prev => ({ ...prev, autoOptimize: !prev.autoOptimize }))}
-                  className={`w-7 h-3.5 rounded-full p-0.5 transition-colors relative cursor-pointer ${
+                  className={`w-8 h-4 rounded-full p-0.5 transition-colors relative cursor-pointer ${
                     generationSettings.autoOptimize ? 'bg-[#F9CF00]' : 'bg-[#25262A]'
                   }`}
                 >
-                  <div className={`w-2.5 h-2.5 rounded-full bg-black transition-transform ${
-                    generationSettings.autoOptimize ? 'translate-x-3.5' : 'translate-x-0'
+                  <div className={`w-3 h-3 rounded-full bg-black transition-transform ${
+                    generationSettings.autoOptimize ? 'translate-x-4' : 'translate-x-0'
                   }`} />
                 </button>
               </div>
@@ -651,8 +651,8 @@ export const GeneratePanel: React.FC = () => {
                 <div className="space-y-2 pt-1 border-t border-white/[0.04]">
                   {/* Preset Buttons */}
                   <div className="space-y-1">
-                    <span className="text-[9px] text-zinc-400 font-semibold uppercase tracking-wider">Polycount Presets</span>
-                    <div className="grid grid-cols-4 gap-1">
+                    <span className="text-xs text-zinc-400 font-semibold uppercase tracking-wider">Polycount Presets</span>
+                    <div className="grid grid-cols-4 gap-1.5">
                       {[
                         { id: '10k', label: '10k Low', count: 10000, quality: 'low' as const },
                         { id: '30k', label: '30k Std', count: 30000, quality: 'medium' as const },
@@ -685,10 +685,10 @@ export const GeneratePanel: React.FC = () => {
                                 }));
                               }
                             }}
-                            className={`py-1 px-1 rounded text-[8px] font-bold transition-all text-center cursor-pointer ${
+                            className={`py-1.5 px-1 rounded-lg text-xs font-bold transition-all text-center cursor-pointer ${
                               isPresetActive
                                 ? 'bg-[#F9CF00] text-black shadow-sm'
-                                : 'bg-[#191A1D] text-zinc-400 hover:text-zinc-200 hover:bg-[#202125] border border-white/[0.06]'
+                                : 'bg-[#191A1D] text-zinc-300 hover:text-white hover:bg-[#202125] border border-white/[0.08]'
                             }`}
                           >
                             {preset.label}
@@ -700,8 +700,8 @@ export const GeneratePanel: React.FC = () => {
 
                   {/* Target Polycount Slider */}
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[9px]">
-                      <span className="text-zinc-400">Target Polycount</span>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-zinc-300 font-medium">Target Polycount</span>
                       <span className="font-mono text-[#F9CF00] font-bold">
                         {(generationSettings.autoOptimizeSettings?.targetPolycount || 30000).toLocaleString()} tris
                       </span>
@@ -723,14 +723,14 @@ export const GeneratePanel: React.FC = () => {
                           },
                         }));
                       }}
-                      className="w-full h-1 rounded-full appearance-none bg-[#25262A] accent-[#F9CF00] cursor-pointer"
+                      className="w-full h-1.5 rounded-full appearance-none bg-[#25262A] accent-[#F9CF00] cursor-pointer"
                     />
                   </div>
 
                   {/* Detail Preservation Slider */}
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[9px]">
-                      <span className="text-zinc-400">Preserve Details</span>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-zinc-300 font-medium">Preserve Details</span>
                       <span className="font-mono text-[#F9CF00] font-bold">
                         {generationSettings.autoOptimizeSettings?.preserveDetails ?? 75}%
                       </span>
@@ -751,15 +751,15 @@ export const GeneratePanel: React.FC = () => {
                           },
                         }));
                       }}
-                      className="w-full h-1 rounded-full appearance-none bg-[#25262A] accent-[#F9CF00] cursor-pointer"
+                      className="w-full h-1.5 rounded-full appearance-none bg-[#25262A] accent-[#F9CF00] cursor-pointer"
                     />
                   </div>
 
                   {/* Fix UVs and Clean Normals Toggle */}
-                  <div className="flex items-center justify-between text-[10px] pt-1 border-t border-white/[0.04]">
+                  <div className="flex items-center justify-between text-xs pt-1.5 border-t border-white/[0.04]">
                     <div>
-                      <span className="text-zinc-300 font-medium block">Repair UVs & Normals</span>
-                      <span className="text-[8px] text-zinc-500">Fixes overlapping UV islands and recalculates normals</span>
+                      <span className="text-zinc-200 font-medium block">Repair UVs & Normals</span>
+                      <span className="text-[10px] text-zinc-400">Fixes overlapping UV islands and recalculates normals</span>
                     </div>
                     <button
                       id="btn-toggle-fix-uvs"
@@ -773,18 +773,18 @@ export const GeneratePanel: React.FC = () => {
                           fixUVs: !(prev.autoOptimizeSettings?.fixUVs ?? true),
                         },
                       }))}
-                      className={`w-7 h-3.5 rounded-full p-0.5 transition-colors relative cursor-pointer ${
+                      className={`w-8 h-4 rounded-full p-0.5 transition-colors relative cursor-pointer ${
                         (generationSettings.autoOptimizeSettings?.fixUVs ?? true) ? 'bg-emerald-500' : 'bg-[#25262A]'
                       }`}
                     >
-                      <div className={`w-2.5 h-2.5 rounded-full bg-white transition-transform ${
-                        (generationSettings.autoOptimizeSettings?.fixUVs ?? true) ? 'translate-x-3.5' : 'translate-x-0'
+                      <div className={`w-3 h-3 rounded-full bg-white transition-transform ${
+                        (generationSettings.autoOptimizeSettings?.fixUVs ?? true) ? 'translate-x-4' : 'translate-x-0'
                       }`} />
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="p-1.5 rounded-lg bg-white/[0.02] border border-white/[0.04] text-[8px] text-zinc-500">
+                <div className="p-2 rounded-lg bg-white/[0.02] border border-white/[0.04] text-[10px] text-zinc-400">
                   Mesh optimization is off. Models will export with raw full triangle density directly from the AI generator.
                 </div>
               )}
@@ -827,12 +827,12 @@ export const GeneratePanel: React.FC = () => {
         {/* AI Model Generator Choice (Interactive Available Models Selector) */}
         <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2 space-y-1 relative">
           <div className="flex items-center justify-between">
-            <span className="text-[9px] text-zinc-400 font-semibold uppercase tracking-wider">AI 3D Model</span>
+            <span className="text-xs text-zinc-400 font-semibold uppercase tracking-wider">AI 3D Model</span>
             <button
               onClick={() => router.push('/settings?section=models')}
-              className="text-[9px] text-[#F9CF00] hover:underline flex items-center gap-0.5"
+              className="text-xs text-[#F9CF00] hover:underline flex items-center gap-1 font-medium"
             >
-              <Package className="w-2.5 h-2.5" />
+              <Package className="w-3 h-3" />
               <span>Manage Models</span>
             </button>
           </div>
@@ -842,41 +842,37 @@ export const GeneratePanel: React.FC = () => {
             id="btn-select-ai-model"
             type="button"
             onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
-            className="w-full flex items-center justify-between p-1.5 rounded-lg bg-[#191A1D] border border-white/[0.08] hover:border-white/[0.16] hover:bg-[#202125] transition-all text-left cursor-pointer"
+            className="w-full flex items-center justify-between p-2 rounded-lg bg-[#191A1D] border border-white/[0.08] hover:border-white/[0.16] hover:bg-[#202125] transition-all text-left cursor-pointer"
           >
             <div className="flex flex-col min-w-0 pr-2">
-              <span className="font-bold text-[10px] text-white flex items-center gap-1.5 truncate">
-                <span className={`w-1.5 h-1.5 rounded-full ${
+              <span className="font-bold text-xs text-white flex items-center gap-1.5 truncate">
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
                   (activeModelObj?.available || activeModelObj?.installed)
                     ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]'
                     : 'bg-zinc-500'
                 }`} />
                 <span className="truncate">{activeModelObj?.label || activeModelId || 'No model available'}</span>
               </span>
-              <span className="text-[8px] text-zinc-400 truncate">
+              <span className="text-[10px] text-zinc-400 truncate mt-0.5">
                 {activeModelObj?.available ? 'Ready for generation' : activeModelObj?.installed ? 'Installed · ready' : 'Not installed · click to configure'}
               </span>
             </div>
-            <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${modelDropdownOpen ? 'rotate-180 text-[#F9CF00]' : ''}`} />
+            <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${modelDropdownOpen ? 'rotate-180 text-[#F9CF00]' : ''}`} />
           </button>
 
           {/* Dropdown Menu */}
           {modelDropdownOpen && (
             <div className="absolute left-0 right-0 top-full mt-1 bg-[#191A1D] border border-white/[0.12] rounded-xl p-1.5 shadow-2xl z-50 space-y-1 max-h-56 overflow-y-auto">
-              <div className="text-[8px] font-bold uppercase tracking-wider text-zinc-500 px-1 py-0.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 px-1.5 py-0.5">
                 Mesh-Capable Models ({providersList.length})
               </div>
               {providersList.length === 0 ? (
-                <div className="px-2 py-3 text-[10px] text-zinc-400 text-center">
+                <div className="px-2 py-3 text-xs text-zinc-400 text-center">
                   No mesh-capable models installed. Install a model to generate 3D.
                 </div>
               ) : (
                 providersList.map((m) => {
                   const isSelected = m.id === (activeModelObj?.id || activeModelId);
-                  // ponytail: color-code readiness — ready=green,
-                  // installed-but-not-preflight=amber, not-installed=gray.
-                  // The list is complete (useManifestModels no longer hides
-                  // uninstalled models), so the user always sees every option.
                   const isReady = m.available === true;
                   const isInstalled = m.installed === true;
                   const rowBase = isSelected
@@ -909,44 +905,44 @@ export const GeneratePanel: React.FC = () => {
                     >
                       <div className="flex flex-col min-w-0 pr-2">
                         <div className="flex items-center gap-1.5">
-                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
                             isSelected
                               ? 'bg-black'
                               : isReady || isInstalled
                                 ? 'bg-emerald-400'
                                 : 'bg-zinc-500'
                           }`} />
-                          <span className="text-[10px] font-bold truncate">{m.label}</span>
-                          <span className={`text-[7px] px-1 py-0.2 rounded font-mono border ${badgeClass}`}>
+                          <span className="text-xs font-bold truncate">{m.label}</span>
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono border ${badgeClass}`}>
                             {badgeText}
                           </span>
                           {m.vram_required_mb ? (
-                            <span className={`text-[7px] px-1 py-0.2 rounded font-mono ${
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${
                               isSelected ? 'bg-black/15 text-black' : 'bg-white/[0.08] text-zinc-400'
                             }`}>
                               {Math.round(m.vram_required_mb / 1024)}GB
                             </span>
                           ) : null}
                         </div>
-                        <span className={`text-[8px] truncate ${isSelected ? 'text-black/80' : 'text-zinc-400'}`}>
+                        <span className={`text-[10px] truncate mt-0.5 ${isSelected ? 'text-black/80' : 'text-zinc-400'}`}>
                           {m.low_vram_supported ? 'Low VRAM supported' : `Requires ${Math.round((m.vram_required_mb || 0) / 1024)}GB VRAM`}
                         </span>
                       </div>
-                      {isSelected && <Check className="w-3.5 h-3.5 text-black flex-shrink-0" />}
+                      {isSelected && <Check className="w-4 h-4 text-black flex-shrink-0" />}
                     </button>
                   );
                 })
               )}
 
-              <div className="pt-1 border-t border-white/[0.08]">
+              <div className="pt-1.5 border-t border-white/[0.08]">
                 <button
                   onClick={() => {
                     setModelDropdownOpen(false);
                     router.push('/settings?section=models');
                   }}
-                  className="w-full py-1.5 px-2 rounded-lg bg-[#141518] hover:bg-[#202125] text-zinc-300 hover:text-[#F9CF00] text-[9px] font-bold flex items-center justify-center gap-1 transition-colors"
+                  className="w-full py-2 px-2.5 rounded-lg bg-[#141518] hover:bg-[#202125] text-zinc-300 hover:text-[#F9CF00] text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
                 >
-                  <Package className="w-3 h-3" />
+                  <Package className="w-3.5 h-3.5" />
                   <span>Download / Manage Model Weights</span>
                 </button>
               </div>

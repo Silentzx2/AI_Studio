@@ -1,5 +1,30 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.14] - 2026-09-07
+
+### Added / Fixed
+
+#### 1. Workspace Toolbar and Panel Ergonomics & Legibility (`LeftNavigation.tsx`, `WorkspaceShell.tsx`, `RightAssetsPanel.tsx`, `RightPropertyPanel.tsx`, `GeneratePanel.tsx`, `TexturePanel.tsx`, `RemeshPanel.tsx`)
+- **Root Cause Resolution (Unreadable & Micro-sized Elements)**: Left navigation rail, floating tool panels, and right asset store/inspector previously utilized micro-sized dimensions (`58px` left rail, `196px` right inspector) with `text-[8px]` and `w-2.5 h-2.5` buttons, rendering labels, sliders, and asset actions illegible.
+- **Left Navigation Rail Rescaling (`LeftNavigation.tsx`)**:
+  - Widened navigation rail width from `58px` to `72px` (`w-[72px]`).
+  - Increased button height from `45px` to `54px` (`h-[54px]`) and icon sizes from `17px` to `20px` (`w-5 h-5`).
+  - Upgraded text labels from `8.5px` to `10px font-bold` (`text-[10px] font-bold leading-tight`), with clean spacing and no clipping.
+- **Workspace Shell Layout & Container Scaling (`WorkspaceShell.tsx`, `WorkspaceContext.tsx`)**:
+  - Expanded Left Floating Context Tool Panel container width from `264px` to `320px` (`md:w-[320px]`).
+  - Expanded Right Inspector & Asset Store container from `196px` to `280px` (`md:w-[280px]`), allowing two-column asset cards and inspector properties to breathe without horizontal cramping.
+  - Scaled right inspector tabs (`Assets` | `Property`) to `h-9` with `text-xs font-bold` typography and `w-4 h-4` collapse icons.
+  - Viewport overlay controls in `MeshViewer.tsx` dynamically adapt to `rightPanelWidth = 280px` without overlapping the right panel.
+- **Asset Store & Inspector Readability (`RightAssetsPanel.tsx`, `RightPropertyPanel.tsx`)**:
+  - Rescaled sub-bar buttons (`p-1.5`, `w-3.5 h-3.5` icons) and import action button (`px-2.5 py-1 text-xs font-bold`).
+  - Scaled asset card labels to `text-xs font-medium`, 3-dots action menus to `w-3.5 h-3.5`, and popover dropdowns to `text-xs`.
+  - Rescaled Object Transform and Geometry Topology property inputs, labels, and format badges to `text-xs` and `text-xs font-mono`.
+  - Upgraded PBR roughness/metallic/normal sliders and Quick Export download buttons with larger touch targets and clear font sizes.
+- **Visual Verification with `agent-browser`**: Used headless `agent-browser` to inspect and capture visual snapshots of `/workspace/generate`, `/workspace/texture`, `/workspace/remesh`, and the right property inspector, verifying complete readability, proper alignment, and zero clipped controls.
+
+#### 2. Dynamic Blender Environment Resolution (`mesh_optimizer.py`)
+- **Zero Hardcoded System Paths**: Eliminated all hardcoded `/home/zeus/miniconda3/...` site-packages paths in `_get_blender_env`. Dynamically resolves runtime paths using `sys.path` and `site.getsitepackages()`, ensuring portability across local virtualenvs, Conda, Colab, and Docker.
+
 ## [v5.0.13] - 2026-09-07
 
 ### Added / Fixed

@@ -184,7 +184,7 @@ export const WorkspaceShell: React.FC = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -15 }}
                 transition={{ duration: 0.14, ease: 'easeOut' }}
-                className="absolute inset-0 md:inset-auto md:left-2 md:top-2 md:bottom-2 md:w-[264px] md:max-w-[calc(100vw-5rem)] bg-[#191A1D] md:border md:border-white/[0.08] md:rounded-xl shadow-2xl flex flex-col z-20 overflow-hidden"
+                className="absolute inset-0 md:inset-auto md:left-2 md:top-2 md:bottom-2 md:w-[320px] md:max-w-[calc(100vw-5rem)] bg-[#191A1D] md:border md:border-white/[0.08] md:rounded-xl shadow-2xl flex flex-col z-20 overflow-hidden"
               >
                 {/* Mobile panel header with close button */}
                 <div className="flex items-center justify-between px-3 py-2 border-b border-white/[0.08] bg-[#16181D] md:hidden flex-shrink-0">
@@ -261,7 +261,7 @@ export const WorkspaceShell: React.FC = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 15 }}
                 transition={{ duration: 0.14, ease: 'easeOut' }}
-                className="absolute inset-0 md:inset-auto md:right-1.5 md:top-1.5 md:bottom-1.5 md:w-[196px] md:max-w-[calc(100vw-4.5rem)] bg-[#191A1D] md:border md:border-white/[0.08] md:rounded-xl shadow-2xl flex flex-col z-20 overflow-hidden"
+                className="absolute inset-0 md:inset-auto md:right-1.5 md:top-1.5 md:bottom-1.5 md:w-[280px] md:max-w-[calc(100vw-4.5rem)] bg-[#191A1D] md:border md:border-white/[0.08] md:rounded-xl shadow-2xl flex flex-col z-20 overflow-hidden"
               >
                 {/* Mobile panel header with close button */}
                 <div className="flex items-center justify-between px-3 py-2 border-b border-white/[0.08] bg-[#16181D] md:hidden flex-shrink-0">
@@ -277,12 +277,12 @@ export const WorkspaceShell: React.FC = () => {
                 </div>
 
                 {/* Top Tab Bar: Assets | Property - desktop only */}
-                <div className="h-8 px-2 items-center justify-between border-b border-white/[0.08] bg-[#16181D] flex-shrink-0 hidden md:flex">
-                  <div className="flex items-center gap-1 w-full mr-1">
+                <div className="h-9 px-2.5 items-center justify-between border-b border-white/[0.08] bg-[#16181D] flex-shrink-0 hidden md:flex">
+                  <div className="flex items-center gap-1.5 w-full mr-1">
                     <button
                       id="tab-btn-assets"
                       onClick={() => setRightPanelMode('assets')}
-                      className={`flex-1 py-1 rounded-md text-[11px] font-bold transition-all ${
+                      className={`flex-1 py-1 rounded-lg text-xs font-bold transition-all ${
                         rightPanelMode === 'assets'
                           ? 'bg-[#25262A] text-white shadow-sm'
                           : 'text-zinc-400 hover:text-zinc-200'
@@ -293,7 +293,7 @@ export const WorkspaceShell: React.FC = () => {
                     <button
                       id="tab-btn-properties"
                       onClick={() => setRightPanelMode('properties')}
-                      className={`flex-1 py-1 rounded-md text-[11px] font-bold transition-all ${
+                      className={`flex-1 py-1 rounded-lg text-xs font-bold transition-all ${
                         rightPanelMode === 'properties' || rightPanelMode === 'property'
                           ? 'bg-[#25262A] text-white shadow-sm'
                           : 'text-zinc-400 hover:text-zinc-200'
@@ -307,16 +307,16 @@ export const WorkspaceShell: React.FC = () => {
                       onClick={() => setIsRightPanelOpen(false)}
                       className="p-1 rounded-lg text-zinc-400 hover:text-[#F9CF00] transition-colors"
                     >
-                      <PanelRightClose className="w-3.5 h-3.5" />
+                      <PanelRightClose className="w-4 h-4" />
                     </button>
                   </SimpleTooltip>
                 </div>
 
                 {/* Mobile tab bar */}
-                <div className="flex items-center gap-1 px-2 py-1.5 border-b border-white/[0.08] bg-[#16181D] md:hidden flex-shrink-0">
+                <div className="flex items-center gap-1.5 px-3 py-2 border-b border-white/[0.08] bg-[#16181D] md:hidden flex-shrink-0">
                   <button
                     onClick={() => setRightPanelMode('assets')}
-                    className={`flex-1 py-1.5 rounded-md text-[11px] font-bold transition-all ${
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
                       rightPanelMode === 'assets'
                         ? 'bg-[#25262A] text-white shadow-sm'
                         : 'text-zinc-400 hover:text-zinc-200'
@@ -326,7 +326,7 @@ export const WorkspaceShell: React.FC = () => {
                   </button>
                   <button
                     onClick={() => setRightPanelMode('properties')}
-                    className={`flex-1 py-1.5 rounded-md text-[11px] font-bold transition-all ${
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
                       rightPanelMode === 'properties' || rightPanelMode === 'property'
                         ? 'bg-[#25262A] text-white shadow-sm'
                         : 'text-zinc-400 hover:text-zinc-200'

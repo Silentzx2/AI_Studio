@@ -113,41 +113,41 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
     <nav
       id="left-tool-rail"
       aria-label="3D Studio Toolset"
-      className="w-[58px] h-full bg-[#0D0E10] border-r border-white/[0.08] flex flex-col items-center justify-between z-20 select-none flex-shrink-0"
+      className="w-[72px] h-full bg-[#0D0E10] border-r border-white/[0.08] flex flex-col items-center justify-between z-20 select-none flex-shrink-0"
     >
       {/* Tool Stack (AI 3D Studio Toolset) */}
-      <div className="flex-1 w-full flex flex-col items-center gap-1 px-1 py-1.5 overflow-y-auto overflow-x-hidden scrollbar-none">
+      <div className="flex-1 w-full flex flex-col items-center gap-1.5 px-1.5 py-2 overflow-y-auto overflow-x-hidden scrollbar-none">
         {/* 0. Studio Overview */}
         <SimpleTooltip side="right" label="Studio Overview (Dashboard & Hardware)">
           <button
             id="tool-btn-overview"
             onClick={() => navigateToMainNav('dashboard')}
-            className={`group relative w-full h-[45px] py-1 px-0.5 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer flex-shrink-0 ${
+            className={`group relative w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer flex-shrink-0 ${
               isOverviewActive
                 ? 'bg-[#F9CF00] text-black font-extrabold shadow-md'
                 : 'text-zinc-400 hover:text-white hover:bg-[#191A1D]'
             }`}
           >
-            <LayoutDashboard className="w-[17px] h-[17px] mb-0.5 flex-shrink-0" />
-            <span className="text-[8.5px] font-extrabold leading-none text-center tracking-tight truncate w-full px-0.5">Overview</span>
+            <LayoutDashboard className="w-5 h-5 mb-1 flex-shrink-0" />
+            <span className="text-[10px] font-bold leading-tight text-center tracking-tight truncate w-full">Overview</span>
           </button>
         </SimpleTooltip>
 
-        <div className="w-6 h-px bg-white/[0.08] my-0.5 flex-shrink-0" />
+        <div className="w-8 h-px bg-white/[0.08] my-0.5 flex-shrink-0" />
 
         {/* 1. 3D Model Generation */}
         <SimpleTooltip side="right" label="3D Model Generation (Image & Text to 3D)">
           <button
             id="tool-btn-model"
             onClick={() => handleToolClick('model')}
-            className={`group relative w-full h-[45px] py-1 px-0.5 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer flex-shrink-0 ${
+            className={`group relative w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer flex-shrink-0 ${
               isActive('model')
                 ? 'bg-[#F9CF00] text-black font-extrabold shadow-md'
                 : 'text-zinc-400 hover:text-white hover:bg-[#191A1D]'
             }`}
           >
-            <Box className="w-[17px] h-[17px] mb-0.5 flex-shrink-0" />
-            <span className="text-[8.5px] font-extrabold leading-none text-center tracking-tight truncate w-full px-0.5">Model</span>
+            <Box className="w-5 h-5 mb-1 flex-shrink-0" />
+            <span className="text-[10px] font-bold leading-tight text-center tracking-tight truncate w-full">Model</span>
           </button>
         </SimpleTooltip>
 
@@ -156,14 +156,14 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
           <button
             id="tool-btn-remesh"
             onClick={() => handleToolClick('remesh')}
-            className={`w-full h-[45px] py-1 px-0.5 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer flex-shrink-0 ${
+            className={`w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer flex-shrink-0 ${
               isActive('remesh')
                 ? 'bg-[#F9CF00] text-black font-extrabold shadow-md'
                 : 'text-zinc-400 hover:text-white hover:bg-[#191A1D]'
             }`}
           >
-            <CircleDashed className="w-[17px] h-[17px] mb-0.5 flex-shrink-0" />
-            <span className="text-[8.5px] font-extrabold leading-none text-center tracking-tight truncate w-full px-0.5">Poly</span>
+            <CircleDashed className="w-5 h-5 mb-1 flex-shrink-0" />
+            <span className="text-[10px] font-bold leading-tight text-center tracking-tight truncate w-full">Poly</span>
           </button>
         </SimpleTooltip>
 
@@ -172,14 +172,14 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
           <button
             id="tool-btn-texture"
             onClick={() => handleToolClick('texture')}
-            className={`w-full h-[45px] py-1 px-0.5 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer flex-shrink-0 ${
+            className={`w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer flex-shrink-0 ${
               isActive('texture')
                 ? 'bg-[#F9CF00] text-black font-extrabold shadow-md'
                 : 'text-zinc-400 hover:text-white hover:bg-[#191A1D]'
             }`}
           >
-            <Layers className="w-[17px] h-[17px] mb-0.5 flex-shrink-0" />
-            <span className="text-[8.5px] font-extrabold leading-none text-center tracking-tight truncate w-full px-0.5">Texture</span>
+            <Layers className="w-5 h-5 mb-1 flex-shrink-0" />
+            <span className="text-[10px] font-bold leading-tight text-center tracking-tight truncate w-full">Texture</span>
           </button>
         </SimpleTooltip>
 
@@ -188,28 +188,28 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
           <button
             id="tool-btn-segment"
             onClick={() => handleToolClick('segment')}
-            className={`w-full h-[45px] py-1 px-0.5 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer flex-shrink-0 ${
+            className={`w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer flex-shrink-0 ${
               isActive('segment')
                 ? 'bg-[#F9CF00] text-black font-extrabold shadow-md'
                 : 'text-zinc-400 hover:text-white hover:bg-[#191A1D]'
             }`}
           >
-            <Scissors className="w-[17px] h-[17px] mb-0.5 flex-shrink-0" />
-            <span className="text-[8.5px] font-extrabold leading-none text-center tracking-tight truncate w-full px-0.5">Segment</span>
+            <Scissors className="w-5 h-5 mb-1 flex-shrink-0" />
+            <span className="text-[10px] font-bold leading-tight text-center tracking-tight truncate w-full">Segment</span>
           </button>
         </SimpleTooltip>
       </div>
 
       {/* Bottom Settings */}
-      <div className="flex flex-col items-center w-full px-1 py-1.5 border-t border-white/[0.08] flex-shrink-0">
+      <div className="flex flex-col items-center w-full px-1.5 py-2 border-t border-white/[0.08] flex-shrink-0">
         <SimpleTooltip side="right" label="Workspace Settings">
           <button
             id="tool-btn-settings"
             onClick={() => router.push('/settings')}
-            className="w-full h-[45px] py-1 px-0.5 flex flex-col items-center justify-center rounded-xl text-zinc-400 hover:text-white hover:bg-[#191A1D] transition-colors cursor-pointer flex-shrink-0"
+            className="w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl text-zinc-400 hover:text-white hover:bg-[#191A1D] transition-colors cursor-pointer flex-shrink-0"
           >
-            <Settings className="w-[17px] h-[17px] mb-0.5 flex-shrink-0" />
-            <span className="text-[8.5px] font-extrabold leading-none text-center tracking-tight truncate w-full px-0.5">Settings</span>
+            <Settings className="w-5 h-5 mb-1 flex-shrink-0" />
+            <span className="text-[10px] font-bold leading-tight text-center tracking-tight truncate w-full">Settings</span>
           </button>
         </SimpleTooltip>
       </div>
