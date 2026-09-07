@@ -304,7 +304,7 @@ export async function GET(
       signal: AbortSignal.timeout(30000),
     });
     
-    return createProxyResponse(response, request);
+    return await createProxyResponse(response, request);
   } catch (error) {
     // Backend offline; check fallback below
   }
@@ -312,12 +312,13 @@ export async function GET(
   // Fallback for upload/assets listing
   if (fullPath === 'upload/assets') {
     const assetsData = await handleDirectAssetsList();
-    return NextResponse.json(assetsData);
+    return corsJson(assetsData, undefined, request);
   }
 
-  return NextResponse.json(
+  return corsJson(
     { success: false, message: `Backend unavailable or timed out at ${BACKEND_URL}` },
-    { status: 504 }
+    { status: 504 },
+    request
   );
 }
 
@@ -360,7 +361,7 @@ export async function POST(
         signal: AbortSignal.timeout(600000), // 10 minutes for generation/uploads
       });
       
-      return createProxyResponse(response, request);
+      return await createProxyResponse(response, request);
     } catch {
       // Backend fetch failed; check fallback below
     }
@@ -370,7 +371,7 @@ export async function POST(
       const file = parsedFormData.get('file') as File | null;
       if (file && file.size > 0) {
         const uploadResult = await handleDirectModelUpload(file);
-        return NextResponse.json(uploadResult);
+        return corsJson(uploadResult, undefined, request);
       }
     }
 
@@ -379,19 +380,21 @@ export async function POST(
       const file = parsedFormData.get('file') as File | null;
       if (file && file.size > 0) {
         const uploadResult = await handleDirectImageUpload(file);
-        return NextResponse.json(uploadResult);
+        return corsJson(uploadResult, undefined, request);
       }
     }
 
-    return NextResponse.json(
+    return corsJson(
       { success: false, message: `Backend connection error or timeout at ${BACKEND_URL}` },
-      { status: 504 }
+      { status: 504 },
+      request
     );
   } catch (error) {
     console.error(`[API Proxy] POST ${fullPath} failed:`, error);
-    return NextResponse.json(
+    return corsJson(
       { success: false, message: `Upload/POST request failed: ${error instanceof Error ? error.message : 'Unknown error'}` },
-      { status: 500 }
+      { status: 500 },
+      request
     );
   }
 }
@@ -418,12 +421,13 @@ export async function PUT(
       signal: AbortSignal.timeout(30000),
     });
     
-    return createProxyResponse(response, request);
+    return await createProxyResponse(response, request);
   } catch (error) {
     console.error(`[API Proxy] PUT ${fullPath} failed:`, error);
-    return NextResponse.json(
+    return corsJson(
       { success: false, message: `Backend unavailable at ${BACKEND_URL} — is the backend service running?` },
-      { status: 502 }
+      { status: 502 },
+      request
     );
   }
 }
@@ -445,7 +449,7 @@ export async function DELETE(
       signal: AbortSignal.timeout(10000),
     });
     
-    return createProxyResponse(response, request);
+    return await createProxyResponse(response, request);
   } catch (error) {
     // Backend offline; check fallback below
   }
@@ -454,17 +458,18 @@ export async function DELETE(
   if (fullPath.startsWith('upload/assets/')) {
     const filename = fullPath.replace('upload/assets/', '');
     const deleteResult = await handleDirectAssetDelete(decodeURIComponent(filename));
-    return NextResponse.json(deleteResult);
+    return corsJson(deleteResult, undefined, request);
   }
   if (fullPath.startsWith('jobs/')) {
     const jobId = fullPath.replace('jobs/', '');
     const deleteResult = await handleDirectAssetDelete(decodeURIComponent(jobId));
-    return NextResponse.json(deleteResult);
+    return corsJson(deleteResult, undefined, request);
   }
 
-  return NextResponse.json(
+  return corsJson(
     { success: false, message: `Backend unavailable at ${BACKEND_URL} — is the backend service running?` },
-    { status: 502 }
+    { status: 502 },
+    request
   );
 }
 
@@ -510,8 +515,21 @@ function getAuthHeader(request: NextRequest): HeadersInit {
   return headers;
 }
 
+// Helper: JSON response with proper CORS headers reflecting request origin
+function corsJson(data: any, init?: ResponseInit, request?: NextRequest): NextResponse {
+  const origin = request?.headers.get('origin') || '*';
+  const headers = new Headers(init?.headers);
+  headers.set('Access-Control-Allow-Origin', origin);
+  headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Client-Info, Apikey');
+  if (origin !== '*') {
+    headers.set('Access-Control-Allow-Credentials', 'true');
+  }
+  return NextResponse.json(data, { ...init, headers });
+}
+
 // Helper: Create response from backend response
-function createProxyResponse(response: Response, request?: NextRequest): NextResponse {
+async function createProxyResponse(response: Response, request?: NextRequest): Promise<NextResponse> {
   const headers = new Headers();
 
   // Forward relevant headers.
@@ -535,7 +553,10 @@ function createProxyResponse(response: Response, request?: NextRequest): NextRes
     headers.set('Access-Control-Allow-Credentials', 'true');
   }
 
-  return new NextResponse(response.body, {
+  // Buffer response to avoid HTTP chunking / prematurely closed connection failures
+  const body = await response.arrayBuffer();
+
+  return new NextResponse(body, {
     status: response.status,
     headers,
   });
@@ -560,18 +581,23 @@ async function streamResponse(targetUrl: string, request: NextRequest): Promise<
     clearTimeout(timeoutId);
     
     if (!response.ok) {
-      return NextResponse.json(
+      return corsJson(
         { success: false, message: `SSE connection failed: ${response.status}` },
-        { status: response.status }
+        { status: response.status },
+        request
       );
     }
     
+    const origin = request.headers.get('origin') || '*';
     const headers = new Headers({
       'content-type': 'text/event-stream',
       'cache-control': 'no-cache',
       'connection': 'keep-alive',
-      'access-control-allow-origin': '*',
+      'access-control-allow-origin': origin,
     });
+    if (origin !== '*') {
+      headers.set('access-control-allow-credentials', 'true');
+    }
     
     return new NextResponse(response.body, {
       status: 200,
@@ -579,9 +605,10 @@ async function streamResponse(targetUrl: string, request: NextRequest): Promise<
     });
   } catch (error) {
     console.error('[API Proxy] SSE stream failed:', error);
-    return NextResponse.json(
+    return corsJson(
       { success: false, message: `SSE connection failed: ${error instanceof Error ? error.message : 'Unknown error'}` },
-      { status: 502 }
+      { status: 502 },
+      request
     );
   }
 }

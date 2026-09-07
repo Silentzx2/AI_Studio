@@ -29,19 +29,27 @@ export const adminService = {
   },
 
   async deepHealth(): Promise<{ status: string; checks: Record<string, unknown> }> {
-    const res = await apiClient.get<{ data: { status: string; checks: Record<string, unknown> } }>('/api/v1/admin/health/deep');
-    if (res?.data?.checks && Object.keys(res.data.checks).length > 0) {
-      return res.data;
+    try {
+      const res: any = await apiClient.get('/api/v1/admin/health/deep', false);
+      const data = res?.data || res;
+      if (data?.checks && Object.keys(data.checks).length > 0) {
+        return data;
+      }
+      if (res?.status && res?.checks) {
+        return res;
+      }
+      return { status: 'unknown', checks: {} };
+    } catch {
+      return { status: 'down', checks: {} };
     }
-    return { status: 'unknown', checks: {} };
   },
 
   async getLogs(limit = 100, level?: string): Promise<AdminLog[]> {
     try {
       const params = new URLSearchParams({ limit: String(limit) });
       if (level) params.set('level', level);
-      const res = await apiClient.get<{ data: { logs: any[] } }>(`/api/v1/admin/logs?${params}`);
-      const rawLogs = res?.data?.logs || [];
+      const res: any = await apiClient.get(`/api/v1/admin/logs?${params}`, false);
+      const rawLogs = res?.data?.logs || res?.logs || [];
       return rawLogs.map((log: any, index: number) => ({
         id: log.id || `log-${index}-${Date.now()}`,
         timestamp: log.timestamp || log.ts || new Date().toISOString(),

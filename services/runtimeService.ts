@@ -157,7 +157,7 @@ export const runtimeService = {
 
   async getStatus(): Promise<RuntimeStatus | null> {
     try {
-      const response = await apiClient.get<ApiEnvelope<Record<string, any>>>('/api/v1/runtime/status');
+      const response = await apiClient.get<ApiEnvelope<Record<string, any>>>('/api/v1/runtime/status', false);
       return normalizeRuntimeStatus(response);
     } catch {
       return null;

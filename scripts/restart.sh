@@ -89,6 +89,12 @@ done
 echo ""
 echo ""
 
+# ── Clean up Python bytecode caches (__pycache__ / *.pyc) ─────────
+info "Cleaning Python bytecode caches..."
+find "${PROJECT_ROOT}/backend" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+find "${PROJECT_ROOT}/backend" -type f -name "*.py[co]" -delete 2>/dev/null || true
+log "Bytecode caches cleaned"
+
 # ── Start services ─────────────────────────────────────────────────────────
 print_section "Phase 3: Starting Services"
 bash "$SCRIPT_DIR/start.sh"

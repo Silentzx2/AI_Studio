@@ -472,6 +472,14 @@ ensure_node_npm() {
 # These functions manage services independently of the bootstrap flow,
 # allowing start/stop/restart without re-running the full setup.
 
+# ── Bytecode cache cleanup helper ──────────────────────────────────────────
+clean_pycache() {
+    info "Cleaning Python bytecode caches (__pycache__ / *.pyc)..."
+    find "${PROJECT_ROOT}/backend" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+    find "${PROJECT_ROOT}/backend" -type f -name "*.py[co]" -delete 2>/dev/null || true
+    log "Bytecode caches cleaned"
+}
+
 colab_start_services() {
     head_ "Starting AI 3D Studio Services (Colab)"
 
@@ -485,6 +493,9 @@ colab_start_services() {
         err "Backend venv not found. Run full setup first: bash scripts/colab.sh"
         return 1
     fi
+
+    # Clean bytecode caches so latest python edits compile fresh
+    clean_pycache
 
     # ── Normalize third_party file permissions (766) ───────────────────────
     # Per-model venvs/weights can be written by a different user than the
@@ -913,6 +924,9 @@ colab_stop_services() {
         log "Redis stopped"
     fi
 
+    # Clean up stale bytecode caches
+    clean_pycache
+
     log "All services stopped"
 }
 
@@ -921,6 +935,9 @@ colab_restart_services() {
 
     # Stop all services cleanly
     colab_stop_services
+
+    # Clean bytecode caches
+    clean_pycache
 
     # Wait for ports to be released
     info "Ensuring all ports are released..."
@@ -1916,6 +1933,7 @@ else
 fi
 
 # ── Start Backend API ─────────────────────────────────────────────────────
+clean_pycache
 step "Starting Backend API (http://localhost:8000)..."
 kill_by_pid_file "$PID_DIR/api.pid"
 pkill -TERM -f "uvicorn app.main:app" 2>/dev/null || true

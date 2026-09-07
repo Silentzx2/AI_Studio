@@ -22,9 +22,18 @@
   - Increased `runtime_status` API cache TTL in `backend/app/api/v1/runtime.py` to 30s.
 - **Next.js API Gateway Proxy Timeout (`app/api/v1/[...path]/route.ts`)**:
   - Increased default GET proxy abort timeout from 10s (`AbortSignal.timeout(10000)`) to 30s (`AbortSignal.timeout(30000)`), preventing premature Next.js `[TimeoutError]` and `failed to pipe response` on transient high system load.
-- **Proxy Content-Length Header Truncation Fix (`route.ts`, `adminService.ts`)**:
-  - **Root Cause**: FastAPI's `GZipMiddleware` compresses JSON responses over 1,000 bytes (e.g. `/api/v1/admin/models` at ~8,000 bytes compresses to ~1,138 bytes). Node.js `fetch()` in Next.js automatically decompresses the body, but `createProxyResponse` was forwarding the compressed `content-length: 1138` header to the browser. As a result, browsers truncated the uncompressed 8,000-byte JSON stream at byte 1,138, triggering `SyntaxError: Unexpected end of JSON input` in `JSON.parse` and causing `adminService.listModels()` to return empty, manifesting as `"No models found. Install models from the runtime options."`.
-  - **Fix**: Removed `content-length` from `forwardHeaders` in `createProxyResponse` (enabling standard chunked transfer encoding), normalized `localhost` to `127.0.0.1` to avoid Node.js IPv6 `::1` connection errors in Colab, and made `adminService.listModels()` bypass stale client caches.
+- **Proxy Content-Length Header Truncation & CORS Fix (`route.ts`, `main.py`, `adminService.ts`)**:
+  - **Root Cause**: FastAPI's `GZipMiddleware` compressed JSON responses over 1,000 bytes on loopback (e.g. `/api/v1/admin/models`, `/api/v1/admin/logs`, `/api/v1/runtime/status`). Node.js `fetch()` automatically decompressed them, but `createProxyResponse` forwarded compressed length headers, and error/fallback responses in Next.js lacked CORS headers. In Google Colab over Cloudflare tunnels, unhandled proxy fallbacks or streaming disconnections resulted in browser `TypeError: Failed to fetch` on `/settings` tabs (Runtime, AI Models, Logs, Monitoring).
+  - **Fix**:
+    - Removed loopback `GZipMiddleware` in `backend/app/main.py` (compression is already handled by Next.js / Cloudflare edge).
+    - Buffered non-SSE proxy responses via `await response.arrayBuffer()` in `createProxyResponse` to prevent stream termination and chunk framing mismatches.
+    - Introduced `corsJson()` helper in `app/api/v1/[...path]/route.ts` ensuring all error responses (500, 502, 504) and fallback responses dynamically set `Access-Control-Allow-Origin` and credentials.
+    - Updated `streamResponse()` with dynamic origin reflection and credentials instead of wildcard `*`.
+    - Made `adminService.deepHealth()`, `adminService.getLogs()`, and `runtimeService.getStatus()` bypass client cache on reload (`useCache = false`) and safely handle response envelope unwrapping.
+    - Allowed `/settings` page to resolve both `?section=` and `?tab=` query parameters.
+- **Python Bytecode Cache Cleanup (`colab.sh`, `restart.sh`, `stop.sh`, `start.sh`)**:
+  - Added automated removal of `__pycache__` directories and `*.py[co]` bytecode files across `backend/` on service stop, service restart, and before starting backend services in `scripts/colab.sh`, `scripts/restart.sh`, `scripts/stop.sh`, and `scripts/start.sh`.
+  - Guarantees fresh Python compilation when code changes are pulled in Google Colab without requiring manual cache purging.
 - **Runnable Self-Check (`scripts/test_latency.py`)**:
   - Added lightweight assert-based verification test for storage weight cache, `/api/v1/health`, `/api/v1/admin/models`, and `RuntimeHealth.check_all()`, confirming all cached lookups complete in < 5ms.
 

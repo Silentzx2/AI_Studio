@@ -338,10 +338,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# GZip compression for text-based responses (JSON, GLTF, HTML)
-# Binary files (GLB, images) are already compressed or would bloat
-from fastapi.middleware.gzip import GZipMiddleware
-app.add_middleware(GZipMiddleware, minimum_size=1000)
+# GZip compression is handled by the Next.js edge reverse proxy / Cloudflare tunnels.
+# Disabled on local loopback (127.0.0.1) to avoid buffering SSE streams and content-length mismatch.
 
 
 # Cached endpoint TTLs for HTTP cache headers

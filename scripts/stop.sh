@@ -127,6 +127,12 @@ fi
 # ── Clean up stale PID files ──────────────────────────────────────
 rm -f "${PROJECT_ROOT}/.pids"/*.pid 2>/dev/null || true
 
+# ── Clean up Python bytecode caches (__pycache__ / *.pyc) ─────────
+info "Cleaning Python bytecode caches..."
+find "${PROJECT_ROOT}/backend" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+find "${PROJECT_ROOT}/backend" -type f -name "*.py[co]" -delete 2>/dev/null || true
+log "Bytecode caches cleaned"
+
 # ── Summary ────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${RED}╔════════════════════════════════════════════════════════════╗${NC}"

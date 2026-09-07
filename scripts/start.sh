@@ -452,6 +452,12 @@ step "3/6 Running database migrations..."
 )
 echo ""
 
+# ── Clean up Python bytecode caches (__pycache__ / *.pyc) ─────────
+info "Cleaning Python bytecode caches..."
+find "${PROJECT_ROOT}/backend" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+find "${PROJECT_ROOT}/backend" -type f -name "*.py[co]" -delete 2>/dev/null || true
+log "Bytecode caches cleaned"
+
 # ── Step 4: Start Backend API ──────────────────────────────────────────────
 step "4/6 Starting Backend API (http://localhost:8000)..."
 : > "$PROJECT_ROOT/logs/api.log"
