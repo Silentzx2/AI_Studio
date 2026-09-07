@@ -218,6 +218,7 @@ def _fix_overlay_packages(repo_name: str, force: bool = False) -> bool:
         ("pymeshlab", "pymeshlab", "from pymeshlab import pmeshlab; print('ok')"),
         ("scipy", "scipy", "from scipy._lib import _ccallback_c; from scipy.linalg import _fblas; print('ok')"),
         ("scikit-image", "skimage", "from skimage.measure import _marching_cubes_lewiner_cy; print('ok')"),
+        ("xatlas", "xatlas", "import xatlas; print('ok')"),
     ]
     all_ok = True
     for pkg_name, import_name, check_stmt in packages:
