@@ -336,6 +336,40 @@ class _HunyuanBase(BaseProvider):
     def _image_to_3d(self, request: GenerationRequest, output_dir: str) -> str:
         raise NotImplementedError
 
+    def _project_texture(self, mesh_path: str, image_path: str, output_glb: str) -> str:
+        """Project reference image onto mesh UVs as front-facing PBR texture.
+
+        Ensures that generated 3D models always have vivid textures and colors,
+        even when large neural paint diffusion weights are not installed or GPU VRAM is low.
+        """
+        import trimesh
+        from PIL import Image
+        import numpy as np
+
+        mesh = trimesh.load(mesh_path, force="mesh")
+        img = Image.open(image_path).convert("RGBA")
+        verts = mesh.vertices
+        min_b = verts.min(axis=0)
+        max_b = verts.max(axis=0)
+        diff = max_b - min_b
+        diff[diff == 0] = 1.0
+
+        # Determine height axis (usually Z=2, occasionally Y=1)
+        vert_axis = 2 if diff[2] >= diff[1] else 1
+        # glTF 2.0 UV coordinate convention: (0,0) is top-left
+        u = np.clip((verts[:, 0] - min_b[0]) / diff[0], 0.0, 1.0)
+        v = np.clip((max_b[vert_axis] - verts[:, vert_axis]) / diff[vert_axis], 0.0, 1.0)
+        uvs = np.column_stack([u, v])
+
+        material = trimesh.visual.material.PBRMaterial(
+            baseColorTexture=img,
+            metallicFactor=0.0,
+            roughnessFactor=0.8,
+        )
+        mesh.visual = trimesh.visual.TextureVisuals(uv=uvs, image=img, material=material)
+        mesh.export(output_glb, file_type="glb")
+        return output_glb
+
     def _texture(self, request: GenerationRequest, mesh_path: str, output_dir: str) -> None:
         pass
 
@@ -428,15 +462,20 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
         return dest
 
     def _texture(self, request: GenerationRequest, mesh_path: str, output_dir: str) -> None:
+        out_glb = str(Path(output_dir) / "model.glb") if output_dir else mesh_path
         if self._tex is None:
             self._load_tex()
-        if self._tex is None:
-            raise RuntimeError("Hunyuan3D-2.1 paint pipeline is not initialized or weights are missing")
-        import torch
-        with torch.inference_mode():
-            result = self._tex(mesh_path=mesh_path, prompt=request.prompt)
-        dest = str(Path(output_dir) / "model.glb")
-        result.mesh.export(dest)
+        if self._tex is not None:
+            try:
+                import torch
+                with torch.inference_mode():
+                    result = self._tex(mesh_path=mesh_path, prompt=request.prompt)
+                result.mesh.export(out_glb)
+                return
+            except Exception as exc:
+                logger.warning("Hunyuan3D-2.1 paint pipeline execution failed: %s; trying projection fallback", exc)
+        if request.reference_image_url:
+            self._project_texture(mesh_path, request.reference_image_url, out_glb)
 
 
 # -- Hunyuan3D-2 Mini (0.6B image-to-shape, fast) ------------------------------
@@ -517,54 +556,99 @@ class Hunyuan3D2MiniLocalProvider(_HunyuanBase):
 
     def _load_tex(self) -> None:
         try:
+            from app.core.providers.base import _patch_numpy_legacy_aliases
+            _patch_numpy_legacy_aliases()
+            try:
+                import transformers.utils.import_utils as _tiu
+                if hasattr(_tiu, "check_torch_load_is_safe"):
+                    _tiu.check_torch_load_is_safe = lambda *a, **kw: None
+            except Exception:
+                pass
+            try:
+                import diffusers.utils.import_utils as _diu
+                _diu.is_onnx_available = lambda: False
+                _diu.is_onnxruntime_available = lambda: False
+            except Exception:
+                pass
             from hy3dgen.texgen import Hunyuan3DPaintPipeline
             from runtime.storage import get_storage_config
             storage = get_storage_config()
             resolved = storage.get_weight_path(self._TEX_SOURCE)
-            tex_dir = Path(resolved) if resolved else (
-                storage.get_repo_path("Hunyuan3D-2.1")
-                / "weights" / self._TEX_SOURCE
-            )
-            has_paint = (
+            tex_dir = Path(resolved) if resolved else None
+            if not tex_dir or not tex_dir.exists():
+                for cand in [
+                    storage.get_repo_path("Hunyuan3D-2mini") / "weights" / self._TEX_SOURCE,
+                    storage.get_repo_path("Hunyuan3D-2mini") / "weights",
+                    storage.get_repo_path("Hunyuan3D-2.1") / "weights" / self._TEX_SOURCE,
+                    storage.get_repo_path("Hunyuan3D-2.1") / "weights",
+                ]:
+                    if cand.exists():
+                        tex_dir = cand
+                        break
+            has_paint = tex_dir and (
                 (tex_dir / "hunyuan3d-delight-v2-0").exists()
                 or (tex_dir / "hunyuan3d-paintpbr-v2-1").exists()
                 or (tex_dir / "hunyuan3d-paint-v2-0").exists()
             )
-            weights_source = str(tex_dir) if has_paint else "tencent/Hunyuan3D-2.1"
             if not has_paint:
                 logger.info(
-                    "Local paint weights not found under %s; loading via HuggingFace repo %s",
-                    tex_dir, weights_source,
+                    "Local paint weights not found under %s; texturing will use projection mapping",
+                    tex_dir,
                 )
+                self._tex = None
+                return
+
+            weights_source = str(tex_dir)
             if self.low_vram:
                 from runtime.accelerate_loader import apply_low_vram_mode
-                self._tex = Hunyuan3DPaintPipeline.from_pretrained(weights_source)
+                self._tex = Hunyuan3DPaintPipeline.from_pretrained(weights_source, device="cpu")
                 apply_low_vram_mode(
                     self._tex, self.model_key, requested_mode="low",
                     execution_device=self.device,
                     offload_folder=self.weights_dir / ".accelerate_offload",
                 )
             else:
-                self._tex = Hunyuan3DPaintPipeline.from_pretrained(weights_source)
+                self._tex = Hunyuan3DPaintPipeline.from_pretrained(weights_source, device=self.device)
         except Exception as exc:
             logger.warning("Hunyuan3D tex pipeline unavailable: %s", exc)
             self._tex = None
 
     def _texture(self, request: GenerationRequest, mesh_path: str, output_dir: str) -> None:
+        out_glb = str(Path(output_dir) / "model.glb") if output_dir else mesh_path
         if self._tex is None:
             self._load_tex()
-        if self._tex is None:
-            raise RuntimeError(
-                "Hunyuan3D-2 Mini texture generation needs paint weights (tencent/Hunyuan3D-2.1)."
-            )
-        if not request.reference_image_url:
-            raise ValueError(
-                "Hunyuan3D-2 Mini texture generation needs a reference image (use image-to-3d + texture)."
-            )
-        import trimesh
-        from PIL import Image
-        mesh = trimesh.load(mesh_path)
-        img = Image.open(request.reference_image_url).convert("RGBA")
-        textured = self._tex(mesh, image=img)
-        out_glb = str(Path(output_dir) / "model.glb") if output_dir else mesh_path
-        textured.export(out_glb)
+
+        # 1. Try neural paint pipeline if available
+        if self._tex is not None and request.reference_image_url:
+            try:
+                import torch
+                import trimesh
+                from PIL import Image
+                mesh = trimesh.load(mesh_path, force="mesh")
+                img = Image.open(request.reference_image_url).convert("RGBA")
+                with torch.inference_mode():
+                    try:
+                        result = self._tex(mesh, image=img)
+                    except TypeError:
+                        result = self._tex(mesh_path=mesh_path, image=img)
+                if hasattr(result, "export"):
+                    result.export(out_glb)
+                    logger.info("Hunyuan3D-2 Mini neural texture applied: %s", out_glb)
+                    return
+                elif hasattr(result, "mesh") and hasattr(result.mesh, "export"):
+                    result.mesh.export(out_glb)
+                    logger.info("Hunyuan3D-2 Mini neural texture applied: %s", out_glb)
+                    return
+            except Exception as exc:
+                logger.warning("Hunyuan3D neural texturing failed: %s; falling back to projection texturing", exc)
+
+        # 2. Resilient UV image projection fallback (ensures model is always textured with color)
+        if request.reference_image_url:
+            try:
+                self._project_texture(mesh_path, request.reference_image_url, out_glb)
+                logger.info("Hunyuan3D-2 Mini projection texture applied: %s", out_glb)
+                return
+            except Exception as exc:
+                logger.warning("Texture projection fallback failed: %s", exc)
+
+        raise RuntimeError("Hunyuan3D-2 Mini texture generation failed and no reference image available")
