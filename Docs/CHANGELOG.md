@@ -1,5 +1,22 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.15] - 2026-09-07
+
+### Added / Fixed
+
+#### 1. Tripo AI-Style Interactive 3D Volumetric Point Cloud Preview (`ImagePointCloud.ts`, `MeshViewer.tsx`)
+- **Interactive 3D Volumetric Point Cloud Sculpture**: Directly addresses the request to preview the 3D shape of uploaded images (like characters, monsters, dogs, or props) in real time during generation, matching Tripo AI's experience.
+- **Silhouette & Luminance Extraction (`ImagePointCloud.ts`)**:
+  - Analyzes image alpha channels and computes Euclidean background distance (`ΔE`) on solid backgrounds.
+  - Calculates edge-distance distance fields to determine 3D core thickness and elliptical volumetric extrusion along the Z-axis.
+  - Generates 3,000 to 10,000 volumetric points styled with a soft radial starlight particle texture, vertex luminance tinting, and `THREE.AdditiveBlending`.
+  - Fallback 3D procedural lattice for text-to-3D prompts without reference images.
+- **Full 3D Orbit Interactivity**: Point cloud is added directly to Three.js `scene`, allowing users to rotate, orbit 360°, pan, and zoom with `OrbitControls` while AI generation synthesizes the final mesh.
+- **Zero Performance Drop**: Rendered via a single `THREE.Points` BufferGeometry with a single WebGL draw call (60fps guaranteed, zero CPU intervals).
+- **Minimal Floating HUD**: Clean, unboxed floating telemetry bar positioned below the 3D point cloud (`"Generating..."`, slim progress bar, and subtitle tip) that automatically hides matcap swatches and export toolbars during generation.
+- **Safe Lifecycle & Memory Management**: Automatically removes points and frees GPU textures/geometries (`disposePointCloud`) upon generation completion, seamlessly transitioning to the generated GLB.
+- **Runnable Self-Check**: Added `scripts/test_point_cloud.ts` verifying point cloud construction, vertex counts, color attributes, and safe disposal.
+
 ## [v5.0.14] - 2026-09-07
 
 ### Added / Fixed

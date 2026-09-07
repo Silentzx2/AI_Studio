@@ -32,6 +32,7 @@ import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 import { apiClient } from '@/services/apiClient';
 
 import { validate3DFile } from '../lib/fileValidation';
+import { createPointCloudFromImage, createFallbackPointCloud, disposePointCloud } from './ImagePointCloud';
 
 const disposeMaterial = (material: THREE.Material) => {
   Object.values(material).forEach((v) => { if (v instanceof THREE.Texture) v.dispose(); });
@@ -135,6 +136,10 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     setIsTurntable,
     isExecuting,
     executionProgress,
+    executionStep,
+    cancelExecution,
+    generationSettings,
+    textureSettings,
     activeTool,
     setActiveTool,
     setIsExportModalOpen,
@@ -174,6 +179,16 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const [dropToastIsHtmlError, setDropToastIsHtmlError] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<string | null>('real');
   const [meshStats, setMeshStats] = useState<{ faces: number; vertices: number; triangles: number } | null>(null);
+  const [debugBlueprint, setDebugBlueprint] = useState(false);
+
+  useEffect(() => {
+    const handleToggle = (e: Event) => {
+      const customEvent = e as CustomEvent<{ force?: boolean }>;
+      setDebugBlueprint((prev) => (customEvent.detail?.force !== undefined ? customEvent.detail.force : !prev));
+    };
+    window.addEventListener('toggleBlueprintPreview', handleToggle);
+    return () => window.removeEventListener('toggleBlueprintPreview', handleToggle);
+  }, []);
 
   const patchEnv = (updates: Partial<typeof environmentSettings>) =>
     setEnvironmentSettings((p) => ({ ...p, ...updates }));
@@ -225,6 +240,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const controlsRef = useRef<OrbitControls | null>(null);
   const transformControlsRef = useRef<TransformControls | null>(null);
   const currentMeshGroupRef = useRef<THREE.Group | null>(null);
+  const pointCloudRef = useRef<THREE.Points | null>(null);
+  const pointCloudGroupRef = useRef<THREE.Group | null>(null);
   const gridHelperRef = useRef<THREE.GridHelper | null>(null);
   const keyLightRef = useRef<THREE.DirectionalLight | null>(null);
   const fillLightRef = useRef<THREE.DirectionalLight | null>(null);
@@ -401,6 +418,12 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     scene.add(meshGroup);
     currentMeshGroupRef.current = meshGroup;
 
+    // Interactive Generation Point Cloud Group (Tripo AI silhouette preview)
+    const pointCloudGroup = new THREE.Group();
+    pointCloudGroup.visible = false;
+    scene.add(pointCloudGroup);
+    pointCloudGroupRef.current = pointCloudGroup;
+
     // 8. Animation & Render Loop — demand-based rendering with idle settling to save browser GPU
     const timer = new THREE.Timer();
     let idleFrames = 0;
@@ -418,9 +441,14 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         meshGroup.rotation.y += delta * 0.45;
       }
 
+      const pointCloudActive = Boolean(pointCloudGroup && pointCloudGroup.visible && pointCloudGroup.children.length > 0);
+      if (pointCloudActive) {
+        pointCloudGroup.rotation.y += delta * 0.25;
+      }
+
       const controlsChanged = controls.update();
-      if (turntableActive || controlsChanged || idleFrames < 60) {
-        if (turntableActive || controlsChanged) {
+      if (turntableActive || pointCloudActive || controlsChanged || idleFrames < 60) {
+        if (turntableActive || pointCloudActive || controlsChanged) {
           idleFrames = 0;
         } else {
           idleFrames++;
@@ -454,6 +482,10 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
       transformControls.dispose();
       controls.dispose();
       renderer.dispose();
+      if (pointCloudRef.current) {
+        disposePointCloud(pointCloudRef.current);
+        pointCloudRef.current = null;
+      }
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
       }
@@ -486,6 +518,71 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
       gridHelperRef.current.visible = showGrid;
     }
   }, [showGrid]);
+
+  // Interactive 3D Point Cloud silhouette generation during AI 3D model synthesis (Tripo AI style)
+  useEffect(() => {
+    const isGenerating = Boolean(isExecuting || debugBlueprint);
+    const pointCloudGroup = pointCloudGroupRef.current;
+    const meshGroup = currentMeshGroupRef.current;
+
+    if (!pointCloudGroup) return;
+
+    if (!isGenerating) {
+      // Hide & dispose point cloud when generation completes or aborts
+      pointCloudGroup.visible = false;
+      if (pointCloudRef.current) {
+        pointCloudGroup.remove(pointCloudRef.current);
+        disposePointCloud(pointCloudRef.current);
+        pointCloudRef.current = null;
+      }
+      if (meshGroup) {
+        meshGroup.visible = true;
+      }
+      return;
+    }
+
+    // Hide real mesh group while generation point cloud is displayed
+    if (meshGroup) {
+      meshGroup.visible = false;
+    }
+
+    let isMounted = true;
+    const refImage = generationSettings?.image || textureSettings?.referenceImage;
+
+    const buildPoints = async () => {
+      if (pointCloudRef.current) {
+        pointCloudGroup.remove(pointCloudRef.current);
+        disposePointCloud(pointCloudRef.current);
+        pointCloudRef.current = null;
+      }
+
+      let points: THREE.Points;
+      if (refImage) {
+        try {
+          points = await createPointCloudFromImage(refImage);
+        } catch {
+          points = createFallbackPointCloud();
+        }
+      } else {
+        points = createFallbackPointCloud();
+      }
+
+      if (!isMounted) {
+        disposePointCloud(points);
+        return;
+      }
+
+      pointCloudRef.current = points;
+      pointCloudGroup.add(points);
+      pointCloudGroup.visible = true;
+    };
+
+    buildPoints();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isExecuting, debugBlueprint, generationSettings?.image, textureSettings?.referenceImage]);
 
   // Load the real selected asset into the persistent viewport.
   useEffect(() => {
@@ -1188,8 +1285,41 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         </div>
       )}
 
-      {/* Smooth Non-Intrusive Loading Overlay */}
-      {(isLoading || isExecuting) && (
+      {/* Tripo AI-style Interactive 3D Generation HUD */}
+      {(isExecuting || debugBlueprint) && (
+        <div className="absolute bottom-16 sm:bottom-20 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center pointer-events-auto max-w-md w-full px-4 text-center select-none animate-in fade-in duration-300">
+          <div className="flex items-center gap-2 mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)]">
+            <span className="text-xs sm:text-sm font-semibold text-zinc-100 tracking-wide">
+              {isExecuting ? (executionStep || 'Generating...') : 'Generating...'}
+            </span>
+            <span className="text-xs font-mono font-bold text-[#F9CF00]">
+              {Math.round(isExecuting ? (executionProgress || 45) : 48)}%
+            </span>
+          </div>
+
+          {/* Minimalist Slim Progress Bar (Identical to Tripo AI) */}
+          <div className="w-56 sm:w-64 h-1 rounded-full bg-zinc-800/90 overflow-hidden mb-2 shadow-md">
+            <div 
+              className="h-full bg-gradient-to-r from-zinc-300 via-white to-[#F9CF00] rounded-full transition-all duration-300"
+              style={{ width: `${Math.max(5, Math.min(100, isExecuting ? (executionProgress || 45) : 48))}%` }}
+            />
+          </div>
+
+          <p className="text-[10px] text-zinc-400 max-w-sm leading-relaxed drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)]">
+            Use orbit controls to inspect the 3D volumetric preview in real time while neural generation synthesizes geometry.
+          </p>
+
+          <button
+            onClick={isExecuting ? cancelExecution : () => setDebugBlueprint(false)}
+            className="mt-1 text-[10px] text-zinc-500 hover:text-rose-400 transition-colors cursor-pointer underline drop-shadow-sm"
+          >
+            {isExecuting ? 'Cancel Generation' : 'Close Preview'}
+          </button>
+        </div>
+      )}
+
+      {/* Smooth Non-Intrusive Loading Overlay (Asset file parsing) */}
+      {isLoading && !isExecuting && (
         <div className="absolute inset-0 bg-[#14161b]/70 backdrop-blur-sm flex flex-col items-center justify-center z-20 pointer-events-none transition-all duration-200">
           <div className="relative flex items-center justify-center">
             <div className="w-12 h-12 rounded-full border-2 border-zinc-700 border-t-[#F9CF00] animate-spin" />
@@ -1197,22 +1327,14 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           </div>
           <div className="mt-3 text-center">
             <span className="text-xs font-bold text-zinc-200 tracking-wide block">
-              {isExecuting ? 'Generating 3D Model...' : 'Loading 3D Model...'}
+              Loading 3D Model...
             </span>
-            {isExecuting && (
-              <div className="mt-2 w-44 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
-                <div 
-                  className="h-full bg-[#F9CF00] transition-all duration-300 rounded-full"
-                  style={{ width: `${executionProgress || 45}%` }}
-                />
-              </div>
-            )}
           </div>
         </div>
       )}
 
       {/* Empty State Overlay when no asset is active */}
-      {!currentAsset && !isLoading && !isExecuting && (
+      {!currentAsset && !isLoading && !isExecuting && !debugBlueprint && (
         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none p-4">
           <div className="max-w-xs w-full p-5 rounded-2xl bg-[#14161b]/95 border border-[#272a34] shadow-2xl backdrop-blur-md text-center pointer-events-auto space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-[#1c1f26] border border-[#272a34] flex items-center justify-center mx-auto text-[#F9CF00]">
@@ -1504,9 +1626,11 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             </div>
           )}
 
-          {/* Shading Material Swatches Bar (Bottom Center) */}
-          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-[#14161b] border border-[#272a34] shadow-2xl">
+          {/* Shading Material Swatches & Bottom Transport Bar (Hidden during generation preview) */}
+          {!isExecuting && !debugBlueprint && (
+            <>
+              <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-[#14161b] border border-[#272a34] shadow-2xl">
               {/* Textured / PBR */}
               <SimpleTooltip side="top" label="PBR Textured">
                 <button
@@ -1677,6 +1801,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               <span>Export</span>
             </button>
           </div>
+            </>
+          )}
         </>
       )}
     </div>
