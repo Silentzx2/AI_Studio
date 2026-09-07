@@ -22,6 +22,9 @@
   - Increased `runtime_status` API cache TTL in `backend/app/api/v1/runtime.py` to 30s.
 - **Next.js API Gateway Proxy Timeout (`app/api/v1/[...path]/route.ts`)**:
   - Increased default GET proxy abort timeout from 10s (`AbortSignal.timeout(10000)`) to 30s (`AbortSignal.timeout(30000)`), preventing premature Next.js `[TimeoutError]` and `failed to pipe response` on transient high system load.
+- **Proxy Content-Length Header Truncation Fix (`route.ts`, `adminService.ts`)**:
+  - **Root Cause**: FastAPI's `GZipMiddleware` compresses JSON responses over 1,000 bytes (e.g. `/api/v1/admin/models` at ~8,000 bytes compresses to ~1,138 bytes). Node.js `fetch()` in Next.js automatically decompresses the body, but `createProxyResponse` was forwarding the compressed `content-length: 1138` header to the browser. As a result, browsers truncated the uncompressed 8,000-byte JSON stream at byte 1,138, triggering `SyntaxError: Unexpected end of JSON input` in `JSON.parse` and causing `adminService.listModels()` to return empty, manifesting as `"No models found. Install models from the runtime options."`.
+  - **Fix**: Removed `content-length` from `forwardHeaders` in `createProxyResponse` (enabling standard chunked transfer encoding), normalized `localhost` to `127.0.0.1` to avoid Node.js IPv6 `::1` connection errors in Colab, and made `adminService.listModels()` bypass stale client caches.
 - **Runnable Self-Check (`scripts/test_latency.py`)**:
   - Added lightweight assert-based verification test for storage weight cache, `/api/v1/health`, `/api/v1/admin/models`, and `RuntimeHealth.check_all()`, confirming all cached lookups complete in < 5ms.
 

@@ -129,9 +129,15 @@ export const adminService = {
 
   async listModels(): Promise<AdminModel[]> {
     try {
-      const res = await apiClient.get<{ data: { models: AdminModel[] } }>('/api/v1/admin/models');
-      return res?.data?.models || [];
-    } catch {
+      // Bypass client-side in-memory cache so fresh model statuses are always fetched
+      const res: any = await apiClient.get('/api/v1/admin/models', false);
+      if (Array.isArray(res)) return res;
+      if (Array.isArray(res?.data?.models)) return res.data.models;
+      if (Array.isArray(res?.models)) return res.models;
+      if (Array.isArray(res?.data)) return res.data;
+      return [];
+    } catch (err) {
+      console.error('[AdminService] listModels error:', err);
       return [];
     }
   },

@@ -215,7 +215,12 @@ function getBackendUrl(): string {
   const value = process.env.BACKEND_URL?.trim();
 
   if (value && value !== 'undefined' && value !== 'null') {
-    return value.replace(/\/+$/, '');
+    const clean = value.replace(/\/+$/, '');
+    // In Node.js on Linux/Colab, localhost can resolve to IPv6 ::1 and fail with ECONNREFUSED
+    if (clean.includes('//localhost:8000')) {
+      return clean.replace('//localhost:8000', '//127.0.0.1:8000');
+    }
+    return clean;
   }
 
   // Default to IPv4 loopback where FastAPI runs in native / Colab environments
@@ -224,9 +229,8 @@ function getBackendUrl(): string {
 
 /**
  * Resilient fetcher that forwards requests to the backend.
- * If the configured backend URL uses Docker hostname 'api' but fails due to ENOTFOUND
- * (e.g. in Colab or native execution outside Docker networks), it automatically fails
- * over to 127.0.0.1:8000 and remembers the working address for subsequent requests.
+ * If the configured backend URL uses Docker hostname 'api' or 'localhost' and fails,
+ * it automatically fails over to 127.0.0.1:8000.
  */
 async function fetchWithBackendFallback(
   url: string,
@@ -238,14 +242,25 @@ async function fetchWithBackendFallback(
     const isDnsOrConnectionError =
       error?.cause?.code === 'ENOTFOUND' ||
       error?.code === 'ENOTFOUND' ||
+      error?.cause?.code === 'ECONNREFUSED' ||
+      error?.code === 'ECONNREFUSED' ||
       error?.message?.includes('ENOTFOUND') ||
+      error?.message?.includes('ECONNREFUSED') ||
       error?.message?.includes('fetch failed');
 
-    if (isDnsOrConnectionError && (url.includes('//api:8000') || url.includes('//api/'))) {
-      const fallbackUrl = url.replace(/\/\/api(:8000)?\//, '//127.0.0.1:8000/');
-      console.warn(`[API Proxy] Host 'api' unreachable; failing over to ${fallbackUrl}`);
-      activeBackendUrl = 'http://127.0.0.1:8000';
-      return await fetch(fallbackUrl, init);
+    if (isDnsOrConnectionError) {
+      if (url.includes('//api:8000') || url.includes('//api/')) {
+        const fallbackUrl = url.replace(/\/\/api(:8000)?\//, '//127.0.0.1:8000/');
+        console.warn(`[API Proxy] Host 'api' unreachable; failing over to ${fallbackUrl}`);
+        activeBackendUrl = 'http://127.0.0.1:8000';
+        return await fetch(fallbackUrl, init);
+      }
+      if (url.includes('//localhost:8000')) {
+        const fallbackUrl = url.replace('//localhost:8000', '//127.0.0.1:8000');
+        console.warn(`[API Proxy] Host 'localhost' unreachable; failing over to ${fallbackUrl}`);
+        activeBackendUrl = 'http://127.0.0.1:8000';
+        return await fetch(fallbackUrl, init);
+      }
     }
     throw error;
   }
@@ -499,8 +514,13 @@ function getAuthHeader(request: NextRequest): HeadersInit {
 function createProxyResponse(response: Response, request?: NextRequest): NextResponse {
   const headers = new Headers();
 
-  // Forward relevant headers
-  const forwardHeaders = ['content-type', 'content-length', 'accept-ranges', 'content-range', 'cache-control', 'etag', 'last-modified'];
+  // Forward relevant headers.
+  // CRITICAL: NEVER forward 'content-length' or 'content-encoding'!
+  // Node.js fetch() automatically decompresses gzip/deflate responses from the backend.
+  // If the upstream backend sent a gzipped response (e.g. FastAPI GZipMiddleware for >1000b payloads),
+  // upstream content-length is the COMPRESSED size, while response.body is DECOMPRESSED.
+  // Forwarding compressed content-length causes the browser to truncate the JSON payload mid-stream!
+  const forwardHeaders = ['content-type', 'accept-ranges', 'content-range', 'cache-control', 'etag', 'last-modified'];
   for (const header of forwardHeaders) {
     const value = response.headers.get(header);
     if (value) headers.set(header, value);
