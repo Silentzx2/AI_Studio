@@ -22,6 +22,9 @@
 - **TripoSG Manifest & Smoke Test Fix (`triposg.yaml`, `preflight.py`)**:
   - **Root Cause**: `triposg.yaml` pinned `numpy==1.22.3` (from legacy 2022 upstream) and omitted `scipy`. Modern `trimesh` and `PyTorch 2.5.1` require `numpy>=1.24` and `scipy` for spatial convex bounds operations (`trimesh.bounds`).
   - **Fix**: Updated `triposg.yaml` to require `numpy>=1.24.4,<2.0` and added `scipy` to `dependencies.python`. Added `is_onnx_available` and `check_torch_load_is_safe` bypasses in TripoSG's capability smoke test in `preflight.py`.
+- **Auditwheel `.libs` Shared Library Bundle Copying (`base.py`)**:
+  - **Root Cause**: In-process model loading creates a Python 3.12 overlay directory for C-extensions (`_imaging`, `scipy`, etc.). When `_fix_c_package_overlay` copied `scipy` from backend site-packages to the overlay, it only copied the `scipy/` package folder and neglected auditwheel's companion `scipy.libs/` directory. When `transformers` imported `scipy.linalg._fblas`, the dynamic linker failed to find `libscipy_openblas-*.so`.
+  - **Fix**: Updated `_fix_c_package_overlay` and `_fix_overlay_packages` in `backend/app/core/providers/base.py` to automatically copy and sync all `*.libs` shared library directories (such as `scipy.libs` and `pillow.libs`). Updated the overlay verification check for `scipy` to explicitly test `from scipy.linalg import _fblas` to ensure BLAS runtime linkage is fully operational.
 
 ## [v5.0.16] - 2026-09-07
 

@@ -50,8 +50,10 @@ if "torchaudio" not in sys.modules:
     try:
         import torchaudio
     except Exception:
-        import types
+        import types, importlib.machinery
         _m = types.ModuleType("torchaudio")
+        _m.__spec__ = importlib.machinery.ModuleSpec("torchaudio", None)
+        _m.__file__ = "<stub>"
         _m.__version__ = "2.5.1"
         _m.is_available = lambda: False
         _m.list_audio_backends = lambda: []
@@ -128,6 +130,13 @@ def _fix_c_package_overlay(repo_name: str, pkg_name: str, import_name: str, chec
                     dst_dist = overlay / dist.name
                     if not dst_dist.exists():
                         shutil.copytree(str(dist), str(dst_dist), symlinks=True)
+                # Copy auditwheel .libs bundles (e.g. scipy.libs, pillow.libs) needed by C-extensions
+                libs_patterns = [f"{src_dir.name}.libs", f"{norm_pkg}*.libs", f"{pkg_name}*.libs"]
+                for pat in libs_patterns:
+                    for libs_dir in src_dir.parent.glob(pat):
+                        dst_libs = overlay / libs_dir.name
+                        if not dst_libs.exists():
+                            shutil.copytree(str(libs_dir), str(dst_libs), symlinks=True)
                 bcode, bout = _run([backend_py, "-c", check_overlay_code])
                 if bcode == 0 and "ok" in bout:
                     logger.info("_fix_overlay[%s:%s]: copied backend package to overlay successfully", repo_name, pkg_name)
@@ -180,26 +189,34 @@ def _fix_overlay_packages(repo_name: str, force: bool = False) -> bool:
     if not force and repo_name in _VERIFIED_OVERLAYS:
         return True
 
-    # Clean up any partial torchvision/torchaudio copies in overlay (they lack private .libs and break C-extensions)
+    # Sync all auditwheel *.libs directories from backend Python into overlay and clean bad copies
     try:
         from runtime.storage import get_storage_config
         venv_dir = get_storage_config().get_model_venv_path(repo_name)
         if venv_dir.exists():
             overlay = _backend_overlay_site_packages(venv_dir)
+            import shutil
+            import sysconfig
+            sp_paths = [Path(p) for p in [sysconfig.get_path("purelib"), sysconfig.get_path("platlib")] if p and Path(p).exists()]
+            for sp in sp_paths:
+                for libs_dir in sp.glob("*.libs"):
+                    dst_libs = overlay / libs_dir.name
+                    if not dst_libs.exists():
+                        shutil.copytree(str(libs_dir), str(dst_libs), symlinks=True)
+                        logger.info("_fix_overlay[%s]: copied missing shared libs %s to overlay", repo_name, libs_dir.name)
             for bad_pkg in ("torchvision", "torchaudio"):
                 bad_dir = overlay / bad_pkg
                 if bad_dir.exists():
-                    import shutil
                     shutil.rmtree(str(bad_dir), ignore_errors=True)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Failed syncing .libs to overlay: %s", exc)
 
     packages = [
         ("pillow", "PIL", "from PIL import _imaging; print('ok')"),
         ("regex", "regex", "from regex import _regex; print('ok')"),
         ("safetensors", "safetensors", "import safetensors; from safetensors import _safetensors_rust; print('ok')"),
         ("pymeshlab", "pymeshlab", "from pymeshlab import pmeshlab; print('ok')"),
-        ("scipy", "scipy", "from scipy._lib import _ccallback_c; print('ok')"),
+        ("scipy", "scipy", "from scipy._lib import _ccallback_c; from scipy.linalg import _fblas; print('ok')"),
         ("scikit-image", "skimage", "from skimage.measure import _marching_cubes_lewiner_cy; print('ok')"),
     ]
     all_ok = True
