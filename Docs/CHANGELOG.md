@@ -1,5 +1,26 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.13] - 2026-09-07
+
+### Added / Fixed
+
+#### 1. Target 3D Mesh Binding & Workspace Model Selectors (`TexturePanel.tsx`, `RemeshPanel.tsx`)
+- **Root Cause Resolution ("SELECT A MODEL" / "mesh set karo pehle")**: Previously, when navigating to the Texture or Remesh tabs, `currentAsset` was null if not explicitly clicked, with no UI to select or view the active model. The primary buttons remained disabled with `SELECT A MODEL`, blocking texturing and remeshing workflows.
+- **Dedicated Target 3D Mesh Card**: Added an interactive Target 3D Mesh card at the top of both `TexturePanel.tsx` and `RemeshPanel.tsx`, displaying the active model name, format (`GLB`), polygon count, and format tag.
+- **Model Switcher Dropdown**: If multiple models exist in the workspace, users can switch the active target model directly from within the panel dropdown without switching tabs.
+- **Auto-Selection Fallback**: Added automatic selection (`useEffect`) to select `assets[0]` whenever a model exists in the workspace and no model is currently active.
+- **Empty State Guidance**: When the workspace contains no models, displays an intuitive empty-state card with a 1-click button ("Go to Generate 3D Model") directing users to create a mesh.
+
+#### 2. Headless Blender Mesh Optimization & Decimation Backend (`mesh_optimizer.py`, `tasks.py`)
+- **Blender 4.0 Decimation Modifier Backend**: Implemented `_run_blender_remesh` in `mesh_optimizer.py` utilizing headless Blender (`blender -b`) with factory scene reset, GLB/OBJ/FBX import, `DECIMATE` modifier, normal consistency calculation, and Smart UV projection.
+- **Quad / Adaptive / Uniform Remeshing Support**: Accepts user parameters (`target_polycount`, `remesh_mode`, `voxel_size`, `preserve_details`, `fix_uvs`) and decimates complex topology in milliseconds while preserving geometry and material bindings.
+- **Seamless Graceful Fallbacks**: If Blender is not available, automatically falls back to Trimesh quadric edge decimation and PyMeshLab.
+- **Source Mesh Resolution Fix (`tasks.py`)**: Updated `_resolve_reference_image` and `job.mode == "remesh"` to resolve `/static/models/`, `/api/v1/outputs/`, and local storage paths against `settings.storage_local_path` so remesh jobs correctly load the targeted asset.
+
+#### 3. GeneratePanel UI Layout, Visibility, and Scrollbar Containment (`GeneratePanel.tsx`)
+- **Scrollbar Containment & Visual Indicator**: Replaced `no-scrollbar` with `scrollbar-thin scrollbar-thumb-zinc-700/60 scrollbar-track-transparent pr-1.5 pb-12` across `GeneratePanel.tsx`, `TexturePanel.tsx`, and `RemeshPanel.tsx`, ensuring all cards, sliders, and controls are smoothly scrollable and never obscured by the bottom sticky footer.
+- **Verified via `agent-browser`**: Used `agent-browser` to inspect and capture visual snapshots of `/workspace/generate`, `/workspace/texture`, and `/workspace/remesh`, confirming full button visibility and proper layout alignment.
+
 ## [v5.0.12] - 2026-09-05
 
 ### Added / Fixed

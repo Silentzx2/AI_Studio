@@ -105,9 +105,10 @@ def _resolve_reference_image(reference: str | None, job_id: str) -> str | None:
     parsed = urlparse(reference)
     path = unquote(parsed.path if parsed.scheme else reference)
 
+    storage_root = Path(settings.storage_local_path)
     if "/static/" in path:
         rel = path.split("/static/", 1)[-1].lstrip("/")
-        candidate = Path(settings.storage_local_path) / rel
+        candidate = storage_root / rel
         if candidate.exists():
             return str(candidate)
 
@@ -118,9 +119,28 @@ def _resolve_reference_image(reference: str | None, job_id: str) -> str | None:
     )
 
     if any(path.startswith(prefix) for prefix in upload_prefixes):
-        candidate = Path(settings.storage_local_path) / "uploads" / Path(path).name
+        candidate = storage_root / "uploads" / Path(path).name
         if candidate.exists():
             return str(candidate)
+
+    # Search in storage subdirectories (models, uploads, exports)
+    for folder in ("models", "exports", "uploads", "generated"):
+        if f"/{folder}/" in path or path.startswith(f"{folder}/"):
+            rel = path.split(f"{folder}/", 1)[-1].lstrip("/")
+            candidate = storage_root / folder / rel
+            if candidate.exists():
+                return str(candidate)
+
+    # Search by filename across storage_root
+    fname = Path(path).name
+    if fname:
+        for sub in ("models", "uploads", "exports"):
+            cand = storage_root / sub / fname
+            if cand.exists():
+                return str(cand)
+            matches = list((storage_root / sub).glob(f"*/{fname}"))
+            if matches:
+                return str(matches[0])
 
     return reference
 
@@ -396,21 +416,26 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             _ensure_not_cancelled(session, job_id)
 
             if job.mode == "remesh":
-                source_mesh = request.source_mesh_url or request.reference_image_url
+                source_mesh_raw = request.source_mesh_url or request.reference_image_url
+                source_mesh = _resolve_reference_image(source_mesh_raw, job_id) if source_mesh_raw else None
                 if not source_mesh or not Path(source_mesh).exists():
                     raise RuntimeError("Remesh requires a selected local GLB/mesh asset. Select a model in the workspace and try again.")
                 remesh_settings = request.remesh_settings or {}
-                target_faces = int(remesh_settings.get("targetFaces") or 30000)
+                target_faces = int(remesh_settings.get("targetFaces") or remesh_settings.get("target_polycount") or 30000)
                 target_faces = max(1000, min(target_faces, 500000))
                 sync_publish(12, "remeshing", f"Remeshing mesh to approximately {target_faces:,} triangles.", "info")
                 from app.core.mesh_optimizer import optimize_mesh
                 remeshed_path = str(Path(out_dir) / "remeshed.glb")
+                preserve_raw = remesh_settings.get("detailPreservation", 75.0)
+                preserve_val = float(preserve_raw) if float(preserve_raw) > 1.0 else float(preserve_raw) * 100.0
                 result = optimize_mesh(
                     input_path=source_mesh,
                     output_path=remeshed_path,
                     target_polycount=target_faces,
                     fix_uvs=bool(remesh_settings.get("preserveUVs", True)),
-                    preserve_details=float(remesh_settings.get("detailPreservation", 75.0)),
+                    preserve_details=preserve_val,
+                    remesh_mode=str(remesh_settings.get("mode", "adaptive")),
+                    voxel_size=float(remesh_settings.get("voxelSize", 0.05)),
                 )
                 if not result.get("success"):
                     raise RuntimeError(result.get("error") or "Mesh remeshing/optimization failed")

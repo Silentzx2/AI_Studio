@@ -47,6 +47,159 @@ def _check_decimation_backend() -> bool:
     return False
 
 
+def _run_blender_remesh(
+    input_path: str,
+    output_path: str,
+    target_polycount: int,
+    fix_uvs: bool,
+    preserve_details: float,
+    remesh_mode: str = "adaptive",
+    voxel_size: float = 0.05,
+) -> dict[str, Any] | None:
+    """Attempt remeshing and decimation using headless Blender 4.x.
+
+    Returns dict of stats on success, or None if Blender is not available or fails.
+    """
+    import os
+    import shutil
+    import subprocess
+
+    blender_bin = shutil.which("blender")
+    if not blender_bin:
+        return None
+
+    # Environment variables: system python home + site-packages for gltf exporter
+    env = os.environ.copy()
+    env["PYTHONHOME"] = "/usr"
+    site_packages = "/home/zeus/miniconda3/envs/cloudspace/lib/python3.12/site-packages"
+    if os.path.isdir(site_packages):
+        env["PYTHONPATH"] = site_packages
+
+    script = f"""
+import bpy, os, sys
+
+try:
+    input_path = {repr(input_path)}
+    output_path = {repr(output_path)}
+    target_polycount = {int(target_polycount)}
+    fix_uvs = {bool(fix_uvs)}
+    preserve_details = {float(preserve_details)}
+    remesh_mode = {repr(remesh_mode)}
+    voxel_size = {float(voxel_size)}
+
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    ext = os.path.splitext(input_path)[1].lower()
+    if ext in ('.glb', '.gltf'):
+        bpy.ops.import_scene.gltf(filepath=input_path)
+    elif ext == '.obj':
+        bpy.ops.wm.obj_import(filepath=input_path)
+    elif ext == '.fbx':
+        bpy.ops.import_scene.fbx(filepath=input_path)
+    else:
+        bpy.ops.import_scene.gltf(filepath=input_path)
+
+    mesh_objs = [o for o in bpy.context.scene.objects if o.type == 'MESH']
+    if not mesh_objs:
+        sys.exit(1)
+
+    total_in_faces = sum(len(o.data.polygons) for o in mesh_objs)
+    total_in_verts = sum(len(o.data.vertices) for o in mesh_objs)
+    print(f"BLENDER_IN_FACES={{total_in_faces}}")
+    print(f"BLENDER_IN_VERTS={{total_in_verts}}")
+
+    for obj in mesh_objs:
+        bpy.context.view_layer.objects.active = obj
+        obj.select_set(True)
+        curr_faces = len(obj.data.polygons)
+        if curr_faces == 0:
+            continue
+
+        if remesh_mode == 'uniform' and voxel_size > 0.005:
+            try:
+                obj.data.remesh_voxel_size = voxel_size
+                bpy.ops.object.voxel_remesh()
+            except Exception:
+                pass
+
+        new_faces = len(obj.data.polygons)
+        if new_faces > target_polycount:
+            ratio = max(0.01, min(1.0, target_polycount / max(1, new_faces)))
+            scaled_ratio = ratio * (0.5 + preserve_details / 200.0)
+            final_ratio = max(0.01, min(1.0, scaled_ratio))
+            mod = obj.modifiers.new(name="Decimate", type="DECIMATE")
+            mod.ratio = final_ratio
+            bpy.ops.object.modifier_apply(modifier=mod.name)
+
+        try:
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.mesh.normals_make_consistent(inside=False)
+            if fix_uvs and not obj.data.uv_layers:
+                bpy.ops.uv.smart_project(angle_limit=1.15, island_margin=0.02)
+            bpy.ops.object.mode_set(mode='OBJECT')
+        except Exception:
+            pass
+
+    total_out_faces = sum(len(o.data.polygons) for o in mesh_objs)
+    total_out_verts = sum(len(o.data.vertices) for o in mesh_objs)
+    print(f"BLENDER_OUT_FACES={{total_out_faces}}")
+    print(f"BLENDER_OUT_VERTS={{total_out_verts}}")
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    bpy.ops.export_scene.gltf(filepath=output_path, export_format='GLB')
+    print("BLENDER_EXPORT_SUCCESS")
+except Exception as e:
+    print(f"BLENDER_ERROR: {{e}}", file=sys.stderr)
+    sys.exit(1)
+"""
+
+    try:
+        proc = subprocess.run(
+            [blender_bin, "-b", "--python-expr", script],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=90,
+        )
+        if proc.returncode == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+            in_faces = 0
+            out_faces = 0
+            in_verts = 0
+            out_verts = 0
+            for line in proc.stdout.splitlines():
+                if line.startswith("BLENDER_IN_FACES="):
+                    in_faces = int(line.split("=", 1)[1])
+                elif line.startswith("BLENDER_OUT_FACES="):
+                    out_faces = int(line.split("=", 1)[1])
+                elif line.startswith("BLENDER_IN_VERTS="):
+                    in_verts = int(line.split("=", 1)[1])
+                elif line.startswith("BLENDER_OUT_VERTS="):
+                    out_verts = int(line.split("=", 1)[1])
+
+            reduction = (
+                round((1 - out_faces / in_faces) * 100, 1)
+                if in_faces > 0
+                else 0.0
+            )
+            logger.info("Blender remesh successful: %d -> %d faces (reduction %.1f%%)", in_faces, out_faces, reduction)
+            return {
+                "original_polycount": in_faces,
+                "optimized_polycount": out_faces,
+                "original_vertex_count": in_verts,
+                "optimized_vertex_count": out_verts,
+                "reduction_percent": reduction,
+                "uv_fixes_applied": fix_uvs,
+                "success": True,
+                "backend": "blender",
+            }
+        else:
+            logger.warning("Blender remesh process exited with code %d", proc.returncode)
+            return None
+    except Exception as exc:
+        logger.warning("Blender remesh execution failed: %s", exc)
+        return None
+
+
 def _try_import_trimesh():
     try:
         import trimesh
@@ -61,25 +214,27 @@ def optimize_mesh(
     target_polycount: int = 30000,
     fix_uvs: bool = True,
     preserve_details: float = 75.0,
+    remesh_mode: str = "adaptive",
+    voxel_size: float = 0.05,
 ) -> dict[str, Any]:
     """Optimize a mesh by decimating to target polycount and fixing UVs.
 
-    Args:
-        input_path: Path to input mesh file (GLB/OBJ/FBX)
-        output_path: Path to write optimized mesh
-        target_polycount: Target triangle count
-        fix_uvs: Whether to fix overlapping UVs and fill UV islands
-        preserve_details: 0-100, higher = more detail preserved
-
-    Returns:
-        dict with optimization stats:
-            - original_polycount: int
-            - optimized_polycount: int
-            - reduction_percent: float
-            - uv_fixes_applied: bool
-            - success: bool
-            - error: str (if failed)
+    Tries Blender headless modifier pass first for top quality topology,
+    then falls back to Trimesh quadric decimation or PyMeshLab.
     """
+    # 1. Try Blender headless optimization first if available
+    blender_result = _run_blender_remesh(
+        input_path=input_path,
+        output_path=output_path,
+        target_polycount=target_polycount,
+        fix_uvs=fix_uvs,
+        preserve_details=preserve_details,
+        remesh_mode=remesh_mode,
+        voxel_size=voxel_size,
+    )
+    if blender_result is not None:
+        return blender_result
+
     trimesh = _try_import_trimesh()
     if trimesh is None:
         logger.warning("trimesh not installed — skipping auto-optimize")

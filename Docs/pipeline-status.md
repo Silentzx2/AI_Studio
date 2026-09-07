@@ -1,12 +1,26 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.12 (Mesh Generation Settings & Real Texture Generation Pipeline Fix)
-> **Status**: ✅ **COMPLETE** — Verified 2026-09-05
-> **Last Updated**: September 5, 2026
+> **Version**: 5.0.13 (Target Mesh Binding, Blender Remesh Optimizer, & Panel Layout Visibility)
+> **Status**: ✅ **COMPLETE** — Verified 2026-09-07
+> **Last Updated**: September 7, 2026
 
 ---
 
-## v5.0.12 — Mesh Gen Settings & End-to-End Texture Generation Fix (2026-09-05)
+## v5.0.13 — Target Mesh Binding, Blender Remesh Optimizer, & Panel Layout Visibility (2026-09-07)
+
+### What changed
+- **Target 3D Mesh Binding & Workspace Model Selectors (`TexturePanel.tsx`, `RemeshPanel.tsx`)**:
+  - Resolved root cause of disabled "SELECT A MODEL" button when switching between tabs.
+  - Added interactive Target 3D Mesh card at the top of Texture and Remesh panels with thumbnail, polygon count, and quick model dropdown selector.
+  - Added auto-selection fallback (`assets[0]`) when entering the tab with unselected active model.
+- **Headless Blender Mesh Optimization Backend (`mesh_optimizer.py`, `tasks.py`)**:
+  - Integrated Blender 4.0 (`_run_blender_remesh`) running headless to execute high-fidelity decimation modifiers, UV smart projection, and normal consistency calculations.
+  - Passes user parameters: target face budget, adaptive/uniform remesh mode, detail preservation percentage, and UV fixing.
+  - Maintained seamless fallback to Trimesh quadric edge decimation and PyMeshLab.
+  - Fixed local mesh path resolution in `tasks.py` across `/static/models/`, `/api/v1/outputs/`, and storage directories.
+- **Panel UI Layout & Visual Verification via `agent-browser` (`GeneratePanel.tsx`, `TexturePanel.tsx`, `RemeshPanel.tsx`)**:
+  - Replaced hidden overflow scrollbars with visible thin scrollbars and generous bottom padding (`pb-12`), ensuring all buttons and sliders are immediately visible and never obscured by sticky footers.
+  - Visually verified via `agent-browser` taking snapshots across `/workspace/generate`, `/workspace/texture`, and `/workspace/remesh`.
 
 ### What changed
 - **Interactive Mesh Generation Settings in GeneratePanel (`GeneratePanel.tsx`, `WorkspaceContext.tsx`, `generation.py`, `tasks.py`, `mesh_optimizer.py`)**:

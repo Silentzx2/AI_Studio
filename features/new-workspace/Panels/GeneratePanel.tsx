@@ -288,7 +288,7 @@ export const GeneratePanel: React.FC = () => {
       </div>
 
       {/* Main Body */}
-      <div className="flex-1 overflow-y-auto px-2.5 py-2.5 space-y-3 no-scrollbar">
+      <div className="flex-1 overflow-y-auto px-2.5 py-2.5 pb-12 space-y-3 scrollbar-thin scrollbar-thumb-zinc-700/60 scrollbar-track-transparent pr-1.5">
         {/* Notice Message Toast/Banner */}
         <AnimatePresence>
           {noticeMessage && (
@@ -956,7 +956,7 @@ export const GeneratePanel: React.FC = () => {
       </div>
 
       {/* Bottom Sticky Action Button */}
-      <div className="p-3 border-t border-white/[0.08] bg-[#16181D]">
+      <div className="p-3 border-t border-white/[0.08] bg-[#16181D] relative z-20 flex-shrink-0">
         <button
           id="btn-generate-model-action"
           onClick={handleGenerate}
