@@ -47,6 +47,60 @@ def _check_decimation_backend() -> bool:
     return False
 
 
+def _get_blender_env(blender_bin: str) -> dict[str, str]:
+    """Dynamically build an environment for running headless Blender.
+
+    Avoids hardcoding machine-specific paths by extracting site-packages from
+    the currently executing Python runtime (venv, conda, or system) and resolving
+    Blender's Python home automatically.
+    """
+    import os
+    import sys
+    from pathlib import Path
+
+    env = os.environ.copy()
+
+    # Discover site-packages / dist-packages dynamically from current Python runtime
+    discovered_site_dirs: list[str] = []
+    try:
+        import site
+        if hasattr(site, "getsitepackages"):
+            for p in site.getsitepackages():
+                if os.path.isdir(p) and p not in discovered_site_dirs:
+                    discovered_site_dirs.append(p)
+        if hasattr(site, "getusersitepackages"):
+            up = site.getusersitepackages()
+            if isinstance(up, str) and os.path.isdir(up) and up not in discovered_site_dirs:
+                discovered_site_dirs.append(up)
+    except Exception:
+        pass
+
+    for p in sys.path:
+        if p and ("site-packages" in p or "dist-packages" in p) and os.path.isdir(p):
+            if p not in discovered_site_dirs:
+                discovered_site_dirs.append(p)
+
+    if discovered_site_dirs:
+        existing_pp = env.get("PYTHONPATH", "")
+        parts = discovered_site_dirs + ([existing_pp] if existing_pp else [])
+        env["PYTHONPATH"] = os.pathsep.join(parts)
+
+    # Determine PYTHONHOME for Blender if needed
+    blender_real = Path(os.path.realpath(blender_bin))
+    bundled_python = None
+    for child in blender_real.parent.glob("*/python"):
+        if child.is_dir():
+            bundled_python = child
+            break
+
+    if bundled_python and bundled_python.is_dir():
+        env["PYTHONHOME"] = str(bundled_python)
+    elif str(blender_real).startswith("/usr"):
+        env["PYTHONHOME"] = "/usr"
+
+    return env
+
+
 def _run_blender_remesh(
     input_path: str,
     output_path: str,
@@ -68,12 +122,8 @@ def _run_blender_remesh(
     if not blender_bin:
         return None
 
-    # Environment variables: system python home + site-packages for gltf exporter
-    env = os.environ.copy()
-    env["PYTHONHOME"] = "/usr"
-    site_packages = "/home/zeus/miniconda3/envs/cloudspace/lib/python3.12/site-packages"
-    if os.path.isdir(site_packages):
-        env["PYTHONPATH"] = site_packages
+    # Dynamically resolve Blender's runtime environment
+    env = _get_blender_env(blender_bin)
 
     script = f"""
 import bpy, os, sys

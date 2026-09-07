@@ -17,6 +17,7 @@
   - Integrated Blender 4.0 (`_run_blender_remesh`) running headless to execute high-fidelity decimation modifiers, UV smart projection, and normal consistency calculations.
   - Passes user parameters: target face budget, adaptive/uniform remesh mode, detail preservation percentage, and UV fixing.
   - Maintained seamless fallback to Trimesh quadric edge decimation and PyMeshLab.
+  - Dynamically builds the Blender environment via `_get_blender_env(blender_bin)` using `sys.path` and `site.getsitepackages()`, completely removing any hardcoded machine paths.
   - Fixed local mesh path resolution in `tasks.py` across `/static/models/`, `/api/v1/outputs/`, and storage directories.
 - **Panel UI Layout & Visual Verification via `agent-browser` (`GeneratePanel.tsx`, `TexturePanel.tsx`, `RemeshPanel.tsx`)**:
   - Replaced hidden overflow scrollbars with visible thin scrollbars and generous bottom padding (`pb-12`), ensuring all buttons and sliders are immediately visible and never obscured by sticky footers.

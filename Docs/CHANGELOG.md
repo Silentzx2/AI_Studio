@@ -15,6 +15,7 @@
 - **Blender 4.0 Decimation Modifier Backend**: Implemented `_run_blender_remesh` in `mesh_optimizer.py` utilizing headless Blender (`blender -b`) with factory scene reset, GLB/OBJ/FBX import, `DECIMATE` modifier, normal consistency calculation, and Smart UV projection.
 - **Quad / Adaptive / Uniform Remeshing Support**: Accepts user parameters (`target_polycount`, `remesh_mode`, `voxel_size`, `preserve_details`, `fix_uvs`) and decimates complex topology in milliseconds while preserving geometry and material bindings.
 - **Seamless Graceful Fallbacks**: If Blender is not available, automatically falls back to Trimesh quadric edge decimation and PyMeshLab.
+- **Dynamic Runtime Environment (`_get_blender_env`)**: Eliminated all hardcoded system paths; dynamically extracts `site-packages` from the active Python runtime (`sys.path`, `site.getsitepackages`) and resolves Blender's standard library home across local virtualenvs, Conda, Colab, and containerized deployments.
 - **Source Mesh Resolution Fix (`tasks.py`)**: Updated `_resolve_reference_image` and `job.mode == "remesh"` to resolve `/static/models/`, `/api/v1/outputs/`, and local storage paths against `settings.storage_local_path` so remesh jobs correctly load the targeted asset.
 
 #### 3. GeneratePanel UI Layout, Visibility, and Scrollbar Containment (`GeneratePanel.tsx`)
