@@ -309,6 +309,16 @@ def _add_model_env(repo_name: str) -> None:
             sys.path.insert(0, repo_path)
         sys.path.insert(0, overlay_str)
 
+        # Pre-load shared libraries in *.libs directories with RTLD_GLOBAL
+        # so that C-extensions (like scipy.linalg._fblas) can resolve their OpenBLAS symbols
+        import ctypes
+        for libs_dir in list(overlay.glob("*.libs")) + list(Path(_backend_sp).glob("*.libs")):
+            for so_file in libs_dir.glob("*.so*"):
+                try:
+                    ctypes.CDLL(str(so_file), mode=ctypes.RTLD_GLOBAL)
+                except Exception:
+                    pass
+
     # CRITICAL: Remove all shared packages and their submodules from sys.modules
     # so they are re-imported fresh from the newly-prepended per-model venv.
     # Reloading is insufficient because:

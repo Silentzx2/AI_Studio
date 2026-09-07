@@ -87,6 +87,18 @@ for p in (str(TRIPOSG_REPO), str(TRIPOSG_SCRIPTS)):
         sys.path.insert(0, p)
 
 try:
+    try:
+        import diffusers.utils.import_utils as _diu
+        _diu.is_onnx_available = lambda: False
+        _diu.is_onnxruntime_available = lambda: False
+    except Exception:
+        pass
+    try:
+        import transformers.utils.import_utils as _tiu
+        if hasattr(_tiu, "check_torch_load_is_safe"):
+            _tiu.check_torch_load_is_safe = lambda *a, **kw: None
+    except Exception:
+        pass
     import torch
     import trimesh
     import numpy as np
@@ -129,6 +141,18 @@ class TripoSGLocalProvider(BaseProvider):
                 if p not in sys.path:
                     sys.path.insert(0, p)
             try:
+                try:
+                    import diffusers.utils.import_utils as _diu
+                    _diu.is_onnx_available = lambda: False
+                    _diu.is_onnxruntime_available = lambda: False
+                except Exception:
+                    pass
+                try:
+                    import transformers.utils.import_utils as _tiu
+                    if hasattr(_tiu, "check_torch_load_is_safe"):
+                        _tiu.check_torch_load_is_safe = lambda *a, **kw: None
+                except Exception:
+                    pass
                 from triposg.pipelines.pipeline_triposg import TripoSGPipeline
                 from image_process import prepare_image
                 from briarmbg import BriaRMBG
