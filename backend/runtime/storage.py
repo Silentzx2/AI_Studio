@@ -25,6 +25,18 @@ def _get_provider_metadata() -> dict[str, dict]:
         return {}
 
 
+_WEIGHT_CACHE: dict[str, tuple[float, Path | None]] = {}
+_WEIGHT_CACHE_TTL: float = 30.0
+
+
+def invalidate_weight_cache(weight_key: str | None = None) -> None:
+    """Invalidate the weight path resolution cache (all or specific key)."""
+    if weight_key:
+        _WEIGHT_CACHE.pop(weight_key, None)
+    else:
+        _WEIGHT_CACHE.clear()
+
+
 @dataclass
 class StorageConfig:
     """Centralized storage configuration — single source of truth."""
@@ -223,9 +235,27 @@ class StorageConfig:
         except (PermissionError, OSError):
             return False
 
+    def invalidate_weight_cache(self, weight_key: str | None = None) -> None:
+        """Invalidate the weight path resolution cache (all or specific key)."""
+        invalidate_weight_cache(weight_key)
+
     def get_weight_path(self, weight_key: str) -> Path | None:
+        """Search all known locations for model weights with in-memory caching to avoid disk thrashing."""
+        if not weight_key:
+            return None
+        import time
+        now = time.monotonic()
+        if weight_key in _WEIGHT_CACHE:
+            ts, path = _WEIGHT_CACHE[weight_key]
+            if (now - ts) < _WEIGHT_CACHE_TTL:
+                return path
+        res = self._resolve_weight_path_uncached(weight_key)
+        _WEIGHT_CACHE[weight_key] = (now, res)
+        return res
+
+    def _resolve_weight_path_uncached(self, weight_key: str) -> Path | None:
         """
-        Search all known locations for model weights.
+        Search all known locations for model weights on disk.
         Returns the first non-empty directory found, or None.
 
         Order:

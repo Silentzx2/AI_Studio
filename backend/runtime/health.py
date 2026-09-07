@@ -46,6 +46,10 @@ class RuntimeHealth:
     # by /system/gpu and the health endpoint for freshness when needed.
     _gpu_cache: tuple[float, dict] = (0.0, {})
     _GPU_TTL = 60.0
+    _check_all_cache: tuple[float, dict] = (0.0, {})
+    _CHECK_ALL_TTL = 30.0
+    _static_cache: dict[str, tuple[float, dict]] = {}
+    _STATIC_TTL = 300.0
 
     @classmethod
     def _get_cached_gpu(cls) -> dict:
@@ -62,7 +66,18 @@ class RuntimeHealth:
         cls._gpu_cache = (0.0, {})
 
     @classmethod
+    def invalidate_cache(cls) -> None:
+        cls._gpu_cache = (0.0, {})
+        cls._check_all_cache = (0.0, {})
+        cls._static_cache.clear()
+
+    @classmethod
     async def check_all(cls) -> dict:
+        import time
+        now = time.monotonic()
+        if cls._check_all_cache[1] and (now - cls._check_all_cache[0]) < cls._CHECK_ALL_TTL:
+            return cls._check_all_cache[1]
+
         # Run independent checks concurrently using thread pool to avoid
         # blocking the event loop on subprocess and filesystem calls.
         import asyncio
@@ -79,7 +94,7 @@ class RuntimeHealth:
             asyncio.to_thread(cls._check_services),
             asyncio.to_thread(cls._check_environment),
         )
-        return {
+        res = {
             "gpu": gpu,
             "cuda": cuda,
             "blender": blender,
@@ -92,6 +107,8 @@ class RuntimeHealth:
             "services": services,
             "environment": env,
         }
+        cls._check_all_cache = (now, res)
+        return res
 
     # -------------------------------------------------------------------------
     # GPU
@@ -164,6 +181,11 @@ class RuntimeHealth:
 
     @classmethod
     def _check_cuda(cls) -> dict:
+        import time
+        now = time.monotonic()
+        if "cuda" in cls._static_cache and (now - cls._static_cache["cuda"][0]) < cls._STATIC_TTL:
+            return cls._static_cache["cuda"][1]
+
         result = {"available": False, "version": None, "status": "FAIL", "message": "CUDA not available"}
         try:
             import torch
@@ -178,6 +200,7 @@ class RuntimeHealth:
                 result["message"] = f"PyTorch {torch.__version__} — CUDA unavailable"
         except ImportError:
             result["message"] = "PyTorch not installed"
+        cls._static_cache["cuda"] = (now, result)
         return result
 
     # -------------------------------------------------------------------------
@@ -186,6 +209,11 @@ class RuntimeHealth:
 
     @classmethod
     def _check_blender(cls) -> dict:
+        import time
+        now = time.monotonic()
+        if "blender" in cls._static_cache and (now - cls._static_cache["blender"][0]) < cls._STATIC_TTL:
+            return cls._static_cache["blender"][1]
+
         result = {"available": False, "path": None, "version": None, "status": "WARN", "message": "Blender not found"}
         for candidate in cls.BLENDER_PATHS:
             if not candidate:
@@ -207,9 +235,11 @@ class RuntimeHealth:
                     "status": "PASS",
                     "message": version_line,
                 })
+                cls._static_cache["blender"] = (now, result)
                 return result
             except Exception:
                 continue
+        cls._static_cache["blender"] = (now, result)
         return result
 
     # -------------------------------------------------------------------------
@@ -218,13 +248,20 @@ class RuntimeHealth:
 
     @classmethod
     def _check_python(cls) -> dict:
-        return {
+        import time
+        now = time.monotonic()
+        if "python" in cls._static_cache and (now - cls._static_cache["python"][0]) < cls._STATIC_TTL:
+            return cls._static_cache["python"][1]
+
+        res = {
             "available": True,
             "version": sys.version,
             "executable": sys.executable,
             "status": "PASS",
             "message": f"Python {sys.version.split()[0]}",
         }
+        cls._static_cache["python"] = (now, res)
+        return res
 
     # -------------------------------------------------------------------------
     # Providers
@@ -439,7 +476,7 @@ class RuntimeHealth:
             import redis as redis_lib
             from app.config import get_settings
             settings = get_settings()
-            r = redis_lib.from_url(settings.redis_url, socket_connect_timeout=2)
+            r = redis_lib.from_url(settings.redis_url, socket_connect_timeout=0.25)
             r.ping()
             result["redis"] = {"available": True, "url": settings.redis_url}
             messages.append("Redis OK")
@@ -454,7 +491,7 @@ class RuntimeHealth:
             import psycopg2
             sync_url = settings.sync_database_url
             pg_dsn = sync_url.replace("+psycopg2", "").replace("+asyncpg", "")
-            conn = psycopg2.connect(pg_dsn, connect_timeout=2)
+            conn = psycopg2.connect(pg_dsn, connect_timeout=1)
             conn.close()
             result["postgres"] = {"available": True}
             messages.append("Postgres OK")
@@ -477,6 +514,11 @@ class RuntimeHealth:
 
     @classmethod
     def _check_environment(cls) -> dict:
+        import time
+        now = time.monotonic()
+        if "env" in cls._static_cache and (now - cls._static_cache["env"][0]) < cls._STATIC_TTL:
+            return cls._static_cache["env"][1]
+
         important_vars = [
             "HF_HOME", "HUGGINGFACE_HUB_CACHE", "TRANSFORMERS_CACHE",
             "TORCH_HOME", "WEIGHTS_DIR", "CUDA_VISIBLE_DEVICES",
@@ -487,13 +529,15 @@ class RuntimeHealth:
         for var in important_vars:
             val = os.environ.get(var)
             env_values[var] = val if val else "<not set>"
-        return {
+        res = {
             "variables": env_values,
             "platform": platform.platform(),
             "python": sys.version,
             "status": "PASS",
             "message": "Environment variables collected",
         }
+        cls._static_cache["env"] = (now, res)
+        return res
 
     # -------------------------------------------------------------------------
     # Summary

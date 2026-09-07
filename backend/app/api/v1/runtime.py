@@ -100,7 +100,7 @@ async def _build_runtime_status_payload() -> dict[str, Any]:
 
 @router.get("/status")
 async def runtime_status():
-    cached = get_cached("runtime_status", ttl_seconds=15)
+    cached = get_cached("runtime_status", ttl_seconds=30)
     if cached is not None:
         return success(cached)
     try:

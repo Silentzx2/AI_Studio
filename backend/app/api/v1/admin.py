@@ -1095,7 +1095,7 @@ async def list_models():
         # install_status is cached for 10s; we add another layer here for the
         # full model list (which includes path resolution per model).
         from app.core.cache import get_cached, set_cached
-        cached = get_cached("list_models", ttl_seconds=8)
+        cached = get_cached("list_models", ttl_seconds=25)
         if cached is not None:
             return success(cached)
 
@@ -1116,21 +1116,24 @@ async def list_models():
         models = []
         for name, meta in get_all_provider_metadata().items():
             inst = install_status.get(name, {})
-            # Get actual paths for verification
             repo_name = meta.get("repo")
             weight_key = meta.get("weight_key")
-            repo_path = str(storage.get_repo_path(repo_name)) if repo_name else None
-            wp_found = storage.get_weight_path(weight_key) if weight_key else None
-            if not wp_found:
-                wp_found = storage.get_weight_path(name)
-            weight_path = str(wp_found) if wp_found else None
+            comps = inst.get("components", {})
+            repo_path = comps.get("repo", {}).get("path") or (str(storage.get_repo_path(repo_name)) if repo_name else None)
+            weight_comp = comps.get("weights", {})
+            weight_path = weight_comp.get("path")
+            has_weights = weight_comp.get("state") == "ok" or (weight_path is not None)
 
-            # Ponytail: For /settings AI models UI, strictly require weights on disk
-            # before marking a model as installed or ready.
-            # Repo and venv preparation alone does NOT mean the model is ready.
-            has_weights = wp_found is not None
-            repo_ready = bool(inst.get("repo_ready", False) or not repo_name)
-            venv_ready = bool(inst.get("venv_ready", False) or not repo_name)
+            if not has_weights:
+                wp_found = storage.get_weight_path(weight_key) if weight_key else None
+                if not wp_found:
+                    wp_found = storage.get_weight_path(name)
+                if wp_found:
+                    weight_path = str(wp_found)
+                    has_weights = True
+
+            repo_ready = bool(comps.get("repo", {}).get("state") == "ok" or inst.get("repo_ready", False) or not repo_name)
+            venv_ready = bool(comps.get("venv", {}).get("state") == "ok" or inst.get("venv_ready", False) or not repo_name)
             inst_state = inst.get("state")
 
             # Model is ONLY installed and ready if weights actually exist on disk

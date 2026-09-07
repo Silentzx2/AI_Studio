@@ -21,8 +21,10 @@ logger = logging.getLogger(__name__)
 async def _check_database() -> dict:
     """Check database connectivity."""
     try:
-        async with AsyncSessionLocal() as session:
-            await session.execute(text("SELECT 1"))
+        async def _ping_db():
+            async with AsyncSessionLocal() as session:
+                await session.execute(text("SELECT 1"))
+        await asyncio.wait_for(_ping_db(), timeout=0.4)
         return {"status": "ok"}
     except Exception as e:
         return {"status": "error", "error": str(e)}
@@ -32,8 +34,9 @@ async def _check_redis() -> dict:
     """Check Redis connectivity (async — don't block event loop)."""
     try:
         import redis.asyncio as aioredis
-        r = aioredis.from_url(settings.redis_url, socket_connect_timeout=2)
-        await r.ping()
+        # Fail fast: 250ms socket timeout avoids blocking the event loop when Redis is down
+        r = aioredis.from_url(settings.redis_url, socket_connect_timeout=0.25)
+        await asyncio.wait_for(r.ping(), timeout=0.3)
         await r.aclose()
         return {"status": "ok"}
     except Exception as e:
@@ -45,7 +48,8 @@ import time
 
 _health_cache: dict | None = None
 _health_cache_time: float = 0.0
-_HEALTH_CACHE_TTL = 8.0  # seconds
+_HEALTH_CACHE_TTL = 20.0  # seconds
+_health_lock = asyncio.Lock()
 
 
 async def _check_storage() -> dict:
@@ -69,8 +73,8 @@ async def _check_storage() -> dict:
         }
 
 
-async def _check_engine() -> dict:
-    """Check runtime engine status."""
+def _sync_check_engine() -> dict:
+    """Synchronous runtime engine check designed to run in worker thread."""
     try:
         from runtime.engine import get_engine
         engine = get_engine()
@@ -93,6 +97,11 @@ async def _check_engine() -> dict:
         }
 
 
+async def _check_engine() -> dict:
+    """Check runtime engine status off the async loop."""
+    return await asyncio.to_thread(_sync_check_engine)
+
+
 @router.get("")
 async def health() -> Dict[str, Any]:
     """Comprehensive health check endpoint with in-memory caching to prevent DB/IO overload."""
@@ -101,44 +110,51 @@ async def health() -> Dict[str, Any]:
     if _health_cache is not None and (now - _health_cache_time < _HEALTH_CACHE_TTL):
         return success(_health_cache)
 
-    async def _safe_run(coro, default_err):
-        try:
-            return await asyncio.wait_for(coro, timeout=1.5)
-        except Exception as exc:
-            return {"status": "degraded", "error": str(exc) or default_err}
+    async with _health_lock:
+        # Re-check after acquiring lock in case another task populated the cache
+        now = time.time()
+        if _health_cache is not None and (now - _health_cache_time < _HEALTH_CACHE_TTL):
+            return success(_health_cache)
 
-    db_task = _safe_run(_check_database(), "Database check timeout")
-    redis_task = _safe_run(_check_redis(), "Redis check timeout")
-    storage_task = _safe_run(_check_storage(), "Storage check timeout")
-    engine_task = _safe_run(_check_engine(), "Engine check timeout")
+        async def _safe_run(coro, default_err):
+            try:
+                return await asyncio.wait_for(coro, timeout=0.5)
+            except Exception as exc:
+                return {"status": "degraded", "error": str(exc) or default_err}
 
-    db_result, redis_result, storage_result, engine_result = await asyncio.gather(
-        db_task, redis_task, storage_task, engine_task
-    )
+        db_task = _safe_run(_check_database(), "Database check timeout")
+        redis_task = _safe_run(_check_redis(), "Redis check timeout")
+        storage_task = _safe_run(_check_storage(), "Storage check timeout")
+        engine_task = _safe_run(_check_engine(), "Engine check timeout")
 
-    health_status = {
-        "status": "ok",
-        "version": settings.app_version,
-        "environment": settings.environment,
-        "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
-        "services": {
-            "database": db_result,
-            "redis": redis_result,
-            "storage": storage_result,
-            "engine": engine_result,
-            "api": {"status": "ok"},
-        },
-    }
+        db_result, redis_result, storage_result, engine_result = await asyncio.gather(
+            db_task, redis_task, storage_task, engine_task
+        )
 
-    # Determine overall status
-    overall_healthy = all(
-        s.get("status") in ("ok", "unavailable")
-        for s in [db_result, redis_result, storage_result, engine_result]
-    )
+        health_status = {
+            "status": "ok",
+            "version": settings.app_version,
+            "environment": settings.environment,
+            "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+            "services": {
+                "database": db_result,
+                "redis": redis_result,
+                "storage": storage_result,
+                "engine": engine_result,
+                "api": {"status": "ok"},
+            },
+        }
 
-    if not overall_healthy:
-        health_status["status"] = "degraded"
+        # Determine overall status
+        overall_healthy = all(
+            s.get("status") in ("ok", "unavailable")
+            for s in [db_result, redis_result, storage_result, engine_result]
+        )
 
-    _health_cache = health_status
-    _health_cache_time = now
-    return success(health_status)
+        if not overall_healthy:
+            health_status["status"] = "degraded"
+
+        _health_cache = health_status
+        _health_cache_time = now
+        return success(health_status)
+

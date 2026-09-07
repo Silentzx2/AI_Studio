@@ -286,7 +286,7 @@ export async function GET(
     const response = await fetchWithBackendFallback(targetUrl, {
       method: 'GET',
       headers: getForwardingHeaders(request),
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(30000),
     });
     
     return createProxyResponse(response, request);

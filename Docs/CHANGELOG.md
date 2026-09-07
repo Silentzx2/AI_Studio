@@ -1,5 +1,30 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.16] - 2026-09-07
+
+### Added / Fixed
+
+#### 1. Backend Latency & High-Load Optimization (`health.py`, `admin.py`, `storage.py`, `health.py`, `route.ts`)
+- **Health Endpoint Event-Loop Latency (`health.py`)**:
+  - Eliminated event loop blocking when Redis is unreachable or slow by reducing Redis async connection timeout to `250ms` (`socket_connect_timeout=0.25`).
+  - Added strict `400ms` timeout to database connectivity ping (`_check_database`).
+  - Offloaded CPU-bound synchronous engine health check to worker thread via `asyncio.to_thread(_sync_check_engine)`.
+  - Added request coalescing (`asyncio.Lock`) so concurrent polling requests share a single execution.
+  - Increased `_health_cache` TTL to 20s. Reduced response time from ~2,200ms to **10.9ms uncached / 0.003ms cached**.
+- **Admin Models Redundant Disk Iteration (`admin.py`, `storage.py`)**:
+  - Replaced duplicate filesystem `stat` and `iterdir` traversals in `list_models()` by reusing the pre-resolved `components.weights.path` and `components.weights.state` from `get_install_status_cached()`.
+  - Added module-level 30s TTL in-memory cache `_WEIGHT_CACHE` with `invalidate_weight_cache()` in `backend/runtime/storage.py`, accelerating weight directory resolution from ~110ms to **0.005ms**.
+  - Increased `list_models` API cache TTL to 25s, reducing response time from ~5,500ms to **243ms first run / 0.01ms cached**.
+- **Runtime Health Subprocess & Service Delays (`runtime/health.py`, `runtime.py`)**:
+  - Added static 300s TTL cache for immutable system checks (`_check_blender`, `_check_cuda`, `_check_python`, `_check_environment`), eliminating repetitive `blender --version` and `nvcc` subprocess invocations on status polling.
+  - Added 30s TTL cache to `RuntimeHealth.check_all()`.
+  - Decreased Redis and Postgres connection probe timeouts in `_check_services()` to 250ms / 1s.
+  - Increased `runtime_status` API cache TTL in `backend/app/api/v1/runtime.py` to 30s.
+- **Next.js API Gateway Proxy Timeout (`app/api/v1/[...path]/route.ts`)**:
+  - Increased default GET proxy abort timeout from 10s (`AbortSignal.timeout(10000)`) to 30s (`AbortSignal.timeout(30000)`), preventing premature Next.js `[TimeoutError]` and `failed to pipe response` on transient high system load.
+- **Runnable Self-Check (`scripts/test_latency.py`)**:
+  - Added lightweight assert-based verification test for storage weight cache, `/api/v1/health`, `/api/v1/admin/models`, and `RuntimeHealth.check_all()`, confirming all cached lookups complete in < 5ms.
+
 ## [v5.0.15] - 2026-09-07
 
 ### Added / Fixed
