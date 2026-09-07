@@ -41,6 +41,14 @@ trimesh==4.5.3
 scipy>=1.11.0
 scikit-image>=0.21.0
 xatlas
+# ponytail: trimesh's simplify_quadric_decimation requires fast_simplification at
+# runtime; without it every decimation attempt raises and the optimizer silently
+# copies the original mesh through (fake optimization). Required for real decimation.
+fast-simplification==0.2.0
+# ponytail: trimesh's offscreen thumbnail renderer (save_image) needs pyglet for
+# OpenGL rasterization; without it every thumbnail falls back to a static placeholder
+# PNG instead of a real render of the generated model.
+pyglet>=1.5.0
 
 # Tensor operations (TripoSR dependency)
 einops>=0.7.0

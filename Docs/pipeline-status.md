@@ -1,8 +1,54 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.13 (Target Mesh Binding, Blender Remesh Optimizer, & Panel Layout Visibility)
+> **Version**: 5.0.14 (Real Auto-Optimize Backend Gate & Source-Image Model Naming)
 > **Status**: ✅ **COMPLETE** — Verified 2026-09-07
 > **Last Updated**: September 7, 2026
+
+---
+
+## v5.0.14 — Real Auto-Optimize Backend Gate & Source-Image Model Naming (2026-09-07)
+
+### Root cause
+A Colab remesh job logged `Quadric decimation failed: No module named 'fast_simplification'`
+followed by `Thumbnail render failed: No module named 'pyglet'`, yet the job reported
+`status: completed` with a valid `model_url`. Both failures were **silent fallbacks**:
+the optimizer copied the original mesh through and the thumbnail renderer emitted a
+static placeholder PNG — so the user saw a "successful" result that was never actually
+optimized or rendered.
+
+### What changed
+- **Real decimation-backend gate (`backend/app/core/mesh_optimizer.py`)**:
+  - `_check_decimation_backend()` previously only tested
+    `hasattr(trimesh.Trimesh, "simplify_quadric_decimation")`, which is `True` even when
+    `fast_simplification` is not installed — so the gate passed but the real call raised.
+  - It now performs a tiny in-process decimation smoke test; a missing backend is
+    detected here and reported as `success: false` with a clear error, instead of a
+    fake "optimization" downstream.
+- **Missing thumbnail/optimize dependencies (`backend/requirements.txt`)**:
+  - Added `fast-simplification==0.2.0` (cp312 wheel verified; latest on PyPI is 0.2.0,
+    not 1.x — the `>=1.0.0` pin was wrong and would have broken install).
+  - Added `pyglet>=1.5.0` (trimesh's `Scene.save_image` offscreen renderer requires it;
+    without it every thumbnail falls back to a static placeholder).
+  - Both are consumed by the existing `scripts/setup.sh` and `scripts/colab.sh`
+    `uv pip install -r backend/requirements.txt` steps — no script change needed.
+- **Source-image model naming (`features/new-workspace/store/WorkspaceContext.tsx`)**:
+  - `startTask()` now accepts optional `inputImage`/`inputImageName`; the image-to-3D
+    path derives the name from the reference image filename and threads it through, so
+    the saved model is labelled by its source image instead of `Model_<uuid>`.
+    Remesh/texture callers are unaffected (no source image → `Model_<jobId>`).
+- **Verification**: `backend/app/core/test_mesh_optimizer_selfcheck.py` — exit 0 both
+  with the dep absent (gate reports unavailable) and present (gate reports available
+  AND a real decimation reduces 10 → 5 faces).
+
+### What changed (GLB caching layer — carried forward from v5.0.13 pending work)
+- **In-memory GLB cache (`features/new-workspace/lib/glbCache.ts`)**: 30-entry
+  `Map<string, ArrayBuffer>` with `getCachedGLB`/`setCachedGLB`/`prefetchGLB`.
+- **`MeshViewer.tsx`**: GLB load path checks the cache first; on a miss it runs the
+  existing fetch + HTML-content-type + truncation checks, then caches the buffer.
+- **`WorkspaceContext.tsx`**: on job completion, `prefetchGLB(modelUrl)` runs before the
+  asset is added, then `loadModelInViewer(...)` loads it without a redundant fetch.
+  Job polling replaced fixed 1.5s `setInterval` with adaptive `scheduleNext`
+  (500ms during generating/texturing/optimizing, 1000ms otherwise, 1500ms on error).
 
 ---
 

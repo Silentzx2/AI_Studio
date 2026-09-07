@@ -13,27 +13,40 @@ _DECIMATION_BACKEND_AVAILABLE: bool | None = None
 
 
 def _check_decimation_backend() -> bool:
-    """Check whether at least one decimation backend is available.
+    """Check whether at least one decimation backend is actually usable.
 
-    Returns True if trimesh's simplify_quadric_decimation OR pymeshlab
-    is available. Caches the result to avoid repeated imports.
+    Returns True if trimesh's simplify_quadric_decimation works at runtime OR
+    pymeshlab is available. Caches the result to avoid repeated imports.
+
+    ponytail: the old check only tested ``hasattr(trimesh.Trimesh,
+    "simplify_quadric_decimation")``, which is True even when
+    ``fast_simplification`` is not installed — so the gate passed but the real
+    call raised and the optimizer silently copied the original mesh through.
+    This now performs a real, tiny in-process decimation smoke test so a missing
+    backend is detected here, not as a fake "optimization" downstream.
     """
     global _DECIMATION_BACKEND_AVAILABLE
     if _DECIMATION_BACKEND_AVAILABLE is not None:
         return _DECIMATION_BACKEND_AVAILABLE
 
-    # trimesh's simplify_quadric_decimation is the primary backend
-    try:
-        import trimesh
-        # Verify the method actually exists (it requires fast_simplification or
-        # Open3D backend at runtime)
-        if hasattr(trimesh, "Trimesh") and hasattr(
-            trimesh.Trimesh, "simplify_quadric_decimation"
-        ):
-            _DECIMATION_BACKEND_AVAILABLE = True
-            return True
-    except ImportError:
-        pass
+    trimesh = _try_import_trimesh()
+    if trimesh is not None:
+        try:
+            import numpy as np
+            # Minimal smoke test: decimate a tiny mesh and confirm the result
+            # is a real trimesh with fewer-or-equal faces.
+            mesh = trimesh.Trimesh(
+                vertices=np.array(
+                    [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 1]], dtype=float
+                ),
+                faces=np.array([[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]]),
+            )
+            result = mesh.simplify_quadric_decimation(face_count=2)
+            if result is not None and hasattr(result, "faces"):
+                _DECIMATION_BACKEND_AVAILABLE = True
+                return True
+        except Exception:
+            pass
 
     # PyMeshLab is the fallback backend
     try:

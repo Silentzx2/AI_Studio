@@ -33,6 +33,7 @@ import { apiClient } from '@/services/apiClient';
 
 import { validate3DFile } from '../lib/fileValidation';
 import { createPointCloudFromImage, createFallbackPointCloud, disposePointCloud } from './ImagePointCloud';
+import { getCachedGLB, setCachedGLB } from '../lib/glbCache';
 
 const disposeMaterial = (material: THREE.Material) => {
   Object.values(material).forEach((v) => { if (v instanceof THREE.Texture) v.dispose(); });
@@ -685,18 +686,28 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
         const format = currentAsset.format.toLowerCase();
         if (format === 'glb' || format === 'gltf') {
-          // ponytail: verify response is binary before parsing as GLB.
-          // Cloudflare tunnel or missing files can return HTML with 200 status.
-          const response = await fetch(sourceUrl);
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          const contentType = response.headers.get('content-type') || '';
-          if (contentType.includes('text/html') || contentType.includes('application/json')) {
-            const text = await response.clone().text();
-            if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
-              throw new Error('Model file served as HTML — possible token/auth failure. Open DevTools for details.');
+          // ponytail: prefer the in-memory cached arrayBuffer (prefetched when a
+          // generation completes) to avoid a redundant network round-trip.
+          // Falls back to a fresh fetch and caches the result for next time.
+          let arrayBuffer: ArrayBuffer;
+          const cached = getCachedGLB(sourceUrl);
+          if (cached) {
+            arrayBuffer = cached;
+          } else {
+            // ponytail: verify response is binary before parsing as GLB.
+            // Cloudflare tunnel or missing files can return HTML with 200 status.
+            const response = await fetch(sourceUrl);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const contentType = response.headers.get('content-type') || '';
+            if (contentType.includes('text/html') || contentType.includes('application/json')) {
+              const text = await response.clone().text();
+              if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
+                throw new Error('Model file served as HTML — possible token/auth failure. Open DevTools for details.');
+              }
             }
+            arrayBuffer = await response.arrayBuffer();
+            setCachedGLB(sourceUrl, arrayBuffer);
           }
-          const arrayBuffer = await response.arrayBuffer();
 
           // Truncation check for GLB binary format to avoid Three.js typed array length error
           if (format === 'glb' && arrayBuffer.byteLength >= 12) {

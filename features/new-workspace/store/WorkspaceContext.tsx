@@ -16,7 +16,8 @@ import {
 } from '../types';
 import { apiClient } from '../lib/api';
 import { useAppStore } from '@/stores/useAppStore';
-import { useViewerStore } from '@/stores/useViewerStore';
+import { useViewerStore, loadModelInViewer } from '@/stores/useViewerStore';
+import { prefetchGLB } from '../lib/glbCache';
 import { shadingModeToPreset, presetToShadingMode } from '@/lib/storeAdapter';
 import { diagnoseJobError } from '@/lib/jobDiagnostics';
 import { useRouter, usePathname } from 'next/navigation';
@@ -479,6 +480,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return [asset, ...prev];
     });
     setSelectedAssetId(asset.id);
+    setViewportResetTrigger(prev => prev + 1);
   }, []);
 
   useEffect(() => {
@@ -489,6 +491,14 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!isBackendJob) return;
 
     let stopped = false;
+    let timerId: number | null = null;
+
+    const scheduleNext = (intervalMs: number) => {
+      if (stopped) return;
+      if (timerId) window.clearTimeout(timerId);
+      timerId = window.setTimeout(() => void poll(), intervalMs);
+    };
+
     const poll = async () => {
       try {
         const res = await fetch(`/api/v1/generation/${encodeURIComponent(jobId)}/status`, { cache: 'no-store' });
@@ -512,9 +522,13 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           setActiveTask(prev => prev ? { ...prev, status: 'completed', progress: 100, currentStep: 'Completed' } : null);
           if (data.result?.model_url) {
             const result = data.result;
+            const modelUrl = result.model_url as string;
             const promptTitle = task.title && task.title !== 'Image-to-3D generation' && task.title !== 'generate' ? task.title : null;
             const rawName = promptTitle || task.inputImageName || (task.inputImage ? task.inputImage.split('/').pop()?.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ') : null) || `Model_${jobId.slice(0, 6)}`;
             const cleanName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+
+            // Pre-fetch the model arrayBuffer immediately into in-memory cache
+            void prefetchGLB(modelUrl);
 
             const outputAsset: ModelAsset = {
               id: jobId,
@@ -525,7 +539,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               vertices: result.vertex_count ?? 0,
               triangles: result.polygon_count ?? 0,
               statsAvailable: (result.polygon_count ?? 0) > 0,
-              source: { filename: `${jobId}.glb`, subfolder: 'generated', type: 'output', viewUrl: result.model_url },
+              source: { filename: `${jobId}.glb`, subfolder: 'generated', type: 'output', viewUrl: modelUrl },
               topology: 'Triangle',
               format: 'GLB',
               dateCreated: new Date().toISOString().split('T')[0],
@@ -533,8 +547,12 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               meshType: 'custom',
             };
             addAsset(outputAsset);
+            setSelectedAssetId(outputAsset.id);
+            setViewportResetTrigger(prev => prev + 1);
+            loadModelInViewer(modelUrl, cleanName, outputAsset as any);
           }
-          toast.success('Generation complete', { description: 'The backend produced a valid output and the model is ready.' });
+          toast.success('Generation complete', { description: 'The 3D model is ready and loaded in the viewer.' });
+          return;
         } else if (data.status === 'failed' || data.status === 'cancelled') {
           const message = data.error_message || data.message || (data.status === 'cancelled' ? 'Generation cancelled' : 'Generation failed');
           setIsExecuting(false);
@@ -555,17 +573,24 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             progress
           } : null);
           if (data.status === 'failed') toast.error('Generation failed', { description: message });
+          return;
         }
+
+        // Adaptive polling: 500ms when in active generation/texturing, 1000ms otherwise
+        const nextInterval = (progress >= 50 || data.stage === 'generating' || data.stage === 'texturing' || data.stage === 'optimizing') ? 500 : 1000;
+        scheduleNext(nextInterval);
       } catch (error) {
         if (stopped) return;
-        // Do not mark a real backend job failed for one transient polling error.
         if (error instanceof Error) setExecutionStep(`Syncing job status… ${error.message}`);
+        scheduleNext(1500);
       }
     };
 
     void poll();
-    const timer = window.setInterval(() => void poll(), 1500);
-    return () => { stopped = true; window.clearInterval(timer); };
+    return () => {
+      stopped = true;
+      if (timerId) window.clearTimeout(timerId);
+    };
   }, [activeTask, addAsset]);
 
   const selectAsset = useCallback((id: string) => {
@@ -661,7 +686,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [activeTask?.id]);
 
-  const startTask = useCallback((type: ActiveTask['type'], title: string, promptId?: string, provider?: string) => {
+  const startTask = useCallback((type: ActiveTask['type'], title: string, promptId?: string, provider?: string, inputImage?: string, inputImageName?: string) => {
     setIsExecuting(true);
     setExecutionProgress(0);
     setExecutionStep('Queued');
@@ -674,6 +699,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       progress: 0,
       currentStep: 'Queued',
       provider,
+      inputImage,
+      inputImageName,
     });
   }, []);
 
@@ -685,7 +712,12 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return;
     }
     const modelPrompt = generationSettings.prompt || generationSettings.imageName || '3D Model';
-    startTask('image-to-3d', modelPrompt, undefined, generationSettings.aiModel);
+    // ponytail: derive a human-readable name from the reference image filename so
+    // the saved model is labelled by its source image, not "Model_<uuid>".
+    const imageFileName = generationSettings.imageName
+      || (imageToUse ? decodeURIComponent(imageToUse.split('/').pop()?.replace(/\?.*$/, '') || '') : '')
+      || modelPrompt;
+    startTask('image-to-3d', modelPrompt, undefined, generationSettings.aiModel, imageToUse, imageFileName);
 
     try {
       const res = await fetch('/api/v1/generation', {
