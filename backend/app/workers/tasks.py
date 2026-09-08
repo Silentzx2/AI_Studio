@@ -540,7 +540,37 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                     if keep_alive == 0 and settings.auto_unload_after_job:
                         provider.unload()
 
-            # 7. Blender post-processing
+            # Helper for constructing public URLs
+            def to_url(path: str | None) -> str | None:
+                if not path:
+                    return None
+                p = Path(path)
+                root = model_output_dir(job_id)
+                try:
+                    rel = p.relative_to(root).as_posix()
+                    return model_public_url(job_id, rel)
+                except Exception:
+                    return model_public_url(job_id, p.name)
+
+            # 7a. Master Preservation: preserve original untouched source asset immediately
+            import shutil
+            source_glb_path = str(model_output_dir(job_id) / "source.glb")
+            if provider_result.model_path and Path(provider_result.model_path).exists():
+                try:
+                    if not Path(source_glb_path).exists():
+                        shutil.copy(provider_result.model_path, source_glb_path)
+                except Exception as c_err:
+                    logger.warning("Could not preserve source.glb: %s", c_err)
+
+            meta = job.processing_metadata or {}
+            meta["source_model_url"] = to_url(source_glb_path) if Path(source_glb_path).exists() else to_url(provider_result.model_path)
+
+            # 7b. Analyze: classify asset and extract geometry characteristics
+            from app.core.mesh_processor import classify_asset
+            asset_class = classify_asset(prompt=job.prompt or "", model_path=source_glb_path if Path(source_glb_path).exists() else provider_result.model_path)
+            meta["asset_classification"] = asset_class
+
+            # 7c. Blender post-processing (cleanup, conditional Rigify, multi-format export)
             blender_result = {}
             try:
                 # Parse render settings from structured JSON metadata
@@ -558,12 +588,9 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                     if render_settings.get("samples"):
                         render_samples = int(render_settings["samples"])
 
-                from app.core.mesh_processor import classify_asset
-                asset_class = classify_asset(prompt=job.prompt or "", model_path=provider_result.model_path)
-
                 from app.core.blender.pipeline import process_model
                 blender_result = await process_model(
-                    input_path=provider_result.model_path,
+                    input_path=source_glb_path if Path(source_glb_path).exists() else provider_result.model_path,
                     output_dir=out_dir,
                     auto_rig=job.auto_rig if job.mode != "render" else False,
                     asset_category=asset_class.get("category"),
@@ -576,31 +603,6 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             except Exception as e:
                 logger.warning("Blender post-processing failed, using provider output directly: %s", e)
                 blender_result = {"glb": provider_result.model_path}
-
-            # Preserve original source asset before any further processing
-            import shutil
-            source_glb_path = str(model_output_dir(job_id) / "source.glb")
-            if provider_result.model_path and Path(provider_result.model_path).exists():
-                try:
-                    if not Path(source_glb_path).exists():
-                        shutil.copy(provider_result.model_path, source_glb_path)
-                except Exception as c_err:
-                    logger.warning("Could not preserve source.glb: %s", c_err)
-
-            def to_url(path: str | None) -> str | None:
-                if not path:
-                    return None
-                p = Path(path)
-                root = model_output_dir(job_id)
-                try:
-                    rel = p.relative_to(root).as_posix()
-                    return model_public_url(job_id, rel)
-                except Exception:
-                    return model_public_url(job_id, p.name)
-
-            meta = job.processing_metadata or {}
-            meta["source_model_url"] = to_url(source_glb_path) if Path(source_glb_path).exists() else to_url(provider_result.model_path)
-            meta["asset_classification"] = asset_class
 
             # Optional DetailGen3D pass
             detail_pass = meta.get("detail_pass", False)

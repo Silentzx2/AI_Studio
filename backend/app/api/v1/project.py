@@ -102,10 +102,25 @@ async def export_project(req: ExportRequest):
 
     Supports:
       - Variants: 'source' (master asset), 'game_ready' (optimized), 'lod_package' (LOD cascade)
-      - Formats: 'glb', 'obj', 'stl', 'ply'
+      - Formats: 'glb', 'fbx', 'obj', 'stl', 'ply'
       - Optional components: Collision hull, LODs, QA report
       - Packaging: Single file or structured ZIP archive
     """
+    fmt = req.format.lower().lstrip(".")
+    media_types = {
+        "glb": "model/gltf-binary",
+        "fbx": "application/octet-stream",
+        "obj": "text/plain",
+        "stl": "model/stl",
+        "ply": "application/octet-stream",
+    }
+    if fmt not in media_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported export format '{fmt}'. Canonical formats supported: {list(media_types.keys())}",
+        )
+    media_type = media_types[fmt]
+
     model_path = _resolve_model_path(req.modelUrl)
     if not model_path:
         raise HTTPException(status_code=404, detail="Model file not found")
@@ -145,20 +160,9 @@ async def export_project(req: ExportRequest):
             except Exception as opt_err:
                 logger.warning("On-demand game-ready optimization failed: %s", opt_err)
 
-    # 2. Format conversion
-    fmt = req.format.lower().lstrip(".")
     exported_file: Path | None = None
-    media_types = {
-        "glb": "model/gltf-binary",
-        "gltf": "model/gltf+json",
-        "fbx": "application/octet-stream",
-        "obj": "text/plain",
-        "stl": "model/stl",
-        "ply": "application/octet-stream",
-    }
-    media_type = media_types.get(fmt, "application/octet-stream")
 
-    if fmt in ("glb", "gltf"):
+    if fmt == "glb":
         exported_file = out_dir / f"{clean_name}.glb"
         shutil.copy(target_model, exported_file)
     elif fmt == "fbx":

@@ -248,6 +248,24 @@ def test_xatlas_uv_parametrization():
     print(f"  ✓ xatlas generated {len(unwrapped.visual.uv)} UVs, preserved valid UVs on second pass")
 
 
+def test_export_format_validation():
+    print("[8/8] Testing export format validation (canonical glb, fbx, obj, stl, ply)...")
+    from fastapi import HTTPException
+
+    for bad_fmt in ("gltf", "usdz", "xyz"):
+        req_bad = ExportRequest(
+            modelUrl="/static/models/test/model.glb",
+            format=bad_fmt,
+        )
+        try:
+            asyncio.run(export_project(req_bad))
+            assert False, f"Expected 400 for bad format: {bad_fmt}"
+        except HTTPException as exc:
+            assert exc.status_code == 400
+            assert "Unsupported export format" in exc.detail
+    print("  ✓ Unsupported formats (gltf, usdz, xyz) properly rejected with HTTP 400")
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("Running 3D Generation Pipeline & Export Verification Checks")
@@ -259,6 +277,8 @@ if __name__ == "__main__":
     test_export_endpoint_and_zip_packaging()
     test_asset_classification()
     test_xatlas_uv_parametrization()
+    test_export_format_validation()
     print("=" * 60)
     print("ALL CHECKS PASSED: Pipeline and Export integration verified!")
     print("=" * 60)
+

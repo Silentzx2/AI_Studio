@@ -51,7 +51,7 @@ flowchart TD
     GAME --> QA[Stage 7: QA Diagnostics Engine<br/>• Manifoldness & Boundary Edge Inspection<br/>• Surface Normal Winding Consistency<br/>• UV Validity & Texture Map Verification<br/>• Platform Budget Compliance]:::stage
     QA --> SCORE[(quality_report.json<br/>Game-Ready Score: 0–100)]:::data
 
-    GAME --> EXP[Stage 8: Production Export Endpoint<br/>• POST /api/v1/project/export<br/>• GLB / OBJ / STL / PLY<br/>• Traversal Security Guard]:::stage
+    GAME --> EXP[Stage 8: Production Export Endpoint<br/>• POST /api/v1/project/export<br/>• GLB / FBX / OBJ / STL / PLY<br/>• Traversal Security Guard]:::stage
     RAW --> EXP
     L0 --> EXP
     L1 --> EXP
