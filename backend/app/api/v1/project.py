@@ -1,13 +1,19 @@
 """Project export endpoints."""
 from __future__ import annotations
 
+import json
 import logging
 import os
+import shutil
+import uuid
+import zipfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
+from urllib.parse import unquote, urlparse
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from fastapi.responses import FileResponse
+from pydantic import BaseModel, model_validator
 
 from app.config import get_settings
 from app.utils.response import success
@@ -19,84 +25,232 @@ settings = get_settings()
 
 class ExportRequest(BaseModel):
     modelUrl: str
-    format: str = "glb"
+    assetName: str | None = None
+    format: str = "glb"  # glb, obj, stl, ply
+    variant: Literal["source", "game_ready", "lod_package"] = "source"
     layers: list[dict[str, Any]] = []
     assembleAll: bool = False
     includeOriginals: bool = False
+    includeTextures: bool = True
+    includeLODs: bool = False
+    includeCollision: bool = False
+    includeQAReport: bool = True
+    packageZip: bool = False
+    targetPlatform: str | None = "generic"
+    lodPreset: str | None = "medium"
+    lodCount: int | None = 3
+
+    @model_validator(mode="before")
+    @classmethod
+    def accept_snake_case_and_aliases(cls, data: object) -> object:
+        if isinstance(data, dict):
+            mapping = {
+                "model_url": "modelUrl",
+                "asset_name": "assetName",
+                "package_zip": "packageZip",
+                "include_originals": "includeOriginals",
+                "include_textures": "includeTextures",
+                "include_lods": "includeLODs",
+                "include_collision": "includeCollision",
+                "include_qa_report": "includeQAReport",
+                "target_platform": "targetPlatform",
+                "lod_preset": "lodPreset",
+                "lod_count": "lodCount",
+            }
+            for k, v in mapping.items():
+                if k in data and v not in data:
+                    data[v] = data[k]
+        return data
 
 
 def _resolve_model_path(model_url: str) -> Path | None:
-    """Resolve a /static/... URL to an absolute file path."""
+    """Resolve a /static/... URL or path to an absolute file path safely."""
     if not model_url:
         return None
-    # Security: prevent path traversal
-    if '..' in model_url or model_url.startswith('/'):
+    if ".." in model_url:
         return None
-    rel = model_url.replace("/static/", "", 1)
-    p = Path(settings.storage_local_path) / rel
-    return p if p.exists() else None
+
+    storage_root = Path(settings.storage_local_path).resolve()
+    parsed = urlparse(model_url)
+    path_str = unquote(parsed.path if parsed.scheme else model_url)
+
+    if "/static/" in path_str:
+        rel = path_str.split("/static/", 1)[-1].lstrip("/")
+        candidate = (storage_root / rel).resolve()
+        if candidate.is_relative_to(storage_root) and candidate.exists():
+            return candidate
+
+    candidate = (storage_root / path_str.lstrip("/")).resolve()
+    if candidate.is_relative_to(storage_root) and candidate.exists():
+        return candidate
+
+    # Search known storage subdirectories
+    for folder in ("models", "exports", "uploads"):
+        candidate = (storage_root / folder / Path(path_str).name).resolve()
+        if candidate.is_relative_to(storage_root) and candidate.exists():
+            return candidate
+        matches = list((storage_root / folder).glob(f"*/{Path(path_str).name}"))
+        if matches and matches[0].resolve().is_relative_to(storage_root):
+            return matches[0].resolve()
+
+    return None
 
 
 @router.post("/export")
 async def export_project(req: ExportRequest):
-    """Export a model respecting the current layer toggle state.
+    """Export a 3D model asset in requested format, variant, and optional ZIP package.
 
-    Layers with `enabled=False` are stripped from the export:
-      - texture=False → export without materials/textures
-      - rigging=False → export without armature
-      - animation=False → export without animations
-      - lod=False → export without LOD groups
-
-    For formats other than GLB, the original provider download URL is
-    returned so the frontend can fall back to the pre-processed asset.
+    Supports:
+      - Variants: 'source' (master asset), 'game_ready' (optimized), 'lod_package' (LOD cascade)
+      - Formats: 'glb', 'obj', 'stl', 'ply'
+      - Optional components: Collision hull, LODs, QA report
+      - Packaging: Single file or structured ZIP archive
     """
     model_path = _resolve_model_path(req.modelUrl)
     if not model_path:
         raise HTTPException(status_code=404, detail="Model file not found")
 
-    layer_map: dict[str, dict[str, Any]] = {l.get("type"): l for l in req.layers}
+    job_dir = model_path.parent
+    base_name = req.assetName or model_path.stem or "model"
+    # Clean asset name of invalid filesystem characters
+    clean_name = "".join(c for c in base_name if c.isalnum() or c in ("-", "_")).strip() or "model"
 
-    auto_rig = layer_map.get("rigging", {}).get("enabled", False)
-    generate_texture = layer_map.get("texture", {}).get("enabled", False)
-    include_animations = layer_map.get("animation", {}).get("enabled", False)
-    include_lod = layer_map.get("lod", {}).get("enabled", False)
+    export_id = uuid.uuid4().hex[:10]
+    out_dir = Path(settings.storage_local_path) / "exports" / export_id
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-    if req.format != "glb" or not settings.blender_enabled:
-        return success({
-            "url": req.modelUrl,
-            "format": req.format,
-            "layers_applied": [l.get("type") for l in req.layers if l.get("enabled")],
-        })
+    # 1. Resolve variant asset
+    target_model = model_path
+    if req.variant == "source":
+        source_candidate = job_dir / "source.glb"
+        if source_candidate.exists():
+            target_model = source_candidate
+    elif req.variant == "game_ready":
+        gr_candidate = job_dir / "game_ready.glb"
+        if gr_candidate.exists():
+            target_model = gr_candidate
+        else:
+            # Generate game-ready model on demand if not pre-generated
+            try:
+                from app.core.mesh_optimizer import get_target_polycount_for_platform, optimize_mesh
+                budget = get_target_polycount_for_platform(req.targetPlatform)
+                gr_out = str(out_dir / f"{clean_name}_game_ready.glb")
+                opt_res = optimize_mesh(
+                    input_path=str(model_path),
+                    output_path=gr_out,
+                    target_polycount=budget,
+                )
+                if opt_res.get("success") and Path(gr_out).exists():
+                    target_model = Path(gr_out)
+            except Exception as opt_err:
+                logger.warning("On-demand game-ready optimization failed: %s", opt_err)
 
-    try:
-        from app.core.blender.pipeline import process_model
-        import uuid as uuid_mod
-        from fastapi.responses import FileResponse
+    # 2. Format conversion
+    fmt = req.format.lower().lstrip(".")
+    exported_file: Path | None = None
+    media_types = {
+        "glb": "model/gltf-binary",
+        "gltf": "model/gltf+json",
+        "obj": "text/plain",
+        "stl": "model/stl",
+        "ply": "application/octet-stream",
+    }
+    media_type = media_types.get(fmt, "application/octet-stream")
 
-        job_id = uuid_mod.uuid4().hex[:12]
-        out_dir = Path(settings.storage_local_path) / "exports" / job_id
-        out_dir.mkdir(parents=True, exist_ok=True)
+    if fmt in ("glb", "gltf"):
+        exported_file = out_dir / f"{clean_name}.glb"
+        shutil.copy(target_model, exported_file)
+    elif fmt in ("obj", "stl", "ply"):
+        try:
+            import trimesh
+            mesh = trimesh.load(str(target_model))
+            exported_file = out_dir / f"{clean_name}.{fmt}"
+            mesh.export(str(exported_file), file_type=fmt)
+        except Exception as conv_err:
+            logger.warning("Trimesh format conversion to %s failed: %s", fmt, conv_err)
+            raise HTTPException(status_code=500, detail=f"Failed to convert asset to {fmt.upper()}: {conv_err}")
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported export format: {fmt}")
 
-        result = await process_model(
-            input_path=str(model_path),
-            output_dir=str(out_dir),
-            auto_rig=auto_rig,
-            generate_texture=generate_texture,
-            quality="standard",
-        )
+    if not exported_file or not exported_file.exists():
+        raise HTTPException(status_code=500, detail="Export failed: target file could not be generated")
 
-        glb_path = result.get("glb")
-        if not glb_path or not Path(glb_path).exists():
-            raise HTTPException(status_code=500, detail="Export failed: no GLB produced")
+    # 3. ZIP Archive Packaging if requested
+    if req.packageZip:
+        zip_filename = f"{clean_name}_export_package.zip"
+        zip_path = out_dir / zip_filename
+
+        with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            # A. Main exported model
+            zf.write(exported_file, arcname=f"{clean_name}/Model/{clean_name}.{fmt}")
+
+            # B. Preserved Source master
+            source_file = job_dir / "source.glb"
+            if source_file.exists():
+                zf.write(source_file, arcname=f"{clean_name}/Source/{clean_name}_source.glb")
+            elif req.includeOriginals:
+                zf.write(model_path, arcname=f"{clean_name}/Source/{model_path.name}")
+
+            # C. LOD cascade
+            lods_dir = job_dir / "lods"
+            if req.includeLODs or req.variant == "lod_package":
+                if not lods_dir.exists():
+                    try:
+                        from app.core.mesh_optimizer import generate_lods
+                        generate_lods(
+                            input_path=str(target_model),
+                            output_dir=str(out_dir / "lods"),
+                            lod_count=req.lodCount or 3,
+                            lod_preset=req.lodPreset or "medium",
+                        )
+                        lods_dir = out_dir / "lods"
+                    except Exception as lod_err:
+                        logger.warning("On-demand LOD generation in export failed: %s", lod_err)
+
+                if lods_dir.exists():
+                    for lod_file in sorted(lods_dir.glob("*.glb")):
+                        zf.write(lod_file, arcname=f"{clean_name}/LODs/{lod_file.name}")
+
+            # D. Collision Mesh
+            collision_file = job_dir / "collision.glb"
+            if req.includeCollision:
+                if not collision_file.exists():
+                    try:
+                        from app.core.mesh_optimizer import generate_collision_mesh
+                        col_target = out_dir / "collision.glb"
+                        generate_collision_mesh(str(target_model), str(col_target))
+                        collision_file = col_target
+                    except Exception as col_err:
+                        logger.warning("On-demand collision generation in export failed: %s", col_err)
+
+                if collision_file.exists():
+                    zf.write(collision_file, arcname=f"{clean_name}/Collision/{clean_name}_collision.glb")
+
+            # E. Thumbnail / Preview
+            thumb_file = job_dir / "thumbnail.png"
+            if thumb_file.exists():
+                zf.write(thumb_file, arcname=f"{clean_name}/Preview/thumbnail.png")
+
+            # F. QA Report
+            if req.includeQAReport:
+                try:
+                    from app.core.mesh_processor import run_mesh_diagnostics
+                    report = run_mesh_diagnostics(str(target_model), target_platform=req.targetPlatform or "generic")
+                    qa_json = out_dir / "quality_report.json"
+                    qa_json.write_text(json.dumps(report, indent=2), encoding="utf-8")
+                    zf.write(qa_json, arcname=f"{clean_name}/QA/quality_report.json")
+                except Exception as qa_err:
+                    logger.warning("QA report generation in export failed: %s", qa_err)
 
         return FileResponse(
-            path=glb_path,
-            filename=f"export_{job_id}.glb",
-            media_type="model/gltf-binary"
+            path=str(zip_path),
+            filename=zip_filename,
+            media_type="application/zip",
         )
 
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.exception("Project export failed: %s", exc)
-        raise HTTPException(status_code=500, detail=f"Export failed: {exc}")
+    # 4. Return single file download
+    return FileResponse(
+        path=str(exported_file),
+        filename=f"{clean_name}.{fmt}",
+        media_type=media_type,
+    )

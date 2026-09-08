@@ -495,3 +495,144 @@ def optimize_mesh(
         "uv_fixes_applied": uv_fixes_applied,
         "success": True,
     }
+
+
+PLATFORM_BUDGETS: dict[str, int] = {
+    "mobile": 18000,
+    "low": 28000,
+    "medium": 45000,
+    "high": 85000,
+    "cinematic": 180000,
+    "generic": 40000,
+}
+
+
+def get_target_polycount_for_platform(platform: str | None, default: int = 35000) -> int:
+    """Return recommended target triangle count for a target platform."""
+    if not platform:
+        return default
+    return PLATFORM_BUDGETS.get(platform.lower().strip(), default)
+
+
+def generate_lods(
+    input_path: str,
+    output_dir: str,
+    lod_count: int = 3,
+    lod_preset: str = "medium",
+    preserve_details: float = 75.0,
+    fix_uvs: bool = True,
+) -> dict[str, Any]:
+    """Generate a multi-tier level of detail (LOD) cascade from an authoritative input mesh.
+
+    LOD0 is the preserved master / high-fidelity source.
+    LOD1 is 50% target budget.
+    LOD2 is 25% target budget.
+    LOD3 is 12.5% target budget (distant proxy).
+
+    Returns a dict containing file paths, polycounts, and status for each level.
+    """
+    import shutil
+    out_p = Path(output_dir)
+    out_p.mkdir(parents=True, exist_ok=True)
+
+    # 1. Inspect source
+    trimesh = _try_import_trimesh()
+    original_faces = 30000
+    if trimesh:
+        try:
+            m = trimesh.load(input_path, force="mesh")
+            original_faces = len(m.faces)
+        except Exception:
+            pass
+
+    # LOD0 is the untouched original / master asset
+    lod0_path = str(out_p / "lod0.glb")
+    shutil.copy(input_path, lod0_path)
+
+    lods_result: dict[str, Any] = {
+        "lod0": {
+            "path": lod0_path,
+            "filename": "lod0.glb",
+            "polycount": original_faces,
+            "level": 0,
+            "reduction_percent": 0.0,
+        }
+    }
+
+    # Ratios for cascade levels
+    cascade_ratios = [0.50, 0.25, 0.125, 0.06]
+    max_levels = min(max(1, lod_count), 4)
+
+    for i in range(1, max_levels + 1):
+        ratio = cascade_ratios[i - 1]
+        target = max(100, int(original_faces * ratio))
+        lod_filename = f"lod{i}.glb"
+        lod_target_path = str(out_p / lod_filename)
+
+        res = optimize_mesh(
+            input_path=input_path,
+            output_path=lod_target_path,
+            target_polycount=target,
+            fix_uvs=fix_uvs,
+            preserve_details=max(10.0, preserve_details - (i * 10)),
+        )
+
+        poly = res.get("optimized_polycount", target)
+        lods_result[f"lod{i}"] = {
+            "path": lod_target_path,
+            "filename": lod_filename,
+            "polycount": poly,
+            "level": i,
+            "reduction_percent": res.get("reduction_percent", round((1 - poly / max(1, original_faces)) * 100, 1)),
+        }
+
+    return {
+        "success": True,
+        "count": len(lods_result),
+        "levels": lods_result,
+    }
+
+
+def generate_collision_mesh(
+    input_path: str,
+    output_path: str,
+    mode: str = "convex_hull",
+) -> dict[str, Any]:
+    """Generate a lightweight collision hull for physics and game engines.
+
+    Creates an optimized convex hull or bounding proxy from the input mesh.
+    """
+    trimesh = _try_import_trimesh()
+    if trimesh is None:
+        return {"success": False, "error": "trimesh not installed"}
+
+    try:
+        loaded = trimesh.load(input_path)
+        if isinstance(loaded, trimesh.Scene):
+            meshes = [g for g in loaded.geometry.values() if isinstance(g, trimesh.Trimesh)]
+            if not meshes:
+                return {"success": False, "error": "No mesh in scene"}
+            mesh = trimesh.util.concatenate(meshes) if len(meshes) > 1 else meshes[0]
+        else:
+            mesh = loaded
+
+        if mode == "box":
+            hull = mesh.bounding_box
+        else:
+            # Convex hull is the gold standard for game collision proxy
+            hull = mesh.convex_hull
+
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        hull.export(output_path, file_type="glb")
+
+        return {
+            "success": True,
+            "output_path": output_path,
+            "polycount": len(hull.faces),
+            "vertex_count": len(hull.vertices),
+            "mode": mode,
+        }
+    except Exception as exc:
+        logger.warning("generate_collision_mesh failed: %s", exc)
+        return {"success": False, "error": str(exc)}
+

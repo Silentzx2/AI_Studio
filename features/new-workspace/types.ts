@@ -67,6 +67,16 @@ export interface ModelAsset {
   materialConfig?: MaterialConfig;
   materials?: string[];
   createdAt?: string;
+  artifacts?: {
+    source?: string;
+    gameReady?: string;
+    lods?: string[];
+    collision?: string;
+    qaReport?: Record<string, unknown>;
+  };
+  qaScore?: number;
+  qaStatus?: 'pass' | 'warn' | 'fail';
+  qaWarnings?: string[];
 }
 
 export type Asset3D = ModelAsset;
@@ -179,6 +189,15 @@ export interface GenerationSettings {
   autoOptimize: boolean;
   autoOptimizeSettings: AutoOptimizeSettings;
   generateTexture?: boolean;
+  gameReady?: boolean;
+  targetPlatform?: 'generic' | 'mobile' | 'low' | 'medium' | 'high' | 'cinematic';
+  generateLOD?: boolean;
+  lodPreset?: 'mobile' | 'low' | 'medium' | 'high' | 'custom';
+  lodCount?: number;
+  generateCollision?: boolean;
+  generatePBR?: boolean;
+  preserveDetails?: number;
+  repairUVs?: boolean;
   prompt?: string;
   imageName?: string;
 }

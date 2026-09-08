@@ -485,11 +485,22 @@ size exceeds available space.
 - **Viewport**: `features/new-workspace/Viewport/CompareViewport.tsx`
 - **Features**: Side-by-side model comparison, synchronized camera, property diff (polycount, vertices, materials, dimensions), multiple view modes (side-by-side, overlay, split)
 
-#### Auto-Optimize Mesh
-- **Module**: `backend/app/core/mesh_optimizer.py`
-- **Features**: Post-generation mesh decimation to target polycount (default 30,000 triangles), UV fixing, normal recalculation
-- **Settings**: Configurable via `auto_optimize` setting in GeneratePanel, `preserve_details` (0-100%), `target_polycount`
-- **Integration**: Runs AFTER generation completes but BEFORE thumbnail rendering
+#### 3D Quality Pipeline, Auto-Optimize & Master Preservation
+- **Modules**: `backend/app/core/mesh_processor.py`, `backend/app/core/mesh_optimizer.py`, `backend/app/core/blender/scripts/process_mesh.py`
+- **Master Asset Preservation**: Always retains raw provider mesh as untouched `source.glb` alongside the optimized `game_ready.glb`.
+- **Safe Component Pruning**: Replaced destructive island stripping with vertex/volume connectivity threshold (≥0.5% vertices or ≥15 vertices), preserving horns, ears, tails, weapons, and accessories.
+- **UV Preservation Guard**: Recomputes UVs only when missing (`if not obj.data.uv_layers:`), preventing destruction of AI provider texture maps.
+- **Humanoid Metarig Guard**: Checks aspect ratio and height before applying Rigify biped armature, avoiding distortion of quadrupeds and props.
+- **Geometry Diagnostics & QA Scoring**: Calculates non-manifold edges, surface winding consistency, connected components, UV validity, texture presence, and scores 0–100 against target platform polygon budgets (`mobile`, `low`, `medium`, `high`, `cinematic`).
+- **LOD Cascades**: Generates multi-tier LOD0–LOD3 variants with UV/material preservation.
+- **Collision Mesh**: Generates simplified physics convex hulls (`collision.glb`).
+
+#### Project Export Engine
+- **Module**: `backend/app/api/v1/project.py` (`POST /api/v1/project/export`)
+- **Variant Selection**: Export `source`, `game_ready`, or `lod_package`.
+- **Format Conversion**: Server-side conversion to GLB, OBJ, STL, and PLY via Trimesh.
+- **Structured ZIP Packaging**: Packages `{name}/Source/`, `{name}/GameReady/`, `{name}/LODs/`, `{name}/Collision/`, and `{name}/QA/quality_report.json`.
+- **Traversal Security**: Rejects directory traversal attempts while safely translating `/static/...` URLs to canonical filesystem paths within `storage_local_path`.
 
 #### Security
 - **Path traversal prevention**: All upload/download endpoints resolve paths with `.resolve()` and validate they stay within storage directory

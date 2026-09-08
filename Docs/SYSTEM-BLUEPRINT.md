@@ -88,15 +88,37 @@ sequenceDiagram
 
     opt If Blender Cleanup Enabled
         Worker->>DB: Update Job (stage="post_processing")
-        Worker->>Blender: Execute headless process_mesh.py
-        Blender-->>Worker: Watertight / Optimized Mesh
+        Worker->>Blender: Execute headless process_mesh.py (safe component retention, UV guard)
+        Blender-->>Worker: Cleaned Baseline Mesh (model.glb)
     end
 
+    Worker->>Worker: Copy Untouched Raw Generation -> source.glb
+
+    opt If Game-Ready / LODs Enabled
+        Worker->>DB: Update Job (stage="optimizing")
+        Worker->>Worker: Generate game_ready.glb (Platform Budget)
+        Worker->>DB: Update Job (stage="lod_generation")
+        Worker->>Worker: Generate LOD Cascade (lods/lod0..3.glb)
+    end
+
+    opt If Collision Mesh Enabled
+        Worker->>DB: Update Job (stage="collision")
+        Worker->>Worker: Generate Convex Hull (collision.glb)
+    end
+
+    Worker->>DB: Update Job (stage="diagnostics")
+    Worker->>Worker: Compute Geometry Diagnostics & Game-Ready Score (0-100)
     Worker->>Engine: Release GPU Scheduler Slot
-    Worker->>DB: Update Job (status="completed", output_path, metrics)
+    Worker->>DB: Update Job (status="completed", output_path, qa_report, artifact_urls)
     Frontend->>API: GET /api/v1/generation/{id}/status
-    API-->>Frontend: 200 OK (status="completed", mesh_url)
-    Frontend->>User: Render Interactive 3D Canvas
+    API-->>Frontend: 200 OK (status="completed", source_model_url, game_ready_url, lod_urls, qa_report)
+    Frontend->>User: Render 3D Canvas & QA Validation Score
+
+    opt Exporting Assets
+        User->>Frontend: Select Variant (Source/GameReady/LODs), Format, ZIP Packaging
+        Frontend->>API: POST /api/v1/project/export
+        API-->>User: Download 3D Asset or Structured ZIP Bundle
+    end
 ```
 
 ---
@@ -300,4 +322,7 @@ python3 backend/runtime/test_dependency_manifest_contract.py
 
 # 3. Check installation state of all providers via API
 curl http://localhost:8000/api/v1/admin/providers
+
+# 4. Verify 3D Quality Pipeline & Export Integration
+python3 scripts/test_pipeline_and_export.py
 ```

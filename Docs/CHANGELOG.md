@@ -1,5 +1,39 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.18] - 2026-09-08
+
+### Added / Fixed
+
+#### 1. 3D Quality Pipeline, Non-Destructive Post-Processing & Master Mesh Preservation (`process_mesh.py`, `tasks.py`, `generation.py`)
+- **Safe Component Pruning (`process_mesh.py`)**:
+  - Replaced destructive single-island vertex removal with a connectivity/volume threshold preserving all disconnected submeshes with $\ge 0.5\%$ of total vertices or $\ge 15$ vertices. Preserves horns, ears, tails, weapons, and accessories while cleaning floating noise fragments.
+- **UV Preservation Guard (`process_mesh.py`)**:
+  - Guarded smart UV unwrap with `if not obj.data.uv_layers:`, preventing Blender post-processing from destroying AI provider texture maps and UV layouts.
+- **Rigify Biped Guard (`process_mesh.py`)**:
+  - Added aspect ratio and height verification (`aspect_ratio < 0.7 or height < 0.2`) to prevent biped humanoid metarig binding on quadrupeds, flat props, and non-humanoid meshes.
+- **Master Asset Preservation (`tasks.py`)**:
+  - Automatically copies and retains the raw model output as `source.glb` untouched. Generates game-ready variant (`game_ready.glb`) separately, ensuring lossless re-optimization workflows.
+
+#### 2. Geometry Diagnostics, QA Scoring Engine & LOD Cascades (`mesh_processor.py`, `mesh_optimizer.py`)
+- **Comprehensive Geometry Diagnostics (`mesh_processor.py`)**:
+  - Added `run_mesh_diagnostics()` evaluating vertex/face counts, non-manifold edges, surface winding consistency, connected components, UV layout validity, and texture map presence.
+  - Implemented `game_ready_score` (0–100) benchmarked against target platform polygon budgets (`mobile`, `low`, `medium`, `high`, `cinematic`).
+- **Automated Multi-Tier LOD Cascades (`mesh_optimizer.py`)**:
+  - Implemented `generate_lods()` producing LOD0 (master), LOD1 (50%), LOD2 (25%), and LOD3 (12.5%) with UV and normal preservation.
+- **Physics Collision Mesh (`mesh_optimizer.py`)**:
+  - Implemented `generate_collision_mesh()` producing a clean, simplified convex hull (`collision.glb`).
+
+#### 3. Production Export Engine & ZIP Bundler (`project.py`, `ExportModal.tsx`)
+- **Export Endpoint Hardening & Traversal Security (`backend/app/api/v1/project.py`)**:
+  - Fixed path traversal security to properly handle `/static/...` URLs and resolve paths securely against `storage_local_path`.
+  - Added support for variant export (`source`, `game_ready`, `lod_package`).
+  - Integrated real server-side format conversion to GLB, OBJ, STL, and PLY using Trimesh.
+  - Added structured ZIP archive generator bundling `{name}/Source/`, `{name}/GameReady/`, `{name}/LODs/`, `{name}/Collision/`, and `{name}/QA/quality_report.json`.
+- **Frontend Controls & QA Dashboard (`GeneratePanel.tsx`, `WorkspaceContext.tsx`, `ExportModal.tsx`, `types.ts`)**:
+  - Added collapsible "Game-Ready & LODs" card to `GeneratePanel.tsx` with platform preset selector, LOD toggle/count, and collision hull toggle.
+  - Ingested QA reports and artifact URLs into `ModelAsset` in `WorkspaceContext.tsx`.
+  - Replaced client-side fake export with production `ExportModal.tsx` triggering `/api/v1/project/export` with variant selection, format conversion, and structured ZIP packaging.
+
 ## [v5.0.17] - 2026-09-07
 
 ### Added / Fixed

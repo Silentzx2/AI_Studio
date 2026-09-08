@@ -96,21 +96,20 @@ for obj in mesh_objects:
     # 3. Recalculate normals
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     
-    # 4. Remove disconnected parts (Keep only the largest island)
+    # 4. Remove microscopic disconnected artifacts/noise (preserve distinct anatomy & accessories)
+    # ponytail: Keep any component with >= 0.5% of largest component or >= 15 vertices to preserve
+    # ears, paws, horns, tails, accessories, while removing loose floating single-face debris.
     bmesh.update_edit_mesh(obj.data)
     bpy.ops.mesh.select_all(action='DESELECT')
-    
-    # Iterate through islands and find the one with most vertices
+
     total_verts = len(bm.verts)
     processed_verts = set()
     islands = []
-    
+
     while len(processed_verts) < total_verts:
-        # Find an unvisited vertex
         start_vert = next((v for v in bm.verts if v not in processed_verts), None)
-        if not start_vert: break
-        
-        # Grow island
+        if not start_vert:
+            break
         island = {start_vert}
         stack = [start_vert]
         while stack:
@@ -120,30 +119,34 @@ for obj in mesh_objects:
                 if other not in island:
                     island.add(other)
                     stack.append(other)
-        
         islands.append(island)
         processed_verts.update(island)
-    
-    if islands:
-        largest_island = max(islands, key=len)
-        for v in bm.verts:
-            if v not in largest_island:
-                bm.verts.remove(v)
-    
+
+    if islands and len(islands) > 1:
+        largest_len = len(max(islands, key=len))
+        min_verts_threshold = max(15, int(largest_len * 0.005))
+        for island in islands:
+            if len(island) < min_verts_threshold:
+                for v in island:
+                    if v.is_valid:
+                        bm.verts.remove(v)
+
     bmesh.update_edit_mesh(obj.data)
     bpy.ops.object.mode_set(mode="OBJECT")
 
-    # Decimate
+    # Decimate only if explicit target faces specified
     target = DECIMATE_FACES.get(QUALITY, 0)
     if target and len(obj.data.polygons) > target:
         mod = obj.modifiers.new(name="Decimate", type="DECIMATE")
         mod.ratio = max(0.01, target / len(obj.data.polygons))
         bpy.ops.object.modifier_apply(modifier="Decimate")
 
-    # Smart UV project
-    bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.uv.smart_project(angle_limit=66.0, island_margin=0.02)
-    bpy.ops.object.mode_set(mode="OBJECT")
+    # Smart UV project ONLY if no existing UV layers are present
+    # ponytail: Preserves provider-generated texture atlas / UV layouts from Hunyuan3D/Trellis
+    if not obj.data.uv_layers or len(obj.data.uv_layers) == 0:
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.uv.smart_project(angle_limit=66.0, island_margin=0.02)
+        bpy.ops.object.mode_set(mode="OBJECT")
 
     obj.select_set(False)
 
@@ -174,37 +177,47 @@ if AUTO_RIG:
         cz_min = min(zs)
         height = max(zs) - cz_min
 
-        # Add a Rigify meta-rig (basic human)
-        bpy.ops.object.select_all(action="DESELECT")
-        bpy.ops.object.armature_human_metarig_add()
-        meta_rig = bpy.context.active_object
-        meta_rig.name = "MetaRig"
+        width = max(0.001, max(xs) - min(xs))
+        depth = max(0.001, max(ys) - min(ys))
+        aspect_ratio = height / max(width, depth)
 
-        # Scale & position the rig to fit the mesh
-        meta_rig.location = (cx, cy, cz_min)
-        meta_rig.scale = (height / 2.0, height / 2.0, height / 2.0)
-        bpy.ops.object.transform_apply(scale=True, location=True)
-
-        # Generate the Rigify rig
-        bpy.context.view_layer.objects.active = meta_rig
-        bpy.ops.pose.rigify_generate()
-
-        # Find generated rig
-        armature_obj = next(
-            (o for o in bpy.data.objects if o.type == "ARMATURE" and o.name != "MetaRig"),
-            None,
-        )
-
-        # Parent mesh to rig with automatic weights
-        if armature_obj:
+        # Rigify basic human metarig is intended for upright biped humanoids
+        # ponytail: Skip human armature on quadrupeds (dogs), vehicles, or flat props
+        if aspect_ratio < 0.7 or height < 0.2:
+            print(f"# Rigify skipped: mesh aspect ratio {aspect_ratio:.2f} is non-humanoid", file=sys.stderr)
+            armature_obj = None
+        else:
+            # Add a Rigify meta-rig (basic human)
             bpy.ops.object.select_all(action="DESELECT")
-            main_mesh.select_set(True)
-            armature_obj.select_set(True)
-            bpy.context.view_layer.objects.active = armature_obj
-            bpy.ops.object.parent_set(type="ARMATURE_AUTO")
+            bpy.ops.object.armature_human_metarig_add()
+            meta_rig = bpy.context.active_object
+            meta_rig.name = "MetaRig"
 
-        # Remove meta-rig
-        bpy.data.objects.remove(meta_rig, do_unlink=True)
+            # Scale & position the rig to fit the mesh
+            meta_rig.location = (cx, cy, cz_min)
+            meta_rig.scale = (height / 2.0, height / 2.0, height / 2.0)
+            bpy.ops.object.transform_apply(scale=True, location=True)
+
+            # Generate the Rigify rig
+            bpy.context.view_layer.objects.active = meta_rig
+            bpy.ops.pose.rigify_generate()
+
+            # Find generated rig
+            armature_obj = next(
+                (o for o in bpy.data.objects if o.type == "ARMATURE" and o.name != "MetaRig"),
+                None,
+            )
+
+            # Parent mesh to rig with automatic weights
+            if armature_obj:
+                bpy.ops.object.select_all(action="DESELECT")
+                main_mesh.select_set(True)
+                armature_obj.select_set(True)
+                bpy.context.view_layer.objects.active = armature_obj
+                bpy.ops.object.parent_set(type="ARMATURE_AUTO")
+
+            # Remove meta-rig
+            bpy.data.objects.remove(meta_rig, do_unlink=True)
 
     except Exception as rig_err:
         print(f"# Rigify warning: {rig_err}", file=sys.stderr)

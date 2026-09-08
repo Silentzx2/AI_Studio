@@ -15,13 +15,14 @@
 4. [Model Management APIs](#model-management-apis)
 5. [Model Discovery APIs](#model-discovery-apis)
 6. [Download APIs](#download-apis)
-7. [System & Diagnostics APIs](#system--diagnostics-apis)
-8. [Upload APIs](#upload-apis)
-9. [Admin APIs](#admin-apis)
-10. [Pipelines APIs](#pipelines-apis)
- 11. [Runtime APIs](#runtime-apis)
- 12. [Error Handling](#error-handling)
- 13. [WebSocket/SSE Events](#websocketsse-events)
+7. [Project & Export APIs](#project--export-apis)
+8. [System & Diagnostics APIs](#system--diagnostics-apis)
+9. [Upload APIs](#upload-apis)
+10. [Admin APIs](#admin-apis)
+11. [Pipelines APIs](#pipelines-apis)
+12. [Runtime APIs](#runtime-apis)
+13. [Error Handling](#error-handling)
+14. [WebSocket/SSE Events](#websocketsse-events)
 
 ---
 
@@ -115,7 +116,16 @@ Content-Type: application/json
   "low_vram": false,
   "vram_mode": "auto",
   "negative_prompt": null,
-  "style_preset": null
+  "style_preset": null,
+  "game_ready": false,
+  "target_platform": "medium",
+  "generate_lod": false,
+  "lod_preset": "balanced",
+  "lod_count": 3,
+  "generate_collision": false,
+  "generate_pbr": true,
+  "preserve_details": 80.0,
+  "repair_uvs": false
 }
 ```
 
@@ -137,6 +147,15 @@ Content-Type: application/json
 | `vram_mode` | string | ❌ | `auto`, `normal`, or `low` (default: `auto`) |
 | `negative_prompt` | string | ❌ | Negative prompt text |
 | `style_preset` | string | ❌ | Style preset name |
+| `game_ready` | boolean | ❌ | Generate optimized game-ready variant alongside raw master (default: `false`) |
+| `target_platform` | string | ❌ | Target platform budget: `mobile`, `low`, `medium`, `high`, `cinematic` (default: `medium`) |
+| `generate_lod` | boolean | ❌ | Generate multi-tier level-of-detail cascade LOD0–LOD3 (default: `false`) |
+| `lod_preset` | string | ❌ | LOD cascade decimation curve: `mobile`, `balanced`, `high` (default: `balanced`) |
+| `lod_count` | integer | ❌ | Number of LOD levels to generate: 1 to 4 (default: `3`) |
+| `generate_collision` | boolean | ❌ | Generate physics convex collision hull `collision.glb` (default: `false`) |
+| `generate_pbr` | boolean | ❌ | Maintain PBR material bindings and maps (default: `true`) |
+| `preserve_details` | float | ❌ | Geometry feature preservation percentage: 10 to 100 (default: `80.0`) |
+| `repair_uvs` | boolean | ❌ | Recompute UV layout if missing or corrupted (default: `false`) |
 
 **Response (202):**
 ```json
@@ -183,6 +202,45 @@ GET /api/v1/generation/{job_id}/status
     "stage": "generating",
     "message": "Running inference...",
     "output_files": null,
+    "created_at": "2026-01-22T12:00:00Z"
+  }
+}
+```
+
+**Completed Job Response Example:**
+```json
+{
+  "success": true,
+  "data": {
+    "job_id": "gen_abc123",
+    "status": "completed",
+    "progress": 100,
+    "stage": "complete",
+    "message": "Generation completed successfully",
+    "output_files": {
+      "model_url": "/static/models/gen_abc123/model.glb",
+      "source_model_url": "/static/models/gen_abc123/source.glb",
+      "game_ready_url": "/static/models/gen_abc123/game_ready.glb",
+      "lod_urls": {
+        "lod0": "/static/models/gen_abc123/source.glb",
+        "lod1": "/static/models/gen_abc123/lods/lod1.glb",
+        "lod2": "/static/models/gen_abc123/lods/lod2.glb",
+        "lod3": "/static/models/gen_abc123/lods/lod3.glb"
+      },
+      "collision_url": "/static/models/gen_abc123/collision.glb",
+      "qa_report": {
+        "game_ready_score": 92.5,
+        "quality_status": "pass",
+        "warnings": [],
+        "diagnostics": {
+          "triangle_count": 28400,
+          "vertex_count": 14220,
+          "is_watertight": true,
+          "component_count": 1,
+          "has_uv_map": true
+        }
+      }
+    },
     "created_at": "2026-01-22T12:00:00Z"
   }
 }
@@ -700,6 +758,71 @@ Trigger processing of pending downloads.
 
 ```http
 POST /api/v1/download/process-queue
+```
+
+---
+
+## Project & Export APIs
+
+Manage project assets, multi-variant export packaging, format conversion, and game-ready delivery.
+
+### Export 3D Model Asset
+
+Export a model variant (source, game-ready, or LOD package) in target 3D format (`glb`, `gltf`, `obj`, `stl`, `ply`) with optional structured ZIP packaging containing master meshes, LODs, collision hulls, and QA validation reports.
+
+```http
+POST /api/v1/project/export
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "model_path": "/static/models/gen_abc123/model.glb",
+  "export_name": "Hero_Character",
+  "variant": "game_ready",
+  "format": "glb",
+  "package_zip": false,
+  "include_textures": true,
+  "include_lods": true,
+  "include_collision": true,
+  "include_qa_report": true
+}
+```
+
+**Parameters:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `model_path` | string | ✅ | Absolute filesystem path or `/static/...` model URL to export |
+| `export_name` | string | ❌ | Target export file/archive base name (default: derived from path) |
+| `variant` | string | ❌ | `source` (raw untouched master), `game_ready` (budget-optimized), or `lod_package` (LOD cascade) |
+| `format` | string | ❌ | Target format: `glb`, `gltf`, `obj`, `stl`, `ply` (default: `glb`) |
+| `package_zip` | boolean | ❌ | Package artifacts into structured game-engine ZIP bundle (default: `false`) |
+| `include_textures`| boolean | ❌ | Embed/include texture maps where supported (default: `true`) |
+| `include_lods` | boolean | ❌ | Include LOD0–LOD3 cascade in ZIP bundle (default: `true`) |
+| `include_collision`| boolean | ❌ | Include simplified collision convex hull in ZIP bundle (default: `true`) |
+| `include_qa_report`| boolean | ❌ | Include `quality_report.json` in ZIP bundle (default: `true`) |
+
+**Direct File Response (when `package_zip: false`):**
+- Returns the exported 3D binary file directly with `Content-Disposition: attachment; filename="{export_name}.{format}"`.
+
+**Structured ZIP Package Structure (when `package_zip: true`):**
+```
+Hero_Character/
+├── Source/
+│   └── source.glb
+├── GameReady/
+│   └── Hero_Character.glb
+├── LODs/
+│   ├── lod0.glb
+│   ├── lod1.glb
+│   ├── lod2.glb
+│   └── lod3.glb
+├── Collision/
+│   └── collision.glb
+└── QA/
+    └── quality_report.json
 ```
 
 ---

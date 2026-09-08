@@ -573,14 +573,31 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 logger.warning("Blender post-processing failed, using provider output directly: %s", e)
                 blender_result = {"glb": provider_result.model_path}
 
+            # Preserve original source asset before any further processing
+            import shutil
+            source_glb_path = str(model_output_dir(job_id) / "source.glb")
+            if provider_result.model_path and Path(provider_result.model_path).exists():
+                try:
+                    if not Path(source_glb_path).exists():
+                        shutil.copy(provider_result.model_path, source_glb_path)
+                except Exception as c_err:
+                    logger.warning("Could not preserve source.glb: %s", c_err)
+
             def to_url(path: str | None) -> str | None:
                 if not path:
                     return None
-                import os
-                return model_public_url(job_id, os.path.basename(path))
+                p = Path(path)
+                root = model_output_dir(job_id)
+                try:
+                    rel = p.relative_to(root).as_posix()
+                    return model_public_url(job_id, rel)
+                except Exception:
+                    return model_public_url(job_id, p.name)
+
+            meta = job.processing_metadata or {}
+            meta["source_model_url"] = to_url(source_glb_path) if Path(source_glb_path).exists() else to_url(provider_result.model_path)
 
             # Optional DetailGen3D pass
-            meta = job.processing_metadata or {}
             detail_pass = meta.get("detail_pass", False)
             detail_guidance = meta.get("detail_guidance", 7.5)
 
@@ -627,58 +644,113 @@ async def _async_generate(task: Task, job_id: str) -> dict:
 
             glb_path = blender_result.get("glb") or provider_result.model_path
 
-            # 7b. Auto-optimize mesh (post-generation cleanup)
-            # Runs after generation + detail pass but BEFORE thumbnail generation.
-            # If optimization fails, the original model is returned (graceful fallback).
-            meta = job.processing_metadata or {}
-            auto_optimize = meta.get("auto_optimize", False)
+            # 7b. Game-Ready / Auto-optimize mesh (preserving source.glb)
+            game_ready = meta.get("game_ready", False)
+            auto_optimize = meta.get("auto_optimize", False) or game_ready
             auto_optimize_settings = meta.get("auto_optimize_settings") or {}
-            optimize_result = None
+            target_platform = meta.get("target_platform", "generic")
 
             if auto_optimize and glb_path and Path(glb_path).exists():
-                sync_publish(85, "optimizing", "Auto-optimizing mesh (decimation + UV fix)...", "info")
+                sync_publish(85, "optimizing", "Generating game-ready optimized mesh...", "info")
                 try:
-                    from app.core.mesh_optimizer import optimize_mesh
+                    from app.core.mesh_optimizer import optimize_mesh, get_target_polycount_for_platform
 
-                    target_polycount = auto_optimize_settings.get("target_polycount") or auto_optimize_settings.get("targetPolycount") or 30000
-                    fix_uvs = auto_optimize_settings.get("fix_uvs") if "fix_uvs" in auto_optimize_settings else auto_optimize_settings.get("fixUVs", True)
-                    preserve_details = auto_optimize_settings.get("preserve_details") or auto_optimize_settings.get("preserveDetails") or 75.0
+                    if game_ready and "target_polycount" not in auto_optimize_settings and "targetPolycount" not in auto_optimize_settings:
+                        target_polycount = get_target_polycount_for_platform(target_platform)
+                    else:
+                        target_polycount = auto_optimize_settings.get("target_polycount") or auto_optimize_settings.get("targetPolycount") or 30000
 
-                    optimized_path = str(Path(glb_path).with_suffix(".optimized.glb"))
+                    fix_uvs = meta.get("repair_uvs", True)
+                    if "fix_uvs" in auto_optimize_settings:
+                        fix_uvs = auto_optimize_settings["fix_uvs"]
+                    elif "fixUVs" in auto_optimize_settings:
+                        fix_uvs = auto_optimize_settings["fixUVs"]
+
+                    preserve_details = meta.get("preserve_details", 75.0)
+                    if "preserve_details" in auto_optimize_settings:
+                        preserve_details = auto_optimize_settings["preserve_details"]
+                    elif "preserveDetails" in auto_optimize_settings:
+                        preserve_details = auto_optimize_settings["preserveDetails"]
+
+                    game_ready_path = str(model_output_dir(job_id) / "game_ready.glb")
                     optimize_result = optimize_mesh(
                         input_path=glb_path,
-                        output_path=optimized_path,
+                        output_path=game_ready_path,
                         target_polycount=target_polycount,
                         fix_uvs=fix_uvs,
                         preserve_details=preserve_details,
                     )
 
                     if optimize_result.get("success"):
-                        # Replace the working GLB with the optimized version
-                        import shutil
-                        shutil.move(optimized_path, glb_path)
                         meta["auto_optimize_result"] = optimize_result
+                        meta["game_ready_url"] = to_url(game_ready_path)
+                        if game_ready:
+                            glb_path = game_ready_path
                         _update_job(session, job_id, processing_metadata=meta)
                         sync_publish(88, "optimizing",
-                            f"Auto-optimize complete: {optimize_result['reduction_percent']}% poly reduction",
+                            f"Game-ready optimization complete: {optimize_result.get('reduction_percent', 0)}% reduction",
                             "success")
                     else:
-                        # Optimization failed — keep original, log the error
-                        logger.warning("Auto-optimize failed for job %s: %s",
-                            job_id, optimize_result.get("error", "unknown"))
-                        sync_publish(88, "optimizing",
-                            f"Auto-optimize skipped: {optimize_result.get('error', 'unknown error')}",
-                            "warning")
-                        # Clean up failed optimization output
-                        if Path(optimized_path).exists():
-                            Path(optimized_path).unlink()
+                        logger.warning("Game-ready optimization skipped: %s", optimize_result.get("error", "unknown"))
                         meta["auto_optimize_error"] = optimize_result.get("error")
                         _update_job(session, job_id, processing_metadata=meta)
                 except Exception as opt_exc:
-                    logger.warning("Auto-optimize step failed (non-blocking): %s", opt_exc)
-                    sync_publish(88, "optimizing", "Auto-optimize skipped due to error", "warning")
+                    logger.warning("Game-ready optimization failed: %s", opt_exc)
                     meta["auto_optimize_error"] = str(opt_exc)
                     _update_job(session, job_id, processing_metadata=meta)
+
+            # 7c. Multi-tier LOD cascade (LOD0–LOD3)
+            if meta.get("generate_lod", False) and glb_path and Path(glb_path).exists():
+                sync_publish(90, "lod_generation", "Generating multi-tier LODs (LOD0–LOD3)...", "info")
+                try:
+                    from app.core.mesh_optimizer import generate_lods
+                    lod_count = int(meta.get("lod_count", 3))
+                    lod_preset = meta.get("lod_preset", "medium")
+                    lod_dir = str(model_output_dir(job_id) / "lods")
+                    lod_res = generate_lods(
+                        input_path=glb_path,
+                        output_dir=lod_dir,
+                        lod_count=lod_count,
+                        lod_preset=lod_preset,
+                        preserve_details=float(meta.get("preserve_details", 75.0)),
+                        fix_uvs=bool(meta.get("repair_uvs", True)),
+                    )
+                    lod_urls = [
+                        model_public_url(job_id, f"lods/{info['filename']}")
+                        for info in lod_res.get("levels", {}).values()
+                    ]
+                    meta["lod_urls"] = lod_urls
+                    meta["lods_result"] = lod_res
+                    _update_job(session, job_id, processing_metadata=meta)
+                    sync_publish(92, "lod_generation", f"Generated {len(lod_urls)} LOD levels.", "success")
+                except Exception as lod_exc:
+                    logger.warning("LOD generation failed: %s", lod_exc)
+
+            # 7d. Collision mesh generation
+            if meta.get("generate_collision", False) and glb_path and Path(glb_path).exists():
+                sync_publish(94, "collision", "Generating simplified collision geometry...", "info")
+                try:
+                    from app.core.mesh_optimizer import generate_collision_mesh
+                    collision_path = str(model_output_dir(job_id) / "collision.glb")
+                    col_res = generate_collision_mesh(glb_path, collision_path)
+                    if col_res.get("success"):
+                        meta["collision_url"] = to_url(collision_path)
+                        meta["collision_result"] = col_res
+                        _update_job(session, job_id, processing_metadata=meta)
+                        sync_publish(95, "collision", "Collision mesh ready.", "success")
+                except Exception as col_exc:
+                    logger.warning("Collision generation failed: %s", col_exc)
+
+            # 7e. Asset QA & Diagnostics
+            sync_publish(96, "qa_diagnostics", "Evaluating asset quality score...", "info")
+            qa_report = {}
+            try:
+                from app.core.mesh_processor import run_mesh_diagnostics
+                qa_report = run_mesh_diagnostics(glb_path, target_platform=target_platform)
+                meta["qa_report"] = qa_report
+                _update_job(session, job_id, processing_metadata=meta)
+            except Exception as qa_exc:
+                logger.warning("QA evaluation failed: %s", qa_exc)
 
             # 8. Thumbnail (Non-blocking)
             from app.core.mesh_processor import get_mesh_stats, render_thumbnail
@@ -702,6 +774,9 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 "fbx": to_url(blender_result.get("fbx")),
                 "obj": to_url(blender_result.get("obj")),
                 "stl": to_url(blender_result.get("stl")),
+                "source": to_url(source_glb_path) if Path(source_glb_path).exists() else to_url(blender_result.get("glb")),
+                "game_ready": meta.get("game_ready_url"),
+                "collision": meta.get("collision_url"),
             }
 
             # 10. Finalize
@@ -711,9 +786,6 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 stage="completed",
                 progress=100,
                 completed_at=datetime.now(timezone.utc).replace(tzinfo=None),
-                # BUG-13 FIX: was to_url(os.path.basename(glb_path)) — to_url() already calls
-                # os.path.basename() internally, so this double-applied it on an already-bare
-                # filename, making model_url inconsistent with download_urls.glb.
                 model_url=to_url(glb_path),
                 thumbnail_url=model_public_url(job_id, "thumbnail.png") if rendered else "",
                 polygon_count=stats.get("polygon_count", provider_result.polygon_count),
@@ -722,8 +794,25 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 has_rig=provider_result.has_rig,
                 file_size=stats.get("file_size", provider_result.file_size),
                 download_urls=download_urls,
+                processing_metadata=meta,
             )
             session.commit()
+
+            result_payload = {
+                "model_url": to_url(glb_path),
+                "thumbnail_url": model_public_url(job_id, "thumbnail.png") if rendered else "",
+                "polygon_count": stats.get("polygon_count", provider_result.polygon_count),
+                "vertex_count": stats.get("vertex_count", provider_result.vertex_count),
+                "texture_resolution": provider_result.texture_resolution,
+                "has_rig": provider_result.has_rig,
+                "download_urls": download_urls,
+                "file_size": stats.get("file_size", provider_result.file_size),
+                "source_model_url": meta.get("source_model_url"),
+                "game_ready_url": meta.get("game_ready_url"),
+                "lod_urls": meta.get("lod_urls") or [],
+                "collision_url": meta.get("collision_url"),
+                "qa_report": qa_report,
+            }
 
             _publish(job_id, {
                 "job_id": job_id,
@@ -732,6 +821,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 "progress": 100,
                 "message": "Generation complete! Model is ready for download.",
                 "level": "success",
+                "result": result_payload,
                 "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             })
 

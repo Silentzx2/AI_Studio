@@ -1,0 +1,371 @@
+Read "AGENTS.md" and all applicable agent rules first.
+
+Read "plan2.md" completely.
+
+IMPORTANT: THIS IS AUDIT/PLANNING ONLY.
+
+DO NOT:
+
+- modify project files
+- install dependencies
+- change configuration
+- create implementation code
+- delete files
+- run destructive commands
+- commit or push anything
+
+Your task is ONLY to deeply audit the existing AI_Studio repository and produce a detailed, implementation-ready plan for "plan2.md".
+
+IMPORTANT CONTEXT:
+
+Plan 1 is responsible for upgrading the underlying 3D generation/processing pipeline.
+
+Plan 2 is ONLY responsible for correctly connecting that pipeline to:
+
+- frontend UI controls
+- generation settings/state
+- provider capabilities
+- export system
+- asset packaging
+- validation results
+
+Do NOT repeat or redesign the core pipeline work from Plan 1.
+
+First inspect the current implementation of:
+
+- Workspace UI
+- generation controls
+- WorkspaceContext/state
+- generation settings
+- generation request schemas
+- provider capability metadata
+- model selection
+- quality settings
+- texture settings
+- PBR settings
+- optimization settings
+- LOD settings
+- rigging settings
+- animation settings
+- collision settings
+- export modal
+- export endpoint
+- export schemas
+- asset storage
+- metadata
+- QA/validation
+- existing download logic
+
+Then reconcile these with "plan2.md" and the pipeline produced by Plan 1.
+
+==================================================
+CORE UI REQUIREMENT
+
+Every OPTIONAL pipeline stage must have a real UI control.
+
+Examples:
+
+- Texture
+- PBR
+- Optimization
+- LOD
+- Rigging
+- Animation
+- Collision
+- Other optional stages actually supported by the backend
+
+But:
+
+A UI toggle is NOT allowed unless it maps to real backend behavior.
+
+No fake toggles.
+
+No fake progress.
+
+No fake capabilities.
+
+No UI option that the selected provider cannot actually support.
+
+Provider capabilities must determine whether a control is:
+
+- available
+- unavailable
+- disabled
+- automatically handled
+
+==================================================
+GENERATION VS EXPORT
+
+Determine which options must be selected BEFORE generation and which can safely be selected during export.
+
+For every pipeline feature classify it as:
+
+A. Generation-time option
+B. Post-generation option
+C. Export-time option
+D. Both
+E. Not user-configurable
+
+For example, determine the correct behavior for:
+
+LOD:
+
+- whether LOD generation must happen during generation/post-processing
+- whether LOD selection can happen only during export
+- whether existing generated LODs can be exported later
+- whether export-time LOD generation is technically safe
+
+Texture:
+
+- whether texture generation must happen during generation
+- whether texture resolution can be changed later
+- whether untextured source assets can be exported
+
+PBR:
+
+- generation-time vs export-time behavior
+
+Optimization:
+
+- generation-time/post-processing vs export-time
+
+Rigging:
+
+- whether it must happen before export
+
+Collision:
+
+- whether it can be generated during export
+
+Do NOT make assumptions.
+Trace the real backend capabilities.
+
+==================================================
+EXPORT SYSTEM
+
+Audit the current export implementation.
+
+Determine exactly what currently happens when the user clicks export.
+
+Then design the final export flow supporting, where genuinely implemented:
+
+1. Source/Master asset
+2. Game Ready asset
+3. LOD package
+4. Textures
+5. PBR materials
+6. Supported 3D formats:
+   - GLB
+   - GLTF
+   - OBJ
+   - FBX
+   - STL
+   - PLY
+7. Rigged character export where supported
+8. Collision mesh
+9. Metadata
+10. QA/quality report
+11. Complete ZIP package
+
+IMPORTANT:
+
+Do NOT assume every format is currently available.
+
+For every export format determine:
+
+- existing support
+- conversion mechanism
+- dependencies
+- material preservation
+- texture preservation
+- animation preservation
+- limitations
+
+Unsupported formats must remain genuinely unsupported until implemented.
+
+==================================================
+SOURCE VS GAME-READY
+
+The export architecture must preserve:
+
+SOURCE/MASTER ASSET
+and
+GAME-READY ASSET
+
+The game-ready version must never overwrite or destroy the master.
+
+Determine how the existing storage system should represent these variants.
+
+==================================================
+LOD
+
+Audit the current LOD implementation.
+
+Determine:
+
+- when LODs are generated
+- where they are stored
+- how they are represented in metadata
+- whether they are generated automatically
+- whether they can be generated later
+- how export should expose them
+
+The UI must make this understandable.
+
+Example desired behavior:
+
+Generation:
+[✓] Generate LODs
+
+or, if architecture supports deferred generation:
+
+Export:
+[✓] Include LODs
+
+Do not create two conflicting LOD systems.
+
+==================================================
+EXPORT UI
+
+Design a clean export experience.
+
+The user should be able to choose, where supported:
+
+Asset:
+
+- Source/Master
+- Game Ready
+- LODs
+
+Textures:
+
+- Include textures
+- Texture resolution where safely changeable
+
+Materials:
+
+- Include PBR
+
+Rig:
+
+- Include rig when available
+
+Collision:
+
+- Generate/include collision
+
+Format:
+
+- GLB
+- GLTF
+- OBJ
+- FBX
+- STL
+- PLY
+
+Packaging:
+
+- Individual files
+- Complete ZIP
+
+QA:
+
+- Include metadata
+- Include QA report
+
+The UI must reflect actual backend state.
+
+==================================================
+STATE CONSISTENCY
+
+Audit for state mismatches between:
+
+Frontend
+↕
+WorkspaceContext
+↕
+Generation request
+↕
+Backend schema
+↕
+Pipeline state
+↕
+Asset metadata
+↕
+Export request
+
+A setting selected in the UI must not disappear, reset, or silently change.
+
+A backend capability must be reflected in the UI.
+
+A generated feature must be reflected in export.
+
+==================================================
+ARCHITECTURE CONSTRAINTS
+
+Preserve the existing architecture.
+
+Do NOT:
+
+- create a second export system
+- create a second state-management system
+- duplicate provider capability logic
+- move backend logic into frontend
+- hardcode provider capabilities into UI
+- break existing APIs unnecessarily
+- add unnecessary dependencies
+
+Reuse existing:
+
+- WorkspaceContext
+- generation schemas
+- provider capability system
+- asset metadata
+- export endpoint
+- storage system
+- existing modal/components
+- existing validation system
+
+unless audit evidence proves they need modification.
+
+==================================================
+PLAN OUTPUT
+
+Create:
+
+"PLAN2_IMPLEMENTATION_PLAN.md"
+
+It must contain:
+
+1. Current UI/export architecture
+2. Current gaps
+3. Pipeline-to-UI mapping
+4. Generation-time vs export-time feature matrix
+5. Provider capability mapping
+6. LOD strategy
+7. Export architecture
+8. Export format support matrix
+9. Source vs Game Ready asset strategy
+10. Complete ZIP structure
+11. State-flow design
+12. Exact files to modify
+13. Exact components/functions to modify
+14. API/schema changes
+15. Dependencies
+16. Testing strategy
+17. Browser/UI testing strategy
+18. Regression risks
+19. Implementation order
+20. Rollback strategy
+
+Do NOT implement anything.
+
+At the end summarize:
+
+- exact current gaps
+- highest-priority UI changes
+- highest-priority export changes
+- generation/export state issues
+- files that must change
+- risks
+- unresolved technical decisions

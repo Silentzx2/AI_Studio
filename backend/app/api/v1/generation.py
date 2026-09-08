@@ -316,6 +316,15 @@ async def create_generation(req: GenerationRequest, request: Request):
                     "auto_optimize_settings": req.auto_optimize_settings.model_dump() if req.auto_optimize_settings else None,
                     "remesh_settings": req.remesh_settings,
                     "source_mesh_url": req.source_mesh_url,
+                    "game_ready": req.game_ready,
+                    "target_platform": req.target_platform,
+                    "generate_lod": req.generate_lod,
+                    "lod_preset": req.lod_preset,
+                    "lod_count": req.lod_count,
+                    "generate_collision": req.generate_collision,
+                    "generate_pbr": req.generate_pbr,
+                    "preserve_details": req.preserve_details,
+                    "repair_uvs": req.repair_uvs,
                 },
                 created_at=now,
                 updated_at=now,
@@ -454,6 +463,11 @@ async def get_generation_status(job_id: str):
                     "has_rig": job.has_rig,
                     "file_size": job.file_size,
                     "download_urls": job.download_urls or {},
+                    "source_model_url": meta.get("source_model_url") or job.model_url,
+                    "game_ready_url": meta.get("game_ready_url"),
+                    "lod_urls": meta.get("lod_urls") or [],
+                    "collision_url": meta.get("collision_url"),
+                    "qa_report": meta.get("qa_report"),
                 }
 
             return success(response)

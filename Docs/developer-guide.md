@@ -633,15 +633,18 @@ To extend the compare view:
 - Add new view modes in the `viewMode` state
 - Add new shading modes in the `ShadingMode` type
 
-## Auto-Optimize Mesh
+## 3D Quality Pipeline & Mesh Optimization
 
-The `backend/app/core/mesh_optimizer.py` module provides post-generation mesh optimization:
+The `backend/app/core/mesh_optimizer.py`, `mesh_processor.py`, and Blender post-processing pipeline provide game-ready asset preparation:
 
-- **Decimation**: Reduces polygon count to target (default 30,000 triangles)
-- **UV fixing**: Repairs overlapping UVs and fills UV islands
-- **Normal recalculation**: Recomputes vertex normals after optimization
-
-Configuration is exposed via the GeneratePanel settings (`auto_optimize`, `target_polycount`, `preserve_details`).
+- **Master Mesh Retention**: Untouched raw output is saved as `source.glb`, enabling non-destructive re-optimization.
+- **Safe Component Pruning**: Detached geometry components with ≥0.5% vertices or ≥15 vertices are preserved (saving ears, horns, tails, accessories).
+- **UV Preservation**: Preserves AI provider UV layouts and textures, preventing accidental overwrite by smart project unwrap.
+- **Decimation & Platform Profiles**: Reduces polygon count to target platform budget (`mobile`: 8k, `low`: 15k, `medium`: 30k, `high`: 60k, `cinematic`: 100k) with detail preservation.
+- **Multi-Tier LOD Generation**: Generates LOD0 (source), LOD1 (50%), LOD2 (25%), and LOD3 (12.5%) cascades.
+- **Physics Collision Mesh**: Generates convex hulls (`collision.glb`) for physics engines.
+- **Geometry Diagnostics & QA Scoring**: Calculates non-manifold edges, surface winding consistency, component counts, UV layout validity, and composite `game_ready_score` (0–100).
+- **Project Export API**: `POST /api/v1/project/export` exports single variants or structured ZIP archives ({name}/Source, GameReady, LODs, Collision, QA).
 
 ## Settings Persistence (v4.7.2+)
 

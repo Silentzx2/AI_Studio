@@ -530,6 +530,11 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             // Pre-fetch the model arrayBuffer immediately into in-memory cache
             void prefetchGLB(modelUrl);
 
+            const qaReport = (result as any).qa_report;
+            const qaScore = qaReport?.game_ready_score ?? (qaReport?.score ? Math.round(qaReport.score * 100) : undefined);
+            const qaStatus = qaReport?.status ?? (qaScore !== undefined ? (qaScore >= 80 ? 'pass' : qaScore >= 50 ? 'warn' : 'fail') : undefined);
+            const qaWarnings = qaReport?.warnings ?? [];
+
             const outputAsset: ModelAsset = {
               id: jobId,
               name: cleanName,
@@ -545,6 +550,16 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               dateCreated: new Date().toISOString().split('T')[0],
               tags: ['AI Generated'],
               meshType: 'custom',
+              artifacts: {
+                source: (result as any).source_model_url,
+                gameReady: (result as any).game_ready_url,
+                lods: (result as any).lod_urls,
+                collision: (result as any).collision_url,
+                qaReport,
+              },
+              qaScore,
+              qaStatus,
+              qaWarnings,
             };
             addAsset(outputAsset);
             setSelectedAssetId(outputAsset.id);
@@ -741,6 +756,15 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             fixUVs: generationSettings.autoOptimizeSettings?.fixUVs ?? true,
             preserveDetails: generationSettings.autoOptimizeSettings?.preserveDetails ?? 75,
           },
+          game_ready: Boolean(generationSettings.gameReady),
+          target_platform: generationSettings.targetPlatform || 'generic',
+          generate_lod: Boolean(generationSettings.generateLOD),
+          lod_preset: generationSettings.lodPreset || 'medium',
+          lod_count: generationSettings.lodCount || 3,
+          generate_collision: Boolean(generationSettings.generateCollision),
+          generate_pbr: generationSettings.generatePBR !== false,
+          preserve_details: generationSettings.preserveDetails ?? generationSettings.autoOptimizeSettings?.preserveDetails ?? 75,
+          repair_uvs: generationSettings.repairUVs !== false,
         }),
       });
       if (!res.ok) throw await parseApiError(res);
@@ -763,7 +787,26 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: message, errorMessage: message, diagnostic } : null);
       toast.error('Generation failed', { description: message });
     }
-  }, [generationSettings.image, generationSettings.aiModel, generationSettings.meshQuality, generationSettings.lowVram, generationSettings.vramMode, generationSettings.autoOptimize, generationSettings.autoOptimizeSettings, generationSettings.generateTexture, startTask]);
+  }, [
+    generationSettings.image,
+    generationSettings.aiModel,
+    generationSettings.meshQuality,
+    generationSettings.lowVram,
+    generationSettings.vramMode,
+    generationSettings.autoOptimize,
+    generationSettings.autoOptimizeSettings,
+    generationSettings.generateTexture,
+    generationSettings.gameReady,
+    generationSettings.targetPlatform,
+    generationSettings.generateLOD,
+    generationSettings.lodPreset,
+    generationSettings.lodCount,
+    generationSettings.generateCollision,
+    generationSettings.generatePBR,
+    generationSettings.preserveDetails,
+    generationSettings.repairUVs,
+    startTask,
+  ]);
 
   const generate3DModel = useCallback(async () => {
     return generateImageTo3D();

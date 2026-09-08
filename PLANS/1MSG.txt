@@ -1,0 +1,182 @@
+Read "AGENTS.md" and all applicable agent rules first.
+
+Read "plan.md" completely.
+
+IMPORTANT: THIS IS AUDIT/PLANNING ONLY.
+
+DO NOT:
+
+- modify project files
+- install dependencies
+- change configuration
+- create implementation code
+- delete files
+- run destructive commands
+- commit or push anything
+
+Your task is ONLY to deeply audit the existing AI_Studio repository and produce a detailed, implementation-ready plan for "plan.md".
+
+Trace the REAL current pipeline:
+
+Input Image
+→ preprocessing
+→ provider selection
+→ model loading
+→ inference
+→ raw mesh
+→ texture generation
+→ Blender processing
+→ optimization
+→ export
+
+Read the actual implementation, not only documentation.
+
+Read and follow:
+
+- "AGENTS.md"
+- all applicable agent rules
+- project documentation
+- "plan.md"
+
+Cross-check the implementation against official/current documentation and repositories for the supported 3D providers where relevant.
+
+Pay special attention to:
+
+1. Hunyuan3D-2.1
+2. Hunyuan3D-2 Mini
+3. TRELLIS
+4. TripoSG
+5. DetailGen3D
+6. model-specific preprocessing
+7. inference parameters
+8. quality controls
+9. geometry cleanup
+10. disconnected-component handling
+11. UV generation/preservation
+12. texture generation
+13. PBR materials
+14. mesh optimization
+15. retopology
+16. normals/shading
+17. scale/orientation
+18. asset classification
+19. geometry validation
+20. game-ready validation
+21. source/master asset preservation
+22. existing LOD infrastructure
+23. existing rigging infrastructure
+24. GPU/VRAM/runtime behavior
+
+MOST IMPORTANT:
+
+Investigate the current reported quality problem.
+
+The same dog image produces a significantly better result in the official commercial Tripo workflow than in AI_Studio.
+
+Determine where quality is actually being lost.
+
+Trace and conceptually compare:
+
+INPUT
+→ PREPROCESSING
+→ RAW PROVIDER OUTPUT
+→ TEXTURE
+→ BLENDER PROCESSING
+→ OPTIMIZATION
+→ EXPORT
+→ FINAL VIEWER
+
+Determine whether the degradation is caused by:
+
+- preprocessing
+- model/package/version mismatch
+- wrong model pipeline
+- inference parameters
+- insufficient inference quality
+- texture pipeline
+- Blender cleanup
+- disconnected mesh removal
+- UV replacement
+- optimization
+- export
+- frontend viewer/material handling
+
+Do not guess.
+
+For every discovered issue provide:
+
+- Priority: P0/P1/P2/P3
+- Exact root cause
+- Evidence
+- File path
+- Function/class
+- Current behavior
+- Intended behavior
+- Proposed fix
+- Dependencies
+- API/schema impact
+- Frontend impact
+- Runtime/VRAM impact
+- Regression risk
+- Test strategy
+- Expected quality impact
+
+Then create a dependency-aware implementation plan.
+
+The plan must preserve the existing architecture.
+
+Do NOT propose a full rewrite.
+
+Reuse existing:
+
+- RuntimeEngine
+- provider system
+- model manifests
+- GPU/VRAM scheduler
+- workers
+- Blender infrastructure
+- existing preprocessing
+- existing validation
+- existing storage
+- existing API contracts
+
+unless there is concrete evidence that a component must change.
+
+The implementation plan must be divided into:
+
+P0 — Critical quality/root-cause fixes
+
+P1 — Production-quality 3D pipeline improvements
+
+P2 — Game-ready optimization/validation improvements
+
+P3 — Optional advanced improvements
+
+For every phase list:
+
+- exact files
+- exact components
+- dependencies
+- implementation order
+- tests
+- rollback considerations
+
+Also identify changes that should NOT be made because they would duplicate existing functionality or create architectural conflicts.
+
+At the end produce:
+
+"PLAN1_IMPLEMENTATION_PLAN.md"
+
+This file must contain the complete implementation plan.
+
+Do NOT implement anything yet.
+
+Final response should summarize:
+
+- root causes discovered
+- highest-impact fixes
+- exact implementation phases
+- files likely to change
+- risks
+- unresolved questions
+- what should be reviewed before implementation

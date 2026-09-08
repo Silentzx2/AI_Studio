@@ -55,6 +55,41 @@ class GenerationRequest(BaseModel):
     # Built-in remesh settings. These are applied by the CPU/GPU mesh optimizer
     # against the selected source GLB; no AI provider is loaded for remesh jobs.
     remesh_settings: dict | None = None
+    # Game-ready pipeline options
+    game_ready: bool = False
+    target_platform: Literal["generic", "mobile", "low", "medium", "high", "cinematic"] = "generic"
+    generate_lod: bool = False
+    lod_preset: Literal["mobile", "low", "medium", "high", "custom"] = "medium"
+    lod_count: int = Field(3, ge=1, le=5)
+    generate_collision: bool = False
+    generate_pbr: bool = True
+    preserve_details: float = Field(75.0, ge=0, le=100)
+    repair_uvs: bool = True
+
+    @model_validator(mode="before")
+    @classmethod
+    def accept_request_camel_case(cls, data: object) -> object:
+        if isinstance(data, dict):
+            mapping = {
+                "gameReady": "game_ready",
+                "targetPlatform": "target_platform",
+                "generateLOD": "generate_lod",
+                "lodPreset": "lod_preset",
+                "lodCount": "lod_count",
+                "generateCollision": "generate_collision",
+                "generatePBR": "generate_pbr",
+                "preserveDetails": "preserve_details",
+                "repairUVs": "repair_uvs",
+                "generateTexture": "generate_texture",
+                "autoRig": "auto_rig",
+                "autoOptimize": "auto_optimize",
+                "lowVram": "low_vram",
+                "vramMode": "vram_mode",
+            }
+            for k, v in mapping.items():
+                if k in data and v not in data:
+                    data[v] = data[k]
+        return data
 
     @field_validator("reference_image_url", "source_mesh_url", mode="before")
     @classmethod
@@ -109,6 +144,11 @@ class JobResult(BaseModel):
     has_rig: bool
     download_urls: DownloadUrls
     file_size: int
+    source_model_url: str | None = None
+    game_ready_url: str | None = None
+    lod_urls: list[str] = Field(default_factory=list)
+    collision_url: str | None = None
+    qa_report: dict | None = None
 
 
 class JobResponse(BaseModel):

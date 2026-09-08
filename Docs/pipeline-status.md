@@ -1,8 +1,50 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.14 (Real Auto-Optimize Backend Gate & Source-Image Model Naming)
-> **Status**: ✅ **COMPLETE** — Verified 2026-09-07
-> **Last Updated**: September 7, 2026
+> **Version**: 5.0.18 (Quality Pipeline, Master Asset Preservation, LODs, Collision, and Structured Export)
+> **Status**: ✅ **COMPLETE** — Verified 2026-09-08
+> **Last Updated**: September 8, 2026
+
+---
+
+## v5.0.18 — Quality Pipeline, Master Asset Preservation, LODs, Collision, and Structured Export (2026-09-08)
+
+### Root Cause & Motivation
+Previous generation pipelines exhibited destructive post-processing, discarded raw master meshes, and lacked professional export infrastructure:
+1. **Destructive Component Removal**: In `backend/app/core/blender/scripts/process_mesh.py`, small disconnected mesh islands were aggressively stripped, deleting ears, horns, tails, weapons, and accessories.
+2. **UV Map & Texture Destruction**: Running unconditional `bpy.ops.uv.smart_project` obliterated AI-generated UV layouts and texture mappings from Hunyuan3D and TRELLIS.
+3. **Mismatched Auto-Rigging**: Rigid human biped metarigs were applied indiscriminately to non-humanoid meshes (quadrupeds, props, vehicles), distorting geometry.
+4. **Missing Master Asset Retention**: Optimization steps directly overwrote the base generated file, leaving no untouched master mesh (`source.glb`) for subsequent high-fidelity re-optimization or re-baking.
+5. **Lack of LODs & Physics Collision**: No automated level-of-detail cascades (LOD0–LOD3) or convex collision hulls were generated for game engines.
+6. **Incomplete Client-Side Export**: The frontend `ExportModal.tsx` performed client-side format renaming (`.obj` / `.stl`) without calling `/api/v1/project/export`, producing invalid files. Path traversal security checks in `backend/app/api/v1/project.py` also rejected `/static/` URLs.
+
+### What Changed
+- **Safe Component Pruning (`backend/app/core/blender/scripts/process_mesh.py`)**:
+  - Replaced single-island deletion with a connectivity and relative volume threshold (retains any disconnected component with ≥0.5% of vertices or ≥15 vertices). Preserves horns, ears, tails, wings, and props while eliminating floating noise fragments.
+- **UV Preservation Guard (`backend/app/core/blender/scripts/process_mesh.py`)**:
+  - Guarded smart UV unwrap: `if not obj.data.uv_layers:` ensures existing UV maps and textures produced by AI providers are strictly preserved.
+- **Humanoid Metarig Guard (`backend/app/core/blender/scripts/process_mesh.py`)**:
+  - Added aspect ratio and height verification (`aspect_ratio < 0.7 or height < 0.2`) preventing biped metarig binding onto non-humanoid meshes, quadrupeds, and flat props.
+- **Geometry Diagnostics & QA Scoring Engine (`backend/app/core/mesh_processor.py`)**:
+  - Implemented `run_mesh_diagnostics()` calculating triangle count, vertex count, connected component count, non-manifold edges, surface winding consistency, UV layout validity, and texture map presence.
+  - Implemented `game_ready_score` (0–100) scoring against target platform budgets (`mobile`, `low`, `medium`, `high`, `cinematic`).
+- **Multi-Tier LODs & Collision Meshes (`backend/app/core/mesh_optimizer.py`)**:
+  - Implemented `generate_lods()` producing LOD0 (master/source), LOD1 (50%), LOD2 (25%), and LOD3 (12.5%) with UV and normal preservation.
+  - Implemented `generate_collision_mesh()` producing a clean, optimized convex hull (`collision.glb`).
+  - Implemented `get_target_polycount_for_platform()` for platform-specific triangle budgets.
+- **Worker Orchestration & Asset Preservation (`backend/app/workers/tasks.py`)**:
+  - Automatically copies untouched raw generation to `source.glb`.
+  - Generates `game_ready.glb`, LOD cascade (`lods/lod{i}.glb`), and `collision.glb`.
+  - Runs full geometry diagnostics and stores `qa_report` in job results.
+- **Production Export Endpoint (`backend/app/api/v1/project.py`)**:
+  - Hardened path traversal security using `urllib.parse.urlparse` and `Path.is_relative_to(storage_root)`.
+  - Supports variant selection (`source`, `game_ready`, `lod_package`).
+  - Supports real server-side format conversion to GLB, OBJ, STL, and PLY using Trimesh.
+  - Generates structured ZIP packages containing `{name}/Source/`, `{name}/GameReady/`, `{name}/LODs/`, `{name}/Collision/`, and `{name}/QA/quality_report.json`.
+- **Frontend UI Controls (`GeneratePanel.tsx`, `WorkspaceContext.tsx`, `ExportModal.tsx`, `types.ts`)**:
+  - Added collapsible "Game-Ready & LODs" configuration card with platform selector, LOD cascade toggles, collision hull toggle, and live pipeline execution summary.
+  - Ingested QA reports and artifact URLs into `ModelAsset`.
+  - Replaced client-side fake export with production modal calling `/api/v1/project/export` with variant selection, format conversion, and structured ZIP packaging.
+- **Verification**: `scripts/test_pipeline_and_export.py` verified 5/5 passes across diagnostics, LOD generation, collision hull creation, path security, and structured ZIP packaging.
 
 ---
 

@@ -78,6 +78,7 @@ export const GeneratePanel: React.FC = () => {
   const [privacyMenuOpen, setPrivacyMenuOpen] = useState(false);
   const [generateInParts, setGenerateInParts] = useState(false);
   const [meshSettingsOpen, setMeshSettingsOpen] = useState(true);
+  const [gameReadyOpen, setGameReadyOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -792,6 +793,172 @@ export const GeneratePanel: React.FC = () => {
           )}
         </div>
 
+        {/* Game Ready & LOD Pipeline Card */}
+        <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2 space-y-2">
+          <div
+            className="flex items-center justify-between cursor-pointer select-none"
+            onClick={() => setGameReadyOpen(prev => !prev)}
+          >
+            <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-200">
+              <Gauge className="w-3.5 h-3.5 text-[#00FF9D]" />
+              <span>Game-Ready & LODs</span>
+              <SimpleTooltip label="Configures target platform budgets, multi-tier LODs (LOD0–LOD3), physics collision hulls, and game engine asset compliance.">
+                <Info className="w-3.5 h-3.5 text-zinc-500" />
+              </SimpleTooltip>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${
+                generationSettings.gameReady
+                  ? 'bg-emerald-500/15 text-[#00FF9D] border border-emerald-500/30 font-bold'
+                  : 'bg-white/[0.06] text-zinc-400'
+              }`}>
+                {generationSettings.gameReady
+                  ? `${(generationSettings.targetPlatform || 'generic').toUpperCase()}`
+                  : 'Standard'}
+              </span>
+              <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${gameReadyOpen ? 'rotate-180 text-[#00FF9D]' : ''}`} />
+            </div>
+          </div>
+
+          {gameReadyOpen && (
+            <div className="space-y-2.5 pt-1.5 border-t border-white/[0.06]">
+              {/* Game Ready Mode Toggle */}
+              <div className="flex items-center justify-between text-xs">
+                <div>
+                  <span className="text-zinc-200 font-semibold block">Game-Ready Mode</span>
+                  <span className="text-[10px] text-zinc-400">Preserves source master while optimizing asset for real-time engines</span>
+                </div>
+                <button
+                  id="btn-toggle-game-ready"
+                  type="button"
+                  role="switch"
+                  aria-checked={Boolean(generationSettings.gameReady)}
+                  onClick={() => setGenerationSettings(prev => ({
+                    ...prev,
+                    gameReady: !prev.gameReady,
+                    autoOptimize: !prev.gameReady ? true : prev.autoOptimize,
+                  }))}
+                  className={`w-8 h-4 rounded-full p-0.5 transition-colors relative cursor-pointer ${
+                    generationSettings.gameReady ? 'bg-emerald-500' : 'bg-[#25262A]'
+                  }`}
+                >
+                  <div className={`w-3 h-3 rounded-full bg-black transition-transform ${
+                    generationSettings.gameReady ? 'translate-x-4' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+
+              {/* Target Platform Selector */}
+              <div className="space-y-1">
+                <span className="text-xs text-zinc-400 font-semibold uppercase tracking-wider">Target Platform Budget</span>
+                <div className="grid grid-cols-5 gap-1">
+                  {[
+                    { id: 'mobile', label: 'Mobile', budget: 18000 },
+                    { id: 'low', label: 'Low', budget: 28000 },
+                    { id: 'medium', label: 'Medium', budget: 45000 },
+                    { id: 'high', label: 'High', budget: 85000 },
+                    { id: 'cinematic', label: 'Cine', budget: 180000 },
+                  ].map(p => {
+                    const isSelected = (generationSettings.targetPlatform || 'medium') === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setGenerationSettings(prev => ({
+                            ...prev,
+                            gameReady: true,
+                            targetPlatform: p.id as any,
+                            autoOptimize: true,
+                            autoOptimizeSettings: {
+                              ...prev.autoOptimizeSettings,
+                              targetPolycount: p.budget,
+                            },
+                          }));
+                        }}
+                        className={`py-1 px-0.5 rounded-lg text-[10px] font-bold transition-all text-center cursor-pointer ${
+                          isSelected
+                            ? 'bg-emerald-500 text-black shadow-sm'
+                            : 'bg-[#191A1D] text-zinc-300 hover:text-white hover:bg-[#202125] border border-white/[0.08]'
+                        }`}
+                      >
+                        <span className="block truncate">{p.label}</span>
+                        <span className="block text-[8px] opacity-80 mt-0.5">~{Math.round(p.budget / 1000)}k</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Generate Multi-tier LODs Toggle */}
+              <div className="flex items-center justify-between text-xs pt-1.5 border-t border-white/[0.04]">
+                <div>
+                  <span className="text-zinc-200 font-semibold block">Generate Multi-Tier LODs</span>
+                  <span className="text-[10px] text-zinc-400">Cascade levels: LOD0 (Master), LOD1 (50%), LOD2 (25%), LOD3 (12.5%)</span>
+                </div>
+                <button
+                  id="btn-toggle-generate-lod"
+                  type="button"
+                  role="switch"
+                  aria-checked={Boolean(generationSettings.generateLOD)}
+                  onClick={() => setGenerationSettings(prev => ({ ...prev, generateLOD: !prev.generateLOD }))}
+                  className={`w-8 h-4 rounded-full p-0.5 transition-colors relative cursor-pointer ${
+                    generationSettings.generateLOD ? 'bg-emerald-500' : 'bg-[#25262A]'
+                  }`}
+                >
+                  <div className={`w-3 h-3 rounded-full bg-black transition-transform ${
+                    generationSettings.generateLOD ? 'translate-x-4' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+
+              {generationSettings.generateLOD && (
+                <div className="flex items-center justify-between text-[10px] px-2 py-1.5 rounded-lg bg-black/20 border border-white/[0.04]">
+                  <span className="text-zinc-400">Cascade Count:</span>
+                  <div className="flex items-center gap-1">
+                    {[2, 3, 4].map(count => (
+                      <button
+                        key={count}
+                        type="button"
+                        onClick={() => setGenerationSettings(prev => ({ ...prev, lodCount: count }))}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          (generationSettings.lodCount || 3) === count
+                            ? 'bg-[#00FF9D] text-black'
+                            : 'bg-white/[0.06] text-zinc-300 hover:bg-white/[0.12]'
+                        }`}
+                      >
+                        {count} Levels
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Collision Mesh Toggle */}
+              <div className="flex items-center justify-between text-xs pt-1.5 border-t border-white/[0.04]">
+                <div>
+                  <span className="text-zinc-200 font-semibold block">Physics Collision Mesh</span>
+                  <span className="text-[10px] text-zinc-400">Generates simplified convex hull for physics simulation</span>
+                </div>
+                <button
+                  id="btn-toggle-collision"
+                  type="button"
+                  role="switch"
+                  aria-checked={Boolean(generationSettings.generateCollision)}
+                  onClick={() => setGenerationSettings(prev => ({ ...prev, generateCollision: !prev.generateCollision }))}
+                  className={`w-8 h-4 rounded-full p-0.5 transition-colors relative cursor-pointer ${
+                    generationSettings.generateCollision ? 'bg-emerald-500' : 'bg-[#25262A]'
+                  }`}
+                >
+                  <div className={`w-3 h-3 rounded-full bg-black transition-transform ${
+                    generationSettings.generateCollision ? 'translate-x-4' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Members Only Section (Tripo Style) */}
         <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2 space-y-2">
           <div className="flex items-center gap-1 text-[10px] font-bold text-[#F9CF00]">
@@ -948,6 +1115,52 @@ export const GeneratePanel: React.FC = () => {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Real-time Pipeline Execution Summary */}
+        <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2.5 space-y-1.5 text-[10px]">
+          <div className="flex items-center justify-between font-bold text-zinc-300">
+            <span className="flex items-center gap-1 text-[#F9CF00]">
+              <Sparkles className="w-3 h-3" />
+              <span>Pipeline Execution Intent</span>
+            </span>
+            <span className="text-zinc-500 font-mono">Backend authoritative</span>
+          </div>
+          <div className="space-y-1 text-zinc-400 font-mono">
+            <div className="flex items-center justify-between">
+              <span>1. Generator:</span>
+              <span className="text-white">{activeModelObj?.label || activeModelId || 'Local Provider'}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>2. Material:</span>
+              <span className={generationSettings.generateTexture !== false ? 'text-[#00FF9D]' : 'text-zinc-400'}>
+                {generationSettings.generateTexture !== false ? 'Multi-view Texture / PBR' : 'Untextured Geometry'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>3. Topology:</span>
+              <span className="text-white">
+                {generationSettings.gameReady
+                  ? `Game-Ready (${(generationSettings.targetPlatform || 'medium').toUpperCase()})`
+                  : (generationSettings.autoOptimize ? `${(generationSettings.autoOptimizeSettings?.targetPolycount || 30000).toLocaleString()} tris` : 'Raw Density')}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>4. Master Asset:</span>
+              <span className="text-emerald-400">Preserved (source.glb)</span>
+            </div>
+            {(generationSettings.generateLOD || generationSettings.generateCollision) && (
+              <div className="flex items-center justify-between pt-1 border-t border-white/[0.04]">
+                <span>5. Packages:</span>
+                <span className="text-[#F9CF00]">
+                  {[
+                    generationSettings.generateLOD ? `${generationSettings.lodCount || 3} LODs` : null,
+                    generationSettings.generateCollision ? 'Collision Hull' : null,
+                  ].filter(Boolean).join(' · ')}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

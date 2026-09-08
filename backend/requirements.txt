@@ -41,6 +41,7 @@ trimesh==4.5.3
 scipy>=1.11.0
 scikit-image>=0.21.0
 xatlas
+pymeshlab>=2022.2.post3
 # ponytail: trimesh's simplify_quadric_decimation requires fast_simplification at
 # runtime; without it every decimation attempt raises and the optimizer silently
 # copies the original mesh through (fake optimization). Required for real decimation.

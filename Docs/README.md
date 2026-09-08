@@ -883,8 +883,8 @@ ai-3d-studio/
 │   │   │   └── rigging_router.py      # /rigging (no prefix)
 │   │   │
 │   │   ├── core/
-│   │   │   ├── mesh_optimizer.py     # Post-generation mesh optimization
-│   │   │   ├── mesh_processor.py     # Mesh stats & thumbnail generation
+│   │   │   ├── mesh_optimizer.py     # Game-ready decimation, LOD cascades & collision hulls
+│   │   │   ├── mesh_processor.py     # Mesh stats, QA diagnostics & thumbnail generation
 │   │   │   ├── cache.py              # In-memory TTL caching layer
 │   │   │   ├── providers/            # AI Providers
 │   │   │   │   ├── base.py

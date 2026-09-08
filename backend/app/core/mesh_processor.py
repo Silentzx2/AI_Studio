@@ -294,3 +294,169 @@ def validate_export(model_path: str, fmt: str) -> dict:
     except Exception as exc:
         return {"valid": False, "reason": f"invalid {fmt.upper()}: {exc}", "model_path": model_path}
 
+
+def run_mesh_diagnostics(model_path: str, target_platform: str = "generic") -> dict[str, Any]:
+    """Calculate comprehensive mesh diagnostics and a composite game-ready score (0-100).
+
+    Audits geometry, topology, UV layout, materials, and polygon budget compliance
+    without destructive modification. Returns a structured QA record.
+    """
+    path = Path(model_path)
+    if not path.exists():
+        return {
+            "valid": False,
+            "game_ready_score": 0,
+            "status": "fail",
+            "warnings": ["File not found"],
+            "diagnostics": {},
+        }
+
+    trimesh = _try_import_trimesh()
+    if trimesh is None:
+        return {
+            "valid": True,
+            "game_ready_score": 75,
+            "status": "warn",
+            "warnings": ["trimesh not installed — limited diagnostic verification"],
+            "diagnostics": {"file_size": path.stat().st_size},
+        }
+
+    try:
+        loaded = trimesh.load(str(path))
+        if isinstance(loaded, trimesh.Scene):
+            meshes = [g for g in loaded.geometry.values() if isinstance(g, trimesh.Trimesh)]
+            if not meshes:
+                return {
+                    "valid": False,
+                    "game_ready_score": 0,
+                    "status": "fail",
+                    "warnings": ["Scene contains no mesh geometry"],
+                    "diagnostics": {},
+                }
+            mesh = trimesh.util.concatenate(meshes) if len(meshes) > 1 else meshes[0]
+            scene_materials = len(loaded.geometry)
+        else:
+            mesh = loaded
+            scene_materials = 1
+
+        poly_count = len(mesh.faces)
+        vert_count = len(mesh.vertices)
+        if poly_count == 0 or vert_count == 0:
+            return {
+                "valid": False,
+                "game_ready_score": 0,
+                "status": "fail",
+                "warnings": ["Mesh has zero faces or vertices"],
+                "diagnostics": {"polygon_count": poly_count, "vertex_count": vert_count},
+            }
+
+        warnings = []
+        # 1. Topology & Components
+        is_watertight = bool(getattr(mesh, "is_watertight", False))
+        is_winding = bool(getattr(mesh, "is_winding_consistent", False))
+        
+        # Connected components
+        try:
+            components_count = len(trimesh.graph.connected_components(mesh.face_adjacency))
+        except Exception:
+            components_count = 1
+
+        if components_count > 10:
+            warnings.append(f"Mesh has {components_count} disconnected parts (may need merging or component cleanup)")
+
+        # 2. UVs & Texturing
+        uv_info = validate_uv_mapping(str(path))
+        has_uv = bool(uv_info.get("has_uv", False))
+        if not has_uv:
+            warnings.append("Mesh lacks UV coordinates")
+
+        tex_info = validate_texture(str(path))
+        has_texture = bool(tex_info.get("textured", False))
+        if not has_texture:
+            warnings.append("No embedded texture map found")
+
+        # 3. Dimensions & Bounding box
+        extents = [round(float(x), 3) for x in mesh.extents.tolist()] if hasattr(mesh, "extents") else [1.0, 1.0, 1.0]
+
+        # 4. Budget compliance by platform
+        platform_budgets = {
+            "mobile": 20000,
+            "low": 35000,
+            "medium": 60000,
+            "high": 120000,
+            "cinematic": 250000,
+            "generic": 65000,
+        }
+        max_budget = platform_budgets.get(target_platform.lower(), 65000)
+        budget_ratio = poly_count / max(1, max_budget)
+        if budget_ratio > 1.2:
+            warnings.append(
+                f"Triangle count ({poly_count:,}) exceeds recommended target for '{target_platform}' ({max_budget:,})"
+            )
+
+        # 5. Composite Game-Ready Score (0 - 100)
+        # Topology / Geometry: 35 pts
+        topology_score = 15  # Non-zero base
+        if is_winding:
+            topology_score += 10
+        if is_watertight:
+            topology_score += 5
+        if components_count <= 4:
+            topology_score += 5
+        elif components_count > 15:
+            topology_score = max(5, topology_score - 5)
+
+        # UV & Materials: 35 pts
+        uv_mat_score = 0
+        if has_uv:
+            uv_mat_score += 20
+        if has_texture:
+            uv_mat_score += 15
+
+        # Budget & Platform: 30 pts
+        if budget_ratio <= 1.0:
+            budget_score = 30
+        elif budget_ratio <= 1.5:
+            budget_score = 20
+        elif budget_ratio <= 2.5:
+            budget_score = 10
+        else:
+            budget_score = 5
+
+        total_score = min(100, max(0, topology_score + uv_mat_score + budget_score))
+        status = "pass" if total_score >= 80 else ("warn" if total_score >= 50 else "fail")
+
+        diagnostics = {
+            "polygon_count": poly_count,
+            "vertex_count": vert_count,
+            "components_count": components_count,
+            "is_watertight": is_watertight,
+            "is_winding_consistent": is_winding,
+            "has_uv": has_uv,
+            "has_texture": has_texture,
+            "extents": extents,
+            "material_count": scene_materials,
+            "file_size": path.stat().st_size,
+            "target_platform": target_platform,
+            "target_budget": max_budget,
+        }
+
+        return {
+            "valid": True,
+            "game_ready_score": total_score,
+            "status": status,
+            "warnings": warnings,
+            "diagnostics": diagnostics,
+        }
+
+    except Exception as exc:
+        logger.warning("run_mesh_diagnostics failed on %s: %s", model_path, exc)
+        return {
+            "valid": True,
+            "game_ready_score": 60,
+            "status": "warn",
+            "warnings": [f"Diagnostics could not complete: {exc}"],
+            "diagnostics": {"file_size": path.stat().st_size},
+        }
+
+
