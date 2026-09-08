@@ -15,15 +15,17 @@
 
 <p align="center">
 
-  <img src="https://img.shields.io/badge/Version-4.8.0-8A2BE2?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Version-5.0.18-8A2BE2?style=for-the-badge">
 
-  <img src="https://img.shields.io/badge/Pipeline-V2-Complete-success?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Pipeline-Game--Ready_V2-00FF9D?style=for-the-badge">
 
   <img src="https://img.shields.io/badge/Python-3.12+-3776AB?style=for-the-badge&logo=python&logoColor=white">
 
   <img src="https://img.shields.io/badge/FastAPI-Backend-009688?style=for-the-badge&logo=fastapi&logoColor=white">
 
   <img src="https://img.shields.io/badge/Next.js-16.x-Frontend-000000?style=for-the-badge&logo=nextdotjs">
+
+  <img src="https://img.shields.io/badge/Blender-4.x_Headless-F5792A?style=for-the-badge&logo=blender&logoColor=white">
 
   <img src="https://img.shields.io/badge/Linux-Ubuntu-E95420?style=for-the-badge&logo=ubuntu&logoColor=white">
 
@@ -208,66 +210,65 @@ The backend pipelines API drives workspace model pickers and feature gating (the
 
 ### System Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      FRONTEND (Next.js)                       │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  6 Tabs: Installed | Available | Benchmarks | Health │   │
-│  │          Queue     | Storage                          │   │
-│  │  Smart UI: Auto-refresh, Real-time Progress         │   │
-│  └──────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-                               ↕ REST API / WebSocket / SSE
-┌─────────────────────────────────────────────────────────────┐
-│                       BACKEND (FastAPI)                       │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  Real-time Layer:                                    │   │
-│  │  ├─ WS /api/v1/realtime/ws (WebSocket push)         │   │
-│  │  ├─ SSE /api/v1/system/stream (event stream)        │   │
-│  │  └─ Background pusher (10s GPU telemetry)           │   │
-│  │  Caching Layer:                                      │   │
-│  │  └─ In-memory TTL cache (5-30s per endpoint)        │   │
-│  │  API Routers:                                        │   │
-│  │  ├─ /api/v1/models     - Model CRUD & management    │   │
-│  │  ├─ /api/v1/download   - Download queue operations  │   │
-│  │  ├─ /api/v1/discover   - Model discovery & search   │   │
-│  │  └─ /api/v1/system     - System info & compatibility│   │
-│  └──────────────────────────────────────────────────────┘   │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  Managers:                                           │   │
-│  │  ├─ DownloadManager    - Queue & resumable DL       │   │
-│  │  ├─ HealthManager      - Diagnostics & health       │   │
-│  │  └─ EnvironmentManager - System & dependency checks │   │
-│  └──────────────────────────────────────────────────────┘   │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  Workers (Celery):                                   │   │
-│  │  ├─ download_workers    - Async download tasks      │   │
-│  │  ├─ installation_workers- Model installation jobs   │   │
-│  │  └─ health_workers      - Background health checks  │   │
-│  └──────────────────────────────────────────────────────┘   │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  Providers (5):                                      │   │
-│  │  ├─ HuggingFaceProvider  - Largest hub              │   │
-│  │  ├─ GitHubProvider       - Release downloads        │   │
-│  │  ├─ ModelScopeProvider   - Alibaba DAMO-VISL        │   │
-│  │  ├─ NVIDIANGCProvider    - Enterprise models        │   │
-│  │  └─ CivitAIProvider      - Community models         │   │
-│  └──────────────────────────────────────────────────────┘   │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  Download Pipeline:                                  │   │
-│  │  ChunkManager → MirrorFallback → ChecksumValidator   │   │
-│  └──────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-                               ↕
-┌─────────────────────────────────────────────────────────────┐
-│                     DATA & INFRASTRUCTURE                     │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
-│  │ PostgreSQL   │  │ Redis        │  │ NVIDIA GPU/CUDA  │  │
-│  │ - Models DB  │  │ - Job Queue  │  │ - PyTorch        │  │
-│  │ - Queues     │  │ - Cache      │  │ - CUDA           │  │
-│  │ - Health Log │  │ - Locks      │  │                  │  │
-│  └──────────────┘  └──────────────┘  └──────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph Frontend["Frontend Layer (Next.js 16 / React Three Fiber)"]
+        UI_WS["Workspace Shell & 3D Canvas"]
+        UI_GEN["Generate Panel (Platform & LOD Controls)"]
+        UI_EXP["Export Modal (Variants & ZIP Packaging)"]
+        UI_MODELS["AI Models & Pipeline Telemetry"]
+    end
+
+    subgraph Gateway["API Gateway & Real-Time (FastAPI)"]
+        API_GEN["/api/v1/generation"]
+        API_EXP["/api/v1/project/export"]
+        API_MODELS["/api/v1/models"]
+        API_SYS["/api/v1/system"]
+        WS_STREAM["WS & SSE Telemetry Streams"]
+        CACHE["In-Memory LRU Cache"]
+    end
+
+    subgraph Workers["Distributed Task Layer (Celery + Redis)"]
+        REDIS[("Redis :6379<br/>Queue & State Store")]
+        W_GEN["Generation Worker (tasks.py)"]
+        W_INST["Install Worker"]
+        W_HEALTH["VRAM Health Monitor"]
+    end
+
+    subgraph Engine["Runtime Engine & Provider Isolation"]
+        SCHED["GPU Scheduler (Mutual Exclusion)"]
+        VRAM["VRAM Tracker & Low-VRAM Fallback"]
+        ENV_MGR["ModelEnv Dynamic Bridge"]
+    end
+
+    subgraph Providers["3D Generation Providers"]
+        P_HY["Hunyuan3D-2.1 / 2-Mini"]
+        P_TR["TRELLIS (FlexiCubes)"]
+        P_TSG["TripoSG (Isosurface)"]
+        P_DG["DetailGen3D (Refinement)"]
+    end
+
+    subgraph Pipeline3D["3D Quality Pipeline & Post-Processing"]
+        BLENDER["Headless Blender 4.x<br/>(Safe Component Pruning & UV Protection)"]
+        OPT["Mesh Optimizer<br/>(Platform Decimation & LOD Cascades)"]
+        COL["Physics Collision<br/>(Convex Hull Generator)"]
+        QA["QA Engine<br/>(Geometry Diagnostics & 0-100 Scoring)"]
+    end
+
+    subgraph Storage["Storage & Database"]
+        PG[("PostgreSQL :5432<br/>Jobs, Settings & Metrics")]
+        DISK[("Storage Disk<br/>Source, GameReady, LODs, ZIPs")]
+    end
+
+    Frontend <==>|REST / SSE / WS| Gateway
+    Gateway --> REDIS
+    Gateway <--> PG
+    REDIS --> Workers
+    Workers --> Engine
+    Engine --> Providers
+    Providers --> Pipeline3D
+    Pipeline3D --> DISK
+    Workers <--> PG
 ```
 
 ### Technology Stack

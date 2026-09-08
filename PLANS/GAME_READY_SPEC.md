@@ -16,7 +16,12 @@ Game-ready assets must meet strict polygon budgets depending on the target deplo
 
 ## 2. Measurable QA Scoring Methodology (0–100)
 
-The QA evaluation engine in `app/core/mesh_processor.py` computes an objective composite score without guessing or subjective heuristics:
+```mermaid
+pie title QA Score Weighting Distribution (100 Points Total)
+    "Topology & Geometry Integrity" : 35
+    "UV Mapping & Material Retention" : 35
+    "Platform Polycount Budget" : 30
+```
 
 ### A. Topology & Geometry Integrity (35 Points Max)
 - **Base Non-Zero Geometry**: +15 pts (Mesh contains verified non-zero faces and vertices).
@@ -51,3 +56,10 @@ The QA evaluation engine in `app/core/mesh_processor.py` computes an objective c
 | **LOD1** | 50% of LOD0 | Close-range game variant | 25% – 50% screen height |
 | **LOD2** | 25% of LOD0 | Medium-range game variant | 10% – 25% screen height |
 | **LOD3** | 12.5% of LOD0 | Distant silhouette proxy | < 10% screen height |
+
+```mermaid
+flowchart LR
+    L0["<b>LOD0 (100%)</b><br/>Master Source<br/>Screen: >50%"] -->|Decimate 50%| L1["<b>LOD1 (50%)</b><br/>Close-Range<br/>Screen: 25–50%"]
+    L1 -->|Decimate 50%| L2["<b>LOD2 (25%)</b><br/>Mid-Range<br/>Screen: 10–25%"]
+    L2 -->|Decimate 50%| L3["<b>LOD3 (12.5%)</b><br/>Distant Proxy<br/>Screen: <10%"]
+```
