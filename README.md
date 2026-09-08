@@ -775,14 +775,16 @@ celery -A app.workers.celery_app worker --loglevel=debug
 
 ## 📚 Documentation Index
 
+- [Product Vision & Architectural North Star](file:///teamspace/studios/this_studio/AI_Studio/Docs/PRODUCT_VISION.md)
+- [3D Quality Pipeline Specification](file:///teamspace/studios/this_studio/AI_Studio/Docs/3D_QUALITY_PIPELINE.md)
+- [Game-Ready Asset Specification](file:///teamspace/studios/this_studio/AI_Studio/Docs/GAME_READY_SPEC.md)
+- [Quality Benchmark & Verification](file:///teamspace/studios/this_studio/AI_Studio/Docs/QUALITY_BENCHMARK.md)
+- [Complete System Architecture & Blueprint](file:///teamspace/studios/this_studio/AI_Studio/Docs/SYSTEM-BLUEPRINT.md)
 - [Architecture & Storage Guide](file:///teamspace/studios/this_studio/AI_Studio/Docs/architecture.md)
 - [Complete REST API Documentation](file:///teamspace/studios/this_studio/AI_Studio/Docs/api-documentation.md)
-- [Pipeline V2 Status & Changelog](file:///teamspace/studios/this_studio/AI_Studio/Docs/pipeline-status.md)
+- [Pipeline Status & Changelog](file:///teamspace/studios/this_studio/AI_Studio/Docs/pipeline-status.md)
 - [Developer & Testing Guide](file:///teamspace/studios/this_studio/AI_Studio/Docs/developer-guide.md)
-- [3D Quality Pipeline Specification](file:///teamspace/studios/this_studio/AI_Studio/PLANS/3D_QUALITY_PIPELINE.md)
-- [Game-Ready Asset Specification](file:///teamspace/studios/this_studio/AI_Studio/PLANS/GAME_READY_SPEC.md)
-- [Quality Benchmark & Verification](file:///teamspace/studios/this_studio/AI_Studio/PLANS/QUALITY_BENCHMARK.md)
-- [Root Cause Diagnostic Report](file:///teamspace/studios/this_studio/AI_Studio/PLANS/ROOT_CAUSE_REPORT.md)
+- [Setup & Deployment Guide](file:///teamspace/studios/this_studio/AI_Studio/Docs/setup-guide.md)
 
 ---
 
