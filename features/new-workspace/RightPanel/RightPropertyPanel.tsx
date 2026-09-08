@@ -33,7 +33,7 @@ export const RightPropertyPanel: React.FC = () => {
     systemStats
   } = useWorkspace();
 
-  const [exportFormat, setExportFormat] = useState<'glb' | 'fbx' | 'obj' | 'stl' | 'ply'>('glb');
+  const [exportFormat, setExportFormat] = useState<'glb' | 'gltf' | 'fbx' | 'obj' | 'stl' | 'ply'>('glb');
   const [embedTextures, setEmbedTextures] = useState(true);
   const [dracoCompression, setDracoCompression] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
@@ -589,8 +589,8 @@ export const RightPropertyPanel: React.FC = () => {
           </span>
 
           {/* Formats Grid */}
-          <div className="grid grid-cols-5 gap-1.5">
-            {(['glb', 'fbx', 'obj', 'stl', 'ply'] as const).map((fmt) => (
+          <div className="grid grid-cols-6 gap-1">
+            {(['glb', 'gltf', 'fbx', 'obj', 'stl', 'ply'] as const).map((fmt) => (
               <button
                 key={fmt}
                 onClick={() => setExportFormat(fmt)}

@@ -413,8 +413,20 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
                 pass
             try:
                 from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline
-            except ImportError:
-                from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
+            except ImportError as shape_imp_err:
+                logger.warning(
+                    "DEGRADED_MODE: Official 'hy3dshape' package not found (%s); "
+                    "activating legacy 'hy3dgen.shapegen' compatibility fallback for Hunyuan3D-2.1. "
+                    "For full 2.1 features, ensure Tencent-Hunyuan/Hunyuan3D-2.1 is cloned.",
+                    shape_imp_err,
+                )
+                try:
+                    from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
+                except ImportError as leg_shape_err:
+                    raise RuntimeError(
+                        f"Hunyuan3D-2.1 shape pipeline missing: neither official 'hy3dshape' nor "
+                        f"compatibility 'hy3dgen' is available: {leg_shape_err}"
+                    ) from leg_shape_err
 
             logger.info("Loading Hunyuan3D-2.1 from %s on %s", self.weights_dir, self.device)
             subfolder = "hunyuan3d-dit-v2-1" if (self.weights_dir / "hunyuan3d-dit-v2-1").exists() else None
@@ -435,7 +447,12 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
                 try:
                     from textureGenPipeline import Hunyuan3DPaintPipeline
                     tex_cls = Hunyuan3DPaintPipeline
-                except ImportError:
+                except ImportError as paint_imp_err:
+                    logger.warning(
+                        "DEGRADED_MODE: Official 'hy3dpaint' package not found (%s); "
+                        "activating legacy 'hy3dgen.texgen' compatibility fallback.",
+                        paint_imp_err,
+                    )
                     from hy3dgen.texgen import Hunyuan3DPaintPipeline
                     tex_cls = Hunyuan3DPaintPipeline
 

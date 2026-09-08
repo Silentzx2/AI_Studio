@@ -1,8 +1,10 @@
 """Project export endpoints."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import json
 import logging
+
 import os
 import shutil
 import uuid
@@ -109,6 +111,7 @@ async def export_project(req: ExportRequest):
     fmt = req.format.lower().lstrip(".")
     media_types = {
         "glb": "model/gltf-binary",
+        "gltf": "model/gltf+json",
         "fbx": "application/octet-stream",
         "obj": "text/plain",
         "stl": "model/stl",
@@ -193,7 +196,7 @@ except Exception as e:
         if proc.returncode != 0 or not exported_file.exists() or exported_file.stat().st_size == 0:
             logger.error("Blender FBX export failed (code %d): %s", proc.returncode, proc.stderr)
             raise HTTPException(status_code=500, detail="FBX export conversion failed")
-    elif fmt in ("obj", "stl", "ply"):
+    elif fmt in ("gltf", "obj", "stl", "ply"):
         try:
             import trimesh
             mesh = trimesh.load(str(target_model))
@@ -224,7 +227,12 @@ except Exception as e:
             elif req.includeOriginals:
                 zf.write(model_path, arcname=f"{clean_name}/Source/{model_path.name}")
 
-            # C. LOD cascade
+            # C. Game-Ready Variant (if present)
+            gr_file = job_dir / "game_ready.glb"
+            if gr_file.exists():
+                zf.write(gr_file, arcname=f"{clean_name}/GameReady/{clean_name}_game_ready.glb")
+
+            # D. LOD cascade
             lods_dir = job_dir / "lods"
             if req.includeLODs or req.variant == "lod_package":
                 if not lods_dir.exists():
@@ -244,7 +252,7 @@ except Exception as e:
                     for lod_file in sorted(lods_dir.glob("*.glb")):
                         zf.write(lod_file, arcname=f"{clean_name}/LODs/{lod_file.name}")
 
-            # D. Collision Mesh
+            # E. Collision Mesh
             collision_file = job_dir / "collision.glb"
             if req.includeCollision:
                 if not collision_file.exists():
@@ -259,12 +267,12 @@ except Exception as e:
                 if collision_file.exists():
                     zf.write(collision_file, arcname=f"{clean_name}/Collision/{clean_name}_collision.glb")
 
-            # E. Thumbnail / Preview
+            # F. Thumbnail / Preview
             thumb_file = job_dir / "thumbnail.png"
             if thumb_file.exists():
                 zf.write(thumb_file, arcname=f"{clean_name}/Preview/thumbnail.png")
 
-            # F. QA Report
+            # G. QA Report
             if req.includeQAReport:
                 try:
                     from app.core.mesh_processor import run_mesh_diagnostics
@@ -275,6 +283,19 @@ except Exception as e:
                 except Exception as qa_err:
                     logger.warning("QA report generation in export failed: %s", qa_err)
 
+            # H. Export Metadata Manifest
+            metadata_manifest = {
+                "asset_name": clean_name,
+                "exported_format": fmt,
+                "variant": req.variant,
+                "target_platform": req.targetPlatform or "generic",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "generator": "AI 3D Studio Production Export Engine",
+            }
+            meta_json = out_dir / "export_metadata.json"
+            meta_json.write_text(json.dumps(metadata_manifest, indent=2), encoding="utf-8")
+            zf.write(meta_json, arcname=f"{clean_name}/Metadata/export_metadata.json")
+
         return FileResponse(
             path=str(zip_path),
             filename=zip_filename,
@@ -284,6 +305,7 @@ except Exception as e:
     # 4. Return single file download
     return FileResponse(
         path=str(exported_file),
-        filename=f"{clean_name}.{fmt}",
+        filename=exported_file.name,
         media_type=media_type,
     )
+

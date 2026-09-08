@@ -139,13 +139,77 @@ class TRELLISLocalProvider(BaseProvider):
         )
 
     def _run(self, request: GenerationRequest, output_dir: str) -> str:
+        import inspect
         import torch
         from PIL import Image
+
         img = Image.open(request.reference_image_url).convert("RGBA")
+        dest = str(Path(output_dir) / "model.glb")
+
+        seed = request.seed if request.seed is not None else 42
+        quality = request.quality or "standard"
+
+        # Official quality presets for sparse structure and SLAT sampling:
+        # Steps and CFG strength scale with user quality selection or explicit request parameters
+        quality_presets = {
+            "low-poly": {"ss_steps": 12, "ss_cfg": 5.0, "slat_steps": 12, "slat_cfg": 2.5},
+            "standard": {"ss_steps": 16, "ss_cfg": 6.5, "slat_steps": 16, "slat_cfg": 3.0},
+            "high-poly": {"ss_steps": 25, "ss_cfg": 7.5, "slat_steps": 25, "slat_cfg": 3.0},
+        }
+        preset = quality_presets.get(quality, quality_presets["standard"])
+
+        ss_steps = request.num_inference_steps or preset["ss_steps"]
+        ss_cfg = request.guidance_scale if request.guidance_scale is not None else preset["ss_cfg"]
+        slat_steps = request.num_inference_steps or preset["slat_steps"]
+        slat_cfg = preset["slat_cfg"]
+
+        run_kwargs: dict[str, Any] = {
+            "image": img,
+            "seed": seed,
+            "sparse_structure_sampler_params": {
+                "steps": ss_steps,
+                "cfg_strength": ss_cfg,
+            },
+            "slat_sampler_params": {
+                "steps": slat_steps,
+                "cfg_strength": slat_cfg,
+            },
+        }
+
+        # Formats: shape only vs full PBR
+        if not request.generate_texture:
+            run_kwargs["formats"] = ["mesh"]
+
+        # Only pass kwargs supported by the installed pipeline version
+        sig = inspect.signature(self._pipeline.run)
+        valid_kwargs = {k: v for k, v in run_kwargs.items() if k in sig.parameters}
+
         with torch.inference_mode():
-            outputs = self._pipeline.run(img, seed=42)
-            dest = str(Path(output_dir) / "model.glb")
-            self._pipeline.export_model(outputs, dest)
+            outputs = self._pipeline.run(**valid_kwargs)
+
+            # Export model
+            export_sig = inspect.signature(self._pipeline.export_model)
+            export_kwargs: dict[str, Any] = {}
+            if "texture_size" in export_sig.parameters and request.generate_texture:
+                export_kwargs["texture_size"] = 2048 if quality == "high-poly" else 1024
+            elif "texture_resolution" in export_sig.parameters and request.generate_texture:
+                export_kwargs["texture_resolution"] = 2048 if quality == "high-poly" else 1024
+
+            self._pipeline.export_model(outputs, dest, **export_kwargs)
+
+        # Quality simplification if target face_count specified
+        if request.face_count and Path(dest).exists():
+            try:
+                from app.core.mesh_optimizer import optimize_mesh
+                optimize_mesh(
+                    input_path=dest,
+                    output_path=dest,
+                    target_polycount=request.face_count,
+                    fix_uvs=True,
+                )
+            except Exception as dec_err:
+                logger.warning("Post-TRELLIS face_count decimation skipped: %s", dec_err)
+
         return dest
 
     async def health_check(self) -> bool:

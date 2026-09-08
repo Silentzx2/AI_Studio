@@ -394,7 +394,10 @@ def generate_uvs_with_xatlas(mesh: Any) -> tuple[Any, bool]:
 
 
 def _simplify_with_meshoptimizer(
-    mesh: Any, target_faces: int, preserve_details: float = 75.0
+    mesh: Any,
+    target_faces: int,
+    preserve_details: float = 75.0,
+    target_error: float | None = None,
 ) -> Any:
     """Simplify mesh using meshoptimizer C++ library with attribute preservation.
 
@@ -409,8 +412,9 @@ def _simplify_with_meshoptimizer(
         vertices = mesh.vertices.astype(np.float32)
         destination = np.zeros_like(indices, dtype=np.uint32)
 
-        # Scale target error based on preserve_details (0-100)
-        target_error = max(0.005, min(0.08, (100.0 - preserve_details) / 1000.0 + 0.01))
+        # Scale target error based on preserve_details (0-100) if not explicitly given
+        if target_error is None:
+            target_error = max(0.005, min(0.08, (100.0 - preserve_details) / 1000.0 + 0.01))
 
         count = meshoptimizer.simplify(
             destination,
@@ -659,6 +663,7 @@ def optimize_mesh(
         "optimized_vertex_count": len(mesh.vertices),
         "reduction_percent": reduction_percent,
         "uv_fixes_applied": uv_fixes_applied,
+        "uv_method": "xatlas" if uv_fixes_applied else "preserved",
         "success": True,
     }
 
@@ -760,8 +765,17 @@ def generate_lods(
 
         val = validate_glb(lod_target_path)
         valid = val.get("valid", True)
-        if not valid:
-            logger.warning("LOD%d failed GLB validation: %s", i, val.get("reason"))
+        if not valid or poly <= 0 or poly >= prev_poly:
+            logger.warning(
+                "LOD%d discarded: validation failed (%s) or non-decreasing polycount (%d faces vs prev %d) — preserving asset integrity",
+                i, val.get("reason", "unknown"), poly, prev_poly,
+            )
+            if Path(lod_target_path).exists():
+                try:
+                    Path(lod_target_path).unlink()
+                except Exception:
+                    pass
+            continue
 
         prev_poly = poly
         lods_result[f"lod{i}"] = {
@@ -770,7 +784,7 @@ def generate_lods(
             "polycount": poly,
             "level": i,
             "reduction_percent": res.get("reduction_percent", round((1 - poly / max(1, original_faces)) * 100, 1)),
-            "valid": valid,
+            "valid": True,
         }
 
     return {
@@ -826,6 +840,8 @@ def generate_collision_mesh(
             "polycount": len(hull.faces),
             "vertex_count": len(hull.vertices),
             "mode": mode,
+            "collider_type": "convex_hull",
+            "notes": "Watertight single convex hull for real-time rigid body collision",
         }
     except Exception as exc:
         logger.warning("generate_collision_mesh failed: %s", exc)

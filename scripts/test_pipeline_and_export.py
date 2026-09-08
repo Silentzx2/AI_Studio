@@ -170,8 +170,23 @@ def test_export_endpoint_and_zip_packaging():
         assert os.path.getsize(resp_fbx.path) > 0
         print(f"  ✓ Real headless Blender FBX conversion succeeded: {resp_fbx.filename}")
 
+        # 2c. Format conversion to GLTF (JSON)
+        req_gltf = ExportRequest(
+            modelUrl=f"/static/models/{job_id}/model.glb",
+            assetName="MyHero",
+            format="gltf",
+            variant="source",
+            packageZip=False,
+        )
+        resp_gltf = asyncio.run(export_project(req_gltf))
+        assert os.path.exists(resp_gltf.path)
+        assert resp_gltf.filename.endswith(".gltf")
+        assert os.path.getsize(resp_gltf.path) > 0
+        print(f"  ✓ Format conversion to GLTF (JSON) succeeded: {resp_gltf.filename}")
+
         # 3. Structured ZIP packaging with LODs, Collision, and QA
         req_zip = ExportRequest(
+
             modelUrl=f"/static/models/{job_id}/model.glb",
             assetName="HeroAsset",
             format="glb",
@@ -249,10 +264,10 @@ def test_xatlas_uv_parametrization():
 
 
 def test_export_format_validation():
-    print("[8/8] Testing export format validation (canonical glb, fbx, obj, stl, ply)...")
+    print("[8/8] Testing export format validation (canonical glb, gltf, fbx, obj, stl, ply)...")
     from fastapi import HTTPException
 
-    for bad_fmt in ("gltf", "usdz", "xyz"):
+    for bad_fmt in ("usdz", "xyz", "3ds"):
         req_bad = ExportRequest(
             modelUrl="/static/models/test/model.glb",
             format=bad_fmt,
@@ -263,7 +278,8 @@ def test_export_format_validation():
         except HTTPException as exc:
             assert exc.status_code == 400
             assert "Unsupported export format" in exc.detail
-    print("  ✓ Unsupported formats (gltf, usdz, xyz) properly rejected with HTTP 400")
+    print("  ✓ Unsupported formats (usdz, xyz, 3ds) properly rejected with HTTP 400")
+
 
 
 if __name__ == "__main__":

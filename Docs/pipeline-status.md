@@ -1,10 +1,42 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.19 (Official Hunyuan3D-2.1 Pipeline, Authoritative xatlas UVs, meshoptimizer C++ Engine, Real FBX Export)
+> **Version**: 5.0.20 (Canonical Dual-Stage Hunyuan3D-2.1, TRELLIS Sampler Controls, Validated LOD Discarding, glTF/ZIP Production Export)
 > **Status**: ✅ **COMPLETE & RELEASE READY** — Verified 2026-09-08
 > **Last Updated**: September 8, 2026
 
 ---
+
+## v5.0.20 — Final Quality Pass: Sampler Controls, LOD Validation, glTF & Structured ZIP Export (2026-09-08)
+
+### Root Cause & Motivation
+1. **Hunyuan3D-2.1 Fallback Transparency**: Degraded mode fallbacks needed explicit warning logging to ensure operators are aware when running `hy3dgen` instead of `hy3dshape` and `hy3dpaint`.
+2. **TRELLIS Sampler Parameterization**: Sampler parameters were previously hardcoded (`seed=42`); needed full propagation of `sparse_structure_sampler_params` (steps and cfg scaled by quality preset/request), `slat_sampler_params`, shape-only mode (`formats=['mesh']`), and `texture_size` for GLB export.
+3. **LOD Validation & Discarding**: Derived LOD candidates that failed GLB validation or produced degenerate/non-decreasing face counts needed automatic discarding and unlinking from disk so corrupt LODs never ship to users.
+4. **Export Formats & ZIP Layout**: `gltf` (JSON) was needed in canonical export formats alongside `glb`, `fbx`, `obj`, `stl`, and `ply`. The structured ZIP export needed clear subfolder separation (`Source/`, `GameReady/`, `LODs/`, `Collision/`, `Model/`, `Preview/`, `QA/`, and `Metadata/export_metadata.json`).
+
+### What Changed
+- **Hunyuan3D-2.1 Provider (`backend/app/core/providers/hunyuan3d_local.py`)**:
+  - `_load_model` and `_load_tex` explicitly report degraded fallback mode with warning logs when falling back to `hy3dgen`.
+  - Quality parameters (`seed`, `num_inference_steps`, `guidance_scale`, `octree_resolution`, `num_chunks`, `face_count`) verified and wired.
+- **TRELLIS Provider (`backend/app/core/providers/trellis_local.py`)**:
+  - Wired `sparse_structure_sampler_params` (steps and cfg scaled by quality preset/request), `slat_sampler_params`, and user-provided `seed`.
+  - Supported shape-only mode (`formats=['mesh']` when `generate_texture=False`).
+  - Passed `texture_size`/`texture_resolution` to GLB export and applied post-extraction decimation when `face_count` is passed.
+- **LOD Quality & Discarding (`backend/app/core/mesh_optimizer.py`)**:
+  - Added `target_error` parameter to `_simplify_with_meshoptimizer`.
+  - Added strict post-simplification GLB validation: any derived LOD failing `validate_glb` or failing to decrease polycount is unlinked from disk and omitted from `levels`.
+  - Preserved `lod0` byte-for-byte identical to the master asset.
+- **UV Strategy & Collision Metadata (`backend/app/core/mesh_optimizer.py`, `backend/app/workers/tasks.py`)**:
+  - Documented and tracked `uv_status` (`preserved_from_provider` vs `generated_via_xatlas`) and `uv_method`.
+  - Formally specified `collider_type: "convex_hull"` for real-time physics simulation.
+- **Canonical Export Engine & UI (`backend/app/api/v1/project.py`, `ExportModal.tsx`, `RightPropertyPanel.tsx`, `GenerationSection.tsx`)**:
+  - Added native `gltf` (JSON) conversion via Trimesh.
+  - Removed unsupported `usdz` from settings and components; canonical list is strictly `['glb', 'gltf', 'fbx', 'obj', 'stl', 'ply']`.
+  - Structured ZIP archive produces clean hierarchy with `Metadata/export_metadata.json` manifest.
+- **Verification**: All 13 pytest unit tests passed (6.81s); all 8 pipeline integration tests passed; Next.js production build succeeded with exit code 0.
+
+---
+
 
 ## v5.0.19 — Official Hunyuan3D-2.1 Pipeline, Authoritative xatlas UVs, meshoptimizer Decimation, Real FBX Export (2026-09-08)
 

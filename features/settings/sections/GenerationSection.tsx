@@ -204,10 +204,12 @@ export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: 
               onChange={(e) => setOutputFormat(e.target.value)}
               className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm text-foreground"
             >
-              <option value="glb">GLTF / GLB (Recommended for Web/Three.js)</option>
-              <option value="obj">OBJ + MTL (Legacy 3D Editors)</option>
-              <option value="fbx">FBX (Unreal / Unity / Maya)</option>
-              <option value="usdz">USDZ (Apple AR / iOS)</option>
+              <option value="glb">GLB (Binary glTF - Web / Three.js)</option>
+              <option value="gltf">GLTF (glTF JSON - Open Standard)</option>
+              <option value="fbx">FBX (Autodesk - Unreal / Unity / Maya)</option>
+              <option value="obj">OBJ + MTL (Wavefront - Legacy 3D Editors)</option>
+              <option value="stl">STL (Stereolithography - 3D Printing / CAD)</option>
+              <option value="ply">PLY (Polygon File Format)</option>
             </select>
           </div>
 
