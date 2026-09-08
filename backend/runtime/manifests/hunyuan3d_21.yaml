@@ -60,7 +60,6 @@ dependencies:
    - torchdiffeq
    - pythreejs
    - configargparse==1.7
-   - hy3dgen
    # deepspeed: training-only, not required for inference
   imports:
    - torch
@@ -78,7 +77,6 @@ dependencies:
    - numba>=0.60
    - llvmlite>=0.43
   extra:
-   - hy3dgen
    - accelerate>=0.34.0
    - huggingface_hub>=0.28.0
   wheels:

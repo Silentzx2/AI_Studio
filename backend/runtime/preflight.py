@@ -42,7 +42,10 @@ try:
     if hasattr(_tiu, "check_torch_load_is_safe"):
         _tiu.check_torch_load_is_safe = lambda *a, **kw: None
 except Exception: pass
-from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
+try:
+    from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline
+except ImportError:
+    from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
 pipe = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__)
 img = Image.new("RGB", (256, 256))
 mesh = pipe(image=img, num_inference_steps=1, octree_resolution=380, num_chunks=20000, generator=torch.manual_seed(12345), output_type="trimesh")
@@ -95,7 +98,10 @@ try:
     if hasattr(_tiu, "check_torch_load_is_safe"):
         _tiu.check_torch_load_is_safe = lambda *a, **kw: None
 except Exception: pass
-from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
+try:
+    from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline
+except ImportError:
+    from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
 pipe = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__)
 img = Image.new("RGB", (256, 256))
 mesh = pipe(image=img, num_inference_steps=1, octree_resolution=380, num_chunks=20000, generator=torch.manual_seed(12345), output_type="trimesh")
@@ -105,7 +111,13 @@ print("ok")
 import torch
 from PIL import Image
 import trimesh
-from hy3dgen.texgen import Hunyuan3DPaintPipeline
+try:
+    from hy3dpaint.pipelines import Hunyuan3DPaintPipeline
+except ImportError:
+    try:
+        from textureGenPipeline import Hunyuan3DPaintPipeline
+    except ImportError:
+        from hy3dgen.texgen import Hunyuan3DPaintPipeline
 pipe = Hunyuan3DPaintPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__)
 img = Image.new("RGB", (256, 256))
 mesh = trimesh.creation.box()

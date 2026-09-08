@@ -258,13 +258,20 @@ class _HunyuanBase(BaseProvider):
         if not has_transparency:
             processed = False
             try:
-                from hy3dgen.rembg import BackgroundRemover
+                from hy3dshape.rembg import BackgroundRemover
                 remover = BackgroundRemover()
                 img = remover(img)
                 processed = True
-                logger.info("Background removed via hy3dgen.rembg.BackgroundRemover")
-            except Exception as exc:
-                logger.info("hy3dgen BackgroundRemover unavailable: %s", exc)
+                logger.info("Background removed via hy3dshape.rembg.BackgroundRemover")
+            except Exception:
+                try:
+                    from hy3dgen.rembg import BackgroundRemover
+                    remover = BackgroundRemover()
+                    img = remover(img)
+                    processed = True
+                    logger.info("Background removed via hy3dgen.rembg.BackgroundRemover")
+                except Exception as exc:
+                    logger.info("hy3dgen BackgroundRemover unavailable: %s", exc)
 
             if not processed:
                 try:
@@ -404,10 +411,15 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
                 _diu.is_onnxruntime_available = lambda: False
             except Exception:
                 pass
-            from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
+            try:
+                from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline
+            except ImportError:
+                from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
+
             logger.info("Loading Hunyuan3D-2.1 from %s on %s", self.weights_dir, self.device)
+            subfolder = "hunyuan3d-dit-v2-1" if (self.weights_dir / "hunyuan3d-dit-v2-1").exists() else None
             self._load_model_with_accelerate(
-                Hunyuan3DDiTFlowMatchingPipeline, "hunyuan3d-2.1"
+                Hunyuan3DDiTFlowMatchingPipeline, "hunyuan3d-2.1", subfolder=subfolder
             )
             logger.info("Hunyuan3D-2.1 loaded successfully on %s", self.device)
         except Exception as exc:
@@ -415,11 +427,26 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
 
     def _load_tex(self) -> None:
         try:
-            from hy3dgen.texgen import Hunyuan3DPaintPipeline
+            tex_cls = None
+            try:
+                from hy3dpaint.pipelines import Hunyuan3DPaintPipeline
+                tex_cls = Hunyuan3DPaintPipeline
+            except ImportError:
+                try:
+                    from textureGenPipeline import Hunyuan3DPaintPipeline
+                    tex_cls = Hunyuan3DPaintPipeline
+                except ImportError:
+                    from hy3dgen.texgen import Hunyuan3DPaintPipeline
+                    tex_cls = Hunyuan3DPaintPipeline
+
+            tex_weights = self.weights_dir
+            if (self.weights_dir / "hunyuan3d-paintpbr-v2-1").exists():
+                tex_weights = self.weights_dir / "hunyuan3d-paintpbr-v2-1"
+
             if self.low_vram:
                 from runtime.accelerate_loader import apply_low_vram_mode
-                self._tex = Hunyuan3DPaintPipeline.from_pretrained(
-                    str(self.weights_dir), device="cpu"
+                self._tex = tex_cls.from_pretrained(
+                    str(tex_weights), device="cpu"
                 )
                 apply_low_vram_mode(
                     self._tex,
@@ -429,8 +456,8 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
                     offload_folder=self.weights_dir / ".accelerate_offload",
                 )
             else:
-                self._tex = Hunyuan3DPaintPipeline.from_pretrained(
-                    str(self.weights_dir), device=self.device
+                self._tex = tex_cls.from_pretrained(
+                    str(tex_weights), device=self.device
                 )
         except Exception as exc:
             logger.warning("Hunyuan3D tex pipeline unavailable: %s", exc)
@@ -545,9 +572,12 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
                 with torch.inference_mode():
                     if img is not None:
                         try:
-                            result = self._tex(mesh, image=img)
-                        except TypeError:
-                            result = self._tex(mesh_path=mesh_path, image=img)
+                            result = self._tex(mesh_path, image_path=request.reference_image_url)
+                        except (TypeError, Exception):
+                            try:
+                                result = self._tex(mesh, image=img)
+                            except TypeError:
+                                result = self._tex(mesh_path=mesh_path, image=img)
                     else:
                         result = self._tex(mesh_path=mesh_path, prompt=request.prompt)
 

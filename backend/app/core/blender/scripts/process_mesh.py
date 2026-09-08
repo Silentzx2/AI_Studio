@@ -142,13 +142,8 @@ for obj in mesh_objects:
         mod.ratio = max(0.01, target / len(obj.data.polygons))
         bpy.ops.object.modifier_apply(modifier="Decimate")
 
-    # Smart UV project ONLY if no existing UV layers are present
-    # ponytail: Preserves provider-generated texture atlas / UV layouts from Hunyuan3D/Trellis
-    if not obj.data.uv_layers or len(obj.data.uv_layers) == 0:
-        bpy.ops.object.mode_set(mode="EDIT")
-        bpy.ops.uv.smart_project(angle_limit=66.0, island_margin=0.02)
-        bpy.ops.object.mode_set(mode="OBJECT")
-
+    # Note: Do not inject naive smart_project here; xatlas handles quality UV parameterization
+    # downstream whenever UVs are missing/invalid, while preserving valid provider UVs.
     obj.select_set(False)
 
 

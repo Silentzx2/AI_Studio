@@ -651,6 +651,24 @@ async def _async_generate(task: Task, job_id: str) -> dict:
 
             glb_path = blender_result.get("glb") or provider_result.model_path
 
+            # 7a. Authoritative UV validation & xatlas parameterization
+            # If mesh lacks valid UVs, generate them using xatlas; preserve existing valid provider UVs.
+            if glb_path and Path(glb_path).exists():
+                try:
+                    from app.core.mesh_optimizer import generate_uvs_with_xatlas, mesh_has_valid_uvs
+                    import trimesh
+                    tm = trimesh.load(glb_path, force="mesh")
+                    if not mesh_has_valid_uvs(tm):
+                        sync_publish(82, "postprocessing", "Authoritative UV parameterization with xatlas...", "info")
+                        unwrapped_tm, uv_applied = generate_uvs_with_xatlas(tm)
+                        if uv_applied:
+                            unwrapped_tm.export(glb_path)
+                            meta["uv_parameterized_by"] = "xatlas"
+                            _update_job(session, job_id, processing_metadata=meta)
+                            logger.info("Generated authoritative xatlas UV coordinates for %s", glb_path)
+                except Exception as uv_err:
+                    logger.warning("Authoritative xatlas UV check failed: %s", uv_err)
+
             # 7b. Game-Ready / Auto-optimize mesh (preserving source.glb)
             game_ready = meta.get("game_ready", False)
             auto_optimize = meta.get("auto_optimize", False) or game_ready

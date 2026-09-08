@@ -1,8 +1,35 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.18 (Quality Pipeline, Master Asset Preservation, LODs, Collision, and Structured Export)
-> **Status**: ✅ **COMPLETE** — Verified 2026-09-08
+> **Version**: 5.0.19 (Official Hunyuan3D-2.1 Pipeline, Authoritative xatlas UVs, meshoptimizer C++ Engine, Real FBX Export)
+> **Status**: ✅ **COMPLETE & RELEASE READY** — Verified 2026-09-08
 > **Last Updated**: September 8, 2026
+
+---
+
+## v5.0.19 — Official Hunyuan3D-2.1 Pipeline, Authoritative xatlas UVs, meshoptimizer Decimation, Real FBX Export (2026-09-08)
+
+### Root Cause & Motivation
+1. **Hunyuan3D-2.1 Architecture Alignment**: Previous manifests referenced non-existent PyPI `hy3dgen` packages instead of official Tencent repository submodules (`hy3dshape` and `hy3dpaint`), with missing quality parameter forwarding.
+2. **Naive Blender Smart UV Fallbacks**: Blender's `bpy.ops.uv.smart_project` generated unoptimized UV layouts that blocked `xatlas` from running and degraded mesh texturing.
+3. **LOD Performance & Topology**: Trimesh quadric decimation was slow and could distort UV boundaries without specialized C++ index remapping.
+4. **Export Strictness**: Headless Blender FBX conversion needed real mesh exporter execution, and non-canonical formats (`gltf`, `usdz`, `xyz`) needed strict HTTP 400 rejection.
+
+### What Changed
+- **Official Hunyuan3D-2.1 Pipeline (`backend/app/core/providers/hunyuan3d_local.py`, `backend/runtime/manifests/hunyuan3d_21.yaml`)**:
+  - Wired official `hy3dshape.pipelines.Hunyuan3DDiTFlowMatchingPipeline` for flow-matching geometry synthesis and `hy3dpaint.pipelines.Hunyuan3DPaintPipeline` for PBR texture synthesis.
+  - Dynamically resolved submodules in `sys.path` with seamless 2.0/2.1 fallbacks.
+  - Forwarded all quality parameters (`seed`, `num_inference_steps`, `guidance_scale`, `octree_resolution`, `num_chunks`, `face_count`) directly to inference.
+- **Authoritative xatlas Parameterization (`backend/app/core/mesh_optimizer.py`, `backend/app/core/blender/scripts/process_mesh.py`, `backend/app/workers/tasks.py`)**:
+  - Removed naive `smart_project` from Blender scripts.
+  - Valid provider UVs are 100% protected and preserved.
+  - Untextured/UV-missing meshes are parameterized authoritatively with `xatlas` conformal unwrapping and chart packing.
+- **meshoptimizer C++ Decimation (`backend/app/core/mesh_optimizer.py`)**:
+  - Integrated `meshoptimizer.simplify` as primary decimation engine with attribute-safe vertex indexing and UV preservation.
+  - LOD cascade (LOD0–LOD3) generates cleanly with monotonic complexity reduction.
+- **Strict Canonical Export Engine (`backend/app/api/v1/project.py`)**:
+  - Real headless Blender FBX conversion via `_convert_glb_to_fbx_with_blender`.
+  - Canonical format whitelist strictly `['glb', 'fbx', 'obj', 'stl', 'ply']`; unsupported formats rejected with HTTP 400.
+- **Verification**: Real test suite passed (13 pytest, 8 pipeline self-checks, frontend production build exit 0).
 
 ---
 

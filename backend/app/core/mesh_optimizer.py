@@ -29,6 +29,14 @@ def _check_decimation_backend() -> bool:
     if _DECIMATION_BACKEND_AVAILABLE is not None:
         return _DECIMATION_BACKEND_AVAILABLE
 
+    # Check meshoptimizer first (fastest C++ decimation library)
+    try:
+        import meshoptimizer  # noqa: F401
+        _DECIMATION_BACKEND_AVAILABLE = True
+        return True
+    except ImportError:
+        pass
+
     trimesh = _try_import_trimesh()
     if trimesh is not None:
         try:
@@ -187,13 +195,9 @@ try:
                     use_preserve_boundary=True,
                     target_faces=quad_target,
                 )
-                if fix_uvs:
-                    bpy.ops.object.mode_set(mode='EDIT')
-                    bpy.ops.mesh.select_all(action='SELECT')
-                    bpy.ops.uv.smart_project(angle_limit=1.15, island_margin=0.02)
-                    bpy.ops.object.mode_set(mode='OBJECT')
+                # Note: Do not inject smart_project here; xatlas handles UV parameterization downstream
             except Exception as q_err:
-                print(f"QUADRIFLOW_FALLBACK: {{q_err}}", file=sys.stderr)
+                print(f"QUADRIFLOW_FALLBACK: {q_err}", file=sys.stderr)
         elif remesh_mode == 'uniform' and voxel_size > 0.005:
             try:
                 obj.data.remesh_voxel_size = voxel_size
@@ -214,22 +218,20 @@ try:
             bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.mesh.select_all(action='SELECT')
             bpy.ops.mesh.normals_make_consistent(inside=False)
-            if fix_uvs and not obj.data.uv_layers:
-                bpy.ops.uv.smart_project(angle_limit=1.15, island_margin=0.02)
             bpy.ops.object.mode_set(mode='OBJECT')
         except Exception:
             pass
 
     total_out_faces = sum(len(o.data.polygons) for o in mesh_objs)
     total_out_verts = sum(len(o.data.vertices) for o in mesh_objs)
-    print(f"BLENDER_OUT_FACES={{total_out_faces}}")
-    print(f"BLENDER_OUT_VERTS={{total_out_verts}}")
+    print(f"BLENDER_OUT_FACES={total_out_faces}")
+    print(f"BLENDER_OUT_VERTS={total_out_verts}")
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     bpy.ops.export_scene.gltf(filepath=output_path, export_format='GLB')
     print("BLENDER_EXPORT_SUCCESS")
 except Exception as e:
-    print(f"BLENDER_ERROR: {{e}}", file=sys.stderr)
+    print(f"BLENDER_ERROR: {e}", file=sys.stderr)
     sys.exit(1)
 """
 
@@ -242,6 +244,19 @@ except Exception as e:
             timeout=90,
         )
         if proc.returncode == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+            uv_fixes_applied = False
+            if fix_uvs:
+                trimesh = _try_import_trimesh()
+                if trimesh is not None:
+                    try:
+                        tm = trimesh.load(output_path, force="mesh")
+                        if not mesh_has_valid_uvs(tm):
+                            tm, uv_fixes_applied = generate_uvs_with_xatlas(tm)
+                            if uv_fixes_applied:
+                                tm.export(output_path)
+                    except Exception as uv_exc:
+                        logger.warning("Post-Blender xatlas UV generation failed: %s", uv_exc)
+
             in_faces = 0
             out_faces = 0
             in_verts = 0
@@ -268,7 +283,7 @@ except Exception as e:
                 "original_vertex_count": in_verts,
                 "optimized_vertex_count": out_verts,
                 "reduction_percent": reduction,
-                "uv_fixes_applied": fix_uvs,
+                "uv_fixes_applied": uv_fixes_applied,
                 "success": True,
                 "backend": "blender",
             }
@@ -378,6 +393,68 @@ def generate_uvs_with_xatlas(mesh: Any) -> tuple[Any, bool]:
         return mesh, False
 
 
+def _simplify_with_meshoptimizer(
+    mesh: Any, target_faces: int, preserve_details: float = 75.0
+) -> Any:
+    """Simplify mesh using meshoptimizer C++ library with attribute preservation.
+
+    Fast, production-grade mesh decimation maintaining topology and UV integrity.
+    """
+    try:
+        import meshoptimizer
+        import numpy as np
+
+        target_indices = int(target_faces * 3)
+        indices = mesh.faces.flatten().astype(np.uint32)
+        vertices = mesh.vertices.astype(np.float32)
+        destination = np.zeros_like(indices, dtype=np.uint32)
+
+        # Scale target error based on preserve_details (0-100)
+        target_error = max(0.005, min(0.08, (100.0 - preserve_details) / 1000.0 + 0.01))
+
+        count = meshoptimizer.simplify(
+            destination,
+            indices,
+            vertices,
+            target_index_count=target_indices,
+            target_error=target_error,
+        )
+        if count <= 0 or count >= len(indices):
+            return None
+
+        new_faces = destination[:count].reshape(-1, 3)
+        unique_v, inverse = np.unique(new_faces, return_inverse=True)
+        compact_faces = inverse.reshape(-1, 3)
+        compact_vertices = mesh.vertices[unique_v]
+
+        trimesh = _try_import_trimesh()
+        if trimesh is None:
+            return None
+
+        new_visual = None
+        old_visual = getattr(mesh, "visual", None)
+        if old_visual is not None:
+            new_visual = old_visual.copy()
+            if hasattr(old_visual, "uv") and old_visual.uv is not None and len(old_visual.uv) == len(mesh.vertices):
+                new_visual.uv = old_visual.uv[unique_v]
+            if hasattr(old_visual, "vertex_colors") and old_visual.vertex_colors is not None and len(old_visual.vertex_colors) == len(mesh.vertices):
+                try:
+                    new_visual.vertex_colors = old_visual.vertex_colors[unique_v]
+                except Exception:
+                    pass
+
+        new_mesh = trimesh.Trimesh(
+            vertices=compact_vertices,
+            faces=compact_faces,
+            visual=new_visual,
+            process=False,
+        )
+        return new_mesh
+    except Exception as exc:
+        logger.warning("meshoptimizer simplification failed: %s", exc)
+        return None
+
+
 def optimize_mesh(
     input_path: str,
     output_path: str,
@@ -389,21 +466,22 @@ def optimize_mesh(
 ) -> dict[str, Any]:
     """Optimize a mesh by decimating to target polycount and fixing UVs.
 
-    Tries Blender headless modifier pass first for top quality topology,
-    then falls back to Trimesh quadric decimation or PyMeshLab.
+    Uses meshoptimizer for high-quality, fast decimation preserving UVs and topology.
+    Falls back to Trimesh quadric decimation, PyMeshLab, or Blender remesh when needed.
     """
-    # 1. Try Blender headless optimization first if available
-    blender_result = _run_blender_remesh(
-        input_path=input_path,
-        output_path=output_path,
-        target_polycount=target_polycount,
-        fix_uvs=fix_uvs,
-        preserve_details=preserve_details,
-        remesh_mode=remesh_mode,
-        voxel_size=voxel_size,
-    )
-    if blender_result is not None:
-        return blender_result
+    # 1. Blender remesh is used if quad or uniform (voxel) remeshing is explicitly requested
+    if remesh_mode in ("quad", "uniform"):
+        blender_result = _run_blender_remesh(
+            input_path=input_path,
+            output_path=output_path,
+            target_polycount=target_polycount,
+            fix_uvs=fix_uvs,
+            preserve_details=preserve_details,
+            remesh_mode=remesh_mode,
+            voxel_size=voxel_size,
+        )
+        if blender_result is not None:
+            return blender_result
 
     trimesh = _try_import_trimesh()
     if trimesh is None:
@@ -479,57 +557,71 @@ def optimize_mesh(
     # Decimate if above target
     optimized_polycount = len(mesh.faces)
     if original_polycount > target_polycount:
-        try:
-            # Use trimesh's simplify_quadric_decimation if available
-            # preserve_details scales the target: higher preserve = higher target
-            adjusted_target = int(target_polycount * (0.5 + preserve_details / 200))
-            adjusted_target = max(target_polycount, adjusted_target)
+        adjusted_target = int(target_polycount * (0.5 + preserve_details / 200))
+        adjusted_target = max(target_polycount, adjusted_target)
 
-            if len(mesh.faces) > adjusted_target:
-                mesh = mesh.simplify_quadric_decimation(
-                    face_count=adjusted_target,
-                    aggression=7 if preserve_details < 30 else 5 if preserve_details < 70 else 3
-                )
-                optimized_polycount = len(mesh.faces)
-                logger.info(
-                    "Mesh decimated: %d -> %d triangles (target=%d, preserve=%.0f%%)",
-                    original_polycount, optimized_polycount, target_polycount, preserve_details,
-                )
-        except Exception as exc:
-            logger.warning("Quadric decimation failed: %s", exc)
+        # 1. Primary engine: meshoptimizer C++ library
+        opt_mesh = _simplify_with_meshoptimizer(mesh, adjusted_target, preserve_details)
+        if opt_mesh is not None and len(opt_mesh.faces) < len(mesh.faces):
+            mesh = opt_mesh
+            optimized_polycount = len(mesh.faces)
+            logger.info(
+                "Mesh decimated with meshoptimizer: %d -> %d triangles (target=%d, preserve=%.0f%%)",
+                original_polycount, optimized_polycount, target_polycount, preserve_details,
+            )
+        else:
             try:
-                import pymeshlab
-                ms = pymeshlab.MeshSet()
-                try:
-                    ms.load_new_mesh(input_path)
-                except Exception:
-                    ms.add_mesh(pymeshlab.Mesh(vertex_matrix=mesh.vertices, face_matrix=mesh.faces), "mesh")
-                curr = ms.current_mesh()
-                has_tex = False
-                try:
-                    has_tex = curr.has_wedge_tex_coord() or curr.has_vertex_tex_coord()
-                except Exception:
-                    pass
-                if has_tex:
-                    ms.meshing_decimation_quadric_edge_collapse_with_texture(
-                        targetfacenum=adjusted_target,
-                        preserveboundary=True,
+                # 2. Fallback: trimesh quadric decimation
+                if len(mesh.faces) > adjusted_target:
+                    mesh = mesh.simplify_quadric_decimation(
+                        face_count=adjusted_target,
+                        aggression=7 if preserve_details < 30 else 5 if preserve_details < 70 else 3
                     )
-                else:
-                    ms.meshing_decimation_quadric_edge_collapse(
-                        targetfacenum=adjusted_target,
-                        preserveboundary=True,
-                        preservenormal=True,
-                        preservetopology=True,
+                    optimized_polycount = len(mesh.faces)
+                    logger.info(
+                        "Mesh decimated with trimesh: %d -> %d triangles (target=%d, preserve=%.0f%%)",
+                        original_polycount, optimized_polycount, target_polycount, preserve_details,
                     )
-                ms.save_current_mesh(output_path)
-                opt_mesh = trimesh.load(output_path, force="mesh")
-                optimized_polycount = len(opt_mesh.faces)
-                mesh = opt_mesh
-            except ImportError:
-                logger.warning("PyMeshLab not installed — keeping cleaned mesh without decimation")
-            except Exception as exc2:
-                logger.warning("PyMeshLab decimation also failed: %s", exc2)
+            except Exception as exc:
+                logger.warning("Quadric decimation failed: %s", exc)
+                try:
+                    import pymeshlab
+                    ms = pymeshlab.MeshSet()
+                    try:
+                        ms.load_new_mesh(input_path)
+                    except Exception:
+                        ms.add_mesh(pymeshlab.Mesh(vertex_matrix=mesh.vertices, face_matrix=mesh.faces), "mesh")
+                    curr = ms.current_mesh()
+                    has_tex = False
+                    try:
+                        has_tex = curr.has_wedge_tex_coord() or curr.has_vertex_tex_coord()
+                    except Exception:
+                        pass
+                    if has_tex:
+                        ms.meshing_decimation_quadric_edge_collapse_with_texture(
+                            targetfacenum=adjusted_target,
+                            preserveboundary=True,
+                        )
+                    else:
+                        ms.meshing_decimation_quadric_edge_collapse(
+                            targetfacenum=adjusted_target,
+                            preserveboundary=True,
+                            preservenormal=True,
+                            preservetopology=True,
+                        )
+                    ms.save_current_mesh(output_path)
+                    opt_mesh = trimesh.load(output_path, force="mesh")
+                    optimized_polycount = len(opt_mesh.faces)
+                    mesh = opt_mesh
+                except ImportError:
+                    logger.warning("PyMeshLab not installed — keeping cleaned mesh without decimation")
+                except Exception as exc2:
+                    logger.warning("PyMeshLab decimation also failed: %s", exc2)
+
+    # Ensure UV coordinates remain valid after decimation if requested
+    if fix_uvs and not mesh_has_valid_uvs(mesh):
+        mesh, applied = generate_uvs_with_xatlas(mesh)
+        uv_fixes_applied = uv_fixes_applied or applied
 
     # Recalculate normals for clean shading
     try:

@@ -270,10 +270,16 @@ def _add_model_env(repo_name: str) -> None:
 
     storage = get_storage_config()
     repo_path = str(storage.get_repo_path(repo_name))
+    repo_paths = [repo_path]
+    for sub in ("hy3dshape", "hy3dpaint"):
+        sub_p = str(Path(repo_path) / sub)
+        if Path(sub_p).is_dir():
+            repo_paths.append(sub_p)
 
     # Prepend repo path at position 0 (highest priority)
-    if repo_path not in sys.path:
-        sys.path.insert(0, repo_path)
+    for p in repo_paths:
+        if p not in sys.path:
+            sys.path.insert(0, p)
 
     venv_dir = storage.get_model_venv_path(repo_name)
     if venv_dir.exists():
@@ -287,7 +293,7 @@ def _add_model_env(repo_name: str) -> None:
         ]
 
         # Remove these paths from sys.path if already present
-        for p in [overlay_str, repo_path] + venv_sps:
+        for p in [overlay_str] + repo_paths + venv_sps:
             while p in sys.path:
                 sys.path.remove(p)
 
@@ -302,12 +308,13 @@ def _add_model_env(repo_name: str) -> None:
 
         # Prepend in strict order:
         # sys.path[0] -> overlay_str (backend C-extensions like Pillow's _imaging ALWAYS win)
-        # sys.path[1] -> repo_path (local repo code)
-        # sys.path[2...] -> venv_sps (per-model packages like hy3dgen)
+        # sys.path[1...] -> repo_paths (local repo code: repo root, hy3dshape, hy3dpaint)
+        # sys.path[...] -> venv_sps (per-model packages)
         for sp in reversed(venv_sps):
             sys.path.insert(0, sp)
-        if repo_path:
-            sys.path.insert(0, repo_path)
+        for p in reversed(repo_paths):
+            if p:
+                sys.path.insert(0, p)
         sys.path.insert(0, overlay_str)
 
         # Pre-load shared libraries in *.libs directories with RTLD_GLOBAL
