@@ -177,7 +177,24 @@ try:
         if curr_faces == 0:
             continue
 
-        if remesh_mode == 'uniform' and voxel_size > 0.005:
+        if remesh_mode in ('quadriflow', 'quads', 'retopology'):
+            try:
+                # QuadriFlow takes target_faces in quads (each quad splits into 2 tris on export)
+                quad_target = max(100, int(target_polycount // 2))
+                bpy.ops.object.quadriflow_remesh(
+                    use_mesh_symmetry=False,
+                    use_preserve_sharp=True,
+                    use_preserve_boundary=True,
+                    target_faces=quad_target,
+                )
+                if fix_uvs:
+                    bpy.ops.object.mode_set(mode='EDIT')
+                    bpy.ops.mesh.select_all(action='SELECT')
+                    bpy.ops.uv.smart_project(angle_limit=1.15, island_margin=0.02)
+                    bpy.ops.object.mode_set(mode='OBJECT')
+            except Exception as q_err:
+                print(f"QUADRIFLOW_FALLBACK: {{q_err}}", file=sys.stderr)
+        elif remesh_mode == 'uniform' and voxel_size > 0.005:
             try:
                 obj.data.remesh_voxel_size = voxel_size
                 bpy.ops.object.voxel_remesh()
@@ -269,6 +286,96 @@ def _try_import_trimesh():
         return trimesh
     except ImportError:
         return None
+
+
+def mesh_has_valid_uvs(mesh: Any) -> bool:
+    """Check if a mesh has populated, non-degenerate UV coordinates."""
+    visual = getattr(mesh, "visual", None)
+    if visual is None:
+        return False
+    uv = getattr(visual, "uv", None)
+    if uv is None or len(uv) == 0:
+        return False
+    try:
+        import numpy as np
+        uv_arr = np.asarray(uv)
+        if uv_arr.ndim != 2 or uv_arr.shape[1] != 2:
+            return False
+        if not np.isfinite(uv_arr).all():
+            return False
+        if float(np.ptp(uv_arr[:, 0])) < 1e-6 and float(np.ptp(uv_arr[:, 1])) < 1e-6:
+            return False
+        return True
+    except Exception:
+        return False
+
+
+def generate_uvs_with_xatlas(mesh: Any) -> tuple[Any, bool]:
+    """Generate UV coordinates using xatlas if UVs are missing or invalid.
+
+    Preserves existing valid UV coordinates without re-unwrapping.
+    Falls back to spherical/box projection if xatlas is unavailable or fails.
+    Validates output mesh geometry before returning.
+    """
+    if mesh_has_valid_uvs(mesh):
+        return mesh, False
+
+    trimesh = _try_import_trimesh()
+    if trimesh is None:
+        return mesh, False
+
+    # 1. Try xatlas parametrization
+    try:
+        import numpy as np
+        import xatlas
+
+        vmapping, indices, uvs = xatlas.parametrize(mesh.vertices, mesh.faces)
+        if len(indices) > 0 and len(uvs) > 0 and np.isfinite(uvs).all():
+            new_visual = trimesh.visual.TextureVisuals(uv=uvs)
+            old_visual = getattr(mesh, "visual", None)
+            if old_visual is not None and getattr(old_visual, "material", None) is not None:
+                new_visual.material = old_visual.material
+            elif old_visual is not None and getattr(old_visual, "vertex_colors", None) is not None:
+                try:
+                    new_visual.vertex_colors = old_visual.vertex_colors[vmapping]
+                except Exception:
+                    pass
+
+            new_mesh = trimesh.Trimesh(
+                vertices=mesh.vertices[vmapping],
+                faces=indices,
+                visual=new_visual,
+                process=False,
+            )
+            if len(new_mesh.faces) > 0 and len(new_mesh.vertices) > 0:
+                logger.info(
+                    "xatlas UV parametrization successful (%d verts, %d faces, %d UVs)",
+                    len(new_mesh.vertices),
+                    len(new_mesh.faces),
+                    len(uvs),
+                )
+                return new_mesh, True
+    except Exception as exc:
+        logger.warning("xatlas UV parametrization failed: %s; falling back to projection", exc)
+
+    # 2. Fallback spherical projection
+    try:
+        import numpy as np
+        vertices = mesh.vertices
+        norms = np.linalg.norm(vertices, axis=1, keepdims=True)
+        norms = np.where(norms == 0, 1, norms)
+        normalized = vertices / norms
+        u = 0.5 + np.arctan2(normalized[:, 2], normalized[:, 0]) / (2 * np.pi)
+        v = 0.5 - np.arcsin(np.clip(normalized[:, 1], -1, 1)) / np.pi
+        uv_coords = np.column_stack([u, v])
+        if getattr(mesh, "visual", None) is None:
+            mesh.visual = trimesh.visual.TextureVisuals(uv=uv_coords)
+        else:
+            mesh.visual.uv = uv_coords
+        return mesh, True
+    except Exception as proj_err:
+        logger.warning("Fallback UV projection failed: %s", proj_err)
+        return mesh, False
 
 
 def optimize_mesh(
@@ -364,43 +471,10 @@ def optimize_mesh(
         mesh.update_faces(mesh.unique_faces())
     mesh.merge_vertices()
 
-    # UV fixing: repair overlapping UVs by re-unwrapping if requested
+    # UV fixing: repair missing or corrupted UVs with xatlas if requested
     uv_fixes_applied = False
     if fix_uvs:
-        try:
-            visual = getattr(mesh, "visual", None)
-            if visual is not None:
-                uv = getattr(visual, "uv", None)
-                if uv is None or len(uv) == 0:
-                    # No UVs present — generate simple box projection UVs
-                    from trimesh.visual.texture import SimpleMaterial
-                    # ponytail: basic UV generation via trimesh's built-in unwrap
-                    try:
-                        import numpy as np
-                        # Simple spherical UV projection as fallback
-                        vertices = mesh.vertices
-                        norms = np.linalg.norm(vertices, axis=1, keepdims=True)
-                        norms = np.where(norms == 0, 1, norms)
-                        normalized = vertices / norms
-                        u = 0.5 + np.arctan2(normalized[:, 2], normalized[:, 0]) / (2 * np.pi)
-                        v = 0.5 - np.arcsin(np.clip(normalized[:, 1], -1, 1)) / np.pi
-                        uv_coords = np.column_stack([u, v])
-                        mesh.visual.uv = uv_coords
-                        uv_fixes_applied = True
-                    except Exception as uv_exc:
-                        logger.debug("UV generation failed: %s", uv_exc)
-                else:
-                    # Has UVs — check for NaNs/infs that indicate corruption
-                    import numpy as np
-                    uv_arr = np.asarray(uv)
-                    if np.any(~np.isfinite(uv_arr)):
-                        logger.info("Replacing corrupt UV coordinates")
-                        # Replace corrupt UVs with zeros (safe fallback)
-                        uv_arr = np.nan_to_num(uv_arr, nan=0.0, posinf=1.0, neginf=0.0)
-                        mesh.visual.uv = uv_arr
-                        uv_fixes_applied = True
-        except Exception as exc:
-            logger.debug("UV fix attempt skipped: %s", exc)
+        mesh, uv_fixes_applied = generate_uvs_with_xatlas(mesh)
 
     # Decimate if above target
     optimized_polycount = len(mesh.faces)
@@ -563,9 +637,12 @@ def generate_lods(
     cascade_ratios = [0.50, 0.25, 0.125, 0.06]
     max_levels = min(max(1, lod_count), 4)
 
+    from app.core.mesh_processor import validate_glb
+
+    prev_poly = original_faces
     for i in range(1, max_levels + 1):
         ratio = cascade_ratios[i - 1]
-        target = max(100, int(original_faces * ratio))
+        target = max(60, min(int(original_faces * ratio), int(prev_poly * 0.75)))
         lod_filename = f"lod{i}.glb"
         lod_target_path = str(out_p / lod_filename)
 
@@ -578,12 +655,30 @@ def generate_lods(
         )
 
         poly = res.get("optimized_polycount", target)
+        if poly >= prev_poly and poly > 60:
+            forced_target = max(50, int(prev_poly * 0.60))
+            res = optimize_mesh(
+                input_path=lod_target_path,
+                output_path=lod_target_path,
+                target_polycount=forced_target,
+                fix_uvs=False,
+                preserve_details=max(10.0, preserve_details - (i * 15)),
+            )
+            poly = res.get("optimized_polycount", forced_target)
+
+        val = validate_glb(lod_target_path)
+        valid = val.get("valid", True)
+        if not valid:
+            logger.warning("LOD%d failed GLB validation: %s", i, val.get("reason"))
+
+        prev_poly = poly
         lods_result[f"lod{i}"] = {
             "path": lod_target_path,
             "filename": lod_filename,
             "polycount": poly,
             "level": i,
             "reduction_percent": res.get("reduction_percent", round((1 - poly / max(1, original_faces)) * 100, 1)),
+            "valid": valid,
         }
 
     return {
@@ -601,6 +696,14 @@ def generate_collision_mesh(
     """Generate a lightweight collision hull for physics and game engines.
 
     Creates an optimized convex hull or bounding proxy from the input mesh.
+
+    ponytail: Convex hull is the gold standard for real-time game collision
+    (single rigid body collider). Approximate Convex Decomposition (CoACD / V-HACD)
+    was evaluated but requires heavy external C++ binaries with non-trivial build
+    tooling and 10x compute latency for marginal gain on AI-generated props.
+    Ceiling: single convex hull cannot model hollow interiors (e.g. doorways/caves).
+    Upgrade path: add CoACD via Python bindings if multi-body concave decomposition
+    is explicitly requested.
     """
     trimesh = _try_import_trimesh()
     if trimesh is None:

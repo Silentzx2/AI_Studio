@@ -245,18 +245,26 @@ flowchart LR
 
 ## 📊 Automated QA Validation Rubric
 
-Every generated asset undergoes an objective topological evaluation producing a composite score:
+Every generated asset undergoes an objective topological evaluation producing an explainable 0–100 composite score:
 
 ```mermaid
 pie title QA Score Weighting Distribution (100 Points Total)
     "Topology & Geometry Integrity" : 35
     "UV Mapping & Material Retention" : 35
-    "Platform Polycount Budget" : 30
+    "Platform Polycount & Transform Sanity" : 30
 ```
 
-- **Topology & Geometry Integrity (35 pts)**: Base non-zero geometry (+15), normal winding consistency (+10), watertight manifoldness (+5), clean component count (+5).
-- **UVs & Materials Retention (35 pts)**: Valid non-overlapping UV layout (+20), embedded PBR/Albedo texture map (+15).
-- **Platform Budget Adherence (30 pts)**: Conformance to selected target polycount (≤ 1.0x budget: +30, 1.0–1.5x: +20, 1.5–2.5x: +10).
+- **Topology & Geometry Integrity (35 pts max)**: Evaluates structural manifoldness and normal consistency.
+  - Normal winding consistency: -10 deduction if polygon normals are inverted or non-orientable.
+  - Non-manifold edges: Up to -10 deduction based on non-manifold edge counts (`np.unique` frequency > 2).
+  - Degenerate faces: Up to -5 deduction for zero-area triangles.
+  - Excessive components: -5 deduction if disconnected component count > 10.
+- **UVs & Materials Retention (35 pts max)**: Validates texture coordinates and shading maps.
+  - UV validity: -20 deduction if UV coordinates are missing; -10 deduction if coordinates are collapsed or unnormalized.
+  - Texture presence: -15 deduction if no base color / albedo map is embedded.
+- **Platform Budget & Transform Sanity (30 pts max)**: Conformance to selected target polycount.
+  - Overbudget: -5 pts for >100% budget, -15 pts for >150% budget, -25 pts for >250% budget.
+  - Transform validity: -5 deduction if bounding box extents are zero, infinite, or degenerate.
 
 | Status | Score Range | Engine Compatibility |
 |---|---|---|
@@ -266,26 +274,57 @@ pie title QA Score Weighting Distribution (100 Points Total)
 
 ---
 
-## 📦 Structured Export Archive
+## 🏷️ Deterministic Asset Classification & Rigging Guard
 
-When exporting via `POST /api/v1/project/export` with `package_zip=true`, assets are organized into an engine-compliant archive:
+Assets are deterministically classified into 6 canonical categories before post-processing and rigging:
+
+| Category | Taxonomy Examples | Rigify Human Metarig Support | Rationale |
+|---|---|---|---|
+| **Human** | Man, woman, soldier, knight, wizard, ninja, chef | ✅ Supported | Upright bipedal topology matches Rigify metarig proportions |
+| **Humanoid** | Robot, cyborg, alien, monster, orc, skeleton | ✅ Supported | Bipedal humanoid stature with compatible limbs and spine |
+| **Quadruped** | Dog, cat, horse, wolf, lion, bear, deer | ❌ Safely Skipped | 4-legged anatomy is incompatible with bipedal human metarig |
+| **Hard-Surface** | Car, vehicle, weapon, sword, shield, spaceship | ❌ Safely Skipped | Rigid non-organic objects require discrete kinematic hierarchies |
+| **Generic-Prop** | Barrel, crate, rock, bottle, chest, potion | ❌ Safely Skipped | Static inanimate objects do not require skeletal deformation |
+| **Unknown** | Unclassified / ambiguous prompts | ⚠️ Geometrically Evaluated | Checked via bounding box aspect ratio (height / width ≥ 1.8) |
+
+> **Animation Policy**: Skeletal animation clip generation is explicitly marked as **unsupported** across all pipelines. The system generates armature bones and automatic skin weights for humanoid bipeds, but never fabricates fake animation tracks.
+
+---
+
+## 📦 Structured Export Archive & Formats
+
+The production export engine (`POST /api/v1/project/export`) provides real conversions across 5 canonical formats:
+
+| Format | Engine / Software Target | Conversion Backend | PBR Texture Support |
+|---|---|---|---|
+| **GLB** | WebGL, Three.js, Godot 4, Babylon.js | Direct glTF binary stream | Full PBR (Roughness/Metallic) |
+| **FBX** | Unreal Engine 5, Unity, Autodesk Maya, 3ds Max | Real Headless Blender 4.x (`io_scene_fbx`) | Skeletal Rig & Materials |
+| **OBJ** | Wavefront, ZBrush, Cinema4D | Trimesh / Blender OBJ Exporter | Geometry + MTL definitions |
+| **STL** | 3D Printing, CAD, Slicers | Trimesh / Blender STL Exporter | Pure Geometry (Watertight) |
+| **PLY** | Point Clouds, Gaussian Splatting, MeshLab | Trimesh / Blender PLY Exporter | Vertex Coordinates & Colors |
+
+When exporting with `packageZip=true`, assets are organized into a standardized archive:
 
 ```
 Hero_Character.zip
+├── Model/
+│   └── Hero_Character.glb    # Selected format & variant export
 ├── Source/
-│   └── source.glb            # Untouched raw neural output
-├── GameReady/
-│   └── Hero_Character.glb    # Platform-optimized engine asset
+│   └── Hero_Character_source.glb # Preserved untouched neural master
 ├── LODs/
 │   ├── lod0.glb              # 100% master fidelity
-│   ├── lod1.glb              # 50% decimation
+│   ├── lod1.glb              # 50% decimation (strictly decreasing)
 │   ├── lod2.glb              # 25% decimation
 │   └── lod3.glb              # 12.5% distant proxy
 ├── Collision/
-│   └── collision.glb         # Lightweight convex hull collider
+│   └── Hero_Character_collision.glb # Physics convex hull collider
+├── Preview/
+│   └── thumbnail.png         # High-resolution rendering
 └── QA/
-    └── quality_report.json   # Machine-readable diagnostics & QA scores
+    └── quality_report.json   # Machine-readable QA metrics & deductions
 ```
+
+> **Master Asset Preservation**: The raw generative master (`source.glb`) is archived before any post-processing, decimation, or LOD cascade runs. Derived operations never overwrite the source asset.
 
 ---
 

@@ -17,11 +17,11 @@ import sys
 from app.core.mesh_optimizer import _check_decimation_backend, _try_import_trimesh
 
 
-def main() -> int:
+def test_mesh_optimizer_selfcheck() -> None:
     trimesh = _try_import_trimesh()
     if trimesh is None:
         print("SKIP: trimesh not installed — nothing to verify")
-        return 0
+        return
 
     available = _check_decimation_backend()
     print(f"decimation backend available: {available}")
@@ -42,25 +42,16 @@ def main() -> int:
         result = mesh.simplify_quadric_decimation(face_count=5)
     except Exception as exc:  # noqa: BLE001
         print(f"FAIL: decimation raised: {exc!r}")
-        if available:
-            print("FAIL: gate reported available but the call raised — gate is lying")
-            return 1
-        print("OK: gate correctly reported unavailable")
-        return 0
+        assert not available, "gate reported available but the call raised — gate is lying"
+        return
 
     reduced = len(result.faces) < len(mesh.faces)
     print(f"faces {len(mesh.faces)} -> {len(result.faces)} (reduced={reduced})")
 
-    if not available:
-        print("FAIL: gate reported unavailable but decimation succeeded — gate is too conservative")
-        return 1
-    if not reduced:
-        print("FAIL: decimation did not reduce the mesh")
-        return 1
-
+    assert available, "gate reported unavailable but decimation succeeded — gate is too conservative"
+    assert reduced, "decimation did not reduce the mesh"
     print("OK: gate is accurate and decimation works")
-    return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    test_mesh_optimizer_selfcheck()

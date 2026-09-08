@@ -351,10 +351,41 @@ def run_mesh_diagnostics(model_path: str, target_platform: str = "generic") -> d
             }
 
         warnings = []
-        # 1. Topology & Components
+        deductions: list[dict[str, Any]] = []
+
+        # 1. Topology & Geometry Checks
+        import numpy as np
         is_watertight = bool(getattr(mesh, "is_watertight", False))
         is_winding = bool(getattr(mesh, "is_winding_consistent", False))
-        
+
+        # Degenerate faces count
+        degenerate_faces = 0
+        try:
+            if hasattr(mesh, "area_faces"):
+                degenerate_faces = int(np.sum(mesh.area_faces < 1e-10))
+            elif hasattr(mesh, "nondegenerate_faces"):
+                degenerate_faces = int(len(mesh.faces) - len(mesh.nondegenerate_faces()))
+        except Exception:
+            degenerate_faces = 0
+
+        if degenerate_faces > 0:
+            warnings.append(f"Found {degenerate_faces} degenerate (zero-area) face(s)")
+
+        # Non-manifold edges & boundary edges
+        non_manifold_edges = 0
+        boundary_edges = 0
+        try:
+            _, counts = np.unique(mesh.edges_sorted, axis=0, return_counts=True)
+            non_manifold_edges = int(np.sum(counts > 2))
+            boundary_edges = int(np.sum(counts == 1))
+        except Exception:
+            pass
+
+        if non_manifold_edges > 0:
+            warnings.append(f"Found {non_manifold_edges} non-manifold edge(s)")
+        if boundary_edges > 0 and not is_watertight:
+            warnings.append(f"Mesh is open with {boundary_edges} boundary edge(s)")
+
         # Connected components
         try:
             components_count = len(trimesh.graph.connected_components(mesh.face_adjacency))
@@ -362,21 +393,37 @@ def run_mesh_diagnostics(model_path: str, target_platform: str = "generic") -> d
             components_count = 1
 
         if components_count > 10:
-            warnings.append(f"Mesh has {components_count} disconnected parts (may need merging or component cleanup)")
+            warnings.append(f"Mesh has {components_count} disconnected parts (component cleanup recommended)")
 
-        # 2. UVs & Texturing
+        # 2. UVs & Texturing Checks
         uv_info = validate_uv_mapping(str(path))
         has_uv = bool(uv_info.get("has_uv", False))
+        uv_valid = False
+        if has_uv:
+            try:
+                uvs = getattr(mesh.visual, "uv", None)
+                if uvs is not None and len(uvs) > 0:
+                    uv_arr = np.asarray(uvs)
+                    if np.isfinite(uv_arr).all() and float(np.ptp(uv_arr[:, 0])) > 1e-5:
+                        uv_valid = True
+            except Exception:
+                uv_valid = has_uv
+
         if not has_uv:
             warnings.append("Mesh lacks UV coordinates")
+        elif not uv_valid:
+            warnings.append("UV coordinates appear collapsed or degenerate")
 
         tex_info = validate_texture(str(path))
         has_texture = bool(tex_info.get("textured", False))
         if not has_texture:
             warnings.append("No embedded texture map found")
 
-        # 3. Dimensions & Bounding box
+        # 3. Dimensions & Transform Sanity
         extents = [round(float(x), 3) for x in mesh.extents.tolist()] if hasattr(mesh, "extents") else [1.0, 1.0, 1.0]
+        transform_valid = all(e > 1e-4 and np.isfinite(e) for e in extents)
+        if not transform_valid:
+            warnings.append("Degenerate bounding box extents detected")
 
         # 4. Budget compliance by platform
         platform_budgets = {
@@ -394,34 +441,55 @@ def run_mesh_diagnostics(model_path: str, target_platform: str = "generic") -> d
                 f"Triangle count ({poly_count:,}) exceeds recommended target for '{target_platform}' ({max_budget:,})"
             )
 
-        # 5. Composite Game-Ready Score (0 - 100)
-        # Topology / Geometry: 35 pts
-        topology_score = 15  # Non-zero base
-        if is_winding:
-            topology_score += 10
-        if is_watertight:
-            topology_score += 5
-        if components_count <= 4:
-            topology_score += 5
-        elif components_count > 15:
-            topology_score = max(5, topology_score - 5)
+        # 5. Composite Game-Ready Score & Explainable Rubric (0 - 100)
+        # Topology / Geometry: 35 pts max
+        topology_score = 35
+        if not is_winding:
+            topology_score -= 10
+            deductions.append({"issue": "Inconsistent polygon winding / normals", "points": 10})
+        if non_manifold_edges > 0:
+            ded = min(10, 3 + int(non_manifold_edges / 5))
+            topology_score -= ded
+            deductions.append({"issue": f"Non-manifold edges ({non_manifold_edges})", "points": ded})
+        if degenerate_faces > 0:
+            ded = min(5, 1 + int(degenerate_faces / 10))
+            topology_score -= ded
+            deductions.append({"issue": f"Degenerate faces ({degenerate_faces})", "points": ded})
+        if components_count > 10:
+            topology_score -= 5
+            deductions.append({"issue": f"Excessive disconnected components ({components_count})", "points": 5})
+        topology_score = max(0, min(35, topology_score))
 
-        # UV & Materials: 35 pts
-        uv_mat_score = 0
-        if has_uv:
-            uv_mat_score += 20
-        if has_texture:
-            uv_mat_score += 15
+        # UV & Materials: 35 pts max
+        uv_mat_score = 35
+        if not has_uv:
+            uv_mat_score -= 20
+            deductions.append({"issue": "Missing UV coordinates", "points": 20})
+        elif not uv_valid:
+            uv_mat_score -= 10
+            deductions.append({"issue": "Degenerate or unnormalized UV layout", "points": 10})
 
-        # Budget & Platform: 30 pts
-        if budget_ratio <= 1.0:
-            budget_score = 30
-        elif budget_ratio <= 1.5:
-            budget_score = 20
-        elif budget_ratio <= 2.5:
-            budget_score = 10
-        else:
-            budget_score = 5
+        if not has_texture:
+            uv_mat_score -= 15
+            deductions.append({"issue": "No base color texture map", "points": 15})
+        uv_mat_score = max(0, min(35, uv_mat_score))
+
+        # Budget & Platform: 30 pts max
+        budget_score = 30
+        if budget_ratio > 2.5:
+            budget_score -= 25
+            deductions.append({"issue": f"Severe polygon overbudget (>250% of {target_platform})", "points": 25})
+        elif budget_ratio > 1.5:
+            budget_score -= 15
+            deductions.append({"issue": f"Moderate polygon overbudget (>150% of {target_platform})", "points": 15})
+        elif budget_ratio > 1.0:
+            budget_score -= 5
+            deductions.append({"issue": f"Slight polygon overbudget (>100% of {target_platform})", "points": 5})
+
+        if not transform_valid:
+            budget_score -= 5
+            deductions.append({"issue": "Invalid or collapsed transform extents", "points": 5})
+        budget_score = max(0, min(30, budget_score))
 
         total_score = min(100, max(0, topology_score + uv_mat_score + budget_score))
         status = "pass" if total_score >= 80 else ("warn" if total_score >= 50 else "fail")
@@ -430,15 +498,26 @@ def run_mesh_diagnostics(model_path: str, target_platform: str = "generic") -> d
             "polygon_count": poly_count,
             "vertex_count": vert_count,
             "components_count": components_count,
+            "degenerate_faces": degenerate_faces,
+            "non_manifold_edges": non_manifold_edges,
+            "boundary_edges": boundary_edges,
             "is_watertight": is_watertight,
             "is_winding_consistent": is_winding,
             "has_uv": has_uv,
+            "uv_valid": uv_valid,
             "has_texture": has_texture,
             "extents": extents,
+            "transform_valid": transform_valid,
             "material_count": scene_materials,
             "file_size": path.stat().st_size,
             "target_platform": target_platform,
             "target_budget": max_budget,
+            "scoring_breakdown": {
+                "topology": {"score": topology_score, "max": 35},
+                "uv_and_materials": {"score": uv_mat_score, "max": 35},
+                "budget_and_transform": {"score": budget_score, "max": 30},
+            },
+            "deductions": deductions,
         }
 
         return {
@@ -458,5 +537,143 @@ def run_mesh_diagnostics(model_path: str, target_platform: str = "generic") -> d
             "warnings": [f"Diagnostics could not complete: {exc}"],
             "diagnostics": {"file_size": path.stat().st_size},
         }
+
+
+def classify_asset(prompt: str = "", model_path: str | None = None, mesh: Any = None) -> dict[str, Any]:
+    """Deterministically classify an asset into one of 6 canonical categories.
+
+    Categories:
+      - 'human': Real-world humans, people, professions (biped metarig target)
+      - 'humanoid': Fantasy bipeds, robots, cyborgs, orcs, skeletons
+      - 'quadruped': 4-legged animals, beasts, creatures (Rigify metarig unsupported)
+      - 'hard-surface': Vehicles, weapons, armor, machinery, architecture
+      - 'generic-prop': Food, containers, plants, furniture, small props
+      - 'unknown': Ambiguous or unclassifiable
+
+    Returns:
+      dict with category, confidence, reason, riggable_humanoid
+    """
+    import re
+    p = (prompt or "").lower().strip()
+
+    HUMAN_KW = {
+        "man", "woman", "person", "human", "boy", "girl", "child", "male", "female",
+        "soldier", "warrior", "knight", "wizard", "ninja", "chef", "doctor", "cop",
+        "police", "athlete", "samurai", "monk", "priest", "dancer", "worker", "guy",
+        "lady", "gentleman", "hero", "heroine",
+    }
+    HUMANOID_KW = {
+        "humanoid", "biped", "cyborg", "robot", "alien", "monster", "orc", "goblin",
+        "zombie", "skeleton", "character", "avatar", "mech", "golem", "demon", "elf",
+        "dwarf", "vampire", "android",
+    }
+    QUADRUPED_KW = {
+        "dog", "cat", "horse", "wolf", "lion", "tiger", "bear", "cow", "deer", "elephant",
+        "animal", "creature", "four-legged", "quadruped", "fox", "cheetah", "leopard",
+        "pig", "sheep", "goat", "camel", "zebra", "rabbit", "hare", "reptile", "lizard",
+        "dragon", "dinosaur", "puppy", "kitten", "hound", "beast",
+    }
+    HARD_SURFACE_KW = {
+        "car", "vehicle", "weapon", "gun", "sword", "shield", "helmet", "armor", "chair",
+        "table", "building", "house", "spaceship", "plane", "aircraft", "machine", "pistol",
+        "rifle", "knife", "axe", "tank", "truck", "boat", "ship", "furniture", "computer",
+        "phone", "blade", "dagger", "bow", "cannon",
+    }
+    GENERIC_PROP_KW = {
+        "box", "barrel", "crate", "rock", "stone", "tree", "plant", "food", "apple",
+        "potion", "coin", "bottle", "chest", "prop", "vase", "cup", "mug", "flower",
+        "fruit", "backpack", "book", "scroll", "gem", "crystal", "key",
+    }
+
+    tokens = set(re.findall(r"\b[a-z0-9\-]+\b", p))
+
+    if tokens & HUMAN_KW:
+        matched = sorted(tokens & HUMAN_KW)
+        return {
+            "category": "human",
+            "confidence": 0.95,
+            "reason": f"Prompt matched human keyword(s): {', '.join(matched)}",
+            "riggable_humanoid": True,
+        }
+    if tokens & HUMANOID_KW:
+        matched = sorted(tokens & HUMANOID_KW)
+        return {
+            "category": "humanoid",
+            "confidence": 0.90,
+            "reason": f"Prompt matched humanoid keyword(s): {', '.join(matched)}",
+            "riggable_humanoid": True,
+        }
+    if tokens & QUADRUPED_KW:
+        matched = sorted(tokens & QUADRUPED_KW)
+        return {
+            "category": "quadruped",
+            "confidence": 0.92,
+            "reason": f"Prompt matched quadruped keyword(s): {', '.join(matched)}",
+            "riggable_humanoid": False,
+        }
+    if tokens & HARD_SURFACE_KW:
+        matched = sorted(tokens & HARD_SURFACE_KW)
+        return {
+            "category": "hard-surface",
+            "confidence": 0.88,
+            "reason": f"Prompt matched hard-surface keyword(s): {', '.join(matched)}",
+            "riggable_humanoid": False,
+        }
+    if tokens & GENERIC_PROP_KW:
+        matched = sorted(tokens & GENERIC_PROP_KW)
+        return {
+            "category": "generic-prop",
+            "confidence": 0.85,
+            "reason": f"Prompt matched prop keyword(s): {', '.join(matched)}",
+            "riggable_humanoid": False,
+        }
+
+    # Fall back to geometric inspection if mesh is provided
+    target_mesh = mesh
+    if target_mesh is None and model_path and Path(model_path).exists():
+        trimesh = _try_import_trimesh()
+        if trimesh:
+            try:
+                target_mesh = trimesh.load(model_path, force="mesh")
+            except Exception:
+                target_mesh = None
+
+    if target_mesh is not None and hasattr(target_mesh, "extents"):
+        try:
+            dx, dy, dz = [float(x) for x in target_mesh.extents]
+            h = max(dz, dy)
+            w = max(dx, min(dz, dy))
+            d = min(dx, min(dz, dy))
+            aspect_ratio = h / max(0.001, max(w, d))
+
+            if aspect_ratio >= 1.8:
+                return {
+                    "category": "humanoid",
+                    "confidence": 0.65,
+                    "reason": f"Vertical aspect ratio ({aspect_ratio:.2f}) indicates upright humanoid stature",
+                    "riggable_humanoid": True,
+                }
+            if max(dx, dy) / max(0.001, dz) >= 2.0:
+                return {
+                    "category": "hard-surface",
+                    "confidence": 0.55,
+                    "reason": "Elongated horizontal geometry indicates vehicle or hard-surface asset",
+                    "riggable_humanoid": False,
+                }
+            return {
+                "category": "generic-prop",
+                "confidence": 0.60,
+                "reason": "Compact bounding aspect ratio indicates prop/object geometry",
+                "riggable_humanoid": False,
+            }
+        except Exception:
+            pass
+
+    return {
+        "category": "unknown",
+        "confidence": 0.30,
+        "reason": "Unspecified prompt keywords and no geometric cues available",
+        "riggable_humanoid": False,
+    }
 
 

@@ -558,11 +558,15 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                     if render_settings.get("samples"):
                         render_samples = int(render_settings["samples"])
 
+                from app.core.mesh_processor import classify_asset
+                asset_class = classify_asset(prompt=job.prompt or "", model_path=provider_result.model_path)
+
                 from app.core.blender.pipeline import process_model
                 blender_result = await process_model(
                     input_path=provider_result.model_path,
                     output_dir=out_dir,
                     auto_rig=job.auto_rig if job.mode != "render" else False,
+                    asset_category=asset_class.get("category"),
                     generate_texture=job.generate_texture if job.mode != "render" else False,
                     quality=job.quality,
                     render_resolution=render_res,
@@ -596,6 +600,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
 
             meta = job.processing_metadata or {}
             meta["source_model_url"] = to_url(source_glb_path) if Path(source_glb_path).exists() else to_url(provider_result.model_path)
+            meta["asset_classification"] = asset_class
 
             # Optional DetailGen3D pass
             detail_pass = meta.get("detail_pass", False)

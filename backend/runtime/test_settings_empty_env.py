@@ -18,7 +18,7 @@ if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
 
-def main() -> None:
+def test_settings_empty_env() -> None:
     # 1. Set all 12 troublesome fields to empty string in os.environ
     empty_vars = {
         "DEBUG": "",
@@ -68,4 +68,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    test_settings_empty_env()

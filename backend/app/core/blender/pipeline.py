@@ -57,13 +57,14 @@ async def process_model(
     auto_rig: bool = False,
     generate_texture: bool = True,
     quality: str = "standard",
+    asset_category: str | None = None,
     render_resolution: list[int] | None = None,
     render_samples: int | None = None,
     progress_callback=None,
 ) -> dict:
     """
     Run the full Blender post-processing pipeline.
-    Returns dict: {glb, fbx, obj, stl} paths (None if export failed).
+    Returns dict: {glb, fbx, obj, stl, ply} paths (None if export failed).
     """
     if not settings.blender_enabled:
         return _stub_output(input_path, output_dir)
@@ -88,6 +89,7 @@ async def process_model(
             "input": input_path,
             "output_dir": str(out),
             "auto_rig": auto_rig,
+            "asset_category": asset_category,
             "generate_texture": generate_texture,
             "quality": quality,
             "render_resolution": render_resolution,
@@ -109,4 +111,4 @@ def _stub_output(input_path: str, output_dir: str) -> dict:
     glb = out / "model.glb"
     if not glb.exists() and Path(input_path).exists():
         shutil.copy(input_path, glb)
-    return {"glb": str(glb) if glb.exists() else None, "fbx": None, "obj": None, "stl": None}
+    return {"glb": str(glb) if glb.exists() else None, "fbx": None, "obj": None, "stl": None, "ply": None}

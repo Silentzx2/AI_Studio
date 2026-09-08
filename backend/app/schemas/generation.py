@@ -65,6 +65,13 @@ class GenerationRequest(BaseModel):
     generate_pbr: bool = True
     preserve_details: float = Field(75.0, ge=0, le=100)
     repair_uvs: bool = True
+    # Advanced / Provider inference parameters
+    seed: int | None = Field(None, description="Random seed for reproducibility")
+    num_inference_steps: int | None = Field(None, ge=1, le=200, description="Number of diffusion/flow steps")
+    guidance_scale: float | None = Field(None, ge=0.0, le=20.0, description="Classifier-free guidance scale")
+    octree_resolution: int | None = Field(None, ge=128, le=1024, description="Octree / grid resolution for marching cubes")
+    num_chunks: int | None = Field(None, ge=1000, le=100000, description="Chunk size for memory-bounded query")
+    face_count: int | None = Field(None, ge=100, le=500000, description="Target face count for initial mesh extraction")
 
     @model_validator(mode="before")
     @classmethod
@@ -85,6 +92,12 @@ class GenerationRequest(BaseModel):
                 "autoOptimize": "auto_optimize",
                 "lowVram": "low_vram",
                 "vramMode": "vram_mode",
+                "numInferenceSteps": "num_inference_steps",
+                "steps": "num_inference_steps",
+                "guidanceScale": "guidance_scale",
+                "octreeResolution": "octree_resolution",
+                "numChunks": "num_chunks",
+                "faceCount": "face_count",
             }
             for k, v in mapping.items():
                 if k in data and v not in data:

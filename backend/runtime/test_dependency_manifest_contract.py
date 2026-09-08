@@ -17,7 +17,7 @@ from runtime.dependency_resolver import _manifest_dependency_config, resolve_dep
 from runtime.manifest_loader import load_all_manifests  # noqa: E402
 
 
-def main() -> None:
+def test_dependency_manifest_contract() -> None:
     manifests = load_all_manifests()
     expected = {
         "detailgen3d",
@@ -45,4 +45,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    test_dependency_manifest_contract()

@@ -75,8 +75,9 @@ def _workspace_compatibility(model: dict[str, Any]) -> list[str]:
         derived.append("mesh-generation")
     if caps.get("texture_generation"):
         derived.append("texture-generation")
-    if caps.get("rigging_animation"):
+    if caps.get("rigging_animation") or caps.get("rigging"):
         derived.append("rigging")
+    if caps.get("animation") or model.get("supports_animation"):
         derived.append("animation")
     if caps.get("remesh"):
         derived.append("remesh")

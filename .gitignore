@@ -72,6 +72,7 @@ next-env.d.ts
 scripts/.cloudflare_tunnels
 .opencode/opencode.json
 .blackboxcli/
+.kilo/
 
 # Built wheels - stored locally and uploaded to GitHub releases
 .wheels/

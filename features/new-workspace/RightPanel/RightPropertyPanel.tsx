@@ -33,7 +33,7 @@ export const RightPropertyPanel: React.FC = () => {
     systemStats
   } = useWorkspace();
 
-  const [exportFormat, setExportFormat] = useState<'glb' | 'obj' | 'fbx' | 'usdz' | 'stl'>('glb');
+  const [exportFormat, setExportFormat] = useState<'glb' | 'fbx' | 'obj' | 'stl' | 'ply'>('glb');
   const [embedTextures, setEmbedTextures] = useState(true);
   const [dracoCompression, setDracoCompression] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
@@ -90,26 +90,39 @@ export const RightPropertyPanel: React.FC = () => {
 
   const handleExportDownload = async () => {
     if (!currentAsset?.source) return;
+    const sourceUrl = currentAsset.source.localUrl || currentAsset.source.viewUrl;
+    if (!sourceUrl) return;
+
     setIsExporting(true);
     try {
-      if (currentAsset.source.localUrl) {
-        const link = document.createElement('a');
-        link.href = currentAsset.source.localUrl;
-        link.download = `${currentAsset.name}.${exportFormat}`;
-        link.click();
-      } else if (currentAsset.source.viewUrl) {
-        const response = await fetch(currentAsset.source.viewUrl);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = currentAsset.name;
-        link.click();
-        URL.revokeObjectURL(url);
-      } else {
-        throw new Error('Selected asset has no downloadable source.');
+      const response = await fetch('/api/v1/project/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          modelUrl: sourceUrl,
+          assetName: currentAsset.name,
+          format: exportFormat,
+          variant: 'source',
+          targetPlatform: 'generic',
+          packageZip: false,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || err.message || `Export failed with HTTP ${response.status}`);
       }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${currentAsset.name}.${exportFormat}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+
       setExportSuccess(true);
       setTimeout(() => setExportSuccess(false), 3000);
     } catch (error) {
@@ -577,7 +590,7 @@ export const RightPropertyPanel: React.FC = () => {
 
           {/* Formats Grid */}
           <div className="grid grid-cols-5 gap-1.5">
-            {(['glb', 'obj', 'fbx', 'usdz', 'stl'] as const).map((fmt) => (
+            {(['glb', 'fbx', 'obj', 'stl', 'ply'] as const).map((fmt) => (
               <button
                 key={fmt}
                 onClick={() => setExportFormat(fmt)}

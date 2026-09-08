@@ -437,28 +437,98 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
 
     def _text_to_3d(self, request: GenerationRequest, output_dir: str) -> str:
         import torch
+        import inspect
         out = Path(output_dir)
         out.mkdir(parents=True, exist_ok=True)
-        steps = {"low-poly": 20, "standard": 35, "high-poly": 50}.get(request.quality, 35)
+        steps = request.num_inference_steps or {"low-poly": 20, "standard": 35, "high-poly": 50}.get(request.quality, 35)
+        guidance = request.guidance_scale if request.guidance_scale is not None else 5.5
+        seed = request.seed if request.seed is not None else 12345
+        generator = torch.manual_seed(seed)
+
+        call_kwargs: dict[str, Any] = {
+            "prompt": request.prompt,
+            "negative_prompt": request.negative_prompt or "",
+            "num_inference_steps": steps,
+            "guidance_scale": guidance,
+            "generator": generator,
+        }
+        if request.octree_resolution is not None:
+            call_kwargs["octree_resolution"] = request.octree_resolution
+        if request.num_chunks is not None:
+            call_kwargs["num_chunks"] = request.num_chunks
+
+        sig = inspect.signature(self._model.__call__)
+        valid_kwargs = {k: v for k, v in call_kwargs.items() if k in sig.parameters}
+
         with torch.inference_mode():
-            result = self._model(
-                prompt=request.prompt,
-                negative_prompt=request.negative_prompt or "",
-                num_inference_steps=steps,
-            )
+            result = self._model(**valid_kwargs)
+
         dest = str(out / "mesh.glb")
-        result.meshes[0].export(dest)
+        if hasattr(result, "meshes") and result.meshes:
+            mesh = result.meshes[0]
+        elif isinstance(result, (list, tuple)) and len(result) > 0:
+            mesh = result[0]
+        elif hasattr(result, "export"):
+            mesh = result
+        else:
+            raise RuntimeError(f"Unexpected output from Hunyuan3D-2.1 model: {type(result)}")
+
+        if request.face_count and hasattr(mesh, "simplify_quadric_decimation"):
+            try:
+                mesh = mesh.simplify_quadric_decimation(face_count=request.face_count)
+            except Exception as dec_err:
+                logger.warning("Post-generation face_count decimation failed: %s", dec_err)
+
+        mesh.export(dest)
         return dest
 
     def _image_to_3d(self, request: GenerationRequest, output_dir: str) -> str:
         import torch
+        import inspect
         out = Path(output_dir)
         out.mkdir(parents=True, exist_ok=True)
         img = self._preprocess_image(request.reference_image_url)
+
+        steps = request.num_inference_steps or {"low-poly": 20, "standard": 35, "high-poly": 50}.get(request.quality, 35)
+        guidance = request.guidance_scale if request.guidance_scale is not None else 5.0
+        octree_res = request.octree_resolution or 380
+        chunks = request.num_chunks or 20000
+        seed = request.seed if request.seed is not None else 12345
+        generator = torch.manual_seed(seed)
+
+        call_kwargs: dict[str, Any] = {
+            "image": img,
+            "num_inference_steps": steps,
+            "guidance_scale": guidance,
+            "octree_resolution": octree_res,
+            "num_chunks": chunks,
+            "generator": generator,
+            "output_type": "trimesh",
+        }
+
+        sig = inspect.signature(self._model.__call__)
+        valid_kwargs = {k: v for k, v in call_kwargs.items() if k in sig.parameters}
+
         with torch.inference_mode():
-            result = self._model(image=img)
+            result = self._model(**valid_kwargs)
+
         dest = str(out / "mesh.glb")
-        result.meshes[0].export(dest)
+        if hasattr(result, "meshes") and result.meshes:
+            mesh = result.meshes[0]
+        elif isinstance(result, (list, tuple)) and len(result) > 0:
+            mesh = result[0]
+        elif hasattr(result, "export"):
+            mesh = result
+        else:
+            raise RuntimeError(f"Unexpected output from Hunyuan3D-2.1 model: {type(result)}")
+
+        if request.face_count and hasattr(mesh, "simplify_quadric_decimation"):
+            try:
+                mesh = mesh.simplify_quadric_decimation(face_count=request.face_count)
+            except Exception as dec_err:
+                logger.warning("Post-generation face_count decimation failed: %s", dec_err)
+
+        mesh.export(dest)
         return dest
 
     def _texture(self, request: GenerationRequest, mesh_path: str, output_dir: str) -> None:
@@ -468,10 +538,25 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
         if self._tex is not None:
             try:
                 import torch
+                import trimesh
+                from PIL import Image
+                mesh = trimesh.load(mesh_path, force="mesh")
+                img = Image.open(request.reference_image_url).convert("RGBA") if request.reference_image_url else None
                 with torch.inference_mode():
-                    result = self._tex(mesh_path=mesh_path, prompt=request.prompt)
-                result.mesh.export(out_glb)
-                return
+                    if img is not None:
+                        try:
+                            result = self._tex(mesh, image=img)
+                        except TypeError:
+                            result = self._tex(mesh_path=mesh_path, image=img)
+                    else:
+                        result = self._tex(mesh_path=mesh_path, prompt=request.prompt)
+
+                if hasattr(result, "export"):
+                    result.export(out_glb)
+                    return
+                elif hasattr(result, "mesh") and hasattr(result.mesh, "export"):
+                    result.mesh.export(out_glb)
+                    return
             except Exception as exc:
                 logger.warning("Hunyuan3D-2.1 paint pipeline execution failed: %s; trying projection fallback", exc)
         if request.reference_image_url:
@@ -535,23 +620,51 @@ class Hunyuan3D2MiniLocalProvider(_HunyuanBase):
 
     def _image_to_3d(self, request: GenerationRequest, output_dir: str) -> str:
         import torch
+        import inspect
         out = Path(output_dir)
         out.mkdir(parents=True, exist_ok=True)
         img = self._preprocess_image(request.reference_image_url)
-        # ponytail: steps/octree_resolution/num_chunks match the official
-        # shape_gen_mini.py reference; quality scales inference steps only.
-        steps = {"low-poly": 20, "standard": 30, "high-poly": 50}.get(request.quality, 30)
+
+        steps = request.num_inference_steps or {"low-poly": 20, "standard": 30, "high-poly": 50}.get(request.quality, 30)
+        octree_res = request.octree_resolution or 380
+        chunks = request.num_chunks or 20000
+        seed = request.seed if request.seed is not None else 12345
+        generator = torch.manual_seed(seed)
+        guidance = request.guidance_scale if request.guidance_scale is not None else 5.0
+
+        call_kwargs: dict[str, Any] = {
+            "image": img,
+            "num_inference_steps": steps,
+            "octree_resolution": octree_res,
+            "num_chunks": chunks,
+            "generator": generator,
+            "guidance_scale": guidance,
+            "output_type": "trimesh",
+        }
+
+        sig = inspect.signature(self._model.__call__)
+        valid_kwargs = {k: v for k, v in call_kwargs.items() if k in sig.parameters}
+
         with torch.inference_mode():
-            result = self._model(
-                image=img,
-                num_inference_steps=steps,
-                octree_resolution=380,
-                num_chunks=20000,
-                generator=torch.manual_seed(12345),
-                output_type="trimesh",
-            )[0]
+            result = self._model(**valid_kwargs)
+
+        if isinstance(result, (list, tuple)) and len(result) > 0:
+            mesh = result[0]
+        elif hasattr(result, "meshes") and result.meshes:
+            mesh = result.meshes[0]
+        elif hasattr(result, "export"):
+            mesh = result
+        else:
+            raise RuntimeError(f"Unexpected output from Hunyuan3D-2 Mini model: {type(result)}")
+
+        if request.face_count and hasattr(mesh, "simplify_quadric_decimation"):
+            try:
+                mesh = mesh.simplify_quadric_decimation(face_count=request.face_count)
+            except Exception as dec_err:
+                logger.warning("Post-generation face_count decimation failed: %s", dec_err)
+
         dest = str(out / "mesh.glb")
-        result.export(dest)
+        mesh.export(dest)
         return dest
 
     def _load_tex(self) -> None:

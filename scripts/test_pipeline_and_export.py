@@ -156,6 +156,20 @@ def test_export_endpoint_and_zip_packaging():
             assert "v " in obj_content or "#" in obj_content
         print(f"  ✓ Format conversion to OBJ succeeded: {resp_obj.filename}")
 
+        # 2b. Format conversion to FBX
+        req_fbx = ExportRequest(
+            modelUrl=f"/static/models/{job_id}/model.glb",
+            assetName="MyHero",
+            format="fbx",
+            variant="source",
+            packageZip=False,
+        )
+        resp_fbx = asyncio.run(export_project(req_fbx))
+        assert os.path.exists(resp_fbx.path)
+        assert resp_fbx.filename.endswith(".fbx")
+        assert os.path.getsize(resp_fbx.path) > 0
+        print(f"  ✓ Real headless Blender FBX conversion succeeded: {resp_fbx.filename}")
+
         # 3. Structured ZIP packaging with LODs, Collision, and QA
         req_zip = ExportRequest(
             modelUrl=f"/static/models/{job_id}/model.glb",
@@ -184,10 +198,54 @@ def test_export_endpoint_and_zip_packaging():
             qa_bytes = zf.read("HeroAsset/QA/quality_report.json")
             qa_data = json.loads(qa_bytes.decode("utf-8"))
             assert "game_ready_score" in qa_data
+            assert "scoring_breakdown" in qa_data.get("diagnostics", {})
             print(f"  ✓ Structured ZIP verified ({len(namelist)} items packaged, QA Score: {qa_data['game_ready_score']})")
 
     finally:
         shutil.rmtree(job_dir, ignore_errors=True)
+
+
+def test_asset_classification():
+    print("[6/7] Testing deterministic asset classification...")
+    from app.core.mesh_processor import classify_asset
+
+    c1 = classify_asset(prompt="Cyberpunk soldier with rifle")
+    assert c1["category"] in ("human", "humanoid")
+    assert c1["riggable_humanoid"] is True
+
+    c2 = classify_asset(prompt="A wild wolf howling")
+    assert c2["category"] == "quadruped"
+    assert c2["riggable_humanoid"] is False
+
+    c3 = classify_asset(prompt="Military armored tank")
+    assert c3["category"] == "hard-surface"
+    assert c3["riggable_humanoid"] is False
+
+    c4 = classify_asset(prompt="Wooden barrel for game prop")
+    assert c4["category"] == "generic-prop"
+    assert c4["riggable_humanoid"] is False
+
+    print("  ✓ All 4 canonical taxonomies deterministically classified")
+
+
+def test_xatlas_uv_parametrization():
+    print("[7/7] Testing xatlas UV parametrization on unwrap-missing mesh...")
+    import trimesh
+    from app.core.mesh_optimizer import generate_uvs_with_xatlas, mesh_has_valid_uvs
+
+    box = trimesh.creation.box()
+    assert not mesh_has_valid_uvs(box)
+
+    unwrapped, fixed = generate_uvs_with_xatlas(box)
+    assert fixed is True
+    assert mesh_has_valid_uvs(unwrapped)
+    assert len(unwrapped.visual.uv) == len(unwrapped.vertices)
+
+    # Calling again on already valid UVs must preserve without regenerating
+    preserved, re_fixed = generate_uvs_with_xatlas(unwrapped)
+    assert re_fixed is False
+
+    print(f"  ✓ xatlas generated {len(unwrapped.visual.uv)} UVs, preserved valid UVs on second pass")
 
 
 if __name__ == "__main__":
@@ -199,6 +257,8 @@ if __name__ == "__main__":
     test_collision_hull()
     test_path_resolution_security()
     test_export_endpoint_and_zip_packaging()
+    test_asset_classification()
+    test_xatlas_uv_parametrization()
     print("=" * 60)
     print("ALL CHECKS PASSED: Pipeline and Export integration verified!")
     print("=" * 60)

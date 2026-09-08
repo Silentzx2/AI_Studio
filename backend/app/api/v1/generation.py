@@ -122,6 +122,12 @@ async def create_generation(req: GenerationRequest, request: Request):
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     # Workspace selection is authoritative when the UI opens a dedicated tool.
+    if req.workspace == "animation" or req.mode == "animation":
+        raise HTTPException(
+            status_code=400,
+            detail="Animation generation is currently unsupported. Auto-rigging is available for humanoids, but skeletal animation clip generation is unsupported.",
+        )
+
     if req.workspace and req.mode == "text-to-3d" and req.workspace in _WORKSPACE_MODE_MAP:
         req.mode = _WORKSPACE_MODE_MAP[req.workspace]
 

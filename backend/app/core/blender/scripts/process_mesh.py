@@ -31,6 +31,7 @@ OUTPUT_DIR    = _args.get("output_dir", os.path.dirname(INPUT_PATH))
 AUTO_RIG      = _args.get("auto_rig", False)
 GEN_TEXTURE   = _args.get("generate_texture", True)
 QUALITY       = _args.get("quality", "standard")
+ASSET_CATEGORY = _args.get("asset_category", "").lower().strip()
 RENDER_RES    = _args.get("render_resolution", [512, 512])
 RENDER_SAMPLES = _args.get("render_samples", 128)
 THUMBNAIL_PATH = os.path.join(OUTPUT_DIR, "thumbnail.png")
@@ -165,63 +166,71 @@ main_mesh = mesh_objects[0]
 
 # ── 6. Auto-rig with Rigify ────────────────────────────────────────────────────
 armature_obj = None
+rig_status = "not_requested" if not AUTO_RIG else "success"
 if AUTO_RIG:
-    try:
-        # Calculate mesh bounding box center & dimensions
-        bbox = [main_mesh.matrix_world @ v.co for v in main_mesh.data.vertices]
-        xs = [v.x for v in bbox]
-        ys = [v.y for v in bbox]
-        zs = [v.z for v in bbox]
-        cx = (max(xs) + min(xs)) / 2
-        cy = (max(ys) + min(ys)) / 2
-        cz_min = min(zs)
-        height = max(zs) - cz_min
-
-        width = max(0.001, max(xs) - min(xs))
-        depth = max(0.001, max(ys) - min(ys))
-        aspect_ratio = height / max(width, depth)
-
-        # Rigify basic human metarig is intended for upright biped humanoids
-        # ponytail: Skip human armature on quadrupeds (dogs), vehicles, or flat props
-        if aspect_ratio < 0.7 or height < 0.2:
-            print(f"# Rigify skipped: mesh aspect ratio {aspect_ratio:.2f} is non-humanoid", file=sys.stderr)
-            armature_obj = None
-        else:
-            # Add a Rigify meta-rig (basic human)
-            bpy.ops.object.select_all(action="DESELECT")
-            bpy.ops.object.armature_human_metarig_add()
-            meta_rig = bpy.context.active_object
-            meta_rig.name = "MetaRig"
-
-            # Scale & position the rig to fit the mesh
-            meta_rig.location = (cx, cy, cz_min)
-            meta_rig.scale = (height / 2.0, height / 2.0, height / 2.0)
-            bpy.ops.object.transform_apply(scale=True, location=True)
-
-            # Generate the Rigify rig
-            bpy.context.view_layer.objects.active = meta_rig
-            bpy.ops.pose.rigify_generate()
-
-            # Find generated rig
-            armature_obj = next(
-                (o for o in bpy.data.objects if o.type == "ARMATURE" and o.name != "MetaRig"),
-                None,
-            )
-
-            # Parent mesh to rig with automatic weights
-            if armature_obj:
-                bpy.ops.object.select_all(action="DESELECT")
-                main_mesh.select_set(True)
-                armature_obj.select_set(True)
-                bpy.context.view_layer.objects.active = armature_obj
-                bpy.ops.object.parent_set(type="ARMATURE_AUTO")
-
-            # Remove meta-rig
-            bpy.data.objects.remove(meta_rig, do_unlink=True)
-
-    except Exception as rig_err:
-        print(f"# Rigify warning: {rig_err}", file=sys.stderr)
+    # Rigify basic human metarig is exclusively designed for biped humanoids
+    if ASSET_CATEGORY and ASSET_CATEGORY not in ("human", "humanoid", "unknown", ""):
+        rig_status = f"unsupported: asset category '{ASSET_CATEGORY}' is not a biped humanoid"
+        print(f"# Rigify skipped: {rig_status}", file=sys.stderr)
         armature_obj = None
+    else:
+        try:
+            # Calculate mesh bounding box center & dimensions
+            bbox = [main_mesh.matrix_world @ v.co for v in main_mesh.data.vertices]
+            xs = [v.x for v in bbox]
+            ys = [v.y for v in bbox]
+            zs = [v.z for v in bbox]
+            cx = (max(xs) + min(xs)) / 2
+            cy = (max(ys) + min(ys)) / 2
+            cz_min = min(zs)
+            height = max(zs) - cz_min
+
+            width = max(0.001, max(xs) - min(xs))
+            depth = max(0.001, max(ys) - min(ys))
+            aspect_ratio = height / max(width, depth)
+
+            # Skip human armature on quadrupeds (dogs), vehicles, or flat props
+            if aspect_ratio < 0.7 or height < 0.2:
+                rig_status = f"skipped: non-humanoid aspect ratio ({aspect_ratio:.2f})"
+                print(f"# Rigify skipped: {rig_status}", file=sys.stderr)
+                armature_obj = None
+            else:
+                # Add a Rigify meta-rig (basic human)
+                bpy.ops.object.select_all(action="DESELECT")
+                bpy.ops.object.armature_human_metarig_add()
+                meta_rig = bpy.context.active_object
+                meta_rig.name = "MetaRig"
+
+                # Scale & position the rig to fit the mesh
+                meta_rig.location = (cx, cy, cz_min)
+                meta_rig.scale = (height / 2.0, height / 2.0, height / 2.0)
+                bpy.ops.object.transform_apply(scale=True, location=True)
+
+                # Generate the Rigify rig
+                bpy.context.view_layer.objects.active = meta_rig
+                bpy.ops.pose.rigify_generate()
+
+                # Find generated rig
+                armature_obj = next(
+                    (o for o in bpy.data.objects if o.type == "ARMATURE" and o.name != "MetaRig"),
+                    None,
+                )
+
+                # Parent mesh to rig with automatic weights
+                if armature_obj:
+                    bpy.ops.object.select_all(action="DESELECT")
+                    main_mesh.select_set(True)
+                    armature_obj.select_set(True)
+                    bpy.context.view_layer.objects.active = armature_obj
+                    bpy.ops.object.parent_set(type="ARMATURE_AUTO")
+
+                # Remove meta-rig
+                bpy.data.objects.remove(meta_rig, do_unlink=True)
+
+        except Exception as rig_err:
+            rig_status = f"failed: {rig_err}"
+            print(f"# Rigify warning: {rig_err}", file=sys.stderr)
+            armature_obj = None
 else:
     # Remove any existing armatures from the scene so the export is rig-free
     for obj in list(bpy.data.objects):
@@ -334,6 +343,17 @@ except Exception as e:
     print(f"# STL export warning: {e}", file=sys.stderr)
     stl_path = None  # type: ignore[assignment]
 
+# PLY
+ply_path = os.path.join(OUTPUT_DIR, "model.ply")
+try:
+    try:
+        bpy.ops.wm.ply_export(filepath=ply_path)
+    except AttributeError:
+        bpy.ops.export_mesh.ply(filepath=ply_path)
+except Exception as e:
+    print(f"# PLY export warning: {e}", file=sys.stderr)
+    ply_path = None  # type: ignore[assignment]
+
 
 # ── 9. Output result JSON ──────────────────────────────────────────────────────
 result = {
@@ -341,9 +361,11 @@ result = {
     "fbx": fbx_path,
     "obj": obj_path,
     "stl": stl_path,
+    "ply": ply_path,
     "thumbnail": THUMBNAIL_PATH,
     "polygon_count": total_polys,
     "vertex_count": total_verts,
     "has_rig": armature_obj is not None,
+    "rig_status": rig_status,
 }
 print(json.dumps(result))

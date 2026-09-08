@@ -20,7 +20,7 @@ _ENV_FILE = str(_PROJECT_DIR / ".env")
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=_ENV_FILE, extra="ignore")
+    model_config = SettingsConfigDict(env_file=_ENV_FILE, extra="ignore", env_ignore_empty=True)
 
     app_name: str = "AI 3D Studio API"
     app_version: str = "3.0.0"

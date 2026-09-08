@@ -26,7 +26,7 @@ settings = get_settings()
 class ExportRequest(BaseModel):
     modelUrl: str
     assetName: str | None = None
-    format: str = "glb"  # glb, obj, stl, ply
+    format: str = "glb"  # glb, fbx, obj, stl, ply
     variant: Literal["source", "game_ready", "lod_package"] = "source"
     layers: list[dict[str, Any]] = []
     assembleAll: bool = False
@@ -151,6 +151,7 @@ async def export_project(req: ExportRequest):
     media_types = {
         "glb": "model/gltf-binary",
         "gltf": "model/gltf+json",
+        "fbx": "application/octet-stream",
         "obj": "text/plain",
         "stl": "model/stl",
         "ply": "application/octet-stream",
@@ -160,6 +161,34 @@ async def export_project(req: ExportRequest):
     if fmt in ("glb", "gltf"):
         exported_file = out_dir / f"{clean_name}.glb"
         shutil.copy(target_model, exported_file)
+    elif fmt == "fbx":
+        blender_bin = shutil.which(settings.blender_executable)
+        if not blender_bin:
+            raise HTTPException(status_code=500, detail="Headless Blender required for FBX export but not installed")
+        from app.core.mesh_optimizer import _get_blender_env
+        env = _get_blender_env(blender_bin)
+        exported_file = out_dir / f"{clean_name}.fbx"
+        script = f"""
+import bpy, sys
+try:
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    bpy.ops.import_scene.gltf(filepath={repr(str(target_model))})
+    bpy.ops.export_scene.fbx(filepath={repr(str(exported_file))}, add_leaf_bones=False)
+except Exception as e:
+    print(f"FBX_EXPORT_ERROR: {{e}}", file=sys.stderr)
+    sys.exit(1)
+"""
+        import subprocess
+        proc = subprocess.run(
+            [blender_bin, "-b", "--python-expr", script],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if proc.returncode != 0 or not exported_file.exists() or exported_file.stat().st_size == 0:
+            logger.error("Blender FBX export failed (code %d): %s", proc.returncode, proc.stderr)
+            raise HTTPException(status_code=500, detail="FBX export conversion failed")
     elif fmt in ("obj", "stl", "ply"):
         try:
             import trimesh

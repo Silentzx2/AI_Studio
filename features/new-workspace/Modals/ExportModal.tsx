@@ -9,7 +9,7 @@ export const ExportModal: React.FC = () => {
 
   // Variant & Format states
   const [variant, setVariant] = useState<'source' | 'game_ready' | 'lod_package'>('game_ready');
-  const [exportFormat, setExportFormat] = useState<'glb' | 'obj' | 'stl' | 'ply'>('glb');
+  const [exportFormat, setExportFormat] = useState<'glb' | 'fbx' | 'obj' | 'stl' | 'ply'>('glb');
   const [targetPlatform, setTargetPlatform] = useState<'mobile' | 'low' | 'medium' | 'high' | 'cinematic'>('medium');
 
   // Packaging toggles
@@ -199,12 +199,13 @@ export const ExportModal: React.FC = () => {
           {/* Section 2: Format Selector */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Target Format</label>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-5 gap-1.5">
               {[
-                { id: 'glb', label: 'GLB / glTF', tip: 'PBR Materials' },
+                { id: 'glb', label: 'GLB', tip: 'PBR' },
+                { id: 'fbx', label: 'FBX', tip: 'Autodesk' },
                 { id: 'obj', label: 'OBJ', tip: 'Wavefront' },
-                { id: 'stl', label: 'STL', tip: '3D Printing' },
-                { id: 'ply', label: 'PLY', tip: 'Polygon Mesh' },
+                { id: 'stl', label: 'STL', tip: '3D Print' },
+                { id: 'ply', label: 'PLY', tip: 'Polygon' },
               ].map(fmt => (
                 <button
                   key={fmt.id}
