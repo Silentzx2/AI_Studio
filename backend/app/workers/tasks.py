@@ -805,10 +805,12 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 "fbx": to_url(blender_result.get("fbx")),
                 "obj": to_url(blender_result.get("obj")),
                 "stl": to_url(blender_result.get("stl")),
+                "ply": to_url(blender_result.get("ply")),
                 "source": to_url(source_glb_path) if Path(source_glb_path).exists() else to_url(blender_result.get("glb")),
                 "game_ready": meta.get("game_ready_url"),
                 "collision": meta.get("collision_url"),
             }
+
 
             # 10. Finalize
             _update_job(

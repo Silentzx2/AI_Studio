@@ -266,13 +266,19 @@ class TripoSGLocalProvider(BaseProvider):
             if progress_callback:
                 await progress_callback(30, "generating", "Running TripoSG inference...")
 
+            seed = getattr(request, "seed", None)
+            seed = seed if seed is not None else 42
+            steps = getattr(request, "num_inference_steps", None) or 50
+            guidance = getattr(request, "guidance_scale", None)
+            guidance = guidance if guidance is not None else 7.0
+
             # Run inference
             with torch.inference_mode():
                 outputs = self.pipe(
                     image=img_pil,
-                    generator=torch.Generator(device=self.pipe.device).manual_seed(42),
-                    num_inference_steps=50,
-                    guidance_scale=7.0,
+                    generator=torch.Generator(device=self.pipe.device).manual_seed(seed),
+                    num_inference_steps=steps,
+                    guidance_scale=guidance,
                     use_flash_decoder=False,
                 ).samples[0]
 
@@ -295,10 +301,22 @@ class TripoSGLocalProvider(BaseProvider):
                 )
             mesh.export(glb_path, file_type="glb")
 
-            stats = {
-                "polygon_count": len(mesh.faces),
-                "vertex_count": len(mesh.vertices),
-            }
+            face_count = getattr(request, "face_count", None)
+            if face_count and glb_path.exists():
+                try:
+                    from app.core.mesh_optimizer import optimize_mesh
+                    optimize_mesh(
+                        input_path=str(glb_path),
+                        output_path=str(glb_path),
+                        target_polycount=face_count,
+                        fix_uvs=False,
+                    )
+                except Exception as dec_err:
+                    logger.warning("Post-TripoSG face_count decimation failed: %s", dec_err)
+
+            from app.core.mesh_processor import get_mesh_stats
+            stats = get_mesh_stats(str(glb_path))
+
 
             logger.info("TripoSG generation complete: %s", glb_path)
             return ProviderResult(

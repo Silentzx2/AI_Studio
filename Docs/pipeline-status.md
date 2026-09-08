@@ -33,7 +33,14 @@
   - Added native `gltf` (JSON) conversion via Trimesh.
   - Removed unsupported `usdz` from settings and components; canonical list is strictly `['glb', 'gltf', 'fbx', 'obj', 'stl', 'ply']`.
   - Structured ZIP archive produces clean hierarchy with `Metadata/export_metadata.json` manifest.
-- **Verification**: All 13 pytest unit tests passed (6.81s); all 8 pipeline integration tests passed; Next.js production build succeeded with exit code 0.
+- **TripoSG Provider (`backend/app/core/providers/triposg_local.py`)**:
+  - Dynamically wired `seed`, `num_inference_steps`, and `guidance_scale` from request into pipeline inference.
+  - Added post-generation `face_count` decimation via `optimize_mesh`.
+- **Runtime Installer & Format Harmonization (`backend/runtime/installer.py`, `backend/app/workers/tasks.py`)**:
+  - Synchronized `OUTPUT_FORMATS` in runtime installer with canonical export formats (`glb`, `gltf`, `fbx`, `obj`, `stl`, `ply`), removing stale `usdz`.
+  - Added `ply` to worker `download_urls`.
+- **Verification**: All 13 pytest unit tests passed (5.96s); all 8 pipeline integration tests passed; Next.js production build succeeded with exit code 0.
+
 
 ---
 

@@ -309,10 +309,13 @@ RESOLUTIONS = [
 ]
 OUTPUT_FORMATS = [
     {"id": "glb",  "label": "GLB (recommended)"},
-    {"id": "obj",  "label": "OBJ + MTL"},
+    {"id": "gltf", "label": "glTF (JSON)"},
     {"id": "fbx",  "label": "FBX"},
-    {"id": "usdz", "label": "USDZ"},
+    {"id": "obj",  "label": "OBJ"},
+    {"id": "stl",  "label": "STL"},
+    {"id": "ply",  "label": "PLY"},
 ]
+
 
 
 # ---------------------------------------------------------------------------
