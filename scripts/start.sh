@@ -217,14 +217,14 @@ auto_bootstrap() {
         local gpu_type
         gpu_type=$(detect_gpu)
         if [[ "$gpu_type" == "gpu" ]]; then
-            uv pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
+            uv pip install --python backend/.venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
                 --index-url https://download.pytorch.org/whl/cu121 -q 2>/dev/null || {
                 err "PyTorch CUDA install failed; refusing to continue with a CPU fallback on a GPU host."
                 deactivate 2>/dev/null || true
                 exit 1
             }
         else
-            uv pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
+            uv pip install --python backend/.venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
                 --index-url https://download.pytorch.org/whl/cpu -q 2>/dev/null || {
                 err "PyTorch CPU install failed"
                 deactivate 2>/dev/null || true
@@ -232,12 +232,13 @@ auto_bootstrap() {
             }
         fi
 
-        uv pip install -r backend/requirements.txt -q 2>/dev/null || {
+        uv pip install --python backend/.venv/bin/python pyyaml packaging -q 2>/dev/null || true
+        uv pip install --python backend/.venv/bin/python -r backend/requirements.txt -q 2>/dev/null || {
             err "Backend dependency installation failed"
             deactivate 2>/dev/null || true
             exit 1
         }
-        if ! python -c 'import fastapi, sqlalchemy, celery, asyncpg, trimesh' >/dev/null 2>&1; then
+        if ! python -c 'import fastapi, sqlalchemy, celery, asyncpg, trimesh, yaml' >/dev/null 2>&1; then
             err "Core backend imports failed after dependency installation"
             deactivate 2>/dev/null || true
             exit 1

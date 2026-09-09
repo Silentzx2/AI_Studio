@@ -1,5 +1,20 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.24] - 2026-09-09
+
+### Added / Fixed
+
+#### 1. Explicit Virtual Environment Targeting and Manifest Bootstrap Fix (`colab.sh`, `setup.sh`, `start.sh`, `manifest_loader.py`)
+- **Explicit `uv pip --python` Targeting**:
+  - Added explicit `--python <venv-python>` parameter to all `uv pip install` invocations across `scripts/colab.sh`, `scripts/setup.sh`, and `scripts/start.sh`, preventing ambient or system environment fallback in hosted notebook environments like Google Colab.
+- **Pre-Emptive Manifest Dependencies Bootstrap**:
+  - Ensured `pyyaml` and `packaging` are explicitly installed directly into the target virtual environment during Step 4 and verified before any manifest parsing routines run.
+  - Added self-healing fallback checks in `select_models_interactively()`, `prepare_model_runtimes()`, `download_model_weights()`, and `run_preflight()` so any invocation with an unpopulated or partial environment automatically recovers by installing `pyyaml` before importing manifest loaders.
+- **System Build Dependencies Update**:
+  - Added `python3-yaml` to the apt dependency installation in Step 3.5 of `scripts/colab.sh` to ensure base host Python also provides YAML support.
+- **Messaging Alignment**:
+  - Updated `backend/runtime/manifest_loader.py` ImportError message to advise `uv pip install pyyaml` instead of raw `pip install`.
+
 ## [v5.0.23] - 2026-09-09
 
 ### Added / Fixed

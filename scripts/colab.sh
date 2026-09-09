@@ -1280,7 +1280,7 @@ if [[ -n "${COLAB_RELEASE_TAG:-}" ]]; then
     sudo apt-get install -y -qq \
         build-essential libpng-dev libjpeg-dev zlib1g-dev libharfbuzz-dev \
         libfreetype6-dev liblcms2-dev libopenjp2-7-dev libtiff-dev libwebp-dev \
-        ninja-build pkg-config python3-venv python3-pip >/dev/null 2>&1 || true
+        ninja-build pkg-config python3-venv python3-pip python3-yaml >/dev/null 2>&1 || true
     ok "System build dependencies installed for Colab"
 else
     info "Non-Colab environment — assuming system deps available"
@@ -1345,6 +1345,7 @@ if [[ "$ACTUAL_PREFIX" != "$EXPECTED_PREFIX" ]]; then
 fi
 
 # Install PyTorch (GPU or CPU depending on hardware) - ONLY uv used inside activated venv
+local VENV_PY="${PROJECT_ROOT}/backend/.venv/bin/python"
 if [[ "$GPU_TYPE" == "gpu" ]]; then
     # Normalize CUDA version for PyTorch wheel index
     # ponytail: map to nearest PyTorch-supported wheel, use newer PyTorch for newer CUDA
@@ -1362,26 +1363,32 @@ if [[ "$GPU_TYPE" == "gpu" ]]; then
         TORCH_VER="2.7.0"
     fi
     info "Installing PyTorch ${TORCH_VER} with CUDA ${CUDA_INDEX} via uv..."
-    uv pip install torch==${TORCH_VER} \
+    uv pip install --python "$VENV_PY" torch==${TORCH_VER} \
         --index-url "https://download.pytorch.org/whl/cu${CUDA_INDEX}" -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || {
         warn "PyTorch CUDA install failed, trying CPU fallback..."
-        uv pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
+        uv pip install --python "$VENV_PY" torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
             --index-url https://download.pytorch.org/whl/cpu -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || true
     }
-    uv pip install torchvision torchaudio \
+    uv pip install --python "$VENV_PY" torchvision torchaudio \
         --index-url "https://download.pytorch.org/whl/cu${CUDA_INDEX}" -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || true
 else
     info "Installing PyTorch CPU-only via uv..."
-    uv pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
+    uv pip install --python "$VENV_PY" torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
         --index-url https://download.pytorch.org/whl/cpu -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || true
 fi
+
+# Ensure core manifest & bootstrap dependencies are present in backend environment
+uv pip install --python "$VENV_PY" pyyaml packaging -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || true
 
 # Install backend deps using uv inside activated venv
 if [[ -f backend/requirements.txt ]]; then
     info "Installing backend dependencies..."
-    uv pip install -r backend/requirements.txt -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || {
+    uv pip install --python "$VENV_PY" -r backend/requirements.txt -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || {
         warn "Some backend dependencies may have failed to install — check logs/bootstrap.log"
     }
+    if ! "$VENV_PY" -c "import yaml" &>/dev/null; then
+        uv pip install --python "$VENV_PY" pyyaml packaging -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || true
+    fi
     log "Backend dependencies installed"
 else
     warn "backend/requirements.txt not found — skipping backend deps"
@@ -1436,6 +1443,10 @@ prepare_model_runtimes() {
     step "Preparing model runtimes (clone + venvs + deps)"
     local PYTHONBIN="${PROJECT_ROOT}/backend/.venv/bin/python"
     [[ -x "$PYTHONBIN" ]] || { err "Backend venv missing — run full bootstrap first"; return 1; }
+    if ! "$PYTHONBIN" -c "import yaml" &>/dev/null; then
+        info "Installing PyYAML for manifest loading..."
+        uv pip install --python "$PYTHONBIN" pyyaml packaging -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || true
+    fi
     (
         cd backend
         PYTHONPATH=. "$PYTHONBIN" - << 'PYEOF'
@@ -1733,6 +1744,10 @@ download_model_weights() {
     step "Downloading model weights"
     local PYTHONBIN="${PROJECT_ROOT}/backend/.venv/bin/python"
     [[ -x "$PYTHONBIN" ]] || { err "Backend venv missing — run full bootstrap first"; return 1; }
+    if ! "$PYTHONBIN" -c "import yaml" &>/dev/null; then
+        info "Installing PyYAML for manifest loading..."
+        uv pip install --python "$PYTHONBIN" pyyaml packaging -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || true
+    fi
     # ponytail: gate on disk before pulling multi-GB weights.
     check_disk_space 40 || warn "Proceeding despite low disk space — download may fail."
     (
@@ -1798,6 +1813,10 @@ run_preflight() {
     step "Running preflight validation for prepared models"
     local PYTHONBIN="${PROJECT_ROOT}/backend/.venv/bin/python"
     [[ -x "$PYTHONBIN" ]] || { warn "Backend venv missing — skipping preflight"; return 0; }
+    if ! "$PYTHONBIN" -c "import yaml" &>/dev/null; then
+        info "Installing PyYAML for manifest loading..."
+        uv pip install --python "$PYTHONBIN" pyyaml packaging -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || true
+    fi
     (
         cd backend
         PYTHONPATH=. "$PYTHONBIN" - << 'PYEOF'
@@ -1878,6 +1897,12 @@ fi
 select_models_interactively() {
     local PYTHONBIN="${PROJECT_ROOT}/backend/.venv/bin/python"
     [[ -x "$PYTHONBIN" ]] || { err "Backend venv missing"; return 1; }
+
+    # Ensure PyYAML is available for manifest loading
+    if ! "$PYTHONBIN" -c "import yaml" &>/dev/null; then
+        info "Installing PyYAML for manifest loading..."
+        uv pip install --python "$PYTHONBIN" pyyaml packaging -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || true
+    fi
 
     # Get detailed model info from Python
     local model_info

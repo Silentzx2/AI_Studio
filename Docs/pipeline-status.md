@@ -1,10 +1,16 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.23 (Standard Python `venv` Creation with Explicit Activation & Verification, Strict `uv`-Only Package Installation)
+> **Version**: 5.0.24 (Explicit Virtual Environment Targeting, Pre-Emptive PyYAML Bootstrap, Manifest Loading Fix)
 > **Status**: ✅ **IMPLEMENTATION COMPLETE — GPU RUNTIME VALIDATION PENDING** — Verified 2026-09-09
 > **Last Updated**: September 9, 2026
 
 ---
+
+## v5.0.24 — Manifest Bootstrap & Explicit Environment Targeting (2026-09-09)
+
+### Root Cause & Motivation
+1. **Manifest PyYAML Availability**: In Google Colab or non-standard environments, `uv pip install` without explicit `--python` flags could fail to properly target the newly created backend virtual environment or could skip `pyyaml` when ambient packages shadowed it, causing `ImportError: PyYAML is required to load manifests` and rendering an empty model selection menu.
+2. **Explicit Targeting & Self-Healing**: Enforcing `--python <venv-python>` on all `uv pip install` calls across shell scripts and guaranteeing `pyyaml packaging` are installed and verified before any manifest parsing runs ensures that manifests always load cleanly without warnings.
 
 ## v5.0.23 — Standard Python `venv` & Strict `uv` Dependency Management Pass (2026-09-09)
 

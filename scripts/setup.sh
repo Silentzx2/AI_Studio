@@ -750,22 +750,25 @@ install_python_deps() {
         TORCH_VER="2.7.0"
       fi
       log "Installing PyTorch ${TORCH_VER} with CUDA ${CUDA_INDEX} via uv..."
-      uv pip install torch==${TORCH_VER} \
+      uv pip install --python .venv/bin/python torch==${TORCH_VER} \
         --index-url "https://download.pytorch.org/whl/cu${CUDA_INDEX}" -q
-      uv pip install torchvision torchaudio \
+      uv pip install --python .venv/bin/python torchvision torchaudio \
         --index-url "https://download.pytorch.org/whl/cu${CUDA_INDEX}" -q
     else
       log "Installing PyTorch CPU-only via uv..."
-      uv pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
+      uv pip install --python .venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
         --index-url https://download.pytorch.org/whl/cpu -q
     fi
 
-    uv pip install -r requirements.txt -q
+    uv pip install --python .venv/bin/python -r requirements.txt -q
   )
   local rc=$?
   if [[ $rc -ne 0 ]]; then
     err "Python dependency installation failed (exit code $rc)"
     return 1
+  fi
+  if ! backend/.venv/bin/python -c 'import yaml' >/dev/null 2>&1; then
+    uv pip install --python backend/.venv/bin/python pyyaml packaging -q || true
   fi
   log "Python dependencies installed"
 }

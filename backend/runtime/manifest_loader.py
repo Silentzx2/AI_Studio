@@ -101,7 +101,7 @@ def _load_manifest_file(manifest_path: Path) -> dict:
         import yaml
     except ImportError as exc:
         raise ImportError(
-            "PyYAML is required to load manifests. Install it with: pip install pyyaml"
+            "PyYAML is required to load manifests. Install it with: uv pip install pyyaml"
         ) from exc
     with open(manifest_path, "r") as f:
         data = yaml.safe_load(f)
