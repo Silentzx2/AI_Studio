@@ -12,6 +12,8 @@
   - Added self-healing fallback checks in `select_models_interactively()`, `prepare_model_runtimes()`, `download_model_weights()`, and `run_preflight()` so any invocation with an unpopulated or partial environment automatically recovers by installing `pyyaml` before importing manifest loaders.
 - **System Build Dependencies Update**:
   - Added `python3-yaml` to the apt dependency installation in Step 3.5 of `scripts/colab.sh` to ensure base host Python also provides YAML support.
+- **Shell Scope Fix**:
+  - Removed `local` declaration from Step 4 top-level script scope in `scripts/colab.sh`, resolving `scripts/colab.sh: line 1348: local: can only be used in a function`.
 - **Messaging Alignment**:
   - Updated `backend/runtime/manifest_loader.py` ImportError message to advise `uv pip install pyyaml` instead of raw `pip install`.
 
