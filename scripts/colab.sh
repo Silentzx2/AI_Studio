@@ -1345,7 +1345,7 @@ if [[ "$ACTUAL_PREFIX" != "$EXPECTED_PREFIX" ]]; then
 fi
 
 # Install PyTorch (GPU or CPU depending on hardware) - ONLY uv used inside activated venv
-local VENV_PY="${PROJECT_ROOT}/backend/.venv/bin/python"
+VENV_PY="${PROJECT_ROOT}/backend/.venv/bin/python"
 if [[ "$GPU_TYPE" == "gpu" ]]; then
     # Normalize CUDA version for PyTorch wheel index
     # ponytail: map to nearest PyTorch-supported wheel, use newer PyTorch for newer CUDA
