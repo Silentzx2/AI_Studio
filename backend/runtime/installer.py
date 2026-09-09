@@ -616,6 +616,23 @@ def _backend_torch_stack() -> tuple[str, list[str]]:
     except Exception:
         # Fallback to the documented baseline if torch metadata is unreadable.
         tv, tvv, tav = "2.5.1", "0.20.1", "2.5.1"
+
+    # Enforce torchvision ABI alignment with torch (e.g. torch 2.5 -> torchvision 0.20)
+    torch_base = tv.split("+", 1)[0].split(".")
+    if len(torch_base) >= 2 and torch_base[0] == "2":
+        try:
+            expected_tv_minor = int(torch_base[1]) + 15
+            tvv_base = tvv.split("+", 1)[0].split(".")
+            if len(tvv_base) >= 2 and int(tvv_base[1]) != expected_tv_minor:
+                logger.warning(
+                    "Detected mismatched torchvision build %s for torch %s; aligning to 0.%d.1",
+                    tvv, tv, expected_tv_minor
+                )
+                tvv_tag = f"+{tvv.split('+', 1)[1]}" if "+" in tvv else ""
+                tvv = f"0.{expected_tv_minor}.1{tvv_tag}"
+        except (ValueError, IndexError):
+            pass
+
     # The +cuXXX / +cpu local version tag selects the matching PyTorch wheel
     # index (e.g. 2.5.1+cu121 -> https://download.pytorch.org/whl/cu121).
     cuda = ""

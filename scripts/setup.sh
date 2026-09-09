@@ -744,15 +744,20 @@ install_python_deps() {
       fi
       # Select PyTorch version based on CUDA (newer CUDA needs newer PyTorch)
       TORCH_VER="2.5.1"
+      TORCHVISION_VER="0.20.1"
+      TORCHAUDIO_VER="2.5.1"
       if [[ "$CUDA_INDEX" == "126" ]]; then
         TORCH_VER="2.6.0"
+        TORCHVISION_VER="0.21.0"
+        TORCHAUDIO_VER="2.6.0"
       elif [[ "$CUDA_INDEX" == "128" ]]; then
         TORCH_VER="2.7.0"
+        TORCHVISION_VER="0.22.0"
+        TORCHAUDIO_VER="2.7.0"
       fi
       log "Installing PyTorch ${TORCH_VER} with CUDA ${CUDA_INDEX} via uv..."
-      uv pip install --python .venv/bin/python torch==${TORCH_VER} \
-        --index-url "https://download.pytorch.org/whl/cu${CUDA_INDEX}" -q
-      uv pip install --python .venv/bin/python torchvision torchaudio \
+      uv pip install --python .venv/bin/python \
+        torch==${TORCH_VER} torchvision==${TORCHVISION_VER} torchaudio==${TORCHAUDIO_VER} \
         --index-url "https://download.pytorch.org/whl/cu${CUDA_INDEX}" -q
     else
       log "Installing PyTorch CPU-only via uv..."

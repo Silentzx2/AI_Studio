@@ -1,5 +1,21 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.29] - 2026-09-09
+
+### Added / Fixed
+
+#### 1. PyTorch & Torchvision ABI Alignment and Transformers Compatibility (`installer.py`, `dependency_resolver.py`, `hunyuan3d_2_mini.yaml`, `colab.sh`, `setup.sh`)
+- **Root Cause**:
+  - In `colab.sh` and `setup.sh`, PyTorch was installed with `torch==${TORCH_VER}`, but `torchvision torchaudio` were installed unpinned in a subsequent command. This caused `uv` to pull the latest unpinned `torchvision` (e.g. `0.21+` or `0.29`), which is C++ ABI-incompatible with `torch==2.5.1` and fails operator registration (`RuntimeError: operator torchvision::nms does not exist`).
+  - When `hy3dgen` or `transformers` loaded `CLIPVisionModelWithProjection`, `transformers.models.clip.modeling_clip` imported `torchvision` via `modeling_layers` -> `loss` -> `image_transforms` -> `image_utils`. The resulting `RuntimeError` was caught by `transformers.utils.import_utils` and re-raised as `ModuleNotFoundError: Could not import module 'CLIPVisionModelWithProjection'. Are this object's requirements defined correctly?`.
+  - In `dependency_resolver.py`, unpinned `torch` stack packages from repository `requirements.txt` were being installed via generic PyPI `pip install`, trampling the CUDA-matched build.
+  - In `hunyuan3d_2_mini.yaml`, `transformers>=4.48.0` allowed unpinned `transformers 5.x` which introduced breaking changes for vision models.
+- **Fix**:
+  - In `scripts/colab.sh` and `scripts/setup.sh`, pinned `torchvision==${TORCHVISION_VER}` and `torchaudio==${TORCHAUDIO_VER}` in the single atomic PyTorch install command.
+  - In `installer.py`, added ABI invariant verification to `_backend_torch_stack()` ensuring `torchvision` minor version strictly matches `torch` (`torch 2.5` -> `torchvision 0.20`, `2.6` -> `0.21`, etc.), correcting any metadata mismatch.
+  - In `dependency_resolver.py`, filtered out generic PyPI installs of `torch`, `torchvision`, and `torchaudio`, preserving the matching PyTorch stack.
+  - In `hunyuan3d_2_mini.yaml`, pinned `transformers>=4.48.0,<5.0.0` and added `torchvision` to preflight package imports.
+
 ## [v5.0.28] - 2026-09-09
 
 ### Added / Fixed

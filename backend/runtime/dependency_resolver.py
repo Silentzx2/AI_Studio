@@ -839,6 +839,11 @@ def install_resolved_deps(
         # Build requirements list with Py3.12 normalization
         normal_specs: list[str] = []
         for dep in normal_deps:
+            if dep.name.lower() in ("torch", "torchvision", "torchaudio"):
+                _log(f"Skipping PyPI install of torch stack package '{dep.name}'; managed by torch stack installer")
+                installed.append(dep.name)
+                dep.state = "installed"
+                continue
             normalized = normalize_py312_pin(dep.spec, manifest=manifest)
             if normalized is None:
                 _log(f"Dropping Py3.12-incompatible package: {dep.spec}")
