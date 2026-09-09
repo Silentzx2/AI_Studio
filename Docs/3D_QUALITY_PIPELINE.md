@@ -18,9 +18,9 @@ flowchart TD
     
     INF --> POST[Stage 3: Non-Destructive Post-Processing<br/>• Headless Blender 4.x process_mesh.py]:::stage
     
-    POST --> G1{Safe Component Guard<br/>Islands ≥ 0.5% vertices or ≥ 15 verts}:::guard
-    G1 -->|Retain Anatomy| BM[Preserve Ears, Horns, Tails, Accessories]
-    G1 -->|Prune| FL[Purge Floating Disconnected Noise]
+    POST --> G1{Conservative Debris Guard<br/>Remove only floating noise < 6 verts}:::guard
+    G1 -->|Retain Anatomy| BM[Preserve Teeth, Claws, Eyeballs, Horns, Spikes, Accessories]
+    G1 -->|Prune| FL[Purge Loose Microscopic Floating Noise]
     
     POST --> G2{UV Layout Guard<br/>mesh_has_valid_uvs?}:::guard
     G2 -->|Yes: Valid UVs| P_UV[Protect Provider UV Map & PBR Textures]
@@ -36,8 +36,8 @@ flowchart TD
     RIG --> MODEL
     NO_RIG --> MODEL
 
-    MODEL --> OPT[Stage 4: Game-Ready Optimization<br/>• Fast C++ Decimation via meshoptimizer with UV Protection<br/>• Platform Target: Mobile / Low / Med / High / Cine]:::stage
-    OPT --> GAME[(game_ready.glb<br/>Engine-Ready Optimized Variant)]:::data
+    MODEL --> OPT[Stage 4: Topology & Game-Ready Optimization<br/>• Mode: TRIANGLE (meshoptimizer) / QUAD (Blender QuadriFlow) / ADAPTIVE<br/>• Sharp Crease Shading via Weighted Normals<br/>• Platform Target: Mobile / Low / Med / High / Cine]:::stage
+    OPT --> GAME[(game_ready.glb<br/>Active Result Derivative)]:::data
 
     MODEL --> LOD[Stage 5: Multi-Tier LOD Cascade<br/>• meshoptimizer Quality Decimation Curves]:::stage
     LOD --> L0[(LOD0: 100% Master)]:::data

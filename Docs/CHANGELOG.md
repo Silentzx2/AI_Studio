@@ -1,5 +1,39 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.31] - 2026-09-09
+
+### Added / Fixed
+
+#### 1. 3D Detail Loss, Blobbiness & Silhouette Preservation (`process_mesh.py`, `mesh_optimizer.py`, `hunyuan3d_local.py`)
+- **Root Causes**:
+  - In `backend/app/core/blender/scripts/process_mesh.py`, disconnected islands were pruned using `min_verts_threshold = max(15, int(largest_len * 0.005))`. On a 200k-vertex generated model, any detached component with fewer than 1,000 vertices (such as teeth, claws, horns, spikes, pupils, buttons, or accessories) was silently deleted.
+  - Indiscriminate hole filling (`bmesh.ops.holes_fill(bm, edges=bm.edges, sides=4)`) ran across all meshes, bridging intentional geometry cavities (open mouths, eye sockets, nostrils, hollow armor/clothing) and collapsing organic silhouettes into blobby meshes.
+  - Surface normal shading wiped sharp features: global normal smoothing rounded hard edges and creases, creating a blobby appearance under lighting.
+  - In `backend/app/core/providers/hunyuan3d_local.py`, `_project_texture` unconditionally overwrote existing vertex colors and textures with a planar front-to-back projection, mirroring the front face onto the back and stretching textures on side surfaces.
+- **Fixes**:
+  - In `process_mesh.py`, replaced aggressive percentage-based island deletion with a conservative microscopic noise guard (< 6 vertices). Detached teeth, claws, eye meshes, horns, spikes, and accessories are strictly preserved.
+  - Removed indiscriminate `holes_fill` in Blender cleanup to keep intentional cavities and silhouettes intact.
+  - Added dihedral crease angle detection (> 35 deg / 0.61 rad) and Blender `WEIGHTED_NORMAL` modifier with `keep_sharp=True` for crisp, non-blobby feature shading. In `mesh_optimizer.py`, guarded `fix_normals()` to run only when winding is inconsistent, preserving custom sharp normals.
+  - In `hunyuan3d_local.py`, updated `_project_texture` to check `visual.vertex_colors` and `visual.material` first, preserving pre-existing color/texture data.
+
+#### 2. Real Output Topology Selection (`TRIANGLE`, `QUAD`, `ADAPTIVE`)
+- **Backend Schema & Workers** (`generation.py`, `tasks.py`, `pipeline.py`, `mesh_optimizer.py`):
+  - Added `topology_mode: Literal["triangle", "quad", "adaptive"] = "adaptive"` to `GenerationRequest` in `backend/app/schemas/generation.py`, with camelCase `topologyMode` and legacy `quadTopology: True` mapping.
+  - Passed `topology_mode` through worker task execution into `blender.pipeline.process_model` and `mesh_optimizer.optimize_mesh(remesh_mode=topology_mode)`.
+  - Wired Blender `quadriflow_remesh` (`use_preserve_sharp=True`, `use_preserve_boundary=True`) when quad mode is requested, preventing secondary decimation modifiers from triangulating quads.
+  - Honest topology reporting: Analyzed actual polygon counts (quads vs tris) and reported `actual_topology: "quad" | "triangle"`, `quad_count`, and `triangle_count`. When quad remesh cannot be executed, gracefully fell back to adaptive triangle decimation with `fallback_reason` recorded in metadata.
+- **Frontend UI & State** (`GeneratePanel.tsx`, `types.ts`, `WorkspaceContext.tsx`):
+  - Added `topologyMode?: 'triangle' | 'quad' | 'adaptive'` to `GenerationSettings`.
+  - Added a Segmented Control in `GeneratePanel.tsx` under Mesh Gen Settings allowing users to choose between `Adaptive` (feature-preserving), `Triangle` (game-ready tris), and `Quad` (QuadriFlow quads), cleanly decoupled from polygon budget and quality presets.
+  - Passed `topology_mode` in the generation submission payload.
+
+#### 3. Active Derivative Selection & Master Preservation (`tasks.py`)
+- If optimization/post-processing is disabled, the raw master mesh is displayed and exported.
+- If optimization is enabled and succeeds, the processed derivative becomes the active model displayed to the user and exported as default `model.glb`, while the raw master artifact remains preserved separately as `source.glb` / `download_urls["source"]`.
+
+#### 4. Automated Verification (`test_generation_quality.py`)
+- Created `backend/tests/test_generation_quality.py` with 5 automated tests validating schema compatibility, quad/triangle optimization, QuadriFlow fallback reporting, disconnected component preservation, vertex color protection, and artifact routing.
+
 ## [v5.0.30] - 2026-09-09
 
 ### Added / Fixed

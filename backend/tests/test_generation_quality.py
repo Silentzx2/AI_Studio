@@ -94,7 +94,10 @@ def test_project_texture_preserves_existing_vertex_colors():
     """Verify _project_texture preserves existing vertex colors and does not overwrite with planar projection."""
     from app.core.providers.hunyuan3d_local import _HunyuanBase
 
-    provider = _HunyuanBase(weights_dir="/tmp")
+    class ConcreteHunyuan(_HunyuanBase):
+        name = "test_hunyuan"
+
+    provider = ConcreteHunyuan(model_key="test", weights_subdir="test")
     with tempfile.TemporaryDirectory() as tmpdir:
         mesh_path = os.path.join(tmpdir, "input.glb")
         out_glb = os.path.join(tmpdir, "out.glb")
