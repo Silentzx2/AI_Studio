@@ -14,6 +14,9 @@
   - Added `python3-yaml` to the apt dependency installation in Step 3.5 of `scripts/colab.sh` to ensure base host Python also provides YAML support.
 - **Shell Scope Fix**:
   - Removed `local` declaration from Step 4 top-level script scope in `scripts/colab.sh`, resolving `scripts/colab.sh: line 1348: local: can only be used in a function`.
+- **Native Build Celery Worker Fix**:
+  - Restored `@shared_task` decorator and function header for `run_native_build(self, provider_name: str, task_id: str)` in `backend/app/workers/installation_workers.py` that had been accidentally dropped during a prior merge, resolving `cannot import name 'run_native_build' from 'app.workers.installation_workers'`.
+  - Added assert-based regression test (`backend/app/workers/test_installation_workers.py`).
 - **Messaging Alignment**:
   - Updated `backend/runtime/manifest_loader.py` ImportError message to advise `uv pip install pyyaml` instead of raw `pip install`.
 

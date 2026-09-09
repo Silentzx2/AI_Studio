@@ -443,6 +443,16 @@ def repair_repo(self, repo: str) -> dict:
     except Exception as exc:
         logger.exception("Celery repair_repo failed for repo=%s", repo)
         raise self.retry(exc=exc)
+
+
+@shared_task(
+    bind=True,
+    max_retries=2,
+    default_retry_delay=300,
+    soft_time_limit=3600,
+    time_limit=3900,
+)
+def run_native_build(self, provider_name: str, task_id: str) -> dict:
     """Run the native CUDA extension build for a provider in the background.
 
     Runs on the dedicated ``installation`` queue. Owns the native-build lock
