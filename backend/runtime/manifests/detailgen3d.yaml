@@ -82,8 +82,9 @@ hardware:
   minimum_vram_mb: 4000
   recommended_vram_mb: 4000
 capabilities:
+  # DetailGen3D is refinement-only; it must never advertise standalone shape generation.
   shape:
-    enabled: true
+    enabled: false
     native_build_required: false
     vram_required_mb: 4000
   texture_pbr:

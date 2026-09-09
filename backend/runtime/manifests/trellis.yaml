@@ -163,7 +163,7 @@ capabilities:
     native_build_required: true
     native_steps:
     - git submodule update --init --recursive
-    - pip install ./trellis/representations/mesh/flexicubes
+    - uv pip install ./trellis/representations/mesh/flexicubes
     vram_required_mb: 8000
   texture:
     enabled: true

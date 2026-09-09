@@ -1724,11 +1724,19 @@ def _run_native_build_sync(provider_name: str, manifest: dict | None, log_cb=Non
                         log_cb(f"Running native build steps for {cap_name}...")
                     for step in native_steps:
                         try:
+                            activated_env = _get_activated_venv_env(venv_python.parent.parent)
+                            # Native build commands run inside the explicitly activated
+                            # model venv. Package installation is intentionally uv-only.
+                            cleaned_step = re.sub(r"\buv\s+pip(?:3)?\b", "", step)
+                            if re.search(r"(^|[;&|\s])pip(?:3)?(?:\s|$)", cleaned_step):
+                                raise RuntimeError(
+                                    f"Native build step uses forbidden pip command; update manifest to uv pip: {step}"
+                                )
                             subprocess.run(
                                 step,
                                 shell=True,
                                 cwd=str(repo_dir),
-                                env={**os.environ, "PATH": f"{venv_python.parent}:{os.environ.get('PATH', '')}"},
+                                env=activated_env,
                                 capture_output=True,
                                 timeout=3600,
                                 check=True,

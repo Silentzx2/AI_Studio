@@ -16,6 +16,15 @@
 - **Automated Self-Check Test Suite (`backend/runtime/test_standard_venv.py`)**:
   - Created standalone assert-based test suite verifying `_create_standard_venv`, environment variable activation contract, `which python`, `which pip`, `sys.prefix` matching, and `uv pip install` inside the activated venv.
 
+#### 2. Manifest Native Build Alignment & Capability Clarification (`hunyuan3d_21.yaml`, `trellis.yaml`, `detailgen3d.yaml`, `installer.py`)
+- **Native Step `uv pip` Migration**:
+  - Replaced legacy `pip install` with `uv pip install` in native build steps for `hunyuan3d_21.yaml` (`hy3dpaint/custom_rasterizer`) and `trellis.yaml` (`trellis/representations/mesh/flexicubes`).
+  - Added forbidden raw-pip enforcement in `_run_native_build_sync` (`installer.py`) ensuring shell-executed native steps cannot invoke unmanaged `pip`/`pip3` while properly allowing `uv pip`.
+- **DetailGen3D Refinement-Only Capability**:
+  - Disabled standalone `shape` generation capability (`enabled: false`) in `detailgen3d.yaml`, preventing refinement models from improperly advertising primary base mesh generation.
+- **Contract Enforcement Test (`test_dependency_manifest_contract.py`)**:
+  - Added automated manifest assertions verifying DetailGen3D shape disabling and absence of forbidden raw `pip install` in native build steps.
+
 ## [v5.0.22] - 2026-09-09
 
 ### Added / Fixed

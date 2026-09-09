@@ -41,6 +41,16 @@ def test_dependency_manifest_contract() -> None:
         "TORCH_CUDA_ARCH_LIST": "7.0 7.5 8.0 8.6 8.9 9.0",
     }
 
+    detail = manifests["detailgen3d"]
+    assert detail["capabilities"]["shape"]["enabled"] is False
+    for provider_name, manifest in manifests.items():
+        for cap_cfg in manifest.get("capabilities", {}).values():
+            if isinstance(cap_cfg, dict):
+                for step in cap_cfg.get("native_steps", []) or []:
+                    assert "pip install" not in str(step) or "uv pip install" in str(step), (
+                        provider_name, step
+                    )
+
     print("dependency manifest contract: PASS")
 
 
