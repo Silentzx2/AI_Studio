@@ -60,6 +60,15 @@ if "torchaudio" not in sys.modules:
         sys.modules["torchaudio"] = _m
 
 
+# Packages purged from sys.modules when switching model venvs.
+# NOTE: Core backend frameworks (pydantic, fastapi, etc.) are intentionally omitted
+# to preserve backend host state and avoid C-extension / Rust mismatch with pydantic_core.
+_SHARED_PKGS = [
+    "accelerate", "huggingface_hub", "transformers", "diffusers",
+    "requests", "httpx", "urllib3", "scipy", "skimage",
+]
+
+
 def _fix_c_package_overlay(repo_name: str, pkg_name: str, import_name: str, check_stmt: str) -> bool:
     """Ensure a C-extension package works in BOTH the venv Python (preflight)
     and the backend Python (in-process inference).
@@ -334,11 +343,6 @@ def _add_model_env(repo_name: str) -> None:
     #   2. Module __file__ attributes don't update on reload
     #   3. Parent package imports (e.g. diffusers -> diffusers.utils) may
     #      still reference the old submodule object
-    _SHARED_PKGS = [
-        "accelerate", "huggingface_hub", "transformers", "diffusers",
-        "pydantic", "requests", "httpx", "urllib3", "scipy", "skimage",
-    ]
-
     for mod_name in list(sys.modules.keys()):
         for pkg in _SHARED_PKGS:
             if mod_name == pkg or mod_name.startswith(pkg + "."):

@@ -525,7 +525,7 @@ def run_preflight_for_provider(
         for aux in aux_weights:
             aux_name = aux.get("name", aux.get("repo", "unknown"))
             aux_repo = aux.get("repo", "")
-            aux_wp = storage.get_weight_path(aux_repo) if aux_repo else None
+            aux_wp = (storage.get_weight_path(aux_repo) or (storage.get_weight_path(aux_name) if aux_name else None)) if (aux_repo or aux_name) else None
             aux_result = _check_weights(aux_wp)
             is_req = aux.get("required", False)
             passed = aux_result.passed if is_req else True

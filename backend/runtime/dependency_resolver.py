@@ -707,6 +707,22 @@ def normalize_py312_pin(spec: str, py_ver: str | None = None, manifest: dict | N
         manifest: optional manifest dict. Used only if module-level rules
             haven't been set via set_py312_rewrite_rules().
     """
+    stripped = spec.strip()
+    if not stripped or stripped.startswith("#"):
+        return spec
+    line = stripped.split("#", 1)[0].strip()
+
+    # 1. Manifest-level rewrite rules apply to this model across Python versions
+    if manifest:
+        env = manifest.get("environment", {}) or {}
+        raw_rules = env.get("python_pin_rewrites") or []
+        for rule in raw_rules:
+            pattern = rule.get("pattern", "")
+            replacement = rule.get("replacement")
+            if pattern and re.search(pattern, line):
+                return replacement  # None means drop
+
+    # 2. Py3.12-specific normalization rules
     if py_ver is None:
         py_tuple = sys.version_info
     else:
@@ -714,21 +730,8 @@ def normalize_py312_pin(spec: str, py_ver: str | None = None, manifest: dict | N
         py_tuple = (int(parts[0]), int(parts[1]) if len(parts) > 1 else 0)
     if py_tuple < (3, 12):
         return spec
-    stripped = spec.strip()
-    if not stripped or stripped.startswith("#"):
-        return spec
-    line = stripped.split("#", 1)[0].strip()
-    # Prefer module-level rules (set via set_py312_rewrite_rules), fall back to manifest arg
+
     rules = _PY312_REWRITE_RULES
-    if rules is None and manifest:
-        env = manifest.get("environment", {}) or {}
-        raw_rules = env.get("python_pin_rewrites") or []
-        rules = []
-        for rule in raw_rules:
-            pattern = rule.get("pattern", "")
-            replacement = rule.get("replacement")
-            if pattern:
-                rules.append((re.compile(pattern), replacement))
     if rules:
         for pat, repl in rules:
             if pat.search(line):

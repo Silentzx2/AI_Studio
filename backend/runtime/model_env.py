@@ -60,7 +60,12 @@ def apply_numpy_bridge() -> None:
         if "ulong" not in _np.__dict__:
             _np.ulong = _np.uint
 
-        if hasattr(_np, "core"):
+        # ponytail: Only bridge numpy._core from numpy.core on NumPy 1.x.
+        # On NumPy 2.x, numpy._core is the real native package and numpy.core is a
+        # compatibility forwarder. Overwriting numpy._core with numpy.core on NumPy 2
+        # causes circular import recursion (e.g. defchararray -> numpy._core -> defchararray).
+        is_np2 = int(_np.__version__.split(".")[0]) >= 2
+        if not is_np2 and hasattr(_np, "core"):
             import numpy.core as _core
             _np._core = _core
             sys.modules["numpy._core"] = _core
@@ -115,7 +120,9 @@ _NUMPY_BRIDGE_CODE = (
     "try:\n"
     "    import warnings; warnings.filterwarnings('ignore', category=DeprecationWarning)\n"
     "    import sys, numpy as _np\n"
-    "    if hasattr(_np, 'core'):\n"
+    "    if 'long' not in _np.__dict__: _np.long = getattr(_np, 'int_', int)\n"
+    "    if 'ulong' not in _np.__dict__: _np.ulong = getattr(_np, 'uint', int)\n"
+    "    if int(_np.__version__.split('.')[0]) < 2 and hasattr(_np, 'core'):\n"
     "        import numpy.core as _core; _np._core = _core; sys.modules['numpy._core'] = _core\n"
     "        for _m in ('multiarray', 'umath', '_multiarray_umath'):\n"
     "            try:\n"

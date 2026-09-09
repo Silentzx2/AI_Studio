@@ -216,14 +216,29 @@ def _build_weight_registry() -> dict[str, dict]:
         weights = manifest.get("weights", {}) or {}
         primary = weights.get("primary", {}) or {}
         repo = primary.get("repo") or weights.get("repo")
-        if not repo:
-            continue
-        result[provider] = {
-            "repo": repo,
-            "size_estimate_gb": weights.get("size_estimate_gb", 0),
-            "allow_patterns": weights.get("allow_patterns"),
-            "ignore_patterns": weights.get("ignore_patterns"),
-        }
+        if repo:
+            result[provider] = {
+                "repo": repo,
+                "size_estimate_gb": weights.get("size_estimate_gb", 0),
+                "allow_patterns": weights.get("allow_patterns"),
+                "ignore_patterns": weights.get("ignore_patterns"),
+            }
+        # Register auxiliary weights so download_weights() can look them up
+        for aux in weights.get("auxiliary", []) or []:
+            if not isinstance(aux, dict):
+                continue
+            aux_repo = aux.get("repo")
+            if not aux_repo:
+                continue
+            aux_entry = {
+                "repo": aux_repo,
+                "size_estimate_gb": aux.get("size_estimate_gb", 2.0),
+                "allow_patterns": aux.get("allow_patterns"),
+                "ignore_patterns": aux.get("ignore_patterns"),
+            }
+            if aux.get("name"):
+                result.setdefault(aux["name"], aux_entry)
+            result.setdefault(aux_repo, aux_entry)
     return result
 
 

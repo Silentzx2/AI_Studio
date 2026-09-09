@@ -384,6 +384,21 @@ class _HunyuanBase(BaseProvider):
         return self.weights_dir.exists()
 
 
+def _load_paint_pipeline_compat(pipeline_cls, weights_path: str, target_device: str):
+    """Load paint pipeline with backward compatibility for `device` kwarg.
+    
+    Hunyuan3DPaintPipeline in newer releases does not accept `device` as a keyword
+    argument in `from_pretrained`, requiring `.to(device)` instead.
+    """
+    try:
+        return pipeline_cls.from_pretrained(weights_path, device=target_device)
+    except TypeError:
+        pipe = pipeline_cls.from_pretrained(weights_path)
+        if hasattr(pipe, "to") and target_device:
+            pipe = pipe.to(target_device)
+        return pipe
+
+
 # ── Hunyuan3D-2.1 (primary) ───────────────────────────────────────────────────
 
 class Hunyuan3D21LocalProvider(_HunyuanBase):
@@ -501,7 +516,7 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
                 # Legacy hy3dgen 2.0 or compatible from_pretrained pipeline
                 if self.low_vram:
                     from runtime.accelerate_loader import apply_low_vram_mode
-                    self._tex = tex_cls.from_pretrained(str(tex_weights), device="cpu")
+                    self._tex = _load_paint_pipeline_compat(tex_cls, str(tex_weights), "cpu")
                     apply_low_vram_mode(
                         self._tex,
                         self.model_key,
@@ -510,7 +525,7 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
                         offload_folder=self.weights_dir / ".accelerate_offload",
                     )
                 else:
-                    self._tex = tex_cls.from_pretrained(str(tex_weights), device=self.device)
+                    self._tex = _load_paint_pipeline_compat(tex_cls, str(tex_weights), self.device)
             else:
                 # Official Hunyuan3D-2.1 Paint Pipeline
                 from runtime.storage import get_storage_config
@@ -926,14 +941,14 @@ class Hunyuan3D2MiniLocalProvider(_HunyuanBase):
             weights_source = str(tex_dir)
             if self.low_vram:
                 from runtime.accelerate_loader import apply_low_vram_mode
-                self._tex = Hunyuan3DPaintPipeline.from_pretrained(weights_source, device="cpu")
+                self._tex = _load_paint_pipeline_compat(Hunyuan3DPaintPipeline, weights_source, "cpu")
                 apply_low_vram_mode(
                     self._tex, self.model_key, requested_mode="low",
                     execution_device=self.device,
                     offload_folder=self.weights_dir / ".accelerate_offload",
                 )
             else:
-                self._tex = Hunyuan3DPaintPipeline.from_pretrained(weights_source, device=self.device)
+                self._tex = _load_paint_pipeline_compat(Hunyuan3DPaintPipeline, weights_source, self.device)
         except Exception as exc:
             logger.warning("Hunyuan3D tex pipeline unavailable: %s", exc)
             self._tex = None

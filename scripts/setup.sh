@@ -175,7 +175,7 @@ install_system_deps() {
     err "apt-get update failed — check network / apt sources"
     return 1
   }
-  local pkgs=(curl wget git unzip tar ca-certificates gnupg lsb-release build-essential software-properties-common libssl-dev libffi-dev zlib1g-dev libpq-dev ffmpeg libsm6 libxext6 libglib2.0-0 libgl1 libopengl0 libx11-6 libxcb1 libxkbcommon-x11-0 libxrender1 libxi6 libxtst6 libdbus-1-3 libfontconfig1 libfreetype6 python3-yaml xvfb)
+  local pkgs=(curl wget git unzip tar ca-certificates gnupg lsb-release build-essential software-properties-common libssl-dev libffi-dev zlib1g-dev libpq-dev ffmpeg libsm6 libxext6 libglib2.0-0 libgl1 libglu1-mesa libopengl0 libx11-6 libxcb1 libxkbcommon-x11-0 libxrender1 libxi6 libxtst6 libdbus-1-3 libfontconfig1 libfreetype6 python3-yaml xvfb)
   local total=${#pkgs[@]}
   local i=0
   # shellcheck disable=SC2068

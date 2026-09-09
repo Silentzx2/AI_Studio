@@ -1280,7 +1280,8 @@ if [[ -n "${COLAB_RELEASE_TAG:-}" ]]; then
     sudo apt-get install -y -qq \
         build-essential libpng-dev libjpeg-dev zlib1g-dev libharfbuzz-dev \
         libfreetype6-dev liblcms2-dev libopenjp2-7-dev libtiff-dev libwebp-dev \
-        ninja-build pkg-config python3-venv python3-pip python3-yaml xvfb >/dev/null 2>&1 || true
+        ninja-build pkg-config python3-venv python3-pip python3-yaml xvfb \
+        libglu1-mesa libgl1 >/dev/null 2>&1 || true
     ok "System build dependencies installed for Colab"
 else
     info "Non-Colab environment — assuming system deps available"

@@ -1,5 +1,46 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.30] - 2026-09-09
+
+### Added / Fixed
+
+#### 1. Auxiliary Weights Registry & Preflight Path Resolution (`installer.py`, `preflight.py`)
+- **Root Cause**:
+  - In `backend/runtime/installer.py`, `_build_weight_registry()` only parsed primary weights and omitted `manifest["weights"]["auxiliary"]`. When `download_auxiliary_weights()` or `install_provider()` attempted to download TripoSG's auxiliary weights (`RMBG-1.4`), it looked up `HF_MODELS["RMBG-1.4"]`, which raised `No HF model config for: RMBG-1.4`.
+  - In `backend/runtime/preflight.py`, `_check_weights` was queried using only `aux_repo`. If the weights were stored under `aux_name`, preflight failed with `No weights path configured`.
+- **Fix**:
+  - In `installer.py`, populated `HF_MODELS` with auxiliary weights under both `aux["name"]` and `aux["repo"]` with `size_estimate_gb`, `allow_patterns`, and `ignore_patterns` matching `manifest_loader.py`.
+  - In `preflight.py`, updated `aux_wp` resolution to fall back to `storage.get_weight_path(aux_name)` if `aux_repo` lookup yields no match.
+
+#### 2. NumPy 2.x Bridge Non-Recursion Guard & Manifest Pin Rewrites (`model_env.py`, `dependency_resolver.py`)
+- **Root Cause**:
+  - In `backend/runtime/model_env.py`, `apply_numpy_bridge()` and `_NUMPY_BRIDGE_CODE` unconditionally assigned `sys.modules["numpy._core"] = _core` whenever `hasattr(numpy, "core")` was True.
+  - On NumPy 2.x, `numpy._core` is the real native module, and `numpy.core` is a backwards-compatibility shim whose modules (such as `numpy/core/defchararray.py`) import from `numpy._core`. Forcibly replacing `numpy._core` with `numpy.core` caused `from numpy._core import defchararray` to re-import `numpy.core.defchararray`, causing infinite recursion (`RecursionError: maximum recursion depth exceeded`).
+  - In `dependency_resolver.py`, `normalize_py312_pin()` bypassed manifest-level `python_pin_rewrites` whenever `py_tuple < (3, 12)`, preventing custom rewrite rules (such as `numpy==1.22.*` -> `numpy>=1.26.4,<2.0`) from being applied to Python 3.10 model venvs.
+- **Fix**:
+  - In `model_env.py`, guarded `apply_numpy_bridge()` and `_NUMPY_BRIDGE_CODE` so that `sys.modules["numpy._core"] = _core` is strictly applied only when `int(_np.__version__.split('.')[0]) < 2`. On NumPy 2.x, `numpy._core` is left untouched.
+  - In `dependency_resolver.py`, evaluated manifest-declared `python_pin_rewrites` regardless of Python version.
+
+#### 3. Hunyuan3DPaintPipeline Device Kwarg Backward Compatibility (`hunyuan3d_local.py`)
+- **Root Cause**:
+  - `Hunyuan3DPaintPipeline.from_pretrained()` in newer releases does not accept `device` as a keyword argument, raising `TypeError: Hunyuan3DPaintPipeline.from_pretrained() got an unexpected keyword argument 'device'`.
+- **Fix**:
+  - Added `_load_paint_pipeline_compat()` in `backend/app/core/providers/hunyuan3d_local.py` which calls `from_pretrained()` with `device=target_device`, catches `TypeError`, and falls back to `from_pretrained()` without `device` followed by `.to(target_device)`.
+  - Applied this helper across both `Hunyuan3D21LocalProvider._load_tex()` and `Hunyuan3D2MiniLocalProvider._load_tex()`.
+
+#### 4. Backend Host Environment Preservation & Pydantic-Core Alignment (`base.py`, `requirements.txt`)
+- **Root Cause**:
+  - In `backend/app/core/providers/base.py`, `_SHARED_PKGS` contained `"pydantic"`. When switching model venvs in the backend worker process, `_add_model_env()` purged `pydantic` from `sys.modules` while leaving compiled Rust module `pydantic_core` loaded. Re-importing `pydantic` led to `PydanticUserError: The installed pydantic-core version (2.27.2) is incompatible with the current pydantic version, which requires 2.46.5`.
+- **Fix**:
+  - Removed `"pydantic"` from `_SHARED_PKGS`. Core backend framework dependencies are host-owned and must never be purged from `sys.modules`.
+  - Pinned `pydantic-core==2.27.2` directly in `backend/requirements.txt` to prevent runtime drift.
+
+#### 5. Headless OpenGL Offscreen Rendering Dependencies (`colab.sh`, `setup.sh`)
+- **Root Cause**:
+  - Offscreen thumbnail rendering via `trimesh` and `pyglet` requires OpenGL Utility library (`libGLU.so.1`), which is not present in minimal Linux server installations, leading to `Thumbnail render failed: Library "GLU" not found`.
+- **Fix**:
+  - Added `libglu1-mesa` and `libgl1` to the apt-get system dependencies installation lists in `scripts/colab.sh` and `scripts/setup.sh`.
+
 ## [v5.0.29] - 2026-09-09
 
 ### Added / Fixed
