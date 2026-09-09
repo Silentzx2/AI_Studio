@@ -1177,6 +1177,7 @@ async def list_models():
                 "native_build": inst.get("components", {}).get("native_build", {"state": "not_required"}),
                 # ponytail: size/repo live in HF_MODELS (keyed by provider id),
                 # NOT PROVIDER_METADATA — the latter only stores the REPOS key.
+                "auxiliary_weights": inst.get("components", {}).get("auxiliary_weights", []),
                 "hf_repo": HF_MODELS.get(name, {}).get("repo"),
                 "size_estimate_gb": HF_MODELS.get(name, {}).get("size_estimate_gb"),
                 "size_mb": int((HF_MODELS.get(name, {}).get("size_estimate_gb") or 0) * 1024),
@@ -1192,13 +1193,21 @@ async def list_models():
 
 class ModelActionRequest(BaseModel):
     model_id: str
-    action: str  # install | download | unload | load | repair | delete | verify
+    action: str  # install | download | unload | load | repair | delete | verify | download_auxiliary
+    include_auxiliary: bool = False
+    auxiliary_names: list[str] | None = None
 
 
 @router.post("/models/action")
 async def model_action(req: ModelActionRequest, background_tasks: BackgroundTasks):
     """Handle model actions via JSON body (preferred method)."""
-    return await _handle_model_action(req.model_id, req.action, background_tasks)
+    return await _handle_model_action(
+        req.model_id,
+        req.action,
+        background_tasks,
+        include_auxiliary=req.include_auxiliary,
+        auxiliary_names=req.auxiliary_names,
+    )
 
 
 @router.post("/models/{model_id}/{action}")
@@ -1211,7 +1220,13 @@ async def model_action_path(model_id: str, action: str, background_tasks: Backgr
     return await _handle_model_action(model_id, action, background_tasks)
 
 
-async def _handle_model_action(model_id: str, action: str, background_tasks: BackgroundTasks):
+async def _handle_model_action(
+    model_id: str,
+    action: str,
+    background_tasks: BackgroundTasks,
+    include_auxiliary: bool = False,
+    auxiliary_names: list[str] | None = None,
+):
     """Shared handler for model actions."""
     from runtime.engine import get_engine
     from runtime.installer import RuntimeInstaller, install_provider
@@ -1260,9 +1275,15 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
                 _parse_log_for_progress(model_id, msg)
 
             try:
+                aux_txt = " (with auxiliary paint weights)" if include_auxiliary else ""
                 _dl_update(model_id, phase="weights", status="starting",
-                           log=f"Downloading weights for {model_id}…")
-                result = install_provider(model_id, log_cb=_log_cb)
+                           log=f"Downloading weights for {model_id}{aux_txt}…")
+                result = install_provider(
+                    model_id,
+                    log_cb=_log_cb,
+                    include_auxiliary=include_auxiliary,
+                    auxiliary_names=auxiliary_names,
+                )
                 if result.get("success"):
                     storage = get_storage_config()
                     from runtime.manifest_loader import get_provider_metadata
@@ -1306,6 +1327,46 @@ async def _handle_model_action(model_id: str, action: str, background_tasks: Bac
 
         background_tasks.add_task(_run_install)
         return success({"model_id": model_id, "action": "install_started"})
+
+    elif action == "download_auxiliary":
+        _dl_init(model_id)
+
+        def _run_download_aux() -> None:
+            def _log_cb(msg) -> None:
+                if isinstance(msg, dict) and "__progress__" in msg:
+                    _dl_update(model_id, **msg["__progress__"])
+                    return
+                logger.info("[download_aux:%s] %s", model_id, msg)
+                _parse_log_for_progress(model_id, msg)
+
+            try:
+                _dl_update(model_id, phase="weights", status="starting",
+                           log=f"Downloading auxiliary paint weights for {model_id}…")
+                from runtime.installer import download_auxiliary_weights
+                result = download_auxiliary_weights(
+                    model_id,
+                    auxiliary_names=auxiliary_names,
+                    log_cb=_log_cb,
+                )
+                if result.get("success"):
+                    _dl_update(model_id, status="completed", percent=100,
+                               phase="complete",
+                               log="Auxiliary paint weights downloaded successfully")
+                    from app.core.cache import invalidate
+                    invalidate("list_models")
+                    logger.info("Auxiliary weights for %s installed.", model_id)
+                else:
+                    err = result.get("error", "Unknown error")
+                    _dl_update(model_id, status="failed", error=err,
+                               log=f"Failed: {err}")
+                    logger.error("Auxiliary weights download failed for %s: %s", model_id, err)
+            except Exception as exc:
+                _dl_update(model_id, status="failed", error=str(exc),
+                           log=f"Error: {exc}")
+                logger.exception("download_auxiliary_weights raised for %s", model_id)
+
+        background_tasks.add_task(_run_download_aux)
+        return success({"model_id": model_id, "action": "download_auxiliary_started"})
 
     elif action == "repair":
         _dl_init(model_id)

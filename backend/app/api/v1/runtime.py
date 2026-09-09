@@ -597,6 +597,8 @@ class InstallRequest(BaseModel):
     repos: list[str] | None = None
     models: list[str] | None = None
     skip_weights: bool = False
+    include_auxiliary: bool = False
+    auxiliary_names: list[str] | None = None
 
 
 @router.post("/install")
@@ -656,9 +658,18 @@ async def download_weights(req: InstallRequest):
         )
 
     from app.workers.installation_workers import download_weights
-    task = download_weights.delay(targets)
+    task = download_weights.delay(
+        targets,
+        include_auxiliary=req.include_auxiliary,
+        auxiliary_names=req.auxiliary_names,
+    )
     return success(
-        {"started": True, "task_id": task.id, "models": targets},
+        {
+            "started": True,
+            "task_id": task.id,
+            "models": targets,
+            "include_auxiliary": req.include_auxiliary,
+        },
         "Weight download started in background.",
     )
 

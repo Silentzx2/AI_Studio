@@ -2299,6 +2299,8 @@ def download_model_weights(
     provider_name: str,
     hf_token: str | None = None,
     log_cb=None,
+    include_auxiliary: bool = False,
+    auxiliary_names: list[str] | None = None,
 ) -> dict:
     """Download model weights ONLY. Runtime must be ready first.
 
@@ -2331,7 +2333,72 @@ def download_model_weights(
         log_cb(f"Downloading weights for {provider_name}...")
     result = download_weights(provider_name, hf_token=hf_token, log_cb=log_cb)
     result["state"] = "weights_ready" if result.get("success") else "weights_failed"
+
+    if result.get("success") and (include_auxiliary or auxiliary_names):
+        aux_res = download_auxiliary_weights(
+            provider_name,
+            auxiliary_names=auxiliary_names,
+            hf_token=hf_token,
+            log_cb=log_cb,
+        )
+        result["auxiliary"] = aux_res
+        if not aux_res.get("success") and log_cb:
+            log_cb(f"Warning: auxiliary weight download failed: {aux_res.get('error')}")
+
     return result
+
+
+def download_auxiliary_weights(
+    provider_name: str,
+    auxiliary_names: list[str] | None = None,
+    hf_token: str | None = None,
+    log_cb: Callable | None = None,
+) -> dict:
+    """Download auxiliary (e.g. paint/texture) weights for a provider.
+
+    Can be called on-demand when a model is already installed or as part of
+    a full download.
+    """
+    provider_name = _canonical_provider_name(provider_name)
+    from runtime.manifest_loader import load_manifest
+    try:
+        manifest = load_manifest(provider_name)
+    except Exception as exc:
+        return {"success": False, "error": f"Failed loading manifest for {provider_name}: {exc}"}
+
+    aux_weights = manifest.get("weights", {}).get("auxiliary", [])
+    if not aux_weights:
+        return {"success": True, "action": "no_auxiliary_weights", "message": "No auxiliary weights defined"}
+
+    downloaded = []
+    errors = []
+    for aux in aux_weights:
+        aux_name = aux.get("name", "")
+        aux_repo = aux.get("repo", "")
+        if auxiliary_names:
+            if aux_name not in auxiliary_names and aux_repo not in auxiliary_names:
+                continue
+        aux_provider = aux_name or _repo_to_provider_name(aux_repo) or aux_repo
+        if log_cb:
+            log_cb(f"Downloading auxiliary weights: {aux_name or aux_repo}...")
+        try:
+            aux_r = download_weights(aux_provider, hf_token=hf_token, log_cb=log_cb)
+            if aux_r.get("success"):
+                downloaded.append(aux_name or aux_repo)
+            else:
+                err = aux_r.get("error", "Unknown error")
+                errors.append(f"{aux_name or aux_repo}: {err}")
+                if log_cb:
+                    log_cb(f"Warning: auxiliary weight download failed for {aux_repo}: {err}")
+        except Exception as exc:
+            errors.append(f"{aux_name or aux_repo}: {exc}")
+            if log_cb:
+                log_cb(f"Warning: auxiliary weight download exception for {aux_repo}: {exc}")
+
+    invalidate_install_status_cache()
+    if errors:
+        return {"success": False, "error": "; ".join(errors), "downloaded": downloaded}
+    return {"success": True, "downloaded": downloaded}
 
 
 # ponytail: Provider validation at function entry; returns available providers list
@@ -2346,6 +2413,8 @@ def install_provider(
     allow_native_build: bool = False,
     skip_preflight: bool = False,
     selected_providers: list[str] | None = None,
+    include_auxiliary: bool = False,
+    auxiliary_names: list[str] | None = None,
 ) -> dict:
     """Manifest-driven installation entry point.
 
@@ -2471,16 +2540,22 @@ def install_provider(
                 return {"success": False, "error": error_msg}
         else:
             r = {"success": True, "action": "no_weights"}
-        # --- 6. Download required auxiliary weights ---
+        # --- 6. Download auxiliary weights ---
         if manifest:
             aux_weights = manifest.get("weights", {}).get("auxiliary", [])
             for aux in aux_weights:
                 aux_repo = aux.get("repo", "")
-                if aux_repo and aux.get("required", False):
+                aux_name = aux.get("name", aux_repo)
+                should_download = (
+                    aux.get("required", False)
+                    or include_auxiliary
+                    or (auxiliary_names and aux_name in auxiliary_names)
+                )
+                if aux_repo and should_download:
                     # Convert repo name to provider name for HF_MODELS lookup
-                    aux_provider = _repo_to_provider_name(aux_repo) or aux_repo
+                    aux_provider = aux.get("name") or _repo_to_provider_name(aux_repo) or aux_repo
                     if log_cb:
-                        log_cb(f"Downloading auxiliary weights: {aux.get('name', aux_repo)}...")
+                        log_cb(f"Downloading auxiliary weights: {aux_name} ({aux_repo})...")
                     try:
                         aux_r = download_weights(aux_provider, hf_token=hf_token, log_cb=log_cb)
                         if not aux_r["success"]:
@@ -2943,9 +3018,16 @@ def _check_auxiliary_weights(provider_name: str, storage, manifest: dict | None 
     entries = manifest["weights"].get("auxiliary", [])
     for entry in entries:
         aux_repo = entry.get("repo", "")
-        wp = storage.get_weight_path(aux_repo) if (storage and aux_repo) else None
+        aux_name = entry.get("name", aux_repo)
+        wp = None
+        if storage:
+            if aux_name:
+                wp = storage.get_weight_path(aux_name)
+            if not wp and aux_repo:
+                wp = storage.get_weight_path(aux_repo)
         item = dict(entry)
         item["state"] = "ok" if wp else "missing"
+        item["path"] = str(wp) if wp else None
         aux.append(item)
     return aux
 
@@ -3312,6 +3394,8 @@ class RuntimeInstaller:
         self,
         models: list[str] | None = None,
         log_cb: Callable | None = None,
+        include_auxiliary: bool = False,
+        auxiliary_names: list[str] | None = None,
     ) -> dict:
         cb = log_cb or self._cb
         resolved = resolve_install_targets(models)
@@ -3321,7 +3405,13 @@ class RuntimeInstaller:
                 results[name] = {"success": False, "error": f"Unknown model: {name}"}
                 self._cb(f"[WARN] Unknown model '{name}'. Available: {list(HF_MODELS.keys())}")
                 continue
-            results[name] = download_model_weights(name, hf_token=self._hf_token, log_cb=cb)
+            results[name] = download_model_weights(
+                name,
+                hf_token=self._hf_token,
+                log_cb=cb,
+                include_auxiliary=include_auxiliary,
+                auxiliary_names=auxiliary_names,
+            )
         return results
 
     def prepare_runtime(

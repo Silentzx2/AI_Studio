@@ -364,7 +364,12 @@ def prepare_runtime(self, models: list[str]) -> dict:
     soft_time_limit=14400,
     time_limit=14700,
 )
-def download_weights(self, models: list[str]) -> dict:
+def download_weights(
+    self,
+    models: list[str],
+    include_auxiliary: bool = False,
+    auxiliary_names: list[str] | None = None,
+) -> dict:
     """Stage B: download model weights only. Runtime must be ready first.
 
     Checks that each model's runtime is ready before downloading.
@@ -372,7 +377,7 @@ def download_weights(self, models: list[str]) -> dict:
     from runtime.installer import RuntimeInstaller, get_install_status
 
     try:
-        logger.info("Celery download_weights started for models=%s", models)
+        logger.info("Celery download_weights started for models=%s (aux=%s)", models, include_auxiliary)
         # Verify runtime readiness before downloading
         status = get_install_status()
         not_ready = []
@@ -385,7 +390,11 @@ def download_weights(self, models: list[str]) -> dict:
                 f"Runtime not ready for: {', '.join(not_ready)}. "
                 f"Run prepare_runtime first."
             )
-        RuntimeInstaller().download_weights(models=models)
+        RuntimeInstaller().download_weights(
+            models=models,
+            include_auxiliary=include_auxiliary,
+            auxiliary_names=auxiliary_names,
+        )
         invalidate("runtime_options")
         logger.info("Celery download_weights completed for models=%s", models)
         return {"success": True, "models": models, "stage": "weights_downloaded"}

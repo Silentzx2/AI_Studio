@@ -269,6 +269,15 @@ export interface AdminModel {
     current_step?: string;
     output?: string;
   };
+  auxiliary_weights?: Array<{
+    name: string;
+    repo: string;
+    required: boolean;
+    size_estimate_gb?: number;
+    description?: string;
+    state: 'ok' | 'missing';
+    path?: string | null;
+  }>;
 }
 
 export interface QueueStatus {

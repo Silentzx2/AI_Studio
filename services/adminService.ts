@@ -151,13 +151,18 @@ export const adminService = {
   },
 
   /**
-   * Trigger a model action (install, uninstall, load, repair, etc.)
+   * Trigger a model action (install, uninstall, load, repair, download_auxiliary, etc.)
    * Issue #7 Fix: Uses body-based endpoint instead of path-based
    */
-  async modelAction(modelId: string, action: 'install' | 'uninstall' | 'update' | 'load' | 'unload' | 'cancel' | 'repair'): Promise<void> {
+  async modelAction(
+    modelId: string,
+    action: 'install' | 'uninstall' | 'update' | 'load' | 'unload' | 'cancel' | 'repair' | 'download_auxiliary',
+    options?: { include_auxiliary?: boolean; auxiliary_names?: string[] },
+  ): Promise<void> {
     await apiClient.post('/api/v1/admin/models/action', {
       model_id: modelId,
       action,
+      ...options,
     });
   },
 

@@ -1575,6 +1575,8 @@ Content-Type: application/json
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `models` | string[] | ✅ | List of model identifiers to download weights for |
+| `include_auxiliary` | boolean | ❌ | When true, also downloads optional auxiliary weights (e.g. Hunyuan3D-2.1 paint weights for Hunyuan3D-2 Mini) |
+| `auxiliary_names` | string[] | ❌ | Specific auxiliary weight set names to download |
 
 **Response (202):**
 ```json

@@ -1,5 +1,23 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.25] - 2026-09-09
+
+### Added / Fixed
+
+#### 1. Interactive Auxiliary / Paint Weights Download & UI Prompt (`ModelsTab.tsx`, `installer.py`, `admin.py`, `runtime.py`, `hunyuan3d_local.py`)
+- **Interactive UI Prompt for Paint / Texture Weights**:
+  - When installing a model with optional auxiliary weights (such as `Hunyuan3D-2 Mini` with optional `Hunyuan3D-2.1` neural paint weights at ~7 GB), the UI now presents a confirmation dialog prompting the user whether they want to install "Shape Only (~8 GB)" or "Shape + Neural Paint (~15 GB)".
+  - Explains the trade-off clearly: shape-only provides faster downloads with projection-mapping texturing, while shape + paint enables multi-view neural diffuse, roughness, and normal PBR baking.
+- **On-Demand Paint Weight Download**:
+  - For models already installed without paint weights, added a "+ Paint (~7GB)" button and status badge ("Neural PBR Ready" vs "Projection Texturing") directly on the model card in the Admin Models tab.
+  - Added new backend action `download_auxiliary` in `/api/v1/admin/models/action` and helper `download_auxiliary_weights()` in `backend/runtime/installer.py` that downloads optional auxiliary weights and streams real-time byte progress to the UI.
+- **Two-Stage & Worker Integration**:
+  - Extended `install_provider()`, `download_model_weights()`, Celery task `download_weights()`, and `/api/v1/runtime/download-weights` with optional `include_auxiliary: bool = False` and `auxiliary_names: list[str] | None = None`.
+- **Hunyuan3D Paint Weights Resolution**:
+  - Updated `hunyuan3d_local.py` to check candidates with `_is_paint_dir()` verification so that candidate directories containing only shape weights (like `Hunyuan3D-2mini/weights`) are not mistakenly chosen over directories containing actual paint weights (`Hunyuan3D-2.1/weights`).
+- **Regression Test Suite**:
+  - Created `backend/runtime/test_auxiliary_weights.py` verifying auxiliary check, download resolution, ModelActionRequest schema, and caching.
+
 ## [v5.0.24] - 2026-09-09
 
 ### Added / Fixed

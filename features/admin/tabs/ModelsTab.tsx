@@ -7,7 +7,7 @@ import {
   Search, Download, CheckCircle, Loader2,
   HardDrive, Boxes, X, Tag, RefreshCw, AlertCircle,
   Trash2, ChevronDown, Zap, Clock,
-  Play, Pause, Unplug,
+  Play, Pause, Unplug, Paintbrush,
 } from 'lucide-react';
 import { GlassCard } from '@/components/premium/GlassCard';
 import { ProgressBar } from '@/components/premium/ProgressBar';
@@ -181,6 +181,7 @@ export function ModelsTab() {
   const [category, setCategory] = useState('All');
   const [installProgress, setInstallProgress] = useState<Record<string, InstallProgress>>({});
   const [categories, setCategories] = useState<string[]>(['All']);
+  const [auxPromptModel, setAuxPromptModel] = useState<AdminModel | null>(null);
   const { reconnectToInstall } = useTaskManager();
   const streamCleanups = useRef<Record<string, () => void>>({});
   const pollCleanup = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -277,11 +278,27 @@ export function ModelsTab() {
   const installedCount = models.filter((m) => m.installed).length;
   const totalSizeGB = models.filter((m) => m.installed).reduce((sum, m) => sum + (m.size_mb || 0), 0) / 1024;
 
-  const handleInstall = async (model: AdminModel) => {
+  const initiateInstall = (model: AdminModel) => {
+    // Check if model has optional auxiliary weights (e.g. Hunyuan3D-2 Mini paint weights) that are not yet downloaded
+    const uninstalledAux = model.auxiliary_weights?.filter((a) => !a.required && a.state !== 'ok') || [];
+    if (uninstalledAux.length > 0) {
+      setAuxPromptModel(model);
+      return;
+    }
+    handleInstall(model, false);
+  };
+
+  const handleInstall = async (model: AdminModel, includeAuxiliary = false) => {
+    setAuxPromptModel(null);
     // Cancel any existing stream for this model
     if (streamCleanups.current[model.id]) {
       streamCleanups.current[model.id]();
     }
+
+    const auxGb = includeAuxiliary
+      ? (model.auxiliary_weights?.filter((a) => !a.required).reduce((sum, a) => sum + (a.size_estimate_gb || 0), 0) || 0)
+      : 0;
+    const estMb = (model.size_mb || 0) + (auxGb * 1024);
 
     setInstallProgress((prev) => ({
       ...prev,
@@ -292,7 +309,7 @@ export function ModelsTab() {
         percent: 0,
         speed_mbps: 0,
         downloaded_mb: 0,
-        total_mb: model.size_mb,
+        total_mb: estMb,
         eta_seconds: 0,
         status: 'starting',
       },
@@ -301,7 +318,7 @@ export function ModelsTab() {
     let stopStream: (() => void) | null = null;
 
     try {
-      await adminService.modelAction(model.id, 'install');
+      await adminService.modelAction(model.id, 'install', { include_auxiliary: includeAuxiliary });
 
       await new Promise((resolve) => setTimeout(resolve, 300));
 
@@ -325,6 +342,63 @@ export function ModelsTab() {
       streamCleanups.current[model.id] = stopStream;
     } catch (error) {
       toast.error(`Failed to install ${model.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      if (stopStream) stopStream();
+      setInstallProgress((prev) => {
+        const n = { ...prev };
+        delete n[model.id];
+        return n;
+      });
+    }
+  };
+
+  const handleDownloadAuxiliary = async (model: AdminModel) => {
+    if (streamCleanups.current[model.id]) {
+      streamCleanups.current[model.id]();
+    }
+
+    const auxGb = model.auxiliary_weights?.filter((a) => !a.required).reduce((sum, a) => sum + (a.size_estimate_gb || 0), 0) || 7;
+
+    setInstallProgress((prev) => ({
+      ...prev,
+      [model.id]: {
+        model_id: model.id,
+        phase: 'weights',
+        progress: 0,
+        percent: 0,
+        speed_mbps: 0,
+        downloaded_mb: 0,
+        total_mb: auxGb * 1024,
+        eta_seconds: 0,
+        status: 'starting',
+      },
+    }));
+
+    let stopStream: (() => void) | null = null;
+
+    try {
+      await adminService.modelAction(model.id, 'download_auxiliary');
+
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      stopStream = adminService.streamInstallProgress(
+        model.id,
+        (progress) => {
+          setInstallProgress((prev) => ({ ...prev, [model.id]: progress }));
+        },
+        () => {
+          setInstallProgress((prev) => {
+            const n = { ...prev };
+            delete n[model.id];
+            return n;
+          });
+          toast.success(`${model.name} paint weights downloaded successfully`);
+          load();
+        },
+      );
+
+      streamCleanups.current[model.id] = stopStream;
+    } catch (error) {
+      toast.error(`Failed to download paint weights for ${model.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       if (stopStream) stopStream();
       setInstallProgress((prev) => {
         const n = { ...prev };
@@ -561,6 +635,17 @@ export function ModelsTab() {
                                 <Tag size={9} /> {model.type}
                               </span>
                             )}
+                            {model.auxiliary_weights && model.auxiliary_weights.length > 0 && (
+                              <span className={cn(
+                                "text-[10px] flex items-center gap-1 px-1.5 py-0.5 rounded-md",
+                                model.auxiliary_weights.some((a) => a.state === 'ok')
+                                  ? "bg-[hsl(var(--green-500)/0.12)] text-[hsl(var(--green-500))]"
+                                  : "bg-[hsl(var(--amber-500)/0.12)] text-[hsl(var(--amber-500))]"
+                              )}>
+                                <Paintbrush size={9} />
+                                {model.auxiliary_weights.some((a) => a.state === 'ok') ? "Paint Ready" : "Projection Texturing"}
+                              </span>
+                            )}
                           </div>
                           {model.native_build?.state === 'failed' && model.native_build.detail && (
                             <p className="text-[10px] text-[hsl(var(--destructive))] mt-1 truncate" title={model.native_build.detail}>
@@ -613,6 +698,15 @@ export function ModelsTab() {
                       </button>
                     ) : model.installed ? (
                       <>
+                        {model.auxiliary_weights?.some((a) => !a.required && a.state !== 'ok') && !isDownloading && (
+                          <button
+                            onClick={() => handleDownloadAuxiliary(model)}
+                            className="flex items-center justify-center gap-1 h-9 px-2.5 rounded-xl bg-[hsl(var(--purple-500)/0.08)] border border-[hsl(var(--purple-500)/0.2)] text-xs font-medium text-[hsl(var(--purple-500))] hover:bg-[hsl(var(--purple-500)/0.15)] transition-colors"
+                            title="Download optional neural paint & PBR texturing weights (+7 GB)"
+                          >
+                            <Paintbrush className="w-3.5 h-3.5" /> + Paint (~7GB)
+                          </button>
+                        )}
                         {model.loaded ? (
                           <button
                             onClick={() => adminService.modelAction(model.id, 'unload')}
@@ -657,7 +751,7 @@ export function ModelsTab() {
                       </div>
                     ) : (
                       <button
-                        onClick={() => handleInstall(model)}
+                        onClick={() => initiateInstall(model)}
                         className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl bg-[hsl(var(--purple-500)/0.08)] border border-[hsl(var(--purple-500)/0.2)] text-xs font-medium text-[hsl(var(--purple-500))] hover:bg-[hsl(var(--purple-500)/0.15)] transition-all"
                       >
                         <Download className="w-3.5 h-3.5" />
@@ -686,6 +780,87 @@ export function ModelsTab() {
           )}
         </div>
       )}
+
+      {/* Auxiliary Weights Prompt Modal */}
+      <AnimatePresence>
+        {auxPromptModel && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md bg-[hsl(var(--background))] border border-[hsl(var(--border))] rounded-2xl shadow-2xl p-6 flex flex-col gap-4 text-[hsl(var(--foreground))]"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-[hsl(var(--purple-500)/0.1)] border border-[hsl(var(--purple-500)/0.2)] flex items-center justify-center text-[hsl(var(--purple-500))]">
+                    <Paintbrush className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-base">Include Paint Weights?</h3>
+                    <p className="text-xs text-muted-foreground">{auxPromptModel.name}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setAuxPromptModel(null)}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-[hsl(var(--surface-2))]"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                This model supports optional neural paint &amp; PBR texture generation (+7 GB). Without paint weights, texturing will use projection mapping.
+              </p>
+
+              <div className="flex flex-col gap-2.5 pt-1">
+                <button
+                  onClick={() => handleInstall(auxPromptModel, true)}
+                  className="flex flex-col text-left p-3.5 rounded-xl border border-[hsl(var(--purple-500)/0.3)] bg-[hsl(var(--purple-500)/0.08)] hover:bg-[hsl(var(--purple-500)/0.15)] transition-all group"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-[hsl(var(--purple-500))]">
+                      Download Shape + Paint Weights
+                    </span>
+                    <Badge variant="outline" className="text-[10px] bg-[hsl(var(--purple-500)/0.1)] text-[hsl(var(--purple-500))] border-[hsl(var(--purple-500)/0.3)]">
+                      ~{((auxPromptModel.size_estimate_gb || 8) + 7).toFixed(0)} GB
+                    </Badge>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground mt-1">
+                    Enables full neural PBR texturing with normal and roughness maps.
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => handleInstall(auxPromptModel, false)}
+                  className="flex flex-col text-left p-3.5 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-3))] transition-all"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-foreground">
+                      Download Shape Only
+                    </span>
+                    <Badge variant="outline" className="text-[10px]">
+                      ~{(auxPromptModel.size_estimate_gb || 8).toFixed(0)} GB
+                    </Badge>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground mt-1">
+                    Fastest download. Texturing will use projection mapping.
+                  </span>
+                </button>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  onClick={() => setAuxPromptModel(null)}
+                  className="px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

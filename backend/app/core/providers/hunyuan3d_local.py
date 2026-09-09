@@ -895,21 +895,26 @@ class Hunyuan3D2MiniLocalProvider(_HunyuanBase):
             storage = get_storage_config()
             resolved = storage.get_weight_path(self._TEX_SOURCE)
             tex_dir = Path(resolved) if resolved else None
-            if not tex_dir or not tex_dir.exists():
+
+            def _is_paint_dir(p: Path | None) -> bool:
+                return bool(p and p.exists() and (
+                    (p / "hunyuan3d-delight-v2-0").exists()
+                    or (p / "hunyuan3d-paintpbr-v2-1").exists()
+                    or (p / "hunyuan3d-paint-v2-0").exists()
+                ))
+
+            if not _is_paint_dir(tex_dir):
                 for cand in [
-                    storage.get_repo_path("Hunyuan3D-2mini") / "weights" / self._TEX_SOURCE,
-                    storage.get_repo_path("Hunyuan3D-2mini") / "weights",
                     storage.get_repo_path("Hunyuan3D-2.1") / "weights" / self._TEX_SOURCE,
                     storage.get_repo_path("Hunyuan3D-2.1") / "weights",
+                    storage.get_repo_path("Hunyuan3D-2mini") / "weights" / self._TEX_SOURCE,
+                    storage.get_repo_path("Hunyuan3D-2mini") / "weights",
                 ]:
-                    if cand.exists():
+                    if _is_paint_dir(cand):
                         tex_dir = cand
                         break
-            has_paint = tex_dir and (
-                (tex_dir / "hunyuan3d-delight-v2-0").exists()
-                or (tex_dir / "hunyuan3d-paintpbr-v2-1").exists()
-                or (tex_dir / "hunyuan3d-paint-v2-0").exists()
-            )
+
+            has_paint = _is_paint_dir(tex_dir)
             if not has_paint:
                 logger.info(
                     "Local paint weights not found under %s; texturing will use projection mapping",
