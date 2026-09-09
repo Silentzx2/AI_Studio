@@ -181,6 +181,7 @@ export interface GenerationSettings {
   meshQuality: 'low' | 'medium' | 'high' | 'ultra';
   textureQuality: 'low' | 'medium' | 'high' | '8k';
   quadTopology: boolean;
+  topologyMode?: 'triangle' | 'quad' | 'adaptive';
   seed: number;
   guidanceScale: number;
   removeBackground: boolean;

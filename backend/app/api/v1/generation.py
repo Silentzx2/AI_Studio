@@ -333,6 +333,7 @@ async def create_generation(req: GenerationRequest, request: Request):
                     "generate_pbr": req.generate_pbr,
                     "preserve_details": req.preserve_details,
                     "repair_uvs": req.repair_uvs,
+                    "topology_mode": req.topology_mode,
                     "seed": req.seed,
                     "num_inference_steps": req.num_inference_steps,
                     "guidance_scale": req.guidance_scale,

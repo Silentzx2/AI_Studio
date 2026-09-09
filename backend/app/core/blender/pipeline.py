@@ -60,6 +60,7 @@ async def process_model(
     asset_category: str | None = None,
     render_resolution: list[int] | None = None,
     render_samples: int | None = None,
+    topology_mode: str = "adaptive",
     progress_callback=None,
 ) -> dict:
     """
@@ -94,6 +95,7 @@ async def process_model(
             "quality": quality,
             "render_resolution": render_resolution,
             "render_samples": render_samples,
+            "topology_mode": topology_mode,
         },
     )
 

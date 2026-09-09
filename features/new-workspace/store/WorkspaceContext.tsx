@@ -318,7 +318,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     mode: 'image-to-3d',
     image: null,
     aiModel: '', meshQuality: 'high', textureQuality: 'high',
-    quadTopology: false, seed: 42891, guidanceScale: 7.5, removeBackground: true,
+    quadTopology: false, topologyMode: 'adaptive', seed: 42891, guidanceScale: 7.5, removeBackground: true,
     lowVram: false,
     vramMode: 'auto',
     autoOptimize: false,
@@ -765,6 +765,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           generate_pbr: generationSettings.generatePBR !== false,
           preserve_details: generationSettings.preserveDetails ?? generationSettings.autoOptimizeSettings?.preserveDetails ?? 75,
           repair_uvs: generationSettings.repairUVs !== false,
+          topology_mode: generationSettings.topologyMode || (generationSettings.quadTopology ? 'quad' : 'adaptive'),
         }),
       });
       if (!res.ok) throw await parseApiError(res);
@@ -791,6 +792,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     generationSettings.image,
     generationSettings.aiModel,
     generationSettings.meshQuality,
+    generationSettings.topologyMode,
+    generationSettings.quadTopology,
     generationSettings.lowVram,
     generationSettings.vramMode,
     generationSettings.autoOptimize,

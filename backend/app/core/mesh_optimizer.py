@@ -194,7 +194,9 @@ try:
         if curr_faces == 0:
             continue
 
-        if remesh_mode in ('quadriflow', 'quads', 'retopology'):
+        is_quad_remesh = remesh_mode in ('quad', 'quadriflow', 'quads', 'retopology')
+        quad_succeeded = False
+        if is_quad_remesh:
             try:
                 # QuadriFlow takes target_faces in quads (each quad splits into 2 tris on export)
                 quad_target = max(100, int(target_polycount // 2))
@@ -204,9 +206,9 @@ try:
                     use_preserve_boundary=True,
                     target_faces=quad_target,
                 )
-                # Note: Do not inject smart_project here; xatlas handles UV parameterization downstream
+                quad_succeeded = True
             except Exception as q_err:
-                print(f"QUADRIFLOW_FALLBACK: {q_err}", file=sys.stderr)
+                print("QUADRIFLOW_FALLBACK: " + str(q_err), file=sys.stderr)
         elif remesh_mode == 'uniform' and voxel_size > 0.005:
             try:
                 obj.data.remesh_voxel_size = voxel_size
@@ -215,7 +217,8 @@ try:
                 pass
 
         new_faces = len(obj.data.polygons)
-        if new_faces > target_polycount:
+        # Only decimate if quad remesh was not performed (decimate destroys quad topology)
+        if not quad_succeeded and new_faces > target_polycount:
             ratio = max(0.01, min(1.0, target_polycount / max(1, new_faces)))
             scaled_ratio = ratio * (0.5 + preserve_details / 200.0)
             final_ratio = max(0.01, min(1.0, scaled_ratio))
@@ -224,23 +227,28 @@ try:
             bpy.ops.object.modifier_apply(modifier=mod.name)
 
         try:
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.mesh.normals_make_consistent(inside=False)
-            bpy.ops.object.mode_set(mode='OBJECT')
+            wn = obj.modifiers.new(name="WeightedNormal", type="WEIGHTED_NORMAL")
+            wn.keep_sharp = True
+            bpy.ops.object.modifier_apply(modifier=wn.name)
         except Exception:
             pass
 
     total_out_faces = sum(len(o.data.polygons) for o in mesh_objs)
     total_out_verts = sum(len(o.data.vertices) for o in mesh_objs)
-    print(f"BLENDER_OUT_FACES={total_out_faces}")
-    print(f"BLENDER_OUT_VERTS={total_out_verts}")
+    total_out_quads = sum(sum(1 for p in o.data.polygons if len(p.vertices) == 4) for o in mesh_objs)
+    total_out_tris = sum(sum(1 for p in o.data.polygons if len(p.vertices) == 3) for o in mesh_objs)
+    actual_top = "quad" if total_out_quads > total_out_tris else "triangle"
+    print("BLENDER_OUT_FACES=" + str(total_out_faces))
+    print("BLENDER_OUT_VERTS=" + str(total_out_verts))
+    print("BLENDER_OUT_QUADS=" + str(total_out_quads))
+    print("BLENDER_OUT_TRIS=" + str(total_out_tris))
+    print("BLENDER_ACTUAL_TOPOLOGY=" + str(actual_top))
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     bpy.ops.export_scene.gltf(filepath=output_path, export_format='GLB')
     print("BLENDER_EXPORT_SUCCESS")
 except Exception as e:
-    print(f"BLENDER_ERROR: {e}", file=sys.stderr)
+    print("BLENDER_ERROR: " + str(e), file=sys.stderr)
     sys.exit(1)
 """
 
@@ -270,6 +278,9 @@ except Exception as e:
             out_faces = 0
             in_verts = 0
             out_verts = 0
+            out_quads = 0
+            out_tris = 0
+            actual_topology = "quad" if remesh_mode in ('quad', 'quadriflow', 'quads') else "triangle"
             for line in proc.stdout.splitlines():
                 if line.startswith("BLENDER_IN_FACES="):
                     in_faces = int(line.split("=", 1)[1])
@@ -279,18 +290,28 @@ except Exception as e:
                     in_verts = int(line.split("=", 1)[1])
                 elif line.startswith("BLENDER_OUT_VERTS="):
                     out_verts = int(line.split("=", 1)[1])
+                elif line.startswith("BLENDER_OUT_QUADS="):
+                    out_quads = int(line.split("=", 1)[1])
+                elif line.startswith("BLENDER_OUT_TRIS="):
+                    out_tris = int(line.split("=", 1)[1])
+                elif line.startswith("BLENDER_ACTUAL_TOPOLOGY="):
+                    actual_topology = line.split("=", 1)[1].strip()
 
             reduction = (
                 round((1 - out_faces / in_faces) * 100, 1)
                 if in_faces > 0
                 else 0.0
             )
-            logger.info("Blender remesh successful: %d -> %d faces (reduction %.1f%%)", in_faces, out_faces, reduction)
+            logger.info("Blender remesh successful: %d -> %d faces (reduction %.1f%%, topology=%s)", in_faces, out_faces, reduction, actual_topology)
             return {
                 "original_polycount": in_faces,
                 "optimized_polycount": out_faces,
                 "original_vertex_count": in_verts,
                 "optimized_vertex_count": out_verts,
+                "quad_count": out_quads,
+                "triangle_count": out_tris,
+                "actual_topology": actual_topology,
+                "topology_mode": remesh_mode,
                 "reduction_percent": reduction,
                 "uv_fixes_applied": uv_fixes_applied,
                 "success": True,
@@ -483,7 +504,8 @@ def optimize_mesh(
     Falls back to Trimesh quadric decimation, PyMeshLab, or Blender remesh when needed.
     """
     # 1. Blender remesh is used if quad or uniform (voxel) remeshing is explicitly requested
-    if remesh_mode in ("quad", "uniform"):
+    fallback_reason = None
+    if remesh_mode in ("quad", "quadriflow", "quads", "uniform"):
         blender_result = _run_blender_remesh(
             input_path=input_path,
             output_path=output_path,
@@ -495,6 +517,9 @@ def optimize_mesh(
         )
         if blender_result is not None:
             return blender_result
+        if remesh_mode in ("quad", "quadriflow", "quads"):
+            fallback_reason = "Blender QuadriFlow remesh unavailable or failed; fell back to adaptive triangle optimization"
+            logger.warning(fallback_reason)
 
     trimesh = _try_import_trimesh()
     if trimesh is None:
@@ -557,7 +582,7 @@ def optimize_mesh(
         import shutil
         shutil.copy(input_path, output_path)
         logger.info("Optimization skipped: polycount %d is within 10%% of target %d", original_polycount, target_polycount)
-        return {
+        skip_res = {
             "original_polycount": original_polycount,
             "optimized_polycount": original_polycount,
             "original_vertex_count": original_vertex_count,
@@ -566,8 +591,13 @@ def optimize_mesh(
             "uv_fixes_applied": False,
             "success": True,
             "skipped": True,
+            "actual_topology": "triangle",
+            "topology_mode": remesh_mode,
             "reason": f"Input polycount ({original_polycount:,}) already within 10% of target ({target_polycount:,})",
         }
+        if fallback_reason:
+            skip_res["fallback_reason"] = fallback_reason
+        return skip_res
 
     # Basic cleanup (trimesh API differs across supported releases).
     if hasattr(mesh, "remove_degenerate_faces"):
@@ -679,9 +709,10 @@ def optimize_mesh(
         mesh, applied = generate_uvs_with_xatlas(mesh)
         uv_fixes_applied = uv_fixes_applied or applied
 
-    # Recalculate normals for clean shading
+    # Recalculate normals for clean shading only when winding is inconsistent
     try:
-        mesh.fix_normals()
+        if not getattr(mesh, "is_winding_consistent", True):
+            mesh.fix_normals()
     except Exception:
         pass
 
@@ -733,7 +764,7 @@ def optimize_mesh(
     except Exception as comp_exc:
         logger.debug("Open3D post-optimization check error: %s", comp_exc)
 
-    return {
+    ret = {
         "original_polycount": original_polycount,
         "optimized_polycount": optimized_polycount,
         "original_vertex_count": original_vertex_count,
@@ -741,8 +772,13 @@ def optimize_mesh(
         "reduction_percent": reduction_percent,
         "uv_fixes_applied": uv_fixes_applied,
         "uv_method": "xatlas" if uv_fixes_applied else "preserved",
+        "actual_topology": "triangle",
+        "topology_mode": remesh_mode,
         "success": True,
     }
+    if fallback_reason:
+        ret["fallback_reason"] = fallback_reason
+    return ret
 
 
 PLATFORM_BUDGETS: dict[str, int] = {

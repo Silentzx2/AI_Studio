@@ -349,11 +349,25 @@ class _HunyuanBase(BaseProvider):
         Ensures that generated 3D models always have vivid textures and colors,
         even when large neural paint diffusion weights are not installed or GPU VRAM is low.
         """
+        import os
         import trimesh
         from PIL import Image
         import numpy as np
 
         mesh = trimesh.load(mesh_path, force="mesh")
+        visual = getattr(mesh, "visual", None)
+        has_vertex_colors = visual is not None and getattr(visual, "vertex_colors", None) is not None and len(visual.vertex_colors) > 0
+        has_material = visual is not None and getattr(visual, "material", None) is not None
+        if has_vertex_colors or has_material:
+            logger.info("Mesh already possesses valid vertex colors or material; preserving visual data")
+            mesh.export(output_glb, file_type="glb")
+            return output_glb
+
+        if not os.path.exists(image_path):
+            logger.warning("Reference image %s does not exist for texture projection", image_path)
+            mesh.export(output_glb, file_type="glb")
+            return output_glb
+
         img = Image.open(image_path).convert("RGBA")
         verts = mesh.vertices
         min_b = verts.min(axis=0)

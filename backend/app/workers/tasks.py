@@ -700,6 +700,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                         if render_settings.get("samples"):
                             render_samples = int(render_settings["samples"])
 
+                    topology_mode = meta.get("topology_mode", "adaptive")
                     from app.core.blender.pipeline import process_model
                     blender_result = await process_model(
                         input_path=current_glb_path,
@@ -710,9 +711,18 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                         quality=job.quality,
                         render_resolution=render_res,
                         render_samples=render_samples,
+                        topology_mode=topology_mode,
                         progress_callback=progress_callback,
                     )
                     blender_dur = round((time.perf_counter() - t_blender) * 1000, 1)
+
+                    if blender_result.get("actual_topology"):
+                        meta["actual_topology"] = blender_result["actual_topology"]
+                        meta["topology_mode"] = blender_result.get("topology_mode", topology_mode)
+                        if blender_result.get("quad_count") is not None:
+                            meta["quad_count"] = blender_result["quad_count"]
+                        if blender_result.get("triangle_count") is not None:
+                            meta["triangle_count"] = blender_result["triangle_count"]
 
                     # Open3D Quality Verification of post-Blender mesh vs input
                     post_blender_glb = blender_result.get("glb")
@@ -886,6 +896,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                         target_polycount=target_polycount,
                         fix_uvs=fix_uvs,
                         preserve_details=preserve_details,
+                        remesh_mode=topology_mode,
                     )
                     opt_dur = round((time.perf_counter() - t_opt) * 1000, 1)
 
@@ -896,6 +907,10 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                         meta["game_ready_url"] = to_url(game_ready_path)
                         meta["processed_model_url"] = to_url(game_ready_path)
                         meta["active_model_url"] = to_url(game_ready_path)
+                        if optimize_result.get("actual_topology"):
+                            meta["actual_topology"] = optimize_result["actual_topology"]
+                        if optimize_result.get("fallback_reason"):
+                            meta["topology_fallback_reason"] = optimize_result["fallback_reason"]
                         _update_job(session, job_id, processing_metadata=meta)
 
                         opt_stage = {
@@ -1098,6 +1113,8 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 "collision_url": meta.get("collision_url"),
                 "qa_report": qa_report,
                 "pipeline_stages": pipeline_stages,
+                "actual_topology": meta.get("actual_topology", "triangle"),
+                "topology_mode": meta.get("topology_mode", "adaptive"),
             }
 
             _publish(job_id, {

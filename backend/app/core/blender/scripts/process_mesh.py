@@ -31,6 +31,7 @@ OUTPUT_DIR    = _args.get("output_dir", os.path.dirname(INPUT_PATH))
 AUTO_RIG      = _args.get("auto_rig", False)
 GEN_TEXTURE   = _args.get("generate_texture", True)
 QUALITY       = _args.get("quality", "standard")
+TOPOLOGY_MODE = _args.get("topology_mode", "adaptive").lower().strip()
 ASSET_CATEGORY = _args.get("asset_category", "").lower().strip()
 RENDER_RES    = _args.get("render_resolution", [512, 512])
 RENDER_SAMPLES = _args.get("render_samples", 128)
@@ -88,18 +89,24 @@ for obj in mesh_objects:
     bpy.ops.object.mode_set(mode="EDIT")
     bm = bmesh.from_edit_mesh(obj.data)
     
-    # 1. Remove doubles
-    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.0001)
+    # 1. Conservative remove doubles (preserve micro-details like teeth/claws tips)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.00001)
     
-    # 2. Fill holes (capped by poly count to avoid massive meshes)
-    bmesh.ops.holes_fill(bm, edges=bm.edges, sides=4)
-    
-    # 3. Recalculate normals
+    # 2. Recalculate face normals
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+
+    # Mark sharp edges on distinct dihedral creases (> 35 deg / ~0.6 rad) to preserve sharp features
+    for edge in bm.edges:
+        if edge.is_manifold and len(edge.link_faces) == 2:
+            try:
+                if edge.calc_face_angle() > 0.61:
+                    edge.smooth = False
+            except Exception:
+                pass
     
-    # 4. Remove microscopic disconnected artifacts/noise (preserve distinct anatomy & accessories)
-    # ponytail: Keep any component with >= 0.5% of largest component or >= 15 vertices to preserve
-    # ears, paws, horns, tails, accessories, while removing loose floating single-face debris.
+    # 3. Remove ONLY loose microscopic floating noise (preserve distinct anatomy, teeth, claws & accessories)
+    # ponytail: Keep any component with >= 6 vertices. Never prune disconnected parts based on
+    # size ratios, as teeth, claws, eyeballs, spikes, and props have far fewer vertices than the main body.
     bmesh.update_edit_mesh(obj.data)
     bpy.ops.mesh.select_all(action='DESELECT')
 
@@ -124,10 +131,8 @@ for obj in mesh_objects:
         processed_verts.update(island)
 
     if islands and len(islands) > 1:
-        largest_len = len(max(islands, key=len))
-        min_verts_threshold = max(15, int(largest_len * 0.005))
         for island in islands:
-            if len(island) < min_verts_threshold:
+            if len(island) < 6:
                 for v in island:
                     if v.is_valid:
                         bm.verts.remove(v)
@@ -135,15 +140,35 @@ for obj in mesh_objects:
     bmesh.update_edit_mesh(obj.data)
     bpy.ops.object.mode_set(mode="OBJECT")
 
-    # Decimate only if explicit target faces specified
+    # 4. Topology processing: QuadriFlow remesh if quad topology requested
     target = DECIMATE_FACES.get(QUALITY, 0)
-    if target and len(obj.data.polygons) > target:
+    if TOPOLOGY_MODE == "quad":
+        try:
+            quad_target = max(300, int(len(obj.data.polygons) // 2))
+            if target and target > 0:
+                quad_target = max(300, int(target // 2))
+            bpy.ops.object.quadriflow_remesh(
+                use_mesh_symmetry=False,
+                use_preserve_sharp=True,
+                use_preserve_boundary=True,
+                target_faces=quad_target,
+            )
+        except Exception as q_err:
+            print(f"# QuadriFlow remesh failed, retaining triangles: {q_err}", file=sys.stderr)
+    elif target and len(obj.data.polygons) > target:
+        # Decimate only for triangle/adaptive if explicit target faces specified
         mod = obj.modifiers.new(name="Decimate", type="DECIMATE")
         mod.ratio = max(0.01, target / len(obj.data.polygons))
         bpy.ops.object.modifier_apply(modifier="Decimate")
 
-    # Note: Do not inject naive smart_project here; xatlas handles quality UV parameterization
-    # downstream whenever UVs are missing/invalid, while preserving valid provider UVs.
+    # Apply weighted normals with keep_sharp=True for crisp, non-blobby feature shading
+    try:
+        wn = obj.modifiers.new(name="WeightedNormal", type="WEIGHTED_NORMAL")
+        wn.keep_sharp = True
+        bpy.ops.object.modifier_apply(modifier=wn.name)
+    except Exception:
+        pass
+
     obj.select_set(False)
 
 
@@ -237,6 +262,9 @@ else:
 # ── 5. Gather mesh stats ───────────────────────────────────────────────────────
 total_polys = sum(len(o.data.polygons) for o in bpy.data.objects if o.type == "MESH")
 total_verts = sum(len(o.data.vertices) for o in bpy.data.objects if o.type == "MESH")
+total_quads = sum(sum(1 for p in o.data.polygons if len(p.vertices) == 4) for o in bpy.data.objects if o.type == "MESH")
+total_tris = sum(sum(1 for p in o.data.polygons if len(p.vertices) == 3) for o in bpy.data.objects if o.type == "MESH")
+actual_topology = "quad" if total_quads > total_tris else "triangle"
 
 # ── 5b. Strip textures when disabled ──────────────────────────────────────────
 if not GEN_TEXTURE:
@@ -360,6 +388,10 @@ result = {
     "thumbnail": THUMBNAIL_PATH,
     "polygon_count": total_polys,
     "vertex_count": total_verts,
+    "quad_count": total_quads,
+    "triangle_count": total_tris,
+    "actual_topology": actual_topology,
+    "topology_mode": TOPOLOGY_MODE,
     "has_rig": armature_obj is not None,
     "rig_status": rig_status,
 }

@@ -626,10 +626,52 @@ export const GeneratePanel: React.FC = () => {
                 );
               })()}
 
+              {/* Mesh Topology Selection */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-zinc-200 font-semibold">Output Topology</span>
+                  <span className="text-[10px] text-zinc-400 font-mono uppercase">
+                    {generationSettings.topologyMode || 'adaptive'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    { id: 'adaptive', label: 'Adaptive', desc: 'Preserve features' },
+                    { id: 'triangle', label: 'Triangle', desc: 'Game-ready tris' },
+                    { id: 'quad', label: 'Quad', desc: 'QuadriFlow quads' },
+                  ].map(t => {
+                    const active = (generationSettings.topologyMode || 'adaptive') === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => {
+                          setGenerationSettings(prev => ({
+                            ...prev,
+                            topologyMode: t.id as 'triangle' | 'quad' | 'adaptive',
+                            quadTopology: t.id === 'quad',
+                          }));
+                        }}
+                        className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all text-center cursor-pointer flex flex-col items-center justify-center ${
+                          active
+                            ? 'bg-[#F9CF00] text-black shadow-sm'
+                            : 'bg-[#191A1D] text-zinc-300 hover:text-white hover:bg-[#202125] border border-white/[0.08]'
+                        }`}
+                      >
+                        <span>{t.label}</span>
+                        <span className={`text-[9px] font-normal leading-tight ${active ? 'text-black/75' : 'text-zinc-500'}`}>
+                          {t.desc}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Auto Optimize / Decimation Switch */}
               <div className="flex items-center justify-between text-xs">
                 <div>
-                  <span className="text-zinc-200 font-semibold block">Optimize Mesh Topology</span>
+                  <span className="text-zinc-200 font-semibold block">Optimize Mesh Budget</span>
                   <span className="text-[10px] text-zinc-400">Decimate polygon count to target budget</span>
                 </div>
                 <button

@@ -65,6 +65,8 @@ class GenerationRequest(BaseModel):
     generate_pbr: bool = True
     preserve_details: float = Field(75.0, ge=0, le=100)
     repair_uvs: bool = True
+    # Output mesh topology mode: triangle (meshoptimizer), quad (Blender QuadriFlow), or adaptive (smart routing)
+    topology_mode: Literal["triangle", "quad", "adaptive"] = "adaptive"
     postprocess: bool = True
     skip_postprocessing: bool = False
     # Advanced / Provider inference parameters
@@ -92,6 +94,7 @@ class GenerationRequest(BaseModel):
                 "generateTexture": "generate_texture",
                 "autoRig": "auto_rig",
                 "autoOptimize": "auto_optimize",
+                "topologyMode": "topology_mode",
                 "postProcess": "postprocess",
                 "skipPostprocessing": "skip_postprocessing",
                 "skip_post_processing": "skip_postprocessing",
@@ -107,6 +110,8 @@ class GenerationRequest(BaseModel):
             for k, v in mapping.items():
                 if k in data and v not in data:
                     data[v] = data[k]
+            if (data.get("quadTopology") or data.get("quad_topology")) and "topology_mode" not in data:
+                data["topology_mode"] = "quad"
         return data
 
     @field_validator("reference_image_url", "source_mesh_url", mode="before")
