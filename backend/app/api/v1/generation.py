@@ -318,6 +318,8 @@ async def create_generation(req: GenerationRequest, request: Request):
                     "detail_pass": req.detail_pass,
                     "detail_guidance": req.detail_guidance,
                     "workspace": req.workspace,
+                    "postprocess": req.postprocess,
+                    "skip_postprocessing": req.skip_postprocessing,
                     "auto_optimize": req.auto_optimize,
                     "auto_optimize_settings": req.auto_optimize_settings.model_dump() if req.auto_optimize_settings else None,
                     "remesh_settings": req.remesh_settings,
@@ -477,9 +479,11 @@ async def get_generation_status(job_id: str):
                     "download_urls": job.download_urls or {},
                     "source_model_url": meta.get("source_model_url") or job.model_url,
                     "game_ready_url": meta.get("game_ready_url"),
+                    "active_model_url": meta.get("active_model_url") or job.model_url,
                     "lod_urls": meta.get("lod_urls") or [],
                     "collision_url": meta.get("collision_url"),
                     "qa_report": meta.get("qa_report"),
+                    "pipeline_stages": meta.get("pipeline_stages") or [],
                 }
 
             return success(response)

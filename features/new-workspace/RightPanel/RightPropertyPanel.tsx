@@ -102,7 +102,7 @@ export const RightPropertyPanel: React.FC = () => {
           modelUrl: sourceUrl,
           assetName: currentAsset.name,
           format: exportFormat,
-          variant: 'source',
+          variant: 'active',
           targetPlatform: 'generic',
           packageZip: false,
         }),

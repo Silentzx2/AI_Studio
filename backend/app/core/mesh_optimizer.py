@@ -37,6 +37,15 @@ def _check_decimation_backend() -> bool:
     except ImportError:
         pass
 
+    # Check open3d as modern C++ geometry engine
+    try:
+        from app.core.open3d_service import is_open3d_available
+        if is_open3d_available():
+            _DECIMATION_BACKEND_AVAILABLE = True
+            return True
+    except ImportError:
+        pass
+
     trimesh = _try_import_trimesh()
     if trimesh is not None:
         try:
@@ -542,6 +551,24 @@ def optimize_mesh(
     original_polycount = len(mesh.faces)
     original_vertex_count = len(mesh.vertices)
 
+    # Open3D Decision Engine Check: If within 10% of target, skip decimation
+    budget_ratio = original_polycount / max(1, target_polycount)
+    if abs(1.0 - budget_ratio) <= 0.10:
+        import shutil
+        shutil.copy(input_path, output_path)
+        logger.info("Optimization skipped: polycount %d is within 10%% of target %d", original_polycount, target_polycount)
+        return {
+            "original_polycount": original_polycount,
+            "optimized_polycount": original_polycount,
+            "original_vertex_count": original_vertex_count,
+            "optimized_vertex_count": original_vertex_count,
+            "reduction_percent": 0.0,
+            "uv_fixes_applied": False,
+            "success": True,
+            "skipped": True,
+            "reason": f"Input polycount ({original_polycount:,}) already within 10% of target ({target_polycount:,})",
+        }
+
     # Basic cleanup (trimesh API differs across supported releases).
     if hasattr(mesh, "remove_degenerate_faces"):
         mesh.remove_degenerate_faces()
@@ -588,39 +615,64 @@ def optimize_mesh(
                     )
             except Exception as exc:
                 logger.warning("Quadric decimation failed: %s", exc)
+                # 2b. Open3D simplification fallback
+                o3d_decimated = False
                 try:
-                    import pymeshlab
-                    ms = pymeshlab.MeshSet()
-                    try:
-                        ms.load_new_mesh(input_path)
-                    except Exception:
-                        ms.add_mesh(pymeshlab.Mesh(vertex_matrix=mesh.vertices, face_matrix=mesh.faces), "mesh")
-                    curr = ms.current_mesh()
-                    has_tex = False
-                    try:
-                        has_tex = curr.has_wedge_tex_coord() or curr.has_vertex_tex_coord()
-                    except Exception:
-                        pass
-                    if has_tex:
-                        ms.meshing_decimation_quadric_edge_collapse_with_texture(
-                            targetfacenum=adjusted_target,
-                            preserveboundary=True,
+                    from app.core.open3d_service import is_open3d_available
+                    if is_open3d_available():
+                        import open3d as o3d
+                        o3d_m = o3d.geometry.TriangleMesh(
+                            o3d.utility.Vector3dVector(np.asarray(mesh.vertices)),
+                            o3d.utility.Vector3iVector(np.asarray(mesh.faces)),
                         )
-                    else:
-                        ms.meshing_decimation_quadric_edge_collapse(
-                            targetfacenum=adjusted_target,
-                            preserveboundary=True,
-                            preservenormal=True,
-                            preservetopology=True,
-                        )
-                    ms.save_current_mesh(output_path)
-                    opt_mesh = trimesh.load(output_path, force="mesh")
-                    optimized_polycount = len(opt_mesh.faces)
-                    mesh = opt_mesh
-                except ImportError:
-                    logger.warning("PyMeshLab not installed — keeping cleaned mesh without decimation")
-                except Exception as exc2:
-                    logger.warning("PyMeshLab decimation also failed: %s", exc2)
+                        decimated_o3d = o3d_m.simplify_quadric_decimation(target_number_of_triangles=adjusted_target)
+                        if len(decimated_o3d.triangles) > 0 and len(decimated_o3d.triangles) < len(mesh.faces):
+                            mesh = trimesh.Trimesh(
+                                vertices=np.asarray(decimated_o3d.vertices),
+                                faces=np.asarray(decimated_o3d.triangles),
+                                visual=mesh.visual,
+                                process=False,
+                            )
+                            optimized_polycount = len(mesh.faces)
+                            o3d_decimated = True
+                            logger.info("Mesh decimated with Open3D fallback: %d -> %d triangles", original_polycount, optimized_polycount)
+                except Exception as o3d_dec_err:
+                    logger.debug("Open3D decimation fallback error: %s", o3d_dec_err)
+
+                if not o3d_decimated:
+                    try:
+                        import pymeshlab
+                        ms = pymeshlab.MeshSet()
+                        try:
+                            ms.load_new_mesh(input_path)
+                        except Exception:
+                            ms.add_mesh(pymeshlab.Mesh(vertex_matrix=mesh.vertices, face_matrix=mesh.faces), "mesh")
+                        curr = ms.current_mesh()
+                        has_tex = False
+                        try:
+                            has_tex = curr.has_wedge_tex_coord() or curr.has_vertex_tex_coord()
+                        except Exception:
+                            pass
+                        if has_tex:
+                            ms.meshing_decimation_quadric_edge_collapse_with_texture(
+                                targetfacenum=adjusted_target,
+                                preserveboundary=True,
+                            )
+                        else:
+                            ms.meshing_decimation_quadric_edge_collapse(
+                                targetfacenum=adjusted_target,
+                                preserveboundary=True,
+                                preservenormal=True,
+                                preservetopology=True,
+                            )
+                        ms.save_current_mesh(output_path)
+                        opt_mesh = trimesh.load(output_path, force="mesh")
+                        optimized_polycount = len(opt_mesh.faces)
+                        mesh = opt_mesh
+                    except ImportError:
+                        logger.warning("PyMeshLab not installed — keeping cleaned mesh without decimation")
+                    except Exception as exc2:
+                        logger.warning("PyMeshLab decimation also failed: %s", exc2)
 
     # Ensure UV coordinates remain valid after decimation if requested
     if fix_uvs and not mesh_has_valid_uvs(mesh):
@@ -655,6 +707,31 @@ def optimize_mesh(
         if original_polycount > 0
         else 0.0
     )
+
+    # Open3D Quality Verification: Compare derived mesh against input
+    try:
+        from app.core.open3d_service import is_open3d_available, compare_meshes_o3d
+        if is_open3d_available():
+            comp = compare_meshes_o3d(input_path, output_path, max_bbox_change_pct=8.0)
+            if not comp.get("is_acceptable"):
+                logger.warning(
+                    "Optimized mesh failed Open3D quality comparison (%s) — rejecting derivative and restoring original",
+                    comp.get("rejection_reason"),
+                )
+                import shutil
+                shutil.copy(input_path, output_path)
+                return {
+                    "original_polycount": original_polycount,
+                    "optimized_polycount": original_polycount,
+                    "original_vertex_count": original_vertex_count,
+                    "optimized_vertex_count": original_vertex_count,
+                    "reduction_percent": 0.0,
+                    "uv_fixes_applied": False,
+                    "success": False,
+                    "error": f"Derivative rejected by Open3D: {comp.get('rejection_reason')}",
+                }
+    except Exception as comp_exc:
+        logger.debug("Open3D post-optimization check error: %s", comp_exc)
 
     return {
         "original_polycount": original_polycount,
@@ -763,13 +840,32 @@ def generate_lods(
             )
             poly = res.get("optimized_polycount", forced_target)
 
-        val = validate_glb(lod_target_path)
-        valid = val.get("valid", True)
-        if not valid or poly <= 0 or poly >= prev_poly:
-            logger.warning(
-                "LOD%d discarded: validation failed (%s) or non-decreasing polycount (%d faces vs prev %d) — preserving asset integrity",
-                i, val.get("reason", "unknown"), poly, prev_poly,
-            )
+        # Open3D Canonical LOD Auditing
+        lod_valid = True
+        try:
+            from app.core.open3d_service import is_open3d_available, validate_lod_mesh_o3d
+            if is_open3d_available():
+                lod_audit = validate_lod_mesh_o3d(input_path, lod_target_path, level=i, prev_polycount=prev_poly)
+                if not lod_audit.get("valid"):
+                    logger.warning(
+                        "LOD%d discarded: Open3D audit failed (%s) — preserving asset integrity",
+                        i, lod_audit.get("reason"),
+                    )
+                    lod_valid = False
+                else:
+                    poly = lod_audit["triangle_count"]
+            else:
+                val = validate_glb(lod_target_path)
+                valid = val.get("valid", True)
+                if not valid or poly <= 0 or poly >= prev_poly:
+                    lod_valid = False
+        except Exception as o3d_lod_err:
+            logger.debug("Open3D LOD audit threw exception: %s", o3d_lod_err)
+            val = validate_glb(lod_target_path)
+            if not val.get("valid") or poly <= 0 or poly >= prev_poly:
+                lod_valid = False
+
+        if not lod_valid:
             if Path(lod_target_path).exists():
                 try:
                     Path(lod_target_path).unlink()
@@ -834,6 +930,17 @@ def generate_collision_mesh(
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         hull.export(output_path, file_type="glb")
 
+        # Open3D validation on generated collision geometry
+        collision_audit = None
+        try:
+            from app.core.open3d_service import is_open3d_available, validate_collision_mesh_o3d
+            if is_open3d_available():
+                collision_audit = validate_collision_mesh_o3d(input_path, output_path)
+                if not collision_audit.get("valid"):
+                    logger.warning("Collision mesh warning: %s", collision_audit.get("reason"))
+        except Exception as o3d_col_err:
+            logger.debug("Open3D collision validation error: %s", o3d_col_err)
+
         return {
             "success": True,
             "output_path": output_path,
@@ -842,6 +949,7 @@ def generate_collision_mesh(
             "mode": mode,
             "collider_type": "convex_hull",
             "notes": "Watertight single convex hull for real-time rigid body collision",
+            "validation": collision_audit,
         }
     except Exception as exc:
         logger.warning("generate_collision_mesh failed: %s", exc)

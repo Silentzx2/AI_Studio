@@ -69,14 +69,26 @@ flowchart TD
 
 | Stage | Module | Responsibility | Invariants Preserved |
 |---|---|---|---|
-| **Inference** | `backend/app/core/providers/*` | Neural reconstruction from prompt or image. | Writes output file; retains high-fidelity raw mesh as `source.glb`. |
-| **Mesh Cleanup** | `backend/app/core/blender/scripts/process_mesh.py` | Headless Blender cleanup & normal recalculation. | Component threshold preserves valid detached anatomy; existing UV maps are strictly protected; naive smart UV avoided. |
-| **UV Parameterization** | `backend/app/core/mesh_optimizer.py` | Authoritative `xatlas` conformal parameterization. | Valid provider UVs left untouched (`uv_status: preserved_from_provider`); missing/corrupt UVs parameterized via xatlas charts (`uv_status: generated_via_xatlas`). |
-| **Optimization** | `backend/app/core/mesh_optimizer.py` | Fast C++ `meshoptimizer` decimation & platform profiling. | Uses quality-aware edge collapse with boundary protection; respects UV boundaries. |
-| **LOD Generation** | `backend/app/core/mesh_optimizer.py` | Cascade level calculation (LOD0–LOD3). | LOD0 is an exact byte-for-byte replica of the master asset; complexity strictly decreases per tier. Corrupt or non-reducing candidate LODs are validated via `validate_glb` and automatically discarded/unlinked. |
-| **Collision** | `backend/app/core/mesh_optimizer.py` | Physics collider creation. | Produces single watertight convex hull proxy (`collider_type: convex_hull`) optimized for real-time physics simulation. |
-| **QA Engine** | `backend/app/core/mesh_processor.py` | Non-destructive diagnostics & scoring. | Read-only inspection; outputs machine-readable validation dictionary. |
-| **Export Engine** | `backend/app/api/v1/project.py` | Multi-format conversion & ZIP packaging. | Canonical formats (`glb`, `gltf`, `fbx`, `obj`, `stl`, `ply`). Real geometry conversion; structured ZIP with Source, GameReady, LODs, Collision, Model, Preview, QA, and Metadata. Traversal-safe storage access. |
+| **Inference** | `backend/app/core/providers/*` | Neural reconstruction from prompt or image (Hunyuan, TRELLIS, TripoSG). | Writes output file; retains high-fidelity raw mesh as immutable `source.glb`. |
+| **Open3D Analysis & Decision** | `backend/app/core/open3d_service.py` | Canonical mesh topology analysis, manifoldness, watertightness, self-intersections, and deterministic decision routing. | Evaluates if retopology, repair, decimation, or UV parameterization is required without mutating the source asset. |
+| **Safe Cleanup** | `backend/app/core/open3d_service.py` | Conservative duplicate vertex/triangle and degenerate face removal. | Multi-component clustering strictly preserves detached accessories, ears, tails, horns, and mechanical parts; noisy islands only pruned if below noise floor (<0.05% master area and <5 tris). |
+| **DCC & Retopology** | `backend/app/core/blender/pipeline.py` | Headless Blender 4.x processing, QuadriFlow retopology (if triggered), Rigify rigging, PBR materials, multi-format export. | Validates post-Blender geometry with Open3D before acceptance; rejects degraded geometry. |
+| **UV Parameterization** | `backend/app/core/mesh_optimizer.py` | Authoritative `xatlas` conformal parameterization. | Valid provider UVs left untouched (`uv_status: preserved_from_provider`); missing/corrupt UVs parameterized via xatlas charts (`uv_status: generated_via_xatlas`). Open3D validates mesh before/after UV pass. |
+| **Optimization** | `backend/app/core/mesh_optimizer.py` | Fast C++ `meshoptimizer` decimation with Open3D quadric decimation fallback. | Skips decimation if already within ±10% target budget. On success, the processed derivative (`game_ready.glb`) unconditionally becomes the active result shown in viewer (`model_url`, `active_model_url`) and used for export, while `source.glb` remains untouched. |
+| **LOD Generation** | `backend/app/core/mesh_optimizer.py` | Cascade level calculation (LOD0–LOD3) via `meshoptimizer`. | LOD0 is an exact byte-for-byte replica of the master asset; complexity strictly decreases per tier. Each candidate LOD is audited via `validate_lod_mesh_o3d` (decreasing polycount + bounds fit within 5%) and automatically discarded/unlinked if degraded. |
+| **Collision** | `backend/app/core/mesh_optimizer.py` | Physics collider creation (watertight convex hull proxy). | Produces single watertight convex hull proxy (`collider_type: convex_hull`). Verified via `validate_collision_mesh_o3d` to confirm tight bounds containment and low complexity (<1000 tris). |
+| **Open3D Final QA** | `backend/app/core/mesh_processor.py` (`open3d_service.py`) | Authoritative Game-Ready QA evaluation and glTF validation. | Deep topology diagnostics (non-manifold edges, self-intersections, surface area, volume, component count) producing evidence-based PASS/WARN/FAIL status and verifiable scores (no fake scores). Evaluated directly on the active derivative. |
+| **Export Engine** | `backend/app/api/v1/project.py` | Multi-format conversion & ZIP packaging. | Canonical formats (`glb`, `gltf`, `fbx`, `obj`, `stl`, `ply`). Defaults to `variant="active"`, exporting the active processed derivative instead of defaulting to raw source. `variant="source"` exports untouched master. Real geometry conversion; structured ZIP with Source, GameReady, LODs, Collision, Model, Preview, QA, and Metadata. Traversal-safe storage access. |
+
+### Tool Division of Responsibilities
+
+| System | Dedicated Responsibility | Explicit Non-Responsibilities |
+|---|---|---|
+| **Open3D** | Canonical mesh analysis, topology validation, geometry diagnostics, conservative cleanup, quality decisions, before/after comparison, Game-Ready QA. | NOT an AI generation model; NOT an AI retopology system; NOT a UV unwrapper; NOT a collision generator. |
+| **Blender** | Headless DCC pipeline, QuadriFlow remeshing, Rigify armature binding, texture baking, multi-format export. | NOT the primary topology QA analyzer. |
+| **xatlas** | Authoritative UV chart parameterization & packing. | NOT a general geometry decimation or repair tool. |
+| **meshoptimizer** | High-performance C++ polygon decimation & multi-tier LOD cascade generation. | NOT a texture or normal baker. |
+| **AI Providers** | Neural 3D synthesis (Hunyuan3D-2.1/Mini, TRELLIS, TripoSG, DetailGen3D). | NOT responsible for downstream game-ready engine optimization. |
 
 ---
 

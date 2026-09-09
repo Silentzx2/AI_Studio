@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -65,6 +65,8 @@ class GenerationRequest(BaseModel):
     generate_pbr: bool = True
     preserve_details: float = Field(75.0, ge=0, le=100)
     repair_uvs: bool = True
+    postprocess: bool = True
+    skip_postprocessing: bool = False
     # Advanced / Provider inference parameters
     seed: int | None = Field(None, description="Random seed for reproducibility")
     num_inference_steps: int | None = Field(None, ge=1, le=200, description="Number of diffusion/flow steps")
@@ -90,6 +92,9 @@ class GenerationRequest(BaseModel):
                 "generateTexture": "generate_texture",
                 "autoRig": "auto_rig",
                 "autoOptimize": "auto_optimize",
+                "postProcess": "postprocess",
+                "skipPostprocessing": "skip_postprocessing",
+                "skip_post_processing": "skip_postprocessing",
                 "lowVram": "low_vram",
                 "vramMode": "vram_mode",
                 "numInferenceSteps": "num_inference_steps",
@@ -146,6 +151,10 @@ class DownloadUrls(BaseModel):
     fbx: str | None = None
     obj: str | None = None
     stl: str | None = None
+    ply: str | None = None
+    source: str | None = None
+    game_ready: str | None = None
+    collision: str | None = None
 
 
 class JobResult(BaseModel):
@@ -159,9 +168,11 @@ class JobResult(BaseModel):
     file_size: int
     source_model_url: str | None = None
     game_ready_url: str | None = None
+    active_model_url: str | None = None
     lod_urls: list[str] = Field(default_factory=list)
     collision_url: str | None = None
     qa_report: dict | None = None
+    pipeline_stages: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class JobResponse(BaseModel):

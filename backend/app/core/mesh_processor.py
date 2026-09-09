@@ -1,6 +1,6 @@
 """
-Post-process generated meshes using trimesh/open3d/PyMeshLab.
-Runs cleanup, decimation, UV unwrap repair, and thumbnail rendering.
+Post-process generated meshes using Open3D/trimesh/PyMeshLab.
+Runs Open3D canonical analysis, validation, cleanup, decimation, UV unwrap repair, and thumbnail rendering.
 """
 import logging
 import random
@@ -8,6 +8,20 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+
+from app.core.open3d_service import (
+    is_open3d_available,
+    get_open3d_version,
+    load_o3d_mesh,
+    save_o3d_mesh,
+    analyze_mesh_o3d,
+    safe_cleanup_o3d,
+    evaluate_mesh_decision,
+    compare_meshes_o3d,
+    validate_lod_mesh_o3d,
+    validate_collision_mesh_o3d,
+    o3d_game_ready_qa,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +65,24 @@ def write_placeholder_mesh(glb_path: str, seed: int | None = None) -> dict[str, 
 
 
 def clean_mesh(input_path: str, output_path: str, target_faces: int | None = None) -> dict:
-    """Remove degenerate faces, merge duplicate vertices, optionally decimate."""
+    """Conservatively clean mesh geometry (duplicates, degenerates, unreferenced verts).
+
+    Uses Open3D safe cleanup as the primary canonical engine to preserve legitimate
+    sub-components (ears, teeth, horns, mechanical parts). Falls back to trimesh if
+    Open3D is unavailable.
+    """
+    if is_open3d_available():
+        res = safe_cleanup_o3d(input_path, output_path=output_path)
+        if res.get("success"):
+            return {
+                "polygon_count": res["after"]["triangle_count"],
+                "vertex_count": res["after"]["vertex_count"],
+                "output_path": output_path,
+                "modified": res.get("modified", False),
+                "cleanup_details": res,
+            }
+        logger.warning("Open3D cleanup returned failure: %s; falling back to trimesh", res.get("error"))
+
     trimesh = _try_import_trimesh()
     if not trimesh:
         logger.warning("trimesh not installed — skipping mesh cleanup")
@@ -211,6 +242,31 @@ def validate_glb(model_path: str) -> dict:
     except Exception as exc:
         return {"valid": True, "model_path": model_path, "skipped": True, "reason": f"cannot read file: {exc}"}
 
+    # Open3D canonical geometry validation
+    if is_open3d_available():
+        try:
+            o3d_stats = analyze_mesh_o3d(model_path)
+            if not o3d_stats.get("valid"):
+                return {"valid": False, "reason": o3d_stats.get("error", "invalid mesh geometry"), "model_path": model_path}
+            face_count = o3d_stats.get("triangle_count", 0)
+            vert_count = o3d_stats.get("vertex_count", 0)
+            if face_count == 0 or vert_count == 0:
+                return {
+                    "valid": False,
+                    "reason": f"parses but has no geometry (faces={face_count}, vertices={vert_count})",
+                    "model_path": model_path,
+                }
+            return {
+                "valid": True,
+                "model_path": model_path,
+                "polygon_count": face_count,
+                "vertex_count": vert_count,
+                "file_size": size,
+                "open3d_analysis": o3d_stats,
+            }
+        except Exception as o3d_exc:
+            logger.debug("Open3D validation threw exception: %s; falling back to trimesh", o3d_exc)
+
     trimesh = _try_import_trimesh()
     if trimesh is None:
         return {"valid": True, "model_path": model_path}  # cannot verify — don't block
@@ -321,6 +377,28 @@ def run_mesh_diagnostics(model_path: str, target_platform: str = "generic") -> d
             "warnings": ["File not found"],
             "diagnostics": {},
         }
+
+    # Authoritative Open3D Game-Ready QA evaluation
+    if is_open3d_available():
+        qa_res = o3d_game_ready_qa(str(path), target_platform=target_platform)
+        if qa_res.get("diagnostics"):
+            # Enrich Open3D QA with UV and material inspection
+            uv_info = validate_uv_mapping(str(path))
+            has_uv = bool(uv_info.get("has_uv", False))
+            tex_info = validate_texture(str(path))
+            has_texture = bool(tex_info.get("textured", False))
+
+            qa_res["diagnostics"]["has_uv"] = has_uv
+            qa_res["diagnostics"]["has_texture"] = has_texture
+            if not has_uv:
+                qa_res["warnings"].append("Mesh lacks UV coordinates")
+                if qa_res["status"] == "pass":
+                    qa_res["status"] = "warn"
+            if not has_texture:
+                qa_res["warnings"].append("No embedded base color texture map found")
+                if qa_res["status"] == "pass":
+                    qa_res["status"] = "warn"
+            return qa_res
 
     trimesh = _try_import_trimesh()
     if trimesh is None:
@@ -642,6 +720,40 @@ def classify_asset(prompt: str = "", model_path: str | None = None, mesh: Any = 
     # Fall back to geometric inspection if mesh is provided
     target_mesh = mesh
     if target_mesh is None and model_path and Path(model_path).exists():
+        if is_open3d_available():
+            try:
+                o3d_stats = analyze_mesh_o3d(model_path)
+                if o3d_stats.get("valid"):
+                    ext = o3d_stats["bounding_box"]["extent"]
+                    dx, dy, dz = ext[0], ext[1], ext[2]
+                    h = max(dz, dy)
+                    w = max(dx, min(dz, dy))
+                    d = min(dx, min(dz, dy))
+                    aspect_ratio = h / max(0.001, max(w, d))
+
+                    if aspect_ratio >= 1.8:
+                        return {
+                            "category": "humanoid",
+                            "confidence": 0.70,
+                            "reason": f"Open3D vertical aspect ratio ({aspect_ratio:.2f}) indicates upright humanoid stature",
+                            "riggable_humanoid": True,
+                        }
+                    if max(dx, dy) / max(0.001, dz) >= 2.0:
+                        return {
+                            "category": "hard-surface",
+                            "confidence": 0.60,
+                            "reason": "Open3D elongated horizontal geometry indicates vehicle or hard-surface asset",
+                            "riggable_humanoid": False,
+                        }
+                    return {
+                        "category": "generic-prop",
+                        "confidence": 0.65,
+                        "reason": "Open3D compact bounding aspect ratio indicates prop/object geometry",
+                        "riggable_humanoid": False,
+                    }
+            except Exception as o3d_cls_err:
+                logger.debug("Open3D asset classification failed: %s; falling back to trimesh", o3d_cls_err)
+
         trimesh = _try_import_trimesh()
         if trimesh:
             try:

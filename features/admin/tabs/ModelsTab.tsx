@@ -822,7 +822,7 @@ export function ModelsTab() {
                     <span className="text-xs font-semibold text-[hsl(var(--purple-500))]">
                       Download Shape + Paint Weights
                     </span>
-                    <Badge variant="outline" className="text-[10px] bg-[hsl(var(--purple-500)/0.1)] text-[hsl(var(--purple-500))] border-[hsl(var(--purple-500)/0.3)]">
+                    <Badge variant="default" className="text-[10px] bg-[hsl(var(--purple-500)/0.1)] text-[hsl(var(--purple-500))] border-[hsl(var(--purple-500)/0.3)]">
                       ~{((auxPromptModel.size_estimate_gb || 8) + 7).toFixed(0)} GB
                     </Badge>
                   </div>
@@ -839,7 +839,7 @@ export function ModelsTab() {
                     <span className="text-xs font-semibold text-foreground">
                       Download Shape Only
                     </span>
-                    <Badge variant="outline" className="text-[10px]">
+                    <Badge variant="default" className="text-[10px]">
                       ~{(auxPromptModel.size_estimate_gb || 8).toFixed(0)} GB
                     </Badge>
                   </div>

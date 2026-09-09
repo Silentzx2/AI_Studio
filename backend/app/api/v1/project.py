@@ -29,7 +29,7 @@ class ExportRequest(BaseModel):
     modelUrl: str
     assetName: str | None = None
     format: str = "glb"  # glb, gltf, fbx, obj, stl, ply
-    variant: Literal["source", "game_ready", "lod_package"] = "source"
+    variant: Literal["active", "source", "game_ready", "lod_package"] = "active"
     layers: list[dict[str, Any]] = Field(default_factory=list)
     assembleAll: bool = False
     includeOriginals: bool = False
@@ -175,14 +175,26 @@ async def export_project(req: ExportRequest):
 
     # 1. Resolve variant asset
     target_model = model_path
-    if req.variant == "source":
+    if req.variant == "active":
+        # Authoritative active processed asset: if game_ready.glb was produced and caller passed model.glb,
+        # prioritize the processed derivative over unoptimized raw master
+        gr_candidate = job_dir / "game_ready.glb"
+        if gr_candidate.exists() and model_path.name in ("model.glb", "source.glb"):
+            target_model = gr_candidate
+        else:
+            target_model = model_path
+    elif req.variant == "source":
         source_candidate = job_dir / "source.glb"
         if source_candidate.exists():
             target_model = source_candidate
+        else:
+            target_model = model_path
     elif req.variant == "game_ready":
         gr_candidate = job_dir / "game_ready.glb"
         if gr_candidate.exists():
             target_model = gr_candidate
+        elif model_path.name == "game_ready.glb":
+            target_model = model_path
         else:
             # Generate game-ready model on demand if not pre-generated.
             try:

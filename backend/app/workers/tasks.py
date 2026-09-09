@@ -584,51 +584,178 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             meta = job.processing_metadata or {}
             meta["source_model_url"] = to_url(source_glb_path) if Path(source_glb_path).exists() else to_url(provider_result.model_path)
 
-            # 7b. Analyze: classify asset and extract geometry characteristics
+            # 7b. Open3D Canonical Analysis & Decision Engine on Master Mesh
+            master_glb = source_glb_path if Path(source_glb_path).exists() else provider_result.model_path
+            current_glb_path = master_glb
+            target_platform = meta.get("target_platform", "generic")
+            pipeline_stages: list[dict[str, Any]] = []
+
+            skip_postprocessing = bool(meta.get("skip_postprocessing", False) or (meta.get("postprocess") is False))
+            if skip_postprocessing:
+                logger.info("[PIPELINE_STAGE] stage=postprocessing tool=none status=skipped reason='Processing explicitly disabled by request' job_id=%s", job_id)
+                pipeline_stages.append({
+                    "stage": "postprocessing",
+                    "tool": "none",
+                    "status": "skipped",
+                    "reason": "Processing explicitly disabled by request",
+                })
+                glb_path = current_glb_path
+                blender_result = {"glb": current_glb_path}
+            else:
+                try:
+                    from app.core.open3d_service import (
+                        is_open3d_available,
+                        analyze_mesh_o3d,
+                        evaluate_mesh_decision,
+                        safe_cleanup_o3d,
+                        compare_meshes_o3d,
+                    )
+                    if is_open3d_available():
+                        t_an = time.perf_counter()
+                        sync_publish(75, "analyzing", "Running Open3D topology diagnostics...", "info")
+                        o3d_analysis = analyze_mesh_o3d(master_glb)
+                        meta["master_mesh_analysis"] = o3d_analysis
+                        an_dur = round((time.perf_counter() - t_an) * 1000, 1)
+                        pipeline_stages.append({
+                            "stage": "master_analysis",
+                            "tool": "Open3D",
+                            "status": "success",
+                            "duration_ms": an_dur,
+                            "triangles": o3d_analysis.get("triangle_count", 0),
+                            "vertices": o3d_analysis.get("vertex_count", 0),
+                            "is_watertight": o3d_analysis.get("is_watertight", False),
+                        })
+                        logger.info(
+                            "[PIPELINE_STAGE] stage=master_analysis tool=Open3D duration_ms=%.1f tris=%d verts=%d watertight=%s",
+                            an_dur, o3d_analysis.get("triangle_count", 0), o3d_analysis.get("vertex_count", 0), o3d_analysis.get("is_watertight", False),
+                        )
+
+                        decision = evaluate_mesh_decision(
+                            o3d_analysis,
+                            target_platform=target_platform,
+                            user_settings=meta.get("auto_optimize_settings") or {},
+                        )
+                        meta["mesh_decision"] = decision
+                        logger.info("Open3D Decision for %s: %s", job_id, decision["reasons"])
+
+                        # Safe conservative cleanup if repair is needed
+                        if decision.get("needs_repair"):
+                            t_clean = time.perf_counter()
+                            sync_publish(77, "postprocessing", "Applying conservative Open3D geometry cleanup...", "info")
+                            cleaned_path = str(model_output_dir(job_id) / "cleaned.glb")
+                            clean_res = safe_cleanup_o3d(master_glb, output_path=cleaned_path)
+                            clean_dur = round((time.perf_counter() - t_clean) * 1000, 1)
+                            if clean_res.get("success") and clean_res.get("modified"):
+                                comp = compare_meshes_o3d(master_glb, cleaned_path)
+                                if comp.get("is_acceptable"):
+                                    current_glb_path = cleaned_path
+                                    meta["cleaned_model_url"] = to_url(cleaned_path)
+                                    meta["clean_result"] = clean_res
+                                    pipeline_stages.append({
+                                        "stage": "safe_cleanup",
+                                        "tool": "Open3D",
+                                        "status": "success",
+                                        "duration_ms": clean_dur,
+                                        "input_triangles": clean_res.get("before", {}).get("triangle_count", 0),
+                                        "output_triangles": clean_res.get("after", {}).get("triangle_count", 0),
+                                        "triangle_reduction": clean_res.get("triangle_reduction", 0),
+                                        "output_path": cleaned_path,
+                                    })
+                                    logger.info("[PIPELINE_STAGE] stage=safe_cleanup tool=Open3D duration_ms=%.1f in_tris=%d out_tris=%d accepted=True",
+                                                clean_dur, clean_res.get("before", {}).get("triangle_count", 0), clean_res.get("after", {}).get("triangle_count", 0))
+                                else:
+                                    pipeline_stages.append({
+                                        "stage": "safe_cleanup",
+                                        "tool": "Open3D",
+                                        "status": "rejected",
+                                        "duration_ms": clean_dur,
+                                        "reason": comp.get("rejection_reason"),
+                                    })
+                                    logger.warning("Open3D cleanup degraded geometry (%s) — retaining master", comp.get("rejection_reason"))
+                except Exception as o3d_pipe_err:
+                    logger.warning("Open3D analysis/decision pipeline error: %s", o3d_pipe_err)
+
+            # 7c. Analyze: classify asset and extract geometry characteristics
             from app.core.mesh_processor import classify_asset
-            asset_class = classify_asset(prompt=job.prompt or "", model_path=source_glb_path if Path(source_glb_path).exists() else provider_result.model_path)
+            asset_class = classify_asset(prompt=job.prompt or "", model_path=current_glb_path)
             meta["asset_classification"] = asset_class
 
-            # 7c. Blender post-processing (cleanup, conditional Rigify, multi-format export)
-            blender_result = {}
-            try:
-                # Parse render settings from structured JSON metadata
-                render_res = None
-                render_samples = 128
-                meta_render = job.processing_metadata or {}
-                render_settings = meta_render.get("render_settings")
-                if render_settings and job.mode == "render":
-                    if isinstance(render_settings, str):
-                        render_settings = json.loads(render_settings)
-                    res = render_settings.get("resolution")
-                    if res and "x" in res:
-                        parts = res.split("x")
-                        render_res = [int(parts[0]), int(parts[1])]
-                    if render_settings.get("samples"):
-                        render_samples = int(render_settings["samples"])
+            # 7d. Blender post-processing (cleanup, conditional Rigify, multi-format export)
+            if not skip_postprocessing:
+                blender_result = {}
+                t_blender = time.perf_counter()
+                try:
+                    # Parse render settings from structured JSON metadata
+                    render_res = None
+                    render_samples = 128
+                    meta_render = job.processing_metadata or {}
+                    render_settings = meta_render.get("render_settings")
+                    if render_settings and job.mode == "render":
+                        if isinstance(render_settings, str):
+                            render_settings = json.loads(render_settings)
+                        res = render_settings.get("resolution")
+                        if res and "x" in res:
+                            parts = res.split("x")
+                            render_res = [int(parts[0]), int(parts[1])]
+                        if render_settings.get("samples"):
+                            render_samples = int(render_settings["samples"])
 
-                from app.core.blender.pipeline import process_model
-                blender_result = await process_model(
-                    input_path=source_glb_path if Path(source_glb_path).exists() else provider_result.model_path,
-                    output_dir=out_dir,
-                    auto_rig=job.auto_rig if job.mode != "render" else False,
-                    asset_category=asset_class.get("category"),
-                    generate_texture=job.generate_texture if job.mode != "render" else False,
-                    quality=job.quality,
-                    render_resolution=render_res,
-                    render_samples=render_samples,
-                    progress_callback=progress_callback,
-                )
-            except Exception as e:
-                logger.warning("Blender post-processing failed, using provider output directly: %s", e)
-                blender_result = {"glb": provider_result.model_path}
+                    from app.core.blender.pipeline import process_model
+                    blender_result = await process_model(
+                        input_path=current_glb_path,
+                        output_dir=out_dir,
+                        auto_rig=job.auto_rig if job.mode != "render" else False,
+                        asset_category=asset_class.get("category"),
+                        generate_texture=job.generate_texture if job.mode != "render" else False,
+                        quality=job.quality,
+                        render_resolution=render_res,
+                        render_samples=render_samples,
+                        progress_callback=progress_callback,
+                    )
+                    blender_dur = round((time.perf_counter() - t_blender) * 1000, 1)
+
+                    # Open3D Quality Verification of post-Blender mesh vs input
+                    post_blender_glb = blender_result.get("glb")
+                    if post_blender_glb and Path(post_blender_glb).exists() and post_blender_glb != current_glb_path:
+                        try:
+                            from app.core.open3d_service import is_open3d_available, compare_meshes_o3d
+                            if is_open3d_available():
+                                b_comp = compare_meshes_o3d(current_glb_path, post_blender_glb, max_bbox_change_pct=10.0)
+                                if not b_comp.get("is_acceptable"):
+                                    logger.warning(
+                                        "Blender post-processing degraded geometry (%s) — falling back to pre-Blender mesh",
+                                        b_comp.get("rejection_reason"),
+                                    )
+                                    blender_result["glb"] = current_glb_path
+                        except Exception as b_cmp_err:
+                            logger.debug("Open3D post-Blender verification error: %s", b_cmp_err)
+
+                    pipeline_stages.append({
+                        "stage": "blender_pipeline",
+                        "tool": "Blender",
+                        "status": "success",
+                        "duration_ms": blender_dur,
+                        "output_path": blender_result.get("glb"),
+                    })
+                    logger.info("[PIPELINE_STAGE] stage=blender_pipeline tool=Blender duration_ms=%.1f output=%s", blender_dur, blender_result.get("glb"))
+                except Exception as e:
+                    logger.warning("Blender post-processing failed, using provider output directly: %s", e)
+                    blender_result = {"glb": current_glb_path}
+                    pipeline_stages.append({
+                        "stage": "blender_pipeline",
+                        "tool": "Blender",
+                        "status": "failed",
+                        "duration_ms": round((time.perf_counter() - t_blender) * 1000, 1),
+                        "error": str(e),
+                    })
 
             # Optional DetailGen3D pass
             detail_pass = meta.get("detail_pass", False)
             detail_guidance = meta.get("detail_guidance", 7.5)
 
-            if detail_pass:
+            if not skip_postprocessing and detail_pass:
                 sync_publish(80, "postprocessing", "DetailGen3D refinement requested...", "info")
+                t_det = time.perf_counter()
                 try:
                     from runtime.capability import get_model_vram_required
                     from runtime.gpu import check_vram_sufficient
@@ -663,16 +790,31 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                             
                         blender_result["glb"] = detailed_glb
                         meta["model_url_detailed"] = to_url(detailed_glb)
+                        pipeline_stages.append({
+                            "stage": "detail_pass",
+                            "tool": "DetailGen3D",
+                            "status": "success",
+                            "duration_ms": round((time.perf_counter() - t_det) * 1000, 1),
+                            "output_path": detailed_glb,
+                        })
                         _update_job(session, job_id, processing_metadata=meta)
                         sync_publish(90, "postprocessing", "DetailGen3D pass complete.", "info")
                 except Exception as ex_det:
                     logger.warning("DetailGen3D pass failed: %s", ex_det)
+                    pipeline_stages.append({
+                        "stage": "detail_pass",
+                        "tool": "DetailGen3D",
+                        "status": "failed",
+                        "duration_ms": round((time.perf_counter() - t_det) * 1000, 1),
+                        "error": str(ex_det),
+                    })
 
             glb_path = blender_result.get("glb") or provider_result.model_path
 
             # 7a. Authoritative UV validation & xatlas parameterization
             # If mesh lacks valid UVs, generate them using xatlas; preserve existing valid provider UVs.
-            if glb_path and Path(glb_path).exists():
+            if not skip_postprocessing and glb_path and Path(glb_path).exists():
+                t_uv = time.perf_counter()
                 try:
                     from app.core.mesh_optimizer import generate_uvs_with_xatlas, mesh_has_valid_uvs
                     import trimesh
@@ -680,28 +822,43 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                     if mesh_has_valid_uvs(tm):
                         meta["uv_status"] = "preserved_from_provider"
                         meta["uv_method"] = "preserved"
+                        pipeline_stages.append({
+                            "stage": "uv_parameterization",
+                            "tool": "provider",
+                            "status": "preserved",
+                            "duration_ms": round((time.perf_counter() - t_uv) * 1000, 1),
+                        })
                         logger.info("Preserved valid provider UV layout for %s", glb_path)
                     else:
                         sync_publish(82, "postprocessing", "Authoritative UV parameterization with xatlas...", "info")
                         unwrapped_tm, uv_applied = generate_uvs_with_xatlas(tm)
+                        uv_dur = round((time.perf_counter() - t_uv) * 1000, 1)
                         if uv_applied:
                             unwrapped_tm.export(glb_path)
                             meta["uv_status"] = "generated_via_xatlas"
                             meta["uv_method"] = "xatlas"
                             meta["uv_parameterized_by"] = "xatlas"
-                            logger.info("Generated authoritative xatlas UV coordinates for %s", glb_path)
+                            pipeline_stages.append({
+                                "stage": "uv_parameterization",
+                                "tool": "xatlas",
+                                "status": "generated",
+                                "duration_ms": uv_dur,
+                            })
+                            logger.info("[PIPELINE_STAGE] stage=uv_parameterization tool=xatlas duration_ms=%.1f output=%s", uv_dur, glb_path)
                     _update_job(session, job_id, processing_metadata=meta)
                 except Exception as uv_err:
                     logger.warning("Authoritative xatlas UV check failed: %s", uv_err)
 
             # 7b. Game-Ready / Auto-optimize mesh (preserving source.glb)
             game_ready = meta.get("game_ready", False)
-            auto_optimize = meta.get("auto_optimize", False) or game_ready
+            o3d_needs_opt = meta.get("mesh_decision", {}).get("needs_optimization", False)
+            auto_optimize = meta.get("auto_optimize", False) or game_ready or o3d_needs_opt
             auto_optimize_settings = meta.get("auto_optimize_settings") or {}
             target_platform = meta.get("target_platform", "generic")
 
-            if auto_optimize and glb_path and Path(glb_path).exists():
+            if not skip_postprocessing and auto_optimize and glb_path and Path(glb_path).exists():
                 sync_publish(85, "optimizing", "Generating game-ready optimized mesh...", "info")
+                t_opt = time.perf_counter()
                 try:
                     from app.core.mesh_optimizer import optimize_mesh, get_target_polycount_for_platform
 
@@ -730,28 +887,68 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                         fix_uvs=fix_uvs,
                         preserve_details=preserve_details,
                     )
+                    opt_dur = round((time.perf_counter() - t_opt) * 1000, 1)
 
-                    if optimize_result.get("success"):
+                    if optimize_result.get("success") and Path(game_ready_path).exists():
+                        # Authoritatively swap active glb_path to the processed derivative
+                        glb_path = game_ready_path
                         meta["auto_optimize_result"] = optimize_result
                         meta["game_ready_url"] = to_url(game_ready_path)
-                        if game_ready:
-                            glb_path = game_ready_path
+                        meta["processed_model_url"] = to_url(game_ready_path)
+                        meta["active_model_url"] = to_url(game_ready_path)
                         _update_job(session, job_id, processing_metadata=meta)
+
+                        opt_stage = {
+                            "stage": "mesh_optimization",
+                            "tool": optimize_result.get("method", "meshoptimizer"),
+                            "status": "success",
+                            "duration_ms": opt_dur,
+                            "input_triangles": optimize_result.get("source_faces", 0),
+                            "output_triangles": optimize_result.get("target_faces", 0),
+                            "reduction_percent": optimize_result.get("reduction_percent", 0),
+                            "output_path": game_ready_path,
+                        }
+                        pipeline_stages.append(opt_stage)
+                        logger.info(
+                            "[PIPELINE_STAGE] stage=mesh_optimization tool=%s duration_ms=%.1f in_tris=%d out_tris=%d red_pct=%.1f%% output=%s",
+                            opt_stage["tool"], opt_dur, opt_stage["input_triangles"], opt_stage["output_triangles"], opt_stage["reduction_percent"], game_ready_path,
+                        )
                         sync_publish(88, "optimizing",
-                            f"Game-ready optimization complete: {optimize_result.get('reduction_percent', 0)}% reduction",
+                            f"Game-ready optimization complete: {optimize_result.get('reduction_percent', 0)}% reduction ({optimize_result.get('source_faces', 0):,} → {optimize_result.get('target_faces', 0):,} tris)",
                             "success")
                     else:
-                        logger.warning("Game-ready optimization skipped: %s", optimize_result.get("error", "unknown"))
-                        meta["auto_optimize_error"] = optimize_result.get("error")
+                        opt_err = optimize_result.get("error", "unknown optimization failure")
+                        logger.warning("Mesh optimization skipped or failed: %s", opt_err)
+                        meta["auto_optimize_error"] = opt_err
+                        meta["auto_optimize_result"] = {"success": False, "error": opt_err}
+                        pipeline_stages.append({
+                            "stage": "mesh_optimization",
+                            "tool": "mesh_optimizer",
+                            "status": "failed",
+                            "duration_ms": opt_dur,
+                            "error": opt_err,
+                        })
                         _update_job(session, job_id, processing_metadata=meta)
+                        sync_publish(88, "optimizing", f"Mesh optimization could not be applied: {opt_err}", "warn")
                 except Exception as opt_exc:
+                    opt_dur = round((time.perf_counter() - t_opt) * 1000, 1)
                     logger.warning("Game-ready optimization failed: %s", opt_exc)
                     meta["auto_optimize_error"] = str(opt_exc)
+                    meta["auto_optimize_result"] = {"success": False, "error": str(opt_exc)}
+                    pipeline_stages.append({
+                        "stage": "mesh_optimization",
+                        "tool": "mesh_optimizer",
+                        "status": "failed",
+                        "duration_ms": opt_dur,
+                        "error": str(opt_exc),
+                    })
                     _update_job(session, job_id, processing_metadata=meta)
+                    sync_publish(88, "optimizing", f"Optimization failed: {opt_exc}", "warn")
 
             # 7c. Multi-tier LOD cascade (LOD0–LOD3)
-            if meta.get("generate_lod", False) and glb_path and Path(glb_path).exists():
+            if not skip_postprocessing and meta.get("generate_lod", False) and glb_path and Path(glb_path).exists():
                 sync_publish(90, "lod_generation", "Generating multi-tier LODs (LOD0–LOD3)...", "info")
+                t_lod = time.perf_counter()
                 try:
                     from app.core.mesh_optimizer import generate_lods
                     lod_count = int(meta.get("lod_count", 3))
@@ -769,23 +966,42 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                         model_public_url(job_id, f"lods/{info['filename']}")
                         for info in lod_res.get("levels", {}).values()
                     ]
+                    lod_dur = round((time.perf_counter() - t_lod) * 1000, 1)
                     meta["lod_urls"] = lod_urls
                     meta["lods_result"] = lod_res
+                    pipeline_stages.append({
+                        "stage": "lod_generation",
+                        "tool": "meshoptimizer",
+                        "status": "success",
+                        "duration_ms": lod_dur,
+                        "levels_count": len(lod_urls),
+                    })
+                    logger.info("[PIPELINE_STAGE] stage=lod_generation tool=meshoptimizer duration_ms=%.1f levels=%d", lod_dur, len(lod_urls))
                     _update_job(session, job_id, processing_metadata=meta)
                     sync_publish(92, "lod_generation", f"Generated {len(lod_urls)} LOD levels.", "success")
                 except Exception as lod_exc:
                     logger.warning("LOD generation failed: %s", lod_exc)
 
             # 7d. Collision mesh generation
-            if meta.get("generate_collision", False) and glb_path and Path(glb_path).exists():
+            if not skip_postprocessing and meta.get("generate_collision", False) and glb_path and Path(glb_path).exists():
                 sync_publish(94, "collision", "Generating simplified collision geometry...", "info")
+                t_col = time.perf_counter()
                 try:
                     from app.core.mesh_optimizer import generate_collision_mesh
                     collision_path = str(model_output_dir(job_id) / "collision.glb")
                     col_res = generate_collision_mesh(glb_path, collision_path)
+                    col_dur = round((time.perf_counter() - t_col) * 1000, 1)
                     if col_res.get("success"):
                         meta["collision_url"] = to_url(collision_path)
                         meta["collision_result"] = col_res
+                        pipeline_stages.append({
+                            "stage": "collision_generation",
+                            "tool": "trimesh/convex_hull",
+                            "status": "success",
+                            "duration_ms": col_dur,
+                            "output_path": collision_path,
+                        })
+                        logger.info("[PIPELINE_STAGE] stage=collision_generation tool=convex_hull duration_ms=%.1f output=%s", col_dur, collision_path)
                         _update_job(session, job_id, processing_metadata=meta)
                         sync_publish(95, "collision", "Collision mesh ready.", "success")
                 except Exception as col_exc:
@@ -794,10 +1010,22 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             # 7e. Asset QA & Diagnostics
             sync_publish(96, "qa_diagnostics", "Evaluating asset quality score...", "info")
             qa_report = {}
+            t_qa = time.perf_counter()
             try:
                 from app.core.mesh_processor import run_mesh_diagnostics
                 qa_report = run_mesh_diagnostics(glb_path, target_platform=target_platform)
+                qa_dur = round((time.perf_counter() - t_qa) * 1000, 1)
                 meta["qa_report"] = qa_report
+                pipeline_stages.append({
+                    "stage": "qa_diagnostics",
+                    "tool": "mesh_processor",
+                    "status": "success",
+                    "duration_ms": qa_dur,
+                    "game_ready_score": qa_report.get("game_ready_score"),
+                    "qa_status": qa_report.get("status"),
+                })
+                logger.info("[PIPELINE_STAGE] stage=qa_diagnostics tool=mesh_processor duration_ms=%.1f score=%s status=%s",
+                            qa_dur, qa_report.get("game_ready_score"), qa_report.get("status"))
                 _update_job(session, job_id, processing_metadata=meta)
             except Exception as qa_exc:
                 logger.warning("QA evaluation failed: %s", qa_exc)
@@ -823,18 +1051,19 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 logger.warning("Mesh stats extraction failed (non-blocking): %s", e)
 
             download_urls = {
-                "glb": to_url(blender_result.get("glb")),
+                "glb": to_url(glb_path),
                 "fbx": to_url(blender_result.get("fbx")),
                 "obj": to_url(blender_result.get("obj")),
                 "stl": to_url(blender_result.get("stl")),
                 "ply": to_url(blender_result.get("ply")),
-                "source": to_url(source_glb_path) if Path(source_glb_path).exists() else to_url(blender_result.get("glb")),
+                "source": to_url(source_glb_path) if Path(source_glb_path).exists() else to_url(glb_path),
                 "game_ready": meta.get("game_ready_url"),
                 "collision": meta.get("collision_url"),
             }
 
-
             # 10. Finalize
+            meta["pipeline_stages"] = pipeline_stages
+            meta["active_model_url"] = to_url(glb_path)
             _update_job(
                 session, job_id,
                 status="completed",
@@ -855,6 +1084,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
 
             result_payload = {
                 "model_url": to_url(glb_path),
+                "active_model_url": to_url(glb_path),
                 "thumbnail_url": model_public_url(job_id, "thumbnail.png") if rendered else "",
                 "polygon_count": stats.get("polygon_count", provider_result.polygon_count),
                 "vertex_count": stats.get("vertex_count", provider_result.vertex_count),
@@ -867,6 +1097,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 "lod_urls": meta.get("lod_urls") or [],
                 "collision_url": meta.get("collision_url"),
                 "qa_report": qa_report,
+                "pipeline_stages": pipeline_stages,
             }
 
             _publish(job_id, {

@@ -37,6 +37,7 @@ rembg<=2.0.69
 onnxruntime
 
 # 3D mesh processing
+open3d>=0.19.0
 trimesh==4.5.3
 scipy>=1.11.0
 scikit-image>=0.21.0

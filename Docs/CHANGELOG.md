@@ -1,5 +1,57 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.27] - 2026-09-09
+
+### Added / Fixed
+
+#### 1. Authoritative Processed Derivative Routing & Master Preservation (`tasks.py`, `project.py`, `generation.py`, `RightPropertyPanel.tsx`, `generation.py` schemas)
+- **Active Processed Derivative Routing**:
+  - Identified and fixed the root cause in `backend/app/workers/tasks.py` where `glb_path` was only updated if `game_ready` was explicitly set (`if game_ready: glb_path = game_ready_path`), causing `auto_optimize: true` jobs to retain and display the raw/unoptimized mesh in the viewer despite reports of optimization completion.
+  - Successfully optimized meshes (`game_ready.glb`) now unconditionally become the active derivative (`glb_path`, `job.model_url`, `meta["active_model_url"]`, and `meta["game_ready_url"]`).
+  - Corrected `download_urls["glb"]` to point to the active processed derivative instead of hardcoding `to_url(blender_result.get("glb"))`.
+- **Master Asset Preservation**:
+  - The untouched raw master mesh continues to be preserved in `source.glb` immediately after provider inference and remains completely immutable throughout all post-processing passes.
+  - Master URL remains accessible via `meta["source_model_url"]` and `download_urls["source"]`.
+- **Processing Bypass / Disable Handling**:
+  - Added support for `postprocess: bool = True` and `skip_postprocessing: bool = False` (with camelCase aliases `postProcess`, `skipPostprocessing`) in `GenerationRequest`.
+  - When post-processing is disabled, all modification stages are skipped and the untouched raw master is returned as the active result.
+- **Export Alignment**:
+  - Updated `ExportRequest` in `backend/app/api/v1/project.py` so `variant` defaults to `"active"` rather than `"source"`.
+  - `variant="active"` exports the active processed derivative (`game_ready.glb`), and falls back to `model.glb` or `source.glb` only if optimization was not run.
+  - `variant="source"` exports the untouched master asset (`source.glb`).
+  - Updated `features/new-workspace/RightPanel/RightPropertyPanel.tsx` quick export to request `variant: 'active'`.
+- **Structured Pipeline Observability**:
+  - Implemented real-time structured logging (`[PIPELINE_STAGE]`) tracking each stage (`master_analysis`, `safe_cleanup`, `blender_pipeline`, `uv_parameterization`, `mesh_optimization`, `lod_generation`, `collision_generation`, `qa_diagnostics`).
+  - Emits real elapsed durations, tool names (`Open3D`, `Blender`, `xatlas`, `meshoptimizer`), input and output triangle counts, and reduction percentages without synthetic or fake metrics.
+  - Persists structured execution details in `job.processing_metadata["pipeline_stages"]` and includes them in the API `/status` response.
+- **Automated Verification**:
+  - Created `backend/tests/test_processed_artifact_flow.py` (8 passing tests) verifying active derivative export, model path resolution, master preservation, multi-format conversion, postprocess flags, and decimation invariants. All 19 backend tests pass.
+
+## [v5.0.26] - 2026-09-09
+
+### Added / Fixed
+
+#### 1. Open3D Canonical Mesh Analysis, Validation, & Decision Engine (`open3d_service.py`, `mesh_processor.py`, `mesh_optimizer.py`, `tasks.py`, `requirements.txt`)
+- **Central Open3D Layer**:
+  - Implemented `backend/app/core/open3d_service.py` as the canonical source of truth for 3D mesh analysis, geometry validation, conservative cleanup, and quality-decision routing.
+  - Pinned and verified `open3d>=0.19.0` with Python 3.12+ headless Linux/Docker compatibility.
+- **Topology Diagnostics & Evidence-Backed QA**:
+  - Calculates real geometric metrics: watertightness, 2-manifold edge/vertex state, boundary edges, self-intersections count, surface area, volume, bounding box extents, and component clustering.
+  - Replaced arbitrary scores with deterministic, evidence-backed PASS/WARN/FAIL status and explainable gate deductions.
+- **Conservative Safe Cleanup & Component Preservation**:
+  - Implemented `safe_cleanup_o3d` removing duplicate vertices, duplicate triangles, and degenerate zero-area faces.
+  - Strictly preserves detached anatomical and mechanical parts (ears, horns, teeth, tails, accessories) using conservative noise-floor thresholds; never blindly deletes components or relies on "keep largest island".
+- **Deterministic Decision Engine**:
+  - Automatically evaluates master mesh diagnostics to determine whether repair, QuadriFlow retopology, decimation, or xatlas UV parameterization is required. Skips redundant stages if mesh is already healthy or within ±10% target budget.
+- **Before/After Quality Comparison & Master Preservation**:
+  - Implemented `compare_meshes_o3d` to verify derived meshes across retopology, optimization, LODs, and collision. If a derived artifact is degraded or collapsed, it is rejected and the master is preserved.
+  - Master asset (`source.glb`) remains strictly immutable.
+- **LOD & Collision Auditing**:
+  - Integrated `validate_lod_mesh_o3d` enforcing strictly decreasing triangle counts and 5% bounding box containment for LOD0–LOD3.
+  - Integrated `validate_collision_mesh_o3d` ensuring collision hulls are watertight, tightly bounded, and lightweight (<1000 tris).
+- **Unit Test Suite**:
+  - Created `backend/tests/test_open3d_pipeline.py` with 11 deterministic tests covering topology analysis, dirty geometry detection, component preservation, decision engine, LOD cascade, collision validation, and Game-Ready QA.
+
 ## [v5.0.25] - 2026-09-09
 
 ### Added / Fixed
