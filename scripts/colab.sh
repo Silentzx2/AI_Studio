@@ -1803,7 +1803,7 @@ except Exception as exc:
 
 storage = get_storage_config()
 # Colab: only preflight models that were prepared
-COLAB_ALLOWED_REPOS = {"TripoSG", "TRELLIS", "Hunyuan3D-2mini"}
+COLAB_ALLOWED_REPOS = {"TripoSG", "TRELLIS", "Hunyuan3D-2mini", "Hunyuan3D-2.1"}
 ran = skipped = 0
 
 for repo_name in sorted(REPOS.keys()):
