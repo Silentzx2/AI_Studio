@@ -157,13 +157,27 @@ auto_bootstrap() {
         log "uv installed: $(uv --version)"
     fi
 
-    # Resolve base Python binary, avoiding wrapper scripts
-    local clean_path py_bin
+    # Resolve base Python binary safely without tripping set -o pipefail
+    local clean_path py_bin cand cand_path
     clean_path=$(echo "$PATH" | tr ':' '\n' | grep -v '^/commands' | tr '\n' ':' | sed 's/:$//')
-    py_bin=$(PATH="$clean_path" which python3.12 python3 python 2>/dev/null | head -n1)
-    if [[ -z "$py_bin" || ! -x "$py_bin" ]]; then
-        py_bin=$(which python3.12 python3 python 2>/dev/null | head -n1)
+    py_bin=""
+    for cand in python3.12 python3.11 python3.10 python3 python; do
+        cand_path=$(PATH="$clean_path" command -v "$cand" 2>/dev/null || true)
+        if [[ -n "$cand_path" && -x "$cand_path" ]]; then
+            py_bin="$cand_path"
+            break
+        fi
+    done
+    if [[ -z "$py_bin" ]]; then
+        for cand in python3.12 python3.11 python3.10 python3 python; do
+            cand_path=$(command -v "$cand" 2>/dev/null || true)
+            if [[ -n "$cand_path" && -x "$cand_path" ]]; then
+                py_bin="$cand_path"
+                break
+            fi
+        done
     fi
+    py_bin="${py_bin:-python3}"
 
     # Ensure backend venv exists using normal Python venv method (clear and recreate if corrupted)
     if [[ ! -x backend/.venv/bin/python ]]; then
@@ -171,9 +185,9 @@ auto_bootstrap() {
             warn "Existing backend/.venv is corrupted — removing..."
             rm -rf backend/.venv
         fi
-        info "Creating backend virtual environment using Python venv..."
-        "$py_bin" -m venv backend/.venv || "$py_bin" -c "import venv; venv.create('backend/.venv', with_pip=True)" || {
-            err "Failed to create backend venv using Python venv"
+        info "Creating backend virtual environment using Python venv ($py_bin)..."
+        "$py_bin" -m venv backend/.venv || "$py_bin" -c "import venv; venv.create('backend/.venv', with_pip=True)" || uv venv backend/.venv || {
+            err "Failed to create backend venv"
             exit 1
         }
         log "Backend venv created"

@@ -1280,7 +1280,7 @@ if [[ -n "${COLAB_RELEASE_TAG:-}" ]]; then
     sudo apt-get install -y -qq \
         build-essential libpng-dev libjpeg-dev zlib1g-dev libharfbuzz-dev \
         libfreetype6-dev liblcms2-dev libopenjp2-7-dev libtiff-dev libwebp-dev \
-        ninja-build pkg-config >/dev/null 2>&1 || true
+        ninja-build pkg-config python3-venv python3-pip >/dev/null 2>&1 || true
     ok "System build dependencies installed for Colab"
 else
     info "Non-Colab environment — assuming system deps available"
@@ -1290,12 +1290,26 @@ fi
 
 step "4/6 Setting up backend Python environment"
 
-# Resolve base Python binary, avoiding wrapper scripts
+# Resolve base Python binary safely without tripping set -o pipefail
 clean_path=$(echo "$PATH" | tr ':' '\n' | grep -v '^/commands' | tr '\n' ':' | sed 's/:$//')
-py_bin=$(PATH="$clean_path" which "python${BACKEND_PYTHON_VERSION}" python3.12 python3 python 2>/dev/null | head -n1)
-if [[ -z "$py_bin" || ! -x "$py_bin" ]]; then
-    py_bin=$(which "python${BACKEND_PYTHON_VERSION}" python3.12 python3 python 2>/dev/null | head -n1)
+py_bin=""
+for cand in "python${BACKEND_PYTHON_VERSION:-3.12}" python3.12 python3.11 python3.10 python3 python; do
+    cand_path=$(PATH="$clean_path" command -v "$cand" 2>/dev/null || true)
+    if [[ -n "$cand_path" && -x "$cand_path" ]]; then
+        py_bin="$cand_path"
+        break
+    fi
+done
+if [[ -z "$py_bin" ]]; then
+    for cand in "python${BACKEND_PYTHON_VERSION:-3.12}" python3.12 python3.11 python3.10 python3 python; do
+        cand_path=$(command -v "$cand" 2>/dev/null || true)
+        if [[ -n "$cand_path" && -x "$cand_path" ]]; then
+            py_bin="$cand_path"
+            break
+        fi
+    done
 fi
+py_bin="${py_bin:-python3}"
 
 # Ensure backend venv exists using normal Python venv method (clear and recreate if corrupted)
 if [[ ! -x backend/.venv/bin/python ]]; then
@@ -1303,9 +1317,9 @@ if [[ ! -x backend/.venv/bin/python ]]; then
         info "Existing backend/.venv is corrupted — removing..."
         rm -rf backend/.venv
     fi
-    info "Creating backend virtual environment using Python venv..."
-    "$py_bin" -m venv backend/.venv || "$py_bin" -c "import venv; venv.create('backend/.venv', with_pip=True)" || {
-        err "Failed to create backend venv using Python venv"
+    info "Creating backend virtual environment using Python venv ($py_bin)..."
+    "$py_bin" -m venv backend/.venv || "$py_bin" -c "import venv; venv.create('backend/.venv', with_pip=True)" || uv venv backend/.venv || {
+        err "Failed to create backend venv"
         exit 1
     }
     log "Backend venv created"
