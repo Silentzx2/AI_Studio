@@ -565,6 +565,14 @@ if ! curl -sf http://localhost:8000/api/v1/health &>/dev/null; then
     exit 1
 fi
 
+# Start Xvfb virtual display if no DISPLAY is set, enabling offscreen OpenGL/trimesh rendering
+if [[ -z "${DISPLAY:-}" ]] && command -v Xvfb &>/dev/null; then
+    pkill -f "Xvfb :99" 2>/dev/null || true
+    Xvfb :99 -screen 0 1024x768x24 -nolisten tcp >/dev/null 2>&1 &
+    export DISPLAY=:99
+    log "Xvfb virtual display active on $DISPLAY"
+fi
+
 # ── Step 5: Start Celery Worker ────────────────────────────────────────────
 step "5/6 Starting Celery Worker..."
 : > "$PROJECT_ROOT/logs/worker.log"

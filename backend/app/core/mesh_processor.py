@@ -101,14 +101,25 @@ def render_thumbnail(model_path: str, output_path: str, size: tuple[int, int] = 
     the mesh loader returns a scene that cannot be rasterised cleanly, fall back
     to a lightweight placeholder preview instead of leaving the UI blank.
     """
+    out_file = Path(output_path)
+    # If a real thumbnail was already rendered (e.g. by Blender pipeline), preserve it
+    if out_file.is_file() and out_file.stat().st_size > 2048:
+        return True
+
     trimesh = _try_import_trimesh()
     if trimesh:
         try:
+            try:
+                import pyglet
+                pyglet.options["headless"] = True
+            except Exception:
+                pass
+
             loaded = trimesh.load(model_path, force="scene")
             scene = loaded if hasattr(loaded, "save_image") else trimesh.Scene(loaded)
             png = scene.save_image(resolution=size, visible=True)
             if png:
-                Path(output_path).write_bytes(png)
+                out_file.write_bytes(png)
                 return True
         except Exception as exc:
             logger.warning("Thumbnail render failed: %s", exc)

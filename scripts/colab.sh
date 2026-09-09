@@ -1280,7 +1280,7 @@ if [[ -n "${COLAB_RELEASE_TAG:-}" ]]; then
     sudo apt-get install -y -qq \
         build-essential libpng-dev libjpeg-dev zlib1g-dev libharfbuzz-dev \
         libfreetype6-dev liblcms2-dev libopenjp2-7-dev libtiff-dev libwebp-dev \
-        ninja-build pkg-config python3-venv python3-pip python3-yaml >/dev/null 2>&1 || true
+        ninja-build pkg-config python3-venv python3-pip python3-yaml xvfb >/dev/null 2>&1 || true
     ok "System build dependencies installed for Colab"
 else
     info "Non-Colab environment — assuming system deps available"
@@ -2238,6 +2238,15 @@ info "Colab service supervisor will remain attached to this terminal."
 
 # Browser keep-alive is intentionally not used as a service-lifetime mechanism.
 # The foreground supervisor below owns the application services.
+
+# ── Virtual Display for Headless Rendering ────────────────────────────────
+# Start Xvfb if no DISPLAY is set, enabling offscreen OpenGL/trimesh rendering
+if [[ -z "${DISPLAY:-}" ]] && command -v Xvfb &>/dev/null; then
+    pkill -f "Xvfb :99" 2>/dev/null || true
+    Xvfb :99 -screen 0 1024x768x24 -nolisten tcp >/dev/null 2>&1 &
+    export DISPLAY=:99
+    log "Xvfb virtual display active on $DISPLAY"
+fi
 
 # ── Start Celery Worker ───────────────────────────────────────────────────
 step "Starting Celery Worker..."

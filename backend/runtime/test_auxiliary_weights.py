@@ -95,6 +95,19 @@ class TestAuxiliaryWeights(unittest.TestCase):
             self.assertIn("hunyuan3d-2.1", res.get("downloaded", []))
             mock_dl.assert_called_once()
 
+    def test_render_thumbnail_preserves_existing(self):
+        import tempfile
+        from app.core.mesh_processor import render_thumbnail
+        with tempfile.TemporaryDirectory() as tmpdir:
+            thumb = Path(tmpdir) / "thumbnail.png"
+            thumb.write_bytes(b"PNG_DATA" * 500)  # > 2048 bytes
+            model = Path(tmpdir) / "model.glb"
+            model.write_bytes(b"GLB_DATA")
+            
+            result = render_thumbnail(str(model), str(thumb))
+            self.assertTrue(result)
+            self.assertEqual(thumb.read_bytes(), b"PNG_DATA" * 500)
+
 
 if __name__ == "__main__":
     unittest.main()

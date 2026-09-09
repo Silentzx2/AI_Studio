@@ -18,6 +18,16 @@
 - **Regression Test Suite**:
   - Created `backend/runtime/test_auxiliary_weights.py` verifying auxiliary check, download resolution, ModelActionRequest schema, and caching.
 
+#### 2. Trimesh Thumbnail Rendering & `pyglet<2` Compatibility Fix (`requirements.txt`, `mesh_processor.py`, `tasks.py`, `colab.sh`, `setup.sh`, `start.sh`)
+- **Strict `pyglet<2` Requirement Pin**:
+  - Pinned `pyglet>=1.5.0,<2` in `backend/requirements.txt`. Resolves `trimesh.viewer.windowed requires pip install "pyglet<2"` caused by `uv pip` resolving unconstrained `pyglet>=1.5.0` to `pyglet 2.x` (which removed legacy OpenGL APIs trimesh's offscreen viewer relies on).
+- **Blender Thumbnail Preservation & Headless Options**:
+  - Updated `backend/app/core/mesh_processor.py` and `backend/app/workers/tasks.py` to preserve existing high-quality thumbnails generated during the Blender post-processing pipeline (`thumbnail.png` > 2 KB) instead of blindly overwriting them with fallback placeholders.
+  - Added safe `pyglet.options['headless'] = True` configuration before loading scenes.
+- **Headless Virtual Framebuffer (`xvfb`)**:
+  - Added `xvfb` to the system package installations in `scripts/colab.sh` and `scripts/setup.sh`.
+  - Added automatic virtual display startup (`Xvfb :99` on `DISPLAY=:99`) in `scripts/colab.sh` and `scripts/start.sh` so headless server and Google Colab workers have an active X11 display context for offscreen OpenGL rasterization.
+
 ## [v5.0.24] - 2026-09-09
 
 ### Added / Fixed

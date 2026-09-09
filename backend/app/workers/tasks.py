@@ -808,10 +808,13 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             _wait_for_stable_file(glb_path)
             
             rendered = False
-            try:
-                rendered = render_thumbnail(glb_path, thumb_path)
-            except Exception as e:
-                logger.warning("Thumbnail rendering failed (non-blocking): %s", e)
+            if Path(thumb_path).is_file() and Path(thumb_path).stat().st_size > 2048:
+                rendered = True
+            else:
+                try:
+                    rendered = render_thumbnail(glb_path, thumb_path)
+                except Exception as e:
+                    logger.warning("Thumbnail rendering failed (non-blocking): %s", e)
 
             stats = {}
             try:

@@ -47,10 +47,9 @@ pymeshlab>=2022.2.post3
 # runtime; without it every decimation attempt raises and the optimizer silently
 # copies the original mesh through (fake optimization). Required for real decimation.
 fast-simplification==0.2.0
-# ponytail: trimesh's offscreen thumbnail renderer (save_image) needs pyglet for
-# OpenGL rasterization; without it every thumbnail falls back to a static placeholder
-# PNG instead of a real render of the generated model.
-pyglet>=1.5.0
+# ponytail: trimesh's offscreen thumbnail renderer (save_image) needs pyglet<2 for
+# OpenGL rasterization; pyglet>=2 dropped legacy OpenGL APIs trimesh relies on.
+pyglet>=1.5.0,<2
 
 # Tensor operations (TripoSR dependency)
 einops>=0.7.0
