@@ -902,12 +902,14 @@ def repair_venv(repo_name):
 
 def queue_native_build_if_needed(repo_name):
     try:
-        from runtime.manifest_loader import load_manifest
+        from runtime.manifest_loader import load_manifest, REPOS, PROVIDER_METADATA
         from runtime.installer import _get_native_build_info, get_persisted_install_status, persist_provider_state
         from app.workers.installation_workers import run_native_build
 
-        meta = PROVIDER_METADATA.get(repo_name, {})
-        provider_name = meta.get("providers", [repo_name])[0]
+        repo_entry = REPOS.get(repo_name, {})
+        providers = repo_entry.get("providers", [])
+        provider_name = providers[0] if providers else repo_name
+        meta = PROVIDER_METADATA.get(provider_name, {})
         manifest = load_manifest(provider_name)
         native_req, _ = _get_native_build_info(meta, manifest)
         if not native_req:

@@ -69,18 +69,29 @@ def _manifest_path(provider_name: str) -> Path:
     if (_MANIFEST_DIR / f"{alt_safe_under}.yaml").exists():
         return _MANIFEST_DIR / f"{alt_safe_under}.yaml"
 
-    # Fast header scan for `name: ...` without requiring PyYAML
+    wanted_clean = re.sub(r"[^a-z0-9]", "", wanted)
+
+    # Fast header scan for `name: ...` or `local_dir: ...` without requiring PyYAML
     for path in candidates:
+        if re.sub(r"[^a-z0-9]", "", path.stem) == wanted_clean:
+            return path
         try:
             with open(path, "r", encoding="utf-8") as f:
                 for line in f:
                     m = re.match(r"^name:\s*['\"]?([^'\"#\n]+)['\"]?", line.strip())
-                    if m and m.group(1).strip().lower() == wanted:
-                        return path
+                    if m:
+                        name_val = m.group(1).strip().lower()
+                        if name_val == wanted or re.sub(r"[^a-z0-9]", "", name_val) == wanted_clean:
+                            return path
+                    m_dir = re.match(r"^\s*local_dir:\s*['\"]?([^'\"#\n]+)['\"]?", line.strip())
+                    if m_dir:
+                        dir_val = m_dir.group(1).strip().lower()
+                        if dir_val == wanted or re.sub(r"[^a-z0-9]", "", dir_val) == wanted_clean:
+                            return path
         except OSError:
             continue
 
-    # Fall back to the manifest's canonical `name` field via yaml parser.
+    # Fall back to the manifest's canonical `name` or `local_dir` field via yaml parser.
     try:
         import yaml
     except ImportError as exc:
@@ -89,8 +100,16 @@ def _manifest_path(provider_name: str) -> Path:
         try:
             with open(path, "r") as f:
                 data = yaml.safe_load(f)
-            if isinstance(data, dict) and str(data.get("name", "")).strip().lower() == wanted:
-                return path
+            if isinstance(data, dict):
+                name_val = str(data.get("name", "")).strip().lower()
+                local_dir = str((data.get("source", {}) or {}).get("local_dir", "")).strip().lower()
+                if name_val == wanted or local_dir == wanted:
+                    return path
+                if wanted_clean and (
+                    re.sub(r"[^a-z0-9]", "", name_val) == wanted_clean
+                    or re.sub(r"[^a-z0-9]", "", local_dir) == wanted_clean
+                ):
+                    return path
         except (OSError, yaml.YAMLError):
             continue
     raise ValueError(f"No manifest found for provider '{provider_name}'")
@@ -123,7 +142,16 @@ def load_manifest(provider_name: str) -> dict:
     manifest_path = _manifest_path(provider_name)
     data = _load_manifest_file(manifest_path)
     manifest_name = str(data.get("name", ""))
-    if manifest_name.lower() != provider_name.lower():
+    source = data.get("source", {}) or {}
+    local_dir = str(source.get("local_dir", ""))
+    norm_provider = re.sub(r"[^a-z0-9]", "", provider_name.lower())
+    norm_manifest = re.sub(r"[^a-z0-9]", "", manifest_name.lower())
+    norm_dir = re.sub(r"[^a-z0-9]", "", local_dir.lower())
+    if (
+        manifest_name.lower() != provider_name.lower()
+        and local_dir.lower() != provider_name.lower()
+        and norm_provider not in (norm_manifest, norm_dir)
+    ):
         logger.warning(
             "Manifest name '%s' does not match provider_name '%s'",
             manifest_name, provider_name,
@@ -354,7 +382,14 @@ def get_all_provider_metadata() -> dict[str, dict]:
     every YAML on each call — that was the dominant cost of /runtime/status.
     """
     manifests = load_all_manifests()
-    return {pid: _build_provider_metadata(pid, m) for pid, m in manifests.items()}
+    metadata = {pid: _build_provider_metadata(pid, m) for pid, m in manifests.items()}
+    # Index by local_dir so callers querying by repo directory name resolve metadata
+    for pid, m in manifests.items():
+        source = m.get("source", {}) or {}
+        local_dir = source.get("local_dir")
+        if local_dir and local_dir not in metadata:
+            metadata[local_dir] = metadata[pid]
+    return metadata
 
 
 # Compatibility views generated from manifests — NOT hardcoded configuration.

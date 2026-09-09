@@ -261,3 +261,32 @@ def test_optimize_mesh_reduces_faces_and_preserves_input(tmp_path, high_poly_mes
     loaded_out = trimesh.load(str(output_file), force="mesh")
     assert len(loaded_out.faces) < orig_faces
     assert res["reduction_percent"] > 0
+
+
+def test_manifest_loader_resolves_repo_and_canonical_names():
+    """Verify load_manifest and PROVIDER_METADATA resolve repo names (e.g. Hunyuan3D-2mini) and provider IDs."""
+    from runtime.manifest_loader import load_manifest, REPOS, PROVIDER_METADATA
+    from runtime.installer import _get_native_build_info
+
+    for repo_name in ["Hunyuan3D-2mini", "Hunyuan3D-2.1", "TRELLIS", "TripoSG", "DetailGen3D"]:
+        # Direct load_manifest call with repo_name must succeed
+        manifest = load_manifest(repo_name)
+        assert manifest is not None
+        assert "name" in manifest
+
+        # REPOS must map repo_name to canonical provider
+        repo_cfg = REPOS.get(repo_name)
+        assert repo_cfg is not None
+        providers = repo_cfg.get("providers", [])
+        assert len(providers) > 0
+        canonical = providers[0]
+
+        # PROVIDER_METADATA must be indexable by both canonical and repo_name
+        assert canonical in PROVIDER_METADATA
+        assert repo_name in PROVIDER_METADATA
+
+        # Native build info extraction must not crash
+        native_req, all_caps = _get_native_build_info(PROVIDER_METADATA[canonical], manifest)
+        assert isinstance(native_req, bool)
+        assert isinstance(all_caps, bool)
+

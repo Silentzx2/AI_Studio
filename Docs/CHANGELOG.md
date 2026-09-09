@@ -1,5 +1,20 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.28] - 2026-09-09
+
+### Added / Fixed
+
+#### 1. Manifest Resolution & Native Build Queue Provider Mapping (`manifest_loader.py`, `setup.sh`, `colab.sh`)
+- **Root Cause**:
+  - In `queue_native_build_if_needed(repo_name)` in `scripts/setup.sh` and `scripts/colab.sh`, provider metadata was queried via `meta = PROVIDER_METADATA.get(repo_name, {})` assuming a `providers` key existed on the metadata object. Because `PROVIDER_METADATA` was keyed by provider ID (not repository folder name) and lacked a `providers` key, `provider_name` fell back to `repo_name` (`"Hunyuan3D-2mini"`).
+  - In `backend/runtime/manifest_loader.py`, `_manifest_path()` attempted strict filename and exact `name` matching; it lacked normalized alphanumeric and `source.local_dir` matching for `Hunyuan3D-2mini` (whose YAML is `hunyuan3d_2_mini.yaml` with `name: hunyuan3d-2-mini` and `local_dir: Hunyuan3D-2mini`), causing `load_manifest("Hunyuan3D-2mini")` to raise `ValueError: No manifest found for provider 'Hunyuan3D-2mini'`.
+- **Fix**:
+  - In `scripts/setup.sh` and `scripts/colab.sh`, updated `queue_native_build_if_needed()` to resolve canonical provider IDs from `REPOS.get(repo_name, {}).get("providers", [])[0]`.
+  - In `manifest_loader.py`, enhanced `_manifest_path()` to match manifests by normalized alphanumeric names, candidate stems, and `source.local_dir`.
+  - Extended `get_all_provider_metadata()` to index by both canonical provider IDs and `local_dir` repository names.
+  - Refined `load_manifest()` name check to suppress false mismatch warnings when provider alias or `local_dir` matches.
+  - Added automated test in `backend/tests/test_processed_artifact_flow.py` asserting clean resolution for all repo names (`Hunyuan3D-2mini`, `Hunyuan3D-2.1`, `TRELLIS`, `TripoSG`, `DetailGen3D`).
+
 ## [v5.0.27] - 2026-09-09
 
 ### Added / Fixed
