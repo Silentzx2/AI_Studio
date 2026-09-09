@@ -1,5 +1,38 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.23] - 2026-09-09
+
+### Added / Fixed
+
+#### 1. Standard Python `venv` Creation with Explicit Activation & Verification (`installer.py`, `dependency_resolver.py`, `setup.sh`, `colab.sh`, `start.sh`)
+- **Standard Python `venv` Migration**:
+  - Replaced `uv venv` invocations across all shell scripts (`scripts/setup.sh`, `scripts/colab.sh`, `scripts/start.sh`) with standard Python `venv` execution (`"$py_bin" -m venv <path>` with fallback to `import venv; venv.create(...)`).
+  - Consolidated per-model virtual environment creation in `backend/runtime/installer.py` into a unified helper `_create_standard_venv()`, eliminating duplicated venv bootstrap logic across `install_repo_deps` and `_prepare_runtime_venv`.
+- **Explicit Activation & Verification Contract**:
+  - All environments are explicitly activated before running any dependency installations (`source <venv>/bin/activate` in shell scripts; `_get_activated_venv_env` setting `VIRTUAL_ENV`, prepending `PATH`, and unsetting `PYTHONHOME` in Python subcommands).
+  - Added strict verification checks asserting `which python`, `which pip`, and `python -c "import sys; print(sys.prefix)" == venv_dir`.
+- **Strict `uv`-Only Dependency Installation**:
+  - Inside the verified, activated environment, package installation is exclusively handled by `uv` (`uv pip install ...`), combining standard Python venv isolation with uv's high-speed resolution and wheel installation.
+- **Automated Self-Check Test Suite (`backend/runtime/test_standard_venv.py`)**:
+  - Created standalone assert-based test suite verifying `_create_standard_venv`, environment variable activation contract, `which python`, `which pip`, `sys.prefix` matching, and `uv pip install` inside the activated venv.
+
+## [v5.0.22] - 2026-09-09
+
+### Added / Fixed
+
+#### 1. Spec-Compliant Self-Contained glTF Generator (`backend/app/api/v1/project.py`)
+- Replaced deprecated Blender 4.0 `GLTF_EMBEDDED` operator call with a pure-Python, zero-dependency embedded `.gltf` generator (`_glb_to_embedded_gltf`).
+- Safely unpacks GLB JSON and binary chunks and serializes data buffer as a base64 data URI, guaranteeing a valid single-file JSON glTF without missing `.bin` sidecars or external subprocess failures.
+
+#### 2. Colab Setup Script Parity & Idempotent Model Runtime Preparation (`scripts/colab.sh`)
+- Brought over `setup.sh` backend dependency install logic into `scripts/colab.sh` with subshell execution and error exit handling.
+- Integrated `prepare_model_runtimes` with full validation (`validate_repo`, `validate_venv`, `validate_deps`), automated repair (`repair_repo`, `repair_venv`), and native build queueing with `native_build_pending` deduplication.
+- Added `Hunyuan3D-2.1` to the default `COLAB_ALLOWED_REPOS` set for GPU-capable Colab instances.
+
+#### 3. Hunyuan3D-2.1 Texture Quality Parameter Alignment (`backend/app/core/providers/hunyuan3d_local.py`)
+- Fixed `_load_tex` to accept optional `request` parameter and safely fallback `quality = (request.quality if request else None) or "standard"`, avoiding `NameError` on texture pipeline initialization.
+- Passed `request=request` from `_texture` to `_load_tex`.
+
 ## [v5.0.21] - 2026-09-09
 
 ### Added / Fixed

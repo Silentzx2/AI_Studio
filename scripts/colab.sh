@@ -1290,15 +1290,22 @@ fi
 
 step "4/6 Setting up backend Python environment"
 
-# Ensure backend venv exists (clear and recreate if corrupted)
+# Resolve base Python binary, avoiding wrapper scripts
+clean_path=$(echo "$PATH" | tr ':' '\n' | grep -v '^/commands' | tr '\n' ':' | sed 's/:$//')
+py_bin=$(PATH="$clean_path" which "python${BACKEND_PYTHON_VERSION}" python3.12 python3 python 2>/dev/null | head -n1)
+if [[ -z "$py_bin" || ! -x "$py_bin" ]]; then
+    py_bin=$(which "python${BACKEND_PYTHON_VERSION}" python3.12 python3 python 2>/dev/null | head -n1)
+fi
+
+# Ensure backend venv exists using normal Python venv method (clear and recreate if corrupted)
 if [[ ! -x backend/.venv/bin/python ]]; then
     if [[ -d backend/.venv ]]; then
         info "Existing backend/.venv is corrupted — removing..."
         rm -rf backend/.venv
     fi
-    info "Creating backend virtual environment with uv..."
-    uv venv --python "$BACKEND_PYTHON_VERSION" backend/.venv || {
-        err "Failed to create backend venv"
+    info "Creating backend virtual environment using Python venv..."
+    "$py_bin" -m venv backend/.venv || "$py_bin" -c "import venv; venv.create('backend/.venv', with_pip=True)" || {
+        err "Failed to create backend venv using Python venv"
         exit 1
     }
     log "Backend venv created"
@@ -1306,7 +1313,24 @@ else
     log "Backend venv already exists at backend/.venv"
 fi
 
-# Install PyTorch (GPU or CPU depending on hardware)
+# Explicitly activate before installing anything
+# shellcheck disable=SC1091
+source backend/.venv/bin/activate
+
+# Verify activation
+info "Verifying virtual environment activation:"
+info "  which python: $(which python)"
+info "  which pip:    $(which pip)"
+ACTUAL_PREFIX=$(python -c "import sys; print(sys.prefix)")
+info "  sys.prefix:   $ACTUAL_PREFIX"
+EXPECTED_PREFIX="$(cd backend/.venv && pwd)"
+if [[ "$ACTUAL_PREFIX" != "$EXPECTED_PREFIX" ]]; then
+    err "Virtual environment verification failed: sys.prefix ($ACTUAL_PREFIX) != expected ($EXPECTED_PREFIX)"
+    deactivate 2>/dev/null || true
+    exit 1
+fi
+
+# Install PyTorch (GPU or CPU depending on hardware) - ONLY uv used inside activated venv
 if [[ "$GPU_TYPE" == "gpu" ]]; then
     # Normalize CUDA version for PyTorch wheel index
     # ponytail: map to nearest PyTorch-supported wheel, use newer PyTorch for newer CUDA
@@ -1324,30 +1348,32 @@ if [[ "$GPU_TYPE" == "gpu" ]]; then
         TORCH_VER="2.7.0"
     fi
     info "Installing PyTorch ${TORCH_VER} with CUDA ${CUDA_INDEX} via uv..."
-    uv pip install --python backend/.venv/bin/python torch==${TORCH_VER} \
+    uv pip install torch==${TORCH_VER} \
         --index-url "https://download.pytorch.org/whl/cu${CUDA_INDEX}" -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || {
         warn "PyTorch CUDA install failed, trying CPU fallback..."
-        uv pip install --python backend/.venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
+        uv pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
             --index-url https://download.pytorch.org/whl/cpu -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || true
     }
-    uv pip install --python backend/.venv/bin/python torchvision torchaudio \
+    uv pip install torchvision torchaudio \
         --index-url "https://download.pytorch.org/whl/cu${CUDA_INDEX}" -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || true
 else
     info "Installing PyTorch CPU-only via uv..."
-    uv pip install --python backend/.venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
+    uv pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
         --index-url https://download.pytorch.org/whl/cpu -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || true
 fi
 
-# Install backend deps
+# Install backend deps using uv inside activated venv
 if [[ -f backend/requirements.txt ]]; then
     info "Installing backend dependencies..."
-    uv pip install --python backend/.venv/bin/python -r backend/requirements.txt -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || {
-        warn "Some backend dependencies may have failed to install"
+    uv pip install -r backend/requirements.txt -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || {
+        warn "Some backend dependencies may have failed to install — check logs/bootstrap.log"
     }
     log "Backend dependencies installed"
 else
     warn "backend/requirements.txt not found — skipping backend deps"
 fi
+
+deactivate 2>/dev/null || true
 
 # ── Step 5: Frontend ──────────────────────────────────────────────────────
 
@@ -1399,7 +1425,12 @@ prepare_model_runtimes() {
     (
         cd backend
         PYTHONPATH=. "$PYTHONBIN" - << 'PYEOF'
+import datetime
 import logging
+import os as _os
+import platform
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -1413,10 +1444,150 @@ try:
         get_colab_incompatibility_reason,
     )
     from runtime.installer import prepare_runtime, get_install_status
-    from runtime.manifest_loader import REPOS
+    from runtime.manifest_loader import REPOS, PROVIDER_METADATA
+    from runtime.storage import get_storage_config
 except Exception as exc:
     print(f"  [FAIL] Could not import runtime modules: {exc}")
     sys.exit(1)
+
+storage = get_storage_config()
+
+
+def _run(cmd, cwd=None):
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        cwd=cwd,
+    )
+    return result.returncode, result.stdout, result.stderr
+
+
+def validate_repo(repo_name):
+    repo_path = storage.get_repo_path(repo_name)
+    repo_cfg = REPOS.get(repo_name)
+
+    if not repo_path.exists():
+        return False, "missing"
+    if not (repo_path / ".git").exists():
+        return False, "not_a_git_repo"
+    if repo_cfg:
+        req = repo_cfg.get("requirements")
+        if req and not (repo_path / req).exists():
+            if not (repo_path / "pyproject.toml").exists() and not (repo_path / "setup.py").exists():
+                return False, "missing_requirements"
+    code, _, _ = _run(["git", "status", "--porcelain"], cwd=repo_path)
+    if code != 0:
+        return False, "git_status_failed"
+    return True, "ok"
+
+
+def validate_venv(repo_name):
+    venv_dir = storage.get_model_venv_path(repo_name)
+    if platform.system() == "Windows":
+        venv_python = venv_dir / "Scripts" / "python.exe"
+    else:
+        venv_python = venv_dir / "bin" / "python"
+
+    if not venv_dir.exists() or not venv_python.exists():
+        return False, "missing"
+    code, _, _ = _run([str(venv_python), "--version"], cwd=venv_dir.parent)
+    if code != 0:
+        return False, "broken"
+    code_pref, out_pref, _ = _run([str(venv_python), "-c", "import sys; print(sys.prefix)"], cwd=venv_dir.parent)
+    if code_pref != 0 or out_pref.strip() != str(venv_dir.resolve()):
+        return False, "prefix_mismatch"
+    return True, "ok"
+
+
+def validate_deps(repo_name):
+    venv_dir = storage.get_model_venv_path(repo_name)
+    if platform.system() == "Windows":
+        venv_python = venv_dir / "Scripts" / "python.exe"
+    else:
+        venv_python = venv_dir / "bin" / "python"
+
+    if not venv_python.exists():
+        return False, ["python_missing"]
+
+    missing = []
+    for pkg in ["torch", "huggingface_hub"]:
+        code, _, _ = _run(
+            [str(venv_python), "-c", f"import {pkg}"],
+            cwd=venv_dir.parent,
+        )
+        if code != 0:
+            missing.append(pkg)
+    return len(missing) == 0, missing
+
+
+def repair_repo(repo_name):
+    repo_path = storage.get_repo_path(repo_name)
+    if repo_path.exists():
+        shutil.rmtree(str(repo_path), ignore_errors=True)
+    from runtime.installer import clone_repo
+    return clone_repo(repo_name)
+
+
+def repair_venv(repo_name):
+    venv_dir = storage.get_model_venv_path(repo_name)
+    if venv_dir.exists() or venv_dir.is_symlink():
+        shutil.rmtree(str(venv_dir), ignore_errors=True)
+        if venv_dir.is_symlink():
+            venv_dir.unlink()
+    from runtime.installer import prepare_runtime
+    providers = REPOS.get(repo_name, {}).get("providers", [])
+    if providers:
+        return prepare_runtime(providers[0], allow_native_build=False)
+    return {"success": False, "error": f"No providers for {repo_name}"}
+
+
+def queue_native_build_if_needed(repo_name):
+    try:
+        from runtime.manifest_loader import load_manifest
+        from runtime.installer import _get_native_build_info, get_persisted_install_status, persist_provider_state
+        from app.workers.installation_workers import run_native_build
+
+        meta = PROVIDER_METADATA.get(repo_name, {})
+        provider_name = meta.get("providers", [repo_name])[0]
+        manifest = load_manifest(provider_name)
+        native_req, _ = _get_native_build_info(meta, manifest)
+        if not native_req:
+            return None
+
+        # Idempotency: if a native build is already queued or running, don't
+        # re-queue a duplicate task. Return the existing task ID.
+        persisted = get_persisted_install_status()
+        existing = persisted.get(provider_name, {})
+        existing_state = existing.get("native_build_state", "")
+        existing_task_id = existing.get("native_build_task_id")
+        if existing_state in ("native_build_pending", "native_build_running") and existing_task_id:
+            print(f"  [NATIVE] {repo_name}: native build already {existing_state} (task={existing_task_id})")
+            return existing_task_id
+
+        task_id = f"native_build_{provider_name}_{int(datetime.datetime.utcnow().timestamp())}"
+        try:
+            run_native_build.apply_async(
+                args=[provider_name, task_id],
+                queue="installation",
+                task_id=task_id,
+            )
+        except Exception as broker_exc:
+            # Broker unavailable: persist failed state so the UI can surface it.
+            persist_provider_state(provider_name, {
+                "native_build_state": "native_build_failed",
+                "native_build_task_id": task_id,
+                "blocking_reason": f"Celery broker unavailable: {broker_exc}",
+            })
+            print(f"  [FAIL] {repo_name}: native build failed (Celery broker unavailable)")
+            return None
+
+        print(f"  [NATIVE] {repo_name}: native build queued (task={task_id})")
+        return task_id
+    except Exception as exc:
+        print(f"  [WARN] {repo_name}: could not queue native build: {exc}")
+    return None
+
 
 # Use user-selected repos if set via interactive prompt, else fall back to default
 import os as _os
@@ -1424,7 +1595,7 @@ _selected = _os.environ.get("COLAB_SELECTED_REPOS", "").strip()
 if _selected:
     COLAB_ALLOWED_REPOS = set(_selected.split(","))
 else:
-    COLAB_ALLOWED_REPOS = {"TripoSG", "TRELLIS", "Hunyuan3D-2mini"}
+    COLAB_ALLOWED_REPOS = {"TripoSG", "TRELLIS", "Hunyuan3D-2mini", "Hunyuan3D-2.1"}
 
 # Map repos to their providers for Colab gating
 repos_to_prepare = []
@@ -1453,21 +1624,73 @@ if not repos_to_prepare:
     print("  [SKIP] No models to prepare for Colab")
     sys.exit(0)
 
-# Use new Stage A: prepare_runtime (clone + venv + deps, NO weights)
-for repo_name in repos_to_prepare:
-    providers = REPOS.get(repo_name, {}).get("providers", [])
-    for provider in providers:
-        print(f"  [PREPARE] {provider}: preparing runtime...")
-        r = prepare_runtime(provider)
-        state = r.get("state", "unknown")
-        if state == "runtime_ready":
-            print(f"    [OK  ] {provider}: runtime ready")
-        elif state == "runtime_partial":
-            print(f"    [WARN] {provider}: runtime partial (some deps may be missing)")
-        else:
-            print(f"    [FAIL] {provider}: {r.get('error', 'unknown error')}")
+repaired = 0
+skipped = 0
+failed = 0
 
-print("\nRuntime preparation complete.")
+for repo_name in repos_to_prepare:
+    repo_ok, repo_reason = validate_repo(repo_name)
+    venv_ok, venv_reason = validate_venv(repo_name)
+    deps_ok, deps_missing = validate_deps(repo_name)
+
+    if repo_ok and venv_ok and deps_ok:
+        print(f"  [SKIP] {repo_name}: runtime OK")
+        queue_native_build_if_needed(repo_name)
+        skipped += 1
+        continue
+
+    # Fresh install: repo doesn't exist yet
+    if not repo_ok and repo_reason == "missing":
+        print(f"  [INSTALL] {repo_name}: fresh install...")
+        providers = REPOS.get(repo_name, {}).get("providers", [])
+        for provider in providers:
+            print(f"    [PREPARE] {provider}: preparing runtime...")
+            r = prepare_runtime(provider, allow_native_build=False)
+            state = r.get("state", "unknown")
+            if state == "runtime_ready":
+                print(f"      [OK  ] {provider}: runtime ready")
+            elif state == "runtime_partial":
+                print(f"      [WARN] {provider}: runtime partial (some deps may be missing)")
+            else:
+                print(f"      [FAIL] {provider}: {r.get('error', 'unknown error')}")
+                failed += 1
+        queue_native_build_if_needed(repo_name)
+        repaired += 1
+        continue
+
+    print(f"  [FIX ] {repo_name}: repairing (repo={repo_reason}, venv={venv_reason}, deps={deps_missing})")
+
+    if not repo_ok:
+        print(f"    -> Re-cloning {repo_name}...")
+        r = repair_repo(repo_name)
+        if not r.get("success"):
+            print(f"    [FAIL] clone failed: {r.get('error')}")
+            failed += 1
+            continue
+        print(f"    [OK  ] {repo_name} cloned")
+
+    if not venv_ok:
+        print(f"    -> Recreating venv for {repo_name}...")
+        r = repair_venv(repo_name)
+        if not r.get("success"):
+            print(f"    [FAIL] venv creation failed: {r.get('error')}")
+            failed += 1
+            continue
+        print(f"    [OK  ] {repo_name} venv ready")
+    elif not deps_ok:
+        print(f"    -> Repairing dependencies for {repo_name}...")
+        r = repair_venv(repo_name)
+        if not r.get("success"):
+            print(f"    [FAIL] dependency repair failed: {r.get('error')}")
+            failed += 1
+            continue
+        print(f"    [OK  ] {repo_name} dependencies ready")
+
+    print(f"  [OK  ] {repo_name}: repaired")
+    queue_native_build_if_needed(repo_name)
+    repaired += 1
+
+print(f"\nRuntime preparation complete: {repaired} repaired, {skipped} skipped, {failed} failed")
 print("NOTE: Weights are NOT downloaded during runtime preparation.")
 print("      Use the UI 'Download Weights' action or the API /download-weights endpoint.")
 PYEOF

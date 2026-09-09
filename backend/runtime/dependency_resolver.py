@@ -779,10 +779,16 @@ def install_resolved_deps(
         if log_cb:
             log_cb(msg)
 
+    venv_dir = venv_python.parent.parent
+    venv_bin = venv_python.parent
+
     def _run_uv(args: list[str], cwd: Path | None = None, env: dict | None = None) -> tuple[int, str]:
         import subprocess
-        merged = {**__import__("os").environ, **(env or {})}
+        merged = {**os.environ, **(env or {})}
         merged.setdefault("UV_LINK_MODE", "copy")
+        merged["VIRTUAL_ENV"] = str(venv_dir.resolve())
+        merged["PATH"] = f"{venv_bin}{os.pathsep}{merged.get('PATH', '')}"
+        merged.pop("PYTHONHOME", None)
         proc = subprocess.Popen(
             [uv_path] + args,
             stdout=subprocess.PIPE,

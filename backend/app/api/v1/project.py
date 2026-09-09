@@ -15,7 +15,7 @@ from urllib.parse import unquote, urlparse
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from app.config import get_settings
 from app.utils.response import success
@@ -28,9 +28,9 @@ settings = get_settings()
 class ExportRequest(BaseModel):
     modelUrl: str
     assetName: str | None = None
-    format: str = "glb"  # glb, fbx, obj, stl, ply
+    format: str = "glb"  # glb, gltf, fbx, obj, stl, ply
     variant: Literal["source", "game_ready", "lod_package"] = "source"
-    layers: list[dict[str, Any]] = []
+    layers: list[dict[str, Any]] = Field(default_factory=list)
     assembleAll: bool = False
     includeOriginals: bool = False
     includeTextures: bool = True
@@ -95,7 +95,43 @@ def _resolve_model_path(model_url: str) -> Path | None:
         if matches and matches[0].resolve().is_relative_to(storage_root):
             return matches[0].resolve()
 
-    return None
+def _glb_to_embedded_gltf(glb_bytes: bytes) -> str:
+    """Convert binary GLB to self-contained JSON glTF with embedded base64 buffer.
+
+    Pure-Python spec-compliant implementation avoids headless Blender GLTF_EMBEDDED
+    operator deprecation in Blender 4.x and guarantees zero missing external .bin sidecars.
+    """
+    import base64
+    import json
+    import struct
+
+    if len(glb_bytes) < 12:
+        raise ValueError("Invalid GLB: file too short")
+    magic, version, total_len = struct.unpack_from("<4sII", glb_bytes, 0)
+    if magic != b"glTF":
+        raise ValueError("Invalid GLB: magic header mismatch")
+
+    offset = 12
+    json_data = None
+    bin_data = None
+    while offset < len(glb_bytes):
+        chunk_len, chunk_type = struct.unpack_from("<I4s", glb_bytes, offset)
+        offset += 8
+        chunk_data = glb_bytes[offset:offset + chunk_len]
+        offset += chunk_len
+        if chunk_type == b"JSON":
+            json_data = json.loads(chunk_data.decode("utf-8"))
+        elif chunk_type in (b"BIN\x00", b"BIN"):
+            bin_data = chunk_data
+
+    if json_data is None:
+        raise ValueError("Invalid GLB: no JSON chunk found")
+
+    if bin_data is not None and "buffers" in json_data and json_data["buffers"]:
+        b64 = base64.b64encode(bin_data).decode("ascii")
+        json_data["buffers"][0]["uri"] = f"data:application/octet-stream;base64,{b64}"
+
+    return json.dumps(json_data, indent=2)
 
 
 @router.post("/export")
@@ -148,7 +184,7 @@ async def export_project(req: ExportRequest):
         if gr_candidate.exists():
             target_model = gr_candidate
         else:
-            # Generate game-ready model on demand if not pre-generated
+            # Generate game-ready model on demand if not pre-generated.
             try:
                 from app.core.mesh_optimizer import get_target_polycount_for_platform, optimize_mesh
                 budget = get_target_polycount_for_platform(req.targetPlatform)
@@ -162,6 +198,14 @@ async def export_project(req: ExportRequest):
                     target_model = Path(gr_out)
             except Exception as opt_err:
                 logger.warning("On-demand game-ready optimization failed: %s", opt_err)
+    elif req.variant == "lod_package":
+        if not req.packageZip:
+            raise HTTPException(status_code=400, detail="variant='lod_package' requires packageZip=true")
+        lod0 = job_dir / "lods" / "lod0.glb"
+        if lod0.exists():
+            target_model = lod0
+        else:
+            target_model = model_path
 
     exported_file: Path | None = None
 
@@ -196,7 +240,20 @@ except Exception as e:
         if proc.returncode != 0 or not exported_file.exists() or exported_file.stat().st_size == 0:
             logger.error("Blender FBX export failed (code %d): %s", proc.returncode, proc.stderr)
             raise HTTPException(status_code=500, detail="FBX export conversion failed")
-    elif fmt in ("gltf", "obj", "stl", "ply"):
+    elif fmt == "gltf":
+        # Produce a self-contained JSON glTF with embedded base64 buffer so the
+        # single-file download is completely valid and has no external .bin dependencies.
+        # Note: Blender 4.0 removed GLTF_EMBEDDED from its python operator; this
+        # pure-Python GLB unpacking guarantees standard spec compliance on all environments.
+        exported_file = out_dir / f"{clean_name}.gltf"
+        try:
+            glb_bytes = target_model.read_bytes()
+            gltf_content = _glb_to_embedded_gltf(glb_bytes)
+            exported_file.write_text(gltf_content, encoding="utf-8")
+        except Exception as exc:
+            logger.error("GLTF export conversion failed: %s", exc)
+            raise HTTPException(status_code=500, detail=f"GLTF export conversion failed: {exc}")
+    elif fmt in ("obj", "stl", "ply"):
         try:
             import trimesh
             mesh = trimesh.load(str(target_model))

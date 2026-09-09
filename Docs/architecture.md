@@ -186,11 +186,11 @@ YAML manifests in `backend/runtime/manifests/` are the **authoritative installat
 for dependency installation. `install_repo_deps()` in `runtime/installer.py` now consumes
 `manifest["environment"]` and `manifest["dependencies"]` directly:
 
-- **Python version pin**: `environment.python` is passed to `uv venv --python <version>` when
-  creating the per-model venv (only when a manifest exists; existing behavior is preserved
-  otherwise).
+- **Python version pin**: `environment.python` is used to select the base Python binary when
+  creating the per-model venv via Python's standard `venv` module (only when a manifest exists;
+  fallback to system/backend Python otherwise).
 - **Dependency source**: `dependencies.python` + `dependencies.native` are combined into a
-  temporary requirements file and installed via `_uv_install`. `REPOS[*]["requirements"]` is
+  temporary requirements file and installed via `_uv_install` inside the activated venv. `REPOS[*]["requirements"]` is
   **not consulted** when a manifest is present — the manifest is the single source of truth.
 - **Torch stack**: `_install_torch_stack()` is called to mirror the backend's exact
   torch/torchvision/torchaudio build into each per-model venv.

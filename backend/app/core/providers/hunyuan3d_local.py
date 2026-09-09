@@ -440,7 +440,7 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
         except Exception as exc:
             raise RuntimeError(f"Hunyuan3D-2.1 load failed: {exc}") from exc
 
-    def _load_tex(self) -> None:
+    def _load_tex(self, request: GenerationRequest | None = None) -> None:
         try:
             from app.core.providers.base import _patch_numpy_legacy_aliases
             _patch_numpy_legacy_aliases()
@@ -466,15 +466,18 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
             tex_cls = None
             conf_cls = None
             is_legacy = False
+            official_paint = False
 
             try:
                 from textureGenPipeline import Hunyuan3DPaintPipeline, Hunyuan3DPaintConfig
                 tex_cls = Hunyuan3DPaintPipeline
                 conf_cls = Hunyuan3DPaintConfig
+                official_paint = True
             except ImportError:
                 try:
                     from hy3dpaint.pipelines import Hunyuan3DPaintPipeline
                     tex_cls = Hunyuan3DPaintPipeline
+                    official_paint = True
                     try:
                         from hy3dpaint.pipelines import Hunyuan3DPaintConfig
                         conf_cls = Hunyuan3DPaintConfig
@@ -494,7 +497,7 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
             if (self.weights_dir / "hunyuan3d-paintpbr-v2-1").exists():
                 tex_weights = self.weights_dir / "hunyuan3d-paintpbr-v2-1"
 
-            if is_legacy or conf_cls is None or hasattr(tex_cls, "from_pretrained"):
+            if is_legacy or conf_cls is None or not official_paint:
                 # Legacy hy3dgen 2.0 or compatible from_pretrained pipeline
                 if self.low_vram:
                     from runtime.accelerate_loader import apply_low_vram_mode
@@ -514,7 +517,19 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
                 storage = get_storage_config()
                 repo_dir = storage.get_repo_path(self.repo_name)
 
-                conf = conf_cls(max_num_view=6, resolution=512)
+                quality = (request.quality if request else None) or "standard"
+                paint_presets = {
+                    "draft": {"max_num_view": 6, "resolution": 512},
+                    "low-poly": {"max_num_view": 6, "resolution": 512},
+                    "standard": {"max_num_view": 6, "resolution": 512},
+                    "high-poly": {"max_num_view": 9, "resolution": 512},
+                    "ultra": {"max_num_view": 9, "resolution": 768},
+                }
+                paint_cfg = paint_presets.get(quality, paint_presets["standard"])
+                conf = conf_cls(
+                    max_num_view=paint_cfg["max_num_view"],
+                    resolution=paint_cfg["resolution"],
+                )
                 conf.device = self.device
 
                 multiview_cfg = repo_dir / "hy3dpaint" / "cfgs" / "hunyuan-paint-pbr.yaml"
@@ -525,15 +540,46 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
                 if custom_pipe.exists():
                     conf.custom_pipeline = str(custom_pipe)
 
-                for r_cand in [
+                realesrgan_candidates = [
                     repo_dir / "hy3dpaint" / "ckpt" / "RealESRGAN_x4plus.pth",
                     repo_dir / "ckpt" / "RealESRGAN_x4plus.pth",
                     self.weights_dir / "RealESRGAN_x4plus.pth",
                     storage.weights_dir / "RealESRGAN_x4plus.pth",
-                ]:
+                ]
+                for r_cand in realesrgan_candidates:
                     if r_cand.exists():
                         conf.realesrgan_ckpt_path = str(r_cand)
                         break
+
+                # The official Hunyuan3D-2.1 paint README requires the
+                # RealESRGAN checkpoint. Fetch it lazily into the model repo
+                # only when absent so a shape-only install does not download
+                # the extra asset unnecessarily.
+                if not getattr(conf, "realesrgan_ckpt_path", None):
+                    target_ckpt = repo_dir / "hy3dpaint" / "ckpt" / "RealESRGAN_x4plus.pth"
+                    try:
+                        target_ckpt.parent.mkdir(parents=True, exist_ok=True)
+                        from urllib.request import urlopen
+                        url = (
+                            "https://github.com/xinntao/Real-ESRGAN/releases/download/"
+                            "v0.1.0/RealESRGAN_x4plus.pth"
+                        )
+                        logger.info("Downloading required Hunyuan3D-2.1 RealESRGAN checkpoint to %s", target_ckpt)
+                        with urlopen(url, timeout=60) as response, target_ckpt.open("wb") as fh:
+                            while True:
+                                chunk = response.read(1024 * 1024)
+                                if not chunk:
+                                    break
+                                fh.write(chunk)
+                        if target_ckpt.stat().st_size > 0:
+                            conf.realesrgan_ckpt_path = str(target_ckpt)
+                        else:
+                            target_ckpt.unlink(missing_ok=True)
+                    except Exception as ckpt_exc:
+                        logger.warning(
+                            "Hunyuan3D-2.1 RealESRGAN checkpoint unavailable; official paint may fail: %s",
+                            ckpt_exc,
+                        )
 
                 if (self.weights_dir / "hunyuan3d-paintpbr-v2-1").exists():
                     conf.multiview_pretrained_path = str(self.weights_dir)
@@ -661,7 +707,7 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
         out_glb = str(out / "model.glb")
 
         if self._tex is None:
-            self._load_tex()
+            self._load_tex(request=request)
 
         if self._tex is not None:
             try:

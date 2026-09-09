@@ -675,18 +675,45 @@ install_python_deps() {
   (
     cd backend
 
-    # Create venv using uv (replaces python3.12-venv entirely).
-    # Idempotent: clear and recreate if venv is corrupted (missing bin/python).
-    log "Creating virtual environment with uv..."
+    # Resolve base Python binary, avoiding wrapper scripts
+    local clean_path py_bin
+    clean_path=$(echo "$PATH" | tr ':' '\n' | grep -v '^/commands' | tr '\n' ':' | sed 's/:$//')
+    py_bin=$(PATH="$clean_path" which python3.12 python3 python 2>/dev/null | head -n1)
+    if [[ -z "$py_bin" || ! -x "$py_bin" ]]; then
+        py_bin=$(which python3.12 python3 python 2>/dev/null | head -n1)
+    fi
+
+    # Create venv using normal Python venv method (clear and recreate if corrupted)
+    log "Creating virtual environment using Python venv..."
     if [[ ! -x .venv/bin/python ]]; then
         if [[ -d .venv ]]; then
             log "Existing .venv is corrupted — removing..."
             rm -rf .venv
         fi
-        uv venv --python 3.12 .venv
+        "$py_bin" -m venv .venv || "$py_bin" -c "import venv; venv.create('.venv', with_pip=True)" || {
+            err "Failed to create backend venv using Python venv"
+            exit 1
+        }
     fi
 
-    # Install PyTorch once — GPU or CPU depending on hardware
+    # Explicitly activate before installing anything
+    # shellcheck disable=SC1091
+    source .venv/bin/activate
+
+    # Verify activation
+    log "Verifying virtual environment activation:"
+    log "  which python: $(which python)"
+    log "  which pip:    $(which pip)"
+    local actual_prefix expected_prefix
+    actual_prefix=$(python -c "import sys; print(sys.prefix)")
+    log "  sys.prefix:   $actual_prefix"
+    expected_prefix="$(pwd)/.venv"
+    if [[ "$actual_prefix" != "$expected_prefix" && "$actual_prefix" != "$(cd .venv && pwd)" ]]; then
+        err "Virtual environment verification failed: sys.prefix ($actual_prefix) != expected ($expected_prefix)"
+        exit 1
+    fi
+
+    # Install PyTorch once — GPU or CPU depending on hardware (ONLY uv used inside activated venv)
     if [[ "$GPU_AVAILABLE" == "true" ]]; then
       # Use detected CUDA version for PyTorch wheel index
       CUDA_INDEX="${CUDA_VERSION:-124}"
@@ -709,17 +736,17 @@ install_python_deps() {
         TORCH_VER="2.7.0"
       fi
       log "Installing PyTorch ${TORCH_VER} with CUDA ${CUDA_INDEX} via uv..."
-      uv pip install --python .venv/bin/python torch==${TORCH_VER} \
+      uv pip install torch==${TORCH_VER} \
         --index-url "https://download.pytorch.org/whl/cu${CUDA_INDEX}" -q
-      uv pip install --python .venv/bin/python torchvision torchaudio \
+      uv pip install torchvision torchaudio \
         --index-url "https://download.pytorch.org/whl/cu${CUDA_INDEX}" -q
     else
       log "Installing PyTorch CPU-only via uv..."
-      uv pip install --python .venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
+      uv pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
         --index-url https://download.pytorch.org/whl/cpu -q
     fi
 
-    uv pip install --python .venv/bin/python -r requirements.txt -q
+    uv pip install -r requirements.txt -q
   )
   local rc=$?
   if [[ $rc -ne 0 ]]; then
@@ -807,6 +834,9 @@ def validate_venv(repo_name):
     code, _, _ = _run([str(venv_python), "--version"], cwd=venv_dir.parent)
     if code != 0:
         return False, "broken"
+    code_pref, out_pref, _ = _run([str(venv_python), "-c", "import sys; print(sys.prefix)"], cwd=venv_dir.parent)
+    if code_pref != 0 or out_pref.strip() != str(venv_dir.resolve()):
+        return False, "prefix_mismatch"
     return True, "ok"
 
 

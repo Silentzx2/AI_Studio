@@ -309,7 +309,7 @@ RESOLUTIONS = [
 ]
 OUTPUT_FORMATS = [
     {"id": "glb",  "label": "GLB (recommended)"},
-    {"id": "gltf", "label": "glTF (JSON)"},
+    {"id": "gltf", "label": "glTF (Embedded JSON)"},
     {"id": "fbx",  "label": "FBX"},
     {"id": "obj",  "label": "OBJ"},
     {"id": "stl",  "label": "STL"},
@@ -653,19 +653,147 @@ def _backend_torch_stack() -> tuple[str, list[str]]:
     return index, specs
 
 
+def _get_activated_venv_env(venv_dir: Path) -> dict[str, str]:
+    """Return an os.environ copy with the venv activated (VIRTUAL_ENV and PATH)."""
+    venv_bin = venv_dir / ("Scripts" if platform.system() == "Windows" else "bin")
+    env = dict(os.environ)
+    env["VIRTUAL_ENV"] = str(venv_dir.resolve())
+    env["PATH"] = f"{venv_bin}{os.pathsep}{env.get('PATH', '')}"
+    env.pop("PYTHONHOME", None)
+    return env
+
+
+def _create_standard_venv(
+    repo_name: str,
+    venv_dir: Path,
+    repo_dir: Path,
+    manifest: dict | None = None,
+    log_cb: Callable | None = None,
+) -> tuple[bool, str, Path]:
+    """Create per-model venv using standard Python venv, activate, verify, and return venv_python.
+
+    Follows contract:
+    1. Verify uv is available (used exclusively for package installations inside the activated venv).
+    2. Create venv using standard Python `venv` method.
+    3. Explicitly activate environment (setting VIRTUAL_ENV, prepending PATH, removing PYTHONHOME).
+    4. Verify activation via `which python`, `which pip`, and `python -c "import sys; print(sys.prefix)"`.
+    5. Ensure all subsequent package installations use only `uv` inside this activated environment.
+    """
+    uv_path = shutil.which("uv")
+    if not uv_path:
+        msg = (
+            f"uv not found — cannot manage packages for {repo_name}. "
+            "uv is a hard dependency for dependency installation. Install: https://docs.astral.sh/uv/getting-started/installation/"
+        )
+        logger.error(msg)
+        if log_cb:
+            log_cb(msg)
+        fallback_py = venv_dir / ("Scripts/python.exe" if platform.system() == "Windows" else "bin/python")
+        return False, msg, fallback_py
+
+    if platform.system() == "Windows":
+        venv_python = venv_dir / "Scripts" / "python.exe"
+        which_cmd = "where"
+    else:
+        venv_python = venv_dir / "bin" / "python"
+        which_cmd = "which"
+
+    # Corrupted venv detection: directory exists but python executable is missing
+    if venv_dir.exists() and not venv_python.exists():
+        logger.warning("Corrupted venv detected for %s at %s — recreating", repo_name, venv_dir)
+        if log_cb:
+            log_cb(f"Recreating corrupted venv for {repo_name}...")
+        shutil.rmtree(venv_dir, ignore_errors=True)
+
+    if not venv_dir.exists():
+        target_py = None
+        if manifest and "environment" in manifest and "python" in manifest["environment"]:
+            target_py = str(manifest["environment"]["python"]).strip()
+
+        clean_path = ":".join(p for p in os.environ.get("PATH", "").split(":") if "/commands" not in p)
+        base_python = None
+        if target_py:
+            base_python = shutil.which(f"python{target_py}", path=clean_path) or shutil.which(f"python{target_py}")
+        if not base_python:
+            base_python = (
+                shutil.which("python3.12", path=clean_path)
+                or shutil.which("python3", path=clean_path)
+                or sys.executable
+            )
+
+        logger.info("Creating Python venv for %s at %s using %s", repo_name, venv_dir, base_python)
+        if log_cb:
+            log_cb(f"Creating Python venv for {repo_name} with {base_python}...")
+
+        code, output = _run([str(base_python), "-m", "venv", str(venv_dir)], cwd=repo_dir, log_cb=log_cb)
+        if code != 0 or not venv_python.exists():
+            code, output = _run(
+                [str(base_python), "-c", f"import venv; venv.create(r'{venv_dir}', with_pip=True)"],
+                cwd=repo_dir,
+                log_cb=log_cb,
+            )
+        if code != 0 or not venv_python.exists():
+            err_msg = f"Python venv creation failed for {repo_name}: {output}"
+            logger.error(err_msg)
+            if log_cb:
+                log_cb(err_msg)
+            return False, err_msg, venv_python
+        logger.info("Created standard Python venv for %s at %s", repo_name, venv_dir)
+    else:
+        logger.info("Virtual environment already exists for %s at %s", repo_name, venv_dir)
+
+    # Explicitly activate before verifying or installing anything
+    activated_env = _get_activated_venv_env(venv_dir)
+
+    # Verification checks
+    _, which_py = _run([which_cmd, "python"], cwd=repo_dir, env=activated_env)
+    _, which_pip = _run([which_cmd, "pip"], cwd=repo_dir, env=activated_env)
+    code_pref, out_pref = _run([str(venv_python), "-c", "import sys; print(sys.prefix)"], cwd=repo_dir, env=activated_env)
+
+    py_resolved = which_py.strip().splitlines()[0] if which_py.strip() else str(venv_python)
+    pip_resolved = which_pip.strip().splitlines()[0] if which_pip.strip() else ""
+    actual_prefix = out_pref.strip().splitlines()[-1] if out_pref.strip() else ""
+    expected_prefix = str(venv_dir.resolve())
+
+    # If pip was omitted by a minimal system Python without ensurepip wheels, seed pip via uv inside activated venv
+    if not pip_resolved:
+        _run([uv_path, "pip", "install", "--python", str(venv_python), "pip"], cwd=repo_dir, env=activated_env)
+        _, which_pip = _run([which_cmd, "pip"], cwd=repo_dir, env=activated_env)
+        pip_resolved = which_pip.strip().splitlines()[0] if which_pip.strip() else ""
+
+    v_msg = (
+        f"Activated venv verified for {repo_name}: "
+        f"which python={py_resolved} | which pip={pip_resolved} | sys.prefix={actual_prefix}"
+    )
+    logger.info(v_msg)
+    if log_cb:
+        log_cb(v_msg)
+
+    if actual_prefix != expected_prefix:
+        err = f"Virtual environment verification failed for {repo_name}: sys.prefix '{actual_prefix}' != '{expected_prefix}'"
+        logger.error(err)
+        if log_cb:
+            log_cb(err)
+        return False, err, venv_python
+
+    return True, "", venv_python
+
+
 def _install_torch_stack(
     venv_python: Path,
     cwd: Path,
     log_cb: Callable | None = None,
 ) -> tuple[int, str]:
     """Install the backend-matching torch/torchvision/torchaudio into a per-model
-    venv. Mirrors the backend's exact build so in-process inference stays ABI
-    compatible with the backend's already-loaded torch.
+    venv using uv inside the activated venv environment. Mirrors the backend's exact
+    build so in-process inference stays ABI compatible with the backend's already-loaded torch.
     """
     uv_path = shutil.which("uv")
     if not uv_path:
         return 1, "uv not found"
     torch_index, torch_specs = _backend_torch_stack()
+    venv_dir = venv_python.parent.parent
+    env = _get_activated_venv_env(venv_dir)
     # Install the torch stack with the PyTorch index as primary and PyPI as a
     # fallback (the nvidia-* CUDA libs that torch depends on live on PyPI).
     # --index-strategy unsafe-best-match is required so the pinned +cuXXX local
@@ -677,6 +805,7 @@ def _install_torch_stack(
          "--index-url", torch_index, "--extra-index-url", "https://pypi.org/simple",
          "--index-strategy", "unsafe-best-match", "--reinstall", *torch_specs],
         cwd=str(cwd),
+        env=env,
         log_cb=log_cb,
     )
     if code != 0:
@@ -686,6 +815,7 @@ def _install_torch_stack(
     code2, output2 = _run(
         [uv_path, "pip", "install", "--python", str(venv_python), "setuptools", "wheel"],
         cwd=str(cwd),
+        env=env,
         log_cb=log_cb,
     )
     if code2 != 0:
@@ -768,8 +898,10 @@ def _uv_install(
             log_cb(msg)
         return {"success": False, "error": msg}
 
+    venv_dir = venv_python.parent.parent
+
     def _run_uv(args, cwd=None, extra_env=None):
-        env = dict(os.environ)
+        env = _get_activated_venv_env(venv_dir)
         if extra_env:
             env.update(extra_env)
         return _run([uv_path] + args, cwd=cwd, env=env, log_cb=log_cb)
@@ -1497,53 +1629,11 @@ def install_repo_deps(repo_name: str, log_cb: Callable | None = None, requiremen
         logger.warning(msg)
         if log_cb:
             log_cb(msg)
-    # per-model isolated venv — uv only, no fallback
-    # ponytail: cross-platform venv Python path detection
+    # per-model isolated venv — Python standard venv + explicit activation + uv
     venv_dir = repo_dir / ".venv"
-    if platform.system() == "Windows":
-        venv_python = venv_dir / "Scripts" / "python.exe"
-    else:
-        venv_python = venv_dir / "bin" / "python"
-
-    if not venv_dir.exists():
-        uv_path = shutil.which("uv")
-        if not uv_path:
-            return {
-                "success": False,
-                "error": (
-                    f"uv not found — cannot create venv for {repo_name}. "
-                    "uv is a hard dependency. Install: https://docs.astral.sh/uv/getting-started/installation/"
-                ),
-            }
-        venv_args = [uv_path, "venv"]
-        # Authoritative python pin from manifest when available.
-        if manifest and "environment" in manifest and "python" in manifest["environment"]:
-            venv_args += ["--python", manifest["environment"]["python"]]
-        venv_args.append(str(venv_dir))
-        # Clear cached venv if it exists (uv uses centralized cache)
-        code, output = _run(venv_args, cwd=repo_dir, log_cb=log_cb, env={"UV_VENV_CLEAR": "1"})
-        if code != 0:
-            return {"success": False, "error": f"uv venv creation failed for {repo_name}: {output}"}
-        logger.info("Created uv venv for %s at %s", repo_name, venv_dir)
-    else:
-        logger.info("venv already exists for %s at %s", repo_name, venv_dir)
-
-    if not venv_python.exists():
-        # Corrupted venv — remove and recreate
-        logger.warning("Corrupted venv detected for %s — removing and recreating", repo_name)
-        import shutil as _shutil
-        _shutil.rmtree(venv_dir, ignore_errors=True)
-        uv_path = shutil.which("uv")
-        if not uv_path:
-            return {"success": False, "error": f"uv not found — cannot recreate venv for {repo_name}"}
-        venv_args = [uv_path, "venv"]
-        if manifest and "environment" in manifest and "python" in manifest["environment"]:
-            venv_args += ["--python", manifest["environment"]["python"]]
-        venv_args.append(str(venv_dir))
-        code, output = _run(venv_args, cwd=repo_dir, log_cb=log_cb)
-        if code != 0:
-            return {"success": False, "error": f"uv venv recreation failed for {repo_name}: {output}"}
-        logger.info("Recreated uv venv for %s at %s", repo_name, venv_dir)
+    ok, err, venv_python = _create_standard_venv(repo_name, venv_dir, repo_dir, manifest=manifest, log_cb=log_cb)
+    if not ok:
+        return {"success": False, "error": err}
 
     logger.info("Installing deps for %s using uv + per-model venv python", repo_name)
     if requirements_override is not None:
@@ -2071,29 +2161,11 @@ def _prepare_runtime_venv(
     storage = get_storage_config()
     repo_dir = storage.get_repo_path(repo_name)
     venv_dir = repo_dir / ".venv"
-    venv_python = venv_dir / "bin" / "python"
-
-    # Create venv if needed
-    if not venv_dir.exists():
-        uv_path = shutil.which("uv")
-        if not uv_path:
-            return {"success": False, "error": "uv not found"}
-        venv_args = [uv_path, "venv"]
-        if manifest and "environment" in manifest and "python" in manifest["environment"]:
-            venv_args += ["--python", manifest["environment"]["python"]]
-        venv_args.append(str(venv_dir))
-        code, output = _run(venv_args, cwd=repo_dir, log_cb=log_cb)
-        if code != 0:
-            return {
-                "success": False,
-                "error": f"uv venv creation failed: {output}",
-                "venv": {"state": EnvState.FAILED.value},
-            }
-
-    if not venv_python.exists():
+    ok, err, venv_python = _create_standard_venv(repo_name, venv_dir, repo_dir, manifest=manifest, log_cb=log_cb)
+    if not ok:
         return {
             "success": False,
-            "error": f"venv python not found at {venv_python}",
+            "error": err,
             "venv": {"state": EnvState.FAILED.value},
         }
 

@@ -157,15 +157,23 @@ auto_bootstrap() {
         log "uv installed: $(uv --version)"
     fi
 
-    # Ensure backend venv exists (clear and recreate if corrupted)
+    # Resolve base Python binary, avoiding wrapper scripts
+    local clean_path py_bin
+    clean_path=$(echo "$PATH" | tr ':' '\n' | grep -v '^/commands' | tr '\n' ':' | sed 's/:$//')
+    py_bin=$(PATH="$clean_path" which python3.12 python3 python 2>/dev/null | head -n1)
+    if [[ -z "$py_bin" || ! -x "$py_bin" ]]; then
+        py_bin=$(which python3.12 python3 python 2>/dev/null | head -n1)
+    fi
+
+    # Ensure backend venv exists using normal Python venv method (clear and recreate if corrupted)
     if [[ ! -x backend/.venv/bin/python ]]; then
         if [[ -d backend/.venv ]]; then
             warn "Existing backend/.venv is corrupted — removing..."
             rm -rf backend/.venv
         fi
-        info "Creating backend virtual environment..."
-        uv venv --python 3.12 backend/.venv || {
-            err "Failed to create backend venv"
+        info "Creating backend virtual environment using Python venv..."
+        "$py_bin" -m venv backend/.venv || "$py_bin" -c "import venv; venv.create('backend/.venv', with_pip=True)" || {
+            err "Failed to create backend venv using Python venv"
             exit 1
         }
         log "Backend venv created"
@@ -173,18 +181,55 @@ auto_bootstrap() {
 
     # Install backend deps if needed
     if [[ -f backend/requirements.txt ]] && [[ -x backend/.venv/bin/python ]]; then
+        # Explicitly activate before installing anything
+        # shellcheck disable=SC1091
+        source backend/.venv/bin/activate
+
+        # Verify activation
+        info "Verifying virtual environment activation:"
+        info "  which python: $(which python)"
+        info "  which pip:    $(which pip)"
+        local actual_prefix expected_prefix
+        actual_prefix=$(python -c "import sys; print(sys.prefix)")
+        info "  sys.prefix:   $actual_prefix"
+        expected_prefix="$(cd backend/.venv && pwd)"
+        if [[ "$actual_prefix" != "$expected_prefix" ]]; then
+            err "Virtual environment verification failed: sys.prefix ($actual_prefix) != expected ($expected_prefix)"
+            deactivate 2>/dev/null || true
+            exit 1
+        fi
+
         info "Installing backend dependencies..."
         local gpu_type
         gpu_type=$(detect_gpu)
         if [[ "$gpu_type" == "gpu" ]]; then
-            uv pip install --python backend/.venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
-                --index-url https://download.pytorch.org/whl/cu121 -q 2>/dev/null || true
+            uv pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
+                --index-url https://download.pytorch.org/whl/cu121 -q 2>/dev/null || {
+                err "PyTorch CUDA install failed; refusing to continue with a CPU fallback on a GPU host."
+                deactivate 2>/dev/null || true
+                exit 1
+            }
         else
-            uv pip install --python backend/.venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
-                --index-url https://download.pytorch.org/whl/cpu -q 2>/dev/null || true
+            uv pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
+                --index-url https://download.pytorch.org/whl/cpu -q 2>/dev/null || {
+                err "PyTorch CPU install failed"
+                deactivate 2>/dev/null || true
+                exit 1
+            }
         fi
-        uv pip install --python backend/.venv/bin/python -r backend/requirements.txt -q 2>/dev/null || true
-        log "Backend dependencies installed"
+
+        uv pip install -r backend/requirements.txt -q 2>/dev/null || {
+            err "Backend dependency installation failed"
+            deactivate 2>/dev/null || true
+            exit 1
+        }
+        if ! python -c 'import fastapi, sqlalchemy, celery, asyncpg, trimesh' >/dev/null 2>&1; then
+            err "Core backend imports failed after dependency installation"
+            deactivate 2>/dev/null || true
+            exit 1
+        fi
+        log "Backend dependencies verified"
+        deactivate 2>/dev/null || true
     fi
 
     # Ensure Node.js
@@ -199,7 +244,14 @@ auto_bootstrap() {
     # Ensure frontend deps
     if [[ ! -d node_modules ]]; then
         info "Installing frontend dependencies..."
-        npm ci --prefer-offline --no-audit 2>/dev/null || npm install --no-audit 2>/dev/null || true
+        npm ci --prefer-offline --no-audit 2>/dev/null || npm install --no-audit 2>/dev/null || {
+            err "Frontend dependency installation failed"
+            exit 1
+        }
+    fi
+    if [[ ! -f node_modules/next/package.json ]]; then
+        err "Next.js is not available after frontend dependency installation"
+        exit 1
     fi
 
     # Ensure storage directories exist

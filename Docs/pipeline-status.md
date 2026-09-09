@@ -1,8 +1,52 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.21 (Official Hunyuan3D-2.1 Dual Pipeline, Hunyuan3DPaintConfig, End-to-End Parameter Propagation, DifferentiableRenderer Compilation, Settings Fallback Harmonization)
+> **Version**: 5.0.23 (Standard Python `venv` Creation with Explicit Activation & Verification, Strict `uv`-Only Package Installation)
 > **Status**: ✅ **COMPLETE & RELEASE READY** — Verified 2026-09-09
 > **Last Updated**: September 9, 2026
+
+---
+
+## v5.0.23 — Standard Python `venv` & Strict `uv` Dependency Management Pass (2026-09-09)
+
+### Root Cause & Motivation
+1. **Virtual Environment Consistency**: Previously, virtual environment creation used `uv venv`, which bypassed standard Python venv hooks and could fail on platforms where `uv venv` flagged `--system` or clashed with host Python wrappers.
+2. **Explicit Activation Contract**: Virtual environments must be explicitly activated before installing packages to guarantee that `$VIRTUAL_ENV` is set, `PATH` is prepended with the environment binary directory, and `PYTHONHOME` is unset.
+3. **Strict Verification**: Every created venv must be validated via `which python`, `which pip`, and `python -c "import sys; print(sys.prefix)"` ensuring the environment prefix matches the expected directory path.
+4. **Strict `uv`-Only Package Management**: Inside the verified, activated environment, all package installations must exclusively use `uv` (`uv pip install ...`).
+
+### What Changed
+- **Standard Python `venv` Creation Helper (`backend/runtime/installer.py`)**:
+  - Implemented `_create_standard_venv(repo_name, venv_dir, repo_dir, manifest, log_cb)` to standardize per-model venv creation across `install_repo_deps()` and `_prepare_runtime_venv()`.
+  - Resolves target Python binary (honoring `manifest["environment"]["python"]` when specified) and executes `"$py_bin" -m venv <path>` with fallback to `import venv; venv.create(...)`.
+  - Explicitly activates the environment (`_get_activated_venv_env`), verifies with `which python`, `which pip`, and asserts `sys.prefix == venv_dir.resolve()`.
+- **Shell Script Parity (`scripts/setup.sh`, `scripts/colab.sh`, `scripts/start.sh`)**:
+  - Updated all shell script backend venv creation to standard Python `venv` method with clean PATH resolution (bypassing Studio wrapper scripts).
+  - Added explicit activation (`source .venv/bin/activate` / `source backend/.venv/bin/activate`).
+  - Added verification assertion (`which python`, `which pip`, and `python -c "import sys; print(sys.prefix)"`).
+  - Exclusively used `uv pip install ...` for all package installations inside the activated environment.
+- **Dependency Resolver Environment Activation (`backend/runtime/dependency_resolver.py`)**:
+  - Ensured `_run_uv` executes subcommands with `VIRTUAL_ENV` set and `PATH` prepended.
+- **Automated Self-Check Test (`backend/runtime/test_standard_venv.py`)**:
+  - Added runnable assert-based verification test suite checking venv creation, activation variables, verification commands, and `uv pip install`.
+
+---
+
+## v5.0.22 — Embedded glTF & Colab Bootstrap Parity Pass (2026-09-09)
+
+### Root Cause & Motivation
+1. **Blender 4.0 Operator Deprecation**: Headless Blender 4.0 removed `export_format='GLTF_EMBEDDED'` from its glTF exporter operator (`bpy.ops.export_scene.gltf`), causing single-file `.gltf` export to fail with an operator enum error.
+2. **Colab Script Gap**: `scripts/colab.sh` lacked the robust repository/virtualenv validation and repair loops found in `scripts/setup.sh`, lacked native build task queueing with pending checks (`native_build_pending`), and did not include `Hunyuan3D-2.1` in the default Colab model set.
+3. **Texture Quality Guard**: `_load_tex` in `hunyuan3d_local.py` referenced `request.quality` without taking `request` as an argument, risking a `NameError` when initialized in official paint mode.
+
+### What Changed
+- **Pure-Python Embedded glTF Generator (`backend/app/api/v1/project.py`)**:
+  - Implemented `_glb_to_embedded_gltf(glb_bytes: bytes)` to directly parse GLB binary chunks and embed the binary buffer as a base64 data URI in the glTF JSON. Eliminates dependency on deprecated Blender 4.0 operator arguments while guaranteeing standard spec compliance.
+- **Colab Setup & Model Runtime Preparation (`scripts/colab.sh`)**:
+  - Aligned backend dependency installation with `setup.sh` (subshell execution, exit code verification).
+  - Integrated `prepare_model_runtimes` with `validate_repo`, `validate_venv`, `validate_deps`, `repair_repo`, `repair_venv`, and `queue_native_build_if_needed` (with `native_build_pending` deduplication).
+  - Added `Hunyuan3D-2.1` to the default `COLAB_ALLOWED_REPOS` set.
+- **Hunyuan3D-2.1 Texture Loading (`backend/app/core/providers/hunyuan3d_local.py`)**:
+  - Updated `_load_tex(self, request: GenerationRequest | None = None)` and safely extracted `quality = (request.quality if request else None) or "standard"`. Passed `request=request` from `_texture`.
 
 ---
 

@@ -31,9 +31,9 @@
 | **Git** | Latest | Clone repository |
 | **Node.js** | 18+ (for dev) | Frontend development |
 | **Python** | 3.12+ (for dev) | Backend development |
-| **uv** | Latest (for dev) | Per-model venv creation |
+| **uv** | Latest (for dev) | Fast package installation inside activated venvs |
 
-> **Note**: `uv` is a **hard dependency** for this project. It is used for per-model virtual environment creation and all Python package management. Install it with `curl -LsSf https://astral.sh/uv/install.sh | sh`. There is **no fallback** to `pip` or `python -m venv`.
+> **Note**: Virtual environments are provisioned via standard Python `venv` and explicitly activated and verified (`which python`, `which pip`, `python -c "import sys; print(sys.prefix)"`). `uv` is a **hard dependency** used exclusively for all Python package installations inside activated environments. Install it with `curl -LsSf https://astral.sh/uv/install.sh | sh`.
 
 ### Operating System Support
 
@@ -329,7 +329,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Install dependencies (uv manages the environment automatically)
 cd backend
-uv venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 uv pip install -r requirements.txt
 

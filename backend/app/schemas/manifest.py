@@ -35,7 +35,7 @@ class ModelCapabilities(BaseModel):
     preview_mode: bool = True
     background_jobs: bool = True
     custom_parameters: bool = True
-    export_formats: list[str] = Field(default_factory=lambda: ["glb", "obj", "fbx"])
+    export_formats: list[str] = Field(default_factory=lambda: ["glb", "gltf", "fbx", "obj", "stl", "ply"])
     # Low VRAM mode: a VERIFIED small-footprint execution path. Never declare
     # this true unless the engine/provider/accelerate loader implements it.
     low_vram: bool = False
