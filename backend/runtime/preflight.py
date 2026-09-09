@@ -112,16 +112,29 @@ import torch
 from PIL import Image
 import trimesh
 try:
-    from hy3dpaint.pipelines import Hunyuan3DPaintPipeline
+    from textureGenPipeline import Hunyuan3DPaintPipeline, Hunyuan3DPaintConfig
+    pipe_cls = Hunyuan3DPaintPipeline
+    conf_cls = Hunyuan3DPaintConfig
 except ImportError:
     try:
-        from textureGenPipeline import Hunyuan3DPaintPipeline
+        from hy3dpaint.pipelines import Hunyuan3DPaintPipeline
+        pipe_cls = Hunyuan3DPaintPipeline
+        try:
+            from hy3dpaint.pipelines import Hunyuan3DPaintConfig
+            conf_cls = Hunyuan3DPaintConfig
+        except ImportError:
+            conf_cls = None
     except ImportError:
         from hy3dgen.texgen import Hunyuan3DPaintPipeline
-pipe = Hunyuan3DPaintPipeline.from_pretrained(__AI_STUDIO_WEIGHT_REPO__)
-img = Image.new("RGB", (256, 256))
-mesh = trimesh.creation.box()
-textured_mesh = pipe(mesh, image=img)
+        pipe_cls = Hunyuan3DPaintPipeline
+        conf_cls = None
+
+if conf_cls is not None and not hasattr(pipe_cls, "from_pretrained"):
+    conf = conf_cls(max_num_view=6, resolution=512)
+    conf.device = "cpu"
+    pipe = pipe_cls(conf)
+else:
+    pipe = pipe_cls.from_pretrained(__AI_STUDIO_WEIGHT_REPO__)
 print("ok")
 """,
     },

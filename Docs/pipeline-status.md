@@ -1,8 +1,38 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.20 (Canonical Dual-Stage Hunyuan3D-2.1, TRELLIS Sampler Controls, Validated LOD Discarding, glTF/ZIP Production Export)
-> **Status**: ✅ **COMPLETE & RELEASE READY** — Verified 2026-09-08
-> **Last Updated**: September 8, 2026
+> **Version**: 5.0.21 (Official Hunyuan3D-2.1 Dual Pipeline, Hunyuan3DPaintConfig, End-to-End Parameter Propagation, DifferentiableRenderer Compilation, Settings Fallback Harmonization)
+> **Status**: ✅ **COMPLETE & RELEASE READY** — Verified 2026-09-09
+> **Last Updated**: September 9, 2026
+
+---
+
+## v5.0.21 — Hunyuan3D-2.1 Official Dual-Pipeline & Parameter Propagation Pass (2026-09-09)
+
+### Root Cause & Motivation
+1. **Hunyuan3D-2.1 Texture Pipeline Architecture**: The official Tencent Hunyuan3D-2.1 paint pipeline (`textureGenPipeline.py`) initializes via `Hunyuan3DPaintPipeline(Hunyuan3DPaintConfig(...))` rather than `.from_pretrained(...)` (which only existed in legacy 2.0 `hy3dgen`). Calling `.from_pretrained` caused official 2.1 paint initialization to throw an `AttributeError`. Furthermore, `Hunyuan3DPaintPipeline.__call__` accepts `output_mesh_path` and `save_glb=True` to write the textured GLB directly, rather than returning an in-memory Trimesh object.
+2. **Quality Parameter Dropping in Worker**: `backend/app/api/v1/generation.py` did not persist inference quality parameters (`seed`, `num_inference_steps`, `guidance_scale`, `octree_resolution`, `num_chunks`, `face_count`) into `job.processing_metadata`, and `backend/app/workers/tasks.py` did not reconstruct them when instantiating `GenerationRequest`. As a result, client-requested inference settings were dropped prior to model invocation.
+3. **DifferentiableRenderer Native Build Step**: `hy3dpaint/DifferentiableRenderer/compile_mesh_painter.sh` was missing from `capabilities.texture_pbr.native_steps` in `hunyuan3d_21.yaml`, preventing `mesh_inpaint_processor` from compiling on setup.
+4. **Preflight Smoke Test Alignment**: `_CAPABILITY_SMOKE_TESTS["hunyuan3d-2.1"]["texture_pbr"]` in `preflight.py` used legacy 2.0 `from_pretrained` instantiation. It now supports both official 2.1 `Hunyuan3DPaintConfig` and legacy 2.0 fallback.
+5. **Frontend Default Harmonization**: `features/settings/sections/GenerationSection.tsx` retained a legacy fallback `{ id: 'hunyuan3d-1.0', label: 'HunYuan 3D' }`, which is now upgraded to `{ id: 'hunyuan3d-2.1', label: 'Hunyuan3D 2.1' }`.
+
+### What Changed
+- **Hunyuan3D-2.1 Local Provider (`backend/app/core/providers/hunyuan3d_local.py`)**:
+  - `_load_model`: Tries `from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline` and `from hy3dshape import Hunyuan3DDiTFlowMatchingPipeline` before degraded mode fallback to `hy3dgen.shapegen`.
+  - `_load_tex`: Supports official 2.1 `Hunyuan3DPaintConfig(max_num_view=6, resolution=512)` with configured `multiview_cfg_path`, `custom_pipeline`, `realesrgan_ckpt_path`, and `multiview_pretrained_path`, with seamless fallback to `from_pretrained` for legacy compatibility.
+  - `_texture`: Handles official 2.1 pipeline invocation (`save_glb=True`, output path handling) and verifies output `.glb` generation, copying to canonical `model.glb`.
+  - `_image_to_3d`: Unrolls nested list/tuple mesh returns (`[[mesh]]` -> `mesh`) and decimates by `face_count` if requested.
+  - `_text_to_3d`: Routes directly to `_image_to_3d` when `reference_image_url` is present, or raises informative `ValueError` when invoked without reference image on image-only pipelines.
+- **Inference Parameter Persistence (`backend/app/api/v1/generation.py`, `backend/app/workers/tasks.py`)**:
+  - `job.processing_metadata` now persists `seed`, `num_inference_steps`, `guidance_scale`, `octree_resolution`, `num_chunks`, `face_count`.
+  - `tasks.py` reconstructs all quality parameters and game-ready flags into `GenerationRequest` for provider execution.
+- **Manifest Native Build Step (`backend/runtime/manifests/hunyuan3d_21.yaml`)**:
+  - Added `- cd ./hy3dpaint/DifferentiableRenderer && bash compile_mesh_painter.sh` to compile `mesh_inpaint_processor`.
+- **Preflight Smoke Test (`backend/runtime/preflight.py`)**:
+  - `texture_pbr` smoke test dynamically supports both `Hunyuan3DPaintConfig` (official 2.1) and `from_pretrained` (legacy 2.0).
+- **Frontend Settings Fallback (`features/settings/sections/GenerationSection.tsx`)**:
+  - Upgraded fallback provider ID to `hunyuan3d-2.1` with label `Hunyuan3D 2.1`.
+- **Automated Verification (`backend/runtime/test_hunyuan21_pipeline.py`)**:
+  - Added runnable assert-based test suite covering parameter preservation, `_image_to_3d` parameter routing, official `_texture` invocation, and `_text_to_3d` routing.
 
 ---
 

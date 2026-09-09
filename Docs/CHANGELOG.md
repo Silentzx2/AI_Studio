@@ -1,5 +1,35 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.21] - 2026-09-09
+
+### Added / Fixed
+
+#### 1. Official Hunyuan3D-2.1 Dual-Pipeline Architecture (`hunyuan3d_local.py`, `hunyuan3d_21.yaml`, `preflight.py`)
+- **Official Shape Pipeline Resolution (`hunyuan3d_local.py`)**:
+  - Prioritizes official `from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline` and `from hy3dshape import Hunyuan3DDiTFlowMatchingPipeline`. Only falls back to legacy `hy3dgen.shapegen` when the official package is missing, logging an explicit degraded mode warning.
+- **Hunyuan3DPaintConfig & PBR Texture Generation (`hunyuan3d_local.py`, `preflight.py`)**:
+  - Implemented official `Hunyuan3DPaintPipeline(Hunyuan3DPaintConfig(...))` initialization. Dynamically configures `multiview_cfg_path`, `custom_pipeline`, `realesrgan_ckpt_path`, and `multiview_pretrained_path`. Retains legacy `.from_pretrained` fallback for backwards compatibility.
+  - In `_texture`, passes `output_mesh_path` and `save_glb=True` matching official 2.1 API, validating generated textured `.glb` output and mapping to canonical `model.glb`.
+- **Inference Robustness & Decimation (`hunyuan3d_local.py`)**:
+  - `_image_to_3d` unrolls nested lists returned by official 2.1 inference (`[[mesh]]` -> `mesh`) and applies quadric decimation when `face_count` is specified.
+  - `_text_to_3d` cleanly routes to `_image_to_3d` whenever a reference image is available, and raises an informative `ValueError` on image-only models if invoked without an image.
+- **DifferentiableRenderer Native Step (`hunyuan3d_21.yaml`)**:
+  - Added `- cd ./hy3dpaint/DifferentiableRenderer && bash compile_mesh_painter.sh` to compile `mesh_inpaint_processor` for neural inpainting during model setup.
+- **Preflight Smoke Test Support (`preflight.py`)**:
+  - Upgraded `texture_pbr` capability smoke test to dynamically support both `Hunyuan3DPaintConfig` (2.1) and `from_pretrained` (2.0).
+
+#### 2. End-to-End Quality Parameter Propagation (`generation.py`, `tasks.py`)
+- **Metadata Persistence (`generation.py`)**:
+  - Persists `seed`, `num_inference_steps`, `guidance_scale`, `octree_resolution`, `num_chunks`, `face_count` in `job.processing_metadata`.
+- **Worker Reconstruction (`tasks.py`)**:
+  - Reconstructs all quality parameters and game-ready options into `GenerationRequest` so they accurately reach provider inference methods.
+
+#### 3. Frontend Settings Harmonization & Automated Testing (`GenerationSection.tsx`, `test_hunyuan21_pipeline.py`)
+- **Settings Fallback Upgrade (`GenerationSection.tsx`)**:
+  - Replaced legacy `{ id: 'hunyuan3d-1.0', label: 'HunYuan 3D' }` with `{ id: 'hunyuan3d-2.1', label: 'Hunyuan3D 2.1' }`.
+- **Self-Check Test Suite (`test_hunyuan21_pipeline.py`)**:
+  - Created standalone assert-based test suite verifying schema parameter parsing, worker metadata reconstruction, `_image_to_3d` inference parameter dispatch, official `_texture` invocation, and `_text_to_3d` routing.
+
 ## [v5.0.18] - 2026-09-08
 
 ### Added / Fixed

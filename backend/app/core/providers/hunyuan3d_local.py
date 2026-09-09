@@ -189,7 +189,7 @@ class _HunyuanBase(BaseProvider):
             # Use existing mesh for re-texturing
             mesh_path = source_mesh
             await cb(10, "texturing", "Using existing mesh for material synthesis...", "info")
-        elif request.mode == "image-to-3d" and request.reference_image_url:
+        elif request.reference_image_url:
             mesh_path = await loop.run_in_executor(
                 None, lambda: self._image_to_3d(request, output_dir)
             )
@@ -413,20 +413,23 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
                 pass
             try:
                 from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline
-            except ImportError as shape_imp_err:
-                logger.warning(
-                    "DEGRADED_MODE: Official 'hy3dshape' package not found (%s); "
-                    "activating legacy 'hy3dgen.shapegen' compatibility fallback for Hunyuan3D-2.1. "
-                    "For full 2.1 features, ensure Tencent-Hunyuan/Hunyuan3D-2.1 is cloned.",
-                    shape_imp_err,
-                )
+            except ImportError:
                 try:
-                    from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
-                except ImportError as leg_shape_err:
-                    raise RuntimeError(
-                        f"Hunyuan3D-2.1 shape pipeline missing: neither official 'hy3dshape' nor "
-                        f"compatibility 'hy3dgen' is available: {leg_shape_err}"
-                    ) from leg_shape_err
+                    from hy3dshape import Hunyuan3DDiTFlowMatchingPipeline
+                except ImportError as shape_imp_err:
+                    logger.warning(
+                        "DEGRADED_MODE: Official 'hy3dshape' package not found (%s); "
+                        "activating legacy 'hy3dgen.shapegen' compatibility fallback for Hunyuan3D-2.1. "
+                        "For full 2.1 features, ensure Tencent-Hunyuan/Hunyuan3D-2.1 is cloned.",
+                        shape_imp_err,
+                    )
+                    try:
+                        from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
+                    except ImportError as leg_shape_err:
+                        raise RuntimeError(
+                            f"Hunyuan3D-2.1 shape pipeline missing: neither official 'hy3dshape' nor "
+                            f"compatibility 'hy3dgen' is available: {leg_shape_err}"
+                        ) from leg_shape_err
 
             logger.info("Loading Hunyuan3D-2.1 from %s on %s", self.weights_dir, self.device)
             subfolder = "hunyuan3d-dit-v2-1" if (self.weights_dir / "hunyuan3d-dit-v2-1").exists() else None
@@ -439,14 +442,44 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
 
     def _load_tex(self) -> None:
         try:
-            tex_cls = None
+            from app.core.providers.base import _patch_numpy_legacy_aliases
+            _patch_numpy_legacy_aliases()
             try:
-                from hy3dpaint.pipelines import Hunyuan3DPaintPipeline
+                import transformers.utils.import_utils as _tiu
+                if hasattr(_tiu, "check_torch_load_is_safe"):
+                    _tiu.check_torch_load_is_safe = lambda *a, **kw: None
+            except Exception:
+                pass
+            try:
+                import diffusers.utils.import_utils as _diu
+                _diu.is_onnx_available = lambda: False
+                _diu.is_onnxruntime_available = lambda: False
+            except Exception:
+                pass
+
+            try:
+                from torchvision_fix import apply_fix
+                apply_fix()
+            except Exception:
+                pass
+
+            tex_cls = None
+            conf_cls = None
+            is_legacy = False
+
+            try:
+                from textureGenPipeline import Hunyuan3DPaintPipeline, Hunyuan3DPaintConfig
                 tex_cls = Hunyuan3DPaintPipeline
+                conf_cls = Hunyuan3DPaintConfig
             except ImportError:
                 try:
-                    from textureGenPipeline import Hunyuan3DPaintPipeline
+                    from hy3dpaint.pipelines import Hunyuan3DPaintPipeline
                     tex_cls = Hunyuan3DPaintPipeline
+                    try:
+                        from hy3dpaint.pipelines import Hunyuan3DPaintConfig
+                        conf_cls = Hunyuan3DPaintConfig
+                    except ImportError:
+                        pass
                 except ImportError as paint_imp_err:
                     logger.warning(
                         "DEGRADED_MODE: Official 'hy3dpaint' package not found (%s); "
@@ -455,33 +488,77 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
                     )
                     from hy3dgen.texgen import Hunyuan3DPaintPipeline
                     tex_cls = Hunyuan3DPaintPipeline
+                    is_legacy = True
 
             tex_weights = self.weights_dir
             if (self.weights_dir / "hunyuan3d-paintpbr-v2-1").exists():
                 tex_weights = self.weights_dir / "hunyuan3d-paintpbr-v2-1"
 
-            if self.low_vram:
-                from runtime.accelerate_loader import apply_low_vram_mode
-                self._tex = tex_cls.from_pretrained(
-                    str(tex_weights), device="cpu"
-                )
-                apply_low_vram_mode(
-                    self._tex,
-                    self.model_key,
-                    requested_mode="low",
-                    execution_device=self.device,
-                    offload_folder=self.weights_dir / ".accelerate_offload",
-                )
+            if is_legacy or conf_cls is None or hasattr(tex_cls, "from_pretrained"):
+                # Legacy hy3dgen 2.0 or compatible from_pretrained pipeline
+                if self.low_vram:
+                    from runtime.accelerate_loader import apply_low_vram_mode
+                    self._tex = tex_cls.from_pretrained(str(tex_weights), device="cpu")
+                    apply_low_vram_mode(
+                        self._tex,
+                        self.model_key,
+                        requested_mode="low",
+                        execution_device=self.device,
+                        offload_folder=self.weights_dir / ".accelerate_offload",
+                    )
+                else:
+                    self._tex = tex_cls.from_pretrained(str(tex_weights), device=self.device)
             else:
-                self._tex = tex_cls.from_pretrained(
-                    str(tex_weights), device=self.device
-                )
+                # Official Hunyuan3D-2.1 Paint Pipeline
+                from runtime.storage import get_storage_config
+                storage = get_storage_config()
+                repo_dir = storage.get_repo_path(self.repo_name)
+
+                conf = conf_cls(max_num_view=6, resolution=512)
+                conf.device = self.device
+
+                multiview_cfg = repo_dir / "hy3dpaint" / "cfgs" / "hunyuan-paint-pbr.yaml"
+                if multiview_cfg.exists():
+                    conf.multiview_cfg_path = str(multiview_cfg)
+
+                custom_pipe = repo_dir / "hy3dpaint" / "hunyuanpaintpbr"
+                if custom_pipe.exists():
+                    conf.custom_pipeline = str(custom_pipe)
+
+                for r_cand in [
+                    repo_dir / "hy3dpaint" / "ckpt" / "RealESRGAN_x4plus.pth",
+                    repo_dir / "ckpt" / "RealESRGAN_x4plus.pth",
+                    self.weights_dir / "RealESRGAN_x4plus.pth",
+                    storage.weights_dir / "RealESRGAN_x4plus.pth",
+                ]:
+                    if r_cand.exists():
+                        conf.realesrgan_ckpt_path = str(r_cand)
+                        break
+
+                if (self.weights_dir / "hunyuan3d-paintpbr-v2-1").exists():
+                    conf.multiview_pretrained_path = str(self.weights_dir)
+                else:
+                    conf.multiview_pretrained_path = "tencent/Hunyuan3D-2.1"
+
+                self._tex = tex_cls(conf)
+                logger.info("Official Hunyuan3D-2.1 paint pipeline initialized successfully")
         except Exception as exc:
             logger.warning("Hunyuan3D tex pipeline unavailable: %s", exc)
+            self._tex = None
 
     def _text_to_3d(self, request: GenerationRequest, output_dir: str) -> str:
-        import torch
+        if request.reference_image_url:
+            return self._image_to_3d(request, output_dir)
+
         import inspect
+        sig = inspect.signature(self._model.__call__)
+        if "prompt" not in sig.parameters:
+            raise ValueError(
+                "Hunyuan3D-2.1 is an image-to-3D pipeline requiring an input reference image. "
+                "Please provide a reference image to generate 3D assets."
+            )
+
+        import torch
         out = Path(output_dir)
         out.mkdir(parents=True, exist_ok=True)
         steps = request.num_inference_steps or {"low-poly": 20, "standard": 35, "high-poly": 50}.get(request.quality, 35)
@@ -501,7 +578,6 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
         if request.num_chunks is not None:
             call_kwargs["num_chunks"] = request.num_chunks
 
-        sig = inspect.signature(self._model.__call__)
         valid_kwargs = {k: v for k, v in call_kwargs.items() if k in sig.parameters}
 
         with torch.inference_mode():
@@ -512,6 +588,8 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
             mesh = result.meshes[0]
         elif isinstance(result, (list, tuple)) and len(result) > 0:
             mesh = result[0]
+            while isinstance(mesh, (list, tuple)) and len(mesh) > 0:
+                mesh = mesh[0]
         elif hasattr(result, "export"):
             mesh = result
         else:
@@ -561,6 +639,8 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
             mesh = result.meshes[0]
         elif isinstance(result, (list, tuple)) and len(result) > 0:
             mesh = result[0]
+            while isinstance(mesh, (list, tuple)) and len(mesh) > 0:
+                mesh = mesh[0]
         elif hasattr(result, "export"):
             mesh = result
         else:
@@ -576,36 +656,70 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
         return dest
 
     def _texture(self, request: GenerationRequest, mesh_path: str, output_dir: str) -> None:
-        out_glb = str(Path(output_dir) / "model.glb") if output_dir else mesh_path
+        out = Path(output_dir) if output_dir else Path(mesh_path).parent
+        out.mkdir(parents=True, exist_ok=True)
+        out_glb = str(out / "model.glb")
+
         if self._tex is None:
             self._load_tex()
+
         if self._tex is not None:
             try:
                 import torch
-                import trimesh
                 from PIL import Image
-                mesh = trimesh.load(mesh_path, force="mesh")
-                img = Image.open(request.reference_image_url).convert("RGBA") if request.reference_image_url else None
-                with torch.inference_mode():
-                    if img is not None:
-                        try:
-                            result = self._tex(mesh_path, image_path=request.reference_image_url)
-                        except (TypeError, Exception):
-                            try:
-                                result = self._tex(mesh, image=img)
-                            except TypeError:
-                                result = self._tex(mesh_path=mesh_path, image=img)
-                    else:
-                        result = self._tex(mesh_path=mesh_path, prompt=request.prompt)
 
-                if hasattr(result, "export"):
-                    result.export(out_glb)
-                    return
-                elif hasattr(result, "mesh") and hasattr(result.mesh, "export"):
-                    result.mesh.export(out_glb)
-                    return
+                if hasattr(self._tex, "models") and hasattr(self._tex, "render"):
+                    logger.info("Executing official Hunyuan3D-2.1 paint pipeline on %s", mesh_path)
+                    ref_img = request.reference_image_url
+                    if not ref_img:
+                        raise ValueError("Reference image is required for Hunyuan3D-2.1 paint pipeline")
+
+                    obj_out = str(out / "textured_mesh.obj")
+                    with torch.inference_mode():
+                        self._tex(
+                            mesh_path=mesh_path,
+                            image_path=ref_img,
+                            output_mesh_path=obj_out,
+                            save_glb=True,
+                        )
+
+                    produced_glb = Path(obj_out.replace(".obj", ".glb"))
+                    if produced_glb.is_file() and produced_glb.stat().st_size > 0:
+                        import shutil
+                        shutil.copy2(str(produced_glb), out_glb)
+                        logger.info("Official Hunyuan3D-2.1 paint pipeline completed: %s", out_glb)
+                        return
+                    elif Path(obj_out).is_file() and Path(obj_out).stat().st_size > 0:
+                        import trimesh
+                        t_mesh = trimesh.load(obj_out, force="mesh")
+                        t_mesh.export(out_glb, file_type="glb")
+                        logger.info("Official Hunyuan3D-2.1 paint pipeline mesh exported to %s", out_glb)
+                        return
+                else:
+                    import trimesh
+                    mesh = trimesh.load(mesh_path, force="mesh")
+                    img = Image.open(request.reference_image_url).convert("RGBA") if request.reference_image_url else None
+                    with torch.inference_mode():
+                        if img is not None:
+                            try:
+                                result = self._tex(mesh_path, image_path=request.reference_image_url)
+                            except (TypeError, Exception):
+                                try:
+                                    result = self._tex(mesh, image=img)
+                                except TypeError:
+                                    result = self._tex(mesh_path=mesh_path, image=img)
+                        else:
+                            result = self._tex(mesh_path=mesh_path, prompt=request.prompt)
+
+                    if hasattr(result, "export"):
+                        result.export(out_glb)
+                        return
+                    elif hasattr(result, "mesh") and hasattr(result.mesh, "export"):
+                        result.mesh.export(out_glb)
+                        return
             except Exception as exc:
                 logger.warning("Hunyuan3D-2.1 paint pipeline execution failed: %s; trying projection fallback", exc)
+
         if request.reference_image_url:
             self._project_texture(mesh_path, request.reference_image_url, out_glb)
 

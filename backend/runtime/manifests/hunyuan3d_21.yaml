@@ -122,6 +122,7 @@ capabilities:
     native_build_required: true
     native_steps:
     - pip install -e ./hy3dpaint/custom_rasterizer
+    - cd ./hy3dpaint/DifferentiableRenderer && bash compile_mesh_painter.sh
     vram_required_mb: 29000
 preflight:
   check_model_venv: true

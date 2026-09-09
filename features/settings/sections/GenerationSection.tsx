@@ -63,7 +63,7 @@ export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: 
   }, [save, onSaveRegister]);
 
   const rawList = options?.three_d_models || options?.providers || [
-    { id: 'hunyuan3d-1.0', label: 'HunYuan 3D' },
+    { id: 'hunyuan3d-2.1', label: 'Hunyuan3D 2.1' },
     { id: 'trellis', label: 'Trellis' },
   ];
   const providersList = rawList;
