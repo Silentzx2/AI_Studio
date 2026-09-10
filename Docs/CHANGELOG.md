@@ -17,6 +17,10 @@
   - Updated `scripts/build-native-wheels.sh` to switch symlinks and set environment variables to CUDA 12.4 prior to verifying compiler versions.
   - Guarded step 3.5 in `scripts/colab.sh` against transient APT update errors under `set -euo pipefail`.
 
+#### 2. Interactive Model Selection Menu Deduplication (`scripts/colab.sh`)
+- **Root Cause**: In `scripts/colab.sh`, `select_models_interactively()` iterated directly over `PROVIDER_METADATA.items()`, which stores each provider under both its canonical manifest ID (e.g. `hunyuan3d-2-mini`) and its directory name alias (e.g. `Hunyuan3D-2mini`). This caused every model to appear twice in the interactive setup table and selection menu.
+- **Fix**: Updated `select_models_interactively()` to iterate through canonical manifests (`load_all_manifests()`) and track unique repository names (`seen_repos`), ensuring each model is listed exactly once.
+
 ## [v5.0.31] - 2026-09-09
 
 ### Added / Fixed

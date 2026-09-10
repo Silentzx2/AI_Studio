@@ -1965,24 +1965,29 @@ from pathlib import Path
 sys.path.insert(0, str(Path(".").resolve()))
 try:
     from runtime.capability import get_model_vram_required, is_model_preparable_for_colab, get_colab_incompatibility_reason, get_model_weight_size_gb
-    from runtime.manifest_loader import REPOS
-    from runtime.manifest_loader import PROVIDER_METADATA, load_manifest
+    from runtime.manifest_loader import REPOS, PROVIDER_METADATA, load_all_manifests
 except Exception as exc:
     print(json.dumps({"error": str(exc)}))
     sys.exit(1)
 
+manifests = load_all_manifests()
 models = []
-for pid, meta in sorted(PROVIDER_METADATA.items()):
+seen_repos = set()
+for pid, manifest in sorted(manifests.items()):
     if pid == "mock":
         continue
+    meta = PROVIDER_METADATA.get(pid, {})
     repo_name = meta.get("repo", pid)
+    if not repo_name or repo_name in seen_repos:
+        continue
+    seen_repos.add(repo_name)
+
     vram_mb = meta.get("vram_required_mb", 0)
     weight_gb = get_model_weight_size_gb(pid)
     desc = meta.get("label", pid)
     colab_ok = is_model_preparable_for_colab(pid)
     colab_reason = get_colab_incompatibility_reason(pid) if not colab_ok else ""
     try:
-        manifest = load_manifest(pid)
         py_deps = len(manifest.get("dependencies", {}).get("python", []) or [])
         native_deps = len(manifest.get("dependencies", {}).get("native", []) or [])
         extra_deps = len(manifest.get("dependencies", {}).get("extra", []) or [])
