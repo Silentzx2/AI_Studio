@@ -22,28 +22,52 @@ Guidelines:
 - Maximum 200 words"""
 
 
+def heuristic_enhance_prompt(prompt: str) -> str:
+    """Enhance a 3D generation prompt using high-impact 3D domain descriptors (Meshy/Tripo AI style)."""
+    p = prompt.strip()
+    if not p:
+        return p
+    lower = p.lower()
+    modifiers = []
+    if not any(k in lower for k in ("topology", "quad", "mesh", "geometry", "poly")):
+        modifiers.append("clean quad topology, manifold geometry")
+    if not any(k in lower for k in ("texture", "material", "pbr", "albedo", "metallic", "roughness")):
+        modifiers.append("high-fidelity PBR textures, physically based rendering")
+    if not any(k in lower for k in ("light", "studio", "shadow", "ambient")):
+        modifiers.append("studio lighting, ambient occlusion, crisp detail")
+    if not any(k in lower for k in ("game-ready", "asset", "production", "cinematic", "model")):
+        modifiers.append("production-ready 3D asset")
+
+    if modifiers:
+        return f"{p}, {', '.join(modifiers)}"
+    return p
+
+
 async def enhance_prompt(prompt: str) -> str:
-    if not settings.prompt_enhancement_enabled or not settings.openai_api_key:
+    """Enhance prompt via OpenAI if configured; otherwise use 3D domain heuristics."""
+    if not prompt or not prompt.strip():
         return prompt
 
-    try:
-        from openai import AsyncOpenAI
+    if settings.prompt_enhancement_enabled and settings.openai_api_key:
+        try:
+            from openai import AsyncOpenAI
 
-        client = AsyncOpenAI(api_key=settings.openai_api_key)
-        response = await client.chat.completions.create(
-            model=settings.openai_model,
-            messages=[
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
-            max_tokens=300,
-            temperature=0.7,
-            timeout=30.0,
-        )
-        enhanced = response.choices[0].message.content
-        if enhanced:
-            return enhanced.strip()
-    except Exception as exc:
-        logger.warning("Prompt enhancement failed: %s — using original", exc)
+            client = AsyncOpenAI(api_key=settings.openai_api_key)
+            response = await client.chat.completions.create(
+                model=settings.openai_model,
+                messages=[
+                    {"role": "system", "content": _SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=300,
+                temperature=0.7,
+                timeout=15.0,
+            )
+            enhanced = response.choices[0].message.content
+            if enhanced and enhanced.strip():
+                return enhanced.strip()
+        except Exception as exc:
+            logger.warning("Prompt enhancement via OpenAI failed: %s — falling back to heuristics", exc)
 
-    return prompt
+    return heuristic_enhance_prompt(prompt)
+

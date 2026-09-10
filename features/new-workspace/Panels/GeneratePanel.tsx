@@ -40,10 +40,12 @@ export const GeneratePanel: React.FC = () => {
     isExecuting,
     executionProgress,
     executionStep,
-    generateImageTo3D,
+    generate3DModel,
     generationSettings,
     setGenerationSettings
   } = useWorkspace();
+
+  const [isEnhancing, setIsEnhancing] = useState(false);
 
   // Manifest-driven: only mesh-capable models with weights + repo present
   const { meshCapableModels, loading: optionsLoading, gpuAvailable, freeVramMb } = useManifestModels();
@@ -270,18 +272,52 @@ export const GeneratePanel: React.FC = () => {
     },
   ];
 
+  const handleEnhancePrompt = async () => {
+    const currentPrompt = generationSettings.prompt || generationSettings.imageName || '';
+    if (!currentPrompt.trim()) {
+      setNoticeMessage('Type a prompt first to enhance it with AI 3D descriptors.');
+      setTimeout(() => setNoticeMessage(null), 3500);
+      return;
+    }
+    setIsEnhancing(true);
+    try {
+      const res = await fetch('/api/v1/generation/enhance-prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: currentPrompt }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const enhanced = json?.data?.enhanced_prompt;
+        if (enhanced) {
+          setGenerationSettings(prev => ({ ...prev, prompt: enhanced }));
+        }
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
   const handleGenerate = () => {
     if (vramNotice) {
       setNoticeMessage(vramNotice);
       setTimeout(() => setNoticeMessage(null), 5000);
       return;
     }
-    if (!generationSettings.image) {
-      setNoticeMessage('Please upload or select a reference image first before generating.');
+    const isTextMode = subAction === 'wand' || (!generationSettings.image && Boolean(generationSettings.prompt?.trim()));
+    if (!isTextMode && !generationSettings.image) {
+      setNoticeMessage('Please upload a reference image or type a prompt for Text-to-3D.');
       setTimeout(() => setNoticeMessage(null), 4000);
       return;
     }
-    generateImageTo3D(generationSettings.image);
+    if (isTextMode && !generationSettings.prompt?.trim()) {
+      setNoticeMessage('Please enter a text prompt to generate a 3D model.');
+      setTimeout(() => setNoticeMessage(null), 4000);
+      return;
+    }
+    generate3DModel(isTextMode ? 'text-to-3d' : 'image-to-3d');
   };
 
   return (
@@ -440,25 +476,96 @@ export const GeneratePanel: React.FC = () => {
             )}
           </motion.div>
 
-          {/* Quick Presets / Generate Image for 3D link */}
+          {/* Quick Presets / Clear image */}
           <div className="flex items-center justify-between text-[9px] pt-0.5">
-            <span className="text-zinc-400">Sample Concept</span>
+            <span className="text-zinc-400">{generationSettings.image ? 'Reference Loaded' : 'Sample Concept'}</span>
+            <div className="flex items-center gap-2">
+              {generationSettings.image && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setGenerationSettings(prev => ({ ...prev, image: undefined, imageName: undefined }));
+                  }}
+                  className="text-rose-400 hover:underline"
+                >
+                  Clear Image
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (SAMPLE_PRESETS[0]) {
+                    setGenerationSettings(prev => ({
+                      ...prev,
+                      image: SAMPLE_PRESETS[0].url,
+                      prompt: SAMPLE_PRESETS[0].name,
+                      imageName: SAMPLE_PRESETS[0].name,
+                    }));
+                  }
+                }}
+                className="text-[#F9CF00] hover:underline"
+              >
+                Load Sample &gt;
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Text Prompt & AI Enhance Card (Tripo/Meshy AI style) */}
+        <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2.5 space-y-2">
+          <div className="flex items-center justify-between text-[10px] font-semibold text-zinc-300">
+            <span className="flex items-center gap-1.5">
+              <Wand2 className="w-3.5 h-3.5 text-[#F9CF00]" />
+              <span>Prompt / Description</span>
+            </span>
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (SAMPLE_PRESETS[0]) {
-                  setGenerationSettings(prev => ({
-                    ...prev,
-                    image: SAMPLE_PRESETS[0].url,
-                    prompt: SAMPLE_PRESETS[0].name,
-                    imageName: SAMPLE_PRESETS[0].name,
-                  }));
-                }
-              }}
-              className="text-[#F9CF00] hover:underline"
+              type="button"
+              onClick={handleEnhancePrompt}
+              disabled={isEnhancing || !(generationSettings.prompt || generationSettings.imageName)}
+              className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#F9CF00]/15 hover:bg-[#F9CF00]/25 text-[#F9CF00] border border-[#F9CF00]/30 transition-all font-bold text-[9px] disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Enhance prompt with 3D quality descriptors (PBR, topology, lighting)"
             >
-              Load Sample &gt;
+              {isEnhancing ? (
+                <Loader2 className="w-2.5 h-2.5 animate-spin" />
+              ) : (
+                <Sparkles className="w-2.5 h-2.5" />
+              )}
+              <span>{isEnhancing ? 'Enhancing...' : 'AI Enhance'}</span>
             </button>
+          </div>
+
+          <textarea
+            value={generationSettings.prompt || ''}
+            onChange={(e) => setGenerationSettings(prev => ({ ...prev, prompt: e.target.value }))}
+            placeholder={
+              subAction === 'wand'
+                ? "Describe your 3D model (e.g. Cyberpunk samurai helmet with gold accents, glowing visor)..."
+                : "Describe or refine model concept (optional for image-to-3d)..."
+            }
+            rows={2}
+            className="w-full bg-[#191A1D] border border-white/[0.08] rounded-lg p-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#F9CF00]/50 resize-none font-sans"
+          />
+
+          {/* Quick Style Chips */}
+          <div className="flex items-center gap-1 flex-wrap pt-0.5">
+            {['PBR Game Asset', 'Clean Quad Topology', 'Sci-Fi', 'Stylized', 'Photorealistic'].map((style) => (
+              <button
+                key={style}
+                type="button"
+                onClick={() => {
+                  setGenerationSettings(prev => {
+                    const base = prev.prompt?.trim() || '';
+                    if (base.toLowerCase().includes(style.toLowerCase())) return prev;
+                    return { ...prev, prompt: base ? `${base}, ${style}` : style };
+                  });
+                }}
+                className="px-1.5 py-0.5 rounded-full bg-[#202227] hover:bg-[#282b32] text-zinc-400 hover:text-white border border-white/[0.06] text-[8px] transition-colors cursor-pointer"
+              >
+                + {style}
+              </button>
+            ))}
           </div>
         </div>
 

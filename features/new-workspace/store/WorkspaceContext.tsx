@@ -92,7 +92,7 @@ interface WorkspaceContextType {
   setRemeshSettings: React.Dispatch<React.SetStateAction<RemeshSettings>>;
   textureSettings: TextureSettings;
   setTextureSettings: React.Dispatch<React.SetStateAction<TextureSettings>>;
-  generate3DModel: () => Promise<void>;
+  generate3DModel: (forcedMode?: 'image-to-3d' | 'text-to-3d') => Promise<void>;
   generateImageTo3D: (customImage?: string) => Promise<void>;
   runModelGeneration: () => Promise<void>;
   runRemeshGeneration: () => Promise<void>;
@@ -811,9 +811,97 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     startTask,
   ]);
 
-  const generate3DModel = useCallback(async () => {
+  const generate3DModel = useCallback(async (forcedMode?: 'image-to-3d' | 'text-to-3d') => {
+    const isTextMode = forcedMode === 'text-to-3d' || (!generationSettings.image && Boolean(generationSettings.prompt?.trim()));
+    if (isTextMode) {
+      const modelPrompt = generationSettings.prompt?.trim();
+      if (!modelPrompt) {
+        setExecutionStep('Please enter a text prompt first');
+        toast.error('Prompt required', { description: 'Please enter a text prompt to generate a 3D model.' });
+        return;
+      }
+      startTask('text-to-3d', modelPrompt, undefined, generationSettings.aiModel, undefined, modelPrompt);
+
+      try {
+        const res = await fetch('/api/v1/generation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mode: 'text-to-3d',
+            provider: generationSettings.aiModel || undefined,
+            prompt: modelPrompt,
+            quality: generationSettings.meshQuality || 'high',
+            generate_texture: generationSettings.generateTexture !== false,
+            low_vram: Boolean(generationSettings.lowVram),
+            vram_mode: generationSettings.lowVram ? 'low' : (generationSettings.vramMode || 'auto'),
+            auto_optimize: Boolean(generationSettings.autoOptimize),
+            auto_optimize_settings: {
+              target_polycount: generationSettings.autoOptimizeSettings?.targetPolycount ?? 30000,
+              fix_uvs: generationSettings.autoOptimizeSettings?.fixUVs ?? true,
+              preserve_details: generationSettings.autoOptimizeSettings?.preserveDetails ?? 75,
+              targetPolycount: generationSettings.autoOptimizeSettings?.targetPolycount ?? 30000,
+              fixUVs: generationSettings.autoOptimizeSettings?.fixUVs ?? true,
+              preserveDetails: generationSettings.autoOptimizeSettings?.preserveDetails ?? 75,
+            },
+            game_ready: Boolean(generationSettings.gameReady),
+            target_platform: generationSettings.targetPlatform || 'generic',
+            generate_lod: Boolean(generationSettings.generateLOD),
+            lod_preset: generationSettings.lodPreset || 'medium',
+            lod_count: generationSettings.lodCount || 3,
+            generate_collision: Boolean(generationSettings.generateCollision),
+            generate_pbr: generationSettings.generatePBR !== false,
+            preserve_details: generationSettings.preserveDetails ?? generationSettings.autoOptimizeSettings?.preserveDetails ?? 75,
+            repair_uvs: generationSettings.repairUVs !== false,
+            topology_mode: generationSettings.topologyMode || (generationSettings.quadTopology ? 'quad' : 'adaptive'),
+          }),
+        });
+        if (!res.ok) throw await parseApiError(res);
+        const data = await parseApiData<{ job_id?: string; id?: string; status?: string }>(res);
+        const jobId = data.job_id ?? data.id;
+        if (!jobId) throw new Error('Backend did not return a generation job ID');
+        setActiveTask(prev => prev ? { ...prev, id: jobId, inputImageName: modelPrompt, status: 'queued', currentStep: 'Queued on backend' } : prev);
+        setExecutionStep('Generation queued on backend');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Generation submission failed';
+        setIsExecuting(false);
+        setExecutionStep(message);
+        const diagnostic = diagnoseJobError({
+          id: 'submit-error',
+          status: 'failed',
+          error: message,
+          error_message: message,
+          provider: generationSettings.aiModel || '',
+        } as any);
+        setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: message, errorMessage: message, diagnostic } : null);
+        toast.error('Generation failed', { description: message });
+      }
+      return;
+    }
     return generateImageTo3D();
-  }, [generateImageTo3D]);
+  }, [
+    generationSettings.prompt,
+    generationSettings.image,
+    generationSettings.aiModel,
+    generationSettings.meshQuality,
+    generationSettings.topologyMode,
+    generationSettings.quadTopology,
+    generationSettings.lowVram,
+    generationSettings.vramMode,
+    generationSettings.autoOptimize,
+    generationSettings.autoOptimizeSettings,
+    generationSettings.generateTexture,
+    generationSettings.gameReady,
+    generationSettings.targetPlatform,
+    generationSettings.generateLOD,
+    generationSettings.lodPreset,
+    generationSettings.lodCount,
+    generationSettings.generateCollision,
+    generationSettings.generatePBR,
+    generationSettings.preserveDetails,
+    generationSettings.repairUVs,
+    startTask,
+    generateImageTo3D,
+  ]);
 
   const runRemeshGeneration = useCallback(async () => {
     startTask('remesh', 'Remesh / topology optimization');

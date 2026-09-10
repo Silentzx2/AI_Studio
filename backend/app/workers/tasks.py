@@ -99,17 +99,22 @@ def _resolve_reference_image(reference: str | None, job_id: str) -> str | None:
             logger.warning("Failed to decode reference image data URL: %s", exc)
             return reference
 
-    if Path(reference).exists():
-        return reference
+    storage_root = Path(settings.storage_local_path).resolve()
+
+    try:
+        raw_path = Path(reference).resolve()
+        if raw_path.exists() and raw_path.is_file() and raw_path.is_relative_to(storage_root):
+            return str(raw_path)
+    except Exception:
+        pass
 
     parsed = urlparse(reference)
     path = unquote(parsed.path if parsed.scheme else reference)
 
-    storage_root = Path(settings.storage_local_path)
     if "/static/" in path:
         rel = path.split("/static/", 1)[-1].lstrip("/")
-        candidate = storage_root / rel
-        if candidate.exists():
+        candidate = (storage_root / rel).resolve()
+        if candidate.exists() and candidate.is_file() and candidate.is_relative_to(storage_root):
             return str(candidate)
 
     upload_prefixes = (
@@ -119,28 +124,25 @@ def _resolve_reference_image(reference: str | None, job_id: str) -> str | None:
     )
 
     if any(path.startswith(prefix) for prefix in upload_prefixes):
-        candidate = storage_root / "uploads" / Path(path).name
-        if candidate.exists():
+        candidate = (storage_root / "uploads" / Path(path).name).resolve()
+        if candidate.exists() and candidate.is_file() and candidate.is_relative_to(storage_root / "uploads"):
             return str(candidate)
 
-    # Search in storage subdirectories (models, uploads, exports)
+    # Search in storage subdirectories (models, uploads, exports, generated)
     for folder in ("models", "exports", "uploads", "generated"):
         if f"/{folder}/" in path or path.startswith(f"{folder}/"):
             rel = path.split(f"{folder}/", 1)[-1].lstrip("/")
-            candidate = storage_root / folder / rel
-            if candidate.exists():
+            candidate = (storage_root / folder / rel).resolve()
+            if candidate.exists() and candidate.is_file() and candidate.is_relative_to(storage_root):
                 return str(candidate)
 
     # Search by filename across storage_root
     fname = Path(path).name
-    if fname:
+    if fname and fname == path:
         for sub in ("models", "uploads", "exports"):
-            cand = storage_root / sub / fname
-            if cand.exists():
+            cand = (storage_root / sub / fname).resolve()
+            if cand.exists() and cand.is_file() and cand.is_relative_to(storage_root):
                 return str(cand)
-            matches = list((storage_root / sub).glob(f"*/{fname}"))
-            if matches:
-                return str(matches[0])
 
     return reference
 

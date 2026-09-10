@@ -778,10 +778,18 @@ async def remove_repo(req: RepoActionRequest):
     import shutil
 
     from runtime.storage import get_storage_config
+    from runtime.manifest_loader import REPOS
     from app.core.cache import invalidate
 
+    if req.repo not in REPOS:
+        raise HTTPException(status_code=400, detail=f"Unknown repository: '{req.repo}'")
+
     storage = get_storage_config()
-    repo_path = storage.get_repo_path(req.repo)
+    repo_path = storage.get_repo_path(req.repo).resolve()
+    third_party_real = storage.third_party_dir.resolve()
+    if not repo_path.is_relative_to(third_party_real) or repo_path == third_party_real:
+        raise HTTPException(status_code=403, detail="Access denied")
+
     if not repo_path.exists():
         raise HTTPException(status_code=404, detail=f"Repository '{req.repo}' not found.")
     shutil.rmtree(str(repo_path), ignore_errors=True)
@@ -810,8 +818,11 @@ class ConfigUpdateRequest(BaseModel):
 
 @router.post("/config")
 async def update_config(req: ConfigUpdateRequest):
+    FORBIDDEN_CONFIG_FIELDS = {"blender_executable"}
     changed: dict[str, Any] = {}
     for field_name, value in req.model_dump(exclude_none=True).items():
+        if field_name in FORBIDDEN_CONFIG_FIELDS:
+            continue
         if hasattr(settings, field_name):
             setattr(settings, field_name, value)
             changed[field_name] = value

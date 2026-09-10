@@ -133,6 +133,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     updateAssetProperties,
     shadingMode, 
     setShadingMode,
+    showWireframe,
     isTurntable,
     setIsTurntable,
     isExecuting,
@@ -157,7 +158,6 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const leftOffset = isLeftPanelOpen ? (leftPanelWidth + 12) : 12;
 
   const [isLoading, setIsLoading] = useState(false);
-  const [showGrid, setShowGrid] = useState(false);
   const [showEnvironmentPanel, setShowEnvironmentPanel] = useState(false);
   const [environmentSettings, setEnvironmentSettings] = useState({
     ambientIntensity: 2.5,
@@ -513,13 +513,6 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     // handled in loop via isTurntableActive
   }, [isTurntable]);
 
-  // Update Grid visibility
-  useEffect(() => {
-    if (gridHelperRef.current) {
-      gridHelperRef.current.visible = showGrid;
-    }
-  }, [showGrid]);
-
   // Interactive 3D Point Cloud silhouette generation during AI 3D model synthesis (Tripo AI style)
   useEffect(() => {
     const isGenerating = Boolean(isExecuting || debugBlueprint);
@@ -863,13 +856,15 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           }
         }
 
+        const isWire = Boolean(showWireframe) || shadingMode === 'wireframe';
+
         switch (shadingMode) {
           case 'textured':
             child.material = orig;
             if (Array.isArray(child.material)) {
-              child.material.forEach(m => { m.wireframe = false; });
+              child.material.forEach(m => { m.wireframe = isWire; });
             } else if (child.material) {
-              child.material.wireframe = false;
+              child.material.wireframe = isWire;
             }
             break;
 
@@ -887,16 +882,17 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               color: 0xd6d9df,
               roughness: 0.75,
               metalness: 0.05,
-              wireframe: false
+              wireframe: isWire
             });
             break;
 
+          case 'matcap':
           case 'matcap-ceramic':
             child.material = new THREE.MeshStandardMaterial({
               color: 0xffffff,
               roughness: 0.12,
               metalness: 0.05,
-              wireframe: false
+              wireframe: isWire
             });
             break;
 
@@ -905,7 +901,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               color: 0xf0f3f8,
               roughness: 0.04,
               metalness: 0.95,
-              wireframe: false
+              wireframe: isWire
             });
             break;
 
@@ -914,13 +910,14 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               color: 0xf9cf00,
               roughness: 0.22,
               metalness: 0.88,
-              wireframe: false
+              wireframe: isWire
             });
             break;
 
+          case 'normals':
           case 'matcap-normal':
             child.material = new THREE.MeshNormalMaterial({
-              wireframe: false
+              wireframe: isWire
             });
             break;
 
@@ -938,12 +935,17 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               color: 0x06b6d4,
               roughness: 0.3,
               metalness: 0.4,
-              wireframe: false
+              wireframe: isWire
             });
             break;
 
           default:
             child.material = orig;
+            if (Array.isArray(child.material)) {
+              child.material.forEach(m => { m.wireframe = isWire; });
+            } else if (child.material) {
+              child.material.wireframe = isWire;
+            }
             break;
         }
 
@@ -954,7 +956,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         }
       }
     });
-  }, [shadingMode]);
+  }, [shadingMode, showWireframe]);
 
   // Camera preset switcher
   const applyCameraPreset = useCallback((preset: CameraViewPreset) => {
@@ -1498,11 +1500,11 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               </button>
             </SimpleTooltip>
 
-            <SimpleTooltip side="left" label={showGrid ? 'Hide Floor Grid' : 'Show Floor Grid'}>
+            <SimpleTooltip side="left" label={environmentSettings.gridVisible ? 'Hide Floor Grid' : 'Show Floor Grid'}>
               <button
-                onClick={() => setShowGrid(!showGrid)}
+                onClick={() => patchEnv({ gridVisible: !environmentSettings.gridVisible })}
                 className={`p-2 rounded-xl transition-all ${
-                  showGrid 
+                  environmentSettings.gridVisible 
                     ? 'text-[#F9CF00] bg-[#1f222a]' 
                     : 'text-zinc-300 hover:text-white hover:bg-[#1f222a]'
                 }`}

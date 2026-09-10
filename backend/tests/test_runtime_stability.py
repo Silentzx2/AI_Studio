@@ -138,3 +138,64 @@ def test_runtime_prewarm_endpoint(monkeypatch):
     assert data["data"]["model"] == "triposg"
 
 
+def test_heuristic_enhance_prompt():
+    """Verify heuristic prompt enhancer adds 3D cues and handles empty input gracefully."""
+    from app.core.prompt_enhancer import heuristic_enhance_prompt, enhance_prompt
+
+    # Empty prompt fallback
+    empty_res = heuristic_enhance_prompt("")
+    assert empty_res == ""
+
+    # Text enhancement
+    res = heuristic_enhance_prompt("sci-fi combat robot")
+    assert "sci-fi combat robot" in res
+    assert "PBR material" in res or "quad topology" in res
+
+    # Calling enhance_prompt without API key falls back to heuristic
+    import asyncio
+    enhanced = asyncio.run(enhance_prompt("ancient fantasy sword"))
+    assert "ancient fantasy sword" in enhanced
+    assert "topology" in enhanced or "production-ready" in enhanced
+
+
+def test_enhance_prompt_endpoint():
+    """Verify POST /api/v1/generation/enhance-prompt returns enhanced prompt."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    client = TestClient(app)
+    res = client.post("/api/v1/generation/enhance-prompt", json={"prompt": "cyberpunk hovercar"})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert "cyberpunk hovercar" in data["data"]["enhanced_prompt"]
+    assert len(data["data"]["enhanced_prompt"]) > len("cyberpunk hovercar")
+
+
+def test_upload_security_path_traversal():
+    """Verify path traversal attempts in download/delete endpoints are blocked."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    client = TestClient(app)
+
+    # 1. Directory traversal attempt in download
+    res = client.get("/api/v1/upload/uploads/../../etc/passwd")
+    # FastAPI path matching or our traversal check should return 400 or 404
+    assert res.status_code in (400, 404)
+
+    # 2. File delete traversal
+    res_del = client.delete("/api/v1/upload/uploads/../../etc/passwd")
+    assert res_del.status_code in (400, 404)
+
+
+def test_runtime_remove_security():
+    """Verify arbitrary path deletion in /runtime/remove is blocked."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    client = TestClient(app)
+    res = client.post("/api/v1/runtime/remove", json={"repo": "../../../etc"})
+    assert res.status_code == 400
+
+

@@ -414,7 +414,20 @@ def safe_cleanup_o3d(
 
             if dropped_clusters > 0 and np.any(valid_triangle_mask):
                 kept_tris = tris_arr[valid_triangle_mask]
-                mesh.triangles = _try_import_open3d().utility.Vector3iVector(kept_tris)
+                o3d = _try_import_open3d()
+                mesh.triangles = o3d.utility.Vector3iVector(kept_tris)
+                if mesh.has_triangle_uvs():
+                    uvs = np.asarray(mesh.triangle_uvs)
+                    if len(uvs) == 3 * len(tris_arr):
+                        mesh.triangle_uvs = o3d.utility.Vector2dVector(uvs[np.repeat(valid_triangle_mask, 3)])
+                    else:
+                        mesh.triangle_uvs.clear()
+                if mesh.has_triangle_normals():
+                    tn = np.asarray(mesh.triangle_normals)
+                    if len(tn) == len(tris_arr):
+                        mesh.triangle_normals = o3d.utility.Vector3dVector(tn[valid_triangle_mask])
+                    else:
+                        mesh.triangle_normals.clear()
                 mesh.remove_unreferenced_vertices()
                 logger.info(
                     "Conservative component cleanup: removed %d noise fragments out of %d components",

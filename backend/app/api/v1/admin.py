@@ -304,7 +304,7 @@ _ALLOWED_COMMANDS = {
     "nvidia-smi", "ps", "top", "df", "du", "find", "grep", "wc",
     "file", "stat", "which", "env", "printenv", "hostname", "uname",
     "uptime", "free", "lscpu", "lsblk", "lspci", "lsmod", "dmesg",
-    "git", "pip", "python", "python3",
+    "git",
 }
 
 
@@ -385,7 +385,7 @@ async def execute_terminal_command(req: TerminalCommandRequest):
     
     Used by TerminalTab to run commands like ls, nvidia-smi, etc.
     """
-    result = _execute_command(req.command)
+    result = await asyncio.to_thread(_execute_command, req.command)
     
     # Store in history
     with _TERMINAL_LOCK:

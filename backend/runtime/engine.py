@@ -298,6 +298,14 @@ class RuntimeEngine:
                 except Exception as exc:
                     logger.warning("Error unloading previous provider '%s': %s", loaded_name, exc)
                 self.gpu.release(loaded_name)
+            try:
+                import gc
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                gc.collect()
+            except Exception:
+                pass
             # ponytail: Auto VRAM planner — resolve normal vs low mode and the
             # VRAM footprint to gate device selection on the mode actually used.
             requested = "low" if low_vram else vram_mode

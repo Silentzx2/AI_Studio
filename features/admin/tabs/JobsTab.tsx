@@ -52,21 +52,16 @@ export function JobsTab() {
     }
   }, []);
 
-  // Adaptive polling: poll every 3.5s when active jobs or repairs exist; every 12s otherwise
+  // Polling interval for job status updates (every 5 seconds)
   useEffect(() => {
     load();
-    const hasActiveWork = jobs.some(j => j.status === 'generating' || j.status === 'queued') ||
-      Object.keys(repairingJobs).some(k => repairingJobs[k]);
-
-    const pollIntervalMs = hasActiveWork ? 3500 : 12000;
-
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
       load();
-    }, pollIntervalMs);
+    }, 5000);
 
     return () => clearInterval(interval);
-  }, [load, jobs, repairingJobs]);
+  }, [load]);
 
   const handleRepair = async (job: AdminJob, diag: JobDiagnostic) => {
     const key = job.id;

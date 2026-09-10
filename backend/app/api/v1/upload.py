@@ -36,6 +36,7 @@ ALLOWED_MIME_TYPES = {
     "image/jpeg": ".jpg",
     "image/webp": ".webp",
     "model/gltf+binary": ".glb",
+    "model/gltf-binary": ".glb",
     "model/gltf+json": ".gltf",
 }
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
@@ -376,13 +377,14 @@ async def download_uploaded_image(filename: str):
         upload_dir = _local_root() / "uploads"
         upload_dir_real = upload_dir.resolve()
 
-        file_path = (upload_dir / filename).resolve()
+        safe_name = Path(filename).name
+        if not safe_name or safe_name != filename or ".." in filename:
+            raise HTTPException(status_code=400, detail="Invalid filename")
+
+        file_path = (upload_dir_real / safe_name).resolve()
 
         # Security: prevent directory traversal - validate BEFORE any fs operation
-        if not str(file_path).startswith(str(upload_dir_real) + "/") and file_path != upload_dir_real:
-            raise HTTPException(status_code=403, detail="Access denied")
-
-        if not file_path.exists():
+        if not file_path.is_file() or not file_path.is_relative_to(upload_dir_real):
             raise HTTPException(status_code=404, detail="File not found")
 
         # Determine MIME type
@@ -411,17 +413,18 @@ async def delete_uploaded_asset(filename: str):
         from app.utils.storage import _local_root
         storage_dir = _local_root().resolve()
 
-        # Check uploads dir (images)
-        file_path = (storage_dir / "uploads" / filename).resolve()
-        if not file_path.exists():
-            # Check models dir (models)
-            file_path = (storage_dir / "models" / filename).resolve()
+        safe_name = Path(filename).name
+        if not safe_name or safe_name != filename or ".." in filename:
+            raise HTTPException(status_code=400, detail="Invalid filename")
 
-        # Security: prevent directory traversal - validate BEFORE any fs operation
-        if not str(file_path).startswith(str(storage_dir) + "/") and file_path != storage_dir:
-            raise HTTPException(status_code=403, detail="Access denied")
+        file_path = None
+        for sub in ("uploads", "models"):
+            candidate = (storage_dir / sub / safe_name).resolve()
+            if candidate.is_file() and candidate.is_relative_to(storage_dir / sub):
+                file_path = candidate
+                break
 
-        if not file_path.exists():
+        if not file_path:
             raise HTTPException(status_code=404, detail="File not found")
 
         file_path.unlink()

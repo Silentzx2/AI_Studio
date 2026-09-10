@@ -1,5 +1,54 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.34] - 2026-09-10
+
+### Added & Enhanced (Tripo AI & Meshy AI Feature Parity)
+
+#### 1. Dual Text-to-3D & Image-to-3D Generation Workflow (`GeneratePanel.tsx`, `WorkspaceContext.tsx`)
+- Unlocked seamless switching between text-to-3D and image-to-3D in the workspace generation panel.
+- Added prompt description input with clear image button, allowing text-only generation directly without blocking on missing images.
+- Added quick 3D style descriptor chips (e.g., *PBR Game Asset*, *Clean Quad Topology*, *Hyper-detailed Sculpt*, *Stylized 3D*) to quickly tailor prompts.
+
+#### 2. AI Prompt Enhancer with Heuristic Fallback (`prompt_enhancer.py`, `generation.py`, `GeneratePanel.tsx`)
+- Added `POST /api/v1/generation/enhance-prompt` API endpoint.
+- Implemented `heuristic_enhance_prompt()` to intelligently append 3D domain descriptors (clean quad topology, manifold geometry, PBR textures, studio lighting, production-ready asset tags) when external LLM keys are absent.
+- Integrated a one-click Magic Wand "Enhance" button in the generation panel with loading indicator.
+
+#### 3. Viewport Wireframe, Shading & Grid Synchronization (`MeshViewer.tsx`, `RightPropertyPanel.tsx`)
+- Connected `showWireframe` from `WorkspaceContext` directly to Three.js mesh materials so toggling wireframe in the properties panel instantly updates the 3D viewport.
+- Added canonical aliases for shading modes (`normals` / `matcap-normal`, `matcap` / `matcap-ceramic`) ensuring consistency between UI controls and the WebGL renderer.
+- Unified grid visibility state by synchronizing viewport toolbar controls with `environmentSettings.gridVisible`.
+- Added user-facing error toast notifications upon model export failure.
+
+### Security Hardening
+
+#### 1. Upload & Reference Image Path Traversal Guards (`upload.py`, `tasks.py`)
+- Sanitized filename inputs in `download_uploaded_image` and `delete_uploaded_asset` using `Path(filename).name`, `is_file()` validation, and strict `is_relative_to(storage.uploads_dir)` containment checks.
+- Prevented potential `IsADirectoryError` and unhandled exceptions on invalid paths. Added `model/gltf-binary` to allowed MIME types for 3D model asset uploads.
+- Hardened `_resolve_reference_image` in Celery tasks to reject any file paths resolving outside the configured `storage_root`.
+
+#### 2. Arbitrary Deletion & Config Tampering Prevention (`runtime.py`)
+- Restricted `POST /api/v1/runtime/remove` to recognized repositories in `REPOS` and strictly validated that target paths resolve within `third_party_dir`.
+- Guarded `POST /api/v1/runtime/config` against arbitrary modification of system binary paths (`blender_executable`).
+
+#### 3. Admin Terminal Security & Command Filtering (`admin.py`)
+- Filtered interactive interpreters (`python`, `python3`, `pip`) from the admin terminal allowed command whitelist to eliminate unauthenticated remote shell vectors.
+- Offloaded terminal subprocess execution to worker threads (`asyncio.to_thread`) to prevent blocking the FastAPI event loop.
+
+### Performance & Stability
+
+#### 1. Admin Jobs Tab Infinite Polling Loop Fix (`JobsTab.tsx`)
+- Removed `jobs` and `repairingJobs` from the `useEffect` dependency array in `JobsTab.tsx`, eliminating a P0 infinite re-render loop that flooded the backend API with status queries.
+
+#### 2. CUDA Memory Leak & OOM Prevention During Model Switching (`engine.py`)
+- Added explicit `torch.cuda.empty_cache()` and `gc.collect()` cleanup when unloading models during provider transitions, preventing GPU VRAM fragmentation and out-of-memory crashes.
+
+#### 3. Asynchronous Model Conversion & ZIP Archiving (`project.py`)
+- Offloaded synchronous Blender/trimesh format conversions and ZIP archive generation to worker threads via `asyncio.to_thread(_do_export)`, keeping the server responsive during large file downloads.
+
+#### 4. Open3D Topology Buffer Length Invariant Fix (`open3d_service.py`)
+- Sliced and re-indexed `triangle_uvs` and `triangle_normals` whenever noise triangles are removed during Open3D mesh filtering, preventing buffer length mismatch exceptions during post-processing.
+
 ## [v5.0.33] - 2026-09-10
 
 ### Fixed

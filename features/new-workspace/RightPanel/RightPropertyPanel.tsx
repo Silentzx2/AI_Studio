@@ -18,6 +18,7 @@ import {
 import { useWorkspace } from '../store/WorkspaceContext';
 import { ShadingMode } from '../types';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
+import { toast } from 'sonner';
 
 export const RightPropertyPanel: React.FC = () => {
   const { 
@@ -127,6 +128,8 @@ export const RightPropertyPanel: React.FC = () => {
       setTimeout(() => setExportSuccess(false), 3000);
     } catch (error) {
       console.error(error);
+      const msg = error instanceof Error ? error.message : 'Export failed';
+      toast.error('Export failed', { description: msg });
       setExportSuccess(false);
     } finally {
       setIsExporting(false);
@@ -536,9 +539,9 @@ export const RightPropertyPanel: React.FC = () => {
             </button>
 
             <button
-              onClick={() => setShadingMode('normals')}
+              onClick={() => setShadingMode('matcap-normal')}
               className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition-all ${
-                shadingMode === 'normals'
+                shadingMode === 'matcap-normal' || shadingMode === 'normals'
                   ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] font-bold shadow'
                   : 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] border border-[hsl(var(--border))]'
               }`}
@@ -547,9 +550,9 @@ export const RightPropertyPanel: React.FC = () => {
             </button>
 
             <button
-              onClick={() => setShadingMode('matcap')}
+              onClick={() => setShadingMode('matcap-ceramic')}
               className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition-all ${
-                shadingMode === 'matcap'
+                shadingMode === 'matcap-ceramic' || shadingMode === 'matcap'
                   ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] font-bold shadow'
                   : 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] border border-[hsl(var(--border))]'
               }`}

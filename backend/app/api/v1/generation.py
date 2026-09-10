@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel
 
 from app.config import get_settings
 from app.core.capability_matrix import is_compatible_with_workspace
@@ -187,8 +188,8 @@ async def create_generation(req: GenerationRequest, request: Request):
         if builtin_provider:
             state = {provider: {"repo_ready": True, "venv_ready": True, "weights_ready": True}}
         else:
-            from runtime.installer import get_install_status  # noqa: PLC0415
-            state = get_install_status()
+            from runtime.installer import get_install_status_cached  # noqa: PLC0415
+            state = get_install_status_cached()
         inst = state.get(provider, {})
         missing = []
         if not inst.get("repo_ready", True):
@@ -603,3 +604,17 @@ async def _check_rate_limit(client_ip: str, max_requests: int, window_seconds: i
         # Never block generation on rate-limit check failure
         logger.warning("Rate limit check failed for %s: %s", client_ip, exc)
         return True
+
+
+class EnhancePromptRequest(BaseModel):
+    prompt: str
+
+
+@router.post("/enhance-prompt")
+async def api_enhance_prompt(req: EnhancePromptRequest):
+    """Expand user prompt with 3D domain descriptors (Meshy/Tripo AI style)."""
+    from app.core.prompt_enhancer import enhance_prompt
+
+    enhanced = await enhance_prompt(req.prompt)
+    return success({"prompt": req.prompt, "enhanced_prompt": enhanced}, "Prompt enhanced successfully.")
+
