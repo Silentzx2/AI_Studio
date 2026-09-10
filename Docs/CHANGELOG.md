@@ -1,5 +1,20 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.32] - 2026-09-10
+
+### Fixed
+
+#### 1. Colab CUDA 12.8 Preservation & APT Signed-By Conflict (`scripts/colab.sh`)
+- **Root Causes**:
+  - In `scripts/colab.sh`, `setup_cuda_124()` checked for exact CUDA version `124`. On modern Google Colab runtimes with CUDA 12.8 and NVIDIA driver 580.82 pre-installed, it attempted an unnecessary downgrade to CUDA 12.4 by downloading and installing `cuda-keyring_1.1-1_all.deb`.
+  - Colab's base image already defines NVIDIA apt sources; adding `cuda-keyring` introduced conflicting `Signed-By` repository configurations, causing `E: Conflicting values set for option Signed-By regarding source https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/ /` and corrupting the APT sources list.
+  - In step 3.5, `sudo apt-get update -qq >/dev/null 2>&1 || apt-get update -qq >/dev/null 2>&1` had no trailing fallback. Under `set -euo pipefail`, the APT failure immediately terminated the script back to the shell.
+- **Fixes**:
+  - Added `_sanitize_apt_cuda_sources()` to detect and purge conflicting NVIDIA/CUDA `.list` and `.sources` entries before and after APT operations.
+  - In `setup_cuda_124()`, first checks if `/usr/local/cuda-12.4` already exists on disk (symlinking directly if present).
+  - Accepts any pre-installed CUDA 12.x toolkit (e.g. 12.8, 12.6, 12.4) as compatible with modern NVIDIA drivers and PyTorch 2.5 (`cu124`), skipping destructive reinstallation.
+  - In step 3.5, calls `_sanitize_apt_cuda_sources` and appends `|| true` to the system update so transient or leftover package manager conflicts never crash the bootstrap process.
+
 ## [v5.0.31] - 2026-09-09
 
 ### Added / Fixed

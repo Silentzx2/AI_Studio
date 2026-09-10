@@ -167,6 +167,20 @@ detect_cuda_version() {
 # Ensures CUDA Toolkit 12.4 is installed and active. Idempotent: detects existing
 # CUDA, installs 12.4 if missing or wrong version, configures paths, verifies.
 
+# ── Clean up conflicting CUDA APT sources ──────────────────────────────────
+_sanitize_apt_cuda_sources() {
+  # Remove duplicate/conflicting NVIDIA repository lists that cause APT "Conflicting values set for option Signed-By"
+  rm -f /etc/apt/sources.list.d/*cuda*.list /etc/apt/sources.list.d/*nvidia*.list /etc/apt/sources.list.d/*cuda*.sources 2>/dev/null || true
+  if [[ -f /etc/apt/sources.list ]]; then
+    sed -i '/developer\.download\.nvidia\.com\/compute\/cuda/d' /etc/apt/sources.list 2>/dev/null || true
+  fi
+  for src in /etc/apt/sources.list.d/*.sources; do
+    if [[ -f "$src" ]] && grep -q "developer.download.nvidia.com/compute/cuda" "$src" 2>/dev/null; then
+      sed -i '/developer\.download\.nvidia\.com\/compute\/cuda/d' "$src" 2>/dev/null || true
+    fi
+  done
+}
+
 setup_cuda_124() {
   head_ "CUDA Toolkit 12.4 — Detection & Installation"
 
@@ -180,7 +194,17 @@ setup_cuda_124() {
     return 0
   fi
 
-  # ── Detect installed CUDA Toolkit version ─────────────────────────────────
+  # ── 1. Check if /usr/local/cuda-12.4 is already on disk ──────────────────
+  if [[ -d /usr/local/cuda-12.4 ]] && [[ -x /usr/local/cuda-12.4/bin/nvcc ]]; then
+    ok "Found CUDA 12.4 at /usr/local/cuda-12.4 — switching symlink"
+    rm -f /usr/local/cuda
+    ln -sf /usr/local/cuda-12.4 /usr/local/cuda
+    _colab_persist_cuda_paths
+    _colab_verify_cuda
+    return 0
+  fi
+
+  # ── 2. Detect installed CUDA Toolkit version ─────────────────────────────
   local CURRENT_CUDA=""
   if command -v nvcc &>/dev/null; then
     CURRENT_CUDA=$(nvcc --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
@@ -192,27 +216,29 @@ setup_cuda_124() {
     info "No CUDA toolkit found — will install CUDA 12.4"
   fi
 
-  # ── Check if CUDA 12.4 is already active ──────────────────────────────────
+  # ── 3. Check if CUDA 12.x is already active (12.4, 12.8, etc.) ────────────
+  # Any modern CUDA 12.x toolkit is fully compatible with Driver 550+ and PyTorch 2.5
   if [[ -n "$CURRENT_CUDA" ]]; then
-    local CUDA_MINOR
-    CUDA_MINOR=$(echo "$CURRENT_CUDA" | awk -F. '{print $1$2}')
-    if [[ "$CUDA_MINOR" == "124" ]]; then
-      ok "CUDA 12.4 is already installed and active — no changes needed"
+    local CUDA_MAJOR
+    CUDA_MAJOR=$(echo "$CURRENT_CUDA" | awk -F. '{print $1}')
+    if [[ "$CUDA_MAJOR" -ge 12 ]]; then
+      ok "CUDA ${CURRENT_CUDA} is already installed and compatible (CUDA 12.x) — keeping existing version"
       _colab_persist_cuda_paths
       _colab_verify_cuda
       return 0
     else
-      warn "CUDA ${CURRENT_CUDA} installed — need to switch to CUDA 12.4"
+      warn "CUDA ${CURRENT_CUDA} installed (< 12.0) — need to install CUDA 12.x"
     fi
   fi
 
-  # ── Install CUDA Toolkit 12.4 ─────────────────────────────────────────────
+  # ── 4. Install CUDA Toolkit 12.4 via APT if missing ─────────────────────
   info "Installing CUDA Toolkit 12.4..."
 
-  # Install NVIDIA CUDA keyring
+  # Pre-clean conflicting NVIDIA repo lists to prevent APT Signed-By conflict
+  _sanitize_apt_cuda_sources
+
   local ARCH; ARCH=$(dpkg --print-architecture)
   local UBUNTU_VER_NODOT; UBUNTU_VER_NODOT=$(lsb_release -rs | tr -d '.')
-  # NVIDIA uses x86_64 in URLs (not amd64) for Ubuntu 24.04+
   local URL_ARCH="x86_64"
   local KEYRING_URL="https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VER_NODOT}/${URL_ARCH}/cuda-keyring_1.1-1_all.deb"
 
@@ -220,20 +246,26 @@ setup_cuda_124() {
     warn "Failed to download CUDA keyring — skipping CUDA 12.4 install"
     return 0
   }
-  dpkg -i /tmp/cuda-keyring.deb || {
+  dpkg -i /tmp/cuda-keyring.deb 2>/dev/null || {
     warn "Failed to install CUDA keyring"
     rm -f /tmp/cuda-keyring.deb
+    _sanitize_apt_cuda_sources
     return 0
   }
   rm -f /tmp/cuda-keyring.deb
 
-  apt-get update -qq
+  apt-get update -qq 2>/dev/null || {
+    warn "APT update encountered repository conflict — sanitizing sources"
+    _sanitize_apt_cuda_sources
+    apt-get update -qq 2>/dev/null || true
+  }
 
   # Install CUDA 12.4 toolkit (without driver — preserve existing driver)
-  apt-get install -y cuda-toolkit-12-4 || {
+  apt-get install -y cuda-toolkit-12-4 2>/dev/null || {
     warn "Failed to install CUDA toolkit 12.4 — falling back to generic cuda-toolkit"
-    apt-get install -y cuda-toolkit || {
-      warn "Failed to install CUDA toolkit"
+    apt-get install -y cuda-toolkit 2>/dev/null || {
+      warn "Failed to install CUDA toolkit — using existing libraries"
+      _sanitize_apt_cuda_sources
       return 0
     }
   }
@@ -1275,8 +1307,8 @@ step "3.5/6 Installing system dependencies for image processing & C extensions"
 # Check if running on Colab
 if [[ -n "${COLAB_RELEASE_TAG:-}" ]]; then
     info "Detected Google Colab — installing system build dependencies..."
-    # Suppress output and errors; these packages should exist
-    sudo apt-get update -qq >/dev/null 2>&1 || apt-get update -qq >/dev/null 2>&1
+    _sanitize_apt_cuda_sources
+    sudo apt-get update -qq >/dev/null 2>&1 || apt-get update -qq >/dev/null 2>&1 || true
     sudo apt-get install -y -qq \
         build-essential libpng-dev libjpeg-dev zlib1g-dev libharfbuzz-dev \
         libfreetype6-dev liblcms2-dev libopenjp2-7-dev libtiff-dev libwebp-dev \
