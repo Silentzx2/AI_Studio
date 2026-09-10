@@ -49,6 +49,11 @@
 #### 4. Open3D Topology Buffer Length Invariant Fix (`open3d_service.py`)
 - Sliced and re-indexed `triangle_uvs` and `triangle_normals` whenever noise triangles are removed during Open3D mesh filtering, preventing buffer length mismatch exceptions during post-processing.
 
+#### 5. Next.js Build Type Alignments (`types.ts`, `GeneratePanel.tsx`, `ProgressOverlay.tsx`)
+- Expanded `ActiveTask['type']` union to include `'text-to-3d'`, resolving TypeScript TS2345 type errors during `next build`.
+- Expanded `GenerationSettings['mode']` union to `'image-to-3d' | 'text-to-3d'` and fixed image clearing action to assign `null` rather than `undefined`.
+- Updated `ProgressOverlay.tsx` to handle `text-to-3d` task rendering with appropriate icon and prompt title.
+
 ## [v5.0.33] - 2026-09-10
 
 ### Fixed

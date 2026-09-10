@@ -12,7 +12,7 @@ export type ToolType =
 
 export interface ActiveTask {
   id: string;
-  type: 'image-to-3d' | 'segment' | 'remesh' | 'texture';
+  type: 'image-to-3d' | 'text-to-3d' | 'segment' | 'remesh' | 'texture';
   title: string;
   inputImage?: string;
   inputImageName?: string;
@@ -175,7 +175,7 @@ export interface AutoOptimizeSettings {
 }
 
 export interface GenerationSettings {
-  mode: 'image-to-3d';
+  mode: 'image-to-3d' | 'text-to-3d';
   image: string | null;
   aiModel: string;
   meshQuality: 'low' | 'medium' | 'high' | 'ultra';

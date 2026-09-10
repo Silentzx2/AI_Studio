@@ -485,7 +485,7 @@ export const GeneratePanel: React.FC = () => {
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setGenerationSettings(prev => ({ ...prev, image: undefined, imageName: undefined }));
+                    setGenerationSettings(prev => ({ ...prev, image: null, imageName: undefined, mode: 'text-to-3d' }));
                   }}
                   className="text-rose-400 hover:underline"
                 >

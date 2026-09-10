@@ -140,7 +140,7 @@ export const ProgressOverlay: React.FC = () => {
         {!isMinimized && (
           <div className="p-3.5 space-y-3">
             {/* Task Input preview */}
-            {activeTask.type === 'image-to-3d' && (
+            {(activeTask.type === 'image-to-3d' || activeTask.type === 'text-to-3d') && (
               <div className="p-2 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] flex items-center gap-2.5 text-xs">
                 {activeTask.inputImage ? (
                   <img 
@@ -150,15 +150,15 @@ export const ProgressOverlay: React.FC = () => {
                   />
                 ) : (
                   <div className="w-11 h-11 rounded-lg bg-[hsl(var(--surface-3))] flex items-center justify-center text-[hsl(var(--muted-foreground))]">
-                    <ImageIcon className="w-5 h-5" />
+                    {activeTask.type === 'text-to-3d' ? <Sparkles className="w-5 h-5 text-amber-400" /> : <ImageIcon className="w-5 h-5" />}
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="text-[10px] font-semibold text-[hsl(var(--muted-foreground))] uppercase">
-                    Image-to-3D Reference
+                    {activeTask.type === 'text-to-3d' ? 'Text-to-3D Prompt' : 'Image-to-3D Reference'}
                   </div>
                   <div className="text-xs font-semibold text-[hsl(var(--foreground))] truncate">
-                    3D Generation Pipeline
+                    {activeTask.title || '3D Generation Pipeline'}
                   </div>
                   <div className="text-[10px] text-[hsl(var(--status-online))]">
                     Model inference in progress
