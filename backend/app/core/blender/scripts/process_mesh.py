@@ -163,6 +163,7 @@ for obj in mesh_objects:
 
     # Apply weighted normals with keep_sharp=True for crisp, non-blobby feature shading
     try:
+        obj.data.use_auto_smooth = True
         wn = obj.modifiers.new(name="WeightedNormal", type="WEIGHTED_NORMAL")
         wn.keep_sharp = True
         bpy.ops.object.modifier_apply(modifier=wn.name)
@@ -304,6 +305,8 @@ if "Light" not in bpy.data.objects:
     sun.data.energy = 5.0
 
 # World background
+if scene.world is None:
+    scene.world = bpy.data.worlds.new("World")
 scene.world.use_nodes = True
 bg = scene.world.node_tree.nodes.get("Background")
 if bg:
@@ -328,6 +331,11 @@ if RENDER_RES:
 
 
 # ── 8. Export ──────────────────────────────────────────────────────────────────
+# Remove temporary lighting & camera used for rendering before export
+for obj in list(bpy.data.objects):
+    if obj.type in ("CAMERA", "LIGHT"):
+        bpy.data.objects.remove(obj, do_unlink=True)
+
 glb_path = os.path.join(OUTPUT_DIR, "model.glb")
 fbx_path = os.path.join(OUTPUT_DIR, "model.fbx")
 obj_path = os.path.join(OUTPUT_DIR, "model.obj")
@@ -335,16 +343,22 @@ stl_path = os.path.join(OUTPUT_DIR, "model.stl")
 
 bpy.ops.object.select_all(action="SELECT")
 
-# GLB
+# GLB (ensure clean mesh-only export without extraneous scene lights/cameras)
 try:
-    bpy.ops.export_scene.gltf(filepath=glb_path, export_format="GLB", export_animations=AUTO_RIG)
+    bpy.ops.export_scene.gltf(
+        filepath=glb_path,
+        export_format="GLB",
+        export_animations=AUTO_RIG,
+        export_cameras=False,
+        export_lights=False,
+    )
 except Exception as e:
     print(f"# GLB export warning: {e}", file=sys.stderr)
     glb_path = None  # type: ignore[assignment]
 
 # FBX
 try:
-    bpy.ops.export_scene.fbx(filepath=fbx_path, add_leaf_bones=False)
+    bpy.ops.export_scene.fbx(filepath=fbx_path, add_leaf_bones=False, use_selection=False)
 except Exception as e:
     print(f"# FBX export warning: {e}", file=sys.stderr)
     fbx_path = None  # type: ignore[assignment]

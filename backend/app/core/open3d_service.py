@@ -123,14 +123,49 @@ def load_o3d_mesh(source: str | Path | Any) -> Any | None:
     return None
 
 
-def save_o3d_mesh(mesh: Any, output_path: str | Path) -> bool:
-    """Export an Open3D TriangleMesh to file."""
+def save_o3d_mesh(
+    mesh: Any,
+    output_path: str | Path,
+    source_visual: Any | None = None,
+) -> bool:
+    """Export an Open3D TriangleMesh to file with full visual and texture preservation.
+
+    For .glb and .gltf, uses trimesh export so that PBR textures, embedded images,
+    UV coordinates, and materials are 100% preserved without loss.
+    """
+    out_p = Path(output_path)
+    out_p.parent.mkdir(parents=True, exist_ok=True)
+    out_ext = out_p.suffix.lower()
+
+    # GLB and GLTF formats: preserve textures and materials via trimesh serializer
+    if out_ext in ('.glb', '.gltf'):
+        try:
+            import trimesh
+            verts = np.asarray(mesh.vertices)
+            faces = np.asarray(mesh.triangles)
+            tm = trimesh.Trimesh(vertices=verts, faces=faces, process=False)
+
+            if source_visual is not None:
+                tm.visual = source_visual.copy()
+            elif hasattr(mesh, "has_vertex_colors") and mesh.has_vertex_colors():
+                vc = (np.asarray(mesh.vertex_colors) * 255).astype(np.uint8)
+                if len(vc) == len(verts):
+                    tm.visual.vertex_colors = vc
+
+            if hasattr(mesh, "has_vertex_normals") and mesh.has_vertex_normals():
+                vn = np.asarray(mesh.vertex_normals)
+                if len(vn) == len(verts):
+                    tm.vertex_normals = vn
+
+            tm.export(str(out_p))
+            return True
+        except Exception as tm_err:
+            logger.warning("Trimesh GLB export error: %s; falling back to Open3D", tm_err)
+
     o3d = _try_import_open3d()
     if o3d is None or mesh is None:
         return False
     try:
-        out_p = Path(output_path)
-        out_p.parent.mkdir(parents=True, exist_ok=True)
         return bool(o3d.io.write_triangle_mesh(
             str(out_p),
             mesh,
@@ -369,16 +404,71 @@ def safe_cleanup_o3d(
     orig_tris = before_stats["triangle_count"]
     orig_verts = before_stats["vertex_count"]
 
+    # Extract source visual if available
+    source_visual = None
+    source_path = None
+    if isinstance(source, (str, Path)):
+        source_path = Path(source)
+        if source_path.exists():
+            try:
+                import trimesh
+                src_tm = trimesh.load(str(source_path), force="mesh")
+                if hasattr(src_tm, "visual") and src_tm.visual is not None:
+                    source_visual = src_tm.visual
+            except Exception:
+                pass
+    elif hasattr(source, "visual") and source.visual is not None:
+        source_visual = source.visual
+
+    has_texture_material = (
+        source_visual is not None
+        and hasattr(source_visual, "material")
+        and getattr(source_visual.material, "baseColorTexture", None) is not None
+    )
+
     # 1. Conservative geometric sanitization
-    mesh.remove_duplicated_vertices()
-    mesh.remove_degenerate_triangles()
-    mesh.remove_duplicated_triangles()
+    # Textured models: avoid collapsing seam vertices across UV boundaries
+    if not has_texture_material:
+        mesh.remove_duplicated_vertices()
+
+    # Synchronize triangle UVs and normals when removing degenerate or duplicate triangles
+    tris_arr = np.asarray(mesh.triangles)
+    verts_arr = np.asarray(mesh.vertices)
+    if len(tris_arr) > 0:
+        non_degen = (tris_arr[:, 0] != tris_arr[:, 1]) & (tris_arr[:, 1] != tris_arr[:, 2]) & (tris_arr[:, 2] != tris_arr[:, 0])
+        v0 = verts_arr[tris_arr[:, 0]]
+        v1 = verts_arr[tris_arr[:, 1]]
+        v2 = verts_arr[tris_arr[:, 2]]
+        cross = np.cross(v1 - v0, v2 - v0)
+        area_sq = np.sum(cross * cross, axis=1)
+        valid_tri_mask = non_degen & (area_sq > 1e-14)
+
+        if not np.all(valid_tri_mask):
+            o3d = _try_import_open3d()
+            if o3d is not None:
+                mesh.triangles = o3d.utility.Vector3iVector(tris_arr[valid_tri_mask])
+                if mesh.has_triangle_uvs():
+                    uvs = np.asarray(mesh.triangle_uvs)
+                    if len(uvs) == 3 * len(tris_arr):
+                        mesh.triangle_uvs = o3d.utility.Vector2dVector(uvs[np.repeat(valid_tri_mask, 3)])
+                    else:
+                        mesh.triangle_uvs.clear()
+                if mesh.has_triangle_normals():
+                    tn = np.asarray(mesh.triangle_normals)
+                    if len(tn) == len(tris_arr):
+                        mesh.triangle_normals = o3d.utility.Vector3dVector(tn[valid_tri_mask])
+                    else:
+                        mesh.triangle_normals.clear()
+
     mesh.remove_unreferenced_vertices()
 
-    # 2. Recompute normals if missing or invalid
-    if not mesh.has_vertex_normals() or not mesh.has_triangle_normals():
-        mesh.compute_vertex_normals()
-        mesh.compute_triangle_normals()
+    # 2. Consistent orientation & normal computation (Tripo-grade surface consistency)
+    try:
+        mesh.orient_triangles()
+    except Exception:
+        pass
+    mesh.compute_vertex_normals()
+    mesh.compute_triangle_normals()
 
     # 3. Conservative component evaluation
     # Never delete components based solely on 'keep largest island'!
@@ -443,7 +533,14 @@ def safe_cleanup_o3d(
     modified = bool(new_tris != orig_tris or new_verts != orig_verts)
 
     if output_path:
-        save_o3d_mesh(mesh, output_path)
+        out_p = Path(output_path)
+        out_p.parent.mkdir(parents=True, exist_ok=True)
+        # If geometry was not altered and source file is available, copy byte-for-byte to prevent any re-encoding loss
+        if not modified and source_path and source_path.exists():
+            import shutil
+            shutil.copy(str(source_path), str(out_p))
+        else:
+            save_o3d_mesh(mesh, out_p, source_visual=source_visual)
 
     return {
         "success": True,

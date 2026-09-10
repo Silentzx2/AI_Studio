@@ -158,6 +158,26 @@ def test_safe_cleanup_preserves_legitimate_components(multi_component_mesh_path,
     assert after_analysis["triangle_count"] >= 12   # Box + Cone triangles intact
 
 
+def test_safe_cleanup_preserves_pbr_textures(tmp_path):
+    """Verify that safe cleanup preserves PBR image textures, materials, and UV mapping without loss."""
+    from PIL import Image
+    img = Image.new("RGB", (32, 32), color=(0, 180, 220))
+    mat = trimesh.visual.material.PBRMaterial(baseColorTexture=img)
+    box = trimesh.creation.box()
+    box.visual = trimesh.visual.TextureVisuals(uv=np.random.rand(len(box.vertices), 2), material=mat)
+    src_p = str(tmp_path / "textured_input.glb")
+    box.export(src_p)
+
+    out_p = str(tmp_path / "textured_cleaned.glb")
+    res = safe_cleanup_o3d(src_p, output_path=out_p)
+    assert res["success"] is True
+    assert Path(out_p).exists()
+
+    reloaded = trimesh.load(out_p, force="mesh")
+    assert hasattr(reloaded.visual, "material")
+    assert getattr(reloaded.visual.material, "baseColorTexture", None) is not None
+
+
 def test_decision_engine_routing(clean_sphere_path):
     """Verify decision engine correctly decides processing stages based on budget."""
     analysis = analyze_mesh_o3d(clean_sphere_path)

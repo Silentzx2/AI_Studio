@@ -16,6 +16,8 @@ from app.config import get_settings
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
+import os
+
 _SCRIPTS_DIR = Path(__file__).parent / "scripts"
 
 
@@ -25,11 +27,18 @@ async def _run_blender(script: Path, args: dict) -> dict:
     blender = settings.blender_executable or "blender"
     cmd = [blender, "--background", "--python", str(script), "--", args_json]
 
+    env = os.environ.copy()
+    if not env.get("PYTHONHOME"):
+        blender_real = Path(os.path.realpath(shutil.which(blender) or blender))
+        if str(blender_real).startswith("/usr"):
+            env["PYTHONHOME"] = "/usr"
+
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            env=env,
         )
         stdout, stderr = await asyncio.wait_for(
             proc.communicate(), timeout=settings.blender_timeout

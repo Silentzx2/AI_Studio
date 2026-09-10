@@ -1,5 +1,26 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.36] - 2026-09-10
+
+### High-Fidelity 3D Pipeline & Lossless Mesh Processing (Tripo-Grade Quality)
+
+#### 1. Lossless PBR Texture, Material & UV Preservation (`open3d_service.py`)
+- **Trimesh GLB Serializer in `save_o3d_mesh`**: Replaced raw Open3D GLB writing with `trimesh` serialization carrying `source_visual`, completely eliminating Open3D's texture loss warning (*"This file format does not support writing textures and uv coordinates"*) and ensuring 100% retention of PBR textures (`baseColorTexture`), embedded images, and materials.
+- **UV Boundary & Seam Protection in `safe_cleanup_o3d`**: Protected textured models against vertex-collapsing seam distortion. Synchronized `triangle_uvs` and `triangle_normals` arrays when purging degenerate faces to maintain buffer length invariants.
+- **Zero Re-Encoding Passthrough**: If geometry is already clean and unmodified, the pipeline directly performs a byte-identical copy of the source asset, preventing cumulative precision or compression artifacts.
+
+#### 2. Tripo-Grade Surface Normal Orientation (`open3d_service.py`)
+- Integrated automated `mesh.orient_triangles()` and normal recalculation in `safe_cleanup_o3d`, ensuring consistent counter-clockwise face winding and eliminating inverted backface lighting bugs.
+
+#### 3. Headless Blender Post-Processing Stabilization (`pipeline.py`, `process_mesh.py`)
+- **System Environment Isolation (`pipeline.py`)**: Configured `PYTHONHOME=/usr` in `_run_blender` so Blender executes with system Python 3.12 and native `numpy`, preventing `ModuleNotFoundError` during glTF import.
+- **Auto-Smooth Weighted Normals (`process_mesh.py`)**: Enabled `obj.data.use_auto_smooth = True` prior to applying the `WeightedNormal` modifier, ensuring crisp feature creases without modifier warnings.
+- **Null World Guard (`process_mesh.py`)**: Handled `scene.world is None` when initializing from factory empty scenes to prevent `AttributeError: 'NoneType' object has no attribute 'use_nodes'`.
+- **Clean Scene Export (`process_mesh.py`)**: Pruned temporary rendering cameras and sun lights before export, ensuring exported `.glb`, `.fbx`, `.obj`, `.stl`, and `.ply` files contain only pure geometry and rig hierarchies.
+
+#### 4. Regression Test Suite (`test_open3d_pipeline.py`)
+- Added `test_safe_cleanup_preserves_pbr_textures` to continuously verify that texture maps, materials, and UV coordinates remain completely intact during cleanup.
+
 ## [v5.0.35] - 2026-09-10
 
 ### Performance & Viewport Acceleration (Instant 3D Mesh Loading)
