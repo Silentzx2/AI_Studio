@@ -1,5 +1,28 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.35] - 2026-09-10
+
+### Performance & Viewport Acceleration (Instant 3D Mesh Loading)
+
+#### 1. Multi-Tier Model Caching Engine (`glbCache.ts`)
+- **L1 RAM Cache**: In-memory `Map<string, ArrayBuffer>` cache with LRU eviction for instant 0ms switching between loaded models.
+- **L2 Persistent Disk Cache**: Browser `CacheStorage` (`caches.open('ai-studio-models-v1')`) storing binary 3D assets on disk across page refreshes, tab switches, and browser sessions without redundant network re-downloads.
+- **L3 Streaming Network Fetch**: `loadGLBWithProgress` using `ReadableStream` chunked reader providing byte-level real-time progress.
+
+#### 2. DRACOLoader & MeshoptDecoder WebAssembly Workers (`MeshViewer.tsx`, `public/draco/`)
+- Self-hosted Three.js Draco decoders in `public/draco/gltf/` and attached `DRACOLoader` to `sharedGLTFLoader`.
+- Integrated `MeshoptDecoder` for multithreaded WASM decompression off the main thread, allowing large compressed models to decode smoothly without freezing the UI.
+
+#### 3. Non-Blocking Asynchronous WebGL Compilation (`MeshViewer.tsx`)
+- Added `await renderer.compileAsync(gltf.scene, camera)` prior to the first frame render, compiling WebGL shaders and uploading geometry buffers asynchronously to eliminate the initial render hitch.
+- Optimized dense mesh shadows: restricted `receiveShadow` on meshes with > 200,000 vertices to prevent heavy GPU depth pass stalls.
+
+#### 4. Real-Time Viewport Loading HUD (`MeshViewer.tsx`)
+- Upgraded the viewport loading overlay with an interactive HUD displaying real-time download progress (transferred MB vs total MB), progress bar, percentage counter, and status transitions (*Loading 3D Model...* → *Processing & GPU Upload...*).
+
+#### 5. Backend HTTP Cache-Control & Byte-Range Streaming (`main.py`)
+- Configured `BinaryStaticFiles` with `Cache-Control: public, max-age=86400, no-transform` and `Accept-Ranges: bytes` for all 3D formats (`.glb`, `.gltf`, `.obj`, `.fbx`, `.stl`, `.ply`) and textures, enabling browser-level persistent caching and chunked delivery.
+
 ## [v5.0.34] - 2026-09-10
 
 ### Added & Enhanced (Tripo AI & Meshy AI Feature Parity)

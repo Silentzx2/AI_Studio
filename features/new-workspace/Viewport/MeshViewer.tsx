@@ -33,7 +33,9 @@ import { apiClient } from '@/services/apiClient';
 
 import { validate3DFile } from '../lib/fileValidation';
 import { createPointCloudFromImage, createFallbackPointCloud, disposePointCloud } from './ImagePointCloud';
-import { getCachedGLB, setCachedGLB } from '../lib/glbCache';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import { getCachedGLB, setCachedGLB, loadGLBWithProgress } from '../lib/glbCache';
 
 const disposeMaterial = (material: THREE.Material) => {
   Object.values(material).forEach((v) => { if (v instanceof THREE.Texture) v.dispose(); });
@@ -41,7 +43,20 @@ const disposeMaterial = (material: THREE.Material) => {
 };
 
 // Reusable loaders to avoid GC churn on frequent model switching
+const dracoLoader = new DRACOLoader();
+if (typeof window !== 'undefined') {
+  try {
+    dracoLoader.setDecoderPath('/draco/gltf/');
+    dracoLoader.setDecoderConfig({ type: 'js' });
+  } catch {}
+}
+
 const sharedGLTFLoader = new GLTFLoader();
+sharedGLTFLoader.setDRACOLoader(dracoLoader);
+try {
+  sharedGLTFLoader.setMeshoptDecoder(MeshoptDecoder);
+} catch {}
+
 const sharedOBJLoader = new OBJLoader();
 const sharedPLYLoader = new PLYLoader();
 
@@ -158,6 +173,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const leftOffset = isLeftPanelOpen ? (leftPanelWidth + 12) : 12;
 
   const [isLoading, setIsLoading] = useState(false);
+  const [loadProgress, setLoadProgress] = useState<{ loaded: number; total: number; percent: number } | null>(null);
   const [showEnvironmentPanel, setShowEnvironmentPanel] = useState(false);
   const [environmentSettings, setEnvironmentSettings] = useState({
     ambientIntensity: 2.5,
@@ -679,27 +695,19 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
         const format = currentAsset.format.toLowerCase();
         if (format === 'glb' || format === 'gltf') {
-          // ponytail: prefer the in-memory cached arrayBuffer (prefetched when a
-          // generation completes) to avoid a redundant network round-trip.
-          // Falls back to a fresh fetch and caches the result for next time.
+          // Multi-tier fast loading: L1 in-memory RAM cache (0ms) -> L2 persistent disk cache (~5ms) -> Chunked streaming network fetch
+          setLoadProgress({ loaded: 0, total: 0, percent: 0 });
           let arrayBuffer: ArrayBuffer;
           const cached = getCachedGLB(sourceUrl);
           if (cached) {
             arrayBuffer = cached;
+            setLoadProgress({ loaded: cached.byteLength, total: cached.byteLength, percent: 100 });
           } else {
-            // ponytail: verify response is binary before parsing as GLB.
-            // Cloudflare tunnel or missing files can return HTML with 200 status.
-            const response = await fetch(sourceUrl);
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const contentType = response.headers.get('content-type') || '';
-            if (contentType.includes('text/html') || contentType.includes('application/json')) {
-              const text = await response.clone().text();
-              if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
-                throw new Error('Model file served as HTML — possible token/auth failure. Open DevTools for details.');
+            arrayBuffer = await loadGLBWithProgress(sourceUrl, (loaded, total, percent) => {
+              if (!cancelled) {
+                setLoadProgress({ loaded, total, percent });
               }
-            }
-            arrayBuffer = await response.arrayBuffer();
-            setCachedGLB(sourceUrl, arrayBuffer);
+            });
           }
 
           // Truncation check for GLB binary format to avoid Three.js typed array length error
@@ -723,11 +731,20 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             gltf.scene.traverse((child) => {
               if (child instanceof THREE.Mesh) {
                 child.castShadow = true;
-                child.receiveShadow = true;
+                // Dense meshes: disable self-shadow receiver to avoid severe GPU pipeline hitch
+                const vCount = child.geometry?.attributes?.position?.count || 0;
+                child.receiveShadow = vCount < 200000;
               }
             });
             frameCamera(gltf.scene);
             computeMeshStats(gltf.scene);
+
+            // Asynchronously compile shaders and upload GPU buffers to eliminate render freeze
+            if (rendererRef.current && cameraRef.current) {
+              try {
+                await rendererRef.current.compileAsync(gltf.scene, cameraRef.current);
+              } catch {}
+            }
           }
         } else if (format === 'obj') {
           // ponytail: verify response is text before parsing as OBJ
@@ -822,7 +839,10 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           }, 6000);
         }
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+          setLoadProgress(null);
+        }
       }
     };
 
@@ -1333,15 +1353,35 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
       {/* Smooth Non-Intrusive Loading Overlay (Asset file parsing) */}
       {isLoading && !isExecuting && (
-        <div className="absolute inset-0 bg-[#14161b]/70 backdrop-blur-sm flex flex-col items-center justify-center z-20 pointer-events-none transition-all duration-200">
-          <div className="relative flex items-center justify-center">
-            <div className="w-12 h-12 rounded-full border-2 border-zinc-700 border-t-[#F9CF00] animate-spin" />
-            <Sparkles className="w-4 h-4 text-[#F9CF00] absolute" />
-          </div>
-          <div className="mt-3 text-center">
-            <span className="text-xs font-bold text-zinc-200 tracking-wide block">
-              Loading 3D Model...
+        <div className="absolute inset-0 bg-[#14161b]/75 backdrop-blur-sm flex flex-col items-center justify-center z-20 pointer-events-none transition-all duration-200 p-4">
+          <div className="bg-[#181a20]/90 border border-zinc-800/80 rounded-2xl px-6 py-5 flex flex-col items-center shadow-2xl max-w-xs w-full">
+            <div className="relative flex items-center justify-center mb-3">
+              <div className="w-12 h-12 rounded-full border-2 border-zinc-800 border-t-[#F9CF00] animate-spin" />
+              <Sparkles className="w-4 h-4 text-[#F9CF00] absolute animate-pulse" />
+            </div>
+            <span className="text-xs font-bold text-zinc-100 tracking-wide block mb-1">
+              {loadProgress && loadProgress.percent === 100
+                ? 'Processing & GPU Upload...'
+                : 'Loading 3D Model...'}
             </span>
+            {loadProgress && loadProgress.total > 0 ? (
+              <div className="w-full mt-2 space-y-1.5">
+                <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-[#ebd024] to-[#F9CF00] transition-all duration-150 rounded-full"
+                    style={{ width: `${Math.max(5, loadProgress.percent)}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[10px] text-zinc-400 font-mono">
+                  <span>
+                    {(loadProgress.loaded / (1024 * 1024)).toFixed(1)} / {(loadProgress.total / (1024 * 1024)).toFixed(1)} MB
+                  </span>
+                  <span>{loadProgress.percent}%</span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-[10px] text-zinc-400 mt-1">Preparing high-fidelity mesh</p>
+            )}
           </div>
         </div>
       )}
