@@ -8,11 +8,12 @@
 - **Root Causes**:
   - In environments like Google Colab with pre-installed CUDA 12.8, native extensions and wheels require exact CUDA 12.4 (`cu124`).
   - Attempting to install CUDA 12.4 via APT caused `E: Conflicting values set for option Signed-By regarding source https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/ /` because generic `cuda-keyring` collided with pre-configured NVIDIA source lists.
+  - In addition, NVIDIA never published `cuda-toolkit-12-4` for Ubuntu 24.04 (Noble) in its 2404 repository, causing package manager lookups for `cuda-toolkit-12-4` to fail on newer base images.
   - Scripts did not prefer pre-existing `/usr/local/cuda-12.4` installations on disk before attempting package installations, and symlinks/environment variables did not prioritize CUDA 12.4 paths.
 - **Fixes**:
   - Implemented `_sanitize_apt_cuda_sources()` in both `scripts/colab.sh` and `scripts/setup.sh` to purge duplicate and conflicting NVIDIA repository lists before and during APT transactions.
+  - Added version-aware repository configuration targeting the 22.04 CUDA repo for CUDA 12.4 packages on Ubuntu >= 24.04, avoiding both missing package errors and GPG keyring conflicts via `[trusted=yes]`.
   - Prioritized `/usr/local/cuda-12.4` detection on disk, seamlessly switching `/usr/local/cuda` symlinks and setting `PATH`, `LD_LIBRARY_PATH`, and `CUDA_HOME` to CUDA 12.4.
-  - Cleaned and robustified CUDA 12.4 package installation using `--no-install-recommends cuda-toolkit-12-4` and graceful fallbacks.
   - Updated `scripts/build-native-wheels.sh` to switch symlinks and set environment variables to CUDA 12.4 prior to verifying compiler versions.
   - Guarded step 3.5 in `scripts/colab.sh` against transient APT update errors under `set -euo pipefail`.
 

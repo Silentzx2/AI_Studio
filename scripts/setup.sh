@@ -396,39 +396,28 @@ setup_cuda_124() {
     return 1
   fi
 
-  # Install NVIDIA CUDA keyring
-  local KEYRING_URL=""
-  if [[ "$OS_ID" == "debian" ]]; then
-    local DEBIAN_VER; DEBIAN_VER=$(lsb_release -rs)
-    KEYRING_URL="https://developer.download.nvidia.com/compute/cuda/repos/debian${DEBIAN_VER}/${ARCH}/cuda-keyring_1.1-1_all.deb"
-  else
-    local UBUNTU_VER_NODOT; UBUNTU_VER_NODOT=$(lsb_release -rs | tr -d '.')
-    # NVIDIA uses x86_64 in URLs (not amd64) for Ubuntu 24.04+
-    local URL_ARCH="x86_64"
-    KEYRING_URL="https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VER_NODOT}/${URL_ARCH}/cuda-keyring_1.1-1_all.deb"
+  local UBUNTU_VER_NODOT; UBUNTU_VER_NODOT=$(lsb_release -rs | tr -d '.')
+  local URL_ARCH="x86_64"
+
+  # NVIDIA published CUDA 12.4 for Ubuntu 20.04 (2004) and 22.04 (2204), but NOT for 24.04 (2404).
+  # If running on Ubuntu >= 24.04 (e.g. Noble), use the 2204 repository for CUDA 12.4 packages.
+  local CUDA_REPO_VER="${UBUNTU_VER_NODOT}"
+  if [[ "${UBUNTU_VER_NODOT}" -ge 2404 ]]; then
+    CUDA_REPO_VER="2204"
   fi
 
-  info "Downloading CUDA keyring..."
-  if wget -q "$KEYRING_URL" -O /tmp/cuda-keyring.deb; then
-    dpkg -i /tmp/cuda-keyring.deb 2>/dev/null || warn "Failed to install CUDA keyring"
-    rm -f /tmp/cuda-keyring.deb
-  else
-    warn "Failed to download CUDA keyring — skipping CUDA 12.4 install"
-  fi
+  echo "deb [trusted=yes] https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${CUDA_REPO_VER}/${URL_ARCH}/ /" > /etc/apt/sources.list.d/cuda-12-4.list
 
-  apt-get update -qq 2>/dev/null || {
-    warn "APT update encountered repository conflict — sanitizing sources and retrying"
-    _sanitize_apt_cuda_sources
-    apt-get update -qq 2>/dev/null || true
+  apt-get update -qq 2>/dev/null || true
+
+  # Install CUDA 12.4 toolkit / nvcc
+  apt-get install -y --no-install-recommends cuda-toolkit-12-4 2>/dev/null || \
+  apt-get install -y --no-install-recommends cuda-nvcc-12-4 cuda-cudart-dev-12-4 libcublas-dev-12-4 2>/dev/null || {
+    warn "Failed to install CUDA 12.4 packages — falling back to existing CUDA ${CURRENT_CUDA:-unknown}"
   }
 
-  # Install CUDA 12.4 toolkit (without driver — preserve existing driver)
-  apt-get install -y --no-install-recommends cuda-toolkit-12-4 2>/dev/null || {
-    warn "Failed to install cuda-toolkit-12-4 — trying cuda-12-4"
-    apt-get install -y --no-install-recommends cuda-12-4 2>/dev/null || {
-      warn "Failed to install CUDA 12.4 toolkit — falling back to existing CUDA ${CURRENT_CUDA:-unknown}"
-    }
-  }
+  # Clean up temporary 12.4 source list
+  rm -f /etc/apt/sources.list.d/cuda-12-4.list 2>/dev/null || true
 
   # ── Point /usr/local/cuda to CUDA 12.4 ────────────────────────────────────
   if [[ -d /usr/local/cuda-12.4 ]]; then
