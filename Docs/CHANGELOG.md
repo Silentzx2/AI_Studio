@@ -54,6 +54,18 @@
 - Expanded `GenerationSettings['mode']` union to `'image-to-3d' | 'text-to-3d'` and fixed image clearing action to assign `null` rather than `undefined`.
 - Updated `ProgressOverlay.tsx` to handle `text-to-3d` task rendering with appropriate icon and prompt title.
 
+#### 6. PyTorch CUDA Wheel Tag Resolution & Hunyuan3D-2mini Torchvision Dependency Fix (`installer.py`, `hunyuan3d_2_mini.yaml`, `colab.sh`, `setup.sh`)
+- **Root Causes**:
+  - In `backend/runtime/installer.py`, `_backend_torch_stack()` mapped systems running newer CUDA (e.g. CUDA 12.8) directly to PyTorch wheel index `https://download.pytorch.org/whl/cu128`. Because PyTorch 2.5.1 was only published for `cu118`, `cu121`, and `cu124`, `uv pip install` failed to resolve `torchvision==0.20.1` on `cu128`, leaving `torchvision` uninstalled in the per-model virtual environment.
+  - `backend/runtime/manifests/hunyuan3d_2_mini.yaml` required `torchvision` in preflight imports and `hy3dgen.shapegen` imported `from torchvision import transforms`, but `torchvision` was omitted from `dependencies.python`.
+  - In `scripts/colab.sh` and `scripts/setup.sh`, CUDA 12.8 set `TORCH_VER="2.7.0"` which does not exist as a stable wheel on PyTorch's index, causing installation to fall back to CPU-only PyTorch.
+- **Fixes**:
+  - In `backend/runtime/installer.py`, updated `_backend_torch_stack()` to map CUDA runtimes >= 12.4 to `cu124` for PyTorch 2.5.x, ensuring full backward compatibility and valid wheel resolution.
+  - Added `torchvision` to `dependencies.python` and `dependencies.imports` in `hunyuan3d_2_mini.yaml`.
+  - Updated `scripts/colab.sh` and `scripts/setup.sh` to map CUDA >= 12.4 directly to `cu124` with PyTorch 2.5.1 and torchvision 0.20.1.
+  - Added `torchvision` verification to `validate_deps` in `scripts/colab.sh` and `scripts/setup.sh`.
+  - Added regression test `test_backend_torch_stack_cuda_wheel_mapping()` and `test_hunyuan3d_2_mini_manifest_torchvision()` in `backend/tests/test_runtime_stability.py`.
+
 ## [v5.0.33] - 2026-09-10
 
 ### Fixed

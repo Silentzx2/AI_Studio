@@ -766,29 +766,16 @@ install_python_deps() {
     if [[ "$GPU_AVAILABLE" == "true" ]]; then
       # Use detected CUDA version for PyTorch wheel index
       CUDA_INDEX="${CUDA_VERSION:-124}"
-      # Map CUDA to nearest PyTorch-supported wheel
-      # ponytail: PyTorch stable wheels exist for cu118, cu121, cu124, cu126, cu128
-      if [[ "$CUDA_INDEX" == "120" || "$CUDA_INDEX" == "121" ]]; then
-        CUDA_INDEX="121"
-      elif [[ "$CUDA_INDEX" == "122" || "$CUDA_INDEX" == "123" ]]; then
-        CUDA_INDEX="124"
-      elif [[ "$CUDA_INDEX" == "125" || "$CUDA_INDEX" == "126" ]]; then
-        CUDA_INDEX="126"
-      elif [[ "$CUDA_INDEX" == "127" || "$CUDA_INDEX" == "128" ]]; then
-        CUDA_INDEX="128"
-      fi
-      # Select PyTorch version based on CUDA (newer CUDA needs newer PyTorch)
+      # Map CUDA version to supported PyTorch wheel index for PyTorch 2.5.1 (cu118, cu121, cu124)
       TORCH_VER="2.5.1"
       TORCHVISION_VER="0.20.1"
       TORCHAUDIO_VER="2.5.1"
-      if [[ "$CUDA_INDEX" == "126" ]]; then
-        TORCH_VER="2.6.0"
-        TORCHVISION_VER="0.21.0"
-        TORCHAUDIO_VER="2.6.0"
-      elif [[ "$CUDA_INDEX" == "128" ]]; then
-        TORCH_VER="2.7.0"
-        TORCHVISION_VER="0.22.0"
-        TORCHAUDIO_VER="2.7.0"
+      if [[ "$CUDA_INDEX" == "120" || "$CUDA_INDEX" == "121" ]]; then
+        CUDA_INDEX="121"
+      elif [[ "$CUDA_INDEX" == "118" ]]; then
+        CUDA_INDEX="118"
+      else
+        CUDA_INDEX="124"
       fi
       log "Installing PyTorch ${TORCH_VER} with CUDA ${CUDA_INDEX} via uv..."
       uv pip install --python .venv/bin/python \
@@ -908,7 +895,7 @@ def validate_deps(repo_name):
         return False, ["python_missing"]
 
     missing = []
-    for pkg in ["torch", "huggingface_hub"]:
+    for pkg in ["torch", "torchvision", "huggingface_hub"]:
         code, _, _ = _run(
             [str(venv_python), "-c", f"import {pkg}"],
             cwd=venv_dir.parent,

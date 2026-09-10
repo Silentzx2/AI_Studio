@@ -30,8 +30,10 @@ dependencies:
     - imageio
     - imageio-ffmpeg
     - omegaconf
+    - torchvision
   imports:
   - torch
+  - torchvision
   - diffusers
   - transformers
   - accelerate

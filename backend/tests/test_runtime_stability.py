@@ -199,3 +199,25 @@ def test_runtime_remove_security():
     assert res.status_code == 400
 
 
+def test_hunyuan3d_2_mini_manifest_torchvision():
+    """Verify hunyuan3d-2-mini declares torchvision in python dependencies and imports."""
+    from runtime.manifest_loader import load_manifest
+
+    m = load_manifest("hunyuan3d-2-mini")
+    py_deps = m.get("dependencies", {}).get("python", [])
+    assert any("torchvision" in d for d in py_deps)
+    imports = m.get("dependencies", {}).get("imports", [])
+    assert "torchvision" in imports
+
+
+def test_backend_torch_stack_cuda_wheel_mapping():
+    """Verify _backend_torch_stack maps CUDA >= 12.4 to cu124 for PyTorch 2.5.1."""
+    from runtime.installer import _backend_torch_stack
+
+    index, specs = _backend_torch_stack()
+    # On CUDA systems, index must not point to non-existent cu128 for torch 2.5
+    assert "cu128" not in index
+    assert any("torchvision" in s for s in specs)
+
+
+

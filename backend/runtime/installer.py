@@ -675,13 +675,38 @@ def _backend_torch_stack() -> tuple[str, list[str]]:
         # Never guess a CUDA wheel family. If torch exposes no CUDA build tag,
         # treat the backend as CPU-only instead of silently selecting cu121.
         cuda = "cpu"
+
+    # Map CUDA tag to a supported PyTorch wheel index for the torch version.
+    # PyTorch 2.5.x only publishes cu118, cu121, cu124 wheels. Newer CUDA runtimes (e.g. cu128)
+    # are backward compatible with cu124. Attempting to download 2.5.1 from cu128 fails because
+    # PyTorch never built 2.5.1 for cu128.
+    if cuda.startswith("cu"):
+        try:
+            cu_num = int(cuda.replace("cu", ""))
+            if len(torch_base) >= 2 and torch_base[0] == "2" and int(torch_base[1]) <= 5:
+                if cu_num >= 124:
+                    cuda = "cu124"
+                elif cu_num >= 121:
+                    cuda = "cu121"
+                elif cu_num >= 118:
+                    cuda = "cu118"
+            elif len(torch_base) >= 2 and torch_base[0] == "2" and int(torch_base[1]) == 6:
+                if cu_num >= 126:
+                    cuda = "cu126"
+                elif cu_num >= 124:
+                    cuda = "cu124"
+        except (ValueError, IndexError):
+            pass
+
     index = f"https://download.pytorch.org/whl/{cuda}"
-    # Pin the FULL version including the +cuXXX local tag. The per-model venv may
-    # already hold a mismatched build (e.g. 2.13/0.28 from an unpinned install),
-    # and `torch==2.5.1` alone is satisfied by any 2.5.1+local already present,
-    # so uv would skip the fix. The explicit tag + --reinstall forces the exact
-    # backend build.
-    specs = [f"torch=={tv}", f"torchvision=={tvv}", f"torchaudio=={tav}"]
+    if cuda != "cpu":
+        # Ensure wheel specs use the clean base version so the selected index provides the matching +cuXXX build
+        clean_tv = tv.split("+", 1)[0]
+        clean_tvv = tvv.split("+", 1)[0]
+        clean_tav = tav.split("+", 1)[0]
+        specs = [f"torch=={clean_tv}", f"torchvision=={clean_tvv}", f"torchaudio=={clean_tav}"]
+    else:
+        specs = [f"torch=={tv}", f"torchvision=={tvv}", f"torchaudio=={tav}"]
     return index, specs
 
 

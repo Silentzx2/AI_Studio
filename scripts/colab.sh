@@ -1388,29 +1388,19 @@ fi
 VENV_PY="${PROJECT_ROOT}/backend/.venv/bin/python"
 if [[ "$GPU_TYPE" == "gpu" ]]; then
     # Normalize CUDA version for PyTorch wheel index
-    # ponytail: map to nearest PyTorch-supported wheel, use newer PyTorch for newer CUDA
+    # All 3D models (Hunyuan3D, TRELLIS, TripoSG) require PyTorch 2.5.1 with CUDA.
+    # PyTorch 2.5.1 published stable CUDA wheels for cu118, cu121, cu124.
+    # CUDA 12.2 through 12.8+ runtimes are 100% backward compatible with cu124 wheels.
     CUDA_INDEX="${CUDA_VERSION:-124}"
-    TORCH_VER="2.5.1"
-    if [[ "$CUDA_INDEX" == "120" || "$CUDA_INDEX" == "121" ]]; then
-        CUDA_INDEX="121"
-    elif [[ "$CUDA_INDEX" == "122" || "$CUDA_INDEX" == "123" ]]; then
-        CUDA_INDEX="124"
-    elif [[ "$CUDA_INDEX" == "125" || "$CUDA_INDEX" == "126" ]]; then
-        CUDA_INDEX="126"
-    elif [[ "$CUDA_INDEX" == "127" || "$CUDA_INDEX" == "128" ]]; then
-        CUDA_INDEX="128"
-    fi
     TORCH_VER="2.5.1"
     TORCHVISION_VER="0.20.1"
     TORCHAUDIO_VER="2.5.1"
-    if [[ "$CUDA_INDEX" == "126" ]]; then
-        TORCH_VER="2.6.0"
-        TORCHVISION_VER="0.21.0"
-        TORCHAUDIO_VER="2.6.0"
-    elif [[ "$CUDA_INDEX" == "128" ]]; then
-        TORCH_VER="2.7.0"
-        TORCHVISION_VER="0.22.0"
-        TORCHAUDIO_VER="2.7.0"
+    if [[ "$CUDA_INDEX" == "120" || "$CUDA_INDEX" == "121" ]]; then
+        CUDA_INDEX="121"
+    elif [[ "$CUDA_INDEX" == "118" ]]; then
+        CUDA_INDEX="118"
+    else
+        CUDA_INDEX="124"
     fi
     info "Installing PyTorch ${TORCH_VER} with CUDA ${CUDA_INDEX} via uv..."
     uv pip install --python "$VENV_PY" \
@@ -1585,7 +1575,7 @@ def validate_deps(repo_name):
         return False, ["python_missing"]
 
     missing = []
-    for pkg in ["torch", "huggingface_hub"]:
+    for pkg in ["torch", "torchvision", "huggingface_hub"]:
         code, _, _ = _run(
             [str(venv_python), "-c", f"import {pkg}"],
             cwd=venv_dir.parent,
