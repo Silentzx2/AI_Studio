@@ -8,7 +8,7 @@ import os
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -889,3 +889,32 @@ async def clear_vram():
         "free_vram_mb": gpu.free_vram_mb,
         "total_vram_mb": gpu.total_vram_mb,
     }, "CUDA cache cleared.")
+
+
+class PrewarmRequest(BaseModel):
+    model: str
+    vram_mode: str = "auto"
+
+
+@router.post("/prewarm")
+async def prewarm_model(req: PrewarmRequest, background_tasks: BackgroundTasks):
+    """Pre-warm a model into GPU memory in the background."""
+    from app.core.providers.registry import canonical_runtime_provider_name
+    from runtime.engine import get_engine
+
+    canonical_name = canonical_runtime_provider_name(req.model)
+    engine = get_engine()
+
+    if canonical_name in engine._loaded:
+        return success({"model": canonical_name, "status": "already_warm"}, "Model is already warm in VRAM.")
+
+    async def _do_prewarm():
+        try:
+            logger.info("Pre-warming model '%s' in background...", canonical_name)
+            await engine.load_provider(canonical_name, vram_mode=req.vram_mode)
+            logger.info("Pre-warmed model '%s' successfully", canonical_name)
+        except Exception as exc:
+            logger.warning("Background pre-warm for '%s' failed: %s", canonical_name, exc)
+
+    background_tasks.add_task(_do_prewarm)
+    return success({"model": canonical_name, "status": "prewarming"}, f"Pre-warming '{canonical_name}' in background.")

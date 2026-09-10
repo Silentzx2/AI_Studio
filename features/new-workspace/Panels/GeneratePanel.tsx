@@ -152,10 +152,22 @@ export const GeneratePanel: React.FC = () => {
     });
   }, [activeModelId, supportsTexture]);
 
+  const triggerPrewarm = (modelId: string) => {
+    if (!modelId) return;
+    fetch('/api/v1/runtime/prewarm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: modelId }),
+    }).catch(() => {});
+  };
+
   useEffect(() => {
     if (!activeModelId && providersList.length > 0) {
       const firstAvailable = providersList.find(m => m.installed) || providersList[0];
       setGenerationSettings(prev => ({ ...prev, aiModel: firstAvailable.id }));
+      triggerPrewarm(firstAvailable.id);
+    } else if (activeModelId) {
+      triggerPrewarm(activeModelId);
     }
   }, [providersList, activeModelId, setGenerationSettings]);
 
@@ -1105,6 +1117,7 @@ export const GeneratePanel: React.FC = () => {
                       onClick={() => {
                         setGenerationSettings(prev => ({ ...prev, aiModel: m.id }));
                         setModelDropdownOpen(false);
+                        triggerPrewarm(m.id);
                       }}
                       className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-all ${
                         isSelected

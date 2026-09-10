@@ -16,6 +16,8 @@
   - Corrected `get_best_provider_name` logging logic so VRAM shortfall warnings only trigger when VRAM actually does not fit, rather than masking mode mismatches.
   - In `backend/app/api/v1/runtime.py`, deduplicated and normalized provider IDs in `three_d_models` to guarantee canonical IDs are returned to frontend clients.
   - In `scripts/colab_watch.sh`, extended `MAX_CONSECUTIVE_FAILS` from 3 to 6 and increased HTTP check timeout to 20s to prevent transient health-check restarts while heavy model weights are loading into memory.
+  - Added `POST /api/v1/runtime/prewarm` endpoint and connected `features/new-workspace/Panels/GeneratePanel.tsx` to automatically pre-warm models into GPU VRAM in the background when selected, eliminating model loading wait times when clicking Generate.
+  - Increased `model_keep_alive_seconds` default from 300s to 1800s (30 minutes) in `backend/app/config.py` to keep models resident in GPU VRAM across consecutive prompt iterations.
   - Added regression tests in `backend/tests/test_runtime_stability.py` verifying canonical name resolution and ensuring `TripoSG` and `Hunyuan3D-2mini` resolve directly without false fallbacks.
 
 ## [v5.0.32] - 2026-09-10

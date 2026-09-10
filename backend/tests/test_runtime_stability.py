@@ -118,3 +118,23 @@ async def test_get_best_provider_name_casing_handling(monkeypatch):
     best_mini = await engine.get_best_provider_name("Hunyuan3D-2mini", mode="image-to-3d")
     assert best_mini == "hunyuan3d-2-mini"
 
+
+def test_runtime_prewarm_endpoint(monkeypatch):
+    """Verify /runtime/prewarm accepts models and schedules background loading."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from runtime.engine import get_engine
+
+    client = TestClient(app)
+    engine = get_engine()
+    engine._loaded["triposg"] = object()
+
+    # Prewarm an already warm model
+    res = client.post("/api/v1/runtime/prewarm", json={"model": "TripoSG"})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert data["data"]["status"] == "already_warm"
+    assert data["data"]["model"] == "triposg"
+
+
