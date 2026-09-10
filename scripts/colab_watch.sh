@@ -260,7 +260,7 @@ start_frontend() {
 }
 
 api_healthy() {
-    wait_http "http://127.0.0.1:8000/api/v1/health" 15
+    wait_http "http://127.0.0.1:8000/api/v1/health" 20
 }
 
 frontend_healthy() {
@@ -375,7 +375,7 @@ fi
 api_fails=0
 worker_fails=0
 frontend_fails=0
-MAX_CONSECUTIVE_FAILS=3
+MAX_CONSECUTIVE_FAILS=6
 
 while true; do
     api_ok=false
