@@ -167,16 +167,24 @@ detect_cuda_version() {
 # Ensures CUDA Toolkit 12.4 is installed and active. Idempotent: detects existing
 # CUDA, installs 12.4 if missing or wrong version, configures paths, verifies.
 
-# ── Clean up conflicting CUDA APT sources ──────────────────────────────────
+## ── Clean up conflicting CUDA APT sources ──────────────────────────────────
 _sanitize_apt_cuda_sources() {
   # Remove duplicate/conflicting NVIDIA repository lists that cause APT "Conflicting values set for option Signed-By"
-  rm -f /etc/apt/sources.list.d/*cuda*.list /etc/apt/sources.list.d/*nvidia*.list /etc/apt/sources.list.d/*cuda*.sources 2>/dev/null || true
+  rm -f /etc/apt/sources.list.d/*cuda*.list \
+        /etc/apt/sources.list.d/*nvidia*.list \
+        /etc/apt/sources.list.d/*cuda*.sources \
+        /etc/apt/sources.list.d/*nvidia*.sources 2>/dev/null || true
   if [[ -f /etc/apt/sources.list ]]; then
-    sed -i '/developer\.download\.nvidia\.com\/compute\/cuda/d' /etc/apt/sources.list 2>/dev/null || true
+    sed -i '/developer\.download\.nvidia\.com/d' /etc/apt/sources.list 2>/dev/null || true
   fi
   for src in /etc/apt/sources.list.d/*.sources; do
-    if [[ -f "$src" ]] && grep -q "developer.download.nvidia.com/compute/cuda" "$src" 2>/dev/null; then
-      sed -i '/developer\.download\.nvidia\.com\/compute\/cuda/d' "$src" 2>/dev/null || true
+    if [[ -f "$src" ]] && grep -q "developer.download.nvidia.com" "$src" 2>/dev/null; then
+      sed -i '/developer\.download\.nvidia\.com/d' "$src" 2>/dev/null || true
+    fi
+  done
+  for lst in /etc/apt/sources.list.d/*.list; do
+    if [[ -f "$lst" ]] && grep -q "developer.download.nvidia.com" "$lst" 2>/dev/null; then
+      sed -i '/developer\.download\.nvidia\.com/d' "$lst" 2>/dev/null || true
     fi
   done
 }
@@ -216,18 +224,17 @@ setup_cuda_124() {
     info "No CUDA toolkit found — will install CUDA 12.4"
   fi
 
-  # ── 3. Check if CUDA 12.x is already active (12.4, 12.8, etc.) ────────────
-  # Any modern CUDA 12.x toolkit is fully compatible with Driver 550+ and PyTorch 2.5
+  # ── 3. Check if CUDA 12.4 is already active ───────────────────────────────
   if [[ -n "$CURRENT_CUDA" ]]; then
-    local CUDA_MAJOR
-    CUDA_MAJOR=$(echo "$CURRENT_CUDA" | awk -F. '{print $1}')
-    if [[ "$CUDA_MAJOR" -ge 12 ]]; then
-      ok "CUDA ${CURRENT_CUDA} is already installed and compatible (CUDA 12.x) — keeping existing version"
+    local CUDA_MINOR
+    CUDA_MINOR=$(echo "$CURRENT_CUDA" | awk -F. '{print $1$2}')
+    if [[ "$CUDA_MINOR" == "124" ]]; then
+      ok "CUDA 12.4 is already installed and active — no changes needed"
       _colab_persist_cuda_paths
       _colab_verify_cuda
       return 0
     else
-      warn "CUDA ${CURRENT_CUDA} installed (< 12.0) — need to install CUDA 12.x"
+      warn "CUDA ${CURRENT_CUDA} installed — switching to CUDA 12.4"
     fi
   fi
 
@@ -242,31 +249,24 @@ setup_cuda_124() {
   local URL_ARCH="x86_64"
   local KEYRING_URL="https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VER_NODOT}/${URL_ARCH}/cuda-keyring_1.1-1_all.deb"
 
-  wget -q "$KEYRING_URL" -O /tmp/cuda-keyring.deb || {
-    warn "Failed to download CUDA keyring — skipping CUDA 12.4 install"
-    return 0
-  }
-  dpkg -i /tmp/cuda-keyring.deb 2>/dev/null || {
-    warn "Failed to install CUDA keyring"
+  if wget -q "$KEYRING_URL" -O /tmp/cuda-keyring.deb; then
+    dpkg -i /tmp/cuda-keyring.deb 2>/dev/null || warn "Failed to install CUDA keyring"
     rm -f /tmp/cuda-keyring.deb
-    _sanitize_apt_cuda_sources
-    return 0
-  }
-  rm -f /tmp/cuda-keyring.deb
+  else
+    warn "Failed to download CUDA keyring — skipping CUDA 12.4 install"
+  fi
 
   apt-get update -qq 2>/dev/null || {
-    warn "APT update encountered repository conflict — sanitizing sources"
+    warn "APT update encountered repository conflict — sanitizing sources and retrying"
     _sanitize_apt_cuda_sources
     apt-get update -qq 2>/dev/null || true
   }
 
   # Install CUDA 12.4 toolkit (without driver — preserve existing driver)
-  apt-get install -y cuda-toolkit-12-4 2>/dev/null || {
-    warn "Failed to install CUDA toolkit 12.4 — falling back to generic cuda-toolkit"
-    apt-get install -y cuda-toolkit 2>/dev/null || {
-      warn "Failed to install CUDA toolkit — using existing libraries"
-      _sanitize_apt_cuda_sources
-      return 0
+  apt-get install -y --no-install-recommends cuda-toolkit-12-4 2>/dev/null || {
+    warn "Failed to install cuda-toolkit-12-4 — trying cuda-12-4"
+    apt-get install -y --no-install-recommends cuda-12-4 2>/dev/null || {
+      warn "Failed to install CUDA 12.4 toolkit — falling back to existing CUDA ${CURRENT_CUDA:-unknown}"
     }
   }
 
@@ -291,19 +291,26 @@ setup_cuda_124() {
 
 # ── Persist CUDA environment variables ──────────────────────────────────────────
 _colab_persist_cuda_paths() {
-  cat > /etc/profile.d/cuda.sh << 'CUDA_ENV'
-export PATH=/usr/local/cuda/bin:$PATH
-export LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}
+  local cuda_dir="/usr/local/cuda"
+  if [[ -d /usr/local/cuda-12.4 ]]; then
+    cuda_dir="/usr/local/cuda-12.4"
+  fi
+
+  cat > /etc/profile.d/cuda.sh << CUDA_ENV
+export PATH=${cuda_dir}/bin:/usr/local/cuda/bin:\$PATH
+export LD_LIBRARY_PATH=${cuda_dir}/lib64:/usr/local/cuda/lib64:\${LD_LIBRARY_PATH:-}
+export CUDA_HOME=${cuda_dir}
 CUDA_ENV
   chmod +x /etc/profile.d/cuda.sh
 
   # Apply for this session
-  export PATH="/usr/local/cuda/bin:$PATH"
-  export LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}"
+  export PATH="${cuda_dir}/bin:/usr/local/cuda/bin:$PATH"
+  export LD_LIBRARY_PATH="${cuda_dir}/lib64:/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}"
+  export CUDA_HOME="${cuda_dir}"
 
   # Also write to /etc/ld.so.conf.d for persistent library loading
-  if [[ -d /usr/local/cuda/lib64 ]]; then
-    echo "/usr/local/cuda/lib64" > /etc/ld.so.conf.d/cuda.conf
+  if [[ -d "${cuda_dir}/lib64" ]]; then
+    echo "${cuda_dir}/lib64" > /etc/ld.so.conf.d/cuda.conf
     ldconfig 2>/dev/null || true
   fi
 
@@ -317,7 +324,9 @@ _colab_verify_cuda() {
 
   # Check nvcc
   local NVCC_BIN=""
-  if command -v nvcc &>/dev/null; then
+  if [[ -x /usr/local/cuda-12.4/bin/nvcc ]]; then
+    NVCC_BIN="/usr/local/cuda-12.4/bin/nvcc"
+  elif command -v nvcc &>/dev/null; then
     NVCC_BIN=$(command -v nvcc)
   elif [[ -x /usr/local/cuda/bin/nvcc ]]; then
     NVCC_BIN="/usr/local/cuda/bin/nvcc"

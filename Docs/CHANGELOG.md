@@ -4,16 +4,17 @@
 
 ### Fixed
 
-#### 1. Colab CUDA 12.8 Preservation & APT Signed-By Conflict (`scripts/colab.sh`)
+#### 1. CUDA 12.4 Enforcement, Symlink Switching & APT Conflict Sanitization (`scripts/colab.sh`, `scripts/setup.sh`, `scripts/build-native-wheels.sh`)
 - **Root Causes**:
-  - In `scripts/colab.sh`, `setup_cuda_124()` checked for exact CUDA version `124`. On modern Google Colab runtimes with CUDA 12.8 and NVIDIA driver 580.82 pre-installed, it attempted an unnecessary downgrade to CUDA 12.4 by downloading and installing `cuda-keyring_1.1-1_all.deb`.
-  - Colab's base image already defines NVIDIA apt sources; adding `cuda-keyring` introduced conflicting `Signed-By` repository configurations, causing `E: Conflicting values set for option Signed-By regarding source https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/ /` and corrupting the APT sources list.
-  - In step 3.5, `sudo apt-get update -qq >/dev/null 2>&1 || apt-get update -qq >/dev/null 2>&1` had no trailing fallback. Under `set -euo pipefail`, the APT failure immediately terminated the script back to the shell.
+  - In environments like Google Colab with pre-installed CUDA 12.8, native extensions and wheels require exact CUDA 12.4 (`cu124`).
+  - Attempting to install CUDA 12.4 via APT caused `E: Conflicting values set for option Signed-By regarding source https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/ /` because generic `cuda-keyring` collided with pre-configured NVIDIA source lists.
+  - Scripts did not prefer pre-existing `/usr/local/cuda-12.4` installations on disk before attempting package installations, and symlinks/environment variables did not prioritize CUDA 12.4 paths.
 - **Fixes**:
-  - Added `_sanitize_apt_cuda_sources()` to detect and purge conflicting NVIDIA/CUDA `.list` and `.sources` entries before and after APT operations.
-  - In `setup_cuda_124()`, first checks if `/usr/local/cuda-12.4` already exists on disk (symlinking directly if present).
-  - Accepts any pre-installed CUDA 12.x toolkit (e.g. 12.8, 12.6, 12.4) as compatible with modern NVIDIA drivers and PyTorch 2.5 (`cu124`), skipping destructive reinstallation.
-  - In step 3.5, calls `_sanitize_apt_cuda_sources` and appends `|| true` to the system update so transient or leftover package manager conflicts never crash the bootstrap process.
+  - Implemented `_sanitize_apt_cuda_sources()` in both `scripts/colab.sh` and `scripts/setup.sh` to purge duplicate and conflicting NVIDIA repository lists before and during APT transactions.
+  - Prioritized `/usr/local/cuda-12.4` detection on disk, seamlessly switching `/usr/local/cuda` symlinks and setting `PATH`, `LD_LIBRARY_PATH`, and `CUDA_HOME` to CUDA 12.4.
+  - Cleaned and robustified CUDA 12.4 package installation using `--no-install-recommends cuda-toolkit-12-4` and graceful fallbacks.
+  - Updated `scripts/build-native-wheels.sh` to switch symlinks and set environment variables to CUDA 12.4 prior to verifying compiler versions.
+  - Guarded step 3.5 in `scripts/colab.sh` against transient APT update errors under `set -euo pipefail`.
 
 ## [v5.0.31] - 2026-09-09
 

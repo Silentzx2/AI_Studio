@@ -286,26 +286,61 @@ install_uv() {
   fi
 }
 
-install_cuda() {
-  if [[ "$GPU_AVAILABLE" == "false" ]]; then
-    warn "Skipping CUDA (no GPU)"
-    return 0
+# ── Clean up conflicting CUDA APT sources ──────────────────────────────────
+_sanitize_apt_cuda_sources() {
+  # Remove duplicate/conflicting NVIDIA repository lists that cause APT "Conflicting values set for option Signed-By"
+  rm -f /etc/apt/sources.list.d/*cuda*.list \
+        /etc/apt/sources.list.d/*nvidia*.list \
+        /etc/apt/sources.list.d/*cuda*.sources \
+        /etc/apt/sources.list.d/*nvidia*.sources 2>/dev/null || true
+  if [[ -f /etc/apt/sources.list ]]; then
+    sed -i '/developer\.download\.nvidia\.com/d' /etc/apt/sources.list 2>/dev/null || true
   fi
+  for src in /etc/apt/sources.list.d/*.sources; do
+    if [[ -f "$src" ]] && grep -q "developer.download.nvidia.com" "$src" 2>/dev/null; then
+      sed -i '/developer\.download\.nvidia\.com/d' "$src" 2>/dev/null || true
+    fi
+  done
+  for lst in /etc/apt/sources.list.d/*.list; do
+    if [[ -f "$lst" ]] && grep -q "developer.download.nvidia.com" "$lst" 2>/dev/null; then
+      sed -i '/developer\.download\.nvidia\.com/d' "$lst" 2>/dev/null || true
+    fi
+  done
+}
+
+setup_cuda_124() {
   head_ "CUDA Toolkit 12.4 — Detection & Installation"
 
   # ── Detect NVIDIA driver ──────────────────────────────────────────────────
   local DRIVER_VER=""
-  local DRIVER_MAJOR=""
   if command -v nvidia-smi &>/dev/null; then
     DRIVER_VER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 || true)
-    DRIVER_MAJOR=$(echo "$DRIVER_VER" | awk -F. '{print $1}')
     log "NVIDIA driver: ${CYAN}${DRIVER_VER}${NC}"
   else
-    err "nvidia-smi not found — NVIDIA driver not installed or GPU not detected"
+    warn "nvidia-smi not found — skipping CUDA setup"
+    return 0
+  fi
+
+  # Check driver supports CUDA 12.4 (requires >= 525.60.13)
+  local DRIVER_MAJOR
+  DRIVER_MAJOR=$(echo "$DRIVER_VER" | awk -F. '{print $1}')
+  if [[ -n "$DRIVER_MAJOR" ]] && [[ "$DRIVER_MAJOR" -lt 525 ]]; then
+    err "NVIDIA driver ${DRIVER_VER} is too old for CUDA 12.4 (requires >= 525.60.13)"
+    err "Please update your NVIDIA driver: https://www.nvidia.com/drivers"
     return 1
   fi
 
-  # ── Detect installed CUDA Toolkit version ─────────────────────────────────
+  # ── 1. Check if /usr/local/cuda-12.4 is already on disk ──────────────────
+  if [[ -d /usr/local/cuda-12.4 ]] && [[ -x /usr/local/cuda-12.4/bin/nvcc ]]; then
+    ok "Found CUDA 12.4 at /usr/local/cuda-12.4 — switching symlink"
+    rm -f /usr/local/cuda
+    ln -sf /usr/local/cuda-12.4 /usr/local/cuda
+    _persist_cuda_paths
+    _verify_cuda
+    return 0
+  fi
+
+  # ── 2. Detect installed CUDA Toolkit version ─────────────────────────────
   local CURRENT_CUDA=""
   local NVCC_PATH=""
   if command -v nvcc &>/dev/null; then
@@ -320,7 +355,7 @@ install_cuda() {
     info "No CUDA toolkit found — will install CUDA 12.4"
   fi
 
-  # ── Check if CUDA 12.4 is already active ──────────────────────────────────
+  # ── 3. Check if CUDA 12.4 is already active ───────────────────────────────
   if [[ -n "$CURRENT_CUDA" ]]; then
     local CUDA_MINOR
     CUDA_MINOR=$(echo "$CURRENT_CUDA" | awk -F. '{print $1$2}')
@@ -330,12 +365,15 @@ install_cuda() {
       _verify_cuda
       return 0
     else
-      warn "CUDA ${CURRENT_CUDA} installed — need to switch to CUDA 12.4"
+      warn "CUDA ${CURRENT_CUDA} installed — switching to CUDA 12.4"
     fi
   fi
 
-  # ── Install CUDA Toolkit 12.4 ─────────────────────────────────────────────
+  # ── 4. Install CUDA Toolkit 12.4 ──────────────────────────────────────────
   info "Installing CUDA Toolkit 12.4..."
+
+  # Pre-clean conflicting NVIDIA repo lists to prevent APT Signed-By conflict
+  _sanitize_apt_cuda_sources
 
   # Check OS support
   local OS_ID; OS_ID=$(. /etc/os-release && echo "$ID")
@@ -371,26 +409,24 @@ install_cuda() {
   fi
 
   info "Downloading CUDA keyring..."
-  wget -q "$KEYRING_URL" -O /tmp/cuda-keyring.deb || {
-    warn "Failed to download CUDA keyring — skipping CUDA 12.4 install"
-    warn "Install manually: https://developer.nvidia.com/cuda-downloads"
-    return 0
-  }
-  dpkg -i /tmp/cuda-keyring.deb || {
-    warn "Failed to install CUDA keyring"
+  if wget -q "$KEYRING_URL" -O /tmp/cuda-keyring.deb; then
+    dpkg -i /tmp/cuda-keyring.deb 2>/dev/null || warn "Failed to install CUDA keyring"
     rm -f /tmp/cuda-keyring.deb
-    return 0
-  }
-  rm -f /tmp/cuda-keyring.deb
+  else
+    warn "Failed to download CUDA keyring — skipping CUDA 12.4 install"
+  fi
 
-  apt-get update -qq
+  apt-get update -qq 2>/dev/null || {
+    warn "APT update encountered repository conflict — sanitizing sources and retrying"
+    _sanitize_apt_cuda_sources
+    apt-get update -qq 2>/dev/null || true
+  }
 
   # Install CUDA 12.4 toolkit (without driver — preserve existing driver)
-  apt-get install -y cuda-toolkit-12-4 || {
-    warn "Failed to install CUDA toolkit 12.4 — falling back to generic cuda-toolkit"
-    apt-get install -y cuda-toolkit || {
-      warn "Failed to install CUDA toolkit — may use CPU fallback"
-      return 0
+  apt-get install -y --no-install-recommends cuda-toolkit-12-4 2>/dev/null || {
+    warn "Failed to install cuda-toolkit-12-4 — trying cuda-12-4"
+    apt-get install -y --no-install-recommends cuda-12-4 2>/dev/null || {
+      warn "Failed to install CUDA 12.4 toolkit — falling back to existing CUDA ${CURRENT_CUDA:-unknown}"
     }
   }
 
@@ -420,19 +456,26 @@ install_cuda() {
 
 # ── Persist CUDA environment variables ──────────────────────────────────────────
 _persist_cuda_paths() {
-  cat > /etc/profile.d/cuda.sh << 'CUDA_ENV'
-export PATH=/usr/local/cuda/bin:$PATH
-export LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}
+  local cuda_dir="/usr/local/cuda"
+  if [[ -d /usr/local/cuda-12.4 ]]; then
+    cuda_dir="/usr/local/cuda-12.4"
+  fi
+
+  cat > /etc/profile.d/cuda.sh << CUDA_ENV
+export PATH=${cuda_dir}/bin:/usr/local/cuda/bin:\$PATH
+export LD_LIBRARY_PATH=${cuda_dir}/lib64:/usr/local/cuda/lib64:\${LD_LIBRARY_PATH:-}
+export CUDA_HOME=${cuda_dir}
 CUDA_ENV
   chmod +x /etc/profile.d/cuda.sh
 
   # Apply for this session
-  export PATH="/usr/local/cuda/bin:$PATH"
-  export LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}"
+  export PATH="${cuda_dir}/bin:/usr/local/cuda/bin:$PATH"
+  export LD_LIBRARY_PATH="${cuda_dir}/lib64:/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}"
+  export CUDA_HOME="${cuda_dir}"
 
   # Also write to /etc/ld.so.conf.d for persistent library loading
-  if [[ -d /usr/local/cuda/lib64 ]]; then
-    echo "/usr/local/cuda/lib64" > /etc/ld.so.conf.d/cuda.conf
+  if [[ -d "${cuda_dir}/lib64" ]]; then
+    echo "${cuda_dir}/lib64" > /etc/ld.so.conf.d/cuda.conf
     ldconfig 2>/dev/null || true
   fi
 
@@ -445,16 +488,21 @@ _verify_cuda() {
   info "Verifying CUDA installation..."
 
   # Check nvcc
-  if command -v nvcc &>/dev/null; then
-    local VER
-    VER=$(nvcc --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
-    ok "nvcc: CUDA ${VER}"
+  local NVCC_BIN=""
+  if [[ -x /usr/local/cuda-12.4/bin/nvcc ]]; then
+    NVCC_BIN="/usr/local/cuda-12.4/bin/nvcc"
+  elif command -v nvcc &>/dev/null; then
+    NVCC_BIN=$(command -v nvcc)
   elif [[ -x /usr/local/cuda/bin/nvcc ]]; then
+    NVCC_BIN="/usr/local/cuda/bin/nvcc"
+  fi
+
+  if [[ -n "$NVCC_BIN" ]]; then
     local VER
-    VER=$(/usr/local/cuda/bin/nvcc --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
-    ok "/usr/local/cuda/bin/nvcc: CUDA ${VER}"
+    VER=$("$NVCC_BIN" --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
+    ok "nvcc: CUDA ${VER}"
   else
-    warn "nvcc not found in PATH — CUDA toolkit may not be properly installed"
+    warn "nvcc not found — CUDA toolkit may not be properly installed"
     return 1
   fi
 
@@ -473,9 +521,7 @@ _verify_cuda() {
   fi
 
   # Test CUDA runtime: compile and run a tiny program
-  if command -v nvcc &>/dev/null || [[ -x /usr/local/cuda/bin/nvcc ]]; then
-    local NVCC_BIN
-    NVCC_BIN=$(command -v nvcc 2>/dev/null || echo "/usr/local/cuda/bin/nvcc")
+  if [[ -n "$NVCC_BIN" ]]; then
     local TMP_CUDA; TMP_CUDA=$(mktemp /tmp/cuda_test_XXXXXX.cu)
     cat > "$TMP_CUDA" << 'CUDA_TEST'
 #include <stdio.h>

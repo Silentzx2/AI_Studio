@@ -69,6 +69,24 @@ ensure_cuda_124() {
         fi
     fi
 
+    # Set CUDA environment paths (prefer /usr/local/cuda-12.4)
+    if [[ -d /usr/local/cuda-12.4 ]]; then
+        # Ensure symlink points to CUDA 12.4
+        if [[ -L /usr/local/cuda ]]; then
+            rm -f /usr/local/cuda
+        fi
+        ln -sf /usr/local/cuda-12.4 /usr/local/cuda
+        log "/usr/local/cuda → /usr/local/cuda-12.4"
+        export CUDA_HOME="/usr/local/cuda-12.4"
+        export PATH="/usr/local/cuda-12.4/bin:/usr/local/cuda/bin:${PATH:-}"
+        export LD_LIBRARY_PATH="/usr/local/cuda-12.4/lib64:/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}"
+    elif [[ -d /usr/local/cuda ]]; then
+        log "/usr/local/cuda exists"
+        export CUDA_HOME="/usr/local/cuda"
+        export PATH="/usr/local/cuda/bin:${PATH:-}"
+        export LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}"
+    fi
+
     # Verify CUDA 12.4 is the active version
     if command -v nvcc &>/dev/null; then
         CUDA_VERSION=$(nvcc --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//' | head -1)
@@ -81,32 +99,9 @@ ensure_cuda_124() {
             fi
             log "CUDA 12.4 verified: ${CUDA_VERSION}"
         fi
-    fi
-
-    # Set CUDA environment paths
-    if [[ -d /usr/local/cuda-12.4 ]]; then
-        # Ensure symlink points to CUDA 12.4
-        if [[ -L /usr/local/cuda ]]; then
-            rm -f /usr/local/cuda
-        fi
-        ln -sf /usr/local/cuda-12.4 /usr/local/cuda
-        log "/usr/local/cuda → /usr/local/cuda-12.4"
-    elif [[ -d /usr/local/cuda ]]; then
-        # Already a directory (not symlink), that's OK for now
-        log "/usr/local/cuda exists (may need symlink update)"
-    fi
-
-    # Export CUDA paths
-    export PATH="/usr/local/cuda/bin:${PATH:-}"
-    export LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}"
-    export CUDA_HOME="/usr/local/cuda"
-
-    # Verify nvcc is accessible
-    if ! command -v nvcc &>/dev/null; then
+    else
         warn "nvcc not found after CUDA setup — some CUDA extensions may fail"
         warn "This is OK on CPU-only hosts; on GPU hosts ensure CUDA toolkit is installed"
-    else
-        log "nvcc available: $(nvcc --version | head -1)"
     fi
 }
 
