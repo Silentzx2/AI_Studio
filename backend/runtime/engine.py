@@ -15,7 +15,10 @@ from runtime.capability import get_model_vram_required
 from runtime.gpu import get_device, get_gpu_info, select_device
 from runtime.storage import get_storage_config
 
-from app.core.providers.registry import _RUNTIME_PROVIDER_MAP as _PROVIDER_MAP
+from app.core.providers.registry import (
+    _RUNTIME_PROVIDER_MAP as _PROVIDER_MAP,
+    canonical_runtime_provider_name,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +120,7 @@ class RuntimeEngine:
         return providers
 
     def _check_provider_available(self, provider_name: str) -> bool:
+        provider_name = canonical_runtime_provider_name(provider_name)
         from runtime.manifest_loader import get_all_provider_metadata  # noqa: PLC0415
         meta = get_all_provider_metadata().get(provider_name)
         if not meta:
@@ -133,14 +137,15 @@ class RuntimeEngine:
 
     async def get_best_provider_name(self, requested: str, mode: str = "text-to-3d") -> str:
         gpu = get_gpu_info()
+        req_norm = canonical_runtime_provider_name(requested)
 
         # CPU-only machine: there is no VRAM to gate on — models run on system
         # RAM/CPU. The free_mb==0 branch below would otherwise reject every real
         # provider ("only 0 MB free") and generation could never start.
         # ponytail: VRAM gating is GPU-only; pick by availability (weights on disk).
         if not gpu.available:
-            if requested == "mock" or (self._check_provider_available(requested) and mode in PROVIDER_MODES.get(requested, set())):
-                return requested
+            if req_norm == "mock" or (self._check_provider_available(req_norm) and mode in PROVIDER_MODES.get(req_norm, set())):
+                return req_norm
             for candidate in PROVIDER_PRIORITY:
                 if candidate == "mock":
                     if not self._is_mock_allowed():
@@ -165,29 +170,30 @@ class RuntimeEngine:
         # 14GB GPU runs in low-VRAM mode instead of failing).
         try:
             from runtime.capability import plan_vram_usage
-            plan = plan_vram_usage(requested, "auto")
+            plan = plan_vram_usage(req_norm, "auto")
             needed = plan.get("vram_required_mb") or 0
             resolved_mode = plan.get("mode", "normal")
             fits = bool(plan.get("fits", False)) or plan.get("cpu_only", False)
         except Exception:
             # Fallback to simple check
-            needed = get_model_vram_required(requested)
+            needed = get_model_vram_required(req_norm)
             fits = needed == 0 or free_mb >= needed
             resolved_mode = "normal"
-        requested_available = requested == "mock" and self._is_mock_allowed() or self._check_provider_available(requested)
+        requested_available = req_norm == "mock" and self._is_mock_allowed() or self._check_provider_available(req_norm)
         if fits and requested_available:
-            if mode in PROVIDER_MODES.get(requested, set()):
-                return requested
-        elif fits and not requested_available:
-            logger.warning("Requested provider '%s' is not installed/available", requested)
+            if mode in PROVIDER_MODES.get(req_norm, set()):
+                return req_norm
             logger.warning(
                 "Provider '%s' fits VRAM but does not support mode '%s'",
                 requested, mode,
             )
-        logger.warning(
-            "Provider '%s' needs %d MB VRAM, only %d MB free",
-            requested, needed, free_mb,
-        )
+        elif fits and not requested_available:
+            logger.warning("Requested provider '%s' is not installed/available", requested)
+        else:
+            logger.warning(
+                "Provider '%s' needs %d MB VRAM, only %d MB free",
+                requested, needed, free_mb,
+            )
         for candidate in PROVIDER_PRIORITY:
             if candidate == "mock":
                 from app.config import get_settings
@@ -225,7 +231,7 @@ class RuntimeEngine:
 
     def touch_provider(self, name: str) -> None:
         import time
-        self._last_used[name] = time.time()
+        self._last_used[canonical_runtime_provider_name(name)] = time.time()
 
     async def unload_expired_providers(self, max_age_seconds: float = 300.0) -> list[str]:
         import time
@@ -260,6 +266,7 @@ class RuntimeEngine:
         return unloaded
 
     async def load_provider(self, name: str, vram_mode: str = "auto", low_vram: bool = False) -> Any:
+        name = canonical_runtime_provider_name(name)
         async with self._lock:
             requested = "low" if low_vram else vram_mode
             # The scheduler is a single-GPU slot tracker. Keep exactly one
@@ -335,6 +342,7 @@ class RuntimeEngine:
                 raise
 
     async def unload_provider(self, name: str) -> None:
+        name = canonical_runtime_provider_name(name)
         async with self._lock:
             if name not in self._loaded:
                 return

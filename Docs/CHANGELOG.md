@@ -1,5 +1,22 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.33] - 2026-09-10
+
+### Fixed
+
+#### Provider Name Canonicalization & Unintended Model Fallback Fix (`engine.py`, `registry.py`, `runtime.py`)
+- **Root Cause**:
+  - In `backend/runtime/engine.py`, `get_best_provider_name` looked up `requested` in `PROVIDER_MODES` directly. When the frontend or API submitted mixed-case model names (e.g. `TripoSG` or `Hunyuan3D-2mini`), `PROVIDER_MODES.get(requested)` returned empty because `PROVIDER_MODES` only contained lowercase keys (`triposg`, `hunyuan3d-2-mini`).
+  - Because `mode in PROVIDER_MODES.get(requested, set())` failed, the engine skipped the selected model, printed a deceptive warning (`Provider 'TripoSG' needs 8192 MB VRAM, only 14705 MB free`), and fell through to candidate fallback.
+  - The first fallback candidate was `hunyuan3d-2.1`, causing Celery workers to download/load the heavy 28 GB Hunyuan3D-2.1 model instead of the lightweight 1.5 GB TripoSG pipeline, leading to excessive loading times on GPU.
+  - Additionally, `backend/app/api/v1/runtime.py` did not deduplicate by canonical provider name when building `three_d_models`, and `backend/app/core/providers/registry.py` only aliased `hunyuan3d-1.0`.
+- **Fixes**:
+  - In `backend/app/core/providers/registry.py`, expanded `_RUNTIME_PROVIDER_ALIASES` and updated `canonical_runtime_provider_name()` to handle all model aliases, spaces, and casing variants case-insensitively.
+  - In `backend/runtime/engine.py`, canonicalized provider names across `get_best_provider_name`, `_check_provider_available`, `load_provider`, `unload_provider`, and `touch_provider`.
+  - Corrected `get_best_provider_name` logging logic so VRAM shortfall warnings only trigger when VRAM actually does not fit, rather than masking mode mismatches.
+  - In `backend/app/api/v1/runtime.py`, deduplicated and normalized provider IDs in `three_d_models` to guarantee canonical IDs are returned to frontend clients.
+  - Added regression tests in `backend/tests/test_runtime_stability.py` verifying canonical name resolution and ensuring `TripoSG` and `Hunyuan3D-2mini` resolve directly without false fallbacks.
+
 ## [v5.0.32] - 2026-09-10
 
 ### Fixed

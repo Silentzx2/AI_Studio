@@ -22,6 +22,20 @@ logger = logging.getLogger(__name__)
 _RUNTIME_PROVIDER_ALIASES = {
     "hunyuan3d-1.0": "hunyuan3d-2.1",
     "hunyuan3d": "hunyuan3d-2.1",
+    "hunyuan3d-2.1": "hunyuan3d-2.1",
+    "hunyuan3d 2.1": "hunyuan3d-2.1",
+    "hunyuan3d2.1": "hunyuan3d-2.1",
+    "hunyuan3d_21": "hunyuan3d-2.1",
+    "hunyuan3d-2mini": "hunyuan3d-2-mini",
+    "hunyuan3d 2 mini": "hunyuan3d-2-mini",
+    "hunyuan3d2mini": "hunyuan3d-2-mini",
+    "hunyuan3d_2_mini": "hunyuan3d-2-mini",
+    "hunyuan-2mini": "hunyuan3d-2-mini",
+    "hunyuan3d-2-mini": "hunyuan3d-2-mini",
+    "triposg": "triposg",
+    "trellis": "trellis",
+    "detailgen3d": "detailgen3d",
+    "mock": "mock",
 }
 
 # ponytail: keep this map in sync with runtime/engine.py::_PROVIDER_MAP — it is
@@ -53,8 +67,15 @@ def is_standalone_generation_provider(name: str) -> bool:
     return name.lower() not in _POST_PROCESSING_ONLY_PROVIDERS
 
 
-def _canonical_runtime_provider_name(name: str) -> str:
-    return _RUNTIME_PROVIDER_ALIASES.get(name, name)
+def canonical_runtime_provider_name(name: str) -> str:
+    """Return canonical lowercase provider name for any model name or alias."""
+    if not name or not isinstance(name, str):
+        return name
+    clean = name.strip().lower()
+    return _RUNTIME_PROVIDER_ALIASES.get(clean, clean)
+
+
+_canonical_runtime_provider_name = canonical_runtime_provider_name
 
 
 # ---------------------------------------------------------------------------

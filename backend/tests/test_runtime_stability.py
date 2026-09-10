@@ -73,3 +73,48 @@ def test_pydantic_not_in_shared_pkgs():
     """Verify pydantic is not purged from sys.modules during model environment setup."""
     assert "pydantic" not in _SHARED_PKGS
     assert "pydantic_core" not in _SHARED_PKGS
+
+
+def test_canonical_runtime_provider_name():
+    """Verify canonical_runtime_provider_name normalizes aliases and casing."""
+    from app.core.providers.registry import canonical_runtime_provider_name
+
+    assert canonical_runtime_provider_name("TripoSG") == "triposg"
+    assert canonical_runtime_provider_name("triposg") == "triposg"
+    assert canonical_runtime_provider_name("TRELLIS") == "trellis"
+    assert canonical_runtime_provider_name("Hunyuan3D-2mini") == "hunyuan3d-2-mini"
+    assert canonical_runtime_provider_name("Hunyuan3D-2.1") == "hunyuan3d-2.1"
+    assert canonical_runtime_provider_name("DetailGen3D") == "detailgen3d"
+    assert canonical_runtime_provider_name("hunyuan3d") == "hunyuan3d-2.1"
+    assert canonical_runtime_provider_name("hunyuan3d-1.0") == "hunyuan3d-2.1"
+    assert canonical_runtime_provider_name("Mock") == "mock"
+
+
+@pytest.mark.asyncio
+async def test_get_best_provider_name_casing_handling(monkeypatch):
+    """Verify engine.get_best_provider_name correctly handles casing without false fallback."""
+    from runtime.engine import RuntimeEngine
+    from runtime.gpu import GPUInfo
+
+    engine = RuntimeEngine()
+    # Mock GPU as having 16GB free VRAM
+    fake_gpu = GPUInfo(
+        available=True,
+        device_count=1,
+        devices=[{"index": 0, "name": "Tesla T4", "vram_mb": 15360, "free_vram_mb": 14705}],
+        total_vram_mb=15360,
+        free_vram_mb=14705,
+        cuda_version="12.8",
+        driver_version="580.82.07",
+    )
+    monkeypatch.setattr("runtime.gpu.get_gpu_info", lambda: fake_gpu)
+    monkeypatch.setattr("runtime.engine.get_gpu_info", lambda: fake_gpu)
+    monkeypatch.setattr(engine, "_check_provider_available", lambda name: True)
+
+    # TripoSG requested with mixed case must resolve to triposg without falling back to hunyuan3d-2.1
+    best = await engine.get_best_provider_name("TripoSG", mode="image-to-3d")
+    assert best == "triposg"
+
+    best_mini = await engine.get_best_provider_name("Hunyuan3D-2mini", mode="image-to-3d")
+    assert best_mini == "hunyuan3d-2-mini"
+

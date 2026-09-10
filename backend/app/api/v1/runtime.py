@@ -183,7 +183,11 @@ async def get_runtime_options():
             TEXTURE_MODELS,
         )
         from runtime.manifest_loader import get_all_provider_metadata  # noqa: PLC0415
-        from app.core.providers.registry import get_registry, is_standalone_generation_provider
+        from app.core.providers.registry import (
+            get_registry,
+            is_standalone_generation_provider,
+            canonical_runtime_provider_name,
+        )
         from app.core.registry.model_registry import ModelRegistry
         from runtime.installer import get_install_status_cached
 
@@ -198,8 +202,12 @@ async def get_runtime_options():
         three_d_models = []
         seen_ids: set[str] = set()
         for name, meta in provider_meta.items():
+            norm_name = canonical_runtime_provider_name(name)
+            if norm_name in seen_ids:
+                continue
             if meta.get("category") != "3d_generation":
                 continue
+            seen_ids.add(norm_name)
             avail = registry.get_availability(name)
             vram_req = meta.get("vram_required_mb", 0)
             status_entry = install_status.get(name, {}) if isinstance(install_status, dict) else {}
@@ -256,7 +264,7 @@ async def get_runtime_options():
                 texture_vram_mb = vram_req
 
             three_d_models.append({
-                "id": name,
+                "id": norm_name,
                 "label": meta["label"],
                 "available": is_available,
                 "installed": is_installed,
@@ -267,7 +275,7 @@ async def get_runtime_options():
                 "supports_texture": meta.get("supports_texture", False),
                 "supports_text_to_3d": meta.get("supports_text_to_3d", False),
                 "supports_image_to_3d": meta.get("supports_image_to_3d", False),
-                "supports_standalone_generation": is_standalone_generation_provider(name),
+                "supports_standalone_generation": is_standalone_generation_provider(norm_name),
                 "workspace_compatibility": meta.get("workspace_compatibility", []),
                 "low_vram_supported": meta.get("low_vram_supported", False),
                 "low_vram_required_mb": meta.get("low_vram_required_mb", 0),
@@ -280,7 +288,6 @@ async def get_runtime_options():
                     "part_separation": False,
                 },
             })
-            seen_ids.add(name.lower())
 
         # --- Also merge pipeline/registry models (installed + available 3d_generation) ---
         try:
@@ -294,8 +301,10 @@ async def get_runtime_options():
                 if mid and m.get("category") == "3d_generation":
                     all_registry[mid] = {**all_registry.get(mid, {}), **m}
             for mid, m in all_registry.items():
-                if mid in seen_ids:
+                norm_mid = canonical_runtime_provider_name(mid)
+                if norm_mid in seen_ids:
                     continue
+                seen_ids.add(norm_mid)
                 manifest = m.get("manifest") or {}
                 caps = manifest.get("capabilities") or {}
                 ws_compat = m.get("workspace_compatibility") or manifest.get("workspace_compatibility") or []
@@ -312,7 +321,7 @@ async def get_runtime_options():
                 except Exception:
                     pass
                 three_d_models.append({
-                    "id": m.get("id", mid),
+                    "id": norm_mid,
                     "label": m.get("label") or m.get("name") or mid,
                     "available": bool(m.get("available", m.get("installed", False))),
                     "installed": bool(m.get("installed", False)),
@@ -323,7 +332,7 @@ async def get_runtime_options():
                     "supports_texture": bool(caps.get("texture_generation")),
                     "supports_text_to_3d": bool(caps.get("text_to_3d")),
                     "supports_image_to_3d": bool(caps.get("image_to_3d")),
-                    "supports_standalone_generation": is_standalone_generation_provider(mid),
+                    "supports_standalone_generation": is_standalone_generation_provider(norm_mid),
                     "workspace_compatibility": ws_compat,
                     "low_vram_supported": bool(m.get("low_vram_supported") or caps.get("low_vram_supported") or manifest.get("low_vram_supported", False)),
                     "low_vram_required_mb": int(m.get("low_vram_required_mb") or manifest.get("low_vram_required_mb", 0)),
