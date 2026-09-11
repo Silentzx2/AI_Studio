@@ -712,3 +712,16 @@ When contributing to AI 3D Studio, follow these security guidelines:
 - **Chunked streaming**: Stream large file operations in chunks rather than buffering in memory.
 - **Connection cleanup**: Always close SSE and WebSocket connections on timeout or client disconnect.
 - **Lazy initialization**: Use lazy initialization patterns for expensive resources, ensuring all references are properly scoped.
+
+## Agent Skills Suite (`.agents/skills/`)
+
+The workspace is configured with modular agent skills for frontend development, UI/UX architecture, performance optimization, and testing:
+
+- **`ui-ux-pro-max`**: Design intelligence engine covering 79 UI styles, 192 product palettes, 74 font pairings, 119 UX guidelines, and 25 chart types. Run search via `python3 .agents/skills/ui-ux-pro-max/scripts/search.py "<query>" --stack nextjs`.
+- **`ui-styling` & `design-system`**: Tailwind styling utilities, design token validators, and shadcn component configuration helpers.
+- **`vercel-react-best-practices`**: 70 rules prioritized by impact covering waterfall elimination, bundle optimization, and server action safety.
+- **`vercel-composition-patterns`**: React 19 scalable composition patterns (compound components, context lifting, prop explosion prevention).
+- **`frontend-design`**: Visual direction guidelines ensuring distinctive, non-generic, production-grade interface aesthetics.
+- **`shadcn-component-discovery` & `shadcn-component-review`**: Upstream discovery across shadcn registries and post-implementation audits for spacing, styling, and slot consistency.
+- **`webapp-testing`**: Playwright headless browser test execution and UI visual regression verification.
+- **`web-design-guidelines`**: Web interface guideline conformance checks and automated accessibility inspection.

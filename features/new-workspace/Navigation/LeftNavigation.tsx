@@ -122,14 +122,17 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
           <button
             id="tool-btn-overview"
             onClick={() => navigateToMainNav('dashboard')}
-            className={`group relative w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer flex-shrink-0 ${
+            className={`group relative w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
               isOverviewActive
-                ? 'bg-[#F9CF00] text-black font-extrabold shadow-md'
-                : 'text-zinc-400 hover:text-white hover:bg-[#191A1D]'
+                ? 'bg-[#1E2025] border border-[#F9CF00]/40 text-white shadow-[0_2px_12px_rgba(249,207,0,0.12)]'
+                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[#15161A]'
             }`}
           >
-            <LayoutDashboard className="w-5 h-5 mb-1 flex-shrink-0" />
-            <span className="text-[10px] font-bold leading-tight text-center tracking-tight truncate w-full">Overview</span>
+            {isOverviewActive && (
+              <div className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]" />
+            )}
+            <LayoutDashboard className={`w-5 h-5 mb-1 flex-shrink-0 transition-transform ${isOverviewActive ? 'text-[#F9CF00] scale-105' : 'group-hover:scale-105'}`} />
+            <span className={`text-[10px] leading-tight text-center tracking-tight truncate w-full ${isOverviewActive ? 'text-white font-bold' : 'font-medium'}`}>Overview</span>
           </button>
         </SimpleTooltip>
 
@@ -140,14 +143,17 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
           <button
             id="tool-btn-model"
             onClick={() => handleToolClick('model')}
-            className={`group relative w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer flex-shrink-0 ${
+            className={`group relative w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
               isActive('model')
-                ? 'bg-[#F9CF00] text-black font-extrabold shadow-md'
-                : 'text-zinc-400 hover:text-white hover:bg-[#191A1D]'
+                ? 'bg-[#1E2025] border border-[#F9CF00]/40 text-white shadow-[0_2px_12px_rgba(249,207,0,0.12)]'
+                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[#15161A]'
             }`}
           >
-            <Box className="w-5 h-5 mb-1 flex-shrink-0" />
-            <span className="text-[10px] font-bold leading-tight text-center tracking-tight truncate w-full">Model</span>
+            {isActive('model') && (
+              <div className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]" />
+            )}
+            <Box className={`w-5 h-5 mb-1 flex-shrink-0 transition-transform ${isActive('model') ? 'text-[#F9CF00] scale-105' : 'group-hover:scale-105'}`} />
+            <span className={`text-[10px] leading-tight text-center tracking-tight truncate w-full ${isActive('model') ? 'text-white font-bold' : 'font-medium'}`}>Model</span>
           </button>
         </SimpleTooltip>
 
@@ -156,14 +162,17 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
           <button
             id="tool-btn-remesh"
             onClick={() => handleToolClick('remesh')}
-            className={`w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer flex-shrink-0 ${
+            className={`group relative w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
               isActive('remesh')
-                ? 'bg-[#F9CF00] text-black font-extrabold shadow-md'
-                : 'text-zinc-400 hover:text-white hover:bg-[#191A1D]'
+                ? 'bg-[#1E2025] border border-[#F9CF00]/40 text-white shadow-[0_2px_12px_rgba(249,207,0,0.12)]'
+                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[#15161A]'
             }`}
           >
-            <CircleDashed className="w-5 h-5 mb-1 flex-shrink-0" />
-            <span className="text-[10px] font-bold leading-tight text-center tracking-tight truncate w-full">Poly</span>
+            {isActive('remesh') && (
+              <div className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]" />
+            )}
+            <CircleDashed className={`w-5 h-5 mb-1 flex-shrink-0 transition-transform ${isActive('remesh') ? 'text-[#F9CF00] scale-105' : 'group-hover:scale-105'}`} />
+            <span className={`text-[10px] leading-tight text-center tracking-tight truncate w-full ${isActive('remesh') ? 'text-white font-bold' : 'font-medium'}`}>Poly</span>
           </button>
         </SimpleTooltip>
 
@@ -172,14 +181,17 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
           <button
             id="tool-btn-texture"
             onClick={() => handleToolClick('texture')}
-            className={`w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer flex-shrink-0 ${
+            className={`group relative w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
               isActive('texture')
-                ? 'bg-[#F9CF00] text-black font-extrabold shadow-md'
-                : 'text-zinc-400 hover:text-white hover:bg-[#191A1D]'
+                ? 'bg-[#1E2025] border border-[#F9CF00]/40 text-white shadow-[0_2px_12px_rgba(249,207,0,0.12)]'
+                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[#15161A]'
             }`}
           >
-            <Layers className="w-5 h-5 mb-1 flex-shrink-0" />
-            <span className="text-[10px] font-bold leading-tight text-center tracking-tight truncate w-full">Texture</span>
+            {isActive('texture') && (
+              <div className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]" />
+            )}
+            <Layers className={`w-5 h-5 mb-1 flex-shrink-0 transition-transform ${isActive('texture') ? 'text-[#F9CF00] scale-105' : 'group-hover:scale-105'}`} />
+            <span className={`text-[10px] leading-tight text-center tracking-tight truncate w-full ${isActive('texture') ? 'text-white font-bold' : 'font-medium'}`}>Texture</span>
           </button>
         </SimpleTooltip>
 
@@ -188,14 +200,17 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
           <button
             id="tool-btn-segment"
             onClick={() => handleToolClick('segment')}
-            className={`w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer flex-shrink-0 ${
+            className={`group relative w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
               isActive('segment')
-                ? 'bg-[#F9CF00] text-black font-extrabold shadow-md'
-                : 'text-zinc-400 hover:text-white hover:bg-[#191A1D]'
+                ? 'bg-[#1E2025] border border-[#F9CF00]/40 text-white shadow-[0_2px_12px_rgba(249,207,0,0.12)]'
+                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[#15161A]'
             }`}
           >
-            <Scissors className="w-5 h-5 mb-1 flex-shrink-0" />
-            <span className="text-[10px] font-bold leading-tight text-center tracking-tight truncate w-full">Segment</span>
+            {isActive('segment') && (
+              <div className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]" />
+            )}
+            <Scissors className={`w-5 h-5 mb-1 flex-shrink-0 transition-transform ${isActive('segment') ? 'text-[#F9CF00] scale-105' : 'group-hover:scale-105'}`} />
+            <span className={`text-[10px] leading-tight text-center tracking-tight truncate w-full ${isActive('segment') ? 'text-white font-bold' : 'font-medium'}`}>Segment</span>
           </button>
         </SimpleTooltip>
       </div>
@@ -206,10 +221,10 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
           <button
             id="tool-btn-settings"
             onClick={() => router.push('/settings')}
-            className="w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl text-zinc-400 hover:text-white hover:bg-[#191A1D] transition-colors cursor-pointer flex-shrink-0"
+            className="group w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl text-zinc-400 hover:text-white hover:bg-[#15161A] transition-all duration-150 active:scale-95 cursor-pointer flex-shrink-0"
           >
-            <Settings className="w-5 h-5 mb-1 flex-shrink-0" />
-            <span className="text-[10px] font-bold leading-tight text-center tracking-tight truncate w-full">Settings</span>
+            <Settings className="w-5 h-5 mb-1 flex-shrink-0 transition-transform group-hover:rotate-45" />
+            <span className="text-[10px] font-medium leading-tight text-center tracking-tight truncate w-full">Settings</span>
           </button>
         </SimpleTooltip>
       </div>
@@ -228,13 +243,16 @@ const MobileNavItem: React.FC<{
   <button
     id={id}
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer ${
+    className={`w-full relative flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition-all active:scale-98 cursor-pointer ${
       active
-        ? 'bg-[#F9CF00] text-black font-extrabold'
-        : 'text-zinc-300 hover:text-white hover:bg-[#191A1D]'
+        ? 'bg-[#1E2025] border border-[#F9CF00]/40 text-white font-bold shadow-sm'
+        : 'text-zinc-300 hover:text-white hover:bg-[#15161A] border border-transparent'
     }`}
   >
-    <span className="flex-shrink-0">{icon}</span>
-    <span className="text-sm font-semibold truncate">{label}</span>
+    {active && (
+      <div className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]" />
+    )}
+    <span className={`flex-shrink-0 ${active ? 'text-[#F9CF00]' : 'text-zinc-400'}`}>{icon}</span>
+    <span className="text-xs font-semibold truncate">{label}</span>
   </button>
 );

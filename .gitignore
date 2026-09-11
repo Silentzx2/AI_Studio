@@ -73,6 +73,7 @@ scripts/.cloudflare_tunnels
 .opencode/opencode.json
 .blackboxcli/
 .kilo/
+.agents
 
 # Built wheels - stored locally and uploaded to GitHub releases
 .wheels/

@@ -140,11 +140,13 @@ export const RightPropertyPanel: React.FC = () => {
 
   if (!currentAsset) {
     return (
-      <div id="panel-properties-inspector" className="flex h-full items-center justify-center bg-[hsl(var(--surface-1))] px-6 text-center">
-        <div>
-          <Box className="w-10 h-10 mx-auto mb-3 text-[hsl(var(--muted-foreground))]" />
-          <div className="text-sm font-bold text-[hsl(var(--foreground))]">No asset selected</div>
-          <div className="text-xs text-[hsl(var(--muted-foreground))] mt-1.5 leading-relaxed">Generate or import a real 3D asset to inspect its properties and transforms.</div>
+      <div id="panel-properties-inspector" className="flex flex-col h-full items-center justify-center bg-[#191A1D] px-6 text-center select-none">
+        <div className="w-12 h-12 rounded-2xl bg-[#141518] border border-white/[0.08] flex items-center justify-center text-zinc-500 mb-3 shadow-inner">
+          <Box className="w-6 h-6 text-zinc-400 stroke-[1.5]" />
+        </div>
+        <div className="text-xs font-bold text-white tracking-wide">No Active 3D Asset</div>
+        <div className="text-[11px] text-zinc-400 mt-1.5 leading-relaxed max-w-[210px]">
+          Generate a model or select one from the Assets tab to inspect geometry, PBR maps, and exports.
         </div>
       </div>
     );

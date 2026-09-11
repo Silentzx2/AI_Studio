@@ -190,6 +190,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   });
   const [cameraPreset, setCameraPreset] = useState<CameraViewPreset>('perspective');
   const [cameraMenuOpen, setCameraMenuOpen] = useState(false);
+  const cameraMenuRef = useRef<HTMLDivElement>(null);
+  const envPanelRef = useRef<HTMLDivElement>(null);
   const [interactionMode, setInteractionMode] = useState<'orbit' | 'pan' | 'move'>('orbit');
   const [isDragOver, setIsDragOver] = useState(false);
   const [dropToastMessage, setDropToastMessage] = useState<string | null>(null);
@@ -197,6 +199,35 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const [selectedPreset, setSelectedPreset] = useState<string | null>('real');
   const [meshStats, setMeshStats] = useState<{ faces: number; vertices: number; triangles: number } | null>(null);
   const [debugBlueprint, setDebugBlueprint] = useState(false);
+
+  // Close menus on outside click or Escape key
+  useEffect(() => {
+    if (!cameraMenuOpen && !showEnvironmentPanel) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (cameraMenuRef.current && !cameraMenuRef.current.contains(e.target as Node)) {
+        setCameraMenuOpen(false);
+      }
+      if (envPanelRef.current && !envPanelRef.current.contains(e.target as Node)) {
+        // Only close if click wasn't on the toggle button itself
+        const target = e.target as HTMLElement;
+        if (!target.closest('#btn-env-settings-toggle')) {
+          setShowEnvironmentPanel(false);
+        }
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setCameraMenuOpen(false);
+        setShowEnvironmentPanel(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [cameraMenuOpen, showEnvironmentPanel]);
 
   useEffect(() => {
     const handleToggle = (e: Event) => {
@@ -1577,8 +1608,9 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
             <SimpleTooltip side="left" label="Environment Settings — Lighting, Grid, Camera">
               <button
+                id="btn-env-settings-toggle"
                 onClick={() => setShowEnvironmentPanel(!showEnvironmentPanel)}
-                className={`p-2 rounded-xl transition-all ${
+                className={`p-2 rounded-xl transition-all cursor-pointer ${
                   showEnvironmentPanel
                     ? 'bg-[#F9CF00] text-black font-bold' 
                     : 'text-zinc-300 hover:text-white hover:bg-[#1f222a]'
@@ -1592,8 +1624,9 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           {/* Environment Settings Panel */}
           {showEnvironmentPanel && (
             <div 
+              ref={envPanelRef}
               style={{ right: `${rightOffset + 56}px` }} 
-              className="absolute top-1/2 -translate-y-1/2 z-20 w-72 bg-[#14161b] border border-[#272a34] rounded-2xl shadow-2xl p-4 space-y-3 transition-all duration-200"
+              className="absolute top-1/2 -translate-y-1/2 z-20 w-72 bg-[#16181D]/95 backdrop-blur-xl border border-white/[0.1] rounded-2xl shadow-2xl p-4 space-y-3 transition-all duration-200 animate-in fade-in zoom-in-95"
             >
               <h3 className="text-[10px] font-bold tracking-wider text-[#F9CF00] uppercase">Environment Settings</h3>
 
@@ -1794,23 +1827,27 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           {/* Bottom Transport Control Bar */}
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2">
             {/* Free Orbit / Camera Presets Dropdown */}
-            <div className="relative">
+            {/* Free Orbit / Camera Presets Dropdown */}
+            <div className="relative" ref={cameraMenuRef}>
               <button
                 onClick={() => setCameraMenuOpen(!cameraMenuOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#14161b] border border-[#272a34] text-xs font-semibold text-zinc-200 hover:text-white hover:border-[#F9CF00]/50 shadow-2xl transition-all"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#16181D]/90 backdrop-blur-md border border-white/[0.1] text-xs font-semibold text-zinc-200 hover:text-white hover:border-white/[0.2] shadow-2xl transition-all cursor-pointer"
               >
                 <RotateCw className="w-3.5 h-3.5 text-[#F9CF00]" />
                 <span className="capitalize">{cameraPreset} View</span>
-                <ChevronDown className="w-3 h-3 text-zinc-400" />
+                <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform ${cameraMenuOpen ? 'rotate-180 text-[#F9CF00]' : ''}`} />
               </button>
 
               {cameraMenuOpen && (
-                <div className="absolute bottom-full left-0 mb-1.5 w-40 py-1 rounded-xl bg-[#181b22] border border-[#272a34] shadow-2xl z-50 text-xs">
+                <div className="absolute bottom-full left-0 mb-1.5 w-40 py-1.5 rounded-xl bg-[#181B22]/95 backdrop-blur-xl border border-white/[0.12] shadow-2xl z-50 text-xs animate-in fade-in zoom-in-95 duration-100">
                   {(['perspective', 'front', 'back', 'top', 'bottom', 'left', 'right'] as CameraViewPreset[]).map((p) => (
                     <button
                       key={p}
-                      onClick={() => applyCameraPreset(p)}
-                      className={`w-full text-left px-3 py-1.5 capitalize hover:bg-[#222630] transition-colors flex items-center justify-between ${
+                      onClick={() => {
+                        applyCameraPreset(p);
+                        setCameraMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 capitalize hover:bg-[#222630] transition-colors flex items-center justify-between cursor-pointer ${
                         cameraPreset === p ? 'text-[#F9CF00] font-bold' : 'text-zinc-300'
                       }`}
                     >
@@ -1831,7 +1868,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                   controlsRef.current.update();
                 }
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#14161b] border border-[#272a34] text-xs font-semibold text-zinc-300 hover:text-white hover:border-[#F9CF00]/50 shadow-2xl transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#16181D]/90 backdrop-blur-md border border-white/[0.1] text-xs font-semibold text-zinc-300 hover:text-white hover:border-white/[0.2] shadow-2xl transition-all cursor-pointer active:scale-95"
             >
               <span>Snap</span>
             </button>
@@ -1839,16 +1876,16 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             {/* 3D Print Preparation */}
             <button
               onClick={() => setIsExportModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#14161b] border border-[#272a34] text-xs font-semibold text-zinc-300 hover:text-white hover:border-[#F9CF00]/50 shadow-2xl transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#16181D]/90 backdrop-blur-md border border-white/[0.1] text-xs font-semibold text-zinc-300 hover:text-white hover:border-white/[0.2] shadow-2xl transition-all cursor-pointer active:scale-95"
             >
               <Printer className="w-3.5 h-3.5 text-[#F9CF00]" />
               <span>3D Print</span>
             </button>
 
-            {/* Direct Export 3D Bundle Button (Gray & Yellow Theme) */}
+            {/* Direct Export 3D Bundle Button (Gradient Tactile Theme) */}
             <button
               onClick={() => setIsExportModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-[#F9CF00] hover:bg-[#ebd024] text-black text-xs font-bold shadow-2xl shadow-[#F9CF00]/25 active:scale-95 transition-all"
+              className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-gradient-to-r from-[#FFE24C] to-[#F9CF00] hover:brightness-105 active:scale-95 text-black text-xs font-extrabold shadow-2xl shadow-[#F9CF00]/25 transition-all cursor-pointer border border-white/20"
             >
               <Download className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>Export</span>

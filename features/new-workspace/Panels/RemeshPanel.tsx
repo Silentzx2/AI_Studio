@@ -368,18 +368,18 @@ export const RemeshPanel: React.FC = () => {
           id="btn-action-generate-remesh"
           onClick={runRemeshGeneration}
           disabled={isExecuting || (!currentAsset?.source?.viewUrl && !currentAsset?.source?.localUrl)}
-          className="w-full h-10 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          className="w-full h-10 rounded-xl bg-gradient-to-b from-[#FFE24C] to-[#F9CF00] hover:from-[#FFE660] hover:to-[#FFD700] text-black font-black tracking-wider text-xs flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(249,207,0,0.25)] hover:shadow-[0_6px_20px_rgba(249,207,0,0.35)] transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
         >
           {isExecuting ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin text-black" />
               <span>Remeshing Topology...</span>
             </>
           ) : !currentAsset ? (
             <span>SELECT A MODEL FIRST</span>
           ) : (
             <>
-              <Sliders className="w-4 h-4 stroke-[2.2]" />
+              <Sliders className="w-4 h-4 stroke-[2.5]" />
               <span>OPTIMIZE &amp; REMESH</span>
             </>
           )}

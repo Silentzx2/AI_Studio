@@ -1,5 +1,58 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.38] - 2026-09-11
+
+### Studio-Grade UI/UX Overhaul & Modern Interaction Architecture
+
+#### 1. Header & Workspace Navigation Polish (`TopHeader.tsx`, `LeftNavigation.tsx`)
+- **Refined Navigation Segmented Control**: Replaced basic tab buttons with an elevated segmented pill bar (`Home`, `Assets`, `System`) featuring smooth hover transitions and active indicator styling.
+- **Outside Click & Escape Dismissal**: Added `workspaceMenuRef` event listeners to dismiss the workspace switcher dropdown when clicking outside or pressing `Escape`.
+- **High-End Left Navigation Cards**: Eliminated flat solid-yellow blocks in favor of dark studio cards (`bg-[#1E2025]`, `border-[#F9CF00]/40`) with animated glowing accent indicator bars, tactile `active:scale-95` press states, and icon hover transformations across desktop navigation and mobile drawer.
+
+#### 2. Shell & Floating Panel Architecture (`WorkspaceShell.tsx`)
+- **Depth & Studio Elevation**: Upgraded floating left and right studio panels with high-depth studio dropshadows (`shadow-[0_8px_32px_rgba(0,0,0,0.6)]`) and crisp subtle perimeter borders (`border-white/[0.08]`).
+- **Segmented Panel Switcher**: Modernized right panel `Assets | Property` toggle bar with refined active indicators, tactile feedback, and seamless switching.
+- **Micro-Collapsible Handles**: Enhanced left and right panel collapse triggers with backdrop blur, hover glow, and smooth chevron transitions.
+
+#### 3. Generation, Remesh & Texture Action Panels (`GeneratePanel.tsx`, `RemeshPanel.tsx`, `TexturePanel.tsx`)
+- **Mode Selector Segmented Bar**: Replaced icon cluster with a clean 4-column studio segmented control (`Image`, `Multi`, `Text`, `Sketch`) with clear tooltips and active highlights.
+- **Tactile Primary Action Buttons**: Upgraded `GENERATE 3D MODEL`, `OPTIMIZE & REMESH`, and `GENERATE TEXTURE` triggers with a custom tactile gradient (`from-[#FFE24C] to-[#F9CF00]`), subtle specular highlight, active press scaling, and disabled states.
+- **Pill Style & Preset Chips**: Polished quick style chips with rounded pill borders, hover rings, and active state feedback.
+
+#### 4. Inspector & Asset Library Refinements (`RightPropertyPanel.tsx`, `RightAssetsPanel.tsx`)
+- **Dedicated Inspector Empty State**: Replaced blank placeholder with a studio-grade empty state card providing contextual guidance for selecting models or running generations.
+- **Asset Dropdowns & Pagination**: Added outside-click and `Escape` dismiss handling for category filter dropdown and asset 3-dots action menus; unified pagination footer tokens (`bg-[#16181D]`, `border-white/[0.08]`).
+
+#### 5. Studio Overlays & Dialogs (`ExportModal.tsx`, `DccBridgeModal.tsx`, `SettingsModal.tsx`)
+- **Consistent Backdrop Blurs & Escape Handlers**: Added backdrop blur (`backdrop-blur-md bg-black/75`), click-outside dismissal, and global `Escape` key listeners to all studio modals.
+- **DCC Bridge Unification**: Replaced raw inconsistent HSL tokens with unified dark studio theme tokens (`bg-[#181a20]`, `bg-[#141518]`, `text-[#00E5FF]`, `text-emerald-400`).
+
+#### 6. 3D Viewport Controls & Environment HUD (`MeshViewer.tsx`)
+- **Outside-Click & Escape Dismissal for Viewport Controls**: Attached `cameraMenuRef` and `envPanelRef` listeners for instant closure on outside click and `Escape` key press.
+- **Unified Viewport Overlays**: Replaced discordant green/blue-gray borders with dark studio backdrop blur and crisp border tokens (`bg-[#16181D]/90`, `border-white/[0.1]`).
+- **Tactile Quick Export**: Upgraded the bottom viewport transport bar Export button to the high-contrast tactile gradient button pattern (`bg-gradient-to-r from-[#FFE24C] to-[#F9CF00]`).
+
+#### 7. Studio Dashboard Modernization (`StudioDashboard.tsx`)
+- **Unified Design Tokens**: Replaced disparate palette values (`#1e2026`, `#2f333e`) with standard dark studio tokens (`bg-[#0D0E10]`, `bg-[#191A1D]`, `border-white/[0.08]`).
+- **Tactile Workflow Cards**: Enhanced the 3 core workflow cards (`3D Mesh Generation`, `PBR Texture Studio`, `Adaptive Remesh`) with glowing hover accents, subtle active scale feedback, and consistent typography.
+
+## [v5.0.37] - 2026-09-11
+
+### Agent Engineering & UI/UX Intelligence Skills Suite Integration
+
+#### 1. UI/UX Pro Max Skill Installation (`.agents/skills/ui-ux-pro-max/`)
+- Installed `ui-ux-pro-max-skill` via `ui-ux-pro-max-cli` configured for Antigravity, including `search.py` data engine with 79 UI styles, 192 color palettes, 74 font pairings, 119 UX guidelines, 25 chart types, and 22 technology stacks.
+- Integrated companion modules: `ui-styling` (Tailwind config generation & shadcn utilities), `design-system` (design token management & validation), `design` (icon, logo, and brand asset generation), `brand`, `banner-design`, and `slides`.
+
+#### 2. Curated Production Skills Suite (`.agents/skills/` & `~/.gemini/config/skills/`)
+- **`vercel-react-best-practices`**: 70 rules from Vercel Engineering prioritized by impact (eliminating waterfalls, dynamic imports, bundle size reduction, server actions, and caching).
+- **`vercel-composition-patterns`**: Scalable React 19 component composition paradigms.
+- **`web-design-guidelines`**: Automated audit workflows against modern web interface and accessibility guidelines.
+- **`frontend-design`**: Intentional, distinctive UI styling system preventing generic AI aesthetics.
+- **`shadcn-component-discovery` & `shadcn-component-review`**: Upstream registry discovery and component code reviews.
+- **`webapp-testing`**: Headless browser automation and regression validation via Playwright.
+- **`web-artifacts-builder`**: Interactive multi-component React/Tailwind/Radix UI artifact builder.
+
 ## [v5.0.36] - 2026-09-10
 
 ### High-Fidelity 3D Pipeline & Lossless Mesh Processing (Tripo-Grade Quality)

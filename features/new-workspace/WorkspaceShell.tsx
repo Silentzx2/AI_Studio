@@ -184,14 +184,14 @@ export const WorkspaceShell: React.FC = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -15 }}
                 transition={{ duration: 0.14, ease: 'easeOut' }}
-                className="absolute inset-0 md:inset-auto md:left-2 md:top-2 md:bottom-2 md:w-[320px] md:max-w-[calc(100vw-5rem)] bg-[#191A1D] md:border md:border-white/[0.08] md:rounded-xl shadow-2xl flex flex-col z-20 overflow-hidden"
+                className="absolute inset-0 md:inset-auto md:left-2 md:top-2 md:bottom-2 md:w-[320px] md:max-w-[calc(100vw-5rem)] bg-[#191A1D] md:border md:border-white/[0.1] md:rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.6)] flex flex-col z-20 overflow-hidden"
               >
                 {/* Mobile panel header with close button */}
                 <div className="flex items-center justify-between px-3 py-2 border-b border-white/[0.08] bg-[#16181D] md:hidden flex-shrink-0">
                   <span className="font-bold text-xs text-white">Tool Panel</span>
                   <button
                     onClick={() => setIsLeftPanelOpen(false)}
-                    className="p-1.5 rounded-lg text-zinc-400 hover:text-[#F9CF00] hover:bg-[#202125] transition-all"
+                    className="p-1.5 rounded-lg text-zinc-400 hover:text-[#F9CF00] hover:bg-[#202125] transition-all cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -203,7 +203,7 @@ export const WorkspaceShell: React.FC = () => {
                     <SimpleTooltip label="Collapse panel" side="left">
                       <button
                         onClick={() => setIsLeftPanelOpen(false)}
-                        className="p-1 rounded-lg bg-[#202125] border border-white/[0.08] text-zinc-400 hover:text-[#F9CF00] hover:bg-[#28292E] transition-all"
+                        className="p-1 rounded-lg bg-[#202125] border border-white/[0.08] text-zinc-400 hover:text-[#F9CF00] hover:bg-[#28292E] transition-all cursor-pointer"
                       >
                         <PanelLeftClose className="w-3.5 h-3.5" />
                       </button>
@@ -233,7 +233,7 @@ export const WorkspaceShell: React.FC = () => {
               <SimpleTooltip label="Open Tool Panel">
                 <button
                   onClick={() => setIsLeftPanelOpen(true)}
-                  className="w-5 h-10 rounded-r-lg bg-[#191A1D] border border-l-0 border-white/[0.08] text-zinc-400 hover:text-[#F9CF00] transition-colors flex items-center justify-center shadow-lg cursor-pointer"
+                  className="w-5 h-11 rounded-r-lg bg-[#191A1D]/90 backdrop-blur-md border border-l-0 border-white/[0.1] text-zinc-400 hover:text-[#F9CF00] hover:border-[#F9CF00]/40 hover:bg-[#202227] transition-all flex items-center justify-center shadow-xl cursor-pointer active:scale-95"
                 >
                   <PanelLeftOpen className="w-3.5 h-3.5" />
                 </button>
@@ -261,7 +261,7 @@ export const WorkspaceShell: React.FC = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 15 }}
                 transition={{ duration: 0.14, ease: 'easeOut' }}
-                className="absolute inset-0 md:inset-auto md:right-1.5 md:top-1.5 md:bottom-1.5 md:w-[280px] md:max-w-[calc(100vw-4.5rem)] bg-[#191A1D] md:border md:border-white/[0.08] md:rounded-xl shadow-2xl flex flex-col z-20 overflow-hidden"
+                className="absolute inset-0 md:inset-auto md:right-2 md:top-2 md:bottom-2 md:w-[290px] md:max-w-[calc(100vw-4.5rem)] bg-[#191A1D] md:border md:border-white/[0.1] md:rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.6)] flex flex-col z-20 overflow-hidden"
               >
                 {/* Mobile panel header with close button */}
                 <div className="flex items-center justify-between px-3 py-2 border-b border-white/[0.08] bg-[#16181D] md:hidden flex-shrink-0">
@@ -270,21 +270,21 @@ export const WorkspaceShell: React.FC = () => {
                   </span>
                   <button
                     onClick={() => setIsRightPanelOpen(false)}
-                    className="p-1.5 rounded-lg text-zinc-400 hover:text-[#F9CF00] hover:bg-[#202125] transition-all"
+                    className="p-1.5 rounded-lg text-zinc-400 hover:text-[#F9CF00] hover:bg-[#202125] transition-all cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
-                {/* Top Tab Bar: Assets | Property - desktop only */}
-                <div className="h-9 px-2.5 items-center justify-between border-b border-white/[0.08] bg-[#16181D] flex-shrink-0 hidden md:flex">
-                  <div className="flex items-center gap-1.5 w-full mr-1">
+                {/* Top Tab Bar: Assets | Property - desktop segmented control */}
+                <div className="h-10 px-2.5 items-center justify-between border-b border-white/[0.08] bg-[#141518] flex-shrink-0 hidden md:flex">
+                  <div className="flex items-center gap-1 w-full mr-2 bg-[#1A1B1F] p-0.5 rounded-lg border border-white/[0.06]">
                     <button
                       id="tab-btn-assets"
                       onClick={() => setRightPanelMode('assets')}
-                      className={`flex-1 py-1 rounded-lg text-xs font-bold transition-all ${
+                      className={`flex-1 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
                         rightPanelMode === 'assets'
-                          ? 'bg-[#25262A] text-white shadow-sm'
+                          ? 'bg-[#25272D] text-white shadow-sm'
                           : 'text-zinc-400 hover:text-zinc-200'
                       }`}
                     >
@@ -293,9 +293,9 @@ export const WorkspaceShell: React.FC = () => {
                     <button
                       id="tab-btn-properties"
                       onClick={() => setRightPanelMode('properties')}
-                      className={`flex-1 py-1 rounded-lg text-xs font-bold transition-all ${
+                      className={`flex-1 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
                         rightPanelMode === 'properties' || rightPanelMode === 'property'
-                          ? 'bg-[#25262A] text-white shadow-sm'
+                          ? 'bg-[#25272D] text-white shadow-sm'
                           : 'text-zinc-400 hover:text-zinc-200'
                       }`}
                     >
@@ -305,9 +305,9 @@ export const WorkspaceShell: React.FC = () => {
                   <SimpleTooltip label="Collapse panel">
                     <button
                       onClick={() => setIsRightPanelOpen(false)}
-                      className="p-1 rounded-lg text-zinc-400 hover:text-[#F9CF00] transition-colors"
+                      className="p-1 rounded-lg text-zinc-400 hover:text-[#F9CF00] hover:bg-[#1E2025] transition-colors cursor-pointer"
                     >
-                      <PanelRightClose className="w-4 h-4" />
+                      <PanelRightClose className="w-3.5 h-3.5" />
                     </button>
                   </SimpleTooltip>
                 </div>
@@ -349,7 +349,7 @@ export const WorkspaceShell: React.FC = () => {
               <SimpleTooltip label="Open Asset Store / Inspector">
                 <button
                   onClick={() => setIsRightPanelOpen(true)}
-                  className="w-5 h-10 rounded-l-lg bg-[#191A1D] border border-r-0 border-white/[0.08] text-zinc-400 hover:text-[#F9CF00] transition-colors flex items-center justify-center shadow-lg cursor-pointer"
+                  className="w-5 h-11 rounded-l-lg bg-[#191A1D]/90 backdrop-blur-md border border-r-0 border-white/[0.1] text-zinc-400 hover:text-[#F9CF00] hover:border-[#F9CF00]/40 hover:bg-[#202227] transition-all flex items-center justify-center shadow-xl cursor-pointer active:scale-95"
                 >
                   <PanelRightOpen className="w-3.5 h-3.5" />
                 </button>

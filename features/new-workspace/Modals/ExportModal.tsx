@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Download, X, FileBox, Check, Layers, Archive, Box, ShieldCheck, AlertTriangle, Loader2 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 
@@ -17,6 +17,16 @@ export const ExportModal: React.FC = () => {
   const [includeLODs, setIncludeLODs] = useState(true);
   const [includeCollision, setIncludeCollision] = useState(true);
   const [includeQAReport, setIncludeQAReport] = useState(true);
+
+  // Dismiss on Escape
+  useEffect(() => {
+    if (!isExportModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsExportModalOpen(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isExportModalOpen, setIsExportModalOpen]);
 
   if (!isExportModalOpen) return null;
   if (!currentAsset?.source) return null;
@@ -87,7 +97,10 @@ export const ExportModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 text-xs select-none">
+    <div
+      onClick={(e) => { if (e.target === e.currentTarget) setIsExportModalOpen(false); }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 text-xs select-none"
+    >
       <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-white/[0.08] bg-[#181a20] shadow-2xl animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/[0.08] bg-[#1e2026] px-5 py-4">
@@ -306,17 +319,18 @@ export const ExportModal: React.FC = () => {
             <button
               onClick={() => void handleExport()}
               disabled={isExporting}
-              className="flex items-center gap-2 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] px-6 py-2 text-xs font-bold text-black shadow-lg shadow-[#F9CF00]/20 disabled:opacity-50 transition-all cursor-pointer"
+              className="relative flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#FFE24C] to-[#F9CF00] hover:brightness-105 active:scale-[0.98] px-6 py-2 text-xs font-extrabold text-black shadow-lg shadow-[#F9CF00]/25 disabled:opacity-50 transition-all cursor-pointer overflow-hidden border border-white/20"
             >
+              <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
               {isExporting ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Packaging…</span>
+                  <Loader2 className="h-4 w-4 animate-spin relative z-10" />
+                  <span className="relative z-10">Packaging…</span>
                 </>
               ) : (
                 <>
-                  <Download className="h-4 w-4 stroke-[2.5]" />
-                  <span>Export {packageZip ? 'Package (ZIP)' : exportFormat.toUpperCase()}</span>
+                  <Download className="h-4 w-4 stroke-[2.5] relative z-10" />
+                  <span className="relative z-10">Export {packageZip ? 'Package (ZIP)' : exportFormat.toUpperCase()}</span>
                 </>
               )}
             </button>

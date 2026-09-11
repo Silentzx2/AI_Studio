@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Server, 
   X, 
@@ -19,6 +19,15 @@ export const SettingsModal: React.FC = () => {
     generationSettings,
     setGenerationSettings
   } = useWorkspace();
+
+  useEffect(() => {
+    if (!isSettingsOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsSettingsOpen(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isSettingsOpen, setIsSettingsOpen]);
 
   const [host, setHost] = useState(() => {
     // Load saved host from localStorage or use default
@@ -53,22 +62,25 @@ export const SettingsModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 select-none animate-in fade-in duration-200">
-      <div className="w-full max-w-xl rounded-2xl bg-[#111] border border-[#1a1a1a] shadow-2xl overflow-hidden flex flex-col">
+    <div
+      onClick={(e) => { if (e.target === e.currentTarget) setIsSettingsOpen(false); }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 select-none animate-in fade-in duration-200"
+    >
+      <div className="w-full max-w-xl rounded-2xl bg-[#181a20] border border-white/[0.08] shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 bg-[#111] border-b border-[#1a1a1a]">
+        <div className="flex items-center justify-between px-5 py-4 bg-[#1e2026] border-b border-white/[0.08]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#1a1a1a] border border-[#222] flex items-center justify-center text-[#F9CF00]">
+            <div className="w-8 h-8 rounded-xl bg-[#F9CF00]/15 border border-[#F9CF00]/30 flex items-center justify-center text-[#F9CF00]">
               <Server className="w-4 h-4" />
             </div>
             <div>
               <h3 className="font-bold text-sm text-white">Backend Configuration</h3>
-              <p className="text-[11px] text-[#666]">Connect to local or cloud 3D Generation Pipeline</p>
+              <p className="text-[11px] text-zinc-400">Connect to local or cloud 3D Generation Pipeline</p>
             </div>
           </div>
           <button
             onClick={() => setIsSettingsOpen(false)}
-            className="p-1.5 rounded-lg text-[#666] hover:text-white hover:bg-[#1a1a1a]"
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.08] transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -239,16 +251,16 @@ export const SettingsModal: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2.5 px-5 py-3.5 bg-[#111] border-t border-[#1a1a1a]">
+        <div className="flex items-center justify-end gap-2.5 px-5 py-3.5 bg-[#1e2026] border-t border-white/[0.08]">
           <button
             onClick={() => setIsSettingsOpen(false)}
-            className="px-4 py-2 rounded-xl bg-[#1a1a1a] text-[#888] hover:bg-[#222] font-medium text-xs transition-colors"
+            className="px-4 py-2 rounded-xl bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-white font-medium text-xs transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-5 py-2 rounded-xl bg-[#F9CF00] hover:bg-[#e6bf00] text-black font-bold text-xs shadow-md transition-all"
+            className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#FFE24C] to-[#F9CF00] hover:brightness-105 active:scale-95 text-black font-extrabold text-xs shadow-md shadow-[#F9CF00]/20 transition-all cursor-pointer border border-white/20"
           >
             Save Changes
           </button>

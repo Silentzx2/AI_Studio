@@ -26,13 +26,13 @@ export const StudioDashboard: React.FC = () => {
   };
 
   return (
-    <div id="studio-dashboard-view" className="flex-1 w-full h-full overflow-y-auto bg-[#14161b] select-none text-xs">
+    <div id="studio-dashboard-view" className="flex-1 w-full h-full overflow-y-auto bg-[#0D0E10] select-none text-xs">
       <div className="max-w-6xl mx-auto w-full p-6 lg:p-8 space-y-6">
         {/* Studio Banner & Quick Actions */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl bg-[#1e2026] border border-[#2f333e] shadow-xl">
-          <div className="space-y-1.5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl bg-[#191A1D] border border-white/[0.08] shadow-2xl relative overflow-hidden">
+          <div className="space-y-1.5 relative z-10">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-[#2b2f3a] text-[#F9CF00] uppercase tracking-wider font-bold border border-[#3d4252]">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-[#22242A] text-[#F9CF00] uppercase tracking-wider font-bold border border-white/[0.08]">
                 FastAPI + 3D-Pack
               </span>
               <span className={`text-[10px] font-mono flex items-center gap-1.5 ${systemStats.status === 'online' ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -43,16 +43,16 @@ export const StudioDashboard: React.FC = () => {
             <h1 className="text-xl lg:text-2xl font-black text-white tracking-tight">
               AI 3D Creation Workspace
             </h1>
-            <p className="text-xs text-zinc-300 max-w-xl">
+            <p className="text-xs text-zinc-300 max-w-xl leading-relaxed">
               Professional high-fidelity 3D modeling, quad topology remeshing, and PBR texture baking.
             </p>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 relative z-10">
             <button
               onClick={() => handleLaunchTool('model')}
-              className="px-5 py-2.5 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-bold text-xs flex items-center gap-2 shadow-lg shadow-[#F9CF00]/25 transition-all active:scale-95 cursor-pointer"
+              className="relative px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#FFE24C] to-[#F9CF00] hover:brightness-105 text-black font-extrabold text-xs flex items-center gap-2 shadow-lg shadow-[#F9CF00]/25 transition-all active:scale-95 cursor-pointer border border-white/20"
             >
               <Sparkles className="w-4 h-4 fill-black text-black stroke-[2.2]" />
               <span>New 3D Generation</span>
@@ -65,18 +65,18 @@ export const StudioDashboard: React.FC = () => {
           {/* Model */}
           <div 
             onClick={() => handleLaunchTool('model')}
-            className="p-5 rounded-2xl bg-[#1e2026] border border-[#2f333e] hover:border-[#F9CF00]/60 hover:bg-[#252830] cursor-pointer transition-all group flex flex-col justify-between"
+            className="p-5 rounded-2xl bg-[#191A1D] border border-white/[0.08] hover:border-[#F9CF00]/60 hover:bg-[#1E2026] cursor-pointer transition-all group flex flex-col justify-between shadow-lg active:scale-[0.99]"
           >
             <div className="space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-[#282b34] border border-[#3d4252] flex items-center justify-center text-[#F9CF00] group-hover:scale-110 transition-transform">
+              <div className="w-10 h-10 rounded-xl bg-[#22242A] border border-white/[0.08] flex items-center justify-center text-[#F9CF00] group-hover:scale-110 group-hover:border-[#F9CF00]/40 transition-all">
                 <Box className="w-5 h-5 stroke-[2.2]" />
               </div>
               <div>
-                <h3 className="font-bold text-sm text-white">3D Mesh Generation</h3>
-                <p className="text-zinc-300 text-[11px] mt-1">Generate 3D meshes using the installed FastAPI + 3D-Pack workflows.</p>
+                <h3 className="font-bold text-sm text-white group-hover:text-[#F9CF00] transition-colors">3D Mesh Generation</h3>
+                <p className="text-zinc-400 text-[11px] mt-1 leading-relaxed">Generate high-fidelity 3D meshes using the installed FastAPI + 3D-Pack neural pipelines.</p>
               </div>
             </div>
-            <div className="flex items-center gap-1 text-[#F9CF00] font-bold text-xs pt-4">
+            <div className="flex items-center gap-1.5 text-[#F9CF00] font-bold text-xs pt-4">
               <span>Launch Tool</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform stroke-[2.2]" />
             </div>
@@ -85,18 +85,18 @@ export const StudioDashboard: React.FC = () => {
           {/* PBR Texture */}
           <div 
             onClick={() => handleLaunchTool('texture')}
-            className="p-5 rounded-2xl bg-[#1e2026] border border-[#2f333e] hover:border-[#F9CF00]/60 hover:bg-[#252830] cursor-pointer transition-all group flex flex-col justify-between"
+            className="p-5 rounded-2xl bg-[#191A1D] border border-white/[0.08] hover:border-[#F9CF00]/60 hover:bg-[#1E2026] cursor-pointer transition-all group flex flex-col justify-between shadow-lg active:scale-[0.99]"
           >
             <div className="space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-[#282b34] border border-[#3d4252] flex items-center justify-center text-[#F9CF00] group-hover:scale-110 transition-transform">
+              <div className="w-10 h-10 rounded-xl bg-[#22242A] border border-white/[0.08] flex items-center justify-center text-[#F9CF00] group-hover:scale-110 group-hover:border-[#F9CF00]/40 transition-all">
                 <Layers className="w-5 h-5 stroke-[2.2]" />
               </div>
               <div>
-                <h3 className="font-bold text-sm text-white">PBR Texture Studio</h3>
-                <p className="text-zinc-300 text-[11px] mt-1">Albedo, normal, roughness, and displacement map synthesis up to 8K.</p>
+                <h3 className="font-bold text-sm text-white group-hover:text-[#F9CF00] transition-colors">PBR Texture Studio</h3>
+                <p className="text-zinc-400 text-[11px] mt-1 leading-relaxed">Albedo, normal, roughness, and displacement map synthesis up to 8K resolution.</p>
               </div>
             </div>
-            <div className="flex items-center gap-1 text-[#F9CF00] font-bold text-xs pt-4">
+            <div className="flex items-center gap-1.5 text-[#F9CF00] font-bold text-xs pt-4">
               <span>Launch Tool</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform stroke-[2.2]" />
             </div>
@@ -105,18 +105,18 @@ export const StudioDashboard: React.FC = () => {
           {/* Remesh */}
           <div 
             onClick={() => handleLaunchTool('remesh')}
-            className="p-5 rounded-2xl bg-[#1e2026] border border-[#2f333e] hover:border-[#F9CF00]/60 hover:bg-[#252830] cursor-pointer transition-all group flex flex-col justify-between"
+            className="p-5 rounded-2xl bg-[#191A1D] border border-white/[0.08] hover:border-[#F9CF00]/60 hover:bg-[#1E2026] cursor-pointer transition-all group flex flex-col justify-between shadow-lg active:scale-[0.99]"
           >
             <div className="space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-[#282b34] border border-[#3d4252] flex items-center justify-center text-[#F9CF00] group-hover:scale-110 transition-transform">
+              <div className="w-10 h-10 rounded-xl bg-[#22242A] border border-white/[0.08] flex items-center justify-center text-[#F9CF00] group-hover:scale-110 group-hover:border-[#F9CF00]/40 transition-all">
                 <Sliders className="w-5 h-5 stroke-[2.2]" />
               </div>
               <div>
-                <h3 className="font-bold text-sm text-white">Adaptive Remesh</h3>
-                <p className="text-zinc-300 text-[11px] mt-1">Quad retopology, decimation, and boundary protection presets.</p>
+                <h3 className="font-bold text-sm text-white group-hover:text-[#F9CF00] transition-colors">Adaptive Remesh</h3>
+                <p className="text-zinc-400 text-[11px] mt-1 leading-relaxed">Quad retopology, polygon decimation, and boundary protection presets.</p>
               </div>
             </div>
-            <div className="flex items-center gap-1 text-[#F9CF00] font-bold text-xs pt-4">
+            <div className="flex items-center gap-1.5 text-[#F9CF00] font-bold text-xs pt-4">
               <span>Launch Tool</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform stroke-[2.2]" />
             </div>
@@ -124,7 +124,7 @@ export const StudioDashboard: React.FC = () => {
         </div>
 
         {/* Real-time VRAM and GPU Utilization Monitoring Section */}
-        <div className="p-5 rounded-2xl bg-[#1e2026] border border-[#2f333e] shadow-lg space-y-3">
+        <div className="p-5 rounded-2xl bg-[#191A1D] border border-white/[0.08] shadow-xl space-y-3">
           <GpuVramLineChart height={240} autoPoll pollIntervalMs={3000} />
         </div>
 
@@ -146,14 +146,14 @@ export const StudioDashboard: React.FC = () => {
                   setCurrentAsset(asset);
                   setMainNav('workspace');
                 }}
-                className="p-3 rounded-2xl bg-[#1e2026] border border-[#2f333e] hover:border-[#F9CF00] hover:bg-[#252830] transition-all cursor-pointer group flex flex-col shadow-sm"
+                className="p-3 rounded-2xl bg-[#191A1D] border border-white/[0.08] hover:border-[#F9CF00] hover:bg-[#1E2026] transition-all cursor-pointer group flex flex-col shadow-lg active:scale-[0.98]"
               >
-                <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-[#14161b] border border-[#2f333e] mb-2.5">
+                <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-[#141518] border border-white/[0.06] mb-2.5">
                   {asset.thumbnail ? (
                     <img 
                       src={asset.thumbnail} 
                       alt={asset.name} 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       crossOrigin="anonymous"
                     />
                   ) : (
@@ -161,7 +161,7 @@ export const StudioDashboard: React.FC = () => {
                       <Box className="w-8 h-8 text-zinc-500 stroke-[2.2]" />
                     </div>
                   )}
-                  <span className="absolute bottom-1.5 right-1.5 text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#282b34] text-[#F9CF00] border border-[#3d4252] font-bold">
+                  <span className="absolute bottom-1.5 right-1.5 text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/70 backdrop-blur-md text-[#F9CF00] border border-white/[0.1] font-bold">
                     {asset.format}
                   </span>
                 </div>
@@ -180,7 +180,7 @@ export const StudioDashboard: React.FC = () => {
 
                   <div className="flex items-center gap-1 flex-wrap pt-2">
                     {asset.tags.map(t => (
-                      <span key={t} className="text-[9px] px-1.5 py-0.5 rounded bg-[#282b34] text-zinc-300 border border-[#3d4252]">
+                      <span key={t} className="text-[9px] px-1.5 py-0.5 rounded bg-[#22242A] text-zinc-300 border border-white/[0.06]">
                         {t}
                       </span>
                     ))}

@@ -41,6 +41,7 @@ export const RightAssetsPanel: React.FC = () => {
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [activeMenuAssetId, setActiveMenuAssetId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const filterMenuRef = useRef<HTMLDivElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const { progress: uploadProgress, readFileWithProgress, startUpload, updateProgress, finishUpload, failUpload } = useUploadProgress();
@@ -53,6 +54,30 @@ export const RightAssetsPanel: React.FC = () => {
   useEffect(() => {
     setActivePage(1);
   }, [assetFilter, showFavoritesOnly]);
+
+  // Handle outside click and Escape key for dropdown menus
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (filterMenuRef.current && !filterMenuRef.current.contains(e.target as Node)) {
+        setFilterMenuOpen(false);
+      }
+      if (activeMenuAssetId && !(e.target as HTMLElement).closest(`[data-asset-menu="${activeMenuAssetId}"]`)) {
+        setActiveMenuAssetId(null);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setFilterMenuOpen(false);
+        setActiveMenuAssetId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [activeMenuAssetId]);
 
   const processModelFile = useCallback(async (file: File) => {
     setUploadError(null);
@@ -222,11 +247,11 @@ export const RightAssetsPanel: React.FC = () => {
             </SimpleTooltip>
 
             {/* Category Filter */}
-            <div className="relative">
+            <div className="relative" ref={filterMenuRef}>
               <SimpleTooltip label="Filter by Category">
                 <button
                   onClick={() => setFilterMenuOpen(!filterMenuOpen)}
-                  className={`p-1.5 rounded-lg transition-colors ${
+                  className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                     assetFilter !== 'all'
                       ? 'bg-[#25262A] text-[#F9CF00]'
                       : 'text-zinc-400 hover:text-white hover:bg-[#202125]'
@@ -237,24 +262,27 @@ export const RightAssetsPanel: React.FC = () => {
               </SimpleTooltip>
 
               {filterMenuOpen && (
-                <div className="absolute top-full left-0 mt-1 w-36 py-1.5 rounded-xl bg-[#202125] border border-white/[0.1] shadow-2xl z-50 text-xs font-medium">
+                <div className="absolute top-full left-0 mt-1.5 w-36 py-1.5 rounded-xl bg-[#202125] border border-white/[0.1] shadow-2xl z-50 text-xs font-medium animate-in fade-in zoom-in-95 duration-100">
                   <button
                     onClick={() => { setAssetFilter('all'); setFilterMenuOpen(false); }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-[#28292E] text-zinc-200"
+                    className="w-full text-left px-3 py-1.5 hover:bg-[#28292E] text-zinc-200 cursor-pointer flex items-center justify-between"
                   >
-                    All Assets
+                    <span>All Assets</span>
+                    {assetFilter === 'all' && <Check className="w-3 h-3 text-[#F9CF00]" />}
                   </button>
                   <button
                     onClick={() => { setAssetFilter('models'); setFilterMenuOpen(false); }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-[#28292E] text-zinc-200"
+                    className="w-full text-left px-3 py-1.5 hover:bg-[#28292E] text-zinc-200 cursor-pointer flex items-center justify-between"
                   >
-                    3D Models
+                    <span>3D Models</span>
+                    {assetFilter === 'models' && <Check className="w-3 h-3 text-[#F9CF00]" />}
                   </button>
                   <button
                     onClick={() => { setAssetFilter('textures'); setFilterMenuOpen(false); }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-[#28292E] text-zinc-200"
+                    className="w-full text-left px-3 py-1.5 hover:bg-[#28292E] text-zinc-200 cursor-pointer flex items-center justify-between"
                   >
-                    PBR Textures
+                    <span>PBR Textures</span>
+                    {assetFilter === 'textures' && <Check className="w-3 h-3 text-[#F9CF00]" />}
                   </button>
                 </div>
               )}
@@ -389,26 +417,26 @@ export const RightAssetsPanel: React.FC = () => {
                   </span>
 
                   {/* 3-Dots Menu */}
-                  <div className="relative">
+                  <div className="relative" data-asset-menu={asset.id}>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setActiveMenuAssetId(activeMenuAssetId === asset.id ? null : asset.id);
                       }}
-                      className="p-1 rounded-md text-zinc-400 hover:text-white hover:bg-[#202125] transition-colors"
+                      className="p-1 rounded-md text-zinc-400 hover:text-white hover:bg-[#202125] transition-colors cursor-pointer"
                     >
                       <MoreVertical className="w-3.5 h-3.5" />
                     </button>
 
                       {activeMenuAssetId === asset.id && (
-                        <div className="absolute right-0 bottom-full mb-1 w-28 py-1 rounded-xl bg-[#202125] border border-white/[0.1] shadow-xl z-50 text-xs font-medium">
+                        <div className="absolute right-0 bottom-full mb-1 w-28 py-1 rounded-xl bg-[#202125] border border-white/[0.1] shadow-xl z-50 text-xs font-medium animate-in fade-in zoom-in-95 duration-100">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               duplicateAsset(asset.id);
                               setActiveMenuAssetId(null);
                             }}
-                           className="w-full text-left px-2.5 py-1.5 text-zinc-200 hover:bg-[#28292E] flex items-center gap-1.5"
+                           className="w-full text-left px-2.5 py-1.5 text-zinc-200 hover:bg-[#28292E] flex items-center gap-1.5 cursor-pointer"
                          >
                            <Copy className="w-3 h-3 text-[#F9CF00]" />
                            <span>Duplicate</span>
@@ -419,7 +447,7 @@ export const RightAssetsPanel: React.FC = () => {
                              deleteAsset(asset.id);
                              setActiveMenuAssetId(null);
                            }}
-                           className="w-full text-left px-2.5 py-1.5 text-rose-400 hover:bg-rose-500/10 flex items-center gap-1.5"
+                           className="w-full text-left px-2.5 py-1.5 text-rose-400 hover:bg-rose-500/10 flex items-center gap-1.5 cursor-pointer"
                          >
                            <Trash2 className="w-3 h-3" />
                            <span>Delete</span>
@@ -435,34 +463,39 @@ export const RightAssetsPanel: React.FC = () => {
       </div>
 
       {/* Pagination Footer */}
-      <div className="p-2 border-t border-[#2f333e] bg-[#1e2026] flex items-center justify-center gap-1.5 text-xs text-zinc-400">
-        <button
-          onClick={() => setActivePage(Math.max(1, activePage - 1))}
-          disabled={activePage <= 1}
-          className="p-1 rounded-md hover:text-white hover:bg-[#282b34] disabled:opacity-40"
-        >
-          <ChevronLeft className="w-4 h-4" />
-        </button>
-
-        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+      <div className="px-3 py-2 border-t border-white/[0.08] bg-[#16181D] flex items-center justify-between text-xs text-zinc-400">
+        <span className="text-[10px] text-zinc-500 font-mono">
+          Page {safePage} of {totalPages}
+        </span>
+        <div className="flex items-center gap-1">
           <button
-            key={page}
-            onClick={() => setActivePage(page)}
-            className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold ${
-              safePage === page ? 'bg-[#F9CF00] text-black shadow-sm' : 'hover:text-white hover:bg-[#282b34] text-zinc-400'
-            }`}
+            onClick={() => setActivePage(Math.max(1, activePage - 1))}
+            disabled={activePage <= 1}
+            className="p-1 rounded-lg hover:text-white hover:bg-[#202125] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
           >
-            {page}
+            <ChevronLeft className="w-3.5 h-3.5" />
           </button>
-        ))}
 
-        <button
-          onClick={() => setActivePage(Math.min(totalPages, activePage + 1))}
-          disabled={activePage >= totalPages}
-          className="p-1 rounded-md hover:text-white hover:bg-[#282b34] disabled:opacity-40"
-        >
-          <ChevronRight className="w-4 h-4" />
-        </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+            <button
+              key={page}
+              onClick={() => setActivePage(page)}
+              className={`w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-bold transition-all cursor-pointer ${
+                safePage === page ? 'bg-[#F9CF00] text-black shadow-sm font-extrabold' : 'hover:text-white hover:bg-[#202125] text-zinc-400'
+              }`}
+            >
+              {page}
+            </button>
+          ))}
+
+          <button
+            onClick={() => setActivePage(Math.min(totalPages, activePage + 1))}
+            disabled={activePage >= totalPages}
+            className="p-1 rounded-lg hover:text-white hover:bg-[#202125] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* Upload Diagnostic Modal */}

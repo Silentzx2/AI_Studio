@@ -67,13 +67,34 @@ export const GeneratePanel: React.FC = () => {
 
   const statusInfo = getStatusInfo();
 
+  const [panelTab, setPanelTab] = useState<'create' | 'mesh' | 'engine'>('create');
   const [generalSettingsOpen, setGeneralSettingsOpen] = useState(true);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const modelDropdownRef = useRef<HTMLDivElement>(null);
   const [subAction, setSubAction] = useState<'upload' | 'crop' | 'wand' | 'edit'>('upload');
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const { progress: uploadProgress, startUpload, updateProgress, finishUpload, failUpload } = useUploadProgress();
+
+  // Close model dropdown on outside click or Escape key
+  useEffect(() => {
+    if (!modelDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (modelDropdownRef.current && !modelDropdownRef.current.contains(e.target as Node)) {
+        setModelDropdownOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setModelDropdownOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [modelDropdownOpen]);
 
   // Toggles & Settings
   const [privacy, setPrivacy] = useState<'public' | 'private'>('public');
@@ -363,49 +384,65 @@ export const GeneratePanel: React.FC = () => {
 
         {/* Input Box (Border with Stylized Outline) */}
         <div className="rounded-xl border border-white/[0.12] bg-[#141518] p-2 space-y-2">
-          {/* Sub-Action Icon Bar (Single Image, Multiview, Text, Sketch) */}
-          <div className="flex items-center justify-between px-1 py-1 rounded-lg bg-[#1A1B1F] border border-white/[0.06]">
+          {/* Sub-Action Mode Selector Bar */}
+          <div className="grid grid-cols-4 gap-1 p-1 rounded-lg bg-[#18191D] border border-white/[0.06]">
             <SimpleTooltip label="Single Image to 3D">
               <button
+                type="button"
                 onClick={() => { setSubAction('upload'); fileInputRef.current?.click(); }}
-                className={`p-1 rounded-md transition-all ${
-                  subAction === 'upload' ? 'bg-[#25262A] text-[#F9CF00]' : 'text-zinc-400 hover:text-white'
+                className={`py-1.5 px-1 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                  subAction === 'upload'
+                    ? 'bg-[#25272D] text-[#F9CF00] shadow-sm border border-[#F9CF00]/30'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.03] border border-transparent'
                 }`}
               >
                 <ImageIcon className="w-3.5 h-3.5" />
+                <span className="truncate">Image</span>
               </button>
             </SimpleTooltip>
 
             <SimpleTooltip label="Multiview Images / Mesh">
               <button
+                type="button"
                 onClick={() => setSubAction('crop')}
-                className={`p-1 rounded-md transition-all ${
-                  subAction === 'crop' ? 'bg-[#25262A] text-[#F9CF00]' : 'text-zinc-400 hover:text-white'
+                className={`py-1.5 px-1 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                  subAction === 'crop'
+                    ? 'bg-[#25272D] text-[#F9CF00] shadow-sm border border-[#F9CF00]/30'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.03] border border-transparent'
                 }`}
               >
                 <Box className="w-3.5 h-3.5" />
+                <span className="truncate">Multi</span>
               </button>
             </SimpleTooltip>
 
             <SimpleTooltip label="Text Prompt to 3D">
               <button
+                type="button"
                 onClick={() => setSubAction('wand')}
-                className={`p-1 rounded-md transition-all ${
-                  subAction === 'wand' ? 'bg-[#25262A] text-[#F9CF00]' : 'text-zinc-400 hover:text-white'
+                className={`py-1.5 px-1 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                  subAction === 'wand'
+                    ? 'bg-[#25272D] text-[#F9CF00] shadow-sm border border-[#F9CF00]/30'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.03] border border-transparent'
                 }`}
               >
                 <Wand2 className="w-3.5 h-3.5" />
+                <span className="truncate">Text</span>
               </button>
             </SimpleTooltip>
 
             <SimpleTooltip label="Draw / Sketch to 3D">
               <button
+                type="button"
                 onClick={() => setSubAction('edit')}
-                className={`p-1 rounded-md transition-all ${
-                  subAction === 'edit' ? 'bg-[#25262A] text-[#F9CF00]' : 'text-zinc-400 hover:text-white'
+                className={`py-1.5 px-1 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                  subAction === 'edit'
+                    ? 'bg-[#25272D] text-[#F9CF00] shadow-sm border border-[#F9CF00]/30'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.03] border border-transparent'
                 }`}
               >
                 <Pencil className="w-3.5 h-3.5" />
+                <span className="truncate">Sketch</span>
               </button>
             </SimpleTooltip>
           </div>
@@ -549,7 +586,7 @@ export const GeneratePanel: React.FC = () => {
           />
 
           {/* Quick Style Chips */}
-          <div className="flex items-center gap-1 flex-wrap pt-0.5">
+          <div className="flex items-center gap-1.5 flex-wrap pt-1">
             {['PBR Game Asset', 'Clean Quad Topology', 'Sci-Fi', 'Stylized', 'Photorealistic'].map((style) => (
               <button
                 key={style}
@@ -561,7 +598,7 @@ export const GeneratePanel: React.FC = () => {
                     return { ...prev, prompt: base ? `${base}, ${style}` : style };
                   });
                 }}
-                className="px-1.5 py-0.5 rounded-full bg-[#202227] hover:bg-[#282b32] text-zinc-400 hover:text-white border border-white/[0.06] text-[8px] transition-colors cursor-pointer"
+                className="px-2 py-0.5 rounded-full bg-[#1C1E23] hover:bg-[#252830] text-zinc-300 hover:text-white border border-white/[0.08] hover:border-[#F9CF00]/40 text-[9px] font-medium transition-all active:scale-95 cursor-pointer"
               >
                 + {style}
               </button>
@@ -1327,26 +1364,26 @@ export const GeneratePanel: React.FC = () => {
       </div>
 
       {/* Bottom Sticky Action Button */}
-      <div className="p-3 border-t border-white/[0.08] bg-[#16181D] relative z-20 flex-shrink-0">
+      <div className="p-3 border-t border-white/[0.1] bg-[#16181D]/95 backdrop-blur-md relative z-20 flex-shrink-0">
         <button
           id="btn-generate-model-action"
           onClick={handleGenerate}
           disabled={isExecuting}
-          className={`w-full h-10 rounded-xl font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${
+          className={`w-full h-10 rounded-xl font-black text-xs flex items-center justify-center gap-2 shadow-lg transition-all duration-150 active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
             isExecuting 
               ? 'bg-[#25262A] text-[#F9CF00] border border-[#F9CF00]/20' 
-              : 'bg-[#F9CF00] text-black hover:bg-[#ffe033]'
+              : 'bg-gradient-to-b from-[#FFE24C] to-[#F9CF00] hover:from-[#FFE660] hover:to-[#FFD700] text-black shadow-[0_4px_16px_rgba(249,207,0,0.25)] hover:shadow-[0_6px_20px_rgba(249,207,0,0.35)]'
           }`}
         >
           {isExecuting ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>{executionStep || 'Generating 3D Model...'}</span>
+              <Loader2 className="w-4 h-4 animate-spin text-[#F9CF00]" />
+              <span className="tracking-wide">{executionStep || 'Generating 3D Model...'}</span>
             </>
           ) : (
             <>
               <Sparkles className="w-4 h-4 stroke-[2.5]" />
-              <span>GENERATE 3D MODEL</span>
+              <span className="tracking-wider">GENERATE 3D MODEL</span>
             </>
           )}
         </button>
