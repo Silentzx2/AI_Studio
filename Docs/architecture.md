@@ -346,7 +346,7 @@ The frontend uses a modern persistent workspace: ONE global 3D viewport (`MeshVi
 - **RightPanel/**: Contextual panels (RightAssetsPanel, RightPropertyPanel)
 - **Header/TopHeader.tsx**: Brand logo, workspace mode switcher, navigation links, backend status pill
 - **Modals/**: ExportModal, SettingsModal, DccBridgeModal
-- **Notifications/ProgressOverlay.tsx**: Real-time generation progress overlay
+- **RightPanel/LiveExecutionPanel.tsx**: Real-time generation & 6-stage pipeline progress monitoring
 - **Dashboard/**: StudioDashboard, SystemPage, OutputsPage
 - **store/WorkspaceContext.tsx**: React Context for UI state, bridged to Zustand via `lib/storeAdapter.ts`
 - **lib/api.ts**: API client targeting `/api/v1/*` FastAPI endpoints

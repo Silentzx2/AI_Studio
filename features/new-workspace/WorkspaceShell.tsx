@@ -28,7 +28,6 @@ const StudioDashboard = dynamic(() => import('./Dashboard/StudioDashboard').then
 const ExportModal = dynamic(() => import('./Modals/ExportModal').then(mod => mod.ExportModal), { ssr: false });
 const SettingsModal = dynamic(() => import('./Modals/SettingsModal').then(mod => mod.SettingsModal), { ssr: false });
 const DccBridgeModal = dynamic(() => import('./Modals/DccBridgeModal').then(mod => mod.DccBridgeModal), { ssr: false });
-const ProgressOverlay = dynamic(() => import('./Notifications/ProgressOverlay').then(mod => mod.ProgressOverlay), { ssr: false });
 import { FolderOpen, Sliders, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Menu, X } from 'lucide-react';
 import type { ToolType } from './types';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
@@ -332,7 +331,6 @@ export const WorkspaceShell: React.FC = () => {
           )}
         </AnimatePresence>
       </div>
-      <ProgressOverlay />
       <SettingsModal />
       <DccBridgeModal />
       <ExportModal />

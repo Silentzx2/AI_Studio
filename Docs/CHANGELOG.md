@@ -1,5 +1,11 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.51] - 2026-09-12
+### Changed & UI Cleanup
+- **Removed Floating Bottom-Right Progress Overlay (`WorkspaceShell.tsx`, `ProgressOverlay.tsx`)**:
+  - Removed `<ProgressOverlay />` floating card from the bottom-right of the viewport (`fixed bottom-5 right-5`).
+  - Progress and pipeline lifecycle are already comprehensively visualized via `LiveExecutionPanel` in the dedicated Right Inspector and the viewport HUD without cluttering the 3D workspace.
+
 ## [v5.0.50] - 2026-09-12
 ### Fixed
 - **Provider Scoping Error (`hunyuan3d_local.py`)**:
