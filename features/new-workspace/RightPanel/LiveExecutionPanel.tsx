@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Sparkles,
   StopCircle,
@@ -12,7 +12,9 @@ import {
   ChevronRight,
   ShieldAlert,
   ArrowRight,
-  Box
+  Box,
+  Terminal,
+  Layers
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 
@@ -40,6 +42,7 @@ export const LiveExecutionPanel: React.FC = () => {
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const logsEndRef = useRef<HTMLDivElement>(null);
 
   // Timer tracking
   useEffect(() => {
@@ -50,6 +53,15 @@ export const LiveExecutionPanel: React.FC = () => {
     }, 1000);
     return () => clearInterval(timer);
   }, [activeTask?.startedAt, isExecuting]);
+
+  const logs = activeTask?.logs || [];
+
+  // Auto-scroll logs to bottom as they arrive
+  useEffect(() => {
+    if (logs.length > 0) {
+      logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logs.length]);
 
   if (!activeTask && !isExecuting) {
     return (
@@ -69,50 +81,67 @@ export const LiveExecutionPanel: React.FC = () => {
   const isFailed = activeTask?.status === 'failed' || activeTask?.status === 'interrupted';
   const isRunning = isExecuting || activeTask?.status === 'running' || activeTask?.status === 'queued';
 
-  // Compute realistic pipeline stages based on active model and settings
+  // Active parameters
   const modelName = activeTask?.provider || generationSettings.aiModel || 'Generative Engine';
   const textureEnabled = generationSettings.generateTexture !== false;
   const optimizeEnabled = generationSettings.autoOptimize !== false;
-
-  // Determine stage states dynamically based on current step / progress
+  const progress = activeTask?.progress ?? 0;
+  const stageName = (activeTask?.stage || '').toLowerCase();
   const stepText = (activeTask?.currentStep || '').toLowerCase();
-  
+
+  // Dynamic stage state calculator matching the 6-stage post-processing pipeline
   const getStepState = (stageKey: string): 'pending' | 'active' | 'completed' | 'failed' | 'skipped' => {
-    if (isFailed && stepText.includes(stageKey)) return 'failed';
-    if (isCompleted) return 'completed';
-    if (!isRunning) return 'pending';
+    if (isCompleted || progress >= 100) return 'completed';
+    if (!isRunning && !activeTask) return 'pending';
+
+    // If task failed during this stage
+    if (isFailed) {
+      if (stageKey === 'synthesis' && (progress < 78 || stageName === 'generating')) return 'failed';
+      if (stageKey === 'stage1_repair' && (stageName === 'repairing' || (progress >= 78 && progress < 82))) return 'failed';
+      if (stageKey === 'stage2_decimate' && (stageName === 'decimating' || (progress >= 82 && progress < 84))) return 'failed';
+      if (stageKey === 'stage3_uv' && (stageName === 'uv_unwrapping' || (progress >= 84 && progress < 86))) return 'failed';
+      if (stageKey === 'stage4_pbr' && (stageName === 'baking_pbr' || (progress >= 86 && progress < 89))) return 'failed';
+      if (stageKey === 'stage5_compress' && (stageName === 'compressing' || (progress >= 89 && progress < 91))) return 'failed';
+      if (stageKey === 'stage6_package' && (stageName === 'packaging' || progress >= 91)) return 'failed';
+    }
 
     switch (stageKey) {
-      case 'input':
-        return 'completed';
-      case 'weights':
-        if (stepText.includes('weight') || stepText.includes('download') || stepText.includes('prewarm')) return 'active';
-        return 'completed';
-      case 'gpu':
-        if (stepText.includes('vram') || stepText.includes('allocat')) return 'active';
-        return 'completed';
-      case 'mesh':
-        if (stepText.includes('isosurface') || stepText.includes('geometry') || stepText.includes('generat') || stepText.includes('diffusion')) return 'active';
-        if (stepText.includes('uv') || stepText.includes('texture') || stepText.includes('optimi')) return 'completed';
+      case 'synthesis':
+        if (progress >= 78 || stageName === 'repairing' || stageName === 'decimating' || stageName === 'uv_unwrapping' || stageName === 'baking_pbr' || stageName === 'compressing' || stageName === 'packaging') return 'completed';
         return 'active';
-      case 'uv':
-        if (!optimizeEnabled) return 'skipped';
-        if (stepText.includes('uv') || stepText.includes('unwrap') || stepText.includes('xatlas')) return 'active';
-        if (stepText.includes('texture') || stepText.includes('repair') || stepText.includes('pack')) return 'completed';
-        return 'pending';
-      case 'texture':
+
+      case 'stage1_repair':
+        if (progress < 78 && stageName !== 'repairing') return 'pending';
+        if (progress >= 82 || stageName === 'decimating' || stageName === 'uv_unwrapping' || stageName === 'baking_pbr' || stageName === 'compressing' || stageName === 'packaging') return 'completed';
+        return 'active';
+
+      case 'stage2_decimate':
+        if (progress < 82 && stageName !== 'decimating') return 'pending';
+        if (progress >= 84 || stageName === 'uv_unwrapping' || stageName === 'baking_pbr' || stageName === 'compressing' || stageName === 'packaging') return 'completed';
+        return 'active';
+
+      case 'stage3_uv':
+        if (progress < 84 && stageName !== 'uv_unwrapping') return 'pending';
+        if (progress >= 86 || stageName === 'baking_pbr' || stageName === 'compressing' || stageName === 'packaging') return 'completed';
+        return 'active';
+
+      case 'stage4_pbr':
         if (!textureEnabled) return 'skipped';
-        if (stepText.includes('texture') || stepText.includes('pbr') || stepText.includes('bake')) return 'active';
-        if (stepText.includes('repair') || stepText.includes('pack') || stepText.includes('final')) return 'completed';
-        return 'pending';
-      case 'optimize':
+        if (progress < 86 && stageName !== 'baking_pbr') return 'pending';
+        if (progress >= 89 || stageName === 'compressing' || stageName === 'packaging') return 'completed';
+        return 'active';
+
+      case 'stage5_compress':
         if (!optimizeEnabled) return 'skipped';
-        if (stepText.includes('decimat') || stepText.includes('repair') || stepText.includes('watertight') || stepText.includes('lod')) return 'active';
-        if (stepText.includes('pack') || stepText.includes('final')) return 'completed';
-        return 'pending';
-      case 'package':
-        if (stepText.includes('pack') || stepText.includes('final') || stepText.includes('export')) return 'active';
-        return 'pending';
+        if (progress < 89 && stageName !== 'compressing') return 'pending';
+        if (progress >= 91 || stageName === 'packaging') return 'completed';
+        return 'active';
+
+      case 'stage6_package':
+        if (progress < 91 && stageName !== 'packaging') return 'pending';
+        if (progress >= 100 || isCompleted) return 'completed';
+        return 'active';
+
       default:
         return 'pending';
     }
@@ -120,55 +149,53 @@ export const LiveExecutionPanel: React.FC = () => {
 
   const stages: PipelineStep[] = [
     {
-      id: 'input',
-      name: 'Input Processing',
-      state: getStepState('input'),
-      detail: activeTask?.type === 'image-to-3d' ? 'RGB image preflight & background removal' : 'Text prompt tokenization & embedding'
+      id: 'synthesis',
+      name: 'AI Geometry Synthesis',
+      state: getStepState('synthesis'),
+      detail: activeTask?.type === 'image-to-3d'
+        ? `${modelName} — Image preflight & neural isosurface extraction`
+        : `${modelName} — Text embedding & diffusion mesh synthesis`
     },
     {
-      id: 'weights',
-      name: 'Model Weights & Cache',
-      state: getStepState('weights'),
-      detail: `${modelName} checkpoint verified`
+      id: 'stage1_repair',
+      name: 'Stage 1: Watertight Mesh Repair',
+      state: getStepState('stage1_repair'),
+      skipReason: !optimizeEnabled ? 'Mesh repair disabled' : undefined,
+      detail: 'PyMeshLab manifold repair & non-manifold edges cleanup (Blender voxel fallback)'
     },
     {
-      id: 'gpu',
-      name: 'GPU Allocation & Memory',
-      state: getStepState('gpu'),
-      detail: systemStats.vramUsedGb != null ? `${systemStats.vramUsedGb.toFixed(1)} / ${systemStats.vramTotalGb?.toFixed(1) || '8'} GB allocated` : 'Sequential VRAM memory check'
+      id: 'stage2_decimate',
+      name: 'Stage 2: Mesh Decimation',
+      state: getStepState('stage2_decimate'),
+      skipReason: !optimizeEnabled ? 'Decimation disabled' : undefined,
+      detail: 'PyMeshLab Quadric Edge Collapse to target polycount budget'
     },
     {
-      id: 'mesh',
-      name: 'Base Geometry Synthesis',
-      state: getStepState('mesh'),
-      detail: 'Diffusion neural isosurface extraction'
+      id: 'stage3_uv',
+      name: 'Stage 3: UV Parameterization',
+      state: getStepState('stage3_uv'),
+      skipReason: !optimizeEnabled ? 'Auto-optimize disabled' : undefined,
+      detail: 'xatlas isomorphic atlas unwrapping & boundary preservation'
     },
     {
-      id: 'uv',
-      name: 'UV Parameterization (xatlas)',
-      state: getStepState('uv'),
-      skipReason: !optimizeEnabled ? 'Auto-optimize disabled in settings' : undefined,
-      detail: 'Isomorphic chart unwrapping'
-    },
-    {
-      id: 'texture',
-      name: 'PBR Material Texture Baking',
-      state: getStepState('texture'),
+      id: 'stage4_pbr',
+      name: 'Stage 4: PBR Texture Baking',
+      state: getStepState('stage4_pbr'),
       skipReason: !textureEnabled ? 'Texture synthesis disabled' : undefined,
-      detail: 'Diffuse albedo, normal & roughness maps'
+      detail: 'Blender Cycles bake (Normal, AO, Roughness, Metallic) at 16 samples'
     },
     {
-      id: 'optimize',
-      name: 'Decimation & Watertight Repair',
-      state: getStepState('optimize'),
-      skipReason: !optimizeEnabled ? 'Optimization disabled' : undefined,
-      detail: 'Target polycount budget enforcement'
+      id: 'stage5_compress',
+      name: 'Stage 5: GLB Draco & WebP Optimization',
+      state: getStepState('stage5_compress'),
+      skipReason: !optimizeEnabled ? 'Compression disabled' : undefined,
+      detail: 'gltf-transform Draco geometry compression & WebP texture transcoding'
     },
     {
-      id: 'package',
-      name: 'Validation & Asset Assembly',
-      state: getStepState('package'),
-      detail: 'GLB scene structure validation'
+      id: 'stage6_package',
+      name: 'Stage 6: Asset Packaging & Manifest',
+      state: getStepState('stage6_package'),
+      detail: 'LOD generation, collision hull, QA validation & async export bundle'
     }
   ];
 
@@ -201,12 +228,28 @@ export const LiveExecutionPanel: React.FC = () => {
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 scrollbar-thin scrollbar-thumb-zinc-700/60 scrollbar-track-transparent">
         {/* Real Current Step Banner */}
         <div className="p-2.5 rounded-xl bg-[#1B1E24] border border-white/[0.08] space-y-1">
-          <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400">Current Task</div>
+          <div className="flex items-center justify-between">
+            <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400">Current Task</div>
+            <div className="text-[10px] font-mono font-bold text-[#F9CF00]">{progress}%</div>
+          </div>
           <div className="text-xs font-bold text-white leading-snug">
             {activeTask?.title || '3D Asset Generation'}
           </div>
-          <div className="text-[10px] text-zinc-300 font-mono mt-0.5">
+          <div className="text-[10px] text-zinc-300 font-mono mt-0.5 break-words">
             {activeTask?.currentStep || (isRunning ? 'Executing inference graph...' : isCompleted ? 'Generation complete' : 'Ready')}
+          </div>
+          {/* Progress bar */}
+          <div className="w-full bg-white/[0.06] rounded-full h-1.5 mt-2 overflow-hidden">
+            <div
+              className={`h-full transition-all duration-300 rounded-full ${
+                isCompleted
+                  ? 'bg-emerald-400'
+                  : isFailed
+                  ? 'bg-rose-500'
+                  : 'bg-[#F9CF00]'
+              }`}
+              style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+            />
           </div>
         </div>
 
@@ -221,10 +264,13 @@ export const LiveExecutionPanel: React.FC = () => {
           </span>
         </div>
 
-        {/* Pipeline Stages Dependency List (Rule #7) */}
+        {/* Pipeline Stages Dependency List */}
         <div className="space-y-1.5">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 px-0.5">
-            Execution Stages ({stages.filter(s => s.state === 'completed').length} / {stages.length})
+          <div className="flex items-center justify-between px-0.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+              Pipeline Stages ({stages.filter(s => s.state === 'completed').length} / {stages.length})
+            </span>
+            <span className="text-[9px] font-mono text-zinc-500">6-Stage Post-Processing</span>
           </div>
 
           <div className="space-y-1 rounded-xl bg-[#181B20] border border-white/[0.08] p-2">
@@ -251,7 +297,7 @@ export const LiveExecutionPanel: React.FC = () => {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
-                      {/* State glyph per Rule #7: ○ Pending, ◉ Active, ✓ Completed, ✕ Failed, — Skipped */}
+                      {/* State glyph */}
                       <span className="flex-shrink-0 font-mono text-xs">
                         {isStageDone && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
                         {isStageActive && (
@@ -268,7 +314,7 @@ export const LiveExecutionPanel: React.FC = () => {
                       <span className={`text-[11px] font-semibold truncate ${
                         isStageActive ? 'text-[#F9CF00] font-bold' : isStageDone ? 'text-zinc-200' : isStageFailed ? 'text-rose-300' : 'text-zinc-400'
                       }`}>
-                        {idx + 1}. {stage.name}
+                        {stage.name}
                       </span>
                     </div>
 
@@ -277,7 +323,7 @@ export const LiveExecutionPanel: React.FC = () => {
                     </span>
                   </div>
 
-                  {/* Stage detail or skip explanation (Rule #7) */}
+                  {/* Stage detail or skip explanation */}
                   {isStageSkipped && stage.skipReason && (
                     <div className="text-[9px] text-zinc-500 pl-5 pt-0.5 italic">
                       Skipped: {stage.skipReason}
@@ -294,7 +340,75 @@ export const LiveExecutionPanel: React.FC = () => {
           </div>
         </div>
 
-        {/* Actionable Error Card (Rule #11) */}
+        {/* Live Execution Logs Console */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between px-0.5">
+            <div className="flex items-center gap-1.5">
+              <Terminal className="w-3.5 h-3.5 text-[#F9CF00]" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                Live Execution Logs
+              </span>
+            </div>
+            <span className="text-[9px] font-mono text-zinc-500 bg-white/[0.04] px-1.5 py-0.5 rounded border border-white/[0.06]">
+              {logs.length} entries
+            </span>
+          </div>
+
+          <div className="rounded-xl bg-black/60 border border-white/[0.08] p-2.5 max-h-44 overflow-y-auto font-mono text-[10px] space-y-1.5 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent select-text">
+            {logs.length === 0 ? (
+              <div className="text-zinc-500 italic py-3 text-center text-[10px]">
+                Awaiting telemetry logs from worker...
+              </div>
+            ) : (
+              logs.map((log, idx) => {
+                const timeStr = log.timestamp
+                  ? new Date(log.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                  : '';
+                const isSuccess = log.level === 'success';
+                const isWarn = log.level === 'warning' || log.level === 'warn';
+                const isError = log.level === 'error';
+                return (
+                  <div key={idx} className="flex items-start gap-1.5 leading-tight">
+                    {timeStr && (
+                      <span className="text-zinc-600 flex-shrink-0 text-[9px] select-none">
+                        {timeStr}
+                      </span>
+                    )}
+                    <span
+                      className={`text-[8px] font-bold uppercase px-1 py-0.5 rounded flex-shrink-0 select-none leading-none ${
+                        isSuccess
+                          ? 'text-emerald-400 bg-emerald-500/15'
+                          : isError
+                          ? 'text-rose-400 bg-rose-500/15'
+                          : isWarn
+                          ? 'text-amber-400 bg-amber-500/15'
+                          : 'text-sky-400 bg-sky-500/15'
+                      }`}
+                    >
+                      {log.level || 'info'}
+                    </span>
+                    <span
+                      className={`break-words ${
+                        isSuccess
+                          ? 'text-emerald-300'
+                          : isError
+                          ? 'text-rose-300'
+                          : isWarn
+                          ? 'text-amber-300'
+                          : 'text-zinc-300'
+                      }`}
+                    >
+                      {log.message}
+                    </span>
+                  </div>
+                );
+              })
+            )}
+            <div ref={logsEndRef} />
+          </div>
+        </div>
+
+        {/* Actionable Error Card */}
         {isFailed && (
           <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 space-y-2 text-rose-300">
             <div className="flex items-center gap-1.5 font-bold text-xs text-rose-200">
@@ -350,7 +464,7 @@ export const LiveExecutionPanel: React.FC = () => {
           </div>
         )}
 
-        {/* Completion Success Card (Rule #14) */}
+        {/* Completion Success Card */}
         {isCompleted && (
           <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-2 text-emerald-300">
             <div className="flex items-center gap-1.5 font-bold text-xs text-emerald-200">
@@ -358,7 +472,7 @@ export const LiveExecutionPanel: React.FC = () => {
               <span>3D Asset Ready in Viewport</span>
             </div>
             <p className="text-[11px] text-emerald-300/90 leading-relaxed">
-              Mesh generation, watertight repair, and optimization completed successfully.
+              Mesh generation, 6-stage post-processing, and optimization completed successfully.
             </p>
             <div className="grid grid-cols-2 gap-1.5 pt-1">
               <button
@@ -385,7 +499,7 @@ export const LiveExecutionPanel: React.FC = () => {
         )}
       </div>
 
-      {/* Primary Action Bar during Running (Rule #5 & #6) */}
+      {/* Primary Action Bar during Running */}
       {isRunning && (
         <div className="p-2.5 border-t border-white/[0.08] bg-[#16181D]">
           <button

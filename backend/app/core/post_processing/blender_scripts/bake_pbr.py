@@ -61,6 +61,12 @@ def main():
         if not has_gpu:
             scene.cycles.device = 'CPU'
 
+        # Bound bake samples to prevent hanging on default 4096 samples
+        scene.cycles.samples = 16
+        scene.cycles.preview_samples = 16
+        if hasattr(scene.cycles, 'use_denoising'):
+            scene.cycles.use_denoising = False
+
         # Bake settings
         scene.render.bake.use_selected_to_active = True
         scene.render.bake.cage_extrusion = 0.02

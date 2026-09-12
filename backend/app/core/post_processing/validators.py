@@ -38,19 +38,18 @@ def validate_watertight(mesh_path: str | Path) -> dict:
             
             result["vertex_count"] = len(t_mesh.vertices)
             result["triangle_count"] = len(t_mesh.faces)
-            result["is_watertight"] = t_mesh.is_watertight
-            # is_winding_consistent usually implies manifold enough for basic checks
-            
+            result["is_watertight"] = bool(t_mesh.is_watertight)
+            result["has_degenerate_faces"] = len(t_mesh.nondegenerate_faces()) < len(t_mesh.faces)
             if hasattr(t_mesh, 'is_winding_consistent'):
-                result["is_manifold"] = t_mesh.is_winding_consistent
+                result["is_manifold"] = bool(t_mesh.is_winding_consistent)
             
         if o3d:
             o_mesh = o3d.io.read_triangle_mesh(str(mesh_path))
-            result["vertex_count"] = len(o_mesh.vertices)
-            result["triangle_count"] = len(o_mesh.triangles)
-            result["is_watertight"] = o_mesh.is_watertight()
-            result["is_manifold"] = o_mesh.is_edge_manifold(allow_boundary_edges=False) and o_mesh.is_vertex_manifold()
-            result["has_degenerate_faces"] = o_mesh.has_degenerate_triangles()
+            if len(o_mesh.triangles) > 0:
+                result["vertex_count"] = len(o_mesh.vertices)
+                result["triangle_count"] = len(o_mesh.triangles)
+                result["is_watertight"] = bool(o_mesh.is_watertight())
+                result["is_manifold"] = bool(o_mesh.is_edge_manifold(allow_boundary_edges=False) and o_mesh.is_vertex_manifold())
             # open3d does not have a direct count for boundary edges without custom traversal,
             # but we can get it via non-manifold edge checks or just keep it simple.
             # is_watertight implies 0 boundary edges.

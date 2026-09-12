@@ -20,6 +20,7 @@ export interface ActiveTask {
   status: 'queued' | 'running' | 'completed' | 'failed' | 'interrupted';
   progress: number; // 0 to 100
   currentStep: string;
+  stage?: string;
   activeNode?: string;
   queuePosition?: number;
   totalPending?: number;
@@ -27,6 +28,7 @@ export interface ActiveTask {
   provider?: string;
   errorMessage?: string;
   diagnostic?: JobDiagnostic | null;
+  logs?: { stage: string; progress: number; message: string; level: string; timestamp: string }[];
 }
 
 export type MainNavRoute = 'workspace' | 'dashboard' | 'assets' | 'system' | 'settings';

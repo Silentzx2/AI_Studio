@@ -63,51 +63,53 @@ def decimate_pymeshlab(input_path: str | Path, output_path: str | Path, target_f
                 })
                 return result
                 
-        if pymeshlab:
+        if pymeshlab and trimesh:
             try:
-                ms = pymeshlab.MeshSet()
-                try:
-                    ms.load_new_mesh(str(input_path))
-                except Exception as e:
-                    logger.warning(f"pymeshlab load failed: {e}, converting to obj")
-                    if trimesh:
-                        temp_obj = input_path.with_suffix('.obj')
-                        t_mesh.export(str(temp_obj))
-                        ms.load_new_mesh(str(temp_obj))
-                        temp_obj.unlink(missing_ok=True)
-                    else:
-                        raise
-                
-                input_faces = ms.current_mesh().face_number()
-                result["input_faces"] = input_faces
-                
-                if input_faces <= target_faces * 1.1:
-                    shutil.copy2(input_path, output_path)
+                import tempfile
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    tmppath = Path(tmpdir)
+                    tmp_in_obj = tmppath / "input.obj"
+                    tmp_out_obj = tmppath / "output.obj"
+
+                    t_mesh = trimesh.load(str(input_path), force='mesh')
+                    if hasattr(t_mesh, 'geometry') and t_mesh.geometry:
+                        t_mesh = list(t_mesh.geometry.values())[0]
+                    input_faces = len(t_mesh.faces)
+                    result["input_faces"] = input_faces
+
+                    if input_faces <= target_faces * 1.1:
+                        shutil.copy2(input_path, output_path)
+                        result.update({
+                            "success": True,
+                            "output_faces": input_faces,
+                            "route": "skip"
+                        })
+                        return result
+
+                    t_mesh.export(str(tmp_in_obj))
+                    ms = pymeshlab.MeshSet()
+                    ms.load_new_mesh(str(tmp_in_obj))
+
+                    ms.meshing_decimation_quadric_edge_collapse(
+                        targetfacenum=target_faces,
+                        qualitythr=quality_threshold,
+                        preserveboundary=True,
+                        preservenormal=True,
+                        preservetopology=False,
+                        autoclean=True
+                    )
+                    ms.save_current_mesh(str(tmp_out_obj))
+
+                    decimated_tm = trimesh.load(str(tmp_out_obj), force='mesh')
+                    decimated_tm.export(str(output_path))
+
+                    val = validate_watertight(output_path)
                     result.update({
                         "success": True,
-                        "output_faces": input_faces,
-                        "route": "skip"
+                        "output_faces": val.get("triangle_count", len(decimated_tm.faces)),
+                        "route": "pymeshlab"
                     })
                     return result
-
-                ms.apply_filter(
-                    'simplify_mesh_quadric_edge_collapse_decimation',
-                    targetfacecount=target_faces,
-                    quality_threshold=quality_threshold,
-                    preserve_border=True,
-                    preserve_normal=True,
-                    preserve_topology=False,
-                    autoclean=True
-                )
-                ms.save_current_mesh(str(output_path))
-                
-                val = validate_watertight(output_path)
-                result.update({
-                    "success": True,
-                    "output_faces": val.get("triangle_count", ms.current_mesh().face_number()),
-                    "route": "pymeshlab"
-                })
-                return result
             except Exception as e:
                 logger.warning(f"pymeshlab decimation failed: {e}")
                 

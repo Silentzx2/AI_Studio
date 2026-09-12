@@ -504,7 +504,9 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (!res.ok) throw await parseApiError(res);
         const data = await parseApiData<{
           status: 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
-          progress?: number; stage?: string; message?: string; error_message?: string | null; result?: {
+          progress?: number; stage?: string; message?: string; error_message?: string | null;
+          logs?: { stage: string; progress: number; message: string; level: string; timestamp: string }[];
+          result?: {
             model_url?: string; thumbnail_url?: string; polygon_count?: number; vertex_count?: number; file_size?: number;
           };
         }>(res);
@@ -512,13 +514,21 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
         const progress = Math.max(0, Math.min(100, Number(data.progress ?? 0)));
         setExecutionProgress(progress);
-        setExecutionStep(data.message || data.stage || 'Processing');
+        const currentMsg = data.message || data.stage || 'Processing';
+        setExecutionStep(currentMsg);
+        setActiveTask(prev => prev ? {
+          ...prev,
+          progress,
+          currentStep: currentMsg,
+          stage: data.stage || prev.stage,
+          logs: data.logs || prev.logs,
+        } : null);
 
         if (data.status === 'completed') {
           setIsExecuting(false);
           setExecutionProgress(100);
           setExecutionStep('Completed');
-          setActiveTask(prev => prev ? { ...prev, status: 'completed', progress: 100, currentStep: 'Completed' } : null);
+          setActiveTask(prev => prev ? { ...prev, status: 'completed', progress: 100, currentStep: 'Completed', logs: data.logs || prev.logs } : null);
           if (data.result?.model_url) {
             const currentLatestTask = activeTaskRef.current || task;
             const result = data.result;
@@ -587,7 +597,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             currentStep: message,
             errorMessage: message,
             diagnostic,
-            progress
+            progress,
+            logs: data.logs || prev.logs,
           } : null);
           if (data.status === 'failed') toast.error('Generation failed', { description: message });
           return;

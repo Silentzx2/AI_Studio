@@ -1,5 +1,28 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.46] - 2026-09-12
+### Fixed & Post-Processing Pipeline Visibility
+- **Stage 4 PBR Bake Hang / Freeze Resolved (`bake_pbr.py`)**:
+  - Root cause: Blender Cycles render engine defaulted to 4096 samples when unconfigured, hanging bake processes for 10-30 minutes or triggering Celery timeouts. Set `scene.cycles.samples = 16`, `scene.cycles.preview_samples = 16`, and disabled denoising for bounded 2-5 second fast baking.
+- **PyMeshLab GLB Save & Filter Crashes (`mesh_repair.py`, `decimation.py`)**:
+  - Fixed `Unknown format for save: glb` error by using an intermediate `.obj` format inside a temporary directory and exporting the final mesh via `trimesh`.
+  - Replaced outdated filter names with valid PyMeshLab 2023+ APIs: `ms.meshing_remove_duplicate_faces()`, `ms.meshing_remove_duplicate_vertices()`, `ms.meshing_remove_unreferenced_vertices()`, `ms.meshing_remove_null_faces()`, `ms.meshing_repair_non_manifold_edges()`, and `ms.meshing_decimation_quadric_edge_collapse()`.
+- **Open3D Attribute Crash (`validators.py`)**:
+  - Fixed `AttributeError: 'open3d.cpu.pybind.geometry.TriangleMesh' object has no attribute 'has_degenerate_triangles'` by performing non-degenerate triangle validation via `trimesh.nondegenerate_faces()`.
+- **Worker Step-by-Step Live Telemetry Streaming (`tasks.py`, `generation.py`)**:
+  - Updated `sync_publish()` in Celery worker to push structured live logs (`stage`, `progress`, `message`, `level`, `timestamp`) into `processing_metadata["logs"]` (retaining the latest 60 entries) and `processing_metadata["current_message"]`.
+  - Enhanced `/api/v1/generation/{job_id}/status` endpoint to return the real-time `logs` array, allowing the frontend to stream actual worker events rather than static fallback messages.
+- **Live Execution Console & 6-Stage Pipeline Alignment (`LiveExecutionPanel.tsx`, `WorkspaceContext.tsx`)**:
+  - Realigned pipeline stages in the Right Inspector to clearly display the full 6-stage post-processing workflow:
+    1. AI Geometry Synthesis (GPU Inference & Diffusion Mesh Extraction)
+    2. Stage 1: Watertight Mesh Repair (PyMeshLab / Blender voxel fallback)
+    3. Stage 2: Mesh Decimation (Quadric Edge Collapse)
+    4. Stage 3: UV Parameterization (xatlas isomorphic chart unwrapping)
+    5. Stage 4: PBR Texture Baking (Blender Cycles Normal, AO, Roughness, Metallic)
+    6. Stage 5: GLB Draco & WebP Optimization (gltf-transform)
+    7. Stage 6: Asset Packaging & Manifest (LODs, QA report, async ZIP bundle)
+  - Implemented an auto-scrolling terminal-style **Live Execution Logs Console** directly in the Live Execution Panel, rendering colored badges, timestamps, stage tags, and real-time step messages.
+
 ## [v5.0.45] - 2026-09-12
 ### Security
 - **Arbitrary Directory Deletion Fixed (`app/api/v1/[...path]/route.ts`)**:

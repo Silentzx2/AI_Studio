@@ -50,39 +50,45 @@ def repair_mesh_strict(input_path: str | Path, output_path: str | Path, *, job_i
             return result
             
         # 2. Try pymeshlab repair
-        if pymeshlab:
-            ms = pymeshlab.MeshSet()
+        if pymeshlab and trimesh:
             try:
-                ms.load_new_mesh(str(input_path))
-            except Exception as e:
-                logger.warning(f"pymeshlab failed to load {input_path}, trying via trimesh obj: {e}")
-                if trimesh:
-                    temp_obj = input_path.with_suffix('.obj')
+                import tempfile
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    tmppath = Path(tmpdir)
+                    tmp_in_obj = tmppath / "input.obj"
+                    tmp_out_obj = tmppath / "output.obj"
+
                     t_mesh = trimesh.load(str(input_path), force='mesh')
                     if hasattr(t_mesh, 'geometry') and t_mesh.geometry:
                         t_mesh = list(t_mesh.geometry.values())[0]
-                    t_mesh.export(str(temp_obj))
-                    ms.load_new_mesh(str(temp_obj))
-                    temp_obj.unlink(missing_ok=True)
-                else:
-                    raise
-                    
-            ms.apply_filter('remove_isolated_vertices')
-            ms.apply_filter('remove_degenerate_faces')
-            ms.apply_filter('remove_unreferenced_vertices')
-            ms.apply_filter('remove_non_manifold_edges')
-            ms.save_current_mesh(str(output_path))
-            
-            val2 = validate_watertight(output_path)
-            if val2.get("is_watertight", False):
-                result.update({
-                    "success": True,
-                    "repair_route": "pymeshlab",
-                    "is_watertight": True,
-                    "vertex_count": val2.get("vertex_count", 0),
-                    "triangle_count": val2.get("triangle_count", 0)
-                })
-                return result
+                    t_mesh.export(str(tmp_in_obj))
+
+                    ms = pymeshlab.MeshSet()
+                    ms.load_new_mesh(str(tmp_in_obj))
+                    ms.meshing_remove_duplicate_faces()
+                    ms.meshing_remove_duplicate_vertices()
+                    ms.meshing_remove_unreferenced_vertices()
+                    ms.meshing_remove_null_faces()
+                    ms.meshing_repair_non_manifold_edges()
+                    ms.meshing_repair_non_manifold_vertices()
+                    ms.meshing_close_holes()
+                    ms.save_current_mesh(str(tmp_out_obj))
+
+                    repaired_tm = trimesh.load(str(tmp_out_obj), force='mesh')
+                    repaired_tm.export(str(output_path))
+
+                    val2 = validate_watertight(output_path)
+                    if val2.get("is_watertight", False):
+                        result.update({
+                            "success": True,
+                            "repair_route": "pymeshlab",
+                            "is_watertight": True,
+                            "vertex_count": val2.get("vertex_count", 0),
+                            "triangle_count": val2.get("triangle_count", 0)
+                        })
+                        return result
+            except Exception as pml_err:
+                logger.warning(f"PyMeshLab repair exception, proceeding to fallback: {pml_err}")
                 
         # 3. Try Blender voxel remesh fallback
         logger.info("Falling back to blender voxel remesh")
