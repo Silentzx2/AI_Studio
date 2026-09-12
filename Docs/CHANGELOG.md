@@ -1,5 +1,18 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.42] - 2026-09-12
+### Added
+- **Professional 3-Region Workspace Architecture (UX Overhaul)**:
+  - Redesigned the workspace information hierarchy around three distinct, non-overlapping regions:
+    1. **LEFT**: Navigation & Project Context (docked 64px `LeftNavigation` rail with tool switchers, studio overview, and settings).
+    2. **CENTER**: Main Working Area (`MeshViewer` 3D Viewport) — visual priority taking full stage without being flanked or squeezed by multiple competing sidebars.
+    3. **RIGHT**: Unified Context-Aware Control & Property Panel (`RightWorkspacePanel`):
+       - **State 1 (Creation / Tool Mode)**: Shows active tool controls (`GeneratePanel`, `TexturePanel`, or `RemeshPanel`) with progressive disclosure and ONE dominant primary action.
+       - **State 2 (Live Pipeline Execution)**: Automatically triggers `<LiveExecutionPanel />` when jobs run, rendering real pipeline dependencies (`Input` → `Weights` → `GPU` → `Base Mesh` → `UVs` → `PBR Texture` → `Optimization` → `Validation`) with states (`○ Pending`, `◉ Active`, `✓ Completed`, `✕ Failed`, `— Skipped`), real backend status strings, elapsed timer, and immediate `[ Cancel Generation ]` button.
+       - **State 3 (Model Selected & Results)**: Automatically transitions to `<RightPropertyPanel />` upon job completion, exposing real 3D measurements ($X \times Y \times Z$ in meters), geometry topology, PBR material channels, and 1-click `[ Export Asset ]` downloads.
+       - **State 4 (Actionable Error Diagnostics)**: Shows plain-English failure descriptions with actionable resolution paths (`[ Enable Low VRAM & Retry ]`) and collapsible technical diagnostic traces.
+  - **Single-Click Collapse**: Added subtle top-right collapse toggle (`[ > ]`) to maximize the 3D viewport to 100% full-screen.
+
 ## [v5.0.41] - 2026-09-12
 ### Added
 - **Workspace Zero-Scroll Tabbed Architecture Across All Panels**:

@@ -22,6 +22,7 @@ const SecondaryPanel = dynamic(() => import('./Panels/SecondaryPanels').then(mod
 const RightAssetsPanel = dynamic(() => import('./RightPanel/RightAssetsPanel').then(mod => mod.RightAssetsPanel), { ssr: false });
 const RightPropertyPanel = dynamic(() => import('./RightPanel/RightPropertyPanel').then(mod => mod.RightPropertyPanel), { ssr: false });
 const RightPromptPanel = dynamic(() => import('./RightPanel/RightPromptPanel').then(mod => mod.RightPromptPanel), { ssr: false });
+const RightWorkspacePanel = dynamic(() => import('./RightPanel/RightWorkspacePanel').then(mod => mod.RightWorkspacePanel), { ssr: false });
 
 const OutputsPage = dynamic(() => import('./Dashboard/OutputsPage').then(mod => mod.OutputsPage), { ssr: false });
 const SystemPage = dynamic(() => import('./Dashboard/SystemPage').then(mod => mod.SystemPage), { ssr: false });
@@ -252,7 +253,7 @@ export const WorkspaceShell: React.FC = () => {
             </button>
           )}
 
-          {/* Floating Asset Store & Inspector (Right) - Tripo Style ~196px desktop | full-screen mobile */}
+          {/* Floating Context-Aware Control & Property Panel (Right) */}
           <AnimatePresence initial={false}>
             {mainNav === 'workspace' && isRightPanelOpen && (
               <motion.aside
@@ -261,84 +262,9 @@ export const WorkspaceShell: React.FC = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 15 }}
                 transition={{ duration: 0.14, ease: 'easeOut' }}
-                className="absolute inset-0 md:inset-auto md:right-2 md:top-2 md:bottom-2 md:w-[290px] md:max-w-[calc(100vw-4.5rem)] bg-[#191A1D] md:border md:border-white/[0.1] md:rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.6)] flex flex-col z-20 overflow-hidden"
+                className="absolute inset-0 md:inset-auto md:right-2 md:top-2 md:bottom-2 md:w-[320px] md:max-w-[calc(100vw-4.5rem)] bg-[#14161A] md:border md:border-white/[0.08] md:rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.6)] flex flex-col z-20 overflow-hidden"
               >
-                {/* Mobile panel header with close button */}
-                <div className="flex items-center justify-between px-3 py-2 border-b border-white/[0.08] bg-[#16181D] md:hidden flex-shrink-0">
-                  <span className="font-bold text-xs text-white">
-                    {rightPanelMode === 'assets' ? 'Assets' : 'Properties'}
-                  </span>
-                  <button
-                    onClick={() => setIsRightPanelOpen(false)}
-                    className="p-1.5 rounded-lg text-zinc-400 hover:text-[#F9CF00] hover:bg-[#202125] transition-all cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Top Tab Bar: Assets | Property - desktop segmented control */}
-                <div className="h-10 px-2.5 items-center justify-between border-b border-white/[0.08] bg-[#141518] flex-shrink-0 hidden md:flex">
-                  <div className="flex items-center gap-1 w-full mr-2 bg-[#1A1B1F] p-0.5 rounded-lg border border-white/[0.06]">
-                    <button
-                      id="tab-btn-assets"
-                      onClick={() => setRightPanelMode('assets')}
-                      className={`flex-1 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
-                        rightPanelMode === 'assets'
-                          ? 'bg-[#25272D] text-white shadow-sm'
-                          : 'text-zinc-400 hover:text-zinc-200'
-                      }`}
-                    >
-                      Assets
-                    </button>
-                    <button
-                      id="tab-btn-properties"
-                      onClick={() => setRightPanelMode('properties')}
-                      className={`flex-1 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
-                        rightPanelMode === 'properties' || rightPanelMode === 'property'
-                          ? 'bg-[#25272D] text-white shadow-sm'
-                          : 'text-zinc-400 hover:text-zinc-200'
-                      }`}
-                    >
-                      Property
-                    </button>
-                  </div>
-                  <SimpleTooltip label="Collapse panel">
-                    <button
-                      onClick={() => setIsRightPanelOpen(false)}
-                      className="p-1 rounded-lg text-zinc-400 hover:text-[#F9CF00] hover:bg-[#1E2025] transition-colors cursor-pointer"
-                    >
-                      <PanelRightClose className="w-3.5 h-3.5" />
-                    </button>
-                  </SimpleTooltip>
-                </div>
-
-                {/* Mobile tab bar */}
-                <div className="flex items-center gap-1.5 px-3 py-2 border-b border-white/[0.08] bg-[#16181D] md:hidden flex-shrink-0">
-                  <button
-                    onClick={() => setRightPanelMode('assets')}
-                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
-                      rightPanelMode === 'assets'
-                        ? 'bg-[#25262A] text-white shadow-sm'
-                        : 'text-zinc-400 hover:text-zinc-200'
-                    }`}
-                  >
-                    Assets
-                  </button>
-                  <button
-                    onClick={() => setRightPanelMode('properties')}
-                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
-                      rightPanelMode === 'properties' || rightPanelMode === 'property'
-                        ? 'bg-[#25262A] text-white shadow-sm'
-                        : 'text-zinc-400 hover:text-zinc-200'
-                    }`}
-                  >
-                    Property
-                  </button>
-                </div>
-
-                <div className="flex-1 overflow-hidden bg-[#191A1D]">
-                  {rightPanelMode === 'assets' ? <RightAssetsPanel /> : <RightPropertyPanel />}
-                </div>
+                <RightWorkspacePanel />
               </motion.aside>
             )}
           </AnimatePresence>

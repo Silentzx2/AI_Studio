@@ -142,8 +142,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [activeTool, setActiveToolState] = useState<ToolType>('model');
   const [mainNav, setMainNavState] = useState<MainNavRoute>('workspace');
-  const [activeRightTab, setActiveRightTab] = useState<'assets' | 'property' | 'properties' | 'prompt'>('assets');
-  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
+  const [activeRightTab, setActiveRightTab] = useState<'assets' | 'property' | 'properties' | 'prompt'>('property');
+  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(false);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
   const [leftPanelWidth, setLeftPanelWidth] = useState(320);
   const [rightPanelWidth, setRightPanelWidth] = useState(280);
@@ -1013,7 +1013,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setActiveTool(tool);
     setMainNav('workspace');
     mainNavRef.current = 'workspace';
-    setIsLeftPanelOpen(true);
+    setIsRightPanelOpen(true);
+    setActiveRightTab('property');
     const route = TOOL_TO_ROUTE[tool] || '/workspace/generate';
     if (pathname !== route) {
       // Use replaceState instead of router.push to avoid full page remount.
@@ -1022,7 +1023,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         window.history.replaceState(null, '', route);
       }
     }
-  }, [pathname, setMainNav, setActiveTool, setIsLeftPanelOpen]);
+  }, [pathname, setMainNav, setActiveTool, setIsRightPanelOpen, setActiveRightTab]);
 
   const navigateToMain = useCallback((nav: MainNavRoute) => {
     if (mainNavRef.current === nav) return;
