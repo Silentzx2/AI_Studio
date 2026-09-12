@@ -390,6 +390,12 @@ def run_mesh_diagnostics(model_path: str, target_platform: str = "generic") -> d
 
             qa_res["diagnostics"]["has_uv"] = has_uv
             qa_res["diagnostics"]["has_texture"] = has_texture
+            qa_res["diagnostics"]["polygon_count"] = qa_res["diagnostics"].get("triangle_count", 0)
+            qa_res["diagnostics"]["scoring_breakdown"] = {
+                "overall_score": qa_res.get("game_ready_score", 100),
+                "status": qa_res.get("status", "pass"),
+                "warnings_count": len(qa_res.get("warnings", [])),
+            }
             if not has_uv:
                 qa_res["warnings"].append("Mesh lacks UV coordinates")
                 if qa_res["status"] == "pass":

@@ -9,9 +9,8 @@ uvicorn[standard]==0.32.1
 python-multipart==0.0.20
 
 # Pydantic / Settings
-pydantic==2.10.4
-pydantic-core==2.27.2
-pydantic-settings==2.7.0
+pydantic>=2.11.0
+pydantic-settings>=2.7.0
 
 # Database
 sqlalchemy==2.0.36
@@ -45,6 +44,12 @@ scikit-image>=0.21.0
 xatlas
 meshoptimizer
 pymeshlab>=2022.2.post3
+# OpenX Clay native post-processing dependencies
+pygltflib>=1.16.0
+networkx>=3.2
+typer>=0.15.0
+rich>=14.0.0
+mcp>=1.2.0
 # ponytail: trimesh's simplify_quadric_decimation requires fast_simplification at
 # runtime; without it every decimation attempt raises and the optimizer silently
 # copies the original mesh through (fake optimization). Required for real decimation.

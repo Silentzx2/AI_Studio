@@ -1,5 +1,23 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.54] - 2026-09-12
+### Added & Configured
+- **OpenX Clay Production Dependencies in `backend/requirements.txt`**:
+  - Added explicit requirements for `pygltflib>=1.16.0`, `networkx>=3.2`, `typer>=0.15.0`, `rich>=14.0.0`, `mcp>=1.2.0`, and aligned `pydantic>=2.11.0` to guarantee smooth runtime without dependency conflicts.
+- **Production-Grade Structured ZIP Export (`project.py`)**:
+  - Fully restored and verified structured ZIP export bundle containing:
+    - Target model (`{asset}/Model/{asset}.{fmt}`)
+    - Untouched raw AI master mesh (`{asset}/Source/{asset}_source.glb`)
+    - Game-ready optimized asset (`{asset}/GameReady/{asset}_game_ready.glb`)
+    - Multi-tier LOD cascade (`{asset}/LODs/lod_*.glb`), with automated on-demand generation fallback via Clay / meshoptimizer
+    - Physics collision hull (`{asset}/Collision/{asset}_collision.glb`), with automated on-demand generation fallback via Clay / meshoptimizer
+    - Viewport preview render (`{asset}/Preview/thumbnail.png`)
+    - QA diagnostic evaluation report (`{asset}/QA/quality_report.json`)
+    - Additional multi-format exports (FBX, OBJ, STL, PLY) and textures
+    - Authoritative provenance manifest (`{asset}/Metadata/export_metadata.json`)
+- **Cleanup**:
+  - Removed deprecated temporary specification files `BUILD_PLAN.md` and `Replace AI Studio 6-Stage Post-Processing With OpenX Clay.md`.
+
 ## [v5.0.53] - 2026-09-12
 ### Replaced & Major Architectural Upgrade
 - **Replaced 6-Stage Custom Post-Processing Pipeline with OpenX Clay**:

@@ -284,19 +284,90 @@ except Exception as e:
                 source_file = job_dir / "source.glb"
                 if source_file.exists():
                     zf.write(source_file, arcname=f"{clean_name}/Source/{clean_name}_source.glb")
+                elif req.includeOriginals and model_path.exists():
+                    zf.write(model_path, arcname=f"{clean_name}/Source/{model_path.name}")
+
                 gr_file = job_dir / "game_ready.glb"
                 if gr_file.exists():
                     zf.write(gr_file, arcname=f"{clean_name}/GameReady/{clean_name}_game_ready.glb")
+
                 lods_dir = job_dir / "lods"
-                if lods_dir.exists():
-                    for lod_f in sorted(lods_dir.glob("*.glb")):
-                        zf.write(lod_f, arcname=f"{clean_name}/LODs/{lod_f.name}")
-                coll_file = job_dir / "collision.glb"
-                if coll_file.exists():
-                    zf.write(coll_file, arcname=f"{clean_name}/Collision/{clean_name}_collision.glb")
+                if req.includeLODs or req.variant == "lod_package":
+                    if not lods_dir.exists():
+                        try:
+                            from clay.lods import make_lods
+                            make_lods(str(target_model), out_dir=str(lods_dir))
+                        except Exception as clay_lod_err:
+                            try:
+                                from app.core.mesh_optimizer import generate_lods
+                                generate_lods(
+                                    input_path=str(target_model),
+                                    output_dir=str(lods_dir),
+                                    levels=req.lodCount,
+                                )
+                            except Exception as lod_err:
+                                logger.warning("LOD generation in export failed: %s", lod_err)
+                    if lods_dir.exists():
+                        for lod_f in sorted(lods_dir.glob("*.glb")):
+                            zf.write(lod_f, arcname=f"{clean_name}/LODs/{lod_f.name}")
+
+                if req.includeCollision:
+                    coll_file = job_dir / "collision.glb"
+                    if not coll_file.exists():
+                        try:
+                            from clay.collision import make_collision
+                            make_collision(str(target_model), kind="convex", out_path=str(coll_file))
+                        except Exception as clay_col_err:
+                            try:
+                                from app.core.mesh_optimizer import generate_collision_mesh
+                                generate_collision_mesh(
+                                    input_path=str(target_model),
+                                    output_path=str(coll_file),
+                                )
+                            except Exception as col_err:
+                                logger.warning("Collision mesh generation in export failed: %s", col_err)
+                    if coll_file.exists():
+                        zf.write(coll_file, arcname=f"{clean_name}/Collision/{clean_name}_collision.glb")
+
                 thumb_file = job_dir / "thumbnail.png"
                 if thumb_file.exists():
                     zf.write(thumb_file, arcname=f"{clean_name}/Preview/thumbnail.png")
+
+                if req.includeQAReport:
+                    try:
+                        from app.core.mesh_processor import run_mesh_diagnostics
+                        report = run_mesh_diagnostics(str(target_model), target_platform=req.targetPlatform or "generic")
+                        qa_json = out_dir / "quality_report.json"
+                        qa_json.write_text(json.dumps(report, indent=2), encoding="utf-8")
+                        zf.write(qa_json, arcname=f"{clean_name}/QA/quality_report.json")
+                    except Exception as qa_err:
+                        logger.warning("QA report generation in export failed: %s", qa_err)
+
+                # Extra pre-generated formats
+                for extra_fmt in ("fbx", "obj", "stl", "ply"):
+                    extra_f = job_dir / f"model.{extra_fmt}"
+                    if extra_f.exists() and extra_fmt != fmt:
+                        zf.write(extra_f, arcname=f"{clean_name}/Formats/{clean_name}.{extra_fmt}")
+
+                # Textures folder if present
+                tex_dir = job_dir / "textures"
+                if tex_dir.exists():
+                    for tex_f in sorted(tex_dir.glob("*")):
+                        if tex_f.is_file():
+                            zf.write(tex_f, arcname=f"{clean_name}/Textures/{tex_f.name}")
+
+                metadata_manifest = {
+                    "asset_name": clean_name,
+                    "exported_format": fmt,
+                    "variant": req.variant,
+                    "target_platform": req.targetPlatform or "generic",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "generator": "AI 3D Studio Production Export Engine (OpenX Clay)",
+                }
+                meta_json = out_dir / "export_metadata.json"
+                meta_json.write_text(json.dumps(metadata_manifest, indent=2), encoding="utf-8")
+                zf.write(meta_json, arcname=f"{clean_name}/Metadata/export_metadata.json")
+
             return zip_path, zip_filename, "application/zip"
 
         return exported_file, exported_file.name, media_types[fmt]
