@@ -28,6 +28,21 @@ from app.workers.celery_app import celery_app
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
+# Post-processing pipeline (lazy import — graceful if not yet installed)
+try:
+    from app.core.post_processing import (
+        mesh_repair,
+        decimation as pp_decimation,
+        uv_unwrap,
+        optimize as pp_optimize,
+        export_packager,
+    )
+    _POST_PROCESSING_AVAILABLE = True
+except ImportError as _pp_err:
+    _POST_PROCESSING_AVAILABLE = False
+    import logging as _pp_log
+    _pp_log.getLogger(__name__).warning("post_processing modules not available: %s", _pp_err)
+
 # Synchronous DB engine for Celery (outside async context)
 # BUG-16 FIX: was duplicating the brittle string-replacement inline. Now use the
 # centralised property on Settings so there is one place to change if the driver changes.
@@ -682,6 +697,25 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             asset_class = classify_asset(prompt=job.prompt or "", model_path=current_glb_path)
             meta["asset_classification"] = asset_class
 
+            # Stage: Strict watertight repair (PyMeshLab → Blender voxel fallback)
+            if _POST_PROCESSING_AVAILABLE and getattr(req, 'enable_mesh_repair', True):
+                sync_publish(78, "repairing", "Strict watertight repair (PyMeshLab)...", "info")
+                repair_output = Path(master_glb).parent / "repaired.glb"
+                try:
+                    repair_result = mesh_repair.repair_mesh_strict(
+                        master_glb, repair_output, job_id=job_id
+                    )
+                    pipeline_stages.append({"stage": "watertight_repair", **repair_result})
+                    if repair_result["success"] and repair_output.exists():
+                        # Use repaired mesh as working copy (master_glb is immutable source)
+                        current_glb_path = str(repair_output)
+                        sync_publish(79, "repairing", f"Repair complete (route={repair_result.get('repair_route')})", "success")
+                    else:
+                        sync_publish(79, "repairing", "Repair blocked — preserving source", "warning")
+                except Exception as _repair_exc:
+                    logger.warning("Watertight repair failed: %s", _repair_exc)
+                    pipeline_stages.append({"stage": "watertight_repair", "success": False, "error": str(_repair_exc)})
+
             # 7d. Blender post-processing (cleanup, conditional Rigify, multi-format export)
             if not skip_postprocessing:
                 blender_result = {}
@@ -962,6 +996,24 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                     _update_job(session, job_id, processing_metadata=meta)
                     sync_publish(88, "optimizing", f"Optimization failed: {opt_exc}", "warn")
 
+            # Stage: gltf-transform compression
+            if _POST_PROCESSING_AVAILABLE and getattr(req, 'compress_output', True):
+                try:
+                    game_ready_glb = model_output_dir(job_id) / "game_ready.glb"
+                    if game_ready_glb.exists():
+                        compressed_glb = game_ready_glb.parent / "game_ready_compressed.glb"
+                        sync_publish(89, "compressing", "Optimizing GLB with gltf-transform...", "info")
+                        compress_result = pp_optimize.optimize_glb_gltftransform(
+                            str(game_ready_glb), str(compressed_glb),
+                            enable_draco=True,
+                            texture_format='webp',
+                        )
+                        pipeline_stages.append({"stage": "gltf_compression", **compress_result})
+                        if compress_result.get("success") and compress_result.get("route") != "passthrough":
+                            sync_publish(89, "compressing", f"Compressed: {compress_result.get('input_size_bytes',0)//1024}KB → {compress_result.get('output_size_bytes',0)//1024}KB", "success")
+                except Exception as _compress_exc:
+                    logger.warning("gltf-transform compression failed: %s", _compress_exc)
+
             # 7c. Multi-tier LOD cascade (LOD0–LOD3)
             if not skip_postprocessing and meta.get("generate_lod", False) and glb_path and Path(glb_path).exists():
                 sync_publish(90, "lod_generation", "Generating multi-tier LODs (LOD0–LOD3)...", "info")
@@ -1078,6 +1130,33 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 "collision": meta.get("collision_url"),
             }
 
+            # Stage 6: Async package worker
+            if _POST_PROCESSING_AVAILABLE and getattr(req, 'prepackage_export', False):
+                try:
+                    artifacts = {}
+                    storage_root = Path(settings.STORAGE_ROOT)
+                    game_ready = model_output_dir(job_id) / "game_ready.glb"
+                    if game_ready.exists():
+                        artifacts["game_ready_glb"] = str(game_ready)
+                    source = model_output_dir(job_id) / "source.glb"
+                    if source.exists():
+                        artifacts["source_glb"] = str(source)
+                    export_spec = {
+                        "job_id": job_id,
+                        "variant": "game_ready",
+                        "include_lods": getattr(req, 'include_lods_in_package', True),
+                        "include_collision": getattr(req, 'include_collision_in_package', True),
+                        "include_qa": getattr(req, 'include_qa_in_package', True),
+                    }
+                    # Dispatch as a separate Celery task to avoid blocking
+                    package_export_bundle.apply_async(
+                        kwargs={"job_id": job_id, "artifacts": artifacts, "export_spec": export_spec},
+                        countdown=2,  # small delay to let job finalize first
+                    )
+                    sync_publish(99, "packaging", "Async export package queued.", "info")
+                except Exception as _pkg_exc:
+                    logger.warning("Package dispatch failed: %s", _pkg_exc)
+
             # 10. Finalize
             meta["pipeline_stages"] = pipeline_stages
             meta["active_model_url"] = to_url(glb_path)
@@ -1190,5 +1269,16 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             raise
 
 
-
-
+@celery_app.task(name="tasks.package_export_bundle", bind=True, max_retries=3)
+def package_export_bundle(self, job_id: str, artifacts: dict, export_spec: dict) -> dict:
+    """Celery task: Build pre-packaged ZIP export. Never called from HTTP path."""
+    logger.info("[package] Starting export package for job %s", job_id)
+    try:
+        from app.core.post_processing.export_packager import build_export_package
+        storage_root = Path(settings.STORAGE_ROOT)
+        result = build_export_package(job_id, storage_root, artifacts, export_spec)
+        logger.info("[package] job=%s success=%s path=%s", job_id, result["success"], result.get("package_path"))
+        return result
+    except Exception as exc:
+        logger.error("[package] job=%s error=%s", job_id, exc)
+        raise self.retry(exc=exc, countdown=30)

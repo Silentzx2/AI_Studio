@@ -21,7 +21,7 @@ import os
 _SCRIPTS_DIR = Path(__file__).parent / "scripts"
 
 
-async def _run_blender(script: Path, args: dict) -> dict:
+async def _run_blender(script: Path | str, args: dict | list, timeout: int | None = None) -> dict:
     """Run a Blender headless script and return its JSON stdout output."""
     args_json = json.dumps(args)
     blender = settings.blender_executable or "blender"
@@ -33,6 +33,7 @@ async def _run_blender(script: Path, args: dict) -> dict:
         if str(blender_real).startswith("/usr"):
             env["PYTHONHOME"] = "/usr"
 
+    active_timeout = timeout if timeout is not None else settings.blender_timeout
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
@@ -41,10 +42,10 @@ async def _run_blender(script: Path, args: dict) -> dict:
             env=env,
         )
         stdout, stderr = await asyncio.wait_for(
-            proc.communicate(), timeout=settings.blender_timeout
+            proc.communicate(), timeout=active_timeout
         )
     except asyncio.TimeoutError:
-        raise RuntimeError(f"Blender script timed out after {settings.blender_timeout}s")
+        raise RuntimeError(f"Blender script timed out after {active_timeout}s")
 
     if proc.returncode != 0:
         err = stderr.decode(errors="replace")

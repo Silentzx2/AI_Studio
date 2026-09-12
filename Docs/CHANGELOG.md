@@ -1,5 +1,24 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.37] - 2026-09-12
+### Added
+- `backend/app/core/post_processing/` — 6-stage post-processing pipeline
+  - Stage 1: `mesh_repair.py` — PyMeshLab strict watertight repair with Blender voxel fallback
+  - Stage 2: `decimation.py` — PyMeshLab QEC decimation with platform-aware budgets
+  - Stage 3: `uv_unwrap.py` — xatlas UV unwrapping (reuses existing generate_uvs_with_xatlas)
+  - Stage 4: `pbr_bake.py` — Blender Cycles PBR baking (normal, AO, roughness, metallic)
+  - Stage 5: `optimize.py` — gltf-transform CLI compression (Draco + WebP)
+  - Stage 6: `export_packager.py` — deterministic async ZIP packaging with manifest
+- `package_export_bundle` Celery task for async ZIP creation
+- `GenerationRequest` schema: added enable_mesh_repair, strict_watertight, use_pymeshlab_decimation, quality_threshold, pbr_resolution, compress_output, prepackage_export
+- `scripts/install_postprocessing_deps.sh` — dependency verification script
+### Fixed
+- `project.py` — Removed ZIP creation from HTTP request path; `/export?packageZip=true` now returns static URL or 202
+### Notes
+- PBR roughness hard-clamped to [0.2, 0.85]; metallic defaults to 0.0
+- cage_extrusion=0.02, max_ray_distance=0.05 enforced for bounded baking
+- source.glb remains immutable; all derivatives validated before promotion
+
 ## [v5.0.38] - 2026-09-11
 
 ### Studio-Grade UI/UX Overhaul & Modern Interaction Architecture

@@ -76,6 +76,20 @@ class GenerationRequest(BaseModel):
     octree_resolution: int | None = Field(None, ge=128, le=1024, description="Octree / grid resolution for marching cubes")
     num_chunks: int | None = Field(None, ge=1000, le=100000, description="Chunk size for memory-bounded query")
     face_count: int | None = Field(None, ge=100, le=500000, description="Target face count for initial mesh extraction")
+    
+    # Post-processing
+    enable_mesh_repair: bool = True
+    strict_watertight: bool = True
+    use_pymeshlab_decimation: bool = True
+    quality_threshold: float = Field(0.3, ge=0.0, le=1.0)
+    pbr_resolution: Literal['1k', '2k', '4k'] = '2k'
+    compress_output: bool = True
+    
+    # Package
+    prepackage_export: bool = False
+    include_lods_in_package: bool = True
+    include_collision_in_package: bool = True
+    include_qa_in_package: bool = True
 
     @model_validator(mode="before")
     @classmethod
@@ -106,6 +120,16 @@ class GenerationRequest(BaseModel):
                 "octreeResolution": "octree_resolution",
                 "numChunks": "num_chunks",
                 "faceCount": "face_count",
+                "enableMeshRepair": "enable_mesh_repair",
+                "strictWatertight": "strict_watertight",
+                "usePymeshlabDecimation": "use_pymeshlab_decimation",
+                "qualityThreshold": "quality_threshold",
+                "pbrResolution": "pbr_resolution",
+                "compressOutput": "compress_output",
+                "prepackageExport": "prepackage_export",
+                "includeLODsInPackage": "include_lods_in_package",
+                "includeCollisionInPackage": "include_collision_in_package",
+                "includeQAInPackage": "include_qa_in_package",
             }
             for k, v in mapping.items():
                 if k in data and v not in data:
