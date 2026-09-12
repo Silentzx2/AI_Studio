@@ -1,5 +1,17 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.40] - 2026-09-12
+### Added
+- **Segmented 3-Tab Architecture for GeneratePanel**: Reorganized `GeneratePanel.tsx` into clean, focused tabs (`Create`, `Mesh`, `Engine`) inspired by Tripo AI and Meshy AI studio layouts.
+  - **Create Tab**: Streamlined creation flow with Image/Text mode switches, responsive dropzone, AI prompt enhance, model engine selector, and PBR texture synthesis toggle.
+  - **Mesh Tab**: Dedicated topology controls (Adaptive, Triangle, Quad), model-aware recommendation banner with 1-click apply, polycount presets (10k, 30k, 75k, Raw), target polycount & detail preservation sliders, and UV/normal repair toggle.
+  - **Engine Tab**: Game-ready real-time engine platform presets (Mobile, Low, Medium, High, Cinematic), multi-tier LOD cascades (LOD0–LOD3), physics collision mesh hulls, and backend pipeline execution flow summary.
+- **Cross-Tab Quick Navigation**: Added interactive quick status pills in the Create tab footer linking directly to Mesh and Engine configuration tabs without scrolling clutter.
+
+### Fixed
+- **UI De-cluttering**: Removed dead mock buttons ("Members Only — Generate in Parts", static privacy dropdown) that added visual noise without backend functionality.
+- **Interactive Accessibility**: Preserved all test IDs (`btn-toggle-texture`, `btn-toggle-auto-optimize`, `btn-toggle-game-ready`, `btn-toggle-collision`, etc.) while adding pointer feedback across all actionable buttons.
+
 ## [v5.0.39] - 2026-09-12
 ### Added
 - **Live PBR Shader Synchronization**: Connected Inspector Material channels (roughness, metalness, normal strength) directly to Three.js meshes via `updateMaterialConfig` and `MeshViewer` effect for instantaneous visual feedback without reloading.
