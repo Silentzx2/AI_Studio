@@ -283,7 +283,7 @@ class TripoSGLocalProvider(BaseProvider):
                 ).samples[0]
 
             if progress_callback:
-                await progress_callback(70, "generating", "Raw mesh extraction complete. Preparing 6-stage post-processing pipeline...")
+                await progress_callback(70, "generating", "Raw mesh extraction complete. Preparing OpenX Clay post-processing pipeline...")
 
             # Convert to trimesh and export
             if isinstance(outputs, trimesh.Trimesh):

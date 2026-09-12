@@ -122,62 +122,34 @@ flowchart TD
 
 ---
 
-## 4. Post-Processing Pipeline (v5.0.37+)
+## 4. Post-Processing Pipeline (OpenX Clay v5.0.53+)
 
-Six sub-stages run after inference, integrated into the existing 11-stage Celery worker.
+Post-processing runs after inference via OpenX Clay (`backend/clay/`), integrated into the Celery worker.
 
 ```
-source.glb (immutable)
-  ↓ Stage 1: Strict Watertight Repair  (PyMeshLab → Blender voxel fallback)
-  ↓ Stage 2: Decimation                (PyMeshLab QEC → meshoptimizer fallback)
-  ↓ Stage 3: UV Unwrapping             (reuses generate_uvs_with_xatlas)
-  ↓ Stage 4: PBR Map Baking            (Blender Cycles — Normal/AO/Roughness/Metallic)
-  ↓ Stage 5: Compression               (gltf-transform 4.5.0 — Draco + WebP)
-  ↓ Stage 6: Async Export Package      (Celery worker — deterministic ZIP)
-  ✅ game_ready.glb + pbr_maps/ + asset_export_package.zip
+  raw generation (source.glb)
+  ↓
+  OpenX Clay Post-Processing (backend/clay/)
+  ├── 1. PostProcessor.process() (C++ fast_simplification Quadric Decimation to budget)
+  ├── 2. Auto-Texture Preservation (preserves pre-baked textures without UV corruption)
+  ├── 3. xatlas UV Parameterization (non-overlapping atlas generation)
+  ├── 4. make_lods() (Hierarchical LOD chain: LOD0–LOD3 at descending ratios)
+  ├── 5. make_collision() (Convex hull physics proxy collider)
+  └── 6. Blender Engine (Headless FBX export, Quadriflow quad retopo, normal bake)
+  ✅ game_ready.glb + lods/ + collision.glb + exported formats
 ```
 
-### Stage 1 — Strict Watertight Repair
-- **File**: `backend/app/core/post_processing/mesh_repair.py`
-- **Tool**: PyMeshLab (remove_isolated_vertices, remove_degenerate_faces, remove_non_manifold_edges)
-- **Fallback**: Blender headless voxel remesh (`blender_scripts/voxel_remesh.py`)
-- **Gate**: `success=False` when no fallback achieves watertight — downstream stages never receive an invalid mesh
-
-### Stage 2 — Decimation
-- **File**: `backend/app/core/post_processing/decimation.py`
-- **Tool**: PyMeshLab Quadric Edge Collapse (`preserve_border=True`, `preserve_normal=True`)
-- **Fallback**: existing `optimize_mesh()` via meshoptimizer
-- **Platform budgets**: mobile=6k, low_end=12k, medium=20k, high=35k, cinematic=75k tris
-
-### Stage 3 — UV Unwrapping
-- **File**: `backend/app/core/post_processing/uv_unwrap.py`
-- **Reuses**: `generate_uvs_with_xatlas()` from `mesh_optimizer.py` — no duplication
-- **Critical**: `new_vertices = source_vertices[vmapping]`, `new_faces = indices` reconstruction preserved
-- **Fallback**: Blender Smart Project
-
-### Stage 4 — PBR Map Baking
-- **File**: `backend/app/core/post_processing/pbr_bake.py` + `blender_scripts/bake_pbr.py`
-- **Engine**: Blender Cycles (GPU preferred, CPU fallback)
-- **Maps**: Normal (tangent/MikkTSpace), AO, Roughness (clamped [0.2–0.85]), Metallic (0.0 default)
-- **Mandatory bounds**: `cage_extrusion=0.02`, `max_ray_distance=0.05`
-- **Non-Color**: all maps saved as data textures (not sRGB)
-- **Failure mode**: graceful skip — pipeline continues without maps; no crash
-
-### Stage 5 — gltf-transform Compression
-- **File**: `backend/app/core/post_processing/optimize.py`
-- **Tool**: gltf-transform 4.5.0 (Draco geometry + WebP textures)
-- **Fallback**: passthrough copy when CLI not found
-- **Note**: Draco requires client-side decoder; WebP not universal across game engines — verify target runtime
-
-### Stage 6 — Async Export Package
-- **File**: `backend/app/core/post_processing/export_packager.py` + Celery task `package_export_bundle`
-- **Design**: Never called from HTTP path. POST /api/v1/project/export returns static URL or 202.
-- **Idempotent**: spec hash prevents duplicate ZIPs; atomic `os.rename()` prevents partial archives
-- **Security**: all artifact paths validated as `is_relative_to(storage_root)` before archiving
+### OpenX Clay Core Post-Processing
+- **Package**: `backend/clay/` (exact upstream from `https://github.com/OpenX-Inc/clay`)
+- **Main Processor**: `clay.postprocess.PostProcessor`
+- **Decimation**: Quadric decimation accelerated via C++ `fast_simplification` (<200ms execution)
+- **UV Unwrapping**: Native `xatlas.parametrize` with boundary preservation
+- **Texture Preservation**: Automatic detection of pre-baked provider textures to prevent UV re-unwrapping from orphaning maps
+- **LOD Chains**: `clay.lods.make_lods` produces `(1.0, 0.5, 0.25, 0.1)` ratio levels
+- **Collision Proxies**: `clay.collision.make_collision` creates convex hull colliders
+- **Multi-Format Export**: Native GLB/OBJ/PLY via trimesh, FBX via headless Blender
 
 ### Non-Negotiable Invariants
-- `source.glb` is never overwritten; all post-processing derivatives are separate files
-- ZIP creation is exclusively a Celery worker concern — never in the FastAPI request path
-- A failed strict repair (`success=False`) blocks downstream stages; never silently succeeds
-- xatlas reconstruction always uses `vertices[vmapping]` + `indices` pattern
-- Roughness always clamped to [0.2, 0.85]; metallic always 0.0 unless explicit material data
+- `source.glb` is immutable; post-processing writes to `game_ready.glb`
+- Any Clay failure immediately propagates to the Celery job system with `status="failed"` (no silent bypasses)
+- Real execution telemetry emitted over Redis SSE (no fake percentages or simulated stages)

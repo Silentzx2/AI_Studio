@@ -508,7 +508,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                     file_size=Path(remeshed_path).stat().st_size,
                     metadata={"operation": "remesh", "optimizer": result},
                 )
-                sync_publish(65, "remeshing", f"Initial remesh complete ({result.get('optimized_polycount', target_faces):,} faces). Running 6-stage post-processing...", "success")
+                sync_publish(65, "remeshing", f"Initial remesh complete ({result.get('optimized_polycount', target_faces):,} faces). Running OpenX Clay post-processing...", "success")
             else:
                 # 5. Load provider via RuntimeEngine (enforces VRAM scheduling)
                 if job.mode != "render":
@@ -722,19 +722,25 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             # ── OpenX Clay Post-Processing (replaces old 6-stage custom pipeline) ──
             game_ready_path = str(model_output_dir(job_id) / "game_ready.glb")
             auto_optimize_settings = meta.get("auto_optimize_settings") or {}
-            target_polycount = auto_optimize_settings.get("target_polycount") or auto_optimize_settings.get("targetFaces")
-            if not target_polycount:
-                target_polycount = 20000
-            else:
-                target_polycount = int(target_polycount)
+            target_polycount = (
+                auto_optimize_settings.get("target_polycount")
+                or auto_optimize_settings.get("targetPolycount")
+                or auto_optimize_settings.get("targetFaces")
+                or meta.get("target_polycount")
+                or meta.get("targetPolycount")
+                or meta.get("face_count")
+                or 20000
+            )
+            target_polycount = int(target_polycount)
+            unwrap_uvs = bool(meta.get("unwrap_uvs", meta.get("unwrapUVs", meta.get("repair_uvs", meta.get("fix_uvs", True)))))
 
             if _CLAY_AVAILABLE and not skip_postprocessing:
-                sync_publish(75, "clay_postprocess", "OpenX Clay: Starting post-processing (decimate → UV unwrap → GLB)...", "info")
+                sync_publish(75, "clay_postprocess", f"OpenX Clay: Starting post-processing ({target_polycount:,} tris target, unwrap_uvs={unwrap_uvs})...", "info")
                 t_clay = time.perf_counter()
                 try:
                     pp_config = PostprocessConfig(
                         target_tris=target_polycount,
-                        unwrap_uvs=meta.get("unwrap_uvs", True),
+                        unwrap_uvs=unwrap_uvs,
                         format="glb",
                     )
                     pp = PostProcessor(pp_config)

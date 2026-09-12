@@ -11,9 +11,9 @@
   - Injected `PYTHONHOME=/usr` into Blender engine subprocess execution to guarantee Blender finds system modules in Debian/Ubuntu environments.
   - Celery task `generate_3d_model` now directly delegates post-processing to Clay: real logs and progress are emitted at 75% (`clay_postprocess`), 92% (`lod_generation`), 94% (`collision`), and 100% (`completed`).
   - Strict error propagation: any Clay processing failure immediately sets the AI Studio job to `status="failed"` (no silent skips or warning-only success).
-  - Synchronized `LiveExecutionPanel.tsx` to display real Clay pipeline execution steps (`AI Geometry Synthesis`, `OpenX Clay: Game-Ready Optimization`, `OpenX Clay: LODs & Collision Proxy`, `Asset Finalization & Multi-Format Export`).
+  - Synchronized `LiveExecutionPanel.tsx` and `RemeshPanel.tsx` to display real Clay pipeline execution steps (`AI Geometry Synthesis` / `Ingestion`, `OpenX Clay Decimation`, `OpenX Clay UV Unwrapping`, `OpenX Clay LODs & Collision Proxy`, `Asset Finalization & Multi-Format Export`), eliminating all residual 6-stage labels and fake placeholders.
   - Standardized export endpoint (`project.py`) to create clean on-demand ZIP archives without external packager task dependencies.
-  - Replaced post-processing tests in `backend/tests/test_post_processing.py` with 6 automated tests for Clay decimation, texture preservation, LOD chains, collision proxies, FBX export, and visible error handling (all 46 backend tests pass).
+  - Replaced post-processing tests in `backend/tests/test_post_processing.py` and added `backend/tests/test_clay_e2e.py` simulating full Celery execution flow (all 47 backend tests pass in 18.67s).
 
 ### Fixed & Pipeline Accuracy
 - **Eliminated Provider Decimation Freezes (`triposg_local.py`, `trellis_local.py`)**:

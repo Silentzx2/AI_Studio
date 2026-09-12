@@ -199,7 +199,7 @@ class _HunyuanBase(BaseProvider):
             )
 
         _log_gpu_memory(f"after_{self.model_key}_inference")
-        await cb(70, "generating", "Raw mesh extraction complete. Preparing 6-stage post-processing pipeline...", "info")
+        await cb(70, "generating", "Raw mesh extraction complete. Preparing OpenX Clay post-processing pipeline...", "info")
 
         tex_res: str | None = None
         if request.generate_texture or request.mode == "texture-generation":

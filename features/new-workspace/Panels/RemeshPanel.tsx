@@ -42,35 +42,25 @@ export const RemeshPanel: React.FC = () => {
   const getRemeshStepState = (stepIndex: number): 'pending' | 'active' | 'completed' => {
     if (!isRemeshActive) return 'pending';
     if (activeTask?.status === 'completed' || remeshProgress >= 100) return 'completed';
-    // 1: Watertight, 2: Decimation, 3: UV, 4: PBR, 5: Draco, 6: Package
+    // 1: Ingestion/Preflight, 2: Clay Decimation, 3: Clay UV, 4: Clay LOD/Collision
     if (stepIndex === 1) {
-      if (remeshProgress < 78 && remeshStage !== 'repairing') return 'pending';
-      if (remeshProgress >= 82 || remeshStage === 'optimizing' || remeshStage === 'unwrapping' || remeshStage === 'baking' || remeshStage === 'compressing' || remeshStage === 'packaging') return 'completed';
+      if (remeshProgress < 15) return 'pending';
+      if (remeshProgress >= 65 || ['clay_postprocess', 'lod_generation', 'collision', 'completed'].includes(remeshStage)) return 'completed';
       return 'active';
     }
     if (stepIndex === 2) {
-      if (remeshProgress < 82 && remeshStage !== 'optimizing') return 'pending';
-      if (remeshProgress >= 84 || remeshStage === 'unwrapping' || remeshStage === 'baking' || remeshStage === 'compressing' || remeshStage === 'packaging') return 'completed';
+      if (remeshProgress < 65 && remeshStage !== 'clay_postprocess') return 'pending';
+      if (remeshProgress >= 85 || ['lod_generation', 'collision', 'completed'].includes(remeshStage)) return 'completed';
       return 'active';
     }
     if (stepIndex === 3) {
-      if (remeshProgress < 84 && remeshStage !== 'unwrapping') return 'pending';
-      if (remeshProgress >= 86 || remeshStage === 'baking' || remeshStage === 'compressing' || remeshStage === 'packaging') return 'completed';
+      if (remeshProgress < 85 && remeshStage !== 'clay_postprocess') return 'pending';
+      if (remeshProgress >= 92 || ['lod_generation', 'collision', 'completed'].includes(remeshStage)) return 'completed';
       return 'active';
     }
     if (stepIndex === 4) {
-      if (remeshProgress < 86 && remeshStage !== 'baking') return 'pending';
-      if (remeshProgress >= 89 || remeshStage === 'compressing' || remeshStage === 'packaging') return 'completed';
-      return 'active';
-    }
-    if (stepIndex === 5) {
-      if (remeshProgress < 89 && remeshStage !== 'compressing') return 'pending';
-      if (remeshProgress >= 91 || remeshStage === 'packaging') return 'completed';
-      return 'active';
-    }
-    if (stepIndex === 6) {
-      if (remeshProgress < 91 && remeshStage !== 'packaging') return 'pending';
-      if (remeshProgress >= 100) return 'completed';
+      if (remeshProgress < 92 && !['lod_generation', 'collision'].includes(remeshStage)) return 'pending';
+      if (remeshProgress >= 100 || remeshStage === 'completed') return 'completed';
       return 'active';
     }
     return 'pending';
@@ -353,7 +343,7 @@ export const RemeshPanel: React.FC = () => {
               </button>
             </div>
 
-            {/* Live 6-Stage Pipeline Tracker when remeshing is active */}
+            {/* Live OpenX Clay Pipeline Tracker when remeshing is active */}
             {isRemeshActive && (
               <div className="p-2.5 rounded-xl bg-[#1B1E24] border border-[#F9CF00]/30 space-y-2">
                 <div className="flex items-center justify-between">
@@ -378,15 +368,13 @@ export const RemeshPanel: React.FC = () => {
                   />
                 </div>
 
-                {/* 6 Stage Mini-List */}
+                {/* OpenX Clay Pipeline Mini-List */}
                 <div className="space-y-1 pt-0.5">
                   {[
-                    { id: 1, name: '1. Watertight Mesh Repair' },
-                    { id: 2, name: '2. Retopology & Decimation' },
-                    { id: 3, name: '3. UV Parameterization' },
-                    { id: 4, name: '4. Material & PBR Retention' },
-                    { id: 5, name: '5. GLB Draco & WebP' },
-                    { id: 6, name: '6. Asset Package & Manifest' },
+                    { id: 1, name: '1. Ingestion & Preflight' },
+                    { id: 2, name: '2. OpenX Clay Decimation' },
+                    { id: 3, name: '3. OpenX Clay UV Unwrapping' },
+                    { id: 4, name: '4. Clay LODs & Collision Proxy' },
                   ].map((s) => {
                     const st = getRemeshStepState(s.id);
                     return (
@@ -453,7 +441,7 @@ export const RemeshPanel: React.FC = () => {
                 ) : null}
               </p>
               <p className="text-center text-[8px] text-zinc-500 font-mono">
-                Full 6-Stage Pipeline: Repair • Decimation • UVs • Material Retention • Draco • Package
+                OpenX Clay Pipeline: Decimation • UV Atlas • LOD Chain • Physics Collider
               </p>
               {!currentAsset && (
                 <p className="text-[9px] text-amber-400/90 text-center">

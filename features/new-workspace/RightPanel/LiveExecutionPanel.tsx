@@ -236,7 +236,7 @@ export const LiveExecutionPanel: React.FC = () => {
             <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
               Pipeline Stages ({stages.filter(s => s.state === 'completed').length} / {stages.length})
             </span>
-            <span className="text-[9px] font-mono text-zinc-500">6-Stage Post-Processing</span>
+            <span className="text-[9px] font-mono text-zinc-500">OpenX Clay Engine</span>
           </div>
 
           <div className="space-y-1 rounded-xl bg-[#181B20] border border-white/[0.08] p-2">
@@ -438,7 +438,7 @@ export const LiveExecutionPanel: React.FC = () => {
               <span>3D Asset Ready in Viewport</span>
             </div>
             <p className="text-[11px] text-emerald-300/90 leading-relaxed">
-              Mesh generation, 6-stage post-processing, and optimization completed successfully.
+              Mesh generation, OpenX Clay post-processing, and optimization completed successfully.
             </p>
             <div className="grid grid-cols-2 gap-1.5 pt-1">
               <button
