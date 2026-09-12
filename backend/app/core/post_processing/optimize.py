@@ -7,6 +7,14 @@ logger = logging.getLogger(__name__)
 
 from .validators import validate_glb_structure
 
+# ponytail: shutil.which misses NVM-installed binaries not on $PATH;
+# check known fallback dirs. Module-level so tests can monkeypatch it.
+_GLTF_FALLBACK_DIRS = [
+    "/system/conda/node/nvm/versions/node/v22.14.0/bin",
+    "/usr/local/bin",
+    str(Path.home() / ".npm-global/bin"),
+]
+
 def optimize_glb_gltftransform(input_path: str | Path, output_path: str | Path, *, enable_draco: bool = True, texture_format: str = 'webp') -> dict:
     input_path = Path(input_path)
     output_path = Path(output_path)
@@ -26,16 +34,9 @@ def optimize_glb_gltftransform(input_path: str | Path, output_path: str | Path, 
     result["input_size_bytes"] = input_path.stat().st_size
     
     try:
-        # ponytail: shutil.which misses NVM-installed binaries not on $PATH;
-        # check known fallback dirs before giving up.
-        _fallback_dirs = [
-            "/system/conda/node/nvm/versions/node/v22.14.0/bin",
-            "/usr/local/bin",
-            str(Path.home() / ".npm-global/bin"),
-        ]
         gltf_cmd = shutil.which('gltf-transform')
         if not gltf_cmd:
-            for _d in _fallback_dirs:
+            for _d in _GLTF_FALLBACK_DIRS:
                 _candidate = Path(_d) / "gltf-transform"
                 if _candidate.exists():
                     gltf_cmd = str(_candidate)

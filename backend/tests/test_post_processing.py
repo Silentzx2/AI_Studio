@@ -78,8 +78,9 @@ def test_uv_unwrap_uses_existing_xatlas_pattern(tmp_path):
 def test_optimize_passthrough_when_no_gltf_transform(tmp_path, monkeypatch):
     import shutil
     from app.core.post_processing import optimize as pp_optimize
-    # Simulate gltf-transform not installed
+    # Simulate gltf-transform not installed: clear both which() and fallback dirs
     monkeypatch.setattr(shutil, 'which', lambda x: None)
+    monkeypatch.setattr(pp_optimize, '_GLTF_FALLBACK_DIRS', [])
     glb = _make_test_glb(tmp_path, watertight=True)
     out = tmp_path / "optimized.glb"
     result = pp_optimize.optimize_glb_gltftransform(glb, out)
