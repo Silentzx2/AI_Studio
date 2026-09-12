@@ -36,6 +36,7 @@ try:
         uv_unwrap,
         optimize as pp_optimize,
         export_packager,
+        pbr_bake,
     )
     _POST_PROCESSING_AVAILABLE = True
 except ImportError as _pp_err:
@@ -996,7 +997,38 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                     _update_job(session, job_id, processing_metadata=meta)
                     sync_publish(88, "optimizing", f"Optimization failed: {opt_exc}", "warn")
 
-            # Stage: gltf-transform compression
+            # Stage 4: PBR Map Baking (Normal, AO, Roughness, Metallic)
+            # Requires: high-poly source + low-poly UV-mapped game_ready.glb
+            if _POST_PROCESSING_AVAILABLE and getattr(req, 'generate_pbr', True):
+                game_ready_glb = model_output_dir(job_id) / "game_ready.glb"
+                source_glb_for_bake = Path(source_glb_path) if Path(source_glb_path).exists() else None
+                if game_ready_glb.exists() and source_glb_for_bake:
+                    sync_publish(89, "baking", "Baking PBR maps (Normal, AO, Roughness, Metallic)...", "info")
+                    pbr_out_dir = model_output_dir(job_id) / "pbr_maps"
+                    pbr_out_dir.mkdir(parents=True, exist_ok=True)
+                    try:
+                        pbr_result = pbr_bake.bake_pbr_maps_blender_sync(
+                            highpoly_path=str(source_glb_for_bake),
+                            lowpoly_path=str(game_ready_glb),
+                            output_dir=str(pbr_out_dir),
+                            resolution=getattr(req, 'pbr_resolution', '2k'),
+                            job_id=job_id,
+                        )
+                        pipeline_stages.append({"stage": "pbr_baking", **pbr_result})
+                        if pbr_result.get("success"):
+                            meta["pbr_maps"] = pbr_result["maps"]
+                            meta["pbr_resolution"] = pbr_result["resolution"]
+                            _update_job(session, job_id, processing_metadata=meta)
+                            sync_publish(90, "baking", f"PBR maps baked at {pbr_result['resolution']}", "success")
+                        else:
+                            logger.warning("PBR baking failed: %s — continuing without maps", pbr_result.get("error"))
+                            sync_publish(90, "baking", "PBR baking skipped (failed gracefully)", "warning")
+                    except Exception as _pbr_exc:
+                        logger.warning("PBR baking exception: %s — continuing", _pbr_exc)
+                        pipeline_stages.append({"stage": "pbr_baking", "success": False, "error": str(_pbr_exc)})
+
+            # Stage 5: gltf-transform compression
+
             if _POST_PROCESSING_AVAILABLE and getattr(req, 'compress_output', True):
                 try:
                     game_ready_glb = model_output_dir(job_id) / "game_ready.glb"
@@ -1134,7 +1166,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             if _POST_PROCESSING_AVAILABLE and getattr(req, 'prepackage_export', False):
                 try:
                     artifacts = {}
-                    storage_root = Path(settings.STORAGE_ROOT)
+                    storage_root = Path(settings.storage_local_path)
                     game_ready = model_output_dir(job_id) / "game_ready.glb"
                     if game_ready.exists():
                         artifacts["game_ready_glb"] = str(game_ready)

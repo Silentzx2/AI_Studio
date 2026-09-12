@@ -119,3 +119,65 @@ flowchart TD
 - **Official Architecture**: Second-pass geometry displacement/normal refinement.
 - **Usage Contract**: Post-processing-only provider; cannot run as a standalone generation target.
 
+
+---
+
+## 4. Post-Processing Pipeline (v5.0.37+)
+
+Six sub-stages run after inference, integrated into the existing 11-stage Celery worker.
+
+```
+source.glb (immutable)
+  ↓ Stage 1: Strict Watertight Repair  (PyMeshLab → Blender voxel fallback)
+  ↓ Stage 2: Decimation                (PyMeshLab QEC → meshoptimizer fallback)
+  ↓ Stage 3: UV Unwrapping             (reuses generate_uvs_with_xatlas)
+  ↓ Stage 4: PBR Map Baking            (Blender Cycles — Normal/AO/Roughness/Metallic)
+  ↓ Stage 5: Compression               (gltf-transform 4.5.0 — Draco + WebP)
+  ↓ Stage 6: Async Export Package      (Celery worker — deterministic ZIP)
+  ✅ game_ready.glb + pbr_maps/ + asset_export_package.zip
+```
+
+### Stage 1 — Strict Watertight Repair
+- **File**: `backend/app/core/post_processing/mesh_repair.py`
+- **Tool**: PyMeshLab (remove_isolated_vertices, remove_degenerate_faces, remove_non_manifold_edges)
+- **Fallback**: Blender headless voxel remesh (`blender_scripts/voxel_remesh.py`)
+- **Gate**: `success=False` when no fallback achieves watertight — downstream stages never receive an invalid mesh
+
+### Stage 2 — Decimation
+- **File**: `backend/app/core/post_processing/decimation.py`
+- **Tool**: PyMeshLab Quadric Edge Collapse (`preserve_border=True`, `preserve_normal=True`)
+- **Fallback**: existing `optimize_mesh()` via meshoptimizer
+- **Platform budgets**: mobile=6k, low_end=12k, medium=20k, high=35k, cinematic=75k tris
+
+### Stage 3 — UV Unwrapping
+- **File**: `backend/app/core/post_processing/uv_unwrap.py`
+- **Reuses**: `generate_uvs_with_xatlas()` from `mesh_optimizer.py` — no duplication
+- **Critical**: `new_vertices = source_vertices[vmapping]`, `new_faces = indices` reconstruction preserved
+- **Fallback**: Blender Smart Project
+
+### Stage 4 — PBR Map Baking
+- **File**: `backend/app/core/post_processing/pbr_bake.py` + `blender_scripts/bake_pbr.py`
+- **Engine**: Blender Cycles (GPU preferred, CPU fallback)
+- **Maps**: Normal (tangent/MikkTSpace), AO, Roughness (clamped [0.2–0.85]), Metallic (0.0 default)
+- **Mandatory bounds**: `cage_extrusion=0.02`, `max_ray_distance=0.05`
+- **Non-Color**: all maps saved as data textures (not sRGB)
+- **Failure mode**: graceful skip — pipeline continues without maps; no crash
+
+### Stage 5 — gltf-transform Compression
+- **File**: `backend/app/core/post_processing/optimize.py`
+- **Tool**: gltf-transform 4.5.0 (Draco geometry + WebP textures)
+- **Fallback**: passthrough copy when CLI not found
+- **Note**: Draco requires client-side decoder; WebP not universal across game engines — verify target runtime
+
+### Stage 6 — Async Export Package
+- **File**: `backend/app/core/post_processing/export_packager.py` + Celery task `package_export_bundle`
+- **Design**: Never called from HTTP path. POST /api/v1/project/export returns static URL or 202.
+- **Idempotent**: spec hash prevents duplicate ZIPs; atomic `os.rename()` prevents partial archives
+- **Security**: all artifact paths validated as `is_relative_to(storage_root)` before archiving
+
+### Non-Negotiable Invariants
+- `source.glb` is never overwritten; all post-processing derivatives are separate files
+- ZIP creation is exclusively a Celery worker concern — never in the FastAPI request path
+- A failed strict repair (`success=False`) blocks downstream stages; never silently succeeds
+- xatlas reconstruction always uses `vertices[vmapping]` + `indices` pattern
+- Roughness always clamped to [0.2, 0.85]; metallic always 0.0 unless explicit material data

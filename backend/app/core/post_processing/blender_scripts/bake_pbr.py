@@ -105,9 +105,13 @@ def main():
             
         output_dir.mkdir(parents=True, exist_ok=True)
         
-        # Bake Normal
+        # Bake Normal — tangent/MikkTSpace, selected-to-active (highpoly→lowpoly)
         img_normal = create_bake_image("NormalBake")
-        bpy.ops.object.bake(type='NORMAL')
+        bpy.ops.object.bake(
+            type='NORMAL',
+            use_selected_to_active=True,
+            normal_space='TANGENT',
+        )
         img_normal.filepath_raw = str(output_dir / 'normal.png')
         img_normal.file_format = 'PNG'
         img_normal.save()
