@@ -31,7 +31,8 @@ export const RightPropertyPanel: React.FC = () => {
     remeshSettings,
     textureSettings,
     generationSettings,
-    systemStats
+    systemStats,
+    updateMaterialConfig
   } = useWorkspace();
 
   const [exportFormat, setExportFormat] = useState<'glb' | 'gltf' | 'fbx' | 'obj' | 'stl' | 'ply'>('glb');
@@ -375,7 +376,11 @@ export const RightPropertyPanel: React.FC = () => {
                 max="1"
                 step="0.02"
                 value={materialSettings.roughness}
-                onChange={(e) => setMaterialSettings(p => ({ ...p, roughness: parseFloat(e.target.value) }))}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  setMaterialSettings(p => ({ ...p, roughness: val }));
+                  updateMaterialConfig?.({ roughness: val });
+                }}
                 className="w-full accent-[hsl(var(--primary))] cursor-pointer"
               />
             </div>
@@ -392,7 +397,11 @@ export const RightPropertyPanel: React.FC = () => {
                 max="1"
                 step="0.02"
                 value={materialSettings.metallic}
-                onChange={(e) => setMaterialSettings(p => ({ ...p, metallic: parseFloat(e.target.value) }))}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  setMaterialSettings(p => ({ ...p, metallic: val }));
+                  updateMaterialConfig?.({ metalness: val });
+                }}
                 className="w-full accent-[hsl(var(--primary))] cursor-pointer"
               />
             </div>
@@ -409,7 +418,11 @@ export const RightPropertyPanel: React.FC = () => {
                 max="3"
                 step="0.1"
                 value={materialSettings.normalStrength}
-                onChange={(e) => setMaterialSettings(p => ({ ...p, normalStrength: parseFloat(e.target.value) }))}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  setMaterialSettings(p => ({ ...p, normalStrength: val }));
+                  updateMaterialConfig?.({ normalScale: val });
+                }}
                 className="w-full accent-[hsl(var(--primary))] cursor-pointer"
               />
             </div>
@@ -449,6 +462,28 @@ export const RightPropertyPanel: React.FC = () => {
                 ))}
               </div>
             </div>
+
+            {currentAsset?.artifacts?.pbrMaps && Object.keys(currentAsset.artifacts.pbrMaps).length > 0 && (
+              <div className="pt-2 border-t border-[hsl(var(--border))] space-y-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
+                  Baked PBR Maps
+                </span>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {Object.entries(currentAsset.artifacts.pbrMaps).map(([mapType, url]) => (
+                    <a
+                      key={mapType}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2 py-1.5 rounded-lg bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-3))] text-[11px] font-medium text-[hsl(var(--foreground))] flex items-center justify-between border border-[hsl(var(--border))] transition-colors"
+                    >
+                      <span className="capitalize">{mapType}</span>
+                      <Download className="w-3 h-3 text-[hsl(var(--muted-foreground))]" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

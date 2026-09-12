@@ -1016,8 +1016,8 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                         )
                         pipeline_stages.append({"stage": "pbr_baking", **pbr_result})
                         if pbr_result.get("success"):
-                            meta["pbr_maps"] = pbr_result["maps"]
-                            meta["pbr_resolution"] = pbr_result["resolution"]
+                            meta["pbr_maps"] = {k: to_url(v) for k, v in pbr_result.get("maps", {}).items() if v}
+                            meta["pbr_resolution"] = pbr_result.get("resolution", "2k")
                             _update_job(session, job_id, processing_metadata=meta)
                             sync_publish(90, "baking", f"PBR maps baked at {pbr_result['resolution']}", "success")
                         else:

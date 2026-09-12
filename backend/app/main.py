@@ -409,7 +409,7 @@ class BinaryStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope: Scope) -> Response:
         response = await super().get_response(path, scope)
         # Prevent Cloudflare from modifying binary content and enable aggressive client caching
-        if any(path.endswith(ext) for ext in ('.glb', '.gltf', '.obj', '.fbx', '.stl', '.ply', '.bin', '.png', '.jpg', '.jpeg', '.webp')):
+        if any(path.endswith(ext) for ext in ('.glb', '.gltf', '.obj', '.fbx', '.stl', '.ply', '.bin', '.png', '.jpg', '.jpeg', '.webp', '.zip')):
             response.headers["Cache-Control"] = "public, max-age=86400, no-transform"
             response.headers["X-Content-Type-Options"] = "nosniff"
             response.headers["Accept-Ranges"] = "bytes"
@@ -418,6 +418,8 @@ class BinaryStaticFiles(StaticFiles):
                 response.headers["Content-Type"] = "model/gltf-binary"
             elif path.endswith('.gltf'):
                 response.headers["Content-Type"] = "model/gltf+json"
+            elif path.endswith('.zip'):
+                response.headers["Content-Type"] = "application/zip"
         return response
 
 

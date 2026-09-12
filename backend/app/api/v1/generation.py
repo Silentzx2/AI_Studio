@@ -496,6 +496,8 @@ async def get_generation_status(job_id: str):
                     "collision_url": meta.get("collision_url"),
                     "qa_report": meta.get("qa_report"),
                     "pipeline_stages": meta.get("pipeline_stages") or [],
+                    "pbr_maps": meta.get("pbr_maps"),
+                    "pbr_resolution": meta.get("pbr_resolution"),
                 }
 
             return success(response)

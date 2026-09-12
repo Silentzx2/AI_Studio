@@ -197,7 +197,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const [dropToastMessage, setDropToastMessage] = useState<string | null>(null);
   const [dropToastIsHtmlError, setDropToastIsHtmlError] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<string | null>('real');
-  const [meshStats, setMeshStats] = useState<{ faces: number; vertices: number; triangles: number } | null>(null);
+  const [meshStats, setMeshStats] = useState<{ faces: number; vertices: number; triangles: number; dimensions?: { x: number; y: number; z: number } } | null>(null);
   const [debugBlueprint, setDebugBlueprint] = useState(false);
 
   // Close menus on outside click or Escape key
@@ -268,7 +268,17 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     const faces = Math.round(f);
     const verts = Math.round(v);
     const triangles = Math.round(f);
-    setMeshStats({ faces, vertices: verts, triangles });
+
+    const box = new THREE.Box3().setFromObject(object);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const dimensions = {
+      x: Number(size.x.toFixed(2)),
+      y: Number(size.y.toFixed(2)),
+      z: Number(size.z.toFixed(2)),
+    };
+
+    setMeshStats({ faces, vertices: verts, triangles, dimensions });
 
     if (currentAsset) {
       // Use immutable update to trigger React re-render
@@ -1009,6 +1019,29 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     });
   }, [shadingMode, showWireframe]);
 
+  // Synchronize material PBR properties (roughness, metalness, normalScale) in real time
+  useEffect(() => {
+    if (!currentMeshGroupRef.current || !currentAsset?.materialConfig) return;
+    const { roughness, metalness, normalScale } = currentAsset.materialConfig;
+    currentMeshGroupRef.current.traverse((child) => {
+      if (child instanceof THREE.Mesh && child.material) {
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        for (const m of mats) {
+          if ('roughness' in m && typeof roughness === 'number') m.roughness = roughness;
+          if ('metalness' in m && typeof metalness === 'number') m.metalness = metalness;
+          if ('normalScale' in m && typeof normalScale === 'number') {
+            m.normalScale.set(normalScale, normalScale);
+          }
+          m.needsUpdate = true;
+        }
+      }
+    });
+  }, [
+    currentAsset?.materialConfig?.roughness,
+    currentAsset?.materialConfig?.metalness,
+    currentAsset?.materialConfig?.normalScale,
+  ]);
+
   // Camera preset switcher
   const applyCameraPreset = useCallback((preset: CameraViewPreset) => {
     if (!cameraRef.current || !controlsRef.current) return;
@@ -1527,6 +1560,17 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                       : '—'}
                 </span>
               </div>
+              {meshStats?.dimensions && (
+                <>
+                  <div className="w-px h-3 bg-[#272a34]" />
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-zinc-500 text-[10px] uppercase font-semibold">Size</span>
+                    <span className="text-zinc-300 font-bold text-[10px]">
+                      {meshStats.dimensions.x}×{meshStats.dimensions.y}×{meshStats.dimensions.z}m
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 

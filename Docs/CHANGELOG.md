@@ -1,5 +1,17 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.39] - 2026-09-12
+### Added
+- **Live PBR Shader Synchronization**: Connected Inspector Material channels (roughness, metalness, normal strength) directly to Three.js meshes via `updateMaterialConfig` and `MeshViewer` effect for instantaneous visual feedback without reloading.
+- **Bounding Box Dimensional HUD**: Integrated 3D bounding box size ($X \times Y \times Z$ in meters) directly into the Viewport Topology HUD for Tripo AI / Meshy AI dimensional awareness.
+- **Async ZIP Package Polling**: `ExportModal` now gracefully polls async packaging status (handling HTTP 202) and triggers immediate browser download once generated.
+- **PBR Maps Direct Links**: Baked PBR map channels (Normal, AO, Roughness, Metallic) are now accessible and downloadable directly from the Inspector panel when present.
+- **ZIP Binary Static Streaming**: Added `.zip` support to FastAPI `BinaryStaticFiles` with `application/zip`, `Accept-Ranges`, and `no-transform` headers.
+
+### Fixed
+- **Generation Payload Alignment**: Connected `enable_mesh_repair` and `compress_output` in frontend `WorkspaceContext` payloads to activate post-processing stages by default.
+- **ModelAsset Artifacts Schema**: Extended TypeScript interface with `pbrMaps` mapping.
+
 ## [v5.0.37] - 2026-09-12
 ### Added
 - `backend/app/core/post_processing/` — 6-stage post-processing pipeline

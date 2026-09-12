@@ -45,27 +45,60 @@ export const ExportModal: React.FC = () => {
     setIsExporting(true);
     setError(null);
 
+    const payload = {
+      modelUrl: sourceUrl,
+      assetName: currentAsset.name,
+      format: exportFormat,
+      variant,
+      targetPlatform,
+      packageZip,
+      includeLODs: packageZip && includeLODs,
+      includeCollision: packageZip && includeCollision,
+      includeQAReport: packageZip && includeQAReport,
+      includeOriginals: true,
+    };
+
     try {
-      const response = await fetch('/api/v1/project/export', {
+      let response = await fetch('/api/v1/project/export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          modelUrl: sourceUrl,
-          assetName: currentAsset.name,
-          format: exportFormat,
-          variant,
-          targetPlatform,
-          packageZip,
-          includeLODs: packageZip && includeLODs,
-          includeCollision: packageZip && includeCollision,
-          includeQAReport: packageZip && includeQAReport,
-          includeOriginals: true,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
         const errJson = await response.json().catch(() => ({}));
         throw new Error(errJson.detail || errJson.message || `Export failed with HTTP ${response.status}`);
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        let data = await response.json();
+        let attempts = 0;
+        while (data.status === 'pending' && attempts < 20) {
+          await new Promise((r) => setTimeout(r, 1500));
+          attempts++;
+          const pollRes = await fetch('/api/v1/project/export', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          if (pollRes.ok && (pollRes.headers.get('content-type') || '').includes('application/json')) {
+            data = await pollRes.json();
+          }
+        }
+
+        if (data.status === 'ready' && data.url) {
+          const link = document.createElement('a');
+          link.href = data.url;
+          link.download = `${currentAsset.name}_export_package.zip`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setIsExportModalOpen(false);
+          return;
+        } else {
+          throw new Error(data.message || 'Export package generation timed out. Please try again.');
+        }
       }
 
       // Read filename from Content-Disposition header if available

@@ -73,6 +73,7 @@ export interface ModelAsset {
     lods?: string[];
     collision?: string;
     qaReport?: Record<string, unknown>;
+    pbrMaps?: Record<string, string>;
   };
   qaScore?: number;
   qaStatus?: 'pass' | 'warn' | 'fail';
