@@ -102,6 +102,7 @@ export const GeneratePanel: React.FC = () => {
   const [generateInParts, setGenerateInParts] = useState(false);
   const [meshSettingsOpen, setMeshSettingsOpen] = useState(true);
   const [gameReadyOpen, setGameReadyOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -906,6 +907,161 @@ export const GeneratePanel: React.FC = () => {
                     ) : (
                       <span>Full VRAM mode (~{Math.round((activeVramMb || 0) / 1024)} GB required)</span>
                     )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Advanced Generation Parameters (Collapsible Accordion) */}
+            <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2.5 space-y-2">
+              <button
+                type="button"
+                onClick={() => setAdvancedOpen(prev => !prev)}
+                className="w-full flex items-center justify-between text-[10px] font-semibold text-zinc-300 cursor-pointer"
+              >
+                <span className="flex items-center gap-1.5">
+                  <Sliders className="w-3.5 h-3.5 text-[#F9CF00]" />
+                  <span>Advanced Parameters</span>
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[8px] font-mono px-1.5 py-0.5 rounded bg-white/[0.04] text-zinc-400">
+                    {generationSettings.seed > 0 ? `Seed: ${generationSettings.seed}` : 'Seed: Random'}
+                  </span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${advancedOpen ? 'rotate-180 text-[#F9CF00]' : ''}`} />
+                </div>
+              </button>
+
+              {advancedOpen && (
+                <div className="space-y-2.5 pt-2 border-t border-white/[0.06]">
+                  {/* Seed Input & Randomize */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="text-zinc-300 font-medium">Generation Seed</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newSeed = Math.floor(Math.random() * 2147483647);
+                          setGenerationSettings(prev => ({ ...prev, seed: newSeed }));
+                        }}
+                        className="flex items-center gap-1 text-[9px] text-[#F9CF00] hover:underline cursor-pointer"
+                      >
+                        <Dices className="w-3 h-3" />
+                        <span>Randomize</span>
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        placeholder="Random (-1 or empty)"
+                        value={generationSettings.seed > 0 ? generationSettings.seed : ''}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          setGenerationSettings(prev => ({ ...prev, seed: isNaN(val) ? -1 : val }));
+                        }}
+                        className="flex-1 bg-[#191A1D] border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-zinc-500 font-mono focus:outline-none focus:border-[#F9CF00]/50"
+                      />
+                      {generationSettings.seed > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setGenerationSettings(prev => ({ ...prev, seed: -1 }))}
+                          className="px-2 py-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-zinc-400 text-[10px] cursor-pointer"
+                          title="Reset to Random"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Guidance Scale Slider */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="text-zinc-300 font-medium">Guidance Scale (CFG)</span>
+                      <span className="font-mono text-[#F9CF00] font-bold">
+                        {(generationSettings.guidanceScale || 7.5).toFixed(1)}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={1.0}
+                      max={15.0}
+                      step={0.5}
+                      value={generationSettings.guidanceScale || 7.5}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        setGenerationSettings(prev => ({ ...prev, guidanceScale: val }));
+                      }}
+                      className="w-full h-1.5 rounded-full appearance-none bg-[#25262A] accent-[#F9CF00] cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Background Removal Switch */}
+                  <div className="flex items-center justify-between text-[10px] pt-1 border-t border-white/[0.04]">
+                    <div>
+                      <span className="text-zinc-200 font-medium block">Remove Image Background</span>
+                      <span className="text-[8px] text-zinc-500">Isolates foreground subject before 3D reconstruction</span>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={Boolean(generationSettings.removeBackground ?? true)}
+                      onClick={() => setGenerationSettings(prev => ({
+                        ...prev,
+                        removeBackground: !(prev.removeBackground ?? true)
+                      }))}
+                      className={`w-7 h-3.5 rounded-full p-0.5 transition-colors relative cursor-pointer ${
+                        (generationSettings.removeBackground ?? true) ? 'bg-emerald-500' : 'bg-[#25262A]'
+                      }`}
+                    >
+                      <div className={`w-2.5 h-2.5 rounded-full bg-white transition-transform ${
+                        (generationSettings.removeBackground ?? true) ? 'translate-x-3.5' : 'translate-x-0'
+                      }`} />
+                    </button>
+                  </div>
+
+                  {/* Generate In Parts Switch */}
+                  <div className="flex items-center justify-between text-[10px] pt-1 border-t border-white/[0.04]">
+                    <div>
+                      <span className="text-zinc-200 font-medium flex items-center gap-1">
+                        <span>Multi-Part Generation</span>
+                        <span className="text-[8px] px-1 py-0.2 rounded bg-[#F9CF00]/20 text-[#F9CF00] font-bold">Pro</span>
+                      </span>
+                      <span className="text-[8px] text-zinc-500">Deconstructs complex objects into articulated sub-assemblies</span>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={generateInParts}
+                      onClick={() => setGenerateInParts(prev => !prev)}
+                      className={`w-7 h-3.5 rounded-full p-0.5 transition-colors relative cursor-pointer ${
+                        generateInParts ? 'bg-[#F9CF00]' : 'bg-[#25262A]'
+                      }`}
+                    >
+                      <div className={`w-2.5 h-2.5 rounded-full bg-black transition-transform ${
+                        generateInParts ? 'translate-x-3.5' : 'translate-x-0'
+                      }`} />
+                    </button>
+                  </div>
+
+                  {/* Asset Visibility / Privacy */}
+                  <div className="flex items-center justify-between text-[10px] pt-1 border-t border-white/[0.04]">
+                    <span className="text-zinc-300 font-medium">Asset Visibility</span>
+                    <div className="flex items-center gap-1 bg-[#191A1D] p-0.5 rounded-lg border border-white/[0.06]">
+                      {(['public', 'private'] as const).map((mode) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => setPrivacy(mode)}
+                          className={`px-2 py-0.5 rounded text-[9px] font-bold capitalize transition-colors cursor-pointer ${
+                            privacy === mode
+                              ? 'bg-[#25272D] text-[#F9CF00] shadow-sm'
+                              : 'text-zinc-400 hover:text-white'
+                          }`}
+                        >
+                          {mode}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
