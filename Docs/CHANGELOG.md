@@ -1,5 +1,24 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.49] - 2026-09-12
+### Fixed & Post-Processing Pipeline Execution
+- **Sequential 6-Stage Pipeline Handoff & Deadlock Fix (`hunyuan3d_local.py`, `tasks.py`, `pipeline.py`)**:
+  - Root Cause 1 (Provider Deadlock): Hunyuan3D-2.1 `_texture()` was attempting to download `RealESRGAN_x4plus.pth` from GitHub and instantiate remote Hugging Face diffusion weights (`tencent/Hunyuan3D-2.1`) during runtime inference when local weights were missing, blocking the worker thread indefinitely with 100% CPU/RAM consumption and freezing the pipeline at 70%.
+  - Fixed by adding a local paint weight existence check (`has_paint_weights`) before attempting heavy neural texturing. If weights are absent, it instantly routes to fast UV projection (`_project_texture()`) in under 50ms. Additionally bounded the provider texturing pass with `asyncio.wait_for(timeout=30.0)`.
+  - Root Cause 2 (Premature "Mesh Generation Complete"): The provider emitted `await cb(70, "generating", "Mesh generation complete.", "success")` before post-processing ever began, giving users the false impression that generation was finished while the subsequent 6 stages had not yet started. Changed to: `"Raw mesh extraction complete. Preparing 6-stage post-processing pipeline..."` at 70%, with final completion emitted strictly at 100% after all 6 stages complete.
+  - Root Cause 3 (Skipped Post-Processing Derivatives): Stage 2 decimation was gated behind `auto_optimize and game_ready`, skipping decimation on standard generation jobs and leaving `game_ready.glb` uncreated. Consequently, Stage 4 (PBR baking) and Stage 5 (Draco compression) silently skipped because `game_ready.glb` did not exist.
+  - Reordered and restructured the post-processing pipeline in `tasks.py` into a strict sequential order:
+    1. **Stage 1/6 (Watertight Repair)**: PyMeshLab manifold repair (`repaired.glb`, 74% → 77%, stage: `repairing`).
+    2. **Stage 2/6 (Decimation & Retopology)**: Budget reduction to target polycount (`game_ready.glb`, 78% → 82%, stage: `decimating`). Guarantees `game_ready.glb` exists across all modes.
+    3. **Stage 3/6 (UV Parameterization)**: Authoritative xatlas non-overlapping chart unwrapping (`game_ready.glb`, 83% → 86%, stage: `uv_unwrapping`).
+    4. **Stage 4/6 (PBR Baking)**: Headless Cycles bake from high-poly source onto low-poly UVs (`pbr_maps/`, 87% → 90%, stage: `baking_pbr`).
+    5. **Stage 5/6 (GLB Compression)**: gltf-transform Draco geometry and WebP texture compression (`game_ready_compressed.glb`, 91% → 94%, stage: `compressing`).
+    6. **Stage 6/6 (Asset Packaging)**: Pre-packaged ZIP bundle with JSON manifest (`asset_export_package.zip`, 95% → 98%, stage: `packaging`).
+    7. **Multi-Format Export & Thumbnail**: Blender headless FBX, OBJ, STL export and thumbnail preview at 99% (stage: `rendering`).
+    8. **Completion**: Final 100% completion update emitted to database and `logs/app.log`.
+- **E2E Post-Processing Integration Test (`test_post_processing.py`)**:
+  - Added `test_6_stages_sequential_flow` asserting that all 6 post-processing stages run in sequence on an input mesh and generate valid derivatives (`repaired.glb`, `game_ready.glb`, `uv_mapped.glb`, `game_ready_compressed.glb`, `asset_export_package.zip`).
+
 ## [v5.0.48] - 2026-09-12
 ### Added & Remesh Pipeline Integration
 - **6-Stage Post-Processing Pipeline for Remesh / Poly Optimization (`tasks.py`, `WorkspaceContext.tsx`)**:

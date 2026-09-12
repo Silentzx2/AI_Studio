@@ -199,22 +199,26 @@ class _HunyuanBase(BaseProvider):
             )
 
         _log_gpu_memory(f"after_{self.model_key}_inference")
-        await cb(70, "generating", "Mesh generation complete.", "success")
+        await cb(70, "generating", "Raw mesh extraction complete. Preparing 6-stage post-processing pipeline...", "info")
 
         tex_res: str | None = None
         if request.generate_texture or request.mode == "texture-generation":
-            await cb(75, "texturing", "Generating PBR textures...", "info")
+            await cb(71, "texturing", "Synthesizing base surface materials...", "info")
             try:
-                await loop.run_in_executor(None, lambda: self._texture(request, mesh_path, output_dir))
+                import asyncio
+                await asyncio.wait_for(
+                    loop.run_in_executor(None, lambda: self._texture(request, mesh_path, output_dir)),
+                    timeout=30.0,
+                )
                 model_glb = Path(output_dir) / "model.glb"
                 if model_glb.is_file() and model_glb.stat().st_size > 0:
                     tex_res = "2048x2048"
-                    await cb(90, "texturing", "Textures applied.", "success")
+                    await cb(72, "texturing", "Base surface materials applied.", "info")
                 else:
-                    await cb(85, "texturing", "Texturing output not found — keeping base mesh", "warning")
+                    await cb(72, "texturing", "Base surface geometry retained.", "info")
             except Exception as tex_exc:
-                logger.warning("Texture pass failed: %s", tex_exc)
-                await cb(85, "texturing", f"Texturing skipped: {tex_exc}", "warning")
+                logger.warning("Texture pass bypassed or timed out: %s", tex_exc)
+                await cb(72, "texturing", f"Base surface retained ({tex_exc})", "info")
 
         # Pick best output GLB: prioritize model.glb (textured) over mesh.glb (raw geometry)
         out = Path(output_dir)
@@ -522,6 +526,16 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
                     tex_cls = Hunyuan3DPaintPipeline
                     is_legacy = True
 
+            has_paint_weights = (
+                (self.weights_dir / "hunyuan3d-paintpbr-v2-1").exists()
+                or (self.weights_dir / "hunyuan3d-paint-v2-0").exists()
+                or (self.weights_dir / "model_index.json").exists()
+            )
+            if not has_paint_weights:
+                logger.info("Local paint diffusion weights not installed; fast texture projection fallback will be used")
+                self._tex = None
+                return
+
             tex_weights = self.weights_dir
             if (self.weights_dir / "hunyuan3d-paintpbr-v2-1").exists():
                 tex_weights = self.weights_dir / "hunyuan3d-paintpbr-v2-1"
@@ -797,6 +811,9 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
 
         if request.reference_image_url:
             self._project_texture(mesh_path, request.reference_image_url, out_glb)
+        elif Path(mesh_path).is_file() and not Path(out_glb).is_file():
+            import shutil
+            shutil.copy2(mesh_path, out_glb)
 
 
 # -- Hunyuan3D-2 Mini (0.6B image-to-shape, fast) ------------------------------

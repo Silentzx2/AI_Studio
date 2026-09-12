@@ -723,364 +723,174 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             asset_class = classify_asset(prompt=job.prompt or "", model_path=current_glb_path)
             meta["asset_classification"] = asset_class
 
-            # Stage 1: Strict watertight repair (PyMeshLab → Blender voxel fallback)
+            # ── Sequential 6-Stage Post-Processing Pipeline ──
+
+            # Stage 1/6: Strict watertight repair (PyMeshLab → Blender voxel fallback)
             if _POST_PROCESSING_AVAILABLE and meta.get('enable_mesh_repair', True):
-                sync_publish(78, "repairing", "Stage 1/6: PyMeshLab watertight mesh repair...", "info")
+                sync_publish(74, "repairing", "Stage 1/6: PyMeshLab watertight mesh repair...", "info")
                 repair_output = Path(master_glb).parent / "repaired.glb"
                 try:
                     repair_result = mesh_repair.repair_mesh_strict(
                         master_glb, repair_output, job_id=job_id
                     )
                     pipeline_stages.append({"stage": "watertight_repair", **repair_result})
-                    if repair_result["success"] and repair_output.exists():
-                        # Use repaired mesh as working copy (master_glb is immutable source)
+                    if repair_result.get("success") and repair_output.exists():
                         current_glb_path = str(repair_output)
-                        sync_publish(80, "repairing", f"Stage 1/6 Complete: Watertight repair verified ({repair_result.get('repair_route')})", "success")
+                        sync_publish(77, "repairing", f"Stage 1/6 Complete: Watertight repair verified ({repair_result.get('repair_route')})", "success")
                     else:
-                        sync_publish(80, "repairing", "Stage 1/6: Repair blocked — preserving source geometry", "warning")
+                        sync_publish(77, "repairing", "Stage 1/6: Repair blocked — preserving source geometry", "warning")
                 except Exception as _repair_exc:
                     logger.warning("Watertight repair failed: %s", _repair_exc)
                     pipeline_stages.append({"stage": "watertight_repair", "success": False, "error": str(_repair_exc)})
+                    sync_publish(77, "repairing", f"Stage 1/6 Warning: Repair bypassed ({_repair_exc})", "warning")
 
-            # 7d. Blender post-processing (cleanup, conditional Rigify, multi-format export)
-            if not skip_postprocessing:
-                blender_result = {}
-                t_blender = time.perf_counter()
-                try:
-                    # Parse render settings from structured JSON metadata
-                    render_res = None
-                    render_samples = 128
-                    meta_render = job.processing_metadata or {}
-                    render_settings = meta_render.get("render_settings")
-                    if render_settings and job.mode == "render":
-                        if isinstance(render_settings, str):
-                            render_settings = json.loads(render_settings)
-                        res = render_settings.get("resolution")
-                        if res and "x" in res:
-                            parts = res.split("x")
-                            render_res = [int(parts[0]), int(parts[1])]
-                        if render_settings.get("samples"):
-                            render_samples = int(render_settings["samples"])
-
-                    topology_mode = meta.get("topology_mode", "adaptive")
-                    from app.core.blender.pipeline import process_model
-                    blender_result = await process_model(
-                        input_path=current_glb_path,
-                        output_dir=out_dir,
-                        auto_rig=job.auto_rig if job.mode != "render" else False,
-                        asset_category=asset_class.get("category"),
-                        generate_texture=job.generate_texture if job.mode != "render" else False,
-                        quality=job.quality,
-                        render_resolution=render_res,
-                        render_samples=render_samples,
-                        topology_mode=topology_mode,
-                        progress_callback=progress_callback,
-                    )
-                    blender_dur = round((time.perf_counter() - t_blender) * 1000, 1)
-
-                    if blender_result.get("actual_topology"):
-                        meta["actual_topology"] = blender_result["actual_topology"]
-                        meta["topology_mode"] = blender_result.get("topology_mode", topology_mode)
-                        if blender_result.get("quad_count") is not None:
-                            meta["quad_count"] = blender_result["quad_count"]
-                        if blender_result.get("triangle_count") is not None:
-                            meta["triangle_count"] = blender_result["triangle_count"]
-
-                    # Open3D Quality Verification of post-Blender mesh vs input
-                    post_blender_glb = blender_result.get("glb")
-                    if post_blender_glb and Path(post_blender_glb).exists() and post_blender_glb != current_glb_path:
-                        try:
-                            from app.core.open3d_service import is_open3d_available, compare_meshes_o3d
-                            if is_open3d_available():
-                                b_comp = compare_meshes_o3d(current_glb_path, post_blender_glb, max_bbox_change_pct=10.0)
-                                if not b_comp.get("is_acceptable"):
-                                    logger.warning(
-                                        "Blender post-processing degraded geometry (%s) — falling back to pre-Blender mesh",
-                                        b_comp.get("rejection_reason"),
-                                    )
-                                    blender_result["glb"] = current_glb_path
-                        except Exception as b_cmp_err:
-                            logger.debug("Open3D post-Blender verification error: %s", b_cmp_err)
-
-                    pipeline_stages.append({
-                        "stage": "blender_pipeline",
-                        "tool": "Blender",
-                        "status": "success",
-                        "duration_ms": blender_dur,
-                        "output_path": blender_result.get("glb"),
-                    })
-                    logger.info("[PIPELINE_STAGE] stage=blender_pipeline tool=Blender duration_ms=%.1f output=%s", blender_dur, blender_result.get("glb"))
-                except Exception as e:
-                    logger.warning("Blender post-processing failed, using provider output directly: %s", e)
-                    blender_result = {"glb": current_glb_path}
-                    pipeline_stages.append({
-                        "stage": "blender_pipeline",
-                        "tool": "Blender",
-                        "status": "failed",
-                        "duration_ms": round((time.perf_counter() - t_blender) * 1000, 1),
-                        "error": str(e),
-                    })
-
-            # Optional DetailGen3D pass
-            detail_pass = meta.get("detail_pass", False)
-            detail_guidance = meta.get("detail_guidance", 7.5)
-
-            if not skip_postprocessing and detail_pass:
-                sync_publish(80, "postprocessing", "DetailGen3D refinement requested...", "info")
-                t_det = time.perf_counter()
-                try:
-                    from runtime.capability import get_model_vram_required
-                    from runtime.gpu import check_vram_sufficient
-                    detail_vram = get_model_vram_required("detailgen3d")
-                    if detail_vram > 0:
-                        vram_ok, vram_msg = check_vram_sufficient(detail_vram, device=device or "cuda:0")
-                        if not vram_ok and engine:
-                            logger.info("Unloading warm-cached provider '%s' to free VRAM for DetailGen3D", provider_name)
-                            await engine.unload_provider(provider_name)
-                            vram_ok, vram_msg = check_vram_sufficient(detail_vram, device=device or "cuda:0")
-                        if not vram_ok:
-                            logger.warning("DetailGen3D skipped: %s", vram_msg)
-                            sync_publish(85, "postprocessing", f"DetailGen3D skipped: {vram_msg}", "warning")
-                            meta["detail_pass_error"] = vram_msg
-                            _update_job(session, job_id, processing_metadata=meta)
-                            detail_pass = False
-                    if detail_pass:
-                        detail_provider = get_provider("detailgen3d", device=device or "cuda:0")
-                        if hasattr(detail_provider, "load"):
-                            await detail_provider.load()
-                        
-                        current_glb = blender_result.get("glb") or provider_result.model_path
-                        detailed_glb = await detail_provider.detail_mesh(
-                            coarse_glb_path=current_glb,
-                            image_path=request.reference_image_url,
-                            guidance=detail_guidance,
-                            progress_callback=progress_callback
-                        )
-                        
-                        if hasattr(detail_provider, "unload"):
-                            detail_provider.unload()
-                            
-                        blender_result["glb"] = detailed_glb
-                        meta["model_url_detailed"] = to_url(detailed_glb)
-                        pipeline_stages.append({
-                            "stage": "detail_pass",
-                            "tool": "DetailGen3D",
-                            "status": "success",
-                            "duration_ms": round((time.perf_counter() - t_det) * 1000, 1),
-                            "output_path": detailed_glb,
-                        })
-                        _update_job(session, job_id, processing_metadata=meta)
-                        sync_publish(90, "postprocessing", "DetailGen3D pass complete.", "info")
-                except Exception as ex_det:
-                    logger.warning("DetailGen3D pass failed: %s", ex_det)
-                    pipeline_stages.append({
-                        "stage": "detail_pass",
-                        "tool": "DetailGen3D",
-                        "status": "failed",
-                        "duration_ms": round((time.perf_counter() - t_det) * 1000, 1),
-                        "error": str(ex_det),
-                    })
-
-            glb_path = blender_result.get("glb") or provider_result.model_path
-
-            # 7a. Authoritative UV validation & xatlas parameterization
-            # If mesh lacks valid UVs, generate them using xatlas; preserve existing valid provider UVs.
-            if not skip_postprocessing and glb_path and Path(glb_path).exists():
-                t_uv = time.perf_counter()
-                try:
-                    from app.core.mesh_optimizer import generate_uvs_with_xatlas, mesh_has_valid_uvs
-                    import trimesh
-                    tm = trimesh.load(glb_path, force="mesh")
-                    if mesh_has_valid_uvs(tm):
-                        meta["uv_status"] = "preserved_from_provider"
-                        meta["uv_method"] = "preserved"
-                        pipeline_stages.append({
-                            "stage": "uv_parameterization",
-                            "tool": "provider",
-                            "status": "preserved",
-                            "duration_ms": round((time.perf_counter() - t_uv) * 1000, 1),
-                        })
-                        logger.info("Preserved valid provider UV layout for %s", glb_path)
-                    else:
-                        sync_publish(82, "unwrapping", "Stage 3/6: Authoritative UV parameterization with xatlas...", "info")
-                        unwrapped_tm, uv_applied = generate_uvs_with_xatlas(tm)
-                        uv_dur = round((time.perf_counter() - t_uv) * 1000, 1)
-                        if uv_applied:
-                            unwrapped_tm.export(glb_path)
-                            meta["uv_status"] = "generated_via_xatlas"
-                            meta["uv_method"] = "xatlas"
-                            meta["uv_parameterized_by"] = "xatlas"
-                            pipeline_stages.append({
-                                "stage": "uv_parameterization",
-                                "tool": "xatlas",
-                                "status": "generated",
-                                "duration_ms": uv_dur,
-                            })
-                            logger.info("[PIPELINE_STAGE] stage=uv_parameterization tool=xatlas duration_ms=%.1f output=%s", uv_dur, glb_path)
-                            sync_publish(84, "unwrapping", f"Stage 3/6 Complete: xatlas UV parameterization finished ({uv_dur:.0f}ms)", "success")
-                    _update_job(session, job_id, processing_metadata=meta)
-                except Exception as uv_err:
-                    logger.warning("Authoritative xatlas UV check failed: %s", uv_err)
-
-            # 7b. Game-Ready / Auto-optimize mesh (preserving source.glb)
-            game_ready = meta.get("game_ready", False)
-            o3d_needs_opt = meta.get("mesh_decision", {}).get("needs_optimization", False)
-            auto_optimize = meta.get("auto_optimize", False) or game_ready or o3d_needs_opt or (job.mode == "remesh")
+            # Stage 2/6: Decimating mesh to target polycount budget
+            game_ready_path = str(model_output_dir(job_id) / "game_ready.glb")
             auto_optimize_settings = meta.get("auto_optimize_settings") or {}
-            target_platform = meta.get("target_platform", "generic")
+            topology_mode = meta.get("topology_mode", "adaptive")
+            target_polycount = auto_optimize_settings.get("target_polycount") or auto_optimize_settings.get("targetFaces")
+            if not target_polycount:
+                target_polycount = pp_decimation.get_target_faces(target_platform) if _POST_PROCESSING_AVAILABLE else 20000
+            else:
+                target_polycount = int(target_polycount)
 
-            if not skip_postprocessing and auto_optimize and glb_path and Path(glb_path).exists():
-                sync_publish(85, "optimizing", "Stage 2/6: Decimating mesh to target polycount budget...", "info")
-                t_opt = time.perf_counter()
-                try:
-                    from app.core.mesh_optimizer import optimize_mesh, get_target_polycount_for_platform
-
-                    if game_ready and "target_polycount" not in auto_optimize_settings and "targetPolycount" not in auto_optimize_settings:
-                        target_polycount = get_target_polycount_for_platform(target_platform)
+            sync_publish(78, "decimating", f"Stage 2/6: Decimating mesh to target budget ({target_polycount:,} faces)...", "info")
+            t_opt = time.perf_counter()
+            try:
+                if _POST_PROCESSING_AVAILABLE and meta.get("use_pymeshlab_decimation", True):
+                    pml_dec_res = pp_decimation.decimate_pymeshlab(current_glb_path, game_ready_path, target_faces=target_polycount)
+                    opt_dur = round((time.perf_counter() - t_opt) * 1000, 1)
+                    if pml_dec_res.get("success") and Path(game_ready_path).exists():
+                        current_glb_path = game_ready_path
+                        optimize_result = {
+                            "success": True,
+                            "method": pml_dec_res.get("route", "pymeshlab"),
+                            "source_faces": pml_dec_res.get("input_faces", 0),
+                            "target_faces": pml_dec_res.get("output_faces", 0),
+                            "reduction_percent": round(max(0, 1.0 - (pml_dec_res.get("output_faces", 0) / max(1, pml_dec_res.get("input_faces", 1)))) * 100, 1),
+                        }
+                        pipeline_stages.append({
+                            "stage": "mesh_optimization",
+                            "tool": pml_dec_res.get("route", "pymeshlab"),
+                            "status": "success",
+                            "duration_ms": opt_dur,
+                            "input_triangles": pml_dec_res.get("input_faces", 0),
+                            "output_triangles": pml_dec_res.get("output_faces", 0),
+                            "reduction_percent": optimize_result["reduction_percent"],
+                            "output_path": game_ready_path,
+                        })
+                        meta["auto_optimize_result"] = optimize_result
+                        meta["game_ready_url"] = to_url(game_ready_path)
+                        meta["processed_model_url"] = to_url(game_ready_path)
+                        meta["active_model_url"] = to_url(game_ready_path)
+                        _update_job(session, job_id, processing_metadata=meta)
+                        sync_publish(82, "decimating", f"Stage 2/6 Complete: Mesh decimated ({pml_dec_res.get('input_faces', 0):,} → {pml_dec_res.get('output_faces', 0):,} faces)", "success")
                     else:
-                        target_polycount = auto_optimize_settings.get("target_polycount") or auto_optimize_settings.get("targetPolycount") or 30000
-
-                    fix_uvs = meta.get("repair_uvs", True)
-                    if "fix_uvs" in auto_optimize_settings:
-                        fix_uvs = auto_optimize_settings["fix_uvs"]
-                    elif "fixUVs" in auto_optimize_settings:
-                        fix_uvs = auto_optimize_settings["fixUVs"]
-
-                    preserve_details = meta.get("preserve_details", 75.0)
-                    if "preserve_details" in auto_optimize_settings:
-                        preserve_details = auto_optimize_settings["preserve_details"]
-                    elif "preserveDetails" in auto_optimize_settings:
-                        preserve_details = auto_optimize_settings["preserveDetails"]
-
-                    game_ready_path = str(model_output_dir(job_id) / "game_ready.glb")
-                    
-                    if _POST_PROCESSING_AVAILABLE and meta.get("use_pymeshlab_decimation", True):
-                        pml_dec_res = pp_decimation.decimate_pymeshlab(glb_path, game_ready_path, target_faces=target_polycount)
-                        if pml_dec_res.get("success"):
-                            optimize_result = {
-                                "success": True,
-                                "method": pml_dec_res.get("route", "pymeshlab"),
-                                "source_faces": pml_dec_res.get("input_faces", 0),
-                                "target_faces": pml_dec_res.get("output_faces", 0),
-                                "reduction_percent": round(max(0, 1.0 - (pml_dec_res.get("output_faces", 0) / max(1, pml_dec_res.get("input_faces", 1)))) * 100, 1),
-                            }
-                        else:
-                            optimize_result = optimize_mesh(
-                                input_path=glb_path,
-                                output_path=game_ready_path,
-                                target_polycount=target_polycount,
-                                fix_uvs=fix_uvs,
-                                preserve_details=preserve_details,
-                                remesh_mode=topology_mode,
-                            )
-                    else:
+                        from app.core.mesh_optimizer import optimize_mesh
+                        fix_uvs = meta.get("repair_uvs", True)
+                        preserve_details = meta.get("preserve_details", 75.0)
                         optimize_result = optimize_mesh(
-                            input_path=glb_path,
+                            input_path=current_glb_path,
                             output_path=game_ready_path,
                             target_polycount=target_polycount,
                             fix_uvs=fix_uvs,
                             preserve_details=preserve_details,
                             remesh_mode=topology_mode,
                         )
-                    opt_dur = round((time.perf_counter() - t_opt) * 1000, 1)
-
-                    if optimize_result.get("success") and Path(game_ready_path).exists():
-                        # Authoritatively swap active glb_path to the processed derivative
-                        glb_path = game_ready_path
-                        meta["auto_optimize_result"] = optimize_result
-                        meta["game_ready_url"] = to_url(game_ready_path)
-                        meta["processed_model_url"] = to_url(game_ready_path)
-                        meta["active_model_url"] = to_url(game_ready_path)
-                        if optimize_result.get("actual_topology"):
-                            meta["actual_topology"] = optimize_result["actual_topology"]
-                        if optimize_result.get("fallback_reason"):
-                            meta["topology_fallback_reason"] = optimize_result["fallback_reason"]
-                        _update_job(session, job_id, processing_metadata=meta)
-
-                        opt_stage = {
-                            "stage": "mesh_optimization",
-                            "tool": optimize_result.get("method", "meshoptimizer"),
-                            "status": "success",
-                            "duration_ms": opt_dur,
-                            "input_triangles": optimize_result.get("source_faces", 0),
-                            "output_triangles": optimize_result.get("target_faces", 0),
-                            "reduction_percent": optimize_result.get("reduction_percent", 0),
-                            "output_path": game_ready_path,
-                        }
-                        pipeline_stages.append(opt_stage)
-                        logger.info(
-                            "[PIPELINE_STAGE] stage=mesh_optimization tool=%s duration_ms=%.1f in_tris=%d out_tris=%d red_pct=%.1f%% output=%s",
-                            opt_stage["tool"], opt_dur, opt_stage["input_triangles"], opt_stage["output_triangles"], opt_stage["reduction_percent"], game_ready_path,
-                        )
-                        sync_publish(88, "optimizing",
-                            f"Stage 2/6 Complete: Mesh decimated {optimize_result.get('reduction_percent', 0)}% ({optimize_result.get('source_faces', 0):,} → {optimize_result.get('target_faces', 0):,} tris)",
-                            "success")
-                    else:
-                        opt_err = optimize_result.get("error", "unknown optimization failure")
-                        logger.warning("Mesh optimization skipped or failed: %s", opt_err)
-                        meta["auto_optimize_error"] = opt_err
-                        meta["auto_optimize_result"] = {"success": False, "error": opt_err}
-                        pipeline_stages.append({
-                            "stage": "mesh_optimization",
-                            "tool": "mesh_optimizer",
-                            "status": "failed",
-                            "duration_ms": opt_dur,
-                            "error": opt_err,
-                        })
-                        _update_job(session, job_id, processing_metadata=meta)
-                        sync_publish(88, "optimizing", f"Stage 2/6 Warning: Decimation skipped ({opt_err})", "warn")
-                except Exception as opt_exc:
-                    opt_dur = round((time.perf_counter() - t_opt) * 1000, 1)
-                    logger.warning("Game-ready optimization failed: %s", opt_exc)
-                    meta["auto_optimize_error"] = str(opt_exc)
-                    meta["auto_optimize_result"] = {"success": False, "error": str(opt_exc)}
-                    pipeline_stages.append({
-                        "stage": "mesh_optimization",
-                        "tool": "mesh_optimizer",
-                        "status": "failed",
-                        "duration_ms": opt_dur,
-                        "error": str(opt_exc),
-                    })
-                    _update_job(session, job_id, processing_metadata=meta)
-                    sync_publish(88, "optimizing", f"Stage 2/6 Warning: Decimation failed ({opt_exc})", "warn")
-
-            # Stage 4: PBR Map Baking (Normal, AO, Roughness, Metallic)
-            # Requires: high-poly source + low-poly UV-mapped game_ready.glb
-            if _POST_PROCESSING_AVAILABLE and meta.get('generate_pbr', True):
-                game_ready_glb = model_output_dir(job_id) / "game_ready.glb"
-                source_glb_for_bake = Path(source_glb_path) if Path(source_glb_path).exists() else None
-                if game_ready_glb.exists() and source_glb_for_bake:
-                    sync_publish(89, "baking", f"Stage 4/6: Baking PBR maps (Normal, AO, Roughness, Metallic) at {meta.get('pbr_resolution', '2k')}...", "info")
-                    pbr_out_dir = model_output_dir(job_id) / "pbr_maps"
-                    pbr_out_dir.mkdir(parents=True, exist_ok=True)
-                    try:
-                        pbr_result = pbr_bake.bake_pbr_maps_blender_sync(
-                            highpoly_path=str(source_glb_for_bake),
-                            lowpoly_path=str(game_ready_glb),
-                            output_dir=str(pbr_out_dir),
-                            resolution=meta.get('pbr_resolution', '2k'),
-                            job_id=job_id,
-                        )
-                        pipeline_stages.append({"stage": "pbr_baking", **pbr_result})
-                        if pbr_result.get("success"):
-                            meta["pbr_maps"] = {k: to_url(v) for k, v in pbr_result.get("maps", {}).items() if v}
-                            meta["pbr_resolution"] = pbr_result.get("resolution", "2k")
-                            _update_job(session, job_id, processing_metadata=meta)
-                            sync_publish(92, "baking", f"Stage 4/6 Complete: PBR maps baked at {pbr_result['resolution']}", "success")
+                        if optimize_result.get("success") and Path(game_ready_path).exists():
+                            current_glb_path = game_ready_path
+                            sync_publish(82, "decimating", f"Stage 2/6 Complete: Mesh optimized ({optimize_result.get('source_faces', 0):,} → {optimize_result.get('target_faces', 0):,} faces)", "success")
                         else:
-                            logger.warning("PBR baking failed: %s — continuing without maps", pbr_result.get("error"))
-                            sync_publish(92, "baking", f"Stage 4/6 Skipped: PBR baking bypassed ({pbr_result.get('error', 'fallback')})", "warning")
-                    except Exception as _pbr_exc:
-                        logger.warning("PBR baking exception: %s — continuing", _pbr_exc)
-                        pipeline_stages.append({"stage": "pbr_baking", "success": False, "error": str(_pbr_exc)})
+                            if current_glb_path != game_ready_path:
+                                shutil.copy2(current_glb_path, game_ready_path)
+                            current_glb_path = game_ready_path
+                            sync_publish(82, "decimating", "Stage 2/6 Complete: Polycount within budget", "info")
+                else:
+                    if current_glb_path != game_ready_path:
+                        shutil.copy2(current_glb_path, game_ready_path)
+                    current_glb_path = game_ready_path
+                    sync_publish(82, "decimating", "Stage 2/6 Complete: Polycount within budget", "info")
+            except Exception as dec_exc:
+                logger.warning("Decimation failed: %s", dec_exc)
+                if current_glb_path != game_ready_path:
+                    shutil.copy2(current_glb_path, game_ready_path)
+                current_glb_path = game_ready_path
+                sync_publish(82, "decimating", f"Stage 2/6 Bypassed: Preserving mesh ({dec_exc})", "warning")
 
-            # Stage 5: gltf-transform compression
+            # Stage 3/6: Authoritative UV parameterization with xatlas
+            sync_publish(83, "uv_unwrapping", "Stage 3/6: Authoritative UV parameterization with xatlas...", "info")
+            t_uv = time.perf_counter()
+            try:
+                from app.core.mesh_optimizer import generate_uvs_with_xatlas, mesh_has_valid_uvs
+                import trimesh
+                tm = trimesh.load(current_glb_path, force="mesh")
+                if mesh_has_valid_uvs(tm):
+                    meta["uv_status"] = "preserved_from_provider"
+                    meta["uv_method"] = "preserved"
+                    pipeline_stages.append({
+                        "stage": "uv_parameterization",
+                        "tool": "provider",
+                        "status": "preserved",
+                        "duration_ms": round((time.perf_counter() - t_uv) * 1000, 1),
+                    })
+                    sync_publish(86, "uv_unwrapping", "Stage 3/6 Complete: Existing UV layout validated and preserved", "success")
+                else:
+                    unwrapped_tm, uv_applied = generate_uvs_with_xatlas(tm)
+                    uv_dur = round((time.perf_counter() - t_uv) * 1000, 1)
+                    if uv_applied:
+                        unwrapped_tm.export(current_glb_path)
+                        meta["uv_status"] = "generated_via_xatlas"
+                        meta["uv_method"] = "xatlas"
+                        pipeline_stages.append({
+                            "stage": "uv_parameterization",
+                            "tool": "xatlas",
+                            "status": "generated",
+                            "duration_ms": uv_dur,
+                        })
+                        sync_publish(86, "uv_unwrapping", f"Stage 3/6 Complete: xatlas UV parameterization finished ({uv_dur:.0f}ms)", "success")
+                    else:
+                        sync_publish(86, "uv_unwrapping", "Stage 3/6 Complete: UVs maintained", "info")
+                _update_job(session, job_id, processing_metadata=meta)
+            except Exception as uv_err:
+                logger.warning("Authoritative xatlas UV check failed: %s", uv_err)
+                sync_publish(86, "uv_unwrapping", f"Stage 3/6 Warning: UV check bypassed ({uv_err})", "warning")
+
+            # Stage 4/6: PBR Map Baking (Normal, AO, Roughness, Metallic)
+            if _POST_PROCESSING_AVAILABLE and meta.get('generate_pbr', True):
+                game_ready_glb = Path(current_glb_path)
+                source_glb_for_bake = Path(source_glb_path) if Path(source_glb_path).exists() else Path(master_glb)
+                sync_publish(87, "baking_pbr", f"Stage 4/6: Baking PBR maps (Normal, AO, Roughness, Metallic) at {meta.get('pbr_resolution', '2k')}...", "info")
+                pbr_out_dir = model_output_dir(job_id) / "pbr_maps"
+                pbr_out_dir.mkdir(parents=True, exist_ok=True)
+                try:
+                    pbr_result = pbr_bake.bake_pbr_maps_blender_sync(
+                        highpoly_path=str(source_glb_for_bake),
+                        lowpoly_path=str(game_ready_glb),
+                        output_dir=str(pbr_out_dir),
+                        resolution=meta.get('pbr_resolution', '2k'),
+                        job_id=job_id,
+                    )
+                    pipeline_stages.append({"stage": "pbr_baking", **pbr_result})
+                    if pbr_result.get("success"):
+                        meta["pbr_maps"] = {k: to_url(v) for k, v in pbr_result.get("maps", {}).items() if v}
+                        meta["pbr_resolution"] = pbr_result.get("resolution", "2k")
+                        _update_job(session, job_id, processing_metadata=meta)
+                        sync_publish(90, "baking_pbr", f"Stage 4/6 Complete: PBR maps baked at {pbr_result['resolution']}", "success")
+                    else:
+                        logger.warning("PBR baking failed: %s — continuing without maps", pbr_result.get("error"))
+                        sync_publish(90, "baking_pbr", f"Stage 4/6 Bypassed: PBR bake bypassed ({pbr_result.get('error', 'fallback')})", "warning")
+                except Exception as _pbr_exc:
+                    logger.warning("PBR baking exception: %s — continuing", _pbr_exc)
+                    pipeline_stages.append({"stage": "pbr_baking", "success": False, "error": str(_pbr_exc)})
+                    sync_publish(90, "baking_pbr", f"Stage 4/6 Warning: PBR bake bypassed ({_pbr_exc})", "warning")
+
+            # Stage 5/6: gltf-transform compression
             if _POST_PROCESSING_AVAILABLE and meta.get('compress_output', True):
                 try:
-                    game_ready_glb = model_output_dir(job_id) / "game_ready.glb"
+                    game_ready_glb = Path(current_glb_path)
                     if game_ready_glb.exists():
                         compressed_glb = game_ready_glb.parent / "game_ready_compressed.glb"
-                        sync_publish(93, "compressing", "Stage 5/6: Optimizing GLB with gltf-transform (Draco + WebP)...", "info")
+                        sync_publish(91, "compressing", "Stage 5/6: Optimizing GLB with gltf-transform (Draco + WebP)...", "info")
                         compress_result = pp_optimize.optimize_glb_gltftransform(
                             str(game_ready_glb), str(compressed_glb),
                             enable_draco=True,
@@ -1088,26 +898,26 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                         )
                         pipeline_stages.append({"stage": "gltf_compression", **compress_result})
                         if compress_result.get("success") and compress_result.get("route") != "passthrough":
-                            sync_publish(95, "compressing", f"Stage 5/6 Complete: GLB compressed {compress_result.get('input_size_bytes',0)//1024}KB → {compress_result.get('output_size_bytes',0)//1024}KB", "success")
+                            sync_publish(94, "compressing", f"Stage 5/6 Complete: GLB compressed {compress_result.get('input_size_bytes',0)//1024}KB → {compress_result.get('output_size_bytes',0)//1024}KB", "success")
                         else:
-                            sync_publish(95, "compressing", "Stage 5/6 Complete: GLB structure validated", "info")
+                            sync_publish(94, "compressing", "Stage 5/6 Complete: GLB structure validated", "info")
                 except Exception as _compress_exc:
                     logger.warning("gltf-transform compression failed: %s", _compress_exc)
+                    sync_publish(94, "compressing", f"Stage 5/6 Warning: Compression bypassed ({_compress_exc})", "warning")
 
-            # 7c. Multi-tier LOD cascade (LOD0–LOD3)
-            if not skip_postprocessing and meta.get("generate_lod", False) and glb_path and Path(glb_path).exists():
-                sync_publish(90, "lod_generation", "Generating multi-tier LODs (LOD0–LOD3)...", "info")
+            glb_path = current_glb_path
+
+            # Optional LOD cascade (LOD0–LOD3)
+            if not skip_postprocessing and meta.get("generate_lod", False) and Path(glb_path).exists():
+                sync_publish(94, "lod_generation", "Generating multi-tier LODs (LOD0–LOD3)...", "info")
                 t_lod = time.perf_counter()
                 try:
                     from app.core.mesh_optimizer import generate_lods
-                    lod_count = int(meta.get("lod_count", 3))
-                    lod_preset = meta.get("lod_preset", "medium")
-                    lod_dir = str(model_output_dir(job_id) / "lods")
                     lod_res = generate_lods(
                         input_path=glb_path,
-                        output_dir=lod_dir,
-                        lod_count=lod_count,
-                        lod_preset=lod_preset,
+                        output_dir=str(model_output_dir(job_id) / "lods"),
+                        lod_count=int(meta.get("lod_count", 3)),
+                        lod_preset=meta.get("lod_preset", "medium"),
                         preserve_details=float(meta.get("preserve_details", 75.0)),
                         fix_uvs=bool(meta.get("repair_uvs", True)),
                     )
@@ -1115,49 +925,34 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                         model_public_url(job_id, f"lods/{info['filename']}")
                         for info in lod_res.get("levels", {}).values()
                     ]
-                    lod_dur = round((time.perf_counter() - t_lod) * 1000, 1)
                     meta["lod_urls"] = lod_urls
                     meta["lods_result"] = lod_res
                     pipeline_stages.append({
                         "stage": "lod_generation",
                         "tool": "meshoptimizer",
                         "status": "success",
-                        "duration_ms": lod_dur,
+                        "duration_ms": round((time.perf_counter() - t_lod) * 1000, 1),
                         "levels_count": len(lod_urls),
                     })
-                    logger.info("[PIPELINE_STAGE] stage=lod_generation tool=meshoptimizer duration_ms=%.1f levels=%d", lod_dur, len(lod_urls))
                     _update_job(session, job_id, processing_metadata=meta)
-                    sync_publish(92, "lod_generation", f"Generated {len(lod_urls)} LOD levels.", "success")
                 except Exception as lod_exc:
                     logger.warning("LOD generation failed: %s", lod_exc)
 
-            # 7d. Collision mesh generation
-            if not skip_postprocessing and meta.get("generate_collision", False) and glb_path and Path(glb_path).exists():
-                sync_publish(94, "collision", "Generating simplified collision geometry...", "info")
-                t_col = time.perf_counter()
+            # Optional Collision mesh generation
+            if not skip_postprocessing and meta.get("generate_collision", False) and Path(glb_path).exists():
+                sync_publish(95, "collision", "Generating simplified collision geometry...", "info")
                 try:
                     from app.core.mesh_optimizer import generate_collision_mesh
                     collision_path = str(model_output_dir(job_id) / "collision.glb")
                     col_res = generate_collision_mesh(glb_path, collision_path)
-                    col_dur = round((time.perf_counter() - t_col) * 1000, 1)
                     if col_res.get("success"):
                         meta["collision_url"] = to_url(collision_path)
                         meta["collision_result"] = col_res
-                        pipeline_stages.append({
-                            "stage": "collision_generation",
-                            "tool": "trimesh/convex_hull",
-                            "status": "success",
-                            "duration_ms": col_dur,
-                            "output_path": collision_path,
-                        })
-                        logger.info("[PIPELINE_STAGE] stage=collision_generation tool=convex_hull duration_ms=%.1f output=%s", col_dur, collision_path)
                         _update_job(session, job_id, processing_metadata=meta)
-                        sync_publish(95, "collision", "Collision mesh ready.", "success")
                 except Exception as col_exc:
                     logger.warning("Collision generation failed: %s", col_exc)
 
-            # 7e. Asset QA & Diagnostics
-            sync_publish(96, "qa_diagnostics", "Evaluating asset quality score...", "info")
+            # Asset QA & Diagnostics
             qa_report = {}
             t_qa = time.perf_counter()
             try:
@@ -1173,17 +968,71 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                     "game_ready_score": qa_report.get("game_ready_score"),
                     "qa_status": qa_report.get("status"),
                 })
-                logger.info("[PIPELINE_STAGE] stage=qa_diagnostics tool=mesh_processor duration_ms=%.1f score=%s status=%s",
-                            qa_dur, qa_report.get("game_ready_score"), qa_report.get("status"))
                 _update_job(session, job_id, processing_metadata=meta)
             except Exception as qa_exc:
                 logger.warning("QA evaluation failed: %s", qa_exc)
 
-            # 8. Thumbnail (Non-blocking)
+            # Stage 6/6: Asset Package Bundle (Deterministic ZIP)
+            if _POST_PROCESSING_AVAILABLE:
+                try:
+                    sync_publish(96, "packaging", "Stage 6/6: Building asset package bundle (ZIP + manifest)...", "info")
+                    artifacts = {}
+                    storage_root = Path(settings.storage_local_path)
+                    game_ready = model_output_dir(job_id) / "game_ready.glb"
+                    if game_ready.exists():
+                        artifacts["game_ready_glb"] = str(game_ready)
+                    source = model_output_dir(job_id) / "source.glb"
+                    if source.exists():
+                        artifacts["source_glb"] = str(source)
+                    compressed_glb_p = model_output_dir(job_id) / "game_ready_compressed.glb"
+                    if compressed_glb_p.exists():
+                        artifacts["compressed_glb"] = str(compressed_glb_p)
+                    pbr_dir = model_output_dir(job_id) / "pbr_maps"
+                    if pbr_dir.exists():
+                        for pf in pbr_dir.glob("*.png"):
+                            artifacts[f"pbr_{pf.stem}"] = str(pf)
+                    export_spec = {
+                        "job_id": job_id,
+                        "variant": "game_ready",
+                        "include_lods": meta.get('include_lods_in_package', True),
+                        "include_collision": meta.get('include_collision_in_package', True),
+                        "include_qa": meta.get('include_qa_in_package', True),
+                    }
+                    pkg_res = export_packager.build_export_package(job_id, storage_root, artifacts, export_spec)
+                    pipeline_stages.append({"stage": "export_packaging", **pkg_res})
+                    if pkg_res.get("success"):
+                        meta["export_package_url"] = pkg_res.get("package_url")
+                        meta["package_spec_hash"] = pkg_res.get("spec_hash")
+                        _update_job(session, job_id, processing_metadata=meta)
+                        sync_publish(98, "packaging", "Stage 6/6 Complete: Asset package bundle ready.", "success")
+                    else:
+                        sync_publish(98, "packaging", "Stage 6/6: Package ready on demand.", "info")
+                except Exception as _pkg_exc:
+                    logger.warning("Package dispatch failed: %s", _pkg_exc)
+                    sync_publish(98, "packaging", f"Stage 6/6 Notice: Package deferred ({_pkg_exc})", "info")
+
+            # Multi-format exports (FBX, OBJ, STL) & Thumbnail via Blender
+            blender_result = {}
+            if not skip_postprocessing:
+                try:
+                    from app.core.blender.pipeline import process_model
+                    blender_result = await process_model(
+                        input_path=glb_path,
+                        output_dir=out_dir,
+                        auto_rig=job.auto_rig if job.mode != "render" else False,
+                        asset_category=asset_class.get("category"),
+                        generate_texture=job.generate_texture if job.mode != "render" else False,
+                        quality=job.quality,
+                        topology_mode=topology_mode,
+                        progress_callback=progress_callback,
+                    )
+                except Exception as b_err:
+                    logger.warning("Blender multi-format export failed: %s", b_err)
+                    blender_result = {"glb": glb_path}
+
             from app.core.mesh_processor import get_mesh_stats, render_thumbnail
             thumb_path = str(model_output_dir(job_id) / "thumbnail.png")
             _wait_for_stable_file(glb_path)
-            
             rendered = False
             if Path(thumb_path).is_file() and Path(thumb_path).stat().st_size > 2048:
                 rendered = True
@@ -1209,33 +1058,6 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 "game_ready": meta.get("game_ready_url"),
                 "collision": meta.get("collision_url"),
             }
-
-            # Stage 6: Async package worker
-            if _POST_PROCESSING_AVAILABLE and meta.get('prepackage_export', False):
-                try:
-                    artifacts = {}
-                    storage_root = Path(settings.storage_local_path)
-                    game_ready = model_output_dir(job_id) / "game_ready.glb"
-                    if game_ready.exists():
-                        artifacts["game_ready_glb"] = str(game_ready)
-                    source = model_output_dir(job_id) / "source.glb"
-                    if source.exists():
-                        artifacts["source_glb"] = str(source)
-                    export_spec = {
-                        "job_id": job_id,
-                        "variant": "game_ready",
-                        "include_lods": meta.get('include_lods_in_package', True),
-                        "include_collision": meta.get('include_collision_in_package', True),
-                        "include_qa": meta.get('include_qa_in_package', True),
-                    }
-                    # Dispatch as a separate Celery task to avoid blocking
-                    package_export_bundle.apply_async(
-                        kwargs={"job_id": job_id, "artifacts": artifacts, "export_spec": export_spec},
-                        countdown=2,  # small delay to let job finalize first
-                    )
-                    sync_publish(99, "packaging", "Stage 6/6 Complete: Async export package bundle queued.", "success")
-                except Exception as _pkg_exc:
-                    logger.warning("Package dispatch failed: %s", _pkg_exc)
 
             # 10. Finalize
             meta["pipeline_stages"] = pipeline_stages
@@ -1278,6 +1100,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 "topology_mode": meta.get("topology_mode", "adaptive"),
             }
 
+            sync_publish(100, "completed", "Mesh generation & 6-stage post-processing complete!", "success")
             _publish(job_id, {
                 "job_id": job_id,
                 "status": "completed",

@@ -92,7 +92,7 @@ async def process_model(
     out.mkdir(parents=True, exist_ok=True)
 
     if progress_callback:
-        await progress_callback(91, "optimizing", "Running Blender mesh cleanup + UV...", "info")
+        await progress_callback(99, "rendering", "Exporting multi-format 3D assets (FBX, OBJ, STL) and preview...", "info")
 
     result = await _run_blender(
         _SCRIPTS_DIR / "process_mesh.py",
@@ -110,9 +110,9 @@ async def process_model(
     )
 
     if progress_callback:
-        stage = "rigging" if auto_rig else "exporting"
-        msg = "Auto-rig complete." if auto_rig else "Exporting formats..."
-        await progress_callback(97, stage, msg, "success" if auto_rig else "info")
+        stage = "rigging" if auto_rig else "rendering"
+        msg = "Auto-rig complete." if auto_rig else "Multi-format exports ready."
+        await progress_callback(99, stage, msg, "success" if auto_rig else "info")
 
     return result or _stub_output(input_path, output_dir)
 

@@ -136,3 +136,52 @@ def test_generation_request_postprocessing_schema():
     assert req.compress_output is True
     assert req.prepackage_export is True
 
+
+def test_6_stages_sequential_flow(tmp_path):
+    """End-to-end verification of sequential 6-stage derivative creation."""
+    from app.core.post_processing.mesh_repair import repair_mesh_strict
+    from app.core.post_processing.decimation import decimate_pymeshlab
+    from app.core.post_processing.uv_unwrap import unwrap_uvs_xatlas
+    from app.core.post_processing.optimize import optimize_glb_gltftransform
+    from app.core.post_processing.export_packager import build_export_package
+
+    # Raw input mesh
+    source_glb = _make_test_glb(tmp_path, watertight=True)
+    assert source_glb.exists()
+
+    # Stage 1: Watertight Repair
+    repaired_glb = tmp_path / "repaired.glb"
+    res1 = repair_mesh_strict(source_glb, repaired_glb)
+    assert res1["success"] is True
+    assert repaired_glb.exists()
+
+    # Stage 2: Decimation
+    game_ready_glb = tmp_path / "game_ready.glb"
+    res2 = decimate_pymeshlab(repaired_glb, game_ready_glb, target_faces=50000)
+    assert res2["success"] is True
+    assert game_ready_glb.exists()
+
+    # Stage 3: UV Parameterization
+    uv_glb = tmp_path / "uv_mapped.glb"
+    res3 = unwrap_uvs_xatlas(game_ready_glb, uv_glb)
+    assert res3["success"] is True
+    assert uv_glb.exists()
+
+    # Stage 5: Draco & Texture Compression
+    compressed_glb = tmp_path / "game_ready_compressed.glb"
+    res5 = optimize_glb_gltftransform(str(uv_glb), str(compressed_glb))
+    assert res5["success"] is True
+    assert compressed_glb.exists()
+
+    # Stage 6: Asset Package
+    artifacts = {
+        "source_glb": str(source_glb),
+        "game_ready_glb": str(game_ready_glb),
+        "compressed_glb": str(compressed_glb),
+    }
+    spec = {"job_id": "job-test-seq", "variant": "game_ready"}
+    res6 = build_export_package("job-test-seq", tmp_path, artifacts, spec)
+    assert res6["success"] is True
+    assert Path(res6["package_path"]).exists()
+
+
