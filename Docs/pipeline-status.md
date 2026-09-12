@@ -1,8 +1,18 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.24 (Explicit Virtual Environment Targeting, Pre-Emptive PyYAML Bootstrap, Manifest Loading Fix)
-> **Status**: ✅ **IMPLEMENTATION COMPLETE — GPU RUNTIME VALIDATION PENDING** — Verified 2026-09-09
-> **Last Updated**: September 9, 2026
+> **Version**: 5.0.53 (OpenX Clay Native Post-Processing Engine, Zero-Mock Telemetry, Headless Blender Fix)
+> **Status**: ✅ **IMPLEMENTATION COMPLETE & VERIFIED** — Verified 2026-09-12
+> **Last Updated**: September 12, 2026
+
+---
+
+## v5.0.53 — OpenX Clay Native Post-Processing Engine Integration (2026-09-12)
+
+### Root Cause & Motivation
+1. **Custom 6-Stage Pipeline Overhead & Flakiness**: The previous custom 6-stage post-processing pipeline was complex, had slow decimation fallback steps, and caused perceived UI freezes.
+2. **Standardization on Proven OpenX Clay Engine**: Replaced custom 6-stage post-processing with upstream OpenX Clay (`https://github.com/OpenX-Inc/clay`), directly integrating `clay.postprocess.PostProcessor`, `clay.lods.make_lods`, and `clay.collision.make_collision`.
+3. **Strict Execution Contract**: No mock or simulated progress steps. If Clay fails, the job fails with a clear error trace. Pre-textured meshes from neural generators (e.g. TRELLIS/Hunyuan3D) have textures and UVs preserved without destructive re-wrapping.
+4. **Blender Headless Environment Fix**: Fixed subprocess environment for headless Blender (`PYTHONHOME=/usr`, removed `--factory-startup`) to ensure system `numpy` and `io_scene_gltf2` load seamlessly in Linux container environments.
 
 ---
 

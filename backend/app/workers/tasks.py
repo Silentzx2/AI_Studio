@@ -775,6 +775,8 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 except Exception as clay_err:
                     logger.exception("OpenX Clay post-processing failed for job %s: %s", job_id, clay_err)
                     raise RuntimeError(f"OpenX Clay post-processing failed: {clay_err}") from clay_err
+            elif not skip_postprocessing:
+                raise RuntimeError("OpenX Clay post-processing engine is unavailable. Processing cannot continue.")
             else:
                 import shutil
                 if current_glb_path != game_ready_path:
@@ -852,6 +854,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             # Multi-format exports (FBX, OBJ, STL) & Thumbnail via Blender
             blender_result = {}
             if not skip_postprocessing:
+                sync_publish(99, "rendering", "Exporting multi-format assets & rendering thumbnail...", "info")
                 try:
                     from app.core.blender.pipeline import process_model
                     topology_mode = meta.get("topology_mode", "adaptive")

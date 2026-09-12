@@ -2,40 +2,27 @@
 COMPREHENSIVE PRODUCTION-READY BLUEPRINT: END-TO-END 3D ASSET POST-PROCESSING
 AI Studio 3D Pipeline — Game-Ready Asset Generation from Raw AI Output
 ================================================================================
-Version: 3.0 (Tool-Optimized, Async-Export, Watertight-Gated, 100% Executable)
-Status: READY FOR AI AGENT IMPLEMENTATION
+Version: 5.0 (OpenX Clay Native Integration, Fully Automated, Production Ready)
+Status: IMPLEMENTED & VERIFIED
 Target: Principal 3D Pipeline + Automation Engineer
 
 ---
 
 ## EXECUTIVE OVERVIEW
 
-Your AI Studio pipeline generates raw 3D models but **lacks professional post-processing** to make them game-ready. This blueprint adds a **6-stage industrial-grade post-processing and packaging pipeline** using headless PyMeshLab, xatlas, Blender Cycles, gltf-transform, and a Celery packaging worker. The design is explicitly aligned to the current AI Studio repository: it preserves the existing 11-stage generation flow, reuses existing helpers where possible, treats `source.glb` as immutable, enforces a hard watertight acceptance gate before downstream geometry work, and moves ZIP creation out of the synchronous HTTP request path.
+AI Studio generates raw 3D meshes from state-of-the-art AI generation backends (Hunyuan3D-2.1, Hunyuan3D-2-mini, TRELLIS, TripoSG). Raw neural geometry is high-poly, irregular, and not game-ready. Post-processing has been fully standardized around the native **OpenX Clay** (`https://github.com/OpenX-Inc/clay`) production engine (`backend/clay/`).
 
-### Current Gap
-```
-Raw AI Output (Hunyuan3D/TRELLIS/TripoSG)
-  ↓ High-poly, noisy, broken topology
-  ↓ Missing/invalid UVs
-  ↓ No PBR maps
-  ❌ NOT game-ready
-```
-
-### After This Implementation
-```
-Raw AI Output
-  ↓ [Stage 1] Repair & Cleanup (PyMeshLab)
-  ↓ [Stage 2] Decimation to 5k–20k tris (PyMeshLab QEC)
-  ↓ [Stage 3] Automatic UV Unwrapping (<1 sec, xatlas)
-  ↓ [Stage 4] PBR Map Baking (Blender Cycles: Normal, AO, Roughness, Metallic)
-  ↓ [Stage 5] Optimize & Compress (gltf-transform)
-  ↓ [Stage 6] Async Pre-Packaged Export (Celery ZIP worker)
-  ✅ Game-Ready GLB + pre-built static export package
-```
-
-**Geometry/PBR Pipeline Time**: target 2–5 minutes per model; packaging runs asynchronously and is not allowed to block the API request path.
-**Primary Output**: Optimized GLB with embedded PBR textures plus a pre-generated static ZIP package when packaging is enabled.
-**Important**: "100% watertight" is an acceptance rule, not an assumption — downstream stages must never accept a mesh unless validation proves watertightness/manifoldness.
+The post-processing flow is integrated directly into the Celery worker (`backend/app/workers/tasks.py`):
+1. **Source Preservation**: Raw model saved as immutable `source.glb`.
+2. **OpenX Clay Post-Processing (`clay.postprocess.PostProcessor`)**:
+   - `fast_simplification` C++ Quadric Edge Collapse decimation to target polygon budget.
+   - Preserves pre-baked textures and UV coordinates from textured generators (e.g. TRELLIS/Hunyuan3D) to prevent orphaned maps.
+   - `xatlas` conformal parameterization for untextured geometry.
+   - Export to `game_ready.glb`.
+3. **OpenX Clay LOD Cascade (`clay.lods.make_lods`)**: Hierarchical level-of-detail generation (1.0, 0.5, 0.25, 0.1).
+4. **OpenX Clay Collision Proxy (`clay.collision.make_collision`)**: High-performance convex hull collision geometry for game engines.
+5. **Blender Headless Finalization**: Multi-format exports (GLB, OBJ, FBX, STL, PLY) and real-time viewport thumbnail generation.
+6. **Live Telemetry & UI Sync**: Real-time progress updates through Redis Pub/Sub to `LiveExecutionPanel.tsx` and `RemeshPanel.tsx`. No simulated or fake stages.
 
 ---
 
