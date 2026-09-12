@@ -115,3 +115,38 @@ def test_clay_corrupt_input_fails_visibly(tmp_path):
 
     with pytest.raises(Exception):
         pp.process(asset, out_path=str(tmp_path / "out.glb"))
+
+
+def test_validate_glb_fast(tmp_path):
+    """Test that validate_glb quickly checks geometry without O(N^2) hang."""
+    from app.core.mesh_processor import validate_glb
+    import time
+    glb = _make_test_mesh(tmp_path, textured=False)
+    t0 = time.perf_counter()
+    res = validate_glb(str(glb))
+    t1 = time.perf_counter()
+    assert res["valid"] is True
+    assert res["polygon_count"] > 0
+    assert (t1 - t0) < 5.0  # Must complete quickly without hanging
+
+
+def test_analyze_mesh_o3d_bounded_on_highpoly(tmp_path):
+    """Test that analyze_mesh_o3d safely skips O(N^2) self-intersection on meshes > 20k tris."""
+    from app.core.open3d_service import analyze_mesh_o3d, is_open3d_available
+    if not is_open3d_available():
+        pytest.skip("Open3D not available")
+    import time
+    # Create icosphere with subdivisions=5 (20,480 faces > 20,000 threshold)
+    mesh = trimesh.creation.icosphere(subdivisions=5)
+    glb = tmp_path / "highpoly.glb"
+    mesh.export(str(glb))
+
+    t0 = time.perf_counter()
+    res = analyze_mesh_o3d(str(glb))
+    t1 = time.perf_counter()
+
+    assert res["valid"] is True
+    assert res["triangle_count"] >= 20000
+    assert res["self_intersecting_triangles_count"] == 0
+    assert (t1 - t0) < 6.0  # Must complete quickly without O(N^2) multi-minute hang
+

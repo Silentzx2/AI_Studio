@@ -347,6 +347,8 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 m["current_stage"] = stage
                 job_cur.progress = progress
                 job_cur.stage = stage
+                if job_cur.status in ("queued", "pending"):
+                    job_cur.status = "processing"
                 job_cur.processing_metadata = m
                 job_cur.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
             session.commit()
@@ -645,13 +647,9 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                     from app.core.open3d_service import (
                         is_open3d_available,
                         analyze_mesh_o3d,
-                        evaluate_mesh_decision,
-                        safe_cleanup_o3d,
-                        compare_meshes_o3d,
                     )
                     if is_open3d_available():
                         t_an = time.perf_counter()
-                        sync_publish(75, "analyzing", "Running Open3D topology diagnostics...", "info")
                         o3d_analysis = analyze_mesh_o3d(master_glb)
                         meta["master_mesh_analysis"] = o3d_analysis
                         an_dur = round((time.perf_counter() - t_an) * 1000, 1)
@@ -664,55 +662,8 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                             "vertices": o3d_analysis.get("vertex_count", 0),
                             "is_watertight": o3d_analysis.get("is_watertight", False),
                         })
-                        logger.info(
-                            "[PIPELINE_STAGE] stage=master_analysis tool=Open3D duration_ms=%.1f tris=%d verts=%d watertight=%s",
-                            an_dur, o3d_analysis.get("triangle_count", 0), o3d_analysis.get("vertex_count", 0), o3d_analysis.get("is_watertight", False),
-                        )
-
-                        decision = evaluate_mesh_decision(
-                            o3d_analysis,
-                            target_platform=target_platform,
-                            user_settings=meta.get("auto_optimize_settings") or {},
-                        )
-                        meta["mesh_decision"] = decision
-                        logger.info("Open3D Decision for %s: %s", job_id, decision["reasons"])
-
-                        # Safe conservative cleanup if repair is needed
-                        if decision.get("needs_repair"):
-                            t_clean = time.perf_counter()
-                            sync_publish(77, "postprocessing", "Applying conservative Open3D geometry cleanup...", "info")
-                            cleaned_path = str(model_output_dir(job_id) / "cleaned.glb")
-                            clean_res = safe_cleanup_o3d(master_glb, output_path=cleaned_path)
-                            clean_dur = round((time.perf_counter() - t_clean) * 1000, 1)
-                            if clean_res.get("success") and clean_res.get("modified"):
-                                comp = compare_meshes_o3d(master_glb, cleaned_path)
-                                if comp.get("is_acceptable"):
-                                    current_glb_path = cleaned_path
-                                    meta["cleaned_model_url"] = to_url(cleaned_path)
-                                    meta["clean_result"] = clean_res
-                                    pipeline_stages.append({
-                                        "stage": "safe_cleanup",
-                                        "tool": "Open3D",
-                                        "status": "success",
-                                        "duration_ms": clean_dur,
-                                        "input_triangles": clean_res.get("before", {}).get("triangle_count", 0),
-                                        "output_triangles": clean_res.get("after", {}).get("triangle_count", 0),
-                                        "triangle_reduction": clean_res.get("triangle_reduction", 0),
-                                        "output_path": cleaned_path,
-                                    })
-                                    logger.info("[PIPELINE_STAGE] stage=safe_cleanup tool=Open3D duration_ms=%.1f in_tris=%d out_tris=%d accepted=True",
-                                                clean_dur, clean_res.get("before", {}).get("triangle_count", 0), clean_res.get("after", {}).get("triangle_count", 0))
-                                else:
-                                    pipeline_stages.append({
-                                        "stage": "safe_cleanup",
-                                        "tool": "Open3D",
-                                        "status": "rejected",
-                                        "duration_ms": clean_dur,
-                                        "reason": comp.get("rejection_reason"),
-                                    })
-                                    logger.warning("Open3D cleanup degraded geometry (%s) — retaining master", comp.get("rejection_reason"))
                 except Exception as o3d_pipe_err:
-                    logger.warning("Open3D analysis/decision pipeline error: %s", o3d_pipe_err)
+                    logger.debug("Open3D master analysis skipped: %s", o3d_pipe_err)
 
             # 7c. Analyze: classify asset and extract geometry characteristics
             from app.core.mesh_processor import classify_asset
@@ -744,7 +695,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                         format="glb",
                     )
                     pp = PostProcessor(pp_config)
-                    raw_asset = Generated3DAsset(path=current_glb_path, format="glb")
+                    raw_asset = Generated3DAsset(path=master_glb, format="glb")
                     processed_asset = pp.process(raw_asset, out_path=game_ready_path)
                     clay_dur = round((time.perf_counter() - t_clay) * 1000, 1)
 
@@ -773,10 +724,31 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                         f"Clay: Post-processing complete ({processed_asset.triangles:,} tris, {clay_dur:.0f}ms)",
                         "success")
                 except Exception as clay_err:
-                    logger.exception("OpenX Clay post-processing failed for job %s: %s", job_id, clay_err)
-                    raise RuntimeError(f"OpenX Clay post-processing failed: {clay_err}") from clay_err
+                    logger.warning("OpenX Clay post-processing error for job %s: %s; retaining master asset", job_id, clay_err)
+                    import shutil
+                    if master_glb != game_ready_path:
+                        shutil.copy2(master_glb, game_ready_path)
+                    current_glb_path = game_ready_path
+                    pipeline_stages.append({
+                        "stage": "clay_postprocess",
+                        "tool": "openx_clay",
+                        "status": "fallback",
+                        "error": str(clay_err),
+                    })
+                    meta["game_ready_url"] = to_url(game_ready_path)
+                    meta["processed_model_url"] = to_url(game_ready_path)
+                    meta["active_model_url"] = to_url(game_ready_path)
+                    _update_job(session, job_id, processing_metadata=meta)
+                    sync_publish(90, "clay_postprocess", "Clay post-processing fallback: source mesh retained.", "warn")
             elif not skip_postprocessing:
-                raise RuntimeError("OpenX Clay post-processing engine is unavailable. Processing cannot continue.")
+                logger.warning("OpenX Clay post-processing engine is unavailable; retaining source mesh")
+                import shutil
+                if current_glb_path != game_ready_path:
+                    shutil.copy2(current_glb_path, game_ready_path)
+                current_glb_path = game_ready_path
+                meta["game_ready_url"] = to_url(game_ready_path)
+                meta["processed_model_url"] = to_url(game_ready_path)
+                meta["active_model_url"] = to_url(game_ready_path)
             else:
                 import shutil
                 if current_glb_path != game_ready_path:

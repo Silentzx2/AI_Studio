@@ -242,30 +242,28 @@ def validate_glb(model_path: str) -> dict:
     except Exception as exc:
         return {"valid": True, "model_path": model_path, "skipped": True, "reason": f"cannot read file: {exc}"}
 
-    # Open3D canonical geometry validation
+    # Fast non-blocking geometry verification (avoids O(N^2) full diagnostics on raw meshes)
     if is_open3d_available():
         try:
-            o3d_stats = analyze_mesh_o3d(model_path)
-            if not o3d_stats.get("valid"):
-                return {"valid": False, "reason": o3d_stats.get("error", "invalid mesh geometry"), "model_path": model_path}
-            face_count = o3d_stats.get("triangle_count", 0)
-            vert_count = o3d_stats.get("vertex_count", 0)
-            if face_count == 0 or vert_count == 0:
+            import open3d as o3d
+            mesh = o3d.io.read_triangle_mesh(str(path))
+            num_tris = len(mesh.triangles)
+            num_verts = len(mesh.vertices)
+            if num_tris == 0 or num_verts == 0:
                 return {
                     "valid": False,
-                    "reason": f"parses but has no geometry (faces={face_count}, vertices={vert_count})",
+                    "reason": f"parses but has no geometry (faces={num_tris}, vertices={num_verts})",
                     "model_path": model_path,
                 }
             return {
                 "valid": True,
                 "model_path": model_path,
-                "polygon_count": face_count,
-                "vertex_count": vert_count,
+                "polygon_count": num_tris,
+                "vertex_count": num_verts,
                 "file_size": size,
-                "open3d_analysis": o3d_stats,
             }
         except Exception as o3d_exc:
-            logger.debug("Open3D validation threw exception: %s; falling back to trimesh", o3d_exc)
+            logger.debug("Open3D quick validation failed: %s; falling back to trimesh", o3d_exc)
 
     trimesh = _try_import_trimesh()
     if trimesh is None:

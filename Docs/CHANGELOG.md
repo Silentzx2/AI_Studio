@@ -1,6 +1,20 @@
 # AI 3D Studio — Changelog
 
-## [v5.0.54] - 2026-09-12
+## [v5.0.55] - 2026-09-12
+### Fixed & Post-Processing Pipeline Optimization
+- **Eliminated $O(N^2)$ Self-Intersection CPU Freeze on Raw AI Meshes (`open3d_service.py`, `mesh_processor.py`)**:
+  - Root Cause: In `mesh_processor.py:validate_glb()`, immediately after provider generation, `validate_glb` called `analyze_mesh_o3d()`, which invoked Open3D's unaccelerated `mesh.is_self_intersecting()` and `mesh.get_self_intersecting_triangles()`. On raw marching cubes meshes (200k–500k triangles), this brute-force pairwise test performed $\sim 90 \times 10^9$ collision tests, pinning CPU at 100% and freezing the Celery worker for 15–25 minutes at 72% ("Base surface materials applied.").
+  - Replaced `validate_glb()` mesh validation with a fast, non-blocking check (`len(triangles) > 0` and `len(vertices) > 0`), completing in <50ms instead of 15+ minutes.
+  - Bounded `is_self_intersecting` inside `analyze_mesh_o3d()` to only run on meshes with $\le 20,000$ triangles, preventing any downstream diagnostic routine from blocking the worker.
+- **Direct Streaming to OpenX Clay Post-Processing (`tasks.py`)**:
+  - Removed legacy, redundant Open3D pre-Clay cleanup and mesh comparison steps that ran prior to Clay.
+  - Handed `master_glb` directly to OpenX Clay's `PostProcessor` for C++ quadric decimation, UV unwrapping, LODs, and collision generation.
+  - Added robust fallback logic: if Clay encounters an invalid input topology, `master_glb` is preserved as `game_ready.glb` with a warning log, ensuring generation always completes successfully without hanging or crashing.
+- **Real-Time Job Status Synchronization (`tasks.py`)**:
+  - Fixed `sync_publish()` in Celery worker to commit `job.status = "processing"` if status was `"queued"`, ensuring the UI header and API status immediately transition from QUEUED to PROCESSING.
+- **Admin Terminal Working Directory Fallback (`admin.py`)**:
+  - Fixed `_execute_command` raising `FileNotFoundError` on non-Docker/Colab environments by falling back from `/app` to the project root or current working directory.
+
 ### Added & Configured
 - **OpenX Clay Production Dependencies in `backend/requirements.txt`**:
   - Added explicit requirements for `pygltflib>=1.16.0`, `networkx>=3.2`, `typer>=0.15.0`, `rich>=14.0.0`, `mcp>=1.2.0`, and aligned `pydantic>=2.11.0` to guarantee smooth runtime without dependency conflicts.

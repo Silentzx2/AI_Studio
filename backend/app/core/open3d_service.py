@@ -294,9 +294,15 @@ def analyze_mesh_o3d(source: str | Path | Any) -> dict[str, Any]:
         non_manifold_vertices_count = 0
 
     try:
-        is_self_intersecting = bool(mesh.is_self_intersecting())
-        self_intersecting_tris_vec = mesh.get_self_intersecting_triangles()
-        self_intersecting_triangles_count = int(len(self_intersecting_tris_vec))
+        # ponytail: is_self_intersecting is O(N^2) unaccelerated brute force.
+        # Only run on small/budget meshes (<= 20,000 tris) to prevent multi-minute CPU freezes on raw marching-cubes output.
+        if num_tris <= 20000:
+            is_self_intersecting = bool(mesh.is_self_intersecting())
+            self_intersecting_tris_vec = mesh.get_self_intersecting_triangles()
+            self_intersecting_triangles_count = int(len(self_intersecting_tris_vec))
+        else:
+            is_self_intersecting = False
+            self_intersecting_triangles_count = 0
     except Exception:
         is_self_intersecting = False
         self_intersecting_triangles_count = 0

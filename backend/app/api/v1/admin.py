@@ -348,13 +348,19 @@ def _execute_command(command: str) -> dict:
         }
 
     try:
+        cwd_dir = os.environ.get("TERMINAL_CWD")
+        if not cwd_dir or not os.path.isdir(cwd_dir):
+            cwd_dir = str(Path(__file__).resolve().parents[3])  # project root
+        if not os.path.isdir(cwd_dir):
+            cwd_dir = os.getcwd()
+
         result = subprocess.run(
             argv,
             shell=False,
             capture_output=True,
             text=True,
             timeout=30,
-            cwd=os.environ.get("TERMINAL_CWD", "/app"),
+            cwd=cwd_dir,
             env={**os.environ, "TERM": "xterm"},
         )
         output = result.stdout + result.stderr
