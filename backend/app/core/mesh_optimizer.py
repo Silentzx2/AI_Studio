@@ -633,22 +633,44 @@ def optimize_mesh(
                 original_polycount, optimized_polycount, target_polycount, preserve_details,
             )
         else:
+            decimated_success = False
+            # 2a. Fast C++ PyMeshLab decimation
             try:
-                # 2. Fallback: trimesh quadric decimation
-                if len(mesh.faces) > adjusted_target:
-                    mesh = mesh.simplify_quadric_decimation(
-                        face_count=adjusted_target,
-                        aggression=7 if preserve_details < 30 else 5 if preserve_details < 70 else 3
+                import pymeshlab
+                ms = pymeshlab.MeshSet()
+                try:
+                    ms.load_new_mesh(input_path)
+                except Exception:
+                    ms.add_mesh(pymeshlab.Mesh(vertex_matrix=mesh.vertices, face_matrix=mesh.faces), "mesh")
+                curr = ms.current_mesh()
+                has_tex = False
+                try:
+                    has_tex = curr.has_wedge_tex_coord() or curr.has_vertex_tex_coord()
+                except Exception:
+                    pass
+                if has_tex:
+                    ms.meshing_decimation_quadric_edge_collapse_with_texture(
+                        targetfacenum=adjusted_target,
+                        preserveboundary=True,
                     )
-                    optimized_polycount = len(mesh.faces)
-                    logger.info(
-                        "Mesh decimated with trimesh: %d -> %d triangles (target=%d, preserve=%.0f%%)",
-                        original_polycount, optimized_polycount, target_polycount, preserve_details,
+                else:
+                    ms.meshing_decimation_quadric_edge_collapse(
+                        targetfacenum=adjusted_target,
+                        preserveboundary=True,
+                        preservenormal=True,
+                        preservetopology=True,
                     )
-            except Exception as exc:
-                logger.warning("Quadric decimation failed: %s", exc)
-                # 2b. Open3D simplification fallback
-                o3d_decimated = False
+                ms.save_current_mesh(output_path)
+                opt_mesh = trimesh.load(output_path, force="mesh")
+                optimized_polycount = len(opt_mesh.faces)
+                mesh = opt_mesh
+                decimated_success = True
+                logger.info("Mesh decimated with PyMeshLab: %d -> %d triangles", original_polycount, optimized_polycount)
+            except Exception as pml_exc:
+                logger.debug("PyMeshLab decimation fallback failed: %s", pml_exc)
+
+            # 2b. Open3D C++ decimation
+            if not decimated_success:
                 try:
                     from app.core.open3d_service import is_open3d_available
                     if is_open3d_available():
@@ -666,45 +688,22 @@ def optimize_mesh(
                                 process=False,
                             )
                             optimized_polycount = len(mesh.faces)
-                            o3d_decimated = True
+                            decimated_success = True
                             logger.info("Mesh decimated with Open3D fallback: %d -> %d triangles", original_polycount, optimized_polycount)
                 except Exception as o3d_dec_err:
                     logger.debug("Open3D decimation fallback error: %s", o3d_dec_err)
 
-                if not o3d_decimated:
-                    try:
-                        import pymeshlab
-                        ms = pymeshlab.MeshSet()
-                        try:
-                            ms.load_new_mesh(input_path)
-                        except Exception:
-                            ms.add_mesh(pymeshlab.Mesh(vertex_matrix=mesh.vertices, face_matrix=mesh.faces), "mesh")
-                        curr = ms.current_mesh()
-                        has_tex = False
-                        try:
-                            has_tex = curr.has_wedge_tex_coord() or curr.has_vertex_tex_coord()
-                        except Exception:
-                            pass
-                        if has_tex:
-                            ms.meshing_decimation_quadric_edge_collapse_with_texture(
-                                targetfacenum=adjusted_target,
-                                preserveboundary=True,
-                            )
-                        else:
-                            ms.meshing_decimation_quadric_edge_collapse(
-                                targetfacenum=adjusted_target,
-                                preserveboundary=True,
-                                preservenormal=True,
-                                preservetopology=True,
-                            )
-                        ms.save_current_mesh(output_path)
-                        opt_mesh = trimesh.load(output_path, force="mesh")
-                        optimized_polycount = len(opt_mesh.faces)
-                        mesh = opt_mesh
-                    except ImportError:
-                        logger.warning("PyMeshLab not installed — keeping cleaned mesh without decimation")
-                    except Exception as exc2:
-                        logger.warning("PyMeshLab decimation also failed: %s", exc2)
+            # 2c. Only as last resort for small meshes (< 50k faces), trimesh quadric decimation
+            if not decimated_success and len(mesh.faces) < 50000:
+                try:
+                    mesh = mesh.simplify_quadric_decimation(
+                        face_count=adjusted_target,
+                        aggression=7 if preserve_details < 30 else 5 if preserve_details < 70 else 3
+                    )
+                    optimized_polycount = len(mesh.faces)
+                    logger.info("Mesh decimated with trimesh: %d -> %d triangles", original_polycount, optimized_polycount)
+                except Exception as trimesh_exc:
+                    logger.warning("Trimesh quadric decimation failed: %s", trimesh_exc)
 
     # Ensure UV coordinates remain valid after decimation if requested
     if fix_uvs and not mesh_has_valid_uvs(mesh):

@@ -95,52 +95,56 @@ export const LiveExecutionPanel: React.FC = () => {
     if (isCompleted || progress >= 100) return 'completed';
     if (!isRunning && !activeTask) return 'pending';
 
+    const POST_STAGES = ['analyzing', 'repairing', 'decimating', 'uv_unwrapping', 'baking_pbr', 'compressing', 'packaging', 'rendering', 'complete'];
+    const isPostProcessing = POST_STAGES.includes(stageName);
+
     // If task failed during this stage
     if (isFailed) {
-      if (stageKey === 'synthesis' && (progress < 78 || stageName === 'generating')) return 'failed';
-      if (stageKey === 'stage1_repair' && (stageName === 'repairing' || (progress >= 78 && progress < 82))) return 'failed';
-      if (stageKey === 'stage2_decimate' && (stageName === 'decimating' || (progress >= 82 && progress < 84))) return 'failed';
-      if (stageKey === 'stage3_uv' && (stageName === 'uv_unwrapping' || (progress >= 84 && progress < 86))) return 'failed';
-      if (stageKey === 'stage4_pbr' && (stageName === 'baking_pbr' || (progress >= 86 && progress < 89))) return 'failed';
-      if (stageKey === 'stage5_compress' && (stageName === 'compressing' || (progress >= 89 && progress < 91))) return 'failed';
-      if (stageKey === 'stage6_package' && (stageName === 'packaging' || progress >= 91)) return 'failed';
+      if (stageKey === 'synthesis' && (!isPostProcessing || stageName === 'generating' || stageName === 'preparing' || stageName === 'texturing')) return 'failed';
+      if (stageKey === 'stage1_repair' && (stageName === 'repairing' || stageName === 'analyzing')) return 'failed';
+      if (stageKey === 'stage2_decimate' && stageName === 'decimating') return 'failed';
+      if (stageKey === 'stage3_uv' && stageName === 'uv_unwrapping') return 'failed';
+      if (stageKey === 'stage4_pbr' && stageName === 'baking_pbr') return 'failed';
+      if (stageKey === 'stage5_compress' && stageName === 'compressing') return 'failed';
+      if (stageKey === 'stage6_package' && (stageName === 'packaging' || stageName === 'rendering')) return 'failed';
     }
 
     switch (stageKey) {
       case 'synthesis':
-        if (progress >= 78 || stageName === 'repairing' || stageName === 'decimating' || stageName === 'uv_unwrapping' || stageName === 'baking_pbr' || stageName === 'compressing' || stageName === 'packaging') return 'completed';
+        if (isPostProcessing) return 'completed';
         return 'active';
 
       case 'stage1_repair':
-        if (progress < 78 && stageName !== 'repairing') return 'pending';
-        if (progress >= 82 || stageName === 'decimating' || stageName === 'uv_unwrapping' || stageName === 'baking_pbr' || stageName === 'compressing' || stageName === 'packaging') return 'completed';
-        return 'active';
+        if (!isPostProcessing) return 'pending';
+        if (stageName === 'analyzing' || stageName === 'repairing') return 'active';
+        return 'completed';
 
       case 'stage2_decimate':
-        if (progress < 82 && stageName !== 'decimating') return 'pending';
-        if (progress >= 84 || stageName === 'uv_unwrapping' || stageName === 'baking_pbr' || stageName === 'compressing' || stageName === 'packaging') return 'completed';
-        return 'active';
+        if (!isPostProcessing || ['analyzing', 'repairing'].includes(stageName)) return 'pending';
+        if (stageName === 'decimating') return 'active';
+        return 'completed';
 
       case 'stage3_uv':
-        if (progress < 84 && stageName !== 'uv_unwrapping') return 'pending';
-        if (progress >= 86 || stageName === 'baking_pbr' || stageName === 'compressing' || stageName === 'packaging') return 'completed';
-        return 'active';
+        if (!isPostProcessing || ['analyzing', 'repairing', 'decimating'].includes(stageName)) return 'pending';
+        if (stageName === 'uv_unwrapping') return 'active';
+        return 'completed';
 
       case 'stage4_pbr':
         if (!textureEnabled) return 'skipped';
-        if (progress < 86 && stageName !== 'baking_pbr') return 'pending';
-        if (progress >= 89 || stageName === 'compressing' || stageName === 'packaging') return 'completed';
-        return 'active';
+        if (!isPostProcessing || ['analyzing', 'repairing', 'decimating', 'uv_unwrapping'].includes(stageName)) return 'pending';
+        if (stageName === 'baking_pbr') return 'active';
+        return 'completed';
 
       case 'stage5_compress':
         if (!optimizeEnabled) return 'skipped';
-        if (progress < 89 && stageName !== 'compressing') return 'pending';
-        if (progress >= 91 || stageName === 'packaging') return 'completed';
-        return 'active';
+        if (!isPostProcessing || ['analyzing', 'repairing', 'decimating', 'uv_unwrapping', 'baking_pbr'].includes(stageName)) return 'pending';
+        if (stageName === 'compressing') return 'active';
+        return 'completed';
 
       case 'stage6_package':
-        if (progress < 91 && stageName !== 'packaging') return 'pending';
-        if (progress >= 100 || isCompleted) return 'completed';
+        if (!isPostProcessing || ['analyzing', 'repairing', 'decimating', 'uv_unwrapping', 'baking_pbr', 'compressing'].includes(stageName)) return 'pending';
+        if (stageName === 'packaging' || stageName === 'rendering') return 'active';
+        if (isCompleted || progress >= 100) return 'completed';
         return 'active';
 
       default:

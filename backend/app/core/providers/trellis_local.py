@@ -197,19 +197,6 @@ class TRELLISLocalProvider(BaseProvider):
 
             self._pipeline.export_model(outputs, dest, **export_kwargs)
 
-        # Quality simplification if target face_count specified
-        if request.face_count and Path(dest).exists():
-            try:
-                from app.core.mesh_optimizer import optimize_mesh
-                optimize_mesh(
-                    input_path=dest,
-                    output_path=dest,
-                    target_polycount=request.face_count,
-                    fix_uvs=True,
-                )
-            except Exception as dec_err:
-                logger.warning("Post-TRELLIS face_count decimation skipped: %s", dec_err)
-
         return dest
 
     async def health_check(self) -> bool:

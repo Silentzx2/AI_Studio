@@ -1,5 +1,17 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.52] - 2026-09-12
+### Fixed & Pipeline Accuracy
+- **Eliminated Provider Decimation Freezes (`triposg_local.py`, `trellis_local.py`)**:
+  - Root Cause: `triposg_local.py` and `trellis_local.py` were executing an un-accelerated `optimize_mesh()` call inside their `generate()` methods before returning `ProviderResult` to Celery `tasks.py`. `optimize_mesh()` fell back to trimesh's single-threaded pure-Python `simplify_quadric_decimation`, freezing the worker thread for 10+ minutes with 100% CPU/RAM on raw marching cubes meshes (500k-1M faces) and preventing the worker from ever reaching Stage 1-6 post-processing.
+  - Removed internal decimation from both providers: providers now export raw geometry instantly (`source.glb`) and hand off to the authoritative Stage 2 pipeline (`pp_decimation.decimate_pymeshlab`), which decimates via multi-threaded C++ VCGlib in under 3 seconds.
+  - Corrected `triposg_local.py` progress callback from `80%` (`generating`) to `70%` (`generating`), cleanly handing off to Stage 1 at 74%.
+- **Prioritized C++ Decimation Fallbacks (`mesh_optimizer.py`)**:
+  - Reordered decimation fallbacks in `optimize_mesh()`: fast C++ PyMeshLab and Open3D quadric decimation now run before trimesh. Trimesh's pure-Python decimation is guarded to only run as an absolute last resort on small meshes (< 50,000 faces).
+- **Synchronized Live Execution UI with Real Backend Stages (`LiveExecutionPanel.tsx`)**:
+  - Fixed `getStepState()` so that pipeline step states (`pending`, `active`, `completed`) strictly map to authoritative backend stage names emitted by the worker (`analyzing`, `repairing`, `decimating`, `uv_unwrapping`, `baking_pbr`, `compressing`, `packaging`).
+  - Eliminated the heuristic percentage bug where progress >= 78% during `generating` caused the UI to falsely display Stage 1 (Watertight Repair) as Active while the backend was still generating.
+
 ## [v5.0.51] - 2026-09-12
 ### Changed & UI Cleanup
 - **Removed Floating Bottom-Right Progress Overlay (`WorkspaceShell.tsx`, `ProgressOverlay.tsx`)**:

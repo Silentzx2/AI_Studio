@@ -283,7 +283,7 @@ class TripoSGLocalProvider(BaseProvider):
                 ).samples[0]
 
             if progress_callback:
-                await progress_callback(80, "generating", "Exporting mesh...")
+                await progress_callback(70, "generating", "Raw mesh extraction complete. Preparing 6-stage post-processing pipeline...")
 
             # Convert to trimesh and export
             if isinstance(outputs, trimesh.Trimesh):
@@ -300,19 +300,6 @@ class TripoSGLocalProvider(BaseProvider):
                     faces=np.ascontiguousarray(outputs[1]),
                 )
             mesh.export(glb_path, file_type="glb")
-
-            face_count = getattr(request, "face_count", None)
-            if face_count and glb_path.exists():
-                try:
-                    from app.core.mesh_optimizer import optimize_mesh
-                    optimize_mesh(
-                        input_path=str(glb_path),
-                        output_path=str(glb_path),
-                        target_polycount=face_count,
-                        fix_uvs=False,
-                    )
-                except Exception as dec_err:
-                    logger.warning("Post-TripoSG face_count decimation failed: %s", dec_err)
 
             from app.core.mesh_processor import get_mesh_stats
             stats = get_mesh_stats(str(glb_path))
