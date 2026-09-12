@@ -1,5 +1,17 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.44] - 2026-09-12
+### Fixed
+- **3D Viewport Floating Tool Rail Restored**:
+  - Corrected `rightOffset` and `leftOffset` calculation in `MeshViewer.tsx` to properly account for the 320px side panels and their outer margins (`rightPanelWidth + 20`), unhiding the vertical floating tool rail (Move tool, Pan tool, Screenshot camera, Floor Grid toggle, Turntable 360°, Reset Camera, and Lighting/Environment settings).
+  - Synchronized default `rightPanelWidth` from 280px to 320px in `WorkspaceContext.tsx` to prevent clipping with the right inspector.
+- **Assets Panel Centered Import Dropzone**:
+  - Extracted the 3D model import dropzone out of the 2-column asset grid in `RightAssetsPanel.tsx`, rendering it as a dedicated, balanced full-width centered dropzone card.
+  - Centered all dropzone elements (icon, title, format list, drag feedback, upload progress bar) horizontally across the panel.
+- **Agent Browser UI Audit & Verification**:
+  - Verified 3D workspace rendering, floating tool rail responsiveness, and centered asset dropzone.
+  - Tested collapsed panel state (`ui_fullscreen_viewport.png`), Studio Overview (`ui_overview.png`), Outputs & Asset History (`ui_assets_full.png`), and System Telemetry (`ui_system.png`).
+
 ## [v5.0.43] - 2026-09-12
 ### Fixed
 - **Tool Panel Position & Duplication Removal**:

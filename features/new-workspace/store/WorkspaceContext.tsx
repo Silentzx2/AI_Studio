@@ -146,7 +146,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
   const [leftPanelWidth, setLeftPanelWidth] = useState(320);
-  const [rightPanelWidth, setRightPanelWidth] = useState(280);
+  const [rightPanelWidth, setRightPanelWidth] = useState(320);
   const [assetFilter, setAssetFilter] = useState<string>('all');
   const [deletedAssetIds, setDeletedAssetIds] = useState<Set<string>>(() => new Set());
 

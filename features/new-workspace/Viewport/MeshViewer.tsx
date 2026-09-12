@@ -169,8 +169,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     rightPanelWidth
   } = useWorkspace();
 
-  const rightOffset = isRightPanelOpen ? (rightPanelWidth + 12) : 12;
-  const leftOffset = isLeftPanelOpen ? (leftPanelWidth + 12) : 12;
+  const rightOffset = isRightPanelOpen ? (rightPanelWidth + 20) : 16;
+  const leftOffset = isLeftPanelOpen ? (leftPanelWidth + 20) : 16;
 
   const [isLoading, setIsLoading] = useState(false);
   const [loadProgress, setLoadProgress] = useState<{ loaded: number; total: number; percent: number } | null>(null);

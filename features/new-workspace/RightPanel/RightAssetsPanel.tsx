@@ -302,67 +302,67 @@ export const RightAssetsPanel: React.FC = () => {
       </div>
 
       {/* Main Asset Grid Body */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-2 no-scrollbar">
-        {filteredAssets.length === 0 && (
-          <div className="py-8 px-2 text-center text-zinc-400">
-            <FolderOpen className="w-8 h-8 mx-auto mb-2 text-zinc-500" />
-            <div className="text-xs font-bold text-zinc-300">No outputs yet</div>
-            <div className="text-[11px] mt-1 text-zinc-500">Run a generation workflow or import a 3D file.</div>
-          </div>
-        )}
-        <div className="grid grid-cols-2 gap-2">
-          {/* Upload 3D Model Card */}
-          <div
-            id="btn-upload-3d-model-card"
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className={`group relative rounded-xl border border-dashed cursor-pointer p-2.5 flex flex-col items-center justify-center text-center aspect-square transition-all ${
-              isDragOver
-                ? 'border-[#F9CF00] bg-[#F9CF00]/10'
-                : 'border-white/[0.12] hover:border-[#F9CF00]/70 bg-[#141518] hover:bg-[#1A1B1F]'
-            }`}
-          >
-            {uploadProgress.active ? (
-              <div className="flex flex-col items-center justify-center space-y-1.5 w-full px-1">
-                <Loader2 className="w-5 h-5 animate-spin text-[#F9CF00]" />
-                <div className="w-full bg-[#25262A] rounded-full h-1.5 overflow-hidden">
-                  <div
-                    className="bg-[#F9CF00] h-full rounded-full transition-all duration-200"
-                    style={{ width: `${uploadProgress.percent}%` }}
-                  />
-                </div>
-                <span className="text-[10px] font-mono text-zinc-400">
-                  {uploadProgress.percent}%
-                </span>
+      <div className="flex-1 overflow-y-auto p-2.5 space-y-2.5 no-scrollbar">
+        {/* Upload 3D Model Card - Centered Dropzone */}
+        <div
+          id="btn-upload-3d-model-card"
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={`group relative w-full rounded-xl border border-dashed cursor-pointer p-3 flex flex-col items-center justify-center text-center transition-all ${
+            isDragOver
+              ? 'border-[#F9CF00] bg-[#F9CF00]/10 shadow-[0_0_16px_rgba(249,207,0,0.15)]'
+              : 'border-white/[0.12] hover:border-[#F9CF00]/70 bg-[#141518] hover:bg-[#1A1B1F]'
+          }`}
+        >
+          {uploadProgress.active ? (
+            <div className="flex flex-col items-center justify-center space-y-1.5 w-full px-2">
+              <Loader2 className="w-5 h-5 animate-spin text-[#F9CF00]" />
+              <div className="w-full bg-[#25262A] rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="bg-[#F9CF00] h-full rounded-full transition-all duration-200"
+                  style={{ width: `${uploadProgress.percent}%` }}
+                />
               </div>
-            ) : (
-              <>
-                <div className={`w-8 h-8 rounded-full bg-[#25262A] border border-white/[0.08] flex items-center justify-center transition-all mb-1.5 ${
-                  isDragOver ? 'text-[#F9CF00] border-[#F9CF00]' : 'text-zinc-400 group-hover:text-[#F9CF00]'
-                }`}>
-                  <Box className="w-4 h-4" />
-                </div>
-                <span className="text-xs font-bold text-white leading-tight block">
-                  {isDragOver ? 'Drop here' : 'Import'}
-                </span>
-                <span className="text-[10px] text-zinc-400 block mt-0.5 font-medium">
-                  GLB, OBJ, FBX, STL
-                </span>
-              </>
-            )}
-           </div>
-
-           {uploadError && (
-            <div className="col-span-2 flex items-center gap-1.5 text-[10px] text-rose-400 px-1 py-1 bg-rose-500/10 rounded-lg border border-rose-500/20">
-              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-              <span>{uploadError}</span>
+              <span className="text-[10px] font-mono text-zinc-400">
+                {uploadProgress.percent}%
+              </span>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center">
+              <div className={`w-9 h-9 rounded-full bg-[#202125] border border-white/[0.08] flex items-center justify-center transition-all mb-1.5 ${
+                isDragOver ? 'text-[#F9CF00] border-[#F9CF00]' : 'text-zinc-400 group-hover:text-[#F9CF00] group-hover:border-[#F9CF00]/40'
+              }`}>
+                <Box className="w-4 h-4" />
+              </div>
+              <span className="text-xs font-bold text-white leading-tight">
+                {isDragOver ? 'Drop 3D Model Here' : 'Import 3D Model'}
+              </span>
+              <span className="text-[10px] text-zinc-400 mt-0.5 font-medium">
+                GLB, GLTF, OBJ, FBX, STL, PLY
+              </span>
             </div>
           )}
+        </div>
 
-          {/* Asset Items */}
-          {paginatedAssets.map((asset) => {
+        {uploadError && (
+          <div className="flex items-center gap-1.5 text-[10px] text-rose-400 px-2 py-1.5 bg-rose-500/10 rounded-lg border border-rose-500/20">
+            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>{uploadError}</span>
+          </div>
+        )}
+
+        {filteredAssets.length === 0 ? (
+          <div className="py-6 px-2 text-center text-zinc-400">
+            <FolderOpen className="w-8 h-8 mx-auto mb-2 text-zinc-500" />
+            <div className="text-xs font-bold text-zinc-300">No outputs yet</div>
+            <div className="text-[11px] mt-1 text-zinc-500">Run a generation workflow or import a 3D file above.</div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            {/* Asset Items */}
+            {paginatedAssets.map((asset) => {
             const isSelected = currentAsset?.id === asset.id;
 
             return (
@@ -454,12 +454,13 @@ export const RightAssetsPanel: React.FC = () => {
                          </button>
                         </div>
                       )}
-                  </div>
+                   </div>
                 </div>
               </div>
             );
           })}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Pagination Footer */}
