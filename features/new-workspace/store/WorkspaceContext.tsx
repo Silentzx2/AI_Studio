@@ -935,6 +935,11 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           generate_texture: false,
           auto_rig: false,
           workspace: 'remesh',
+          enable_mesh_repair: true,
+          strict_watertight: true,
+          use_pymeshlab_decimation: true,
+          compress_output: true,
+          auto_optimize: true,
         }),
       });
       if (!res.ok) throw await parseApiError(res);

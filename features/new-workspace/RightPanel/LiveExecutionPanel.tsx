@@ -37,7 +37,8 @@ export const LiveExecutionPanel: React.FC = () => {
     generate3DModel,
     setActiveTool,
     currentAsset,
-    setRightPanelMode
+    setRightPanelMode,
+    remeshSettings
   } = useWorkspace();
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -147,12 +148,16 @@ export const LiveExecutionPanel: React.FC = () => {
     }
   };
 
+  const isRemesh = activeTask?.type === 'remesh';
+
   const stages: PipelineStep[] = [
     {
       id: 'synthesis',
-      name: 'AI Geometry Synthesis',
+      name: isRemesh ? 'Source Mesh Ingestion & Preflight' : 'AI Geometry Synthesis',
       state: getStepState('synthesis'),
-      detail: activeTask?.type === 'image-to-3d'
+      detail: isRemesh
+        ? `Topology preflight & initial geometry parsing (${remeshSettings.targetFaces.toLocaleString()} target tris)`
+        : activeTask?.type === 'image-to-3d'
         ? `${modelName} — Image preflight & neural isosurface extraction`
         : `${modelName} — Text embedding & diffusion mesh synthesis`
     },
@@ -165,10 +170,12 @@ export const LiveExecutionPanel: React.FC = () => {
     },
     {
       id: 'stage2_decimate',
-      name: 'Stage 2: Mesh Decimation',
+      name: isRemesh ? 'Stage 2: Retopology & Decimation' : 'Stage 2: Mesh Decimation',
       state: getStepState('stage2_decimate'),
       skipReason: !optimizeEnabled ? 'Decimation disabled' : undefined,
-      detail: 'PyMeshLab Quadric Edge Collapse to target polycount budget'
+      detail: isRemesh
+        ? `Quad / Adaptive edge reduction to ${remeshSettings.targetFaces.toLocaleString()} tris budget`
+        : 'PyMeshLab Quadric Edge Collapse to target polycount budget'
     },
     {
       id: 'stage3_uv',
@@ -179,10 +186,12 @@ export const LiveExecutionPanel: React.FC = () => {
     },
     {
       id: 'stage4_pbr',
-      name: 'Stage 4: PBR Texture Baking',
+      name: isRemesh ? 'Stage 4: Material & PBR Retention' : 'Stage 4: PBR Texture Baking',
       state: getStepState('stage4_pbr'),
-      skipReason: !textureEnabled ? 'Texture synthesis disabled' : undefined,
-      detail: 'Blender Cycles bake (Normal, AO, Roughness, Metallic) at 16 samples'
+      skipReason: isRemesh ? undefined : (!textureEnabled ? 'Texture synthesis disabled' : undefined),
+      detail: isRemesh
+        ? 'Preserve source materials, PBR maps, and diffuse textures'
+        : 'Blender Cycles bake (Normal, AO, Roughness, Metallic) at 16 samples'
     },
     {
       id: 'stage5_compress',

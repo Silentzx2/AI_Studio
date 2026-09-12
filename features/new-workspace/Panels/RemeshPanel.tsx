@@ -8,7 +8,11 @@ import {
   Loader2,
   Layers,
   Shield,
-  Zap
+  Zap,
+  Activity,
+  CheckCircle2,
+  Terminal,
+  ArrowUpRight
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useWorkspace } from '../store/WorkspaceContext';
@@ -23,11 +27,54 @@ export const RemeshPanel: React.FC = () => {
     currentAsset,
     assets,
     selectAsset,
+    activeTask,
+    setRightPanelMode,
   } = useWorkspace();
 
   // Tab State: 'budget' (primary zero-scroll view) | 'topology' (advanced constraints & preservation)
   const [panelTab, setPanelTab] = useState<'budget' | 'topology'>('budget');
   const [meshDropdownOpen, setMeshDropdownOpen] = useState(false);
+
+  const remeshProgress = activeTask?.progress ?? 0;
+  const remeshStage = (activeTask?.stage || '').toLowerCase();
+  const isRemeshActive = isExecuting && activeTask?.type === 'remesh';
+
+  const getRemeshStepState = (stepIndex: number): 'pending' | 'active' | 'completed' => {
+    if (!isRemeshActive) return 'pending';
+    if (activeTask?.status === 'completed' || remeshProgress >= 100) return 'completed';
+    // 1: Watertight, 2: Decimation, 3: UV, 4: PBR, 5: Draco, 6: Package
+    if (stepIndex === 1) {
+      if (remeshProgress < 78 && remeshStage !== 'repairing') return 'pending';
+      if (remeshProgress >= 82 || remeshStage === 'optimizing' || remeshStage === 'unwrapping' || remeshStage === 'baking' || remeshStage === 'compressing' || remeshStage === 'packaging') return 'completed';
+      return 'active';
+    }
+    if (stepIndex === 2) {
+      if (remeshProgress < 82 && remeshStage !== 'optimizing') return 'pending';
+      if (remeshProgress >= 84 || remeshStage === 'unwrapping' || remeshStage === 'baking' || remeshStage === 'compressing' || remeshStage === 'packaging') return 'completed';
+      return 'active';
+    }
+    if (stepIndex === 3) {
+      if (remeshProgress < 84 && remeshStage !== 'unwrapping') return 'pending';
+      if (remeshProgress >= 86 || remeshStage === 'baking' || remeshStage === 'compressing' || remeshStage === 'packaging') return 'completed';
+      return 'active';
+    }
+    if (stepIndex === 4) {
+      if (remeshProgress < 86 && remeshStage !== 'baking') return 'pending';
+      if (remeshProgress >= 89 || remeshStage === 'compressing' || remeshStage === 'packaging') return 'completed';
+      return 'active';
+    }
+    if (stepIndex === 5) {
+      if (remeshProgress < 89 && remeshStage !== 'compressing') return 'pending';
+      if (remeshProgress >= 91 || remeshStage === 'packaging') return 'completed';
+      return 'active';
+    }
+    if (stepIndex === 6) {
+      if (remeshProgress < 91 && remeshStage !== 'packaging') return 'pending';
+      if (remeshProgress >= 100) return 'completed';
+      return 'active';
+    }
+    return 'pending';
+  };
 
   // Auto-select first asset if none currently selected
   useEffect(() => {
@@ -306,6 +353,75 @@ export const RemeshPanel: React.FC = () => {
               </button>
             </div>
 
+            {/* Live 6-Stage Pipeline Tracker when remeshing is active */}
+            {isRemeshActive && (
+              <div className="p-2.5 rounded-xl bg-[#1B1E24] border border-[#F9CF00]/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-white flex items-center gap-1.5">
+                    <Activity className="w-3.5 h-3.5 text-[#F9CF00] animate-pulse" />
+                    <span>Pipeline Running</span>
+                  </span>
+                  <span className="text-[10px] font-mono font-bold text-[#F9CF00]">
+                    {remeshProgress}%
+                  </span>
+                </div>
+
+                <div className="text-[9px] text-zinc-300 font-mono break-words leading-tight bg-black/40 p-1.5 rounded-lg border border-white/[0.06]">
+                  {activeTask?.currentStep || 'Executing retopology pipeline...'}
+                </div>
+
+                {/* Progress bar */}
+                <div className="w-full bg-white/[0.06] rounded-full h-1 overflow-hidden">
+                  <div
+                    className="h-full bg-[#F9CF00] transition-all duration-300 rounded-full"
+                    style={{ width: `${Math.min(100, Math.max(0, remeshProgress))}%` }}
+                  />
+                </div>
+
+                {/* 6 Stage Mini-List */}
+                <div className="space-y-1 pt-0.5">
+                  {[
+                    { id: 1, name: '1. Watertight Mesh Repair' },
+                    { id: 2, name: '2. Retopology & Decimation' },
+                    { id: 3, name: '3. UV Parameterization' },
+                    { id: 4, name: '4. Material & PBR Retention' },
+                    { id: 5, name: '5. GLB Draco & WebP' },
+                    { id: 6, name: '6. Asset Package & Manifest' },
+                  ].map((s) => {
+                    const st = getRemeshStepState(s.id);
+                    return (
+                      <div key={s.id} className="flex items-center justify-between text-[9px] px-1">
+                        <div className="flex items-center gap-1.5">
+                          {st === 'completed' && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}
+                          {st === 'active' && (
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#F9CF00] opacity-75" />
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#F9CF00]" />
+                            </span>
+                          )}
+                          {st === 'pending' && <span className="text-zinc-600">○</span>}
+                          <span className={st === 'active' ? 'text-[#F9CF00] font-bold' : st === 'completed' ? 'text-zinc-300' : 'text-zinc-500'}>
+                            {s.name}
+                          </span>
+                        </div>
+                        <span className="text-[8px] font-mono uppercase text-zinc-500">{st}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setRightPanelMode('prompt')}
+                  className="w-full py-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-zinc-300 hover:text-white font-bold text-[9px] flex items-center justify-center gap-1 transition-all cursor-pointer"
+                >
+                  <Terminal className="w-3 h-3 text-[#F9CF00]" />
+                  <span>Inspect Live Execution Logs</span>
+                  <ArrowUpRight className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+
             {/* Primary Action Button */}
             <div className="pt-2 border-t border-white/[0.08] space-y-1">
               <button
@@ -335,6 +451,9 @@ export const RemeshPanel: React.FC = () => {
                 {currentAsset?.triangles ? (
                   <span className="text-zinc-500"> (current: {currentAsset.triangles.toLocaleString()})</span>
                 ) : null}
+              </p>
+              <p className="text-center text-[8px] text-zinc-500 font-mono">
+                Full 6-Stage Pipeline: Repair • Decimation • UVs • Material Retention • Draco • Package
               </p>
               {!currentAsset && (
                 <p className="text-[9px] text-amber-400/90 text-center">

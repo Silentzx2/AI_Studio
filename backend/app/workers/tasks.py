@@ -485,7 +485,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 remesh_settings = request.remesh_settings or {}
                 target_faces = int(remesh_settings.get("targetFaces") or remesh_settings.get("target_polycount") or 30000)
                 target_faces = max(1000, min(target_faces, 500000))
-                sync_publish(12, "remeshing", f"Remeshing mesh to approximately {target_faces:,} triangles.", "info")
+                sync_publish(15, "preparing", f"Preflighting source mesh for remesh ({target_faces:,} target faces)...", "info")
                 from app.core.mesh_optimizer import optimize_mesh
                 remeshed_path = str(Path(out_dir) / "remeshed.glb")
                 preserve_raw = remesh_settings.get("detailPreservation", 75.0)
@@ -512,7 +512,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                     file_size=Path(remeshed_path).stat().st_size,
                     metadata={"operation": "remesh", "optimizer": result},
                 )
-                sync_publish(20, "remeshing", "Remesh complete.", "success")
+                sync_publish(65, "remeshing", f"Initial remesh complete ({result.get('optimized_polycount', target_faces):,} faces). Running 6-stage post-processing...", "success")
             else:
                 # 5. Load provider via RuntimeEngine (enforces VRAM scheduling)
                 if job.mode != "render":
@@ -925,7 +925,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             # 7b. Game-Ready / Auto-optimize mesh (preserving source.glb)
             game_ready = meta.get("game_ready", False)
             o3d_needs_opt = meta.get("mesh_decision", {}).get("needs_optimization", False)
-            auto_optimize = meta.get("auto_optimize", False) or game_ready or o3d_needs_opt
+            auto_optimize = meta.get("auto_optimize", False) or game_ready or o3d_needs_opt or (job.mode == "remesh")
             auto_optimize_settings = meta.get("auto_optimize_settings") or {}
             target_platform = meta.get("target_platform", "generic")
 

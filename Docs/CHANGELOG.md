@@ -1,5 +1,23 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.48] - 2026-09-12
+### Added & Remesh Pipeline Integration
+- **6-Stage Post-Processing Pipeline for Remesh / Poly Optimization (`tasks.py`, `WorkspaceContext.tsx`)**:
+  - Connected `mode == "remesh"` to the authoritative 6-stage post-processing pipeline:
+    1. Preflight & source geometry ingestion
+    2. Stage 1: Watertight mesh repair (PyMeshLab / Blender voxel fallback)
+    3. Stage 2: Quad/adaptive retopology & target face decimation
+    4. Stage 3: UV preservation & xatlas re-parameterization
+    5. Stage 4: Material & PBR texture preservation
+    6. Stage 5: gltf-transform Draco geometry compression & WebP texture transcoding
+    7. Stage 6: Asset packaging, LOD generation & quality manifest
+  - Updated `runRemeshGeneration` in `WorkspaceContext.tsx` to forward post-processing flags (`enable_mesh_repair`, `strict_watertight`, `use_pymeshlab_decimation`, `compress_output`, `auto_optimize`).
+- **Remesh Panel Live Pipeline Execution Card (`RemeshPanel.tsx`)**:
+  - Embedded an interactive 6-stage pipeline progress monitor directly inside the Quad Remesh & Retopo panel when a remesh task is running.
+  - Displays real-time progress bar, live worker status message, step-by-step 6-stage checklist (`○ Pending`, `◉ Active`, `✓ Completed`), and a one-click button to inspect full terminal execution logs in the Right Inspector.
+- **Adaptive Remesh Stages in Live Execution Panel (`LiveExecutionPanel.tsx`)**:
+  - Updated stage labels and descriptions dynamically when `activeTask?.type === 'remesh'` to reflect topology preflight, quad retopology decimation, UV preservation, and material retention.
+
 ## [v5.0.47] - 2026-09-12
 ### Fixed & Post-Processing Resource Optimization
 - **Celery Revocation Import Bug Fixed (`generation.py`)**:
