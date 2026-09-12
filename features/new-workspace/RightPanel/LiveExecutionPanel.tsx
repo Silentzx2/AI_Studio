@@ -90,23 +90,20 @@ export const LiveExecutionPanel: React.FC = () => {
   const stageName = (activeTask?.stage || '').toLowerCase();
   const stepText = (activeTask?.currentStep || '').toLowerCase();
 
-  // Dynamic stage state calculator matching the 6-stage post-processing pipeline
+  // Dynamic stage state calculator matching the OpenX Clay post-processing pipeline
   const getStepState = (stageKey: string): 'pending' | 'active' | 'completed' | 'failed' | 'skipped' => {
     if (isCompleted || progress >= 100) return 'completed';
     if (!isRunning && !activeTask) return 'pending';
 
-    const POST_STAGES = ['analyzing', 'repairing', 'decimating', 'uv_unwrapping', 'baking_pbr', 'compressing', 'packaging', 'rendering', 'complete'];
+    const POST_STAGES = ['analyzing', 'clay_postprocess', 'lod_generation', 'collision', 'rendering', 'completed'];
     const isPostProcessing = POST_STAGES.includes(stageName);
 
     // If task failed during this stage
     if (isFailed) {
       if (stageKey === 'synthesis' && (!isPostProcessing || stageName === 'generating' || stageName === 'preparing' || stageName === 'texturing')) return 'failed';
-      if (stageKey === 'stage1_repair' && (stageName === 'repairing' || stageName === 'analyzing')) return 'failed';
-      if (stageKey === 'stage2_decimate' && stageName === 'decimating') return 'failed';
-      if (stageKey === 'stage3_uv' && stageName === 'uv_unwrapping') return 'failed';
-      if (stageKey === 'stage4_pbr' && stageName === 'baking_pbr') return 'failed';
-      if (stageKey === 'stage5_compress' && stageName === 'compressing') return 'failed';
-      if (stageKey === 'stage6_package' && (stageName === 'packaging' || stageName === 'rendering')) return 'failed';
+      if (stageKey === 'clay_postprocess' && (stageName === 'clay_postprocess' || stageName === 'analyzing')) return 'failed';
+      if (stageKey === 'clay_lods' && (stageName === 'lod_generation' || stageName === 'collision')) return 'failed';
+      if (stageKey === 'finalizing' && stageName === 'rendering') return 'failed';
     }
 
     switch (stageKey) {
@@ -114,36 +111,18 @@ export const LiveExecutionPanel: React.FC = () => {
         if (isPostProcessing) return 'completed';
         return 'active';
 
-      case 'stage1_repair':
+      case 'clay_postprocess':
         if (!isPostProcessing) return 'pending';
-        if (stageName === 'analyzing' || stageName === 'repairing') return 'active';
+        if (stageName === 'analyzing' || stageName === 'clay_postprocess') return 'active';
         return 'completed';
 
-      case 'stage2_decimate':
-        if (!isPostProcessing || ['analyzing', 'repairing'].includes(stageName)) return 'pending';
-        if (stageName === 'decimating') return 'active';
+      case 'clay_lods':
+        if (!isPostProcessing || ['analyzing', 'clay_postprocess'].includes(stageName)) return 'pending';
+        if (stageName === 'lod_generation' || stageName === 'collision') return 'active';
         return 'completed';
 
-      case 'stage3_uv':
-        if (!isPostProcessing || ['analyzing', 'repairing', 'decimating'].includes(stageName)) return 'pending';
-        if (stageName === 'uv_unwrapping') return 'active';
-        return 'completed';
-
-      case 'stage4_pbr':
-        if (!textureEnabled) return 'skipped';
-        if (!isPostProcessing || ['analyzing', 'repairing', 'decimating', 'uv_unwrapping'].includes(stageName)) return 'pending';
-        if (stageName === 'baking_pbr') return 'active';
-        return 'completed';
-
-      case 'stage5_compress':
-        if (!optimizeEnabled) return 'skipped';
-        if (!isPostProcessing || ['analyzing', 'repairing', 'decimating', 'uv_unwrapping', 'baking_pbr'].includes(stageName)) return 'pending';
-        if (stageName === 'compressing') return 'active';
-        return 'completed';
-
-      case 'stage6_package':
-        if (!isPostProcessing || ['analyzing', 'repairing', 'decimating', 'uv_unwrapping', 'baking_pbr', 'compressing'].includes(stageName)) return 'pending';
-        if (stageName === 'packaging' || stageName === 'rendering') return 'active';
+      case 'finalizing':
+        if (!isPostProcessing || ['analyzing', 'clay_postprocess', 'lod_generation', 'collision'].includes(stageName)) return 'pending';
         if (isCompleted || progress >= 100) return 'completed';
         return 'active';
 
@@ -166,49 +145,23 @@ export const LiveExecutionPanel: React.FC = () => {
         : `${modelName} — Text embedding & diffusion mesh synthesis`
     },
     {
-      id: 'stage1_repair',
-      name: 'Stage 1: Watertight Mesh Repair',
-      state: getStepState('stage1_repair'),
-      skipReason: !optimizeEnabled ? 'Mesh repair disabled' : undefined,
-      detail: 'PyMeshLab manifold repair & non-manifold edges cleanup (Blender voxel fallback)'
+      id: 'clay_postprocess',
+      name: 'OpenX Clay: Game-Ready Optimization',
+      state: getStepState('clay_postprocess'),
+      skipReason: !optimizeEnabled ? 'Post-processing disabled' : undefined,
+      detail: 'OpenX Clay quadric decimation to target tri budget & xatlas UV parameterization'
     },
     {
-      id: 'stage2_decimate',
-      name: isRemesh ? 'Stage 2: Retopology & Decimation' : 'Stage 2: Mesh Decimation',
-      state: getStepState('stage2_decimate'),
-      skipReason: !optimizeEnabled ? 'Decimation disabled' : undefined,
-      detail: isRemesh
-        ? `Quad / Adaptive edge reduction to ${remeshSettings.targetFaces.toLocaleString()} tris budget`
-        : 'PyMeshLab Quadric Edge Collapse to target polycount budget'
+      id: 'clay_lods',
+      name: 'OpenX Clay: LODs & Collision Proxy',
+      state: getStepState('clay_lods'),
+      detail: 'Hierarchical level-of-detail chain & convex hull physics collider'
     },
     {
-      id: 'stage3_uv',
-      name: 'Stage 3: UV Parameterization',
-      state: getStepState('stage3_uv'),
-      skipReason: !optimizeEnabled ? 'Auto-optimize disabled' : undefined,
-      detail: 'xatlas isomorphic atlas unwrapping & boundary preservation'
-    },
-    {
-      id: 'stage4_pbr',
-      name: isRemesh ? 'Stage 4: Material & PBR Retention' : 'Stage 4: PBR Texture Baking',
-      state: getStepState('stage4_pbr'),
-      skipReason: isRemesh ? undefined : (!textureEnabled ? 'Texture synthesis disabled' : undefined),
-      detail: isRemesh
-        ? 'Preserve source materials, PBR maps, and diffuse textures'
-        : 'Blender Cycles bake (Normal, AO, Roughness, Metallic) at 16 samples'
-    },
-    {
-      id: 'stage5_compress',
-      name: 'Stage 5: GLB Draco & WebP Optimization',
-      state: getStepState('stage5_compress'),
-      skipReason: !optimizeEnabled ? 'Compression disabled' : undefined,
-      detail: 'gltf-transform Draco geometry compression & WebP texture transcoding'
-    },
-    {
-      id: 'stage6_package',
-      name: 'Stage 6: Asset Packaging & Manifest',
-      state: getStepState('stage6_package'),
-      detail: 'LOD generation, collision hull, QA validation & async export bundle'
+      id: 'finalizing',
+      name: 'Asset Finalization & Multi-Format Export',
+      state: getStepState('finalizing'),
+      detail: 'Blender multi-format export (GLB, OBJ, FBX, STL) and thumbnail rendering'
     }
   ];
 

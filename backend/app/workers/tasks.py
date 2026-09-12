@@ -28,21 +28,17 @@ from app.workers.celery_app import celery_app
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-# Post-processing pipeline (lazy import — graceful if not yet installed)
+# Post-processing: OpenX Clay (replaces the old 6-stage custom pipeline)
 try:
-    from app.core.post_processing import (
-        mesh_repair,
-        decimation as pp_decimation,
-        uv_unwrap,
-        optimize as pp_optimize,
-        export_packager,
-        pbr_bake,
-    )
-    _POST_PROCESSING_AVAILABLE = True
-except ImportError as _pp_err:
-    _POST_PROCESSING_AVAILABLE = False
-    import logging as _pp_log
-    _pp_log.getLogger(__name__).warning("post_processing modules not available: %s", _pp_err)
+    from clay.postprocess import PostProcessor
+    from clay.config import PostprocessConfig
+    from clay.schemas import Generated3DAsset
+    from clay.lods import make_lods
+    from clay.collision import make_collision
+    _CLAY_AVAILABLE = True
+except ImportError as _clay_err:
+    _CLAY_AVAILABLE = False
+    logger.warning("OpenX Clay not available: %s", _clay_err)
 
 # Synchronous DB engine for Celery (outside async context)
 # BUG-16 FIX: was duplicating the brittle string-replacement inline. Now use the
@@ -723,234 +719,108 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             asset_class = classify_asset(prompt=job.prompt or "", model_path=current_glb_path)
             meta["asset_classification"] = asset_class
 
-            # ── Sequential 6-Stage Post-Processing Pipeline ──
-
-            # Stage 1/6: Strict watertight repair (PyMeshLab → Blender voxel fallback)
-            if _POST_PROCESSING_AVAILABLE and meta.get('enable_mesh_repair', True):
-                sync_publish(74, "repairing", "Stage 1/6: PyMeshLab watertight mesh repair...", "info")
-                repair_output = Path(master_glb).parent / "repaired.glb"
-                try:
-                    repair_result = mesh_repair.repair_mesh_strict(
-                        master_glb, repair_output, job_id=job_id
-                    )
-                    pipeline_stages.append({"stage": "watertight_repair", **repair_result})
-                    if repair_result.get("success") and repair_output.exists():
-                        current_glb_path = str(repair_output)
-                        sync_publish(77, "repairing", f"Stage 1/6 Complete: Watertight repair verified ({repair_result.get('repair_route')})", "success")
-                    else:
-                        sync_publish(77, "repairing", "Stage 1/6: Repair blocked — preserving source geometry", "warning")
-                except Exception as _repair_exc:
-                    logger.warning("Watertight repair failed: %s", _repair_exc)
-                    pipeline_stages.append({"stage": "watertight_repair", "success": False, "error": str(_repair_exc)})
-                    sync_publish(77, "repairing", f"Stage 1/6 Warning: Repair bypassed ({_repair_exc})", "warning")
-
-            # Stage 2/6: Decimating mesh to target polycount budget
+            # ── OpenX Clay Post-Processing (replaces old 6-stage custom pipeline) ──
             game_ready_path = str(model_output_dir(job_id) / "game_ready.glb")
             auto_optimize_settings = meta.get("auto_optimize_settings") or {}
-            topology_mode = meta.get("topology_mode", "adaptive")
             target_polycount = auto_optimize_settings.get("target_polycount") or auto_optimize_settings.get("targetFaces")
             if not target_polycount:
-                target_polycount = pp_decimation.get_target_faces(target_platform) if _POST_PROCESSING_AVAILABLE else 20000
+                target_polycount = 20000
             else:
                 target_polycount = int(target_polycount)
 
-            sync_publish(78, "decimating", f"Stage 2/6: Decimating mesh to target budget ({target_polycount:,} faces)...", "info")
-            t_opt = time.perf_counter()
-            try:
-                if _POST_PROCESSING_AVAILABLE and meta.get("use_pymeshlab_decimation", True):
-                    pml_dec_res = pp_decimation.decimate_pymeshlab(current_glb_path, game_ready_path, target_faces=target_polycount)
-                    opt_dur = round((time.perf_counter() - t_opt) * 1000, 1)
-                    if pml_dec_res.get("success") and Path(game_ready_path).exists():
-                        current_glb_path = game_ready_path
-                        optimize_result = {
-                            "success": True,
-                            "method": pml_dec_res.get("route", "pymeshlab"),
-                            "source_faces": pml_dec_res.get("input_faces", 0),
-                            "target_faces": pml_dec_res.get("output_faces", 0),
-                            "reduction_percent": round(max(0, 1.0 - (pml_dec_res.get("output_faces", 0) / max(1, pml_dec_res.get("input_faces", 1)))) * 100, 1),
-                        }
-                        pipeline_stages.append({
-                            "stage": "mesh_optimization",
-                            "tool": pml_dec_res.get("route", "pymeshlab"),
-                            "status": "success",
-                            "duration_ms": opt_dur,
-                            "input_triangles": pml_dec_res.get("input_faces", 0),
-                            "output_triangles": pml_dec_res.get("output_faces", 0),
-                            "reduction_percent": optimize_result["reduction_percent"],
-                            "output_path": game_ready_path,
-                        })
-                        meta["auto_optimize_result"] = optimize_result
-                        meta["game_ready_url"] = to_url(game_ready_path)
-                        meta["processed_model_url"] = to_url(game_ready_path)
-                        meta["active_model_url"] = to_url(game_ready_path)
-                        _update_job(session, job_id, processing_metadata=meta)
-                        sync_publish(82, "decimating", f"Stage 2/6 Complete: Mesh decimated ({pml_dec_res.get('input_faces', 0):,} → {pml_dec_res.get('output_faces', 0):,} faces)", "success")
-                    else:
-                        from app.core.mesh_optimizer import optimize_mesh
-                        fix_uvs = meta.get("repair_uvs", True)
-                        preserve_details = meta.get("preserve_details", 75.0)
-                        optimize_result = optimize_mesh(
-                            input_path=current_glb_path,
-                            output_path=game_ready_path,
-                            target_polycount=target_polycount,
-                            fix_uvs=fix_uvs,
-                            preserve_details=preserve_details,
-                            remesh_mode=topology_mode,
-                        )
-                        if optimize_result.get("success") and Path(game_ready_path).exists():
-                            current_glb_path = game_ready_path
-                            sync_publish(82, "decimating", f"Stage 2/6 Complete: Mesh optimized ({optimize_result.get('source_faces', 0):,} → {optimize_result.get('target_faces', 0):,} faces)", "success")
-                        else:
-                            if current_glb_path != game_ready_path:
-                                shutil.copy2(current_glb_path, game_ready_path)
-                            current_glb_path = game_ready_path
-                            sync_publish(82, "decimating", "Stage 2/6 Complete: Polycount within budget", "info")
-                else:
-                    if current_glb_path != game_ready_path:
-                        shutil.copy2(current_glb_path, game_ready_path)
+            if _CLAY_AVAILABLE and not skip_postprocessing:
+                sync_publish(75, "clay_postprocess", "OpenX Clay: Starting post-processing (decimate → UV unwrap → GLB)...", "info")
+                t_clay = time.perf_counter()
+                try:
+                    pp_config = PostprocessConfig(
+                        target_tris=target_polycount,
+                        unwrap_uvs=meta.get("unwrap_uvs", True),
+                        format="glb",
+                    )
+                    pp = PostProcessor(pp_config)
+                    raw_asset = Generated3DAsset(path=current_glb_path, format="glb")
+                    processed_asset = pp.process(raw_asset, out_path=game_ready_path)
+                    clay_dur = round((time.perf_counter() - t_clay) * 1000, 1)
+
+                    if not Path(game_ready_path).exists() or Path(game_ready_path).stat().st_size == 0:
+                        raise RuntimeError(f"OpenX Clay output missing or empty at {game_ready_path}")
+
                     current_glb_path = game_ready_path
-                    sync_publish(82, "decimating", "Stage 2/6 Complete: Polycount within budget", "info")
-            except Exception as dec_exc:
-                logger.warning("Decimation failed: %s", dec_exc)
+                    pipeline_stages.append({
+                        "stage": "clay_postprocess",
+                        "tool": "openx_clay",
+                        "status": "success",
+                        "duration_ms": clay_dur,
+                        "triangles": processed_asset.triangles,
+                        "output_path": game_ready_path,
+                    })
+                    meta["auto_optimize_result"] = {
+                        "success": True,
+                        "method": "openx_clay",
+                        "target_faces": processed_asset.triangles,
+                    }
+                    meta["game_ready_url"] = to_url(game_ready_path)
+                    meta["processed_model_url"] = to_url(game_ready_path)
+                    meta["active_model_url"] = to_url(game_ready_path)
+                    _update_job(session, job_id, processing_metadata=meta)
+                    sync_publish(90, "clay_postprocess",
+                        f"Clay: Post-processing complete ({processed_asset.triangles:,} tris, {clay_dur:.0f}ms)",
+                        "success")
+                except Exception as clay_err:
+                    logger.exception("OpenX Clay post-processing failed for job %s: %s", job_id, clay_err)
+                    raise RuntimeError(f"OpenX Clay post-processing failed: {clay_err}") from clay_err
+            else:
+                import shutil
                 if current_glb_path != game_ready_path:
                     shutil.copy2(current_glb_path, game_ready_path)
                 current_glb_path = game_ready_path
-                sync_publish(82, "decimating", f"Stage 2/6 Bypassed: Preserving mesh ({dec_exc})", "warning")
-
-            # Stage 3/6: Authoritative UV parameterization with xatlas
-            sync_publish(83, "uv_unwrapping", "Stage 3/6: Authoritative UV parameterization with xatlas...", "info")
-            t_uv = time.perf_counter()
-            try:
-                from app.core.mesh_optimizer import generate_uvs_with_xatlas, mesh_has_valid_uvs
-                import trimesh
-                tm = trimesh.load(current_glb_path, force="mesh")
-                if mesh_has_valid_uvs(tm):
-                    meta["uv_status"] = "preserved_from_provider"
-                    meta["uv_method"] = "preserved"
-                    pipeline_stages.append({
-                        "stage": "uv_parameterization",
-                        "tool": "provider",
-                        "status": "preserved",
-                        "duration_ms": round((time.perf_counter() - t_uv) * 1000, 1),
-                    })
-                    sync_publish(86, "uv_unwrapping", "Stage 3/6 Complete: Existing UV layout validated and preserved", "success")
-                else:
-                    unwrapped_tm, uv_applied = generate_uvs_with_xatlas(tm)
-                    uv_dur = round((time.perf_counter() - t_uv) * 1000, 1)
-                    if uv_applied:
-                        unwrapped_tm.export(current_glb_path)
-                        meta["uv_status"] = "generated_via_xatlas"
-                        meta["uv_method"] = "xatlas"
-                        pipeline_stages.append({
-                            "stage": "uv_parameterization",
-                            "tool": "xatlas",
-                            "status": "generated",
-                            "duration_ms": uv_dur,
-                        })
-                        sync_publish(86, "uv_unwrapping", f"Stage 3/6 Complete: xatlas UV parameterization finished ({uv_dur:.0f}ms)", "success")
-                    else:
-                        sync_publish(86, "uv_unwrapping", "Stage 3/6 Complete: UVs maintained", "info")
-                _update_job(session, job_id, processing_metadata=meta)
-            except Exception as uv_err:
-                logger.warning("Authoritative xatlas UV check failed: %s", uv_err)
-                sync_publish(86, "uv_unwrapping", f"Stage 3/6 Warning: UV check bypassed ({uv_err})", "warning")
-
-            # Stage 4/6: PBR Map Baking (Normal, AO, Roughness, Metallic)
-            if _POST_PROCESSING_AVAILABLE and meta.get('generate_pbr', True):
-                game_ready_glb = Path(current_glb_path)
-                source_glb_for_bake = Path(source_glb_path) if Path(source_glb_path).exists() else Path(master_glb)
-                sync_publish(87, "baking_pbr", f"Stage 4/6: Baking PBR maps (Normal, AO, Roughness, Metallic) at {meta.get('pbr_resolution', '2k')}...", "info")
-                pbr_out_dir = model_output_dir(job_id) / "pbr_maps"
-                pbr_out_dir.mkdir(parents=True, exist_ok=True)
-                try:
-                    pbr_result = pbr_bake.bake_pbr_maps_blender_sync(
-                        highpoly_path=str(source_glb_for_bake),
-                        lowpoly_path=str(game_ready_glb),
-                        output_dir=str(pbr_out_dir),
-                        resolution=meta.get('pbr_resolution', '2k'),
-                        job_id=job_id,
-                    )
-                    pipeline_stages.append({"stage": "pbr_baking", **pbr_result})
-                    if pbr_result.get("success"):
-                        meta["pbr_maps"] = {k: to_url(v) for k, v in pbr_result.get("maps", {}).items() if v}
-                        meta["pbr_resolution"] = pbr_result.get("resolution", "2k")
-                        _update_job(session, job_id, processing_metadata=meta)
-                        sync_publish(90, "baking_pbr", f"Stage 4/6 Complete: PBR maps baked at {pbr_result['resolution']}", "success")
-                    else:
-                        logger.warning("PBR baking failed: %s — continuing without maps", pbr_result.get("error"))
-                        sync_publish(90, "baking_pbr", f"Stage 4/6 Bypassed: PBR bake bypassed ({pbr_result.get('error', 'fallback')})", "warning")
-                except Exception as _pbr_exc:
-                    logger.warning("PBR baking exception: %s — continuing", _pbr_exc)
-                    pipeline_stages.append({"stage": "pbr_baking", "success": False, "error": str(_pbr_exc)})
-                    sync_publish(90, "baking_pbr", f"Stage 4/6 Warning: PBR bake bypassed ({_pbr_exc})", "warning")
-
-            # Stage 5/6: gltf-transform compression
-            if _POST_PROCESSING_AVAILABLE and meta.get('compress_output', True):
-                try:
-                    game_ready_glb = Path(current_glb_path)
-                    if game_ready_glb.exists():
-                        compressed_glb = game_ready_glb.parent / "game_ready_compressed.glb"
-                        sync_publish(91, "compressing", "Stage 5/6: Optimizing GLB with gltf-transform (Draco + WebP)...", "info")
-                        compress_result = pp_optimize.optimize_glb_gltftransform(
-                            str(game_ready_glb), str(compressed_glb),
-                            enable_draco=True,
-                            texture_format='webp',
-                        )
-                        pipeline_stages.append({"stage": "gltf_compression", **compress_result})
-                        if compress_result.get("success") and compress_result.get("route") != "passthrough":
-                            sync_publish(94, "compressing", f"Stage 5/6 Complete: GLB compressed {compress_result.get('input_size_bytes',0)//1024}KB → {compress_result.get('output_size_bytes',0)//1024}KB", "success")
-                        else:
-                            sync_publish(94, "compressing", "Stage 5/6 Complete: GLB structure validated", "info")
-                except Exception as _compress_exc:
-                    logger.warning("gltf-transform compression failed: %s", _compress_exc)
-                    sync_publish(94, "compressing", f"Stage 5/6 Warning: Compression bypassed ({_compress_exc})", "warning")
+                meta["game_ready_url"] = to_url(game_ready_path)
+                meta["processed_model_url"] = to_url(game_ready_path)
+                meta["active_model_url"] = to_url(game_ready_path)
 
             glb_path = current_glb_path
 
-            # Optional LOD cascade (LOD0–LOD3)
+            # Optional LOD cascade via Clay
             if not skip_postprocessing and meta.get("generate_lod", False) and Path(glb_path).exists():
-                sync_publish(94, "lod_generation", "Generating multi-tier LODs (LOD0–LOD3)...", "info")
+                sync_publish(97, "lod_generation", "Clay: Generating LOD chain...", "info")
                 t_lod = time.perf_counter()
                 try:
-                    from app.core.mesh_optimizer import generate_lods
-                    lod_res = generate_lods(
-                        input_path=glb_path,
-                        output_dir=str(model_output_dir(job_id) / "lods"),
-                        lod_count=int(meta.get("lod_count", 3)),
-                        lod_preset=meta.get("lod_preset", "medium"),
-                        preserve_details=float(meta.get("preserve_details", 75.0)),
-                        fix_uvs=bool(meta.get("repair_uvs", True)),
+                    from clay.lods import make_lods
+                    lod_dir = str(model_output_dir(job_id) / "lods")
+                    lod_res = make_lods(
+                        glb_path,
+                        ratios=(1.0, 0.5, 0.25, 0.1),
+                        out_dir=lod_dir,
                     )
                     lod_urls = [
-                        model_public_url(job_id, f"lods/{info['filename']}")
-                        for info in lod_res.get("levels", {}).values()
+                        model_public_url(job_id, f"lods/{Path(lod['path']).name}")
+                        for lod in lod_res.get("lods", [])
                     ]
                     meta["lod_urls"] = lod_urls
                     meta["lods_result"] = lod_res
                     pipeline_stages.append({
                         "stage": "lod_generation",
-                        "tool": "meshoptimizer",
+                        "tool": "clay",
                         "status": "success",
                         "duration_ms": round((time.perf_counter() - t_lod) * 1000, 1),
-                        "levels_count": len(lod_urls),
+                        "levels_count": lod_res.get("count", 0),
                     })
                     _update_job(session, job_id, processing_metadata=meta)
                 except Exception as lod_exc:
-                    logger.warning("LOD generation failed: %s", lod_exc)
+                    logger.warning("Clay LOD generation failed: %s", lod_exc)
 
-            # Optional Collision mesh generation
+            # Optional Collision mesh via Clay
             if not skip_postprocessing and meta.get("generate_collision", False) and Path(glb_path).exists():
-                sync_publish(95, "collision", "Generating simplified collision geometry...", "info")
+                sync_publish(98, "collision", "Clay: Generating collision geometry...", "info")
                 try:
-                    from app.core.mesh_optimizer import generate_collision_mesh
+                    from clay.collision import make_collision
                     collision_path = str(model_output_dir(job_id) / "collision.glb")
-                    col_res = generate_collision_mesh(glb_path, collision_path)
-                    if col_res.get("success"):
-                        meta["collision_url"] = to_url(collision_path)
-                        meta["collision_result"] = col_res
-                        _update_job(session, job_id, processing_metadata=meta)
+                    col_res = make_collision(glb_path, kind="convex", out_path=collision_path)
+                    meta["collision_url"] = to_url(col_res["path"])
+                    meta["collision_result"] = col_res
+                    _update_job(session, job_id, processing_metadata=meta)
                 except Exception as col_exc:
-                    logger.warning("Collision generation failed: %s", col_exc)
+                    logger.warning("Clay collision generation failed: %s", col_exc)
 
             # Asset QA & Diagnostics
             qa_report = {}
@@ -972,50 +842,13 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             except Exception as qa_exc:
                 logger.warning("QA evaluation failed: %s", qa_exc)
 
-            # Stage 6/6: Asset Package Bundle (Deterministic ZIP)
-            if _POST_PROCESSING_AVAILABLE:
-                try:
-                    sync_publish(96, "packaging", "Stage 6/6: Building asset package bundle (ZIP + manifest)...", "info")
-                    artifacts = {}
-                    storage_root = Path(settings.storage_local_path)
-                    game_ready = model_output_dir(job_id) / "game_ready.glb"
-                    if game_ready.exists():
-                        artifacts["game_ready_glb"] = str(game_ready)
-                    source = model_output_dir(job_id) / "source.glb"
-                    if source.exists():
-                        artifacts["source_glb"] = str(source)
-                    compressed_glb_p = model_output_dir(job_id) / "game_ready_compressed.glb"
-                    if compressed_glb_p.exists():
-                        artifacts["compressed_glb"] = str(compressed_glb_p)
-                    pbr_dir = model_output_dir(job_id) / "pbr_maps"
-                    if pbr_dir.exists():
-                        for pf in pbr_dir.glob("*.png"):
-                            artifacts[f"pbr_{pf.stem}"] = str(pf)
-                    export_spec = {
-                        "job_id": job_id,
-                        "variant": "game_ready",
-                        "include_lods": meta.get('include_lods_in_package', True),
-                        "include_collision": meta.get('include_collision_in_package', True),
-                        "include_qa": meta.get('include_qa_in_package', True),
-                    }
-                    pkg_res = export_packager.build_export_package(job_id, storage_root, artifacts, export_spec)
-                    pipeline_stages.append({"stage": "export_packaging", **pkg_res})
-                    if pkg_res.get("success"):
-                        meta["export_package_url"] = pkg_res.get("package_url")
-                        meta["package_spec_hash"] = pkg_res.get("spec_hash")
-                        _update_job(session, job_id, processing_metadata=meta)
-                        sync_publish(98, "packaging", "Stage 6/6 Complete: Asset package bundle ready.", "success")
-                    else:
-                        sync_publish(98, "packaging", "Stage 6/6: Package ready on demand.", "info")
-                except Exception as _pkg_exc:
-                    logger.warning("Package dispatch failed: %s", _pkg_exc)
-                    sync_publish(98, "packaging", f"Stage 6/6 Notice: Package deferred ({_pkg_exc})", "info")
 
             # Multi-format exports (FBX, OBJ, STL) & Thumbnail via Blender
             blender_result = {}
             if not skip_postprocessing:
                 try:
                     from app.core.blender.pipeline import process_model
+                    topology_mode = meta.get("topology_mode", "adaptive")
                     blender_result = await process_model(
                         input_path=glb_path,
                         output_dir=out_dir,
@@ -1100,7 +933,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 "topology_mode": meta.get("topology_mode", "adaptive"),
             }
 
-            sync_publish(100, "completed", "Mesh generation & 6-stage post-processing complete!", "success")
+            sync_publish(100, "completed", "Mesh generation & Clay post-processing complete!", "success")
             _publish(job_id, {
                 "job_id": job_id,
                 "status": "completed",
@@ -1170,18 +1003,3 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             })
             raise
-
-
-@celery_app.task(name="tasks.package_export_bundle", bind=True, max_retries=3)
-def package_export_bundle(self, job_id: str, artifacts: dict, export_spec: dict) -> dict:
-    """Celery task: Build pre-packaged ZIP export. Never called from HTTP path."""
-    logger.info("[package] Starting export package for job %s", job_id)
-    try:
-        from app.core.post_processing.export_packager import build_export_package
-        storage_root = Path(settings.STORAGE_ROOT)
-        result = build_export_package(job_id, storage_root, artifacts, export_spec)
-        logger.info("[package] job=%s success=%s path=%s", job_id, result["success"], result.get("package_path"))
-        return result
-    except Exception as exc:
-        logger.error("[package] job=%s error=%s", job_id, exc)
-        raise self.retry(exc=exc, countdown=30)

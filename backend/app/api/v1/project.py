@@ -9,6 +9,7 @@ import logging
 import os
 import shutil
 import uuid
+import zipfile
 from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import unquote, urlparse
@@ -170,47 +171,6 @@ async def export_project(req: ExportRequest):
     # Clean asset name of invalid filesystem characters
     clean_name = "".join(c for c in base_name if c.isalnum() or c in ("-", "_")).strip() or "model"
 
-    if req.packageZip:
-        from fastapi.responses import JSONResponse
-        from app.core.post_processing.export_packager import get_package_status, compute_package_spec_hash
-        spec = {"job_id": job_id, "variant": req.variant, "format": req.format,
-                "include_lods": req.includeLODs}
-        spec_hash = compute_package_spec_hash(spec)
-        storage_root = Path(settings.storage_local_path)
-        status = get_package_status(job_id, spec_hash, storage_root)
-        if status["status"] == "ready":
-            return JSONResponse({"status": "ready", "url": status["url"], "spec_hash": spec_hash})
-        elif status["status"] == "not_found":
-            try:
-                from app.workers.tasks import package_export_bundle
-                artifacts = {}
-                gr_candidate = job_dir / "game_ready.glb"
-                if gr_candidate.exists():
-                    artifacts["game_ready_glb"] = str(gr_candidate)
-                src_candidate = job_dir / "source.glb"
-                if src_candidate.exists():
-                    artifacts["source_glb"] = str(src_candidate)
-                elif model_path.exists():
-                    artifacts["model_glb"] = str(model_path)
-                pbr_dir = job_dir / "pbr_maps"
-                if pbr_dir.exists():
-                    for map_f in pbr_dir.glob("*.png"):
-                        artifacts[f"pbr_{map_f.stem}"] = str(map_f)
-                package_export_bundle.apply_async(
-                    kwargs={"job_id": job_id, "artifacts": artifacts, "export_spec": spec}
-                )
-            except Exception as _pkg_err:
-                logger.warning("Failed to auto-dispatch package_export_bundle: %s", _pkg_err)
-            return JSONResponse(
-                {"status": "pending", "spec_hash": spec_hash, "message": "Package build initiated; check again shortly."},
-                status_code=202
-            )
-        else:
-            return JSONResponse(
-                {"status": status["status"], "spec_hash": spec_hash, "message": "Package building; check again shortly."},
-                status_code=202
-            )
-
     export_id = uuid.uuid4().hex[:10]
     out_dir = Path(settings.storage_local_path) / "exports" / export_id
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -315,6 +275,29 @@ except Exception as e:
 
         if not exported_file or not exported_file.exists():
             raise HTTPException(status_code=500, detail="Export failed: target file could not be generated")
+
+        if req.packageZip:
+            zip_filename = f"{clean_name}_export_package.zip"
+            zip_path = out_dir / zip_filename
+            with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                zf.write(exported_file, arcname=f"{clean_name}/Model/{clean_name}.{fmt}")
+                source_file = job_dir / "source.glb"
+                if source_file.exists():
+                    zf.write(source_file, arcname=f"{clean_name}/Source/{clean_name}_source.glb")
+                gr_file = job_dir / "game_ready.glb"
+                if gr_file.exists():
+                    zf.write(gr_file, arcname=f"{clean_name}/GameReady/{clean_name}_game_ready.glb")
+                lods_dir = job_dir / "lods"
+                if lods_dir.exists():
+                    for lod_f in sorted(lods_dir.glob("*.glb")):
+                        zf.write(lod_f, arcname=f"{clean_name}/LODs/{lod_f.name}")
+                coll_file = job_dir / "collision.glb"
+                if coll_file.exists():
+                    zf.write(coll_file, arcname=f"{clean_name}/Collision/{clean_name}_collision.glb")
+                thumb_file = job_dir / "thumbnail.png"
+                if thumb_file.exists():
+                    zf.write(thumb_file, arcname=f"{clean_name}/Preview/thumbnail.png")
+            return zip_path, zip_filename, "application/zip"
 
         return exported_file, exported_file.name, media_types[fmt]
 

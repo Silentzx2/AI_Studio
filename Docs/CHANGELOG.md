@@ -1,6 +1,20 @@
 # AI 3D Studio — Changelog
 
-## [v5.0.52] - 2026-09-12
+## [v5.0.53] - 2026-09-12
+### Replaced & Major Architectural Upgrade
+- **Replaced 6-Stage Custom Post-Processing Pipeline with OpenX Clay**:
+  - Completely removed the previous custom 6-stage post-processing pipeline (`app.core.post_processing/*` including `mesh_repair.py`, `decimation.py`, `uv_unwrap.py`, `optimize.py`, `pbr_bake.py`, `export_packager.py`, `validators.py`).
+  - Integrated OpenX Clay (`backend/clay/`) directly from the upstream repository (`https://github.com/OpenX-Inc/clay`), reusing Clay's native `PostProcessor` (`clay.postprocess.PostProcessor`), `make_lods` (`clay.lods.make_lods`), and `make_collision` (`clay.collision.make_collision`).
+  - Clay decimation runs through C++-accelerated quadric decimation with `fast_simplification`, completing in <200ms on 80k+ faces.
+  - Clay handles UV unwrapping via native `xatlas` parameterization and preserves pre-textured provider outputs automatically.
+  - Clay's headless Blender engine (`clay.blender.engine`, `clay.blender.ops`) handles FBX export, normal baking, Quadriflow quad retopology, and auto-rigging.
+  - Injected `PYTHONHOME=/usr` into Blender engine subprocess execution to guarantee Blender finds system modules in Debian/Ubuntu environments.
+  - Celery task `generate_3d_model` now directly delegates post-processing to Clay: real logs and progress are emitted at 75% (`clay_postprocess`), 92% (`lod_generation`), 94% (`collision`), and 100% (`completed`).
+  - Strict error propagation: any Clay processing failure immediately sets the AI Studio job to `status="failed"` (no silent skips or warning-only success).
+  - Synchronized `LiveExecutionPanel.tsx` to display real Clay pipeline execution steps (`AI Geometry Synthesis`, `OpenX Clay: Game-Ready Optimization`, `OpenX Clay: LODs & Collision Proxy`, `Asset Finalization & Multi-Format Export`).
+  - Standardized export endpoint (`project.py`) to create clean on-demand ZIP archives without external packager task dependencies.
+  - Replaced post-processing tests in `backend/tests/test_post_processing.py` with 6 automated tests for Clay decimation, texture preservation, LOD chains, collision proxies, FBX export, and visible error handling (all 46 backend tests pass).
+
 ### Fixed & Pipeline Accuracy
 - **Eliminated Provider Decimation Freezes (`triposg_local.py`, `trellis_local.py`)**:
   - Root Cause: `triposg_local.py` and `trellis_local.py` were executing an un-accelerated `optimize_mesh()` call inside their `generate()` methods before returning `ProviderResult` to Celery `tasks.py`. `optimize_mesh()` fell back to trimesh's single-threaded pure-Python `simplify_quadric_decimation`, freezing the worker thread for 10+ minutes with 100% CPU/RAM on raw marching cubes meshes (500k-1M faces) and preventing the worker from ever reaching Stage 1-6 post-processing.
