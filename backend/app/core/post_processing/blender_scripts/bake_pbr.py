@@ -132,9 +132,11 @@ def main():
         # Bake Roughness
         img_roughness = create_bake_image("RoughnessBake")
         bpy.ops.object.bake(type='ROUGHNESS')
-        pixels = np.array(img_roughness.pixels[:])
-        pixels = np.clip(pixels, 0.2, 0.85)
-        img_roughness.pixels = pixels.tolist()
+        num_floats = resolution * resolution * 4
+        px_rough = np.empty(num_floats, dtype=np.float32)
+        img_roughness.pixels.foreach_get(px_rough)
+        np.clip(px_rough, 0.2, 0.85, out=px_rough)
+        img_roughness.pixels.foreach_set(px_rough)
         img_roughness.filepath_raw = str(output_dir / 'roughness.png')
         img_roughness.file_format = 'PNG'
         img_roughness.save()
@@ -146,11 +148,13 @@ def main():
         img_metallic.file_format = 'PNG'
         img_metallic.save()
         
-        # Validation
-        for name, img in [("normal", img_normal), ("ao", img_ao), ("roughness", img_roughness), ("metallic", img_metallic)]:
-            arr = np.array(img.pixels[:])
-            if np.sum(arr) < 1.0 and name != "metallic":
-                print(f"WARNING: {name} map is mostly black", file=sys.stderr)
+        # Fast non-blocking validation using strides (no million-object allocations)
+        chk_buf = np.empty(num_floats, dtype=np.float32)
+        for name, img in [("normal", img_normal), ("ao", img_ao), ("roughness", img_roughness)]:
+            img.pixels.foreach_get(chk_buf)
+            # Sample every 32nd float for instant check
+            if float(np.sum(chk_buf[::32])) < 0.1:
+                print(f"WARNING: {name} map is mostly empty", file=sys.stderr)
 
         print("SUCCESS: bake complete", file=sys.stderr)
         print(json.dumps({"success": True, "resolution": f"{resolution}x{resolution}"}))

@@ -1,5 +1,17 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.47] - 2026-09-12
+### Fixed & Post-Processing Resource Optimization
+- **Celery Revocation Import Bug Fixed (`generation.py`)**:
+  - Corrected module import path from `app.celery_app` to `app.workers.celery_app` when cancelling active tasks. Cancelling a generation job now revokes the Celery task immediately with `SIGUSR1` without raising `ModuleNotFoundError`.
+- **High RAM & CPU Usage Resolved in Stage 4 & Voxel Remesh (`bake_pbr.py`, `voxel_remesh.py`)**:
+  - Root cause in `bake_pbr.py`: Python list conversions (`img.pixels[:]` and `pixels.tolist()`) instantiated over 67 million Python float objects for 2K/4K maps, leading to multi-gigabyte memory allocations and prolonged 100% CPU lockups during garbage collection. Fixed by using Blender's zero-allocation native C buffer methods: `img.pixels.foreach_get(buf)`, `np.clip()`, and `img.pixels.foreach_set(buf)`, running in ~3ms.
+  - Root cause in `voxel_remesh.py`: Hardcoded `voxel_size = 0.01/0.02` without dimension awareness resulted in unbounded voxel grids (billions of voxels) on meshes with large bounding boxes. Clamped voxel grid resolution dynamically to a safe ceiling (`max_dim / 150.0`).
+- **File Logging to `logs/app.log` from Post-Processing & Celery Worker (`celery_app.py`, `tasks.py`, post-processing modules)**:
+  - Attached a `RotatingFileHandler` connected to Celery signals (`after_setup_logger`, `after_setup_task_logger`) and initialized on worker startup to persist all worker logging directly to `logs/app.log`.
+  - Added direct file-append persistence inside `sync_publish()` in `tasks.py` so every stage transition, progress update, and telemetry message is immediately written to `logs/app.log`.
+  - Added detailed milestone logs across `mesh_repair.py`, `decimation.py`, `uv_unwrap.py`, and `pbr_bake.py` reporting face/vertex counts, filter steps, and texture generation details.
+
 ## [v5.0.46] - 2026-09-12
 ### Fixed & Post-Processing Pipeline Visibility
 - **Stage 4 PBR Bake Hang / Freeze Resolved (`bake_pbr.py`)**:

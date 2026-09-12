@@ -37,9 +37,16 @@ obj = bpy.context.active_object
 bpy.context.view_layer.objects.active = obj
 
 # Apply voxel remesh modifier for watertight output
+# Compute bounding box and ensure voxel grid doesn't exceed ~150 divisions per axis
+dims = obj.dimensions
+max_dim = max(float(dims.x), float(dims.y), float(dims.z))
+if max_dim <= 0.0:
+    max_dim = 1.0
+safe_voxel_size = max(voxel_size, max_dim / 150.0)
+
 mod = obj.modifiers.new('VoxelRemesh', 'REMESH')
 mod.mode = 'VOXEL'
-mod.voxel_size = voxel_size
+mod.voxel_size = safe_voxel_size
 mod.adaptivity = 0.0
 bpy.ops.object.modifier_apply(modifier=mod.name)
 

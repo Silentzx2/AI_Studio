@@ -82,6 +82,7 @@ def unwrap_uvs_xatlas(input_path: str | Path, output_path: str | Path) -> dict:
             mesh = trimesh.load(str(input_path), force='mesh')
             if hasattr(mesh, 'geometry') and mesh.geometry:
                 mesh = list(mesh.geometry.values())[0]
+            logger.info("[UV_UNWRAP] Starting xatlas parameterization on %s (%d faces)...", input_path.name, len(mesh.faces))
                 
             try:
                 uv_mesh, changed = generate_uvs_with_xatlas(mesh)
@@ -98,11 +99,12 @@ def unwrap_uvs_xatlas(input_path: str | Path, output_path: str | Path) -> dict:
                 
                 # Validate output
                 if result["vertex_count"] == result["uv_count"]:
+                    logger.info("[UV_UNWRAP] xatlas unwrapping successful: %d vertices, %d UV coords", result["vertex_count"], result["uv_count"])
                     return result
                 else:
-                    logger.warning("xatlas validation failed: len(vertices) != len(uvs), falling back")
+                    logger.warning("[UV_UNWRAP] xatlas validation failed: len(vertices) != len(uvs), falling back")
             except Exception as e:
-                logger.warning(f"xatlas failed, falling back to blender: {e}")
+                logger.warning(f"[UV_UNWRAP] xatlas failed, falling back to blender: {e}")
                 
         # Fallback to blender smart project
         logger.info("Falling back to blender smart project")

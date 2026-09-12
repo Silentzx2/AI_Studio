@@ -53,8 +53,10 @@ def decimate_pymeshlab(input_path: str | Path, output_path: str | Path, target_f
                 t_mesh = list(t_mesh.geometry.values())[0]
             input_faces = len(t_mesh.faces)
             result["input_faces"] = input_faces
+            logger.info("[DECIMATION] Mesh has %d faces (target budget=%d)", input_faces, target_faces)
             
             if input_faces <= target_faces * 1.1:
+                logger.info("[DECIMATION] Face count %d is within budget (%d). Skipping decimation.", input_faces, target_faces)
                 shutil.copy2(input_path, output_path)
                 result.update({
                     "success": True,
@@ -86,6 +88,7 @@ def decimate_pymeshlab(input_path: str | Path, output_path: str | Path, target_f
                         })
                         return result
 
+                    logger.info("[DECIMATION] Running PyMeshLab QEC decimation: %d -> %d faces...", input_faces, target_faces)
                     t_mesh.export(str(tmp_in_obj))
                     ms = pymeshlab.MeshSet()
                     ms.load_new_mesh(str(tmp_in_obj))
@@ -104,14 +107,16 @@ def decimate_pymeshlab(input_path: str | Path, output_path: str | Path, target_f
                     decimated_tm.export(str(output_path))
 
                     val = validate_watertight(output_path)
+                    out_faces = val.get("triangle_count", len(decimated_tm.faces))
+                    logger.info("[DECIMATION] PyMeshLab decimation complete: %d -> %d faces", input_faces, out_faces)
                     result.update({
                         "success": True,
-                        "output_faces": val.get("triangle_count", len(decimated_tm.faces)),
+                        "output_faces": out_faces,
                         "route": "pymeshlab"
                     })
                     return result
             except Exception as e:
-                logger.warning(f"pymeshlab decimation failed: {e}")
+                logger.warning(f"[DECIMATION] pymeshlab decimation failed: {e}")
                 
         # Fallback to meshoptimizer
         logger.info("Falling back to optimize_mesh")

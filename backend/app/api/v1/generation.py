@@ -440,7 +440,7 @@ async def cancel_generation(job_id: str):
 
         if celery_task_id:
             try:
-                from app.celery_app import celery_app
+                from app.workers.celery_app import celery_app
                 celery_app.control.revoke(celery_task_id, terminate=True, signal="SIGUSR1")
                 logger.info("Revoked Celery task %s for job %s", celery_task_id, job_id)
             except Exception as e:

@@ -317,6 +317,15 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             _ensure_not_cancelled(session, job_id)
             now_iso = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
             logger.info("[JOB %s] %d%% [%s] %s", job_id[:8], progress, stage, message)
+            try:
+                from datetime import datetime as _dt
+                log_line = f"{_dt.now().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]} [{level.upper()}] app.workers.tasks: [JOB {job_id[:8]}] {progress}% [{stage}] {message}\n"
+                log_path = Path(__file__).resolve().parents[3] / "logs" / "app.log"
+                if log_path.parent.exists():
+                    with open(str(log_path), "a", encoding="utf-8") as _fh:
+                        _fh.write(log_line)
+            except Exception:
+                pass
             _publish(job_id, {
                 "job_id": job_id,
                 "status": "processing",

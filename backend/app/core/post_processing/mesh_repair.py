@@ -36,9 +36,11 @@ def repair_mesh_strict(input_path: str | Path, output_path: str | Path, *, job_i
         return result
         
     try:
+        logger.info("[MESH_REPAIR] Checking watertightness for %s (job=%s)", input_path.name, job_id)
         # 1. Check if already watertight
         val = validate_watertight(input_path)
         if val.get("is_watertight", False):
+            logger.info("[MESH_REPAIR] Input mesh is already watertight (%d verts, %d faces). Route=clean.", val.get("vertex_count", 0), val.get("triangle_count", 0))
             shutil.copy2(input_path, output_path)
             result.update({
                 "success": True,
@@ -61,6 +63,7 @@ def repair_mesh_strict(input_path: str | Path, output_path: str | Path, *, job_i
                     t_mesh = trimesh.load(str(input_path), force='mesh')
                     if hasattr(t_mesh, 'geometry') and t_mesh.geometry:
                         t_mesh = list(t_mesh.geometry.values())[0]
+                    logger.info("[MESH_REPAIR] PyMeshLab manifold repair starting on %d faces...", len(t_mesh.faces))
                     t_mesh.export(str(tmp_in_obj))
 
                     ms = pymeshlab.MeshSet()
@@ -79,6 +82,7 @@ def repair_mesh_strict(input_path: str | Path, output_path: str | Path, *, job_i
 
                     val2 = validate_watertight(output_path)
                     if val2.get("is_watertight", False):
+                        logger.info("[MESH_REPAIR] PyMeshLab repair successful: %d vertices, %d faces (watertight=True)", val2.get("vertex_count", 0), val2.get("triangle_count", 0))
                         result.update({
                             "success": True,
                             "repair_route": "pymeshlab",
@@ -87,11 +91,13 @@ def repair_mesh_strict(input_path: str | Path, output_path: str | Path, *, job_i
                             "triangle_count": val2.get("triangle_count", 0)
                         })
                         return result
+                    else:
+                        logger.info("[MESH_REPAIR] PyMeshLab finished but boundary edges remain. Proceeding to Blender voxel fallback.")
             except Exception as pml_err:
                 logger.warning(f"PyMeshLab repair exception, proceeding to fallback: {pml_err}")
                 
         # 3. Try Blender voxel remesh fallback
-        logger.info("Falling back to blender voxel remesh")
+        logger.info("[MESH_REPAIR] Falling back to Blender voxel remesh (safe resolution)")
         script_path = Path(__file__).parent / "blender_scripts" / "voxel_remesh.py"
         blender_bin = shutil.which("blender")
         if blender_bin and script_path.exists():

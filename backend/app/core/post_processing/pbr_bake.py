@@ -22,6 +22,7 @@ async def bake_pbr_maps_blender(highpoly_path: str | Path, lowpoly_path: str | P
     }
     
     try:
+        logger.info("[PBR_BAKE] Launching Blender Cycles PBR baking at %s (%spx) for job %s", resolution, resolution_px, job_id)
         blender_res = await _run_blender(
             script=str(script_path),
             args=[str(highpoly_path), str(lowpoly_path), str(output_dir), resolution_px],
@@ -29,7 +30,9 @@ async def bake_pbr_maps_blender(highpoly_path: str | Path, lowpoly_path: str | P
         )
         
         if not blender_res or not blender_res.get("success"):
-            result["error"] = blender_res.get("error", "Blender execution failed or returned no output")
+            err_msg = blender_res.get("error", "Blender execution failed or returned no output")
+            logger.warning("[PBR_BAKE] Blender bake failed: %s", err_msg)
+            result["error"] = err_msg
             return result
             
         out_dir = Path(output_dir)
@@ -39,10 +42,12 @@ async def bake_pbr_maps_blender(highpoly_path: str | Path, lowpoly_path: str | P
             if map_path.exists() and map_path.stat().st_size > 0:
                 result["maps"][map_type] = str(map_path)
                 maps_found += 1
+                logger.info("[PBR_BAKE] Generated %s map: %s (%d bytes)", map_type, map_path.name, map_path.stat().st_size)
             else:
-                logger.warning(f"Bake map missing or empty: {map_path}")
+                logger.warning("[PBR_BAKE] Bake map missing or empty: %s", map_path)
                 
         if maps_found == 4:
+            logger.info("[PBR_BAKE] All 4 PBR texture maps baked successfully!")
             result["success"] = True
         else:
             result["error"] = "Not all maps were generated successfully"

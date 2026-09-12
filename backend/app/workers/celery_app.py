@@ -42,6 +42,30 @@ from app.core.providers.base import _patch_numpy_legacy_aliases
 
 _patch_numpy_legacy_aliases()
 
+from logging.handlers import RotatingFileHandler
+from celery.signals import after_setup_logger, after_setup_task_logger
+from pathlib import Path
+
+_log_file = Path(__file__).resolve().parents[3] / "logs" / "app.log"
+_log_file.parent.mkdir(parents=True, exist_ok=True)
+
+def _setup_celery_file_logging(logger=None, **kwargs):
+    try:
+        target_logger = logger or logging.getLogger()
+        for h in target_logger.handlers:
+            if isinstance(h, RotatingFileHandler) and getattr(h, 'baseFilename', '') == str(_log_file):
+                return
+        fh = RotatingFileHandler(str(_log_file), maxBytes=10*1024*1024, backupCount=3, encoding="utf-8")
+        fh.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+        fh.setLevel(logging.INFO)
+        target_logger.addHandler(fh)
+    except Exception:
+        pass
+
+after_setup_logger.connect(_setup_celery_file_logging)
+after_setup_task_logger.connect(_setup_celery_file_logging)
+_setup_celery_file_logging(logging.getLogger())
+
 settings = get_settings()
 
 _logger = logging.getLogger(__name__)
