@@ -19,8 +19,8 @@ function getStorageDirs(subfolder: string): string[] {
   ];
   for (const d of dirs) {
     try {
-      if (!fs.existsSync(d)) {
-        fs.mkdirSync(d, { recursive: true });
+      if (!fs.existsSync(/*turbopackIgnore: true*/ d)) {
+        fs.mkdirSync(/*turbopackIgnore: true*/ d, { recursive: true });
       }
     } catch {}
   }
@@ -98,13 +98,14 @@ async function handleDirectAssetsList() {
   // Scan models
   for (const dir of getStorageDirs('models')) {
     try {
-      if (fs.existsSync(dir)) {
-        const files = await fs.promises.readdir(dir);
+      if (fs.existsSync(/*turbopackIgnore: true*/ dir)) {
+        const files = await fs.promises.readdir(/*turbopackIgnore: true*/ dir);
         for (const file of files) {
           const ext = path.extname(file).toLowerCase();
           if (MODEL_EXTS.has(ext) && !seenModels.has(file)) {
             seenModels.add(file);
-            const stat = await fs.promises.stat(path.join(dir, file));
+            const targetPath = path.join(/*turbopackIgnore: true*/ dir, file);
+            const stat = await fs.promises.stat(/*turbopackIgnore: true*/ targetPath);
             models.push({
               id: file,
               name: file.replace(/^[0-9]+_/, '').replace(/\.[^.]+$/, ''),
@@ -126,13 +127,14 @@ async function handleDirectAssetsList() {
   // Scan images
   for (const dir of getStorageDirs('uploads')) {
     try {
-      if (fs.existsSync(dir)) {
-        const files = await fs.promises.readdir(dir);
+      if (fs.existsSync(/*turbopackIgnore: true*/ dir)) {
+        const files = await fs.promises.readdir(/*turbopackIgnore: true*/ dir);
         for (const file of files) {
           const ext = path.extname(file).toLowerCase();
           if (IMAGE_EXTS.has(ext) && !seenImages.has(file)) {
             seenImages.add(file);
-            const stat = await fs.promises.stat(path.join(dir, file));
+            const targetPath = path.join(/*turbopackIgnore: true*/ dir, file);
+            const stat = await fs.promises.stat(/*turbopackIgnore: true*/ targetPath);
             images.push({
               id: file,
               name: file,
@@ -164,23 +166,29 @@ async function handleDirectAssetsList() {
 }
 
 async function handleDirectAssetDelete(filename: string) {
+  const safeFilename = path.basename(filename);
+  if (!safeFilename || safeFilename === '.' || safeFilename === '..') {
+    return { success: false, error: 'Invalid filename' };
+  }
   const dirs = [...getStorageDirs('models'), ...getStorageDirs('uploads')];
   let deleted = false;
   for (const dir of dirs) {
-    const target = path.join(dir, filename);
-    if (fs.existsSync(target)) {
+    const resolvedDir = path.resolve(dir);
+    const target = path.resolve(dir, safeFilename);
+    if (!target.startsWith(resolvedDir + path.sep)) {
+      continue;
+    }
+    if (fs.existsSync(/*turbopackIgnore: true*/ target)) {
       try {
-        const stat = await fs.promises.stat(target);
-        if (stat.isDirectory()) {
-          await fs.promises.rm(target, { recursive: true, force: true });
-        } else {
-          await fs.promises.unlink(target);
+        const stat = await fs.promises.stat(/*turbopackIgnore: true*/ target);
+        if (stat.isFile()) {
+          await fs.promises.unlink(/*turbopackIgnore: true*/ target);
+          deleted = true;
         }
-        deleted = true;
       } catch {}
     }
   }
-  return { success: true, data: { deleted, filename } };
+  return { success: true, data: { deleted, filename: safeFilename } };
 }
 
 /**

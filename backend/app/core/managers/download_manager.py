@@ -80,15 +80,25 @@ class DownloadManager:
         else:
             target_dir = storage.storage_dir / "models"
 
+        # Sanitize filename to prevent directory traversal
+        from pathlib import Path
+        clean_filename = Path(filename).name
+        if not clean_filename or clean_filename in (".", ".."):
+            raise ValueError(f"Invalid download filename: {filename}")
+
         target_dir.mkdir(parents=True, exist_ok=True)
-        file_path = str(target_dir / filename)
+        resolved_target_dir = target_dir.resolve()
+        dest_path = (resolved_target_dir / clean_filename).resolve()
+        if not dest_path.is_relative_to(resolved_target_dir):
+            raise ValueError(f"Filename escapes target directory: {filename}")
+        file_path = str(dest_path)
         
         download = DownloadQueue(
             id=download_id,
             model_id=model_id,
             model_name=model_name,
             url=url,
-            filename=filename,
+            filename=clean_filename,
             file_path=file_path,
             total_bytes=total_size,
             status="pending",

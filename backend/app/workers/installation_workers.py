@@ -439,12 +439,35 @@ def repair_repo(self, repo: str) -> dict:
     from runtime.installer import clone_repo, install_repo_deps, get_storage_config
 
     try:
+        import tempfile
+        from pathlib import Path
+
         logger.info("Celery repair_repo started for repo=%s", repo)
         storage = get_storage_config()
         repo_path = storage.get_repo_path(repo)
+
+        # Preserve downloaded model weights if present
+        weights_dir = repo_path / "weights"
+        weights_backup = None
+        if weights_dir.exists() and any(weights_dir.iterdir()):
+            weights_backup = Path(tempfile.mkdtemp(prefix=f"weights_backup_{repo}_"))
+            logger.info("Preserving weights for repo=%s to %s", repo, weights_backup)
+            for item in weights_dir.iterdir():
+                shutil.move(str(item), str(weights_backup / item.name))
+
         if repo_path.exists():
             shutil.rmtree(str(repo_path), ignore_errors=True)
         clone_repo(repo)
+
+        # Restore preserved weights
+        if weights_backup and weights_backup.exists():
+            new_weights_dir = repo_path / "weights"
+            new_weights_dir.mkdir(parents=True, exist_ok=True)
+            for item in weights_backup.iterdir():
+                shutil.move(str(item), str(new_weights_dir / item.name))
+            shutil.rmtree(str(weights_backup), ignore_errors=True)
+            logger.info("Restored preserved weights for repo=%s", repo)
+
         install_repo_deps(repo)
         invalidate("runtime_options")
         logger.info("Celery repair_repo completed for repo=%s", repo)

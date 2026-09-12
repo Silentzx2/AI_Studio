@@ -36,7 +36,7 @@ def build_export_package(job_id: str, output_dir: Path, artifacts: dict, export_
         final_zip = package_dir / 'asset_export_package.zip'
         tmp_zip = package_dir / 'asset_export_package.tmp.zip'
         
-        url_path = f"/static/exports/packages/{job_id}/{spec_hash}/asset_export_package.zip"
+        url_path = f"/static/packages/{job_id}/{spec_hash}/asset_export_package.zip"
         
         # Idempotency
         if final_zip.exists() and final_zip.stat().st_size > 0:
@@ -102,7 +102,7 @@ def get_package_status(job_id: str, spec_hash: str, output_dir: Path) -> dict:
     if final_zip.exists() and final_zip.stat().st_size > 0:
         return {
             "status": "ready",
-            "url": f"/static/exports/packages/{job_id}/{spec_hash}/asset_export_package.zip"
+            "url": f"/static/packages/{job_id}/{spec_hash}/asset_export_package.zip"
         }
     
     # Check if tmp exists, which means pending

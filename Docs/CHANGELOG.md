@@ -1,5 +1,34 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.45] - 2026-09-12
+### Security
+- **Arbitrary Directory Deletion Fixed (`app/api/v1/[...path]/route.ts`)**:
+  - Guarded `handleDirectAssetDelete` with `path.basename(filename)` sanitization and path boundary containment checks (`target.startsWith(dir)`). Disallowed recursive deletion of directories; only individual model/image asset files can be unlinked.
+- **Path Traversal Fixed (`backend/app/core/managers/download_manager.py`)**:
+  - Enforced `Path(filename).name` sanitization and `is_relative_to(target_dir)` containment in `start_download` to eliminate arbitrary file write outside the models storage directory.
+- **CORS Configuration Hardened (`backend/app/main.py`)**:
+  - Replaced overly permissive wildcard regex with loopback (`localhost`, `127.0.0.1`, `0.0.0.0`) and RFC1918 private network ranges (`10.x`, `192.168.x`, `172.16-31.x`), preventing unauthorized cross-origin credential sharing from arbitrary public origins.
+- **Terminal Execution RCE Guard (`backend/app/api/v1/admin.py`)**:
+  - Removed `"git"` from `_ALLOWED_COMMANDS` in the web terminal allowlist to prevent arbitrary code execution via git configuration hooks and fsmonitor directives.
+
+### Fixed & Stability
+- **Export Package URL 404 Mismatch (`backend/app/core/post_processing/export_packager.py`)**:
+  - Corrected export package download URL from `/static/exports/packages/...` to `/static/packages/...` matching FastAPI's `/static` storage mount point.
+- **Model Weights Preservation on Repair (`backend/app/workers/installation_workers.py`)**:
+  - Updated `repair_repo` to back up `repo_path / "weights"` to a temporary directory before executing `shutil.rmtree`, restoring weights after `clone_repo` to prevent re-downloading multi-gigabyte checkpoints.
+- **Celery Task Cancellation Revocation (`backend/app/api/v1/generation.py`)**:
+  - Stored `celery_task_id` in `job.processing_metadata` upon dispatch; calling `/cancel` now revokes the Celery task with `terminate=True` and `SIGUSR1`, halting GPU compute immediately.
+- **Startup Stale Job Reaper (`backend/app/main.py`)**:
+  - Implemented automatic cleanup in the application lifespan handler to transition orphaned `processing` and `queued` jobs older than 15 minutes to `failed` upon server restart, preventing permanently spinning progress spinners.
+- **Database Connection Pool Exhaustion (`backend/app/database.py`)**:
+  - Increased `pool_timeout` from 5s to 30s on async and sync engines, and raised sync engine `pool_size` to 10 with `max_overflow: 20` to prevent `QueuePool` exhaustion under concurrent polling and background processing.
+- **Post-Processing Parameter Forwarding (`backend/app/workers/tasks.py`)**:
+  - Forwarded `enable_mesh_repair`, `strict_watertight`, `use_pymeshlab_decimation`, `quality_threshold`, `compress_output`, and package options from task metadata into `GenerationRequest`. Removed deprecated fields (`mood`, `shape`, `preset`, etc.).
+- **Polling Loop Dependency Stabilization (`features/new-workspace/store/WorkspaceContext.tsx`)**:
+  - Extracted `activeTaskRef` to avoid tearing down and recreating the job status polling interval on every progress tick. Constrained effect dependencies strictly to `[activeTask?.id, activeTask?.status, addAsset]`.
+- **Turbopack Build Tracing Warnings Suppressed (`app/api/v1/[...path]/route.ts`)**:
+  - Added `/*turbopackIgnore: true*/` comments to dynamic filesystem calls; `npm run build` now compiles with 0 errors and 0 warnings.
+
 ## [v5.0.44] - 2026-09-12
 ### Fixed
 - **3D Viewport Floating Tool Rail Restored**:

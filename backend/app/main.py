@@ -278,6 +278,33 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning(f"Redis connection test failed: {exc}")
 
+    # Stale job reaper: Mark zombie jobs left in 'processing' or 'queued' across restarts as 'failed'
+    try:
+        from app.database import SessionLocal
+        from app.models.job import GenerationJob
+        from datetime import datetime, timezone, timedelta
+
+        def _reap_stale_jobs():
+            with SessionLocal() as db:
+                stale_threshold = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=15)
+                stale_jobs = db.query(GenerationJob).filter(
+                    GenerationJob.status.in_(["processing", "queued"]),
+                    GenerationJob.created_at < stale_threshold
+                ).all()
+                for j in stale_jobs:
+                    j.status = "failed"
+                    j.stage = "failed"
+                    j.error_message = "Job terminated: server restarted or processing timed out"
+                    j.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                    j.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                if stale_jobs:
+                    db.commit()
+                    logger.info("Reaped %d stale/zombie generation jobs", len(stale_jobs))
+
+        await asyncio.get_event_loop().run_in_executor(None, _reap_stale_jobs)
+    except Exception as exc:
+        logger.warning(f"Stale job cleanup failed: {exc}")
+
     logger.info("")
     logger.info("=" * 70)
     logger.info(
@@ -328,11 +355,11 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS middleware — allow configured origins + any HTTP/HTTPS origin (for Colab, tunnels, local network)
+# CORS middleware — allow configured origins + loopback / private network (for LAN/studio setups)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_origin_regex=r"https?://.*",
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

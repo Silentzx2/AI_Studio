@@ -367,7 +367,18 @@ async def create_generation(req: GenerationRequest, request: Request):
         )
 
     try:
-        generate_3d_model.delay(job_id)
+        task_res = generate_3d_model.delay(job_id)
+        if getattr(task_res, "id", None):
+            try:
+                async with AsyncSessionLocal() as session:
+                    job = await session.get(GenerationJob, job_id)
+                    if job:
+                        meta = dict(job.processing_metadata or {})
+                        meta["celery_task_id"] = task_res.id
+                        job.processing_metadata = meta
+                        await session.commit()
+            except Exception as meta_exc:
+                logger.warning("Could not persist celery_task_id for %s: %s", job_id, meta_exc)
     except Exception as exc:
         logger.exception("Failed to enqueue generation job %s", job_id)
         # Keep the persisted row so status polling does not 404.
@@ -403,15 +414,14 @@ async def create_generation(req: GenerationRequest, request: Request):
 async def cancel_generation(job_id: str):
     """Cancel a generation job.
 
-    Marks the job as cancelled in the DB (single source of truth). The worker
-    checks the status at each progress/stage boundary and stops; the frontend
-    stops polling. ponytail: we mark the DB row instead of faking cancellation
-    only on the client — the model process would otherwise keep running server-side.
+    Marks the job as cancelled in the DB (single source of truth). Also revokes
+    the Celery worker task to terminate running background compute immediately.
     """
     from app.database import AsyncSessionLocal
     from app.models.job import GenerationJob
 
     try:
+        celery_task_id = None
         async with AsyncSessionLocal() as session:
             from sqlalchemy import select
             result = await session.execute(
@@ -425,7 +435,17 @@ async def cancel_generation(job_id: str):
             job.status = "cancelled"
             job.stage = "cancelled"
             job.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            celery_task_id = (job.processing_metadata or {}).get("celery_task_id")
             await session.commit()
+
+        if celery_task_id:
+            try:
+                from app.celery_app import celery_app
+                celery_app.control.revoke(celery_task_id, terminate=True, signal="SIGUSR1")
+                logger.info("Revoked Celery task %s for job %s", celery_task_id, job_id)
+            except Exception as e:
+                logger.warning("Failed to revoke Celery task %s: %s", celery_task_id, e)
+
         logger.info("Generation job %s cancelled", job_id)
         return success({"job_id": job_id, "status": "cancelled"})
     except HTTPException:

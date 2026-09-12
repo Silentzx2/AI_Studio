@@ -304,7 +304,6 @@ _ALLOWED_COMMANDS = {
     "nvidia-smi", "ps", "top", "df", "du", "find", "grep", "wc",
     "file", "stat", "which", "env", "printenv", "hostname", "uname",
     "uptime", "free", "lscpu", "lsblk", "lspci", "lsmod", "dmesg",
-    "git",
 }
 
 

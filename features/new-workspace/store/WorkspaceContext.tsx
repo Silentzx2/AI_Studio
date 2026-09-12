@@ -311,6 +311,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [executionProgress, setExecutionProgress] = useState(0);
   const [executionStep, setExecutionStep] = useState('');
   const [activeTask, setActiveTask] = useState<ActiveTask | null>(null);
+  const activeTaskRef = useRef<ActiveTask | null>(activeTask);
+  activeTaskRef.current = activeTask;
 
   const dismissActiveTask = useCallback(() => setActiveTask(null), []);
 
@@ -412,9 +414,6 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
 
   useEffect(() => {
-    const activeTaskRef = { current: activeTask };
-    activeTaskRef.current = activeTask;
-
     const onProgress = (data: unknown) => {
       const d = data as { value?: number; max?: number; node?: string };
       const progress = (d.max && d.max > 0) ? Math.min(100, Math.round(((d.value ?? 0) / d.max) * 100)) : 0;
@@ -484,7 +483,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
 
   useEffect(() => {
-    const task = activeTask;
+    const task = activeTaskRef.current;
     if (!task || task.status === 'completed' || task.status === 'failed' || task.status === 'interrupted') return;
     const jobId = task.id;
     const isBackendJob = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId);
@@ -521,10 +520,11 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           setExecutionStep('Completed');
           setActiveTask(prev => prev ? { ...prev, status: 'completed', progress: 100, currentStep: 'Completed' } : null);
           if (data.result?.model_url) {
+            const currentLatestTask = activeTaskRef.current || task;
             const result = data.result;
             const modelUrl = result.model_url as string;
-            const promptTitle = task.title && task.title !== 'Image-to-3D generation' && task.title !== 'generate' ? task.title : null;
-            const rawName = promptTitle || task.inputImageName || (task.inputImage ? task.inputImage.split('/').pop()?.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ') : null) || `Model_${jobId.slice(0, 6)}`;
+            const promptTitle = currentLatestTask.title && currentLatestTask.title !== 'Image-to-3D generation' && currentLatestTask.title !== 'generate' ? currentLatestTask.title : null;
+            const rawName = promptTitle || currentLatestTask.inputImageName || (currentLatestTask.inputImage ? currentLatestTask.inputImage.split('/').pop()?.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ') : null) || `Model_${jobId.slice(0, 6)}`;
             const cleanName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
 
             // Pre-fetch the model arrayBuffer immediately into in-memory cache
@@ -570,6 +570,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           toast.success('Generation complete', { description: 'The 3D model is ready and loaded in the viewer.' });
           return;
         } else if (data.status === 'failed' || data.status === 'cancelled') {
+          const currentLatestTask = activeTaskRef.current || task;
           const message = data.error_message || data.message || (data.status === 'cancelled' ? 'Generation cancelled' : 'Generation failed');
           setIsExecuting(false);
           setExecutionStep(message);
@@ -578,7 +579,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             status: 'failed',
             error: message,
             error_message: message,
-            provider: task.provider || '',
+            provider: currentLatestTask.provider || '',
           } as any) : null;
           setActiveTask(prev => prev ? {
             ...prev,
@@ -607,7 +608,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       stopped = true;
       if (timerId) window.clearTimeout(timerId);
     };
-  }, [activeTask, addAsset]);
+  }, [activeTask?.id, activeTask?.status, addAsset]);
 
   const selectAsset = useCallback((id: string) => {
     setSelectedAssetId(id);
