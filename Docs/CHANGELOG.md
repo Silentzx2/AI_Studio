@@ -1,5 +1,11 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.50] - 2026-09-12
+### Fixed
+- **Provider Scoping Error (`hunyuan3d_local.py`)**:
+  - Fixed `UnboundLocalError: cannot access local variable 'asyncio' where it is not associated with a value` in `generate()`.
+  - Removed inner function-scoped `import asyncio` at line 208, allowing `generate()` to access the top-level module import of `asyncio` without Python shadowing it as an unbound local variable at line 170.
+
 ## [v5.0.49] - 2026-09-12
 ### Fixed & Post-Processing Pipeline Execution
 - **Sequential 6-Stage Pipeline Handoff & Deadlock Fix (`hunyuan3d_local.py`, `tasks.py`, `pipeline.py`)**:

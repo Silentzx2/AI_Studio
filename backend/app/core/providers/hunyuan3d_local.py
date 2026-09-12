@@ -205,7 +205,6 @@ class _HunyuanBase(BaseProvider):
         if request.generate_texture or request.mode == "texture-generation":
             await cb(71, "texturing", "Synthesizing base surface materials...", "info")
             try:
-                import asyncio
                 await asyncio.wait_for(
                     loop.run_in_executor(None, lambda: self._texture(request, mesh_path, output_dir)),
                     timeout=30.0,
