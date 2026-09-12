@@ -132,11 +132,11 @@ def _get_blender_env(blender_bin: str) -> dict[str, str]:
 
 
 def _run_blender_remesh(
-    input_path: str,
-    output_path: str,
-    target_polycount: int,
-    fix_uvs: bool,
-    preserve_details: float,
+    input_path: str | Any,
+    output_path: str | Any,
+    target_polycount: int = 30000,
+    fix_uvs: bool = True,
+    preserve_details: float = 75.0,
     remesh_mode: str = "adaptive",
     voxel_size: float = 0.05,
 ) -> dict[str, Any] | None:
@@ -144,6 +144,8 @@ def _run_blender_remesh(
 
     Returns dict of stats on success, or None if Blender is not available or fails.
     """
+    input_path = str(input_path)
+    output_path = str(output_path)
     import os
     import shutil
     import subprocess

@@ -603,6 +603,21 @@ install_node() {
   log "Node.js installed: $(node --version)"
 }
 
+install_gltf_transform() {
+  head_ "Installing gltf-transform CLI"
+  if command -v gltf-transform &>/dev/null; then
+    log "Already installed: $(gltf-transform --version 2>/dev/null || echo 'OK')"
+    return 0
+  fi
+  if command -v npm &>/dev/null; then
+    npm install -g @gltf-transform/cli 2>/dev/null || {
+      warn "Failed to install @gltf-transform/cli globally"
+      return 0
+    }
+    log "gltf-transform installed: $(gltf-transform --version 2>/dev/null || echo 'OK')"
+  fi
+}
+
 install_blender() {
   head_ "Installing Blender"
   if command -v blender &>/dev/null; then
@@ -1179,6 +1194,7 @@ BANNER
   install_python         || { err "Python installation failed — aborting"; exit 1; }
   install_uv             || { err "uv installation failed — aborting"; exit 1; }
   install_node           || { err "Node.js installation failed — aborting"; exit 1; }
+  install_gltf_transform || warn "gltf-transform install skipped — mesh compression will fallback to passthrough"
 
   # Non-critical steps — warn but continue
   install_blender        || warn "Blender install skipped — post-processing may be unavailable"

@@ -180,9 +180,34 @@ async def export_project(req: ExportRequest):
         status = get_package_status(job_id, spec_hash, storage_root)
         if status["status"] == "ready":
             return JSONResponse({"status": "ready", "url": status["url"], "spec_hash": spec_hash})
+        elif status["status"] == "not_found":
+            try:
+                from app.workers.tasks import package_export_bundle
+                artifacts = {}
+                gr_candidate = job_dir / "game_ready.glb"
+                if gr_candidate.exists():
+                    artifacts["game_ready_glb"] = str(gr_candidate)
+                src_candidate = job_dir / "source.glb"
+                if src_candidate.exists():
+                    artifacts["source_glb"] = str(src_candidate)
+                elif model_path.exists():
+                    artifacts["model_glb"] = str(model_path)
+                pbr_dir = job_dir / "pbr_maps"
+                if pbr_dir.exists():
+                    for map_f in pbr_dir.glob("*.png"):
+                        artifacts[f"pbr_{map_f.stem}"] = str(map_f)
+                package_export_bundle.apply_async(
+                    kwargs={"job_id": job_id, "artifacts": artifacts, "export_spec": spec}
+                )
+            except Exception as _pkg_err:
+                logger.warning("Failed to auto-dispatch package_export_bundle: %s", _pkg_err)
+            return JSONResponse(
+                {"status": "pending", "spec_hash": spec_hash, "message": "Package build initiated; check again shortly."},
+                status_code=202
+            )
         else:
             return JSONResponse(
-                {"status": status["status"], "spec_hash": spec_hash, "message": "Package not yet ready; check again or trigger packaging."},
+                {"status": status["status"], "spec_hash": spec_hash, "message": "Package building; check again shortly."},
                 status_code=202
             )
 

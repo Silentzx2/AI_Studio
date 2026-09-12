@@ -86,8 +86,29 @@ def repair_mesh_strict(input_path: str | Path, output_path: str | Path, *, job_i
                 
         # 3. Try Blender voxel remesh fallback
         logger.info("Falling back to blender voxel remesh")
-        _run_blender_remesh(input_path, output_path)
+        script_path = Path(__file__).parent / "blender_scripts" / "voxel_remesh.py"
+        blender_bin = shutil.which("blender")
+        if blender_bin and script_path.exists():
+            try:
+                import subprocess, os
+                env = os.environ.copy()
+                if not env.get("PYTHONHOME") and str(Path(os.path.realpath(blender_bin))).startswith("/usr"):
+                    env["PYTHONHOME"] = "/usr"
+                subprocess.run(
+                    [blender_bin, "--background", "--python", str(script_path), "--", str(input_path), str(output_path), "0.02"],
+                    capture_output=True,
+                    timeout=180,
+                    env=env,
+                    check=False,
+                )
+            except Exception as _b_err:
+                logger.warning(f"Standalone voxel remesh failed: {_b_err}")
+
         val3 = validate_watertight(output_path)
+        if not val3.get("is_watertight", False):
+            _run_blender_remesh(input_path, output_path, voxel_size=0.02)
+            val3 = validate_watertight(output_path)
+
         if val3.get("is_watertight", False):
             result.update({
                 "success": True,

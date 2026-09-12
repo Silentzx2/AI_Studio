@@ -109,3 +109,30 @@ def test_roughness_clamp():
     clamped = np.clip(roughness_values, 0.2, 0.85)
     assert float(clamped.min()) >= 0.2
     assert float(clamped.max()) <= 0.85
+
+
+def test_blender_remesh_signature_defaults_and_path(tmp_path):
+    """Verify _run_blender_remesh accepts Path objects and default params without TypeError."""
+    from app.core.mesh_optimizer import _run_blender_remesh
+    glb = _make_test_glb(tmp_path, watertight=True)
+    out = tmp_path / "remeshed.glb"
+    # Even if Blender is not installed in the test env, it must return None or stats, not crash with TypeError
+    res = _run_blender_remesh(glb, out)
+    assert res is None or isinstance(res, dict)
+
+
+def test_generation_request_postprocessing_schema():
+    """Verify GenerationRequest schema properly validates post-processing flags and defaults."""
+    from app.schemas.generation import GenerationRequest
+    req = GenerationRequest(
+        prompt="test 3d model",
+        enableMeshRepair=False,
+        pbrResolution="4k",
+        compressOutput=True,
+        prepackageExport=True,
+    )
+    assert req.enable_mesh_repair is False
+    assert req.pbr_resolution == "4k"
+    assert req.compress_output is True
+    assert req.prepackage_export is True
+

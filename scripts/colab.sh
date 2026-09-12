@@ -1445,6 +1445,12 @@ if ! ensure_node_npm; then
     exit 1
 fi
 
+# Ensure gltf-transform CLI is installed for post-processing optimization
+if ! command -v gltf-transform &>/dev/null; then
+    info "Installing gltf-transform CLI for mesh compression..."
+    npm install -g @gltf-transform/cli >/dev/null 2>&1 || warn "Failed to install @gltf-transform/cli globally"
+fi
+
 # Install frontend deps
 if [[ ! -d node_modules ]]; then
     info "Installing npm dependencies..."
@@ -2293,6 +2299,7 @@ if [[ -z "${DISPLAY:-}" ]] && command -v Xvfb &>/dev/null; then
     export DISPLAY=:99
     log "Xvfb virtual display active on $DISPLAY"
 fi
+export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}"
 
 # ── Start Celery Worker ───────────────────────────────────────────────────
 step "Starting Celery Worker..."

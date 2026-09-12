@@ -699,7 +699,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             meta["asset_classification"] = asset_class
 
             # Stage: Strict watertight repair (PyMeshLab → Blender voxel fallback)
-            if _POST_PROCESSING_AVAILABLE and getattr(req, 'enable_mesh_repair', True):
+            if _POST_PROCESSING_AVAILABLE and meta.get('enable_mesh_repair', True):
                 sync_publish(78, "repairing", "Strict watertight repair (PyMeshLab)...", "info")
                 repair_output = Path(master_glb).parent / "repaired.glb"
                 try:
@@ -999,7 +999,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
 
             # Stage 4: PBR Map Baking (Normal, AO, Roughness, Metallic)
             # Requires: high-poly source + low-poly UV-mapped game_ready.glb
-            if _POST_PROCESSING_AVAILABLE and getattr(req, 'generate_pbr', True):
+            if _POST_PROCESSING_AVAILABLE and meta.get('generate_pbr', True):
                 game_ready_glb = model_output_dir(job_id) / "game_ready.glb"
                 source_glb_for_bake = Path(source_glb_path) if Path(source_glb_path).exists() else None
                 if game_ready_glb.exists() and source_glb_for_bake:
@@ -1011,7 +1011,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                             highpoly_path=str(source_glb_for_bake),
                             lowpoly_path=str(game_ready_glb),
                             output_dir=str(pbr_out_dir),
-                            resolution=getattr(req, 'pbr_resolution', '2k'),
+                            resolution=meta.get('pbr_resolution', '2k'),
                             job_id=job_id,
                         )
                         pipeline_stages.append({"stage": "pbr_baking", **pbr_result})
@@ -1029,7 +1029,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
 
             # Stage 5: gltf-transform compression
 
-            if _POST_PROCESSING_AVAILABLE and getattr(req, 'compress_output', True):
+            if _POST_PROCESSING_AVAILABLE and meta.get('compress_output', True):
                 try:
                     game_ready_glb = model_output_dir(job_id) / "game_ready.glb"
                     if game_ready_glb.exists():
@@ -1163,7 +1163,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             }
 
             # Stage 6: Async package worker
-            if _POST_PROCESSING_AVAILABLE and getattr(req, 'prepackage_export', False):
+            if _POST_PROCESSING_AVAILABLE and meta.get('prepackage_export', False):
                 try:
                     artifacts = {}
                     storage_root = Path(settings.storage_local_path)
@@ -1176,9 +1176,9 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                     export_spec = {
                         "job_id": job_id,
                         "variant": "game_ready",
-                        "include_lods": getattr(req, 'include_lods_in_package', True),
-                        "include_collision": getattr(req, 'include_collision_in_package', True),
-                        "include_qa": getattr(req, 'include_qa_in_package', True),
+                        "include_lods": meta.get('include_lods_in_package', True),
+                        "include_collision": meta.get('include_collision_in_package', True),
+                        "include_qa": meta.get('include_qa_in_package', True),
                     }
                     # Dispatch as a separate Celery task to avoid blocking
                     package_export_bundle.apply_async(

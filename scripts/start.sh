@@ -572,6 +572,7 @@ if [[ -z "${DISPLAY:-}" ]] && command -v Xvfb &>/dev/null; then
     export DISPLAY=:99
     log "Xvfb virtual display active on $DISPLAY"
 fi
+export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}"
 
 # ── Step 5: Start Celery Worker ────────────────────────────────────────────
 step "5/6 Starting Celery Worker..."
