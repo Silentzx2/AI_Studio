@@ -1,5 +1,16 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.43] - 2026-09-12
+### Fixed
+- **Tool Panel Position & Duplication Removal**:
+  - Restored active Tool Panels (`GeneratePanel`, `TexturePanel`, `RemeshPanel`, `SecondaryPanel`) strictly to the LEFT floating drawer (`context-tool-panel-container`).
+  - Removed duplicate `renderActiveToolPanel` and the redundant `Controls` tab from `RightWorkspacePanel.tsx`.
+  - Right panel is now strictly dedicated to the Inspector (`RightPropertyPanel`), Asset Library (`RightAssetsPanel`), and Live Execution Pipeline (`LiveExecutionPanel`).
+  - Updated `navigateToTool` in `WorkspaceContext.tsx` to ensure `isLeftPanelOpen: true` is triggered when selecting tools from the navigation rail, without overwriting the right inspector state.
+- **Agent Browser Verification**:
+  - Installed and configured `agent-browser` (v0.27.0) with automated permission and XDG runtime handling.
+  - Verified UI layout, tool navigation (Model, Poly, Texture), asset library, and properties inspector using automated snapshots and screenshots.
+
 ## [v5.0.42] - 2026-09-12
 ### Added
 - **Professional 3-Region Workspace Architecture (UX Overhaul)**:

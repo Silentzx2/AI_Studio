@@ -19,9 +19,6 @@ const GeneratePanel = dynamic(() => import('./Panels/GeneratePanel').then(mod =>
 const RemeshPanel = dynamic(() => import('./Panels/RemeshPanel').then(mod => mod.RemeshPanel), { ssr: false });
 const SecondaryPanel = dynamic(() => import('./Panels/SecondaryPanels').then(mod => mod.SecondaryPanel), { ssr: false });
 
-const RightAssetsPanel = dynamic(() => import('./RightPanel/RightAssetsPanel').then(mod => mod.RightAssetsPanel), { ssr: false });
-const RightPropertyPanel = dynamic(() => import('./RightPanel/RightPropertyPanel').then(mod => mod.RightPropertyPanel), { ssr: false });
-const RightPromptPanel = dynamic(() => import('./RightPanel/RightPromptPanel').then(mod => mod.RightPromptPanel), { ssr: false });
 const RightWorkspacePanel = dynamic(() => import('./RightPanel/RightWorkspacePanel').then(mod => mod.RightWorkspacePanel), { ssr: false });
 
 const OutputsPage = dynamic(() => import('./Dashboard/OutputsPage').then(mod => mod.OutputsPage), { ssr: false });
