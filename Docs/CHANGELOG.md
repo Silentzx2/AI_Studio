@@ -1,6 +1,24 @@
 # AI 3D Studio — Changelog
 
-## [v5.0.40] - 2026-09-12
+## [v5.0.41] - 2026-09-12
+### Added
+- **Workspace Zero-Scroll Tabbed Architecture Across All Panels**:
+  - Eliminated tall vertical scrolling across all workspace tool panels by introducing segmented, compact tabbed views where primary actions and essential toggles fit on screen simultaneously.
+  - **`GeneratePanel.tsx` (4-tab system: `Create`, `Mesh`, `Engine`, `Settings`)**:
+    - Primary `Create` view displays compact dropzone, prompt input with AI enhance, AI model selector, and essential quick toggles (**PBR Texture** and **Low VRAM Mode**), with direct jump pills to other tabs and a sticky `GENERATE 3D MODEL` button.
+    - `Mesh` tab hosts polycount recommendation banners, decimation presets (10k, 30k, 75k, Raw), target polycount slider, and UV/normal repair.
+    - `Engine` tab manages game-ready engine platforms (Mobile, Low, Mid, High, Cine), LOD cascades, collision hulls, and pipeline execution flow.
+    - `Settings` tab houses seed generation with randomizer 🎲, CFG slider, background removal, multi-part generation, and asset privacy.
+  - **`TexturePanel.tsx` (3-tab system: `Texture`, `Maps`, `Settings`)**:
+    - Primary `Texture` view features compact target mesh indicator, AI/Manual mode switch, AI texture model selector, essential **Low VRAM Mode** toggle, 4-style chips (Realistic, Game, Stylized, Anime), prompt guidance, and sticky `GENERATE TEXTURE` button.
+    - `Maps` tab organizes PBR workflow switch (`Texture` vs `PBR`), resolution presets (`1K`, `2K`, `4K`, `8K`), and 6 discrete map channels (Albedo, Normal, Roughness, Metallic, AO, Height).
+    - `Settings` tab contains reference image dropzone with upload progress bar and model weights cache management.
+  - **`RemeshPanel.tsx` (2-tab system: `Poly Budget`, `Topology & Shape`)**:
+    - Primary `Poly Budget` view provides compact mesh selector, Auto/Manual remesh switch, polycount presets (Low 12K, Mid 28K, High 50K, Custom), interactive slider (5k-100k tris), and sticky `OPTIMIZE & REMESH` button.
+    - `Topology & Shape` tab houses feature constraints (Shape, Sharp Edges, UVs), precision sliders (Detail Preservation, Boundary Protection, Voxel Size), and remesh algorithm metadata.
+### Fixed
+- **Tag Balance in GeneratePanel**: Fixed unclosed/extraneous div tags in the create tab that caused Turbopack compilation error.
+- **Immediate Action Visibility**: All workspace action buttons (`GENERATE 3D MODEL`, `GENERATE TEXTURE`, `OPTIMIZE & REMESH`) are now immediately reachable without scrolling.
 ### Added
 - **Segmented 3-Tab Architecture for GeneratePanel**: Reorganized `GeneratePanel.tsx` into clean, focused tabs (`Create`, `Mesh`, `Engine`) inspired by Tripo AI and Meshy AI studio layouts.
   - **Create Tab**: Streamlined creation flow with Image/Text mode switches, responsive dropzone, AI prompt enhance, model engine selector, and PBR texture synthesis toggle.
