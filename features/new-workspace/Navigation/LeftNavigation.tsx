@@ -101,7 +101,7 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
             icon={<Settings className="w-4 h-4" />}
             label="Settings"
             active={false}
-            onClick={() => { router.push('/settings'); onToolSelect?.(); }}
+            onClick={() => { router.push('/admin?tab=settings'); onToolSelect?.(); }}
           />
         </div>
       </nav>
@@ -217,10 +217,10 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
 
       {/* Bottom Settings */}
       <div className="flex flex-col items-center w-full px-1.5 py-2 border-t border-white/[0.08] flex-shrink-0">
-        <SimpleTooltip side="right" label="Workspace Settings">
+        <SimpleTooltip side="right" label="Admin & Settings">
           <button
             id="tool-btn-settings"
-            onClick={() => router.push('/settings')}
+            onClick={() => router.push('/admin?tab=settings')}
             className="group w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl text-zinc-400 hover:text-white hover:bg-[#15161A] transition-all duration-150 active:scale-95 cursor-pointer flex-shrink-0"
           >
             <Settings className="w-5 h-5 mb-1 flex-shrink-0 transition-transform group-hover:rotate-45" />

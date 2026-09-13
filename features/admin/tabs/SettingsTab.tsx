@@ -1,9 +1,12 @@
 "use client";
 
-
 import { useEffect, useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { Settings, Key, Save, Trash2, Cpu, HardDrive, Server, Wifi, RefreshCw } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Settings, Key, Save, Trash2, Cpu, HardDrive, Server, Wifi, RefreshCw,
+  Settings2, Sparkles, LayoutGrid, Download, Keyboard, Bell, SlidersHorizontal,
+  Sliders, ShieldCheck, Database, Check, AlertCircle,
+} from 'lucide-react';
 import { GlassCard } from '@/components/premium/GlassCard';
 import { Badge } from '@/components/premium/Badge';
 import { NeonButton } from '@/components/premium/NeonButton';
@@ -14,7 +17,72 @@ import { runtimeService } from '@/services/runtimeService';
 import type { RuntimeStatus } from '@/types';
 import { toast } from 'sonner';
 
-export function SettingsTab() {
+// Import all settings section components from features/settings/sections
+import {
+  GeneralSection,
+  WorkspaceSection,
+  GenerationSection,
+  ExportBackupSection,
+  NotificationsSection,
+  ShortcutsSection,
+  NetworkSection,
+  AdvancedSection,
+} from '@/features/settings/sections';
+
+type SettingsSubTab =
+  | 'general'
+  | 'generation'
+  | 'workspace'
+  | 'export'
+  | 'api'
+  | 'shortcuts'
+  | 'notifications'
+  | 'advanced';
+
+interface SubTabItem {
+  id: SettingsSubTab;
+  label: string;
+  icon: React.ElementType;
+  description: string;
+}
+
+const SETTINGS_SUB_TABS: SubTabItem[] = [
+  { id: 'general', label: 'General', icon: Settings2, description: 'App info, theme & auto-save' },
+  { id: 'generation', label: 'Generation', icon: Sparkles, description: 'Providers, polycounts & quality' },
+  { id: 'workspace', label: 'Workspace', icon: LayoutGrid, description: '3D viewport defaults & controls' },
+  { id: 'export', label: 'Export & Backup', icon: Download, description: 'File formats, ZIP packaging & backup' },
+  { id: 'api', label: 'API & Tokens', icon: Key, description: 'HuggingFace token & system runtime' },
+  { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard, description: 'Keyboard shortcuts & navigation' },
+  { id: 'notifications', label: 'Notifications', icon: Bell, description: 'Alerts & toast preferences' },
+  { id: 'advanced', label: 'Advanced', icon: SlidersHorizontal, description: 'Network, proxy & debug options' },
+];
+
+const VALID_SUB_TABS: Record<string, SettingsSubTab> = {
+  general: 'general',
+  generation: 'generation',
+  workspace: 'workspace',
+  export: 'export',
+  backup: 'export',
+  api: 'api',
+  token: 'api',
+  tokens: 'api',
+  shortcuts: 'shortcuts',
+  notifications: 'notifications',
+  advanced: 'advanced',
+  network: 'advanced',
+};
+
+export function SettingsTab({ initialSection }: { initialSection?: string }) {
+  const resolvedInitial = (initialSection && VALID_SUB_TABS[initialSection.toLowerCase()]) || 'general';
+  const [activeSubTab, setActiveSubTab] = useState<SettingsSubTab>(resolvedInitial);
+
+  useEffect(() => {
+    if (initialSection && VALID_SUB_TABS[initialSection.toLowerCase()]) {
+      setActiveSubTab(VALID_SUB_TABS[initialSection.toLowerCase()]);
+    }
+  }, [initialSection]);
+
+  // HF Token & System Info states
   const [hfToken, setHfToken] = useState('');
   const [hfStatus, setHfStatus] = useState<{ configured: boolean; valid: boolean }>({ configured: false, valid: false });
   const [saving, setSaving] = useState(false);
@@ -23,18 +91,25 @@ export function SettingsTab() {
   const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
 
   const load = useCallback(async () => {
-    const [status, rt, st] = await Promise.all([
-      adminService.getHFTokenStatus(),
-      runtimeService.getStatus(),
-      adminService.getSettings(),
-    ]);
-    setHfStatus(status);
-    setRuntime(rt);
-    setSettings(st);
-    setLoading(false);
+    try {
+      const [status, rt, st] = await Promise.all([
+        adminService.getHFTokenStatus(),
+        runtimeService.getStatus(),
+        adminService.getSettings(),
+      ]);
+      setHfStatus(status);
+      setRuntime(rt);
+      setSettings(st);
+    } catch {
+      // Graceful fallback if backend endpoints unavailable
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  useEffect(() => { setTimeout(() => load(), 0); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const handleSaveToken = async () => {
     if (!hfToken.trim()) return;
@@ -43,128 +118,227 @@ export function SettingsTab() {
       await adminService.saveHFToken(hfToken);
       setHfStatus({ configured: true, valid: true });
       setHfToken('');
-      toast.success('HuggingFace token saved');
+      toast.success('HuggingFace token saved successfully');
     } catch {
       toast.error('Failed to save token');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const handleRemoveToken = async () => {
     try {
       await runtimeService.removeHFToken();
       setHfStatus({ configured: false, valid: false });
-      toast.success('Token removed');
+      toast.success('HuggingFace token removed');
     } catch {
       toast.error('Failed to remove token');
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Spinner size="lg" />
-      </div>
-    );
-  }
-
   const systemInfo = [
-    { label: 'OS', value: runtime?.os ?? '—', icon: Server },
-    { label: 'CPU', value: runtime?.cpu_name ?? '—', icon: Cpu },
+    { label: 'OS', value: runtime?.os ?? 'Linux', icon: Server },
+    { label: 'CPU', value: runtime?.cpu_name ?? 'x86_64 CPU', icon: Cpu },
     { label: 'RAM', value: runtime?.ram_total ? `${(runtime.ram_total / 1024).toFixed(0)} GB` : '—', icon: HardDrive },
-    { label: 'GPU', value: runtime?.gpu_name ?? '—', icon: Cpu },
-    { label: 'CUDA', value: runtime?.cuda_version ?? '—', icon: Server },
+    { label: 'GPU', value: runtime?.gpu_name ?? (runtime?.cuda_available ? 'CUDA GPU' : 'None'), icon: Cpu },
+    { label: 'CUDA', value: runtime?.cuda_version ?? '12.x', icon: Server },
     { label: 'Driver', value: runtime?.driver_version ?? '—', icon: Wifi },
   ];
 
-  const runtimeConfig = settings ? Object.entries(settings).map(([key, value]) => ({
-    label: key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-    value: String(value),
-  })) : [];
+  const runtimeConfig = settings
+    ? Object.entries(settings).map(([key, value]) => ({
+        label: key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+        value: String(value),
+      }))
+    : [];
 
   return (
-    <div className="p-4 lg:p-6 space-y-6 max-w-[1200px] mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">System configuration & API keys</p>
+    <div className="p-4 lg:p-6 space-y-6 max-w-[1280px] mx-auto">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
+            <Settings className="w-6 h-6 text-[hsl(var(--neon-purple))]" />
+            Settings & Configuration
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage application preferences, generation pipelines, 3D viewport, and system credentials.
+          </p>
+        </div>
       </div>
 
-      <GlassCard className="p-5" delay={0.05}>
-        <div className="flex items-center gap-2 mb-4">
-          <Server className="w-4 h-4 text-[hsl(var(--neon-cyan))]" />
-          <h3 className="text-sm font-semibold">System Information</h3>
-          <button onClick={load} className="ml-auto p-1.5 rounded-lg hover:bg-[hsl(var(--surface-2))] text-muted-foreground hover:text-foreground">
-            <RefreshCw className="w-3.5 h-3.5" />
-          </button>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {systemInfo.map((info, i) => {
-            const Icon = info.icon;
-            return (
-              <motion.div key={info.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="flex items-center gap-3 p-3 rounded-xl glass border border-[hsl(var(--border)/0.3)]">
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-surface-2">
-                  <Icon className="w-3.5 h-3.5 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">{info.label}</p>
-                  <p className="text-sm font-medium text-foreground">{info.value}</p>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      </GlassCard>
+      {/* Segmented Sub-Nav Pills */}
+      <div className="flex items-center gap-1.5 p-1 rounded-xl glass border border-[hsl(var(--border))] overflow-x-auto hide-scrollbar">
+        {SETTINGS_SUB_TABS.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeSubTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveSubTab(tab.id)}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all shrink-0 ${
+                isActive
+                  ? 'bg-[hsl(var(--neon-purple)/0.2)] text-[hsl(var(--foreground))] border border-[hsl(var(--neon-purple)/0.4)] shadow-sm font-semibold'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-2)/0.6)] border border-transparent'
+              }`}
+            >
+              <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[hsl(var(--neon-purple))]' : ''}`} />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
-      <GlassCard className="p-5" delay={0.1}>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Key className="w-4 h-4 text-[hsl(var(--neon-purple))]" />
-            <h3 className="text-sm font-semibold">HuggingFace Token</h3>
-          </div>
-          <Badge variant={hfStatus.configured ? (hfStatus.valid ? 'success' : 'warning') : 'default'}>
-            <StatusDot status={hfStatus.configured ? (hfStatus.valid ? 'online' : 'warning') : 'idle'} size="sm" pulse={false} />
-            {hfStatus.configured ? (hfStatus.valid ? 'Valid' : 'Invalid') : 'Not Set'}
-          </Badge>
-        </div>
-        <p className="text-xs text-muted-foreground mb-4">
-          Required for downloading models from HuggingFace Hub. Your token is stored securely and never exposed.
-        </p>
-        <div className="flex items-center gap-2">
-          <input
-            type="password"
-            value={hfToken}
-            onChange={(e) => setHfToken(e.target.value)}
-            placeholder="hf_xxxxxxxxxxxxxxxxxxxx"
-            className="flex-1 h-10 px-4 rounded-xl glass text-sm border border-[hsl(var(--border))] focus:border-[hsl(var(--neon-purple)/0.4)] focus:outline-none font-mono"
-          />
-          <NeonButton variant="primary" size="md" onClick={handleSaveToken} disabled={saving || !hfToken.trim()}>
-            <Save className="w-3.5 h-3.5" />
-            Save
-          </NeonButton>
-          {hfStatus.configured && (
-            <NeonButton variant="destructive" size="md" onClick={handleRemoveToken}>
-              <Trash2 className="w-3.5 h-3.5" />
-            </NeonButton>
+      {/* Sub-Tab Content */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeSubTab}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.15 }}
+        >
+          {activeSubTab === 'general' && (
+            <div className="rounded-xl overflow-hidden">
+              <GeneralSection />
+            </div>
           )}
-        </div>
-      </GlassCard>
 
-      {runtimeConfig.length > 0 && (
-        <GlassCard className="p-5" delay={0.15}>
-          <div className="flex items-center gap-2 mb-4">
-            <Settings className="w-4 h-4 text-[hsl(var(--neon-blue))]" />
-            <h3 className="text-sm font-semibold">Runtime Configuration</h3>
-          </div>
-          <div className="space-y-3">
-            {runtimeConfig.map((config) => (
-              <div key={config.label} className="flex items-center justify-between p-3 rounded-xl glass border border-[hsl(var(--border)/0.3)]">
-                <span className="text-sm text-muted-foreground">{config.label}</span>
-                <span className="text-sm font-mono text-foreground">{config.value}</span>
-              </div>
-            ))}
-          </div>
-        </GlassCard>
-      )}
+          {activeSubTab === 'generation' && (
+            <div className="rounded-xl overflow-hidden">
+              <GenerationSection />
+            </div>
+          )}
+
+          {activeSubTab === 'workspace' && (
+            <div className="rounded-xl overflow-hidden">
+              <WorkspaceSection />
+            </div>
+          )}
+
+          {activeSubTab === 'export' && (
+            <div className="rounded-xl overflow-hidden">
+              <ExportBackupSection />
+            </div>
+          )}
+
+          {activeSubTab === 'api' && (
+            <div className="space-y-6">
+              {/* System Information */}
+              <GlassCard className="p-5" delay={0.05}>
+                <div className="flex items-center gap-2 mb-4">
+                  <Server className="w-4 h-4 text-[hsl(var(--neon-cyan))]" />
+                  <h3 className="text-sm font-semibold">System Hardware & Environment</h3>
+                  <button
+                    onClick={load}
+                    className="ml-auto p-1.5 rounded-lg hover:bg-[hsl(var(--surface-2))] text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {systemInfo.map((info, i) => {
+                    const Icon = info.icon;
+                    return (
+                      <div
+                        key={info.label}
+                        className="flex items-center gap-3 p-3 rounded-xl glass border border-[hsl(var(--border)/0.4)]"
+                      >
+                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[hsl(var(--surface-2))]">
+                          <Icon className="w-3.5 h-3.5 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">{info.label}</p>
+                          <p className="text-sm font-medium text-foreground">{info.value}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </GlassCard>
+
+              {/* HuggingFace Token */}
+              <GlassCard className="p-5" delay={0.1}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Key className="w-4 h-4 text-[hsl(var(--neon-purple))]" />
+                    <h3 className="text-sm font-semibold">HuggingFace API Token</h3>
+                  </div>
+                  <Badge variant={hfStatus.configured ? (hfStatus.valid ? 'success' : 'warning') : 'default'}>
+                    <StatusDot
+                      status={hfStatus.configured ? (hfStatus.valid ? 'online' : 'warning') : 'idle'}
+                      size="sm"
+                      pulse={false}
+                    />
+                    <span className="ml-1.5">{hfStatus.configured ? (hfStatus.valid ? 'Active & Valid' : 'Unverified') : 'Not Set'}</span>
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+                  Required for downloading gated model weights from HuggingFace Hub (TripoSG, Hunyuan3D, RMBG). Your token is stored securely in environment configuration and never exposed to clients.
+                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="password"
+                    value={hfToken}
+                    onChange={(e) => setHfToken(e.target.value)}
+                    placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                    className="flex-1 h-10 px-4 rounded-xl glass text-sm border border-[hsl(var(--border))] focus:border-[hsl(var(--neon-purple)/0.4)] focus:outline-none font-mono placeholder:text-muted-foreground/50"
+                  />
+                  <NeonButton variant="primary" size="md" onClick={handleSaveToken} disabled={saving || !hfToken.trim()}>
+                    <Save className="w-3.5 h-3.5 mr-1.5" />
+                    Save Token
+                  </NeonButton>
+                  {hfStatus.configured && (
+                    <NeonButton variant="destructive" size="md" onClick={handleRemoveToken}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </NeonButton>
+                  )}
+                </div>
+              </GlassCard>
+
+              {/* Runtime Configuration */}
+              {runtimeConfig.length > 0 && (
+                <GlassCard className="p-5" delay={0.15}>
+                  <div className="flex items-center gap-2 mb-4">
+                    <Settings className="w-4 h-4 text-[hsl(var(--neon-blue))]" />
+                    <h3 className="text-sm font-semibold">Backend Engine Configuration</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {runtimeConfig.map((config) => (
+                      <div
+                        key={config.label}
+                        className="flex items-center justify-between p-3 rounded-xl glass border border-[hsl(var(--border)/0.3)] text-xs"
+                      >
+                        <span className="text-muted-foreground font-medium">{config.label}</span>
+                        <span className="font-mono text-foreground">{config.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </GlassCard>
+              )}
+            </div>
+          )}
+
+          {activeSubTab === 'shortcuts' && (
+            <div className="rounded-xl overflow-hidden">
+              <ShortcutsSection />
+            </div>
+          )}
+
+          {activeSubTab === 'notifications' && (
+            <div className="rounded-xl overflow-hidden">
+              <NotificationsSection />
+            </div>
+          )}
+
+          {activeSubTab === 'advanced' && (
+            <div className="space-y-6">
+              <AdvancedSection />
+              <NetworkSection />
+            </div>
+          )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

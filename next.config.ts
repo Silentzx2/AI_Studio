@@ -27,6 +27,30 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: '/setting',
+        destination: '/admin',
+        permanent: false,
+      },
+      {
+        source: '/setting/:path*',
+        destination: '/admin',
+        permanent: false,
+      },
+      {
+        source: '/settings',
+        destination: '/admin',
+        permanent: false,
+      },
+      {
+        source: '/settings/:path*',
+        destination: '/admin',
+        permanent: false,
+      },
+    ];
+  },
   // ponytail: standalone output is ONLY enabled for the Docker packaging path
   // (scripts/package-production.sh, which runs `node .next/standalone/server.js`
   // inside its entrypoint). For the normal runtime — Colab, local start.sh,

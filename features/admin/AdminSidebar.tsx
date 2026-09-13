@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Layers, Package, ListOrdered,
   Cpu, ScrollText, Settings, Activity,
   BriefcaseBusiness, ChevronRight, ExternalLink,
-  Boxes,
+  Boxes, HardDrive,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -16,13 +16,13 @@ const PRIMARY_NAV: { id: AdminTab | null; label: string; icon: React.ElementType
   { id: 'queue', label: 'Queue', icon: ListOrdered },
   { id: 'runtime', label: 'Runtime', icon: Cpu },
   { id: 'logs', label: 'Live Logs', icon: ScrollText },
-  { id: null, label: 'Settings', icon: Settings, href: '/settings' },
+  { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
 const ADMIN_NAV: { id: AdminTab; label: string; icon: React.ElementType }[] = [
   { id: 'health', label: 'Health', icon: Activity },
   { id: 'jobs', label: 'Jobs', icon: BriefcaseBusiness },
-  { id: 'settings', label: 'Config', icon: Settings },
+  { id: 'storage', label: 'Storage', icon: HardDrive },
 ];
 
 export default function AdminSidebar({

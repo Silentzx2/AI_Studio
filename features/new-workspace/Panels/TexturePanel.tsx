@@ -354,7 +354,7 @@ export const TexturePanel: React.FC = () => {
                 <span className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider">AI Texture Model</span>
                 <button
                   type="button"
-                  onClick={() => router.push('/settings?section=models')}
+                  onClick={() => router.push('/admin?tab=models')}
                   className="text-[9px] text-[#F9CF00] hover:underline flex items-center gap-1 font-medium cursor-pointer"
                 >
                   <Package className="w-2.5 h-2.5" />
@@ -799,7 +799,7 @@ export const TexturePanel: React.FC = () => {
               </div>
               <button
                 type="button"
-                onClick={() => router.push('/settings?section=models')}
+                onClick={() => router.push('/admin?tab=models')}
                 className="px-2 py-1 rounded-lg bg-[#F9CF00]/15 hover:bg-[#F9CF00]/25 text-[#F9CF00] font-bold text-[9px] transition-colors cursor-pointer"
               >
                 Manage

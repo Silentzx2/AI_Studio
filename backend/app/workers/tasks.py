@@ -622,6 +622,15 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 except Exception as c_err:
                     logger.warning("Could not preserve source.glb: %s", c_err)
 
+            # Ensure source.glb has reference texture projected if reference image exists
+            if resolved_ref_image and Path(resolved_ref_image).exists() and Path(source_glb_path).exists():
+                try:
+                    from app.core.texture_projection import project_reference_texture
+                    project_reference_texture(source_glb_path, resolved_ref_image, source_glb_path)
+                    logger.info("Projected reference texture onto source.glb for job %s", job_id)
+                except Exception as tp_err:
+                    logger.warning("Could not project reference texture on source.glb: %s", tp_err)
+
             meta = job.processing_metadata or {}
             meta["source_model_url"] = to_url(source_glb_path) if Path(source_glb_path).exists() else to_url(provider_result.model_path)
 
@@ -687,15 +696,19 @@ async def _async_generate(task: Task, job_id: str) -> dict:
 
             if _CLAY_AVAILABLE and not skip_postprocessing:
                 sync_publish(75, "clay_postprocess", f"OpenX Clay: Starting post-processing ({target_polycount:,} tris target, unwrap_uvs={unwrap_uvs})...", "info")
-                t_clay = time.perf_counter()
                 try:
+                    ref_img_local = str(resolved_ref_image) if resolved_ref_image and Path(resolved_ref_image).exists() else None
                     pp_config = PostprocessConfig(
                         target_tris=target_polycount,
                         unwrap_uvs=unwrap_uvs,
                         format="glb",
+                        reference_image=ref_img_local,
                     )
                     pp = PostProcessor(pp_config)
                     raw_asset = Generated3DAsset(path=master_glb, format="glb")
+                    if ref_img_local:
+                        from clay.schemas import Texture as ClayTexture
+                        raw_asset.textures = [ClayTexture(kind="reference_image", path=ref_img_local)]
                     processed_asset = pp.process(raw_asset, out_path=game_ready_path)
                     clay_dur = round((time.perf_counter() - t_clay) * 1000, 1)
 

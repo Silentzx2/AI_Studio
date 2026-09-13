@@ -32,6 +32,8 @@ class PostprocessConfig(BaseModel):
     unwrap_uvs: bool = True    # re-unwrap UVs (xatlas)
     format: str = "glb"        # glb | obj | fbx
     pbr: bool = True           # keep/pack PBR maps
+    reference_image: str | None = None  # reference image for texture projection & normal baking
+
 
 
 class AgentConfig(BaseModel):

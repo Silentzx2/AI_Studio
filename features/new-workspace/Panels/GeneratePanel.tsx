@@ -679,7 +679,7 @@ export const GeneratePanel: React.FC = () => {
               <div className="flex items-center justify-between">
                 <span className="text-xs text-zinc-400 font-semibold uppercase tracking-wider">AI 3D Model Engine</span>
                 <button
-                  onClick={() => router.push('/settings?section=models')}
+                  onClick={() => router.push('/admin?tab=models')}
                   className="text-xs text-[#F9CF00] hover:underline flex items-center gap-1 font-medium cursor-pointer"
                 >
                   <Package className="w-3 h-3" />
@@ -792,7 +792,7 @@ export const GeneratePanel: React.FC = () => {
                     <button
                       onClick={() => {
                         setModelDropdownOpen(false);
-                        router.push('/settings?section=models');
+                        router.push('/admin?tab=models');
                       }}
                       className="w-full py-2 px-2.5 rounded-lg bg-[#141518] hover:bg-[#202125] text-zinc-300 hover:text-[#F9CF00] text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >

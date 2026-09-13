@@ -299,6 +299,16 @@ class TripoSGLocalProvider(BaseProvider):
                     vertices=outputs[0].astype(np.float32),
                     faces=np.ascontiguousarray(outputs[1]),
                 )
+
+            # Apply high-fidelity reference image texture projection & normal mapping
+            if image_path and Path(image_path).exists():
+                try:
+                    from app.core.texture_projection import project_reference_texture
+                    mesh = project_reference_texture(mesh, image_path)
+                    logger.info("Applied reference image texture projection & normal mapping to TripoSG output")
+                except Exception as proj_err:
+                    logger.warning("Texture projection skipped for TripoSG output: %s", proj_err)
+
             mesh.export(glb_path, file_type="glb")
 
             from app.core.mesh_processor import get_mesh_stats

@@ -469,9 +469,9 @@ Open a Google Colab notebook with a GPU runtime (T4, V100, A100, or L4) and run:
 | **Frontend Workspace** | `http://localhost:3000` | 3000 | Interactive generation and 3D viewport |
 | **Backend REST API** | `http://localhost:8000` | 8000 | FastAPI application gateway |
 | **Interactive API Docs** | `http://localhost:8000/docs` | 8000 | Swagger UI with test sandbox |
-| **ReDoc Documentation** | `http://localhost:8000/redoc` | 8000 | Structured OpenAPI reference |
-| **Model Manager** | `http://localhost:3000/settings` | 3000 | Model downloads, venvs, and health |
-| **System Diagnostics** | `http://localhost:3000/settings?section=monitoring` | 3000 | Hardware telemetry and worker logs |
+| **Model Manager** | `http://localhost:3000/admin?tab=models` | 3000 | Model downloads, venvs, and health |
+| **System Diagnostics** | `http://localhost:3000/admin?tab=health` | 3000 | Hardware telemetry and worker logs |
+| **Admin & Settings** | `http://localhost:3000/admin?tab=settings` | 3000 | Full configuration and settings |
 
 ### Manual Development Setup
 
@@ -592,7 +592,7 @@ Accessible via **Settings → AI Models**:
 
 ### Admin & Monitoring Dashboard
 
-Located at `/settings?section=monitoring`:
+Located at `/admin?tab=health`:
 - Real-time GPU telemetry (utilization, VRAM, thermal levels).
 - Celery worker task queues and background worker logs.
 - Interactive terminal for maintenance commands.

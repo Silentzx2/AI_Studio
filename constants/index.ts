@@ -8,5 +8,6 @@ export const ADMIN_NAV_ITEMS = [
   { id: 'jobs', label: 'Jobs', icon: 'Briefcase' },
   { id: 'queue', label: 'Queue', icon: 'ListOrdered' },
   { id: 'health', label: 'Health', icon: 'HeartPulse' },
+  { id: 'storage', label: 'Storage', icon: 'HardDrive' },
   { id: 'settings', label: 'Settings', icon: 'Settings' },
 ];

@@ -1,5 +1,24 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.57] - 2026-09-13
+### Added & Unified Admin Experience
+- **Unified `/admin` Control Center & Deprecated Duplicate `/settings`**:
+  - Deprecated standalone `/settings` and `/setting` pages; replaced with instantaneous automatic client-side and server-side redirects to `/admin` (`app/settings/page.tsx`, `app/setting/page.tsx`, `next.config.ts`).
+  - Added full URL query parameter (`?tab=` and `?section=`) and browser history synchronization in `app/admin/page.tsx`. Incoming links with specific sections (e.g. `?section=models`, `?section=monitoring`, `?section=workspace`) automatically activate the matching tab and sub-section.
+  - Consolidated all settings panels (`General`, `Generation`, `Workspace`, `Export & Backup`, `API & Tokens`, `Shortcuts`, `Notifications`, `Advanced`) into `features/admin/tabs/SettingsTab.tsx`, retaining full functionality for HuggingFace token management, backend hardware telemetry, and workspace preferences.
+  - Surfaced `StorageTab` (`features/admin/tabs/StorageTab.tsx`) directly in Admin navigation with `HardDrive` icon, replacing the duplicate "Config" entry in `AdminSidebar.tsx` and adding `'storage'` to `AdminTab` union and `ADMIN_NAV_ITEMS`.
+  - Removed duplicate route `app/workspace/[tool]` in favor of catch-all `app/workspace/[...tool]`.
+  - Updated all navigation links across `TopHeader.tsx`, `LeftNavigation.tsx`, `TexturePanel.tsx`, `GeneratePanel.tsx`, `WorkspaceContext.tsx`, `ModelDetailsModal.tsx`, and `README.md` to directly target `/admin` and `/admin?tab=...`.
+
+### Fixed & Texture Projection / Detail Restoration
+- **High-Fidelity Texture Projection & Sharp Detail Preservation (`texture_projection.py`, `triposg_local.py`, `hunyuan3d_local.py`, `clay/postprocess.py`, `tasks.py`)**:
+  - Root Cause: Local AI providers (TripoSG, Hunyuan3D-1.0/2.1) output raw marching cubes geometry with uniform dark gray vertex colors `[102, 102, 102, 255]`, causing high-frequency facial details (eyes, teeth, claws, scales, glowing blue dorsal spines) to be completely lost. Previous post-processing decimation and Laplacian smoothing further blurred vertex features.
+  - Created `backend/app/core/texture_projection.py`: Implemented camera-space texture projection with occlusion awareness via z-buffer depth thresholding (`z_cam - depth_buffer < 0.08`) and angle-weighted normal checking (`dot < -0.1`), preventing texture bleeding onto back-facing or occluded polygons.
+  - Generates tangent-space normal maps from 2D reference images using Sobel gradient filters and applies margin inpainting to prevent UV border seams.
+  - Updated `triposg_local.py` and `hunyuan3d_local.py` to project reference textures onto source meshes before GLB export.
+  - Extended OpenX Clay `PostprocessConfig` and `PostProcessor` to accept `reference_image`: decimates to triangle budget (e.g. 45k faces) and projects high-resolution reference texture and tangent normal map onto `game_ready.glb`.
+  - All 49 backend test cases pass cleanly.
+
 ## [v5.0.56] - 2026-09-13
 ### Fixed & Production Hardening
 - **Fixed Open3D C++ SIGSEGV During Post-Processing QA Diagnostics (`open3d_service.py`, `mesh_processor.py`)**:

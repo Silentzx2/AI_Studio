@@ -1047,7 +1047,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (nav === 'dashboard') router.push('/workspace/overview');
     else if (nav === 'assets') router.push('/workspace/assets');
     else if (nav === 'system') router.push('/workspace/system');
-    else if (nav === 'settings') router.push('/settings');
+    else if (nav === 'settings') router.push('/admin?tab=settings');
   }, [router]);
 
   // Split context value into smaller memos to reduce re-render scope.

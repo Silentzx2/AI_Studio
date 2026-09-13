@@ -249,7 +249,7 @@ export function ModelDetailsModal({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => window.open('/settings', '_blank')}
+                          onClick={() => window.open('/admin?tab=logs', '_blank')}
                           className="text-[hsl(var(--foreground))]/60 hover:text-[hsl(var(--foreground))]"
                         >
                           View Logs

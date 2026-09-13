@@ -223,7 +223,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobi
         <SimpleTooltip label="Manage AI 3D Models & Weights" side="bottom">
           <button
             id="btn-header-models"
-            onClick={() => router.push('/settings?section=models')}
+            onClick={() => router.push('/admin?tab=models')}
             className="hidden sm:flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-[#191A1D] border border-white/[0.08] hover:bg-[#25262A] hover:border-white/[0.15] text-[11px] text-zinc-300 transition-all shadow-sm cursor-pointer"
           >
             <Package className="w-3 h-3 text-[#F9CF00]" />
@@ -255,10 +255,10 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobi
         </SimpleTooltip>
 
         {/* Profile Avatar */}
-        <SimpleTooltip label="User & Backend Settings" side="bottom">
+        <SimpleTooltip label="Admin & Settings" side="bottom">
           <div
             id="btn-header-profile"
-            onClick={() => router.push('/settings')}
+            onClick={() => router.push('/admin?tab=settings')}
             className="w-6 h-6 rounded-full bg-[#202125] border border-white/[0.12] flex items-center justify-center text-[10px] font-bold text-[#F9CF00] cursor-pointer hover:border-[#F9CF00] transition-colors overflow-hidden"
           >
             <User className="w-3.5 h-3.5 text-zinc-300" />

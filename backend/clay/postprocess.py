@@ -33,13 +33,30 @@ class PostProcessor:
         import trimesh
 
         mesh = trimesh.load(asset.path, force="mesh")
+        ref_img = getattr(self.config, "reference_image", None)
 
-        if self._is_textured(mesh):
+        if not ref_img and getattr(asset, "textures", None):
+            for t in asset.textures:
+                if t.kind in ("reference_image", "base_color", "diffuse") and t.path and Path(t.path).exists():
+                    ref_img = t.path
+                    break
+
+        if self._is_textured(mesh) and not ref_img:
             final = mesh
         else:
             final = self.decimate(mesh, self.config.target_tris)
-            if self.config.unwrap_uvs:
+            if self.config.unwrap_uvs and not ref_img:
                 final = self.unwrap(final)
+
+        # Apply high-fidelity reference texture projection & tangent normal map if reference image is available
+        if ref_img and Path(ref_img).exists():
+            try:
+                from app.core.texture_projection import project_reference_texture
+                final = project_reference_texture(final, ref_img)
+            except Exception:
+                final.fix_normals()
+        else:
+            final.fix_normals()
 
         fmt = self.config.format
         out = Path(out_path) if out_path else Path(
@@ -53,11 +70,13 @@ class PostProcessor:
 
     @staticmethod
     def _is_textured(mesh) -> bool:
-        """True if the mesh already carries UVs + a real baked texture image.
+        """True if the mesh already carries UVs + a real baked texture image."""
+        try:
+            from app.core.texture_projection import is_real_textured_mesh
+            return is_real_textured_mesh(mesh)
+        except Exception:
+            pass
 
-        Guards against trivial placeholder textures (e.g. a 2×2 default) so we
-        only skip our pipeline when there's a genuine texture to preserve.
-        """
         visual = getattr(mesh, "visual", None)
         uv = getattr(visual, "uv", None)
         if uv is None or len(uv) == 0:
@@ -70,7 +89,9 @@ class PostProcessor:
         """Reduce triangle count to the budget (quadric decimation). No-op if under."""
         if len(mesh.faces) <= target_tris:
             return mesh
-        return mesh.simplify_quadric_decimation(face_count=target_tris)
+        decimated = mesh.simplify_quadric_decimation(face_count=target_tris)
+        decimated.fix_normals()
+        return decimated
 
     def unwrap(self, mesh):
         """Re-unwrap UVs with xatlas for clean, non-overlapping texture space."""
@@ -78,10 +99,14 @@ class PostProcessor:
         import xatlas
 
         vmapping, indices, uvs = xatlas.parametrize(mesh.vertices, mesh.faces)
-        return trimesh.Trimesh(
+        unwrapped = trimesh.Trimesh(
             vertices=mesh.vertices[vmapping], faces=indices,
             visual=trimesh.visual.TextureVisuals(uv=uvs), process=False,
         )
+        if hasattr(mesh.visual, "material") and mesh.visual.material is not None:
+            unwrapped.visual.material = mesh.visual.material
+        unwrapped.fix_normals()
+        return unwrapped
 
     def export(self, mesh, out: Path, fmt: str) -> None:
         """Export to a game format. GLB/OBJ/PLY are native (trimesh); FBX via Blender."""

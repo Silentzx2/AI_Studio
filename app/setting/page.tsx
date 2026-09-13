@@ -1,16 +1,14 @@
 'use client';
 
 /**
- * Unified Settings Redirect
- * /settings is deprecated and unified into /admin.
- * Redirects incoming requests to the appropriate /admin tab and section.
+ * /setting redirect to /admin
  */
 
 import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
-function SettingsRedirectContent() {
+function SettingRedirectContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -18,7 +16,6 @@ function SettingsRedirectContent() {
     const section = searchParams.get('section')?.toLowerCase();
     const tab = searchParams.get('tab')?.toLowerCase();
 
-    // Map section or tab to corresponding /admin target
     let target = '/admin?tab=settings';
 
     if (tab) {
@@ -78,7 +75,7 @@ function SettingsRedirectContent() {
   );
 }
 
-export default function SettingsRedirectPage() {
+export default function SettingPage() {
   return (
     <Suspense
       fallback={
@@ -87,7 +84,7 @@ export default function SettingsRedirectPage() {
         </div>
       }
     >
-      <SettingsRedirectContent />
+      <SettingRedirectContent />
     </Suspense>
   );
 }
