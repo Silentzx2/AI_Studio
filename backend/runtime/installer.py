@@ -1519,6 +1519,11 @@ def _check_disk_space(
     headroom and no cumulative check, so multi-model installs could
     exhaust disk before the last model finished downloading. See Issue 10.
     """
+    # ponytail: in Colab or when explicitly bypassed via env, skip disk space check
+    from runtime.platform_detection import _is_colab
+    if _is_colab() or os.environ.get("DISABLE_DISK_CHECK") == "1":
+        return True, ""
+
     storage = get_storage_config()
     try:
         disk = shutil.disk_usage(storage.third_party_dir)

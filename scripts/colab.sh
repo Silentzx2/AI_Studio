@@ -85,6 +85,7 @@ cd "$PROJECT_ROOT"
 SKIP_START=false
 REPOS_ONLY=false
 WEIGHTS_ONLY=false
+export DISABLE_DISK_CHECK=1
 
 # ── Backend Python version ─────────────────────────────────────────────────
 # The backend is NOT a model — it has no YAML manifest. Its Python version is
@@ -1513,7 +1514,7 @@ try:
         is_model_preparable_for_colab,
         get_colab_incompatibility_reason,
     )
-    from runtime.installer import prepare_runtime, get_install_status
+    from runtime.installer import prepare_runtime, download_model_weights, get_install_status
     from runtime.manifest_loader import REPOS, PROVIDER_METADATA
     from runtime.storage import get_storage_config
 except Exception as exc:
@@ -1678,18 +1679,19 @@ for repo_name in sorted(REPOS.keys()):
     repo_cfg = REPOS.get(repo_name, {})
     providers = repo_cfg.get("providers", [])
     colab_skip_reason = None
-    for prov in providers:
-        if not is_model_preparable_for_colab(prov):
-            colab_skip_reason = get_colab_incompatibility_reason(prov) or (
-                f"Required VRAM: {get_model_vram_required(prov) / 1024:.1f} GB\n"
-                f"Reason: exceeds Colab runtime policy"
-            )
-            break
-    if colab_skip_reason:
-        print(f"  [COLAB] {repo_name}: skipped")
-        for line in colab_skip_reason.split("\n"):
-            print(f"  {line}")
-        continue
+    if not _selected:
+        for prov in providers:
+            if not is_model_preparable_for_colab(prov):
+                colab_skip_reason = get_colab_incompatibility_reason(prov) or (
+                    f"Required VRAM: {get_model_vram_required(prov) / 1024:.1f} GB\n"
+                    f"Reason: exceeds Colab runtime policy"
+                )
+                break
+        if colab_skip_reason:
+            print(f"  [COLAB] {repo_name}: skipped")
+            for line in colab_skip_reason.split("\n"):
+                print(f"  {line}")
+            continue
     repos_to_prepare.append(repo_name)
 
 if not repos_to_prepare:
@@ -1699,14 +1701,24 @@ if not repos_to_prepare:
 repaired = 0
 skipped = 0
 failed = 0
+token = _os.environ.get("HUGGINGFACE_TOKEN") or _os.environ.get("HF_TOKEN")
 
 for repo_name in repos_to_prepare:
     repo_ok, repo_reason = validate_repo(repo_name)
     venv_ok, venv_reason = validate_venv(repo_name)
     deps_ok, deps_missing = validate_deps(repo_name)
+    providers = REPOS.get(repo_name, {}).get("providers", [repo_name])
 
     if repo_ok and venv_ok and deps_ok:
-        print(f"  [SKIP] {repo_name}: runtime OK")
+        print(f"  [OK  ] {repo_name}: runtime already ready")
+        # Ensure weights are downloaded after venv
+        for provider in providers:
+            print(f"    [WEIGHTS] {provider}: checking/downloading weights after venv...")
+            w_res = download_model_weights(provider, hf_token=token)
+            if w_res.get("success"):
+                print(f"      [OK  ] {provider}: weights ready ({w_res.get('action', 'done')})")
+            else:
+                print(f"      [WARN] {provider}: weights issue: {w_res.get('error', 'unknown')}")
         queue_native_build_if_needed(repo_name)
         skipped += 1
         continue
@@ -1714,15 +1726,19 @@ for repo_name in repos_to_prepare:
     # Fresh install: repo doesn't exist yet
     if not repo_ok and repo_reason == "missing":
         print(f"  [INSTALL] {repo_name}: fresh install...")
-        providers = REPOS.get(repo_name, {}).get("providers", [])
         for provider in providers:
-            print(f"    [PREPARE] {provider}: preparing runtime...")
+            print(f"    [PREPARE] {provider}: preparing runtime (venv & deps)...")
             r = prepare_runtime(provider, allow_native_build=False)
             state = r.get("state", "unknown")
-            if state == "runtime_ready":
-                print(f"      [OK  ] {provider}: runtime ready")
-            elif state == "runtime_partial":
-                print(f"      [WARN] {provider}: runtime partial (some deps may be missing)")
+            if state in ("runtime_ready", "runtime_partial"):
+                print(f"      [OK  ] {provider}: venv ready")
+                # Download weights immediately after venv is prepared (disk check bypassed)
+                print(f"      [WEIGHTS] {provider}: downloading weights after venv...")
+                w_res = download_model_weights(provider, hf_token=token)
+                if w_res.get("success"):
+                    print(f"      [OK  ] {provider}: weights ready ({w_res.get('action', 'done')})")
+                else:
+                    print(f"      [WARN] {provider}: weights download issue: {w_res.get('error', 'unknown error')}")
             else:
                 print(f"      [FAIL] {provider}: {r.get('error', 'unknown error')}")
                 failed += 1
@@ -1759,44 +1775,36 @@ for repo_name in repos_to_prepare:
         print(f"    [OK  ] {repo_name} dependencies ready")
 
     print(f"  [OK  ] {repo_name}: repaired")
+    # Download weights right after venv is repaired
+    for provider in providers:
+        print(f"    [WEIGHTS] {provider}: downloading weights after venv...")
+        w_res = download_model_weights(provider, hf_token=token)
+        if w_res.get("success"):
+            print(f"      [OK  ] {provider}: weights ready ({w_res.get('action', 'done')})")
+        else:
+            print(f"      [WARN] {provider}: weights issue: {w_res.get('error', 'unknown')}")
     queue_native_build_if_needed(repo_name)
     repaired += 1
 
-print(f"\nRuntime preparation complete: {repaired} repaired, {skipped} skipped, {failed} failed")
-print("NOTE: Weights are NOT downloaded during runtime preparation.")
-print("      Use the UI 'Download Weights' action or the API /download-weights endpoint.")
+print(f"\nRuntime preparation & weights download complete: {repaired} installed/repaired, {skipped} skipped, {failed} failed")
 PYEOF
     )
 }
 
-# ── Disk space precheck (Colab free-tier disk is limited) ──────────────────
-# ponytail: abort loud-and-early if there isn't enough room for the largest
-# model we might pull, instead of failing mid-download and leaving a half
-# written weights dir. Single call site before any weight download.
+# ── Disk space precheck (Bypassed in Colab per user specification) ────────
 check_disk_space() {
-    local needed_gb=${1:-40}
-    local avail_gb
-    avail_gb=$(df -P --block-size=1G "$PROJECT_ROOT" 2>/dev/null | awk 'NR==2 {print $4}')
-    avail_gb=${avail_gb:-0}
-    if [[ "$avail_gb" -lt "$needed_gb" ]]; then
-        warn "Only ${avail_gb} GB free on disk; at least ${needed_gb} GB recommended before downloading weights."
-        warn "Weight download may fail or fill the disk. Free space or run with --repos-only."
-        return 1
-    fi
-    log "Disk space OK: ${avail_gb} GB free (need ~${needed_gb} GB)"
+    # Disk check completely bypassed in Colab — no disk check gating
     return 0
 }
 
 download_model_weights() {
-    step "Downloading model weights"
+    step "Downloading model weights (verification & catch-up)"
     local PYTHONBIN="${PROJECT_ROOT}/backend/.venv/bin/python"
     [[ -x "$PYTHONBIN" ]] || { err "Backend venv missing — run full bootstrap first"; return 1; }
     if ! "$PYTHONBIN" -c "import yaml" &>/dev/null; then
         info "Installing PyYAML for manifest loading..."
         uv pip install --python "$PYTHONBIN" pyyaml packaging -q 2>>"$PROJECT_ROOT/logs/bootstrap.log" || true
     fi
-    # ponytail: gate on disk before pulling multi-GB weights.
-    check_disk_space 40 || warn "Proceeding despite low disk space — download may fail."
     (
         cd backend
         PYTHONPATH=. "$PYTHONBIN" - << 'PYEOF'
@@ -1808,44 +1816,39 @@ from pathlib import Path
 logging.basicConfig(level=logging.INFO, format="  %(levelname)-5s %(name)s: %(message)s")
 sys.path.insert(0, str(Path(".").resolve()))
 try:
-    from runtime.capability import (
-        get_model_vram_required,
-        get_model_weight_size_gb,
-        is_model_preparable_for_colab,
-        get_colab_incompatibility_reason,
-    )
     from runtime.installer import download_model_weights
-    from runtime.manifest_loader import HF_MODELS
+    from runtime.manifest_loader import HF_MODELS, REPOS
 except Exception as exc:
     print(f"  [FAIL] Could not import runtime modules: {exc}")
     sys.exit(1)
 
 token = os.environ.get("HUGGINGFACE_TOKEN") or os.environ.get("HF_TOKEN")
-# Use user-selected repos if set via interactive prompt, else fall back to default
 _selected = os.environ.get("COLAB_SELECTED_REPOS", "").strip()
-if _selected:
-    _selected_providers = set(_selected.split(","))
-else:
-    _selected_providers = None
+selected_set = {s.lower().strip() for s in _selected.split(",")} if _selected else None
+
+def is_model_selected(key: str) -> bool:
+    if not selected_set:
+        return True
+    k_lower = key.lower()
+    if k_lower in selected_set:
+        return True
+    for r_name, r_cfg in REPOS.items():
+        if r_name.lower() in selected_set:
+            provs = [p.lower() for p in r_cfg.get("providers", [r_name])]
+            if k_lower in provs or r_name.lower() == k_lower:
+                return True
+    return False
+
 for key in sorted(HF_MODELS.keys()):
-        # Skip models not selected by user
-        if _selected_providers is not None and key not in _selected_providers:
-            print(f"  [SKIP] {key}: not selected by user")
-            continue
-        if not is_model_preparable_for_colab(key):
-            reason = get_colab_incompatibility_reason(key) or (
-                f"Required VRAM: {get_model_vram_required(key) / 1024:.1f} GB"
-            )
-            print(f"  [COLAB] {key}: skipped")
-            for line in reason.split("\n"):
-                print(f"  {line}")
-            continue
-        print(f"  [WEIGHTS] {key}: downloading ~{HF_MODELS[key]['size_estimate_gb']}GB ...")
-        r = download_model_weights(key, hf_token=token)
-        if r.get("success"):
-            print(f"    [OK  ] {key}: {r.get('action', 'done')}")
-        else:
-            print(f"    [WARN] {key}: {r.get('error', 'failed')}")
+    if not is_model_selected(key):
+        print(f"  [SKIP] {key}: not selected by user")
+        continue
+    print(f"  [WEIGHTS] {key}: checking/downloading ~{HF_MODELS[key]['size_estimate_gb']}GB (disk check bypassed)...")
+    r = download_model_weights(key, hf_token=token)
+    if r.get("success"):
+        print(f"    [OK  ] {key}: {r.get('action', 'done')}")
+    else:
+        print(f"    [WARN] {key}: {r.get('error', 'failed')}")
 PYEOF
     )
 }

@@ -1,5 +1,15 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.58] - 2026-09-13
+### Added & Colab Runtime Optimization
+- **Auto-Download Model Weights Post-Venv in Colab (`scripts/colab.sh`, `installer.py`)**:
+  - Automatically triggers model weights download immediately after a selected model's virtual environment (venv) and dependencies are installed in `scripts/colab.sh`, removing the previous manual barrier where weights were left un-downloaded.
+  - Enabled automatic weight verification and download for both fresh installations and pre-existing venvs.
+  - Fixed case-insensitive repo-to-provider lookup in `download_model_weights` so that user-selected models (e.g. `TripoSG`, `TRELLIS`, `Hunyuan3D-2mini`, `Hunyuan3D-2.1`) resolve cleanly against manifest weight definitions without being skipped.
+- **Bypassed Disk Space Check in Colab Mode (`installer.py`, `colab.sh`)**:
+  - Bypassed `_check_disk_space()` in `backend/runtime/installer.py` when running in Colab (`_is_colab()`) or when `DISABLE_DISK_CHECK=1` is exported, ensuring installations never fail or block due to conservative host disk headroom estimations.
+  - Neutralized `check_disk_space()` in `scripts/colab.sh` to return `0` unconditionally without warnings or halts.
+
 ## [v5.0.57] - 2026-09-13
 ### Added & Unified Admin Experience
 - **Unified `/admin` Control Center & Deprecated Duplicate `/settings`**:
