@@ -60,10 +60,28 @@ def apply_numpy_bridge() -> None:
         if "ulong" not in _np.__dict__:
             _np.ulong = _np.uint
 
-        # ponytail: Only bridge numpy._core from numpy.core on NumPy 1.x.
-        # On NumPy 2.x, numpy._core is the real native package and numpy.core is a
-        # compatibility forwarder. Overwriting numpy._core with numpy.core on NumPy 2
-        # causes circular import recursion (e.g. defchararray -> numpy._core -> defchararray).
+        _orig_array = _np.array
+        if getattr(_orig_array, "__name__", "") != "_safe_np_array":
+            def _safe_np_array(*args, **kwargs):
+                if "copy" in kwargs and kwargs["copy"] is None:
+                    kwargs["copy"] = False
+                return _orig_array(*args, **kwargs)
+            _safe_np_array._orig = _orig_array
+            _np.array = _safe_np_array
+
+        _orig_asarray = _np.asarray
+        if getattr(_orig_asarray, "__name__", "") != "_safe_np_asarray":
+            def _safe_np_asarray(*args, **kwargs):
+                if "copy" in kwargs:
+                    c = kwargs.pop("copy")
+                    try:
+                        return _orig_asarray(*args, copy=c if c is not None else False, **kwargs)
+                    except TypeError:
+                        return _orig_asarray(*args, **kwargs)
+                return _orig_asarray(*args, **kwargs)
+            _safe_np_asarray._orig = _orig_asarray
+            _np.asarray = _safe_np_asarray
+
         is_np2 = int(_np.__version__.split(".")[0]) >= 2
         if not is_np2 and hasattr(_np, "core"):
             import numpy.core as _core
@@ -129,6 +147,20 @@ _NUMPY_BRIDGE_CODE = (
     "                _mod = getattr(_core, _m, None) or __import__(f'numpy.core.{_m}', fromlist=[_m])\n"
     "                sys.modules[f'numpy._core.{_m}'] = _mod\n"
     "            except Exception: pass\n"
+    "    _oa = _np.array; _oas = _np.asarray\n"
+    "    if getattr(_oa, '__name__', '') != '_s_arr':\n"
+    "        def _s_arr(*a, **kw):\n"
+    "            if 'copy' in kw and kw['copy'] is None: kw['copy'] = False\n"
+    "            return _oa(*a, **kw)\n"
+    "        _np.array = _s_arr\n"
+    "    if getattr(_oas, '__name__', '') != '_s_asarr':\n"
+    "        def _s_asarr(*a, **kw):\n"
+    "            if 'copy' in kw:\n"
+    "                c = kw.pop('copy')\n"
+    "                try: return _oas(*a, copy=c if c is not None else False, **kw)\n"
+    "                except TypeError: return _oas(*a, **kw)\n"
+    "            return _oas(*a, **kw)\n"
+    "        _np.asarray = _s_asarr\n"
     "    import transformers.utils.import_utils as _tiu\n"
     "    if hasattr(_tiu, 'check_torch_load_is_safe'):\n"
     "        _tiu.check_torch_load_is_safe = lambda *a, **kw: None\n"

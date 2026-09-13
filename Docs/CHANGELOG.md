@@ -1,5 +1,13 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.60] - 2026-09-13
+### Fixed & Runtime Compatibility
+- **Resolved `ValueError: NoneType copy mode not allowed` in Texture Projection (`model_env.py`, `texture_projection.py`, `triposg_local.py`)**:
+  - Root Cause: In NumPy 1.26.4 and NumPy 2.x, passing `copy=None` to `np.array()` or `np.asarray()` raises `ValueError: NoneType copy mode not allowed.` Previous version check (`is_np2`) missed NumPy 1.26.4 where `_CopyMode` was backported, causing third-party model libraries and Trimesh texture projection to fail during TripoSG output texturing.
+  - Implemented universal runtime bridge for `np.array` and `np.asarray`: intercepts `copy=None` and transparently normalizes it to `copy=False` with safe `TypeError` fallback across both in-process calls and subprocess environments (`_NUMPY_BRIDGE_CODE`).
+  - Added safe `try ... except` wrapper for `mesh_or_path.copy()` in `texture_projection.py`.
+  - Added explicit `apply_numpy_bridge()` call in `triposg_local.py` before texture projection with `exc_info=True`.
+
 ## [v5.0.59] - 2026-09-13
 ### Added & Generation Preview 360° Volumetric Blueprint
 - **Connected-Border Background Removal in Generation Preview (`ImagePointCloud.ts`)**:

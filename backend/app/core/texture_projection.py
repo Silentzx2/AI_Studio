@@ -17,6 +17,32 @@ import trimesh
 
 logger = logging.getLogger(__name__)
 
+# NumPy compatibility for third-party libraries passing copy=None
+try:
+    _oa = np.array
+    if getattr(_oa, "__name__", "") != "_safe_np_array":
+        def _safe_np_array(*args, **kwargs):
+            if "copy" in kwargs and kwargs["copy"] is None:
+                kwargs["copy"] = False
+            return _oa(*args, **kwargs)
+        _safe_np_array._orig = _oa
+        np.array = _safe_np_array
+
+    _oas = np.asarray
+    if getattr(_oas, "__name__", "") != "_safe_np_asarray":
+        def _safe_np_asarray(*args, **kwargs):
+            if "copy" in kwargs:
+                c = kwargs.pop("copy")
+                try:
+                    return _oas(*args, copy=c if c is not None else False, **kwargs)
+                except TypeError:
+                    return _oas(*args, **kwargs)
+            return _oas(*args, **kwargs)
+        _safe_np_asarray._orig = _oas
+        np.asarray = _safe_np_asarray
+except Exception:
+    pass
+
 
 def is_real_textured_mesh(mesh: trimesh.Trimesh) -> bool:
     """Check if mesh carries real visual texture or custom vertex colors."""
@@ -121,7 +147,10 @@ def project_reference_texture(
     if isinstance(mesh_or_path, (str, Path)):
         mesh = trimesh.load(str(mesh_or_path), force="mesh")
     else:
-        mesh = mesh_or_path.copy()
+        try:
+            mesh = mesh_or_path.copy()
+        except Exception:
+            mesh = mesh_or_path
 
     image_path_str = str(image_path)
     if not os.path.exists(image_path_str):

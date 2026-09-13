@@ -303,11 +303,16 @@ class TripoSGLocalProvider(BaseProvider):
             # Apply high-fidelity reference image texture projection & normal mapping
             if image_path and Path(image_path).exists():
                 try:
+                    try:
+                        from runtime.model_env import apply_numpy_bridge
+                    except ImportError:
+                        from backend.runtime.model_env import apply_numpy_bridge
+                    apply_numpy_bridge()
                     from app.core.texture_projection import project_reference_texture
                     mesh = project_reference_texture(mesh, image_path)
                     logger.info("Applied reference image texture projection & normal mapping to TripoSG output")
                 except Exception as proj_err:
-                    logger.warning("Texture projection skipped for TripoSG output: %s", proj_err)
+                    logger.warning("Texture projection skipped for TripoSG output: %s", proj_err, exc_info=True)
 
             mesh.export(glb_path, file_type="glb")
 
