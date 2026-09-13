@@ -147,6 +147,19 @@ def project_reference_texture(
     img_np = np.array(img)
     alpha = img_np[:, :, 3]
 
+    # Ensure subject has isolated background (remove flat backdrop/wall/floor bleed)
+    if (alpha < 40).mean() < 0.02:
+        try:
+            import rembg
+            logger.info("Reference image is opaque; extracting clean subject silhouette with rembg")
+            img_isolated = rembg.remove(img)
+            img = img_isolated.convert("RGBA")
+            img_np = np.array(img)
+            alpha = img_np[:, :, 3]
+            W, H = img.size
+        except Exception as exc:
+            logger.warning("Automatic rembg isolation skipped/failed: %s", exc)
+
     # Inpaint background margins to eliminate black UV seams
     baked_texture = inpaint_image_background(img)
 

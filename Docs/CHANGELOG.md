@@ -1,5 +1,19 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.59] - 2026-09-13
+### Added & Generation Preview 360° Volumetric Blueprint
+- **Connected-Border Background Removal in Generation Preview (`ImagePointCloud.ts`)**:
+  - Root Cause: Naive corner averaging and single Euclidean distance threshold (`dist > 26`) caused solid, gradient, studio backdrops, vignettes, and shadows to be treated as foreground, creating a flat billboard of background points around the model.
+  - Implemented queue-based perimeter BFS flood-fill and color-difference clustering: accurately isolates 100% of the background (white, gray, studio lighting, vignettes, shadows) with zero latency in the browser canvas.
+  - Handled genuine alpha channels (`alpha >= 50`) and enclosed background spaces (between legs, under armpits) via secondary border-palette confidence matching.
+- **True 360° Volumetric Model Synthesis Preview (`ImagePointCloud.ts`, `MeshViewer.tsx`)**:
+  - Replaced flat paper-thin random slab with true anatomical bilateral/elliptical 3D depth reconstruction (`z = localDepthZ * sqrt(1 - u^2)`).
+  - Multi-run horizontal scanline extraction cleanly isolates separate limbs (left arm, torso, right arm, legs), avoiding artificial geometry bridges.
+  - Dual-layer surface generation: front surface (`+Z`) preserves authentic reference image colors (eyes, teeth, facial expressions, apparel), back surface (`-Z`) renders natural rear curvature with directional lighting, and internal volumetric lattice points fill the core.
+  - Added 3D holographic contour latitude rings (wireframe cross-section loops around the model) and an animated vertical scanning ring (`blueprintScanRing`) for high-tech AI neural synthesis visualization matching Tripo AI / Meshy AI.
+- **Automatic Background Isolation in Backend Texture Projection (`texture_projection.py`)**:
+  - Automatically isolates subject with `rembg.remove()` before UV texture projection if the input reference image is opaque, ensuring backgrounds are never baked onto 3D assets.
+
 ## [v5.0.58] - 2026-09-13
 ### Added & Colab Runtime Optimization
 - **Auto-Download Model Weights Post-Venv in Colab (`scripts/colab.sh`, `installer.py`)**:

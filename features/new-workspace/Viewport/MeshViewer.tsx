@@ -298,7 +298,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const controlsRef = useRef<OrbitControls | null>(null);
   const transformControlsRef = useRef<TransformControls | null>(null);
   const currentMeshGroupRef = useRef<THREE.Group | null>(null);
-  const pointCloudRef = useRef<THREE.Points | null>(null);
+  const pointCloudRef = useRef<THREE.Object3D | null>(null);
   const pointCloudGroupRef = useRef<THREE.Group | null>(null);
   const gridHelperRef = useRef<THREE.GridHelper | null>(null);
   const keyLightRef = useRef<THREE.DirectionalLight | null>(null);
@@ -501,7 +501,12 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
       const pointCloudActive = Boolean(pointCloudGroup && pointCloudGroup.visible && pointCloudGroup.children.length > 0);
       if (pointCloudActive) {
-        pointCloudGroup.rotation.y += delta * 0.25;
+        pointCloudGroup.rotation.y += delta * 0.28;
+        const scanRing = pointCloudGroup.getObjectByName('blueprintScanRing');
+        if (scanRing) {
+          const t = timer.getElapsed();
+          scanRing.position.y = Math.sin(t * 1.6) * 1.1 + 0.25;
+        }
       }
 
       const controlsChanged = controls.update();
@@ -607,7 +612,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         pointCloudRef.current = null;
       }
 
-      let points: THREE.Points;
+      let points: THREE.Object3D;
       if (refImage) {
         try {
           points = await createPointCloudFromImage(refImage);
