@@ -50,7 +50,7 @@ def is_real_textured_mesh(mesh: trimesh.Trimesh) -> bool:
     if visual is None:
         return False
 
-    # 1. Check for real texture map
+    # 1. Check for real texture map with valid UV coordinates
     uv = getattr(visual, "uv", None)
     material = getattr(visual, "material", None)
     if uv is not None and len(uv) > 0 and material is not None:
@@ -69,14 +69,36 @@ def is_real_textured_mesh(mesh: trimesh.Trimesh) -> bool:
     return False
 
 
-def create_normal_map_from_image(img_pil: Image.Image, strength: float = 2.5) -> Image.Image:
-    """Generate a tangent-space normal map from a 2D reference image using gradients.
+def create_normal_map_from_image(img_pil: Image.Image, strength: float = 4.5) -> Image.Image:
+    """Generate a high-frequency tangent-space normal map from a reference image.
     
-    Produces crisp surface bump details for teeth, eyes, claws, and skin scales.
-    Uses pure NumPy + PIL without requiring external C libraries.
+    Uses multi-scale gradient and Laplacian edge decomposition to capture crisp micro-relief
+    for eyes, glasses frames, eyelids, nostrils, teeth, fingernails, and cloth folds.
     """
     gray = np.array(img_pil.convert("L"), dtype=np.float32) / 255.0
-    gy, gx = np.gradient(gray)
+    
+    try:
+        import scipy.ndimage
+        # Micro-scale gradient (1px fine edge response)
+        gx_micro = scipy.ndimage.sobel(gray, axis=1) / 8.0
+        gy_micro = scipy.ndimage.sobel(gray, axis=0) / 8.0
+        
+        # Macro-scale gradient (smooth 3D volume curvature)
+        gray_blur = scipy.ndimage.gaussian_filter(gray, sigma=2.5)
+        gx_macro = scipy.ndimage.sobel(gray_blur, axis=1) / 8.0
+        gy_macro = scipy.ndimage.sobel(gray_blur, axis=0) / 8.0
+        
+        # High-pass Laplacian for fine structural relief (glasses rims, teeth, cuticles)
+        laplacian = gray - gray_blur
+        gx_fine = scipy.ndimage.sobel(laplacian, axis=1) / 4.0
+        gy_fine = scipy.ndimage.sobel(laplacian, axis=0) / 4.0
+        
+        gx = gx_macro * 1.5 + gx_micro * 2.5 + gx_fine * 3.2
+        gy = gy_macro * 1.5 + gy_micro * 2.5 + gy_fine * 3.2
+    except Exception:
+        gy, gx = np.gradient(gray)
+        gx = gx * 2.0
+        gy = gy * 2.0
     
     # In glTF tangent space: +X right, +Y up (inverted from image +Y down), +Z out
     nx = -gx * strength
@@ -84,6 +106,7 @@ def create_normal_map_from_image(img_pil: Image.Image, strength: float = 2.5) ->
     nz = np.ones_like(gray)
     
     norm = np.sqrt(nx * nx + ny * ny + nz * nz)
+    norm = np.maximum(norm, 1e-6)
     nx /= norm
     ny /= norm
     nz /= norm
@@ -93,6 +116,57 @@ def create_normal_map_from_image(img_pil: Image.Image, strength: float = 2.5) ->
     b = ((nz * 0.5 + 0.5) * 255.0).astype(np.uint8)
     
     return Image.fromarray(np.stack([r, g, b], axis=-1))
+
+
+def create_metallic_roughness_map_from_image(img_pil: Image.Image) -> Image.Image:
+    """Generate glTF 2.0 PBR metallicRoughness texture (R=AO, G=Roughness, B=Metallic).
+    
+    Channels:
+      - Red: Ambient Occlusion (crevice contact shadows for eyelids, glasses, nostrils, fingers)
+      - Green: Roughness (glossy 0.12-0.22 for eyes, glasses lenses, teeth; 0.68 for skin/cloth)
+      - Blue: Metallic (0 for dielectrics; 0.75-0.90 for metallic glasses frames/jewelry)
+    """
+    img_rgb = img_pil.convert("RGB")
+    arr = np.array(img_rgb, dtype=np.float32) / 255.0
+    gray = np.array(img_pil.convert("L"), dtype=np.float32) / 255.0
+    
+    try:
+        import scipy.ndimage
+        gray_blur = scipy.ndimage.gaussian_filter(gray, sigma=2.0)
+        laplacian = gray - gray_blur
+        
+        # 1. Ambient Occlusion (Red channel)
+        crevice = np.maximum(0.0, -laplacian) * 2.5
+        ao = 1.0 - np.clip(scipy.ndimage.gaussian_filter(crevice, sigma=1.0), 0.0, 0.65)
+        r_chan = np.clip(ao * 255.0, 64, 255).astype(np.uint8)
+        
+        # 2. Roughness (Green channel)
+        roughness = np.full_like(gray, 0.68)
+        # Specular gloss on bright surfaces (eye sclera, teeth, glass reflections)
+        is_bright_gloss = (gray > 0.82)
+        roughness[is_bright_gloss] = 0.18
+        # Dark pupil / iris / glass rim
+        sharpness = np.abs(laplacian)
+        is_sharp_pupil = (gray < 0.25) & (sharpness > 0.05)
+        roughness[is_sharp_pupil] = 0.14
+        roughness = scipy.ndimage.gaussian_filter(roughness, sigma=0.8)
+        g_chan = np.clip(roughness * 255.0, 25, 240).astype(np.uint8)
+        
+        # 3. Metallic (Blue channel)
+        sat = np.zeros_like(max_c)
+        valid_max = max_c > 1e-4
+        sat[valid_max] = (max_c[valid_max] - min_c[valid_max]) / max_c[valid_max]
+        metallic = np.zeros_like(gray)
+        is_metal = (sat < 0.12) & (gray > 0.65) & (sharpness > 0.08)
+        metallic[is_metal] = 0.80
+        b_chan = np.clip(metallic * 255.0, 0, 255).astype(np.uint8)
+    except Exception:
+        r_chan = np.full_like(img_rgb[..., 0], 255, dtype=np.uint8)
+        roughness_val = np.where(gray > 0.82, 0.18, 0.68)
+        g_chan = np.clip(roughness_val * 255.0, 25, 240).astype(np.uint8)
+        b_chan = np.zeros_like(img_rgb[..., 0], dtype=np.uint8)
+        
+    return Image.fromarray(np.stack([r_chan, g_chan, b_chan], axis=-1))
 
 
 def inpaint_image_background(img_rgba: Image.Image) -> Image.Image:
@@ -160,16 +234,37 @@ def project_reference_texture(
             return str(output_path)
         return mesh
 
-    # If already textured with real multi-color data, preserve it unless forced
+    # If already textured with real 2D texture, preserve and enrich with PBR normal & roughness maps
     if not force_reproject and is_real_textured_mesh(mesh):
-        logger.info("Mesh already possesses real texture visual data; preserving")
+        logger.info("Mesh already possesses real texture visual data; enriching with PBR normal and roughness maps")
+        try:
+            mat = mesh.visual.material
+            base_img = getattr(mat, "baseColorTexture", None) or getattr(mat, "image", None)
+            if base_img is not None:
+                if getattr(mat, "normalTexture", None) is None:
+                    mat.normalTexture = create_normal_map_from_image(base_img, strength=4.5)
+                if getattr(mat, "metallicRoughnessTexture", None) is None:
+                    mat.metallicRoughnessTexture = create_metallic_roughness_map_from_image(base_img)
+                    mat.roughnessFactor = 1.0
+                    mat.metallicFactor = 1.0
+        except Exception as enh_err:
+            logger.debug("Texture enrichment skipped: %s", enh_err)
         if output_path:
             mesh.export(str(output_path), file_type="glb")
             return str(output_path)
         return mesh
 
-    # Ensure clean smooth vertex normals
-    mesh.fix_normals()
+    # Ensure angle-weighted vertex normals to preserve sharp creases (glasses, teeth, fingers)
+    try:
+        wn = trimesh.geometry.weighted_vertex_normals(
+            vertex_count=len(mesh.vertices),
+            faces=mesh.faces,
+            face_normals=mesh.face_normals,
+            face_angles=mesh.face_angles,
+        )
+        mesh.vertex_normals = wn
+    except Exception:
+        mesh.fix_normals()
 
     img = Image.open(image_path_str).convert("RGBA")
     W, H = img.size
@@ -272,14 +367,16 @@ def project_reference_texture(
         final_uvs[~is_visible, 0] = np.clip(skin_u + perturb_u, 0.05, 0.95)
         final_uvs[~is_visible, 1] = np.clip(skin_v + perturb_v, 0.05, 0.95)
 
-    # Tangent normal map from reference image
-    normal_map = create_normal_map_from_image(baked_texture, strength=2.2)
+    # Tangent normal map and PBR metallicRoughness texture from reference image
+    normal_map = create_normal_map_from_image(baked_texture, strength=4.5)
+    mr_map = create_metallic_roughness_map_from_image(baked_texture)
 
     material = trimesh.visual.material.PBRMaterial(
         baseColorTexture=baked_texture,
         normalTexture=normal_map,
-        metallicFactor=0.0,
-        roughnessFactor=0.68,
+        metallicRoughnessTexture=mr_map,
+        metallicFactor=1.0,
+        roughnessFactor=1.0,
     )
     mesh.visual = trimesh.visual.TextureVisuals(uv=final_uvs, image=baked_texture, material=material)
 

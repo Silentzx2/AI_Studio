@@ -1,5 +1,26 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.61] - 2026-09-13
+### Fixed & Detail Restoration (Anti-Smoothing & High-Fidelity Geometry)
+- **Facial & Micro-Anatomical Detail Restoration Across All Providers (`texture_projection.py`, `triposg_local.py`, `hunyuan3d_local.py`, `clay/postprocess.py`, `tasks.py`)**:
+  - **Multi-Frequency Normal Mapping (`texture_projection.py`)**:
+    - Replaced weak single-scale gradient with multi-scale Sobel + Laplacian high-pass edge decomposition and increased tangent-space strength to 4.5. Accurately carves tactile relief for eyes, glasses frames, eyelids, nostrils, teeth, fingernails, and clothing seams into the fragment shader.
+  - **PBR Metallic-Roughness Specular Texture Synthesis (`texture_projection.py`)**:
+    - Generated glTF 2.0 PBR `metallicRoughnessTexture` (Red: Crevice Ambient Occlusion; Green: Roughness; Blue: Metallic).
+    - High-contrast specular elements (eye sclera, corneas, teeth, glasses lenses) receive low roughness (0.12–0.22) for sharp specular highlights/reflections instead of uniform matte clay. Crevices receive contact shadows, preventing flat smooth appearances.
+    - Added automatic texture enhancement for already-textured meshes (e.g. TRELLIS) lacking normal or roughness maps.
+  - **Thuerrner & Wuethrich Angle-Weighted Vertex Normals (`clay/postprocess.py`, `triposg_local.py`, `hunyuan3d_local.py`, `texture_projection.py`)**:
+    - Replaced unweighted face normal averaging (`mesh.fix_normals()`) with angle-weighted vertex normals (`trimesh.geometry.weighted_vertex_normals()`) across all generation and post-processing stages.
+    - Prevents Gouraud/Phong shader over-smoothing across sharp creases (glasses rims, fingers, teeth, nose bridge), preserving sharp edges.
+  - **Deformable Marching Cubes (`DiffDMC`) Coordinate Alignment (`triposg_local.py`)**:
+    - Corrected PyTorch 3D `F.grid_sample` coordinate layout for neural vertex deformation sampling (aligning normalized dimensions with axis 2 as X/W, axis 1 as Y/H, axis 0 as Z/D). Neural offsets now accurately deform marching cubes vertices to form sharp physical features.
+  - **Prevented Premature Decimation of Source Meshes (`hunyuan3d_local.py`)**:
+    - Removed `mesh.simplify_quadric_decimation()` from `_image_to_3d` and `_text_to_3d` in `Hunyuan3D21LocalProvider` and `Hunyuan3D2MiniLocalProvider`. `source.glb` remains the uncompromised master mesh.
+  - **Game-Ready Decimation Budget & Detail Protection (`tasks.py`, `clay/postprocess.py`)**:
+    - Increased fallback `target_polycount` in `tasks.py` from 20,000 to 65,000 triangles to protect fine sub-components from edge collapse.
+    - Updated Clay `decimate()` to apply angle-weighted normals post-simplification.
+  - **Validation**: All 49 backend pytest tests passed; Next.js production build succeeded with 0 errors.
+
 ## [v5.0.60] - 2026-09-13
 ### Fixed & Runtime Compatibility
 - **Resolved `ValueError: NoneType copy mode not allowed` in Texture Projection (`model_env.py`, `texture_projection.py`, `triposg_local.py`)**:

@@ -54,9 +54,9 @@ class PostProcessor:
                 from app.core.texture_projection import project_reference_texture
                 final = project_reference_texture(final, ref_img)
             except Exception:
-                final.fix_normals()
+                self._apply_angle_weighted_normals(final)
         else:
-            final.fix_normals()
+            self._apply_angle_weighted_normals(final)
 
         fmt = self.config.format
         out = Path(out_path) if out_path else Path(
@@ -83,14 +83,29 @@ class PostProcessor:
             return False
         material = getattr(visual, "material", None)
         image = getattr(material, "baseColorTexture", None) if material else None
-        return image is not None and min(image.size) >= 16
+        return image is not None and min(image.size) >= 64
+
+    @staticmethod
+    def _apply_angle_weighted_normals(mesh) -> None:
+        """Apply Thuerrner & Wuethrich angle-weighted vertex normals to preserve sharp creases."""
+        try:
+            import trimesh
+            wn = trimesh.geometry.weighted_vertex_normals(
+                vertex_count=len(mesh.vertices),
+                faces=mesh.faces,
+                face_normals=mesh.face_normals,
+                face_angles=mesh.face_angles,
+            )
+            mesh.vertex_normals = wn
+        except Exception:
+            mesh.fix_normals()
 
     def decimate(self, mesh, target_tris: int):
-        """Reduce triangle count to the budget (quadric decimation). No-op if under."""
+        """Reduce triangle count to the budget. Preserves edge boundaries and sharp features."""
         if len(mesh.faces) <= target_tris:
             return mesh
         decimated = mesh.simplify_quadric_decimation(face_count=target_tris)
-        decimated.fix_normals()
+        self._apply_angle_weighted_normals(decimated)
         return decimated
 
     def unwrap(self, mesh):
@@ -105,7 +120,7 @@ class PostProcessor:
         )
         if hasattr(mesh.visual, "material") and mesh.visual.material is not None:
             unwrapped.visual.material = mesh.visual.material
-        unwrapped.fix_normals()
+        self._apply_angle_weighted_normals(unwrapped)
         return unwrapped
 
     def export(self, mesh, out: Path, fmt: str) -> None:

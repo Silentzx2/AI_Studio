@@ -54,10 +54,43 @@ def _ensure_diso_compatibility() -> None:
             except Exception:
                 import trimesh
                 verts, faces = trimesh.voxel.ops.marching_cubes(arr > 0)
+            verts_c = np.ascontiguousarray(verts)
+            faces_c = np.ascontiguousarray(faces)
+            v_t = torch.tensor(verts_c, dtype=self.dtype)
+            f_t = torch.tensor(faces_c, dtype=torch.int64)
+
+            # Apply neural deformation field if provided (DiffDMC restores sharp eyes, glasses, nose, teeth, fingers)
+            if deform is not None and isinstance(deform, torch.Tensor):
+                try:
+                    import torch.nn.functional as F
+                    d_tensor = deform.detach().cpu().float()
+                    if d_tensor.ndim == 5:
+                        if d_tensor.shape[-1] == 3:
+                            d_tensor = d_tensor[0].permute(3, 0, 1, 2).unsqueeze(0)
+                        elif d_tensor.shape[1] == 3:
+                            d_tensor = d_tensor[:1]
+                    elif d_tensor.ndim == 4:
+                        if d_tensor.shape[-1] == 3:
+                            d_tensor = d_tensor.permute(3, 0, 1, 2).unsqueeze(0)
+                        elif d_tensor.shape[0] == 3:
+                            d_tensor = d_tensor.unsqueeze(0)
+
+                    if d_tensor.ndim == 5 and d_tensor.shape[1] == 3:
+                        _, _, dD, dH, dW = d_tensor.shape
+                        # Note: skimage marching_cubes returns axis 0 as D, axis 1 as H, axis 2 as W
+                        # PyTorch grid_sample expects (x, y, z) where x is W (dim 4), y is H (dim 3), z is D (dim 2)
+                        norm_x = (v_t[:, 2] / max(1.0, float(dW - 1))) * 2.0 - 1.0
+                        norm_y = (v_t[:, 1] / max(1.0, float(dH - 1))) * 2.0 - 1.0
+                        norm_z = (v_t[:, 0] / max(1.0, float(dD - 1))) * 2.0 - 1.0
+                        grid_coords = torch.stack([norm_x, norm_y, norm_z], dim=-1).view(1, 1, 1, -1, 3)
+                        disp = F.grid_sample(d_tensor, grid_coords, mode="bilinear", align_corners=True)
+                        disp = disp.squeeze(0).squeeze(1).squeeze(1).permute(1, 0).to(self.dtype)
+                        v_t = v_t + disp
+                except Exception as def_err:
+                    logger.debug("Deformation field interpolation bypassed: %s", def_err)
+
             if normalize:
-                verts = (verts / (np.array(arr.shape) - 1.0)) - 0.5
-            v_t = torch.tensor(verts, dtype=self.dtype)
-            f_t = torch.tensor(faces.copy(), dtype=torch.int64)
+                v_t = (v_t / (torch.tensor(arr.shape, dtype=self.dtype) - 1.0)) - 0.5
             if isinstance(sdf, torch.Tensor) and sdf.is_cuda:
                 v_t = v_t.to(sdf.device)
                 f_t = f_t.to(sdf.device)
@@ -299,6 +332,18 @@ class TripoSGLocalProvider(BaseProvider):
                     vertices=outputs[0].astype(np.float32),
                     faces=np.ascontiguousarray(outputs[1]),
                 )
+
+            # Preserve crisp contours and sharp features with angle-weighted vertex normals
+            try:
+                wn = trimesh.geometry.weighted_vertex_normals(
+                    vertex_count=len(mesh.vertices),
+                    faces=mesh.faces,
+                    face_normals=mesh.face_normals,
+                    face_angles=mesh.face_angles,
+                )
+                mesh.vertex_normals = wn
+            except Exception:
+                pass
 
             # Apply high-fidelity reference image texture projection & normal mapping
             if image_path and Path(image_path).exists():

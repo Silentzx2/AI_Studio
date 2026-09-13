@@ -362,7 +362,15 @@ class _HunyuanBase(BaseProvider):
             return output_glb
 
     def _texture(self, request: GenerationRequest, mesh_path: str, output_dir: str) -> None:
-        pass
+        out = Path(output_dir) if output_dir else Path(mesh_path).parent
+        out.mkdir(parents=True, exist_ok=True)
+        out_glb = str(out / "model.glb")
+        ref_img = request.reference_image_url
+        if ref_img and Path(ref_img).exists():
+            self._project_texture(mesh_path, ref_img, out_glb)
+        elif Path(mesh_path).is_file() and not Path(out_glb).is_file():
+            import shutil
+            shutil.copy2(mesh_path, out_glb)
 
     async def health_check(self) -> bool:
         return self.weights_dir.exists()
@@ -650,11 +658,19 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
         else:
             raise RuntimeError(f"Unexpected output from Hunyuan3D-2.1 model: {type(result)}")
 
-        if request.face_count and hasattr(mesh, "simplify_quadric_decimation"):
-            try:
-                mesh = mesh.simplify_quadric_decimation(face_count=request.face_count)
-            except Exception as dec_err:
-                logger.warning("Post-generation face_count decimation failed: %s", dec_err)
+        # Preserve full geometric fidelity for master source mesh
+        try:
+            import trimesh
+            if hasattr(mesh, "vertices") and hasattr(mesh, "faces"):
+                wn = trimesh.geometry.weighted_vertex_normals(
+                    vertex_count=len(mesh.vertices),
+                    faces=mesh.faces,
+                    face_normals=mesh.face_normals,
+                    face_angles=mesh.face_angles,
+                )
+                mesh.vertex_normals = wn
+        except Exception:
+            pass
 
         mesh.export(dest)
         return dest
@@ -701,11 +717,19 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
         else:
             raise RuntimeError(f"Unexpected output from Hunyuan3D-2.1 model: {type(result)}")
 
-        if request.face_count and hasattr(mesh, "simplify_quadric_decimation"):
-            try:
-                mesh = mesh.simplify_quadric_decimation(face_count=request.face_count)
-            except Exception as dec_err:
-                logger.warning("Post-generation face_count decimation failed: %s", dec_err)
+        # Preserve full geometric fidelity for master source mesh
+        try:
+            import trimesh
+            if hasattr(mesh, "vertices") and hasattr(mesh, "faces"):
+                wn = trimesh.geometry.weighted_vertex_normals(
+                    vertex_count=len(mesh.vertices),
+                    faces=mesh.faces,
+                    face_normals=mesh.face_normals,
+                    face_angles=mesh.face_angles,
+                )
+                mesh.vertex_normals = wn
+        except Exception:
+            pass
 
         mesh.export(dest)
         return dest
@@ -876,11 +900,19 @@ class Hunyuan3D2MiniLocalProvider(_HunyuanBase):
         else:
             raise RuntimeError(f"Unexpected output from Hunyuan3D-2 Mini model: {type(result)}")
 
-        if request.face_count and hasattr(mesh, "simplify_quadric_decimation"):
-            try:
-                mesh = mesh.simplify_quadric_decimation(face_count=request.face_count)
-            except Exception as dec_err:
-                logger.warning("Post-generation face_count decimation failed: %s", dec_err)
+        # Preserve full geometric fidelity for master source mesh
+        try:
+            import trimesh
+            if hasattr(mesh, "vertices") and hasattr(mesh, "faces"):
+                wn = trimesh.geometry.weighted_vertex_normals(
+                    vertex_count=len(mesh.vertices),
+                    faces=mesh.faces,
+                    face_normals=mesh.face_normals,
+                    face_angles=mesh.face_angles,
+                )
+                mesh.vertex_normals = wn
+        except Exception:
+            pass
 
         dest = str(out / "mesh.glb")
         mesh.export(dest)

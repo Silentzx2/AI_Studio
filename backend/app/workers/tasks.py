@@ -689,7 +689,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 or meta.get("target_polycount")
                 or meta.get("targetPolycount")
                 or meta.get("face_count")
-                or 20000
+                or 65000
             )
             target_polycount = int(target_polycount)
             unwrap_uvs = bool(meta.get("unwrap_uvs", meta.get("unwrapUVs", meta.get("repair_uvs", meta.get("fix_uvs", True)))))
