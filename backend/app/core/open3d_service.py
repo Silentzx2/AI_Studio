@@ -312,6 +312,15 @@ def analyze_mesh_o3d(source: str | Path | Any) -> dict[str, Any]:
         import copy
         probe_mesh = copy.deepcopy(mesh)
 
+        # Open3D C++ segfault protection:
+        # remove_degenerate_triangles and remove_duplicated_triangles do not handle triangle_uvs or vertex_colors,
+        # leading to an out-of-bounds C++ memory dereference / SIGSEGV in pybind.
+        # Clearing them on this diagnostic-only probe avoids the crash entirely.
+        if hasattr(probe_mesh, "triangle_uvs"):
+            probe_mesh.triangle_uvs.clear()
+        if hasattr(probe_mesh, "vertex_colors"):
+            probe_mesh.vertex_colors.clear()
+
         probe_mesh.remove_duplicated_vertices()
         dup_verts_count = max(0, num_verts - len(probe_mesh.vertices))
 

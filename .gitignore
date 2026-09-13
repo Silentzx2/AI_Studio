@@ -74,6 +74,7 @@ scripts/.cloudflare_tunnels
 .blackboxcli/
 .kilo/
 .agents
+scratch/
 
 # Built wheels - stored locally and uploaded to GitHub releases
 .wheels/

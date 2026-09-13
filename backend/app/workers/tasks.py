@@ -805,6 +805,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             # Asset QA & Diagnostics
             qa_report = {}
             t_qa = time.perf_counter()
+            sync_publish(98, "qa_diagnostics", "Evaluating asset quality & geometry...", "info")
             try:
                 from app.core.mesh_processor import run_mesh_diagnostics
                 qa_report = run_mesh_diagnostics(glb_path, target_platform=target_platform)

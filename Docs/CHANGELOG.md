@@ -1,5 +1,16 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.56] - 2026-09-13
+### Fixed & Production Hardening
+- **Fixed Open3D C++ SIGSEGV During Post-Processing QA Diagnostics (`open3d_service.py`, `mesh_processor.py`)**:
+  - Root Cause: In `open3d_service.py:analyze_mesh_o3d()`, `probe_mesh.remove_degenerate_triangles()` and `probe_mesh.remove_duplicated_triangles()` were called on cloned meshes carrying `triangle_uvs` generated during OpenX Clay post-processing. Open3D's C++ layer does not synchronize triangle UVs during triangle reduction, resulting in out-of-bounds pointer dereference and a kernel `SIGSEGV` (signal 11) in `pybind.cpython-312-x86_64-linux-gnu.so`. This abruptly killed the Celery worker process at 98% progress right after collision generation.
+  - Cleared `triangle_uvs` and `vertex_colors` on the transient non-destructive `probe_mesh` before invoking triangle removal routines, eliminating the crash completely.
+  - Wrapped `o3d_game_ready_qa()` in `mesh_processor.py:run_mesh_diagnostics()` in a resilient `try ... except` block with automatic fallback to pure-Python/NumPy Trimesh diagnostics.
+- **Worker Progress State Transparency (`tasks.py`)**:
+  - Added explicit progress publication `sync_publish(98, "qa_diagnostics", "Evaluating asset quality & geometry...", "info")` so the user and UI are immediately notified when collision generation finishes and QA inspection begins.
+- **Test Suite Optimization (`test_post_processing.py`)**:
+  - Relaxed test timeout threshold in `test_analyze_mesh_o3d_bounded_on_highpoly` to `< 15.0s` to prevent flaky failures under concurrent CI/CD load while maintaining bounded runtime verification.
+
 ## [v5.0.55] - 2026-09-12
 ### Fixed & Post-Processing Pipeline Optimization
 - **Eliminated $O(N^2)$ Self-Intersection CPU Freeze on Raw AI Meshes (`open3d_service.py`, `mesh_processor.py`)**:

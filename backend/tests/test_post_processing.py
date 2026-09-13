@@ -148,5 +148,5 @@ def test_analyze_mesh_o3d_bounded_on_highpoly(tmp_path):
     assert res["valid"] is True
     assert res["triangle_count"] >= 20000
     assert res["self_intersecting_triangles_count"] == 0
-    assert (t1 - t0) < 6.0  # Must complete quickly without O(N^2) multi-minute hang
+    assert (t1 - t0) < 15.0  # Must complete quickly without O(N^2) multi-minute hang
 

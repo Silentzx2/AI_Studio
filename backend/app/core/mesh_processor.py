@@ -378,31 +378,34 @@ def run_mesh_diagnostics(model_path: str, target_platform: str = "generic") -> d
 
     # Authoritative Open3D Game-Ready QA evaluation
     if is_open3d_available():
-        qa_res = o3d_game_ready_qa(str(path), target_platform=target_platform)
-        if qa_res.get("diagnostics"):
-            # Enrich Open3D QA with UV and material inspection
-            uv_info = validate_uv_mapping(str(path))
-            has_uv = bool(uv_info.get("has_uv", False))
-            tex_info = validate_texture(str(path))
-            has_texture = bool(tex_info.get("textured", False))
+        try:
+            qa_res = o3d_game_ready_qa(str(path), target_platform=target_platform)
+            if qa_res.get("diagnostics"):
+                # Enrich Open3D QA with UV and material inspection
+                uv_info = validate_uv_mapping(str(path))
+                has_uv = bool(uv_info.get("has_uv", False))
+                tex_info = validate_texture(str(path))
+                has_texture = bool(tex_info.get("textured", False))
 
-            qa_res["diagnostics"]["has_uv"] = has_uv
-            qa_res["diagnostics"]["has_texture"] = has_texture
-            qa_res["diagnostics"]["polygon_count"] = qa_res["diagnostics"].get("triangle_count", 0)
-            qa_res["diagnostics"]["scoring_breakdown"] = {
-                "overall_score": qa_res.get("game_ready_score", 100),
-                "status": qa_res.get("status", "pass"),
-                "warnings_count": len(qa_res.get("warnings", [])),
-            }
-            if not has_uv:
-                qa_res["warnings"].append("Mesh lacks UV coordinates")
-                if qa_res["status"] == "pass":
-                    qa_res["status"] = "warn"
-            if not has_texture:
-                qa_res["warnings"].append("No embedded base color texture map found")
-                if qa_res["status"] == "pass":
-                    qa_res["status"] = "warn"
-            return qa_res
+                qa_res["diagnostics"]["has_uv"] = has_uv
+                qa_res["diagnostics"]["has_texture"] = has_texture
+                qa_res["diagnostics"]["polygon_count"] = qa_res["diagnostics"].get("triangle_count", 0)
+                qa_res["diagnostics"]["scoring_breakdown"] = {
+                    "overall_score": qa_res.get("game_ready_score", 100),
+                    "status": qa_res.get("status", "pass"),
+                    "warnings_count": len(qa_res.get("warnings", [])),
+                }
+                if not has_uv:
+                    qa_res["warnings"].append("Mesh lacks UV coordinates")
+                    if qa_res["status"] == "pass":
+                        qa_res["status"] = "warn"
+                if not has_texture:
+                    qa_res["warnings"].append("No embedded base color texture map found")
+                    if qa_res["status"] == "pass":
+                        qa_res["status"] = "warn"
+                return qa_res
+        except Exception as o3d_err:
+            logger.warning("Open3D QA failed on %s, falling back to trimesh QA: %s", path, o3d_err)
 
     trimesh = _try_import_trimesh()
     if trimesh is None:
