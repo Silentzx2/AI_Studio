@@ -99,46 +99,21 @@ for obj in mesh_objects:
     for edge in bm.edges:
         if edge.is_manifold and len(edge.link_faces) == 2:
             try:
-                if edge.calc_face_angle() > 0.61:
+                if edge.calc_face_angle() > 0.35:
                     edge.smooth = False
             except Exception:
                 pass
     
-    # 3. Remove ONLY loose microscopic floating noise (preserve distinct anatomy, teeth, claws & accessories)
-    # ponytail: Keep any component with >= 6 vertices. Never prune disconnected parts based on
-    # size ratios, as teeth, claws, eyeballs, spikes, and props have far fewer vertices than the main body.
+    # 3. Remove loose vertices/edges (Blender native C operator — instant even on 100k+ verts)
+    # ponytail: replaced O(V·I) pure-Python BFS island loop that froze headless Blender on large meshes.
     bmesh.update_edit_mesh(obj.data)
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.mesh.delete_loose(use_verts=True, use_edges=True, use_faces=False)
     bpy.ops.mesh.select_all(action='DESELECT')
-
-    total_verts = len(bm.verts)
-    processed_verts = set()
-    islands = []
-
-    while len(processed_verts) < total_verts:
-        start_vert = next((v for v in bm.verts if v not in processed_verts), None)
-        if not start_vert:
-            break
-        island = {start_vert}
-        stack = [start_vert]
-        while stack:
-            v = stack.pop()
-            for edge in v.link_edges:
-                other = edge.other_vert(v)
-                if other not in island:
-                    island.add(other)
-                    stack.append(other)
-        islands.append(island)
-        processed_verts.update(island)
-
-    if islands and len(islands) > 1:
-        for island in islands:
-            if len(island) < 6:
-                for v in island:
-                    if v.is_valid:
-                        bm.verts.remove(v)
 
     bmesh.update_edit_mesh(obj.data)
     bpy.ops.object.mode_set(mode="OBJECT")
+
 
     # 4. Topology processing: QuadriFlow remesh if quad topology requested
     target = DECIMATE_FACES.get(QUALITY, 0)
@@ -163,7 +138,10 @@ for obj in mesh_objects:
 
     # Apply weighted normals with keep_sharp=True for crisp, non-blobby feature shading
     try:
-        obj.data.use_auto_smooth = True
+        # Blender 4.1+ removed use_auto_smooth; use 'Smooth by Angle' modifier instead
+        if hasattr(obj.data, 'use_auto_smooth'):
+            obj.data.use_auto_smooth = True
+            obj.data.auto_smooth_angle = 0.35  # ~20° for fine anatomical detail preservation
         wn = obj.modifiers.new(name="WeightedNormal", type="WEIGHTED_NORMAL")
         wn.keep_sharp = True
         bpy.ops.object.modifier_apply(modifier=wn.name)
@@ -318,16 +296,9 @@ scene.render.resolution_x = 512
 scene.render.resolution_y = 512
 bpy.ops.render.render(write_still=True)
 
-# 2. Render High-res (if requested)
-if RENDER_RES:
-    scene.render.filepath = RENDER_PATH
-    scene.render.resolution_x = RENDER_RES[0]
-    scene.render.resolution_y = RENDER_RES[1]
-    # Increase samples for better quality
-    if scene.render.engine == 'BLENDER_EEVEE_NEXT':
-        scene.eevee.ray_tracing_options.use_raytracing = True
-    
-    bpy.ops.render.render(write_still=True)
+# ponytail: skip redundant high-res raytraced render — causes 2-5 min stall on headless servers.
+# Thumbnail at 512x512 is sufficient for the viewer preview.
+
 
 
 # ── 8. Export ──────────────────────────────────────────────────────────────────

@@ -41,12 +41,14 @@ class PostProcessor:
                     ref_img = t.path
                     break
 
-        if self._is_textured(mesh) and not ref_img:
+        if self._is_textured(mesh):
             final = mesh
-        else:
+        elif len(mesh.faces) > self.config.target_tris:
             final = self.decimate(mesh, self.config.target_tris)
             if self.config.unwrap_uvs and not ref_img:
                 final = self.unwrap(final)
+        else:
+            final = mesh
 
         # Apply high-fidelity reference texture projection & tangent normal map if reference image is available
         if ref_img and Path(ref_img).exists():
@@ -87,8 +89,11 @@ class PostProcessor:
 
     @staticmethod
     def _apply_angle_weighted_normals(mesh) -> None:
-        """Apply Thuerrner & Wuethrich angle-weighted vertex normals to preserve sharp creases."""
+        """Apply angle-weighted vertex normals only if normals are missing or trivial."""
         try:
+            existing = getattr(mesh, 'vertex_normals', None)
+            if existing is not None and len(existing) == len(mesh.vertices):
+                return  # Preserve authored/provider normals
             import trimesh
             wn = trimesh.geometry.weighted_vertex_normals(
                 vertex_count=len(mesh.vertices),
@@ -98,7 +103,7 @@ class PostProcessor:
             )
             mesh.vertex_normals = wn
         except Exception:
-            mesh.fix_normals()
+            pass  # Don't fall back to fix_normals() which flattens creases
 
     def decimate(self, mesh, target_tris: int):
         """Reduce triangle count to the budget. Preserves edge boundaries and sharp features."""
@@ -110,6 +115,10 @@ class PostProcessor:
 
     def unwrap(self, mesh):
         """Re-unwrap UVs with xatlas for clean, non-overlapping texture space."""
+        # Skip re-unwrap if mesh already has valid UVs or vertex colors to avoid scrambling textures
+        uv = getattr(getattr(mesh, 'visual', None), 'uv', None)
+        if uv is not None and len(uv) > 0:
+            return mesh
         import trimesh
         import xatlas
 

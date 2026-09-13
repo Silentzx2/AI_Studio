@@ -82,7 +82,21 @@ def apply_numpy_bridge() -> None:
             _safe_np_asarray._orig = _orig_asarray
             _np.asarray = _safe_np_asarray
 
+        for core_mod in ("core", "_core"):
+            if hasattr(_np, core_mod) and hasattr(getattr(_np, core_mod), "multiarray"):
+                ma = getattr(getattr(_np, core_mod), "multiarray")
+                if hasattr(ma, "array"):
+                    _ma_orig = ma.array
+                    if getattr(_ma_orig, "__name__", "") != "_safe_ma_array":
+                        def _safe_ma_array(*args, **kwargs):
+                            if "copy" in kwargs and kwargs["copy"] is None:
+                                kwargs["copy"] = False
+                            return _ma_orig(*args, **kwargs)
+                        _safe_ma_array._orig = _ma_orig
+                        ma.array = _safe_ma_array
+
         is_np2 = int(_np.__version__.split(".")[0]) >= 2
+
         if not is_np2 and hasattr(_np, "core"):
             import numpy.core as _core
             _np._core = _core

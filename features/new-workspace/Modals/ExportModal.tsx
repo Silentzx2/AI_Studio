@@ -72,21 +72,7 @@ export const ExportModal: React.FC = () => {
 
       const contentType = response.headers.get('content-type') || '';
       if (contentType.includes('application/json')) {
-        let data = await response.json();
-        let attempts = 0;
-        while (data.status === 'pending' && attempts < 20) {
-          await new Promise((r) => setTimeout(r, 1500));
-          attempts++;
-          const pollRes = await fetch('/api/v1/project/export', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-          if (pollRes.ok && (pollRes.headers.get('content-type') || '').includes('application/json')) {
-            data = await pollRes.json();
-          }
-        }
-
+        const data = await response.json();
         if (data.status === 'ready' && data.url) {
           const link = document.createElement('a');
           link.href = data.url;
@@ -96,10 +82,11 @@ export const ExportModal: React.FC = () => {
           link.remove();
           setIsExportModalOpen(false);
           return;
-        } else {
-          throw new Error(data.message || 'Export package generation timed out. Please try again.');
+        } else if (data.message || data.detail) {
+          throw new Error(data.message || data.detail || 'Export failed');
         }
       }
+
 
       // Read filename from Content-Disposition header if available
       const disposition = response.headers.get('content-disposition');

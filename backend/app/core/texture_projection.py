@@ -28,20 +28,22 @@ try:
         _safe_np_array._orig = _oa
         np.array = _safe_np_array
 
-    _oas = np.asarray
-    if getattr(_oas, "__name__", "") != "_safe_np_asarray":
-        def _safe_np_asarray(*args, **kwargs):
-            if "copy" in kwargs:
-                c = kwargs.pop("copy")
-                try:
-                    return _oas(*args, copy=c if c is not None else False, **kwargs)
-                except TypeError:
-                    return _oas(*args, **kwargs)
-            return _oas(*args, **kwargs)
-        _safe_np_asarray._orig = _oas
-        np.asarray = _safe_np_asarray
+    # Patch multiarray.array for C-extensions and libraries (e.g. rembg, onnxruntime, trimesh)
+    for core_mod in ("core", "_core"):
+        if hasattr(np, core_mod) and hasattr(getattr(np, core_mod), "multiarray"):
+            ma = getattr(getattr(np, core_mod), "multiarray")
+            if hasattr(ma, "array"):
+                _ma_orig = ma.array
+                if getattr(_ma_orig, "__name__", "") != "_safe_ma_array":
+                    def _safe_ma_array(*args, **kwargs):
+                        if "copy" in kwargs and kwargs["copy"] is None:
+                            kwargs["copy"] = False
+                        return _ma_orig(*args, **kwargs)
+                    _safe_ma_array._orig = _ma_orig
+                    ma.array = _safe_ma_array
 except Exception:
     pass
+
 
 
 def is_real_textured_mesh(mesh: trimesh.Trimesh) -> bool:
@@ -153,6 +155,8 @@ def create_metallic_roughness_map_from_image(img_pil: Image.Image) -> Image.Imag
         g_chan = np.clip(roughness * 255.0, 25, 240).astype(np.uint8)
         
         # 3. Metallic (Blue channel)
+        max_c = np.max(arr, axis=-1)
+        min_c = np.min(arr, axis=-1)
         sat = np.zeros_like(max_c)
         valid_max = max_c > 1e-4
         sat[valid_max] = (max_c[valid_max] - min_c[valid_max]) / max_c[valid_max]
@@ -161,12 +165,13 @@ def create_metallic_roughness_map_from_image(img_pil: Image.Image) -> Image.Imag
         metallic[is_metal] = 0.80
         b_chan = np.clip(metallic * 255.0, 0, 255).astype(np.uint8)
     except Exception:
-        r_chan = np.full_like(img_rgb[..., 0], 255, dtype=np.uint8)
+        r_chan = np.full_like(arr[..., 0], 255, dtype=np.uint8)
         roughness_val = np.where(gray > 0.82, 0.18, 0.68)
         g_chan = np.clip(roughness_val * 255.0, 25, 240).astype(np.uint8)
-        b_chan = np.zeros_like(img_rgb[..., 0], dtype=np.uint8)
+        b_chan = np.zeros_like(arr[..., 0], dtype=np.uint8)
         
     return Image.fromarray(np.stack([r_chan, g_chan, b_chan], axis=-1))
+
 
 
 def inpaint_image_background(img_rgba: Image.Image) -> Image.Image:

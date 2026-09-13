@@ -159,20 +159,20 @@ def _resolve_reference_image(reference: str | None, job_id: str) -> str | None:
     return reference
 
 
-def _wait_for_stable_file(path: str, timeout_seconds: float = 15.0, stable_checks: int = 2) -> bool:
-    """Wait briefly for an output file to finish flushing to disk."""
+async def _wait_for_stable_file_async(path: str, timeout_seconds: float = 8.0, stable_checks: int = 2) -> bool:
+    """Wait briefly and asynchronously for an output file to finish flushing to disk."""
     p = Path(path)
     deadline = time.monotonic() + timeout_seconds
     last_size = -1
     stable_hits = 0
     while time.monotonic() < deadline:
         if not p.exists():
-            time.sleep(0.25)
+            await asyncio.sleep(0.1)
             continue
         try:
             size = p.stat().st_size
         except OSError:
-            time.sleep(0.25)
+            await asyncio.sleep(0.1)
             continue
         if size > 0 and size == last_size:
             stable_hits += 1
@@ -181,8 +181,35 @@ def _wait_for_stable_file(path: str, timeout_seconds: float = 15.0, stable_check
         else:
             stable_hits = 0
             last_size = size
-        time.sleep(0.25)
+        await asyncio.sleep(0.1)
     return p.exists() and p.stat().st_size > 0
+
+
+def _wait_for_stable_file(path: str, timeout_seconds: float = 8.0, stable_checks: int = 2) -> bool:
+    """Sync fallback for non-async callers."""
+    p = Path(path)
+    deadline = time.monotonic() + timeout_seconds
+    last_size = -1
+    stable_hits = 0
+    while time.monotonic() < deadline:
+        if not p.exists():
+            time.sleep(0.1)
+            continue
+        try:
+            size = p.stat().st_size
+        except OSError:
+            time.sleep(0.1)
+            continue
+        if size > 0 and size == last_size:
+            stable_hits += 1
+            if stable_hits >= stable_checks:
+                return True
+        else:
+            stable_hits = 0
+            last_size = size
+        time.sleep(0.1)
+    return p.exists() and p.stat().st_size > 0
+
 
 
 def _is_oom_error(exc: BaseException) -> bool:
@@ -568,8 +595,9 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             # 5b. Output validation — reject corrupt/empty GLB output before
             # the UI ever sees it.
             if provider_result and provider_result.model_path:
-                _wait_for_stable_file(provider_result.model_path)
+                await _wait_for_stable_file_async(provider_result.model_path)
                 try:
+
                     from app.core.mesh_processor import validate_glb
                     glb_check = validate_glb(provider_result.model_path)
                     if not glb_check.get("valid"):
@@ -622,14 +650,9 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 except Exception as c_err:
                     logger.warning("Could not preserve source.glb: %s", c_err)
 
-            # Ensure source.glb has reference texture projected if reference image exists
-            if resolved_ref_image and Path(resolved_ref_image).exists() and Path(source_glb_path).exists():
-                try:
-                    from app.core.texture_projection import project_reference_texture
-                    project_reference_texture(source_glb_path, resolved_ref_image, source_glb_path)
-                    logger.info("Projected reference texture onto source.glb for job %s", job_id)
-                except Exception as tp_err:
-                    logger.warning("Could not project reference texture on source.glb: %s", tp_err)
+            # ponytail: source.glb MUST remain byte-identical to the raw provider output.
+            # Texture projection happens downstream in Clay postprocessor (game_ready.glb),
+            # not on the archival source asset.
 
             meta = job.processing_metadata or {}
             meta["source_model_url"] = to_url(source_glb_path) if Path(source_glb_path).exists() else to_url(provider_result.model_path)
@@ -860,7 +883,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
 
             from app.core.mesh_processor import get_mesh_stats, render_thumbnail
             thumb_path = str(model_output_dir(job_id) / "thumbnail.png")
-            _wait_for_stable_file(glb_path)
+            await _wait_for_stable_file_async(glb_path)
             rendered = False
             if Path(thumb_path).is_file() and Path(thumb_path).stat().st_size > 2048:
                 rendered = True
@@ -870,11 +893,19 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 except Exception as e:
                     logger.warning("Thumbnail rendering failed (non-blocking): %s", e)
 
-            stats = {}
-            try:
-                stats = get_mesh_stats(glb_path)
-            except Exception as e:
-                logger.warning("Mesh stats extraction failed (non-blocking): %s", e)
+            # ponytail: reuse already-computed stats from Blender/Clay/provider to avoid expensive disk reload
+            f_size = Path(glb_path).stat().st_size if Path(glb_path).exists() else 0
+            stats = {
+                "polygon_count": blender_result.get("polygon_count") or (processed_asset.triangles if 'processed_asset' in locals() else None) or provider_result.polygon_count,
+                "vertex_count": blender_result.get("vertex_count") or provider_result.vertex_count,
+                "file_size": f_size or provider_result.file_size,
+            }
+            if not stats.get("polygon_count"):
+                try:
+                    stats = get_mesh_stats(glb_path)
+                except Exception as e:
+                    logger.warning("Mesh stats extraction failed (non-blocking): %s", e)
+
 
             download_urls = {
                 "glb": to_url(glb_path),

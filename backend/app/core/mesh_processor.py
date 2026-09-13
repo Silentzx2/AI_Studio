@@ -101,8 +101,8 @@ def clean_mesh(input_path: str, output_path: str, target_faces: int | None = Non
         mesh.remove_duplicate_faces()
     else:
         mesh.update_faces(mesh.unique_faces())
-    mesh.merge_vertices()
-    mesh.fix_normals()
+    # ponytail: skip merge_vertices to preserve UV seam and sharp edge splits,
+    # skip fix_normals to preserve provider-authored vertex normals
 
     if target_faces and len(mesh.faces) > target_faces:
         try:

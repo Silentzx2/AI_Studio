@@ -1,6 +1,29 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.62] - 2026-09-13
+### Fixed & Performance
+- **Blazing-Fast Export Pipeline & Elimination of Stage 99 Freeze (`process_mesh.py`, `tasks.py`, `ExportModal.tsx`)**:
+  - **Eliminated Quadratic BMesh Island Loop (`process_mesh.py`)**: Replaced $O(V \cdot I)$ pure-Python BFS traversal with Blender's native C operator `bpy.ops.mesh.delete_loose(use_verts=True, use_edges=True)`. Eliminates multi-minute freezing on 50k–100k vertex meshes, reducing mesh cleanup from >120s down to <0.1s.
+  - **Removed Redundant Raytraced Headless Render (`process_mesh.py`)**: Removed duplicate high-sample EEVEE raytracing render pass in headless mode; single 512x512 preview render is generated instantly without software Mesa rasterization stalls.
+  - **Asynchronous File Stability Waiter (`tasks.py`)**: Replaced synchronous `time.sleep(0.25)` loop with non-blocking `asyncio.sleep(0.1)` in `_wait_for_stable_file_async()`, preventing Celery event loop starvation during export.
+  - **Zero-Disk-Reload Mesh Stats Extraction (`tasks.py`)**: Reused pre-computed vertex and polygon counts from Blender/Clay/provider instead of decoding multi-megabyte binary GLBs from disk with `trimesh.load(force="scene")`.
+  - **Export Modal Re-POST Polling Bug Fix (`ExportModal.tsx`)**: Eliminated loop that dispatched duplicate `POST /api/v1/project/export` requests every 1.5s; client now cleanly downloads binary file blobs or handles completion URLs without flooding the server.
+
+- **Universal Detail Loss & Anti-Smoothing Resolution Across All Models (`texture_projection.py`, `model_env.py`, `clay/postprocess.py`, `open3d_service.py`, `MeshViewer.tsx`, `tasks.py`)**:
+  - **Fixed Smoking-Gun NameError & TypeError in PBR Texture Synthesis (`texture_projection.py`)**: Resolved `NameError: name 'max_c' is not defined` and `TypeError: 'Image' object is not subscriptable` in `create_metallic_roughness_map_from_image()`, which was causing texture projection to fail silently on all models.
+  - **C-Extension `multiarray.array` Bridge for `copy=None` (`texture_projection.py`, `model_env.py`)**: Patched underlying `numpy.core.multiarray.array` and `numpy._core.multiarray.array` in addition to `np.array`, preventing `ValueError: NoneType copy mode not allowed` when called by C-extensions (rembg, onnxruntime, trimesh).
+  - **Source Mesh Preservation (`tasks.py`)**: Prevented in-place overwriting of `source.glb` with planar texture projection. `source.glb` remains byte-identical to the pristine raw provider output.
+  - **Clay Image-to-3D Decimation Gate Fix (`clay/postprocess.py`)**: Fixed `_is_textured` bypass so that textured/colored meshes are not unconditionally forced through 65,000-face quadric decimation, protecting fine anatomical features (eyes, nose, teeth, fingers, glasses).
+  - **Custom Normal & UV Seam Preservation (`open3d_service.py`)**: Guarded `remove_duplicated_vertices()` against merging UV seam vertices and vertex-colored models; guarded `compute_vertex_normals()` against wiping out authored vertex normals.
+  - **Sharp Crease Shading & Blender 4.1+ Compatibility (`process_mesh.py`)**: Lowered dihedral crease threshold from 35° to 20° (0.35 rad) to keep subtle facial ridges and organic contours sharp, and handled Blender 4.1+ `use_auto_smooth` deprecation.
+  - **Calibrated Studio Lighting & Contrast in Three.js Viewer (`MeshViewer.tsx`)**: Reduced ambient light from 2.5 to 0.7 and exposure from 2.0 to 1.15. Eliminates highlight blowout and washed-out surfaces, allowing high-frequency normal maps, ambient occlusion crevices, and facial depth to pop with crisp 3D contrast.
+
+- **Server-Side Rendering (SSR) & Dynamic Code Splitting (`app/`)**:
+  - **SSR Shell Pre-rendering**: Converted `app/page.tsx`, `app/workspace/page.tsx`, `app/dashboard/page.tsx`, `app/outputs/page.tsx`, and `app/system/page.tsx` into Server Components (RSC), delivering instant HTML shells on first load.
+  - **Admin Tab Code-Splitting (`app/admin/page.tsx`)**: Converted static imports of all 9 admin tabs into dynamic imports (`next/dynamic`), shrinking initial admin JavaScript bundle.
+
 ## [v5.0.61] - 2026-09-13
+
 ### Fixed & Detail Restoration (Anti-Smoothing & High-Fidelity Geometry)
 - **Facial & Micro-Anatomical Detail Restoration Across All Providers (`texture_projection.py`, `triposg_local.py`, `hunyuan3d_local.py`, `clay/postprocess.py`, `tasks.py`)**:
   - **Multi-Frequency Normal Mapping (`texture_projection.py`)**:

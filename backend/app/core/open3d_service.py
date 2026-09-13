@@ -443,7 +443,10 @@ def safe_cleanup_o3d(
 
     # 1. Conservative geometric sanitization
     # Textured models: avoid collapsing seam vertices across UV boundaries
-    if not has_texture_material:
+    # Also protect meshes with vertex colors or triangle UVs from vertex merging
+    has_vertex_colors = mesh.has_vertex_colors()
+    has_uvs = mesh.has_triangle_uvs()
+    if not has_texture_material and not has_vertex_colors and not has_uvs:
         mesh.remove_duplicated_vertices()
 
     # Synchronize triangle UVs and normals when removing degenerate or duplicate triangles
@@ -477,12 +480,16 @@ def safe_cleanup_o3d(
 
     mesh.remove_unreferenced_vertices()
 
-    # 2. Consistent orientation & normal computation (Tripo-grade surface consistency)
-    try:
-        mesh.orient_triangles()
-    except Exception:
-        pass
-    mesh.compute_vertex_normals()
+    # 2. Consistent orientation & normal computation
+    # Only orient triangles on watertight meshes to avoid flipping thin geometry (glasses, cloth, hair)
+    if before_stats.get("is_watertight", False):
+        try:
+            mesh.orient_triangles()
+        except Exception:
+            pass
+    # Only recompute normals if the mesh doesn't already have authored vertex normals
+    if not mesh.has_vertex_normals():
+        mesh.compute_vertex_normals()
     mesh.compute_triangle_normals()
 
     # 3. Conservative component evaluation

@@ -84,11 +84,11 @@ const ENVIRONMENT_PRESETS: EnvironmentPreset[] = [
     id: 'real',
     label: 'Real',
     settings: {
-      ambientIntensity: 2.5,
-      keyLightIntensity: 3.5,
-      fillLightIntensity: 3.0,
-      rimLightIntensity: 2.0,
-      exposure: 2.0,
+      ambientIntensity: 0.7,
+      keyLightIntensity: 2.8,
+      fillLightIntensity: 1.2,
+      rimLightIntensity: 1.8,
+      exposure: 1.15,
       backgroundColor: '#22242a',
       gridVisible: false,
     },
@@ -97,11 +97,11 @@ const ENVIRONMENT_PRESETS: EnvironmentPreset[] = [
     id: 'studio',
     label: 'Studio',
     settings: {
-      ambientIntensity: 2.0,
-      keyLightIntensity: 4.0,
-      fillLightIntensity: 2.5,
-      rimLightIntensity: 2.5,
-      exposure: 1.8,
+      ambientIntensity: 0.85,
+      keyLightIntensity: 3.0,
+      fillLightIntensity: 1.4,
+      rimLightIntensity: 2.0,
+      exposure: 1.2,
       backgroundColor: '#1e2026',
       gridVisible: true,
     },
@@ -110,11 +110,11 @@ const ENVIRONMENT_PRESETS: EnvironmentPreset[] = [
     id: 'game',
     label: 'Game',
     settings: {
-      ambientIntensity: 1.0,
-      keyLightIntensity: 4.5,
-      fillLightIntensity: 2.0,
-      rimLightIntensity: 3.5,
-      exposure: 1.5,
+      ambientIntensity: 0.5,
+      keyLightIntensity: 3.5,
+      fillLightIntensity: 1.0,
+      rimLightIntensity: 2.5,
+      exposure: 1.1,
       backgroundColor: '#14161b',
       gridVisible: true,
     },
@@ -123,16 +123,17 @@ const ENVIRONMENT_PRESETS: EnvironmentPreset[] = [
     id: 'dark',
     label: 'Dark',
     settings: {
-      ambientIntensity: 0.8,
-      keyLightIntensity: 5.0,
-      fillLightIntensity: 1.0,
-      rimLightIntensity: 3.0,
-      exposure: 1.2,
+      ambientIntensity: 0.35,
+      keyLightIntensity: 4.0,
+      fillLightIntensity: 0.7,
+      rimLightIntensity: 2.5,
+      exposure: 1.0,
       backgroundColor: '#0d0e11',
       gridVisible: true,
     },
   },
 ];
+
 
 export const MeshViewer: React.FC<MeshViewerProps> = ({ 
   className = '', 
@@ -176,11 +177,11 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const [loadProgress, setLoadProgress] = useState<{ loaded: number; total: number; percent: number } | null>(null);
   const [showEnvironmentPanel, setShowEnvironmentPanel] = useState(false);
   const [environmentSettings, setEnvironmentSettings] = useState({
-    ambientIntensity: 2.5,
-    keyLightIntensity: 3.5,
-    fillLightIntensity: 3.0,
-    rimLightIntensity: 2.0,
-    exposure: 2.0,
+    ambientIntensity: 0.7,
+    keyLightIntensity: 2.8,
+    fillLightIntensity: 1.2,
+    rimLightIntensity: 1.8,
+    exposure: 1.15,
     gridVisible: false,
     gridColor: '#3d4252',
     backgroundColor: '#22242a',
@@ -188,6 +189,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     showAxes: false,
     showStats: true,
   });
+
   const [cameraPreset, setCameraPreset] = useState<CameraViewPreset>('perspective');
   const [cameraMenuOpen, setCameraMenuOpen] = useState(false);
   const cameraMenuRef = useRef<HTMLDivElement>(null);
@@ -429,27 +431,25 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     scene.add(transformControls.getHelper() as unknown as THREE.Object3D);
     transformControlsRef.current = transformControls;
 
-    // 5. Lighting Setup (Studio 3-Point Setup) - Brighter
-    const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
+    // 5. Lighting Setup (Studio 3-Point Setup) - Calibrated for high-relief feature contrast
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
     scene.add(ambientLight);
 
-    const mainKeyLight = new THREE.DirectionalLight(0xfff5ea, 3.5);
+    const mainKeyLight = new THREE.DirectionalLight(0xfff5ea, 2.8);
     mainKeyLight.position.set(4, 6, 5);
     mainKeyLight.castShadow = true;
-    // ponytail: 512 shadow map is enough for studio preview. 1024 = 4x GPU cost.
-    // Upgrade path: adaptive quality based on mesh complexity
     mainKeyLight.shadow.mapSize.width = 512;
     mainKeyLight.shadow.mapSize.height = 512;
     mainKeyLight.shadow.bias = -0.0001;
     scene.add(mainKeyLight);
     keyLightRef.current = mainKeyLight;
 
-    const fillLight = new THREE.DirectionalLight(0x90b0ff, 3.0);
+    const fillLight = new THREE.DirectionalLight(0x90b0ff, 1.2);
     fillLight.position.set(-5, 3, -3);
     scene.add(fillLight);
     fillLightRef.current = fillLight;
 
-    const rimLight = new THREE.DirectionalLight(0xfff0d0, 2.0);
+    const rimLight = new THREE.DirectionalLight(0xfff0d0, 1.8);
     rimLight.position.set(0, 5, -6);
     scene.add(rimLight);
     rimLightRef.current = rimLight;
@@ -458,6 +458,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     const grid = new THREE.GridHelper(10, 20, 0x4a5060, 0x2a3040);
     grid.position.y = -0.65;
     grid.visible = false;
+
     scene.add(grid);
     gridHelperRef.current = grid;
 

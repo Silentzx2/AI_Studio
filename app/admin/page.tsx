@@ -3,16 +3,19 @@
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminShell } from '@/features/admin/AdminShell';
-import { OverviewTab } from '@/features/admin/tabs/OverviewTab';
-import { ModelsTab } from '@/features/admin/tabs/ModelsTab';
-import { RuntimeTab } from '@/features/admin/tabs/RuntimeTab';
-import { LogsTab } from '@/features/admin/tabs/LogsTab';
-import { JobsTab } from '@/features/admin/tabs/JobsTab';
-import { QueueTab } from '@/features/admin/tabs/QueueTab';
-import { HealthTab } from '@/features/admin/tabs/HealthTab';
-import { StorageTab } from '@/features/admin/tabs/StorageTab';
-import { SettingsTab } from '@/features/admin/tabs/SettingsTab';
+import dynamic from 'next/dynamic';
 import { Loader2 } from 'lucide-react';
+
+const OverviewTab = dynamic(() => import('@/features/admin/tabs/OverviewTab').then(m => m.OverviewTab), { ssr: false });
+const ModelsTab = dynamic(() => import('@/features/admin/tabs/ModelsTab').then(m => m.ModelsTab), { ssr: false });
+const RuntimeTab = dynamic(() => import('@/features/admin/tabs/RuntimeTab').then(m => m.RuntimeTab), { ssr: false });
+const LogsTab = dynamic(() => import('@/features/admin/tabs/LogsTab').then(m => m.LogsTab), { ssr: false });
+const JobsTab = dynamic(() => import('@/features/admin/tabs/JobsTab').then(m => m.JobsTab), { ssr: false });
+const QueueTab = dynamic(() => import('@/features/admin/tabs/QueueTab').then(m => m.QueueTab), { ssr: false });
+const HealthTab = dynamic(() => import('@/features/admin/tabs/HealthTab').then(m => m.HealthTab), { ssr: false });
+const StorageTab = dynamic(() => import('@/features/admin/tabs/StorageTab').then(m => m.StorageTab), { ssr: false });
+const SettingsTab = dynamic(() => import('@/features/admin/tabs/SettingsTab').then(m => m.SettingsTab), { ssr: false });
+
 
 const VALID_TABS = new Set([
   'overview',
