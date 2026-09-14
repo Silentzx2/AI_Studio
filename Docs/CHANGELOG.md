@@ -14,9 +14,11 @@
 - **Production Backend API Integration (Zero Mocks)**:
   - `handleRunAutoRig`: Dispatches real `POST /api/v1/generation` (`mode: "rigging"`) and polls status endpoint until completion or error.
   - `handleGenerateMotion`: Dispatches real `POST /api/v1/generation` (`provider: "ardy"`, `mode: "animation"`) and automatically injects generated motion clips into the multi-track timeline library.
-- **Cleaned Codebase**:
-  - Net deletion of 474 lines across components.
-  - Verified 58/58 backend tests passing and clean Next.js production build in 9.0s.
+- **Cleaned Codebase & Streamlined Layout**:
+  - Removed redundant `AnimationBottomDock.tsx` (5 quick-action cards below the timeline), allowing the NLA timeline to anchor cleanly at the base of the viewport with zero visual clutter.
+  - Routed mode tabs (`blend` -> Animation tab / Mixer, `motion_ai` -> Animation tab / ARDY, `rigging` -> Rigging tab, `animate` -> Properties tab).
+  - Net deletion of 660+ lines across components.
+  - Verified 58/58 backend tests passing and clean Next.js production build in 10.3s.
 
 ## [v5.0.64] - 2026-09-14
 ### Added & Animation & Rigging Studio Architecture

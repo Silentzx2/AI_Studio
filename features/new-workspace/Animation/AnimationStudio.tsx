@@ -19,7 +19,6 @@ import { useWorkspace } from '../store/WorkspaceContext';
 import { AnimationLeftPanel } from './AnimationLeftPanel';
 import { AnimationViewportStage } from './AnimationViewportStage';
 import { AnimationRightInspector } from './AnimationRightInspector';
-import { AnimationBottomDock } from './AnimationBottomDock';
 import { toast } from 'sonner';
 
 export const AnimationStudio: React.FC = () => {
@@ -35,9 +34,9 @@ export const AnimationStudio: React.FC = () => {
     setActiveMode(mode);
     if (mode === 'rigging') {
       setInspectorTab('rigging');
-    } else if (mode === 'motion_ai') {
+    } else if (mode === 'motion_ai' || mode === 'blend') {
       setInspectorTab('animation');
-    } else if (mode === 'animate' || mode === 'blend') {
+    } else {
       setInspectorTab('properties');
     }
   };
@@ -174,9 +173,6 @@ export const AnimationStudio: React.FC = () => {
         {/* Right Column: Tabbed Inspector (Properties, Rigging, Animation) */}
         <AnimationRightInspector />
       </div>
-
-      {/* BOTTOM QUICK ACTION DOCK (Spans full workspace width) */}
-      <AnimationBottomDock />
     </div>
   );
 };
