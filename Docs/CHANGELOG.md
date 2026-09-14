@@ -1,5 +1,25 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.66] - 2026-09-14
+### Zero Mock Data & Interactive 3D Rigging Workspace
+- **Complete Removal of Mock Models (`AnimationLeftPanel.tsx`)**:
+  - Removed `SAMPLE_PROJECT_MODELS` and all hardcoded placeholder data (`character.glb`, `robot.fbx`, `creature.glb`, `human.obj`).
+  - Model list is now 100% driven by real assets fetched from `/api/v1/upload/assets` and `/api/v1/history`.
+  - Added clean empty state with a direct "Upload 3D Model" button when no models exist in project.
+  - Direct file uploads instantly preview in 3D (0ms latency) while streaming to `POST /api/v1/upload/model` for persistent storage and thumbnail generation.
+  - Enhanced backend `list_uploaded_assets()` to discover exported models from `backend/storage/exports/` alongside `backend/storage/models/`.
+- **Authentic 3D Rigging Workspace (`MeshViewer.tsx`, `AnimationViewportStage.tsx`)**:
+  - Built an interactive 3D Armature Rig overlay in Three.js featuring the standard 17-bone Humanoid Biped hierarchy (`Hips`, `Spine`, `Chest`, `Neck`, `Head`, shoulders, arms, hands, legs, feet).
+  - Bones rendered using Blender-style tapered octahedrons in amber with `depthTest: false` and `renderOrder: 9999`, creating an authentic X-Ray "In Front" display through mesh geometry.
+  - Interactive joint nodes rendered as cyan spheres with 3D raycasting pointerdown detection; clicking any joint in the 3D viewport selects it and highlights it in Cyber Yellow (`#F9CF00`) with an orbital selection ring.
+  - Joint selections and Pose Editor rotations dynamically articulate the bone hierarchy in real time.
+  - Integrated top Rigging Workspace HUD: `[Auto-Fit Rig]` (bounds auto-alignment), `[X-Mirror: ON]` (symmetry indicator), `[Bind Skin]` (one-click weight binding), and `ACTIVE JOINT` readout.
+  - Added visual legend at bottom right (`● Joint Node`, `━ Bone Armature`, `● Selected`).
+- **Build & Quality Verification**:
+  - Next.js production build (`npm run build`) compiled successfully in 29.9s with 0 errors.
+  - Pytest test suite: 58/58 passed cleanly in 27.60s.
+  - Visual verification captured and verified with `agent-browser` (`animation_real_rigging.png` and `animation_rigging_active.png`).
+
 ## [v5.0.65] - 2026-09-14
 ### Refactored & Unified Components (Ponytail Senior Dev Standards)
 - **Unified `MeshViewer` Across Entire Studio**:

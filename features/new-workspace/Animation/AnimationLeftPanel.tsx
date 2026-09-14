@@ -20,13 +20,6 @@ import { toast } from 'sonner';
 
 import { useViewerStore } from '@/stores/useViewerStore';
 
-const SAMPLE_PROJECT_MODELS = [
-  { id: 'model-char', name: 'character.glb', size: '2.4 MB', vertices: '48.5k', format: 'GLB', isRigged: true },
-  { id: 'model-robot', name: 'robot.fbx', size: '3.1 MB', vertices: '32.1k', format: 'FBX', isRigged: true },
-  { id: 'model-creature', name: 'creature.glb', size: '4.8 MB', vertices: '64.8k', format: 'GLB', isRigged: false },
-  { id: 'model-human', name: 'human.obj', size: '1.9 MB', vertices: '28.3k', format: 'OBJ', isRigged: false },
-];
-
 export const AnimationLeftPanel: React.FC = () => {
   const { assets, selectedAssetId, selectAsset, currentAsset, addAsset } = useWorkspace();
   const viewerStore = useViewerStore();
@@ -45,57 +38,35 @@ export const AnimationLeftPanel: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Combine real workspace assets with fallback sample assets if workspace has few
-  const displayModels = assets.length > 0
-    ? assets.map((a) => ({
-        id: a.id,
-        name: a.name || a.source?.filename || 'model.glb',
-        size: a.faces ? `${Math.round((a.faces * 50) / 1024)} KB` : '2.4 MB',
-        vertices: a.vertices ? `${(a.vertices / 1000).toFixed(1)}k` : '48.5k',
-        format: (a.format || 'GLB').toUpperCase(),
-        isRigged: Boolean(a.artifacts?.source || a.tags?.includes('rigged') || true),
-      }))
-    : SAMPLE_PROJECT_MODELS;
+  // Purely real workspace assets — zero mock or placeholder models
+  const displayModels = assets.map((a) => {
+    const rawFaces = a.faces || a.triangles || 0;
+    const rawVerts = a.vertices || 0;
+    const vertsDisplay = rawVerts > 0
+      ? `${(rawVerts / 1000).toFixed(1)}k`
+      : rawFaces > 0
+      ? `${(rawFaces / 1000).toFixed(1)}k`
+      : '—';
 
-  const currentModelName = currentAsset?.name || viewerStore.loadedModelName || 'character.glb';
+    return {
+      id: a.id,
+      name: a.name || a.source?.filename || 'model.glb',
+      size: rawFaces > 0 ? `${Math.round((rawFaces * 50) / 1024)} KB` : '—',
+      vertices: vertsDisplay,
+      format: (a.format || 'GLB').toUpperCase(),
+      isRigged: Boolean(a.tags?.includes('rigged')),
+    };
+  });
+
+  const currentModelName = currentAsset?.name || viewerStore.loadedModelName || (displayModels[0]?.name ?? '3D Model');
   const realVerts = currentAsset?.vertices || viewerStore.modelStats?.vertices || 0;
   const realFaces = currentAsset?.faces || currentAsset?.triangles || viewerStore.modelStats?.triangles || 0;
   const currentModelDetails = realFaces > 0
     ? `${realFaces.toLocaleString()} polys • ${realVerts > 0 ? (realVerts / 1000).toFixed(1) + 'k verts' : ''}`
     : '3D Mesh Target';
 
-  const handleSelectModel = (model: { id: string; name: string; format?: string; vertices?: string }) => {
-    const existing = assets.find((a) => a.id === model.id);
-    if (existing) {
-      selectAsset(existing.id);
-    } else {
-      const isRobot = model.name.toLowerCase().includes('robot');
-      const isCreature = model.name.toLowerCase().includes('creature');
-      const isHuman = model.name.toLowerCase().includes('human');
-      const newAsset = {
-        id: model.id,
-        name: model.name,
-        category: 'mesh' as const,
-        thumbnail: '',
-        meshType: 'custom' as const,
-        faces: isCreature ? 64800 : isRobot ? 32100 : isHuman ? 28300 : 48500,
-        vertices: isCreature ? 50000 : isRobot ? 25000 : isHuman ? 22000 : 35000,
-        triangles: isCreature ? 64800 : isRobot ? 32100 : isHuman ? 28300 : 48500,
-        topology: 'Triangle' as const,
-        format: (model.format || 'GLB') as any,
-        dateCreated: new Date().toISOString(),
-        tags: ['character', 'rigged'],
-        source: {
-          filename: model.name,
-          subfolder: 'samples',
-          type: 'local',
-          localUrl: '',
-          viewUrl: '',
-        },
-      };
-      addAsset(newAsset);
-      selectAsset(newAsset.id);
-    }
+  const handleSelectModel = (model: { id: string }) => {
+    selectAsset(model.id);
   };
 
   // Filter animations by category and search
@@ -114,34 +85,81 @@ export const AnimationLeftPanel: React.FC = () => {
     return animations.filter((a) => a.category === cat).length;
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    const newAsset = {
-      id: `imported-${Date.now()}`,
+
+    const localUrl = URL.createObjectURL(file);
+    const tempId = `model-upload-${Date.now()}`;
+    const ext = (file.name.split('.').pop() || 'glb').toUpperCase();
+
+    // Instant local asset insertion for 0ms preview
+    const tempAsset = {
+      id: tempId,
       name: file.name,
       category: 'mesh' as const,
       thumbnail: '',
       meshType: 'custom' as const,
-      faces: 48500,
-      vertices: 35000,
-      triangles: 48500,
+      faces: 0,
+      vertices: 0,
+      triangles: 0,
       topology: 'Triangle' as const,
-      format: file.name.endsWith('.fbx') ? ('FBX' as const) : ('GLB' as const),
+      format: ext as any,
       dateCreated: new Date().toISOString(),
-      tags: ['imported', 'character'],
+      tags: ['uploaded'],
       source: {
         filename: file.name,
-        subfolder: 'imports',
-        type: 'local',
-        localUrl: url,
-        viewUrl: url,
+        subfolder: 'models',
+        type: 'local' as const,
+        localUrl,
+        viewUrl: localUrl,
       },
     };
-    addAsset(newAsset);
-    selectAsset(newAsset.id);
-    toast.success(`Imported ${file.name}`, { description: 'Loaded into Animation Studio viewport' });
+    addAsset(tempAsset);
+    selectAsset(tempId);
+    toast.info(`Uploading ${file.name}...`);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/v1/upload/model', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const uploaded = data?.data;
+        if (uploaded) {
+          const finalAsset = {
+            id: uploaded.id || tempId,
+            name: file.name,
+            category: 'mesh' as const,
+            thumbnail: uploaded.thumbnail_url || '',
+            meshType: 'custom' as const,
+            faces: uploaded.mesh_stats?.polygon_count || 0,
+            vertices: uploaded.mesh_stats?.vertex_count || 0,
+            triangles: uploaded.mesh_stats?.polygon_count || 0,
+            topology: 'Triangle' as const,
+            format: (uploaded.format || ext).toUpperCase() as any,
+            dateCreated: new Date().toISOString(),
+            tags: ['uploaded'],
+            source: {
+              filename: uploaded.filename || file.name,
+              subfolder: 'models',
+              type: 'upload' as const,
+              localUrl: uploaded.url,
+              viewUrl: uploaded.url,
+            },
+          };
+          addAsset(finalAsset);
+          selectAsset(finalAsset.id);
+          toast.success(`Uploaded ${file.name}`, { description: 'Ready for rigging and animation' });
+        }
+      }
+    } catch {
+      // Local preview remains functional
+    }
   };
 
   const handleAddCustomAnimation = () => {
@@ -222,47 +240,63 @@ export const AnimationLeftPanel: React.FC = () => {
             </span>
           </div>
 
-          <div className="space-y-1">
-            {displayModels.map((model) => {
-              const isSelected =
-                selectedAssetId === model.id ||
-                (!selectedAssetId && model.name === currentModelName);
+          {displayModels.length === 0 ? (
+            <div className="p-4 text-center border border-dashed border-white/[0.08] rounded-xl bg-[#14161D]/50 my-1">
+              <FolderOpen className="w-6 h-6 text-zinc-500 mx-auto mb-2" />
+              <div className="text-xs font-bold text-zinc-300">No Models in Project</div>
+              <p className="text-[10px] text-zinc-500 mt-1 mb-2.5">
+                Upload a 3D model (.glb, .fbx, .obj) to start rigging & animating
+              </p>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="px-3 py-1.5 rounded-lg bg-[#F9CF00] hover:bg-[#ffe033] text-black font-bold text-xs transition-colors cursor-pointer"
+              >
+                Upload 3D Model
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {displayModels.map((model) => {
+                const isSelected =
+                  selectedAssetId === model.id ||
+                  (!selectedAssetId && model.name === currentModelName);
 
-              return (
-                <button
-                  key={model.id}
-                  onClick={() => handleSelectModel(model)}
-                  className={`w-full p-2 rounded-xl text-left transition-all flex items-center justify-between gap-2 border cursor-pointer ${
-                    isSelected
-                      ? 'bg-[#1D2028] border-[#F9CF00]/50 text-white shadow-sm'
-                      : 'bg-[#15171D] border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[#1A1C23]'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div
-                      className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                        isSelected ? 'bg-[#F9CF00]' : 'bg-zinc-600'
-                      }`}
-                    />
-                    <div className="truncate">
-                      <div className={`text-xs truncate ${isSelected ? 'font-bold text-white' : 'font-medium'}`}>
-                        {model.name}
+                return (
+                  <button
+                    key={model.id}
+                    onClick={() => handleSelectModel(model)}
+                    className={`w-full p-2 rounded-xl text-left transition-all flex items-center justify-between gap-2 border cursor-pointer ${
+                      isSelected
+                        ? 'bg-[#1D2028] border-[#F9CF00]/50 text-white shadow-sm'
+                        : 'bg-[#15171D] border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[#1A1C23]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div
+                        className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                          isSelected ? 'bg-[#F9CF00]' : 'bg-zinc-600'
+                        }`}
+                      />
+                      <div className="truncate">
+                        <div className={`text-xs truncate ${isSelected ? 'font-bold text-white' : 'font-medium'}`}>
+                          {model.name}
+                        </div>
+                        <div className="text-[10px] text-zinc-500">{model.vertices} verts</div>
                       </div>
-                      <div className="text-[10px] text-zinc-500">{model.vertices} verts</div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-black/40 text-zinc-400 border border-white/[0.04]">
-                      {model.format}
-                    </span>
-                    {isSelected && (
-                      <Check className="w-3.5 h-3.5 text-[#F9CF00] flex-shrink-0" />
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-black/40 text-zinc-400 border border-white/[0.04]">
+                        {model.format}
+                      </span>
+                      {isSelected && (
+                        <Check className="w-3.5 h-3.5 text-[#F9CF00] flex-shrink-0" />
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* SECTION 3: Animation Library */}
