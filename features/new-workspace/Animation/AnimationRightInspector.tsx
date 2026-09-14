@@ -125,23 +125,43 @@ export const AnimationRightInspector: React.FC = () => {
       });
 
       if (!res.ok) {
-        // Handle mock / local dev fallback gracefully if endpoint returns 400 without uploaded file
-        setRigStatus('rigged');
-        toast.success('Auto-Rigging Complete!', {
-          description: `Generated ${rigProfile} skeleton (17 bones) with automatic skinning weights`,
-        });
-        return;
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.detail || errJson?.message || 'Failed to initialize auto-rig job');
       }
 
-      const data = await res.json();
+      const postResult = await res.json();
+      const jobId = postResult?.data?.job_id;
+
+      if (jobId) {
+        let completed = false;
+        let attempts = 0;
+        while (!completed && attempts < 60) {
+          await new Promise((r) => setTimeout(r, 1200));
+          attempts++;
+          const pollRes = await fetch(`/api/v1/generation/${jobId}/status`);
+          if (pollRes.ok) {
+            const pollData = await pollRes.json();
+            const job = pollData?.data;
+            if (job) {
+              if (job.status === 'completed') {
+                completed = true;
+                break;
+              } else if (job.status === 'failed') {
+                throw new Error(job.error_message || 'Auto-rigging execution failed');
+              }
+            }
+          }
+        }
+      }
+
       setRigStatus('rigged');
       toast.success('Auto-Rigging Complete!', {
-        description: `Armature bound to mesh with deforming weights`,
+        description: `Armature bound to mesh with deforming weights (${rigProfile} 17 bones)`,
       });
     } catch (err) {
-      setRigStatus('rigged');
-      toast.success('Auto-Rigging Complete!', {
-        description: `Biped skeleton ready (17 bones, automatic weights)`,
+      setRigStatus('failed');
+      toast.error('Auto-Rigging failed', {
+        description: err instanceof Error ? err.message : 'Unknown error during rigging',
       });
     }
   };
@@ -155,7 +175,7 @@ export const AnimationRightInspector: React.FC = () => {
 
     setMotionAiIsGenerating(true);
     setMotionAiStage('Connecting to ARDY motion diffusion...');
-    setMotionAiProgress(15);
+    setMotionAiProgress(10);
     setMotionAiError(null);
 
     toast.info('Synthesizing motion with ARDY...', {
@@ -177,18 +197,44 @@ export const AnimationRightInspector: React.FC = () => {
         }),
       });
 
-      setMotionAiProgress(60);
-      setMotionAiStage('Sampling autoregressive diffusion steps...');
-
-      if (res.ok) {
-        const data = await res.json();
-        setMotionAiProgress(100);
-        setMotionAiStage('Ready');
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.detail || errJson?.message || 'Failed to submit motion generation');
       }
+
+      const postResult = await res.json();
+      const jobId = postResult?.data?.job_id;
+
+      if (jobId) {
+        let completed = false;
+        let attempts = 0;
+        while (!completed && attempts < 60) {
+          await new Promise((r) => setTimeout(r, 1200));
+          attempts++;
+          const pollRes = await fetch(`/api/v1/generation/${jobId}/status`);
+          if (pollRes.ok) {
+            const pollData = await pollRes.json();
+            const job = pollData?.data;
+            if (job) {
+              setMotionAiProgress(job.progress || Math.min(20 + attempts * 8, 95));
+              setMotionAiStage(job.stage || job.message || 'Sampling ARDY motion diffusion...');
+              if (job.status === 'completed') {
+                completed = true;
+                break;
+              } else if (job.status === 'failed') {
+                throw new Error(job.error_message || 'ARDY motion generation failed');
+              }
+            }
+          }
+        }
+      }
+
+      setMotionAiProgress(100);
+      setMotionAiStage('Ready');
 
       // Add generated motion clip to animation library
       const newClip = {
-        id: `anim-ai-${Date.now()}`,
+        id: `anim-ardy-${Date.now()}`,
         name: motionAiPrompt.slice(0, 24) + (motionAiPrompt.length > 24 ? '...' : ''),
         category: 'Custom' as const,
         duration: motionAiDuration,

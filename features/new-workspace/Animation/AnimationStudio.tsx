@@ -20,16 +20,14 @@ import { AnimationLeftPanel } from './AnimationLeftPanel';
 import { AnimationViewportStage } from './AnimationViewportStage';
 import { AnimationRightInspector } from './AnimationRightInspector';
 import { AnimationBottomDock } from './AnimationBottomDock';
-import { AnimationExportModal } from './AnimationExportModal';
 import { toast } from 'sonner';
 
 export const AnimationStudio: React.FC = () => {
-  const { navigateToTool, currentAsset } = useWorkspace();
+  const { navigateToTool, currentAsset, setIsExportModalOpen } = useWorkspace();
   const {
     activeMode,
     setActiveMode,
     setInspectorTab,
-    setIsExportModalOpen,
     rigStatus,
   } = useAnimationStore();
 
@@ -179,9 +177,6 @@ export const AnimationStudio: React.FC = () => {
 
       {/* BOTTOM QUICK ACTION DOCK (Spans full workspace width) */}
       <AnimationBottomDock />
-
-      {/* Export Modal */}
-      <AnimationExportModal />
     </div>
   );
 };

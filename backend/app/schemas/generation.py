@@ -40,6 +40,8 @@ class GenerationRequest(BaseModel):
     auto_rig: bool = False
     reference_image_url: str | None = None
     source_mesh_url: str | None = None
+    rig_type: str = "humanoid"
+    options: dict[str, Any] | None = None
     detail_pass: bool = False
     detail_guidance: float = 7.5
     # Low VRAM mode: True forces low-VRAM execution; vram_mode may be
@@ -108,6 +110,8 @@ class GenerationRequest(BaseModel):
                 "repairUVs": "repair_uvs",
                 "generateTexture": "generate_texture",
                 "autoRig": "auto_rig",
+                "rigType": "rig_type",
+                "rigOptions": "options",
                 "autoOptimize": "auto_optimize",
                 "topologyMode": "topology_mode",
                 "postProcess": "postprocess",

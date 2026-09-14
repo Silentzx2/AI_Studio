@@ -128,8 +128,12 @@ async def create_generation(req: GenerationRequest, request: Request):
     builtin_provider = {
         "remesh": "builtin-remesh",
         "render": "builtin-render",
+        "rigging": "builtin-rigging",
     }.get(req.mode)
-    provider = builtin_provider or req.provider or settings.ai_provider
+    provider = builtin_provider or req.provider
+    if not provider and (req.workspace == "animation" or req.mode in ("animation", "motion")):
+        provider = "ardy"
+    provider = provider or settings.ai_provider
 
     # Animation workspace / mode validation
     if req.workspace == "animation" or req.mode in ("animation", "motion"):

@@ -47,7 +47,6 @@ const dracoLoader = new DRACOLoader();
 if (typeof window !== 'undefined') {
   try {
     dracoLoader.setDecoderPath('/draco/gltf/');
-    dracoLoader.setDecoderConfig({ type: 'js' });
   } catch {}
 }
 
@@ -310,6 +309,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const isTurntableRef = useRef(isTurntable);
   const blobUrlRef = useRef<string | null>(null);
   const toastTimeoutRef = useRef<number | null>(null);
+  const mixerRef = useRef<THREE.AnimationMixer | null>(null);
+  const skeletonHelperRef = useRef<THREE.SkeletonHelper | null>(null);
 
   // Sync interactionMode with OrbitControls / TransformControls
   useEffect(() => {
@@ -510,9 +511,17 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         }
       }
 
+      const animationActive = Boolean(mixerRef.current);
+      if (animationActive && mixerRef.current) {
+        mixerRef.current.update(delta);
+      }
+      if (skeletonHelperRef.current) {
+        skeletonHelperRef.current.updateMatrixWorld();
+      }
+
       const controlsChanged = controls.update();
-      if (turntableActive || pointCloudActive || controlsChanged || idleFrames < 60) {
-        if (turntableActive || pointCloudActive || controlsChanged) {
+      if (turntableActive || pointCloudActive || animationActive || controlsChanged || idleFrames < 60) {
+        if (turntableActive || pointCloudActive || animationActive || controlsChanged) {
           idleFrames = 0;
         } else {
           idleFrames++;
@@ -658,6 +667,16 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
       });
     }
 
+    if (mixerRef.current) {
+      mixerRef.current.stopAllAction();
+      mixerRef.current = null;
+    }
+    if (skeletonHelperRef.current) {
+      if (sceneRef.current) sceneRef.current.remove(skeletonHelperRef.current);
+      skeletonHelperRef.current.dispose();
+      skeletonHelperRef.current = null;
+    }
+
     if (!currentAsset?.source?.viewUrl && !currentAsset?.source?.localUrl) {
       if (currentAsset) {
         // Procedural high-detail 3D hero model for sample & generated assets without remote URLs
@@ -785,6 +804,14 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             });
             frameCamera(gltf.scene);
             computeMeshStats(gltf.scene);
+
+            // If GLTF contains animation clips, start AnimationMixer
+            if (gltf.animations && gltf.animations.length > 0) {
+              const mixer = new THREE.AnimationMixer(gltf.scene);
+              mixerRef.current = mixer;
+              const action = mixer.clipAction(gltf.animations[0]);
+              action.play();
+            }
 
             // Asynchronously compile shaders and upload GPU buffers to eliminate render freeze
             if (rendererRef.current && cameraRef.current) {
@@ -1457,7 +1484,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
       )}
 
       {/* Empty State Overlay when no asset is active */}
-      {!currentAsset && !isLoading && !isExecuting && !debugBlueprint && (
+      {!currentAsset && !isLoading && !isExecuting && !debugBlueprint && showOverlayUI && (
         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none p-4">
           <div className="max-w-xs w-full p-5 rounded-2xl bg-[#14161b]/95 border border-[#272a34] shadow-2xl backdrop-blur-md text-center pointer-events-auto space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-[#1c1f26] border border-[#272a34] flex items-center justify-center mx-auto text-[#F9CF00]">

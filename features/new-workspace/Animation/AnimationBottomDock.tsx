@@ -10,9 +10,11 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useAnimationStore } from '@/stores/useAnimationStore';
+import { useWorkspace } from '../store/WorkspaceContext';
 
 export const AnimationBottomDock: React.FC = () => {
-  const { setActiveMode, setInspectorTab, setIsExportModalOpen } = useAnimationStore();
+  const { setActiveMode, setInspectorTab } = useAnimationStore();
+  const { setIsExportModalOpen } = useWorkspace();
 
   const cards = [
     {

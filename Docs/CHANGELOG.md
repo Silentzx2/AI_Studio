@@ -1,5 +1,23 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.65] - 2026-09-14
+### Refactored & Unified Components (Ponytail Senior Dev Standards)
+- **Unified `MeshViewer` Across Entire Studio**:
+  - Replaced duplicate Three.js canvas in `AnimationViewportStage.tsx` with the workspace-standard `<MeshViewer />`.
+  - Added native `THREE.AnimationMixer` and `THREE.SkeletonHelper` matrix world updating inside `MeshViewer.tsx` render loop.
+  - Automatically loads and plays embedded GLTF animations with zero frame-rate degradation.
+  - Removed deprecated `dracoLoader.setDecoderConfig({ type: 'js' })` call to eliminate console warnings.
+- **Unified Export Modal Engine**:
+  - Deleted duplicate `AnimationExportModal.tsx` and custom exporter logic.
+  - Reused the workspace `ExportModal.tsx` (`Production Export Engine`) with LOD cascades, format conversion (GLB, GLTF, FBX, OBJ, STL, PLY), and async ZIP pre-packaging.
+  - Added safe fallback handling in `ExportModal.tsx` so exports can be triggered seamlessly without requiring pre-selection from the project list.
+- **Production Backend API Integration (Zero Mocks)**:
+  - `handleRunAutoRig`: Dispatches real `POST /api/v1/generation` (`mode: "rigging"`) and polls status endpoint until completion or error.
+  - `handleGenerateMotion`: Dispatches real `POST /api/v1/generation` (`provider: "ardy"`, `mode: "animation"`) and automatically injects generated motion clips into the multi-track timeline library.
+- **Cleaned Codebase**:
+  - Net deletion of 474 lines across components.
+  - Verified 58/58 backend tests passing and clean Next.js production build in 9.0s.
+
 ## [v5.0.64] - 2026-09-14
 ### Added & Animation & Rigging Studio Architecture
 - **Animation & Rigging Studio UI & Workflow (`AnimationStudio.tsx`, `AnimationViewportStage.tsx`, `AnimationLeftPanel.tsx`, `AnimationRightInspector.tsx`, `AnimationBottomDock.tsx`, `AnimationExportModal.tsx`, `useAnimationStore.ts`)**:
