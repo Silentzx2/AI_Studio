@@ -53,6 +53,8 @@ export const AnimationViewportStage: React.FC = () => {
     selectedBone,
     setSelectedBone,
     setRigStatus,
+    isPlacingBone,
+    setIsPlacingBone,
   } = useAnimationStore();
 
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -201,6 +203,26 @@ export const AnimationViewportStage: React.FC = () => {
           </div>
         )}
 
+        {/* CLICK TO PLACE BONE PROMPT BANNER */}
+        {isPlacingBone && (
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex items-center gap-3 px-4 py-2 bg-[#121418]/95 backdrop-blur-md border border-[#F9CF00] rounded-xl shadow-2xl animate-pulse">
+            <Bone className="w-4 h-4 text-[#F9CF00]" />
+            <span className="text-xs text-white font-medium">
+              Click anywhere on the 3D model surface to place joint node{' '}
+              <span className="font-mono text-[#F9CF00]">↳ Parent: {selectedBone || 'Hips (Root)'}</span>
+            </span>
+            <button
+              onClick={() => {
+                setIsPlacingBone(false);
+                setActiveViewportTool('select');
+              }}
+              className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-zinc-300 transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+
         {/* LEFT VIEWPORT TOOL STRIP */}
         <div className="absolute left-3 top-3 z-10 flex flex-col gap-1 p-1 bg-[#16181D]/90 backdrop-blur-md border border-white/[0.08] rounded-xl shadow-xl">
           {[
@@ -211,11 +233,19 @@ export const AnimationViewportStage: React.FC = () => {
             { id: 'bone', icon: <Bone className="w-4 h-4" />, label: 'Bone Tool (B)' },
             { id: 'weight', icon: <Brush className="w-4 h-4" />, label: 'Paint Weights (P)' },
           ].map((tool) => {
-            const isActive = activeViewportTool === tool.id;
+            const isActive = activeViewportTool === tool.id || (tool.id === 'bone' && isPlacingBone);
             return (
               <SimpleTooltip key={tool.id} side="right" label={tool.label}>
                 <button
-                  onClick={() => setActiveViewportTool(tool.id as ViewportGizmoTool)}
+                  onClick={() => {
+                    setActiveViewportTool(tool.id as ViewportGizmoTool);
+                    if (tool.id === 'bone') {
+                      setIsPlacingBone(true);
+                      toast.info('Click on 3D character to place joint node');
+                    } else {
+                      setIsPlacingBone(false);
+                    }
+                  }}
                   className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
                     isActive
                       ? 'bg-[#F9CF00] text-black shadow-md'

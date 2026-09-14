@@ -61,63 +61,92 @@ try {
 const sharedOBJLoader = new OBJLoader();
 const sharedPLYLoader = new PLYLoader();
 
+// Shared geometries and materials for zero-allocation, 60fps armature rendering
+const sharedJointGeo = new THREE.SphereGeometry(1, 14, 10);
+const sharedJointMat = new THREE.MeshStandardMaterial({
+  color: 0x00F5D4,
+  emissive: 0x00A896,
+  emissiveIntensity: 0.4,
+  roughness: 0.2,
+  metalness: 0.5,
+  depthTest: false,
+  transparent: true,
+  opacity: 0.95,
+});
+const sharedJointSelectedMat = new THREE.MeshStandardMaterial({
+  color: 0xF9CF00,
+  emissive: 0xF9CF00,
+  emissiveIntensity: 0.8,
+  roughness: 0.2,
+  metalness: 0.5,
+  depthTest: false,
+  transparent: true,
+  opacity: 0.95,
+});
+const sharedBoneMat = new THREE.MeshStandardMaterial({
+  color: 0xE2A800,
+  roughness: 0.35,
+  metalness: 0.2,
+  transparent: true,
+  opacity: 0.75,
+  depthTest: false,
+});
+const sharedBoneSelectedMat = new THREE.MeshStandardMaterial({
+  color: 0xF9CF00,
+  roughness: 0.35,
+  metalness: 0.2,
+  transparent: true,
+  opacity: 0.95,
+  depthTest: false,
+});
+const sharedRingGeo = new THREE.RingGeometry(0.045, 0.055, 24);
+const sharedRingMat = new THREE.MeshBasicMaterial({
+  color: 0xF9CF00,
+  side: THREE.DoubleSide,
+  depthTest: false,
+  transparent: true,
+  opacity: 0.95,
+});
+
+function createUnitBoneGeometry(): THREE.BufferGeometry {
+  const width = 0.12;
+  const bodyZ = 0.22;
+  const len = 1.0;
+  const vertices = new Float32Array([
+    0, 0, 0,    width, 0, bodyZ,    0, width, bodyZ,
+    0, 0, 0,    0, width, bodyZ,   -width, 0, bodyZ,
+    0, 0, 0,   -width, 0, bodyZ,    0, -width, bodyZ,
+    0, 0, 0,    0, -width, bodyZ,   width, 0, bodyZ,
+    width, 0, bodyZ,    0, 0, len,    0, width, bodyZ,
+    0, width, bodyZ,    0, 0, len,   -width, 0, bodyZ,
+   -width, 0, bodyZ,    0, 0, len,    0, -width, bodyZ,
+    0, -width, bodyZ,   0, 0, len,    width, 0, bodyZ,
+  ]);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+  geo.computeVertexNormals();
+  return geo;
+}
+const sharedBoneGeo = createUnitBoneGeometry();
+
 // Helper to create an authentic Blender-style bone octahedron mesh between parent and child positions
 function createBoneMesh(start: THREE.Vector3, end: THREE.Vector3, isSelected: boolean): THREE.Mesh {
   const dir = new THREE.Vector3().subVectors(end, start);
   const len = dir.length();
   if (len < 0.001) return new THREE.Mesh();
 
-  const width = Math.max(0.012, len * 0.12);
-  const bodyZ = len * 0.22;
-
-  const vertices = new Float32Array([
-    // 4 triangles connecting head (start) to body ring
-    0, 0, 0,    width, 0, bodyZ,    0, width, bodyZ,
-    0, 0, 0,    0, width, bodyZ,   -width, 0, bodyZ,
-    0, 0, 0,   -width, 0, bodyZ,    0, -width, bodyZ,
-    0, 0, 0,    0, -width, bodyZ,   width, 0, bodyZ,
-
-    // 4 triangles connecting body ring to tail (end)
-    width, 0, bodyZ,    0, 0, len,    0, width, bodyZ,
-    0, width, bodyZ,    0, 0, len,   -width, 0, bodyZ,
-   -width, 0, bodyZ,    0, 0, len,    0, -width, bodyZ,
-    0, -width, bodyZ,   0, 0, len,    width, 0, bodyZ,
-  ]);
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-  geo.computeVertexNormals();
-
-  const mat = new THREE.MeshStandardMaterial({
-    color: isSelected ? 0xF9CF00 : 0xE2A800,
-    roughness: 0.35,
-    metalness: 0.2,
-    transparent: true,
-    opacity: isSelected ? 0.95 : 0.75,
-    depthTest: false,
-  });
-
-  const mesh = new THREE.Mesh(geo, mat);
+  const mesh = new THREE.Mesh(sharedBoneGeo, isSelected ? sharedBoneSelectedMat : sharedBoneMat);
   mesh.renderOrder = 9998;
   mesh.position.copy(start);
   mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir.clone().normalize());
+  mesh.scale.set(len, len, len);
   return mesh;
 }
 
 function createJointMesh(pos: THREE.Vector3, isSelected: boolean, boneName: string, scale: number): THREE.Mesh {
   const radius = (isSelected ? 0.045 : 0.032) * Math.max(0.3, Math.min(scale, 2.5));
-  const geo = new THREE.SphereGeometry(radius, 16, 16);
-  const mat = new THREE.MeshStandardMaterial({
-    color: isSelected ? 0xF9CF00 : 0x00F5D4,
-    emissive: isSelected ? 0xF9CF00 : 0x00A896,
-    emissiveIntensity: isSelected ? 0.8 : 0.4,
-    roughness: 0.2,
-    metalness: 0.5,
-    depthTest: false,
-    transparent: true,
-    opacity: 0.95,
-  });
-  const mesh = new THREE.Mesh(geo, mat);
+  const mesh = new THREE.Mesh(sharedJointGeo, isSelected ? sharedJointSelectedMat : sharedJointMat);
+  mesh.scale.setScalar(radius);
   mesh.renderOrder = 9999;
   mesh.position.copy(pos);
   mesh.userData = { isJoint: true, boneName };
@@ -338,6 +367,12 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     const box = new THREE.Box3().setFromObject(object);
     const size = new THREE.Vector3();
     box.getSize(size);
+    const center = new THREE.Vector3();
+    box.getCenter(center);
+    const height = Math.max(size.y, 0.4);
+    const scale = height / 1.8;
+    const baseY = box.min.y;
+    meshBoundsCacheRef.current = { center, size, height, scale, baseY };
     const dimensions = {
       x: Number(size.x.toFixed(2)),
       y: Number(size.y.toFixed(2)),
@@ -380,6 +415,35 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const actionRef = useRef<THREE.AnimationAction | null>(null);
   const skeletonHelperRef = useRef<THREE.SkeletonHelper | null>(null);
   const rigArmatureGroupRef = useRef<THREE.Group | null>(null);
+  const meshBoundsCacheRef = useRef<{
+    center: THREE.Vector3;
+    size: THREE.Vector3;
+    height: number;
+    scale: number;
+    baseY: number;
+  } | null>(null);
+
+  const getMeshBounds = useCallback(() => {
+    if (meshBoundsCacheRef.current) return meshBoundsCacheRef.current;
+    const group = currentMeshGroupRef.current;
+    if (!group || group.children.length === 0) {
+      return {
+        center: new THREE.Vector3(0, 0, 0),
+        size: new THREE.Vector3(1, 1.8, 1),
+        height: 1.8,
+        scale: 1.0,
+        baseY: 0,
+      };
+    }
+    const box = new THREE.Box3().setFromObject(group);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const height = Math.max(size.y, 0.4);
+    const scale = height / 1.8;
+    const baseY = box.min.y;
+    meshBoundsCacheRef.current = { center, size, height, scale, baseY };
+    return meshBoundsCacheRef.current;
+  }, []);
 
   // Subscribe to real animation store for live 3D viewport synchronization
   const {
@@ -395,6 +459,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     inspectorTab: animInspectorTab,
     bones: animBones,
     setSelectedBone: setAnimSelectedBone,
+    activeViewportTool: animActiveViewportTool,
+    isPlacingBone: animIsPlacingBone,
   } = useAnimationStore();
 
   // 1. Live model transform (position, rotation, scale)
@@ -462,16 +528,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     if (!sceneRef.current || !rigArmatureGroupRef.current) return;
     const rigGroup = rigArmatureGroupRef.current;
 
-    // Clear previous armature meshes
-    while (rigGroup.children.length > 0) {
-      const child = rigGroup.children[0];
-      rigGroup.remove(child);
-      if (child instanceof THREE.Mesh) {
-        child.geometry?.dispose();
-        if (Array.isArray(child.material)) child.material.forEach((m) => m.dispose());
-        else child.material?.dispose();
-      }
-    }
+    // Clear previous armature meshes (reusing shared pooled geometries)
+    rigGroup.clear();
 
     const isRiggingActive =
       animActiveMode === 'rigging' ||
@@ -484,13 +542,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     const group = currentMeshGroupRef.current;
     if (!group || group.children.length === 0) return;
 
-    // Calculate mesh bounds for dynamic rig fitting
-    const box = new THREE.Box3().setFromObject(group);
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-    const height = Math.max(size.y, 0.4);
-    const scale = height / 1.8;
-    const baseY = box.min.y;
+    // Fast cached mesh bounds (0ms geometry traversal)
+    const { center, scale, baseY } = getMeshBounds();
 
     // Compute world positions for each bone in hierarchy
     const boneWorldPositions = new Map<string, THREE.Vector3>();
@@ -502,7 +555,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
       boneWorldPositions.set(b.name, new THREE.Vector3(posX, posY, posZ));
     });
 
-    // Create joint handles and bone connectors
+    // Create joint handles and bone connectors using shared pool
     animBones.forEach((b) => {
       const pos = boneWorldPositions.get(b.name);
       if (!pos) return;
@@ -514,15 +567,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
       // 2. Selected Bone Highlight Ring
       if (isSelected) {
-        const ringGeo = new THREE.RingGeometry(0.045 * scale, 0.055 * scale, 32);
-        const ringMat = new THREE.MeshBasicMaterial({
-          color: 0xF9CF00,
-          side: THREE.DoubleSide,
-          depthTest: false,
-          transparent: true,
-          opacity: 0.95,
-        });
-        const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+        const ringMesh = new THREE.Mesh(sharedRingGeo, sharedRingMat);
+        ringMesh.scale.setScalar(scale);
         ringMesh.position.copy(pos);
         ringMesh.renderOrder = 10000;
         ringMesh.lookAt(cameraRef.current ? cameraRef.current.position : new THREE.Vector3(0, 1, 5));
@@ -547,33 +593,54 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     animActiveMode,
     animInspectorTab,
     animSelectedBone,
-    animBoneRotations,
     animBones,
     animDisplayOptions.showSkeleton,
     viewportResetTrigger,
     currentAsset?.id,
+    getMeshBounds,
   ]);
 
-  // Sync interactionMode with OrbitControls / TransformControls
+  // Sync interactionMode and selected bone joint with TransformControls
   useEffect(() => {
-    if (!controlsRef.current) return;
+    if (!controlsRef.current || !transformControlsRef.current) return;
+    const tc = transformControlsRef.current;
+
     if (interactionMode === 'pan') {
       controlsRef.current.mouseButtons.LEFT = THREE.MOUSE.PAN;
     } else {
       controlsRef.current.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
     }
 
-    if (transformControlsRef.current) {
-      const tc = transformControlsRef.current;
-      if (interactionMode === 'move' && currentMeshGroupRef.current && currentMeshGroupRef.current.children.length > 0) {
-        tc.attach(currentMeshGroupRef.current);
-        tc.enabled = true;
-      } else {
-        tc.detach();
-        tc.enabled = false;
+    if (animActiveMode === 'rigging' || animInspectorTab === 'rigging') {
+      if (animSelectedBone && rigArmatureGroupRef.current) {
+        const jointMesh = rigArmatureGroupRef.current.children.find(
+          (c) => c.userData?.isJoint && c.userData?.boneName === animSelectedBone
+        );
+        if (jointMesh) {
+          tc.attach(jointMesh);
+          tc.setMode(animActiveViewportTool === 'rotate' ? 'rotate' : 'translate');
+          tc.enabled = true;
+          return;
+        }
       }
+      tc.detach();
+      tc.enabled = false;
+    } else if (interactionMode === 'move' && currentMeshGroupRef.current && currentMeshGroupRef.current.children.length > 0) {
+      tc.attach(currentMeshGroupRef.current);
+      tc.setMode('translate');
+      tc.enabled = true;
+    } else {
+      tc.detach();
+      tc.enabled = false;
     }
-  }, [interactionMode]);
+  }, [
+    interactionMode,
+    animActiveMode,
+    animInspectorTab,
+    animSelectedBone,
+    animActiveViewportTool,
+    animBones,
+  ]);
 
   // Cleanup blob URLs on unmount
   useEffect(() => {
@@ -671,6 +738,23 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     transformControls.addEventListener('dragging-changed', (event: any) => {
       controls.enabled = !event.value;
     });
+    transformControls.addEventListener('objectChange', () => {
+      const state = useAnimationStore.getState();
+      const obj = transformControls.object;
+      if (
+        (state.activeMode === 'rigging' || state.inspectorTab === 'rigging') &&
+        state.selectedBone &&
+        obj?.userData?.isJoint
+      ) {
+        const bounds = getMeshBounds();
+        const boneX = parseFloat(((obj.position.x - bounds.center.x) / bounds.scale).toFixed(3));
+        const boneY = parseFloat(((obj.position.y - bounds.baseY) / bounds.scale).toFixed(3));
+        const boneZ = parseFloat(((obj.position.z - bounds.center.z) / bounds.scale).toFixed(3));
+
+        state.updateBonePosition(state.selectedBone, [boneX, boneY, boneZ]);
+        idleFrames = 0;
+      }
+    });
     scene.add(transformControls.getHelper() as unknown as THREE.Object3D);
     transformControlsRef.current = transformControls;
 
@@ -681,62 +765,66 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     const mainKeyLight = new THREE.DirectionalLight(0xfff5ea, 2.8);
     mainKeyLight.position.set(4, 6, 5);
     mainKeyLight.castShadow = true;
-    mainKeyLight.shadow.mapSize.width = 512;
-    mainKeyLight.shadow.mapSize.height = 512;
+    mainKeyLight.shadow.mapSize.width = 2048;
+    mainKeyLight.shadow.mapSize.height = 2048;
+    mainKeyLight.shadow.camera.near = 0.1;
+    mainKeyLight.shadow.camera.far = 20;
     mainKeyLight.shadow.bias = -0.0001;
+    mainKeyLight.shadow.normalBias = 0.02;
     scene.add(mainKeyLight);
     keyLightRef.current = mainKeyLight;
 
-    const fillLight = new THREE.DirectionalLight(0x90b0ff, 1.2);
-    fillLight.position.set(-5, 3, -3);
+    const fillLight = new THREE.DirectionalLight(0xdbeafe, 1.4);
+    fillLight.position.set(-5, 3, -2);
     scene.add(fillLight);
     fillLightRef.current = fillLight;
 
     const rimLight = new THREE.DirectionalLight(0xfff0d0, 1.8);
-    rimLight.position.set(0, 5, -6);
+    rimLight.position.set(0, 5, -5);
     scene.add(rimLight);
     rimLightRef.current = rimLight;
 
-    // 6. Floor Grid and Soft Shadow Floor - Disabled by default
-    const grid = new THREE.GridHelper(10, 20, 0x4a5060, 0x2a3040);
-    grid.position.y = -0.65;
-    grid.visible = false;
-
-    scene.add(grid);
-    gridHelperRef.current = grid;
-
-    scene.background = new THREE.Color(0x22242a);
-
-    const floorGeo = new THREE.PlaneGeometry(15, 15);
-    const floorMat = new THREE.ShadowMaterial({ opacity: 0.35 });
+    // 6. Floor with soft contact shadow receiver
+    const floorGeo = new THREE.PlaneGeometry(30, 30);
+    const floorMat = new THREE.ShadowMaterial({ opacity: 0.18 });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -0.651;
+    floor.position.y = -0.001;
     floor.receiveShadow = true;
     scene.add(floor);
     floorRef.current = floor;
 
-    // 7. Mesh Root Container Group
-    const meshGroup = new THREE.Group();
-    scene.add(meshGroup);
-    currentMeshGroupRef.current = meshGroup;
+    // 7. Grid Helper
+    const grid = new THREE.GridHelper(20, 40, 0x3b82f6, 0x1e293b);
+    grid.position.y = 0;
+    (grid.material as THREE.Material).opacity = 0.25;
+    (grid.material as THREE.Material).transparent = true;
+    grid.visible = animDisplayOptions.showGrid;
+    scene.add(grid);
+    gridHelperRef.current = grid;
 
-    // Interactive Generation Point Cloud Group (Tripo AI silhouette preview)
+    // 7b. Point Cloud / Scanning Blueprint Group
     const pointCloudGroup = new THREE.Group();
     pointCloudGroup.visible = false;
     scene.add(pointCloudGroup);
     pointCloudGroupRef.current = pointCloudGroup;
 
-    // Interactive Rigging Armature Group (Humanoid Biped 17-bone skeleton)
+    // 7c. Mesh Container Group
+    const meshGroup = new THREE.Group();
+    scene.add(meshGroup);
+    currentMeshGroupRef.current = meshGroup;
+
+    // 7d. Rigging Armature Visualizer Group
     const rigGroup = new THREE.Group();
-    rigGroup.name = 'rigArmatureGroup';
+    rigGroup.name = 'RigArmatureGroup';
+    rigGroup.visible = false;
     scene.add(rigGroup);
     rigArmatureGroupRef.current = rigGroup;
 
-    // Raycast on canvas to select bone joints in Rigging mode
+    // Raycast on canvas to select bone joints or place new bones in Rigging mode
     const onCanvasPointerDown = (event: MouseEvent) => {
-      const { activeMode, inspectorTab } = useAnimationStore.getState();
-      if (activeMode !== 'rigging' && inspectorTab !== 'rigging') return;
+      const state = useAnimationStore.getState();
+      if (state.activeMode !== 'rigging' && state.inspectorTab !== 'rigging') return;
 
       const rect = renderer.domElement.getBoundingClientRect();
       const mouse = new THREE.Vector2(
@@ -746,11 +834,41 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
       const raycaster = new THREE.Raycaster();
       raycaster.setFromCamera(mouse, camera);
 
+      // Check if user is placing a new bone on the 3D model surface
+      if (state.isPlacingBone || state.activeViewportTool === 'bone') {
+        const group = currentMeshGroupRef.current;
+        if (group && group.children.length > 0) {
+          const hits = raycaster.intersectObjects(group.children, true);
+          if (hits.length > 0) {
+            const hit = hits[0];
+            const bounds = getMeshBounds();
+
+            const boneX = parseFloat(((hit.point.x - bounds.center.x) / bounds.scale).toFixed(3));
+            const boneY = parseFloat(((hit.point.y - bounds.baseY) / bounds.scale).toFixed(3));
+            const boneZ = parseFloat(((hit.point.z - bounds.center.z) / bounds.scale).toFixed(3));
+
+            const parentBone = state.selectedBone || 'Hips';
+            const newBoneName = `Bone_${state.bones.length + 1}`;
+
+            state.addBone({
+              name: newBoneName,
+              parent: parentBone,
+              position: [boneX, boneY, boneZ],
+              rotation: [0, 0, 0],
+            });
+            state.setIsPlacingBone(false);
+            idleFrames = 0;
+            return;
+          }
+        }
+      }
+
+      // Check if clicking an existing joint handle in 3D
       if (rigArmatureGroupRef.current) {
         const intersects = raycaster.intersectObjects(rigArmatureGroupRef.current.children, true);
         const hit = intersects.find((i) => i.object.userData?.isJoint);
         if (hit && hit.object.userData?.boneName) {
-          useAnimationStore.getState().setSelectedBone(hit.object.userData.boneName);
+          state.setSelectedBone(hit.object.userData.boneName);
           idleFrames = 0;
         }
       }

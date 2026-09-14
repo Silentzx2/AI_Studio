@@ -54,6 +54,23 @@ export const DEFAULT_BONES: BoneItem[] = [
   { name: 'Foot_R', parent: 'LowerLeg_R', position: [-0.15, 0.08, 0.12], rotation: [0, 0, 0] },
 ];
 
+export const FACIAL_BONES: BoneItem[] = [
+  { name: 'Head', parent: null, position: [0, 1.78, 0], rotation: [0, 0, 0] },
+  { name: 'Jaw', parent: 'Head', position: [0, 1.68, 0.08], rotation: [0, 0, 0] },
+  { name: 'Eye_L', parent: 'Head', position: [0.04, 1.80, 0.08], rotation: [0, 0, 0] },
+  { name: 'Eye_R', parent: 'Head', position: [-0.04, 1.80, 0.08], rotation: [0, 0, 0] },
+  { name: 'Eyebrow_L', parent: 'Head', position: [0.04, 1.84, 0.08], rotation: [0, 0, 0] },
+  { name: 'Eyebrow_R', parent: 'Head', position: [-0.04, 1.84, 0.08], rotation: [0, 0, 0] },
+];
+
+export const TAIL_BONES: BoneItem[] = [
+  { name: 'Tail_Root', parent: null, position: [0, 0.95, -0.1], rotation: [0, 0, 0] },
+  { name: 'Tail_01', parent: 'Tail_Root', position: [0, 0.85, -0.25], rotation: [0, 0, 0] },
+  { name: 'Tail_02', parent: 'Tail_01', position: [0, 0.70, -0.42], rotation: [0, 0, 0] },
+  { name: 'Tail_03', parent: 'Tail_02', position: [0, 0.52, -0.58], rotation: [0, 0, 0] },
+  { name: 'Tail_Tip', parent: 'Tail_03', position: [0, 0.35, -0.72], rotation: [0, 0, 0] },
+];
+
 export const INITIAL_ANIMATIONS: AnimationClipItem[] = [
   { id: 'anim-1', name: 'Humanoid Idle', category: 'Idle', duration: 2.4, fps: 24, keyframesCount: 58, isBuiltin: true },
   { id: 'anim-2', name: 'Breathing Idle', category: 'Idle', duration: 3.0, fps: 24, keyframesCount: 72, isBuiltin: true },
@@ -168,6 +185,14 @@ interface AnimationState {
   setBoneRotation: (boneName: string, rot: [number, number, number]) => void;
   resetPose: () => void;
   mirrorPose: () => void;
+  isPlacingBone: boolean;
+  setIsPlacingBone: (isPlacing: boolean) => void;
+  addBone: (bone: BoneItem) => void;
+  deleteBone: (boneName: string) => void;
+  updateBonePosition: (boneName: string, position: [number, number, number]) => void;
+  updateBoneParent: (boneName: string, parent: string | null) => void;
+  updateBoneName: (oldName: string, newName: string) => void;
+  loadRigPreset: (preset: 'humanoid' | 'facial' | 'tail') => void;
 
   // Retargeting
   retargetMapping: Record<string, string>;
@@ -339,6 +364,68 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
     }
     set({ boneRotations: mirrored });
   },
+  isPlacingBone: false,
+  setIsPlacingBone: (isPlacingBone) => set({ isPlacingBone }),
+  addBone: (bone) =>
+    set((s) => {
+      let name = bone.name;
+      let counter = 1;
+      while (s.bones.some((b) => b.name === name)) {
+        name = `${bone.name}_${counter++}`;
+      }
+      const newBone = { ...bone, name };
+      return {
+        bones: [...s.bones, newBone],
+        selectedBone: newBone.name,
+      };
+    }),
+  deleteBone: (boneName) =>
+    set((s) => {
+      const boneToDelete = s.bones.find((b) => b.name === boneName);
+      if (!boneToDelete) return s;
+      const parentName = boneToDelete.parent;
+      const updatedBones = s.bones
+        .filter((b) => b.name !== boneName)
+        .map((b) => (b.parent === boneName ? { ...b, parent: parentName } : b));
+      return {
+        bones: updatedBones,
+        selectedBone: parentName || (updatedBones[0]?.name ?? null),
+      };
+    }),
+  updateBonePosition: (boneName, position) =>
+    set((s) => ({
+      bones: s.bones.map((b) => (b.name === boneName ? { ...b, position } : b)),
+    })),
+  updateBoneParent: (boneName, parent) =>
+    set((s) => ({
+      bones: s.bones.map((b) => (b.name === boneName ? { ...b, parent } : b)),
+    })),
+  updateBoneName: (oldName, newName) =>
+    set((s) => {
+      const trimmed = newName.trim();
+      if (!trimmed || trimmed === oldName || s.bones.some((b) => b.name === trimmed)) return s;
+      return {
+        bones: s.bones.map((b) => {
+          if (b.name === oldName) return { ...b, name: trimmed };
+          if (b.parent === oldName) return { ...b, parent: trimmed };
+          return b;
+        }),
+        selectedBone: s.selectedBone === oldName ? trimmed : s.selectedBone,
+        boneRotations: Object.fromEntries(
+          Object.entries(s.boneRotations).map(([k, v]) => [k === oldName ? trimmed : k, v])
+        ),
+      };
+    }),
+  loadRigPreset: (preset) =>
+    set(() => {
+      if (preset === 'facial') {
+        return { bones: FACIAL_BONES, selectedBone: 'Head', rigProfile: 'generic' };
+      }
+      if (preset === 'tail') {
+        return { bones: TAIL_BONES, selectedBone: 'Tail_Root', rigProfile: 'generic' };
+      }
+      return { bones: DEFAULT_BONES, selectedBone: 'Hips', rigProfile: 'humanoid' };
+    }),
 
   retargetMapping: {
     Hips: 'Hips',

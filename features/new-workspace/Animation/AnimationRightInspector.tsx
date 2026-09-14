@@ -62,6 +62,16 @@ export const AnimationRightInspector: React.FC = () => {
     setBoneRotation,
     resetPose,
     mirrorPose,
+    isPlacingBone,
+    setIsPlacingBone,
+    addBone,
+    deleteBone,
+    updateBonePosition,
+    updateBoneParent,
+    updateBoneName,
+    loadRigPreset,
+    activeViewportTool,
+    setActiveViewportTool,
     motionAiPrompt,
     setMotionAiPrompt,
     motionAiDuration,
@@ -103,6 +113,7 @@ export const AnimationRightInspector: React.FC = () => {
   };
 
   const activeClip = animations.find((a) => a.id === currentAnimationId) || animations[0];
+  const activeBone = bones.find((b) => b.name === selectedBone) || null;
 
   // REAL AUTO RIG PIPELINE TRIGGER (Blender Rigify / clay.blender.ops.rig_asset)
   const handleRunAutoRig = async () => {
@@ -608,15 +619,22 @@ export const AnimationRightInspector: React.FC = () => {
               {openSections.autoRig && (
                 <div className="space-y-3 pt-1">
                   <div>
-                    <label className="text-[10px] font-semibold text-zinc-400 block mb-1">Rig Profile</label>
+                    <label className="text-[10px] font-semibold text-zinc-400 block mb-1">Armature Template / Preset</label>
                     <select
                       value={rigProfile}
-                      onChange={(e) => setRigProfile(e.target.value as any)}
+                      onChange={(e) => {
+                        const val = e.target.value as any;
+                        setRigProfile(val);
+                        if (val === 'facial') loadRigPreset('facial');
+                        else if (val === 'generic') loadRigPreset('tail');
+                        else loadRigPreset('humanoid');
+                        toast.success(`Loaded ${val} armature template`);
+                      }}
                       className="w-full bg-[#17191F] border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#F9CF00]/40"
                     >
                       <option value="humanoid">Humanoid (Biped — 17 Bones)</option>
-                      <option value="quadruped">Quadruped (4-Legged Animal)</option>
-                      <option value="generic">Generic (Linear Bone Chain)</option>
+                      <option value="facial">Facial Rig (6 Bones: Head, Jaw, Eyes)</option>
+                      <option value="generic">Tail / Spine Chain (5 Bones)</option>
                     </select>
                   </div>
 
@@ -685,27 +703,80 @@ export const AnimationRightInspector: React.FC = () => {
 
               {openSections.manualRig && (
                 <div className="space-y-2.5 pt-1">
+                  {/* Click-to-Place Bone Toggle */}
+                  <button
+                    onClick={() => {
+                      const next = !isPlacingBone;
+                      setIsPlacingBone(next);
+                      setActiveViewportTool(next ? 'bone' : 'select');
+                      if (next) {
+                        toast.info('Click-to-Place Joint Active', {
+                          description: 'Click anywhere on 3D character mesh to drop a joint node',
+                        });
+                      }
+                    }}
+                    className={`w-full py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      isPlacingBone
+                        ? 'bg-[#F9CF00] text-black shadow-[0_0_12px_rgba(249,207,0,0.4)] animate-pulse'
+                        : 'bg-[#1C1F26] hover:bg-[#252933] text-zinc-200 border border-white/[0.08]'
+                    }`}
+                  >
+                    <Plus className="w-3.5 h-3.5 text-[#F9CF00]" />
+                    {isPlacingBone ? 'Click on 3D Mesh to Place (Active)' : 'Place Bone on 3D Mesh'}
+                  </button>
+
                   <div className="grid grid-cols-2 gap-1.5">
                     <button
-                      onClick={() => toast.info('Bone added to hierarchy')}
+                      onClick={() => {
+                        if (!selectedBone || !activeBone) {
+                          toast.warning('Select a parent bone first');
+                          return;
+                        }
+                        const parentPos = activeBone.position || [0, 1.0, 0];
+                        const newPos: [number, number, number] = [
+                          parentPos[0],
+                          parseFloat((parentPos[1] + 0.15).toFixed(3)),
+                          parentPos[2],
+                        ];
+                        addBone({
+                          name: `${selectedBone}_child`,
+                          parent: selectedBone,
+                          position: newPos,
+                          rotation: [0, 0, 0],
+                        });
+                        toast.success(`Extruded child bone from ${selectedBone}`);
+                      }}
                       className="p-1.5 rounded-lg bg-[#17191F] hover:bg-[#20232B] border border-white/[0.06] text-xs text-zinc-300 font-semibold flex items-center justify-center gap-1 cursor-pointer"
                     >
-                      <Plus className="w-3 h-3 text-[#F9CF00]" /> Add Bone
+                      <GitBranch className="w-3 h-3 text-sky-400" /> Extrude Child
                     </button>
                     <button
-                      onClick={() => toast.info('Bone removed from hierarchy')}
+                      onClick={() => {
+                        if (!selectedBone) {
+                          toast.warning('Select a bone to delete');
+                          return;
+                        }
+                        deleteBone(selectedBone);
+                        toast.success(`Deleted bone ${selectedBone}`);
+                      }}
                       className="p-1.5 rounded-lg bg-[#17191F] hover:bg-[#20232B] border border-white/[0.06] text-xs text-zinc-300 font-semibold flex items-center justify-center gap-1 cursor-pointer"
                     >
                       <Trash2 className="w-3 h-3 text-rose-400" /> Delete Bone
                     </button>
                     <button
-                      onClick={mirrorPose}
+                      onClick={() => {
+                        mirrorPose();
+                        toast.info('Mirrored arm/leg rotations across X-axis');
+                      }}
                       className="p-1.5 rounded-lg bg-[#17191F] hover:bg-[#20232B] border border-white/[0.06] text-xs text-zinc-300 font-semibold flex items-center justify-center gap-1 cursor-pointer"
                     >
                       <Copy className="w-3 h-3 text-sky-400" /> Mirror Bones
                     </button>
                     <button
-                      onClick={resetPose}
+                      onClick={() => {
+                        resetPose();
+                        toast.info('Reset all bone rotations to default');
+                      }}
                       className="p-1.5 rounded-lg bg-[#17191F] hover:bg-[#20232B] border border-white/[0.06] text-xs text-zinc-300 font-semibold flex items-center justify-center gap-1 cursor-pointer"
                     >
                       <RotateCcw className="w-3 h-3 text-amber-400" /> Reset Pose
@@ -713,8 +784,8 @@ export const AnimationRightInspector: React.FC = () => {
                   </div>
 
                   {/* Bone Hierarchy List */}
-                  <div className="mt-2 border border-white/[0.06] rounded-xl bg-[#15171D] p-2 max-h-40 overflow-y-auto">
-                    <div className="text-[10px] font-bold text-zinc-500 uppercase mb-1">Armature Hierarchy</div>
+                  <div className="mt-2 border border-white/[0.06] rounded-xl bg-[#15171D] p-2 max-h-36 overflow-y-auto">
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase mb-1">Armature Hierarchy ({bones.length})</div>
                     {bones.map((b) => (
                       <div
                         key={b.name}
@@ -730,6 +801,119 @@ export const AnimationRightInspector: React.FC = () => {
                       </div>
                     ))}
                   </div>
+
+                  {/* Selected Bone Properties Panel */}
+                  {activeBone && (
+                    <div className="mt-3 p-2.5 bg-[#17191F] border border-[#F9CF00]/30 rounded-xl space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-[#F9CF00] uppercase tracking-wider">
+                          Joint: {activeBone.name}
+                        </span>
+                        <span className="text-[9px] text-zinc-500 font-mono">
+                          Parent: {activeBone.parent || 'Root'}
+                        </span>
+                      </div>
+
+                      {/* Rename Bone */}
+                      <div>
+                        <label className="text-[10px] font-semibold text-zinc-400 block mb-1">Rename Joint</label>
+                        <input
+                          type="text"
+                          defaultValue={activeBone.name}
+                          key={activeBone.name}
+                          onBlur={(e) => {
+                            const val = e.target.value.trim();
+                            if (val && val !== activeBone.name) {
+                              updateBoneName(activeBone.name, val);
+                              toast.success(`Renamed joint to ${val}`);
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              (e.target as HTMLInputElement).blur();
+                            }
+                          }}
+                          className="w-full bg-[#121418] border border-white/[0.1] rounded-lg px-2 py-1 text-xs text-white font-mono focus:outline-none focus:border-[#F9CF00]"
+                        />
+                      </div>
+
+                      {/* Parent Selector */}
+                      <div>
+                        <label className="text-[10px] font-semibold text-zinc-400 block mb-1">Parent Bone</label>
+                        <select
+                          value={activeBone.parent || ''}
+                          onChange={(e) => {
+                            updateBoneParent(activeBone.name, e.target.value || null);
+                            toast.info(`Parent set to ${e.target.value || 'Root'}`);
+                          }}
+                          className="w-full bg-[#121418] border border-white/[0.1] rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-[#F9CF00]"
+                        >
+                          <option value="">None (Root Bone)</option>
+                          {bones
+                            .filter((b) => b.name !== activeBone.name)
+                            .map((b) => (
+                              <option key={b.name} value={b.name}>
+                                {b.name}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+
+                      {/* 3D Coordinates (X, Y, Z meters) */}
+                      <div>
+                        <div className="flex items-center justify-between text-[10px] font-semibold text-zinc-400 mb-1">
+                          <span>3D Position (Meters)</span>
+                          <span className="text-[9px] text-zinc-500">Live 3D Gizmo</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {(['X', 'Y', 'Z'] as const).map((axis, axisIdx) => {
+                            const val = activeBone.position[axisIdx];
+                            return (
+                              <div key={axis} className="bg-[#121418] border border-white/[0.08] rounded-lg p-1 text-center">
+                                <div className="text-[9px] font-bold text-zinc-400 flex items-center justify-between px-1">
+                                  <span>{axis}</span>
+                                  <div className="flex gap-0.5">
+                                    <button
+                                      onClick={() => {
+                                        const newPos = [...activeBone.position] as [number, number, number];
+                                        newPos[axisIdx] = parseFloat((val - 0.02).toFixed(3));
+                                        updateBonePosition(activeBone.name, newPos);
+                                      }}
+                                      className="px-1 text-[8px] bg-white/5 hover:bg-white/10 rounded cursor-pointer"
+                                    >
+                                      -
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        const newPos = [...activeBone.position] as [number, number, number];
+                                        newPos[axisIdx] = parseFloat((val + 0.02).toFixed(3));
+                                        updateBonePosition(activeBone.name, newPos);
+                                      }}
+                                      className="px-1 text-[8px] bg-white/5 hover:bg-white/10 rounded cursor-pointer"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                </div>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={val}
+                                  onChange={(e) => {
+                                    const num = parseFloat(e.target.value) || 0;
+                                    const newPos = [...activeBone.position] as [number, number, number];
+                                    newPos[axisIdx] = parseFloat(num.toFixed(3));
+                                    updateBonePosition(activeBone.name, newPos);
+                                  }}
+                                  className="w-full bg-transparent text-center font-mono text-xs text-white focus:outline-none"
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

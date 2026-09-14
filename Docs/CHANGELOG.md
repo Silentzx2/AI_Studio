@@ -1,5 +1,32 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.67] - 2026-09-14
+### Interactive 3D Bone Placement, Transform Gizmo & 60 FPS Rigging Optimization
+- **Interactive 3D Click-to-Place Bone Tool (`MeshViewer.tsx`, `AnimationViewportStage.tsx`)**:
+  - Implemented real click-to-place bone creation using 3D camera raycasting on character geometry.
+  - Clicking on the 3D model surface calculates the surface hit coordinates, normalizes to bone space, creates a new joint node, auto-parents to the selected joint, and highlights the new joint.
+  - Added persistent top viewport prompt banner during placement: `[Click anywhere on 3D model surface to place joint node ↳ Parent: {bone}] [Cancel]`.
+  - Added left viewport strip bone tool `(B)` shortcut with synchronized placement mode.
+- **3D TransformControls Gizmo & Live Bone Manipulation**:
+  - Attached 3D `TransformControls` directly to the selected joint marker in the 3D viewport.
+  - Live dragging translates the joint in 3D space with continuous position updates to `useAnimationStore`.
+- **Comprehensive Selected Joint Properties Inspector (`AnimationRightInspector.tsx`)**:
+  - Replaced placeholder buttons with functional bone authoring tools: `[Place Bone on 3D Mesh]`, `[Extrude Child]`, `[Delete Bone]`, `[Mirror Bones]`, and `[Reset Pose]`.
+  - Added live Joint Properties Card when a bone is selected:
+    - Inline joint rename input with auto-commit.
+    - Hierarchy reparenting dropdown (all bones + Root).
+    - 3D Coordinates editor (X, Y, Z meters) with direct numeric input and +/- 0.02m step nudge buttons.
+  - Added Armature Presets selector with instant template loading (`Humanoid 17-Bones`, `Facial Rig 6-Bones`, `Tail / Spine Chain 5-Bones`).
+- **Rigging Viewport Performance Optimization (Zero Lag / 60 FPS)**:
+  - **Root Cause Identified**: For high-poly meshes (e.g. 713,662 polygons / 356,870 vertices), `Box3.setFromObject(group)` traversed the entire geometry tree on every render and on every gizmo mousemove (60+ times/sec), causing severe freezing.
+  - **O(1) Bounding Box Cache**: Mesh bounds (`center`, `size`, `height`, `scale`, `baseY`) are now calculated once on model load and cached in `meshBoundsCacheRef`, eliminating geometry traversals during rigging interaction.
+  - **Geometry & Material Pooling**: Armature joints and bone octahedrons now reuse module-level shared geometries (`sharedJointGeo`, `sharedBoneGeo`, `sharedRingGeo`) and materials (`sharedJointMat`, `sharedBoneMat`), eliminating memory allocations and GC pauses.
+  - **Decoupled Pose from Hierarchy**: Removed `animBoneRotations` from the armature visualizer dependency array so rotating joints or scrubbing does not re-create skeleton objects.
+- **Build Verification**:
+  - Next.js production build (`npm run build`) passed with 0 errors in 11.1s.
+  - Backend pytest suite: 58/58 passed cleanly in 38.72s.
+  - Visual verification with `agent-browser` confirmed interactive bone placement prompt, joint selection, and live coordinates inspector.
+
 ## [v5.0.66] - 2026-09-14
 ### Zero Mock Data & Interactive 3D Rigging Workspace
 - **Complete Removal of Mock Models (`AnimationLeftPanel.tsx`)**:
