@@ -114,6 +114,7 @@ const TOOL_TO_ROUTE: Record<ToolType, string> = {
     pbr: '/workspace/pbr',
     environment: '/workspace/generate',
     segment: '/workspace/segment',
+    animation: '/workspace/animation',
   };
 
 async function parseApiData<T>(response: Response): Promise<T> {

@@ -199,6 +199,32 @@ class ArdyLocalProvider(BaseProvider):
 
         np.savez(str(npz_path), **arrays)
 
+        # Also export lightweight motion.json for direct Three.js AnimationClip playback
+        json_path = out_dir / "motion.json"
+        try:
+            import json
+            motion_data: dict[str, Any] = {
+                "fps": float(fps),
+                "duration": float(duration),
+                "num_frames": int(num_frames),
+                "prompt": prompt.strip(),
+            }
+            if "local_rot_mats" in arrays:
+                from scipy.spatial.transform import Rotation as R
+                rot_mats = arrays["local_rot_mats"]
+                if rot_mats.ndim == 4:
+                    f_cnt, j_cnt = rot_mats.shape[0], rot_mats.shape[1]
+                    quats = R.from_matrix(rot_mats.reshape(-1, 3, 3)).as_quat().reshape(f_cnt, j_cnt, 4)
+                    motion_data["quaternions"] = quats.tolist()
+            if "root_positions" in arrays:
+                motion_data["root_positions"] = arrays["root_positions"].tolist()
+            if hasattr(self.model, "skeleton") and hasattr(self.model.skeleton, "joint_names"):
+                motion_data["joint_names"] = list(self.model.skeleton.joint_names)
+            with open(json_path, "w", encoding="utf-8") as jf:
+                json.dump(motion_data, jf)
+        except Exception as j_err:
+            logger.debug("motion.json export skipped: %s", j_err)
+
         if progress_callback:
             await progress_callback(100, "completed", "ARDY motion generation complete.")
 

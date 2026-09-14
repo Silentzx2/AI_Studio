@@ -538,6 +538,38 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                     metadata={"operation": "remesh", "optimizer": result},
                 )
                 sync_publish(65, "remeshing", f"Initial remesh complete ({result.get('optimized_polycount', target_faces):,} faces). Running OpenX Clay post-processing...", "success")
+            elif job.mode == "rigging":
+                source_mesh_raw = request.source_mesh_url or request.reference_image_url
+                source_mesh = _resolve_reference_image(source_mesh_raw, job_id) if source_mesh_raw else None
+                if not source_mesh or not Path(source_mesh).exists():
+                    raise RuntimeError("Rigging requires a selected local GLB/mesh asset. Select a model in the workspace and try again.")
+                rig_options = getattr(request, "options", {}) or {}
+                rig_type = getattr(request, "rig_type", None) or rig_options.get("rig_type") or "humanoid"
+                sync_publish(15, "preparing", f"Preflighting source model for {rig_type} auto-rigging...", "info")
+                from clay.blender.ops import rig_asset
+                rigged_path = str(Path(out_dir) / "rigged.glb")
+                sync_publish(35, "rigging", f"Generating {rig_type} skeleton and automatic vertex skinning in Blender...", "info")
+                rig_result = rig_asset(
+                    input_path=source_mesh,
+                    output_path=rigged_path,
+                    rig_type=rig_type,
+                    options=rig_options,
+                )
+                if not rig_result.get("ok") or not Path(rigged_path).exists():
+                    raise RuntimeError(rig_result.get("error") or f"Blender auto-rigging failed for profile '{rig_type}'")
+                bone_count = int(rig_result.get("bones") or 17)
+                from app.core.providers.base import ProviderResult
+                provider_result = ProviderResult(
+                    model_path=rigged_path,
+                    thumbnail_path="",
+                    polygon_count=0,
+                    vertex_count=0,
+                    texture_resolution=None,
+                    has_rig=True,
+                    file_size=Path(rigged_path).stat().st_size,
+                    metadata={"operation": "rigging", "rig_result": rig_result, "bones": bone_count, "rig_type": rig_type},
+                )
+                sync_publish(65, "rigging", f"Skeletal auto-rig complete ({bone_count} bones). Finalizing asset...", "success")
             else:
                 # 5. Load provider via RuntimeEngine (enforces VRAM scheduling)
                 if job.mode != "render":
@@ -649,13 +681,20 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 motion_path = provider_result.model_path if provider_result else None
                 motion_url = to_url(motion_path)
                 f_size = Path(motion_path).stat().st_size if motion_path and Path(motion_path).exists() else 0
+                motion_json_path = Path(motion_path).parent / "motion.json" if motion_path else None
+                motion_json_url = to_url(str(motion_json_path)) if motion_json_path and motion_json_path.exists() else None
                 download_urls = {
                     "npz": motion_url,
                     "motion": motion_url,
                     "source": motion_url,
                 }
+                if motion_json_url:
+                    download_urls["json"] = motion_json_url
+                    download_urls["animation"] = motion_json_url
                 meta = job.processing_metadata or {}
                 meta["motion_url"] = motion_url
+                if motion_json_url:
+                    meta["motion_json_url"] = motion_json_url
                 _update_job(
                     session, job_id,
                     status="completed",
@@ -684,7 +723,55 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                     "download_urls": download_urls,
                     "file_size": f_size,
                 }
+                if motion_json_url:
+                    result_payload["motion_json_url"] = motion_json_url
                 sync_publish(100, "completed", "Motion generation complete.", "success", {"result": result_payload})
+                return result_payload
+
+            # Rigging early finalize: rigged asset is complete with skeletal armature & skinning weights
+            if job.mode == "rigging":
+                rigged_path = provider_result.model_path if provider_result else None
+                rigged_url = to_url(rigged_path)
+                f_size = Path(rigged_path).stat().st_size if rigged_path and Path(rigged_path).exists() else 0
+                download_urls = {
+                    "glb": rigged_url,
+                    "model": rigged_url,
+                    "source": rigged_url,
+                }
+                meta = job.processing_metadata or {}
+                meta["rig_bones"] = provider_result.metadata.get("bones", 17) if provider_result.metadata else 17
+                meta["rig_type"] = provider_result.metadata.get("rig_type", "humanoid") if provider_result.metadata else "humanoid"
+                _update_job(
+                    session, job_id,
+                    status="completed",
+                    stage="completed",
+                    progress=100,
+                    completed_at=datetime.now(timezone.utc).replace(tzinfo=None),
+                    model_url=rigged_url,
+                    thumbnail_url="",
+                    polygon_count=0,
+                    vertex_count=0,
+                    texture_resolution=None,
+                    has_rig=True,
+                    file_size=f_size,
+                    download_urls=download_urls,
+                    processing_metadata=meta,
+                )
+                session.commit()
+                result_payload = {
+                    "model_url": rigged_url,
+                    "active_model_url": rigged_url,
+                    "thumbnail_url": "",
+                    "polygon_count": 0,
+                    "vertex_count": 0,
+                    "texture_resolution": None,
+                    "has_rig": True,
+                    "download_urls": download_urls,
+                    "file_size": f_size,
+                    "bones": meta["rig_bones"],
+                    "rig_type": meta["rig_type"],
+                }
+                sync_publish(100, "completed", f"Auto-rig complete with {meta['rig_bones']} bones.", "success", {"result": result_payload})
                 return result_payload
 
             # 7a. Master Preservation: preserve original untouched source asset immediately

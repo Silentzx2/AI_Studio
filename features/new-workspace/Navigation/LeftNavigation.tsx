@@ -7,6 +7,7 @@ import {
   Layers,
   Settings,
   Pencil,
+  Film,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useWorkspace } from '../store/WorkspaceContext';
@@ -79,6 +80,13 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
             label="PBR Texture Maps"
             active={isActive('texture')}
             onClick={() => handleToolClick('texture')}
+          />
+          <MobileNavItem
+            id="tool-btn-animation"
+            icon={<Film className="w-4 h-4" />}
+            label="Animation & Rigging"
+            active={isActive('animation')}
+            onClick={() => handleToolClick('animation')}
           />
           <MobileNavItem
             id="tool-btn-segment"
@@ -195,7 +203,26 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
           </button>
         </SimpleTooltip>
 
-        {/* 4. Segment */}
+        {/* 4. Animation & Rigging Studio */}
+        <SimpleTooltip side="right" label="Animation & Rigging Studio (Motion AI / ARDY)">
+          <button
+            id="tool-btn-animation"
+            onClick={() => handleToolClick('animation')}
+            className={`group relative w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
+              isActive('animation')
+                ? 'bg-[#1E2025] border border-[#F9CF00]/40 text-white shadow-[0_2px_12px_rgba(249,207,0,0.12)]'
+                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[#15161A]'
+            }`}
+          >
+            {isActive('animation') && (
+              <div className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]" />
+            )}
+            <Film className={`w-5 h-5 mb-1 flex-shrink-0 transition-transform ${isActive('animation') ? 'text-[#F9CF00] scale-105' : 'group-hover:scale-105'}`} />
+            <span className={`text-[10px] leading-tight text-center tracking-tight truncate w-full ${isActive('animation') ? 'text-white font-bold' : 'font-medium'}`}>Animate</span>
+          </button>
+        </SimpleTooltip>
+
+        {/* 5. Segment */}
         <SimpleTooltip side="right" label="Mesh Segmentation / Part Separation">
           <button
             id="tool-btn-segment"

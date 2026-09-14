@@ -1,5 +1,35 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.64] - 2026-09-14
+### Added & Animation & Rigging Studio Architecture
+- **Animation & Rigging Studio UI & Workflow (`AnimationStudio.tsx`, `AnimationViewportStage.tsx`, `AnimationLeftPanel.tsx`, `AnimationRightInspector.tsx`, `AnimationBottomDock.tsx`, `AnimationExportModal.tsx`, `useAnimationStore.ts`)**:
+  - Implemented the complete Animation & Rigging Studio according to `AI_3D_Studio_Animation_Rigging_Implementation_Prompt.md` and reference visual mockup (`ChatGPT Image Sep 14, 2026, 08_35_06 AM.png`).
+  - **Full-Width Bottom Quick Action Dock (`AnimationBottomDock.tsx`)**: 5 colored action cards spanning the workspace width:
+    - *AI Motion Generator*: Text to 3D Animation with ARDY (Indigo).
+    - *Auto Rig*: 1-click automatic bone placement and vertex weight generation (Emerald).
+    - *Pose Editor*: Interactive bone transformation and keyframing (Sky Blue).
+    - *Animation Mixer*: Non-linear animation track blending with cross-fade weighting (Amber).
+    - *Bake & Export*: GLB, FBX, and GLTF export modal with baked IK-to-FK and embedded PBR textures (Yellow).
+  - **Multi-Track NLA Timeline**: Horizontal track lanes (`Character`, `Body`, `Arms`, `Legs`, `Face`, `Root`, `IK`) featuring colored clip segment bars (`Run`, `Walking Cycle`), diamond keyframes, scrubber playhead with time/frame counter, 24 FPS selector, and zoom controls.
+  - **Interactive 3D Viewport (`AnimationViewportStage.tsx`)**: Three.js WebGL viewport with procedural character, glowing amber `SkeletonHelper`, left tool strip (Select, Move, Rotate, Scale, Bone, Weight Paint), top overlays (`Perspective` camera dropdown, Ground Grid toggle, `Solid`/`Wireframe`/`Skeleton` shading pills, Fullscreen), and floating rig status pill (`Humanoid Biped - 17 Bones`).
+  - **Tabbed Inspector (`AnimationRightInspector.tsx`)**:
+    - *Properties*: Model metadata, 3D transform manipulators, animation settings (Loop, Root Motion, Foot Lock), and display toggles.
+    - *Rigging*: One-click humanoid auto-rigging with 4 validation gates, manual bone tools (Add/Delete/Mirror/Reset), interactive 17-bone Armature Hierarchy, and real-time Armature Diagnostics.
+    - *Animation (ARDY)*: Motion AI ARDY generator with prompt description, quick suggestion chips, duration slider, joint pose editor, and animation mixer.
+  - **Model & Animation Library Panel (`AnimationLeftPanel.tsx`)**: Active model card with polygon count and format badges, model switcher, and searchable animation clip library categorized by locomotion, action, and custom clips.
+
+- **Backend Auto-Rigging & ARDY Motion Pipeline (`tasks.py`, `ardy_local.py`, `rig.py`, `test_rigging_pipeline.py`)**:
+  - Integrated Blender headless humanoid armature auto-rigging (`job.mode == "rigging"`) executing non-destructive vertex group weighting and armature modifier attachment.
+  - Added early-finalize stage in Celery worker to preserve skeletal armatures and vertex weights from being stripped by mesh-only decimation algorithms.
+  - Extended ARDY local provider (`ardy_local.py`) to convert joint rotations into standard glTF quaternion tracks (`motion.json`) alongside raw `.npz` files using `scipy.spatial.transform.Rotation`.
+  - Added regression test suite `backend/tests/test_rigging_pipeline.py` covering Blender auto-rig and ARDY quaternion transformation.
+
+- **Installed UI/UX Pro Max Skill (`.agents/skills/ui-ux-pro-max/`)**:
+  - Cloned and verified the official `ui-ux-pro-max` skill from `https://github.com/nextlevelbuilder/ui-ux-pro-max-skill`.
+
+- **Cross-Checked Verification with Agent-Browser (`agent-browser`)**:
+  - Executed automated browser accessibility and interactive validation across all tabs and modals; verified layout rendering and responsive design matching target mockups.
+
 ## [v5.0.63] - 2026-09-14
 ### Added & Model Integrations
 - **Official Upstream Integration: ARDY Humanoid Motion Generation (`ardy_local.py`, `ardy.yaml`)**:
