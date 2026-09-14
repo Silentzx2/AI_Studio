@@ -21,8 +21,11 @@ import { AnimationViewportStage } from './AnimationViewportStage';
 import { AnimationRightInspector } from './AnimationRightInspector';
 import { toast } from 'sonner';
 
+import { useViewerStore } from '@/stores/useViewerStore';
+
 export const AnimationStudio: React.FC = () => {
   const { navigateToTool, currentAsset, setIsExportModalOpen } = useWorkspace();
+  const viewerStore = useViewerStore();
   const {
     activeMode,
     setActiveMode,
@@ -58,107 +61,95 @@ export const AnimationStudio: React.FC = () => {
     }
   };
 
-  const modelName = currentAsset?.name || 'character.glb';
+  const modelName = currentAsset?.name || viewerStore.loadedModelName || 'character.glb';
+  const realPolys = currentAsset?.faces || currentAsset?.triangles || viewerStore.modelStats?.triangles || 0;
+  const polysText = realPolys > 0 ? `${realPolys.toLocaleString()} Polys` : 'Ready';
 
   return (
     <div className="flex flex-col h-full w-full bg-[#0D0E11] text-[#E0E2E8] overflow-hidden select-none">
-      {/* PAGE SUB-HEADER (Breadcrumb, Title, Model Pill, Actions, Mode Tabs) */}
-      <div className="flex-shrink-0 bg-[#121418] border-b border-white/[0.08] px-4 py-2.5 flex flex-col gap-2.5">
-        {/* Top Line: Title & Actions */}
-        <div className="flex items-center justify-between">
-          {/* Left: Back Arrow + Page Header */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigateToTool('model')}
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
-              aria-label="Back to Model Generation"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-sm font-extrabold text-white tracking-wide">
-                  Animation Studio
-                </h1>
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#F9CF00]/10 text-[#F9CF00] border border-[#F9CF00]/20 uppercase tracking-wider">
-                  Motion AI
-                </span>
-              </div>
-              <p className="text-[11px] text-zinc-400">
-                Rig, animate and bring your 3D models to life with AI.
-              </p>
-            </div>
-          </div>
-
-          {/* Right: Active Model Badge & Actions (Save, Share, Export) */}
+      {/* SLEEK SINGLE BAR HEADER */}
+      <div className="flex-shrink-0 h-12 bg-[#121418] border-b border-white/[0.08] px-4 flex items-center justify-between z-20">
+        {/* Left: Back Arrow + Page Title + Mode Tabs */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigateToTool('model')}
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
+            aria-label="Back to Model Generation"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
           <div className="flex items-center gap-2">
-            {/* Active Model Pill */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-[#17191F] border border-white/[0.08] rounded-xl text-xs">
-              <Box className="w-3.5 h-3.5 text-[#F9CF00]" />
-              <span className="font-semibold text-zinc-200">{modelName}</span>
-              <span className="text-zinc-500">•</span>
-              <span className="text-zinc-400">48,532 Polys</span>
-              <span className="text-zinc-500">•</span>
-              <span className="text-emerald-400 font-semibold capitalize flex items-center gap-1">
-                {rigStatus === 'rigged' ? 'Rigged' : 'Rig Required'}
+            <h1 className="text-xs font-black tracking-wide text-white uppercase flex items-center gap-1.5">
+              <span>Animation Studio</span>
+              <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-[#F9CF00]/10 text-[#F9CF00] border border-[#F9CF00]/20">
+                PRO
               </span>
-            </div>
+            </h1>
+          </div>
+          <div className="h-4 w-px bg-white/10 mx-1 hidden sm:block" />
 
-            {/* Save Button */}
-            <button
-              onClick={handleSave}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1D2026] hover:bg-[#252932] border border-white/[0.08] text-xs font-semibold text-zinc-300 hover:text-white transition-all cursor-pointer shadow-sm"
-            >
-              <Save className="w-3.5 h-3.5 text-zinc-400" />
-              <span>Save</span>
-            </button>
-
-            {/* Share Button */}
-            <button
-              onClick={handleShare}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1D2026] hover:bg-[#252932] border border-white/[0.08] text-xs font-semibold text-zinc-300 hover:text-white transition-all cursor-pointer shadow-sm"
-            >
-              <Share2 className="w-3.5 h-3.5 text-zinc-400" />
-              <span>Share</span>
-            </button>
-
-            {/* Primary Yellow Export Button */}
-            <button
-              onClick={() => setIsExportModalOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-bold text-xs transition-all shadow-[0_2px_12px_rgba(249,207,0,0.25)] active:scale-95 cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Export</span>
-            </button>
+          {/* Mode Selector Pills */}
+          <div className="flex items-center gap-1 bg-[#0B0C0E] p-0.5 rounded-xl border border-white/[0.06]">
+            {[
+              { id: 'animate', label: 'Animate', icon: <Film className="w-3.5 h-3.5" /> },
+              { id: 'rigging', label: 'Rigging', icon: <Bone className="w-3.5 h-3.5" /> },
+              { id: 'motion_ai', label: 'Motion AI', icon: <Sparkles className="w-3.5 h-3.5" /> },
+            ].map((mode) => {
+              const isActive = activeMode === mode.id;
+              return (
+                <button
+                  key={mode.id}
+                  onClick={() => handleModeChange(mode.id as AnimationStudioMode)}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-[#F9CF00] text-black shadow-sm'
+                      : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+                  }`}
+                >
+                  {mode.icon}
+                  <span>{mode.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Bottom Line: Studio Workspace Mode Selector Tabs */}
-        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
-          {[
-            { id: 'animate', label: 'Animate', icon: <Film className="w-3 h-3" /> },
-            { id: 'rigging', label: 'Rigging', icon: <Bone className="w-3 h-3" /> },
-            { id: 'retarget', label: 'Retarget', icon: <GitCompare className="w-3 h-3" /> },
-            { id: 'motion_ai', label: 'Motion AI', icon: <Sparkles className="w-3 h-3" /> },
-            { id: 'blend', label: 'Blend', icon: <Layers className="w-3 h-3" /> },
-            { id: 'library', label: 'Library', icon: <BookOpen className="w-3 h-3" /> },
-          ].map((mode) => {
-            const isActive = activeMode === mode.id;
-            return (
-              <button
-                key={mode.id}
-                onClick={() => handleModeChange(mode.id as AnimationStudioMode)}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  isActive
-                    ? 'bg-[#F9CF00] text-black shadow-sm'
-                    : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
-                }`}
-              >
-                {mode.icon}
-                <span>{mode.label}</span>
-              </button>
-            );
-          })}
+        {/* Right: Real Active Model Pill + Save + Share + Export */}
+        <div className="flex items-center gap-2">
+          {/* Real Model Pill */}
+          <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-[#17191F] border border-white/[0.08] rounded-xl text-xs">
+            <Box className="w-3.5 h-3.5 text-[#F9CF00]" />
+            <span className="font-semibold text-zinc-200">{modelName}</span>
+            <span className="text-zinc-600">•</span>
+            <span className="text-zinc-400">{polysText}</span>
+            <span className="text-zinc-600">•</span>
+            <span className="text-emerald-400 font-semibold capitalize flex items-center gap-1">
+              {rigStatus === 'rigged' ? 'Rigged' : 'Rig Required'}
+            </span>
+          </div>
+
+          <button
+            onClick={handleSave}
+            className="p-2 rounded-xl bg-[#1D2026] hover:bg-[#252932] border border-white/[0.08] text-zinc-300 hover:text-white transition-all cursor-pointer"
+            title="Save Project"
+          >
+            <Save className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={handleShare}
+            className="p-2 rounded-xl bg-[#1D2026] hover:bg-[#252932] border border-white/[0.08] text-zinc-300 hover:text-white transition-all cursor-pointer"
+            title="Share"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            onClick={() => setIsExportModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-bold text-xs transition-all shadow-[0_2px_12px_rgba(249,207,0,0.25)] active:scale-95 cursor-pointer ml-1"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export</span>
+          </button>
         </div>
       </div>
 

@@ -196,9 +196,9 @@ export const AnimationViewportStage: React.FC = () => {
       </div>
 
       {/* MULTI-TRACK NLA TIMELINE (Docked at Bottom of Viewport) */}
-      <div className="h-[210px] bg-[#121418] border-t border-white/[0.08] flex flex-col flex-shrink-0">
+      <div className="h-[160px] bg-[#121418] border-t border-white/[0.08] flex flex-col flex-shrink-0">
         {/* Playback Control Bar */}
-        <div className="h-10 px-4 bg-[#16181D] border-b border-white/[0.06] flex items-center justify-between">
+        <div className="h-9 px-3 bg-[#16181D] border-b border-white/[0.06] flex items-center justify-between">
           {/* Left: Transport Buttons */}
           <div className="flex items-center gap-1.5">
             <button

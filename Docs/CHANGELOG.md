@@ -14,11 +14,16 @@
 - **Production Backend API Integration (Zero Mocks)**:
   - `handleRunAutoRig`: Dispatches real `POST /api/v1/generation` (`mode: "rigging"`) and polls status endpoint until completion or error.
   - `handleGenerateMotion`: Dispatches real `POST /api/v1/generation` (`provider: "ardy"`, `mode: "animation"`) and automatically injects generated motion clips into the multi-track timeline library.
-- **Cleaned Codebase & Streamlined Layout**:
-  - Removed redundant `AnimationBottomDock.tsx` (5 quick-action cards below the timeline), allowing the NLA timeline to anchor cleanly at the base of the viewport with zero visual clutter.
-  - Routed mode tabs (`blend` -> Animation tab / Mixer, `motion_ai` -> Animation tab / ARDY, `rigging` -> Rigging tab, `animate` -> Properties tab).
-  - Net deletion of 660+ lines across components.
-  - Verified 58/58 backend tests passing and clean Next.js production build in 10.3s.
+- **Cleaned Codebase, Zero Placeholders & Real 3D Synchronization**:
+  - Replaced all static placeholders (hardcoded vertices/faces/materials stats) with live geometry counts from Three.js via `computeMeshStats` and `useViewerStore`.
+  - Connected live bidirectional 3D synchronization in `MeshViewer.tsx`:
+    - `transform` (Position, Rotation, Scale) articulates the loaded 3D model in real time.
+    - `displayOptions` live toggles `SkeletonHelper`, `GridHelper`, and ground shadow disc.
+    - `playbackSpeed` & `isLooping` live synchronizes with `THREE.AnimationMixer`.
+    - `boneRotations` from the Pose Editor dynamically articulates `THREE.Bone` joints in real time and updates the visual skeleton lines.
+  - Replaced multi-level cluttered header with a single sleek 48px bar with unified mode pills (`Animate`, `Rigging`, `Motion AI`).
+  - Compacted NLA timeline to 160px and removed redundant duplicate tabs from the inspector.
+  - Verified 58/58 backend tests passing and Next.js production build passing with 0 errors.
 
 ## [v5.0.64] - 2026-09-14
 ### Added & Animation & Rigging Studio Architecture

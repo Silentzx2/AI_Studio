@@ -30,6 +30,8 @@ import { useWorkspace } from '../store/WorkspaceContext';
 import { CameraViewPreset, ModelAsset } from '../types';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 import { apiClient } from '@/services/apiClient';
+import { useAnimationStore } from '@/stores/useAnimationStore';
+import { useViewerStore } from '@/stores/useViewerStore';
 
 import { validate3DFile } from '../lib/fileValidation';
 import { createPointCloudFromImage, createFallbackPointCloud, disposePointCloud } from './ImagePointCloud';
@@ -280,6 +282,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     };
 
     setMeshStats({ faces, vertices: verts, triangles, dimensions });
+    useViewerStore.getState().setModelStats({ vertices: verts, triangles, dimensions });
 
     if (currentAsset) {
       // Use immutable update to trigger React re-render
@@ -302,6 +305,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const pointCloudRef = useRef<THREE.Object3D | null>(null);
   const pointCloudGroupRef = useRef<THREE.Group | null>(null);
   const gridHelperRef = useRef<THREE.GridHelper | null>(null);
+  const floorRef = useRef<THREE.Mesh | null>(null);
   const keyLightRef = useRef<THREE.DirectionalLight | null>(null);
   const fillLightRef = useRef<THREE.DirectionalLight | null>(null);
   const rimLightRef = useRef<THREE.DirectionalLight | null>(null);
@@ -310,7 +314,79 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const blobUrlRef = useRef<string | null>(null);
   const toastTimeoutRef = useRef<number | null>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
+  const actionRef = useRef<THREE.AnimationAction | null>(null);
   const skeletonHelperRef = useRef<THREE.SkeletonHelper | null>(null);
+
+  // Subscribe to real animation store for live 3D viewport synchronization
+  const {
+    transform: animTransform,
+    displayOptions: animDisplayOptions,
+    playbackSpeed: animPlaybackSpeed,
+    isLooping: animIsLooping,
+    boneRotations: animBoneRotations,
+    selectedBone: animSelectedBone,
+    currentTime: animCurrentTime,
+    isPlaying: animIsPlaying,
+  } = useAnimationStore();
+
+  // 1. Live model transform (position, rotation, scale)
+  useEffect(() => {
+    const group = currentMeshGroupRef.current;
+    if (!group) return;
+    group.position.set(animTransform.position[0], animTransform.position[1], animTransform.position[2]);
+    group.rotation.set(
+      THREE.MathUtils.degToRad(animTransform.rotation[0]),
+      THREE.MathUtils.degToRad(animTransform.rotation[1]),
+      THREE.MathUtils.degToRad(animTransform.rotation[2])
+    );
+    group.scale.set(animTransform.scale[0], animTransform.scale[1], animTransform.scale[2]);
+  }, [animTransform]);
+
+  // 2. Live display options (skeleton helper, grid, ground disc)
+  useEffect(() => {
+    if (skeletonHelperRef.current) {
+      skeletonHelperRef.current.visible = animDisplayOptions.showSkeleton;
+    }
+    if (gridHelperRef.current) {
+      gridHelperRef.current.visible = animDisplayOptions.showGrid;
+    }
+    if (floorRef.current) {
+      floorRef.current.visible = animDisplayOptions.showGround;
+    }
+  }, [animDisplayOptions]);
+
+  // 3. Live playback speed & loop mode
+  useEffect(() => {
+    if (mixerRef.current) {
+      mixerRef.current.timeScale = animPlaybackSpeed;
+    }
+    if (actionRef.current) {
+      actionRef.current.setLoop(animIsLooping ? THREE.LoopRepeat : THREE.LoopOnce, animIsLooping ? Infinity : 1);
+    }
+  }, [animPlaybackSpeed, animIsLooping]);
+
+  // 4. Live timeline scrubbing / seeking when paused
+  useEffect(() => {
+    if (mixerRef.current && !animIsPlaying) {
+      mixerRef.current.setTime(animCurrentTime);
+    }
+  }, [animCurrentTime, animIsPlaying]);
+
+  // 5. Live Pose Editor bone rotation to actual skeleton bones
+  useEffect(() => {
+    const group = currentMeshGroupRef.current;
+    if (!group || !animSelectedBone) return;
+    const bone = group.getObjectByName(animSelectedBone);
+    if (bone) {
+      const rot = animBoneRotations[animSelectedBone] || [0, 0, 0];
+      bone.rotation.set(
+        THREE.MathUtils.degToRad(rot[0]),
+        THREE.MathUtils.degToRad(rot[1]),
+        THREE.MathUtils.degToRad(rot[2])
+      );
+      skeletonHelperRef.current?.updateMatrixWorld(true);
+    }
+  }, [animBoneRotations, animSelectedBone]);
 
   // Sync interactionMode with OrbitControls / TransformControls
   useEffect(() => {
@@ -472,6 +548,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     floor.position.y = -0.651;
     floor.receiveShadow = true;
     scene.add(floor);
+    floorRef.current = floor;
 
     // 7. Mesh Root Container Group
     const meshGroup = new THREE.Group();
@@ -810,7 +887,26 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               const mixer = new THREE.AnimationMixer(gltf.scene);
               mixerRef.current = mixer;
               const action = mixer.clipAction(gltf.animations[0]);
+              actionRef.current = action;
               action.play();
+            }
+
+            // Look for SkinnedMesh or Bone to attach SkeletonHelper
+            let hasSkeleton = false;
+            gltf.scene.traverse((child) => {
+              if (child instanceof THREE.SkinnedMesh || child instanceof THREE.Bone) {
+                hasSkeleton = true;
+              }
+            });
+            if (hasSkeleton && sceneRef.current) {
+              if (skeletonHelperRef.current) {
+                sceneRef.current.remove(skeletonHelperRef.current);
+                skeletonHelperRef.current.dispose();
+              }
+              const helper = new THREE.SkeletonHelper(gltf.scene);
+              helper.visible = useAnimationStore.getState().displayOptions.showSkeleton;
+              sceneRef.current.add(helper);
+              skeletonHelperRef.current = helper;
             }
 
             // Asynchronously compile shaders and upload GPU buffers to eliminate render freeze

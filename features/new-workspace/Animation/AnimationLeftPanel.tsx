@@ -18,6 +18,8 @@ import { useWorkspace } from '../store/WorkspaceContext';
 import { useAnimationStore } from '@/stores/useAnimationStore';
 import { toast } from 'sonner';
 
+import { useViewerStore } from '@/stores/useViewerStore';
+
 const SAMPLE_PROJECT_MODELS = [
   { id: 'model-char', name: 'character.glb', size: '2.4 MB', vertices: '48.5k', format: 'GLB', isRigged: true },
   { id: 'model-robot', name: 'robot.fbx', size: '3.1 MB', vertices: '32.1k', format: 'FBX', isRigged: true },
@@ -27,6 +29,7 @@ const SAMPLE_PROJECT_MODELS = [
 
 export const AnimationLeftPanel: React.FC = () => {
   const { assets, selectedAssetId, selectAsset, currentAsset, addAsset } = useWorkspace();
+  const viewerStore = useViewerStore();
   const {
     animations,
     currentAnimationId,
@@ -54,10 +57,46 @@ export const AnimationLeftPanel: React.FC = () => {
       }))
     : SAMPLE_PROJECT_MODELS;
 
-  const currentModelName = currentAsset?.name || 'character.glb';
-  const currentModelSize = currentAsset?.faces
-    ? `${Math.round((currentAsset.faces * 50) / 1024)} KB`
-    : '2.4 MB';
+  const currentModelName = currentAsset?.name || viewerStore.loadedModelName || 'character.glb';
+  const realVerts = currentAsset?.vertices || viewerStore.modelStats?.vertices || 0;
+  const realFaces = currentAsset?.faces || currentAsset?.triangles || viewerStore.modelStats?.triangles || 0;
+  const currentModelDetails = realFaces > 0
+    ? `${realFaces.toLocaleString()} polys • ${realVerts > 0 ? (realVerts / 1000).toFixed(1) + 'k verts' : ''}`
+    : '3D Mesh Target';
+
+  const handleSelectModel = (model: { id: string; name: string; format?: string; vertices?: string }) => {
+    const existing = assets.find((a) => a.id === model.id);
+    if (existing) {
+      selectAsset(existing.id);
+    } else {
+      const isRobot = model.name.toLowerCase().includes('robot');
+      const isCreature = model.name.toLowerCase().includes('creature');
+      const isHuman = model.name.toLowerCase().includes('human');
+      const newAsset = {
+        id: model.id,
+        name: model.name,
+        category: 'mesh' as const,
+        thumbnail: '',
+        meshType: 'custom' as const,
+        faces: isCreature ? 64800 : isRobot ? 32100 : isHuman ? 28300 : 48500,
+        vertices: isCreature ? 50000 : isRobot ? 25000 : isHuman ? 22000 : 35000,
+        triangles: isCreature ? 64800 : isRobot ? 32100 : isHuman ? 28300 : 48500,
+        topology: 'Triangle' as const,
+        format: (model.format || 'GLB') as any,
+        dateCreated: new Date().toISOString(),
+        tags: ['character', 'rigged'],
+        source: {
+          filename: model.name,
+          subfolder: 'samples',
+          type: 'local',
+          localUrl: '',
+          viewUrl: '',
+        },
+      };
+      addAsset(newAsset);
+      selectAsset(newAsset.id);
+    }
+  };
 
   // Filter animations by category and search
   const categories = ['All Animations', 'Idle', 'Walk', 'Run', 'Jump', 'Actions', 'Custom'] as const;
@@ -153,8 +192,8 @@ export const AnimationLeftPanel: React.FC = () => {
               </div>
               <div className="flex-1 min-w-0">
                 <h4 className="text-xs font-bold text-white truncate">{currentModelName}</h4>
-                <p className="text-[11px] text-zinc-400 truncate mt-0.5">
-                  3D Model • {currentModelSize}
+                <p className="text-[11px] text-zinc-400 truncate mt-0.5 font-mono">
+                  {currentModelDetails}
                 </p>
                 <div className="flex items-center gap-1.5 mt-1.5">
                   <button
@@ -192,7 +231,7 @@ export const AnimationLeftPanel: React.FC = () => {
               return (
                 <button
                   key={model.id}
-                  onClick={() => selectAsset(model.id)}
+                  onClick={() => handleSelectModel(model)}
                   className={`w-full p-2 rounded-xl text-left transition-all flex items-center justify-between gap-2 border cursor-pointer ${
                     isSelected
                       ? 'bg-[#1D2028] border-[#F9CF00]/50 text-white shadow-sm'

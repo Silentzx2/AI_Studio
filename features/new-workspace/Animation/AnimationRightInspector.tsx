@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { useAnimationStore, InspectorTab } from '@/stores/useAnimationStore';
+import { useViewerStore } from '@/stores/useViewerStore';
 import { toast } from 'sonner';
 
 export const AnimationRightInspector: React.FC = () => {
@@ -257,25 +258,37 @@ export const AnimationRightInspector: React.FC = () => {
     }
   };
 
+  const viewerStore = useViewerStore();
+  const realVerts = currentAsset?.vertices || viewerStore.modelStats?.vertices || 0;
+  const realFaces = currentAsset?.faces || currentAsset?.triangles || viewerStore.modelStats?.triangles || 0;
+  const realMats = currentAsset?.materials?.length || 1;
   const currentBoneRot = (selectedBone && boneRotations[selectedBone]) || [0, 0, 0];
 
   return (
     <div className="w-[320px] h-full bg-[#121418] border-l border-white/[0.08] flex flex-col flex-shrink-0 select-none overflow-hidden">
-      {/* 3 TOP TABS: Properties | Rigging | Animation */}
-      <div className="grid grid-cols-3 p-1.5 bg-[#0F1014] border-b border-white/[0.08] gap-1 flex-shrink-0">
-        {(['properties', 'rigging', 'animation'] as InspectorTab[]).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setInspectorTab(tab)}
-            className={`py-1.5 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${
-              inspectorTab === tab
-                ? 'bg-[#1E2026] text-[#F9CF00] border border-[#F9CF00]/30 shadow-sm'
-                : 'text-zinc-400 hover:text-white hover:bg-white/[0.04] border border-transparent'
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
+      {/* SLEEK INSPECTOR HEADER */}
+      <div className="h-10 px-3 bg-[#0F1014] border-b border-white/[0.08] flex items-center justify-between flex-shrink-0">
+        <span className="text-xs font-bold text-white flex items-center gap-1.5">
+          {inspectorTab === 'rigging' && <Bone className="w-3.5 h-3.5 text-[#F9CF00]" />}
+          {inspectorTab === 'animation' && <Sparkles className="w-3.5 h-3.5 text-[#F9CF00]" />}
+          {inspectorTab === 'properties' && <Sliders className="w-3.5 h-3.5 text-[#F9CF00]" />}
+          <span>{inspectorTab === 'animation' ? 'Motion AI & Pose' : inspectorTab === 'rigging' ? 'Armature & Rig' : 'Model Properties'}</span>
+        </span>
+        <div className="flex items-center gap-1 bg-[#17191F] p-0.5 rounded-lg border border-white/[0.06]">
+          {(['properties', 'rigging', 'animation'] as InspectorTab[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setInspectorTab(tab)}
+              className={`px-2 py-0.5 rounded text-[10px] font-bold capitalize transition-colors cursor-pointer ${
+                inspectorTab === tab
+                  ? 'bg-[#F9CF00] text-black shadow-sm'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              {tab === 'animation' ? 'Motion' : tab === 'properties' ? 'Props' : 'Rig'}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* TAB CONTENT (Scrollable) */}
@@ -305,26 +318,32 @@ export const AnimationRightInspector: React.FC = () => {
                     </div>
                     <div className="truncate">
                       <div className="text-xs font-bold text-white truncate">
-                        {currentAsset?.name || 'character.glb'}
+                        {currentAsset?.name || viewerStore.loadedModelName || 'character.glb'}
                       </div>
                       <div className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
-                        <Check className="w-3 h-3" /> Rigged & Ready
+                        <Check className="w-3 h-3" /> {rigStatus === 'rigged' ? 'Rigged & Ready' : 'Rig Required'}
                       </div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-3 gap-1.5 text-center">
                     <div className="p-2 bg-[#17191F] border border-white/[0.06] rounded-lg">
-                      <div className="text-[10px] text-zinc-500 uppercase">Vertices</div>
-                      <div className="text-xs font-bold text-zinc-200 mt-0.5">48,532</div>
+                      <div className="text-[10px] text-zinc-500 uppercase font-semibold">Vertices</div>
+                      <div className="text-xs font-bold text-zinc-200 mt-0.5 font-mono">
+                        {realVerts > 0 ? realVerts.toLocaleString() : '—'}
+                      </div>
                     </div>
                     <div className="p-2 bg-[#17191F] border border-white/[0.06] rounded-lg">
-                      <div className="text-[10px] text-zinc-500 uppercase">Faces</div>
-                      <div className="text-xs font-bold text-zinc-200 mt-0.5">68,240</div>
+                      <div className="text-[10px] text-zinc-500 uppercase font-semibold">Faces</div>
+                      <div className="text-xs font-bold text-zinc-200 mt-0.5 font-mono">
+                        {realFaces > 0 ? realFaces.toLocaleString() : '—'}
+                      </div>
                     </div>
                     <div className="p-2 bg-[#17191F] border border-white/[0.06] rounded-lg">
-                      <div className="text-[10px] text-zinc-500 uppercase">Materials</div>
-                      <div className="text-xs font-bold text-zinc-200 mt-0.5">4</div>
+                      <div className="text-[10px] text-zinc-500 uppercase font-semibold">Materials</div>
+                      <div className="text-xs font-bold text-zinc-200 mt-0.5 font-mono">
+                        {realMats}
+                      </div>
                     </div>
                   </div>
                 </div>
