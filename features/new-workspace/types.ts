@@ -8,11 +8,12 @@ export type ToolType =
   | 'edit'
   | 'upscale'
   | 'pbr'
-  | 'environment';
+  | 'environment'
+  | 'animation';
 
 export interface ActiveTask {
   id: string;
-  type: 'image-to-3d' | 'text-to-3d' | 'segment' | 'remesh' | 'texture';
+  type: 'image-to-3d' | 'text-to-3d' | 'segment' | 'remesh' | 'texture' | 'animation' | 'rigging';
   title: string;
   inputImage?: string;
   inputImageName?: string;

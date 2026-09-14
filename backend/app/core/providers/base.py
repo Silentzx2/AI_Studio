@@ -4,7 +4,7 @@ import importlib
 import logging
 import sys
 from typing import Any, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -453,13 +453,14 @@ class DownloadProvider(ABC):
 @dataclass
 class ProviderResult:
     model_path: str
-    thumbnail_path: str
-    polygon_count: int
-    vertex_count: int
-    texture_resolution: Optional[str]
-    has_rig: bool
-    file_size: int
-    metadata: dict
+    thumbnail_path: str = ""
+    polygon_count: int = 0
+    vertex_count: int = 0
+    texture_resolution: Optional[str] = None
+    has_rig: bool = False
+    file_size: int = 0
+    metadata: dict = field(default_factory=dict)
+    has_texture: bool = False
 
 
 class BaseProvider(ABC):

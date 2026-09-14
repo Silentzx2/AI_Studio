@@ -30,6 +30,8 @@ import { useWorkspace } from '../store/WorkspaceContext';
 import { CameraViewPreset, ModelAsset } from '../types';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 import { apiClient } from '@/services/apiClient';
+import { useAnimationStore, BoneItem } from '@/stores/useAnimationStore';
+import { useViewerStore } from '@/stores/useViewerStore';
 
 import { validate3DFile } from '../lib/fileValidation';
 import { createPointCloudFromImage, createFallbackPointCloud, disposePointCloud } from './ImagePointCloud';
@@ -47,7 +49,6 @@ const dracoLoader = new DRACOLoader();
 if (typeof window !== 'undefined') {
   try {
     dracoLoader.setDecoderPath('/draco/gltf/');
-    dracoLoader.setDecoderConfig({ type: 'js' });
   } catch {}
 }
 
@@ -59,6 +60,376 @@ try {
 
 const sharedOBJLoader = new OBJLoader();
 const sharedPLYLoader = new PLYLoader();
+
+// Shared geometries and materials for zero-allocation, 60fps armature rendering
+const sharedJointGeo = new THREE.SphereGeometry(1, 14, 10);
+const sharedJointMat = new THREE.MeshStandardMaterial({
+  color: 0x00F5D4,
+  emissive: 0x00A896,
+  emissiveIntensity: 0.4,
+  roughness: 0.2,
+  metalness: 0.5,
+  depthTest: false,
+  transparent: true,
+  opacity: 0.95,
+});
+const sharedJointSelectedMat = new THREE.MeshStandardMaterial({
+  color: 0xF9CF00,
+  emissive: 0xF9CF00,
+  emissiveIntensity: 0.8,
+  roughness: 0.2,
+  metalness: 0.5,
+  depthTest: false,
+  transparent: true,
+  opacity: 0.95,
+});
+const sharedBoneMat = new THREE.MeshStandardMaterial({
+  color: 0xE2A800,
+  roughness: 0.35,
+  metalness: 0.2,
+  transparent: true,
+  opacity: 0.75,
+  depthTest: false,
+});
+const sharedBoneSelectedMat = new THREE.MeshStandardMaterial({
+  color: 0xF9CF00,
+  roughness: 0.35,
+  metalness: 0.2,
+  transparent: true,
+  opacity: 0.95,
+  depthTest: false,
+});
+const sharedRingGeo = new THREE.RingGeometry(0.045, 0.055, 24);
+const sharedRingMat = new THREE.MeshBasicMaterial({
+  color: 0xF9CF00,
+  side: THREE.DoubleSide,
+  depthTest: false,
+  transparent: true,
+  opacity: 0.95,
+});
+
+function createUnitBoneGeometry(): THREE.BufferGeometry {
+  const width = 0.12;
+  const bodyZ = 0.22;
+  const len = 1.0;
+  const vertices = new Float32Array([
+    0, 0, 0,    width, 0, bodyZ,    0, width, bodyZ,
+    0, 0, 0,    0, width, bodyZ,   -width, 0, bodyZ,
+    0, 0, 0,   -width, 0, bodyZ,    0, -width, bodyZ,
+    0, 0, 0,    0, -width, bodyZ,   width, 0, bodyZ,
+    width, 0, bodyZ,    0, 0, len,    0, width, bodyZ,
+    0, width, bodyZ,    0, 0, len,   -width, 0, bodyZ,
+   -width, 0, bodyZ,    0, 0, len,    0, -width, bodyZ,
+    0, -width, bodyZ,   0, 0, len,    width, 0, bodyZ,
+  ]);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+  geo.computeVertexNormals();
+  return geo;
+}
+const sharedBoneGeo = createUnitBoneGeometry();
+
+// Helper to create an authentic Blender-style bone octahedron mesh between parent and child positions
+function createBoneMesh(
+  start: THREE.Vector3,
+  end: THREE.Vector3,
+  isSelected: boolean,
+  boneName?: string,
+  parentName?: string
+): THREE.Mesh {
+  const dir = new THREE.Vector3().subVectors(end, start);
+  const len = dir.length();
+  if (len < 0.001) return new THREE.Mesh();
+
+  const mesh = new THREE.Mesh(sharedBoneGeo, isSelected ? sharedBoneSelectedMat : sharedBoneMat);
+  mesh.renderOrder = 9998;
+  mesh.position.copy(start);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir.clone().normalize());
+  mesh.scale.set(len, len, len);
+  mesh.userData = { isConnector: true, boneName, parentName };
+  return mesh;
+}
+
+function createJointMesh(pos: THREE.Vector3, isSelected: boolean, boneName: string, scale: number): THREE.Mesh {
+  const radius = (isSelected ? 0.045 : 0.032) * Math.max(0.3, Math.min(scale, 2.5));
+  const mesh = new THREE.Mesh(sharedJointGeo, isSelected ? sharedJointSelectedMat : sharedJointMat);
+  mesh.scale.setScalar(radius);
+  mesh.renderOrder = 9999;
+  mesh.position.copy(pos);
+  mesh.userData = { isJoint: true, boneName };
+  return mesh;
+}
+
+// Procedural Skeletal Animation Generator for 17-Bone Humanoid Armature
+function getSingleClipOffsets(clipId: string, t: number, muted: Set<string>) {
+  const rot: Record<string, [number, number, number]> = {};
+  let rootY = 0;
+  let rootZ = 0;
+
+  const armsMuted = muted.has('track-arms');
+  const legsMuted = muted.has('track-legs');
+  const bodyMuted = muted.has('track-body');
+  const faceMuted = muted.has('track-face');
+  const rootMuted = muted.has('track-root');
+
+  if (clipId === 'anim-4' || clipId === 'anim-5') {
+    // Walking cycle (stride ~ 1.8s)
+    const speed = clipId === 'anim-5' ? 3.0 : 4.2;
+    const phase = t * speed;
+    const sinP = Math.sin(phase);
+    const cosP = Math.cos(phase);
+
+    if (!rootMuted) rootY = Math.abs(sinP) * 0.035 - 0.015;
+    if (!bodyMuted) {
+      rot['Hips'] = [0, sinP * 6, 0];
+      rot['Spine'] = [0, -sinP * 4, 0];
+      rot['Chest'] = [4, -sinP * 3, 0];
+    }
+    if (!legsMuted) {
+      rot['UpperLeg_L'] = [sinP * 28, 0, 0];
+      rot['LowerLeg_L'] = [Math.max(0, -sinP) * 32, 0, 0];
+      rot['Foot_L'] = [cosP * 12, 0, 0];
+
+      rot['UpperLeg_R'] = [-sinP * 28, 0, 0];
+      rot['LowerLeg_R'] = [Math.max(0, sinP) * 32, 0, 0];
+      rot['Foot_R'] = [-cosP * 12, 0, 0];
+    }
+    if (!armsMuted) {
+      rot['UpperArm_L'] = [-sinP * 24, 0, -20];
+      rot['LowerArm_L'] = [18 + Math.max(0, -sinP) * 20, 0, 0];
+      rot['UpperArm_R'] = [sinP * 24, 0, 20];
+      rot['LowerArm_R'] = [18 + Math.max(0, sinP) * 20, 0, 0];
+    }
+    if (!faceMuted) rot['Head'] = [-2, sinP * 2, 0];
+  } else if (clipId === 'anim-6' || clipId === 'anim-7') {
+    // Running cycle (sprint ~ 1.0s)
+    const speed = clipId === 'anim-7' ? 8.0 : 6.5;
+    const phase = t * speed;
+    const sinP = Math.sin(phase);
+    const cosP = Math.cos(phase);
+
+    if (!rootMuted) {
+      rootY = Math.abs(sinP) * 0.07 - 0.035;
+      rootZ = 0.05;
+    }
+    if (!bodyMuted) {
+      rot['Hips'] = [12, sinP * 10, 0];
+      rot['Spine'] = [8, -sinP * 6, 0];
+      rot['Chest'] = [8, -sinP * 5, 0];
+    }
+    if (!legsMuted) {
+      rot['UpperLeg_L'] = [sinP * 46, 0, 0];
+      rot['LowerLeg_L'] = [Math.max(0, -sinP) * 55, 0, 0];
+      rot['Foot_L'] = [cosP * 20, 0, 0];
+
+      rot['UpperLeg_R'] = [-sinP * 46, 0, 0];
+      rot['LowerLeg_R'] = [Math.max(0, sinP) * 55, 0, 0];
+      rot['Foot_R'] = [-cosP * 20, 0, 0];
+    }
+    if (!armsMuted) {
+      rot['UpperArm_L'] = [-sinP * 40, 0, -25];
+      rot['LowerArm_L'] = [45 + Math.max(0, -sinP) * 35, 0, 0];
+      rot['UpperArm_R'] = [sinP * 40, 0, 25];
+      rot['LowerArm_R'] = [45 + Math.max(0, sinP) * 35, 0, 0];
+    }
+    if (!faceMuted) rot['Head'] = [6, 0, 0];
+  } else if (clipId === 'anim-8' || clipId === 'anim-9') {
+    // Jump cycle
+    const cycle = (t * 1.8) % 2.0;
+    let jumpProgress = 0;
+    if (cycle < 0.4) {
+      jumpProgress = -0.08 * (cycle / 0.4);
+      if (!legsMuted) {
+        rot['UpperLeg_L'] = [25, 0, 0];
+        rot['LowerLeg_L'] = [35, 0, 0];
+        rot['UpperLeg_R'] = [25, 0, 0];
+        rot['LowerLeg_R'] = [35, 0, 0];
+      }
+      if (!armsMuted) {
+        rot['UpperArm_L'] = [-25, 0, -20];
+        rot['UpperArm_R'] = [-25, 0, 20];
+      }
+    } else if (cycle < 1.4) {
+      const inAirT = (cycle - 0.4) / 1.0;
+      jumpProgress = Math.sin(inAirT * Math.PI) * 0.35;
+      if (!legsMuted) {
+        rot['UpperLeg_L'] = [-15, 0, 0];
+        rot['LowerLeg_L'] = [10, 0, 0];
+        rot['UpperLeg_R'] = [-15, 0, 0];
+        rot['LowerLeg_R'] = [10, 0, 0];
+      }
+      if (!armsMuted) {
+        rot['UpperArm_L'] = [45, 0, -35];
+        rot['UpperArm_R'] = [45, 0, 35];
+      }
+    } else {
+      const landT = (cycle - 1.4) / 0.6;
+      jumpProgress = -0.06 * Math.sin(landT * Math.PI);
+      if (!legsMuted) {
+        rot['UpperLeg_L'] = [20 * (1 - landT), 0, 0];
+        rot['LowerLeg_L'] = [30 * (1 - landT), 0, 0];
+        rot['UpperLeg_R'] = [20 * (1 - landT), 0, 0];
+        rot['LowerLeg_R'] = [30 * (1 - landT), 0, 0];
+      }
+    }
+    if (!rootMuted) rootY = jumpProgress;
+  } else if (clipId === 'anim-10') {
+    // Wave Right Hand
+    const waveOsc = Math.sin(t * 8) * 22;
+    if (!armsMuted) {
+      rot['UpperArm_R'] = [15, 10, 75];
+      rot['LowerArm_R'] = [40, 0, 35];
+      rot['Hand_R'] = [0, 0, waveOsc];
+      rot['UpperArm_L'] = [0, 0, -15];
+      rot['LowerArm_L'] = [10, 0, 0];
+    }
+    if (!faceMuted) rot['Head'] = [0, 10, 5];
+    if (!bodyMuted) rot['Spine'] = [0, 3, 2];
+  } else if (clipId === 'anim-11') {
+    // Punch Combo
+    const phase = t * 6;
+    const jabR = Math.max(0, Math.sin(phase));
+    const jabL = Math.max(0, Math.sin(phase + Math.PI));
+    if (!armsMuted) {
+      rot['UpperArm_R'] = [jabR * 80 + 10, -jabR * 20, 15];
+      rot['LowerArm_R'] = [(1 - jabR) * 60, 0, 0];
+      rot['UpperArm_L'] = [jabL * 80 + 10, jabL * 20, -15];
+      rot['LowerArm_L'] = [(1 - jabL) * 60, 0, 0];
+    }
+    if (!bodyMuted) {
+      rot['Chest'] = [5, (jabR - jabL) * 18, 0];
+      rot['Hips'] = [0, (jabR - jabL) * 10, 0];
+    }
+    if (!legsMuted) {
+      rot['UpperLeg_L'] = [15, 0, 0];
+      rot['UpperLeg_R'] = [-15, 0, 0];
+    }
+  } else if (clipId === 'anim-12') {
+    // Celebrate Victory
+    const cheer = Math.sin(t * 4) * 8;
+    if (!armsMuted) {
+      rot['UpperArm_L'] = [15, 0, -70 + cheer];
+      rot['LowerArm_L'] = [40, 0, 0];
+      rot['UpperArm_R'] = [15, 0, 70 - cheer];
+      rot['LowerArm_R'] = [40, 0, 0];
+    }
+    if (!bodyMuted) rot['Chest'] = [-10, 0, 0];
+    if (!faceMuted) rot['Head'] = [-15, 0, 0];
+    if (!rootMuted) rootY = Math.abs(Math.sin(t * 5)) * 0.04;
+  } else {
+    // Breathing Idle
+    const breath = Math.sin(t * 2.2);
+    if (!bodyMuted) {
+      rot['Spine'] = [breath * 2.5, 0, 0];
+      rot['Chest'] = [breath * 3.5, 0, 0];
+    }
+    if (!rootMuted) rootY = breath * 0.012;
+    if (!faceMuted) rot['Head'] = [-breath * 1.5, 0, 0];
+    if (!armsMuted) {
+      rot['UpperArm_L'] = [0, 0, -18 - breath * 2];
+      rot['UpperArm_R'] = [0, 0, 18 + breath * 2];
+    }
+  }
+
+  return { rotations: rot, rootOffset: [0, rootY, rootZ] as [number, number, number] };
+}
+
+function getBlendedJointOffsets(
+  animId: string,
+  t: number,
+  muted: Set<string>,
+  blendState?: { animA: string; animB: string; weight: number },
+  isBlendMode?: boolean
+) {
+  if (isBlendMode && blendState) {
+    const offA = getSingleClipOffsets(blendState.animA, t, muted);
+    const offB = getSingleClipOffsets(blendState.animB, t, muted);
+    const w = Math.max(0, Math.min(1, blendState.weight));
+
+    const blendedRot: Record<string, [number, number, number]> = {};
+    const allKeys = new Set([...Object.keys(offA.rotations), ...Object.keys(offB.rotations)]);
+    allKeys.forEach((key) => {
+      const rA = offA.rotations[key] || [0, 0, 0];
+      const rB = offB.rotations[key] || [0, 0, 0];
+      blendedRot[key] = [
+        rA[0] * (1 - w) + rB[0] * w,
+        rA[1] * (1 - w) + rB[1] * w,
+        rA[2] * (1 - w) + rB[2] * w,
+      ];
+    });
+
+    const rootOff: [number, number, number] = [
+      offA.rootOffset[0] * (1 - w) + offB.rootOffset[0] * w,
+      offA.rootOffset[1] * (1 - w) + offB.rootOffset[1] * w,
+      offA.rootOffset[2] * (1 - w) + offB.rootOffset[2] * w,
+    ];
+    return { rotations: blendedRot, rootOffset: rootOff };
+  }
+  return getSingleClipOffsets(animId, t, muted);
+}
+
+// Forward Kinematics solver: converts local bone rotations into hierarchical world coordinates
+function computeArmatureWorldPositions(
+  bones: BoneItem[],
+  rotations: Record<string, [number, number, number]>,
+  rootOffset: [number, number, number],
+  center: THREE.Vector3,
+  baseY: number,
+  scale: number
+): Map<string, THREE.Vector3> {
+  const worldPositions = new Map<string, THREE.Vector3>();
+  const worldQuaternions = new Map<string, THREE.Quaternion>();
+
+  const boneMap = new Map<string, BoneItem>();
+  bones.forEach((b) => boneMap.set(b.name, b));
+
+  function evalBone(name: string) {
+    if (worldPositions.has(name)) return;
+    const b = boneMap.get(name);
+    if (!b) return;
+
+    const rotDeg = rotations[name] || b.rotation || [0, 0, 0];
+    const localEuler = new THREE.Euler(
+      THREE.MathUtils.degToRad(rotDeg[0]),
+      THREE.MathUtils.degToRad(rotDeg[1]),
+      THREE.MathUtils.degToRad(rotDeg[2]),
+      'XYZ'
+    );
+    const localQuat = new THREE.Quaternion().setFromEuler(localEuler);
+
+    if (!b.parent || !boneMap.has(b.parent)) {
+      const posX = center.x + (b.position[0] + rootOffset[0]) * scale;
+      const posY = baseY + (b.position[1] + rootOffset[1]) * scale;
+      const posZ = center.z + (b.position[2] + rootOffset[2]) * scale;
+      worldPositions.set(name, new THREE.Vector3(posX, posY, posZ));
+      worldQuaternions.set(name, localQuat);
+    } else {
+      if (!worldPositions.has(b.parent)) {
+        evalBone(b.parent);
+      }
+      const parentPos = worldPositions.get(b.parent)!;
+      const parentQuat = worldQuaternions.get(b.parent) || new THREE.Quaternion();
+
+      const parentBone = boneMap.get(b.parent)!;
+      const restRel = new THREE.Vector3(
+        (b.position[0] - parentBone.position[0]) * scale,
+        (b.position[1] - parentBone.position[1]) * scale,
+        (b.position[2] - parentBone.position[2]) * scale
+      );
+
+      restRel.applyQuaternion(parentQuat);
+
+      const childPos = new THREE.Vector3().addVectors(parentPos, restRel);
+      worldPositions.set(name, childPos);
+
+      const childQuat = parentQuat.clone().multiply(localQuat);
+      worldQuaternions.set(name, childQuat);
+    }
+  }
+
+  bones.forEach((b) => evalBone(b.name));
+  return worldPositions;
+}
 
 interface MeshViewerProps {
   className?: string;
@@ -274,6 +645,12 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     const box = new THREE.Box3().setFromObject(object);
     const size = new THREE.Vector3();
     box.getSize(size);
+    const center = new THREE.Vector3();
+    box.getCenter(center);
+    const height = Math.max(size.y, 0.4);
+    const scale = height / 1.8;
+    const baseY = box.min.y;
+    meshBoundsCacheRef.current = { center, size, height, scale, baseY };
     const dimensions = {
       x: Number(size.x.toFixed(2)),
       y: Number(size.y.toFixed(2)),
@@ -281,6 +658,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     };
 
     setMeshStats({ faces, vertices: verts, triangles, dimensions });
+    useViewerStore.getState().setModelStats({ vertices: verts, triangles, dimensions });
 
     if (currentAsset) {
       // Use immutable update to trigger React re-render
@@ -303,6 +681,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const pointCloudRef = useRef<THREE.Object3D | null>(null);
   const pointCloudGroupRef = useRef<THREE.Group | null>(null);
   const gridHelperRef = useRef<THREE.GridHelper | null>(null);
+  const floorRef = useRef<THREE.Mesh | null>(null);
   const keyLightRef = useRef<THREE.DirectionalLight | null>(null);
   const fillLightRef = useRef<THREE.DirectionalLight | null>(null);
   const rimLightRef = useRef<THREE.DirectionalLight | null>(null);
@@ -310,27 +689,452 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const isTurntableRef = useRef(isTurntable);
   const blobUrlRef = useRef<string | null>(null);
   const toastTimeoutRef = useRef<number | null>(null);
+  const mixerRef = useRef<THREE.AnimationMixer | null>(null);
+  const actionRef = useRef<THREE.AnimationAction | null>(null);
+  const skeletonHelperRef = useRef<THREE.SkeletonHelper | null>(null);
+  const rigArmatureGroupRef = useRef<THREE.Group | null>(null);
+  const meshBoundsCacheRef = useRef<{
+    center: THREE.Vector3;
+    size: THREE.Vector3;
+    height: number;
+    scale: number;
+    baseY: number;
+  } | null>(null);
 
-  // Sync interactionMode with OrbitControls / TransformControls
+  const getMeshBounds = useCallback(() => {
+    if (meshBoundsCacheRef.current) return meshBoundsCacheRef.current;
+    const group = currentMeshGroupRef.current;
+    if (!group || group.children.length === 0) {
+      return {
+        center: new THREE.Vector3(0, 0, 0),
+        size: new THREE.Vector3(1, 1.8, 1),
+        height: 1.8,
+        scale: 1.0,
+        baseY: 0,
+      };
+    }
+    const box = new THREE.Box3().setFromObject(group);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const height = Math.max(size.y, 0.4);
+    const scale = height / 1.8;
+    const baseY = box.min.y;
+    meshBoundsCacheRef.current = { center, size, height, scale, baseY };
+    return meshBoundsCacheRef.current;
+  }, []);
+
+  // Subscribe to real animation store for live 3D viewport synchronization
+  const {
+    transform: animTransform,
+    displayOptions: animDisplayOptions,
+    playbackSpeed: animPlaybackSpeed,
+    isLooping: animIsLooping,
+    boneRotations: animBoneRotations,
+    selectedBone: animSelectedBone,
+    currentTime: animCurrentTime,
+    isPlaying: animIsPlaying,
+    activeMode: animActiveMode,
+    inspectorTab: animInspectorTab,
+    bones: animBones,
+    setSelectedBone: setAnimSelectedBone,
+    activeViewportTool: animActiveViewportTool,
+    isPlacingBone: animIsPlacingBone,
+    currentAnimationId: animCurrentAnimationId,
+    tracks: animTracks,
+    isWeightPainting: animIsWeightPainting,
+    blendState: animBlendState,
+  } = useAnimationStore();
+
+  // 1. Live model transform (position, rotation, scale)
   useEffect(() => {
-    if (!controlsRef.current) return;
+    const group = currentMeshGroupRef.current;
+    if (!group) return;
+    group.position.set(animTransform.position[0], animTransform.position[1], animTransform.position[2]);
+    group.rotation.set(
+      THREE.MathUtils.degToRad(animTransform.rotation[0]),
+      THREE.MathUtils.degToRad(animTransform.rotation[1]),
+      THREE.MathUtils.degToRad(animTransform.rotation[2])
+    );
+    group.scale.set(animTransform.scale[0], animTransform.scale[1], animTransform.scale[2]);
+  }, [animTransform]);
+
+  // 2. Live display options (skeleton helper, grid, ground disc)
+  useEffect(() => {
+    if (skeletonHelperRef.current) {
+      skeletonHelperRef.current.visible =
+        animActiveMode === 'rigging' || animInspectorTab === 'rigging' || animDisplayOptions.showSkeleton;
+    }
+    if (gridHelperRef.current) {
+      gridHelperRef.current.visible = animDisplayOptions.showGrid;
+    }
+    if (floorRef.current) {
+      floorRef.current.visible = animDisplayOptions.showGround;
+    }
+  }, [animDisplayOptions, animActiveMode, animInspectorTab]);
+
+  // 3. Live playback speed & loop mode
+  useEffect(() => {
+    if (mixerRef.current) {
+      mixerRef.current.timeScale = animPlaybackSpeed;
+    }
+    if (actionRef.current) {
+      actionRef.current.setLoop(animIsLooping ? THREE.LoopRepeat : THREE.LoopOnce, animIsLooping ? Infinity : 1);
+    }
+  }, [animPlaybackSpeed, animIsLooping]);
+
+  // 4. Live timeline scrubbing / seeking when paused
+  useEffect(() => {
+    if (mixerRef.current && !animIsPlaying) {
+      mixerRef.current.setTime(animCurrentTime);
+    }
+  }, [animCurrentTime, animIsPlaying]);
+
+  // 5. Live Pose Editor bone rotation to actual skeleton bones
+  useEffect(() => {
+    const group = currentMeshGroupRef.current;
+    if (!group || !animSelectedBone) return;
+    const bone = group.getObjectByName(animSelectedBone);
+    if (bone) {
+      const rot = animBoneRotations[animSelectedBone] || [0, 0, 0];
+      bone.rotation.set(
+        THREE.MathUtils.degToRad(rot[0]),
+        THREE.MathUtils.degToRad(rot[1]),
+        THREE.MathUtils.degToRad(rot[2])
+      );
+      skeletonHelperRef.current?.updateMatrixWorld(true);
+    }
+  }, [animBoneRotations, animSelectedBone]);
+
+  // 6. Forward Kinematics Armature Articulation Evaluator
+  const updateArmatureFrame = useCallback(
+    (time: number) => {
+      if (!rigArmatureGroupRef.current) return;
+      const rigGroup = rigArmatureGroupRef.current;
+      if (!rigGroup.visible) return;
+
+      const state = useAnimationStore.getState();
+      const bounds = getMeshBounds();
+      const mutedSet = new Set(state.tracks.filter((t) => t.isMuted).map((t) => t.id));
+
+      // Procedural animation offsets for active clip or blend
+      const animOffsets = getBlendedJointOffsets(
+        state.currentAnimationId,
+        time,
+        mutedSet,
+        state.blendState,
+        state.activeMode === 'blend'
+      );
+
+      // Combine procedural rotation + user's manual Pose Editor rotations
+      const totalRotations: Record<string, [number, number, number]> = { ...animOffsets.rotations };
+      for (const [boneName, rot] of Object.entries(state.boneRotations)) {
+        const existing = totalRotations[boneName] || [0, 0, 0];
+        totalRotations[boneName] = [
+          existing[0] + rot[0],
+          existing[1] + rot[1],
+          existing[2] + rot[2],
+        ];
+      }
+
+      // Forward Kinematics world positions
+      const worldPositions = computeArmatureWorldPositions(
+        state.bones,
+        totalRotations,
+        animOffsets.rootOffset,
+        bounds.center,
+        bounds.baseY,
+        bounds.scale
+      );
+
+      // Update joint spheres & bone connectors in rigGroup
+      const unitZ = new THREE.Vector3(0, 0, 1);
+      rigGroup.children.forEach((child) => {
+        if (child.userData?.isJoint && child.userData.boneName) {
+          const p = worldPositions.get(child.userData.boneName);
+          if (p) child.position.copy(p);
+        } else if (child.userData?.isRing && state.selectedBone) {
+          const p = worldPositions.get(state.selectedBone);
+          if (p) {
+            child.position.copy(p);
+            if (cameraRef.current) child.lookAt(cameraRef.current.position);
+          }
+        } else if (child.userData?.isConnector && child.userData.boneName && child.userData.parentName) {
+          const p1 = worldPositions.get(child.userData.parentName);
+          const p2 = worldPositions.get(child.userData.boneName);
+          if (p1 && p2) {
+            const dir = new THREE.Vector3().subVectors(p2, p1);
+            const len = dir.length();
+            if (len > 0.001) {
+              child.position.copy(p1);
+              child.quaternion.setFromUnitVectors(unitZ, dir.clone().normalize());
+              child.scale.set(len, len, len);
+            }
+          }
+        }
+      });
+
+      // Articulate matching bones in model mesh
+      const group = currentMeshGroupRef.current;
+      if (group) {
+        group.traverse((child) => {
+          if (child instanceof THREE.Bone) {
+            const rotDeg = totalRotations[child.name];
+            if (rotDeg) {
+              child.rotation.set(
+                THREE.MathUtils.degToRad(rotDeg[0]),
+                THREE.MathUtils.degToRad(rotDeg[1]),
+                THREE.MathUtils.degToRad(rotDeg[2])
+              );
+            }
+          }
+        });
+        skeletonHelperRef.current?.updateMatrixWorld(true);
+      }
+    },
+    [getMeshBounds]
+  );
+
+  // 6b. Live Rigging Armature Visualizer in 3D Viewport (Humanoid Biped 17-Bone Hierarchy)
+  useEffect(() => {
+    if (!sceneRef.current || !rigArmatureGroupRef.current) return;
+    const rigGroup = rigArmatureGroupRef.current;
+
+    // Clear previous armature meshes (reusing shared pooled geometries)
+    rigGroup.clear();
+
+    const isRiggingActive =
+      animActiveMode === 'rigging' ||
+      animInspectorTab === 'rigging' ||
+      animDisplayOptions.showSkeleton;
+
+    rigGroup.visible = isRiggingActive;
+    if (!isRiggingActive) return;
+
+    const group = currentMeshGroupRef.current;
+    if (!group || group.children.length === 0) return;
+
+    // Fast cached mesh bounds (0ms geometry traversal)
+    const { center, scale, baseY } = getMeshBounds();
+
+    // Compute world positions for each bone in hierarchy
+    const boneWorldPositions = new Map<string, THREE.Vector3>();
+
+    animBones.forEach((b) => {
+      const posX = center.x + b.position[0] * scale;
+      const posY = baseY + b.position[1] * scale;
+      const posZ = center.z + b.position[2] * scale;
+      boneWorldPositions.set(b.name, new THREE.Vector3(posX, posY, posZ));
+    });
+
+    // Create joint handles and bone connectors using shared pool
+    animBones.forEach((b) => {
+      const pos = boneWorldPositions.get(b.name);
+      if (!pos) return;
+      const isSelected = animSelectedBone === b.name;
+
+      // 1. Joint Marker Sphere (In Front / X-Ray)
+      const jointMesh = createJointMesh(pos, isSelected, b.name, scale);
+      rigGroup.add(jointMesh);
+
+      // 2. Selected Bone Highlight Ring
+      if (isSelected) {
+        const ringMesh = new THREE.Mesh(sharedRingGeo, sharedRingMat);
+        ringMesh.scale.setScalar(scale);
+        ringMesh.position.copy(pos);
+        ringMesh.renderOrder = 10000;
+        ringMesh.userData = { isRing: true };
+        ringMesh.lookAt(cameraRef.current ? cameraRef.current.position : new THREE.Vector3(0, 1, 5));
+        rigGroup.add(ringMesh);
+      }
+
+      // 3. Octahedron Bone Connector to Parent
+      if (b.parent) {
+        const parentPos = boneWorldPositions.get(b.parent);
+        if (parentPos) {
+          const boneConnector = createBoneMesh(parentPos, pos, isSelected, b.name, b.parent);
+          rigGroup.add(boneConnector);
+        }
+      }
+    });
+
+    // Initial pose articulation
+    updateArmatureFrame(animCurrentTime);
+
+    // Request immediate frame render
+    if (rendererRef.current && cameraRef.current) {
+      rendererRef.current.render(sceneRef.current, cameraRef.current);
+    }
+  }, [
+    animActiveMode,
+    animInspectorTab,
+    animSelectedBone,
+    animBones,
+    animDisplayOptions.showSkeleton,
+    viewportResetTrigger,
+    currentAsset?.id,
+    getMeshBounds,
+    updateArmatureFrame,
+  ]);
+
+  // 6c. Articulate Armature on scrub/time, clip change, or pose rotation when paused
+  useEffect(() => {
+    if (!animIsPlaying) {
+      updateArmatureFrame(animCurrentTime);
+      if (rendererRef.current && sceneRef.current && cameraRef.current) {
+        rendererRef.current.render(sceneRef.current, cameraRef.current);
+      }
+    }
+  }, [
+    animCurrentTime,
+    animIsPlaying,
+    animCurrentAnimationId,
+    animBoneRotations,
+    animTracks,
+    animBlendState,
+    updateArmatureFrame,
+  ]);
+
+  // 7. Weight Painting Heatmap Visualization
+  useEffect(() => {
+    const group = currentMeshGroupRef.current;
+    if (!group) return;
+
+    const isWeightActive = animActiveViewportTool === 'weight' || animIsWeightPainting;
+
+    group.traverse((child) => {
+      if (
+        child instanceof THREE.Mesh &&
+        !child.userData?.isJoint &&
+        !child.userData?.isConnector &&
+        !child.userData?.isRing
+      ) {
+        if (!child.userData.originalMaterial) {
+          child.userData.originalMaterial = child.material;
+        }
+
+        if (isWeightActive) {
+          const bounds = getMeshBounds();
+          const selBone = animBones.find((b) => b.name === animSelectedBone);
+          const jointWorldPos = selBone
+            ? new THREE.Vector3(
+                bounds.center.x + selBone.position[0] * bounds.scale,
+                bounds.baseY + selBone.position[1] * bounds.scale,
+                bounds.center.z + selBone.position[2] * bounds.scale
+              )
+            : bounds.center;
+
+          const geom = child.geometry;
+          if (geom && geom.attributes.position) {
+            const posAttr = geom.attributes.position;
+            const count = posAttr.count;
+            const colors = new Float32Array(count * 3);
+            const vPos = new THREE.Vector3();
+            const radius = bounds.scale * 0.35;
+
+            for (let i = 0; i < count; i++) {
+              vPos.fromBufferAttribute(posAttr, i);
+              child.localToWorld(vPos);
+              const dist = vPos.distanceTo(jointWorldPos);
+              const weight = Math.max(0, Math.min(1, 1 - dist / radius));
+
+              // Heatmap: 0 = Blue, 0.5 = Green, 1 = Red
+              const r = weight > 0.5 ? Math.min(1, (weight - 0.5) * 2) : 0;
+              const g = weight < 0.5 ? Math.min(1, weight * 2) : Math.min(1, (1 - weight) * 2);
+              const b = weight < 0.5 ? Math.min(1, (0.5 - weight) * 2) : 0;
+
+              colors[i * 3] = r;
+              colors[i * 3 + 1] = g;
+              colors[i * 3 + 2] = b;
+            }
+
+            geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geom.attributes.color.needsUpdate = true;
+
+            child.material = new THREE.MeshBasicMaterial({
+              vertexColors: true,
+              wireframe: Boolean(showWireframe),
+            });
+          }
+        } else {
+          if (child.userData.originalMaterial) {
+            child.material = child.userData.originalMaterial;
+          }
+        }
+      }
+    });
+
+    if (rendererRef.current && sceneRef.current && cameraRef.current) {
+      rendererRef.current.render(sceneRef.current, cameraRef.current);
+    }
+  }, [
+    animActiveViewportTool,
+    animIsWeightPainting,
+    animSelectedBone,
+    animBones,
+    getMeshBounds,
+    showWireframe,
+  ]);
+
+  // 8. Sync interactionMode and selected bone joint with TransformControls
+  useEffect(() => {
+    if (!controlsRef.current || !transformControlsRef.current) return;
+    const tc = transformControlsRef.current;
+
     if (interactionMode === 'pan') {
       controlsRef.current.mouseButtons.LEFT = THREE.MOUSE.PAN;
     } else {
       controlsRef.current.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
     }
 
-    if (transformControlsRef.current) {
-      const tc = transformControlsRef.current;
-      if (interactionMode === 'move' && currentMeshGroupRef.current && currentMeshGroupRef.current.children.length > 0) {
-        tc.attach(currentMeshGroupRef.current);
-        tc.enabled = true;
-      } else {
+    if (animActiveMode === 'rigging' || animInspectorTab === 'rigging') {
+      if (
+        animActiveViewportTool === 'select' ||
+        animActiveViewportTool === 'bone' ||
+        animActiveViewportTool === 'weight'
+      ) {
         tc.detach();
         tc.enabled = false;
+        return;
       }
+      if (animSelectedBone && rigArmatureGroupRef.current) {
+        const jointMesh = rigArmatureGroupRef.current.children.find(
+          (c) => c.userData?.isJoint && c.userData?.boneName === animSelectedBone
+        );
+        if (jointMesh) {
+          tc.attach(jointMesh);
+          const mode =
+            animActiveViewportTool === 'rotate'
+              ? 'rotate'
+              : animActiveViewportTool === 'scale'
+              ? 'scale'
+              : 'translate';
+          tc.setMode(mode);
+          tc.enabled = true;
+          return;
+        }
+      }
+      tc.detach();
+      tc.enabled = false;
+    } else if (
+      interactionMode === 'move' &&
+      currentMeshGroupRef.current &&
+      currentMeshGroupRef.current.children.length > 0
+    ) {
+      tc.attach(currentMeshGroupRef.current);
+      tc.setMode('translate');
+      tc.enabled = true;
+    } else {
+      tc.detach();
+      tc.enabled = false;
     }
-  }, [interactionMode]);
+  }, [
+    interactionMode,
+    animActiveMode,
+    animInspectorTab,
+    animSelectedBone,
+    animActiveViewportTool,
+    animBones,
+  ]);
 
   // Cleanup blob URLs on unmount
   useEffect(() => {
@@ -428,6 +1232,23 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     transformControls.addEventListener('dragging-changed', (event: any) => {
       controls.enabled = !event.value;
     });
+    transformControls.addEventListener('objectChange', () => {
+      const state = useAnimationStore.getState();
+      const obj = transformControls.object;
+      if (
+        (state.activeMode === 'rigging' || state.inspectorTab === 'rigging') &&
+        state.selectedBone &&
+        obj?.userData?.isJoint
+      ) {
+        const bounds = getMeshBounds();
+        const boneX = parseFloat(((obj.position.x - bounds.center.x) / bounds.scale).toFixed(3));
+        const boneY = parseFloat(((obj.position.y - bounds.baseY) / bounds.scale).toFixed(3));
+        const boneZ = parseFloat(((obj.position.z - bounds.center.z) / bounds.scale).toFixed(3));
+
+        state.updateBonePosition(state.selectedBone, [boneX, boneY, boneZ]);
+        idleFrames = 0;
+      }
+    });
     scene.add(transformControls.getHelper() as unknown as THREE.Object3D);
     transformControlsRef.current = transformControls;
 
@@ -438,50 +1259,115 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     const mainKeyLight = new THREE.DirectionalLight(0xfff5ea, 2.8);
     mainKeyLight.position.set(4, 6, 5);
     mainKeyLight.castShadow = true;
-    mainKeyLight.shadow.mapSize.width = 512;
-    mainKeyLight.shadow.mapSize.height = 512;
+    mainKeyLight.shadow.mapSize.width = 2048;
+    mainKeyLight.shadow.mapSize.height = 2048;
+    mainKeyLight.shadow.camera.near = 0.1;
+    mainKeyLight.shadow.camera.far = 20;
     mainKeyLight.shadow.bias = -0.0001;
+    mainKeyLight.shadow.normalBias = 0.02;
     scene.add(mainKeyLight);
     keyLightRef.current = mainKeyLight;
 
-    const fillLight = new THREE.DirectionalLight(0x90b0ff, 1.2);
-    fillLight.position.set(-5, 3, -3);
+    const fillLight = new THREE.DirectionalLight(0xdbeafe, 1.4);
+    fillLight.position.set(-5, 3, -2);
     scene.add(fillLight);
     fillLightRef.current = fillLight;
 
     const rimLight = new THREE.DirectionalLight(0xfff0d0, 1.8);
-    rimLight.position.set(0, 5, -6);
+    rimLight.position.set(0, 5, -5);
     scene.add(rimLight);
     rimLightRef.current = rimLight;
 
-    // 6. Floor Grid and Soft Shadow Floor - Disabled by default
-    const grid = new THREE.GridHelper(10, 20, 0x4a5060, 0x2a3040);
-    grid.position.y = -0.65;
-    grid.visible = false;
+    // 6. Floor with soft contact shadow receiver
+    const floorGeo = new THREE.PlaneGeometry(30, 30);
+    const floorMat = new THREE.ShadowMaterial({ opacity: 0.18 });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -0.001;
+    floor.receiveShadow = true;
+    scene.add(floor);
+    floorRef.current = floor;
 
+    // 7. Grid Helper
+    const grid = new THREE.GridHelper(20, 40, 0x3b82f6, 0x1e293b);
+    grid.position.y = 0;
+    (grid.material as THREE.Material).opacity = 0.25;
+    (grid.material as THREE.Material).transparent = true;
+    grid.visible = animDisplayOptions.showGrid;
     scene.add(grid);
     gridHelperRef.current = grid;
 
-    scene.background = new THREE.Color(0x22242a);
-
-    const floorGeo = new THREE.PlaneGeometry(15, 15);
-    const floorMat = new THREE.ShadowMaterial({ opacity: 0.35 });
-    const floor = new THREE.Mesh(floorGeo, floorMat);
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -0.651;
-    floor.receiveShadow = true;
-    scene.add(floor);
-
-    // 7. Mesh Root Container Group
-    const meshGroup = new THREE.Group();
-    scene.add(meshGroup);
-    currentMeshGroupRef.current = meshGroup;
-
-    // Interactive Generation Point Cloud Group (Tripo AI silhouette preview)
+    // 7b. Point Cloud / Scanning Blueprint Group
     const pointCloudGroup = new THREE.Group();
     pointCloudGroup.visible = false;
     scene.add(pointCloudGroup);
     pointCloudGroupRef.current = pointCloudGroup;
+
+    // 7c. Mesh Container Group
+    const meshGroup = new THREE.Group();
+    scene.add(meshGroup);
+    currentMeshGroupRef.current = meshGroup;
+
+    // 7d. Rigging Armature Visualizer Group
+    const rigGroup = new THREE.Group();
+    rigGroup.name = 'RigArmatureGroup';
+    rigGroup.visible = false;
+    scene.add(rigGroup);
+    rigArmatureGroupRef.current = rigGroup;
+
+    // Raycast on canvas to select bone joints or place new bones in Rigging mode
+    const onCanvasPointerDown = (event: MouseEvent) => {
+      const state = useAnimationStore.getState();
+      if (state.activeMode !== 'rigging' && state.inspectorTab !== 'rigging') return;
+
+      const rect = renderer.domElement.getBoundingClientRect();
+      const mouse = new THREE.Vector2(
+        ((event.clientX - rect.left) / rect.width) * 2 - 1,
+        -((event.clientY - rect.top) / rect.height) * 2 + 1
+      );
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(mouse, camera);
+
+      // Check if user is placing a new bone on the 3D model surface
+      if (state.isPlacingBone || state.activeViewportTool === 'bone') {
+        const group = currentMeshGroupRef.current;
+        if (group && group.children.length > 0) {
+          const hits = raycaster.intersectObjects(group.children, true);
+          if (hits.length > 0) {
+            const hit = hits[0];
+            const bounds = getMeshBounds();
+
+            const boneX = parseFloat(((hit.point.x - bounds.center.x) / bounds.scale).toFixed(3));
+            const boneY = parseFloat(((hit.point.y - bounds.baseY) / bounds.scale).toFixed(3));
+            const boneZ = parseFloat(((hit.point.z - bounds.center.z) / bounds.scale).toFixed(3));
+
+            const parentBone = state.selectedBone || 'Hips';
+            const newBoneName = `Bone_${state.bones.length + 1}`;
+
+            state.addBone({
+              name: newBoneName,
+              parent: parentBone,
+              position: [boneX, boneY, boneZ],
+              rotation: [0, 0, 0],
+            });
+            state.setIsPlacingBone(false);
+            idleFrames = 0;
+            return;
+          }
+        }
+      }
+
+      // Check if clicking an existing joint handle in 3D
+      if (rigArmatureGroupRef.current) {
+        const intersects = raycaster.intersectObjects(rigArmatureGroupRef.current.children, true);
+        const hit = intersects.find((i) => i.object.userData?.isJoint);
+        if (hit && hit.object.userData?.boneName) {
+          state.setSelectedBone(hit.object.userData.boneName);
+          idleFrames = 0;
+        }
+      }
+    };
+    renderer.domElement.addEventListener('pointerdown', onCanvasPointerDown);
 
     // 8. Animation & Render Loop — demand-based rendering with idle settling to save browser GPU
     const timer = new THREE.Timer();
@@ -510,9 +1396,26 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         }
       }
 
+      const animState = useAnimationStore.getState();
+      const isAnimPlaying = animState.isPlaying;
+      const animationActive = Boolean(mixerRef.current) || isAnimPlaying;
+
+      if (animationActive && mixerRef.current) {
+        mixerRef.current.update(delta);
+      }
+      if (isAnimPlaying || animState.activeMode === 'rigging' || animState.inspectorTab === 'rigging') {
+        updateArmatureFrame(animState.currentTime);
+      }
+      if (skeletonHelperRef.current) {
+        skeletonHelperRef.current.updateMatrixWorld();
+      }
+      if (rigArmatureGroupRef.current && rigArmatureGroupRef.current.visible) {
+        rigArmatureGroupRef.current.updateMatrixWorld();
+      }
+
       const controlsChanged = controls.update();
-      if (turntableActive || pointCloudActive || controlsChanged || idleFrames < 60) {
-        if (turntableActive || pointCloudActive || controlsChanged) {
+      if (turntableActive || pointCloudActive || animationActive || controlsChanged || idleFrames < 60) {
+        if (turntableActive || pointCloudActive || animationActive || controlsChanged) {
           idleFrames = 0;
         } else {
           idleFrames++;
@@ -541,6 +1444,11 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     return () => {
       resizeObserver.disconnect();
       renderer.setAnimationLoop(null);
+      renderer.domElement.removeEventListener('pointerdown', onCanvasPointerDown);
+      if (rigArmatureGroupRef.current) {
+        scene.remove(rigArmatureGroupRef.current);
+        rigArmatureGroupRef.current = null;
+      }
       if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
       if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
       transformControls.dispose();
@@ -656,6 +1564,16 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           else if (material) disposeMaterial(material);
         }
       });
+    }
+
+    if (mixerRef.current) {
+      mixerRef.current.stopAllAction();
+      mixerRef.current = null;
+    }
+    if (skeletonHelperRef.current) {
+      if (sceneRef.current) sceneRef.current.remove(skeletonHelperRef.current);
+      skeletonHelperRef.current.dispose();
+      skeletonHelperRef.current = null;
     }
 
     if (!currentAsset?.source?.viewUrl && !currentAsset?.source?.localUrl) {
@@ -785,6 +1703,33 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             });
             frameCamera(gltf.scene);
             computeMeshStats(gltf.scene);
+
+            // If GLTF contains animation clips, start AnimationMixer
+            if (gltf.animations && gltf.animations.length > 0) {
+              const mixer = new THREE.AnimationMixer(gltf.scene);
+              mixerRef.current = mixer;
+              const action = mixer.clipAction(gltf.animations[0]);
+              actionRef.current = action;
+              action.play();
+            }
+
+            // Look for SkinnedMesh or Bone to attach SkeletonHelper
+            let hasSkeleton = false;
+            gltf.scene.traverse((child) => {
+              if (child instanceof THREE.SkinnedMesh || child instanceof THREE.Bone) {
+                hasSkeleton = true;
+              }
+            });
+            if (hasSkeleton && sceneRef.current) {
+              if (skeletonHelperRef.current) {
+                sceneRef.current.remove(skeletonHelperRef.current);
+                skeletonHelperRef.current.dispose();
+              }
+              const helper = new THREE.SkeletonHelper(gltf.scene);
+              helper.visible = useAnimationStore.getState().displayOptions.showSkeleton;
+              sceneRef.current.add(helper);
+              skeletonHelperRef.current = helper;
+            }
 
             // Asynchronously compile shaders and upload GPU buffers to eliminate render freeze
             if (rendererRef.current && cameraRef.current) {
@@ -1457,7 +2402,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
       )}
 
       {/* Empty State Overlay when no asset is active */}
-      {!currentAsset && !isLoading && !isExecuting && !debugBlueprint && (
+      {!currentAsset && !isLoading && !isExecuting && !debugBlueprint && showOverlayUI && (
         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none p-4">
           <div className="max-w-xs w-full p-5 rounded-2xl bg-[#14161b]/95 border border-[#272a34] shadow-2xl backdrop-blur-md text-center pointer-events-auto space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-[#1c1f26] border border-[#272a34] flex items-center justify-center mx-auto text-[#F9CF00]">

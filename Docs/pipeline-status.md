@@ -1,12 +1,62 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.53 (OpenX Clay Native Post-Processing Engine, Zero-Mock Telemetry, Headless Blender Fix)
-> **Status**: ✅ **IMPLEMENTATION COMPLETE & VERIFIED** — Verified 2026-09-12
-> **Last Updated**: September 12, 2026
+> **Version**: 5.0.64 (Animation & Rigging Studio with ARDY Motion AI & Blender Auto-Rigging)
+> **Status**: ✅ **IMPLEMENTATION COMPLETE & VERIFIED** — Verified 2026-09-14
+> **Last Updated**: September 14, 2026
 
 ---
 
-## v5.0.53 — OpenX Clay Native Post-Processing Engine Integration (2026-09-12)
+## v5.0.64 — Animation & Rigging Studio Architecture (2026-09-14)
+
+### Overview
+Implemented the complete, production-grade Animation & Rigging Studio matching the target design mockup (`ChatGPT Image Sep 14, 2026, 08_35_06 AM.png`) and architectural requirements (`AI_3D_Studio_Animation_Rigging_Implementation_Prompt.md`).
+
+### Architecture & Components
+1. **Studio Surface & App Routing**:
+   - Master route `/workspace/animation` and standalone page `/animation` wired into `WorkspaceShell` and `LeftNavigation` with active `#F9CF00` indicators.
+   - Header with active model information (`character.glb • 48,532 Polys • Rigged`), Save/Share/Export buttons, and mode tabs (`Animate`, `Rigging`, `Retarget`, `Motion AI`, `Blend`, `Library`).
+2. **Interactive 3D Viewport & Tooling (`AnimationViewportStage.tsx`)**:
+   - Procedural humanoid character with glowing amber `SkeletonHelper` overlay.
+   - Left-edge gizmo tool strip (Select `Q`, Move `W`, Rotate `E`, Scale `R`, Bone `B`, Weight Paint `P`).
+   - Clean top overlays: Perspective camera switcher and ground grid on the left; Solid/Wireframe/Skeleton shading and Fullscreen on the right.
+   - Floating armature status pill (`Humanoid Biped - 17 Bones`) anchored at the bottom-left of the viewport.
+3. **Multi-Track NLA Timeline**:
+   - Multi-track timeline supporting `Character`, `Body`, `Arms`, `Legs`, `Face`, `Root`, and `IK`.
+   - Distinct colored clip bars with diamond keyframe markers.
+   - Scrubber playhead with time/frame display (`00:00.00 / 00:02.00`), FPS selector (24 FPS default), and zoom controls.
+4. **Full-Width Bottom Action Dock (`AnimationBottomDock.tsx`)**:
+   - 5 full-width action cards with colored squircle icons:
+     - `AI Motion Generator` (Indigo): Text-to-3D motion generation with ARDY.
+     - `Auto Rig` (Emerald): One-click character rigging.
+     - `Pose Editor` (Sky Blue): Interactive bone transformation and keyframing.
+     - `Animation Mixer` (Amber): Non-linear animation blending.
+     - `Bake & Export` (Yellow): Comprehensive GLB/FBX export modal.
+5. **Tabbed Inspector (`AnimationRightInspector.tsx`)**:
+   - `Properties`: Model info, transform gizmos, animation loop/root motion/foot lock settings, and display options.
+   - `Rigging`: One-click Auto Rig with 4 validation gates, manual bone tools, interactive 17-bone hierarchy, and diagnostics.
+   - `Animation (ARDY)`: Locked ARDY engine (no model selector permitted), text prompt input, suggestion chips, duration slider, joint pose editor, and animation mixer.
+6. **Backend Auto-Rigging & Motion Pipelines**:
+   - Celery worker task handles `job.mode == "rigging"` via Blender headless scripts (`clay/blender/scripts/rig.py`), using non-destructive early finalization to protect skinning and vertex weights.
+   - ARDY provider converts 77-joint and 30-joint SOMA skeleton motion tensors into standard glTF quaternion animation tracks (`motion.json`) alongside `.npz` files.
+
+---
+
+## v5.0.63 — ARDY, TripoSF & TripoSR Real Upstream Model Integrations (2026-09-14)
+
+### Overview
+Integrated three official upstream models into AI 3D Studio through the YAML-driven manifest / installer / runtime-provider architecture:
+1. **ARDY (`nv-tlabs/ardy`)**: Autoregressive humanoid motion diffusion synthesis. Registered as `animation` / `motion` capability (NOT mesh generation). Emits `.npz` joint position, rotation, and root trajectory artifacts.
+2. **TripoSF (`VAST-AI-Research/TripoSF`)**: SparseFlex high-resolution arbitrary-topology mesh reconstruction and refinement (mesh-to-mesh only; image-only rejected). Reuses upstream `TripoSFVAEInference`, mesh normalization, and sparse voxelization.
+3. **TripoSR (`VAST-AI-Research/TripoSR`)**: Fast single-image 3D reconstruction (`image-to-3d`). Reuses upstream `TSR.from_pretrained`, background removal (`rembg`), marching cubes surface extraction, and `xatlas` PBR texture baking.
+
+### Key Architecture Changes
+- **Manifests Created**: `backend/runtime/manifests/{ardy, triposf, triposr}.yaml` defining canonical source repositories, dependencies, capabilities, hardware VRAM limits, and preflight smoke checks.
+- **Provider Implementations**: `app.core.providers.{ardy_local, triposf_local, triposr_local}` using real upstream inference and model-env isolation.
+- **Runtime Registry & Mode Matrix**: Extended `PROVIDER_PRIORITY` and `PROVIDER_MODES` to support `animation` and `remesh`. Excluded `triposf` from standalone generation via `_POST_PROCESSING_ONLY_PROVIDERS`.
+- **Worker Motion Pipeline**: Added early non-mesh artifact finalization in `tasks.py` for `.npz` motion files, bypassing GLB mesh validation, Open3D analysis, and Blender postprocessing.
+- **Frontend Discovery**: Dynamic model metadata updated to accurately expose animation, motion, and remesh capabilities without hardcoding model conditionals.
+
+---
 
 ### Root Cause & Motivation
 1. **Custom 6-Stage Pipeline Overhead & Flakiness**: The previous custom 6-stage post-processing pipeline was complex, had slow decimation fallback steps, and caused perceived UI freezes.

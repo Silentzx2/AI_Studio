@@ -354,6 +354,33 @@ async def list_uploaded_assets():
                         "mesh_stats": mesh_stats,
                         "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat()
                     })
+
+        # 3. Exported Models from storage/exports
+        exports_dir = storage_root / "exports"
+        if exports_dir.exists():
+            for sub in exports_dir.iterdir():
+                if sub.is_dir() and not sub.name.startswith('.'):
+                    for f in sub.iterdir():
+                        if f.is_file() and f.suffix.lower() in MODEL_EXTENSIONS and not f.name.startswith('.'):
+                            url = f"/static/exports/{sub.name}/{f.name}"
+                            if any(m["url"] == url for m in models):
+                                continue
+                            try:
+                                stat = f.stat()
+                                models.append({
+                                    "id": f"{sub.name}_{f.name}",
+                                    "name": f.name,
+                                    "filename": f.name,
+                                    "url": url,
+                                    "size": stat.st_size,
+                                    "format": f.suffix.lstrip('.'),
+                                    "type": "model",
+                                    "thumbnail_url": None,
+                                    "mesh_stats": None,
+                                    "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat()
+                                })
+                            except Exception:
+                                pass
         
         # Sort models by newest first
         models.sort(key=lambda x: x["created_at"], reverse=True)

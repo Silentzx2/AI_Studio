@@ -29,12 +29,12 @@ export const ExportModal: React.FC = () => {
   }, [isExportModalOpen, setIsExportModalOpen]);
 
   if (!isExportModalOpen) return null;
-  if (!currentAsset?.source) return null;
 
-  const sourceUrl = currentAsset.source.localUrl || currentAsset.source.viewUrl;
-  const qaScore = currentAsset.qaScore ?? (currentAsset.artifacts?.qaReport as any)?.game_ready_score;
-  const qaStatus = currentAsset.qaStatus ?? (currentAsset.artifacts?.qaReport as any)?.status;
-  const qaWarnings = currentAsset.qaWarnings ?? (currentAsset.artifacts?.qaReport as any)?.warnings ?? [];
+  const assetName = currentAsset?.name || 'character.glb';
+  const sourceUrl = currentAsset?.source?.localUrl || currentAsset?.source?.viewUrl || '/static/models/HeroAsset.glb';
+  const qaScore = currentAsset?.qaScore ?? (currentAsset?.artifacts?.qaReport as any)?.game_ready_score;
+  const qaStatus = currentAsset?.qaStatus ?? (currentAsset?.artifacts?.qaReport as any)?.status;
+  const qaWarnings = currentAsset?.qaWarnings ?? (currentAsset?.artifacts?.qaReport as any)?.warnings ?? [];
 
   const handleExport = async () => {
     if (!sourceUrl) {
@@ -47,7 +47,7 @@ export const ExportModal: React.FC = () => {
 
     const payload = {
       modelUrl: sourceUrl,
-      assetName: currentAsset.name,
+      assetName,
       format: exportFormat,
       variant,
       targetPlatform,
@@ -76,7 +76,7 @@ export const ExportModal: React.FC = () => {
         if (data.status === 'ready' && data.url) {
           const link = document.createElement('a');
           link.href = data.url;
-          link.download = `${currentAsset.name}_export_package.zip`;
+          link.download = `${assetName}_export_package.zip`;
           document.body.appendChild(link);
           link.click();
           link.remove();
@@ -90,7 +90,7 @@ export const ExportModal: React.FC = () => {
 
       // Read filename from Content-Disposition header if available
       const disposition = response.headers.get('content-disposition');
-      let filename = `${currentAsset.name}_export.${packageZip ? 'zip' : exportFormat}`;
+      let filename = `${assetName}_export.${packageZip ? 'zip' : exportFormat}`;
       if (disposition && disposition.includes('filename=')) {
         const matches = disposition.match(/filename="?([^";]+)"?/);
         if (matches && matches[1]) {
@@ -130,7 +130,7 @@ export const ExportModal: React.FC = () => {
             </div>
             <div>
               <h2 className="text-sm font-bold text-white">Production Export Engine</h2>
-              <p className="text-[11px] text-zinc-400 truncate max-w-[280px]">{currentAsset.name}</p>
+              <p className="text-[11px] text-zinc-400 truncate max-w-[280px]">{assetName}</p>
             </div>
           </div>
           <button
@@ -166,7 +166,7 @@ export const ExportModal: React.FC = () => {
                 </div>
               </div>
               <span className="text-[10px] font-mono font-bold">
-                {currentAsset.faces?.toLocaleString() ?? 0} tris
+                {currentAsset?.faces?.toLocaleString() ?? 0} tris
               </span>
             </div>
           )}

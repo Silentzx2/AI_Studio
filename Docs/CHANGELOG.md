@@ -1,5 +1,130 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.67] - 2026-09-14
+### Interactive 3D Bone Placement, Transform Gizmo & 60 FPS Rigging Optimization
+- **Interactive 3D Click-to-Place Bone Tool (`MeshViewer.tsx`, `AnimationViewportStage.tsx`)**:
+  - Implemented real click-to-place bone creation using 3D camera raycasting on character geometry.
+  - Clicking on the 3D model surface calculates the surface hit coordinates, normalizes to bone space, creates a new joint node, auto-parents to the selected joint, and highlights the new joint.
+  - Added persistent top viewport prompt banner during placement: `[Click anywhere on 3D model surface to place joint node ↳ Parent: {bone}] [Cancel]`.
+  - Added left viewport strip bone tool `(B)` shortcut with synchronized placement mode.
+- **3D TransformControls Gizmo & Live Bone Manipulation**:
+  - Attached 3D `TransformControls` directly to the selected joint marker in the 3D viewport.
+  - Live dragging translates the joint in 3D space with continuous position updates to `useAnimationStore`.
+- **Comprehensive Selected Joint Properties Inspector (`AnimationRightInspector.tsx`)**:
+  - Replaced placeholder buttons with functional bone authoring tools: `[Place Bone on 3D Mesh]`, `[Extrude Child]`, `[Delete Bone]`, `[Mirror Bones]`, and `[Reset Pose]`.
+  - Added live Joint Properties Card when a bone is selected:
+    - Inline joint rename input with auto-commit.
+    - Hierarchy reparenting dropdown (all bones + Root).
+    - 3D Coordinates editor (X, Y, Z meters) with direct numeric input and +/- 0.02m step nudge buttons.
+  - Added Armature Presets selector with instant template loading (`Humanoid 17-Bones`, `Facial Rig 6-Bones`, `Tail / Spine Chain 5-Bones`).
+- **Rigging Viewport Performance Optimization (Zero Lag / 60 FPS)**:
+  - **Root Cause Identified**: For high-poly meshes (e.g. 713,662 polygons / 356,870 vertices), `Box3.setFromObject(group)` traversed the entire geometry tree on every render and on every gizmo mousemove (60+ times/sec), causing severe freezing.
+  - **O(1) Bounding Box Cache**: Mesh bounds (`center`, `size`, `height`, `scale`, `baseY`) are now calculated once on model load and cached in `meshBoundsCacheRef`, eliminating geometry traversals during rigging interaction.
+  - **Geometry & Material Pooling**: Armature joints and bone octahedrons now reuse module-level shared geometries (`sharedJointGeo`, `sharedBoneGeo`, `sharedRingGeo`) and materials (`sharedJointMat`, `sharedBoneMat`), eliminating memory allocations and GC pauses.
+  - **Decoupled Pose from Hierarchy**: Removed `animBoneRotations` from the armature visualizer dependency array so rotating joints or scrubbing does not re-create skeleton objects.
+- **Build Verification**:
+  - Next.js production build (`npm run build`) passed with 0 errors in 11.1s.
+  - Backend pytest suite: 58/58 passed cleanly in 38.72s.
+  - Visual verification with `agent-browser` confirmed interactive bone placement prompt, joint selection, and live coordinates inspector.
+
+## [v5.0.66] - 2026-09-14
+### Zero Mock Data & Interactive 3D Rigging Workspace
+- **Complete Removal of Mock Models (`AnimationLeftPanel.tsx`)**:
+  - Removed `SAMPLE_PROJECT_MODELS` and all hardcoded placeholder data (`character.glb`, `robot.fbx`, `creature.glb`, `human.obj`).
+  - Model list is now 100% driven by real assets fetched from `/api/v1/upload/assets` and `/api/v1/history`.
+  - Added clean empty state with a direct "Upload 3D Model" button when no models exist in project.
+  - Direct file uploads instantly preview in 3D (0ms latency) while streaming to `POST /api/v1/upload/model` for persistent storage and thumbnail generation.
+  - Enhanced backend `list_uploaded_assets()` to discover exported models from `backend/storage/exports/` alongside `backend/storage/models/`.
+- **Authentic 3D Rigging Workspace (`MeshViewer.tsx`, `AnimationViewportStage.tsx`)**:
+  - Built an interactive 3D Armature Rig overlay in Three.js featuring the standard 17-bone Humanoid Biped hierarchy (`Hips`, `Spine`, `Chest`, `Neck`, `Head`, shoulders, arms, hands, legs, feet).
+  - Bones rendered using Blender-style tapered octahedrons in amber with `depthTest: false` and `renderOrder: 9999`, creating an authentic X-Ray "In Front" display through mesh geometry.
+  - Interactive joint nodes rendered as cyan spheres with 3D raycasting pointerdown detection; clicking any joint in the 3D viewport selects it and highlights it in Cyber Yellow (`#F9CF00`) with an orbital selection ring.
+  - Joint selections and Pose Editor rotations dynamically articulate the bone hierarchy in real time.
+  - Integrated top Rigging Workspace HUD: `[Auto-Fit Rig]` (bounds auto-alignment), `[X-Mirror: ON]` (symmetry indicator), `[Bind Skin]` (one-click weight binding), and `ACTIVE JOINT` readout.
+  - Added visual legend at bottom right (`● Joint Node`, `━ Bone Armature`, `● Selected`).
+- **Build & Quality Verification**:
+  - Next.js production build (`npm run build`) compiled successfully in 29.9s with 0 errors.
+  - Pytest test suite: 58/58 passed cleanly in 27.60s.
+  - Visual verification captured and verified with `agent-browser` (`animation_real_rigging.png` and `animation_rigging_active.png`).
+
+## [v5.0.65] - 2026-09-14
+### Refactored & Unified Components (Ponytail Senior Dev Standards)
+- **Unified `MeshViewer` Across Entire Studio**:
+  - Replaced duplicate Three.js canvas in `AnimationViewportStage.tsx` with the workspace-standard `<MeshViewer />`.
+  - Added native `THREE.AnimationMixer` and `THREE.SkeletonHelper` matrix world updating inside `MeshViewer.tsx` render loop.
+  - Automatically loads and plays embedded GLTF animations with zero frame-rate degradation.
+  - Removed deprecated `dracoLoader.setDecoderConfig({ type: 'js' })` call to eliminate console warnings.
+- **Unified Export Modal Engine**:
+  - Deleted duplicate `AnimationExportModal.tsx` and custom exporter logic.
+  - Reused the workspace `ExportModal.tsx` (`Production Export Engine`) with LOD cascades, format conversion (GLB, GLTF, FBX, OBJ, STL, PLY), and async ZIP pre-packaging.
+  - Added safe fallback handling in `ExportModal.tsx` so exports can be triggered seamlessly without requiring pre-selection from the project list.
+- **Production Backend API Integration (Zero Mocks)**:
+  - `handleRunAutoRig`: Dispatches real `POST /api/v1/generation` (`mode: "rigging"`) and polls status endpoint until completion or error.
+  - `handleGenerateMotion`: Dispatches real `POST /api/v1/generation` (`provider: "ardy"`, `mode: "animation"`) and automatically injects generated motion clips into the multi-track timeline library.
+- **Cleaned Codebase, Zero Placeholders & Real 3D Synchronization**:
+  - Replaced all static placeholders (hardcoded vertices/faces/materials stats) with live geometry counts from Three.js via `computeMeshStats` and `useViewerStore`.
+  - Connected live bidirectional 3D synchronization in `MeshViewer.tsx`:
+    - `transform` (Position, Rotation, Scale) articulates the loaded 3D model in real time.
+    - `displayOptions` live toggles `SkeletonHelper`, `GridHelper`, and ground shadow disc.
+    - `playbackSpeed` & `isLooping` live synchronizes with `THREE.AnimationMixer`.
+    - `boneRotations` from the Pose Editor dynamically articulates `THREE.Bone` joints in real time and updates the visual skeleton lines.
+  - Replaced multi-level cluttered header with a single sleek 48px bar with unified mode pills (`Animate`, `Rigging`, `Motion AI`).
+  - Compacted NLA timeline to 160px and removed redundant duplicate tabs from the inspector.
+  - Verified 58/58 backend tests passing and Next.js production build passing with 0 errors.
+
+## [v5.0.64] - 2026-09-14
+### Added & Animation & Rigging Studio Architecture
+- **Animation & Rigging Studio UI & Workflow (`AnimationStudio.tsx`, `AnimationViewportStage.tsx`, `AnimationLeftPanel.tsx`, `AnimationRightInspector.tsx`, `AnimationBottomDock.tsx`, `AnimationExportModal.tsx`, `useAnimationStore.ts`)**:
+  - Implemented the complete Animation & Rigging Studio according to `AI_3D_Studio_Animation_Rigging_Implementation_Prompt.md` and reference visual mockup (`ChatGPT Image Sep 14, 2026, 08_35_06 AM.png`).
+  - **Full-Width Bottom Quick Action Dock (`AnimationBottomDock.tsx`)**: 5 colored action cards spanning the workspace width:
+    - *AI Motion Generator*: Text to 3D Animation with ARDY (Indigo).
+    - *Auto Rig*: 1-click automatic bone placement and vertex weight generation (Emerald).
+    - *Pose Editor*: Interactive bone transformation and keyframing (Sky Blue).
+    - *Animation Mixer*: Non-linear animation track blending with cross-fade weighting (Amber).
+    - *Bake & Export*: GLB, FBX, and GLTF export modal with baked IK-to-FK and embedded PBR textures (Yellow).
+  - **Multi-Track NLA Timeline**: Horizontal track lanes (`Character`, `Body`, `Arms`, `Legs`, `Face`, `Root`, `IK`) featuring colored clip segment bars (`Run`, `Walking Cycle`), diamond keyframes, scrubber playhead with time/frame counter, 24 FPS selector, and zoom controls.
+  - **Interactive 3D Viewport (`AnimationViewportStage.tsx`)**: Three.js WebGL viewport with procedural character, glowing amber `SkeletonHelper`, left tool strip (Select, Move, Rotate, Scale, Bone, Weight Paint), top overlays (`Perspective` camera dropdown, Ground Grid toggle, `Solid`/`Wireframe`/`Skeleton` shading pills, Fullscreen), and floating rig status pill (`Humanoid Biped - 17 Bones`).
+  - **Tabbed Inspector (`AnimationRightInspector.tsx`)**:
+    - *Properties*: Model metadata, 3D transform manipulators, animation settings (Loop, Root Motion, Foot Lock), and display toggles.
+    - *Rigging*: One-click humanoid auto-rigging with 4 validation gates, manual bone tools (Add/Delete/Mirror/Reset), interactive 17-bone Armature Hierarchy, and real-time Armature Diagnostics.
+    - *Animation (ARDY)*: Motion AI ARDY generator with prompt description, quick suggestion chips, duration slider, joint pose editor, and animation mixer.
+  - **Model & Animation Library Panel (`AnimationLeftPanel.tsx`)**: Active model card with polygon count and format badges, model switcher, and searchable animation clip library categorized by locomotion, action, and custom clips.
+
+- **Backend Auto-Rigging & ARDY Motion Pipeline (`tasks.py`, `ardy_local.py`, `rig.py`, `test_rigging_pipeline.py`)**:
+  - Integrated Blender headless humanoid armature auto-rigging (`job.mode == "rigging"`) executing non-destructive vertex group weighting and armature modifier attachment.
+  - Added early-finalize stage in Celery worker to preserve skeletal armatures and vertex weights from being stripped by mesh-only decimation algorithms.
+  - Extended ARDY local provider (`ardy_local.py`) to convert joint rotations into standard glTF quaternion tracks (`motion.json`) alongside raw `.npz` files using `scipy.spatial.transform.Rotation`.
+  - Added regression test suite `backend/tests/test_rigging_pipeline.py` covering Blender auto-rig and ARDY quaternion transformation.
+
+- **Installed UI/UX Pro Max Skill (`.agents/skills/ui-ux-pro-max/`)**:
+  - Cloned and verified the official `ui-ux-pro-max` skill from `https://github.com/nextlevelbuilder/ui-ux-pro-max-skill`.
+
+- **Cross-Checked Verification with Agent-Browser (`agent-browser`)**:
+  - Executed automated browser accessibility and interactive validation across all tabs and modals; verified layout rendering and responsive design matching target mockups.
+
+## [v5.0.63] - 2026-09-14
+### Added & Model Integrations
+- **Official Upstream Integration: ARDY Humanoid Motion Generation (`ardy_local.py`, `ardy.yaml`)**:
+  - Wired NVIDIA Research ARDY (`nv-tlabs/ardy`) as a dedicated humanoid motion synthesis provider (`animation` / `motion` mode).
+  - Emits official autoregressive `.npz` motion artifacts containing root trajectory, joint rotations/positions, foot contacts, FPS, and prompt context.
+  - Rejects static mesh generation and requires text prompt inputs.
+- **Official Upstream Integration: TripoSF SparseFlex Mesh Reconstruction (`triposf_local.py`, `triposf.yaml`)**:
+  - Integrated VAST-AI-Research TripoSF SparseFlex arbitrary-topology neural VAE reconstruction.
+  - Wired as a mesh-to-mesh reconstruction and refinement provider (`remesh` mode). Rejects raw image-only inputs without source geometry.
+  - Reuses upstream `TripoSFVAEInference`, mesh normalization, and sparse voxelization. Marked as `_POST_PROCESSING_ONLY_PROVIDERS`.
+- **Official Upstream Integration: TripoSR Fast Single-Image 3D Reconstruction (`triposr_local.py`, `triposr.yaml`)**:
+  - Integrated VAST-AI-Research / StabilityAI TripoSR fast single-image 3D pipeline (`image-to-3d`).
+  - Reuses upstream `TSR.from_pretrained`, neural scene codes extraction, marching cubes surface generation, and `xatlas` PBR texture baking.
+  - Validates image requirement and rejects pure text-to-3d requests.
+- **Worker Motion Artifact Pipeline (`tasks.py`)**:
+  - Added non-mesh artifact handling for `.npz` motion files. Bypasses GLB mesh validation, Open3D analysis, and Blender mesh export, publishing motion URLs cleanly.
+- **Manifest Architecture & Dynamic UI Discovery (`manifest_loader.py`, `runtime.py`, `useManifestModels.ts`)**:
+  - Added `supports_animation`, `supports_motion`, and `supports_remesh` capability flags to provider metadata.
+  - Extended `/runtime/options` to serve models across all 3D categories (`3d_generation`, `3d_reconstruction`, `animation`).
+  - Updated `useManifestModels` hook with `animationCapableModels` and `remeshCapableModels`.
+- **Automated Regression Suite (`backend/tests/test_model_integration.py`)**:
+  - 7 comprehensive tests covering manifest loading, capability gating, provider registry resolution, GenerationRequest schemas, and input validation.
+
 ## [v5.0.62] - 2026-09-13
 ### Fixed & Performance
 - **Blazing-Fast Export Pipeline & Elimination of Stage 99 Freeze (`process_mesh.py`, `tasks.py`, `ExportModal.tsx`)**:

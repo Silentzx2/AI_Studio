@@ -28,8 +28,9 @@ class GenerationRequest(BaseModel):
     # ponytail: Extended modes to support remesh, texture-gen, and future pipeline steps
     mode: Literal[
         "text-to-3d", "image-to-3d", "remesh", "texture-generation",
-        "rigging", "render",
+        "rigging", "render", "animation", "motion",
     ] = "text-to-3d"
+    duration: float | None = Field(5.0, ge=0.5, le=60.0, description="Animation/motion duration in seconds")
     prompt: str = Field("", max_length=2000)
     negative_prompt: str | None = Field(None, max_length=500)
     # ponytail: Extended quality options for texture/remesh workflows
@@ -39,6 +40,8 @@ class GenerationRequest(BaseModel):
     auto_rig: bool = False
     reference_image_url: str | None = None
     source_mesh_url: str | None = None
+    rig_type: str = "humanoid"
+    options: dict[str, Any] | None = None
     detail_pass: bool = False
     detail_guidance: float = 7.5
     # Low VRAM mode: True forces low-VRAM execution; vram_mode may be
@@ -107,6 +110,8 @@ class GenerationRequest(BaseModel):
                 "repairUVs": "repair_uvs",
                 "generateTexture": "generate_texture",
                 "autoRig": "auto_rig",
+                "rigType": "rig_type",
+                "rigOptions": "options",
                 "autoOptimize": "auto_optimize",
                 "topologyMode": "topology_mode",
                 "postProcess": "postprocess",
@@ -130,6 +135,7 @@ class GenerationRequest(BaseModel):
                 "includeLODsInPackage": "include_lods_in_package",
                 "includeCollisionInPackage": "include_collision_in_package",
                 "includeQAInPackage": "include_qa_in_package",
+                "duration": "duration",
             }
             for k, v in mapping.items():
                 if k in data and v not in data:
@@ -168,8 +174,8 @@ class GenerationRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_prompt_for_mode(self):
-        if self.mode == "text-to-3d" and not self.prompt.strip():
-            raise ValueError("prompt is required for text-to-3d generation")
+        if self.mode in ("text-to-3d", "animation", "motion") and not self.prompt.strip():
+            raise ValueError(f"prompt is required for {self.mode} generation")
         return self
 
 
@@ -184,6 +190,8 @@ class DownloadUrls(BaseModel):
     source: str | None = None
     game_ready: str | None = None
     collision: str | None = None
+    npz: str | None = None
+    motion: str | None = None
 
 
 class JobResult(BaseModel):

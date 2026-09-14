@@ -12,7 +12,7 @@ import re
 import time
 from pathlib import Path
 
-_POST_PROCESSING_ONLY_PROVIDERS = frozenset({"detailgen3d"})
+_POST_PROCESSING_ONLY_PROVIDERS = frozenset({"detailgen3d", "triposf"})
 
 
 def is_standalone_generation_provider(name: str) -> bool:
@@ -308,6 +308,12 @@ def _build_flat_capabilities(capabilities: dict, provider_name: str = "") -> dic
         flat["supports_texture_generation"] = tex_enabled or bool(tex_cap.get("supports_texture_generation", False))
     if "supports_detail_enhancement" not in flat:
         flat["supports_detail_enhancement"] = bool(detail_cap.get("enabled", False))
+    if "supports_animation" not in flat:
+        flat["supports_animation"] = bool(capabilities.get("animation", {}).get("enabled", False))
+    if "supports_motion" not in flat:
+        flat["supports_motion"] = bool(capabilities.get("motion", {}).get("enabled", False))
+    if "supports_remesh" not in flat:
+        flat["supports_remesh"] = bool(capabilities.get("remesh", {}).get("enabled", False))
 
     return flat
 
@@ -338,7 +344,7 @@ def _build_provider_metadata(provider_name: str, manifest: dict) -> dict:
 
     flat_caps = _build_flat_capabilities(caps, provider_name)
     shape_cap = caps.get("shape", {}) if isinstance(caps.get("shape"), dict) else {}
-    tex_cap = caps.get("texture_pbr", {}) or caps.get("texture", {})
+    tex_cap = (caps.get("texture_pbr", {}) or caps.get("texture", {})) if isinstance(caps, dict) else {}
     if not isinstance(tex_cap, dict):
         tex_cap = {}
     detail_cap = caps.get("detail_enhancement", {}) if isinstance(caps.get("detail_enhancement"), dict) else {}
@@ -351,6 +357,9 @@ def _build_provider_metadata(provider_name: str, manifest: dict) -> dict:
     supports_image = flat_caps.get("supports_image_to_3d", shape_enabled and is_standalone)
     supports_tex = flat_caps.get("supports_texture_generation", tex_enabled)
     supports_detail = flat_caps.get("supports_detail_enhancement", bool(detail_cap.get("enabled", False)))
+    supports_anim = flat_caps.get("supports_animation", False)
+    supports_mot = flat_caps.get("supports_motion", False)
+    supports_rem = flat_caps.get("supports_remesh", False)
 
     return {
         "label": manifest.get("label", provider_name),
@@ -359,6 +368,9 @@ def _build_provider_metadata(provider_name: str, manifest: dict) -> dict:
         "supports_image_to_3d": supports_image,
         "supports_texture": supports_tex,
         "supports_detail_enhancement": supports_detail,
+        "supports_animation": supports_anim,
+        "supports_motion": supports_mot,
+        "supports_remesh": supports_rem,
         "vram_required_mb": hw.get("recommended_vram_mb", 0),
         "shape_vram_mb": shape_cap.get("vram_required_mb", hw.get("minimum_vram_mb", 0)),
         "texture_vram_mb": tex_cap.get("vram_required_mb", 0),

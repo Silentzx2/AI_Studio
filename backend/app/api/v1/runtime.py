@@ -205,7 +205,7 @@ async def get_runtime_options():
             norm_name = canonical_runtime_provider_name(name)
             if norm_name in seen_ids:
                 continue
-            if meta.get("category") != "3d_generation":
+            if meta.get("category") not in ("3d_generation", "3d_reconstruction", "animation", "motion"):
                 continue
             seen_ids.add(norm_name)
             avail = registry.get_availability(name)
@@ -277,14 +277,21 @@ async def get_runtime_options():
                 "supports_image_to_3d": meta.get("supports_image_to_3d", False),
                 "supports_standalone_generation": is_standalone_generation_provider(norm_name),
                 "workspace_compatibility": meta.get("workspace_compatibility", []),
+                "category": meta.get("category", "3d_generation"),
+                "supports_animation": meta.get("supports_animation", False),
+                "supports_motion": meta.get("supports_motion", False),
+                "supports_remesh": meta.get("supports_remesh", False),
                 "low_vram_supported": meta.get("low_vram_supported", False),
                 "low_vram_required_mb": meta.get("low_vram_required_mb", 0),
                 "supports": {
                     "text_to_3d": meta.get("supports_text_to_3d", False),
                     "image_to_3d": meta.get("supports_image_to_3d", False),
                     "texture_generation": meta.get("supports_texture", False),
-                    "rigging_animation": False,
+                    "rigging_animation": meta.get("supports_animation", False) or meta.get("supports_motion", False),
                     "detail_enhancement": meta.get("supports_detail_enhancement", False),
+                    "animation": meta.get("supports_animation", False),
+                    "motion": meta.get("supports_motion", False),
+                    "remesh": meta.get("supports_remesh", False),
                     "part_separation": False,
                 },
             })

@@ -1,0 +1,97 @@
+name: triposf
+label: TripoSF
+source:
+  repo: https://github.com/VAST-AI-Research/TripoSF.git
+  ref: main
+  submodules: false
+  local_dir: TripoSF
+environment:
+  python: '3.10'
+  torch: 2.5.1
+  python_pin_rewrites:
+  - pattern: "^numpy==1\\.22\\..*$"
+    replacement: "numpy>=1.24.4,<2.0"
+  - pattern: "^flash[-_]attn($|==|>=|<=|!=|~=).*$"
+    replacement: null
+dependencies:
+  python:
+  - trimesh>=4.5.3
+  - open3d>=0.18.0
+  - numpy>=1.24.4,<2.0
+  - omegaconf>=2.3.0
+  - safetensors
+  - easydict
+  - jaxtyping
+  - spconv
+  - huggingface-hub
+  imports:
+  - torch
+  - triposf
+  - trimesh
+  - open3d
+  - omegaconf
+  - safetensors
+  native:
+  - spconv
+  - torch-scatter
+  cuda_native_packages:
+  - spconv
+  - torch-scatter
+  torch_build_packages:
+  - spconv
+  - torch-scatter
+  extra:
+  - huggingface_hub>=0.28.0
+  fallbacks: {}
+  optional:
+  - flash-attn
+  build_deps:
+    spconv: ["ninja", "setuptools<70"]
+  cuda_native:
+  - spconv
+  - torch-scatter
+  build_env:
+    TORCH_CUDA_ARCH_LIST: "7.0 7.5 8.0 8.6 8.9 9.0"
+weights:
+  primary:
+    repo: VAST-AI/TripoSF
+  size_estimate_gb: 4
+hardware:
+  category: 3d_reconstruction
+  minimum_vram_mb: 12288
+  recommended_vram_mb: 16384
+  low_vram_supported: false
+capabilities:
+  shape:
+    enabled: false
+    native_build_required: false
+    vram_required_mb: 0
+    supports_image_to_3d: false
+    supports_text_to_3d: false
+  remesh:
+    enabled: true
+    native_build_required: false
+    vram_required_mb: 12288
+    supports_remesh: true
+  detail_enhancement:
+    enabled: true
+    native_build_required: false
+    vram_required_mb: 12288
+    supports_detail_enhancement: true
+runtime:
+  workspace_compatibility:
+  - remesh
+  - post-processing
+preflight:
+  check_model_venv: true
+  import_packages:
+  - torch
+  - triposf
+  - trimesh
+  - open3d
+  - omegaconf
+  - safetensors
+  check_weights: true
+  check_cuda: true
+  load_weights: true
+  smoke_inference: true

@@ -20,6 +20,10 @@ const RemeshPanel = dynamic(() => import('./Panels/RemeshPanel').then(mod => mod
 const SecondaryPanel = dynamic(() => import('./Panels/SecondaryPanels').then(mod => mod.SecondaryPanel), { ssr: false });
 
 const RightWorkspacePanel = dynamic(() => import('./RightPanel/RightWorkspacePanel').then(mod => mod.RightWorkspacePanel), { ssr: false });
+const AnimationStudio = dynamic(() => import('./Animation/AnimationStudio').then(mod => mod.AnimationStudio), {
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-[#0D0E10] animate-pulse" />
+});
 
 const OutputsPage = dynamic(() => import('./Dashboard/OutputsPage').then(mod => mod.OutputsPage), { ssr: false });
 const SystemPage = dynamic(() => import('./Dashboard/SystemPage').then(mod => mod.SystemPage), { ssr: false });
@@ -42,6 +46,9 @@ const ROUTE_SEGMENT_TO_TOOL: Record<string, ToolType> = {
   'edit': 'edit',
   'upscale': 'upscale',
   'pbr': 'pbr',
+  'animation': 'animation',
+  'animate': 'animation',
+  'rigging': 'animation',
 };
 
 export const WorkspaceShell: React.FC = () => {
@@ -77,6 +84,13 @@ export const WorkspaceShell: React.FC = () => {
     // System routes
     if (cleanPath === '/workspace/system' || cleanPath === '/system') {
       setMainNav('system');
+      return;
+    }
+
+    // Animation routes: /animation or /workspace/animation
+    if (cleanPath === '/animation' || cleanPath.startsWith('/animation')) {
+      setMainNav('workspace');
+      setActiveTool('animation');
       return;
     }
 
@@ -165,24 +179,30 @@ export const WorkspaceShell: React.FC = () => {
 
         {/* Center Workspace & 3D Stage */}
         <div className="flex-1 h-full relative overflow-hidden min-w-0">
-          {/* Continuous Full-Bleed 3D Viewport in Background */}
-          {mainNav === 'workspace' && (
-            <main id="center-viewport-stage" className="absolute inset-0 z-0 overflow-hidden bg-[#16181D]">
-              <MeshViewer />
+          {mainNav === 'workspace' && activeTool === 'animation' ? (
+            <main id="center-viewport-stage" className="absolute inset-0 z-10 overflow-hidden bg-[#0D0E11]">
+              <AnimationStudio />
             </main>
-          )}
+          ) : (
+            <>
+              {/* Continuous Full-Bleed 3D Viewport in Background */}
+              {mainNav === 'workspace' && (
+                <main id="center-viewport-stage" className="absolute inset-0 z-0 overflow-hidden bg-[#16181D]">
+                  <MeshViewer />
+                </main>
+              )}
 
-          {/* Floating Context Tool Panel (Left) - Tripo Style ~264px desktop | full-screen mobile */}
-          <AnimatePresence initial={false}>
-            {mainNav === 'workspace' && isLeftPanelOpen && (
-              <motion.aside
-                id="context-tool-panel-container"
-                initial={{ opacity: 0, x: -15 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -15 }}
-                transition={{ duration: 0.14, ease: 'easeOut' }}
-                className="absolute inset-0 md:inset-auto md:left-2 md:top-2 md:bottom-2 md:w-[320px] md:max-w-[calc(100vw-5rem)] bg-[#191A1D] md:border md:border-white/[0.1] md:rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.6)] flex flex-col z-20 overflow-hidden"
-              >
+              {/* Floating Context Tool Panel (Left) - Tripo Style ~264px desktop | full-screen mobile */}
+              <AnimatePresence initial={false}>
+                {mainNav === 'workspace' && isLeftPanelOpen && (
+                  <motion.aside
+                    id="context-tool-panel-container"
+                    initial={{ opacity: 0, x: -15 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -15 }}
+                    transition={{ duration: 0.14, ease: 'easeOut' }}
+                    className="absolute inset-0 md:inset-auto md:left-2 md:top-2 md:bottom-2 md:w-[320px] md:max-w-[calc(100vw-5rem)] bg-[#191A1D] md:border md:border-white/[0.1] md:rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.6)] flex flex-col z-20 overflow-hidden"
+                  >
                 {/* Mobile panel header with close button */}
                 <div className="flex items-center justify-between px-3 py-2 border-b border-white/[0.08] bg-[#16181D] md:hidden flex-shrink-0">
                   <span className="font-bold text-xs text-white">Tool Panel</span>
@@ -288,6 +308,8 @@ export const WorkspaceShell: React.FC = () => {
             >
               <FolderOpen className="w-5 h-5" />
             </button>
+          )}
+            </>
           )}
         </div>
 
