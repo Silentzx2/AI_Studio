@@ -303,6 +303,7 @@ PROVIDER_METADATA = {**_MANIFEST_PROVIDER_METADATA, "mock": {
 TEXTURE_MODELS = [
     {"id": "hunyuan3d-2.1", "label": "Hunyuan3D 2.1 (recommended)"},
     {"id": "trellis", "label": "TRELLIS"},
+    {"id": "triposr", "label": "TripoSR"},
 ]
 
 RIGGING_PROVIDERS = [

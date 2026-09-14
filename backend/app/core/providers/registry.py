@@ -33,6 +33,11 @@ _RUNTIME_PROVIDER_ALIASES = {
     "hunyuan-2mini": "hunyuan3d-2-mini",
     "hunyuan3d-2-mini": "hunyuan3d-2-mini",
     "triposg": "triposg",
+    "triposr": "triposr",
+    "tripo-sr": "triposr",
+    "triposf": "triposf",
+    "tripo-sf": "triposf",
+    "ardy": "ardy",
     "trellis": "trellis",
     "detailgen3d": "detailgen3d",
     "mock": "mock",
@@ -40,21 +45,23 @@ _RUNTIME_PROVIDER_ALIASES = {
 
 # ponytail: keep this map in sync with runtime/engine.py::_PROVIDER_MAP — it is
 # the availability/selection source of truth used by get_provider() and
-# validate_provider_switch(). (hunyuan3d-2-mini + triposg were previously
-# missing here, so switching to / get_provider() for them silently fell back to
-# mock despite the engine being able to load them.)
+# validate_provider_switch().
 _RUNTIME_PROVIDER_MAP = {
     "hunyuan3d-2.1": ("app.core.providers.hunyuan3d_local", "Hunyuan3D21LocalProvider"),
     "hunyuan3d-2-mini": ("app.core.providers.hunyuan3d_local", "Hunyuan3D2MiniLocalProvider"),
     "trellis": ("app.core.providers.trellis_local", "TRELLISLocalProvider"),
     "triposg": ("app.core.providers.triposg_local", "TripoSGLocalProvider"),
+    "triposr": ("app.core.providers.triposr_local", "TripoSRLocalProvider"),
+    "triposf": ("app.core.providers.triposf_local", "TripoSFLocalProvider"),
+    "ardy": ("app.core.providers.ardy_local", "ArdyLocalProvider"),
     "detailgen3d": ("app.core.providers.detailgen3d", "DetailGen3DProvider"),
     "mock": ("app.core.providers.mock", "MockProvider"),
 }
 
-# Providers that only support post-processing (detail/refinement) and must
-# never be offered as standalone generation targets in the UI.
-_POST_PROCESSING_ONLY_PROVIDERS = frozenset({"detailgen3d"})
+# Providers that only support post-processing (detail/refinement/remesh) and must
+# never be offered as standalone 3D generation targets in the UI.
+_POST_PROCESSING_ONLY_PROVIDERS = frozenset({"detailgen3d", "triposf"})
+
 
 
 def is_standalone_generation_provider(name: str) -> bool:
@@ -126,6 +133,9 @@ _KNOWN_PROVIDERS = [
     "hunyuan3d-2-mini",
     "trellis",
     "triposg",
+    "triposr",
+    "triposf",
+    "ardy",
     "instant-mesh",
     "detailgen3d",
 ]
@@ -234,6 +244,18 @@ def validate_provider_switch(name: str) -> tuple[bool, str]:
     if normalized in _RUNTIME_PROVIDER_MAP or normalized == "mock":
         return True, ""
     return False, f"Unknown provider: {name}"
+
+
+def get_provider_class(name: str):
+    """Return the provider class registered for runtime provider `name`."""
+    normalized = _canonical_runtime_provider_name(name)
+    runtime_entry = _RUNTIME_PROVIDER_MAP.get(normalized)
+    if runtime_entry:
+        import importlib
+        module_path, class_name = runtime_entry
+        module = importlib.import_module(module_path)
+        return getattr(module, class_name)
+    raise ValueError(f"No runtime provider registered for '{name}'")
 
 
 def get_provider(name: str, device: str | None = None, low_vram: bool = False):

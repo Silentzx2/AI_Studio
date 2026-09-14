@@ -22,11 +22,20 @@ from app.core.providers.registry import (
 
 logger = logging.getLogger(__name__)
 
-PROVIDER_PRIORITY = ["hunyuan3d-2.1", "trellis", "hunyuan3d-2-mini", "triposg", "detailgen3d", "mock"]
+PROVIDER_PRIORITY = [
+    "hunyuan3d-2.1",
+    "trellis",
+    "hunyuan3d-2-mini",
+    "triposg",
+    "triposr",
+    "triposf",
+    "ardy",
+    "detailgen3d",
+    "mock",
+]
 
 # ponytail: mode support matrix. Used by get_best_provider_name to avoid
-# silently falling back to a provider that can't handle the requested mode
-# (e.g. TRELLIS for text-to-3d). hunyuan3d-2-mini is image-to-shape only.
+# silently falling back to a provider that can't handle the requested mode.
 PROVIDER_MODES: dict[str, set[str]] = {
     "hunyuan3d": {"text-to-3d", "image-to-3d"},
     "hunyuan3d-1.0": {"text-to-3d", "image-to-3d"},
@@ -34,9 +43,13 @@ PROVIDER_MODES: dict[str, set[str]] = {
     "hunyuan3d-2-mini": {"image-to-3d", "texture-generation"},
     "trellis": {"image-to-3d", "texture-generation"},
     "triposg": {"image-to-3d"},
+    "triposr": {"image-to-3d", "texture-generation"},
+    "triposf": {"remesh", "post-processing"},
+    "ardy": {"animation", "motion"},
     "detailgen3d": {"remesh", "post-processing"},
-    "mock": {"text-to-3d", "image-to-3d", "remesh", "texture-generation", "rigging"},
+    "mock": {"text-to-3d", "image-to-3d", "remesh", "texture-generation", "rigging", "animation", "motion"},
 }
+
 
 
 class _GPUScheduler:

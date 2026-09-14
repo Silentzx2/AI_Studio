@@ -21,7 +21,7 @@ _WORKSPACE_MODE_MAP = {
     'mesh-generation': 'text-to-3d',
     'texture-generation': 'texture-generation',
     'rigging': 'rigging',
-    'animation': 'rigging',
+    'animation': 'animation',
     'remesh': 'remesh',
     'post-processing': 'texture-generation',
     'world-generation': 'text-to-3d',
@@ -122,13 +122,6 @@ async def create_generation(req: GenerationRequest, request: Request):
     job_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
-    # Workspace selection is authoritative when the UI opens a dedicated tool.
-    if req.workspace == "animation" or req.mode == "animation":
-        raise HTTPException(
-            status_code=400,
-            detail="Animation generation is currently unsupported. Auto-rigging is available for humanoids, but skeletal animation clip generation is unsupported.",
-        )
-
     if req.workspace and req.mode == "text-to-3d" and req.workspace in _WORKSPACE_MODE_MAP:
         req.mode = _WORKSPACE_MODE_MAP[req.workspace]
 
@@ -138,18 +131,48 @@ async def create_generation(req: GenerationRequest, request: Request):
     }.get(req.mode)
     provider = builtin_provider or req.provider or settings.ai_provider
 
-    # Reject post-processing-only providers (e.g. DetailGen3D) as standalone
-    # generation targets. They are only valid as a detail/refinement stage.
+    # Animation workspace / mode validation
+    if req.workspace == "animation" or req.mode in ("animation", "motion"):
+        if provider not in ("ardy", "mock"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Animation/motion generation is not supported by model '{provider}'. Please select ARDY for humanoid motion generation.",
+            )
+
+    # Reject post-processing-only providers (e.g. DetailGen3D, TripoSF) as standalone
+    # text/image generation targets. They are only valid with an input mesh.
     from app.core.providers.registry import is_standalone_generation_provider
     if not builtin_provider and not is_standalone_generation_provider(provider):
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Provider '{provider}' is a post-processing-only provider and "
-                f"cannot be used for standalone generation. It is available as a "
-                f"detail/refinement stage after generation."
-            ),
-        )
+        if not (req.mode == "remesh" or req.source_mesh_url):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Provider '{provider}' is a post-processing-only provider and "
+                    f"cannot be used for standalone generation without a source mesh."
+                ),
+            )
+
+    # Provider-specific input validation
+    if provider == "triposr":
+        if req.mode == "text-to-3d" and not req.reference_image_url:
+            raise HTTPException(
+                status_code=400,
+                detail="TripoSR is an image-to-3D model and requires an input image (reference_image_url).",
+            )
+    elif provider == "triposf":
+        if not req.source_mesh_url:
+            raise HTTPException(
+                status_code=400,
+                detail="TripoSF is a mesh reconstruction model and requires a source mesh (source_mesh_url).",
+            )
+    elif provider == "ardy":
+        if not req.prompt or not req.prompt.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="ARDY requires a text prompt describing the motion to generate.",
+            )
+        if req.mode not in ("animation", "motion"):
+            req.mode = "animation"
 
     # Low VRAM guard: reject an explicit low-vram request for a provider that
     # has no verified low-VRAM execution path instead of silently running in

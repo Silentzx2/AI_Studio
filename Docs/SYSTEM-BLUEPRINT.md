@@ -165,6 +165,9 @@ flowchart TD
 | **`hunyuan3d-2-mini`** | `tencent/Hunyuan3D-2mini` | `Hunyuan3D-2mini` | 4 GB (4 GB low) | Image-to-3D, Optional Texture | None (pure PyTorch DiT) |
 | **`trellis`** | `microsoft/TRELLIS-image-large` | `TRELLIS` | 8 GB (6 GB low) | Image-to-3D, Texture | `FlexiCubes` |
 | **`triposg`** | `VAST-AI/TripoSG` | `TripoSG` | 8 GB (8 GB low) | Image-to-3D | `diso` (optional) |
+| **`triposr`** | `stabilityai/TripoSR` | `TripoSR` | 6 GB (4 GB low) | Image-to-3D, Texture/PBR | `torchmcubes` |
+| **`triposf`** | `VAST-AI/TripoSF` | `TripoSF` | 12 GB | Remesh, Mesh Reconstruction | `spconv`, `torch-scatter` |
+| **`ardy`** | `nvidia/ARDY-Core-RP-20FPS-Horizon40` | `Ardy` | 12 GB (8 GB low) | Animation, Humanoid Motion (.npz) | None |
 | **`detailgen3d`** | `VAST-AI/DetailGen3D` | `DetailGen3D` | 4 GB | Remesh, Detail Enhancement | `diso`, `torch-cluster` |
 | **`mock`** | Built-in Procedural | None | 0 MB | All Modes (CI / CPU Testing) | None |
 
@@ -189,6 +192,15 @@ backend/
 │   │   ├── .venv/
 │   │   ├── weights/triposg/            <-- TripoSG weights
 │   │   └── weights/briaai/RMBG-1.4/    <-- Canonical auxiliary weights
+│   ├── TripoSR/
+│   │   ├── .venv/
+│   │   └── weights/triposr/            <-- StabilityAI TripoSR weights
+│   ├── TripoSF/
+│   │   ├── .venv/
+│   │   └── weights/triposf/            <-- VAST SparseFlex weights
+│   ├── Ardy/
+│   │   ├── .venv/
+│   │   └── weights/ardy/               <-- NVIDIA ARDY checkpoints
 │   ├── TRELLIS/
 │   │   ├── .venv/
 │   │   └── weights/trellis/

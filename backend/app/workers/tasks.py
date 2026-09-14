@@ -593,8 +593,12 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                             raise
 
             # 5b. Output validation — reject corrupt/empty GLB output before
-            # the UI ever sees it.
-            if provider_result and provider_result.model_path:
+            # the UI ever sees it (skip for motion/animation .npz artifacts).
+            is_motion = (
+                job.mode in ("animation", "motion")
+                or (provider_result and provider_result.model_path and provider_result.model_path.endswith((".npz", ".csv")))
+            )
+            if provider_result and provider_result.model_path and not is_motion:
                 await _wait_for_stable_file_async(provider_result.model_path)
                 try:
 
@@ -639,6 +643,49 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                     return model_public_url(job_id, rel)
                 except Exception:
                     return model_public_url(job_id, p.name)
+
+            # Motion/Animation early finalize: publish motion artifact URLs without mesh postprocessing
+            if is_motion:
+                motion_path = provider_result.model_path if provider_result else None
+                motion_url = to_url(motion_path)
+                f_size = Path(motion_path).stat().st_size if motion_path and Path(motion_path).exists() else 0
+                download_urls = {
+                    "npz": motion_url,
+                    "motion": motion_url,
+                    "source": motion_url,
+                }
+                meta = job.processing_metadata or {}
+                meta["motion_url"] = motion_url
+                _update_job(
+                    session, job_id,
+                    status="completed",
+                    stage="completed",
+                    progress=100,
+                    completed_at=datetime.now(timezone.utc).replace(tzinfo=None),
+                    model_url=motion_url,
+                    thumbnail_url="",
+                    polygon_count=0,
+                    vertex_count=0,
+                    texture_resolution=None,
+                    has_rig=True,
+                    file_size=f_size,
+                    download_urls=download_urls,
+                    processing_metadata=meta,
+                )
+                session.commit()
+                result_payload = {
+                    "model_url": motion_url,
+                    "active_model_url": motion_url,
+                    "thumbnail_url": "",
+                    "polygon_count": 0,
+                    "vertex_count": 0,
+                    "texture_resolution": None,
+                    "has_rig": True,
+                    "download_urls": download_urls,
+                    "file_size": f_size,
+                }
+                sync_publish(100, "completed", "Motion generation complete.", "success", {"result": result_payload})
+                return result_payload
 
             # 7a. Master Preservation: preserve original untouched source asset immediately
             import shutil

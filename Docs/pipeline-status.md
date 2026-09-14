@@ -1,12 +1,27 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.53 (OpenX Clay Native Post-Processing Engine, Zero-Mock Telemetry, Headless Blender Fix)
-> **Status**: ✅ **IMPLEMENTATION COMPLETE & VERIFIED** — Verified 2026-09-12
-> **Last Updated**: September 12, 2026
+> **Version**: 5.0.63 (ARDY, TripoSF, TripoSR Real Upstream Model Integrations & Animation Pipeline)
+> **Status**: ✅ **IMPLEMENTATION COMPLETE & VERIFIED** — Verified 2026-09-14
+> **Last Updated**: September 14, 2026
 
 ---
 
-## v5.0.53 — OpenX Clay Native Post-Processing Engine Integration (2026-09-12)
+## v5.0.63 — ARDY, TripoSF & TripoSR Real Upstream Model Integrations (2026-09-14)
+
+### Overview
+Integrated three official upstream models into AI 3D Studio through the YAML-driven manifest / installer / runtime-provider architecture:
+1. **ARDY (`nv-tlabs/ardy`)**: Autoregressive humanoid motion diffusion synthesis. Registered as `animation` / `motion` capability (NOT mesh generation). Emits `.npz` joint position, rotation, and root trajectory artifacts.
+2. **TripoSF (`VAST-AI-Research/TripoSF`)**: SparseFlex high-resolution arbitrary-topology mesh reconstruction and refinement (mesh-to-mesh only; image-only rejected). Reuses upstream `TripoSFVAEInference`, mesh normalization, and sparse voxelization.
+3. **TripoSR (`VAST-AI-Research/TripoSR`)**: Fast single-image 3D reconstruction (`image-to-3d`). Reuses upstream `TSR.from_pretrained`, background removal (`rembg`), marching cubes surface extraction, and `xatlas` PBR texture baking.
+
+### Key Architecture Changes
+- **Manifests Created**: `backend/runtime/manifests/{ardy, triposf, triposr}.yaml` defining canonical source repositories, dependencies, capabilities, hardware VRAM limits, and preflight smoke checks.
+- **Provider Implementations**: `app.core.providers.{ardy_local, triposf_local, triposr_local}` using real upstream inference and model-env isolation.
+- **Runtime Registry & Mode Matrix**: Extended `PROVIDER_PRIORITY` and `PROVIDER_MODES` to support `animation` and `remesh`. Excluded `triposf` from standalone generation via `_POST_PROCESSING_ONLY_PROVIDERS`.
+- **Worker Motion Pipeline**: Added early non-mesh artifact finalization in `tasks.py` for `.npz` motion files, bypassing GLB mesh validation, Open3D analysis, and Blender postprocessing.
+- **Frontend Discovery**: Dynamic model metadata updated to accurately expose animation, motion, and remesh capabilities without hardcoding model conditionals.
+
+---
 
 ### Root Cause & Motivation
 1. **Custom 6-Stage Pipeline Overhead & Flakiness**: The previous custom 6-stage post-processing pipeline was complex, had slow decimation fallback steps, and caused perceived UI freezes.

@@ -1,5 +1,28 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.63] - 2026-09-14
+### Added & Model Integrations
+- **Official Upstream Integration: ARDY Humanoid Motion Generation (`ardy_local.py`, `ardy.yaml`)**:
+  - Wired NVIDIA Research ARDY (`nv-tlabs/ardy`) as a dedicated humanoid motion synthesis provider (`animation` / `motion` mode).
+  - Emits official autoregressive `.npz` motion artifacts containing root trajectory, joint rotations/positions, foot contacts, FPS, and prompt context.
+  - Rejects static mesh generation and requires text prompt inputs.
+- **Official Upstream Integration: TripoSF SparseFlex Mesh Reconstruction (`triposf_local.py`, `triposf.yaml`)**:
+  - Integrated VAST-AI-Research TripoSF SparseFlex arbitrary-topology neural VAE reconstruction.
+  - Wired as a mesh-to-mesh reconstruction and refinement provider (`remesh` mode). Rejects raw image-only inputs without source geometry.
+  - Reuses upstream `TripoSFVAEInference`, mesh normalization, and sparse voxelization. Marked as `_POST_PROCESSING_ONLY_PROVIDERS`.
+- **Official Upstream Integration: TripoSR Fast Single-Image 3D Reconstruction (`triposr_local.py`, `triposr.yaml`)**:
+  - Integrated VAST-AI-Research / StabilityAI TripoSR fast single-image 3D pipeline (`image-to-3d`).
+  - Reuses upstream `TSR.from_pretrained`, neural scene codes extraction, marching cubes surface generation, and `xatlas` PBR texture baking.
+  - Validates image requirement and rejects pure text-to-3d requests.
+- **Worker Motion Artifact Pipeline (`tasks.py`)**:
+  - Added non-mesh artifact handling for `.npz` motion files. Bypasses GLB mesh validation, Open3D analysis, and Blender mesh export, publishing motion URLs cleanly.
+- **Manifest Architecture & Dynamic UI Discovery (`manifest_loader.py`, `runtime.py`, `useManifestModels.ts`)**:
+  - Added `supports_animation`, `supports_motion`, and `supports_remesh` capability flags to provider metadata.
+  - Extended `/runtime/options` to serve models across all 3D categories (`3d_generation`, `3d_reconstruction`, `animation`).
+  - Updated `useManifestModels` hook with `animationCapableModels` and `remeshCapableModels`.
+- **Automated Regression Suite (`backend/tests/test_model_integration.py`)**:
+  - 7 comprehensive tests covering manifest loading, capability gating, provider registry resolution, GenerationRequest schemas, and input validation.
+
 ## [v5.0.62] - 2026-09-13
 ### Fixed & Performance
 - **Blazing-Fast Export Pipeline & Elimination of Stage 99 Freeze (`process_mesh.py`, `tasks.py`, `ExportModal.tsx`)**:

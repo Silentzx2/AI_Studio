@@ -140,11 +140,85 @@ export const MANIFEST_MODELS_CATALOG: ManifestModel[] = [
       part_separation: false,
     },
   },
+  {
+    id: 'triposr',
+    label: 'TripoSR',
+    available: false,
+    installed: false,
+    status: 'not_installed',
+    vram_required_mb: 8192,
+    shape_vram_mb: 6144,
+    texture_vram_mb: 2048,
+    supports_texture: true,
+    supports_text_to_3d: false,
+    supports_image_to_3d: true,
+    low_vram_supported: true,
+    low_vram_required_mb: 4096,
+    workspace_compatibility: ['mesh-generation', 'texture-generation'],
+    supports: {
+      text_to_3d: false,
+      image_to_3d: true,
+      texture_generation: true,
+      rigging_animation: false,
+      detail_enhancement: false,
+      part_separation: false,
+    },
+  },
+  {
+    id: 'triposf',
+    label: 'TripoSF',
+    available: false,
+    installed: false,
+    status: 'not_installed',
+    vram_required_mb: 16384,
+    shape_vram_mb: 0,
+    texture_vram_mb: 0,
+    supports_texture: false,
+    supports_text_to_3d: false,
+    supports_image_to_3d: false,
+    low_vram_supported: false,
+    low_vram_required_mb: 0,
+    workspace_compatibility: ['remesh', 'post-processing'],
+    supports: {
+      text_to_3d: false,
+      image_to_3d: false,
+      texture_generation: false,
+      rigging_animation: false,
+      detail_enhancement: true,
+      part_separation: false,
+    },
+  },
+  {
+    id: 'ardy',
+    label: 'ARDY',
+    available: false,
+    installed: false,
+    status: 'not_installed',
+    vram_required_mb: 16384,
+    shape_vram_mb: 0,
+    texture_vram_mb: 0,
+    supports_texture: false,
+    supports_text_to_3d: false,
+    supports_image_to_3d: false,
+    low_vram_supported: true,
+    low_vram_required_mb: 8192,
+    workspace_compatibility: ['animation'],
+    supports: {
+      text_to_3d: false,
+      image_to_3d: false,
+      texture_generation: false,
+      rigging_animation: true,
+      detail_enhancement: false,
+      part_separation: false,
+    },
+  },
 ];
 
 export interface UseManifestModelsResult {
   meshCapableModels: ManifestModel[];
   textureCapableModels: ManifestModel[];
+  animationCapableModels: ManifestModel[];
+  remeshCapableModels: ManifestModel[];
   allModels: ManifestModel[];
   loading: boolean;
   error: string | null;
@@ -230,9 +304,33 @@ export function useManifestModels(): UseManifestModelsResult {
     });
   }, [allModels]);
 
+  const animationCapableModels = useMemo(() => {
+    return allModels.filter((m) => {
+      return (
+        m.workspace_compatibility?.includes('animation') ||
+        (m as any).supports_animation === true ||
+        (m as any).supports_motion === true ||
+        (m as any).category === 'animation' ||
+        m.supports?.rigging_animation === true
+      );
+    });
+  }, [allModels]);
+
+  const remeshCapableModels = useMemo(() => {
+    return allModels.filter((m) => {
+      return (
+        m.workspace_compatibility?.includes('remesh') ||
+        (m as any).supports_remesh === true ||
+        (m as any).category === '3d_reconstruction'
+      );
+    });
+  }, [allModels]);
+
   return {
     meshCapableModels,
     textureCapableModels,
+    animationCapableModels,
+    remeshCapableModels,
     allModels,
     loading,
     error,

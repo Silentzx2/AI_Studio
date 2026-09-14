@@ -1,0 +1,92 @@
+name: ardy
+label: ARDY
+source:
+  repo: https://github.com/nv-tlabs/ardy.git
+  ref: main
+  submodules: false
+  local_dir: Ardy
+environment:
+  python: '3.10'
+  torch: 2.5.1
+  python_pin_rewrites:
+  - pattern: "^numpy>=1\\.23,<2$"
+    replacement: "numpy>=1.24.4,<2.0"
+dependencies:
+  python:
+  - hydra-core>=1.3
+  - omegaconf>=2.3
+  - pydantic>=2.0
+  - numpy>=1.24.4,<2.0
+  - scipy>=1.10
+  - transformers
+  - peft>=0.19
+  - einops>=0.7
+  - vector-quantize-pytorch>=1.25,<1.26
+  - huggingface_hub>=0.28
+  - safetensors>=0.4
+  - gradio_client>=2.0
+  - tqdm>=4.0
+  imports:
+  - torch
+  - ardy
+  - omegaconf
+  - transformers
+  - einops
+  native: []
+  cuda_native_packages: []
+  torch_build_packages: []
+  extra:
+  - huggingface_hub>=0.28.0
+  fallbacks: {}
+  optional: []
+  build_deps: {}
+  cuda_native: []
+weights:
+  primary:
+    repo: nvidia/ARDY-Core-RP-20FPS-Horizon40
+  auxiliary:
+  - name: LLM2Vec-Meta-Llama-3-8B-Instruct-mntp
+    repo: McGill-NLP/LLM2Vec-Meta-Llama-3-8B-Instruct-mntp
+    required: false
+    description: "LLM2Vec text encoder for local text embedding"
+  size_estimate_gb: 16
+hardware:
+  category: animation
+  minimum_vram_mb: 12288
+  recommended_vram_mb: 16384
+  low_vram_supported: true
+  low_vram_required_mb: 8192
+  low_vram_strategy:
+  - api_text_encoder
+  - fp16_text_encoder
+capabilities:
+  shape:
+    enabled: false
+    native_build_required: false
+    vram_required_mb: 0
+    supports_text_to_3d: false
+    supports_image_to_3d: false
+  animation:
+    enabled: true
+    native_build_required: false
+    vram_required_mb: 12288
+    supports_animation: true
+  motion:
+    enabled: true
+    native_build_required: false
+    vram_required_mb: 12288
+    supports_motion: true
+runtime:
+  workspace_compatibility:
+  - animation
+preflight:
+  check_model_venv: true
+  import_packages:
+  - torch
+  - ardy
+  - omegaconf
+  - einops
+  check_weights: true
+  check_cuda: true
+  load_weights: true
+  smoke_inference: true

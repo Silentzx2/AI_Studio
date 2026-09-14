@@ -287,7 +287,7 @@ Assets are deterministically classified into 6 canonical categories before post-
 | **Generic-Prop** | Barrel, crate, rock, bottle, chest, potion | ❌ Safely Skipped | Static inanimate objects do not require skeletal deformation |
 | **Unknown** | Unclassified / ambiguous prompts | ⚠️ Geometrically Evaluated | Checked via bounding box aspect ratio (height / width ≥ 1.8) |
 
-> **Animation Policy**: Skeletal animation clip generation is explicitly marked as **unsupported** across all pipelines. The system generates armature bones and automatic skin weights for humanoid bipeds, but never fabricates fake animation tracks.
+> **Animation Policy**: Humanoid motion generation is supported through the **ARDY** provider (generating autoregressive motion tracks in `.npz` format). For static 3D meshes, automatic bipedal rigging is supported via Rigify armature binding, while arbitrary clip authoring is routed to dedicated motion models.
 
 ---
 
@@ -384,6 +384,9 @@ Hero_Character.zip
 | **Hunyuan3D-2 Mini** | Fast 3D Generation | 6 GB | ~45s | Lightweight DiT shape synthesis; separate repo, manifest, and venv |
 | **TRELLIS** | Structured 3D | 16 GB (8 GB low-VRAM) | ~60s | High-resolution FlexiCubes meshes with native PBR materials |
 | **TripoSG** | Fast Single-Image | 8 GB | ~60s | Rectified-flow shape generation, high-density vertex colors |
+| **TripoSR** | Fast Single-Image | 6–8 GB (4 GB low) | ~15s | VAST/Stability fast single-image 3D reconstruction with xatlas texture baking (TSR) |
+| **TripoSF** | Mesh Reconstruction | 12–16 GB | ~30s | VAST SparseFlex arbitrary-topology mesh reconstruction and refinement (mesh-to-mesh) |
+| **ARDY** | Humanoid Motion | 12–16 GB (8 GB low) | ~20s | NVIDIA autoregressive humanoid motion generation (.npz skeleton tracks) |
 | **DetailGen3D** | Post-Processing | 4 GB | ~15s | Geometric refinement, surface micro-detail enhancement |
 
 > **Google Colab Policy**: In testing environments (such as Google Colab), all models are installable regardless of declared VRAM footprint. VRAM numbers in manifests are advisory.

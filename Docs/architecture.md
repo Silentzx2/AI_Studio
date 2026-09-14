@@ -36,8 +36,8 @@ truth for how a generation job reaches a model on the GPU.
                                  │  instantiate
 ┌───────────────────────────────▼─────────────────────────────┐
 │   Local Providers (app/core/providers/*_local.py)            │
-│  Hunyuan3D 2.1 / 2 / 2-Mini, TRELLIS, TripoSG,             │
-│  DetailGen3D, Mock                               │
+│  Hunyuan3D 2.1 / 2-Mini, TRELLIS, TripoSG, TripoSR,        │
+│  TripoSF, ARDY, DetailGen3D, Mock                           │
 │  - each calls _add_model_env() BEFORE imports so the         │
 │    per-model .venv packages win over the backend's           │
 │  - load on device via accelerate_loader                      │
@@ -66,8 +66,10 @@ and `app/core/providers/registry.py::_RUNTIME_PROVIDER_MAP` (validation +
 | `hunyuan3d-2-mini` | `Hunyuan3D2MiniLocalProvider` | verified (image-to-3D only) |
 | `trellis` | `TRELLISLocalProvider` | no (native CUDA build) |
 | `triposg` | `TripoSGLocalProvider` | no |
+| `triposr` | `TripoSRLocalProvider` | verified (chunk size 2048) |
+| `triposf` | `TripoSFLocalProvider` | no (reconstruction only) |
+| `ardy` | `ArdyLocalProvider` | verified (fp16 / low-vram mode) |
 | `detailgen3d` | `DetailGen3DProvider` | no |
-
 | `mock` | `MockProvider` | n/a (testing) |
 
 Aliases `hunyuan3d` / `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`.
