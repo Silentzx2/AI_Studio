@@ -30,7 +30,7 @@ import { useWorkspace } from '../store/WorkspaceContext';
 import { CameraViewPreset, ModelAsset } from '../types';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 import { apiClient } from '@/services/apiClient';
-import { useAnimationStore } from '@/stores/useAnimationStore';
+import { useAnimationStore, BoneItem } from '@/stores/useAnimationStore';
 import { useViewerStore } from '@/stores/useViewerStore';
 
 import { validate3DFile } from '../lib/fileValidation';
@@ -130,7 +130,13 @@ function createUnitBoneGeometry(): THREE.BufferGeometry {
 const sharedBoneGeo = createUnitBoneGeometry();
 
 // Helper to create an authentic Blender-style bone octahedron mesh between parent and child positions
-function createBoneMesh(start: THREE.Vector3, end: THREE.Vector3, isSelected: boolean): THREE.Mesh {
+function createBoneMesh(
+  start: THREE.Vector3,
+  end: THREE.Vector3,
+  isSelected: boolean,
+  boneName?: string,
+  parentName?: string
+): THREE.Mesh {
   const dir = new THREE.Vector3().subVectors(end, start);
   const len = dir.length();
   if (len < 0.001) return new THREE.Mesh();
@@ -140,6 +146,7 @@ function createBoneMesh(start: THREE.Vector3, end: THREE.Vector3, isSelected: bo
   mesh.position.copy(start);
   mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir.clone().normalize());
   mesh.scale.set(len, len, len);
+  mesh.userData = { isConnector: true, boneName, parentName };
   return mesh;
 }
 
@@ -151,6 +158,277 @@ function createJointMesh(pos: THREE.Vector3, isSelected: boolean, boneName: stri
   mesh.position.copy(pos);
   mesh.userData = { isJoint: true, boneName };
   return mesh;
+}
+
+// Procedural Skeletal Animation Generator for 17-Bone Humanoid Armature
+function getSingleClipOffsets(clipId: string, t: number, muted: Set<string>) {
+  const rot: Record<string, [number, number, number]> = {};
+  let rootY = 0;
+  let rootZ = 0;
+
+  const armsMuted = muted.has('track-arms');
+  const legsMuted = muted.has('track-legs');
+  const bodyMuted = muted.has('track-body');
+  const faceMuted = muted.has('track-face');
+  const rootMuted = muted.has('track-root');
+
+  if (clipId === 'anim-4' || clipId === 'anim-5') {
+    // Walking cycle (stride ~ 1.8s)
+    const speed = clipId === 'anim-5' ? 3.0 : 4.2;
+    const phase = t * speed;
+    const sinP = Math.sin(phase);
+    const cosP = Math.cos(phase);
+
+    if (!rootMuted) rootY = Math.abs(sinP) * 0.035 - 0.015;
+    if (!bodyMuted) {
+      rot['Hips'] = [0, sinP * 6, 0];
+      rot['Spine'] = [0, -sinP * 4, 0];
+      rot['Chest'] = [4, -sinP * 3, 0];
+    }
+    if (!legsMuted) {
+      rot['UpperLeg_L'] = [sinP * 28, 0, 0];
+      rot['LowerLeg_L'] = [Math.max(0, -sinP) * 32, 0, 0];
+      rot['Foot_L'] = [cosP * 12, 0, 0];
+
+      rot['UpperLeg_R'] = [-sinP * 28, 0, 0];
+      rot['LowerLeg_R'] = [Math.max(0, sinP) * 32, 0, 0];
+      rot['Foot_R'] = [-cosP * 12, 0, 0];
+    }
+    if (!armsMuted) {
+      rot['UpperArm_L'] = [-sinP * 24, 0, -20];
+      rot['LowerArm_L'] = [18 + Math.max(0, -sinP) * 20, 0, 0];
+      rot['UpperArm_R'] = [sinP * 24, 0, 20];
+      rot['LowerArm_R'] = [18 + Math.max(0, sinP) * 20, 0, 0];
+    }
+    if (!faceMuted) rot['Head'] = [-2, sinP * 2, 0];
+  } else if (clipId === 'anim-6' || clipId === 'anim-7') {
+    // Running cycle (sprint ~ 1.0s)
+    const speed = clipId === 'anim-7' ? 8.0 : 6.5;
+    const phase = t * speed;
+    const sinP = Math.sin(phase);
+    const cosP = Math.cos(phase);
+
+    if (!rootMuted) {
+      rootY = Math.abs(sinP) * 0.07 - 0.035;
+      rootZ = 0.05;
+    }
+    if (!bodyMuted) {
+      rot['Hips'] = [12, sinP * 10, 0];
+      rot['Spine'] = [8, -sinP * 6, 0];
+      rot['Chest'] = [8, -sinP * 5, 0];
+    }
+    if (!legsMuted) {
+      rot['UpperLeg_L'] = [sinP * 46, 0, 0];
+      rot['LowerLeg_L'] = [Math.max(0, -sinP) * 55, 0, 0];
+      rot['Foot_L'] = [cosP * 20, 0, 0];
+
+      rot['UpperLeg_R'] = [-sinP * 46, 0, 0];
+      rot['LowerLeg_R'] = [Math.max(0, sinP) * 55, 0, 0];
+      rot['Foot_R'] = [-cosP * 20, 0, 0];
+    }
+    if (!armsMuted) {
+      rot['UpperArm_L'] = [-sinP * 40, 0, -25];
+      rot['LowerArm_L'] = [45 + Math.max(0, -sinP) * 35, 0, 0];
+      rot['UpperArm_R'] = [sinP * 40, 0, 25];
+      rot['LowerArm_R'] = [45 + Math.max(0, sinP) * 35, 0, 0];
+    }
+    if (!faceMuted) rot['Head'] = [6, 0, 0];
+  } else if (clipId === 'anim-8' || clipId === 'anim-9') {
+    // Jump cycle
+    const cycle = (t * 1.8) % 2.0;
+    let jumpProgress = 0;
+    if (cycle < 0.4) {
+      jumpProgress = -0.08 * (cycle / 0.4);
+      if (!legsMuted) {
+        rot['UpperLeg_L'] = [25, 0, 0];
+        rot['LowerLeg_L'] = [35, 0, 0];
+        rot['UpperLeg_R'] = [25, 0, 0];
+        rot['LowerLeg_R'] = [35, 0, 0];
+      }
+      if (!armsMuted) {
+        rot['UpperArm_L'] = [-25, 0, -20];
+        rot['UpperArm_R'] = [-25, 0, 20];
+      }
+    } else if (cycle < 1.4) {
+      const inAirT = (cycle - 0.4) / 1.0;
+      jumpProgress = Math.sin(inAirT * Math.PI) * 0.35;
+      if (!legsMuted) {
+        rot['UpperLeg_L'] = [-15, 0, 0];
+        rot['LowerLeg_L'] = [10, 0, 0];
+        rot['UpperLeg_R'] = [-15, 0, 0];
+        rot['LowerLeg_R'] = [10, 0, 0];
+      }
+      if (!armsMuted) {
+        rot['UpperArm_L'] = [45, 0, -35];
+        rot['UpperArm_R'] = [45, 0, 35];
+      }
+    } else {
+      const landT = (cycle - 1.4) / 0.6;
+      jumpProgress = -0.06 * Math.sin(landT * Math.PI);
+      if (!legsMuted) {
+        rot['UpperLeg_L'] = [20 * (1 - landT), 0, 0];
+        rot['LowerLeg_L'] = [30 * (1 - landT), 0, 0];
+        rot['UpperLeg_R'] = [20 * (1 - landT), 0, 0];
+        rot['LowerLeg_R'] = [30 * (1 - landT), 0, 0];
+      }
+    }
+    if (!rootMuted) rootY = jumpProgress;
+  } else if (clipId === 'anim-10') {
+    // Wave Right Hand
+    const waveOsc = Math.sin(t * 8) * 22;
+    if (!armsMuted) {
+      rot['UpperArm_R'] = [15, 10, 75];
+      rot['LowerArm_R'] = [40, 0, 35];
+      rot['Hand_R'] = [0, 0, waveOsc];
+      rot['UpperArm_L'] = [0, 0, -15];
+      rot['LowerArm_L'] = [10, 0, 0];
+    }
+    if (!faceMuted) rot['Head'] = [0, 10, 5];
+    if (!bodyMuted) rot['Spine'] = [0, 3, 2];
+  } else if (clipId === 'anim-11') {
+    // Punch Combo
+    const phase = t * 6;
+    const jabR = Math.max(0, Math.sin(phase));
+    const jabL = Math.max(0, Math.sin(phase + Math.PI));
+    if (!armsMuted) {
+      rot['UpperArm_R'] = [jabR * 80 + 10, -jabR * 20, 15];
+      rot['LowerArm_R'] = [(1 - jabR) * 60, 0, 0];
+      rot['UpperArm_L'] = [jabL * 80 + 10, jabL * 20, -15];
+      rot['LowerArm_L'] = [(1 - jabL) * 60, 0, 0];
+    }
+    if (!bodyMuted) {
+      rot['Chest'] = [5, (jabR - jabL) * 18, 0];
+      rot['Hips'] = [0, (jabR - jabL) * 10, 0];
+    }
+    if (!legsMuted) {
+      rot['UpperLeg_L'] = [15, 0, 0];
+      rot['UpperLeg_R'] = [-15, 0, 0];
+    }
+  } else if (clipId === 'anim-12') {
+    // Celebrate Victory
+    const cheer = Math.sin(t * 4) * 8;
+    if (!armsMuted) {
+      rot['UpperArm_L'] = [15, 0, -70 + cheer];
+      rot['LowerArm_L'] = [40, 0, 0];
+      rot['UpperArm_R'] = [15, 0, 70 - cheer];
+      rot['LowerArm_R'] = [40, 0, 0];
+    }
+    if (!bodyMuted) rot['Chest'] = [-10, 0, 0];
+    if (!faceMuted) rot['Head'] = [-15, 0, 0];
+    if (!rootMuted) rootY = Math.abs(Math.sin(t * 5)) * 0.04;
+  } else {
+    // Breathing Idle
+    const breath = Math.sin(t * 2.2);
+    if (!bodyMuted) {
+      rot['Spine'] = [breath * 2.5, 0, 0];
+      rot['Chest'] = [breath * 3.5, 0, 0];
+    }
+    if (!rootMuted) rootY = breath * 0.012;
+    if (!faceMuted) rot['Head'] = [-breath * 1.5, 0, 0];
+    if (!armsMuted) {
+      rot['UpperArm_L'] = [0, 0, -18 - breath * 2];
+      rot['UpperArm_R'] = [0, 0, 18 + breath * 2];
+    }
+  }
+
+  return { rotations: rot, rootOffset: [0, rootY, rootZ] as [number, number, number] };
+}
+
+function getBlendedJointOffsets(
+  animId: string,
+  t: number,
+  muted: Set<string>,
+  blendState?: { animA: string; animB: string; weight: number },
+  isBlendMode?: boolean
+) {
+  if (isBlendMode && blendState) {
+    const offA = getSingleClipOffsets(blendState.animA, t, muted);
+    const offB = getSingleClipOffsets(blendState.animB, t, muted);
+    const w = Math.max(0, Math.min(1, blendState.weight));
+
+    const blendedRot: Record<string, [number, number, number]> = {};
+    const allKeys = new Set([...Object.keys(offA.rotations), ...Object.keys(offB.rotations)]);
+    allKeys.forEach((key) => {
+      const rA = offA.rotations[key] || [0, 0, 0];
+      const rB = offB.rotations[key] || [0, 0, 0];
+      blendedRot[key] = [
+        rA[0] * (1 - w) + rB[0] * w,
+        rA[1] * (1 - w) + rB[1] * w,
+        rA[2] * (1 - w) + rB[2] * w,
+      ];
+    });
+
+    const rootOff: [number, number, number] = [
+      offA.rootOffset[0] * (1 - w) + offB.rootOffset[0] * w,
+      offA.rootOffset[1] * (1 - w) + offB.rootOffset[1] * w,
+      offA.rootOffset[2] * (1 - w) + offB.rootOffset[2] * w,
+    ];
+    return { rotations: blendedRot, rootOffset: rootOff };
+  }
+  return getSingleClipOffsets(animId, t, muted);
+}
+
+// Forward Kinematics solver: converts local bone rotations into hierarchical world coordinates
+function computeArmatureWorldPositions(
+  bones: BoneItem[],
+  rotations: Record<string, [number, number, number]>,
+  rootOffset: [number, number, number],
+  center: THREE.Vector3,
+  baseY: number,
+  scale: number
+): Map<string, THREE.Vector3> {
+  const worldPositions = new Map<string, THREE.Vector3>();
+  const worldQuaternions = new Map<string, THREE.Quaternion>();
+
+  const boneMap = new Map<string, BoneItem>();
+  bones.forEach((b) => boneMap.set(b.name, b));
+
+  function evalBone(name: string) {
+    if (worldPositions.has(name)) return;
+    const b = boneMap.get(name);
+    if (!b) return;
+
+    const rotDeg = rotations[name] || b.rotation || [0, 0, 0];
+    const localEuler = new THREE.Euler(
+      THREE.MathUtils.degToRad(rotDeg[0]),
+      THREE.MathUtils.degToRad(rotDeg[1]),
+      THREE.MathUtils.degToRad(rotDeg[2]),
+      'XYZ'
+    );
+    const localQuat = new THREE.Quaternion().setFromEuler(localEuler);
+
+    if (!b.parent || !boneMap.has(b.parent)) {
+      const posX = center.x + (b.position[0] + rootOffset[0]) * scale;
+      const posY = baseY + (b.position[1] + rootOffset[1]) * scale;
+      const posZ = center.z + (b.position[2] + rootOffset[2]) * scale;
+      worldPositions.set(name, new THREE.Vector3(posX, posY, posZ));
+      worldQuaternions.set(name, localQuat);
+    } else {
+      if (!worldPositions.has(b.parent)) {
+        evalBone(b.parent);
+      }
+      const parentPos = worldPositions.get(b.parent)!;
+      const parentQuat = worldQuaternions.get(b.parent) || new THREE.Quaternion();
+
+      const parentBone = boneMap.get(b.parent)!;
+      const restRel = new THREE.Vector3(
+        (b.position[0] - parentBone.position[0]) * scale,
+        (b.position[1] - parentBone.position[1]) * scale,
+        (b.position[2] - parentBone.position[2]) * scale
+      );
+
+      restRel.applyQuaternion(parentQuat);
+
+      const childPos = new THREE.Vector3().addVectors(parentPos, restRel);
+      worldPositions.set(name, childPos);
+
+      const childQuat = parentQuat.clone().multiply(localQuat);
+      worldQuaternions.set(name, childQuat);
+    }
+  }
+
+  bones.forEach((b) => evalBone(b.name));
+  return worldPositions;
 }
 
 interface MeshViewerProps {
@@ -461,6 +739,10 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     setSelectedBone: setAnimSelectedBone,
     activeViewportTool: animActiveViewportTool,
     isPlacingBone: animIsPlacingBone,
+    currentAnimationId: animCurrentAnimationId,
+    tracks: animTracks,
+    isWeightPainting: animIsWeightPainting,
+    blendState: animBlendState,
   } = useAnimationStore();
 
   // 1. Live model transform (position, rotation, scale)
@@ -523,7 +805,96 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     }
   }, [animBoneRotations, animSelectedBone]);
 
-  // 6. Live Rigging Armature Visualizer in 3D Viewport (Humanoid Biped 17-Bone Hierarchy)
+  // 6. Forward Kinematics Armature Articulation Evaluator
+  const updateArmatureFrame = useCallback(
+    (time: number) => {
+      if (!rigArmatureGroupRef.current) return;
+      const rigGroup = rigArmatureGroupRef.current;
+      if (!rigGroup.visible) return;
+
+      const state = useAnimationStore.getState();
+      const bounds = getMeshBounds();
+      const mutedSet = new Set(state.tracks.filter((t) => t.isMuted).map((t) => t.id));
+
+      // Procedural animation offsets for active clip or blend
+      const animOffsets = getBlendedJointOffsets(
+        state.currentAnimationId,
+        time,
+        mutedSet,
+        state.blendState,
+        state.activeMode === 'blend'
+      );
+
+      // Combine procedural rotation + user's manual Pose Editor rotations
+      const totalRotations: Record<string, [number, number, number]> = { ...animOffsets.rotations };
+      for (const [boneName, rot] of Object.entries(state.boneRotations)) {
+        const existing = totalRotations[boneName] || [0, 0, 0];
+        totalRotations[boneName] = [
+          existing[0] + rot[0],
+          existing[1] + rot[1],
+          existing[2] + rot[2],
+        ];
+      }
+
+      // Forward Kinematics world positions
+      const worldPositions = computeArmatureWorldPositions(
+        state.bones,
+        totalRotations,
+        animOffsets.rootOffset,
+        bounds.center,
+        bounds.baseY,
+        bounds.scale
+      );
+
+      // Update joint spheres & bone connectors in rigGroup
+      const unitZ = new THREE.Vector3(0, 0, 1);
+      rigGroup.children.forEach((child) => {
+        if (child.userData?.isJoint && child.userData.boneName) {
+          const p = worldPositions.get(child.userData.boneName);
+          if (p) child.position.copy(p);
+        } else if (child.userData?.isRing && state.selectedBone) {
+          const p = worldPositions.get(state.selectedBone);
+          if (p) {
+            child.position.copy(p);
+            if (cameraRef.current) child.lookAt(cameraRef.current.position);
+          }
+        } else if (child.userData?.isConnector && child.userData.boneName && child.userData.parentName) {
+          const p1 = worldPositions.get(child.userData.parentName);
+          const p2 = worldPositions.get(child.userData.boneName);
+          if (p1 && p2) {
+            const dir = new THREE.Vector3().subVectors(p2, p1);
+            const len = dir.length();
+            if (len > 0.001) {
+              child.position.copy(p1);
+              child.quaternion.setFromUnitVectors(unitZ, dir.clone().normalize());
+              child.scale.set(len, len, len);
+            }
+          }
+        }
+      });
+
+      // Articulate matching bones in model mesh
+      const group = currentMeshGroupRef.current;
+      if (group) {
+        group.traverse((child) => {
+          if (child instanceof THREE.Bone) {
+            const rotDeg = totalRotations[child.name];
+            if (rotDeg) {
+              child.rotation.set(
+                THREE.MathUtils.degToRad(rotDeg[0]),
+                THREE.MathUtils.degToRad(rotDeg[1]),
+                THREE.MathUtils.degToRad(rotDeg[2])
+              );
+            }
+          }
+        });
+        skeletonHelperRef.current?.updateMatrixWorld(true);
+      }
+    },
+    [getMeshBounds]
+  );
+
+  // 6b. Live Rigging Armature Visualizer in 3D Viewport (Humanoid Biped 17-Bone Hierarchy)
   useEffect(() => {
     if (!sceneRef.current || !rigArmatureGroupRef.current) return;
     const rigGroup = rigArmatureGroupRef.current;
@@ -571,6 +942,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         ringMesh.scale.setScalar(scale);
         ringMesh.position.copy(pos);
         ringMesh.renderOrder = 10000;
+        ringMesh.userData = { isRing: true };
         ringMesh.lookAt(cameraRef.current ? cameraRef.current.position : new THREE.Vector3(0, 1, 5));
         rigGroup.add(ringMesh);
       }
@@ -579,11 +951,14 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
       if (b.parent) {
         const parentPos = boneWorldPositions.get(b.parent);
         if (parentPos) {
-          const boneConnector = createBoneMesh(parentPos, pos, isSelected);
+          const boneConnector = createBoneMesh(parentPos, pos, isSelected, b.name, b.parent);
           rigGroup.add(boneConnector);
         }
       }
     });
+
+    // Initial pose articulation
+    updateArmatureFrame(animCurrentTime);
 
     // Request immediate frame render
     if (rendererRef.current && cameraRef.current) {
@@ -598,9 +973,109 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     viewportResetTrigger,
     currentAsset?.id,
     getMeshBounds,
+    updateArmatureFrame,
   ]);
 
-  // Sync interactionMode and selected bone joint with TransformControls
+  // 6c. Articulate Armature on scrub/time, clip change, or pose rotation when paused
+  useEffect(() => {
+    if (!animIsPlaying) {
+      updateArmatureFrame(animCurrentTime);
+      if (rendererRef.current && sceneRef.current && cameraRef.current) {
+        rendererRef.current.render(sceneRef.current, cameraRef.current);
+      }
+    }
+  }, [
+    animCurrentTime,
+    animIsPlaying,
+    animCurrentAnimationId,
+    animBoneRotations,
+    animTracks,
+    animBlendState,
+    updateArmatureFrame,
+  ]);
+
+  // 7. Weight Painting Heatmap Visualization
+  useEffect(() => {
+    const group = currentMeshGroupRef.current;
+    if (!group) return;
+
+    const isWeightActive = animActiveViewportTool === 'weight' || animIsWeightPainting;
+
+    group.traverse((child) => {
+      if (
+        child instanceof THREE.Mesh &&
+        !child.userData?.isJoint &&
+        !child.userData?.isConnector &&
+        !child.userData?.isRing
+      ) {
+        if (!child.userData.originalMaterial) {
+          child.userData.originalMaterial = child.material;
+        }
+
+        if (isWeightActive) {
+          const bounds = getMeshBounds();
+          const selBone = animBones.find((b) => b.name === animSelectedBone);
+          const jointWorldPos = selBone
+            ? new THREE.Vector3(
+                bounds.center.x + selBone.position[0] * bounds.scale,
+                bounds.baseY + selBone.position[1] * bounds.scale,
+                bounds.center.z + selBone.position[2] * bounds.scale
+              )
+            : bounds.center;
+
+          const geom = child.geometry;
+          if (geom && geom.attributes.position) {
+            const posAttr = geom.attributes.position;
+            const count = posAttr.count;
+            const colors = new Float32Array(count * 3);
+            const vPos = new THREE.Vector3();
+            const radius = bounds.scale * 0.35;
+
+            for (let i = 0; i < count; i++) {
+              vPos.fromBufferAttribute(posAttr, i);
+              child.localToWorld(vPos);
+              const dist = vPos.distanceTo(jointWorldPos);
+              const weight = Math.max(0, Math.min(1, 1 - dist / radius));
+
+              // Heatmap: 0 = Blue, 0.5 = Green, 1 = Red
+              const r = weight > 0.5 ? Math.min(1, (weight - 0.5) * 2) : 0;
+              const g = weight < 0.5 ? Math.min(1, weight * 2) : Math.min(1, (1 - weight) * 2);
+              const b = weight < 0.5 ? Math.min(1, (0.5 - weight) * 2) : 0;
+
+              colors[i * 3] = r;
+              colors[i * 3 + 1] = g;
+              colors[i * 3 + 2] = b;
+            }
+
+            geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geom.attributes.color.needsUpdate = true;
+
+            child.material = new THREE.MeshBasicMaterial({
+              vertexColors: true,
+              wireframe: Boolean(showWireframe),
+            });
+          }
+        } else {
+          if (child.userData.originalMaterial) {
+            child.material = child.userData.originalMaterial;
+          }
+        }
+      }
+    });
+
+    if (rendererRef.current && sceneRef.current && cameraRef.current) {
+      rendererRef.current.render(sceneRef.current, cameraRef.current);
+    }
+  }, [
+    animActiveViewportTool,
+    animIsWeightPainting,
+    animSelectedBone,
+    animBones,
+    getMeshBounds,
+    showWireframe,
+  ]);
+
+  // 8. Sync interactionMode and selected bone joint with TransformControls
   useEffect(() => {
     if (!controlsRef.current || !transformControlsRef.current) return;
     const tc = transformControlsRef.current;
@@ -612,20 +1087,39 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     }
 
     if (animActiveMode === 'rigging' || animInspectorTab === 'rigging') {
+      if (
+        animActiveViewportTool === 'select' ||
+        animActiveViewportTool === 'bone' ||
+        animActiveViewportTool === 'weight'
+      ) {
+        tc.detach();
+        tc.enabled = false;
+        return;
+      }
       if (animSelectedBone && rigArmatureGroupRef.current) {
         const jointMesh = rigArmatureGroupRef.current.children.find(
           (c) => c.userData?.isJoint && c.userData?.boneName === animSelectedBone
         );
         if (jointMesh) {
           tc.attach(jointMesh);
-          tc.setMode(animActiveViewportTool === 'rotate' ? 'rotate' : 'translate');
+          const mode =
+            animActiveViewportTool === 'rotate'
+              ? 'rotate'
+              : animActiveViewportTool === 'scale'
+              ? 'scale'
+              : 'translate';
+          tc.setMode(mode);
           tc.enabled = true;
           return;
         }
       }
       tc.detach();
       tc.enabled = false;
-    } else if (interactionMode === 'move' && currentMeshGroupRef.current && currentMeshGroupRef.current.children.length > 0) {
+    } else if (
+      interactionMode === 'move' &&
+      currentMeshGroupRef.current &&
+      currentMeshGroupRef.current.children.length > 0
+    ) {
       tc.attach(currentMeshGroupRef.current);
       tc.setMode('translate');
       tc.enabled = true;
@@ -902,9 +1396,15 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         }
       }
 
-      const animationActive = Boolean(mixerRef.current);
+      const animState = useAnimationStore.getState();
+      const isAnimPlaying = animState.isPlaying;
+      const animationActive = Boolean(mixerRef.current) || isAnimPlaying;
+
       if (animationActive && mixerRef.current) {
         mixerRef.current.update(delta);
+      }
+      if (isAnimPlaying || animState.activeMode === 'rigging' || animState.inspectorTab === 'rigging') {
+        updateArmatureFrame(animState.currentTime);
       }
       if (skeletonHelperRef.current) {
         skeletonHelperRef.current.updateMatrixWorld();

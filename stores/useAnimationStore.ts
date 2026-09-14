@@ -187,6 +187,14 @@ interface AnimationState {
   mirrorPose: () => void;
   isPlacingBone: boolean;
   setIsPlacingBone: (isPlacing: boolean) => void;
+  xMirrorEnabled: boolean;
+  setXMirrorEnabled: (val: boolean) => void;
+  toggleXMirror: () => void;
+  isWeightPainting: boolean;
+  setIsWeightPainting: (val: boolean) => void;
+  autoFitRigToBounds: (height?: number, width?: number, depth?: number) => void;
+  toggleTrackMute: (trackId: string) => void;
+  toggleTrackLock: (trackId: string) => void;
   addBone: (bone: BoneItem) => void;
   deleteBone: (boneName: string) => void;
   updateBonePosition: (boneName: string, position: [number, number, number]) => void;
@@ -346,9 +354,23 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
   setSelectedBone: (selectedBone) => set({ selectedBone }),
   boneRotations: {},
   setBoneRotation: (boneName, rot) =>
-    set((s) => ({
-      boneRotations: { ...s.boneRotations, [boneName]: rot },
-    })),
+    set((s) => {
+      const updated = { ...s.boneRotations, [boneName]: rot };
+      if (s.xMirrorEnabled) {
+        if (boneName.endsWith('_L')) {
+          const counterpart = boneName.replace(/_L$/, '_R');
+          if (s.bones.some((b) => b.name === counterpart)) {
+            updated[counterpart] = [-rot[0], rot[1], -rot[2]];
+          }
+        } else if (boneName.endsWith('_R')) {
+          const counterpart = boneName.replace(/_R$/, '_L');
+          if (s.bones.some((b) => b.name === counterpart)) {
+            updated[counterpart] = [-rot[0], rot[1], -rot[2]];
+          }
+        }
+      }
+      return { boneRotations: updated };
+    }),
   resetPose: () => set({ boneRotations: {} }),
   mirrorPose: () => {
     const current = get().boneRotations;
@@ -366,6 +388,47 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
   },
   isPlacingBone: false,
   setIsPlacingBone: (isPlacingBone) => set({ isPlacingBone }),
+  xMirrorEnabled: true,
+  setXMirrorEnabled: (xMirrorEnabled) => set({ xMirrorEnabled }),
+  toggleXMirror: () => set((s) => ({ xMirrorEnabled: !s.xMirrorEnabled })),
+  isWeightPainting: false,
+  setIsWeightPainting: (isWeightPainting) => set({ isWeightPainting }),
+  toggleTrackMute: (trackId) =>
+    set((s) => ({
+      tracks: s.tracks.map((t) => (t.id === trackId ? { ...t, isMuted: !t.isMuted } : t)),
+    })),
+  toggleTrackLock: (trackId) =>
+    set((s) => ({
+      tracks: s.tracks.map((t) => (t.id === trackId ? { ...t, isLocked: !t.isLocked } : t)),
+    })),
+  autoFitRigToBounds: (meshHeight = 1.8, meshWidth = 0.7, meshDepth = 0.3) =>
+    set((s) => {
+      const h = Math.max(meshHeight, 0.4);
+      const w = Math.max(meshWidth, 0.2);
+      const d = Math.max(meshDepth, 0.1);
+
+      const fittedBones: BoneItem[] = [
+        { name: 'Hips', parent: null, position: [0, +(h * 0.55).toFixed(3), 0], rotation: [0, 0, 0] },
+        { name: 'Spine', parent: 'Hips', position: [0, +(h * 0.67).toFixed(3), 0], rotation: [0, 0, 0] },
+        { name: 'Chest', parent: 'Spine', position: [0, +(h * 0.80).toFixed(3), 0], rotation: [0, 0, 0] },
+        { name: 'Neck', parent: 'Chest', position: [0, +(h * 0.90).toFixed(3), 0], rotation: [0, 0, 0] },
+        { name: 'Head', parent: 'Neck', position: [0, +(h * 0.98).toFixed(3), 0], rotation: [0, 0, 0] },
+        { name: 'UpperArm_L', parent: 'Chest', position: [+(w * 0.35).toFixed(3), +(h * 0.78).toFixed(3), 0], rotation: [0, 0, -20] },
+        { name: 'LowerArm_L', parent: 'UpperArm_L', position: [+(w * 0.75).toFixed(3), +(h * 0.76).toFixed(3), 0], rotation: [0, 0, 0] },
+        { name: 'Hand_L', parent: 'LowerArm_L', position: [+(w * 1.08).toFixed(3), +(h * 0.74).toFixed(3), 0], rotation: [0, 0, 0] },
+        { name: 'UpperArm_R', parent: 'Chest', position: [-(w * 0.35).toFixed(3), +(h * 0.78).toFixed(3), 0], rotation: [0, 0, 20] },
+        { name: 'LowerArm_R', parent: 'UpperArm_R', position: [-(w * 0.75).toFixed(3), +(h * 0.76).toFixed(3), 0], rotation: [0, 0, 0] },
+        { name: 'Hand_R', parent: 'LowerArm_R', position: [-(w * 1.08).toFixed(3), +(h * 0.74).toFixed(3), 0], rotation: [0, 0, 0] },
+        { name: 'UpperLeg_L', parent: 'Hips', position: [+(w * 0.22).toFixed(3), +(h * 0.52).toFixed(3), 0], rotation: [0, 0, 0] },
+        { name: 'LowerLeg_L', parent: 'UpperLeg_L', position: [+(w * 0.22).toFixed(3), +(h * 0.28).toFixed(3), 0], rotation: [0, 0, 0] },
+        { name: 'Foot_L', parent: 'LowerLeg_L', position: [+(w * 0.22).toFixed(3), +(h * 0.05).toFixed(3), +(d * 0.3).toFixed(3)], rotation: [0, 0, 0] },
+        { name: 'UpperLeg_R', parent: 'Hips', position: [-(w * 0.22).toFixed(3), +(h * 0.52).toFixed(3), 0], rotation: [0, 0, 0] },
+        { name: 'LowerLeg_R', parent: 'UpperLeg_R', position: [-(w * 0.22).toFixed(3), +(h * 0.28).toFixed(3), 0], rotation: [0, 0, 0] },
+        { name: 'Foot_R', parent: 'LowerLeg_R', position: [-(w * 0.22).toFixed(3), +(h * 0.05).toFixed(3), +(d * 0.3).toFixed(3)], rotation: [0, 0, 0] },
+      ];
+
+      return { bones: fittedBones };
+    }),
   addBone: (bone) =>
     set((s) => {
       let name = bone.name;
@@ -393,9 +456,25 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
       };
     }),
   updateBonePosition: (boneName, position) =>
-    set((s) => ({
-      bones: s.bones.map((b) => (b.name === boneName ? { ...b, position } : b)),
-    })),
+    set((s) => {
+      const updated = s.bones.map((b) => (b.name === boneName ? { ...b, position } : b));
+      if (s.xMirrorEnabled) {
+        if (boneName.endsWith('_L')) {
+          const counterpart = boneName.replace(/_L$/, '_R');
+          const mirroredPos: [number, number, number] = [-position[0], position[1], position[2]];
+          return {
+            bones: updated.map((b) => (b.name === counterpart ? { ...b, position: mirroredPos } : b)),
+          };
+        } else if (boneName.endsWith('_R')) {
+          const counterpart = boneName.replace(/_R$/, '_L');
+          const mirroredPos: [number, number, number] = [-position[0], position[1], position[2]];
+          return {
+            bones: updated.map((b) => (b.name === counterpart ? { ...b, position: mirroredPos } : b)),
+          };
+        }
+      }
+      return { bones: updated };
+    }),
   updateBoneParent: (boneName, parent) =>
     set((s) => ({
       bones: s.bones.map((b) => (b.name === boneName ? { ...b, parent } : b)),

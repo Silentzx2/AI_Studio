@@ -19,12 +19,14 @@ import {
   ZoomOut,
   Lock,
   Eye,
+  EyeOff,
   Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { MeshViewer } from '../Viewport/MeshViewer';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { useAnimationStore, ViewportGizmoTool } from '@/stores/useAnimationStore';
+import { useViewerStore } from '@/stores/useViewerStore';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 
 export const AnimationViewportStage: React.FC = () => {
@@ -55,6 +57,13 @@ export const AnimationViewportStage: React.FC = () => {
     setRigStatus,
     isPlacingBone,
     setIsPlacingBone,
+    xMirrorEnabled,
+    toggleXMirror,
+    autoFitRigToBounds,
+    toggleTrackMute,
+    toggleTrackLock,
+    isWeightPainting,
+    setIsWeightPainting,
   } = useAnimationStore();
 
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -160,8 +169,13 @@ export const AnimationViewportStage: React.FC = () => {
             <div className="pointer-events-auto flex items-center gap-1.5 p-1 bg-[#121418]/95 backdrop-blur-md border border-white/[0.08] rounded-xl shadow-lg">
               <button
                 onClick={() => {
+                  const dims = useViewerStore.getState().modelStats?.dimensions;
+                  const h = dims?.y || 1.8;
+                  const w = dims?.x || 0.7;
+                  const d = dims?.z || 0.3;
+                  autoFitRigToBounds(h, w, d);
                   toast.success('Armature auto-fitted to character bounds', {
-                    description: 'Bone lengths and joint positions aligned with mesh volume',
+                    description: `Aligned 17 biped joints to mesh dimensions (${h.toFixed(2)}m H × ${w.toFixed(2)}m W)`,
                   });
                 }}
                 className="px-2.5 py-1 rounded-lg bg-[#1C1F26] hover:bg-[#252933] text-zinc-200 text-xs font-semibold flex items-center gap-1.5 border border-white/[0.06] transition-colors cursor-pointer"
@@ -172,16 +186,36 @@ export const AnimationViewportStage: React.FC = () => {
 
               <div className="h-4 w-px bg-white/10" />
 
-              <div className="px-2 py-1 rounded-lg bg-[#1C1F26] text-emerald-400 text-xs font-semibold flex items-center gap-1 border border-white/[0.06]">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                <span>X-Mirror: ON</span>
-              </div>
+              <button
+                onClick={() => {
+                  toggleXMirror();
+                  toast.info(`X-Mirror ${!xMirrorEnabled ? 'Enabled' : 'Disabled'}`, {
+                    description: !xMirrorEnabled
+                      ? 'Bilateral joint edits will mirror across X-axis'
+                      : 'Left and right joints will edit independently',
+                  });
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                  xMirrorEnabled
+                    ? 'bg-[#1C1F26] text-emerald-400 border-emerald-500/30 shadow-sm'
+                    : 'bg-[#14161B] text-zinc-500 border-white/[0.04]'
+                }`}
+              >
+                <div
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    xMirrorEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'
+                  }`}
+                />
+                <span>X-Mirror: {xMirrorEnabled ? 'ON' : 'OFF'}</span>
+              </button>
 
               <div className="h-4 w-px bg-white/10" />
 
               <button
                 onClick={() => {
                   setRigStatus('rigged');
+                  setIsWeightPainting(true);
+                  setTimeout(() => setIsWeightPainting(false), 2500);
                   toast.success('Skinning Complete (Auto-Weights)', {
                     description: 'Heat diffusion weights calculated for 17 deforming bones',
                   });
@@ -233,7 +267,10 @@ export const AnimationViewportStage: React.FC = () => {
             { id: 'bone', icon: <Bone className="w-4 h-4" />, label: 'Bone Tool (B)' },
             { id: 'weight', icon: <Brush className="w-4 h-4" />, label: 'Paint Weights (P)' },
           ].map((tool) => {
-            const isActive = activeViewportTool === tool.id || (tool.id === 'bone' && isPlacingBone);
+            const isActive =
+              (tool.id === 'bone' && isPlacingBone) ||
+              (tool.id === 'weight' && isWeightPainting) ||
+              (activeViewportTool === tool.id && !isPlacingBone && !isWeightPainting);
             return (
               <SimpleTooltip key={tool.id} side="right" label={tool.label}>
                 <button
@@ -241,9 +278,17 @@ export const AnimationViewportStage: React.FC = () => {
                     setActiveViewportTool(tool.id as ViewportGizmoTool);
                     if (tool.id === 'bone') {
                       setIsPlacingBone(true);
+                      setIsWeightPainting(false);
                       toast.info('Click on 3D character to place joint node');
+                    } else if (tool.id === 'weight') {
+                      setIsPlacingBone(false);
+                      setIsWeightPainting(true);
+                      toast.info('Weight Painting Mode Active', {
+                        description: 'Visualizing vertex skinning influence heatmap for active joint',
+                      });
                     } else {
                       setIsPlacingBone(false);
+                      setIsWeightPainting(false);
                     }
                   }}
                   className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
@@ -427,15 +472,45 @@ export const AnimationViewportStage: React.FC = () => {
             {tracks.map((track) => (
               <div
                 key={track.id}
-                className="h-6 px-3 flex items-center justify-between text-zinc-300 hover:bg-white/[0.02]"
+                className={`h-6 px-3 flex items-center justify-between text-zinc-300 hover:bg-white/[0.02] ${
+                  track.isMuted ? 'opacity-40 line-through' : ''
+                }`}
               >
                 <div className="flex items-center gap-1.5 truncate">
                   <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: track.color }} />
                   <span className="truncate font-medium">{track.name}</span>
                 </div>
-                <div className="flex items-center gap-1 text-zinc-600 opacity-60 hover:opacity-100">
-                  <Eye className="w-2.5 h-2.5 cursor-pointer hover:text-white" />
-                  <Lock className="w-2.5 h-2.5 cursor-pointer hover:text-white" />
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleTrackMute(track.id);
+                      toast.info(`${track.name} track ${track.isMuted ? 'unmuted' : 'muted'}`);
+                    }}
+                    title={track.isMuted ? 'Unmute Track' : 'Mute Track'}
+                    className="p-0.5 rounded hover:bg-white/10 transition-colors cursor-pointer"
+                  >
+                    {track.isMuted ? (
+                      <EyeOff className="w-3 h-3 text-zinc-500" />
+                    ) : (
+                      <Eye className="w-3 h-3 text-zinc-400 hover:text-white" />
+                    )}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleTrackLock(track.id);
+                      toast.info(`${track.name} track ${track.isLocked ? 'unlocked' : 'locked'}`);
+                    }}
+                    title={track.isLocked ? 'Unlock Track' : 'Lock Track'}
+                    className="p-0.5 rounded hover:bg-white/10 transition-colors cursor-pointer"
+                  >
+                    <Lock
+                      className={`w-3 h-3 transition-colors ${
+                        track.isLocked ? 'text-amber-400' : 'text-zinc-500 hover:text-white'
+                      }`}
+                    />
+                  </button>
                 </div>
               </div>
             ))}
@@ -496,7 +571,12 @@ export const AnimationViewportStage: React.FC = () => {
               }
 
               return (
-                <div key={track.id} className="h-6 relative bg-[#121418] hover:bg-white/[0.01]">
+                <div
+                  key={track.id}
+                  className={`h-6 relative bg-[#121418] hover:bg-white/[0.01] ${
+                    track.isMuted ? 'opacity-30' : ''
+                  }`}
+                >
                   <div
                     style={{ left: '0%', width: clipWidth }}
                     className={`absolute top-1 bottom-1 rounded-md border flex items-center px-2 pointer-events-none transition-all ${clipBg}`}
@@ -511,9 +591,15 @@ export const AnimationViewportStage: React.FC = () => {
                   {track.keyframeTimes.map((time) => {
                     const pct = duration > 0 ? (time / duration) * 100 : 0;
                     return (
-                      <div
+                      <button
                         key={time}
-                        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2 h-2 rotate-45 border border-white shadow-sm transition-transform hover:scale-150 cursor-pointer z-10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCurrentTime(time);
+                          toast.info(`Seeked to ${time.toFixed(2)}s keyframe`);
+                        }}
+                        title={`Seek to ${time.toFixed(2)}s (${track.name})`}
+                        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rotate-45 border border-white shadow-sm transition-transform hover:scale-150 cursor-pointer z-10"
                         style={{
                           left: `${pct}%`,
                           backgroundColor: track.color || '#F9CF00',

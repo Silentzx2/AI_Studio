@@ -93,6 +93,8 @@ export const AnimationRightInspector: React.FC = () => {
     addAnimation,
     addKeyframeToTrack,
     currentTime,
+    tracks,
+    setIsPlaying,
   } = useAnimationStore();
 
   // Accordion collapsed state
@@ -1110,8 +1112,24 @@ export const AnimationRightInspector: React.FC = () => {
                   <div className="grid grid-cols-2 gap-1.5 pt-1">
                     <button
                       onClick={() => {
-                        addKeyframeToTrack('track-body', currentTime);
-                        toast.success('Keyframe Added', { description: `Recorded pose at ${currentTime.toFixed(2)}s` });
+                        let targetTrackId = 'track-body';
+                        const bName = selectedBone || '';
+                        if (bName.includes('Arm') || bName.includes('Hand')) targetTrackId = 'track-arms';
+                        else if (bName.includes('Leg') || bName.includes('Foot')) targetTrackId = 'track-legs';
+                        else if (bName.includes('Head') || bName.includes('Jaw') || bName.includes('Eye')) targetTrackId = 'track-face';
+                        else if (bName.includes('Hips')) targetTrackId = 'track-root';
+
+                        const targetTrack = tracks.find((t) => t.id === targetTrackId);
+                        if (targetTrack?.isLocked) {
+                          toast.error(`Cannot add keyframe`, {
+                            description: `${targetTrack.name} track is locked. Unlock it in the timeline to record poses.`,
+                          });
+                          return;
+                        }
+                        addKeyframeToTrack(targetTrackId, currentTime);
+                        toast.success('Keyframe Added', {
+                          description: `Recorded ${bName || 'pose'} on ${targetTrack?.name || 'Body'} track at ${currentTime.toFixed(2)}s`,
+                        });
                       }}
                       className="py-2 rounded-lg bg-[#22252C] hover:bg-[#2C3038] text-xs font-bold text-[#F9CF00] border border-[#F9CF00]/30 transition-colors cursor-pointer"
                     >
@@ -1189,7 +1207,14 @@ export const AnimationRightInspector: React.FC = () => {
                   </div>
 
                   <button
-                    onClick={() => toast.success('Blending preview updated')}
+                    onClick={() => {
+                      const clipA = animations.find((a) => a.id === blendState.animA);
+                      const clipB = animations.find((a) => a.id === blendState.animB);
+                      setIsPlaying(true);
+                      toast.success('Previewing Blend Transition', {
+                        description: `Blending ${Math.round((1 - blendState.weight) * 100)}% ${clipA?.name || 'Clip A'} + ${Math.round(blendState.weight * 100)}% ${clipB?.name || 'Clip B'}`,
+                      });
+                    }}
                     className="w-full py-2 rounded-lg bg-[#22252C] hover:bg-[#2C3038] text-xs font-bold text-white transition-colors cursor-pointer"
                   >
                     Preview Blend Transition
