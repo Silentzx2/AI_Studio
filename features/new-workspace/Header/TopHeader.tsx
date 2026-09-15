@@ -17,6 +17,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
+import { AnimatedStatusBadge } from '@/components/animate-ui';
 
 interface TopHeaderProps {
   onMobileMenuToggle?: () => void;
@@ -206,16 +207,12 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobi
           <button
             id="btn-fastapi-status-pill"
             onClick={() => navigateToMain('system')}
-            className="flex items-center gap-1.5 h-7 px-2 md:px-2.5 rounded-full bg-[#191A1D] border border-white/[0.08] hover:bg-[#25262A] hover:border-white/[0.16] text-[11px] text-zinc-300 transition-all shadow-sm cursor-pointer"
+            className="cursor-pointer transition-transform active:scale-95"
           >
-            <span className="relative flex h-2 w-2">
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${systemStats.status === 'online' ? 'bg-emerald-400' : 'bg-rose-400'}`} />
-              <span className={`relative inline-flex rounded-full h-2 w-2 ${systemStats.status === 'online' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-            </span>
-            <span className="font-bold text-white tracking-wide hidden lg:inline">FastAPI</span>
-            <span className="text-zinc-500 text-[10px] uppercase font-mono hidden sm:inline">
-              {systemStats.status === 'online' ? 'Online' : 'Offline'}
-            </span>
+            <AnimatedStatusBadge
+              status={systemStats.status === 'online' ? 'online' : 'offline'}
+              label={systemStats.status === 'online' ? 'FastAPI Online' : 'FastAPI Offline'}
+            />
           </button>
         </SimpleTooltip>
 

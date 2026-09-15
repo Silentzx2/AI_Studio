@@ -16,6 +16,7 @@ export interface RippleButtonProps extends React.ButtonHTMLAttributes<HTMLButton
   rippleColor?: string;
   variant?: 'primary' | 'secondary' | 'ghost' | 'outline' | 'destructive';
   size?: 'sm' | 'md' | 'lg';
+  shimmer?: boolean;
 }
 
 export const RippleButton = React.forwardRef<HTMLButtonElement, RippleButtonProps>(
@@ -30,6 +31,7 @@ export const RippleButton = React.forwardRef<HTMLButtonElement, RippleButtonProp
       rippleColor = 'rgba(255, 255, 255, 0.35)',
       variant = 'primary',
       size,
+      shimmer = false,
       ...props
     },
     ref
@@ -95,6 +97,21 @@ export const RippleButton = React.forwardRef<HTMLButtonElement, RippleButtonProp
         {...(props as any)}
       >
         {children}
+
+        {/* Shimmer Light Reflection (21st.dev style) */}
+        {shimmer && !disabled && !prefersReducedMotion && (
+          <motion.span
+            initial={{ x: '-150%' }}
+            animate={{ x: '250%' }}
+            transition={{
+              repeat: Infinity,
+              duration: 2.2,
+              ease: 'easeInOut',
+              repeatDelay: 1.2,
+            }}
+            className="absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12 pointer-events-none"
+          />
+        )}
 
         {/* Dynamic Ripple Layer */}
         {ripples.map((ripple) => (

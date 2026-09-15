@@ -21,6 +21,8 @@ import {
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 import { SlidingNumber } from '@/components/animate-ui';
 import { useWorkspace } from '../store/WorkspaceContext';
+import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 interface PipelineStep {
   id: string;
@@ -48,6 +50,7 @@ export const LiveExecutionPanel: React.FC = () => {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [logsCopied, setLogsCopied] = useState(false);
+  const [expandedStageId, setExpandedStageId] = useState<string | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   const handleCopyLogs = async () => {
@@ -245,9 +248,14 @@ export const LiveExecutionPanel: React.FC = () => {
             <Cpu className="w-3.5 h-3.5 text-zinc-500" />
             <span>{systemStats.gpu || 'GPU Accelerated'}</span>
           </span>
-          <span>
-            {systemStats.vramUsedGb != null ? `${systemStats.vramUsedGb.toFixed(1)} / ${systemStats.vramTotalGb?.toFixed(1) || '8'} GB VRAM` : 'Active'}
-          </span>
+          {systemStats.vramUsedGb != null ? (
+            <div className="flex items-center gap-1 font-mono text-zinc-300">
+              <SlidingNumber value={systemStats.vramUsedGb} decimalPlaces={1} />
+              <span>/ {systemStats.vramTotalGb?.toFixed(1) || '8'} GB VRAM</span>
+            </div>
+          ) : (
+            <span>Active</span>
+          )}
         </div>
 
         {/* Pipeline Stages Dependency List */}
@@ -260,20 +268,29 @@ export const LiveExecutionPanel: React.FC = () => {
           </div>
 
           <div className="space-y-1 rounded-xl bg-[#181B20] border border-white/[0.08] p-2">
-            {stages.map((stage, idx) => {
+            {stages.map((stage) => {
               const isStageActive = stage.state === 'active';
               const isStageDone = stage.state === 'completed';
               const isStageFailed = stage.state === 'failed';
               const isStageSkipped = stage.state === 'skipped';
+              const isExpanded = isStageActive || expandedStageId === stage.id || isStageFailed;
+              const hasContent = Boolean(stage.detail || stage.skipReason);
 
               return (
                 <div
                   key={stage.id}
+                  onClick={() => {
+                    if (hasContent) {
+                      setExpandedStageId(expandedStageId === stage.id ? null : stage.id);
+                    }
+                  }}
                   className={`p-2 rounded-lg border transition-all ${
+                    hasContent ? 'cursor-pointer' : ''
+                  } ${
                     isStageActive
                       ? 'bg-[#22252D] border-[#F9CF00]/40 shadow-sm'
                       : isStageDone
-                      ? 'bg-transparent border-transparent text-zinc-300'
+                      ? 'bg-transparent border-transparent text-zinc-300 hover:bg-white/[0.02]'
                       : isStageFailed
                       ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
                       : isStageSkipped
@@ -304,22 +321,42 @@ export const LiveExecutionPanel: React.FC = () => {
                       </span>
                     </div>
 
-                    <span className="text-[9px] font-mono text-zinc-500 uppercase flex-shrink-0">
-                      {stage.state}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <span className="text-[9px] font-mono text-zinc-500 uppercase">
+                        {stage.state}
+                      </span>
+                      {hasContent && (
+                        <ChevronRight className={cn(
+                          'w-3 h-3 text-zinc-500 transition-transform duration-200',
+                          isExpanded && 'rotate-90 text-[#F9CF00]'
+                        )} />
+                      )}
+                    </div>
                   </div>
 
-                  {/* Stage detail or skip explanation */}
-                  {isStageSkipped && stage.skipReason && (
-                    <div className="text-[9px] text-zinc-500 pl-5 pt-0.5 italic">
-                      Skipped: {stage.skipReason}
-                    </div>
-                  )}
-                  {isStageActive && stage.detail && (
-                    <div className="text-[9px] text-zinc-300 pl-5 pt-0.5 font-mono">
-                      {stage.detail}
-                    </div>
-                  )}
+                  {/* Stage detail or skip explanation with accordion animation */}
+                  <AnimatePresence>
+                    {isExpanded && (stage.skipReason || stage.detail) && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2, ease: 'easeOut' }}
+                        className="overflow-hidden"
+                      >
+                        {isStageSkipped && stage.skipReason && (
+                          <div className="text-[9px] text-zinc-500 pl-5 pt-1 italic">
+                            Skipped: {stage.skipReason}
+                          </div>
+                        )}
+                        {stage.detail && (
+                          <div className="text-[9px] text-zinc-300 pl-5 pt-1 font-mono">
+                            {stage.detail}
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               );
             })}

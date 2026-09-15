@@ -33,7 +33,7 @@ import { useManifestModels, type ManifestModel } from '@/hooks/useManifestModels
 import { useUploadProgress } from '@/hooks/useUploadProgress';
 import { apiClient } from '@/services/apiClient';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
-import { AnimatedTabs, AnimatedSwitch, RippleButton, SlidingNumber, ImageZoom } from '@/components/animate-ui';
+import { AnimatedTabs, AnimatedSwitch, RippleButton, SlidingNumber, ImageZoom, BorderBeam } from '@/components/animate-ui';
 
 export const GeneratePanel: React.FC = () => {
   const router = useRouter();
@@ -1543,6 +1543,7 @@ export const GeneratePanel: React.FC = () => {
           id="btn-generate-model-action"
           onClick={handleGenerate}
           disabled={isExecuting}
+          shimmer={!isExecuting}
           className={`w-full h-10 rounded-xl font-black text-xs flex items-center justify-center gap-2 shadow-lg transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
             isExecuting 
               ? 'bg-[#25262A] text-[#F9CF00] border border-[#F9CF00]/20' 
@@ -1562,7 +1563,8 @@ export const GeneratePanel: React.FC = () => {
           )}
         </RippleButton>
         {isExecuting && (
-          <div className="mt-2 space-y-1">
+          <div className="relative mt-2 p-2 rounded-xl bg-[#1D2026] border border-white/[0.08] overflow-hidden space-y-1">
+            <BorderBeam colorFrom="#F9CF00" duration={6} />
             <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400 px-0.5">
               <span>{executionStep || 'Processing'}</span>
               <SlidingNumber number={executionProgress || 0} suffix="%" className="text-[#F9CF00] font-bold" />

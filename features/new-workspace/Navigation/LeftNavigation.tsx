@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { ToolType } from '../types';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
+import { motion } from 'framer-motion';
 
 interface LeftNavigationProps {
   /** When true, renders as a wide drawer with full labels instead of icon rail */
@@ -137,7 +138,11 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
             }`}
           >
             {isOverviewActive && (
-              <div className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]" />
+              <motion.div
+                layoutId="leftNavIndicator"
+                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]"
+              />
             )}
             <LayoutDashboard className={`w-5 h-5 mb-1 flex-shrink-0 transition-transform ${isOverviewActive ? 'text-[#F9CF00] scale-105' : 'group-hover:scale-105'}`} />
             <span className={`text-[10px] leading-tight text-center tracking-tight truncate w-full ${isOverviewActive ? 'text-white font-bold' : 'font-medium'}`}>Overview</span>
@@ -158,7 +163,11 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
             }`}
           >
             {isActive('model') && (
-              <div className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]" />
+              <motion.div
+                layoutId="leftNavIndicator"
+                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]"
+              />
             )}
             <Box className={`w-5 h-5 mb-1 flex-shrink-0 transition-transform ${isActive('model') ? 'text-[#F9CF00] scale-105' : 'group-hover:scale-105'}`} />
             <span className={`text-[10px] leading-tight text-center tracking-tight truncate w-full ${isActive('model') ? 'text-white font-bold' : 'font-medium'}`}>Model</span>
@@ -177,7 +186,11 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
             }`}
           >
             {isActive('remesh') && (
-              <div className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]" />
+              <motion.div
+                layoutId="leftNavIndicator"
+                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]"
+              />
             )}
             <CircleDashed className={`w-5 h-5 mb-1 flex-shrink-0 transition-transform ${isActive('remesh') ? 'text-[#F9CF00] scale-105' : 'group-hover:scale-105'}`} />
             <span className={`text-[10px] leading-tight text-center tracking-tight truncate w-full ${isActive('remesh') ? 'text-white font-bold' : 'font-medium'}`}>Poly</span>
@@ -196,7 +209,11 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
             }`}
           >
             {isActive('texture') && (
-              <div className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]" />
+              <motion.div
+                layoutId="leftNavIndicator"
+                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]"
+              />
             )}
             <Layers className={`w-5 h-5 mb-1 flex-shrink-0 transition-transform ${isActive('texture') ? 'text-[#F9CF00] scale-105' : 'group-hover:scale-105'}`} />
             <span className={`text-[10px] leading-tight text-center tracking-tight truncate w-full ${isActive('texture') ? 'text-white font-bold' : 'font-medium'}`}>Texture</span>
@@ -215,7 +232,11 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
             }`}
           >
             {isActive('animation') && (
-              <div className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]" />
+              <motion.div
+                layoutId="leftNavIndicator"
+                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]"
+              />
             )}
             <Film className={`w-5 h-5 mb-1 flex-shrink-0 transition-transform ${isActive('animation') ? 'text-[#F9CF00] scale-105' : 'group-hover:scale-105'}`} />
             <span className={`text-[10px] leading-tight text-center tracking-tight truncate w-full ${isActive('animation') ? 'text-white font-bold' : 'font-medium'}`}>Animate</span>
@@ -234,7 +255,11 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
             }`}
           >
             {isActive('segment') && (
-              <div className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]" />
+              <motion.div
+                layoutId="leftNavIndicator"
+                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]"
+              />
             )}
             <Scissors className={`w-5 h-5 mb-1 flex-shrink-0 transition-transform ${isActive('segment') ? 'text-[#F9CF00] scale-105' : 'group-hover:scale-105'}`} />
             <span className={`text-[10px] leading-tight text-center tracking-tight truncate w-full ${isActive('segment') ? 'text-white font-bold' : 'font-medium'}`}>Segment</span>

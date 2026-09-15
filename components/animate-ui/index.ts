@@ -6,3 +6,5 @@ export * from './code-block';
 export * from './file-tree';
 export * from './image-zoom';
 export * from './animated-icon';
+export * from './border-beam';
+export * from './animated-status-badge';

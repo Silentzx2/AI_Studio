@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Download, X, FileBox, Check, Layers, Archive, Box, ShieldCheck, AlertTriangle, Loader2 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
+import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatedSwitch, RippleButton } from '@/components/animate-ui';
 
 export const ExportModal: React.FC = () => {
   const { isExportModalOpen, setIsExportModalOpen, currentAsset } = useWorkspace();
@@ -268,52 +270,53 @@ export const ExportModal: React.FC = () => {
                   <span className="text-[10px] text-zinc-400">Bundles source, variants, LODs, collision, and QA report</span>
                 </div>
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={packageZip}
-                onClick={() => setPackageZip(prev => !prev)}
-                className={`w-8 h-4 rounded-full p-0.5 transition-colors relative cursor-pointer ${
-                  packageZip ? 'bg-[#F9CF00]' : 'bg-[#25262A]'
-                }`}
-              >
-                <div className={`w-3 h-3 rounded-full bg-black transition-transform ${
-                  packageZip ? 'translate-x-4' : 'translate-x-0'
-                }`} />
-              </button>
+              <AnimatedSwitch
+                checked={packageZip}
+                onCheckedChange={setPackageZip}
+              />
             </div>
 
-            {packageZip && (
-              <div className="pt-2.5 border-t border-white/[0.06] space-y-2 text-xs">
-                <label className="flex items-center justify-between text-zinc-300 cursor-pointer">
-                  <span>Include LODs (LOD0–LOD3)</span>
-                  <input
-                    type="checkbox"
-                    checked={includeLODs}
-                    onChange={e => setIncludeLODs(e.target.checked)}
-                    className="rounded accent-[#F9CF00]"
-                  />
-                </label>
-                <label className="flex items-center justify-between text-zinc-300 cursor-pointer">
-                  <span>Include Physics Collision Mesh</span>
-                  <input
-                    type="checkbox"
-                    checked={includeCollision}
-                    onChange={e => setIncludeCollision(e.target.checked)}
-                    className="rounded accent-[#F9CF00]"
-                  />
-                </label>
-                <label className="flex items-center justify-between text-zinc-300 cursor-pointer">
-                  <span>Include QA Validation Report (JSON)</span>
-                  <input
-                    type="checkbox"
-                    checked={includeQAReport}
-                    onChange={e => setIncludeQAReport(e.target.checked)}
-                    className="rounded accent-[#F9CF00]"
-                  />
-                </label>
-              </div>
-            )}
+            <AnimatePresence>
+              {packageZip && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="pt-2.5 border-t border-white/[0.06] space-y-2 text-xs">
+                    <label className="flex items-center justify-between text-zinc-300 cursor-pointer">
+                      <span>Include LODs (LOD0–LOD3)</span>
+                      <input
+                        type="checkbox"
+                        checked={includeLODs}
+                        onChange={e => setIncludeLODs(e.target.checked)}
+                        className="rounded accent-[#F9CF00]"
+                      />
+                    </label>
+                    <label className="flex items-center justify-between text-zinc-300 cursor-pointer">
+                      <span>Include Physics Collision Mesh</span>
+                      <input
+                        type="checkbox"
+                        checked={includeCollision}
+                        onChange={e => setIncludeCollision(e.target.checked)}
+                        className="rounded accent-[#F9CF00]"
+                      />
+                    </label>
+                    <label className="flex items-center justify-between text-zinc-300 cursor-pointer">
+                      <span>Include QA Validation Report (JSON)</span>
+                      <input
+                        type="checkbox"
+                        checked={includeQAReport}
+                        onChange={e => setIncludeQAReport(e.target.checked)}
+                        className="rounded accent-[#F9CF00]"
+                      />
+                    </label>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {error && (
@@ -336,24 +339,24 @@ export const ExportModal: React.FC = () => {
             >
               Cancel
             </button>
-            <button
+            <RippleButton
               onClick={() => void handleExport()}
               disabled={isExporting}
-              className="relative flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#FFE24C] to-[#F9CF00] hover:brightness-105 active:scale-[0.98] px-6 py-2 text-xs font-extrabold text-black shadow-lg shadow-[#F9CF00]/25 disabled:opacity-50 transition-all cursor-pointer overflow-hidden border border-white/20"
+              variant="primary"
+              className="px-6 py-2 text-xs font-extrabold"
             >
-              <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
               {isExporting ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin relative z-10" />
-                  <span className="relative z-10">Packaging…</span>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Packaging…</span>
                 </>
               ) : (
                 <>
-                  <Download className="h-4 w-4 stroke-[2.5] relative z-10" />
-                  <span className="relative z-10">Export {packageZip ? 'Package (ZIP)' : exportFormat.toUpperCase()}</span>
+                  <Download className="h-4 w-4 stroke-[2.5]" />
+                  <span>Export {packageZip ? 'Package (ZIP)' : exportFormat.toUpperCase()}</span>
                 </>
               )}
-            </button>
+            </RippleButton>
           </div>
         </div>
       </div>
