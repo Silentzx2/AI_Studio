@@ -12,7 +12,7 @@ environment:
   - pattern: "^numpy==1\\.22\\..*$"
     replacement: "numpy>=1.24.4,<2.0"
   - pattern: "^torchmcubes($|==|>=|<=|!=|~=).*$"
-    replacement: "torchmcubes"
+    replacement: "git+https://github.com/tatsy/torchmcubes.git"
 dependencies:
   python:
   - omegaconf>=2.3.0
@@ -36,7 +36,7 @@ dependencies:
   - einops
   - transformers
   native:
-  - torchmcubes
+  - git+https://github.com/tatsy/torchmcubes.git
   cuda_native_packages:
   - torchmcubes
   torch_build_packages:

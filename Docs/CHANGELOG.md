@@ -1,6 +1,39 @@
 # AI 3D Studio — Changelog
 
-## [v5.0.67] - 2026-09-14
+## [v5.0.69] - 2026-09-15
+### Fix Missing Anatomical Micro-Details (Eyes, Pupils, Teeth, Ears) Across Generation Pipeline
+- **Root Causes Identified**:
+  1. `is_real_textured_mesh` in `backend/app/core/texture_projection.py` incorrectly evaluated any mesh with vertex colors (`visual.vertex_colors`) as already textured. Because local 3D providers (TripoSR, Hunyuan3D-2.1, TripoSF) output vertex colors, this caused texture projection to abort immediately with an early return. Furthermore, vertex-colored meshes do not possess a 2D baseColor texture, so normal and metallic-roughness maps were never generated.
+  2. The texture projection camera pose `cam_pos = (2.2, -3.2, 0.9)` was hardcoded for Blender coordinate space (+Z up, -Y front) and offset 35 degrees to the right. In standard glTF / Three.js (+Y up, +Z front), this placed the projection camera 2 meters underneath the character's feet, projecting upwards from below and completely missing the character's face, eyes, and mouth.
+  3. Meshes with 2D textures lacked PBR material upgrades (`normalTexture` and `metallicRoughnessTexture`), leaving micro-relief smooth and unshaded in Three.js.
+  4. Viewport materials used default flat normal scale (`normalScale = (1, 1)`), reducing the visual depth of micro-crevices (eyelids, pupils, teeth, cartilage).
+- **Fixes Applied**:
+  - `backend/app/core/texture_projection.py`:
+    - Refactored `is_real_textured_mesh()` to strictly verify valid 2D texture maps and UVs with resolution >= 16x16.
+    - Added bounding-box-aware dynamic camera auto-framing that respects coordinate conventions (+Y up vs +Z up) and aligns directly with the front facing axis.
+    - Upgraded textured materials to `trimesh.visual.material.PBRMaterial` with high-frequency normal and metallic-roughness maps.
+  - `backend/app/core/providers/hunyuan3d_local.py`:
+    - Protected existing custom vertex colors on raw Hunyuan output while still allowing texture projection to complete when requested.
+  - `features/new-workspace/Viewport/MeshViewer.tsx`:
+    - Set Three.js `m.normalScale.set(1.4, 1.4)` on mesh materials with normal maps to accentuate facial crevices, eyelids, and teeth micro-relief.
+- **Verification**:
+  - All 59 backend pytest test cases passed in 35.97s.
+  - Live model texture projection accurately maps facial features from reference inputs.
+
+## [v5.0.68] - 2026-09-15
+### Fix TripoSR Runtime Installation: Resolve torchmcubes from Upstream Git
+- **Root Cause Identified**:
+  - `torchmcubes` is not published to PyPI (queries to PyPI return unsatisfiable requirements). Upstream TripoSR specifies `git+https://github.com/tatsy/torchmcubes.git`.
+  - In `backend/runtime/manifests/triposr.yaml`, `dependencies.native` and `environment.python_pin_rewrites` incorrectly used bare `"torchmcubes"`, causing `uv pip install` to fail resolving the package against PyPI.
+- **Fixes Applied**:
+  - `backend/runtime/manifests/triposr.yaml`: Updated `dependencies.native` to `git+https://github.com/tatsy/torchmcubes.git` and updated `python_pin_rewrites` replacement pattern to target the git repository.
+  - `backend/runtime/dependency_resolver.py`: Added fallback in `classify_dependency` and `install_resolved_deps` to automatically resolve bare `torchmcubes` specs to `git+https://github.com/tatsy/torchmcubes.git`.
+- **Fix OpenX Clay Timer Scope Bug (`tasks.py`)**:
+  - Initialized `t_clay = time.perf_counter()` before entering the Clay post-processing stage. Previously, `t_clay` was referenced at `round((time.perf_counter() - t_clay) * 1000, 1)` without initialization, triggering a `NameError` that needlessly rolled back successful Clay optimizations to the unoptimized source mesh.
+- **Verification**:
+  - Added regression test `test_torchmcubes_git_resolution` in `backend/tests/test_runtime_stability.py`.
+  - Backend pytest suite: 59/59 passed cleanly.
+
 ### Interactive 3D Bone Placement, Transform Gizmo & 60 FPS Rigging Optimization
 - **Interactive 3D Click-to-Place Bone Tool (`MeshViewer.tsx`, `AnimationViewportStage.tsx`)**:
   - Implemented real click-to-place bone creation using 3D camera raycasting on character geometry.

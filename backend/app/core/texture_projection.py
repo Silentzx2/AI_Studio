@@ -47,26 +47,18 @@ except Exception:
 
 
 def is_real_textured_mesh(mesh: trimesh.Trimesh) -> bool:
-    """Check if mesh carries real visual texture or custom vertex colors."""
+    """Check if mesh carries a real 2D texture map with valid UV coordinates."""
     visual = getattr(mesh, "visual", None)
     if visual is None:
         return False
 
-    # 1. Check for real texture map with valid UV coordinates
+    # Check for real texture map with valid UV coordinates (vertex colors are NOT a 2D texture)
     uv = getattr(visual, "uv", None)
     material = getattr(visual, "material", None)
     if uv is not None and len(uv) > 0 and material is not None:
         img = getattr(material, "baseColorTexture", None) or getattr(material, "image", None)
         if img is not None and min(img.size) >= 16:
             return True
-
-    # 2. Check for custom vertex colors (not default uncolored gray [102, 102, 102, 255])
-    if hasattr(visual, "vertex_colors"):
-        vc = visual.vertex_colors
-        if vc is not None and len(vc) > 0:
-            sample = vc[:min(len(vc), 500)]
-            if not (len(np.unique(sample, axis=0)) == 1 and np.array_equal(sample[0][:3], [102, 102, 102])):
-                return True
 
     return False
 
@@ -243,15 +235,18 @@ def project_reference_texture(
     if not force_reproject and is_real_textured_mesh(mesh):
         logger.info("Mesh already possesses real texture visual data; enriching with PBR normal and roughness maps")
         try:
-            mat = mesh.visual.material
+            mat = getattr(mesh.visual, "material", None)
             base_img = getattr(mat, "baseColorTexture", None) or getattr(mat, "image", None)
             if base_img is not None:
-                if getattr(mat, "normalTexture", None) is None:
-                    mat.normalTexture = create_normal_map_from_image(base_img, strength=4.5)
-                if getattr(mat, "metallicRoughnessTexture", None) is None:
-                    mat.metallicRoughnessTexture = create_metallic_roughness_map_from_image(base_img)
-                    mat.roughnessFactor = 1.0
-                    mat.metallicFactor = 1.0
+                norm_tex = getattr(mat, "normalTexture", None) or create_normal_map_from_image(base_img, strength=4.5)
+                mr_tex = getattr(mat, "metallicRoughnessTexture", None) or create_metallic_roughness_map_from_image(base_img)
+                mesh.visual.material = trimesh.visual.material.PBRMaterial(
+                    baseColorTexture=base_img,
+                    normalTexture=norm_tex,
+                    metallicRoughnessTexture=mr_tex,
+                    metallicFactor=getattr(mat, "metallicFactor", 1.0) or 1.0,
+                    roughnessFactor=getattr(mat, "roughnessFactor", 1.0) or 1.0,
+                )
         except Exception as enh_err:
             logger.debug("Texture enrichment skipped: %s", enh_err)
         if output_path:
@@ -292,13 +287,31 @@ def project_reference_texture(
     # Inpaint background margins to eliminate black UV seams
     baked_texture = inpaint_image_background(img)
 
-    # Compute camera coordinate frame
-    C = np.array(cam_pos, dtype=np.float64)
-    T = np.array(target, dtype=np.float64)
+    # Compute camera coordinate frame dynamically aligned with front of mesh
+    center = (mesh.bounds[0] + mesh.bounds[1]) / 2.0
+    extents = mesh.extents
+    max_dim = float(max(extents)) if len(extents) > 0 else 1.0
+
+    if cam_pos == (2.2, -3.2, 0.9):
+        # Auto-align front camera to mesh bounding box & coordinate system
+        if extents[1] >= extents[2]:
+            # glTF / Three.js standard: +Y is UP, +Z is FRONT
+            world_up = np.array([0.0, 1.0, 0.0], dtype=np.float64)
+            T = np.array([center[0], center[1], center[2]], dtype=np.float64)
+            C = np.array([center[0], center[1], center[2] + max_dim * 1.6], dtype=np.float64)
+        else:
+            # Blender raw standard: +Z is UP, -Y is FRONT
+            world_up = np.array([0.0, 0.0, 1.0], dtype=np.float64)
+            T = np.array([center[0], center[1], center[2]], dtype=np.float64)
+            C = np.array([center[0], center[1] - max_dim * 1.6, center[2]], dtype=np.float64)
+    else:
+        C = np.array(cam_pos, dtype=np.float64)
+        T = np.array(target, dtype=np.float64)
+        world_up = np.array([0.0, 1.0, 0.0] if extents[1] >= extents[2] else [0.0, 0.0, 1.0], dtype=np.float64)
+
     forward = T - C
     forward /= np.linalg.norm(forward)
 
-    world_up = np.array([0, 0, 1], dtype=np.float64)
     right = np.cross(forward, world_up)
     norm_r = np.linalg.norm(right)
     if norm_r < 1e-6:
@@ -357,9 +370,10 @@ def project_reference_texture(
     v_normals = mesh.vertex_normals
     dot = np.dot(v_normals, forward)
     z_diff = z_cam - depth_buffer[gy, gx]
+    z_tol = max(0.04, max_dim * 0.04)
 
     # Visible if pointing towards camera and not occluded by closer geometry
-    is_visible = (dot < -0.1) & (z_diff < 0.08)
+    is_visible = (dot < -0.05) & (z_diff < z_tol)
 
     # Occluded surfaces map to representative body skin region with subtle procedural variation
     skin_u = (img_min_x + img_max_x) * 0.45

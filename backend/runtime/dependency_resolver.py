@@ -298,6 +298,8 @@ def classify_dependency(raw_spec: str) -> Dependency:
         )
 
     name = re.split(r"[><=!~\[]", line, 1)[0].strip()
+    if name == "torchmcubes":
+        line = "git+https://github.com/tatsy/torchmcubes.git"
     return Dependency(name=name, spec=line, kind=DependencyKind.NORMAL, required=True)
 
 
@@ -1236,7 +1238,10 @@ def install_resolved_deps(
                                     import time
                                     time.sleep(3)
                     else:
-                        build_args = ["pip", "install", "--python", str(venv_python), dep.spec, "--no-build-isolation", "--no-deps"]
+                        build_spec = dep.spec
+                        if dep.name == "torchmcubes" and not (build_spec.startswith("git+") or build_spec.startswith("http")):
+                            build_spec = "git+https://github.com/tatsy/torchmcubes.git"
+                        build_args = ["pip", "install", "--python", str(venv_python), build_spec, "--no-build-isolation", "--no-deps"]
                 # Add build dependencies for known packages
                 build_deps = _get_build_deps(manifest, dep.name)
                 if build_deps:

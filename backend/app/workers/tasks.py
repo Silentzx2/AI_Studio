@@ -865,6 +865,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
 
             if _CLAY_AVAILABLE and not skip_postprocessing:
                 sync_publish(75, "clay_postprocess", f"OpenX Clay: Starting post-processing ({target_polycount:,} tris target, unwrap_uvs={unwrap_uvs})...", "info")
+                t_clay = time.perf_counter()
                 try:
                     ref_img_local = str(resolved_ref_image) if resolved_ref_image and Path(resolved_ref_image).exists() else None
                     pp_config = PostprocessConfig(

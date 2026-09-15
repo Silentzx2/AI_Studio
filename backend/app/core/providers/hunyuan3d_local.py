@@ -353,6 +353,12 @@ class _HunyuanBase(BaseProvider):
         eyes, and colors, even when large neural paint diffusion weights are not installed.
         """
         try:
+            import trimesh
+            m = trimesh.load(mesh_path, force="mesh")
+            if hasattr(m.visual, "vertex_colors") and m.visual.vertex_colors is not None and len(m.visual.vertex_colors) > 0:
+                import shutil
+                shutil.copy2(mesh_path, output_glb)
+                return output_glb
             from app.core.texture_projection import project_reference_texture
             return str(project_reference_texture(mesh_path, image_path, output_glb))
         except Exception as exc:

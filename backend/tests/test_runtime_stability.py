@@ -220,4 +220,20 @@ def test_backend_torch_stack_cuda_wheel_mapping():
     assert any("torchvision" in s for s in specs)
 
 
+def test_torchmcubes_git_resolution():
+    """Verify torchmcubes resolves to its git repository since it is not on PyPI."""
+    from runtime.dependency_resolver import classify_dependency, resolve_dependencies
+    from runtime.manifest_loader import load_manifest
+    from pathlib import Path
 
+    # 1. classify_dependency bare name fallback
+    dep = classify_dependency("torchmcubes")
+    assert dep.name == "torchmcubes"
+    assert dep.spec == "git+https://github.com/tatsy/torchmcubes.git"
+
+    # 2. TripoSR manifest resolution
+    manifest = load_manifest("triposr")
+    deps = resolve_dependencies(Path("/tmp"), manifest=manifest)
+    mcubes_deps = [d for d in deps if d.name == "torchmcubes"]
+    assert len(mcubes_deps) == 1
+    assert mcubes_deps[0].spec == "git+https://github.com/tatsy/torchmcubes.git"

@@ -1699,6 +1699,17 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                 // Dense meshes: disable self-shadow receiver to avoid severe GPU pipeline hitch
                 const vCount = child.geometry?.attributes?.position?.count || 0;
                 child.receiveShadow = vCount < 200000;
+
+                // Enhance normal map depth and crispness for micro-relief (eyes, teeth, ears)
+                if (child.material) {
+                  const mats = Array.isArray(child.material) ? child.material : [child.material];
+                  mats.forEach((m) => {
+                    if (m instanceof THREE.MeshStandardMaterial && m.normalMap) {
+                      m.normalScale.set(1.4, 1.4);
+                      m.needsUpdate = true;
+                    }
+                  });
+                }
               }
             });
             frameCamera(gltf.scene);
