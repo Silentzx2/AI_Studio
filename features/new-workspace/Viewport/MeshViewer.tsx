@@ -34,7 +34,14 @@ import { useAnimationStore, BoneItem } from '@/stores/useAnimationStore';
 import { useViewerStore } from '@/stores/useViewerStore';
 
 import { validate3DFile } from '../lib/fileValidation';
-import { createPointCloudFromImage, createFallbackPointCloud, disposePointCloud } from './ImagePointCloud';
+import { 
+  createPointCloudFromImage, 
+  createFallbackPointCloud, 
+  disposePointCloud,
+  animatePointCloud,
+  setPointCloudDisplayMode
+} from './ImagePointCloud';
+import { GenerationPreviewHUD } from './GenerationPreviewHUD';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { getCachedGLB, setCachedGLB, loadGLBWithProgress } from '../lib/glbCache';
@@ -572,6 +579,14 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const [selectedPreset, setSelectedPreset] = useState<string | null>('real');
   const [meshStats, setMeshStats] = useState<{ faces: number; vertices: number; triangles: number; dimensions?: { x: number; y: number; z: number } } | null>(null);
   const [debugBlueprint, setDebugBlueprint] = useState(false);
+  const [generationDisplayMode, setGenerationDisplayMode] = useState<'holo' | 'scan' | 'wireframe'>('holo');
+
+  const handleGenerationDisplayModeChange = useCallback((mode: 'holo' | 'scan' | 'wireframe') => {
+    setGenerationDisplayMode(mode);
+    if (pointCloudGroupRef.current) {
+      setPointCloudDisplayMode(pointCloudGroupRef.current, mode);
+    }
+  }, []);
 
   // Close menus on outside click or Escape key
   useEffect(() => {
@@ -1388,12 +1403,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
       const pointCloudActive = Boolean(pointCloudGroup && pointCloudGroup.visible && pointCloudGroup.children.length > 0);
       if (pointCloudActive) {
-        pointCloudGroup.rotation.y += delta * 0.28;
-        const scanRing = pointCloudGroup.getObjectByName('blueprintScanRing');
-        if (scanRing) {
-          const t = timer.getElapsed();
-          scanRing.position.y = Math.sin(t * 1.6) * 1.1 + 0.25;
-        }
+        animatePointCloud(pointCloudGroup, delta, timer.getElapsed());
       }
 
       const animState = useAnimationStore.getState();
@@ -1539,6 +1549,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
       pointCloudRef.current = points;
       pointCloudGroup.add(points);
+      setPointCloudDisplayMode(pointCloudGroup, generationDisplayMode);
       pointCloudGroup.visible = true;
     };
 
@@ -1547,7 +1558,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [isExecuting, debugBlueprint, generationSettings?.image, textureSettings?.referenceImage]);
+  }, [isExecuting, debugBlueprint, generationSettings?.image, textureSettings?.referenceImage, generationDisplayMode]);
 
   // Load the real selected asset into the persistent viewport.
   useEffect(() => {
@@ -2344,37 +2355,22 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         </div>
       )}
 
-      {/* Tripo AI-style Interactive 3D Generation HUD */}
+      {/* 21st.dev & Animate UI Powered 3D Generation Preview HUD */}
       {(isExecuting || debugBlueprint) && (
-        <div className="absolute bottom-16 sm:bottom-20 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center pointer-events-auto max-w-md w-full px-4 text-center select-none animate-in fade-in duration-300">
-          <div className="flex items-center gap-2 mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)]">
-            <span className="text-xs sm:text-sm font-semibold text-zinc-100 tracking-wide">
-              {isExecuting ? (executionStep || 'Generating...') : 'Generating...'}
-            </span>
-            <span className="text-xs font-mono font-bold text-[#F9CF00]">
-              {Math.round(isExecuting ? (executionProgress || 45) : 48)}%
-            </span>
-          </div>
-
-          {/* Minimalist Slim Progress Bar (Identical to Tripo AI) */}
-          <div className="w-56 sm:w-64 h-1 rounded-full bg-zinc-800/90 overflow-hidden mb-2 shadow-md">
-            <div 
-              className="h-full bg-gradient-to-r from-zinc-300 via-white to-[#F9CF00] rounded-full transition-all duration-300"
-              style={{ width: `${Math.max(5, Math.min(100, isExecuting ? (executionProgress || 45) : 48))}%` }}
-            />
-          </div>
-
-          <p className="text-[10px] text-zinc-400 max-w-sm leading-relaxed drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)]">
-            Use orbit controls to inspect the 3D volumetric preview in real time while neural generation synthesizes geometry.
-          </p>
-
-          <button
-            onClick={isExecuting ? cancelExecution : () => setDebugBlueprint(false)}
-            className="mt-1 text-[10px] text-zinc-500 hover:text-rose-400 transition-colors cursor-pointer underline drop-shadow-sm"
-          >
-            {isExecuting ? 'Cancel Generation' : 'Close Preview'}
-          </button>
-        </div>
+        <GenerationPreviewHUD
+          isExecuting={isExecuting}
+          debugBlueprint={debugBlueprint}
+          executionStep={executionStep}
+          executionProgress={executionProgress}
+          onCancel={cancelExecution}
+          onClose={() => setDebugBlueprint(false)}
+          referenceImage={generationSettings?.image || textureSettings?.referenceImage}
+          prompt={generationSettings?.prompt}
+          onCameraPreset={(preset) => applyCameraPreset(preset as CameraViewPreset)}
+          activeCameraPreset={cameraPreset}
+          displayMode={generationDisplayMode}
+          onDisplayModeChange={handleGenerationDisplayModeChange}
+        />
       )}
 
       {/* Smooth Non-Intrusive Loading Overlay (Asset file parsing) */}

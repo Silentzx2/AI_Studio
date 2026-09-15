@@ -1,5 +1,32 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.71] - 2026-09-15
+### Futuristic 3D Generation Preview & Interactive Hologram HUD Redesign
+- **Three.js 3D Volumetric Hologram Scene (`ImagePointCloud.ts`)**:
+  - Replaced the basic point cluster with a full-fledged **Cybernetic Neural Synthesis Hologram** in 360-degree real-world scale:
+    - **Electric Laser Scanning Slice Plane (`createLaserScanner`)**: Dual-ring cyan/amber laser (`0x38bdf8`, `0xf9cf00`) with a glowing semi-transparent scan disc and 4-point targeting crosshair reticle that sweeps vertically up and down through the model height in real time.
+    - **Holographic Ground Radar Pedestal (`createGroundPedestal`)**: Concentric metric rings, 16 radial degree tick marks, and an animated sweeping radar arm beneath the model.
+    - **Orbital Latent Token Particle Swarm (`createOrbitalSparks`)**: 350 floating micro-sparks in a 3D toroidal orbit around the model, visually evoking latent tokens condensing into physical geometry.
+    - **CAD Sci-Fi Bounding Cage (`createBoundingCage`)**: 8-corner CAD brackets framing the active 3D bounding envelope of the model.
+    - **Master Animation Loop (`animatePointCloud`)**: Synchronously animates vertical laser slicing, counter-rotating radar floor, orbital sparks swirling, and subtle breathing pulse on bounding brackets at 60fps.
+    - **Display Mode Filter (`setPointCloudDisplayMode`)**: Real-time switching between `Matrix` (full holographic scene), `Laser` (laser scanner focus), and `Wire` (contour latitude rings focus).
+    - **Procedural Cybernetic Bust Fallback (`createFallbackPointCloud`)**: When generating from text prompts without an image, displays a dual-tone cyber sculpture with anatomical contour rings, head ellipsoid, and kinetic core.
+- **Next.js & Animate UI Powered HUD (`GenerationPreviewHUD.tsx`)**:
+  - Completely redesigned the viewport generation overlay with modern micro-interaction components:
+    - **21st.dev `BorderBeam`**: Continuous traveling dual-color beam (`#F9CF00` to `#38BDF8`) wrapping the floating glassmorphic HUD pill.
+    - **`AnimatedStatusBadge`**: Live pulsing radar status badge indicating the neural stage (`LATENT ENCODING`, `VOXEL SYNTHESIS`, `MARCHING CUBES`, `SURFACE TEXTURING`, `PBR OPTIMIZATION`).
+    - **Neural Activity Equalizer**: 6 animated frequency visualizer bars dancing in the header row to communicate live AI tensor execution.
+    - **Spring `SlidingNumber` Progress & Voxel Counters**: Smooth spring counting numbers for percentage (0-100%), live synthesized voxel count (e.g. `38,400 voxels`), and elapsed time.
+    - **Futuristic Shimmer Progress Bar & Stage Breadcrumbs**: Multi-stage progress meter with traveling light reflection and active/completed breadcrumb pills for all 5 generation stages.
+    - **Interactive Quick-Align Camera Controls**: Instant alignment buttons (`Orbit`, `Front`, `Side`, `Top`) right on the HUD for effortless 360-degree inspection while generating.
+    - **Reference Hologram Box**: If generating image-to-3d, displays a mini reference thumbnail with a traveling laser sweep line and full-res `ImageZoom` modal trigger.
+    - **`RippleButton` Cancel CTA**: Accessible destructive button with radial ripple feedback to abort or close preview.
+- **Viewport Integration (`MeshViewer.tsx`)**:
+  - Integrated `GenerationPreviewHUD` into the 3D canvas viewport overlay.
+  - Linked `applyCameraPreset` to the HUD's camera quick-align buttons.
+  - Hooked `animatePointCloud` into the main Three.js animation loop.
+  - Added `generationDisplayMode` state to control real-time Three.js component visibility.
+
 ## [v5.0.70] - 2026-09-15
 ### Animate UI Integration & Visual Enhancement Across AI Studio
 - **Component Library Implementation (`components/animate-ui/`)**:
