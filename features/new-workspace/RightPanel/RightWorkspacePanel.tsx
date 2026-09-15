@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
+import { AnimatedTabs } from '@/components/animate-ui';
 
 // Import panels
 import { RightPropertyPanel } from './RightPropertyPanel';
@@ -41,57 +42,31 @@ export const RightWorkspacePanel: React.FC = () => {
     }
   }, [activeTask?.status, setRightPanelMode]);
 
+  const currentActiveTab =
+    rightPanelMode === 'prompt' && isRunning
+      ? 'prompt'
+      : rightPanelMode === 'assets'
+      ? 'assets'
+      : 'properties';
+
   return (
     <div className="flex flex-col h-full w-full bg-[#14161A] text-xs select-none overflow-hidden">
       {/* Top Segmented Header (Clean Technical Inspector Navigation) */}
       <div className="h-10 px-2.5 flex items-center justify-between border-b border-white/[0.08] bg-[#16181D] flex-shrink-0">
-        <div className="flex items-center gap-1 flex-1 min-w-0 mr-2 bg-[#101215] p-0.5 rounded-lg border border-white/[0.06]">
-          {/* 1. Live Execution Tab (highlighted when running) */}
-          {isRunning && (
-            <button
-              id="tab-btn-execution"
-              type="button"
-              onClick={() => setRightPanelMode('prompt')}
-              className={`flex-1 py-1 px-1.5 rounded-md text-[10px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                rightPanelMode === 'prompt'
-                  ? 'bg-[#F9CF00] text-black shadow-sm font-black'
-                  : 'bg-[#F9CF00]/15 text-[#F9CF00] animate-pulse border border-[#F9CF00]/30'
-              }`}
-            >
-              <Activity className="w-3 h-3" />
-              <span className="truncate">Executing</span>
-            </button>
-          )}
-
-          {/* 2. Properties Tab */}
-          <button
-            id="tab-btn-properties"
-            type="button"
-            onClick={() => setRightPanelMode('properties')}
-            className={`flex-1 py-1 px-1.5 rounded-md text-[10px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer ${
-              rightPanelMode === 'properties' || rightPanelMode === 'property' || (!isRunning && rightPanelMode !== 'assets')
-                ? 'bg-[#22252D] text-white shadow-sm font-black'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            <Sliders className="w-3 h-3 text-emerald-400" />
-            <span className="truncate">Properties</span>
-          </button>
-
-          {/* 3. Assets Tab */}
-          <button
-            id="tab-btn-assets"
-            type="button"
-            onClick={() => setRightPanelMode('assets')}
-            className={`flex-1 py-1 px-1.5 rounded-md text-[10px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer ${
-              rightPanelMode === 'assets'
-                ? 'bg-[#22252D] text-white shadow-sm font-black'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            <FolderOpen className="w-3 h-3 text-sky-400" />
-            <span className="truncate">Assets</span>
-          </button>
+        <div className="flex-1 min-w-0 mr-2">
+          <AnimatedTabs
+            size="sm"
+            className="w-full p-0.5 bg-[#101215] border-white/[0.06]"
+            activeTab={currentActiveTab}
+            onChange={(tab) => setRightPanelMode(tab as any)}
+            tabs={[
+              ...(isRunning ? [{ id: 'prompt', label: 'Executing', icon: Activity }] : []),
+              { id: 'properties', label: 'Properties', icon: Sliders },
+              { id: 'assets', label: 'Assets', icon: FolderOpen },
+            ]}
+            activeIndicatorClassName="bg-[#22252D] border-white/[0.1]"
+            activeTabClassName="text-white font-bold"
+          />
         </div>
 
         {/* Collapse Panel Button */}

@@ -10,6 +10,7 @@ import { runtimeService } from '@/services/runtimeService';
 import { toast } from 'sonner';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useAppStore } from '@/stores/useAppStore';
+import { AnimatedSwitch } from '@/components/animate-ui';
 
 export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: () => Promise<void>) => void }) {
   const { options, loading: optionsLoading, error: optionsError } = useRuntimeOptions();
@@ -286,21 +287,11 @@ export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: 
                 Low VRAM Execution Mode (&lt;8GB GPUs)
               </CardTitle>
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={lowVram}
-                  onClick={() => handleToggleLowVram(!lowVram)}
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
-                    lowVram ? 'bg-[hsl(var(--neon-blue))]' : 'bg-[hsl(var(--muted))]'
-                  }`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-[hsl(var(--surface-2))] shadow ring-0 transition duration-200 ease-in-out ${
-                      lowVram ? 'translate-x-5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
+                <AnimatedSwitch
+                  checked={lowVram}
+                  onCheckedChange={(checked) => handleToggleLowVram(checked)}
+                  activeColor="bg-[#F9CF00]"
+                />
               </div>
             </div>
             <CardDescription>
@@ -339,21 +330,11 @@ export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: 
               Batch Generation &amp; Queue Pipelining
             </CardTitle>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={batchEnabled}
-                onClick={() => handleToggleBatch(!batchEnabled)}
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
-                  batchEnabled ? 'bg-primary' : 'bg-[hsl(var(--muted))]'
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-[hsl(var(--surface-2))] shadow ring-0 transition duration-200 ease-in-out ${
-                    batchEnabled ? 'translate-x-5' : 'translate-x-0'
-                  }`}
-                />
-              </button>
+              <AnimatedSwitch
+                checked={batchEnabled}
+                onCheckedChange={(checked) => handleToggleBatch(checked)}
+                activeColor="bg-[#F9CF00]"
+              />
             </div>
           </div>
           <CardDescription>

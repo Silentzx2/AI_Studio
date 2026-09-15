@@ -33,6 +33,7 @@ import { useManifestModels, type ManifestModel } from '@/hooks/useManifestModels
 import { useUploadProgress } from '@/hooks/useUploadProgress';
 import { apiClient } from '@/services/apiClient';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
+import { AnimatedTabs, AnimatedSwitch, RippleButton, SlidingNumber, ImageZoom } from '@/components/animate-ui';
 
 export const GeneratePanel: React.FC = () => {
   const router = useRouter();
@@ -360,56 +361,20 @@ export const GeneratePanel: React.FC = () => {
 
       {/* Segmented Mode Navigation Tabs: Create | Mesh | Engine | Advanced */}
       <div className="px-2 pt-1.5 pb-1 border-b border-white/[0.06] bg-[#141518]/60 flex-shrink-0">
-        <div className="grid grid-cols-4 p-0.5 rounded-lg bg-[#191A1D] border border-white/[0.08] gap-0.5">
-          <button
-            type="button"
-            onClick={() => setPanelTab('create')}
-            className={`py-1.5 px-1 rounded-md font-bold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer ${
-              panelTab === 'create'
-                ? 'bg-[#F9CF00] text-black shadow-sm'
-                : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
-            }`}
-          >
-            <Sparkles className="w-3 h-3" />
-            <span className="truncate">Create</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setPanelTab('mesh')}
-            className={`py-1.5 px-1 rounded-md font-bold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer ${
-              panelTab === 'mesh'
-                ? 'bg-[#F9CF00] text-black shadow-sm'
-                : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
-            }`}
-          >
-            <Box className="w-3 h-3" />
-            <span className="truncate">Mesh</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setPanelTab('engine')}
-            className={`py-1.5 px-1 rounded-md font-bold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer ${
-              panelTab === 'engine'
-                ? 'bg-[#F9CF00] text-black shadow-sm'
-                : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
-            }`}
-          >
-            <Gauge className="w-3 h-3" />
-            <span className="truncate">Engine</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setPanelTab('advanced')}
-            className={`py-1.5 px-1 rounded-md font-bold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer ${
-              panelTab === 'advanced'
-                ? 'bg-[#F9CF00] text-black shadow-sm'
-                : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
-            }`}
-          >
-            <Sliders className="w-3 h-3" />
-            <span className="truncate">Settings</span>
-          </button>
-        </div>
+        <AnimatedTabs
+          className="w-full grid grid-cols-4 p-0.5 bg-[#191A1D] border-white/[0.08]"
+          size="sm"
+          activeTab={panelTab}
+          onChange={(t) => setPanelTab(t as any)}
+          tabs={[
+            { id: 'create', label: 'Create', icon: Sparkles },
+            { id: 'mesh', label: 'Mesh', icon: Box },
+            { id: 'engine', label: 'Engine', icon: Gauge },
+            { id: 'advanced', label: 'Settings', icon: Sliders },
+          ]}
+          activeIndicatorClassName="bg-[#F9CF00]"
+          activeTabClassName="text-black font-black"
+        />
       </div>
 
       {/* Main Body */}
@@ -548,15 +513,20 @@ export const GeneratePanel: React.FC = () => {
                       </div>
                     ) : generationSettings.image ? (
                       <div className="relative w-full h-full group z-10">
-                        <motion.img 
-                          initial={{ scale: 0.9, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
+                        <ImageZoom 
                           src={generationSettings.image} 
                           alt="Source reference" 
-                          className="w-full h-full object-contain" 
+                          className="w-full h-full border-0 bg-transparent rounded-none" 
+                          thumbnailClassName="w-full h-full object-contain"
                         />
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity text-[10px] font-bold text-[#F9CF00] gap-1">
-                          <RefreshCw className="w-4 h-4" />
+                        <div 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            fileInputRef.current?.click();
+                          }}
+                          className="absolute bottom-1.5 right-1.5 bg-black/80 hover:bg-black border border-white/20 text-[#F9CF00] px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 cursor-pointer z-20 transition-all opacity-0 group-hover:opacity-100 shadow-md"
+                        >
+                          <RefreshCw className="w-3 h-3" />
                           <span>Replace</span>
                         </div>
                       </div>
@@ -1493,9 +1463,11 @@ export const GeneratePanel: React.FC = () => {
               <div className="space-y-1 pt-1 border-t border-white/[0.04]">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-zinc-300 font-medium">Guidance Scale (CFG)</span>
-                  <span className="font-mono text-[#F9CF00] font-bold">
-                    {(generationSettings.guidanceScale || 7.5).toFixed(1)}
-                  </span>
+                  <SlidingNumber
+                    number={generationSettings.guidanceScale || 7.5}
+                    decimalPlaces={1}
+                    className="font-mono text-[#F9CF00] font-bold"
+                  />
                 </div>
                 <input
                   type="range"
@@ -1512,51 +1484,32 @@ export const GeneratePanel: React.FC = () => {
               </div>
 
               {/* Background Removal Switch */}
-              <div className="flex items-center justify-between text-xs pt-1.5 border-t border-white/[0.04]">
-                <div>
-                  <span className="text-zinc-200 font-semibold block">Remove Image Background</span>
-                  <span className="text-[10px] text-zinc-400">Isolates foreground subject before 3D reconstruction</span>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={Boolean(generationSettings.removeBackground ?? true)}
-                  onClick={() => setGenerationSettings(prev => ({
-                    ...prev,
-                    removeBackground: !(prev.removeBackground ?? true)
-                  }))}
-                  className={`w-8 h-4 rounded-full p-0.5 transition-colors relative cursor-pointer ${
-                    (generationSettings.removeBackground ?? true) ? 'bg-emerald-500' : 'bg-[#25262A]'
-                  }`}
-                >
-                  <div className={`w-3 h-3 rounded-full bg-white transition-transform ${
-                    (generationSettings.removeBackground ?? true) ? 'translate-x-4' : 'translate-x-0'
-                  }`} />
-                </button>
+              <div className="pt-1.5 border-t border-white/[0.04]">
+                <AnimatedSwitch
+                  checked={Boolean(generationSettings.removeBackground ?? true)}
+                  onCheckedChange={(val) => setGenerationSettings(prev => ({ ...prev, removeBackground: val }))}
+                  label="Remove Image Background"
+                  description="Isolates foreground subject before 3D reconstruction"
+                  activeColor="bg-emerald-500"
+                  size="sm"
+                />
               </div>
 
               {/* Generate In Parts Switch */}
-              <div className="flex items-center justify-between text-xs pt-1.5 border-t border-white/[0.04]">
-                <div>
-                  <span className="text-zinc-200 font-semibold flex items-center gap-1">
-                    <span>Multi-Part Generation</span>
-                    <span className="text-[8px] px-1 py-0.2 rounded bg-[#F9CF00]/20 text-[#F9CF00] font-bold">Pro</span>
-                  </span>
-                  <span className="text-[10px] text-zinc-400">Deconstructs complex objects into articulated sub-assemblies</span>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={generateInParts}
-                  onClick={() => setGenerateInParts(prev => !prev)}
-                  className={`w-8 h-4 rounded-full p-0.5 transition-colors relative cursor-pointer ${
-                    generateInParts ? 'bg-[#F9CF00]' : 'bg-[#25262A]'
-                  }`}
-                >
-                  <div className={`w-3 h-3 rounded-full bg-black transition-transform ${
-                    generateInParts ? 'translate-x-4' : 'translate-x-0'
-                  }`} />
-                </button>
+              <div className="pt-1.5 border-t border-white/[0.04]">
+                <AnimatedSwitch
+                  checked={generateInParts}
+                  onCheckedChange={(val) => setGenerateInParts(val)}
+                  label={(
+                    <span className="flex items-center gap-1">
+                      <span>Multi-Part Generation</span>
+                      <span className="text-[8px] px-1 py-0.2 rounded bg-[#F9CF00]/20 text-[#F9CF00] font-bold">Pro</span>
+                    </span>
+                  )}
+                  description="Deconstructs complex objects into articulated sub-assemblies"
+                  activeColor="bg-[#F9CF00]"
+                  size="sm"
+                />
               </div>
 
               {/* Asset Visibility / Privacy */}
@@ -1586,11 +1539,11 @@ export const GeneratePanel: React.FC = () => {
 
       {/* Bottom Sticky Action Button */}
       <div className="p-3 border-t border-white/[0.1] bg-[#16181D]/95 backdrop-blur-md relative z-20 flex-shrink-0">
-        <button
+        <RippleButton
           id="btn-generate-model-action"
           onClick={handleGenerate}
           disabled={isExecuting}
-          className={`w-full h-10 rounded-xl font-black text-xs flex items-center justify-center gap-2 shadow-lg transition-all duration-150 active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+          className={`w-full h-10 rounded-xl font-black text-xs flex items-center justify-center gap-2 shadow-lg transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
             isExecuting 
               ? 'bg-[#25262A] text-[#F9CF00] border border-[#F9CF00]/20' 
               : 'bg-gradient-to-b from-[#FFE24C] to-[#F9CF00] hover:from-[#FFE660] hover:to-[#FFD700] text-black shadow-[0_4px_16px_rgba(249,207,0,0.25)] hover:shadow-[0_6px_20px_rgba(249,207,0,0.35)]'
@@ -1607,14 +1560,20 @@ export const GeneratePanel: React.FC = () => {
               <span className="tracking-wider">GENERATE 3D MODEL</span>
             </>
           )}
-        </button>
+        </RippleButton>
         {isExecuting && (
-          <div className="mt-2 w-full bg-[#25262A] h-1.5 rounded-full overflow-hidden">
-            <motion.div 
-              initial={{ width: 0 }}
-              animate={{ width: `${executionProgress || 0}%` }}
-              className="bg-[#F9CF00] h-full rounded-full"
-            />
+          <div className="mt-2 space-y-1">
+            <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400 px-0.5">
+              <span>{executionStep || 'Processing'}</span>
+              <SlidingNumber number={executionProgress || 0} suffix="%" className="text-[#F9CF00] font-bold" />
+            </div>
+            <div className="w-full bg-[#25262A] h-1.5 rounded-full overflow-hidden">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${executionProgress || 0}%` }}
+                className="bg-[#F9CF00] h-full rounded-full"
+              />
+            </div>
           </div>
         )}
       </div>

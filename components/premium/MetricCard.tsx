@@ -4,6 +4,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { SlidingNumber } from '@/components/animate-ui';
 import { GlassCard } from './GlassCard';
 
 type MetricColor = 'purple' | 'blue' | 'cyan' | 'green' | 'pink' | 'amber';
@@ -154,87 +155,75 @@ export function MetricCard({
   unit,
   icon: Icon,
   trend,
-  color = 'purple',
+  color = 'amber',
   delay = 0,
   children,
   sparkline,
 }: MetricCardProps) {
-  const ic = ICON_COLORS[color];
-  const numericValue = typeof value === 'number' ? value : parseFloat(String(value));
-  const safeNumericValue = isNaN(numericValue) ? 0 : numericValue;
-  const animatedValue = useCountUp(safeNumericValue, 1200, delay + 0.3);
-  const displayValue = typeof value === 'number' ? animatedValue : value;
+  const ic = ICON_COLORS[color] || ICON_COLORS.amber;
+  const isNumeric = typeof value === 'number' || (!isNaN(Number(value)) && value !== '');
+  const numericVal = isNumeric ? Number(value) : 0;
+  const hasDecimals = String(value).includes('.');
+  const decimalPlaces = hasDecimals ? String(value).split('.')[1]?.length || 0 : 0;
 
   return (
-    <GlassCard hover delay={delay} className="p-5">
+    <div className="rounded-xl border border-white/[0.08] bg-[#14161A] p-5 shadow-sm transition-all hover:border-white/[0.14]">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2.5">
           {Icon && (
             <motion.div
-              className={cn('flex items-center justify-center w-9 h-9 rounded-xl', ic.text, ic.bg)}
-              style={{ boxShadow: ic.glow }}
-              whileHover={{ scale: 1.08, rotate: 3 }}
+              className={cn('flex items-center justify-center w-8 h-8 rounded-lg bg-white/[0.05] text-zinc-300 border border-white/[0.06]')}
+              whileHover={{ scale: 1.08 }}
               transition={{ type: 'spring', stiffness: 400, damping: 15 }}
             >
-              <Icon className="w-4 h-4" />
+              <Icon className="w-4 h-4 text-[#F9CF00]" />
             </motion.div>
           )}
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
             {label}
           </span>
         </div>
         {trend && (
-          <motion.span
+          <span
             className={cn(
               'text-xs font-mono inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md',
               trend.positive
-                ? 'text-[hsl(var(--neon-green))] bg-[hsl(var(--neon-green)/0.08)]'
-                : 'text-[hsl(var(--destructive))] bg-[hsl(var(--destructive)/0.08)]'
+                ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
+                : 'text-rose-400 bg-rose-500/10 border border-rose-500/20'
             )}
-            initial={{ opacity: 0, x: 8 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: delay + 0.6, duration: 0.4 }}
           >
-            <motion.span
-              animate={{ y: [0, -2, 0] }}
-              transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              {trend.positive ? '↑' : '↓'}
-            </motion.span>
+            <span>{trend.positive ? '↑' : '↓'}</span>
             {Math.abs(trend.value)}%
-          </motion.span>
+          </span>
         )}
       </div>
 
       <div className="flex items-end justify-between gap-2">
-        <div className="flex items-baseline gap-1.5">
-          <motion.span
-            className="text-2xl font-bold font-mono"
-            style={{
-              background: `linear-gradient(135deg, hsl(var(--foreground)), ${ic.accent} / 0.8)`,
-              WebkitBackgroundClip: 'text',
-              backgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: delay + 0.2, duration: 0.5 }}
-          >
-            {displayValue}
-          </motion.span>
+        <div className="flex items-baseline gap-1.5 font-mono">
+          {isNumeric ? (
+            <SlidingNumber
+              number={numericVal}
+              decimalPlaces={decimalPlaces}
+              className="text-2xl font-black text-white"
+            />
+          ) : (
+            <span className="text-2xl font-black text-white">
+              {value}
+            </span>
+          )}
           {unit && (
-            <span className="text-sm text-muted-foreground">
+            <span className="text-xs text-zinc-400 font-sans">
               {unit}
             </span>
           )}
         </div>
 
         {sparkline && sparkline.length >= 2 && (
-          <Sparkline data={sparkline} color={ic.accent} />
+          <Sparkline data={sparkline} color="#F9CF00" />
         )}
       </div>
 
       {children}
-    </GlassCard>
+    </div>
   );
 }

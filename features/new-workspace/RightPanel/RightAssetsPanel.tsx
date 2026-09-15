@@ -14,7 +14,8 @@ import {
   FolderOpen,
   AlertCircle,
   Loader2,
-  Search
+  Search,
+  ZoomIn
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { ModelAsset } from '../types';
@@ -22,6 +23,7 @@ import { useUploadProgress } from '@/hooks/useUploadProgress';
 import { UploadDiagnosticModal } from '../Modals/UploadDiagnosticModal';
 import { validate3DFile } from '../lib/fileValidation';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
+import { ImageZoom } from '@/components/animate-ui';
 
 export const RightAssetsPanel: React.FC = () => {
   const { 
@@ -400,6 +402,19 @@ export const RightAssetsPanel: React.FC = () => {
                       <span className="text-[9px] font-bold text-zinc-400 uppercase">
                         {asset.format}
                       </span>
+                    </div>
+                  )}
+
+                  {asset.thumbnail && (
+                    <div 
+                      className="absolute top-1.5 left-1.5 z-20 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <ImageZoom src={asset.thumbnail} alt={asset.name}>
+                        <div className="p-1 rounded-md bg-black/70 hover:bg-black text-zinc-300 hover:text-[#F9CF00] border border-white/20 shadow transition-colors" title="Zoom preview">
+                          <ZoomIn className="w-3 h-3" />
+                        </div>
+                      </ImageZoom>
                     </div>
                   )}
 

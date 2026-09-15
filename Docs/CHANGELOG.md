@@ -1,5 +1,30 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.70] - 2026-09-15
+### Animate UI Integration & Visual Enhancement Across AI Studio
+- **Component Library Implementation (`components/animate-ui/`)**:
+  - Implemented core Animate UI primitives strictly adhering to AI Studio matte black (`#0D0E10`, `#14161A`), dark gray (`#191A1D`, `#22252D`), and yellow accent (`#F9CF00`) design tokens.
+  - `SlidingNumber`: Digit roller spring physics with decimal support, monospace alignment, and `prefers-reduced-motion` compliance. Supports both `number` and `value` props.
+  - `RippleButton`: Cursor-centered radial ripple animations on click, spring hover and tap scaling, supporting `primary`, `secondary`, `outline`, `ghost`, and `destructive` variants across `sm`, `md`, and `lg` sizes.
+  - `AnimatedTabs`: Framer Motion `layoutId="activeTab"` sliding pill indicator with spring dynamics, tab change callbacks, and `AnimatedTabContent` transitions.
+  - `AnimatedSwitch`: Accessible ARIA toggle switch with spring-driven thumb physics, keyboard space/enter handlers, and customizable indicator accents.
+  - `CodeBlock`: Terminal-style code display with command line prefix, copy-to-clipboard spring feedback (`Check`/`Copy`), and syntax wrapping.
+  - `FileTree`: Hierarchical file and folder explorer with expandable nodes, rotating chevrons, size tags, and category/status badges.
+  - `ImageZoom`: Spring lightbox overlay for high-resolution asset inspection, supporting hover triggers or custom trigger components.
+  - `AnimatedIcon`: Lucide icon animation wrapper with `bump`, `rotate`, `pulse`, `bounce`, and `shake` presets.
+- **Surface Integrations Across 15 Feature Areas**:
+  - **Generate Panel (`features/new-workspace/Panels/GeneratePanel.tsx`)**: Upgraded sub-tabs (`Create`, `Mesh`, `Engine`, `Advanced`) to `AnimatedTabs`. Replaced raw sliders and step percentages with `SlidingNumber`. Replaced toggles with `AnimatedSwitch`. Upgraded primary generation CTA to `RippleButton`. Wrapped reference image in `ImageZoom` with spring lightbox modal and quick Replace action.
+  - **Right Workspace Panel (`features/new-workspace/RightPanel/RightWorkspacePanel.tsx`)**: Upgraded segmented workspace navigation tabs (`Executing`, `Properties`, `Assets`) to `AnimatedTabs` with smooth sliding pill transitions.
+  - **Live Execution Panel (`features/new-workspace/RightPanel/LiveExecutionPanel.tsx`)**: Replaced elapsed timer (`elapsedSeconds`) and progress percentage with `SlidingNumber`. Added animated copy button for telemetry logs.
+  - **MetricCard (`components/premium/MetricCard.tsx`)**: Replaced custom `useCountUp` hook with `SlidingNumber`. Cleaned up neon glows in favor of matte black surface styling with `#F9CF00` accent.
+  - **Generation Settings (`features/settings/sections/GenerationSection.tsx`)**: Replaced native checkbox switches with `AnimatedSwitch` for Low VRAM Mode and Batch Generation.
+  - **Model Manager & Installed Models (`features/model-manager/tabs/InstalledModelsTab.tsx`)**: Replaced native browser `confirm()` with accessible `AlertDialog`. Integrated `FileTree` inspection view for checkpoints and config files of selected models. Upgraded model repair and uninstall buttons to `RippleButton`.
+  - **Model Card (`features/model-manager/ModelCard.tsx`)**: Added `SlidingNumber` for live model download progress and upgraded model action buttons (`Install`, `Load`, `Unload`, `Uninstall`) to `RippleButton`.
+  - **Asset Drawer (`features/new-workspace/RightPanel/RightAssetsPanel.tsx`)**: Added `ImageZoom` preview trigger on asset thumbnails to inspect 2D/3D renders at full resolution.
+- **Verification**:
+  - Turbopack Next.js build (`npm run build`): Successfully compiled 14/14 static pages and all dynamic routes with 0 TypeScript errors.
+  - Backend test suite (`PYTHONPATH=backend python -m pytest backend/tests/ -q`): 59/59 passed cleanly in 20.44s.
+
 ## [v5.0.69] - 2026-09-15
 ### Fix Missing Anatomical Micro-Details (Eyes, Pupils, Teeth, Ears) Across Generation Pipeline
 - **Root Causes Identified**:

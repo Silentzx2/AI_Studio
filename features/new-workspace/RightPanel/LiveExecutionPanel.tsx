@@ -14,8 +14,12 @@ import {
   ArrowRight,
   Box,
   Terminal,
-  Layers
+  Layers,
+  Copy,
+  Check
 } from 'lucide-react';
+import { SimpleTooltip } from '@/components/ui/simple-tooltip';
+import { SlidingNumber } from '@/components/animate-ui';
 import { useWorkspace } from '../store/WorkspaceContext';
 
 interface PipelineStep {
@@ -43,7 +47,19 @@ export const LiveExecutionPanel: React.FC = () => {
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [logsCopied, setLogsCopied] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
+
+  const handleCopyLogs = async () => {
+    const text = (activeTask?.logs || []).map(l => `[${l.level || 'info'}] ${l.message}`).join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      setLogsCopied(true);
+      setTimeout(() => setLogsCopied(false), 2000);
+    } catch {
+      // ignore
+    }
+  };
 
   // Timer tracking
   useEffect(() => {
@@ -176,7 +192,11 @@ export const LiveExecutionPanel: React.FC = () => {
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-mono text-zinc-400 flex items-center gap-1">
             <Clock className="w-3 h-3 text-zinc-500" />
-            <span>{Math.floor(elapsedSeconds / 60)}:{(elapsedSeconds % 60).toString().padStart(2, '0')}</span>
+            <span className="flex items-center">
+              <SlidingNumber number={Math.floor(elapsedSeconds / 60)} padStart minDigits={2} />
+              <span>:</span>
+              <SlidingNumber number={elapsedSeconds % 60} padStart minDigits={2} />
+            </span>
           </span>
           <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full font-bold uppercase ${
             isCompleted
@@ -196,7 +216,7 @@ export const LiveExecutionPanel: React.FC = () => {
         <div className="p-2.5 rounded-xl bg-[#1B1E24] border border-white/[0.08] space-y-1">
           <div className="flex items-center justify-between">
             <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400">Current Task</div>
-            <div className="text-[10px] font-mono font-bold text-[#F9CF00]">{progress}%</div>
+            <SlidingNumber number={progress} suffix="%" className="text-[10px] font-mono font-bold text-[#F9CF00]" />
           </div>
           <div className="text-xs font-bold text-white leading-snug">
             {activeTask?.title || '3D Asset Generation'}
@@ -315,9 +335,30 @@ export const LiveExecutionPanel: React.FC = () => {
                 Live Execution Logs
               </span>
             </div>
-            <span className="text-[9px] font-mono text-zinc-500 bg-white/[0.04] px-1.5 py-0.5 rounded border border-white/[0.06]">
-              {logs.length} entries
-            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleCopyLogs}
+                disabled={logs.length === 0}
+                className="px-1.5 py-0.5 rounded text-[9px] font-mono text-zinc-400 hover:text-white hover:bg-white/[0.08] transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-40"
+                title="Copy logs"
+              >
+                {logsCopied ? (
+                  <span className="text-emerald-400 flex items-center gap-1">
+                    <Check className="w-3 h-3" />
+                    <span>Copied</span>
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1">
+                    <Copy className="w-3 h-3" />
+                    <span>Copy</span>
+                  </span>
+                )}
+              </button>
+              <span className="text-[9px] font-mono text-zinc-500 bg-white/[0.04] px-1.5 py-0.5 rounded border border-white/[0.06] flex items-center gap-1">
+                <SlidingNumber number={logs.length} /> <span>entries</span>
+              </span>
+            </div>
           </div>
 
           <div className="rounded-xl bg-black/60 border border-white/[0.08] p-2.5 max-h-44 overflow-y-auto font-mono text-[10px] space-y-1.5 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent select-text">

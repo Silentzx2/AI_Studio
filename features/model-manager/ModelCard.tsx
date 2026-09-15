@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { Play, Pause, Trash2, Download, CheckCircle } from 'lucide-react';
+import { RippleButton, SlidingNumber } from '@/components/animate-ui';
 
 export function ModelCard({ model, onAction }: { model: any, onAction: (id: string, action: string) => void }) {
   const [progress, setProgress] = useState<number>(model.download_progress?.percent ?? model.progress ?? 0);
   const [status, setStatus] = useState(model.download_progress?.status ?? model.status);
 
-    
   useEffect(() => {
     if (model.status === 'downloading' || status === 'downloading' || status === 'starting') {
       const evtSource = new EventSource(`/api/v1/admin/install/stream/${model.id}`);
@@ -26,46 +26,49 @@ export function ModelCard({ model, onAction }: { model: any, onAction: (id: stri
   }, [model.status, model.id, status, onAction]);
 
   return (
-    <div className="bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]/[0.3] rounded-xl p-5 flex flex-col gap-4">
+    <div className="bg-[#14161A] border border-white/[0.08] hover:border-white/[0.16] rounded-xl p-5 flex flex-col gap-4 transition-all duration-200 shadow-sm">
       <div className="flex justify-between items-start">
         <div>
-          <h3 className="font-semibold text-lg text-[hsl(var(--foreground))] mb-1">{model.label}</h3>
-          <p className="text-sm text-[hsl(var(--foreground))]/50 mb-2">{model.name}</p>
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[hsl(var(--surface-2))] text-[hsl(var(--foreground))]/80">
+          <h3 className="font-semibold text-lg text-white mb-1">{model.label}</h3>
+          <p className="text-sm text-zinc-400 mb-2">{model.name}</p>
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-white/[0.06] text-zinc-300">
             {model.category}
           </span>
         </div>
         {model.installed ? (
-          <CheckCircle className="w-5 h-5 text-[hsl(var(--neon-green))]" />
+          <CheckCircle className="w-5 h-5 text-emerald-400" />
         ) : (
-          <Download className="w-5 h-5 text-[hsl(var(--foreground))]/40" />
+          <Download className="w-5 h-5 text-zinc-500" />
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 text-sm text-[hsl(var(--foreground))]/60 mb-2">
+      <div className="grid grid-cols-2 gap-2 text-sm text-zinc-400 mb-2">
         <div className="flex flex-col">
-          <span className="text-[hsl(var(--foreground))]/40 text-xs">Size</span>
-          <span>{model.size_estimate_gb || (model.size_mb ? (model.size_mb / 1000).toFixed(1) : '0.0')} GB</span>
+          <span className="text-zinc-500 text-xs">Size</span>
+          <span className="text-zinc-200 font-mono text-xs">{model.size_estimate_gb || (model.size_mb ? (model.size_mb / 1000).toFixed(1) : '0.0')} GB</span>
         </div>
         <div className="flex flex-col">
-          <span className="text-[hsl(var(--foreground))]/40 text-xs">VRAM Req.</span>
-          <span>{model.vram_required_mb ? (model.vram_required_mb / 1024).toFixed(1) : '0.0'} GB</span>
+          <span className="text-zinc-500 text-xs">VRAM Req.</span>
+          <span className="text-zinc-200 font-mono text-xs">{model.vram_required_mb ? (model.vram_required_mb / 1024).toFixed(1) : '0.0'} GB</span>
         </div>
       </div>
 
       {/* Show progress during any active install phase */}
       {(status === 'downloading' || status === 'starting' || status === 'installing') && (
         <div className="space-y-2 mt-auto">
-          <div className="flex justify-between text-xs text-[hsl(var(--foreground))]/60">
+          <div className="flex justify-between text-xs text-zinc-400">
             <span>
               {status === 'starting' ? 'Starting installation…'
                : status === 'installing' ? 'Installing dependencies…'
                : 'Downloading…'}
             </span>
-            <span>{Math.round(progress)}%</span>
+            <div className="flex items-center gap-0.5 text-zinc-200 font-mono">
+              <SlidingNumber value={Math.round(progress)} />
+              <span>%</span>
+            </div>
           </div>
-          <div className="w-full bg-[hsl(var(--surface-2))] rounded-full h-1.5">
-            <div className="bg-[hsl(var(--neon-blue))] h-1.5 rounded-full transition-all"
+          <div className="w-full bg-[#0D0E10] rounded-full h-1.5 overflow-hidden">
+            <div className="bg-[#F9CF00] h-1.5 rounded-full transition-all duration-300"
                  style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}></div>
           </div>
         </div>
@@ -73,37 +76,41 @@ export function ModelCard({ model, onAction }: { model: any, onAction: (id: stri
 
       <div className="mt-auto flex gap-2">
         {!model.installed && status !== 'downloading' && (
-          <button 
+          <RippleButton 
             onClick={() => onAction(model.id, 'install')}
-            className="flex-1 bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-2))] text-[hsl(var(--foreground))] py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
+            variant="primary"
+            className="flex-1 h-9 text-xs"
           >
-            <Download className="w-4 h-4" /> Install
-          </button>
+            <Download className="w-3.5 h-3.5 mr-1.5" /> Install
+          </RippleButton>
         )}
         
         {model.installed && (
           <>
             {model.loaded ? (
-              <button 
+              <RippleButton 
                 onClick={() => onAction(model.id, 'unload')}
-                className="flex-1 bg-[hsl(var(--neon-amber)/0.2)] text-[hsl(var(--neon-amber))] hover:bg-[hsl(var(--neon-amber))]/30 py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
+                variant="secondary"
+                className="flex-1 h-9 text-xs text-amber-300 border-amber-500/20 bg-amber-500/10 hover:bg-amber-500/20"
               >
-                <Pause className="w-4 h-4" /> Unload
-              </button>
+                <Pause className="w-3.5 h-3.5 mr-1.5" /> Unload
+              </RippleButton>
             ) : (
-              <button 
+              <RippleButton 
                 onClick={() => onAction(model.id, 'load')}
-                className="flex-1 bg-[hsl(var(--neon-green)/0.2)] text-[hsl(var(--neon-green))] hover:bg-green-500/30 py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
+                variant="secondary"
+                className="flex-1 h-9 text-xs text-emerald-400 border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20"
               >
-                <Play className="w-4 h-4" /> Load
-              </button>
+                <Play className="w-3.5 h-3.5 mr-1.5" /> Load
+              </RippleButton>
             )}
-            <button 
+            <RippleButton 
               onClick={() => onAction(model.id, 'uninstall')}
-              className="bg-[hsl(var(--destructive)/0.1)] text-[hsl(var(--destructive))] hover:bg-[hsl(var(--destructive)/0.2)] p-2 rounded-lg transition-colors"
+              variant="destructive"
+              className="h-9 px-3 bg-red-950/40 text-red-400 border border-red-900/40 hover:bg-red-900/30"
             >
-              <Trash2 className="w-4 h-4" />
-            </button>
+              <Trash2 className="w-3.5 h-3.5" />
+            </RippleButton>
           </>
         )}
       </div>
