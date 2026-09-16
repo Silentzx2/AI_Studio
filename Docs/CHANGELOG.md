@@ -23,6 +23,8 @@
   - Added multi-tier RMBG loading: loads from local directory if present; falls back to HuggingFace Hub (`briaai/RMBG-1.4`) if online; falls back to `rembg` (or PIL alpha composition) without crashing the generation job.
 - **Pydantic Schema Cleanup (`backend/app/schemas/generation.py`)**:
   - Resolved `DownloadUrls` Pydantic v2 warning regarding the `json` attribute shadowing `BaseModel.json`.
+- **Numba Threading Layer Configuration (`main.py`, `celery_app.py`, `model_env.py`)**:
+  - Set `NUMBA_THREADING_LAYER=workqueue` and silenced TBB interface version mismatch warnings across main API, Celery worker, and model environments.
 
 ## [v5.0.75] - 2026-09-16
 ### Mesh Detail Preservation & Authoritative Final GLB Architecture

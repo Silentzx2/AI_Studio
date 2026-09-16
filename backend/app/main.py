@@ -37,6 +37,11 @@ _cuda_visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
 if _cuda_visible.strip().lower() == "all":
     os.environ.pop("CUDA_VISIBLE_DEVICES", None)
 
+# Suppress TBB interface version mismatch warning by using Numba's workqueue
+os.environ.setdefault("NUMBA_THREADING_LAYER", "workqueue")
+import warnings
+warnings.filterwarnings("ignore", message=".*The TBB threading layer requires TBB version.*")
+
 # Suppress verbose HF Hub lock acquire/release logs
 logging.getLogger("huggingface_hub").setLevel(logging.WARNING)
 logging.getLogger("huggingface_hub.file_download").setLevel(logging.WARNING)

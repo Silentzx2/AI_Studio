@@ -35,6 +35,10 @@ _val = _os.environ.get('CUDA_VISIBLE_DEVICES', '')
 if _val.strip().lower() == 'all':
     _os.environ.pop('CUDA_VISIBLE_DEVICES', None)
 
+_os.environ.setdefault("NUMBA_THREADING_LAYER", "workqueue")
+import warnings
+warnings.filterwarnings("ignore", message=".*The TBB threading layer requires TBB version.*")
+
 from celery import Celery
 
 from app.config import get_settings

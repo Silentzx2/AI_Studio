@@ -841,6 +841,9 @@ class Hunyuan3D2MiniLocalProvider(_HunyuanBase):
         try:
             from app.core.providers.base import _patch_numpy_legacy_aliases
             _patch_numpy_legacy_aliases()
+            import os, warnings
+            os.environ.setdefault("NUMBA_THREADING_LAYER", "workqueue")
+            warnings.filterwarnings("ignore", message=".*The TBB threading layer requires TBB version.*")
             try:
                 import transformers.utils.import_utils as _tiu
                 if hasattr(_tiu, "check_torch_load_is_safe"):

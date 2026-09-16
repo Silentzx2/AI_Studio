@@ -128,6 +128,15 @@ def apply_numpy_bridge() -> None:
     except Exception as exc:
         logger.debug("Error in apply_numpy_bridge: %s", exc)
 
+    # Suppress TBB interface version mismatch warning by using Numba's workqueue
+    try:
+        import os
+        os.environ.setdefault("NUMBA_THREADING_LAYER", "workqueue")
+        import warnings
+        warnings.filterwarnings("ignore", message=".*The TBB threading layer requires TBB version.*")
+    except Exception:
+        pass
+
     # Bypass transformers CVE-2025-32434 check_torch_load_is_safe blocking .bin weights on PyTorch < 2.6
     try:
         import transformers.utils.import_utils as _tiu
@@ -150,7 +159,9 @@ def apply_numpy_bridge() -> None:
 # Subprocess-injectable version (string form for _run_in_venv)
 _NUMPY_BRIDGE_CODE = (
     "try:\n"
+    "    import os; os.environ.setdefault('NUMBA_THREADING_LAYER', 'workqueue')\n"
     "    import warnings; warnings.filterwarnings('ignore', category=DeprecationWarning)\n"
+    "    warnings.filterwarnings('ignore', message='.*The TBB threading layer requires TBB version.*')\n"
     "    import sys, numpy as _np\n"
     "    if 'long' not in _np.__dict__: _np.long = getattr(_np, 'int_', int)\n"
     "    if 'ulong' not in _np.__dict__: _np.ulong = getattr(_np, 'uint', int)\n"
