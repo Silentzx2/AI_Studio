@@ -47,39 +47,44 @@ async def generation_history(limit: int = 20, offset: int = 0):
                 .limit(limit)
             )
             jobs = result.scalars().all()
+            job_items = []
+            for j in jobs:
+                meta = j.processing_metadata if isinstance(j.processing_metadata, dict) else {}
+                pp = meta.get("postprocess")
+                pp_status = pp.get("status") if isinstance(pp, dict) else j.status
+                job_items.append(
+                    {
+                        "id": j.id,
+                        "status": j.status,
+                        "mode": j.mode,
+                        "prompt": j.prompt,
+                        "provider": j.provider,
+                        "progress": j.progress,
+                        "stage": j.stage,
+                        "low_vram": j.low_vram,
+                        "vram_mode": j.vram_mode,
+                        "model_url": j.model_url,
+                        "thumbnail_url": j.thumbnail_url,
+                        "polygon_count": j.polygon_count,
+                        "vertex_count": j.vertex_count,
+                        "file_size": j.file_size,
+                        "has_rig": j.has_rig,
+                        "dimensions": meta.get("dimensions"),
+                        "bounding_box": meta.get("bounding_box"),
+                        "object_count": meta.get("object_count"),
+                        "component_count": meta.get("component_count"),
+                        "material_count": meta.get("material_count"),
+                        "topology": meta.get("topology") or "Triangle",
+                        "mesh_details": meta.get("mesh_details"),
+                        "postprocess_status": pp_status or j.status,
+                        "created_at": j.created_at.isoformat() if j.created_at else None,
+                        "completed_at": j.completed_at.isoformat() if j.completed_at else None,
+                    }
+                )
             return success(
                 {
-                    "jobs": [
-                        {
-                            "id": j.id,
-                            "status": j.status,
-                            "mode": j.mode,
-                            "prompt": j.prompt,
-                            "provider": j.provider,
-                            "progress": j.progress,
-                            "stage": j.stage,
-                            "low_vram": j.low_vram,
-                            "vram_mode": j.vram_mode,
-                            "model_url": j.model_url,
-                            "thumbnail_url": j.thumbnail_url,
-                            "polygon_count": j.polygon_count,
-                            "vertex_count": j.vertex_count,
-                            "file_size": j.file_size,
-                            "has_rig": j.has_rig,
-                            "dimensions": (j.processing_metadata or {}).get("dimensions"),
-                            "bounding_box": (j.processing_metadata or {}).get("bounding_box"),
-                            "object_count": (j.processing_metadata or {}).get("object_count"),
-                            "component_count": (j.processing_metadata or {}).get("component_count"),
-                            "material_count": (j.processing_metadata or {}).get("material_count"),
-                            "topology": (j.processing_metadata or {}).get("topology") or "Triangle",
-                            "mesh_details": (j.processing_metadata or {}).get("mesh_details"),
-                            "postprocess_status": (j.processing_metadata or {}).get("postprocess", {}).get("status") or j.status,
-                            "created_at": j.created_at.isoformat() if j.created_at else None,
-                            "completed_at": j.completed_at.isoformat() if j.completed_at else None,
-                        }
-                        for j in jobs
-                    ],
-                    "total": len(jobs),
+                    "jobs": job_items,
+                    "total": len(job_items),
                     "offset": offset,
                     "limit": limit,
                 }
@@ -546,6 +551,8 @@ async def get_generation_status(job_id: str):
             }
 
             if job.status in ("completed", "completed_degraded", "succeeded"):
+                pp = meta.get("postprocess")
+                pp_status = pp.get("status") if isinstance(pp, dict) else job.status
                 response["result"] = {
                     "model_url": job.model_url,
                     "thumbnail_url": job.thumbnail_url,
@@ -558,7 +565,7 @@ async def get_generation_status(job_id: str):
                     "material_count": meta.get("material_count"),
                     "topology": meta.get("topology") or "Triangle",
                     "mesh_details": meta.get("mesh_details"),
-                    "postprocess_status": meta.get("postprocess", {}).get("status") or job.status,
+                    "postprocess_status": pp_status or job.status,
                     "texture_resolution": job.texture_resolution,
                     "has_rig": job.has_rig,
                     "file_size": job.file_size,
@@ -589,10 +596,10 @@ async def get_generation_status(job_id: str):
                             "material_count": meta.get("material_count"),
                             "topology": meta.get("topology") or "Triangle",
                             "mesh_details": meta.get("mesh_details"),
-                            "postprocess_status": meta.get("postprocess", {}).get("status") or job.status,
+                            "postprocess_status": pp_status or job.status,
                         },
                     },
-                    "postprocess": meta.get("postprocess"),
+                    "postprocess": pp if isinstance(pp, dict) else None,
                 }
 
             return success(response)

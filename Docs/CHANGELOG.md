@@ -19,6 +19,8 @@
   - Switched Celery worker pool from `prefork` to `--pool=solo`, eliminating CUDA runtime fork safety violations, memory fragmentation, and duplicate process overhead in PyTorch GPU workflows.
   - Removed duplicate `-B` Celery Beat flag from worker execution scripts to prevent scheduler contention.
   - Configured `broker_connection_retry_on_startup=True` to silence Celery 6.0 startup warnings.
+- **Generation History API Robustness (`backend/app/api/v1/generation.py`)**:
+  - Handled boolean `postprocess` metadata safely in `/history` and `/{job_id}/status`. Previously, when jobs had boolean request flags `{"postprocess": True}`, calling `.get("postprocess", {}).get("status")` raised `AttributeError: 'bool' object has no attribute 'get'`. Now safely verifies dict typing before calling `.get("status")` and falls back to `job.status`.
 - **Colab Watchdog Resiliency (`scripts/colab_watch.sh`)**:
   - Fixed false-positive kills in `worker_healthy()` caused by Celery `setproctitle` renaming the worker process to `[celeryd: ...]`. The watchdog now reliably matches `celery`, `python`, and `[celeryd` process command lines.
   - Increased `MAX_CONSECUTIVE_FAILS` from 6 to 12 (120s grace period) to ensure workers are not prematurely terminated during heavy model loading.

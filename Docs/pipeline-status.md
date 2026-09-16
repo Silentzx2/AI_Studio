@@ -29,6 +29,8 @@
 4. **Premature VRAM Eviction**:
    - `backend/app/workers/vram_health_worker.py` evicted models when VRAM pressure exceeded 90%, even when only a single active model was loaded on a 15GB GPU.
    - **Fix**: Added `and len(allocated) > 1` guard so single active models are never unloaded in the background.
+5. **History & Status Serialization Resiliency (`backend/app/api/v1/generation.py`)**:
+   - Resolved `AttributeError: 'bool' object has no attribute 'get'` in `/history` and `/{job_id}/status`. Requests storing boolean `{"postprocess": True}` in `processing_metadata` caused nested `.get("postprocess", {}).get("status")` calls to fail before jobs finished. Added type checks to safely fallback to `job.status`.
 
 ---
 

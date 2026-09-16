@@ -186,3 +186,54 @@ def test_get_mesh_stats_missing_file_graceful():
     assert stats["vertex_count"] == 0
     assert stats["dimensions"] == {"x": 0.0, "y": 0.0, "z": 0.0}
     assert stats["mesh_details"]["status"] == "unsupported"
+
+
+@pytest.mark.asyncio
+async def test_generation_history_handles_boolean_postprocess_metadata():
+    """Verify history endpoint handles boolean 'postprocess' without raising AttributeError."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+    from app.api.v1.generation import generation_history
+
+    mock_job = MagicMock()
+    mock_job.id = "job-bool-test"
+    mock_job.status = "queued"
+    mock_job.mode = "text-to-3d"
+    mock_job.prompt = "a cute robot"
+    mock_job.provider = "hunyuan3d-2mini"
+    mock_job.progress = 10
+    mock_job.stage = "queued"
+    mock_job.low_vram = False
+    mock_job.vram_mode = "balanced"
+    mock_job.model_url = None
+    mock_job.thumbnail_url = None
+    mock_job.polygon_count = None
+    mock_job.vertex_count = None
+    mock_job.file_size = None
+    mock_job.has_rig = False
+    # CRITICAL: This was causing AttributeError: 'bool' object has no attribute 'get'
+    mock_job.processing_metadata = {"postprocess": True, "skip_postprocessing": False}
+    mock_job.created_at = None
+    mock_job.completed_at = None
+
+    mock_scalars = MagicMock()
+    mock_scalars.all.return_value = [mock_job]
+
+    mock_result = MagicMock()
+    mock_result.scalars.return_value = mock_scalars
+
+    mock_session = AsyncMock()
+    mock_session.execute.return_value = mock_result
+
+    class MockAsyncSessionLocal:
+        async def __aenter__(self):
+            return mock_session
+        async def __aexit__(self, *args):
+            pass
+
+    with patch("app.database.AsyncSessionLocal", MockAsyncSessionLocal):
+        response = await generation_history(limit=20, offset=0)
+        # Verify it succeeds and postprocess_status gracefully defaults to job.status
+        assert response["success"] is True
+        assert response["data"]["total"] == 1
+        assert response["data"]["jobs"][0]["postprocess_status"] == "queued"
+
