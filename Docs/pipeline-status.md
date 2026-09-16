@@ -1,6 +1,6 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.76 (On-Demand Weights & TripoSG Auxiliary Model Resiliency)
+> **Version**: 5.0.76 (Colab Stability, Celery Solo Pool & Watchdog Hardening)
 > **Status**: Verified and active; comprehensive backend regression suite passing, frontend production build verified.
 > **Last Updated**: September 16, 2026
 
@@ -10,6 +10,25 @@
 > 3. Semantic details (eyes, teeth, anatomical components) must never be defaulted to false zeros; if undetected in unstructured meshes, they report `not_analyzed` / `unsupported`.
 > 4. Frontend state managers (`WorkspaceContext`, `MeshViewer`, `RightPropertyPanel`) must preserve authoritative metadata across history refetches, tab switches, and scene re-renders. Runtime Three.js traversal serves solely as fallback/diagnostics.
 > 5. OpenX Clay is the canonical game-ready post-processing engine. Blender is a downstream DCC/export/rigging adapter used where required. ARDY support is based on the actually pinned/verified checkpoint and its published skeleton metadata.
+
+---
+
+## v5.0.76 — Colab Worker Stability, Swap Protection & Watchdog Hardening (2026-09-16)
+
+### Root Cause Analysis & Resolutions
+1. **Linux Kernel OOM Killer on Colab Standard GPU (12.7GB CPU RAM, 0 Swap)**:
+   - Deserializing large PyTorch model weights (Hunyuan3D, TripoSG) causes CPU RAM usage to surge past 12.7GB before tensors are placed on CUDA VRAM. Without swap space, the Linux kernel terminated the Celery worker process with `SIGKILL` without emitting any Python traceback.
+   - **Fix**: Added `setup_swap()` in `scripts/colab.sh` to automatically allocate an 8GB `/swapfile` if total swap is below 4GB.
+2. **Celery Worker Execution Pool**:
+   - The default `prefork` pool is unsafe for CUDA runtime initialization across forks and duplicates memory pages.
+   - **Fix**: Switched all worker startups (`scripts/colab.sh`, `scripts/colab_watch.sh`, `scripts/start.sh`) to `--pool=solo` with `--concurrency=1`, and removed deprecated `-B` Celery Beat scheduler flags from worker processes.
+3. **Watchdog False-Positive Worker Kills (`scripts/colab_watch.sh`)**:
+   - `colab_watch.sh` performed a strict command-line string match `ps -p "$pid" -o args= | grep -F -- "celery -A app.workers.celery_app worker"`.
+   - Celery's `setproctitle` dynamically changes the process title to `[celeryd: ...]`, causing the string search to fail. After 6 checks (60 seconds), the watchdog assumed the worker was dead and sent `SIGKILL` precisely during model loading.
+   - **Fix**: Updated `worker_healthy()` in `scripts/colab_watch.sh` to match `celery`, `python`, and `[celeryd`, and expanded `MAX_CONSECUTIVE_FAILS` from 6 to 12.
+4. **Premature VRAM Eviction**:
+   - `backend/app/workers/vram_health_worker.py` evicted models when VRAM pressure exceeded 90%, even when only a single active model was loaded on a 15GB GPU.
+   - **Fix**: Added `and len(allocated) > 1` guard so single active models are never unloaded in the background.
 
 ---
 

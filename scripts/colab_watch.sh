@@ -188,8 +188,8 @@ start_worker() {
         set +a
         exec "$PYTHON_BIN" -m celery -A app.workers.celery_app worker \
             --loglevel=info \
+            --pool=solo \
             --concurrency=1 \
-            -B \
             -Q generation,images
     ) >> "${LOG_DIR}/worker.log" 2>&1 &
     write_pid worker "$!"
@@ -199,9 +199,13 @@ start_worker() {
     for _ in {1..30}; do
         local pid
         pid="$(pid_of worker)"
-        if pid_matches "$pid" "celery -A app.workers.celery_app worker"; then
-            log "Celery worker alive (PID ${pid})"
-            return 0
+        if [[ "$pid" =~ ^[0-9]+$ ]] && pid_alive "$pid"; then
+            local cmd
+            cmd="$(ps -p "$pid" -o args= 2>/dev/null || true)"
+            if [[ "$cmd" == *"celery"* || "$cmd" == *"python"* || "$cmd" == *"[celeryd"* ]]; then
+                log "Celery worker alive (PID ${pid})"
+                return 0
+            fi
         fi
         sleep 1
     done
@@ -270,7 +274,11 @@ frontend_healthy() {
 worker_healthy() {
     local pid
     pid="$(pid_of worker)"
-    pid_matches "$pid" "celery -A app.workers.celery_app worker"
+    [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+    pid_alive "$pid" || return 1
+    local cmd
+    cmd="$(ps -p "$pid" -o args= 2>/dev/null || true)"
+    [[ "$cmd" == *"celery"* || "$cmd" == *"python"* || "$cmd" == *"[celeryd"* ]]
 }
 
 restart_with_backoff() {
@@ -375,7 +383,7 @@ fi
 api_fails=0
 worker_fails=0
 frontend_fails=0
-MAX_CONSECUTIVE_FAILS=6
+MAX_CONSECUTIVE_FAILS=12
 
 while true; do
     api_ok=false

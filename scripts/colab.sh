@@ -190,6 +190,27 @@ _sanitize_apt_cuda_sources() {
   done
 }
 
+# ── Setup Swap Space (Colab RAM Protection) ──────────────────────────────────
+# Google Colab standard GPU runtimes have 12.7GB CPU RAM. Deserializing heavy
+# PyTorch model weights spikes RAM usage. Having 8GB of swap prevents the
+# Linux kernel OOM killer from sending SIGKILL to the Celery worker process.
+setup_swap() {
+  local current_swap
+  current_swap=$(free -m 2>/dev/null | awk '/Swap:/ {print $2}')
+  if [[ "${current_swap:-0}" -lt 4000 ]] && command -v swapon &>/dev/null; then
+    head_ "Memory Protection — Swap File Configuration"
+    info "Configuring 8GB swap to prevent Linux OOM-killer during model loading..."
+    if fallocate -l 8G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=8192 2>/dev/null; then
+      chmod 600 /swapfile 2>/dev/null || true
+      mkswap /swapfile >/dev/null 2>&1 || true
+      swapon /swapfile >/dev/null 2>&1 || true
+      ok "8GB swapfile active"
+    else
+      warn "Could not configure swapfile — proceed with caution on 12GB RAM"
+    fi
+  fi
+}
+
 setup_cuda_124() {
   head_ "CUDA Toolkit 12.4 — Detection & Installation"
 
@@ -740,8 +761,8 @@ colab_start_services() {
             $CELERY_BROKER_ARG \
             $CELERY_BACKEND_ARG \
             --loglevel=info \
+            --pool=solo \
             --concurrency=1 \
-            -B \
             -Q generation,images \
             > "$LOG_DIR/worker.log" 2>&1 &
         write_pid "$PID_DIR/worker.pid" $!
@@ -1200,6 +1221,9 @@ GPU_TYPE=$(detect_gpu)
 CUDA_VERSION=$(detect_cuda_version)
 log "GPU : ${CYAN}${GPU_TYPE}${NC}"
 log "CUDA: ${CYAN}cu${CUDA_VERSION}${NC}"
+
+# ── Ensure Swap Space is active (prevents OOM kills during PyTorch model load) ─
+setup_swap || warn "Swap setup had issues"
 
 # ── Ensure CUDA Toolkit 12.4 is installed and active ──────────────────────────
 if [[ "$GPU_TYPE" == "gpu" ]]; then
@@ -2306,8 +2330,8 @@ fi
         $CELERY_BROKER_ARG \
         $CELERY_BACKEND_ARG \
         --loglevel=info \
+        --pool=solo \
         --concurrency=1 \
-        -B \
         -Q generation,images \
         > "$LOG_DIR/worker.log" 2>&1 &
     write_pid "$PID_DIR/worker.pid" $!

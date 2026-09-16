@@ -52,9 +52,9 @@ def check_vram_health() -> dict:
     
     status = "healthy"
     
-    # If >90%: Unload oldest unused model
-    if pressure > 0.90:
-        logger.warning("VRAM pressure exceeds 90%% (pressure=%s). Selecting oldest model for eviction.", pressure)
+    # If >90% and multiple models loaded: Unload oldest unused model
+    if pressure > 0.90 and len(allocated) > 1:
+        logger.warning("VRAM pressure exceeds 90%% (pressure=%s) with %d models loaded. Selecting oldest model for eviction.", pressure, len(allocated))
         can_load, estimated_freed, model_to_unload = vram_tracker.predict_can_load("health_dummy", 0.1)
         if model_to_unload:
             logger.info("Evicting %s under memory pressure in background check", model_to_unload)

@@ -12,7 +12,17 @@
 # AI 3D Studio — Changelog
 
 ## [v5.0.76] - 2026-09-16
-### On-Demand Weights Optimization & TripoSG RMBG Auxiliary Fix
+### Colab Stability, Celery Worker Resiliency & On-Demand Weights
+- **Colab CPU RAM Swap Protection (`scripts/colab.sh`)**:
+  - Automatically provisions an 8GB `/swapfile` if system swap < 4GB. This eliminates silent Linux OOM-killer `SIGKILL` terminations when deserializing heavy PyTorch model weights (Hunyuan3D, TripoSG) in Colab's 12.7GB CPU RAM environment.
+- **Celery Worker Pool Architecture (`scripts/colab.sh`, `scripts/colab_watch.sh`, `scripts/start.sh`)**:
+  - Switched Celery worker pool from `prefork` to `--pool=solo`, eliminating CUDA runtime fork safety violations, memory fragmentation, and duplicate process overhead in PyTorch GPU workflows.
+  - Removed duplicate `-B` Celery Beat flag from worker execution scripts to prevent scheduler contention.
+- **Colab Watchdog Resiliency (`scripts/colab_watch.sh`)**:
+  - Fixed false-positive kills in `worker_healthy()` caused by Celery `setproctitle` renaming the worker process to `[celeryd: ...]`. The watchdog now reliably matches `celery`, `python`, and `[celeryd` process command lines.
+  - Increased `MAX_CONSECUTIVE_FAILS` from 6 to 12 (120s grace period) to ensure workers are not prematurely terminated during heavy model loading.
+- **VRAM Background Health Guard (`backend/app/workers/vram_health_worker.py`)**:
+  - Added `and len(allocated) > 1` guard before triggering background VRAM eviction, ensuring single active models running on 15GB Colab GPUs are never preemptively evicted.
 - **On-Demand Model Weights Architecture (`scripts/colab.sh`)**:
   - Removed forced weight downloads during runtime bootstrap / startup. Runtimes, venvs, and dependencies are prepared without blocking on multi-gigabyte downloads.
   - Weights are downloaded strictly on-demand via the Web UI (or explicitly with `bash scripts/colab.sh --weights-only`).

@@ -583,8 +583,8 @@ step "5/6 Starting Celery Worker..."
     set -a; source ../.env 2>/dev/null || true; set +a
     setsid $PYTHON_BIN -m celery -A app.workers.celery_app worker \
         --loglevel=info \
+        --pool=solo \
         --concurrency=1 \
-        -B \
         -Q generation,images,installation \
         >> "$PROJECT_ROOT/logs/worker.log" 2>&1 &
     write_pid "$WORKER_PID_FILE" $!
