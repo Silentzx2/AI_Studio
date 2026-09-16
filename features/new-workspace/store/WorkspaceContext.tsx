@@ -327,6 +327,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     autoOptimize: false,
     autoOptimizeSettings: { targetPolycount: 30000, fixUVs: true, preserveDetails: 75 },
     generateTexture: true,
+    detailPass: false,
+    triposfPass: false,
+    meshEnhancementMode: 'none',
+    detailGuidance: 7.5,
   });
 
   const [remeshSettings, setRemeshSettings] = useState<RemeshSettings>({
@@ -782,6 +786,14 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           preserve_details: generationSettings.preserveDetails ?? generationSettings.autoOptimizeSettings?.preserveDetails ?? 75,
           repair_uvs: generationSettings.repairUVs !== false,
           topology_mode: generationSettings.topologyMode || (generationSettings.quadTopology ? 'quad' : 'adaptive'),
+          detail_pass: Boolean(generationSettings.detailPass),
+          detail_guidance: generationSettings.detailGuidance ?? 7.5,
+          triposf_pass: Boolean(generationSettings.triposfPass),
+          mesh_enhancement_mode: generationSettings.meshEnhancementMode || (
+            generationSettings.detailPass && generationSettings.triposfPass ? 'both' :
+            generationSettings.detailPass ? 'detailgen3d' :
+            generationSettings.triposfPass ? 'triposf' : 'none'
+          ),
         }),
       });
       if (!res.ok) throw await parseApiError(res);
@@ -824,6 +836,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     generationSettings.generatePBR,
     generationSettings.preserveDetails,
     generationSettings.repairUVs,
+    generationSettings.detailPass,
+    generationSettings.triposfPass,
+    generationSettings.meshEnhancementMode,
+    generationSettings.detailGuidance,
     startTask,
   ]);
 
@@ -871,6 +887,14 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             preserve_details: generationSettings.preserveDetails ?? generationSettings.autoOptimizeSettings?.preserveDetails ?? 75,
             repair_uvs: generationSettings.repairUVs !== false,
             topology_mode: generationSettings.topologyMode || (generationSettings.quadTopology ? 'quad' : 'adaptive'),
+            detail_pass: Boolean(generationSettings.detailPass),
+            detail_guidance: generationSettings.detailGuidance ?? 7.5,
+            triposf_pass: Boolean(generationSettings.triposfPass),
+            mesh_enhancement_mode: generationSettings.meshEnhancementMode || (
+              generationSettings.detailPass && generationSettings.triposfPass ? 'both' :
+              generationSettings.detailPass ? 'detailgen3d' :
+              generationSettings.triposfPass ? 'triposf' : 'none'
+            ),
           }),
         });
         if (!res.ok) throw await parseApiError(res);
@@ -917,6 +941,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     generationSettings.generatePBR,
     generationSettings.preserveDetails,
     generationSettings.repairUVs,
+    generationSettings.detailPass,
+    generationSettings.triposfPass,
+    generationSettings.meshEnhancementMode,
+    generationSettings.detailGuidance,
     startTask,
     generateImageTo3D,
   ]);

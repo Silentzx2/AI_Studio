@@ -1,5 +1,27 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.72] - 2026-09-16
+### Optional AI Mesh Quality Post-Processing (DetailGen3D & TripoSF) & UI Toggle Control
+- **Two Specialized Post-Processing Enhancement Models (`_POST_PROCESSING_ONLY_PROVIDERS`)**:
+  - **`DetailGen3D` (`detailgen3d`)**: Generative 3D detail refinement taking coarse mesh + reference image to synthesize high-frequency surface micro-relief (eyes, teeth, ears, facial wrinkles, cloth folds). Runs with configurable classifier-free guidance scale (`detail_guidance`, 5.0–12.0, default 7.5).
+  - **`TripoSF` (`triposf`)**: SparseFlex arbitrary-topology super-resolution reconstruction taking coarse mesh and sampling dense points/normals for voxel VAE reconstruction into dense, high-resolution geometry.
+  - Both models are strictly **optional** post-processing passes that execute downstream of primary generators and upstream of OpenX Clay, with graceful fallbacks preserving base `source.glb` and `game_ready.glb` on any missing weights, dependencies, or CUDA exceptions.
+- **Backend Architecture & Workers (`backend/app/workers/tasks.py`, `triposf_local.py`, `schemas/generation.py`)**:
+  - Added `TripoSFLocalProvider.refine_mesh(coarse_glb_path, output_path, progress_callback)` method for direct mesh-to-mesh reconstruction without artificial generation wrappers.
+  - Integrated Stage 7d into `backend/app/workers/tasks.py` to optionally dispatch TripoSF and/or DetailGen3D passes when enabled by metadata (`triposf_pass`, `detail_pass`, `mesh_enhancement_mode`).
+  - Added `triposf_pass` and `mesh_enhancement_mode` to `GenerationRequest` schema with automatic camelCase alias synchronization (`triposfPass`, `detailPass`, `meshEnhancementMode`, `detailGuidance`).
+  - Updated `/api/v1/generation` endpoint and job status responses to persist and return `triposf_pass`, `model_url_detailed`, and `triposf_model_url`.
+  - Added unit test suite in `backend/tests/test_mesh_enhancement_models.py` verifying registry isolation, camelCase alias mapping, and provider refine interfaces.
+- **Frontend HD Mesh Quality Toggle Card & UI Controls (`GeneratePanel.tsx`, `types.ts`, `WorkspaceContext.tsx`)**:
+  - Added **"HD Mesh Quality & Detail Enhancement"** control card in `features/new-workspace/Panels/GeneratePanel.tsx` accessible in both **Create** and **Mesh** tabs.
+  - Uses `AnimatedSwitch` from Animate UI with yellow active state (`#F9CF00`) and live `AI ACTIVE` pill.
+  - Smoothly expands with Framer Motion to offer 3 Refinement Engine modes:
+    - **Dual Refine** (`both`): Combines TripoSF super-resolution and DetailGen3D micro-relief.
+    - **DetailGen3D** (`detailgen3d`): Image-conditioned micro-detail generation.
+    - **TripoSF** (`triposf`): SparseFlex topology super-resolution.
+  - Micro-detail guidance scale slider (5.0 to 12.0) with live `SlidingNumber` value readout and informative tooltips.
+  - Updated `GenerationSettings` in `types.ts` and wired payload transmission in `WorkspaceContext.tsx` for both `generate3DModel` and `generateImageTo3D`.
+
 ## [v5.0.71] - 2026-09-15
 ### Futuristic 3D Generation Preview & Interactive Hologram HUD Redesign
 - **Three.js 3D Volumetric Hologram Scene (`ImagePointCloud.ts`)**:

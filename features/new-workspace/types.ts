@@ -205,6 +205,10 @@ export interface GenerationSettings {
   repairUVs?: boolean;
   prompt?: string;
   imageName?: string;
+  detailPass?: boolean;
+  triposfPass?: boolean;
+  meshEnhancementMode?: 'none' | 'detailgen3d' | 'triposf' | 'both';
+  detailGuidance?: number;
 }
 
 

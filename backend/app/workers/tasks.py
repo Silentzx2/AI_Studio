@@ -848,6 +848,124 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             asset_class = classify_asset(prompt=job.prompt or "", model_path=current_glb_path)
             meta["asset_classification"] = asset_class
 
+            # 7d. Optional AI Mesh Quality / Refinement Passes (DetailGen3D & TripoSF)
+            detail_pass_enabled = bool(meta.get("detail_pass", False))
+            triposf_pass_enabled = bool(meta.get("triposf_pass", False))
+            mesh_enhancement_mode = meta.get("mesh_enhancement_mode", "none")
+
+            if mesh_enhancement_mode in ("detailgen3d", "both"):
+                detail_pass_enabled = True
+            if mesh_enhancement_mode in ("triposf", "both"):
+                triposf_pass_enabled = True
+
+            # 1. TripoSF: SparseFlex Arbitrary-Topology Super-Resolution
+            if triposf_pass_enabled and not skip_postprocessing:
+                sync_publish(71, "mesh_enhancement", "TripoSF: Starting SparseFlex topology super-resolution...", "info")
+                t_tripo = time.perf_counter()
+                try:
+                    if engine:
+                        tripo_provider = await engine.load_provider("triposf", vram_mode=vram_mode)
+                    else:
+                        tripo_provider = get_provider("triposf", device=device, low_vram=(vram_mode == "low"))
+
+                    tripo_out_path = str(model_output_dir(job_id) / "reconstructed_triposf.glb")
+                    if hasattr(tripo_provider, "refine_mesh"):
+                        refined_mesh = await tripo_provider.refine_mesh(
+                            current_glb_path,
+                            output_path=tripo_out_path,
+                            progress_callback=progress_callback,
+                        )
+                    else:
+                        from app.schemas.generation import GenerationRequest
+                        tripo_req = GenerationRequest(
+                            mode="remesh",
+                            source_mesh_url=current_glb_path,
+                            prompt=job.prompt or "Refined 3D mesh",
+                        )
+                        tripo_res = await tripo_provider.generate(tripo_req, model_output_dir(job_id), progress_callback)
+                        refined_mesh = tripo_res.model_path
+
+                    if refined_mesh and Path(refined_mesh).exists() and Path(refined_mesh).stat().st_size > 0:
+                        current_glb_path = refined_mesh
+                        master_glb = refined_mesh
+                        tripo_dur = round((time.perf_counter() - t_tripo) * 1000, 1)
+                        pipeline_stages.append({
+                            "stage": "triposf_enhancement",
+                            "tool": "triposf",
+                            "status": "success",
+                            "duration_ms": tripo_dur,
+                            "output_path": refined_mesh,
+                        })
+                        meta["triposf_model_url"] = to_url(refined_mesh)
+                        meta["triposf_pass_result"] = {"success": True, "duration_ms": tripo_dur}
+                        sync_publish(73, "mesh_enhancement", f"TripoSF: Topology super-resolution complete ({tripo_dur:.0f}ms)", "success")
+                except Exception as tripo_err:
+                    logger.warning("TripoSF refinement skipped: %s; continuing with base mesh", tripo_err)
+                    pipeline_stages.append({
+                        "stage": "triposf_enhancement",
+                        "tool": "triposf",
+                        "status": "fallback",
+                        "error": str(tripo_err),
+                    })
+                    sync_publish(73, "mesh_enhancement", "TripoSF refinement skipped (base mesh preserved)", "warn")
+                finally:
+                    if engine:
+                        try:
+                            await engine.unload_provider("triposf")
+                        except Exception:
+                            pass
+
+            # 2. DetailGen3D: Generative Micro-Detail Refinement
+            if detail_pass_enabled and not skip_postprocessing:
+                ref_img_local = str(resolved_ref_image) if resolved_ref_image and Path(resolved_ref_image).exists() else None
+                if ref_img_local:
+                    sync_publish(73, "mesh_enhancement", "DetailGen3D: Generating fine anatomical micro-details...", "info")
+                    t_det = time.perf_counter()
+                    try:
+                        if engine:
+                            det_provider = await engine.load_provider("detailgen3d", vram_mode=vram_mode)
+                        else:
+                            det_provider = get_provider("detailgen3d", device=device, low_vram=(vram_mode == "low"))
+
+                        detail_guidance = float(meta.get("detail_guidance", 7.5))
+                        detailed_mesh = await det_provider.detail_mesh(
+                            current_glb_path,
+                            image_path=ref_img_local,
+                            guidance=detail_guidance,
+                            progress_callback=progress_callback,
+                        )
+                        if detailed_mesh and Path(detailed_mesh).exists() and Path(detailed_mesh).stat().st_size > 0:
+                            current_glb_path = detailed_mesh
+                            master_glb = detailed_mesh
+                            det_dur = round((time.perf_counter() - t_det) * 1000, 1)
+                            pipeline_stages.append({
+                                "stage": "detailgen3d",
+                                "tool": "detailgen3d",
+                                "status": "success",
+                                "duration_ms": det_dur,
+                                "output_path": detailed_mesh,
+                            })
+                            meta["model_url_detailed"] = to_url(detailed_mesh)
+                            meta["detail_pass_result"] = {"success": True, "duration_ms": det_dur}
+                            sync_publish(75, "mesh_enhancement", f"DetailGen3D: Micro-detail pass complete ({det_dur:.0f}ms)", "success")
+                    except Exception as det_err:
+                        logger.warning("DetailGen3D refinement skipped: %s; continuing with base mesh", det_err)
+                        pipeline_stages.append({
+                            "stage": "detailgen3d",
+                            "tool": "detailgen3d",
+                            "status": "fallback",
+                            "error": str(det_err),
+                        })
+                        sync_publish(75, "mesh_enhancement", "DetailGen3D skipped (base mesh preserved)", "warn")
+                    finally:
+                        if engine:
+                            try:
+                                await engine.unload_provider("detailgen3d")
+                            except Exception:
+                                pass
+                else:
+                    logger.info("DetailGen3D skipped: no local reference image available for guidance")
+
             # ── OpenX Clay Post-Processing (replaces old 6-stage custom pipeline) ──
             game_ready_path = str(model_output_dir(job_id) / "game_ready.glb")
             auto_optimize_settings = meta.get("auto_optimize_settings") or {}
@@ -1063,6 +1181,8 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 "source": to_url(source_glb_path) if Path(source_glb_path).exists() else to_url(glb_path),
                 "game_ready": meta.get("game_ready_url"),
                 "collision": meta.get("collision_url"),
+                "detailed": meta.get("model_url_detailed"),
+                "triposf": meta.get("triposf_model_url"),
             }
 
             # 10. Finalize
@@ -1098,6 +1218,8 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 "file_size": stats.get("file_size", provider_result.file_size),
                 "source_model_url": meta.get("source_model_url"),
                 "game_ready_url": meta.get("game_ready_url"),
+                "model_url_detailed": meta.get("model_url_detailed"),
+                "triposf_model_url": meta.get("triposf_model_url"),
                 "lod_urls": meta.get("lod_urls") or [],
                 "collision_url": meta.get("collision_url"),
                 "qa_report": qa_report,

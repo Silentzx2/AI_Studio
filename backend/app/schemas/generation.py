@@ -44,6 +44,8 @@ class GenerationRequest(BaseModel):
     options: dict[str, Any] | None = None
     detail_pass: bool = False
     detail_guidance: float = 7.5
+    triposf_pass: bool = False
+    mesh_enhancement_mode: Literal["none", "detailgen3d", "triposf", "both"] = "none"
     # Low VRAM mode: True forces low-VRAM execution; vram_mode may be
     # "auto" (default — runtime picks a mode that fits), "normal" or "low".
     low_vram: bool = False
@@ -136,12 +138,32 @@ class GenerationRequest(BaseModel):
                 "includeCollisionInPackage": "include_collision_in_package",
                 "includeQAInPackage": "include_qa_in_package",
                 "duration": "duration",
+                "detailPass": "detail_pass",
+                "detailGuidance": "detail_guidance",
+                "triposfPass": "triposf_pass",
+                "meshEnhancementMode": "mesh_enhancement_mode",
+                "meshEnhancement": "mesh_enhancement_mode",
             }
             for k, v in mapping.items():
                 if k in data and v not in data:
                     data[v] = data[k]
             if (data.get("quadTopology") or data.get("quad_topology")) and "topology_mode" not in data:
                 data["topology_mode"] = "quad"
+            # Synchronize enhancement flags with mode
+            mode_enh = data.get("mesh_enhancement_mode")
+            if mode_enh == "detailgen3d":
+                data["detail_pass"] = True
+            elif mode_enh == "triposf":
+                data["triposf_pass"] = True
+            elif mode_enh == "both":
+                data["detail_pass"] = True
+                data["triposf_pass"] = True
+            elif data.get("detail_pass") and data.get("triposf_pass"):
+                data["mesh_enhancement_mode"] = "both"
+            elif data.get("detail_pass"):
+                data["mesh_enhancement_mode"] = "detailgen3d"
+            elif data.get("triposf_pass"):
+                data["mesh_enhancement_mode"] = "triposf"
         return data
 
     @field_validator("reference_image_url", "source_mesh_url", mode="before")

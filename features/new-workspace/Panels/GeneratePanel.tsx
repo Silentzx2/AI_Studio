@@ -186,6 +186,182 @@ export const GeneratePanel: React.FC = () => {
     }).catch(() => {});
   };
 
+  // HD Mesh Quality Enhancement state and handlers
+  const isMeshEnhanceEnabled = Boolean(
+    generationSettings.detailPass ||
+    generationSettings.triposfPass ||
+    (generationSettings.meshEnhancementMode && generationSettings.meshEnhancementMode !== 'none')
+  );
+
+  const currentEnhanceMode = generationSettings.meshEnhancementMode || (
+    generationSettings.detailPass && generationSettings.triposfPass ? 'both' :
+    generationSettings.detailPass ? 'detailgen3d' :
+    generationSettings.triposfPass ? 'triposf' : 'none'
+  );
+
+  const toggleMeshEnhancement = (enabled: boolean) => {
+    if (!enabled) {
+      setGenerationSettings(prev => ({
+        ...prev,
+        detailPass: false,
+        triposfPass: false,
+        meshEnhancementMode: 'none',
+      }));
+    } else {
+      const hasImage = Boolean(generationSettings.image || generationSettings.mode === 'image-to-3d');
+      const defaultMode: 'both' | 'triposf' = hasImage ? 'both' : 'triposf';
+      setGenerationSettings(prev => ({
+        ...prev,
+        detailPass: hasImage,
+        triposfPass: true,
+        meshEnhancementMode: defaultMode,
+        detailGuidance: prev.detailGuidance ?? 7.5,
+      }));
+    }
+  };
+
+  const setEnhanceMode = (mode: 'detailgen3d' | 'triposf' | 'both') => {
+    setGenerationSettings(prev => ({
+      ...prev,
+      meshEnhancementMode: mode,
+      detailPass: mode === 'both' || mode === 'detailgen3d',
+      triposfPass: mode === 'both' || mode === 'triposf',
+    }));
+  };
+
+  const renderMeshEnhancementCard = () => (
+    <div className="rounded-xl border border-white/[0.12] bg-[#141518] p-2.5 space-y-2 relative overflow-hidden">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="p-1 rounded-md bg-[#F9CF00]/10 text-[#F9CF00]">
+            <Sparkles className="w-3.5 h-3.5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-zinc-100">HD Mesh Quality Enhancement</span>
+              {isMeshEnhanceEnabled && (
+                <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-[#F9CF00]/20 text-[#F9CF00] border border-[#F9CF00]/30">
+                  AI ACTIVE
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] text-zinc-400 block leading-tight">
+              Post-processing AI refinement (DetailGen3D &amp; TripoSF)
+            </span>
+          </div>
+        </div>
+        <AnimatedSwitch
+          id="btn-toggle-mesh-enhancement"
+          checked={isMeshEnhanceEnabled}
+          onCheckedChange={toggleMeshEnhancement}
+          size="sm"
+          activeColor="bg-[#F9CF00]"
+        />
+      </div>
+
+      <AnimatePresence>
+        {isMeshEnhanceEnabled && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-2 pt-1 border-t border-white/[0.06] overflow-hidden"
+          >
+            <div className="space-y-1">
+              <span className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider">
+                Refinement Engine
+              </span>
+              <div className="grid grid-cols-3 gap-1">
+                {[
+                  {
+                    id: 'both',
+                    label: 'Dual Refine',
+                    desc: 'TripoSF + DetailGen3D',
+                    badge: 'Best',
+                  },
+                  {
+                    id: 'detailgen3d',
+                    label: 'DetailGen3D',
+                    desc: 'Micro-relief &amp; eyes',
+                    badge: 'Image AI',
+                  },
+                  {
+                    id: 'triposf',
+                    label: 'TripoSF',
+                    desc: 'SparseFlex super-res',
+                    badge: 'Topology',
+                  },
+                ].map((engine) => {
+                  const isEngineActive = currentEnhanceMode === engine.id;
+                  return (
+                    <button
+                      key={engine.id}
+                      type="button"
+                      onClick={() => setEnhanceMode(engine.id as any)}
+                      className={`p-1.5 rounded-lg text-left transition-all relative cursor-pointer border ${
+                        isEngineActive
+                          ? 'bg-[#F9CF00]/15 border-[#F9CF00] text-white shadow-sm'
+                          : 'bg-[#191A1D] border-white/[0.06] text-zinc-400 hover:text-zinc-200 hover:bg-[#202125]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className={`text-[11px] font-bold ${isEngineActive ? 'text-[#F9CF00]' : 'text-zinc-200'}`}>
+                          {engine.label}
+                        </span>
+                        <span className={`text-[8px] px-1 py-0.2 rounded font-mono ${
+                          isEngineActive ? 'bg-[#F9CF00] text-black font-bold' : 'bg-white/[0.05] text-zinc-500'
+                        }`}>
+                          {engine.badge}
+                        </span>
+                      </div>
+                      <span className="text-[9px] block leading-tight text-zinc-400">
+                        {engine.desc}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {(currentEnhanceMode === 'detailgen3d' || currentEnhanceMode === 'both') && (
+              <div className="p-2 rounded-lg bg-[#191A1D] border border-white/[0.06] space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[10px] text-zinc-300 font-semibold flex items-center gap-1">
+                    <span>Detail Guidance Scale</span>
+                    <SimpleTooltip label="Controls micro-feature contrast and surface displacement intensity for DetailGen3D (default 7.5).">
+                      <Info className="w-3 h-3 text-zinc-500" />
+                    </SimpleTooltip>
+                  </span>
+                  <div className="text-[10px] font-mono font-bold text-[#F9CF00] flex items-center gap-0.5">
+                    <SlidingNumber value={generationSettings.detailGuidance ?? 7.5} decimalPlaces={1} />
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  min={5.0}
+                  max={12.0}
+                  step={0.5}
+                  value={generationSettings.detailGuidance ?? 7.5}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    setGenerationSettings(prev => ({ ...prev, detailGuidance: isNaN(val) ? 7.5 : val }));
+                  }}
+                  className="w-full h-1 bg-[#25262A] rounded-lg appearance-none cursor-pointer accent-[#F9CF00]"
+                />
+              </div>
+            )}
+
+            <div className="flex items-center gap-1.5 text-[9px] text-zinc-400 bg-white/[0.02] p-1.5 rounded-lg border border-white/[0.04]">
+              <Info className="w-3 h-3 text-[#F9CF00] flex-shrink-0" />
+              <span>Optional &amp; non-destructive: base <code>source.glb</code> and <code>game_ready.glb</code> are always preserved.</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+
   useEffect(() => {
     if (!activeModelId && providersList.length > 0) {
       const firstAvailable = providersList.find(m => m.installed) || providersList[0];
@@ -884,6 +1060,9 @@ export const GeneratePanel: React.FC = () => {
               )}
             </div>
 
+            {/* HD Mesh Quality & Detail Enhancement Toggle Card */}
+            {renderMeshEnhancementCard()}
+
             {/* Quick Summary Pill Strip (Jump to Mesh / Engine / Settings) */}
             <div className="p-2 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between text-[10px]">
               <button
@@ -899,6 +1078,7 @@ export const GeneratePanel: React.FC = () => {
                     {generationSettings.autoOptimize
                       ? `${Math.round((generationSettings.autoOptimizeSettings?.targetPolycount || 30000) / 1000)}k tris`
                       : 'Raw'}
+                    {isMeshEnhanceEnabled ? ' + HD' : ''}
                   </strong>
                 </span>
                 <ChevronRight className="w-2.5 h-2.5 text-zinc-500" />
@@ -1028,6 +1208,9 @@ export const GeneratePanel: React.FC = () => {
                   })}
                 </div>
               </div>
+
+              {/* HD Mesh Quality & Detail Enhancement Toggle Card */}
+              {renderMeshEnhancementCard()}
 
               {/* Auto Optimize / Decimation Switch */}
               <div className="flex items-center justify-between text-xs pt-1 border-t border-white/[0.04]">
