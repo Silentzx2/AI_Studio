@@ -28,7 +28,7 @@ import { useViewerStore } from '@/stores/useViewerStore';
 import { toast } from 'sonner';
 
 export const AnimationRightInspector: React.FC = () => {
-  const { currentAsset } = useWorkspace();
+  const { currentAsset, updateAssetProperties, selectAsset } = useWorkspace();
   const {
     inspectorTab,
     setInspectorTab,
@@ -146,31 +146,39 @@ export const AnimationRightInspector: React.FC = () => {
       const postResult = await res.json();
       const jobId = postResult?.data?.job_id;
 
-      if (jobId) {
-        let completed = false;
-        let attempts = 0;
-        while (!completed && attempts < 60) {
-          await new Promise((r) => setTimeout(r, 1200));
-          attempts++;
-          const pollRes = await fetch(`/api/v1/generation/${jobId}/status`);
-          if (pollRes.ok) {
-            const pollData = await pollRes.json();
-            const job = pollData?.data;
-            if (job) {
-              if (job.status === 'completed') {
-                completed = true;
-                break;
-              } else if (job.status === 'failed') {
-                throw new Error(job.error_message || 'Auto-rigging execution failed');
-              }
-            }
-          }
-        }
+      if (!jobId) throw new Error('Auto-rig job was not created by the backend');
+      let completedJob: any = null;
+      for (let attempts = 0; attempts < 60; attempts++) {
+        await new Promise((r) => setTimeout(r, 1200));
+        const pollRes = await fetch(`/api/v1/generation/${jobId}/status`);
+        if (!pollRes.ok) throw new Error(`Auto-rig status request failed (${pollRes.status})`);
+        const pollData = await pollRes.json();
+        const job = pollData?.data;
+        if (!job?.status) throw new Error('Backend returned an invalid auto-rig status response');
+        if (job.status === 'failed' || job.status === 'cancelled') throw new Error(job.error_message || `Auto-rig ${job.status}`);
+        if (job.status === 'completed') { completedJob = job; break; }
       }
-
+      if (!completedJob) throw new Error('Auto-rig timed out before the backend reported completion');
+      const result = completedJob.result;
+      const riggedUrl = result?.active_model_url || result?.model_url || result?.download_urls?.glb;
+      if (!riggedUrl) throw new Error('Auto-rig completed without a rigged artifact URL');
+      if (currentAsset) {
+        updateAssetProperties(currentAsset.id, {
+          source: {
+            filename: currentAsset.source?.filename || `${currentAsset.name || 'model'}_rigged.glb`,
+            subfolder: currentAsset.source?.subfolder || '',
+            ...currentAsset.source,
+            viewUrl: riggedUrl,
+            localUrl: riggedUrl,
+            type: currentAsset.source?.type || 'output',
+          },
+          tags: Array.from(new Set([...(currentAsset.tags || []), 'rigged', 'server-backed'])),
+        });
+        selectAsset(currentAsset.id);
+      }
       setRigStatus('rigged');
       toast.success('Auto-Rigging Complete!', {
-        description: `Armature bound to mesh with deforming weights (${rigProfile} 17 bones)`,
+        description: `${rigProfile} rig validated • ${result?.rig_bones || result?.bones || 0} bones`,
       });
     } catch (err) {
       setRigStatus('failed');
@@ -219,41 +227,43 @@ export const AnimationRightInspector: React.FC = () => {
       const postResult = await res.json();
       const jobId = postResult?.data?.job_id;
 
-      if (jobId) {
-        let completed = false;
-        let attempts = 0;
-        while (!completed && attempts < 60) {
-          await new Promise((r) => setTimeout(r, 1200));
-          attempts++;
-          const pollRes = await fetch(`/api/v1/generation/${jobId}/status`);
-          if (pollRes.ok) {
-            const pollData = await pollRes.json();
-            const job = pollData?.data;
-            if (job) {
-              setMotionAiProgress(job.progress || Math.min(20 + attempts * 8, 95));
-              setMotionAiStage(job.stage || job.message || 'Sampling ARDY motion diffusion...');
-              if (job.status === 'completed') {
-                completed = true;
-                break;
-              } else if (job.status === 'failed') {
-                throw new Error(job.error_message || 'ARDY motion generation failed');
-              }
-            }
-          }
-        }
+      if (!jobId) throw new Error('Motion job was not created by the backend');
+      let completedJob: any = null;
+      for (let attempts = 0; attempts < 60; attempts++) {
+        await new Promise((r) => setTimeout(r, 1200));
+        const pollRes = await fetch(`/api/v1/generation/${jobId}/status`);
+        if (!pollRes.ok) throw new Error(`Motion status request failed (${pollRes.status})`);
+        const pollData = await pollRes.json();
+        const job = pollData?.data;
+        if (!job?.status) throw new Error('Backend returned an invalid motion status response');
+        setMotionAiProgress(job.progress || Math.min(20 + attempts * 8, 95));
+        setMotionAiStage(job.stage || job.message || 'Sampling ARDY motion diffusion...');
+        if (job.status === 'failed' || job.status === 'cancelled') throw new Error(job.error_message || `Motion generation ${job.status}`);
+        if (job.status === 'completed') { completedJob = job; break; }
       }
+      if (!completedJob) throw new Error('Motion generation timed out before the backend reported completion');
+      const artifact = completedJob.result?.artifact;
+      const motionJsonUrl = artifact?.motion_json_url || completedJob.result?.download_urls?.json;
+      const motionUrl = artifact?.motion_npz_url || completedJob.result?.download_urls?.npz;
+      if (!motionJsonUrl || !motionUrl) throw new Error('Motion job completed without canonical motion artifact URLs');
+      if (artifact?.synthetic) throw new Error('Synthetic motion output is not accepted as a production result');
+      if (!artifact?.joint_names?.length) throw new Error('Motion result is missing joint metadata for retargeting');
 
       setMotionAiProgress(100);
       setMotionAiStage('Ready');
 
-      // Add generated motion clip to animation library
       const newClip = {
-        id: `anim-ardy-${Date.now()}`,
+        id: `anim-ardy-${jobId}`,
         name: motionAiPrompt.slice(0, 24) + (motionAiPrompt.length > 24 ? '...' : ''),
         category: 'Custom' as const,
-        duration: motionAiDuration,
-        fps: motionAiFps,
-        keyframesCount: Math.round(motionAiDuration * motionAiFps),
+        duration: artifact.duration || motionAiDuration,
+        fps: artifact.fps || motionAiFps,
+        keyframesCount: artifact.frame_count || Math.round(motionAiDuration * motionAiFps),
+        url: motionUrl,
+        motionJsonUrl,
+        artifactType: 'motion' as const,
+        skeletonId: artifact.skeleton_id,
+        jointNames: artifact.joint_names,
       };
       addAnimation(newClip);
       setCurrentAnimationId(newClip.id);
@@ -938,11 +948,11 @@ export const AnimationRightInspector: React.FC = () => {
                 </div>
                 <div className="flex justify-between text-zinc-300">
                   <span>Skinning Type:</span>
-                  <span className="text-zinc-400">Automatic (Deforming)</span>
+                  <span className="text-zinc-400">{'Automatic (Deforming)'}</span>
                 </div>
                 <div className="flex justify-between text-zinc-300">
                   <span>IK Solvers:</span>
-                  <span className="text-emerald-400 font-semibold">2 Arms, 2 Legs</span>
+                  <span className="text-emerald-400 font-semibold">{bones.length} bones · {rigProfile}</span>
                 </div>
               </div>
             </div>

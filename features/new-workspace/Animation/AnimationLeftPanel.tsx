@@ -17,11 +17,12 @@ import {
 import { useWorkspace } from '../store/WorkspaceContext';
 import { useAnimationStore } from '@/stores/useAnimationStore';
 import { toast } from 'sonner';
+import { normalizeModelAsset } from '../types';
 
 import { useViewerStore } from '@/stores/useViewerStore';
 
 export const AnimationLeftPanel: React.FC = () => {
-  const { assets, selectedAssetId, selectAsset, currentAsset, addAsset } = useWorkspace();
+  const { assets, selectedAssetId, selectAsset, currentAsset, addAsset, deleteAsset } = useWorkspace();
   const viewerStore = useViewerStore();
   const {
     animations,
@@ -127,38 +128,52 @@ export const AnimationLeftPanel: React.FC = () => {
         body: formData,
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        const uploaded = data?.data;
-        if (uploaded) {
-          const finalAsset = {
-            id: uploaded.id || tempId,
-            name: file.name,
-            category: 'mesh' as const,
-            thumbnail: uploaded.thumbnail_url || '',
-            meshType: 'custom' as const,
-            faces: uploaded.mesh_stats?.polygon_count || 0,
-            vertices: uploaded.mesh_stats?.vertex_count || 0,
-            triangles: uploaded.mesh_stats?.polygon_count || 0,
-            topology: 'Triangle' as const,
-            format: (uploaded.format || ext).toUpperCase() as any,
-            dateCreated: new Date().toISOString(),
-            tags: ['uploaded'],
-            source: {
-              filename: uploaded.filename || file.name,
-              subfolder: 'models',
-              type: 'upload' as const,
-              localUrl: uploaded.url,
-              viewUrl: uploaded.url,
-            },
-          };
-          addAsset(finalAsset);
-          selectAsset(finalAsset.id);
-          toast.success(`Uploaded ${file.name}`, { description: 'Ready for rigging and animation' });
-        }
+      if (!res.ok) {
+        const detail = await res.json().catch(() => null);
+        throw new Error(detail?.detail || `Upload failed (${res.status})`);
       }
-    } catch {
-      // Local preview remains functional
+
+      const data = await res.json();
+      const uploaded = data?.data;
+      if (uploaded) {
+        const finalAsset = normalizeModelAsset({
+          id: uploaded.id || tempId,
+          name: file.name,
+          category: 'mesh',
+          thumbnail: uploaded.thumbnail_url || '',
+          meshType: 'custom',
+          polygon_count: uploaded.mesh_stats?.polygon_count,
+          vertex_count: uploaded.mesh_stats?.vertex_count,
+          faces: uploaded.mesh_stats?.polygon_count || 0,
+          vertices: uploaded.mesh_stats?.vertex_count || 0,
+          triangles: uploaded.mesh_stats?.polygon_count || 0,
+          statsAvailable: !!(uploaded.mesh_stats && ((uploaded.mesh_stats.polygon_count ?? 0) > 0 || (uploaded.mesh_stats.vertex_count ?? 0) > 0)),
+          topology: uploaded.mesh_stats?.topology || 'Triangle',
+          format: (uploaded.format || ext).toUpperCase() as any,
+          dimensions: uploaded.mesh_stats?.dimensions,
+          boundingBox: uploaded.mesh_stats?.bounding_box,
+          objectCount: uploaded.mesh_stats?.object_count,
+          componentCount: uploaded.mesh_stats?.component_count,
+          materialCount: uploaded.mesh_stats?.material_count,
+          meshDetails: uploaded.mesh_stats?.mesh_details,
+          dateCreated: new Date().toISOString(),
+          tags: ['uploaded'],
+          source: {
+            filename: uploaded.filename || file.name,
+            subfolder: 'models',
+            type: 'upload' as const,
+            localUrl: uploaded.url,
+            viewUrl: uploaded.url,
+          },
+        });
+        deleteAsset(tempId);
+        addAsset(finalAsset);
+        selectAsset(finalAsset.id);
+        toast.success(`Uploaded ${file.name}`, { description: 'Ready for rigging and animation' });
+      }
+    } catch (err) {
+      await deleteAsset(tempId);
+      toast.error(`Upload failed for ${file.name}`, { description: 'The temporary preview was removed. Retry the upload when ready.' });
     }
   };
 

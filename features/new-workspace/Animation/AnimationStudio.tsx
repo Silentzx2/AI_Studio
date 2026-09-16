@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   ArrowLeft,
   Save,
@@ -29,9 +29,35 @@ export const AnimationStudio: React.FC = () => {
   const {
     activeMode,
     setActiveMode,
+    setRigStatus, setRigProfile, setBones, setBoneRotations, setAnimations, setCurrentAnimationId, setCurrentTime, setDuration, setFps, setTracks, setBlendState, setDisplayOptions, setTransform,
     setInspectorTab,
     rigStatus,
+    animations, currentAnimationId, currentTime, duration, fps, tracks, rigProfile, bones, boneRotations, blendState, displayOptions, transform,
   } = useAnimationStore();
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('ai-studio-animation-project');
+      if (!raw) return;
+      const snapshot = JSON.parse(raw);
+      if (!snapshot || snapshot.version !== 1) return;
+      if (Array.isArray(snapshot.animations)) setAnimations(snapshot.animations);
+      if (typeof snapshot.currentAnimationId === 'string') setCurrentAnimationId(snapshot.currentAnimationId);
+      if (Number.isFinite(snapshot.currentTime)) setCurrentTime(snapshot.currentTime);
+      if (Number.isFinite(snapshot.duration)) setDuration(snapshot.duration);
+      if (Number.isFinite(snapshot.fps)) setFps(snapshot.fps);
+      if (Array.isArray(snapshot.tracks)) setTracks(snapshot.tracks);
+      if (snapshot.blendState) setBlendState(snapshot.blendState);
+      if (snapshot.displayOptions) setDisplayOptions(snapshot.displayOptions);
+      if (snapshot.transform) setTransform(snapshot.transform);
+      if (snapshot.rigProfile) setRigProfile(snapshot.rigProfile);
+      if (Array.isArray(snapshot.bones)) setBones(snapshot.bones);
+      if (snapshot.boneRotations) setBoneRotations(snapshot.boneRotations);
+      setRigStatus(snapshot.currentAssetId && currentAsset?.id === snapshot.currentAssetId ? (snapshot.rigStatus || 'not_rigged') : 'not_rigged');
+    } catch (error) {
+      console.warn('Animation project restore skipped:', error);
+    }
+  }, [currentAsset?.id, setAnimations, setCurrentAnimationId, setCurrentTime, setDuration, setFps, setTracks, setBlendState, setDisplayOptions, setTransform, setRigProfile, setBones, setBoneRotations, setRigStatus]);
 
   const handleModeChange = (mode: AnimationStudioMode) => {
     setActiveMode(mode);
@@ -45,19 +71,24 @@ export const AnimationStudio: React.FC = () => {
   };
 
   const handleSave = () => {
-    toast.success('Animation Project Saved', {
-      description: 'Saved current skeleton, poses, and animation timeline to local storage',
-    });
+    try {
+      const snapshot = { version: 1, savedAt: new Date().toISOString(), currentAssetId: currentAsset?.id || null, rigStatus, rigProfile, bones, boneRotations, animations, currentAnimationId, currentTime, duration, fps, tracks, blendState, displayOptions, transform };
+      localStorage.setItem('ai-studio-animation-project', JSON.stringify(snapshot));
+      toast.success('Animation Project Saved', { description: `Saved locally at ${new Date(snapshot.savedAt).toLocaleTimeString()}` });
+    } catch (err) {
+      toast.error('Save failed', { description: err instanceof Error ? err.message : 'Unable to persist animation project' });
+    }
   };
 
   const handleShare = () => {
+    const url = window.location.href;
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(window.location.href);
-      toast.success('Link Copied to Clipboard', {
-        description: 'Shareable workspace URL is ready',
+      navigator.clipboard.writeText(url);
+      toast.success('Workspace URL Copied', {
+        description: 'Copies the current workspace URL. Project state is not embedded in the link.',
       });
     } else {
-      toast.info('Share URL: ' + window.location.href);
+      toast.info('Current workspace URL: ' + url);
     }
   };
 
@@ -138,7 +169,7 @@ export const AnimationStudio: React.FC = () => {
           <button
             onClick={handleShare}
             className="p-2 rounded-xl bg-[#1D2026] hover:bg-[#252932] border border-white/[0.08] text-zinc-300 hover:text-white transition-all cursor-pointer"
-            title="Share"
+            title="Copy Workspace URL"
           >
             <Share2 className="w-3.5 h-3.5" />
           </button>

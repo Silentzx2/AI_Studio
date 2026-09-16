@@ -190,9 +190,23 @@ def render_thumbnail(model_path: str, output_path: str, size: tuple[int, int] = 
 
 
 def get_mesh_stats(model_path: str) -> dict:
+    path_obj = Path(model_path)
+    f_size = path_obj.stat().st_size if path_obj.exists() else 0
+    default_stats = {
+        "polygon_count": 0,
+        "vertex_count": 0,
+        "file_size": f_size,
+        "dimensions": {"x": 0.0, "y": 0.0, "z": 0.0},
+        "bounding_box": {"min": [0.0, 0.0, 0.0], "max": [0.0, 0.0, 0.0], "extent": [0.0, 0.0, 0.0], "diagonal": 0.0},
+        "object_count": 0,
+        "component_count": 0,
+        "material_count": 0,
+        "topology": "Triangle",
+        "mesh_details": {"semantic_parts": "not_analyzed", "status": "unsupported"},
+    }
     trimesh = _try_import_trimesh()
-    if not trimesh:
-        return {"polygon_count": 0, "vertex_count": 0, "file_size": Path(model_path).stat().st_size}
+    if not trimesh or not path_obj.exists() or f_size == 0:
+        return default_stats
 
     try:
         loaded = trimesh.load(model_path, force="scene")
@@ -200,16 +214,92 @@ def get_mesh_stats(model_path: str) -> dict:
             meshes = [g for g in loaded.geometry.values() if isinstance(g, trimesh.Trimesh)]
             face_count = sum(len(m.faces) for m in meshes)
             vertex_count = sum(len(m.vertices) for m in meshes)
+            bounds = loaded.bounds
+            extents = loaded.extents
+            node_names = list(loaded.graph.nodes)
         else:
-            face_count, vertex_count = len(loaded.faces), len(loaded.vertices)
+            meshes = [loaded] if isinstance(loaded, trimesh.Trimesh) else []
+            face_count = len(loaded.faces) if hasattr(loaded, "faces") else 0
+            vertex_count = len(loaded.vertices) if hasattr(loaded, "vertices") else 0
+            bounds = loaded.bounds if hasattr(loaded, "bounds") else None
+            extents = loaded.extents if hasattr(loaded, "extents") else None
+            node_names = []
+
+        if bounds is not None and extents is not None:
+            dimensions = {
+                "x": round(float(extents[0]), 3),
+                "y": round(float(extents[1]), 3),
+                "z": round(float(extents[2]), 3),
+            }
+            bounding_box = {
+                "min": [round(float(x), 4) for x in bounds[0]],
+                "max": [round(float(x), 4) for x in bounds[1]],
+                "extent": [round(float(x), 4) for x in extents],
+                "diagonal": round(float(np.linalg.norm(extents)), 4),
+            }
+        else:
+            dimensions = {"x": 0.0, "y": 0.0, "z": 0.0}
+            bounding_box = {"min": [0.0, 0.0, 0.0], "max": [0.0, 0.0, 0.0], "extent": [0.0, 0.0, 0.0], "diagonal": 0.0}
+
+        total_components = 0
+        materials = set()
+        for m in meshes:
+            if hasattr(m, "edges") and len(m.edges) > 0:
+                try:
+                    comps = trimesh.graph.connected_components(m.edges)
+                    total_components += len(comps)
+                except Exception:
+                    total_components += 1
+            else:
+                total_components += 1
+            if hasattr(m, "visual") and hasattr(m.visual, "material") and m.visual.material:
+                materials.add(id(m.visual.material))
+
+        material_count = max(len(materials), 1 if any(hasattr(m, "visual") for m in meshes) else 0)
+
+        # Semantic details inspection:
+        # Check node names and mesh names for anatomical / semantic labels.
+        # NEVER output 0 for unknown semantic info — represent as "not_analyzed" or "unsupported".
+        semantic_keywords = [
+            "eye", "pupil", "ear", "nose", "nostril", "mouth", "teeth", "tooth", "tongue", "lip",
+            "head", "face", "hair", "body", "torso", "arm", "hand", "finger", "leg", "foot",
+            "toe", "claw", "wing", "tail", "horn", "spine"
+        ]
+        all_names = list(node_names) + [str(getattr(m, "name", "")) for m in meshes]
+        detected_parts = []
+        for name in all_names:
+            clean = name.lower().strip()
+            for kw in semantic_keywords:
+                if kw in clean and name not in detected_parts:
+                    detected_parts.append(name)
+
+        if detected_parts:
+            mesh_details = {
+                "semantic_parts": detected_parts,
+                "part_count": len(detected_parts),
+                "status": "detected",
+            }
+        else:
+            mesh_details = {
+                "semantic_parts": "not_analyzed",
+                "status": "unsupported",
+            }
+
         return {
             "polygon_count": face_count,
             "vertex_count": vertex_count,
-            "file_size": Path(model_path).stat().st_size,
+            "file_size": f_size,
+            "dimensions": dimensions,
+            "bounding_box": bounding_box,
+            "object_count": len(meshes),
+            "component_count": total_components,
+            "material_count": material_count,
+            "topology": "Triangle",
+            "mesh_details": mesh_details,
         }
     except Exception as exc:
         logger.warning("Failed to read mesh stats: %s", exc)
-        return {"polygon_count": 0, "vertex_count": 0, "file_size": Path(model_path).stat().st_size}
+        return default_stats
 
 
 # ---------------------------------------------------------------------------

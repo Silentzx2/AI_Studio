@@ -2,7 +2,7 @@ name: trellis
 label: TRELLIS
 source:
   repo: https://github.com/microsoft/TRELLIS.git
-  ref: main
+  ref: 442aa1e1afb9014e80681d3bf604e8d728a86ee7
   submodules: true
   local_dir: TRELLIS
 environment:

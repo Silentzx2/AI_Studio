@@ -2,7 +2,7 @@ name: ardy
 label: ARDY
 source:
   repo: https://github.com/nv-tlabs/ardy.git
-  ref: main
+  ref: 693f74d13b3d04a0a22ce127ee79c929dd89756b
   submodules: false
   local_dir: Ardy
 environment:

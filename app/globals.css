@@ -35,13 +35,13 @@
   --tripo-yellow-1: 48 96% 50%;
   --tripo-white-5: 0 0% 100% / 0.05;
   --tripo-white-10: 0 0% 100% / 0.1;
-  --neon-purple: 262 83% 58%;
+  --neon-purple: 48 100% 50%;
   --neon-amber: 48 96% 50%;
-  --neon-blue: 210 90% 50%;
-  --neon-cyan: 190 90% 45%;
-  --neon-pink: 330 90% 55%;
+  --neon-blue: 46 100% 50%;
+  --neon-cyan: 52 100% 55%;
+  --neon-pink: 43 96% 56%;
   --neon-green: 150 70% 45%;
-  --neon-orange: 30 100% 55%;
+  --neon-orange: 38 92% 50%;
   --green-500: 150 70% 45%;
   --blue-500: 210 90% 50%;
   --purple-500: 262 83% 58%;
@@ -1591,11 +1591,11 @@ html.dark {
   --accent: 262 83% 58%;
   --accent-foreground: 0 0% 100%;
 
-  --neon-purple: 262 83% 58%;
+  --neon-purple: 48 100% 50%;
   --neon-amber: 48 96% 50%;
-  --neon-blue: 210 90% 50%;
-  --neon-cyan: 190 90% 45%;
-  --neon-pink: 330 90% 55%;
+  --neon-blue: 46 100% 50%;
+  --neon-cyan: 52 100% 55%;
+  --neon-pink: 43 96% 56%;
   --neon-green: 150 70% 45%;
 
   --tripo-gray-1: 220 8% 5%;
@@ -1646,11 +1646,11 @@ html.light {
   --accent: 262 83% 58%;
   --accent-foreground: 0 0% 100%;
 
-  --neon-purple: 262 83% 58%;
+  --neon-purple: 48 100% 50%;
   --neon-amber: 48 96% 50%;
-  --neon-blue: 210 90% 50%;
-  --neon-cyan: 190 90% 45%;
-  --neon-pink: 330 90% 55%;
+  --neon-blue: 46 100% 50%;
+  --neon-cyan: 52 100% 55%;
+  --neon-pink: 43 96% 56%;
   --neon-green: 150 70% 45%;
 
   --chart-1: 262 83% 58%;

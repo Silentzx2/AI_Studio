@@ -542,19 +542,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 source_mesh_raw = request.source_mesh_url or request.reference_image_url
                 source_mesh = _resolve_reference_image(source_mesh_raw, job_id) if source_mesh_raw else None
                 if not source_mesh or not Path(source_mesh).exists():
-                    for fallback_cand in (
-                        Path("backend/storage/exports/0c66881460/HeroAsset.glb"),
-                        Path("backend/storage/exports/053ac79d41/MyHero.glb"),
-                    ):
-                        if fallback_cand.exists():
-                            source_mesh = str(fallback_cand.resolve())
-                            break
-                    if not source_mesh or not Path(source_mesh).exists():
-                        import trimesh
-                        synth_mesh = trimesh.creation.box(extents=[0.6, 0.3, 1.8])
-                        synth_path = Path(out_dir) / "source_char.glb"
-                        synth_mesh.export(str(synth_path))
-                        source_mesh = str(synth_path)
+                    raise RuntimeError("Auto-rigging requires a valid source mesh. No mesh was supplied or found.")
                 rig_options = getattr(request, "options", {}) or {}
                 rig_type = getattr(request, "rig_type", None) or rig_options.get("rig_type") or "humanoid"
                 sync_publish(15, "preparing", f"Preflighting source model for {rig_type} auto-rigging...", "info")
@@ -567,9 +555,18 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                     rig_type=rig_type,
                     options=rig_options,
                 )
-                if not rig_result.get("ok") or not Path(rigged_path).exists():
-                    raise RuntimeError(rig_result.get("error") or f"Blender auto-rigging failed for profile '{rig_type}'")
-                bone_count = int(rig_result.get("bones") or 17)
+                if (
+                    not rig_result.get("ok")
+                    or not rig_result.get("binding_valid", False)
+                    or not Path(rigged_path).exists()
+                ):
+                    raise RuntimeError(
+                        rig_result.get("error")
+                        or "Blender auto-rigging failed semantic binding validation"
+                    )
+                bone_count = int(rig_result.get("bones") or 0)
+                if bone_count <= 0:
+                    raise RuntimeError("Blender auto-rigging produced no bones")
                 from app.core.providers.base import ProviderResult
                 provider_result = ProviderResult(
                     model_path=rigged_path,
@@ -688,55 +685,74 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 except Exception:
                     return model_public_url(job_id, p.name)
 
-            # Motion/Animation early finalize: publish motion artifact URLs without mesh postprocessing
+            # Motion/Animation early finalize: validate and publish typed motion artifacts.
             if is_motion:
                 motion_path = provider_result.model_path if provider_result else None
-                motion_url = to_url(motion_path)
-                f_size = Path(motion_path).stat().st_size if motion_path and Path(motion_path).exists() else 0
-                motion_json_path = Path(motion_path).parent / "motion.json" if motion_path else None
-                motion_json_url = to_url(str(motion_json_path)) if motion_json_path and motion_json_path.exists() else None
-                download_urls = {
-                    "npz": motion_url,
-                    "motion": motion_url,
-                    "source": motion_url,
+                if not motion_path or not Path(motion_path).is_file():
+                    raise RuntimeError("Motion provider did not produce a readable motion artifact")
+                motion_meta = dict(provider_result.metadata or {})
+                motion_json_path = Path(motion_meta.get("motion_json")) if motion_meta.get("motion_json") else Path(motion_path).parent / "motion.json"
+                if not motion_json_path.is_file():
+                    raise RuntimeError("Motion provider did not produce motion.json")
+
+                import json as _json
+                import numpy as _np
+                try:
+                    with _np.load(motion_path, allow_pickle=False) as motion_npz:
+                        rot = motion_npz.get("local_rot_mats")
+                        roots = motion_npz.get("root_positions")
+                        fps_value = float(_np.asarray(motion_npz.get("fps")).reshape(-1)[0])
+                    motion_doc = _json.loads(motion_json_path.read_text(encoding="utf-8"))
+                except Exception as exc:
+                    raise RuntimeError(f"Invalid motion artifact: {exc}") from exc
+                joint_names = list(motion_doc.get("joint_names") or motion_meta.get("joint_names") or [])
+                frame_count = int(motion_doc.get("num_frames") or (rot.shape[0] if rot is not None else 0))
+                if fps_value <= 0 or frame_count <= 0 or not joint_names:
+                    raise RuntimeError("Motion artifact metadata is incomplete (fps/frame_count/joint_names)")
+                if rot is None or getattr(rot, "ndim", 0) != 4 or rot.shape[0] != frame_count or rot.shape[2:] != (3, 3) or rot.shape[1] != len(joint_names):
+                    raise RuntimeError("Motion rotation tensor shape does not match joint metadata")
+                if roots is not None and (getattr(roots, "ndim", 0) != 2 or roots.shape[0] != frame_count or roots.shape[1] != 3):
+                    raise RuntimeError("Motion root_positions shape is invalid")
+                if not _np.isfinite(rot).all() or (roots is not None and not _np.isfinite(roots).all()):
+                    raise RuntimeError("Motion artifact contains non-finite numeric values")
+                motion_url = to_url(str(motion_path))
+                motion_json_url = to_url(str(motion_json_path))
+                f_size = Path(motion_path).stat().st_size
+                duration_value = float(motion_doc.get("duration") or (frame_count / fps_value))
+                skeleton_id = str(motion_doc.get("skeleton_id") or motion_meta.get("skeleton_id") or "unknown")
+                artifact = {
+                    "artifact_type": "motion",
+                    "primary_url": motion_json_url or motion_url,
+                    "source_url": motion_url,
+                    "motion_json_url": motion_json_url,
+                    "motion_npz_url": motion_url,
+                    "fps": fps_value,
+                    "duration": duration_value,
+                    "frame_count": frame_count,
+                    "joint_names": joint_names,
+                    "skeleton_id": skeleton_id,
+                    "retarget_profile": "explicit-joint-map",
+                    "synthetic": bool(motion_meta.get("synthetic", False)),
+                    "metadata": motion_meta,
                 }
-                if motion_json_url:
-                    download_urls["json"] = motion_json_url
-                    download_urls["animation"] = motion_json_url
-                meta = job.processing_metadata or {}
-                meta["motion_url"] = motion_url
-                if motion_json_url:
-                    meta["motion_json_url"] = motion_json_url
+                if artifact["synthetic"]:
+                    raise RuntimeError("Synthetic motion artifacts are not valid production results")
+                download_urls = {"npz": motion_url, "motion": motion_url, "source": motion_url, "json": motion_json_url, "animation": motion_json_url}
+                meta = dict(job.processing_metadata or {})
+                meta.update({"motion_url": motion_url, "motion_json_url": motion_json_url, "artifact": artifact})
                 _update_job(
-                    session, job_id,
-                    status="completed",
-                    stage="completed",
-                    progress=100,
-                    completed_at=datetime.now(timezone.utc).replace(tzinfo=None),
-                    model_url=motion_url,
-                    thumbnail_url="",
-                    polygon_count=0,
-                    vertex_count=0,
-                    texture_resolution=None,
-                    has_rig=True,
-                    file_size=f_size,
-                    download_urls=download_urls,
-                    processing_metadata=meta,
+                    session, job_id, status="completed", stage="completed", progress=100,
+                    completed_at=datetime.now(timezone.utc).replace(tzinfo=None), model_url=motion_url,
+                    thumbnail_url="", polygon_count=0, vertex_count=0, texture_resolution=None,
+                    has_rig=False, file_size=f_size, download_urls=download_urls, processing_metadata=meta,
                 )
                 session.commit()
                 result_payload = {
-                    "model_url": motion_url,
-                    "active_model_url": motion_url,
-                    "thumbnail_url": "",
-                    "polygon_count": 0,
-                    "vertex_count": 0,
-                    "texture_resolution": None,
-                    "has_rig": True,
-                    "download_urls": download_urls,
-                    "file_size": f_size,
+                    "model_url": motion_url, "active_model_url": motion_json_url or motion_url,
+                    "thumbnail_url": "", "polygon_count": 0, "vertex_count": 0,
+                    "texture_resolution": None, "has_rig": False, "download_urls": download_urls,
+                    "file_size": f_size, "artifact": artifact,
                 }
-                if motion_json_url:
-                    result_payload["motion_json_url"] = motion_json_url
                 sync_publish(100, "completed", "Motion generation complete.", "success", {"result": result_payload})
                 return result_payload
 
@@ -1144,7 +1160,21 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                     )
                 except Exception as b_err:
                     logger.warning("Blender multi-format export failed: %s", b_err)
-                    blender_result = {"glb": glb_path}
+                    blender_result = {"glb": glb_path, "status": "failed", "reason": str(b_err)}
+
+            # Final canonical deliverable resolution:
+            # If Blender succeeded and exported a valid non-empty GLB, that is the final deliverable.
+            # Otherwise, fall back to current_glb_path (Clay game_ready.glb or master source.glb).
+            blender_glb = blender_result.get("glb")
+            if (
+                blender_glb
+                and blender_result.get("status") != "failed"
+                and Path(blender_glb).is_file()
+                and Path(blender_glb).stat().st_size > 0
+            ):
+                glb_path = blender_glb
+            else:
+                glb_path = current_glb_path
 
             from app.core.mesh_processor import get_mesh_stats, render_thumbnail
             thumb_path = str(model_output_dir(job_id) / "thumbnail.png")
@@ -1158,19 +1188,15 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 except Exception as e:
                     logger.warning("Thumbnail rendering failed (non-blocking): %s", e)
 
-            # ponytail: reuse already-computed stats from Blender/Clay/provider to avoid expensive disk reload
+            # Authoritative mesh stats: ALWAYS calculated from the final artifact actually delivered to the user
             f_size = Path(glb_path).stat().st_size if Path(glb_path).exists() else 0
-            stats = {
-                "polygon_count": blender_result.get("polygon_count") or (processed_asset.triangles if 'processed_asset' in locals() else None) or provider_result.polygon_count,
-                "vertex_count": blender_result.get("vertex_count") or provider_result.vertex_count,
-                "file_size": f_size or provider_result.file_size,
-            }
-            if not stats.get("polygon_count"):
-                try:
-                    stats = get_mesh_stats(glb_path)
-                except Exception as e:
-                    logger.warning("Mesh stats extraction failed (non-blocking): %s", e)
-
+            stats = get_mesh_stats(glb_path)
+            if not stats.get("polygon_count") and blender_result.get("polygon_count"):
+                stats["polygon_count"] = blender_result["polygon_count"]
+            if not stats.get("vertex_count") and blender_result.get("vertex_count"):
+                stats["vertex_count"] = blender_result["vertex_count"]
+            if not stats.get("file_size"):
+                stats["file_size"] = f_size or provider_result.file_size
 
             download_urls = {
                 "glb": to_url(glb_path),
@@ -1186,11 +1212,35 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             }
 
             # 10. Finalize
+            blender_status = str(blender_result.get("status") or "success")
+            degraded_stages = [stage for stage in pipeline_stages if stage.get("status") in {"failed", "fallback", "skipped"}]
+            postprocess_status = "completed_degraded" if blender_status in {"failed", "skipped", "fallback"} or degraded_stages else "success"
+            if blender_status == "success" and not any(blender_result.get(k) for k in ("fbx", "obj", "stl", "ply")):
+                postprocess_status = "completed_degraded"
+            meta["blender"] = {
+                "status": blender_status,
+                "reason": blender_result.get("reason"),
+                "exports": {k: {"url": to_url(blender_result.get(k)), "status": "success" if blender_result.get(k) else "unavailable"} for k in ("fbx", "obj", "stl", "ply")},
+            }
+            meta["postprocess"] = {
+                "status": postprocess_status,
+                "engine": "openx_clay",
+                "blender_status": blender_status,
+                "degraded_stages": [s.get("stage") for s in degraded_stages],
+            }
             meta["pipeline_stages"] = pipeline_stages
             meta["active_model_url"] = to_url(glb_path)
+            meta["dimensions"] = stats.get("dimensions")
+            meta["bounding_box"] = stats.get("bounding_box")
+            meta["object_count"] = stats.get("object_count")
+            meta["component_count"] = stats.get("component_count")
+            meta["material_count"] = stats.get("material_count")
+            meta["topology"] = stats.get("topology", "Triangle")
+            meta["mesh_details"] = stats.get("mesh_details")
+
             _update_job(
                 session, job_id,
-                status="completed",
+                status=postprocess_status,
                 stage="completed",
                 progress=100,
                 completed_at=datetime.now(timezone.utc).replace(tzinfo=None),
@@ -1207,11 +1257,20 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             session.commit()
 
             result_payload = {
+                "status": postprocess_status,
                 "model_url": to_url(glb_path),
                 "active_model_url": to_url(glb_path),
                 "thumbnail_url": model_public_url(job_id, "thumbnail.png") if rendered else "",
                 "polygon_count": stats.get("polygon_count", provider_result.polygon_count),
                 "vertex_count": stats.get("vertex_count", provider_result.vertex_count),
+                "dimensions": stats.get("dimensions"),
+                "bounding_box": stats.get("bounding_box"),
+                "object_count": stats.get("object_count"),
+                "component_count": stats.get("component_count"),
+                "material_count": stats.get("material_count"),
+                "topology": stats.get("topology", "Triangle"),
+                "mesh_details": stats.get("mesh_details"),
+                "postprocess_status": postprocess_status,
                 "texture_resolution": provider_result.texture_resolution,
                 "has_rig": provider_result.has_rig,
                 "download_urls": download_urls,
@@ -1224,23 +1283,44 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 "collision_url": meta.get("collision_url"),
                 "qa_report": qa_report,
                 "pipeline_stages": pipeline_stages,
+                "artifact": {
+                    "artifact_type": "mesh",
+                    "primary_url": to_url(glb_path),
+                    "source_url": download_urls.get("source"),
+                    "metadata": {
+                        "format": "glb",
+                        "vertices": stats.get("vertex_count", provider_result.vertex_count),
+                        "triangles": stats.get("polygon_count", provider_result.polygon_count),
+                        "dimensions": stats.get("dimensions"),
+                        "bounding_box": stats.get("bounding_box"),
+                        "object_count": stats.get("object_count"),
+                        "component_count": stats.get("component_count"),
+                        "material_count": stats.get("material_count"),
+                        "topology": stats.get("topology", "Triangle"),
+                        "mesh_details": stats.get("mesh_details"),
+                        "postprocess_status": postprocess_status,
+                    },
+                },
+                "postprocess": meta.get("postprocess"),
                 "actual_topology": meta.get("actual_topology", "triangle"),
                 "topology_mode": meta.get("topology_mode", "adaptive"),
             }
 
-            sync_publish(100, "completed", "Mesh generation & Clay post-processing complete!", "success")
+            final_level = "warn" if postprocess_status == "completed_degraded" else "success"
+            final_message = "Mesh generation complete with degraded downstream exports." if postprocess_status == "completed_degraded" else "Mesh generation & Clay post-processing complete!"
+            sync_publish(100, "completed", final_message, final_level)
             _publish(job_id, {
                 "job_id": job_id,
-                "status": "completed",
+                "status": postprocess_status,
                 "stage": "completed",
                 "progress": 100,
-                "message": "Generation complete! Model is ready for download.",
-                "level": "success",
+                "message": final_message,
+                "level": final_level,
                 "result": result_payload,
                 "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             })
 
-            return {"status": "completed", "job_id": job_id}
+            return {"status": postprocess_status, "job_id": job_id}
 
         except _JobCancelled as exc:
             logger.info("Generation job %s cancelled via API", exc)

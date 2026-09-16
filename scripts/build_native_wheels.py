@@ -269,6 +269,9 @@ def main():
         print(f"\nFailed packages:")
         for name in failed:
             print(f"  - {name}")
+        # A CUDA wheel build is release infrastructure, not a best-effort cache fill.
+        # Partial output must never be reported as a successful build.
+        sys.exit(2)
 
     # Auto-upload to GitHub Releases
     if built and args.upload:

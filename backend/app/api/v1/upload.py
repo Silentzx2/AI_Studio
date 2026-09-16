@@ -260,6 +260,13 @@ async def upload_model(file: UploadFile = File(...)):  # noqa: C901
             mesh_stats = {
                 "polygon_count": stats.get("polygon_count", 0),
                 "vertex_count": stats.get("vertex_count", 0),
+                "dimensions": stats.get("dimensions"),
+                "bounding_box": stats.get("bounding_box"),
+                "object_count": stats.get("object_count"),
+                "component_count": stats.get("component_count"),
+                "material_count": stats.get("material_count"),
+                "topology": stats.get("topology", "Triangle"),
+                "mesh_details": stats.get("mesh_details"),
             }
     except Exception as exc:
         logger.warning(f"Mesh stats extraction failed for {unique_name}: {exc}")
@@ -338,6 +345,13 @@ async def list_uploaded_assets():
                                 mesh_stats = {
                                     "polygon_count": stats.get("polygon_count", 0),
                                     "vertex_count": stats.get("vertex_count", 0),
+                                    "dimensions": stats.get("dimensions"),
+                                    "bounding_box": stats.get("bounding_box"),
+                                    "object_count": stats.get("object_count"),
+                                    "component_count": stats.get("component_count"),
+                                    "material_count": stats.get("material_count"),
+                                    "topology": stats.get("topology", "Triangle"),
+                                    "mesh_details": stats.get("mesh_details"),
                                 }
                         except Exception:
                             pass

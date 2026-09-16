@@ -62,6 +62,18 @@ async def generation_history(limit: int = 20, offset: int = 0):
                             "vram_mode": j.vram_mode,
                             "model_url": j.model_url,
                             "thumbnail_url": j.thumbnail_url,
+                            "polygon_count": j.polygon_count,
+                            "vertex_count": j.vertex_count,
+                            "file_size": j.file_size,
+                            "has_rig": j.has_rig,
+                            "dimensions": (j.processing_metadata or {}).get("dimensions"),
+                            "bounding_box": (j.processing_metadata or {}).get("bounding_box"),
+                            "object_count": (j.processing_metadata or {}).get("object_count"),
+                            "component_count": (j.processing_metadata or {}).get("component_count"),
+                            "material_count": (j.processing_metadata or {}).get("material_count"),
+                            "topology": (j.processing_metadata or {}).get("topology") or "Triangle",
+                            "mesh_details": (j.processing_metadata or {}).get("mesh_details"),
+                            "postprocess_status": (j.processing_metadata or {}).get("postprocess", {}).get("status") or j.status,
                             "created_at": j.created_at.isoformat() if j.created_at else None,
                             "completed_at": j.completed_at.isoformat() if j.completed_at else None,
                         }
@@ -533,12 +545,20 @@ async def get_generation_status(job_id: str):
                 "updated_at": job.updated_at.isoformat() if job.updated_at else None,
             }
 
-            if job.status == "completed":
+            if job.status in ("completed", "completed_degraded", "succeeded"):
                 response["result"] = {
                     "model_url": job.model_url,
                     "thumbnail_url": job.thumbnail_url,
                     "polygon_count": job.polygon_count,
                     "vertex_count": job.vertex_count,
+                    "dimensions": meta.get("dimensions"),
+                    "bounding_box": meta.get("bounding_box"),
+                    "object_count": meta.get("object_count"),
+                    "component_count": meta.get("component_count"),
+                    "material_count": meta.get("material_count"),
+                    "topology": meta.get("topology") or "Triangle",
+                    "mesh_details": meta.get("mesh_details"),
+                    "postprocess_status": meta.get("postprocess", {}).get("status") or job.status,
                     "texture_resolution": job.texture_resolution,
                     "has_rig": job.has_rig,
                     "file_size": job.file_size,
@@ -554,6 +574,25 @@ async def get_generation_status(job_id: str):
                     "pipeline_stages": meta.get("pipeline_stages") or [],
                     "pbr_maps": meta.get("pbr_maps"),
                     "pbr_resolution": meta.get("pbr_resolution"),
+                    "artifact": {
+                        "artifact_type": "mesh",
+                        "primary_url": job.model_url,
+                        "source_url": meta.get("source_model_url") or job.model_url,
+                        "metadata": {
+                            "format": "glb",
+                            "vertices": job.vertex_count,
+                            "triangles": job.polygon_count,
+                            "dimensions": meta.get("dimensions"),
+                            "bounding_box": meta.get("bounding_box"),
+                            "object_count": meta.get("object_count"),
+                            "component_count": meta.get("component_count"),
+                            "material_count": meta.get("material_count"),
+                            "topology": meta.get("topology") or "Triangle",
+                            "mesh_details": meta.get("mesh_details"),
+                            "postprocess_status": meta.get("postprocess", {}).get("status") or job.status,
+                        },
+                    },
+                    "postprocess": meta.get("postprocess"),
                 }
 
             return success(response)

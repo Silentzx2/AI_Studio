@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from clay.blender.engine import (
+from .engine import (
     BlenderError,
     available,
     require_blender,
     resolve_blender,
     run_script,
 )
-from clay.blender.ops import bake_normals, export_fbx, retopo, rig_asset
+from .ops import bake_normals, export_fbx, retopo, rig_asset
 
 __all__ = [
     "BlenderError",

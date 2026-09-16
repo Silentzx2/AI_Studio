@@ -136,7 +136,6 @@ _KNOWN_PROVIDERS = [
     "triposr",
     "triposf",
     "ardy",
-    "instant-mesh",
     "detailgen3d",
 ]
 

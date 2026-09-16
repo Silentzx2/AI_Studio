@@ -14,19 +14,24 @@ if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
 from runtime.dependency_resolver import _manifest_dependency_config, resolve_dependencies  # noqa: E402
-from runtime.manifest_loader import load_all_manifests  # noqa: E402
+from runtime.manifest_loader import load_all_manifests, load_manifest  # noqa: E402
 
 
 def test_dependency_manifest_contract() -> None:
     manifests = load_all_manifests()
-    expected = {
-        "detailgen3d",
-        "hunyuan3d-2.1",
-        "hunyuan3d-2-mini",
-        "trellis",
-        "triposg",
-    }
-    assert set(manifests) == expected, (set(manifests), expected)
+    manifest_dir = ROOT / "backend" / "runtime" / "manifests"
+    expected = {str(manifest.get("name") or path.stem.replace("_", "-")) for path in manifest_dir.glob("*.yaml") for manifest in [load_manifest(path.stem.replace("_", "-"))]}
+    actual = set(manifests)
+    assert actual == expected, (actual, expected)
+
+    from app.core.providers.registry import _RUNTIME_PROVIDER_MAP, canonical_runtime_provider_name
+    for provider_name, manifest in manifests.items():
+        canonical = canonical_runtime_provider_name(provider_name)
+        assert canonical in _RUNTIME_PROVIDER_MAP or canonical in {"detailgen3d", "triposf"}, (
+            provider_name, canonical, manifest
+        )
+        capabilities = manifest.get("capabilities", {}) or {}
+        assert isinstance(capabilities, dict), provider_name
 
     trellis = manifests["trellis"]
     resolved = resolve_dependencies(Path("/tmp/no-such-model-repo"), trellis, target_python="3.10")

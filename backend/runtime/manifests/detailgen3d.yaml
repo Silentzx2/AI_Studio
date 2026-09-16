@@ -2,7 +2,7 @@ name: detailgen3d
 label: DetailGen3D
 source:
   repo: https://github.com/VAST-AI-Research/DetailGen3D.git
-  ref: main
+  ref: acdf05e1677c9aa7e656efddf4973e6b02ef1c24
   submodules: false
   local_dir: DetailGen3D
 environment:

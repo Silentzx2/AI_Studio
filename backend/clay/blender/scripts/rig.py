@@ -10,6 +10,7 @@ out.json: {"ok", "output", "rig_type", "bones", "wheels"?}
 """
 
 import os
+from pathlib import Path
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -41,12 +42,22 @@ def _bind_auto(mesh_obj, arm):
     mesh_obj.select_set(True)
     arm.select_set(True)
     bpy.context.view_layer.objects.active = arm
+    errors = []
     for mode in ("ARMATURE_AUTO", "ARMATURE_ENVELOPE", "ARMATURE_NAME"):
         try:
             bpy.ops.object.parent_set(type=mode)
-            return
-        except Exception:
-            continue
+            return {"ok": True, "mode": mode}
+        except Exception as exc:
+            errors.append(f"{mode}: {exc}")
+    return {"ok": False, "error": "; ".join(errors[-3:]) or "No supported armature binding mode succeeded"}
+
+
+def _validate_deforming_binding(mesh_obj, arm):
+    modifiers = [m for m in mesh_obj.modifiers if m.type == "ARMATURE" and m.object == arm]
+    groups = {g.name for g in mesh_obj.vertex_groups}
+    bone_names = {b.name for b in arm.data.bones}
+    weighted = any(vg.name in bone_names for vg in mesh_obj.vertex_groups)
+    return bool(modifiers and weighted and len(mesh_obj.data.vertices) > 0)
 
 
 def _deforming_rig(mesh_obj, bone_fn):
@@ -58,8 +69,10 @@ def _deforming_rig(mesh_obj, bone_fn):
     bone_fn(arm.data.edit_bones, mn, mx)
     n = len(arm.data.edit_bones)
     bpy.ops.object.mode_set(mode="OBJECT")
-    _bind_auto(mesh_obj, arm)
-    return n
+    binding = _bind_auto(mesh_obj, arm)
+    if not binding.get("ok") or not _validate_deforming_binding(mesh_obj, arm):
+        raise RuntimeError(binding.get("error") or "Armature binding validation failed")
+    return {"bones": n, "binding": binding}
 
 
 def _chain(eb, mn, mx, segments, name="Bone"):
@@ -226,16 +239,25 @@ def main():
 
     wheels = None
     if rig_type == "humanoid":
-        bones = _deforming_rig(mesh_obj, _biped)
+        rig_info = _deforming_rig(mesh_obj, _biped)
+        bones = rig_info["bones"]
+        binding = rig_info["binding"]
     elif rig_type == "quadruped":
-        bones = _deforming_rig(mesh_obj, _quadruped)
+        rig_info = _deforming_rig(mesh_obj, _quadruped)
+        bones = rig_info["bones"]
+        binding = rig_info["binding"]
     elif rig_type == "vehicle":
         bones, wheels = _vehicle(mesh_obj, options)
+        binding = {"ok": True, "mode": "BONE_PARENT"}
     else:  # generic
-        bones = _deforming_rig(mesh_obj, lambda eb, mn, mx: _chain(eb, mn, mx, 4))
+        rig_info = _deforming_rig(mesh_obj, lambda eb, mn, mx: _chain(eb, mn, mx, 4))
+        bones = rig_info["bones"]
+        binding = rig_info["binding"]
 
     export_mesh(p["output"])
-    result = {"ok": True, "output": p["output"], "rig_type": rig_type, "bones": bones}
+    if not Path(p["output"]).exists():
+        raise RuntimeError("Rig export did not produce the requested output file")
+    result = {"ok": True, "output": p["output"], "rig_type": rig_type, "bones": bones, "binding": binding, "binding_valid": True}
     if wheels is not None:
         result["wheels"] = wheels
     return result

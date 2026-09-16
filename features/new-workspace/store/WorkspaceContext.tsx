@@ -13,6 +13,7 @@ import {
   TextureSettings,
   ActiveTask,
   EnvironmentSettings,
+  normalizeModelAsset,
 } from '../types';
 import { apiClient } from '../lib/api';
 import { useAppStore } from '@/stores/useAppStore';
@@ -181,16 +182,32 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const name = promptName || `Model_${id.slice(0, 8)}`;
         const outputs = (h.outputs || {}) as Record<string, any>;
         const outputUrl = (outputs.glb as string) || (outputs.model_url as string) || `/static/models/${id}/model.glb`;
-        return {
+        return normalizeModelAsset({
           id: id || `hist-${i}`,
           name,
-          category: 'generation' as const,
+          category: 'generation',
           thumbnail: (outputs.thumbnail as string) || (outputs.thumbnail_url as string) || '',
           source: { filename: `${id}.glb`, subfolder: 'generated', type: 'output', viewUrl: outputUrl },
-          meshType: 'custom' as const, faces: 0, vertices: 0, triangles: 0,
-          statsAvailable: false, topology: 'Triangle' as const, format: 'GLB' as const,
-          dateCreated: '', tags: ['AI Generated'], materials: [],
-        };
+          meshType: 'custom',
+          polygon_count: outputs.polygon_count,
+          vertex_count: outputs.vertex_count,
+          faces: outputs.polygon_count ?? outputs.faces,
+          vertices: outputs.vertex_count ?? outputs.vertices,
+          triangles: outputs.polygon_count ?? outputs.triangles,
+          statsAvailable: outputs.statsAvailable ?? ((outputs.polygon_count ?? 0) > 0 || (outputs.vertex_count ?? 0) > 0),
+          topology: outputs.topology || 'Triangle',
+          format: outputs.format || 'GLB',
+          dimensions: outputs.dimensions,
+          boundingBox: outputs.bounding_box || outputs.boundingBox,
+          objectCount: outputs.object_count ?? outputs.objectCount,
+          componentCount: outputs.component_count ?? outputs.componentCount,
+          materialCount: outputs.material_count ?? outputs.materialCount,
+          meshDetails: outputs.mesh_details || outputs.meshDetails,
+          postprocessStatus: outputs.postprocess_status,
+          dateCreated: '',
+          tags: ['AI Generated'],
+          materials: [],
+        });
       }) as ModelAsset[];
     },
     refetchInterval: 60000,
@@ -210,22 +227,30 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const formattedName = cleanName === 'model' || cleanName === 'generate'
           ? `Model_${(m.id || m.filename).slice(0, 8)}`
           : cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
-        return {
+        return normalizeModelAsset({
           id: m.id || m.filename,
           name: formattedName,
-          category: 'mesh' as const,
-          meshType: 'custom' as const,
+          category: 'mesh',
+          meshType: 'custom',
           thumbnail: m.thumbnail_url || '',
-          faces: meshStats?.polygon_count || m.faces || 0,
-          vertices: meshStats?.vertex_count || m.vertices || 0,
-          triangles: meshStats?.polygon_count || m.triangles || 0,
-          statsAvailable: !!(meshStats && meshStats.polygon_count > 0),
+          polygon_count: meshStats?.polygon_count ?? m.faces,
+          vertex_count: meshStats?.vertex_count ?? m.vertices,
+          faces: meshStats?.polygon_count ?? m.faces,
+          vertices: meshStats?.vertex_count ?? m.vertices,
+          triangles: meshStats?.polygon_count ?? m.triangles,
+          statsAvailable: !!(meshStats && ((meshStats.polygon_count ?? 0) > 0 || (meshStats.vertex_count ?? 0) > 0)),
           source: { filename: m.filename, subfolder: '', type: 'upload', viewUrl: m.url || '' },
-          topology: 'Triangle' as const,
+          topology: meshStats?.topology || 'Triangle',
           format: m.format || 'GLB',
+          dimensions: meshStats?.dimensions,
+          boundingBox: meshStats?.bounding_box,
+          objectCount: meshStats?.object_count,
+          componentCount: meshStats?.component_count,
+          materialCount: meshStats?.material_count,
+          meshDetails: meshStats?.mesh_details,
           dateCreated: m.created_at || '',
           tags: ['Uploaded', 'Model'],
-        };
+        });
       }) as ModelAsset[];
     },
     refetchInterval: 60000,
@@ -240,9 +265,31 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const uploaded = uploadedAssets || [];
     const local = localAssets;
 
-    setAssets(() => {
+    setAssets(prevAssets => {
       // Prioritize local session assets, then uploaded, then history
-      const all = [...local, ...uploaded, ...history];
+      // When merging, preserve authoritative metadata from prevAssets if incoming has statsAvailable: false
+      const prevMap = new Map((prevAssets || []).map(a => [a.id, a]));
+      const all = [...local, ...uploaded, ...history].map(rawItem => {
+        const a = normalizeModelAsset(rawItem);
+        const existing = prevMap.get(a.id);
+        if (existing && existing.statsAvailable && !a.statsAvailable) {
+          return {
+            ...a,
+            faces: existing.faces,
+            vertices: existing.vertices,
+            triangles: existing.triangles,
+            statsAvailable: true,
+            dimensions: existing.dimensions || a.dimensions,
+            boundingBox: existing.boundingBox || a.boundingBox,
+            objectCount: existing.objectCount ?? a.objectCount,
+            componentCount: existing.componentCount ?? a.componentCount,
+            materialCount: existing.materialCount ?? a.materialCount,
+            topology: existing.topology || a.topology,
+            meshDetails: existing.meshDetails || a.meshDetails,
+          };
+        }
+        return a;
+      });
       const seenIds = new Set<string>();
       const seenFilenames = new Set<string>();
       const seenUrls = new Set<string>();
@@ -508,11 +555,29 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const res = await fetch(`/api/v1/generation/${encodeURIComponent(jobId)}/status`, { cache: 'no-store' });
         if (!res.ok) throw await parseApiError(res);
         const data = await parseApiData<{
-          status: 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
+          status: 'queued' | 'processing' | 'completed' | 'completed_degraded' | 'succeeded' | 'failed' | 'cancelled';
           progress?: number; stage?: string; message?: string; error_message?: string | null;
           logs?: { stage: string; progress: number; message: string; level: string; timestamp: string }[];
           result?: {
-            model_url?: string; thumbnail_url?: string; polygon_count?: number; vertex_count?: number; file_size?: number;
+            model_url?: string;
+            thumbnail_url?: string;
+            polygon_count?: number;
+            vertex_count?: number;
+            file_size?: number;
+            dimensions?: { x: number; y: number; z: number };
+            bounding_box?: { min: number[]; max: number[]; extent: number[]; diagonal: number };
+            object_count?: number;
+            component_count?: number;
+            material_count?: number;
+            topology?: string;
+            mesh_details?: Record<string, unknown>;
+            postprocess_status?: string;
+            source_model_url?: string;
+            game_ready_url?: string;
+            lod_urls?: string[];
+            collision_url?: string;
+            qa_report?: Record<string, unknown>;
+            pbr_maps?: Record<string, string>;
           };
         }>(res);
         if (stopped) return;
@@ -529,7 +594,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           logs: data.logs || prev.logs,
         } : null);
 
-        if (data.status === 'completed') {
+        if (data.status === 'completed' || data.status === 'completed_degraded' || data.status === 'succeeded') {
           setIsExecuting(false);
           setExecutionProgress(100);
           setExecutionStep('Completed');
@@ -550,18 +615,27 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             const qaStatus = qaReport?.status ?? (qaScore !== undefined ? (qaScore >= 80 ? 'pass' : qaScore >= 50 ? 'warn' : 'fail') : undefined);
             const qaWarnings = qaReport?.warnings ?? [];
 
-            const outputAsset: ModelAsset = {
+            const outputAsset = normalizeModelAsset({
               id: jobId,
               name: cleanName,
               category: 'generation',
               thumbnail: result.thumbnail_url || '',
+              polygon_count: result.polygon_count,
+              vertex_count: result.vertex_count,
               faces: result.polygon_count ?? 0,
               vertices: result.vertex_count ?? 0,
               triangles: result.polygon_count ?? 0,
-              statsAvailable: (result.polygon_count ?? 0) > 0,
+              statsAvailable: ((result.polygon_count ?? 0) > 0 || (result.vertex_count ?? 0) > 0),
               source: { filename: `${jobId}.glb`, subfolder: 'generated', type: 'output', viewUrl: modelUrl },
-              topology: 'Triangle',
+              topology: (result.topology as any) || 'Triangle',
               format: 'GLB',
+              dimensions: result.dimensions,
+              boundingBox: result.bounding_box,
+              objectCount: result.object_count,
+              componentCount: result.component_count,
+              materialCount: result.material_count,
+              meshDetails: result.mesh_details,
+              postprocessStatus: result.postprocess_status || data.status,
               dateCreated: new Date().toISOString().split('T')[0],
               tags: ['AI Generated'],
               meshType: 'custom',
@@ -576,7 +650,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               qaScore,
               qaStatus,
               qaWarnings,
-            };
+            });
             addAsset(outputAsset);
             setSelectedAssetId(outputAsset.id);
             setViewportResetTrigger(prev => prev + 1);
@@ -646,8 +720,28 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [assets]);
 
   const updateAssetProperties = useCallback((id: string, updates: Partial<ModelAsset>) => {
-    setLocalAssets(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a));
-    setAssets(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a));
+    setLocalAssets(prev => {
+      const idx = prev.findIndex(a => a.id === id);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = { ...copy[idx], ...updates };
+        return copy;
+      }
+      return prev;
+    });
+    setAssets(prev => {
+      const updated = prev.map(a => a.id === id ? { ...a, ...updates } : a);
+      const found = updated.find(a => a.id === id);
+      if (found) {
+        setLocalAssets(loc => {
+          if (!loc.some(l => l.id === id)) {
+            return [found, ...loc];
+          }
+          return loc.map(l => l.id === id ? found : l);
+        });
+      }
+      return updated;
+    });
   }, []);
 
   const updateMaterialConfig = useCallback((updates: Partial<MaterialConfig>) => {

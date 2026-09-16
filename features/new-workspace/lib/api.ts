@@ -182,8 +182,24 @@ class ApiClient {
         const jobId = (j.id ?? j.job_id ?? `job-${i}`) as string;
         result[jobId] = {
           prompt: [0, (j.prompt ?? '') as string, {}, {}, []] as unknown as HistoryItem['prompt'],
-          outputs: (j.result_urls ?? j.result ?? {}) as Record<string, Record<string, unknown>>,
-          status: { status_str: (j.status ?? 'unknown') as string, completed: j.status === 'completed' || j.status === 'succeeded' },
+          outputs: {
+            ...((j.result_urls ?? j.result ?? {}) as Record<string, unknown>),
+            glb: j.model_url || (j.result as any)?.model_url,
+            model_url: j.model_url || (j.result as any)?.model_url,
+            thumbnail: j.thumbnail_url || (j.result as any)?.thumbnail_url,
+            thumbnail_url: j.thumbnail_url || (j.result as any)?.thumbnail_url,
+            polygon_count: j.polygon_count ?? (j.result as any)?.polygon_count,
+            vertex_count: j.vertex_count ?? (j.result as any)?.vertex_count,
+            dimensions: j.dimensions ?? (j.result as any)?.dimensions,
+            bounding_box: j.bounding_box ?? (j.result as any)?.bounding_box,
+            object_count: j.object_count ?? (j.result as any)?.object_count,
+            component_count: j.component_count ?? (j.result as any)?.component_count,
+            material_count: j.material_count ?? (j.result as any)?.material_count,
+            topology: j.topology ?? (j.result as any)?.topology,
+            mesh_details: j.mesh_details ?? (j.result as any)?.mesh_details,
+            postprocess_status: j.postprocess_status ?? (j.result as any)?.postprocess_status,
+          },
+          status: { status_str: (j.status ?? 'unknown') as string, completed: j.status === 'completed' || j.status === 'succeeded' || j.status === 'completed_degraded' },
         };
       });
       return result;

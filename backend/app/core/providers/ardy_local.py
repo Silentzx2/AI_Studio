@@ -92,7 +92,7 @@ class ArdyLocalProvider(BaseProvider):
             vram_tracker.release("ardy")
             self.model = None
             self.is_loaded = False
-            return False
+            raise RuntimeError(f"ARDY model failed to load: {exc}") from exc
 
     def unload(self) -> None:
         """Unload ARDY model and free VRAM."""
@@ -145,112 +145,45 @@ class ArdyLocalProvider(BaseProvider):
         if progress_callback:
             await progress_callback(15, "preparing", f"Preparing ARDY motion synthesis ({duration:.1f}s at {fps:.0f} fps)...")
 
-        # 2. Generate motion (via neural diffusion if checkpoint loaded, else kinematic generator)
-        joint_names = [
-            "Hips", "Spine", "Chest", "Neck", "Head",
-            "UpperArm_L", "LowerArm_L", "Hand_L",
-            "UpperArm_R", "LowerArm_R", "Hand_R",
-            "UpperLeg_L", "LowerLeg_L", "Foot_L",
-            "UpperLeg_R", "LowerLeg_R", "Foot_R",
-        ]
+        # 2. Generate motion with the loaded upstream model only.
+        if not self.is_loaded or self.model is None:
+            raise RuntimeError("ARDY model is unavailable; refusing to fabricate synthetic motion output.")
+
+        skeleton = getattr(self.model, "skeleton", None)
+        joint_names = list(getattr(skeleton, "joint_names", None) or getattr(self.model, "joint_names", None) or [])
+        skeleton_id = str(getattr(skeleton, "name", None) or getattr(self.model, "skeleton_id", None) or "ardy-unknown")
+        if not joint_names:
+            raise RuntimeError("ARDY loaded without authoritative joint_names; refusing to emit an untyped motion artifact.")
+
         num_joints = len(joint_names)
+        num_base_steps = int(getattr(self.model.diffusion, "num_base_steps", 20))
+        req_steps = getattr(request, "num_inference_steps", None)
+        diffusion_steps = req_steps if req_steps and 1 <= req_steps <= num_base_steps else num_base_steps
 
-        if self.is_loaded and self.model is not None:
-            num_base_steps = int(getattr(self.model.diffusion, "num_base_steps", 20))
-            req_steps = getattr(request, "num_inference_steps", None)
-            diffusion_steps = req_steps if req_steps and 1 <= req_steps <= num_base_steps else num_base_steps
-
-            seed = getattr(request, "seed", None)
-            if seed is not None:
-                try:
-                    from ardy.tools import seed_everything
-                    seed_everything(seed)
-                except Exception:
-                    pass
-
-            if progress_callback:
-                await progress_callback(40, "generating", f"Sampling motion diffusion steps ({diffusion_steps} steps)...")
-
-            with torch.no_grad():
-                output = self.model.generate(
-                    num_frames=num_frames,
-                    text=[prompt.strip()],
-                    diffusion_steps=diffusion_steps,
-                )
-
+        seed = getattr(request, "seed", None)
+        if seed is not None:
             try:
-                from ardy.postprocess import post_process_motion
-                if hasattr(self.model, "skeleton") and hasattr(self.model.skeleton, "name") and "g1" not in self.model.skeleton.name.lower():
-                    output = post_process_motion(output, self.model.skeleton)
-            except Exception as post_err:
-                logger.debug("ARDY motion post-processing skipped: %s", post_err)
-        else:
-            # Kinematic motion generator based on prompt semantics
-            if progress_callback:
-                await progress_callback(45, "generating", f"Synthesizing motion dynamics for '{prompt.strip()[:30]}...'...")
+                from ardy.tools import seed_everything
+                seed_everything(seed)
+            except Exception:
+                pass
 
-            prompt_lower = prompt.lower()
-            is_run = "run" in prompt_lower or "sprint" in prompt_lower
-            is_jump = "jump" in prompt_lower or "hop" in prompt_lower
-            is_wave = "wave" in prompt_lower or "hand" in prompt_lower
-            is_punch = "punch" in prompt_lower or "combat" in prompt_lower
+        if progress_callback:
+            await progress_callback(40, "generating", f"Sampling ARDY motion diffusion steps ({diffusion_steps} steps)...")
 
-            t = np.linspace(0, duration, num_frames)
-            freq = 2.0 if is_run else 1.2
-            phase = 2 * np.pi * freq * t
+        with torch.no_grad():
+            output = self.model.generate(
+                num_frames=num_frames,
+                text=[prompt.strip()],
+                diffusion_steps=diffusion_steps,
+            )
 
-            rot_mats = np.zeros((num_frames, num_joints, 3, 3), dtype=np.float32)
-            for f_idx in range(num_frames):
-                for j_idx in range(num_joints):
-                    rot_mats[f_idx, j_idx] = np.eye(3)
-
-            # Assign biomechanically realistic joint rotations
-            sin_p = np.sin(phase)
-            cos_p = np.cos(phase)
-
-            for f_idx in range(num_frames):
-                s = sin_p[f_idx]
-                c = cos_p[f_idx]
-
-                if is_jump:
-                    jump_h = max(0.0, np.sin(np.pi * (f_idx / num_frames))) * 0.6
-                    rot_mats[f_idx, joint_names.index("UpperLeg_L")] = R.from_euler('x', -0.5 * (1 - jump_h)).as_matrix()
-                    rot_mats[f_idx, joint_names.index("UpperLeg_R")] = R.from_euler('x', -0.5 * (1 - jump_h)).as_matrix()
-                    rot_mats[f_idx, joint_names.index("UpperArm_L")] = R.from_euler('x', 0.8 * jump_h).as_matrix()
-                    rot_mats[f_idx, joint_names.index("UpperArm_R")] = R.from_euler('x', 0.8 * jump_h).as_matrix()
-                elif is_wave:
-                    rot_mats[f_idx, joint_names.index("UpperArm_R")] = R.from_euler('xyz', [0.2, 0.3, 1.8 + 0.3 * np.sin(4 * np.pi * t[f_idx])]).as_matrix()
-                    rot_mats[f_idx, joint_names.index("UpperArm_L")] = R.from_euler('x', 0.1 * s).as_matrix()
-                    rot_mats[f_idx, joint_names.index("UpperLeg_L")] = R.from_euler('x', 0.15 * s).as_matrix()
-                    rot_mats[f_idx, joint_names.index("UpperLeg_R")] = R.from_euler('x', -0.15 * s).as_matrix()
-                elif is_punch:
-                    punch_l = np.sin(3 * np.pi * t[f_idx])
-                    punch_r = -np.sin(3 * np.pi * t[f_idx])
-                    rot_mats[f_idx, joint_names.index("UpperArm_L")] = R.from_euler('x', 0.6 * max(0.0, punch_l)).as_matrix()
-                    rot_mats[f_idx, joint_names.index("UpperArm_R")] = R.from_euler('x', 0.6 * max(0.0, punch_r)).as_matrix()
-                else: # Walk / Run locomotion
-                    amp_arm = 0.5 if is_run else 0.35
-                    amp_leg = 0.6 if is_run else 0.4
-                    rot_mats[f_idx, joint_names.index("UpperArm_L")] = R.from_euler('x', amp_arm * s).as_matrix()
-                    rot_mats[f_idx, joint_names.index("UpperArm_R")] = R.from_euler('x', -amp_arm * s).as_matrix()
-                    rot_mats[f_idx, joint_names.index("UpperLeg_L")] = R.from_euler('x', -amp_leg * s).as_matrix()
-                    rot_mats[f_idx, joint_names.index("UpperLeg_R")] = R.from_euler('x', amp_leg * s).as_matrix()
-                    rot_mats[f_idx, joint_names.index("Spine")] = R.from_euler('y', 0.08 * s).as_matrix()
-
-            root_pos = np.zeros((num_frames, 3), dtype=np.float32)
-            if is_run or "walk" in prompt_lower:
-                speed = 2.5 if is_run else 1.2
-                root_pos[:, 2] = t * speed
-                root_pos[:, 1] = 1.0 + 0.04 * np.abs(np.cos(phase))
-            elif is_jump:
-                root_pos[:, 1] = 1.0 + np.sin(np.pi * (t / duration)) * 0.6
-            else:
-                root_pos[:, 1] = 1.0 + 0.01 * np.sin(np.pi * t)
-
-            output = {
-                "local_rot_mats": rot_mats,
-                "root_positions": root_pos,
-            }
+        try:
+            from ardy.postprocess import post_process_motion
+            if skeleton is not None and "g1" not in skeleton_id.lower():
+                output = post_process_motion(output, skeleton)
+        except Exception as post_err:
+            logger.debug("ARDY motion post-processing skipped: %s", post_err)
 
         # 5. Save output .npz
         if progress_callback:
@@ -292,8 +225,8 @@ class ArdyLocalProvider(BaseProvider):
                     motion_data["quaternions"] = quats.tolist()
             if "root_positions" in arrays:
                 motion_data["root_positions"] = arrays["root_positions"].tolist()
-            if hasattr(self.model, "skeleton") and hasattr(self.model.skeleton, "joint_names"):
-                motion_data["joint_names"] = list(self.model.skeleton.joint_names)
+            motion_data["joint_names"] = joint_names
+            motion_data["skeleton_id"] = skeleton_id
             with open(json_path, "w", encoding="utf-8") as jf:
                 json.dump(motion_data, jf)
         except Exception as j_err:
@@ -306,6 +239,16 @@ class ArdyLocalProvider(BaseProvider):
             model_path=str(npz_path),
             polygon_count=0,
             vertex_count=0,
-            has_rig=True,
+            has_rig=False,
             file_size=npz_path.stat().st_size if npz_path.exists() else 0,
+            metadata={
+                "artifact_type": "motion",
+                "motion_json": str(json_path) if json_path.exists() else None,
+                "fps": float(fps),
+                "duration": float(duration),
+                "frame_count": int(num_frames),
+                "joint_names": joint_names,
+                "skeleton_id": skeleton_id,
+                "synthetic": False,
+            },
         )

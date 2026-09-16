@@ -1,8 +1,32 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.64 (Animation & Rigging Studio with ARDY Motion AI & Blender Auto-Rigging)
-> **Status**: ✅ **IMPLEMENTATION COMPLETE & VERIFIED** — Verified 2026-09-14
-> **Last Updated**: September 14, 2026
+> **Version**: 5.0.75 (Mesh Detail Preservation & Final GLB Authority Contract)
+> **Status**: Verified and active; comprehensive backend regression suite passing, frontend production build verified.
+> **Last Updated**: September 16, 2026
+
+> **Current contract:**
+> 1. The final delivered GLB artifact (`blender_glb` or canonical `game_ready.glb`) is the single source of truth for all geometry metrics, face/vertex counts, bounding dimensions, topological components, and semantic mesh details.
+> 2. Pipeline worker tasks must extract geometry statistics directly from the delivered artifact; intermediate provider result metadata is strictly treated as stage A provenance, never overriding stage C final deliverables.
+> 3. Semantic details (eyes, teeth, anatomical components) must never be defaulted to false zeros; if undetected in unstructured meshes, they report `not_analyzed` / `unsupported`.
+> 4. Frontend state managers (`WorkspaceContext`, `MeshViewer`, `RightPropertyPanel`) must preserve authoritative metadata across history refetches, tab switches, and scene re-renders. Runtime Three.js traversal serves solely as fallback/diagnostics.
+> 5. OpenX Clay is the canonical game-ready post-processing engine. Blender is a downstream DCC/export/rigging adapter used where required. ARDY support is based on the actually pinned/verified checkpoint and its published skeleton metadata.
+
+---
+
+## v5.0.75 — Mesh Detail Preservation & Authoritative Final Artifact Contract (2026-09-16)
+
+### Root Cause Analysis
+1. **Worker Stats Staleness**: `backend/app/workers/tasks.py` fell back to `provider_result.polygon_count` instead of computing actual stats on the final delivered GLB artifact.
+2. **Missing Geometry Metrics**: Worker never computed real bounding dimensions, object counts, topological connected components, or materials on final output.
+3. **History Stripping**: `/generation/history` endpoint stripped vertex counts, dimensions, and mesh details. Status endpoint only returned `result` when status was strictly `"completed"`, dropping metrics for `"completed_degraded"`.
+4. **Frontend Overwrites**: `WorkspaceContext.tsx` zeroed out faces and vertices during history refetches, and `MeshViewer.tsx` runtime Three.js traversal unilaterally overwrote backend canonical stats.
+
+### Architecture Fix
+- **`backend/app/core/mesh_processor.py`**: Enhanced `get_mesh_stats` to parse connected components, measure bounding box diagonals/extents, classify topology (Triangle/Quad/Mixed), and safely extract semantic part labels without false zero defaults.
+- **`backend/app/workers/tasks.py`**: Computed authoritative stats on final deliverable `final_glb_for_stats`, persisted to database and Celery result payload.
+- **`features/new-workspace/types.ts` & `store/WorkspaceContext.tsx`**: Added `normalizeModelAsset` pipeline preserving authoritative metadata across all state transitions.
+- **`features/new-workspace/Viewport/MeshViewer.tsx`**: Enforced final GLB metadata authority; Three.js traversal serves as secondary fallback only.
+- **`backend/tests/test_mesh_detail_root_fix.py`**: 7 automated tests verifying geometry extraction, component counts, semantic preservation, and multi-stage pipeline comparisons.
 
 ---
 
@@ -37,7 +61,7 @@ Implemented the complete, production-grade Animation & Rigging Studio matching t
    - `Animation (ARDY)`: Locked ARDY engine (no model selector permitted), text prompt input, suggestion chips, duration slider, joint pose editor, and animation mixer.
 6. **Backend Auto-Rigging & Motion Pipelines**:
    - Celery worker task handles `job.mode == "rigging"` via Blender headless scripts (`clay/blender/scripts/rig.py`), using non-destructive early finalization to protect skinning and vertex weights.
-   - ARDY provider converts 77-joint and 30-joint SOMA skeleton motion tensors into standard glTF quaternion animation tracks (`motion.json`) alongside `.npz` files.
+   - ARDY provider emits typed motion artifacts (`motion.json` + `.npz`) with authoritative joint names and skeleton metadata; unsupported/unreleased skeleton variants are not advertised as shipped integrations.
 
 ---
 

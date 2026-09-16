@@ -15,6 +15,10 @@ export interface AnimationClipItem {
   keyframesCount: number;
   tracks?: string[];
   url?: string;
+  motionJsonUrl?: string;
+  artifactType?: 'motion' | 'mesh' | 'image' | 'package' | 'other';
+  skeletonId?: string;
+  jointNames?: string[];
   isBuiltin?: boolean;
 }
 
@@ -164,6 +168,7 @@ interface AnimationState {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   addAnimation: (clip: AnimationClipItem) => void;
+  setAnimations: (animations: AnimationClipItem[]) => void;
 
   // Rigging Engine
   rigStatus: 'not_rigged' | 'preparing' | 'rigging' | 'rigged' | 'failed';
@@ -183,6 +188,7 @@ interface AnimationState {
   setSelectedBone: (boneName: string | null) => void;
   boneRotations: Record<string, [number, number, number]>;
   setBoneRotation: (boneName: string, rot: [number, number, number]) => void;
+  setBoneRotations: (rotations: Record<string, [number, number, number]>) => void;
   resetPose: () => void;
   mirrorPose: () => void;
   isPlacingBone: boolean;
@@ -336,8 +342,9 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
       duration: clip.duration,
       fps: clip.fps,
     })),
+  setAnimations: (animations) => set({ animations }),
 
-  rigStatus: 'rigged',
+  rigStatus: 'not_rigged',
   setRigStatus: (rigStatus) => set({ rigStatus }),
   rigProfile: 'humanoid',
   setRigProfile: (rigProfile) => set({ rigProfile }),
@@ -371,6 +378,7 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
       }
       return { boneRotations: updated };
     }),
+  setBoneRotations: (boneRotations) => set({ boneRotations }),
   resetPose: () => set({ boneRotations: {} }),
   mirrorPose: () => {
     const current = get().boneRotations;

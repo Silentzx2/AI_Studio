@@ -203,6 +203,22 @@ class GenerationRequest(BaseModel):
 
 # ── Response schemas ───────────────────────────────────────────────────────────
 
+class ArtifactMetadata(BaseModel):
+    artifact_type: Literal["mesh", "motion", "image", "package", "other"] = "mesh"
+    primary_url: str | None = None
+    source_url: str | None = None
+    motion_json_url: str | None = None
+    motion_npz_url: str | None = None
+    fps: float | None = None
+    duration: float | None = None
+    frame_count: int | None = None
+    joint_names: list[str] = Field(default_factory=list)
+    skeleton_id: str | None = None
+    retarget_profile: str | None = None
+    synthetic: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class DownloadUrls(BaseModel):
     glb: str | None = None
     fbx: str | None = None
@@ -214,6 +230,9 @@ class DownloadUrls(BaseModel):
     collision: str | None = None
     npz: str | None = None
     motion: str | None = None
+    json: str | None = None
+    animation: str | None = None
+    model: str | None = None
 
 
 class JobResult(BaseModel):
@@ -232,6 +251,16 @@ class JobResult(BaseModel):
     collision_url: str | None = None
     qa_report: dict | None = None
     pipeline_stages: list[dict[str, Any]] = Field(default_factory=list)
+    artifact: ArtifactMetadata | None = None
+    postprocess: dict[str, Any] | None = None
+    dimensions: dict[str, float] | None = None
+    bounding_box: dict[str, Any] | None = None
+    object_count: int | None = None
+    component_count: int | None = None
+    material_count: int | None = None
+    topology: str | None = None
+    postprocess_status: str | None = None
+    mesh_details: dict[str, Any] | None = None
 
 
 class JobResponse(BaseModel):

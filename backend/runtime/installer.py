@@ -1648,10 +1648,17 @@ def clone_repo(repo_name: str, log_cb: Callable | None = None) -> dict:
         logger.info("Removing non-git directory %s before clone", dest)
         shutil.rmtree(str(dest), ignore_errors=True)
     dest.parent.mkdir(parents=True, exist_ok=True)
-    cmd = ["git", "clone", "--depth", "1",
-           "--branch", repo_cfg["branch"],
-           repo_cfg["url"], str(dest)]
-    code, out = _run(cmd, log_cb=log_cb)
+    branch_or_commit = repo_cfg["branch"]
+    is_sha = len(branch_or_commit) == 40 and all(c in "0123456789abcdefABCDEF" for c in branch_or_commit)
+    if is_sha:
+        code, out = _run(["git", "clone", repo_cfg["url"], str(dest)], log_cb=log_cb)
+        if code == 0:
+            code, out = _run(["git", "checkout", branch_or_commit], cwd=dest, log_cb=log_cb)
+    else:
+        cmd = ["git", "clone", "--depth", "1",
+               "--branch", branch_or_commit,
+               repo_cfg["url"], str(dest)]
+        code, out = _run(cmd, log_cb=log_cb)
     if code != 0:
         return {"success": False, "error": f"git clone failed (exit {code})", "output": out}
     # ponytail: Only init submodules when the manifest explicitly requests it.

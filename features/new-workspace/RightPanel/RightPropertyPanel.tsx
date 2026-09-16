@@ -350,6 +350,32 @@ export const RightPropertyPanel: React.FC = () => {
             <span>UV Channels</span>
             <span className="font-mono text-[hsl(var(--foreground))]">2 (UV0: Diffuse, UV1: Lightmap)</span>
           </div>
+          {currentAsset.dimensions && (
+            <div className="flex items-center justify-between text-xs text-[hsl(var(--muted-foreground))] pt-1 border-t border-[hsl(var(--border))]">
+              <span>Dimensions (X×Y×Z)</span>
+              <span className="font-mono text-[hsl(var(--foreground))]">{currentAsset.dimensions.x} × {currentAsset.dimensions.y} × {currentAsset.dimensions.z} m</span>
+            </div>
+          )}
+          {currentAsset.componentCount !== undefined && (
+            <div className="flex items-center justify-between text-xs text-[hsl(var(--muted-foreground))] pt-1 border-t border-[hsl(var(--border))]">
+              <span>Components / Parts</span>
+              <span className="font-mono text-[hsl(var(--foreground))]">{currentAsset.componentCount > 0 ? `${currentAsset.componentCount} connected parts` : '1 part'}</span>
+            </div>
+          )}
+          {currentAsset.meshDetails && (
+            <div className="flex items-center justify-between text-xs text-[hsl(var(--muted-foreground))] pt-1 border-t border-[hsl(var(--border))]">
+              <span>Semantic Details</span>
+              <span className="font-mono text-[hsl(var(--foreground))]">
+                {Array.isArray((currentAsset.meshDetails as any)?.semantic_parts)
+                  ? ((currentAsset.meshDetails as any).semantic_parts.length > 0
+                    ? (currentAsset.meshDetails as any).semantic_parts.join(', ')
+                    : 'Not analyzed / monolithic')
+                  : typeof (currentAsset.meshDetails as any)?.semantic_parts === 'string'
+                  ? (currentAsset.meshDetails as any).semantic_parts
+                  : 'Unsupported'}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* 3. Dynamic Context-Aware Inspector Sections based on activeTool */}

@@ -689,13 +689,22 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     useViewerStore.getState().setModelStats({ vertices: verts, triangles, dimensions });
 
     if (currentAsset) {
-      // Use immutable update to trigger React re-render
-      updateAssetProperties(currentAsset.id, {
-        faces,
-        vertices: verts,
-        triangles,
-        statsAvailable: true,
-      });
+      // Authoritative contract: final canonical artifact analysis is authoritative;
+      // viewer-side Three.js runtime inspection is validation / fallback only.
+      const hasAuthoritative = currentAsset.statsAvailable && currentAsset.faces > 0;
+      if (!hasAuthoritative) {
+        updateAssetProperties(currentAsset.id, {
+          faces,
+          vertices: verts,
+          triangles,
+          statsAvailable: true,
+          dimensions: currentAsset.dimensions || dimensions,
+        });
+      } else if (!currentAsset.dimensions) {
+        updateAssetProperties(currentAsset.id, {
+          dimensions,
+        });
+      }
     }
   }, [currentAsset, updateAssetProperties]);
 
@@ -768,6 +777,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     activeViewportTool: animActiveViewportTool,
     isPlacingBone: animIsPlacingBone,
     currentAnimationId: animCurrentAnimationId,
+    animations: animAnimations,
     tracks: animTracks,
     isWeightPainting: animIsWeightPainting,
     blendState: animBlendState,
@@ -817,6 +827,62 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     }
   }, [animCurrentTime, animIsPlaying]);
 
+  const motionClipRef = useRef<{
+    id: string;
+    fps: number;
+    duration: number;
+    jointNames: string[];
+    skeletonId: string;
+    frames: number[][][];
+    roots?: number[][];
+    mapping: Record<string, string>;
+  } | null>(null);
+  const motionLoadErrorRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    motionClipRef.current = null;
+    motionLoadErrorRef.current = null;
+    const clip = animAnimations.find((item) => item.id === animCurrentAnimationId);
+    if (!clip || clip.artifactType !== 'motion' || !clip.motionJsonUrl) return;
+
+    const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const load = async () => {
+      try {
+        const response = await fetch(clip.motionJsonUrl!);
+        if (!response.ok) throw new Error(`Motion metadata request failed (${response.status})`);
+        const doc = await response.json();
+        const jointNames = Array.isArray(doc.joint_names) ? doc.joint_names.filter((v: unknown): v is string => typeof v === 'string') : [];
+        const fps = Number(doc.fps);
+        const frameCount = Number(doc.num_frames);
+        const skeletonId = String(doc.skeleton_id || clip.skeletonId || 'unknown');
+        if (!clip.url || !jointNames.length || !Number.isFinite(fps) || fps <= 0) throw new Error('Motion artifact metadata is incomplete');
+        // The backend emits a browser-playable quaternion representation in motion.json.
+        const jsonFrames = Array.isArray(doc.quaternions) ? doc.quaternions : null;
+        if (!jsonFrames || !Number.isFinite(frameCount) || frameCount <= 0 || jsonFrames.length !== frameCount) {
+          throw new Error('Motion JSON does not contain a browser-playable quaternion frame payload');
+        }
+        if (!jsonFrames.every((frame: unknown) => Array.isArray(frame) && frame.length === jointNames.length)) {
+          throw new Error('Motion quaternion frame dimensions do not match joint metadata');
+        }
+        const mapping: Record<string, string> = {};
+        const targetNames = new Map(animBones.map((bone) => [normalize(bone.name), bone.name]));
+        for (const source of jointNames) {
+          const target = targetNames.get(normalize(source));
+          if (target) mapping[source] = target;
+        }
+        const coverage = Object.keys(mapping).length / jointNames.length;
+        if (coverage < 0.5) throw new Error(`Incompatible motion skeleton '${skeletonId}' (${Object.keys(mapping).length}/${jointNames.length} joints mapped)`);
+        if (cancelled) return;
+        motionClipRef.current = { id: clip.id, fps, duration: Number(clip.duration || frameCount / fps), jointNames, skeletonId, frames: jsonFrames, mapping };
+      } catch (error) {
+        if (!cancelled) motionLoadErrorRef.current = error instanceof Error ? error.message : String(error);
+      }
+    };
+    void load();
+    return () => { cancelled = true; };
+  }, [animAnimations, animCurrentAnimationId, animBones]);
+
   // 5. Live Pose Editor bone rotation to actual skeleton bones
   useEffect(() => {
     const group = currentMeshGroupRef.current;
@@ -838,14 +904,14 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     (time: number) => {
       if (!rigArmatureGroupRef.current) return;
       const rigGroup = rigArmatureGroupRef.current;
-      if (!rigGroup.visible) return;
+      const rigVisible = rigGroup.visible;
 
       const state = useAnimationStore.getState();
       const bounds = getMeshBounds();
       const mutedSet = new Set(state.tracks.filter((t) => t.isMuted).map((t) => t.id));
 
-      // Procedural animation offsets for active clip or blend
-      const animOffsets = getBlendedJointOffsets(
+      const activeMotion = motionClipRef.current?.id === state.currentAnimationId ? motionClipRef.current : null;
+      const animOffsets = activeMotion ? { rotations: {} as Record<string, [number, number, number]>, rootOffset: [0, 0, 0] as [number, number, number] } : getBlendedJointOffsets(
         state.currentAnimationId,
         time,
         mutedSet,
@@ -853,8 +919,22 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         state.activeMode === 'blend'
       );
 
-      // Combine procedural rotation + user's manual Pose Editor rotations
       const totalRotations: Record<string, [number, number, number]> = { ...animOffsets.rotations };
+      if (activeMotion) {
+        const frameIndex = Math.min(activeMotion.frames.length - 1, Math.max(0, Math.floor(time * activeMotion.fps)));
+        const frame = activeMotion.frames[frameIndex];
+        if (Array.isArray(frame)) {
+          activeMotion.jointNames.forEach((sourceName, index) => {
+            const targetName = activeMotion.mapping[sourceName];
+            const q = frame[index];
+            if (!targetName || !Array.isArray(q) || q.length < 4) return;
+            const e = new THREE.Euler().setFromQuaternion(new THREE.Quaternion(Number(q[0]), Number(q[1]), Number(q[2]), Number(q[3])).normalize(), 'XYZ');
+            totalRotations[targetName] = [THREE.MathUtils.radToDeg(e.x), THREE.MathUtils.radToDeg(e.y), THREE.MathUtils.radToDeg(e.z)];
+          });
+        }
+      }
+
+      // Combine animation rotation + user's manual Pose Editor rotations
       for (const [boneName, rot] of Object.entries(state.boneRotations)) {
         const existing = totalRotations[boneName] || [0, 0, 0];
         totalRotations[boneName] = [
@@ -874,9 +954,9 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         bounds.scale
       );
 
-      // Update joint spheres & bone connectors in rigGroup
+      // Update optional editor armature visuals only when they are visible.
       const unitZ = new THREE.Vector3(0, 0, 1);
-      rigGroup.children.forEach((child) => {
+      if (rigVisible) rigGroup.children.forEach((child) => {
         if (child.userData?.isJoint && child.userData.boneName) {
           const p = worldPositions.get(child.userData.boneName);
           if (p) child.position.copy(p);

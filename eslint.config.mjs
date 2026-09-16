@@ -11,14 +11,32 @@ const __dirname = path.dirname(__filename);
 // inside useEffect, derived components, ref reads during render) and were
 // blocking `next build` as errors. Revisit individually if the React Compiler
 // is adopted project-wide.
-export default defineConfig([{
-    extends: [...next],
-    rules: {
-        "react-hooks/set-state-in-effect": "warn",
-        "react-hooks/immutability": "warn",
-        "react-hooks/static-components": "warn",
-        "react-hooks/refs": "warn",
-        "react-hooks/preserve-manual-memoization": "warn",
-        "react/no-unescaped-entities": "warn",
+import reactHooks from "eslint-plugin-react-hooks";
+import react from "eslint-plugin-react";
+
+export default defineConfig([
+    ...next,
+    {
+        plugins: {
+            "react-hooks": reactHooks,
+            "react": react,
+        },
+        rules: {
+            "react-hooks/set-state-in-effect": "warn",
+            "react-hooks/immutability": "warn",
+            "react-hooks/static-components": "warn",
+            "react-hooks/refs": "warn",
+            "react-hooks/preserve-manual-memoization": "warn",
+            "react/no-unescaped-entities": "warn",
+        },
     },
-}]);
+    {
+        ignores: [
+            "public/**",
+            ".next/**",
+            "out/**",
+            "build/**",
+            "next-env.d.ts",
+        ],
+    },
+]);

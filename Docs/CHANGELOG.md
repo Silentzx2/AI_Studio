@@ -1,4 +1,29 @@
+
+## 2026-09-16 — Runtime/Pipeline Integrity Pass
+
+- Removed production synthetic ARDY motion fallback; unavailable model loads now fail explicitly.
+- Removed production synthetic auto-rig source geometry and added mesh-to-armature binding validation.
+- Added typed motion artifact metadata/validation and propagated real ARDY artifact URLs into Animation Studio.
+- Added explicit degraded Blender export status instead of collapsing skipped/fallback/failed export into normal completion.
+- Hardened frontend generation polling against missing job IDs, non-OK polls, failed jobs, and timeouts.
+- Made Animation Studio Save persist a real local project snapshot and clarified Share as URL-only workspace sharing.
+- Removed unexecutable instant-mesh from runtime discovery.
+
 # AI 3D Studio — Changelog
+
+## [v5.0.75] - 2026-09-16
+### Mesh Detail Preservation & Authoritative Final GLB Architecture
+- **Root Cause Fix: Pipeline Metadata Staleness & Overwrite Bugs Resolved**:
+  - `backend/app/workers/tasks.py`: Resolved delivered artifact path (`blender_glb` when valid, else `current_glb_path`), and computed authoritative geometry stats (`polygon_count`, `vertex_count`, `dimensions`, `bounding_box`, `object_count`, `component_count`, `material_count`, `topology`, `mesh_details`) directly on the final delivered GLB rather than falling back to stale intermediate provider outputs.
+  - `backend/app/core/mesh_processor.py`: Extended `get_mesh_stats` to extract real connected topological components via trimesh, compute bounding box extents/diagonal, measure dimensions, and classify anatomical semantics without false zero defaults (reports `not_analyzed` / `unsupported` when no anatomical part labels exist).
+  - `backend/app/api/v1/generation.py`: Added canonical geometry metadata to `/generation/history` and enabled full metadata delivery for `completed_degraded` jobs in `get_generation_status`.
+  - `backend/app/api/v1/upload.py`: Extended uploaded assets to extract and serialize full canonical geometry fields.
+- **Frontend State Contract & Viewer Authority**:
+  - `features/new-workspace/types.ts`: Extended `ModelAsset` to declare canonical fields (`dimensions`, `boundingBox`, `objectCount`, `componentCount`, `materialCount`, `topology`, `postprocessStatus`, `meshDetails`) and introduced `normalizeModelAsset`.
+  - `features/new-workspace/store/WorkspaceContext.tsx`: Eliminated zeroing out stats (`faces: 0, vertices: 0`) in history refetches; all asset state updates now pass through `normalizeModelAsset` to preserve authoritative backend stats across background polling, tab switching, and asset re-selection.
+  - `features/new-workspace/Viewport/MeshViewer.tsx`: Established final GLB stats from backend as authoritative; runtime Three.js scene traversal acts solely as non-destructive fallback/diagnostics when backend metadata is unavailable.
+  - `features/new-workspace/RightPanel/RightPropertyPanel.tsx`: Added display for dimensions (X/Y/Z), connected topological components, topology classification, and anatomical semantic detail state.
+  - Added full automated regression suite in `backend/tests/test_mesh_detail_root_fix.py`.
 
 ## [v5.0.74] - 2026-09-16
 ### UI/UX Refinement: Minimalist Responsive Workspace, Clutter Reduction & Mobile Layouts

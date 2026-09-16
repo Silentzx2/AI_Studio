@@ -2,7 +2,7 @@ name: triposr
 label: TripoSR
 source:
   repo: https://github.com/VAST-AI-Research/TripoSR.git
-  ref: main
+  ref: 107cefdc244c39106fa830359024f6a2f1c78871
   submodules: false
   local_dir: TripoSR
 environment:

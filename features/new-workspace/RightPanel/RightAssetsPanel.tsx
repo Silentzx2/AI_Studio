@@ -18,7 +18,7 @@ import {
   ZoomIn
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
-import { ModelAsset } from '../types';
+import { ModelAsset, normalizeModelAsset } from '../types';
 import { useUploadProgress } from '@/hooks/useUploadProgress';
 import { UploadDiagnosticModal } from '../Modals/UploadDiagnosticModal';
 import { validate3DFile } from '../lib/fileValidation';
@@ -134,19 +134,21 @@ export const RightAssetsPanel: React.FC = () => {
         return url;
       };
 
-      const meshStats = result?.mesh_stats;
-      const newAsset: ModelAsset = {
+      const meshStats = result?.mesh_stats as any;
+      const newAsset = normalizeModelAsset({
         id: result?.id || result?.stored_filename || `user-upload-${Date.now()}`,
         name: file.name.replace(/\.[^/.]+$/, ""),
         category: 'mesh',
         meshType: 'custom',
         thumbnail: resolveUrl(result?.thumbnail_url),
+        polygon_count: meshStats?.polygon_count,
+        vertex_count: meshStats?.vertex_count,
         faces: meshStats?.polygon_count || 0,
         vertices: meshStats?.vertex_count || 0,
         triangles: meshStats?.polygon_count || 0,
-        statsAvailable: !!(meshStats && meshStats.polygon_count > 0),
+        statsAvailable: !!(meshStats && ((meshStats.polygon_count ?? 0) > 0 || (meshStats.vertex_count ?? 0) > 0)),
         source: { filename: result?.stored_filename || file.name, subfolder: 'models', type: 'upload', viewUrl: resolveUrl(result?.url) },
-        topology: 'Triangle',
+        topology: meshStats?.topology || 'Triangle',
         format: (() => {
           if (ext === 'obj') return 'OBJ';
           if (ext === 'ply') return 'PLY';
@@ -155,9 +157,15 @@ export const RightAssetsPanel: React.FC = () => {
           if (ext === 'stl') return 'STL';
           return 'FILE';
         })(),
+        dimensions: meshStats?.dimensions,
+        boundingBox: meshStats?.bounding_box,
+        objectCount: meshStats?.object_count,
+        componentCount: meshStats?.component_count,
+        materialCount: meshStats?.material_count,
+        meshDetails: meshStats?.mesh_details,
         dateCreated: '',
         tags: ['Custom', 'User-Upload', 'Mesh']
-      };
+      });
       addAsset(newAsset);
       setCurrentAsset(newAsset);
     } catch (err) {

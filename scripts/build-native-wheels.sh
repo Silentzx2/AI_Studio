@@ -153,19 +153,13 @@ build_native_wheels() {
     BUILD_EXIT=${PIPESTATUS[0]}
 
     if [[ $BUILD_EXIT -ne 0 ]]; then
-        # Check if it's a GPU-availability issue
-        if grep -qi "no gpu\|cuda not available\|nvcc not found\|CUDA" "$PROJECT_ROOT/wheel_build.log" 2>/dev/null; then
-            warn "Wheel build reported CUDA/GPU issues — this may be expected on CPU-only hosts"
-            warn "Check $PROJECT_ROOT/wheel_build.log for details"
-            # On CPU, some packages may have been skipped or built in CPU mode
-        else
-            err "Wheel build failed (exit code: $BUILD_EXIT)"
-            err "Check $PROJECT_ROOT/wheel_build.log for full output"
-            exit 1
-        fi
+        err "Wheel build failed (exit code: $BUILD_EXIT)"
+        err "Check $PROJECT_ROOT/wheel_build.log for full output"
+        exit 1
     fi
 
-    # Verify wheels were built (or at least the directory has content)
+    # Verify wheels were built. Release/CI callers can enforce a hard requirement
+    # with REQUIRE_WHEELS=1; CPU-only development may intentionally leave this empty.
     WHEEL_COUNT=$(find "$WHEELS_DIR" -name "*.whl" 2>/dev/null | wc -l)
     if [[ $WHEEL_COUNT -gt 0 ]]; then
         log "Successfully built $WHEEL_COUNT wheel(s) for CUDA 12.4"
@@ -173,9 +167,11 @@ build_native_wheels() {
         echo -e "  ${CYAN}Wheels directory:${NC} ${BOLD}$WHEELS_DIR${NC}"
         find "$WHEELS_DIR" -name "*.whl" -exec echo "    - {}${NC}" \;
     else
-        log "No .whl files built (expected on CPU-only hosts without CUDA toolkit)"
-        log "On GPU hosts (Colab/VPS), wheels will be built for CUDA 12.4"
-        log "The .wheels directory is prepared for when GPU is available"
+        if [[ "${REQUIRE_WHEELS:-0}" == "1" ]]; then
+            err "No native wheels were produced but REQUIRE_WHEELS=1"
+            exit 1
+        fi
+        log "No .whl files built; this is allowed only for explicit CPU-only development."
     fi
 }
 

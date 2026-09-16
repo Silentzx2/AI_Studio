@@ -227,14 +227,16 @@ class TripoSGLocalProvider(BaseProvider):
                         str(self.rmbg_weights_dir), local_files_only=True
                     ).to(self.device)
                 else:
-                    logger.info("RMBG-1.4 weights not found locally at %s, fetching from Hub...", self.rmbg_weights_dir)
-                    self.rmbg_net = BriaRMBG.from_pretrained(
-                        "briaai/RMBG-1.4", local_files_only=False
-                    ).to(self.device)
+                    raise RuntimeError(
+                        f"Required RMBG-1.4 weights are not installed locally at {self.rmbg_weights_dir}. "
+                        "Install the auxiliary model before marking TripoSG READY."
+                    )
                 self.rmbg_net.eval()
             except Exception as rmbg_exc:
-                logger.warning("BriaRMBG load failed (%s); proceeding without dedicated RMBG", rmbg_exc)
+                logger.error("Required BriaRMBG load failed: %s", rmbg_exc)
                 self.rmbg_net = None
+                vram_tracker.release("triposg")
+                return False
 
             # Ensure diffusers does not attempt to import broken onnxruntime C-extensions
             try:

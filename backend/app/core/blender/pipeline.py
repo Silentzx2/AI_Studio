@@ -78,7 +78,7 @@ async def process_model(
     Returns dict: {glb, fbx, obj, stl, ply} paths (None if export failed).
     """
     if not settings.blender_enabled:
-        return _stub_output(input_path, output_dir)
+        return _stub_output(input_path, output_dir, status="skipped", reason="Blender integration disabled by configuration")
 
     blender_path = shutil.which(settings.blender_executable)
     if not blender_path:
@@ -86,7 +86,7 @@ async def process_model(
             "Blender not found at '%s' — skipping Blender pipeline",
             settings.blender_executable,
         )
-        return _stub_output(input_path, output_dir)
+        return _stub_output(input_path, output_dir, status="skipped", reason="Blender executable is unavailable")
 
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -114,13 +114,13 @@ async def process_model(
         msg = "Auto-rig complete." if auto_rig else "Multi-format exports ready."
         await progress_callback(99, stage, msg, "success" if auto_rig else "info")
 
-    return result or _stub_output(input_path, output_dir)
+    return result or _stub_output(input_path, output_dir, status="fallback", reason="Blender returned no structured export result")
 
 
-def _stub_output(input_path: str, output_dir: str) -> dict:
+def _stub_output(input_path: str, output_dir: str, *, status: str = "fallback", reason: str = "") -> dict:
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     glb = out / "model.glb"
     if not glb.exists() and Path(input_path).exists():
         shutil.copy(input_path, glb)
-    return {"glb": str(glb) if glb.exists() else None, "fbx": None, "obj": None, "stl": None, "ply": None}
+    return {"glb": str(glb) if glb.exists() else None, "fbx": None, "obj": None, "stl": None, "ply": None, "status": status, "reason": reason}

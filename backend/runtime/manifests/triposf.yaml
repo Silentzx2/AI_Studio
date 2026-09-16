@@ -2,7 +2,7 @@ name: triposf
 label: TripoSF
 source:
   repo: https://github.com/VAST-AI-Research/TripoSF.git
-  ref: main
+  ref: b97b749aa5726fb64ceec359a4ef8e61e79279c7
   submodules: false
   local_dir: TripoSF
 environment:

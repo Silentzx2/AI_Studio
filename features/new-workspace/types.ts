@@ -64,6 +64,13 @@ export interface ModelAsset {
   statsAvailable?: boolean;
   topology: 'Triangle' | 'Quad' | 'Adaptive';
   format: 'GLB' | 'OBJ' | 'PLY' | 'FBX' | 'STL' | 'IMAGE' | 'FILE';
+  dimensions?: { x: number; y: number; z: number };
+  boundingBox?: { min: number[]; max: number[]; extent: number[]; diagonal: number };
+  objectCount?: number;
+  componentCount?: number;
+  materialCount?: number;
+  postprocessStatus?: string;
+  meshDetails?: Record<string, unknown>;
   dateCreated: string;
   tags: string[];
   isFavorite?: boolean;
@@ -81,6 +88,49 @@ export interface ModelAsset {
   qaScore?: number;
   qaStatus?: 'pass' | 'warn' | 'fail';
   qaWarnings?: string[];
+}
+
+export function normalizeModelAsset(raw: Partial<ModelAsset> & Record<string, any>): ModelAsset {
+  const polyCount = raw.polygon_count ?? raw.faces ?? raw.triangles ?? 0;
+  const vertCount = raw.vertex_count ?? raw.vertices ?? 0;
+  const hasStats = Boolean(
+    raw.statsAvailable ||
+    (typeof polyCount === 'number' && polyCount > 0) ||
+    (typeof vertCount === 'number' && vertCount > 0)
+  );
+
+  return {
+    id: String(raw.id || `asset-${Date.now()}`),
+    name: String(raw.name || '3D Model'),
+    category: raw.category || 'mesh',
+    thumbnail: raw.thumbnail || raw.thumbnail_url || '',
+    previewColor: raw.previewColor,
+    meshType: raw.meshType || 'custom',
+    faces: hasStats ? Number(polyCount) : 0,
+    vertices: hasStats ? Number(vertCount) : 0,
+    triangles: hasStats ? Number(polyCount) : 0,
+    statsAvailable: hasStats,
+    topology: raw.topology || 'Triangle',
+    format: raw.format || 'GLB',
+    dimensions: raw.dimensions,
+    boundingBox: raw.boundingBox || raw.bounding_box,
+    objectCount: raw.objectCount ?? raw.object_count,
+    componentCount: raw.componentCount ?? raw.component_count,
+    materialCount: raw.materialCount ?? raw.material_count,
+    postprocessStatus: raw.postprocessStatus ?? raw.postprocess_status,
+    meshDetails: raw.meshDetails || raw.mesh_details,
+    dateCreated: raw.dateCreated || raw.created_at || new Date().toISOString().split('T')[0],
+    tags: Array.isArray(raw.tags) ? raw.tags : ['Model'],
+    isFavorite: Boolean(raw.isFavorite),
+    materialConfig: raw.materialConfig,
+    materials: Array.isArray(raw.materials) ? raw.materials : [],
+    createdAt: raw.createdAt || raw.created_at,
+    source: raw.source,
+    artifacts: raw.artifacts,
+    qaScore: raw.qaScore,
+    qaStatus: raw.qaStatus,
+    qaWarnings: raw.qaWarnings,
+  };
 }
 
 export type Asset3D = ModelAsset;

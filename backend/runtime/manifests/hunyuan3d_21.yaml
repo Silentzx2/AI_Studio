@@ -2,7 +2,7 @@ name: hunyuan3d-2.1
 label: Hunyuan3D 2.1
 source:
   repo: https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1.git
-  ref: main
+  ref: 82920d643c0dc2f7bfd7255f45f62d386edfe60c
   submodules: false
   local_dir: Hunyuan3D-2.1
 environment:
