@@ -222,21 +222,19 @@ class TripoSGLocalProvider(BaseProvider):
         try:
             # Load RMBG for background removal
             try:
-                if self.rmbg_weights_dir.exists():
+                if self.rmbg_weights_dir and self.rmbg_weights_dir.exists():
                     self.rmbg_net = BriaRMBG.from_pretrained(
                         str(self.rmbg_weights_dir), local_files_only=True
                     ).to(self.device)
                 else:
-                    raise RuntimeError(
-                        f"Required RMBG-1.4 weights are not installed locally at {self.rmbg_weights_dir}. "
-                        "Install the auxiliary model before marking TripoSG READY."
-                    )
+                    logger.info("Local RMBG-1.4 weights not found at %s; loading from Hugging Face Hub (briaai/RMBG-1.4)...", self.rmbg_weights_dir)
+                    self.rmbg_net = BriaRMBG.from_pretrained(
+                        "briaai/RMBG-1.4", local_files_only=False, trust_remote_code=True
+                    ).to(self.device)
                 self.rmbg_net.eval()
             except Exception as rmbg_exc:
-                logger.error("Required BriaRMBG load failed: %s", rmbg_exc)
+                logger.warning("BriaRMBG load failed: %s; background removal will fall back to rembg/PIL", rmbg_exc)
                 self.rmbg_net = None
-                vram_tracker.release("triposg")
-                return False
 
             # Ensure diffusers does not attempt to import broken onnxruntime C-extensions
             try:
@@ -292,11 +290,26 @@ class TripoSGLocalProvider(BaseProvider):
 
         try:
             # Prepare image with background removal
-            img_pil = prepare_image(
-                image_path,
-                bg_color=np.array([1.0, 1.0, 1.0]),
-                rmbg_net=self.rmbg_net
-            )
+            if self.rmbg_net is not None:
+                img_pil = prepare_image(
+                    image_path,
+                    bg_color=np.array([1.0, 1.0, 1.0]),
+                    rmbg_net=self.rmbg_net
+                )
+            else:
+                from PIL import Image
+                img_raw = Image.open(image_path)
+                try:
+                    import rembg
+                    img_nobg = rembg.remove(img_raw)
+                    bg = Image.new("RGB", img_nobg.size, (255, 255, 255))
+                    if img_nobg.mode == "RGBA":
+                        bg.paste(img_nobg, mask=img_nobg.split()[3])
+                    else:
+                        bg.paste(img_nobg)
+                    img_pil = bg
+                except Exception:
+                    img_pil = img_raw.convert("RGB")
 
             if progress_callback:
                 await progress_callback(30, "generating", "Running TripoSG inference...")

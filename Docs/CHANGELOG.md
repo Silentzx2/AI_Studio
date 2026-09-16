@@ -11,6 +11,19 @@
 
 # AI 3D Studio — Changelog
 
+## [v5.0.76] - 2026-09-16
+### On-Demand Weights Optimization & TripoSG RMBG Auxiliary Fix
+- **On-Demand Model Weights Architecture (`scripts/colab.sh`)**:
+  - Removed forced weight downloads during runtime bootstrap / startup. Runtimes, venvs, and dependencies are prepared without blocking on multi-gigabyte downloads.
+  - Weights are downloaded strictly on-demand via the Web UI (or explicitly with `bash scripts/colab.sh --weights-only`).
+- **Automatic Required Auxiliary Weights Download (`backend/runtime/installer.py`)**:
+  - Enhanced `download_model_weights` to automatically detect auxiliary models marked `required: true` in provider manifests (e.g. `RMBG-1.4` for `TripoSG`).
+  - Required auxiliary weights are automatically downloaded alongside the model and symlinked into the provider's weights directory.
+- **TripoSG Provider Resiliency (`backend/app/core/providers/triposg_local.py`)**:
+  - Added multi-tier RMBG loading: loads from local directory if present; falls back to HuggingFace Hub (`briaai/RMBG-1.4`) if online; falls back to `rembg` (or PIL alpha composition) without crashing the generation job.
+- **Pydantic Schema Cleanup (`backend/app/schemas/generation.py`)**:
+  - Resolved `DownloadUrls` Pydantic v2 warning regarding the `json` attribute shadowing `BaseModel.json`.
+
 ## [v5.0.75] - 2026-09-16
 ### Mesh Detail Preservation & Authoritative Final GLB Architecture
 - **Root Cause Fix: Pipeline Metadata Staleness & Overwrite Bugs Resolved**:

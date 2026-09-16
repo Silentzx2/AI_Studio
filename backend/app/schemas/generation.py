@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 # ── Request schemas ────────────────────────────────────────────────────────────
@@ -220,6 +220,8 @@ class ArtifactMetadata(BaseModel):
 
 
 class DownloadUrls(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     glb: str | None = None
     fbx: str | None = None
     obj: str | None = None
@@ -230,9 +232,13 @@ class DownloadUrls(BaseModel):
     collision: str | None = None
     npz: str | None = None
     motion: str | None = None
-    json: str | None = None
+    json_url: str | None = Field(default=None, alias="json")
     animation: str | None = None
     model: str | None = None
+
+    @property
+    def json(self) -> str | None:
+        return self.json_url
 
 
 class JobResult(BaseModel):

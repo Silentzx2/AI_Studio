@@ -2404,7 +2404,18 @@ def download_model_weights(
     result = download_weights(provider_name, hf_token=hf_token, log_cb=log_cb)
     result["state"] = "weights_ready" if result.get("success") else "weights_failed"
 
-    if result.get("success") and (include_auxiliary or auxiliary_names):
+    # Check if this provider defines required auxiliary weights (e.g. RMBG-1.4 for TripoSG)
+    manifest = None
+    try:
+        from runtime.manifest_loader import load_manifest
+        manifest = load_manifest(provider_name)
+    except Exception:
+        pass
+
+    aux_weights = (manifest or {}).get("weights", {}).get("auxiliary", []) or []
+    has_required_aux = any(isinstance(a, dict) and a.get("required") for a in aux_weights)
+
+    if result.get("success") and (include_auxiliary or auxiliary_names or has_required_aux):
         aux_res = download_auxiliary_weights(
             provider_name,
             auxiliary_names=auxiliary_names,
@@ -2424,10 +2435,10 @@ def download_auxiliary_weights(
     hf_token: str | None = None,
     log_cb: Callable | None = None,
 ) -> dict:
-    """Download auxiliary (e.g. paint/texture) weights for a provider.
+    """Download auxiliary (e.g. paint/texture/background) weights for a provider.
 
     Can be called on-demand when a model is already installed or as part of
-    a full download.
+    a full download. Required auxiliary weights are always included.
     """
     provider_name = _canonical_provider_name(provider_name)
     from runtime.manifest_loader import load_manifest
@@ -2445,8 +2456,9 @@ def download_auxiliary_weights(
     for aux in aux_weights:
         aux_name = aux.get("name", "")
         aux_repo = aux.get("repo", "")
+        is_required = bool(aux.get("required"))
         if auxiliary_names:
-            if aux_name not in auxiliary_names and aux_repo not in auxiliary_names:
+            if aux_name not in auxiliary_names and aux_repo not in auxiliary_names and not is_required:
                 continue
         aux_provider = aux_name or _repo_to_provider_name(aux_repo) or aux_repo
         if log_cb:
@@ -2455,6 +2467,21 @@ def download_auxiliary_weights(
             aux_r = download_weights(aux_provider, hf_token=hf_token, log_cb=log_cb)
             if aux_r.get("success"):
                 downloaded.append(aux_name or aux_repo)
+                # Ensure aux weight is accessible in provider repo weights folder
+                try:
+                    storage = get_storage_config()
+                    repo_name = manifest.get("repo") or manifest.get("name")
+                    if repo_name and aux_name:
+                        target_dir = storage.get_repo_path(repo_name) / "weights" / aux_name
+                        src_path = aux_r.get("path")
+                        if src_path and Path(src_path).exists() and not target_dir.exists():
+                            target_dir.parent.mkdir(parents=True, exist_ok=True)
+                            try:
+                                target_dir.symlink_to(Path(src_path).resolve())
+                            except OSError:
+                                pass
+                except Exception:
+                    pass
             else:
                 err = aux_r.get("error", "Unknown error")
                 errors.append(f"{aux_name or aux_repo}: {err}")

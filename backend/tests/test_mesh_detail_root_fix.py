@@ -101,8 +101,8 @@ def test_get_mesh_stats_unknown_semantic_parts_never_false_zero(sample_sphere_gl
     assert details.get("semantic_parts") == "not_analyzed"
     # Never a false numeric zero
     assert details.get("semantic_parts") != 0
-    assert details.get("eyes") is not 0
-    assert details.get("teeth") is not 0
+    assert details.get("eyes") != 0
+    assert details.get("teeth") != 0
 
 
 def test_get_mesh_stats_detects_semantic_labels_when_present(semantic_named_glb):

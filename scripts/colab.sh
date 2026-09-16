@@ -1711,14 +1711,8 @@ for repo_name in repos_to_prepare:
 
     if repo_ok and venv_ok and deps_ok:
         print(f"  [OK  ] {repo_name}: runtime already ready")
-        # Ensure weights are downloaded after venv
         for provider in providers:
-            print(f"    [WEIGHTS] {provider}: checking/downloading weights after venv...")
-            w_res = download_model_weights(provider, hf_token=token)
-            if w_res.get("success"):
-                print(f"      [OK  ] {provider}: weights ready ({w_res.get('action', 'done')})")
-            else:
-                print(f"      [WARN] {provider}: weights issue: {w_res.get('error', 'unknown')}")
+            print(f"    [READY] {provider}: runtime environment verified")
         queue_native_build_if_needed(repo_name)
         skipped += 1
         continue
@@ -1731,14 +1725,7 @@ for repo_name in repos_to_prepare:
             r = prepare_runtime(provider, allow_native_build=False)
             state = r.get("state", "unknown")
             if state in ("runtime_ready", "runtime_partial"):
-                print(f"      [OK  ] {provider}: venv ready")
-                # Download weights immediately after venv is prepared (disk check bypassed)
-                print(f"      [WEIGHTS] {provider}: downloading weights after venv...")
-                w_res = download_model_weights(provider, hf_token=token)
-                if w_res.get("success"):
-                    print(f"      [OK  ] {provider}: weights ready ({w_res.get('action', 'done')})")
-                else:
-                    print(f"      [WARN] {provider}: weights download issue: {w_res.get('error', 'unknown error')}")
+                print(f"      [OK  ] {provider}: venv & dependencies prepared")
             else:
                 print(f"      [FAIL] {provider}: {r.get('error', 'unknown error')}")
                 failed += 1
@@ -1775,18 +1762,13 @@ for repo_name in repos_to_prepare:
         print(f"    [OK  ] {repo_name} dependencies ready")
 
     print(f"  [OK  ] {repo_name}: repaired")
-    # Download weights right after venv is repaired
     for provider in providers:
-        print(f"    [WEIGHTS] {provider}: downloading weights after venv...")
-        w_res = download_model_weights(provider, hf_token=token)
-        if w_res.get("success"):
-            print(f"      [OK  ] {provider}: weights ready ({w_res.get('action', 'done')})")
-        else:
-            print(f"      [WARN] {provider}: weights issue: {w_res.get('error', 'unknown')}")
+        print(f"    [READY] {provider}: dependencies ready")
     queue_native_build_if_needed(repo_name)
     repaired += 1
 
-print(f"\nRuntime preparation & weights download complete: {repaired} installed/repaired, {skipped} skipped, {failed} failed")
+print(f"\nRuntime preparation complete: {repaired} installed/repaired, {skipped} skipped, {failed} failed")
+print("Note: Weights are not downloaded during bootstrap. Download models on-demand via the UI or run with --weights-only.")
 PYEOF
     )
 }
@@ -2127,7 +2109,7 @@ if [[ "$model_selection_result" == "2" ]]; then
     warn "Skipping model installation. Start services and install via UI."
 else
     prepare_model_runtimes || warn "Model runtime prep had issues - check output above"
-    download_model_weights || warn "Weight download had issues - check output above"
+    info "Model runtimes prepared. Weights will be downloaded on-demand from the UI (or run with --weights-only)."
 fi
 
 

@@ -1,6 +1,6 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.75 (Mesh Detail Preservation & Final GLB Authority Contract)
+> **Version**: 5.0.76 (On-Demand Weights & TripoSG Auxiliary Model Resiliency)
 > **Status**: Verified and active; comprehensive backend regression suite passing, frontend production build verified.
 > **Last Updated**: September 16, 2026
 
