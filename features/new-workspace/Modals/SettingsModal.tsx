@@ -64,11 +64,11 @@ export const SettingsModal: React.FC = () => {
   return (
     <div
       onClick={(e) => { if (e.target === e.currentTarget) setIsSettingsOpen(false); }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 select-none animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-3 sm:p-4 select-none animate-in fade-in duration-200"
     >
-      <div className="w-full max-w-xl rounded-2xl bg-[#181a20] border border-white/[0.08] shadow-2xl overflow-hidden flex flex-col">
+      <div className="w-full max-w-xl max-h-[90vh] rounded-2xl bg-[#181a20] border border-white/[0.08] shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 bg-[#1e2026] border-b border-white/[0.08]">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 bg-[#1e2026] border-b border-white/[0.08] flex-shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-[#F9CF00]/15 border border-[#F9CF00]/30 flex items-center justify-center text-[#F9CF00]">
               <Server className="w-4 h-4" />
@@ -87,7 +87,7 @@ export const SettingsModal: React.FC = () => {
         </div>
 
         {/* Content */}
-        <div className="p-5 space-y-4 text-xs bg-[#0d0d0d]">
+        <div className="p-4 sm:p-5 space-y-4 text-xs bg-[#0d0d0d] flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700">
           {/* Host & Port Input */}
           <div className="space-y-1.5">
             <label className="font-medium text-[#888]">Backend Server URL</label>

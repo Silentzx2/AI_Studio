@@ -121,18 +121,18 @@ export const ExportModal: React.FC = () => {
   return (
     <div
       onClick={(e) => { if (e.target === e.currentTarget) setIsExportModalOpen(false); }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 text-xs select-none"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-3 sm:p-4 text-xs select-none"
     >
-      <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-white/[0.08] bg-[#181a20] shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+      <div className="w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[#181a20] shadow-2xl animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/[0.08] bg-[#1e2026] px-5 py-4">
+        <div className="flex items-center justify-between border-b border-white/[0.08] bg-[#1e2026] px-4 sm:px-5 py-3.5 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F9CF00]/15 text-[#F9CF00] border border-[#F9CF00]/30">
               <FileBox className="h-5 w-5 stroke-[2.2]" />
             </div>
             <div>
               <h2 className="text-sm font-bold text-white">Production Export Engine</h2>
-              <p className="text-[11px] text-zinc-400 truncate max-w-[280px]">{assetName}</p>
+              <p className="text-[11px] text-zinc-400 truncate max-w-[200px] sm:max-w-[280px]">{assetName}</p>
             </div>
           </div>
           <button
@@ -143,7 +143,7 @@ export const ExportModal: React.FC = () => {
           </button>
         </div>
 
-        <div className="space-y-4 p-5 max-h-[75vh] overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700">
+        <div className="space-y-4 p-4 sm:p-5 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700">
           {/* QA Quality Score Banner */}
           {qaScore !== undefined && (
             <div className={`p-3 rounded-xl border flex items-center justify-between ${
@@ -202,10 +202,11 @@ export const ExportModal: React.FC = () => {
           </div>
 
           {/* Target Platform Budget (when Game-Ready is active) */}
+          {/* Target Platform Budget (when Game-Ready is active) */}
           {variant === 'game_ready' && (
             <div className="space-y-1.5 p-3 rounded-xl bg-black/20 border border-white/[0.06]">
               <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Optimization Target</span>
-              <div className="grid grid-cols-5 gap-1.5">
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
                 {[
                   { id: 'mobile', label: 'Mobile', desc: '~18k' },
                   { id: 'low', label: 'Low', desc: '~28k' },
@@ -234,7 +235,7 @@ export const ExportModal: React.FC = () => {
           {/* Section 2: Format Selector */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Target Format</label>
-            <div className="grid grid-cols-6 gap-1.5">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
               {[
                 { id: 'glb', label: 'GLB', tip: 'Binary' },
                 { id: 'gltf', label: 'GLTF', tip: 'JSON' },
@@ -328,14 +329,14 @@ export const ExportModal: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-white/[0.08] bg-[#1e2026] px-5 py-4">
-          <span className="text-[10px] text-zinc-500 font-mono">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-white/[0.08] bg-[#1e2026] px-4 sm:px-5 py-3.5 flex-shrink-0">
+          <span className="text-[10px] text-zinc-500 font-mono hidden sm:inline">
             {packageZip ? 'ZIP Archive' : `${exportFormat.toUpperCase()} Single Asset`}
           </span>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center justify-end gap-2.5">
             <button
               onClick={() => setIsExportModalOpen(false)}
-              className="rounded-xl px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-white/[0.08] hover:text-white transition-colors cursor-pointer"
+              className="flex-1 sm:flex-initial rounded-xl px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-white/[0.08] hover:text-white transition-colors cursor-pointer"
             >
               Cancel
             </button>
@@ -343,7 +344,7 @@ export const ExportModal: React.FC = () => {
               onClick={() => void handleExport()}
               disabled={isExporting}
               variant="primary"
-              className="px-6 py-2 text-xs font-extrabold"
+              className="flex-1 sm:flex-initial px-5 sm:px-6 py-2 text-xs font-extrabold"
             >
               {isExporting ? (
                 <>
@@ -353,7 +354,7 @@ export const ExportModal: React.FC = () => {
               ) : (
                 <>
                   <Download className="h-4 w-4 stroke-[2.5]" />
-                  <span>Export {packageZip ? 'Package (ZIP)' : exportFormat.toUpperCase()}</span>
+                  <span>Export {packageZip ? 'ZIP' : exportFormat.toUpperCase()}</span>
                 </>
               )}
             </RippleButton>

@@ -110,6 +110,38 @@ export const WorkspaceShell: React.FC = () => {
     setIsMobileNavOpen(false);
   }, [activeTool]);
 
+  // Responsive panel management: on tablet/mobile (< 1024px), keep right panel closed by default to give generous 3D canvas room
+  useEffect(() => {
+    const handleInitialResponsiveLayout = () => {
+      if (typeof window !== 'undefined') {
+        const width = window.innerWidth;
+        if (width < 1024) {
+          setIsRightPanelOpen(false);
+        }
+        if (width < 768) {
+          // On mobile, start with clean viewport
+          setIsLeftPanelOpen(false);
+        }
+      }
+    };
+    handleInitialResponsiveLayout();
+  }, [setIsLeftPanelOpen, setIsRightPanelOpen]);
+
+  // Mutually exclusive panel toggles on mobile (< 768px) to prevent messy overlapping panels
+  const toggleLeftPanel = useCallback((open: boolean) => {
+    if (open && typeof window !== 'undefined' && window.innerWidth < 768) {
+      setIsRightPanelOpen(false);
+    }
+    setIsLeftPanelOpen(open);
+  }, [setIsLeftPanelOpen, setIsRightPanelOpen]);
+
+  const toggleRightPanel = useCallback((open: boolean) => {
+    if (open && typeof window !== 'undefined' && window.innerWidth < 768) {
+      setIsLeftPanelOpen(false);
+    }
+    setIsRightPanelOpen(open);
+  }, [setIsLeftPanelOpen, setIsRightPanelOpen]);
+
   // Redirect / to /workspace/overview
   useEffect(() => {
     if (pathname === '/') {
@@ -192,7 +224,7 @@ export const WorkspaceShell: React.FC = () => {
                 </main>
               )}
 
-              {/* Floating Context Tool Panel (Left) - Tripo Style ~264px desktop | full-screen mobile */}
+              {/* Floating Context Tool Panel (Left) - Responsive width & mobile sheet */}
               <AnimatePresence initial={false}>
                 {mainNav === 'workspace' && isLeftPanelOpen && (
                   <motion.aside
@@ -201,13 +233,13 @@ export const WorkspaceShell: React.FC = () => {
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -15 }}
                     transition={{ duration: 0.14, ease: 'easeOut' }}
-                    className="absolute inset-0 md:inset-auto md:left-2 md:top-2 md:bottom-2 md:w-[320px] md:max-w-[calc(100vw-5rem)] bg-[#191A1D] md:border md:border-white/[0.1] md:rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.6)] flex flex-col z-20 overflow-hidden"
+                    className="absolute inset-x-2 top-2 bottom-2 md:inset-auto md:left-2 md:top-2 md:bottom-2 md:w-[280px] lg:w-[320px] max-w-[420px] md:max-w-[calc(100vw-5rem)] bg-[#191A1D] border border-white/[0.1] rounded-2xl md:rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.6)] flex flex-col z-20 overflow-hidden"
                   >
                 {/* Mobile panel header with close button */}
-                <div className="flex items-center justify-between px-3 py-2 border-b border-white/[0.08] bg-[#16181D] md:hidden flex-shrink-0">
+                <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-white/[0.08] bg-[#16181D] md:hidden flex-shrink-0">
                   <span className="font-bold text-xs text-white">Tool Panel</span>
                   <button
-                    onClick={() => setIsLeftPanelOpen(false)}
+                    onClick={() => toggleLeftPanel(false)}
                     className="p-1.5 rounded-lg text-zinc-400 hover:text-[#F9CF00] hover:bg-[#202125] transition-all cursor-pointer"
                   >
                     <X className="w-4 h-4" />
@@ -219,7 +251,7 @@ export const WorkspaceShell: React.FC = () => {
                   <div className="absolute top-2 right-2 z-20 hidden md:block">
                     <SimpleTooltip label="Collapse panel" side="left">
                       <button
-                        onClick={() => setIsLeftPanelOpen(false)}
+                        onClick={() => toggleLeftPanel(false)}
                         className="p-1 rounded-lg bg-[#202125] border border-white/[0.08] text-zinc-400 hover:text-[#F9CF00] hover:bg-[#28292E] transition-all cursor-pointer"
                       >
                         <PanelLeftClose className="w-3.5 h-3.5" />
@@ -244,12 +276,12 @@ export const WorkspaceShell: React.FC = () => {
             )}
           </AnimatePresence>
 
-          {/* Left collapsed toggle button - hidden on mobile (use hamburger menu instead) */}
+          {/* Left collapsed toggle button - hidden on mobile */}
           {mainNav === 'workspace' && !isLeftPanelOpen && (
             <div className="absolute left-0.5 top-1/2 -translate-y-1/2 z-20 hidden md:block">
               <SimpleTooltip label="Open Tool Panel">
                 <button
-                  onClick={() => setIsLeftPanelOpen(true)}
+                  onClick={() => toggleLeftPanel(true)}
                   className="w-5 h-11 rounded-r-lg bg-[#191A1D]/90 backdrop-blur-md border border-l-0 border-white/[0.1] text-zinc-400 hover:text-[#F9CF00] hover:border-[#F9CF00]/40 hover:bg-[#202227] transition-all flex items-center justify-center shadow-xl cursor-pointer active:scale-95"
                 >
                   <PanelLeftOpen className="w-3.5 h-3.5" />
@@ -261,15 +293,15 @@ export const WorkspaceShell: React.FC = () => {
           {/* Mobile: floating action button to open tool panel */}
           {mainNav === 'workspace' && !isLeftPanelOpen && (
             <button
-              onClick={() => setIsLeftPanelOpen(true)}
-              className="md:hidden absolute left-3 bottom-3 z-20 w-12 h-12 rounded-full bg-[#F9CF00] text-black shadow-lg flex items-center justify-center hover:bg-[#ffe033] transition-colors"
+              onClick={() => toggleLeftPanel(true)}
+              className="md:hidden absolute left-3 bottom-3 z-20 w-11 h-11 rounded-full bg-[#F9CF00] text-black shadow-xl flex items-center justify-center hover:bg-[#ffe033] transition-transform active:scale-95 cursor-pointer"
               aria-label="Open tool panel"
             >
-              <Sliders className="w-5 h-5" />
+              <Sliders className="w-4 h-4 stroke-[2.2]" />
             </button>
           )}
 
-          {/* Floating Context-Aware Control & Property Panel (Right) */}
+          {/* Floating Context-Aware Control & Property Panel (Right) - Responsive width & mobile sheet */}
           <AnimatePresence initial={false}>
             {mainNav === 'workspace' && isRightPanelOpen && (
               <motion.aside
@@ -278,8 +310,18 @@ export const WorkspaceShell: React.FC = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 15 }}
                 transition={{ duration: 0.14, ease: 'easeOut' }}
-                className="absolute inset-0 md:inset-auto md:right-2 md:top-2 md:bottom-2 md:w-[320px] md:max-w-[calc(100vw-4.5rem)] bg-[#14161A] md:border md:border-white/[0.08] md:rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.6)] flex flex-col z-20 overflow-hidden"
+                className="absolute inset-x-2 top-2 bottom-2 md:inset-auto md:right-2 md:top-2 md:bottom-2 md:w-[280px] lg:w-[320px] max-w-[420px] md:max-w-[calc(100vw-4.5rem)] bg-[#14161A] border border-white/[0.08] rounded-2xl md:rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.6)] flex flex-col z-20 overflow-hidden"
               >
+                {/* Mobile close button for right panel */}
+                <div className="flex items-center justify-between px-3.5 py-2 border-b border-white/[0.08] bg-[#16181D] md:hidden flex-shrink-0">
+                  <span className="font-bold text-xs text-white">Inspector &amp; Assets</span>
+                  <button
+                    onClick={() => toggleRightPanel(false)}
+                    className="p-1.5 rounded-lg text-zinc-400 hover:text-[#F9CF00] hover:bg-[#202125] transition-all cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
                 <RightWorkspacePanel />
               </motion.aside>
             )}
@@ -290,7 +332,7 @@ export const WorkspaceShell: React.FC = () => {
             <div className="absolute right-0.5 top-1/2 -translate-y-1/2 z-20 hidden md:block">
               <SimpleTooltip label="Open Asset Store / Inspector">
                 <button
-                  onClick={() => setIsRightPanelOpen(true)}
+                  onClick={() => toggleRightPanel(true)}
                   className="w-5 h-11 rounded-l-lg bg-[#191A1D]/90 backdrop-blur-md border border-r-0 border-white/[0.1] text-zinc-400 hover:text-[#F9CF00] hover:border-[#F9CF00]/40 hover:bg-[#202227] transition-all flex items-center justify-center shadow-xl cursor-pointer active:scale-95"
                 >
                   <PanelRightOpen className="w-3.5 h-3.5" />
@@ -302,11 +344,11 @@ export const WorkspaceShell: React.FC = () => {
           {/* Mobile: floating action button to open asset panel */}
           {mainNav === 'workspace' && !isRightPanelOpen && (
             <button
-              onClick={() => setIsRightPanelOpen(true)}
-              className="md:hidden absolute right-3 bottom-3 z-20 w-12 h-12 rounded-full bg-[#191A1D] border border-white/[0.08] shadow-lg flex items-center justify-center text-zinc-400 hover:text-[#F9CF00] transition-colors"
+              onClick={() => toggleRightPanel(true)}
+              className="md:hidden absolute right-3 bottom-3 z-20 w-11 h-11 rounded-full bg-[#191A1D] border border-white/[0.12] shadow-xl flex items-center justify-center text-zinc-300 hover:text-[#F9CF00] transition-transform active:scale-95 cursor-pointer"
               aria-label="Open asset panel"
             >
-              <FolderOpen className="w-5 h-5" />
+              <FolderOpen className="w-4 h-4 stroke-[2.2]" />
             </button>
           )}
             </>

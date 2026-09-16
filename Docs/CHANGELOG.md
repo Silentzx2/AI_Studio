@@ -1,5 +1,25 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.74] - 2026-09-16
+### UI/UX Refinement: Minimalist Responsive Workspace, Clutter Reduction & Mobile Layouts
+- **Minimalist 3D Viewport HUD Capsule (`MeshViewer.tsx`)**:
+  - Removed 27 scattered, redundant floating buttons (9 floating material swatches, 4 separate transport buttons, corner clutter).
+  - Consolidated into a single, sleek, unified floating bottom capsule at `bottom-3 sm:bottom-4`:
+    - Camera view angle preset dropdown (`Perspective`, `Front`, `Top`, `Side`)
+    - Quick shading mode selector dropdown (`Textured`, `Clay`, `Wireframe`, `Normals`)
+    - Direct wireframe overlay toggle (`#`)
+    - Turntable 360° toggle (`RotateCw`)
+    - Direct Export CTA button
+  - Desktop-only offset listener: `rightOffset` now only applies on `>= 1024px`, preventing the top stats HUD from being displaced across smaller screens.
+- **Responsive Workspace Panel Architecture (`WorkspaceShell.tsx`)**:
+  - Mutual panel exclusivity for mobile screens (`< 768px`): opening the tool panel automatically collapses the asset inspector and vice-versa, preventing dual-panel collision over the 3D canvas.
+  - Converted panels from fixed desktop pixel widths to responsive containers (`w-[calc(100vw-1rem)] max-w-[420px] md:w-[280px] lg:w-[320px]`).
+  - Added dedicated mobile panel close buttons and touch-friendly floating action triggers.
+- **Zero-Cutoff Responsive Modals (`ExportModal.tsx`, `SettingsModal.tsx`, `DccBridgeModal.tsx`)**:
+  - Added `max-h-[90vh] flex flex-col` and scrollable content bodies (`overflow-y-auto scrollbar-thin`) to all modals.
+  - Action buttons (Cancel, Export, Save, Done) and headers are pinned with `flex-shrink-0`, ensuring zero button clipping on mobile screens (375x667+).
+  - Responsive format and platform budget grid columns (`grid-cols-3 sm:grid-cols-5`, `grid-cols-3 sm:grid-cols-6`).
+
 ## [v5.0.73] - 2026-09-16
 ### Performance & Cleanliness: Reverted Heavy Generation Animations to Minimalist Studio UX
 - **Removed Heavy Hologram & Particle Over-Engineering (`ImagePointCloud.ts`)**:

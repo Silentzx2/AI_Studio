@@ -75,11 +75,11 @@ export const DccBridgeModal: React.FC = () => {
   return (
     <div
       onClick={(e) => { if (e.target === e.currentTarget) setIsDccBridgeOpen(false); }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 select-none animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-3 sm:p-4 select-none animate-in fade-in duration-200"
     >
-      <div className="w-full max-w-xl rounded-2xl bg-[#181a20] border border-white/[0.08] shadow-2xl overflow-hidden flex flex-col">
+      <div className="w-full max-w-xl max-h-[90vh] rounded-2xl bg-[#181a20] border border-white/[0.08] shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 bg-[#1e2026] border-b border-white/[0.08]">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 bg-[#1e2026] border-b border-white/[0.08] flex-shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-[#F9CF00]/15 border border-[#F9CF00]/30 flex items-center justify-center text-[#F9CF00]">
               <Cable className="w-4 h-4" />
@@ -98,10 +98,10 @@ export const DccBridgeModal: React.FC = () => {
         </div>
 
         {/* Content */}
-        <div className="p-5 space-y-3 text-xs bg-[#141518]">
+        <div className="p-4 sm:p-5 space-y-3 text-xs bg-[#141518] flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700">
           {bridges.map((b) => (
             <div key={b.id} className="p-3.5 rounded-xl bg-[#1e2026] border border-white/[0.08] space-y-2.5">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Box className="w-4 h-4 text-[#F9CF00]" />
                   <span className="font-bold text-xs text-white">{b.name}</span>
@@ -115,11 +115,11 @@ export const DccBridgeModal: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-1">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
                 <span className="text-[11px] text-zinc-400">One-click Python Listener Script:</span>
                 <button
                   onClick={() => handleCopyScript(b.id, b.script)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#25262A] hover:bg-[#2d2f34] text-zinc-200 hover:text-white border border-white/[0.08] transition-all cursor-pointer font-medium active:scale-95"
+                  className="self-start sm:self-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#25262A] hover:bg-[#2d2f34] text-zinc-200 hover:text-white border border-white/[0.08] transition-all cursor-pointer font-medium active:scale-95"
                 >
                   {copiedApp === b.id ? <Check className="w-3.5 h-3.5 text-[#00FF9D]" /> : <Copy className="w-3.5 h-3.5" />}
                   <span>{copiedApp === b.id ? 'Copied' : 'Copy Script'}</span>
@@ -130,10 +130,10 @@ export const DccBridgeModal: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end px-5 py-3.5 bg-[#1e2026] border-t border-white/[0.08]">
+        <div className="flex items-center justify-end px-4 sm:px-5 py-3.5 bg-[#1e2026] border-t border-white/[0.08] flex-shrink-0">
           <button
             onClick={() => setIsDccBridgeOpen(false)}
-            className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#FFE24C] to-[#F9CF00] hover:brightness-105 active:scale-95 text-black font-extrabold text-xs shadow-md shadow-[#F9CF00]/20 transition-all cursor-pointer border border-white/20"
+            className="w-full sm:w-auto px-5 py-2 rounded-xl bg-gradient-to-r from-[#FFE24C] to-[#F9CF00] hover:brightness-105 active:scale-95 text-black font-extrabold text-xs shadow-md shadow-[#F9CF00]/20 transition-all cursor-pointer border border-white/20"
           >
             Done
           </button>

@@ -521,6 +521,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     shadingMode, 
     setShadingMode,
     showWireframe,
+    setShowWireframe,
     isTurntable,
     setIsTurntable,
     isExecuting,
@@ -541,8 +542,35 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     rightPanelWidth
   } = useWorkspace();
 
-  const rightOffset = isRightPanelOpen ? (rightPanelWidth + 20) : 16;
-  const leftOffset = isLeftPanelOpen ? (leftPanelWidth + 20) : 16;
+  const [isDesktopScreen, setIsDesktopScreen] = useState(true);
+
+  useEffect(() => {
+    const checkScreenSize = () => {
+      if (typeof window !== 'undefined') {
+        setIsDesktopScreen(window.innerWidth >= 1024);
+      }
+    };
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
+  const rightOffset = (isRightPanelOpen && isDesktopScreen) ? (rightPanelWidth + 16) : 16;
+  const leftOffset = (isLeftPanelOpen && isDesktopScreen) ? (leftPanelWidth + 16) : 16;
+
+  const [shadingMenuOpen, setShadingMenuOpen] = useState(false);
+  const shadingMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!shadingMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (shadingMenuRef.current && !shadingMenuRef.current.contains(e.target as Node)) {
+        setShadingMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [shadingMenuOpen]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [loadProgress, setLoadProgress] = useState<{ loaded: number; total: number; percent: number } | null>(null);
@@ -2443,10 +2471,10 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
       {/* Persistent Viewport Overlays */}
       {showOverlayUI && (
         <>
-          {/* Top-Right: Topology HUD & Unobtrusive Zoom/Orbit Controller Set */}
+          {/* Top-Right: Topology HUD & Corner View Controller */}
           <div 
             style={{ right: `${rightOffset}px` }} 
-            className="absolute top-3.5 z-10 flex items-center gap-2 transition-all duration-200"
+            className="absolute top-3 z-10 flex items-center gap-1.5 sm:gap-2 max-w-[calc(100vw-1.5rem)] transition-all duration-200 pointer-events-auto"
           >
             {/* Unobtrusive Corner Zoom / Orbit Controller Set (Tripo Style) */}
             <div className="flex items-center gap-0.5 p-1 rounded-xl bg-[#14161b]/90 backdrop-blur-md border border-[#272a34] shadow-2xl text-zinc-300">
@@ -2455,7 +2483,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                 <button
                   id="btn-corner-orbit-toggle"
                   onClick={() => setInteractionMode(interactionMode === 'pan' ? 'orbit' : 'pan')}
-                  className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                  className={`flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
                     interactionMode === 'orbit'
                       ? 'bg-[#1f222a] text-[#F9CF00] border border-[#F9CF00]/40 shadow-sm'
                       : 'bg-[#1f222a] text-zinc-300 hover:text-white'
@@ -2503,28 +2531,28 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             </div>
 
             {/* Topology HUD */}
-            <div className="bg-[#14161b]/90 backdrop-blur-md border border-[#272a34] rounded-xl px-3 py-1.5 shadow-2xl flex items-center gap-3 text-xs font-mono">
-              <div className="flex items-center gap-1.5">
-                <span className="text-zinc-500 text-[10px] uppercase font-semibold">Topology</span>
+            <div className="bg-[#14161b]/90 backdrop-blur-md border border-[#272a34] rounded-xl px-2.5 sm:px-3 py-1.5 shadow-2xl flex items-center gap-2 sm:gap-3 text-xs font-mono">
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                <span className="text-zinc-500 text-[10px] uppercase font-semibold hidden sm:inline">Topology</span>
                 <span className="text-[#F9CF00] font-bold text-[10px]">
                   {currentAsset?.topology || (meshStats ? 'Triangle' : '—')}
                 </span>
               </div>
               <div className="w-px h-3 bg-[#272a34]" />
-              <div className="flex items-center gap-1.5">
-                <span className="text-zinc-500 text-[10px] uppercase font-semibold">Geometry</span>
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                <span className="text-zinc-500 text-[10px] uppercase font-semibold hidden sm:inline">Geometry</span>
                 <span className="text-[#00FF9D] font-bold text-[10px]">
                   {currentAsset?.statsAvailable 
-                    ? `${currentAsset.faces.toLocaleString()} / ${currentAsset.vertices.toLocaleString()}` 
+                    ? `${(currentAsset.faces / 1000).toFixed(1)}k / ${(currentAsset.vertices / 1000).toFixed(1)}k` 
                     : meshStats 
-                      ? `${meshStats.faces.toLocaleString()} / ${meshStats.vertices.toLocaleString()}`
+                      ? `${(meshStats.faces / 1000).toFixed(1)}k / ${(meshStats.vertices / 1000).toFixed(1)}k`
                       : '—'}
                 </span>
               </div>
               {meshStats?.dimensions && (
                 <>
-                  <div className="w-px h-3 bg-[#272a34]" />
-                  <div className="flex items-center gap-1.5">
+                  <div className="w-px h-3 bg-[#272a34] hidden md:block" />
+                  <div className="hidden md:flex items-center gap-1.5">
                     <span className="text-zinc-500 text-[10px] uppercase font-semibold">Size</span>
                     <span className="text-zinc-300 font-bold text-[10px]">
                       {meshStats.dimensions.x}×{meshStats.dimensions.y}×{meshStats.dimensions.z}m
@@ -2535,10 +2563,10 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             </div>
           </div>
 
-          {/* Right Floating Tool Rail (Hand, Move, Camera, Grid, Turntable, Reset, Env) */}
+          {/* Right Floating Tool Rail - visible on tablet & desktop (hidden on mobile to prevent clutter) */}
           <div 
             style={{ right: `${rightOffset}px` }} 
-            className="absolute top-1/2 -translate-y-1/2 z-10 flex flex-col gap-1.5 bg-[#14161b] border border-[#272a34] p-1.5 rounded-2xl shadow-2xl transition-all duration-200"
+            className="hidden md:flex absolute top-1/2 -translate-y-1/2 z-10 flex-col gap-1.5 bg-[#14161b] border border-[#272a34] p-1.5 rounded-2xl shadow-2xl transition-all duration-200"
           >
             <SimpleTooltip side="left" label={interactionMode === 'move' ? 'Return to Orbit Mode' : 'Move / Translate 3D Model'}>
               <button
@@ -2589,19 +2617,6 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               </button>
             </SimpleTooltip>
 
-            <SimpleTooltip side="left" label={isTurntable ? 'Pause Turntable 360°' : 'Start Turntable 360°'}>
-              <button
-                onClick={() => setIsTurntable(!isTurntable)}
-                className={`p-2 rounded-xl transition-all ${
-                  isTurntable 
-                    ? 'bg-[#F9CF00] text-black font-bold' 
-                    : 'text-zinc-300 hover:text-[#F9CF00] hover:bg-[#1f222a]'
-                }`}
-              >
-                <RotateCw className="w-4 h-4 stroke-[2.2]" />
-              </button>
-            </SimpleTooltip>
-
             <SimpleTooltip side="left" label="Reset Camera (Hotkey: F)">
               <button
                 onClick={resetCamera}
@@ -2611,7 +2626,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               </button>
             </SimpleTooltip>
 
-            <SimpleTooltip side="left" label="Environment Settings — Lighting, Grid, Camera">
+            <SimpleTooltip side="left" label="Environment Settings — Lighting &amp; Camera">
               <button
                 id="btn-env-settings-toggle"
                 onClick={() => setShowEnvironmentPanel(!showEnvironmentPanel)}
@@ -2630,8 +2645,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           {showEnvironmentPanel && (
             <div 
               ref={envPanelRef}
-              style={{ right: `${rightOffset + 56}px` }} 
-              className="absolute top-1/2 -translate-y-1/2 z-20 w-72 bg-[#16181D]/95 backdrop-blur-xl border border-white/[0.1] rounded-2xl shadow-2xl p-4 space-y-3 transition-all duration-200 animate-in fade-in zoom-in-95"
+              style={{ right: `${isDesktopScreen ? rightOffset + 56 : 16}px` }} 
+              className="absolute top-1/2 -translate-y-1/2 z-20 w-72 max-w-[calc(100vw-2rem)] bg-[#16181D]/95 backdrop-blur-xl border border-white/[0.1] rounded-2xl shadow-2xl p-4 space-y-3 transition-all duration-200 animate-in fade-in zoom-in-95"
             >
               <h3 className="text-[10px] font-bold tracking-wider text-[#F9CF00] uppercase">Environment Settings</h3>
 
@@ -2664,7 +2679,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                     <span className="text-[9px] text-zinc-400">Ambient</span>
                     <span className="text-[9px] font-mono text-[#F9CF00]">{environmentSettings.ambientIntensity.toFixed(1)}</span>
                   </div>
-                  <input type="range" min={0} max={3} step={0.1} value={environmentSettings.ambientIntensity} onChange={(e) => patchEnv({ ambientIntensity: parseFloat(e.target.value) })} className="w-full h-1 rounded-full bg-zinc-700 appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#F9CF00]" />
+                  <input type="range" min={0} max={3} step={0.1} value={environmentSettings.ambientIntensity} onChange={(e) => patchEnv({ ambientIntensity: parseFloat(e.target.value) })} className="w-full h-1 rounded-full bg-zinc-700 appearance-none cursor-pointer accent-[#F9CF00]" />
                 </div>
 
                 <div className="space-y-1.5">
@@ -2672,7 +2687,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                     <span className="text-[9px] text-zinc-400">Key Light</span>
                     <span className="text-[9px] font-mono text-[#F9CF00]">{environmentSettings.keyLightIntensity.toFixed(1)}</span>
                   </div>
-                  <input type="range" min={0} max={5} step={0.1} value={environmentSettings.keyLightIntensity} onChange={(e) => patchEnv({ keyLightIntensity: parseFloat(e.target.value) })} className="w-full h-1 rounded-full bg-zinc-700 appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#F9CF00]" />
+                  <input type="range" min={0} max={5} step={0.1} value={environmentSettings.keyLightIntensity} onChange={(e) => patchEnv({ keyLightIntensity: parseFloat(e.target.value) })} className="w-full h-1 rounded-full bg-zinc-700 appearance-none cursor-pointer accent-[#F9CF00]" />
                 </div>
 
                 <div className="space-y-1.5">
@@ -2680,15 +2695,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                     <span className="text-[9px] text-zinc-400">Fill Light</span>
                     <span className="text-[9px] font-mono text-[#F9CF00]">{environmentSettings.fillLightIntensity.toFixed(1)}</span>
                   </div>
-                  <input type="range" min={0} max={4} step={0.1} value={environmentSettings.fillLightIntensity} onChange={(e) => patchEnv({ fillLightIntensity: parseFloat(e.target.value) })} className="w-full h-1 rounded-full bg-zinc-700 appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#F9CF00]" />
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] text-zinc-400">Rim Light</span>
-                    <span className="text-[9px] font-mono text-[#F9CF00]">{environmentSettings.rimLightIntensity.toFixed(1)}</span>
-                  </div>
-                  <input type="range" min={0} max={4} step={0.1} value={environmentSettings.rimLightIntensity} onChange={(e) => patchEnv({ rimLightIntensity: parseFloat(e.target.value) })} className="w-full h-1 rounded-full bg-zinc-700 appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#F9CF00]" />
+                  <input type="range" min={0} max={4} step={0.1} value={environmentSettings.fillLightIntensity} onChange={(e) => patchEnv({ fillLightIntensity: parseFloat(e.target.value) })} className="w-full h-1 rounded-full bg-zinc-700 appearance-none cursor-pointer accent-[#F9CF00]" />
                 </div>
               </div>
 
@@ -2699,7 +2706,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                   <span className="text-[9px] text-zinc-400">Exposure</span>
                   <span className="text-[9px] font-mono text-[#F9CF00]">{environmentSettings.exposure.toFixed(2)}</span>
                 </div>
-                <input type="range" min={0.5} max={3} step={0.05} value={environmentSettings.exposure} onChange={(e) => patchEnv({ exposure: parseFloat(e.target.value) })} className="w-full h-1 rounded-full bg-zinc-700 appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#F9CF00]" />
+                <input type="range" min={0.5} max={3} step={0.05} value={environmentSettings.exposure} onChange={(e) => patchEnv({ exposure: parseFloat(e.target.value) })} className="w-full h-1 rounded-full bg-zinc-700 appearance-none cursor-pointer accent-[#F9CF00]" />
               </div>
 
               {/* Grid Toggle */}
@@ -2717,186 +2724,130 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             </div>
           )}
 
-          {/* Shading Material Swatches & Bottom Transport Bar (Hidden during generation preview) */}
+          {/* Unified Minimalist Viewport Transport & Shading HUD Capsule */}
           {!isExecuting && !debugBlueprint && (
-            <>
-              <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-[#14161b] border border-[#272a34] shadow-2xl">
-              {/* Textured / PBR */}
-              <SimpleTooltip side="top" label="PBR Textured">
+            <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 sm:gap-2 max-w-[calc(100vw-1.5rem)] flex-wrap justify-center pointer-events-auto">
+              {/* Camera Presets Dropdown */}
+              <div className="relative" ref={cameraMenuRef}>
                 <button
-                  onClick={() => setShadingMode('textured')}
-                  className={`w-7 h-7 rounded-full overflow-hidden border-2 transition-transform ${
-                    shadingMode === 'textured' ? 'border-[#F9CF00] scale-110 shadow-md ring-2 ring-[#F9CF00]/30' : 'border-transparent hover:scale-105 opacity-80 hover:opacity-100'
+                  onClick={() => setCameraMenuOpen(!cameraMenuOpen)}
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#14161b]/90 backdrop-blur-md border border-[#272a34] text-xs font-semibold text-zinc-200 hover:text-white hover:border-[#F9CF00]/40 shadow-2xl transition-all cursor-pointer active:scale-95"
+                >
+                  <RotateCw className="w-3.5 h-3.5 text-[#F9CF00]" />
+                  <span className="capitalize">{cameraPreset}</span>
+                  <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform ${cameraMenuOpen ? 'rotate-180 text-[#F9CF00]' : ''}`} />
+                </button>
+
+                {cameraMenuOpen && (
+                  <div className="absolute bottom-full left-0 mb-1.5 w-36 py-1 rounded-xl bg-[#181B22]/95 backdrop-blur-xl border border-white/[0.12] shadow-2xl z-50 text-xs animate-in fade-in zoom-in-95 duration-100">
+                    {(['perspective', 'front', 'back', 'top', 'bottom', 'left', 'right'] as CameraViewPreset[]).map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => {
+                          applyCameraPreset(p);
+                          setCameraMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-1.5 capitalize hover:bg-[#222630] transition-colors flex items-center justify-between cursor-pointer ${
+                          cameraPreset === p ? 'text-[#F9CF00] font-bold' : 'text-zinc-300'
+                        }`}
+                      >
+                        <span>{p}</span>
+                        {cameraPreset === p && <Check className="w-3 h-3 text-[#F9CF00]" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Quick Shading Selector (PBR, Clay, Wireframe, Normals) */}
+              <div className="relative" ref={shadingMenuRef}>
+                <button
+                  onClick={() => setShadingMenuOpen(!shadingMenuOpen)}
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#14161b]/90 backdrop-blur-md border border-[#272a34] text-xs font-semibold text-zinc-200 hover:text-white hover:border-[#F9CF00]/40 shadow-2xl transition-all cursor-pointer active:scale-95"
+                >
+                  <div className={`w-2.5 h-2.5 rounded-full ${
+                    shadingMode === 'textured' ? 'bg-[#F9CF00]' :
+                    shadingMode === 'clay' ? 'bg-zinc-400' :
+                    shadingMode === 'wireframe' ? 'bg-[#00FF9D]' : 'bg-purple-400'
+                  }`} />
+                  <span className="capitalize">{shadingMode.replace('matcap-', '')}</span>
+                  <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform ${shadingMenuOpen ? 'rotate-180 text-[#F9CF00]' : ''}`} />
+                </button>
+
+                {shadingMenuOpen && (
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-44 py-1.5 rounded-xl bg-[#181B22]/95 backdrop-blur-xl border border-white/[0.12] shadow-2xl z-50 text-xs animate-in fade-in zoom-in-95 duration-100">
+                    <div className="px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-zinc-500">
+                      Shading Mode
+                    </div>
+                    {[
+                      { id: 'textured', label: 'PBR Textured', dot: 'bg-[#F9CF00]' },
+                      { id: 'clay', label: 'Matte Clay', dot: 'bg-zinc-400' },
+                      { id: 'wireframe', label: 'Topology Wireframe', dot: 'bg-[#00FF9D]' },
+                      { id: 'matcap-normal', label: 'Tangent Normals', dot: 'bg-purple-400' },
+                      { id: 'matcap-ceramic', label: 'Ceramic Gloss', dot: 'bg-white' },
+                      { id: 'matcap-chrome', label: 'Chrome Metallic', dot: 'bg-zinc-300' },
+                    ].map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => {
+                          setShadingMode(s.id as any);
+                          setShadingMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-1.5 hover:bg-[#222630] transition-colors flex items-center justify-between cursor-pointer ${
+                          shadingMode === s.id ? 'text-[#F9CF00] font-bold' : 'text-zinc-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${s.dot}`} />
+                          <span>{s.label}</span>
+                        </div>
+                        {shadingMode === s.id && <Check className="w-3 h-3 text-[#F9CF00]" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Wireframe Quick Toggle */}
+              <SimpleTooltip side="top" label="Toggle Wireframe Overlay">
+                <button
+                  onClick={() => setShowWireframe(!showWireframe)}
+                  className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl border text-xs font-mono font-bold transition-all cursor-pointer active:scale-95 ${
+                    showWireframe
+                      ? 'bg-[#00FF9D]/15 text-[#00FF9D] border-[#00FF9D]/40 shadow-sm'
+                      : 'bg-[#14161b]/90 backdrop-blur-md border-[#272a34] text-zinc-400 hover:text-white'
                   }`}
                 >
-                  {currentAsset?.thumbnail ? (
-                    <img 
-                      src={currentAsset.thumbnail} 
-                      alt="Textured" 
-                      className="w-full h-full object-cover"
-                      crossOrigin="anonymous" 
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-amber-500 to-amber-700" />
-                  )}
+                  <span>#</span>
+                  <span className="hidden sm:inline text-[10px]">Wire</span>
                 </button>
               </SimpleTooltip>
 
-              {/* Clay */}
-              <SimpleTooltip side="top" label="Matte Clay">
+              {/* Turntable 360° */}
+              <SimpleTooltip side="top" label={isTurntable ? 'Pause Turntable' : 'Turntable 360°'}>
                 <button
-                  onClick={() => setShadingMode('clay')}
-                  className={`w-7 h-7 rounded-full bg-[#a3a8b5] border-2 transition-transform ${
-                    shadingMode === 'clay' ? 'border-[#F9CF00] scale-110 shadow-md ring-2 ring-[#F9CF00]/30' : 'border-transparent hover:scale-105 opacity-80 hover:opacity-100'
-                  }`}
-                />
-              </SimpleTooltip>
-
-              {/* White Ceramic */}
-              <SimpleTooltip side="top" label="Ceramic Gloss">
-                <button
-                  onClick={() => setShadingMode('matcap-ceramic')}
-                  className={`w-7 h-7 rounded-full bg-white border-2 transition-transform ${
-                    shadingMode === 'matcap-ceramic' ? 'border-[#F9CF00] scale-110 shadow-md ring-2 ring-[#F9CF00]/30' : 'border-transparent hover:scale-105 opacity-80 hover:opacity-100'
-                  }`}
-                />
-              </SimpleTooltip>
-
-              {/* Chrome Metallic */}
-              <SimpleTooltip side="top" label="Chrome Metallic">
-                <button
-                  onClick={() => setShadingMode('matcap-chrome')}
-                  className={`w-7 h-7 rounded-full bg-gradient-to-tr from-zinc-600 via-zinc-300 to-white border-2 transition-transform ${
-                    shadingMode === 'matcap-chrome' ? 'border-[#F9CF00] scale-110 shadow-md ring-2 ring-[#F9CF00]/30' : 'border-transparent hover:scale-105 opacity-80 hover:opacity-100'
-                  }`}
-                />
-              </SimpleTooltip>
-
-              {/* Wireframe */}
-              <SimpleTooltip side="top" label="Topology Wireframe">
-                <button
-                  onClick={() => setShadingMode('wireframe')}
-                  className={`w-7 h-7 rounded-full bg-[#181a20] border-2 flex items-center justify-center text-[10px] text-[#00FF9D] font-bold transition-transform ${
-                    shadingMode === 'wireframe' ? 'border-[#F9CF00] scale-110 shadow-md ring-2 ring-[#F9CF00]/30' : 'border-transparent hover:scale-105 opacity-80 hover:opacity-100'
+                  onClick={() => setIsTurntable(!isTurntable)}
+                  className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer active:scale-95 flex items-center gap-1.5 ${
+                    isTurntable
+                      ? 'bg-[#F9CF00] text-black border-[#F9CF00] font-bold shadow-md'
+                      : 'bg-[#14161b]/90 backdrop-blur-md border-[#272a34] text-zinc-300 hover:text-white'
                   }`}
                 >
-                  #
+                  <RotateCw className={`w-3.5 h-3.5 ${isTurntable ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline text-[11px]">360°</span>
                 </button>
               </SimpleTooltip>
 
-              {/* Normal Map */}
-              <SimpleTooltip side="top" label="Tangent Normals">
-                <button
-                  onClick={() => setShadingMode('matcap-normal')}
-                  className={`w-7 h-7 rounded-full bg-gradient-to-br from-pink-500 via-purple-500 to-cyan-400 border-2 transition-transform ${
-                    shadingMode === 'matcap-normal' ? 'border-[#F9CF00] scale-110 shadow-md ring-2 ring-[#F9CF00]/30' : 'border-transparent hover:scale-105 opacity-80 hover:opacity-100'
-                  }`}
-                />
-              </SimpleTooltip>
-
-              {/* Gold Matcap */}
-              <SimpleTooltip side="top" label="Gold Lustre">
-                <button
-                  onClick={() => setShadingMode('matcap-gold')}
-                  className={`w-7 h-7 rounded-full bg-gradient-to-br from-[#F9CF00] to-amber-600 border-2 transition-transform ${
-                    shadingMode === 'matcap-gold' ? 'border-[#F9CF00] scale-110 shadow-md ring-2 ring-[#F9CF00]/30' : 'border-transparent hover:scale-105 opacity-80 hover:opacity-100'
-                  }`}
-                />
-              </SimpleTooltip>
-
-              {/* X-Ray */}
-              <SimpleTooltip side="top" label="X-Ray Silhouette">
-                <button
-                  onClick={() => setShadingMode('xray')}
-                  className={`w-7 h-7 rounded-full bg-blue-950 border border-blue-500/50 border-2 transition-transform flex items-center justify-center text-[9px] text-blue-400 font-bold ${
-                    shadingMode === 'xray' ? 'border-[#F9CF00] scale-110 shadow-md ring-2 ring-[#F9CF00]/30' : 'border-transparent hover:scale-105 opacity-80 hover:opacity-100'
-                  }`}
-                >
-                  X
-                </button>
-              </SimpleTooltip>
-
-              {/* Turquoise Stylized */}
-              <SimpleTooltip side="top" label="Turquoise Gem">
-                <button
-                  onClick={() => setShadingMode('matcap-turquoise')}
-                  className={`w-7 h-7 rounded-full bg-gradient-to-br from-cyan-400 to-teal-600 border-2 transition-transform ${
-                    shadingMode === 'matcap-turquoise' ? 'border-[#F9CF00] scale-110 shadow-md ring-2 ring-[#F9CF00]/30' : 'border-transparent hover:scale-105 opacity-80 hover:opacity-100'
-                  }`}
-                />
-              </SimpleTooltip>
-            </div>
-          </div>
-
-          {/* Bottom Transport Control Bar */}
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2">
-            {/* Free Orbit / Camera Presets Dropdown */}
-            {/* Free Orbit / Camera Presets Dropdown */}
-            <div className="relative" ref={cameraMenuRef}>
+              {/* Export CTA Button */}
               <button
-                onClick={() => setCameraMenuOpen(!cameraMenuOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#16181D]/90 backdrop-blur-md border border-white/[0.1] text-xs font-semibold text-zinc-200 hover:text-white hover:border-white/[0.2] shadow-2xl transition-all cursor-pointer"
+                id="btn-viewport-export"
+                onClick={() => setIsExportModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-xl bg-gradient-to-r from-[#FFE24C] to-[#F9CF00] hover:brightness-105 active:scale-95 text-black text-xs font-bold shadow-lg shadow-[#F9CF00]/20 transition-all cursor-pointer border border-white/20"
               >
-                <RotateCw className="w-3.5 h-3.5 text-[#F9CF00]" />
-                <span className="capitalize">{cameraPreset} View</span>
-                <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform ${cameraMenuOpen ? 'rotate-180 text-[#F9CF00]' : ''}`} />
+                <Download className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>Export</span>
               </button>
-
-              {cameraMenuOpen && (
-                <div className="absolute bottom-full left-0 mb-1.5 w-40 py-1.5 rounded-xl bg-[#181B22]/95 backdrop-blur-xl border border-white/[0.12] shadow-2xl z-50 text-xs animate-in fade-in zoom-in-95 duration-100">
-                  {(['perspective', 'front', 'back', 'top', 'bottom', 'left', 'right'] as CameraViewPreset[]).map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => {
-                        applyCameraPreset(p);
-                        setCameraMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-3 py-1.5 capitalize hover:bg-[#222630] transition-colors flex items-center justify-between cursor-pointer ${
-                        cameraPreset === p ? 'text-[#F9CF00] font-bold' : 'text-zinc-300'
-                      }`}
-                    >
-                      <span>{p}</span>
-                      {cameraPreset === p && <Check className="w-3 h-3 text-[#F9CF00]" />}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
-
-            {/* Snap to Grid */}
-            <button
-              onClick={() => {
-                if (cameraRef.current && controlsRef.current) {
-                  cameraRef.current.position.set(0, 0.4, 4.0);
-                  controlsRef.current.target.set(0, 0.4, 0);
-                  controlsRef.current.update();
-                }
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#16181D]/90 backdrop-blur-md border border-white/[0.1] text-xs font-semibold text-zinc-300 hover:text-white hover:border-white/[0.2] shadow-2xl transition-all cursor-pointer active:scale-95"
-            >
-              <span>Snap</span>
-            </button>
-
-            {/* 3D Print Preparation */}
-            <button
-              onClick={() => setIsExportModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#16181D]/90 backdrop-blur-md border border-white/[0.1] text-xs font-semibold text-zinc-300 hover:text-white hover:border-white/[0.2] shadow-2xl transition-all cursor-pointer active:scale-95"
-            >
-              <Printer className="w-3.5 h-3.5 text-[#F9CF00]" />
-              <span>3D Print</span>
-            </button>
-
-            {/* Direct Export 3D Bundle Button (Gradient Tactile Theme) */}
-            <button
-              onClick={() => setIsExportModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-gradient-to-r from-[#FFE24C] to-[#F9CF00] hover:brightness-105 active:scale-95 text-black text-xs font-extrabold shadow-2xl shadow-[#F9CF00]/25 transition-all cursor-pointer border border-white/20"
-            >
-              <Download className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>Export</span>
-            </button>
-          </div>
-            </>
           )}
         </>
       )}
