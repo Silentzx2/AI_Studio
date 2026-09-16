@@ -6,6 +6,7 @@ echo "=== Verifying post-processing dependencies ==="
 python -c "import pymeshlab; print('pymeshlab OK')"
 python -c "import xatlas; print('xatlas OK')"
 python -c "import trimesh; print('trimesh OK')"
+python -c "import xxhash; print('xxhash OK')"
 python -c "import open3d; print('open3d OK')"
 
 # Node.js + gltf-transform
