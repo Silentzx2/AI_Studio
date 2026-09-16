@@ -1,5 +1,16 @@
 # AI 3D Studio — Changelog
 
+## [v5.0.73] - 2026-09-16
+### Performance & Cleanliness: Reverted Heavy Generation Animations to Minimalist Studio UX
+- **Removed Heavy Hologram & Particle Over-Engineering (`ImagePointCloud.ts`)**:
+  - Eliminated complex 3D laser slicing planes, orbital particle swarm calculations (350 rotating sparks), 16-point radar floor pedestals, and CAD corner bounding cages.
+  - Restored lightweight, clean 3D point cloud synthesis with authentic colors and smooth subtle Y-rotation at a crisp 60fps.
+- **Removed Heavy Generation HUD (`GenerationPreviewHUD.tsx`)**:
+  - Deleted 367-line over-engineered HUD component (fake voxel counters, animated neural equalizer bars, complex mode filters).
+- **Implemented Clean Minimal Generation Progress Overlay (`MeshViewer.tsx`)**:
+  - Added a clean, modern, studio-grade floating progress pill at bottom center with clear stage text, smooth progress line, and accessible cancel action.
+  - Eliminated extra rendering loops, reducing CPU and GPU memory footprint during model generation.
+
 ## [v5.0.72] - 2026-09-16
 ### Optional AI Mesh Quality Post-Processing (DetailGen3D & TripoSF) & UI Toggle Control
 - **Two Specialized Post-Processing Enhancement Models (`_POST_PROCESSING_ONLY_PROVIDERS`)**:

@@ -8,18 +8,17 @@ function getParticleTexture(): THREE.Texture | null {
   if (cachedParticleTexture) return cachedParticleTexture;
 
   const canvas = document.createElement('canvas');
-  canvas.width = 64;
-  canvas.height = 64;
+  canvas.width = 32;
+  canvas.height = 32;
   const ctx = canvas.getContext('2d');
   if (ctx) {
-    const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
     gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-    gradient.addColorStop(0.2, 'rgba(255, 240, 180, 0.95)');
-    gradient.addColorStop(0.5, 'rgba(249, 207, 0, 0.6)');
-    gradient.addColorStop(0.75, 'rgba(56, 189, 248, 0.25)');
-    gradient.addColorStop(1, 'rgba(56, 189, 248, 0)');
+    gradient.addColorStop(0.35, 'rgba(240, 248, 255, 0.9)');
+    gradient.addColorStop(0.7, 'rgba(180, 220, 255, 0.4)');
+    gradient.addColorStop(1, 'rgba(100, 160, 255, 0)');
     ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 64, 64);
+    ctx.fillRect(0, 0, 32, 32);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -68,10 +67,12 @@ function extractForegroundMask(
     return { mask, minX, maxX, minY, maxY, fgCount };
   }
 
-  // 2. For opaque images: Perimeter connected flood fill
+  // 2. For opaque images (JPEG or opaque PNG): Connected-Border Flood Fill
+  // Background by definition is contiguous with image outer borders.
   const isBg = new Uint8Array(totalPixels);
   const visited = new Uint8Array(totalPixels);
 
+  // Collect border colors to compute distribution & seed palette
   const borderSeeds: [number, number, number][] = [];
   let sumR = 0, sumG = 0, sumB = 0, count = 0;
 
@@ -105,15 +106,18 @@ function extractForegroundMask(
   const bgMeanG = sumG / count;
   const bgMeanB = sumB / count;
 
+  // Queue-based BFS flood fill from all perimeter pixels
   const queue: number[] = [];
 
   const checkBgMatch = (r: number, g: number, b: number): boolean => {
+    // Weighted Euclidean color distance
     const dr = r - bgMeanR;
     const dg = g - bgMeanG;
     const db = b - bgMeanB;
     const distToMean = Math.sqrt(0.3 * dr * dr + 0.59 * dg * dg + 0.11 * db * db);
     if (distToMean < 36) return true;
 
+    // Check against border seed samples (handles gradient / lighting vignette)
     for (let i = 0; i < borderSeeds.length; i++) {
       const s = borderSeeds[i];
       const sr = r - s[0];
@@ -125,6 +129,7 @@ function extractForegroundMask(
     return false;
   };
 
+  // Seed with all border pixels
   for (let x = 0; x < w; x++) {
     const topCoord = x;
     const botCoord = (h - 1) * w + x;
@@ -159,6 +164,7 @@ function extractForegroundMask(
     if (checkBgMatch(r, g, b)) {
       isBg[p] = 1;
 
+      // 4-neighbors
       const neighbors = [
         px > 0 ? p - 1 : -1,
         px < w - 1 ? p + 1 : -1,
@@ -176,12 +182,14 @@ function extractForegroundMask(
     }
   }
 
+  // 3. Build foreground mask and find bounds
   let fgCount = 0;
   let minX = w, maxX = 0, minY = h, maxY = 0;
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const p = y * w + x;
+      // Pixel is foreground if not connected background, and does not strongly match background mean
       if (!isBg[p]) {
         const pIdx = p * 4;
         const r = imgData[pIdx];
@@ -192,6 +200,7 @@ function extractForegroundMask(
         const db = b - bgMeanB;
         const dist = Math.sqrt(0.3 * dr * dr + 0.59 * dg * dg + 0.11 * db * db);
 
+        // Secondary check for enclosed background holes (e.g. between legs)
         if (dist > 18) {
           mask[p] = 1;
           fgCount++;
@@ -205,275 +214,6 @@ function extractForegroundMask(
   }
 
   return { mask, minX, maxX, minY, maxY, fgCount };
-}
-
-/**
- * Creates the animated cybernetic laser scanning slice plane.
- * Sweeps vertically through the 3D model during neural synthesis.
- */
-function createLaserScanner(radius: number, boundY: number): THREE.Group {
-  const laserGroup = new THREE.Group();
-  laserGroup.name = 'blueprintScanRing'; // preserve backward compatibility with existing render loop
-
-  // 1. Primary Electric Cyan / Amber Laser Ring
-  const segments = 64;
-  const ringPositions: number[] = [];
-  for (let i = 0; i <= segments; i++) {
-    const theta = (i / segments) * Math.PI * 2;
-    ringPositions.push(radius * Math.cos(theta), 0, radius * Math.sin(theta));
-  }
-  const ringGeo = new THREE.BufferGeometry();
-  ringGeo.setAttribute('position', new THREE.Float32BufferAttribute(ringPositions, 3));
-  const ringMat = new THREE.LineBasicMaterial({
-    color: 0x38bdf8,
-    transparent: true,
-    opacity: 0.9,
-    blending: THREE.AdditiveBlending,
-  });
-  const ring = new THREE.LineLoop(ringGeo, ringMat);
-  laserGroup.add(ring);
-
-  // 2. Concentric Secondary Pulse Ring
-  const innerPositions: number[] = [];
-  const innerRadius = radius * 0.72;
-  for (let i = 0; i <= segments; i++) {
-    const theta = (i / segments) * Math.PI * 2;
-    innerPositions.push(innerRadius * Math.cos(theta), 0, innerRadius * Math.sin(theta));
-  }
-  const innerGeo = new THREE.BufferGeometry();
-  innerGeo.setAttribute('position', new THREE.Float32BufferAttribute(innerPositions, 3));
-  const innerMat = new THREE.LineBasicMaterial({
-    color: 0xf9cf00,
-    transparent: true,
-    opacity: 0.65,
-    blending: THREE.AdditiveBlending,
-  });
-  const innerRing = new THREE.LineLoop(innerGeo, innerMat);
-  laserGroup.add(innerRing);
-
-  // 3. Translucent Glowing Laser Disc Slice Plane
-  const discGeo = new THREE.CircleGeometry(radius, 48);
-  discGeo.rotateX(-Math.PI / 2);
-  const discMat = new THREE.MeshBasicMaterial({
-    color: 0x38bdf8,
-    transparent: true,
-    opacity: 0.12,
-    side: THREE.DoubleSide,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  });
-  const disc = new THREE.Mesh(discGeo, discMat);
-  laserGroup.add(disc);
-
-  // 4. Laser Crosshairs Reticle (4 pointer ticks)
-  const crosshairPositions: number[] = [
-    // North tick
-    0, 0, -radius * 1.08, 0, 0, -radius * 0.88,
-    // South tick
-    0, 0, radius * 1.08, 0, 0, radius * 0.88,
-    // East tick
-    radius * 1.08, 0, 0, radius * 0.88, 0, 0,
-    // West tick
-    -radius * 1.08, 0, 0, -radius * 0.88, 0, 0,
-  ];
-  const crosshairGeo = new THREE.BufferGeometry();
-  crosshairGeo.setAttribute('position', new THREE.Float32BufferAttribute(crosshairPositions, 3));
-  const crosshairMat = new THREE.LineSegments(
-    crosshairGeo,
-    new THREE.LineBasicMaterial({
-      color: 0xf9cf00,
-      transparent: true,
-      opacity: 0.85,
-      blending: THREE.AdditiveBlending,
-    })
-  );
-  laserGroup.add(crosshairMat);
-
-  laserGroup.userData = {
-    boundY: boundY,
-    radius: radius,
-  };
-
-  return laserGroup;
-}
-
-/**
- * Creates the holographic cybernetic pedestal with concentric radar rings
- * and rotating scanner arm on the floor beneath the model.
- */
-function createGroundPedestal(radius: number, yPos: number): THREE.Group {
-  const pedestal = new THREE.Group();
-  pedestal.name = 'blueprintPedestal';
-  pedestal.position.y = yPos;
-
-  // 1. Concentric Floor Target Rings
-  const ringCount = 3;
-  const ringRadii = [radius * 1.15, radius * 0.75, radius * 0.38];
-  const segments = 48;
-
-  ringRadii.forEach((r, idx) => {
-    const positions: number[] = [];
-    for (let i = 0; i <= segments; i++) {
-      const theta = (i / segments) * Math.PI * 2;
-      positions.push(r * Math.cos(theta), 0, r * Math.sin(theta));
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    const mat = new THREE.LineBasicMaterial({
-      color: idx === 0 ? 0x38bdf8 : 0xf9cf00,
-      transparent: true,
-      opacity: idx === 0 ? 0.45 : 0.28,
-      blending: THREE.AdditiveBlending,
-    });
-    pedestal.add(new THREE.LineLoop(geo, mat));
-  });
-
-  // 2. 16 Radial Degree Tick Marks
-  const tickPositions: number[] = [];
-  const outerR = radius * 1.15;
-  const innerTickR = outerR * 0.94;
-  for (let i = 0; i < 16; i++) {
-    const theta = (i / 16) * Math.PI * 2;
-    const cos = Math.cos(theta);
-    const sin = Math.sin(theta);
-    tickPositions.push(innerTickR * cos, 0, innerTickR * sin);
-    tickPositions.push(outerR * cos, 0, outerR * sin);
-  }
-  const tickGeo = new THREE.BufferGeometry();
-  tickGeo.setAttribute('position', new THREE.Float32BufferAttribute(tickPositions, 3));
-  const tickMat = new THREE.LineSegments(
-    tickGeo,
-    new THREE.LineBasicMaterial({
-      color: 0xf9cf00,
-      transparent: true,
-      opacity: 0.55,
-      blending: THREE.AdditiveBlending,
-    })
-  );
-  pedestal.add(tickMat);
-
-  // 3. Rotating Sweeper Radar Line
-  const radarPositions = [0, 0, 0, outerR, 0, 0];
-  const radarGeo = new THREE.BufferGeometry();
-  radarGeo.setAttribute('position', new THREE.Float32BufferAttribute(radarPositions, 3));
-  const radarMat = new THREE.Line(
-    radarGeo,
-    new THREE.LineBasicMaterial({
-      color: 0x38bdf8,
-      transparent: true,
-      opacity: 0.8,
-      blending: THREE.AdditiveBlending,
-    })
-  );
-  radarMat.name = 'blueprintRadarArm';
-  pedestal.add(radarMat);
-
-  return pedestal;
-}
-
-/**
- * Creates 350 floating micro-sparks orbiting the subject in 3D space,
- * evoking latent diffusion tokens condensing into physical geometry.
- */
-function createOrbitalSparks(radius: number, height: number): THREE.Points {
-  const sparkCount = 350;
-  const positions = new Float32Array(sparkCount * 3);
-  const colors = new Float32Array(sparkCount * 3);
-
-  for (let i = 0; i < sparkCount; i++) {
-    const theta = Math.random() * Math.PI * 2;
-    const r = radius * (0.6 + Math.random() * 0.7);
-    const y = (Math.random() - 0.5) * height * 1.25;
-
-    positions[i * 3] = r * Math.cos(theta);
-    positions[i * 3 + 1] = y;
-    positions[i * 3 + 2] = r * Math.sin(theta);
-
-    // Dual-tone: Gold & Electric Sky
-    const isGold = Math.random() > 0.45;
-    if (isGold) {
-      colors[i * 3] = 0.98;
-      colors[i * 3 + 1] = 0.82;
-      colors[i * 3 + 2] = 0.15;
-    } else {
-      colors[i * 3] = 0.35;
-      colors[i * 3 + 1] = 0.75;
-      colors[i * 3 + 2] = 0.98;
-    }
-  }
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-  const pTex = getParticleTexture();
-  const mat = new THREE.PointsMaterial({
-    size: 0.032,
-    vertexColors: true,
-    ...(pTex ? { map: pTex } : {}),
-    transparent: true,
-    opacity: 0.85,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  });
-
-  const sparks = new THREE.Points(geo, mat);
-  sparks.name = 'blueprintOrbitalSparks';
-  return sparks;
-}
-
-/**
- * Creates 8 corner CAD brackets [ ] framing the 3D model bounding envelope.
- */
-function createBoundingCage(w: number, h: number, d: number): THREE.Group {
-  const cage = new THREE.Group();
-  cage.name = 'blueprintBoundingCage';
-
-  const hw = w / 2;
-  const hh = h / 2;
-  const hd = d / 2;
-  const arm = Math.min(w, Math.min(h, d)) * 0.18;
-
-  const positions: number[] = [];
-
-  const signs = [
-    [-1, -1, -1],
-    [1, -1, -1],
-    [-1, 1, -1],
-    [1, 1, -1],
-    [-1, -1, 1],
-    [1, -1, 1],
-    [-1, 1, 1],
-    [1, 1, 1],
-  ];
-
-  signs.forEach(([sx, sy, sz]) => {
-    const cx = sx * hw;
-    const cy = sy * hh;
-    const cz = sz * hd;
-
-    // X arm
-    positions.push(cx, cy, cz, cx - sx * arm, cy, cz);
-    // Y arm
-    positions.push(cx, cy, cz, cx, cy - sy * arm, cz);
-    // Z arm
-    positions.push(cx, cy, cz, cx, cy, cz - sz * arm);
-  });
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  const mat = new THREE.LineSegments(
-    geo,
-    new THREE.LineBasicMaterial({
-      color: 0x38bdf8,
-      transparent: true,
-      opacity: 0.45,
-      blending: THREE.AdditiveBlending,
-    })
-  );
-
-  cage.add(mat);
-  return cage;
 }
 
 /**
@@ -552,6 +292,7 @@ export async function createPointCloudFromImage(imageUrl: string): Promise<THREE
         const wireframePositions: number[] = [];
 
         for (let y = minY; y <= maxY; y++) {
+          // Find contiguous horizontal runs in this row (separates limbs/arms/legs)
           const runs: [number, number][] = [];
           let inRun = false;
           let runStart = 0;
@@ -578,9 +319,10 @@ export async function createPointCloudFromImage(imageUrl: string): Promise<THREE
             const runCenterX = (startX + endX) / 2;
             const radiusX = Math.max(1, runW / 2);
 
+            // Elliptical 3D depth for this limb/torso cross section
             const localDepthZ = (radiusX / bboxW) * scaleZ;
 
-            // 3D Holographic Contour Latitude Ring
+            // Generate 3D Holographic Contour Latitude Ring for this cross section
             if (shouldAddContourRing && runW > 6) {
               const ringSegments = 24;
               const ringNy = -((y - centerY) / bboxH) * scaleY;
@@ -609,27 +351,30 @@ export async function createPointCloudFromImage(imageUrl: string): Promise<THREE
               const nx = ((x - centerX) / bboxW) * scaleX;
               const ny = -((y - centerY) / bboxH) * scaleY;
 
+              // Normalized distance from center of this run (-1 to +1)
               const u = (x - runCenterX) / radiusX;
               const clampedU = Math.max(-1, Math.min(1, u));
 
+              // Taper depth smoothly at boundary tips
               const edgeDist = distMap[p] || 1;
               const boundaryTaper = Math.min(1.0, edgeDist / 3.0);
               const maxZ = localDepthZ * boundaryTaper * Math.sqrt(Math.max(0.02, 1.0 - clampedU * clampedU));
 
-              // Authentic reference image colors
+              // Authentic reference image colors (Preserves eyes, teeth, clothes, vibrant materials)
               const pr = imgData[idx] / 255;
               const pg = imgData[idx + 1] / 255;
               const pb = imgData[idx + 2] / 255;
 
-              // Front Surface Point (+Z)
+              // 1. FRONT SURFACE POINT (+Z): Authentic model colors
               positions.push(nx, ny, maxZ);
               colors.push(pr, pg, pb);
 
-              // Back Surface Point (-Z)
+              // 2. BACK SURFACE POINT (-Z): Coherent 3D rear curvature & shading
               positions.push(nx, ny, -maxZ);
+              // Rear lighting tone preserves character palette with depth shading
               colors.push(pr * 0.72 + 0.05, pg * 0.72 + 0.05, pb * 0.76 + 0.07);
 
-              // Volumetric Interior Lattice
+              // 3. VOLUMETRIC INTERIOR LATTICE (Inside the 3D body)
               if (maxZ > 0.08) {
                 const zInt = maxZ * (Math.random() * 1.7 - 0.85);
                 const jitterX = (Math.random() - 0.5) * (scaleX / bboxW) * 0.6;
@@ -657,13 +402,12 @@ export async function createPointCloudFromImage(imageUrl: string): Promise<THREE
           vertexColors: true,
           ...(pTex ? { map: pTex } : {}),
           transparent: true,
-          opacity: 0.94,
+          opacity: 0.92,
           blending: THREE.AdditiveBlending,
           depthWrite: false,
         });
 
         const points = new THREE.Points(geometry, material);
-        points.name = 'blueprintPoints';
         previewGroup.add(points);
 
         // 2. Holographic 3D Contour Latitude Wireframe
@@ -673,35 +417,37 @@ export async function createPointCloudFromImage(imageUrl: string): Promise<THREE
           wireGeometry.center();
 
           const wireMaterial = new THREE.LineBasicMaterial({
-            color: 0xf9cf00,
+            color: 0xebd024,
             transparent: true,
-            opacity: 0.42,
+            opacity: 0.38,
             blending: THREE.AdditiveBlending,
           });
 
           const wireframe = new THREE.LineSegments(wireGeometry, wireMaterial);
-          wireframe.name = 'blueprintWireframe';
           previewGroup.add(wireframe);
         }
 
-        // 3. Holographic Laser Scanning Slice Plane
-        const scanRadius = scaleX * 0.72;
-        const boundY = scaleY * 0.58;
-        const laserScanner = createLaserScanner(scanRadius, boundY);
-        laserScanner.position.y = 0.2;
-        previewGroup.add(laserScanner);
+        // 3. Animated Holographic Neural Scan Ring
+        const ringSegments = 48;
+        const ringPositions: number[] = [];
+        const ringRadius = scaleX * 0.65;
+        for (let i = 0; i <= ringSegments; i++) {
+          const theta = (i / ringSegments) * Math.PI * 2;
+          ringPositions.push(ringRadius * Math.cos(theta), 0, ringRadius * Math.sin(theta));
+        }
 
-        // 4. Ground Hologram Radar Pedestal
-        const pedestal = createGroundPedestal(scaleX * 0.75, -boundY - 0.15);
-        previewGroup.add(pedestal);
-
-        // 5. Latent Orbital Particles Swarm
-        const sparks = createOrbitalSparks(scaleX * 0.8, scaleY);
-        previewGroup.add(sparks);
-
-        // 6. CAD Sci-Fi Bounding Cage
-        const cage = createBoundingCage(scaleX * 1.15, scaleY * 1.15, scaleZ * 1.2);
-        previewGroup.add(cage);
+        const scanRingGeo = new THREE.BufferGeometry();
+        scanRingGeo.setAttribute('position', new THREE.Float32BufferAttribute(ringPositions, 3));
+        const scanRingMat = new THREE.LineBasicMaterial({
+          color: 0x60a5fa,
+          transparent: true,
+          opacity: 0.75,
+          blending: THREE.AdditiveBlending,
+        });
+        const scanRing = new THREE.LineLoop(scanRingGeo, scanRingMat);
+        scanRing.name = 'blueprintScanRing';
+        scanRing.position.y = 0.2;
+        previewGroup.add(scanRing);
 
         previewGroup.position.y = 0.25;
         resolve(previewGroup);
@@ -720,8 +466,7 @@ export async function createPointCloudFromImage(imageUrl: string): Promise<THREE
 }
 
 /**
- * Procedural futuristic cybernetic bust / sculpture point cloud with 360° structure.
- * Displayed for text-to-3d prompts or as a robust fallback.
+ * Procedural fallback 3D volumetric character/prop point cloud with 360° structure.
  */
 export function createFallbackPointCloud(_prompt?: string): THREE.Group {
   const group = new THREE.Group();
@@ -730,73 +475,62 @@ export function createFallbackPointCloud(_prompt?: string): THREE.Group {
   const positions: number[] = [];
   const colors: number[] = [];
   const wireframePositions: number[] = [];
-  const totalPoints = 6800;
+  const totalPoints = 5600;
 
-  // Generate a procedural 3D sculpture with intricate anatomical curvature
+  // Generate a volumetric 3D humanoid / creature silhouette in 360°
   for (let i = 0; i < totalPoints; i++) {
     const section = Math.random();
     let x = 0, y = 0, z = 0;
-    let r = 0.98, g = 0.85, b = 0.15; // Golden amber default
+    let r = 0.9, g = 0.85, b = 0.45;
 
-    if (section < 0.28) {
-      // Head & Crown (High-resolution Ellipsoid)
+    if (section < 0.25) {
+      // Head (Ellipsoid)
       const u = Math.random();
       const v = Math.random();
       const theta = u * 2 * Math.PI;
       const phi = Math.acos(2 * v - 1);
-      const rad = Math.cbrt(Math.random()) * 0.38;
+      const rad = Math.cbrt(Math.random()) * 0.35;
       x = rad * Math.sin(phi) * Math.cos(theta);
-      y = rad * Math.cos(phi) + 0.88;
+      y = rad * Math.cos(phi) + 0.85;
       z = rad * Math.sin(phi) * Math.sin(theta);
-
-      // Gradient to cyan highlights at top
-      if (y > 1.0) {
-        r = 0.22; g = 0.74; b = 0.98;
-      } else {
-        r = 0.98; g = 0.92; b = 0.3;
-      }
-    } else if (section < 0.68) {
-      // Torso / Kinetic Core
+      r = 0.98; g = 0.95; b = 0.6;
+    } else if (section < 0.65) {
+      // Torso / Body (3D Cylinder/Taper)
       const u = Math.random() * 2 * Math.PI;
       const t = Math.random();
-      y = (t - 0.5) * 1.15 + 0.22;
-      const rad = (0.45 - t * 0.09) * Math.sqrt(Math.random());
+      y = (t - 0.5) * 1.1 + 0.2;
+      const rad = (0.42 - t * 0.08) * Math.sqrt(Math.random());
       x = rad * Math.cos(u) * 1.15;
-      z = rad * Math.sin(u) * 0.88;
-
-      if (Math.abs(z) > 0.2) {
-        r = 0.98; g = 0.82; b = 0.12;
-      } else {
-        r = 0.38; g = 0.82; b = 0.98;
-      }
+      z = rad * Math.sin(u) * 0.85;
+      r = 0.92; g = 0.82; b = 0.25;
     } else {
-      // Lower Foundation / Pedestal Column
+      // Limbs / Legs (Dual 3D columns)
       const isLeft = Math.random() > 0.5;
       const cx = isLeft ? -0.26 : 0.26;
       const u = Math.random() * 2 * Math.PI;
       const t = Math.random();
       y = -0.35 - t * 0.75;
-      const rad = 0.16 * Math.sqrt(Math.random());
+      const rad = 0.14 * Math.sqrt(Math.random());
       x = cx + rad * Math.cos(u);
       z = rad * Math.sin(u);
-      r = 0.88; g = 0.75; b = 0.35;
+      r = 0.85; g = 0.75; b = 0.35;
     }
 
     positions.push(x, y, z);
     colors.push(r, g, b);
   }
 
-  // 3D Horizontal Contour Latitude Rings
-  const ringHeights = [1.18, 0.95, 0.7, 0.45, 0.2, -0.05, -0.3, -0.6, -0.9, -1.1];
+  // 3D Horizontal Contour Rings
+  const ringHeights = [1.1, 0.85, 0.6, 0.35, 0.1, -0.15, -0.4, -0.7, -1.0];
   for (let hIdx = 0; hIdx < ringHeights.length; hIdx++) {
     const ry = ringHeights[hIdx];
-    const segments = 32;
-    const ringRadius = ry > 0.75 ? 0.38 : (ry > -0.25 ? 0.48 : 0.32);
+    const segments = 24;
+    const ringRadius = ry > 0.7 ? 0.35 : (ry > -0.3 ? 0.45 : 0.28);
     for (let s = 0; s < segments; s++) {
       const theta1 = (s / segments) * Math.PI * 2;
       const theta2 = ((s + 1) / segments) * Math.PI * 2;
-      wireframePositions.push(ringRadius * Math.cos(theta1), ry, ringRadius * 0.88 * Math.sin(theta1));
-      wireframePositions.push(ringRadius * Math.cos(theta2), ry, ringRadius * 0.88 * Math.sin(theta2));
+      wireframePositions.push(ringRadius * Math.cos(theta1), ry, ringRadius * 0.85 * Math.sin(theta1));
+      wireframePositions.push(ringRadius * Math.cos(theta2), ry, ringRadius * 0.85 * Math.sin(theta2));
     }
   }
 
@@ -807,129 +541,53 @@ export function createFallbackPointCloud(_prompt?: string): THREE.Group {
 
   const pTex = getParticleTexture();
   const material = new THREE.PointsMaterial({
-    size: 0.042,
+    size: 0.04,
     vertexColors: true,
     ...(pTex ? { map: pTex } : {}),
     transparent: true,
-    opacity: 0.92,
+    opacity: 0.88,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
 
   const points = new THREE.Points(geometry, material);
-  points.name = 'blueprintPoints';
   group.add(points);
 
   const wireGeometry = new THREE.BufferGeometry();
   wireGeometry.setAttribute('position', new THREE.Float32BufferAttribute(wireframePositions, 3));
   wireGeometry.center();
   const wireMaterial = new THREE.LineBasicMaterial({
-    color: 0xf9cf00,
+    color: 0xebd024,
     transparent: true,
-    opacity: 0.4,
+    opacity: 0.35,
     blending: THREE.AdditiveBlending,
   });
   const wireframe = new THREE.LineSegments(wireGeometry, wireMaterial);
-  wireframe.name = 'blueprintWireframe';
   group.add(wireframe);
 
-  // Holographic Laser Scanner
-  const laserScanner = createLaserScanner(1.35, 1.25);
-  laserScanner.position.y = 0.2;
-  group.add(laserScanner);
-
-  // Ground Pedestal Radar
-  const pedestal = createGroundPedestal(1.4, -1.25);
-  group.add(pedestal);
-
-  // Orbital Latent Particles
-  const sparks = createOrbitalSparks(1.45, 2.3);
-  group.add(sparks);
-
-  // CAD Bounding Cage
-  const cage = createBoundingCage(2.2, 2.6, 2.0);
-  group.add(cage);
+  // Holographic Scan Ring
+  const ringSegments = 40;
+  const ringPositions: number[] = [];
+  const ringRadius = 1.35;
+  for (let i = 0; i <= ringSegments; i++) {
+    const theta = (i / ringSegments) * Math.PI * 2;
+    ringPositions.push(ringRadius * Math.cos(theta), 0, ringRadius * Math.sin(theta));
+  }
+  const scanRingGeo = new THREE.BufferGeometry();
+  scanRingGeo.setAttribute('position', new THREE.Float32BufferAttribute(ringPositions, 3));
+  const scanRingMat = new THREE.LineBasicMaterial({
+    color: 0x60a5fa,
+    transparent: true,
+    opacity: 0.75,
+    blending: THREE.AdditiveBlending,
+  });
+  const scanRing = new THREE.LineLoop(scanRingGeo, scanRingMat);
+  scanRing.name = 'blueprintScanRing';
+  scanRing.position.y = 0.2;
+  group.add(scanRing);
 
   group.position.y = 0.25;
   return group;
-}
-
-/**
- * Master animation loop helper. Animates all holographic components
- * (sweeping laser, rotating radar, swirling sparks, counter-rotation pedestal) seamlessly.
- */
-export function animatePointCloud(group: THREE.Group | null, delta: number, elapsed: number): void {
-  if (!group || !group.visible) return;
-
-  // 1. Smooth rotation of main subject
-  group.rotation.y += delta * 0.22;
-
-  // 2. Vertical Laser Scanner Sweep
-  const laserScanner = group.getObjectByName('blueprintScanRing');
-  if (laserScanner) {
-    const boundY = laserScanner.userData?.boundY || 1.1;
-    laserScanner.position.y = Math.sin(elapsed * 1.55) * boundY + 0.25;
-  }
-
-  // 3. Ground Pedestal Counter-Rotation & Radar Arm Sweep
-  const pedestal = group.getObjectByName('blueprintPedestal');
-  if (pedestal) {
-    pedestal.rotation.y -= delta * 0.1;
-    const radarArm = pedestal.getObjectByName('blueprintRadarArm');
-    if (radarArm) {
-      radarArm.rotation.y += delta * 1.4;
-    }
-  }
-
-  // 4. Orbital Spark Swarm Swirl
-  const sparks = group.getObjectByName('blueprintOrbitalSparks');
-  if (sparks) {
-    sparks.rotation.y += delta * 0.38;
-    sparks.rotation.x = Math.sin(elapsed * 0.45) * 0.12;
-  }
-
-  // 5. Bounding Cage Breathing Pulse
-  const cage = group.getObjectByName('blueprintBoundingCage');
-  if (cage) {
-    const s = 1.0 + Math.sin(elapsed * 2.2) * 0.015;
-    cage.scale.set(s, s, s);
-  }
-}
-
-/**
- * Switch display visibility between Holo Matrix, Laser Scanner, and Wireframe contours.
- */
-export function setPointCloudDisplayMode(group: THREE.Group | null, mode: 'holo' | 'scan' | 'wireframe'): void {
-  if (!group) return;
-  const points = group.getObjectByName('blueprintPoints');
-  const wireframe = group.getObjectByName('blueprintWireframe');
-  const laserScanner = group.getObjectByName('blueprintScanRing');
-  const pedestal = group.getObjectByName('blueprintPedestal');
-  const sparks = group.getObjectByName('blueprintOrbitalSparks');
-  const cage = group.getObjectByName('blueprintBoundingCage');
-
-  if (mode === 'holo') {
-    if (points) points.visible = true;
-    if (wireframe) wireframe.visible = true;
-    if (laserScanner) laserScanner.visible = true;
-    if (pedestal) pedestal.visible = true;
-    if (sparks) sparks.visible = true;
-    if (cage) cage.visible = true;
-  } else if (mode === 'scan') {
-    if (points) points.visible = true;
-    if (wireframe) wireframe.visible = false;
-    if (laserScanner) laserScanner.visible = true;
-    if (pedestal) pedestal.visible = true;
-    if (sparks) sparks.visible = false;
-    if (cage) cage.visible = true;
-  } else if (mode === 'wireframe') {
-    if (points) points.visible = true;
-    if (wireframe) wireframe.visible = true;
-    if (laserScanner) laserScanner.visible = false;
-    if (pedestal) pedestal.visible = false;
-    if (sparks) sparks.visible = false;
-    if (cage) cage.visible = true;
-  }
 }
 
 /**
@@ -942,8 +600,7 @@ export function disposePointCloud(obj: THREE.Object3D | null): void {
       child instanceof THREE.Points ||
       child instanceof THREE.Mesh ||
       child instanceof THREE.LineSegments ||
-      child instanceof THREE.Line ||
-      child instanceof THREE.LineLoop
+      child instanceof THREE.Line
     ) {
       child.geometry?.dispose();
       if (Array.isArray(child.material)) {

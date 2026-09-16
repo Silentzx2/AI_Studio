@@ -34,14 +34,7 @@ import { useAnimationStore, BoneItem } from '@/stores/useAnimationStore';
 import { useViewerStore } from '@/stores/useViewerStore';
 
 import { validate3DFile } from '../lib/fileValidation';
-import { 
-  createPointCloudFromImage, 
-  createFallbackPointCloud, 
-  disposePointCloud,
-  animatePointCloud,
-  setPointCloudDisplayMode
-} from './ImagePointCloud';
-import { GenerationPreviewHUD } from './GenerationPreviewHUD';
+import { createPointCloudFromImage, createFallbackPointCloud, disposePointCloud } from './ImagePointCloud';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { getCachedGLB, setCachedGLB, loadGLBWithProgress } from '../lib/glbCache';
@@ -579,14 +572,6 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
   const [selectedPreset, setSelectedPreset] = useState<string | null>('real');
   const [meshStats, setMeshStats] = useState<{ faces: number; vertices: number; triangles: number; dimensions?: { x: number; y: number; z: number } } | null>(null);
   const [debugBlueprint, setDebugBlueprint] = useState(false);
-  const [generationDisplayMode, setGenerationDisplayMode] = useState<'holo' | 'scan' | 'wireframe'>('holo');
-
-  const handleGenerationDisplayModeChange = useCallback((mode: 'holo' | 'scan' | 'wireframe') => {
-    setGenerationDisplayMode(mode);
-    if (pointCloudGroupRef.current) {
-      setPointCloudDisplayMode(pointCloudGroupRef.current, mode);
-    }
-  }, []);
 
   // Close menus on outside click or Escape key
   useEffect(() => {
@@ -1403,7 +1388,12 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
       const pointCloudActive = Boolean(pointCloudGroup && pointCloudGroup.visible && pointCloudGroup.children.length > 0);
       if (pointCloudActive) {
-        animatePointCloud(pointCloudGroup, delta, timer.getElapsed());
+        pointCloudGroup.rotation.y += delta * 0.28;
+        const scanRing = pointCloudGroup.getObjectByName('blueprintScanRing');
+        if (scanRing) {
+          const t = timer.getElapsed();
+          scanRing.position.y = Math.sin(t * 1.6) * 1.1 + 0.25;
+        }
       }
 
       const animState = useAnimationStore.getState();
@@ -1549,7 +1539,6 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
       pointCloudRef.current = points;
       pointCloudGroup.add(points);
-      setPointCloudDisplayMode(pointCloudGroup, generationDisplayMode);
       pointCloudGroup.visible = true;
     };
 
@@ -1558,7 +1547,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [isExecuting, debugBlueprint, generationSettings?.image, textureSettings?.referenceImage, generationDisplayMode]);
+  }, [isExecuting, debugBlueprint, generationSettings?.image, textureSettings?.referenceImage]);
 
   // Load the real selected asset into the persistent viewport.
   useEffect(() => {
@@ -2355,22 +2344,36 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         </div>
       )}
 
-      {/* 21st.dev & Animate UI Powered 3D Generation Preview HUD */}
+      {/* Clean Minimalist 3D Generation Progress Overlay */}
       {(isExecuting || debugBlueprint) && (
-        <GenerationPreviewHUD
-          isExecuting={isExecuting}
-          debugBlueprint={debugBlueprint}
-          executionStep={executionStep}
-          executionProgress={executionProgress}
-          onCancel={cancelExecution}
-          onClose={() => setDebugBlueprint(false)}
-          referenceImage={generationSettings?.image || textureSettings?.referenceImage}
-          prompt={generationSettings?.prompt}
-          onCameraPreset={(preset) => applyCameraPreset(preset as CameraViewPreset)}
-          activeCameraPreset={cameraPreset}
-          displayMode={generationDisplayMode}
-          onDisplayModeChange={handleGenerationDisplayModeChange}
-        />
+        <div className="absolute bottom-16 sm:bottom-20 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center pointer-events-auto max-w-sm w-full px-4 text-center select-none animate-in fade-in duration-200">
+          <div className="flex items-center justify-between w-full mb-1.5 px-1 text-xs">
+            <span className="font-semibold text-zinc-200 truncate pr-2">
+              {isExecuting ? (executionStep || 'Synthesizing 3D mesh...') : 'Preview mode'}
+            </span>
+            <span className="font-mono font-bold text-[#F9CF00] flex-shrink-0">
+              {Math.round(isExecuting ? (executionProgress || 15) : 48)}%
+            </span>
+          </div>
+
+          {/* Minimalist Slim Progress Bar */}
+          <div className="w-full h-1.5 rounded-full bg-zinc-900/90 border border-white/[0.08] overflow-hidden mb-2 shadow-sm backdrop-blur-sm">
+            <div 
+              className="h-full bg-[#F9CF00] rounded-full transition-all duration-300 ease-out"
+              style={{ width: `${Math.max(4, Math.min(100, isExecuting ? (executionProgress || 15) : 48))}%` }}
+            />
+          </div>
+
+          <div className="flex items-center justify-between w-full px-1 text-[11px] text-zinc-400">
+            <span>Orbit with mouse to inspect</span>
+            <button
+              onClick={isExecuting ? cancelExecution : () => setDebugBlueprint(false)}
+              className="text-zinc-500 hover:text-rose-400 transition-colors cursor-pointer"
+            >
+              {isExecuting ? 'Cancel' : 'Close'}
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Smooth Non-Intrusive Loading Overlay (Asset file parsing) */}
