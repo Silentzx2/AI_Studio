@@ -113,6 +113,7 @@ if _os.environ.get("CELERY_TASK_ALWAYS_EAGER") == "1":
     celery_app.conf.task_eager_propagates = True
     _logger.info("Eager execution enabled (CELERY_TASK_ALWAYS_EAGER=1)")
 celery_app.conf.update(
+    broker_connection_retry_on_startup=True,
     task_serializer='json',
     accept_content=['json'],
     result_serializer='json',

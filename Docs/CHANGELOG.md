@@ -15,9 +15,10 @@
 ### Colab Stability, Celery Worker Resiliency & On-Demand Weights
 - **Colab CPU RAM Swap Protection (`scripts/colab.sh`)**:
   - Automatically provisions an 8GB `/swapfile` if system swap < 4GB. This eliminates silent Linux OOM-killer `SIGKILL` terminations when deserializing heavy PyTorch model weights (Hunyuan3D, TripoSG) in Colab's 12.7GB CPU RAM environment.
-- **Celery Worker Pool Architecture (`scripts/colab.sh`, `scripts/colab_watch.sh`, `scripts/start.sh`)**:
+- **Celery Worker Pool Architecture (`scripts/colab.sh`, `scripts/colab_watch.sh`, `scripts/start.sh`, `celery_app.py`)**:
   - Switched Celery worker pool from `prefork` to `--pool=solo`, eliminating CUDA runtime fork safety violations, memory fragmentation, and duplicate process overhead in PyTorch GPU workflows.
   - Removed duplicate `-B` Celery Beat flag from worker execution scripts to prevent scheduler contention.
+  - Configured `broker_connection_retry_on_startup=True` to silence Celery 6.0 startup warnings.
 - **Colab Watchdog Resiliency (`scripts/colab_watch.sh`)**:
   - Fixed false-positive kills in `worker_healthy()` caused by Celery `setproctitle` renaming the worker process to `[celeryd: ...]`. The watchdog now reliably matches `celery`, `python`, and `[celeryd` process command lines.
   - Increased `MAX_CONSECUTIVE_FAILS` from 6 to 12 (120s grace period) to ensure workers are not prematurely terminated during heavy model loading.
