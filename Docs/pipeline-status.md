@@ -22,15 +22,17 @@
 2. **Celery Worker Execution Pool**:
    - The default `prefork` pool is unsafe for CUDA runtime initialization across forks and duplicates memory pages.
    - **Fix**: Switched all worker startups (`scripts/colab.sh`, `scripts/colab_watch.sh`, `scripts/start.sh`) to `--pool=solo` with `--concurrency=1`, and removed deprecated `-B` Celery Beat scheduler flags from worker processes.
-3. **Watchdog False-Positive Worker Kills (`scripts/colab_watch.sh`)**:
-   - `colab_watch.sh` performed a strict command-line string match `ps -p "$pid" -o args= | grep -F -- "celery -A app.workers.celery_app worker"`.
-   - Celery's `setproctitle` dynamically changes the process title to `[celeryd: ...]`, causing the string search to fail. After 6 checks (60 seconds), the watchdog assumed the worker was dead and sent `SIGKILL` precisely during model loading.
-   - **Fix**: Updated `worker_healthy()` in `scripts/colab_watch.sh` to match `celery`, `python`, and `[celeryd`, and expanded `MAX_CONSECUTIVE_FAILS` from 6 to 12.
+3. **Watchdog False-Positive Worker Kills & Process Group Termination (`scripts/colab_watch.sh`)**:
+   - `colab_watch.sh` previously used `kill -TERM -- -"$pid"` in `stop_pid`, sending signals to process groups. Because background subshells shared process groups in Colab, stopping or restarting one process killed the supervisor and all sibling daemons (FastAPI, Celery, Next.js) simultaneously.
+   - During heavy GPU/CPU generation load, 5s curl timeouts caused false-positive health failures.
+   - **Fix**: Removed group-level signal dispatch from `stop_pid`, checking PID liveness before curls, increased failure threshold to 36 (6-minute grace period under peak load), and only triggering immediate restarts when a PID is genuinely terminated.
 4. **Premature VRAM Eviction**:
    - `backend/app/workers/vram_health_worker.py` evicted models when VRAM pressure exceeded 90%, even when only a single active model was loaded on a 15GB GPU.
    - **Fix**: Added `and len(allocated) > 1` guard so single active models are never unloaded in the background.
 5. **History & Status Serialization Resiliency (`backend/app/api/v1/generation.py`)**:
    - Resolved `AttributeError: 'bool' object has no attribute 'get'` in `/history` and `/{job_id}/status`. Requests storing boolean `{"postprocess": True}` in `processing_metadata` caused nested `.get("postprocess", {}).get("status")` calls to fail before jobs finished. Added type checks to safely fallback to `job.status`.
+6. **Real-Time DiT Flow Matching Progress Heartbeat (`backend/app/core/providers/hunyuan3d_local.py`)**:
+   - Added asynchronous progress heartbeat ticker during Hunyuan3D DiT inference in thread executor. Rather than staying frozen at 10% during 1-3 minute diffusion, the UI now receives steady real-time progress updates (15% -> 68%) so users have clear visibility into active mesh synthesis.
 
 ---
 

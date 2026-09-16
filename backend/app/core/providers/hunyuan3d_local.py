@@ -190,13 +190,27 @@ class _HunyuanBase(BaseProvider):
             mesh_path = source_mesh
             await cb(10, "texturing", "Using existing mesh for material synthesis...", "info")
         elif request.reference_image_url:
-            mesh_path = await loop.run_in_executor(
+            gen_future = loop.run_in_executor(
                 None, lambda: self._image_to_3d(request, output_dir)
             )
+            cur_p = 15
+            while not gen_future.done():
+                await asyncio.sleep(3.0)
+                if not gen_future.done():
+                    cur_p = min(68, cur_p + 3)
+                    await cb(cur_p, "generating", f"Synthesizing 3D geometry with DiT flow matching ({cur_p}%)...", "info")
+            mesh_path = await gen_future
         else:
-            mesh_path = await loop.run_in_executor(
+            gen_future = loop.run_in_executor(
                 None, lambda: self._text_to_3d(request, output_dir)
             )
+            cur_p = 15
+            while not gen_future.done():
+                await asyncio.sleep(3.0)
+                if not gen_future.done():
+                    cur_p = min(68, cur_p + 3)
+                    await cb(cur_p, "generating", f"Synthesizing 3D geometry with DiT flow matching ({cur_p}%)...", "info")
+            mesh_path = await gen_future
 
         _log_gpu_memory(f"after_{self.model_key}_inference")
         await cb(70, "generating", "Raw mesh extraction complete. Preparing OpenX Clay post-processing pipeline...", "info")

@@ -107,14 +107,14 @@ stop_pid() {
     pid="$(pid_of "$service")"
     if pid_alive "$pid"; then
         log "Stopping ${service} (PID ${pid})..."
-        kill -TERM -- -"$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
+        kill -TERM "$pid" 2>/dev/null || true
         for _ in {1..15}; do
             pid_alive "$pid" || break
             sleep 0.2
         done
         if pid_alive "$pid"; then
             warn "${service} did not exit gracefully; sending SIGKILL."
-            kill -KILL -- -"$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null || true
+            kill -KILL "$pid" 2>/dev/null || true
         fi
     fi
     clear_pid "$service"
@@ -264,11 +264,17 @@ start_frontend() {
 }
 
 api_healthy() {
-    wait_http "http://127.0.0.1:8000/api/v1/health" 20
+    local pid
+    pid="$(pid_of api)"
+    [[ "$pid" =~ ^[0-9]+$ ]] && pid_alive "$pid" || return 1
+    curl -fsS --max-time 10 "http://127.0.0.1:8000/api/v1/health" >/dev/null 2>&1
 }
 
 frontend_healthy() {
-    wait_http "http://127.0.0.1:3000/" 10
+    local pid
+    pid="$(pid_of frontend)"
+    [[ "$pid" =~ ^[0-9]+$ ]] && pid_alive "$pid" || return 1
+    curl -fsS --max-time 10 "http://127.0.0.1:3000/" >/dev/null 2>&1
 }
 
 worker_healthy() {
@@ -383,55 +389,70 @@ fi
 api_fails=0
 worker_fails=0
 frontend_fails=0
-MAX_CONSECUTIVE_FAILS=12
+MAX_CONSECUTIVE_FAILS=36
 
 while true; do
     api_ok=false
     worker_ok=false
     frontend_ok=false
 
-    if api_healthy; then
+    local apid; apid="$(pid_of api)"
+    if [[ "$apid" =~ ^[0-9]+$ ]] && ! pid_alive "$apid"; then
+        warn "FastAPI process exited unexpectedly (PID ${apid}) — restarting immediately."
+        api_fails=0
+        restart_with_backoff api || true
+    elif api_healthy; then
         api_ok=true
         api_fails=0
         reset_restart_count_when_healthy api
     else
         api_fails=$((api_fails + 1))
         if (( api_fails >= MAX_CONSECUTIVE_FAILS )); then
-            warn "FastAPI unhealthy for ${api_fails} consecutive checks — triggering restart."
+            warn "FastAPI unresponsive for ${api_fails} consecutive checks — triggering restart."
             api_fails=0
             restart_with_backoff api || true
         else
-            warn "FastAPI health check missed (${api_fails}/${MAX_CONSECUTIVE_FAILS}); will retry before restarting."
+            warn "FastAPI health check delayed under load (${api_fails}/${MAX_CONSECUTIVE_FAILS}); process alive (PID ${apid:-none})."
         fi
     fi
 
-    if worker_healthy; then
+    local wpid; wpid="$(pid_of worker)"
+    if [[ "$wpid" =~ ^[0-9]+$ ]] && ! pid_alive "$wpid"; then
+        warn "Celery worker process exited unexpectedly (PID ${wpid}) — restarting immediately."
+        worker_fails=0
+        restart_with_backoff worker || true
+    elif worker_healthy; then
         worker_ok=true
         worker_fails=0
         reset_restart_count_when_healthy worker
     else
         worker_fails=$((worker_fails + 1))
         if (( worker_fails >= MAX_CONSECUTIVE_FAILS )); then
-            warn "Celery worker unhealthy for ${worker_fails} consecutive checks — triggering restart."
+            warn "Celery worker unresponsive for ${worker_fails} consecutive checks — triggering restart."
             worker_fails=0
             restart_with_backoff worker || true
         else
-            warn "Celery worker check missed (${worker_fails}/${MAX_CONSECUTIVE_FAILS}); will retry."
+            warn "Celery worker check missed under load (${worker_fails}/${MAX_CONSECUTIVE_FAILS}); process alive (PID ${wpid:-none})."
         fi
     fi
 
-    if frontend_healthy; then
+    local fpid; fpid="$(pid_of frontend)"
+    if [[ "$fpid" =~ ^[0-9]+$ ]] && ! pid_alive "$fpid"; then
+        warn "Frontend process exited unexpectedly (PID ${fpid}) — restarting immediately."
+        frontend_fails=0
+        restart_with_backoff frontend || true
+    elif frontend_healthy; then
         frontend_ok=true
         frontend_fails=0
         reset_restart_count_when_healthy frontend
     else
         frontend_fails=$((frontend_fails + 1))
         if (( frontend_fails >= MAX_CONSECUTIVE_FAILS )); then
-            warn "Frontend unhealthy for ${frontend_fails} consecutive checks — triggering restart."
+            warn "Frontend unresponsive for ${frontend_fails} consecutive checks — triggering restart."
             frontend_fails=0
             restart_with_backoff frontend || true
         else
-            warn "Frontend health check missed (${frontend_fails}/${MAX_CONSECUTIVE_FAILS}); will retry."
+            warn "Frontend health check delayed under load (${frontend_fails}/${MAX_CONSECUTIVE_FAILS}); process alive (PID ${fpid:-none})."
         fi
     fi
 

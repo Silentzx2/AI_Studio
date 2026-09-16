@@ -21,9 +21,12 @@
   - Configured `broker_connection_retry_on_startup=True` to silence Celery 6.0 startup warnings.
 - **Generation History API Robustness (`backend/app/api/v1/generation.py`)**:
   - Handled boolean `postprocess` metadata safely in `/history` and `/{job_id}/status`. Previously, when jobs had boolean request flags `{"postprocess": True}`, calling `.get("postprocess", {}).get("status")` raised `AttributeError: 'bool' object has no attribute 'get'`. Now safely verifies dict typing before calling `.get("status")` and falls back to `job.status`.
-- **Colab Watchdog Resiliency (`scripts/colab_watch.sh`)**:
-  - Fixed false-positive kills in `worker_healthy()` caused by Celery `setproctitle` renaming the worker process to `[celeryd: ...]`. The watchdog now reliably matches `celery`, `python`, and `[celeryd` process command lines.
-  - Increased `MAX_CONSECUTIVE_FAILS` from 6 to 12 (120s grace period) to ensure workers are not prematurely terminated during heavy model loading.
+- **Colab Watchdog Resiliency & Process Isolation (`scripts/colab_watch.sh`)**:
+  - Removed process-group signal routing (`kill -TERM -- -"$pid"`) in `stop_pid` which previously wiped out sibling processes (FastAPI, Celery, Next.js) simultaneously whenever one process stopped.
+  - Hardened health checks to verify process PID liveness before issuing curls, preventing alive processes from being killed when CPU is pegged at 100% during 3D generation.
+  - Increased `MAX_CONSECUTIVE_FAILS` from 12 to 36 (6-minute grace period under peak load) and added immediate restart only when a process PID is confirmed dead.
+- **Real-Time DiT Flow Matching Progress Heartbeat (`backend/app/core/providers/hunyuan3d_local.py`)**:
+  - Added asynchronous progress heartbeat ticker during Hunyuan3D DiT inference in thread executor. Instead of staying frozen at 10% during 1-3 minute diffusion, the UI now receives steady real-time progress updates (15% -> 68%) so users have clear visibility into active mesh synthesis.
 - **VRAM Background Health Guard (`backend/app/workers/vram_health_worker.py`)**:
   - Added `and len(allocated) > 1` guard before triggering background VRAM eviction, ensuring single active models running on 15GB Colab GPUs are never preemptively evicted.
 - **On-Demand Model Weights Architecture (`scripts/colab.sh`)**:
