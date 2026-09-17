@@ -95,29 +95,59 @@ async function handleDirectAssetsList() {
   const seenModels = new Set<string>();
   const seenImages = new Set<string>();
 
-  // Scan models
+  // Scan models (both root files and job subdirectories)
   for (const dir of getStorageDirs('models')) {
     try {
       if (fs.existsSync(/*turbopackIgnore: true*/ dir)) {
-        const files = await fs.promises.readdir(/*turbopackIgnore: true*/ dir);
-        for (const file of files) {
-          const ext = path.extname(file).toLowerCase();
-          if (MODEL_EXTS.has(ext) && !seenModels.has(file)) {
-            seenModels.add(file);
-            const targetPath = path.join(/*turbopackIgnore: true*/ dir, file);
-            const stat = await fs.promises.stat(/*turbopackIgnore: true*/ targetPath);
-            models.push({
-              id: file,
-              name: file.replace(/^[0-9]+_/, '').replace(/\.[^.]+$/, ''),
-              filename: file,
-              url: `/static/models/${file}`,
-              size: stat.size,
-              format: ext.replace('.', '').toUpperCase(),
-              type: 'model',
-              thumbnail_url: null,
-              mesh_stats: null,
-              created_at: stat.mtime.toISOString(),
-            });
+        const entries = await fs.promises.readdir(/*turbopackIgnore: true*/ dir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.name.startsWith('.')) continue;
+          if (entry.isFile()) {
+            const ext = path.extname(entry.name).toLowerCase();
+            if (MODEL_EXTS.has(ext) && !seenModels.has(entry.name)) {
+              seenModels.add(entry.name);
+              const targetPath = path.join(/*turbopackIgnore: true*/ dir, entry.name);
+              const stat = await fs.promises.stat(/*turbopackIgnore: true*/ targetPath);
+              models.push({
+                id: entry.name,
+                name: entry.name.replace(/^[0-9]+_/, '').replace(/\.[^.]+$/, ''),
+                filename: entry.name,
+                url: `/static/models/${entry.name}`,
+                size: stat.size,
+                format: ext.replace('.', '').toUpperCase(),
+                type: 'model',
+                thumbnail_url: null,
+                mesh_stats: null,
+                created_at: stat.mtime.toISOString(),
+              });
+            }
+          } else if (entry.isDirectory()) {
+            const subDir = path.join(/*turbopackIgnore: true*/ dir, entry.name);
+            try {
+              const subFiles = await fs.promises.readdir(/*turbopackIgnore: true*/ subDir);
+              const thumbExists = subFiles.includes('thumbnail.png');
+              for (const subFile of subFiles) {
+                const subExt = path.extname(subFile).toLowerCase();
+                const key = `${entry.name}/${subFile}`;
+                if (MODEL_EXTS.has(subExt) && !seenModels.has(key)) {
+                  seenModels.add(key);
+                  const subPath = path.join(/*turbopackIgnore: true*/ subDir, subFile);
+                  const stat = await fs.promises.stat(/*turbopackIgnore: true*/ subPath);
+                  models.push({
+                    id: `${entry.name}_${subFile}`,
+                    name: subFile === 'model.glb' ? `Model (${entry.name.slice(0, 8)})` : `${subFile.replace(/\.[^.]+$/, '')} (${entry.name.slice(0, 8)})`,
+                    filename: subFile,
+                    url: `/static/models/${entry.name}/${subFile}`,
+                    size: stat.size,
+                    format: subExt.replace('.', '').toUpperCase(),
+                    type: 'model',
+                    thumbnail_url: thumbExists ? `/static/models/${entry.name}/thumbnail.png` : null,
+                    mesh_stats: null,
+                    created_at: stat.mtime.toISOString(),
+                  });
+                }
+              }
+            } catch {}
           }
         }
       }

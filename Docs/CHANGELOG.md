@@ -13,7 +13,9 @@ All notable changes, architectural updates, and feature implementations for AI 3
   - **Fix**: Updated `get_all_provider_metadata(include_aliases: bool = False)` to only return canonical provider IDs when iterated, while preserving `include_aliases=True` for `PROVIDER_METADATA` lookups by repository name. Added defense-in-depth deduplication in `admin.py` and `ModelsTab.tsx`.
 - **Mesh Settings Toolbar Relocation (`features/new-workspace/Panels/GeneratePanel.tsx`)**:
   - Removed the sticky `#mesh-quality-toolbar` from the bottom footer of the left tool panel so the footer only hosts the action button and progress tracker.
-  - Relocated the 5-button mesh quality and resolution selector (Low, Medium, High, Ultra, Master/Full) directly to the top of the Mesh settings section (`panelTab === 'mesh'`), so it displays when the user opens the Mesh tab in the workspace tool panel. Removed redundant duplicate preset buttons from the nested auto-optimize subsection.
+- **Storage Model Scanning Fix (`backend/app/api/v1/upload.py`, `app/api/v1/[...path]/route.ts`)**:
+  - **Root Cause**: Both the FastAPI upload router (`/api/v1/upload/assets`) and Next.js direct storage fallback (`handleDirectAssetsList`) only scanned files located directly at the root of `backend/storage/models/`. Generated models reside in per-job subdirectories (`backend/storage/models/<job_id>/(model.glb, game_ready.glb, source.glb)`), so they were never indexed into the assets list.
+  - **Fix**: Updated both backend and frontend storage scanners to iterate subdirectories inside `models/` and extract job-level 3D model assets and thumbnails, making all generated models immediately available in storage and asset views.
 
 ---
 

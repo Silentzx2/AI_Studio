@@ -319,12 +319,14 @@ async def list_uploaded_assets():
         # Sort images by newest first
         images.sort(key=lambda x: x["created_at"], reverse=True)
 
-        # 2. Model Uploads
+        # 2. Model Uploads & Generated Models
         models_dir = storage_root / "models"
         thumbnails_dir = storage_root / "thumbnails"
         models = []
         if models_dir.exists():
             for f in models_dir.iterdir():
+                if f.name.startswith('.'):
+                    continue
                 if f.is_file() and f.suffix.lower() in MODEL_EXTENSIONS:
                     stat = f.stat()
                     # Check for existing thumbnail
@@ -335,27 +337,6 @@ async def list_uploaded_assets():
                         if thumb_path.exists():
                             thumbnail_url = f"/static/thumbnails/{thumb_name}"
 
-                    # Extract mesh stats for properties display
-                    mesh_stats = None
-                    if f.suffix.lower() in {'.glb', '.gltf', '.obj', '.stl', '.ply'}:
-                        try:
-                            from app.core.mesh_processor import get_mesh_stats
-                            stats = get_mesh_stats(str(f))
-                            if stats and (stats.get("polygon_count", 0) > 0 or stats.get("vertex_count", 0) > 0):
-                                mesh_stats = {
-                                    "polygon_count": stats.get("polygon_count", 0),
-                                    "vertex_count": stats.get("vertex_count", 0),
-                                    "dimensions": stats.get("dimensions"),
-                                    "bounding_box": stats.get("bounding_box"),
-                                    "object_count": stats.get("object_count"),
-                                    "component_count": stats.get("component_count"),
-                                    "material_count": stats.get("material_count"),
-                                    "topology": stats.get("topology", "Triangle"),
-                                    "mesh_details": stats.get("mesh_details"),
-                                }
-                        except Exception:
-                            pass
-
                     models.append({
                         "id": f.name,
                         "name": f.name,
@@ -365,9 +346,41 @@ async def list_uploaded_assets():
                         "format": f.suffix.lstrip('.'),
                         "type": "model",
                         "thumbnail_url": thumbnail_url,
-                        "mesh_stats": mesh_stats,
+                        "mesh_stats": None,
                         "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat()
                     })
+                elif f.is_dir():
+                    # Job output directory: storage/models/<job_id>/*
+                    job_dir = f
+                    job_id = job_dir.name
+                    job_thumb_url = None
+                    if (job_dir / "thumbnail.png").exists():
+                        job_thumb_url = f"/static/models/{job_id}/thumbnail.png"
+                    elif (thumbnails_dir / f"{job_id}.png").exists():
+                        job_thumb_url = f"/static/thumbnails/{job_id}.png"
+
+                    for mf in job_dir.iterdir():
+                        if mf.is_file() and mf.suffix.lower() in MODEL_EXTENSIONS and not mf.name.startswith('.'):
+                            url = f"/static/models/{job_id}/{mf.name}"
+                            if any(m["url"] == url for m in models):
+                                continue
+                            try:
+                                stat = mf.stat()
+                                display_name = f"Generated Model ({job_id[:8]})" if mf.name == "model.glb" else f"{mf.stem} ({job_id[:8]})"
+                                models.append({
+                                    "id": f"{job_id}_{mf.name}",
+                                    "name": display_name,
+                                    "filename": mf.name,
+                                    "url": url,
+                                    "size": stat.st_size,
+                                    "format": mf.suffix.lstrip('.'),
+                                    "type": "model",
+                                    "thumbnail_url": job_thumb_url,
+                                    "mesh_stats": None,
+                                    "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat()
+                                })
+                            except Exception:
+                                pass
 
         # 3. Exported Models from storage/exports
         exports_dir = storage_root / "exports"
