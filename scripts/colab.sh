@@ -863,7 +863,7 @@ colab_start_services() {
         export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}"
         local start_cmd="npm start"
         command -v bun &>/dev/null && start_cmd="bun start"
-        nohup $start_cmd > "$LOG_DIR/frontend.log" 2>&1 &
+        nohup run_bun_or_npm "bun start" "npm start" > "$LOG_DIR/frontend.log" 2>&1 &
         write_pid "$FRONTEND_PID_FILE" $!
     )
     local runner="bun"
@@ -2437,10 +2437,10 @@ if [[ "$effective_backend_url" == *"api:8000"* ]]; then
     effective_backend_url="http://127.0.0.1:8000"
 fi
 local_frontend_cmd="npm start"
-command -v bun &>/dev/null && local_frontend_cmd="bun start"
-nohup env HOSTNAME=0.0.0.0 PORT=3000 BACKEND_URL="$effective_backend_url" NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}" \
-    $local_frontend_cmd \
-    > "$LOG_DIR/frontend.log" 2>&1 &
+    command -v bun &>/dev/null && local_frontend_cmd="bun start"
+    nohup env HOSTNAME=0.0.0.0 PORT=3000 BACKEND_URL="$effective_backend_url" NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}" \
+        run_bun_or_npm "bun start" "npm start" \
+        > "$LOG_DIR/frontend.log" 2>&1 &
 write_pid "$PID_DIR/frontend.pid" $!
 
 log "Frontend started ($(command -v bun &>/dev/null && echo "bun start" || echo "npm start"), PID: $(cat $PID_DIR/frontend.pid))"

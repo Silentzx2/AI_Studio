@@ -1106,26 +1106,28 @@ build_frontend() {
         fi
     fi
 
-    echo -e "  ${BOLD}Building Next.js (this takes 2-5 minutes)${NC}"
+echo -e "  ${BOLD}Building Next.js (this takes 2-5 minutes)${NC}"
     if command -v bun &>/dev/null; then
         bun run build 2>&1 | while IFS= -r read -n1 char; do
             case "$char" in
                 .) printf "${GREEN}█${NC}" ;;
                 $'\n') printf "\n" ;;
             esac
-        done
+        done || {
+            err "Frontend build failed"
+            return 1
+        }
     else
         npm run build 2>&1 | while IFS= -r read -n1 char; do
             case "$char" in
                 .) printf "${GREEN}█${NC}" ;;
                 $'\n') printf "\n" ;;
             esac
-        done
+        done || {
+            err "Frontend build failed"
+            return 1
+        }
     fi
-    done || {
-        err "Frontend build failed"
-        return 1
-    }
     echo ""
     log "Frontend built successfully"
 }
