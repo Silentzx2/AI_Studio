@@ -22,6 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import { FileTree, type FileTreeNode, RippleButton } from '@/components/animate-ui';
 
 interface InstalledModel {
@@ -127,7 +128,32 @@ export function InstalledModelsTab() {
   ];
 
   if (loading) {
-    return <div className="text-[hsl(var(--foreground))]/60">Loading installed models...</div>;
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-full rounded-lg bg-[hsl(var(--surface-2))]" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="p-4 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]/[0.3] space-y-3">
+              <div className="flex justify-between items-start">
+                <div className="space-y-1.5 flex-1">
+                  <Skeleton className="h-5 w-3/4 bg-white/10" />
+                  <Skeleton className="h-3 w-1/2 bg-white/5" />
+                </div>
+                <Skeleton className="h-6 w-16 rounded bg-white/10" />
+              </div>
+              <div className="space-y-1 pt-2">
+                <Skeleton className="h-3 w-1/3 bg-white/5" />
+                <Skeleton className="h-3 w-1/4 bg-white/5" />
+              </div>
+              <div className="flex gap-1 pt-2">
+                <Skeleton className="h-5 w-14 rounded bg-white/10" />
+                <Skeleton className="h-5 w-14 rounded bg-white/10" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -147,7 +173,7 @@ export function InstalledModelsTab() {
               key={model.id}
               className={`bg-[hsl(var(--surface-2))] border transition cursor-pointer p-4 ${
                 isSelected 
-                  ? 'border-[#F9CF00]/60 ring-1 ring-[#F9CF00]/30 shadow-lg shadow-black/40' 
+                  ? 'border-primary/60 ring-1 ring-primary/30 shadow-lg shadow-black/40' 
                   : 'border-[hsl(var(--border))]/[0.3] hover:border-white/[0.15]'
               }`}
               onClick={() => setSelectedModelId(isSelected ? null : model.id)}
@@ -240,10 +266,10 @@ export function InstalledModelsTab() {
 
       {/* Model Asset Files Inspector */}
       {selectedModel && (
-        <Card className="bg-[#14161A] border border-white/[0.08] p-4 rounded-xl space-y-3">
+        <Card className="bg-[hsl(var(--surface-1))] border border-white/[0.08] p-4 rounded-xl space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <FolderTree className="w-4 h-4 text-[#F9CF00]" />
+              <FolderTree className="w-4 h-4 text-primary" />
               <h4 className="text-sm font-medium text-white">
                 File Structure & Checkpoints: <span className="text-zinc-400 font-normal">{selectedModel.name}</span>
               </h4>
@@ -257,7 +283,7 @@ export function InstalledModelsTab() {
               <X className="w-4 h-4" />
             </Button>
           </div>
-          <div className="bg-[#0D0E10] p-3 rounded-lg border border-white/[0.04]">
+          <div className="bg-[hsl(var(--surface-0))] p-3 rounded-lg border border-white/[0.04]">
             <FileTree data={getModelTreeData(selectedModel)} />
           </div>
         </Card>
@@ -265,7 +291,7 @@ export function InstalledModelsTab() {
 
       {/* Confirmation Alert Dialog */}
       <AlertDialog open={!!modelToUninstall} onOpenChange={(open) => { if (!open) setModelToUninstall(null); }}>
-        <AlertDialogContent className="bg-[#14161A] border border-white/[0.08] text-white">
+        <AlertDialogContent className="bg-[hsl(var(--surface-1))] border border-white/[0.08] text-white">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-base font-semibold text-white">Uninstall Model</AlertDialogTitle>
             <AlertDialogDescription className="text-xs text-zinc-400">

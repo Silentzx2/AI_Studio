@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { MOTION_SPRING_SNAPPY } from '@/lib/motion';
 
 interface Ripple {
   id: number;
@@ -63,13 +64,13 @@ export const RippleButton = React.forwardRef<HTMLButtonElement, RippleButtonProp
 
     const variantStyles = {
       primary:
-        'bg-gradient-to-b from-[#FFE24C] to-[#F9CF00] hover:from-[#FFE660] hover:to-[#FFD700] text-black shadow-[0_4px_16px_rgba(249,207,0,0.2)] font-bold',
+        'bg-gradient-to-b from-[#FFE24C] to-primary hover:from-[#FFE660] hover:to-[#FFD700] text-primary-foreground shadow-[0_4px_16px_rgba(249,207,0,0.2)] font-bold',
       secondary:
-        'bg-[#1F2228] hover:bg-[#282C34] text-zinc-100 border border-white/[0.08] shadow-sm',
+        'bg-surface-2 hover:bg-surface-3 text-zinc-100 border border-white/[0.08] shadow-sm',
       ghost:
         'bg-transparent hover:bg-white/[0.06] text-zinc-300 hover:text-white',
       outline:
-        'bg-transparent border border-white/[0.12] hover:border-[#F9CF00]/50 hover:bg-[#F9CF00]/5 text-zinc-200',
+        'bg-transparent border border-white/[0.12] hover:border-primary/50 hover:bg-primary/5 text-zinc-200',
       destructive:
         'bg-red-950/40 hover:bg-red-900/40 text-red-400 border border-red-900/40 shadow-sm',
     };
@@ -87,7 +88,7 @@ export const RippleButton = React.forwardRef<HTMLButtonElement, RippleButtonProp
         disabled={disabled}
         whileHover={!disabled && !prefersReducedMotion ? { scale: hoverScale } : undefined}
         whileTap={!disabled && !prefersReducedMotion ? { scale: tapScale } : undefined}
-        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+        transition={MOTION_SPRING_SNAPPY}
         className={cn(
           'relative overflow-hidden rounded-xl font-medium transition-colors cursor-pointer select-none disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2',
           variantStyles[variant],

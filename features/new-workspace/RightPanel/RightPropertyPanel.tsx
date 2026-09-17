@@ -141,8 +141,8 @@ export const RightPropertyPanel: React.FC = () => {
 
   if (!currentAsset) {
     return (
-      <div id="panel-properties-inspector" className="flex flex-col h-full items-center justify-center bg-[#191A1D] px-6 text-center select-none">
-        <div className="w-12 h-12 rounded-2xl bg-[#141518] border border-white/[0.08] flex items-center justify-center text-zinc-500 mb-3 shadow-inner">
+      <div id="panel-properties-inspector" className="flex flex-col h-full items-center justify-center bg-[hsl(var(--surface-1))] px-6 text-center select-none">
+        <div className="w-12 h-12 rounded-2xl bg-[hsl(var(--surface-0))] border border-white/[0.08] flex items-center justify-center text-zinc-500 mb-3 shadow-inner">
           <Box className="w-6 h-6 text-zinc-400 stroke-[1.5]" />
         </div>
         <div className="text-xs font-bold text-white tracking-wide">No Active 3D Asset</div>
@@ -162,7 +162,7 @@ export const RightPropertyPanel: React.FC = () => {
       {/* Header with Asset Meta */}
       <div className="p-2.5 border-b border-[hsl(var(--border))] flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="w-7 h-7 rounded-lg bg-[hsl(var(--surface-3))] border border-[hsl(var(--border))] flex items-center justify-center text-[hsl(var(--primary))] flex-shrink-0">
+          <div className="w-7 h-7 rounded-lg bg-[hsl(var(--surface-3))] border border-[hsl(var(--border))] flex items-center justify-center text-primary flex-shrink-0">
             <Sliders className="w-4 h-4" />
           </div>
           <div className="min-w-0">
@@ -170,7 +170,7 @@ export const RightPropertyPanel: React.FC = () => {
             <span className="text-xs text-[hsl(var(--muted-foreground))] block">Inspector & Properties</span>
           </div>
         </div>
-        <span className="text-xs uppercase font-mono font-bold px-2 py-0.5 rounded-md bg-[hsl(var(--surface-3))] border border-[hsl(var(--border))] text-[hsl(var(--primary))] flex-shrink-0">
+        <span className="text-xs uppercase font-mono font-bold px-2 py-0.5 rounded-md bg-[hsl(var(--surface-3))] border border-[hsl(var(--border))] text-primary flex-shrink-0">
           {currentAsset.format}
         </span>
       </div>
@@ -180,7 +180,7 @@ export const RightPropertyPanel: React.FC = () => {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="font-bold text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider flex items-center gap-1.5">
-              <Move className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
+              <Move className="w-3.5 h-3.5 text-primary" />
               Object Transform
             </span>
             <button
@@ -275,7 +275,7 @@ export const RightPropertyPanel: React.FC = () => {
               <span>Scale Ratio</span>
               <button
                 onClick={() => setTransform(p => ({ ...p, lockScale: !p.lockScale }))}
-                className="flex items-center gap-1 text-[hsl(var(--primary))] hover:underline text-[11px]"
+                className="flex items-center gap-1 text-primary hover:underline text-[11px]"
               >
                 {transform.lockScale ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
                 <span>{transform.lockScale ? 'Uniform Locked' : 'Independent'}</span>
@@ -322,7 +322,7 @@ export const RightPropertyPanel: React.FC = () => {
         <div className="p-3 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] space-y-2.5">
           <div className="flex items-center justify-between text-[hsl(var(--foreground))] font-semibold">
             <span className="flex items-center gap-1.5 text-xs font-bold">
-              <Box className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
+              <Box className="w-3.5 h-3.5 text-primary" />
               Geometry Topology
             </span>
             <span className="flex items-center gap-1 text-[10px] text-[hsl(var(--neon-green))] font-mono px-1.5 py-0.5 rounded bg-[hsl(var(--neon-green))]/10 border border-[hsl(var(--neon-green))]/30">
@@ -338,7 +338,7 @@ export const RightPropertyPanel: React.FC = () => {
             </div>
             <div className="p-2 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
               <span className="text-[hsl(var(--muted-foreground))] block text-[10px]">Polygons</span>
-              <span className="font-bold text-[hsl(var(--primary))]">{currentAsset.statsAvailable ? currentAsset.faces.toLocaleString() : '—'}</span>
+              <span className="font-bold text-primary">{currentAsset.statsAvailable ? currentAsset.faces.toLocaleString() : '—'}</span>
             </div>
             <div className="p-2 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
               <span className="text-[hsl(var(--muted-foreground))] block text-[10px]">Topology</span>
@@ -386,7 +386,7 @@ export const RightPropertyPanel: React.FC = () => {
         {(activeTool === 'texture' || activeTool === 'pbr') && (
           <div className="space-y-3 p-3 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))]">
             <span className="font-bold text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider flex items-center gap-1.5">
-              <Palette className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
+              <Palette className="w-3.5 h-3.5 text-primary" />
               PBR Material Channels
             </span>
 
@@ -394,7 +394,7 @@ export const RightPropertyPanel: React.FC = () => {
             <div className="space-y-1">
               <div className="flex justify-between text-xs text-[hsl(var(--foreground))]">
                 <span>Roughness</span>
-                <span className="font-mono font-bold text-[hsl(var(--primary))]">{materialSettings.roughness.toFixed(2)}</span>
+                <span className="font-mono font-bold text-primary">{materialSettings.roughness.toFixed(2)}</span>
               </div>
               <input
                 type="range"
@@ -407,7 +407,7 @@ export const RightPropertyPanel: React.FC = () => {
                   setMaterialSettings(p => ({ ...p, roughness: val }));
                   updateMaterialConfig?.({ roughness: val });
                 }}
-                className="w-full accent-[hsl(var(--primary))] cursor-pointer"
+                className="w-full accent-primary cursor-pointer"
               />
             </div>
 
@@ -415,7 +415,7 @@ export const RightPropertyPanel: React.FC = () => {
             <div className="space-y-1">
               <div className="flex justify-between text-xs text-[hsl(var(--foreground))]">
                 <span>Metallic</span>
-                <span className="font-mono font-bold text-[hsl(var(--primary))]">{materialSettings.metallic.toFixed(2)}</span>
+                <span className="font-mono font-bold text-primary">{materialSettings.metallic.toFixed(2)}</span>
               </div>
               <input
                 type="range"
@@ -428,7 +428,7 @@ export const RightPropertyPanel: React.FC = () => {
                   setMaterialSettings(p => ({ ...p, metallic: val }));
                   updateMaterialConfig?.({ metalness: val });
                 }}
-                className="w-full accent-[hsl(var(--primary))] cursor-pointer"
+                className="w-full accent-primary cursor-pointer"
               />
             </div>
 
@@ -436,7 +436,7 @@ export const RightPropertyPanel: React.FC = () => {
             <div className="space-y-1">
               <div className="flex justify-between text-xs text-[hsl(var(--foreground))]">
                 <span>Normal Intensity</span>
-                <span className="font-mono font-bold text-[hsl(var(--primary))]">{materialSettings.normalStrength.toFixed(1)}x</span>
+                <span className="font-mono font-bold text-primary">{materialSettings.normalStrength.toFixed(1)}x</span>
               </div>
               <input
                 type="range"
@@ -449,7 +449,7 @@ export const RightPropertyPanel: React.FC = () => {
                   setMaterialSettings(p => ({ ...p, normalStrength: val }));
                   updateMaterialConfig?.({ normalScale: val });
                 }}
-                className="w-full accent-[hsl(var(--primary))] cursor-pointer"
+                className="w-full accent-primary cursor-pointer"
               />
             </div>
 
@@ -457,7 +457,7 @@ export const RightPropertyPanel: React.FC = () => {
             <div className="space-y-1">
               <div className="flex justify-between text-xs text-[hsl(var(--foreground))]">
                 <span>Cavity & AO Strength</span>
-                <span className="font-mono font-bold text-[hsl(var(--primary))]">{materialSettings.ambientOcclusion.toFixed(2)}</span>
+                <span className="font-mono font-bold text-primary">{materialSettings.ambientOcclusion.toFixed(2)}</span>
               </div>
               <input
                 type="range"
@@ -466,7 +466,7 @@ export const RightPropertyPanel: React.FC = () => {
                 step="0.05"
                 value={materialSettings.ambientOcclusion}
                 onChange={(e) => setMaterialSettings(p => ({ ...p, ambientOcclusion: parseFloat(e.target.value) }))}
-                className="w-full accent-[hsl(var(--primary))] cursor-pointer"
+                className="w-full accent-primary cursor-pointer"
               />
             </div>
 
@@ -479,7 +479,7 @@ export const RightPropertyPanel: React.FC = () => {
                     onClick={() => setMaterialSettings(p => ({ ...p, normalFormat: fmt }))}
                     className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-bold transition-colors ${
                       materialSettings.normalFormat === fmt
-                        ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
+                        ? 'bg-primary text-[hsl(var(--primary-foreground))]'
                         : 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
                     }`}
                   >
@@ -517,14 +517,14 @@ export const RightPropertyPanel: React.FC = () => {
         {(activeTool === 'remesh') && (
           <div className="space-y-3 p-3 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))]">
             <span className="font-bold text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider flex items-center gap-1.5">
-              <Hexagon className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
+              <Hexagon className="w-3.5 h-3.5 text-primary" />
               Quad Retopology Inspector
             </span>
 
             <div className="space-y-1.5 text-xs">
               <div className="flex justify-between text-[hsl(var(--foreground))]">
                 <span>Target Polycount</span>
-                <span className="font-mono font-bold text-[hsl(var(--primary))]">{remeshSettings.targetFaces.toLocaleString()}</span>
+                <span className="font-mono font-bold text-primary">{remeshSettings.targetFaces.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-[hsl(var(--foreground))]">
                 <span>Topology Mode</span>
@@ -546,14 +546,14 @@ export const RightPropertyPanel: React.FC = () => {
         {activeTool === 'model' && (
           <div className="space-y-3 p-3 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))]">
             <span className="font-bold text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
+              <Sparkles className="w-3.5 h-3.5 text-primary" />
               3D AI Generator Pipeline
             </span>
 
             <div className="space-y-1.5 text-xs">
               <div className="flex justify-between text-[hsl(var(--foreground))]">
                 <span>Model Engine</span>
-                <span className="font-mono text-[hsl(var(--primary))]">{generationSettings.aiModel}</span>
+                <span className="font-mono text-primary">{generationSettings.aiModel}</span>
               </div>
               <div className="flex justify-between text-[hsl(var(--foreground))]">
                 <span>Octree Depth</span>
@@ -574,7 +574,7 @@ export const RightPropertyPanel: React.FC = () => {
         {/* 4. Shading & Render Viewport Overrides */}
         <div className="space-y-2 pt-1">
           <span className="font-bold text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider flex items-center gap-1.5">
-            <Eye className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
+            <Eye className="w-3.5 h-3.5 text-primary" />
             Viewport Shading
           </span>
 
@@ -583,7 +583,7 @@ export const RightPropertyPanel: React.FC = () => {
               onClick={() => setShadingMode('textured')}
               className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition-all ${
                 shadingMode === 'textured'
-                  ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] font-bold shadow'
+                  ? 'bg-primary text-[hsl(var(--primary-foreground))] font-bold shadow'
                   : 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] border border-[hsl(var(--border))]'
               }`}
             >
@@ -594,7 +594,7 @@ export const RightPropertyPanel: React.FC = () => {
               onClick={() => setShadingMode('wireframe')}
               className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition-all ${
                 shadingMode === 'wireframe'
-                  ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] font-bold shadow'
+                  ? 'bg-primary text-[hsl(var(--primary-foreground))] font-bold shadow'
                   : 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] border border-[hsl(var(--border))]'
               }`}
             >
@@ -605,7 +605,7 @@ export const RightPropertyPanel: React.FC = () => {
               onClick={() => setShadingMode('matcap-normal')}
               className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition-all ${
                 shadingMode === 'matcap-normal' || shadingMode === 'normals'
-                  ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] font-bold shadow'
+                  ? 'bg-primary text-[hsl(var(--primary-foreground))] font-bold shadow'
                   : 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] border border-[hsl(var(--border))]'
               }`}
             >
@@ -616,7 +616,7 @@ export const RightPropertyPanel: React.FC = () => {
               onClick={() => setShadingMode('matcap-ceramic')}
               className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition-all ${
                 shadingMode === 'matcap-ceramic' || shadingMode === 'matcap'
-                  ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] font-bold shadow'
+                  ? 'bg-primary text-[hsl(var(--primary-foreground))] font-bold shadow'
                   : 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] border border-[hsl(var(--border))]'
               }`}
             >
@@ -627,7 +627,7 @@ export const RightPropertyPanel: React.FC = () => {
               onClick={() => setShadingMode('textured')}
               className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition-all ${
                 shadingMode === 'textured'
-                  ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] font-bold shadow'
+                  ? 'bg-primary text-[hsl(var(--primary-foreground))] font-bold shadow'
                   : 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] border border-[hsl(var(--border))]'
               }`}
             >
@@ -650,7 +650,7 @@ export const RightPropertyPanel: React.FC = () => {
         {/* 5. Production Export Section */}
         <div className="pt-3 border-t border-[hsl(var(--border))] space-y-3">
           <span className="font-bold text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider flex items-center gap-1.5">
-            <Download className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
+            <Download className="w-3.5 h-3.5 text-primary" />
             Quick Export Asset
           </span>
 
@@ -662,7 +662,7 @@ export const RightPropertyPanel: React.FC = () => {
                 onClick={() => setExportFormat(fmt)}
                 className={`py-1.5 rounded-lg uppercase font-mono font-bold text-xs transition-colors ${
                   exportFormat === fmt
-                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
+                    ? 'bg-primary text-[hsl(var(--primary-foreground))]'
                     : 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] border border-[hsl(var(--border))]'
                 }`}
               >
@@ -679,7 +679,7 @@ export const RightPropertyPanel: React.FC = () => {
                 type="checkbox"
                 checked={embedTextures}
                 onChange={(e) => setEmbedTextures(e.target.checked)}
-                className="rounded accent-[hsl(var(--primary))] cursor-pointer"
+                className="rounded accent-primary cursor-pointer"
               />
             </label>
             <label className="flex items-center justify-between text-[hsl(var(--foreground))] cursor-pointer">
@@ -688,7 +688,7 @@ export const RightPropertyPanel: React.FC = () => {
                 type="checkbox"
                 checked={dracoCompression}
                 onChange={(e) => setDracoCompression(e.target.checked)}
-                className="rounded accent-[hsl(var(--primary))] cursor-pointer"
+                className="rounded accent-primary cursor-pointer"
               />
             </label>
           </div>
@@ -698,14 +698,14 @@ export const RightPropertyPanel: React.FC = () => {
             id="btn-export-download"
             onClick={handleExportDownload}
             disabled={isExporting}
-            className="w-full py-2.5 rounded-xl bg-[hsl(var(--surface-3))] hover:bg-[hsl(var(--surface-4))] border border-[hsl(var(--border))] text-[hsl(var(--primary))] font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-md cursor-pointer"
+            className="w-full py-2.5 rounded-xl bg-[hsl(var(--surface-3))] hover:bg-[hsl(var(--surface-4))] border border-[hsl(var(--border))] text-primary font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-md cursor-pointer"
           >
             {isExporting ? (
-              <RefreshCw className="w-4 h-4 animate-spin text-[hsl(var(--primary))]" />
+              <RefreshCw className="w-4 h-4 animate-spin text-primary" />
             ) : exportSuccess ? (
               <Check className="w-4 h-4 text-[hsl(var(--neon-green))]" />
             ) : (
-              <Download className="w-4 h-4 text-[hsl(var(--primary))]" />
+              <Download className="w-4 h-4 text-primary" />
             )}
             <span>
               {isExporting ? 'Packing 3D Bundle...' : exportSuccess ? 'Export Saved!' : `Download ${exportFormat.toUpperCase()} Asset`}

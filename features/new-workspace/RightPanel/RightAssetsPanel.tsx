@@ -214,7 +214,7 @@ export const RightAssetsPanel: React.FC = () => {
   const paginatedAssets = filteredAssets.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
 
   return (
-    <div id="panel-assets-library" className="flex flex-col h-full bg-[#191A1D] text-xs select-none">
+    <div id="panel-assets-library" className="flex flex-col h-full bg-[hsl(var(--surface-1))] text-xs select-none">
       {/* Hidden file input for uploading custom 3D files */}
       <input
         ref={fileInputRef}
@@ -225,7 +225,7 @@ export const RightAssetsPanel: React.FC = () => {
       />
 
       {/* Top Action Sub-bar */}
-      <div className="px-2.5 py-2 border-b border-white/[0.08] bg-[#16181D]">
+      <div className="px-2.5 py-2 border-b border-white/[0.08] bg-[hsl(var(--surface-1))]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             {/* Grid / All View */}
@@ -234,8 +234,8 @@ export const RightAssetsPanel: React.FC = () => {
                 onClick={() => { setShowFavoritesOnly(false); setAssetFilter('all'); }}
                 className={`p-1.5 rounded-lg transition-colors ${
                   !showFavoritesOnly && assetFilter === 'all'
-                    ? 'bg-[#25262A] text-[#F9CF00]'
-                    : 'text-zinc-400 hover:text-white hover:bg-[#202125]'
+                    ? 'bg-[hsl(var(--surface-2))] text-primary'
+                    : 'text-zinc-400 hover:text-white hover:bg-[hsl(var(--surface-2))]'
                 }`}
               >
                 <GridIcon className="w-3.5 h-3.5" />
@@ -248,8 +248,8 @@ export const RightAssetsPanel: React.FC = () => {
                 onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
                 className={`p-1.5 rounded-lg transition-colors ${
                   showFavoritesOnly
-                    ? 'bg-[#25262A] text-[#F9CF00]'
-                    : 'text-zinc-400 hover:text-white hover:bg-[#202125]'
+                    ? 'bg-[hsl(var(--surface-2))] text-primary'
+                    : 'text-zinc-400 hover:text-white hover:bg-[hsl(var(--surface-2))]'
                 }`}
               >
                 <Star className="w-3.5 h-3.5" />
@@ -263,8 +263,8 @@ export const RightAssetsPanel: React.FC = () => {
                   onClick={() => setFilterMenuOpen(!filterMenuOpen)}
                   className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                     assetFilter !== 'all'
-                      ? 'bg-[#25262A] text-[#F9CF00]'
-                      : 'text-zinc-400 hover:text-white hover:bg-[#202125]'
+                      ? 'bg-[hsl(var(--surface-2))] text-primary'
+                      : 'text-zinc-400 hover:text-white hover:bg-[hsl(var(--surface-2))]'
                   }`}
                 >
                   <Filter className="w-3.5 h-3.5" />
@@ -272,27 +272,27 @@ export const RightAssetsPanel: React.FC = () => {
               </SimpleTooltip>
 
               {filterMenuOpen && (
-                <div className="absolute top-full left-0 mt-1.5 w-36 py-1.5 rounded-xl bg-[#202125] border border-white/[0.1] shadow-2xl z-50 text-xs font-medium animate-in fade-in zoom-in-95 duration-100">
+                <div className="absolute top-full left-0 mt-1.5 w-36 py-1.5 rounded-xl bg-[hsl(var(--surface-2))] border border-white/[0.1] shadow-2xl z-50 text-xs font-medium animate-in fade-in zoom-in-95 duration-100">
                   <button
                     onClick={() => { setAssetFilter('all'); setFilterMenuOpen(false); }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-[#28292E] text-zinc-200 cursor-pointer flex items-center justify-between"
+                    className="w-full text-left px-3 py-1.5 hover:bg-[hsl(var(--surface-3))] text-zinc-200 cursor-pointer flex items-center justify-between"
                   >
                     <span>All Assets</span>
-                    {assetFilter === 'all' && <Check className="w-3 h-3 text-[#F9CF00]" />}
+                    {assetFilter === 'all' && <Check className="w-3 h-3 text-primary" />}
                   </button>
                   <button
                     onClick={() => { setAssetFilter('models'); setFilterMenuOpen(false); }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-[#28292E] text-zinc-200 cursor-pointer flex items-center justify-between"
+                    className="w-full text-left px-3 py-1.5 hover:bg-[hsl(var(--surface-3))] text-zinc-200 cursor-pointer flex items-center justify-between"
                   >
                     <span>3D Models</span>
-                    {assetFilter === 'models' && <Check className="w-3 h-3 text-[#F9CF00]" />}
+                    {assetFilter === 'models' && <Check className="w-3 h-3 text-primary" />}
                   </button>
                   <button
                     onClick={() => { setAssetFilter('textures'); setFilterMenuOpen(false); }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-[#28292E] text-zinc-200 cursor-pointer flex items-center justify-between"
+                    className="w-full text-left px-3 py-1.5 hover:bg-[hsl(var(--surface-3))] text-zinc-200 cursor-pointer flex items-center justify-between"
                   >
                     <span>PBR Textures</span>
-                    {assetFilter === 'textures' && <Check className="w-3 h-3 text-[#F9CF00]" />}
+                    {assetFilter === 'textures' && <Check className="w-3 h-3 text-primary" />}
                   </button>
                 </div>
               )}
@@ -303,7 +303,7 @@ export const RightAssetsPanel: React.FC = () => {
           <div className="flex items-center gap-1">
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="px-2.5 py-1 rounded-lg text-xs font-bold text-zinc-200 hover:text-[#F9CF00] hover:bg-[#25262A] border border-white/[0.08] transition-colors cursor-pointer flex items-center gap-1"
+              className="px-2.5 py-1 rounded-lg text-xs font-bold text-zinc-200 hover:text-primary hover:bg-[hsl(var(--surface-2))] border border-white/[0.08] transition-colors cursor-pointer flex items-center gap-1"
             >
               <span>Import</span>
             </button>
@@ -322,16 +322,16 @@ export const RightAssetsPanel: React.FC = () => {
           onClick={() => fileInputRef.current?.click()}
           className={`group relative w-full rounded-xl border border-dashed cursor-pointer p-3 flex flex-col items-center justify-center text-center transition-all ${
             isDragOver
-              ? 'border-[#F9CF00] bg-[#F9CF00]/10 shadow-[0_0_16px_rgba(249,207,0,0.15)]'
-              : 'border-white/[0.12] hover:border-[#F9CF00]/70 bg-[#141518] hover:bg-[#1A1B1F]'
+              ? 'border-primary bg-primary/10 shadow-[0_0_16px_rgba(249,207,0,0.15)]'
+              : 'border-white/[0.12] hover:border-primary/70 bg-[hsl(var(--surface-0))] hover:bg-[#1A1B1F]'
           }`}
         >
           {uploadProgress.active ? (
             <div className="flex flex-col items-center justify-center space-y-1.5 w-full px-2">
-              <Loader2 className="w-5 h-5 animate-spin text-[#F9CF00]" />
-              <div className="w-full bg-[#25262A] rounded-full h-1.5 overflow-hidden">
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              <div className="w-full bg-[hsl(var(--surface-2))] rounded-full h-1.5 overflow-hidden">
                 <div
-                  className="bg-[#F9CF00] h-full rounded-full transition-all duration-200"
+                  className="bg-primary h-full rounded-full transition-all duration-200"
                   style={{ width: `${uploadProgress.percent}%` }}
                 />
               </div>
@@ -341,8 +341,8 @@ export const RightAssetsPanel: React.FC = () => {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center">
-              <div className={`w-9 h-9 rounded-full bg-[#202125] border border-white/[0.08] flex items-center justify-center transition-all mb-1.5 ${
-                isDragOver ? 'text-[#F9CF00] border-[#F9CF00]' : 'text-zinc-400 group-hover:text-[#F9CF00] group-hover:border-[#F9CF00]/40'
+              <div className={`w-9 h-9 rounded-full bg-[hsl(var(--surface-2))] border border-white/[0.08] flex items-center justify-center transition-all mb-1.5 ${
+                isDragOver ? 'text-primary border-primary' : 'text-zinc-400 group-hover:text-primary group-hover:border-primary/40'
               }`}>
                 <Box className="w-4 h-4" />
               </div>
@@ -388,8 +388,8 @@ export const RightAssetsPanel: React.FC = () => {
                 onClick={() => setCurrentAsset(asset)}
                 className={`group relative rounded-xl overflow-hidden cursor-grab active:cursor-grabbing transition-all aspect-square flex flex-col ${
                   isSelected
-                    ? 'ring-2 ring-[#F9CF00] bg-[#25262A] shadow-md shadow-[#F9CF00]/15'
-                    : 'border border-white/[0.08] bg-[#141518] hover:border-white/[0.2] hover:bg-[#1A1B1F]'
+                    ? 'ring-2 ring-[hsl(var(--primary))] bg-[hsl(var(--surface-2))] shadow-md shadow-[hsl(var(--primary))]/15'
+                    : 'border border-white/[0.08] bg-[hsl(var(--surface-0))] hover:border-white/[0.2] hover:bg-[#1A1B1F]'
                 }`}
                 title={`Click or drag "${asset.name}" into 3D Viewport`}
               >
@@ -403,8 +403,8 @@ export const RightAssetsPanel: React.FC = () => {
                       crossOrigin="anonymous"
                     />
                   ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-[#16181D] gap-1 p-1">
-                      <div className="w-7 h-7 rounded-lg bg-[#202125] border border-white/[0.08] flex items-center justify-center">
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-[hsl(var(--surface-1))] gap-1 p-1">
+                      <div className="w-7 h-7 rounded-lg bg-[hsl(var(--surface-2))] border border-white/[0.08] flex items-center justify-center">
                         <Box className="w-4 h-4 text-zinc-400" />
                       </div>
                       <span className="text-[9px] font-bold text-zinc-400 uppercase">
@@ -419,7 +419,7 @@ export const RightAssetsPanel: React.FC = () => {
                       onClick={(e) => e.stopPropagation()}
                     >
                       <ImageZoom src={asset.thumbnail} alt={asset.name}>
-                        <div className="p-1 rounded-md bg-black/70 hover:bg-black text-zinc-300 hover:text-[#F9CF00] border border-white/20 shadow transition-colors" title="Zoom preview">
+                        <div className="p-1 rounded-md bg-black/70 hover:bg-black text-zinc-300 hover:text-primary border border-white/20 shadow transition-colors" title="Zoom preview">
                           <ZoomIn className="w-3 h-3" />
                         </div>
                       </ImageZoom>
@@ -427,15 +427,15 @@ export const RightAssetsPanel: React.FC = () => {
                   )}
 
                   {isSelected && (
-                    <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-[#F9CF00] flex items-center justify-center text-black shadow">
+                    <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center text-black shadow">
                       <Check className="w-2.5 h-2.5 stroke-[3]" />
                     </div>
                   )}
                 </div>
 
                 {/* Bottom Asset Label */}
-                <div className="px-2 py-1.5 bg-[#16181D] border-t border-white/[0.06] flex items-center justify-between gap-1">
-                  <span className={`text-xs truncate font-medium ${isSelected ? 'text-[#F9CF00] font-bold' : 'text-zinc-200'}`}>
+                <div className="px-2 py-1.5 bg-[hsl(var(--surface-1))] border-t border-white/[0.06] flex items-center justify-between gap-1">
+                  <span className={`text-xs truncate font-medium ${isSelected ? 'text-primary font-bold' : 'text-zinc-200'}`}>
                     {asset.name}
                   </span>
 
@@ -446,22 +446,22 @@ export const RightAssetsPanel: React.FC = () => {
                         e.stopPropagation();
                         setActiveMenuAssetId(activeMenuAssetId === asset.id ? null : asset.id);
                       }}
-                      className="p-1 rounded-md text-zinc-400 hover:text-white hover:bg-[#202125] transition-colors cursor-pointer"
+                      className="p-1 rounded-md text-zinc-400 hover:text-white hover:bg-[hsl(var(--surface-2))] transition-colors cursor-pointer"
                     >
                       <MoreVertical className="w-3.5 h-3.5" />
                     </button>
 
                       {activeMenuAssetId === asset.id && (
-                        <div className="absolute right-0 bottom-full mb-1 w-28 py-1 rounded-xl bg-[#202125] border border-white/[0.1] shadow-xl z-50 text-xs font-medium animate-in fade-in zoom-in-95 duration-100">
+                        <div className="absolute right-0 bottom-full mb-1 w-28 py-1 rounded-xl bg-[hsl(var(--surface-2))] border border-white/[0.1] shadow-xl z-50 text-xs font-medium animate-in fade-in zoom-in-95 duration-100">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               duplicateAsset(asset.id);
                               setActiveMenuAssetId(null);
                             }}
-                           className="w-full text-left px-2.5 py-1.5 text-zinc-200 hover:bg-[#28292E] flex items-center gap-1.5 cursor-pointer"
+                           className="w-full text-left px-2.5 py-1.5 text-zinc-200 hover:bg-[hsl(var(--surface-3))] flex items-center gap-1.5 cursor-pointer"
                          >
-                           <Copy className="w-3 h-3 text-[#F9CF00]" />
+                           <Copy className="w-3 h-3 text-primary" />
                            <span>Duplicate</span>
                          </button>
                          <button
@@ -487,7 +487,7 @@ export const RightAssetsPanel: React.FC = () => {
       </div>
 
       {/* Pagination Footer */}
-      <div className="px-3 py-2 border-t border-white/[0.08] bg-[#16181D] flex items-center justify-between text-xs text-zinc-400">
+      <div className="px-3 py-2 border-t border-white/[0.08] bg-[hsl(var(--surface-1))] flex items-center justify-between text-xs text-zinc-400">
         <span className="text-[10px] text-zinc-500 font-mono">
           Page {safePage} of {totalPages}
         </span>
@@ -495,7 +495,7 @@ export const RightAssetsPanel: React.FC = () => {
           <button
             onClick={() => setActivePage(Math.max(1, activePage - 1))}
             disabled={activePage <= 1}
-            className="p-1 rounded-lg hover:text-white hover:bg-[#202125] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+            className="p-1 rounded-lg hover:text-white hover:bg-[hsl(var(--surface-2))] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
           </button>
@@ -505,7 +505,7 @@ export const RightAssetsPanel: React.FC = () => {
               key={page}
               onClick={() => setActivePage(page)}
               className={`w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-bold transition-all cursor-pointer ${
-                safePage === page ? 'bg-[#F9CF00] text-black shadow-sm font-extrabold' : 'hover:text-white hover:bg-[#202125] text-zinc-400'
+                safePage === page ? 'bg-primary text-black shadow-sm font-extrabold' : 'hover:text-white hover:bg-[hsl(var(--surface-2))] text-zinc-400'
               }`}
             >
               {page}
@@ -515,7 +515,7 @@ export const RightAssetsPanel: React.FC = () => {
           <button
             onClick={() => setActivePage(Math.min(totalPages, activePage + 1))}
             disabled={activePage >= totalPages}
-            className="p-1 rounded-lg hover:text-white hover:bg-[#202125] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+            className="p-1 rounded-lg hover:text-white hover:bg-[hsl(var(--surface-2))] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
           >
             <ChevronRight className="w-3.5 h-3.5" />
           </button>

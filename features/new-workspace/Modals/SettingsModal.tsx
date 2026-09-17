@@ -66,11 +66,11 @@ export const SettingsModal: React.FC = () => {
       onClick={(e) => { if (e.target === e.currentTarget) setIsSettingsOpen(false); }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-3 sm:p-4 select-none animate-in fade-in duration-200"
     >
-      <div className="w-full max-w-xl max-h-[90vh] rounded-2xl bg-[#181a20] border border-white/[0.08] shadow-2xl overflow-hidden flex flex-col">
+      <div className="w-full max-w-xl max-w-[calc(100vw-1.5rem)] max-h-[90vh] rounded-2xl bg-[hsl(var(--surface-1))] border border-white/[0.08] shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 bg-[#1e2026] border-b border-white/[0.08] flex-shrink-0">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 bg-[hsl(var(--surface-2))] border-b border-white/[0.08] flex-shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#F9CF00]/15 border border-[#F9CF00]/30 flex items-center justify-center text-[#F9CF00]">
+            <div className="w-8 h-8 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary">
               <Server className="w-4 h-4" />
             </div>
             <div>
@@ -87,22 +87,22 @@ export const SettingsModal: React.FC = () => {
         </div>
 
         {/* Content */}
-        <div className="p-4 sm:p-5 space-y-4 text-xs bg-[#0d0d0d] flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700">
+        <div className="p-4 sm:p-5 space-y-4 text-xs bg-[hsl(var(--surface-0))] flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700">
           {/* Host & Port Input */}
           <div className="space-y-1.5">
-            <label className="font-medium text-[#888]">Backend Server URL</label>
+            <label className="font-medium text-zinc-400">Backend Server URL</label>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={host}
                 onChange={(e) => setHost(e.target.value)}
                 placeholder="/api/v1"
-                className="flex-1 px-3 py-2 rounded-xl bg-[#111] border border-[#1a1a1a] text-xs font-mono text-white focus:border-[#F9CF00] outline-none"
+                className="flex-1 px-3 py-2 rounded-xl bg-[hsl(var(--surface-1))] border border-border text-xs font-mono text-white focus:border-primary outline-none"
               />
               <button
                 onClick={handleTestConnection}
                 disabled={testing}
-                className="px-4 py-2 rounded-xl bg-[#1a1a1a] hover:bg-[#222] border border-[#222] text-[#F9CF00] font-bold text-xs flex items-center gap-1.5 transition-colors"
+                className="px-4 py-2 rounded-xl bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-3))] border border-border text-primary font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${testing ? 'animate-spin' : ''}`} />
                 <span>{testing ? 'Testing...' : 'Test Link'}</span>
@@ -122,58 +122,58 @@ export const SettingsModal: React.FC = () => {
 
           {/* Node registry status (real /object_info data) */}
           <div className="space-y-2 pt-2">
-            <span className="font-semibold text-xs text-[#444] uppercase tracking-wider">Backend Status & Hardware</span>
-            <div className="p-3 rounded-xl bg-[#111] border border-[#1a1a1a] space-y-2">
+            <span className="font-semibold text-xs text-zinc-400 uppercase tracking-wider">Backend Status & Hardware</span>
+            <div className="p-3 rounded-xl bg-[hsl(var(--surface-1))] border border-border space-y-2">
               {nodeError ? (
                 <div className="text-[11px] text-red-500">Backend unreachable: {nodeError}</div>
               ) : (
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[#888]">FastAPI Status</span>
+                    <span className="text-zinc-400">FastAPI Status</span>
                     <span className={`text-[11px] font-mono font-bold ${systemStats.status === 'online' ? 'text-green-500' : 'text-red-500'}`}>
                       {systemStats.status === 'online' ? `Online (${systemStats.lastPingMs}ms)` : 'Offline'}
                     </span>
                   </div>
                   {systemStats.gpu && systemStats.gpu !== 'Unavailable' && (
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-[#666]">GPU</span>
+                      <span className="text-zinc-400">GPU</span>
                       <span className="font-mono text-white truncate max-w-[280px]">{systemStats.gpu}</span>
                     </div>
                   )}
                   {systemStats.vramUsedGb != null && (
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-[#666]">VRAM</span>
+                      <span className="text-zinc-400">VRAM</span>
                       <span className="font-mono text-blue-400">{systemStats.vramUsedGb} / {systemStats.vramTotalGb || '?'} GB</span>
                     </div>
                   )}
                   {systemStats.pythonVersion && (
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-[#666]">Python / PyTorch</span>
-                      <span className="font-mono text-[#666]">{systemStats.pythonVersion} {systemStats.torchVersion ? `· PyTorch ${systemStats.torchVersion}` : ''}</span>
+                      <span className="text-zinc-400">Python / PyTorch</span>
+                      <span className="font-mono text-zinc-300">{systemStats.pythonVersion} {systemStats.torchVersion ? `· PyTorch ${systemStats.torchVersion}` : ''}</span>
                     </div>
                   )}
                 </div>
               )}
-              <div className="text-[10px] text-[#444] pt-1 border-t border-[#1a1a1a]">AI 3D Studio connects through the configured /api/v1 backend proxy.</div>
+              <div className="text-[10px] text-zinc-500 pt-1 border-t border-border">AI 3D Studio connects through the configured /api/v1 backend proxy.</div>
             </div>
           </div>
 
           {/* Auto-Optimize Defaults */}
           <div className="space-y-2 pt-2">
             <div className="flex items-center gap-2">
-              <Wrench className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
-              <span className="font-semibold text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Auto-Optimize Defaults</span>
+              <Wrench className="w-3.5 h-3.5 text-primary" />
+              <span className="font-semibold text-xs text-muted-foreground uppercase tracking-wider">Auto-Optimize Defaults</span>
             </div>
-            <div className="p-3 rounded-xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] space-y-3">
+            <div className="p-3 rounded-xl bg-[hsl(var(--surface-1))] border border-border space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-xs text-[hsl(var(--foreground))] font-medium block">Enable Auto-Optimize by Default</span>
-                  <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Automatically optimize meshes after generation</span>
+                  <span className="text-xs text-foreground font-medium block">Enable Auto-Optimize by Default</span>
+                  <span className="text-[10px] text-muted-foreground">Automatically optimize meshes after generation</span>
                 </div>
                 <button
                   onClick={() => setGenerationSettings(prev => ({ ...prev, autoOptimize: !prev.autoOptimize }))}
                   className={`w-9 h-5 rounded-full p-0.5 transition-colors ${
-                    generationSettings.autoOptimize ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--border))]'
+                    generationSettings.autoOptimize ? 'bg-primary' : 'bg-border'
                   }`}
                 >
                   <div className={`w-4 h-4 rounded-full bg-[hsl(var(--surface-1))] transition-transform ${
@@ -183,12 +183,12 @@ export const SettingsModal: React.FC = () => {
               </div>
 
               {generationSettings.autoOptimize && (
-                <div className="space-y-2.5 pt-2 border-t border-[hsl(var(--surface-1))]">
+                <div className="space-y-2.5 pt-2 border-t border-border">
                   {/* Default Target Polycount */}
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-[hsl(var(--foreground))]">Default Target Polycount</span>
-                      <span className="text-[10px] font-mono text-[hsl(var(--primary))]">{generationSettings.autoOptimizeSettings.targetPolycount.toLocaleString()} tris</span>
+                      <span className="text-[11px] text-foreground">Default Target Polycount</span>
+                      <span className="text-[10px] font-mono text-primary">{generationSettings.autoOptimizeSettings.targetPolycount.toLocaleString()} tris</span>
                     </div>
                     <input
                       type="range"
@@ -200,15 +200,15 @@ export const SettingsModal: React.FC = () => {
                         ...prev,
                         autoOptimizeSettings: { ...prev.autoOptimizeSettings, targetPolycount: parseInt(e.target.value) }
                       }))}
-                      className="w-full h-1.5 rounded-full appearance-none bg-[hsl(var(--border))] accent-[hsl(var(--primary))] cursor-pointer"
+                      className="w-full h-1.5 rounded-full appearance-none bg-border accent-primary cursor-pointer"
                     />
                   </div>
 
                   {/* Default Fix UVs */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-[11px] text-[hsl(var(--foreground))] font-medium block">Fix UVs by Default</span>
-                      <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Repair overlapping UVs automatically</span>
+                      <span className="text-[11px] text-foreground font-medium block">Fix UVs by Default</span>
+                      <span className="text-[10px] text-muted-foreground">Repair overlapping UVs automatically</span>
                     </div>
                     <button
                       onClick={() => setGenerationSettings(prev => ({
@@ -216,7 +216,7 @@ export const SettingsModal: React.FC = () => {
                         autoOptimizeSettings: { ...prev.autoOptimizeSettings, fixUVs: !prev.autoOptimizeSettings.fixUVs }
                       }))}
                       className={`w-9 h-5 rounded-full p-0.5 transition-colors ${
-                        generationSettings.autoOptimizeSettings.fixUVs ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--border))]'
+                        generationSettings.autoOptimizeSettings.fixUVs ? 'bg-primary' : 'bg-border'
                       }`}
                     >
                       <div className={`w-4 h-4 rounded-full bg-[hsl(var(--surface-1))] transition-transform ${
@@ -228,8 +228,8 @@ export const SettingsModal: React.FC = () => {
                   {/* Default Preserve Details */}
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-[hsl(var(--foreground))]">Default Detail Preservation</span>
-                      <span className="text-[10px] font-mono text-[hsl(var(--primary))]">{generationSettings.autoOptimizeSettings.preserveDetails}%</span>
+                      <span className="text-[11px] text-foreground">Default Detail Preservation</span>
+                      <span className="text-[10px] font-mono text-primary">{generationSettings.autoOptimizeSettings.preserveDetails}%</span>
                     </div>
                     <input
                       type="range"
@@ -241,7 +241,7 @@ export const SettingsModal: React.FC = () => {
                         ...prev,
                         autoOptimizeSettings: { ...prev.autoOptimizeSettings, preserveDetails: parseInt(e.target.value) }
                       }))}
-                      className="w-full h-1.5 rounded-full appearance-none bg-[hsl(var(--border))] accent-[hsl(var(--primary))] cursor-pointer"
+                      className="w-full h-1.5 rounded-full appearance-none bg-border accent-primary cursor-pointer"
                     />
                   </div>
                 </div>
@@ -251,7 +251,7 @@ export const SettingsModal: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2.5 px-5 py-3.5 bg-[#1e2026] border-t border-white/[0.08]">
+        <div className="flex items-center justify-end gap-2.5 px-5 py-3.5 bg-[hsl(var(--surface-2))] border-t border-white/[0.08]">
           <button
             onClick={() => setIsSettingsOpen(false)}
             className="px-4 py-2 rounded-xl bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-white font-medium text-xs transition-colors cursor-pointer"
@@ -260,7 +260,7 @@ export const SettingsModal: React.FC = () => {
           </button>
           <button
             onClick={handleSave}
-            className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#FFE24C] to-[#F9CF00] hover:brightness-105 active:scale-95 text-black font-extrabold text-xs shadow-md shadow-[#F9CF00]/20 transition-all cursor-pointer border border-white/20"
+            className="px-5 py-2 rounded-xl bg-primary hover:bg-primary/90 active:scale-95 text-primary-foreground font-extrabold text-xs shadow-md shadow-primary/20 transition-all cursor-pointer border border-white/20"
           >
             Save Changes
           </button>

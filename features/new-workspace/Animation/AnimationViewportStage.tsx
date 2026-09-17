@@ -148,25 +148,25 @@ export const AnimationViewportStage: React.FC = () => {
   const currentScrubPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div className="flex-1 h-full flex flex-col min-w-0 bg-[#0F1014] overflow-hidden select-none">
+    <div className="flex-1 h-full flex flex-col min-w-0 bg-[hsl(var(--surface-0))] overflow-hidden select-none">
       {/* 3D VIEWPORT CANVAS AREA (Reuses shared MeshViewer) */}
-      <div ref={containerRef} className="flex-1 relative overflow-hidden bg-[#16181D]">
+      <div ref={containerRef} className="flex-1 relative overflow-hidden bg-[hsl(var(--surface-0))]">
         <MeshViewer showOverlayUI={false} className="w-full h-full" />
 
         {/* RIGGING WORKSPACE TOP TOOLBAR (Visible in Rigging mode) */}
         {activeMode === 'rigging' && (
           <div className="absolute top-3 left-16 right-16 z-10 flex items-center justify-between pointer-events-none">
             {/* Rigging Status Badge */}
-            <div className="pointer-events-auto flex items-center gap-2 px-3 py-1.5 bg-[#121418]/95 backdrop-blur-md border border-[#F9CF00]/30 rounded-xl shadow-lg">
-              <Bone className="w-4 h-4 text-[#F9CF00]" />
+            <div className="pointer-events-auto flex items-center gap-2 px-3 py-1.5 bg-[hsl(var(--surface-0))]/95 backdrop-blur-md border border-primary/30 rounded-xl shadow-lg">
+              <Bone className="w-4 h-4 text-primary" />
               <div className="flex flex-col">
-                <span className="text-[9px] font-black tracking-wider text-[#F9CF00] uppercase">Rigging Workspace</span>
+                <span className="text-[9px] font-black tracking-wider text-primary uppercase">Rigging Workspace</span>
                 <span className="text-[11px] font-bold text-white">Humanoid Biped (17 Joints)</span>
               </div>
             </div>
 
             {/* Quick Actions Bar */}
-            <div className="pointer-events-auto flex items-center gap-1.5 p-1 bg-[#121418]/95 backdrop-blur-md border border-white/[0.08] rounded-xl shadow-lg">
+            <div className="pointer-events-auto flex items-center gap-1.5 p-1 bg-[hsl(var(--surface-0))]/95 backdrop-blur-md border border-white/[0.08] rounded-xl shadow-lg">
               <button
                 onClick={() => {
                   const dims = useViewerStore.getState().modelStats?.dimensions;
@@ -178,7 +178,7 @@ export const AnimationViewportStage: React.FC = () => {
                     description: `Aligned 17 biped joints to mesh dimensions (${h.toFixed(2)}m H × ${w.toFixed(2)}m W)`,
                   });
                 }}
-                className="px-2.5 py-1 rounded-lg bg-[#1C1F26] hover:bg-[#252933] text-zinc-200 text-xs font-semibold flex items-center gap-1.5 border border-white/[0.06] transition-colors cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-3))] text-zinc-200 text-xs font-semibold flex items-center gap-1.5 border border-white/[0.06] transition-colors cursor-pointer"
               >
                 <Maximize2 className="w-3.5 h-3.5 text-sky-400" />
                 <span>Auto-Fit Rig</span>
@@ -197,8 +197,8 @@ export const AnimationViewportStage: React.FC = () => {
                 }}
                 className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition-all cursor-pointer ${
                   xMirrorEnabled
-                    ? 'bg-[#1C1F26] text-emerald-400 border-emerald-500/30 shadow-sm'
-                    : 'bg-[#14161B] text-zinc-500 border-white/[0.04]'
+                    ? 'bg-[hsl(var(--surface-2))] text-emerald-400 border-emerald-500/30 shadow-sm'
+                    : 'bg-[hsl(var(--surface-1))] text-zinc-500 border-white/[0.04]'
                 }`}
               >
                 <div
@@ -220,7 +220,7 @@ export const AnimationViewportStage: React.FC = () => {
                     description: 'Heat diffusion weights calculated for 17 deforming bones',
                   });
                 }}
-                className="px-3 py-1 rounded-lg bg-[#F9CF00] hover:bg-[#ffe033] text-black text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                className="px-3 py-1 rounded-lg bg-primary hover:bg-[hsl(var(--primary)/0.9)] text-black text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
               >
                 <Check className="w-3.5 h-3.5" />
                 <span>Bind Skin</span>
@@ -228,9 +228,9 @@ export const AnimationViewportStage: React.FC = () => {
             </div>
 
             {/* Active Bone Pill */}
-            <div className="pointer-events-auto flex items-center gap-2 px-3 py-1.5 bg-[#121418]/95 backdrop-blur-md border border-white/[0.08] rounded-xl shadow-lg">
+            <div className="pointer-events-auto flex items-center gap-2 px-3 py-1.5 bg-[hsl(var(--surface-0))]/95 backdrop-blur-md border border-white/[0.08] rounded-xl shadow-lg">
               <span className="text-[10px] text-zinc-400 font-semibold uppercase">Active Joint:</span>
-              <span className="text-xs font-bold text-[#F9CF00] font-mono">
+              <span className="text-xs font-bold text-primary font-mono">
                 {selectedBone || 'Click joint in 3D'}
               </span>
             </div>
@@ -239,11 +239,11 @@ export const AnimationViewportStage: React.FC = () => {
 
         {/* CLICK TO PLACE BONE PROMPT BANNER */}
         {isPlacingBone && (
-          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex items-center gap-3 px-4 py-2 bg-[#121418]/95 backdrop-blur-md border border-[#F9CF00] rounded-xl shadow-2xl animate-pulse">
-            <Bone className="w-4 h-4 text-[#F9CF00]" />
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex items-center gap-3 px-4 py-2 bg-[hsl(var(--surface-0))]/95 backdrop-blur-md border border-primary rounded-xl shadow-2xl animate-pulse">
+            <Bone className="w-4 h-4 text-primary" />
             <span className="text-xs text-white font-medium">
               Click anywhere on the 3D model surface to place joint node{' '}
-              <span className="font-mono text-[#F9CF00]">↳ Parent: {selectedBone || 'Hips (Root)'}</span>
+              <span className="font-mono text-primary">↳ Parent: {selectedBone || 'Hips (Root)'}</span>
             </span>
             <button
               onClick={() => {
@@ -258,7 +258,7 @@ export const AnimationViewportStage: React.FC = () => {
         )}
 
         {/* LEFT VIEWPORT TOOL STRIP */}
-        <div className="absolute left-3 top-3 z-10 flex flex-col gap-1 p-1 bg-[#16181D]/90 backdrop-blur-md border border-white/[0.08] rounded-xl shadow-xl">
+        <div className="absolute left-3 top-3 z-10 flex flex-col gap-1 p-1 bg-[hsl(var(--surface-0))]/90 backdrop-blur-md border border-white/[0.08] rounded-xl shadow-xl">
           {[
             { id: 'select', icon: <MousePointer className="w-4 h-4" />, label: 'Select (Q)' },
             { id: 'move', icon: <Move className="w-4 h-4" />, label: 'Move (W)' },
@@ -293,7 +293,7 @@ export const AnimationViewportStage: React.FC = () => {
                   }}
                   className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
                     isActive
-                      ? 'bg-[#F9CF00] text-black shadow-md'
+                      ? 'bg-primary text-black shadow-md'
                       : 'text-zinc-400 hover:text-white hover:bg-white/[0.06]'
                   }`}
                 >
@@ -317,7 +317,7 @@ export const AnimationViewportStage: React.FC = () => {
                   setIsFullscreen(false);
                 }
               }}
-              className="p-2 rounded-xl bg-[#16181D]/90 backdrop-blur-md border border-white/[0.08] text-zinc-400 hover:text-white transition-all cursor-pointer shadow-md"
+              className="p-2 rounded-xl bg-[hsl(var(--surface-0))]/90 backdrop-blur-md border border-white/[0.08] text-zinc-400 hover:text-white transition-all cursor-pointer shadow-md"
             >
               <Maximize2 className="w-3.5 h-3.5" />
             </button>
@@ -327,15 +327,15 @@ export const AnimationViewportStage: React.FC = () => {
         {/* RIGGING VISUAL LEGEND (Visible in Rigging mode) */}
         {activeMode === 'rigging' && (
           <div className="absolute bottom-3 right-3 z-10 pointer-events-none">
-            <div className="px-3 py-1.5 bg-[#121418]/90 backdrop-blur-md border border-white/[0.08] rounded-xl flex items-center gap-3 text-[10px] font-semibold text-zinc-300 shadow-lg">
+            <div className="px-3 py-1.5 bg-[hsl(var(--surface-0))]/90 backdrop-blur-md border border-white/[0.08] rounded-xl flex items-center gap-3 text-[10px] font-semibold text-zinc-300 shadow-lg">
               <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-[#00F5D4]" /> Joint Node
+                <span className="w-2 h-2 rounded-full bg-[hsl(var(--neon-cyan))]" /> Joint Node
               </span>
               <span className="flex items-center gap-1">
-                <span className="w-2 h-0.5 bg-[#F9CF00]" /> Bone Armature
+                <span className="w-2 h-0.5 bg-primary" /> Bone Armature
               </span>
               <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-[#F9CF00] ring-2 ring-[#F9CF00]/40" /> Selected
+                <span className="w-2 h-2 rounded-full bg-primary ring-2 ring-[hsl(var(--primary))]/40" /> Selected
               </span>
             </div>
           </div>
@@ -343,7 +343,7 @@ export const AnimationViewportStage: React.FC = () => {
 
         {/* ACTIVE RIG STATUS PILL (Floating Bottom-Left above Timeline) */}
         <div className="absolute bottom-3 left-3 z-10 pointer-events-none">
-          <div className="px-3 py-1 bg-[#121418]/90 backdrop-blur-md border border-white/[0.08] rounded-full flex items-center gap-2 shadow-lg">
+          <div className="px-3 py-1 bg-[hsl(var(--surface-0))]/90 backdrop-blur-md border border-white/[0.08] rounded-full flex items-center gap-2 shadow-lg">
             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-[11px] font-semibold text-zinc-300">
               {rigStatus === 'rigged' ? 'Humanoid Biped Rig Active' : 'Unrigged Mesh Target'}
@@ -353,9 +353,9 @@ export const AnimationViewportStage: React.FC = () => {
       </div>
 
       {/* MULTI-TRACK NLA TIMELINE (Docked at Bottom of Viewport) */}
-      <div className="h-[160px] bg-[#121418] border-t border-white/[0.08] flex flex-col flex-shrink-0">
+      <div className="h-[160px] bg-[hsl(var(--surface-0))] border-t border-white/[0.08] flex flex-col flex-shrink-0">
         {/* Playback Control Bar */}
-        <div className="h-9 px-3 bg-[#16181D] border-b border-white/[0.06] flex items-center justify-between">
+        <div className="h-9 px-3 bg-[hsl(var(--surface-0))] border-b border-white/[0.06] flex items-center justify-between">
           {/* Left: Transport Buttons */}
           <div className="flex items-center gap-1.5">
             <button
@@ -369,8 +369,8 @@ export const AnimationViewportStage: React.FC = () => {
               onClick={togglePlay}
               className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
                 isPlaying
-                  ? 'bg-[#F9CF00] text-black font-bold shadow-[0_0_12px_rgba(249,207,0,0.3)]'
-                  : 'bg-[#22252C] text-white hover:bg-[#2C3038]'
+                  ? 'bg-primary text-black font-bold shadow-[0_0_12px_rgba(249,207,0,0.3)]'
+                  : 'bg-[hsl(var(--surface-2))] text-white hover:bg-[hsl(var(--surface-3))]'
               }`}
               aria-label={isPlaying ? 'Pause' : 'Play'}
             >
@@ -399,8 +399,8 @@ export const AnimationViewportStage: React.FC = () => {
             </button>
 
             {/* Time / Duration Readout */}
-            <div className="ml-3 font-mono text-xs font-bold text-zinc-200 bg-[#0F1014] px-2.5 py-1 rounded-md border border-white/[0.06]">
-              <span className="text-[#F9CF00]">{formatTime(currentTime)}</span>
+            <div className="ml-3 font-mono text-xs font-bold text-zinc-200 bg-[hsl(var(--surface-0))] px-2.5 py-1 rounded-md border border-white/[0.06]">
+              <span className="text-primary">{formatTime(currentTime)}</span>
               <span className="text-zinc-600 mx-1.5">/</span>
               <span className="text-zinc-400">{formatTime(duration)}</span>
             </div>
@@ -412,13 +412,13 @@ export const AnimationViewportStage: React.FC = () => {
             <div className="relative">
               <button
                 onClick={() => setFpsDropdownOpen(!fpsDropdownOpen)}
-                className="flex items-center gap-1 text-[11px] font-semibold text-zinc-300 hover:text-white px-2 py-1 rounded-md bg-[#1E2129] border border-white/[0.06] cursor-pointer"
+                className="flex items-center gap-1 text-[11px] font-semibold text-zinc-300 hover:text-white px-2 py-1 rounded-md bg-[hsl(var(--surface-2))] border border-white/[0.06] cursor-pointer"
               >
                 <span>{fps} FPS</span>
                 <ChevronDown className="w-3 h-3 text-zinc-500" />
               </button>
               {fpsDropdownOpen && (
-                <div className="absolute right-0 bottom-full mb-1 w-24 bg-[#1E2129] border border-white/[0.1] rounded-lg shadow-xl p-1 z-30">
+                <div className="absolute right-0 bottom-full mb-1 w-24 bg-[hsl(var(--surface-2))] border border-white/[0.1] rounded-lg shadow-xl p-1 z-30">
                   {[20, 24, 30, 60].map((f) => (
                     <button
                       key={f}
@@ -427,7 +427,7 @@ export const AnimationViewportStage: React.FC = () => {
                         setFpsDropdownOpen(false);
                       }}
                       className={`w-full text-left px-2 py-1 rounded text-xs transition-colors ${
-                        fps === f ? 'bg-[#F9CF00] text-black font-bold' : 'text-zinc-300 hover:bg-white/[0.06]'
+                        fps === f ? 'bg-primary text-black font-bold' : 'text-zinc-300 hover:bg-white/[0.06]'
                       }`}
                     >
                       {f} FPS
@@ -440,7 +440,7 @@ export const AnimationViewportStage: React.FC = () => {
             {/* Time / Frames toggle */}
             <button
               onClick={() => setTimeFormat(timeFormat === 'time' ? 'frames' : 'time')}
-              className="text-[11px] font-semibold text-zinc-400 hover:text-zinc-200 px-2 py-1 rounded bg-[#1E2129] border border-white/[0.06] cursor-pointer"
+              className="text-[11px] font-semibold text-zinc-400 hover:text-zinc-200 px-2 py-1 rounded bg-[hsl(var(--surface-2))] border border-white/[0.06] cursor-pointer"
             >
               {timeFormat === 'time' ? 'Time' : 'Frames'}
             </button>
@@ -455,7 +455,7 @@ export const AnimationViewportStage: React.FC = () => {
                 step="0.1"
                 value={timelineZoom}
                 onChange={(e) => setTimelineZoom(parseFloat(e.target.value))}
-                className="w-16 h-1 bg-[#282B33] rounded-lg appearance-none cursor-pointer accent-[#F9CF00]"
+                className="w-16 h-1 bg-[hsl(var(--surface-3))] rounded-lg appearance-none cursor-pointer accent-primary"
               />
               <ZoomIn className="w-3 h-3 text-zinc-500" />
             </div>
@@ -465,7 +465,7 @@ export const AnimationViewportStage: React.FC = () => {
         {/* Tracks Area */}
         <div className="flex-1 flex overflow-hidden">
           {/* Track Headers Column */}
-          <div className="w-36 bg-[#14161B] border-r border-white/[0.06] flex flex-col divide-y divide-white/[0.04] text-[11px]">
+          <div className="w-36 bg-[hsl(var(--surface-1))] border-r border-white/[0.06] flex flex-col divide-y divide-white/[0.04] text-[11px]">
             <div className="h-6 px-3 flex items-center font-bold text-zinc-500 text-[10px] uppercase">
               Tracks
             </div>
@@ -523,7 +523,7 @@ export const AnimationViewportStage: React.FC = () => {
             className="flex-1 relative overflow-x-hidden overflow-y-auto cursor-crosshair divide-y divide-white/[0.04]"
           >
             {/* Time Ruler */}
-            <div className="h-6 bg-[#16181D] relative border-b border-white/[0.06]">
+            <div className="h-6 bg-[hsl(var(--surface-0))] relative border-b border-white/[0.06]">
               {Array.from({ length: 11 }).map((_, i) => {
                 const sec = (i * 0.25).toFixed(2);
                 const pct = (parseFloat(sec) / duration) * 100;
@@ -573,7 +573,7 @@ export const AnimationViewportStage: React.FC = () => {
               return (
                 <div
                   key={track.id}
-                  className={`h-6 relative bg-[#121418] hover:bg-white/[0.01] ${
+                  className={`h-6 relative bg-[hsl(var(--surface-0))] hover:bg-white/[0.01] ${
                     track.isMuted ? 'opacity-30' : ''
                   }`}
                 >
@@ -602,7 +602,7 @@ export const AnimationViewportStage: React.FC = () => {
                         className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rotate-45 border border-white shadow-sm transition-transform hover:scale-150 cursor-pointer z-10"
                         style={{
                           left: `${pct}%`,
-                          backgroundColor: track.color || '#F9CF00',
+                          backgroundColor: track.color || 'hsl(var(--primary))',
                         }}
                       />
                     );
@@ -614,9 +614,9 @@ export const AnimationViewportStage: React.FC = () => {
             {/* Vertical Playhead Scrubber Line */}
             <div
               style={{ left: `${currentScrubPercent}%` }}
-              className="absolute top-0 bottom-0 w-0.5 bg-[#F9CF00] z-20 pointer-events-none shadow-[0_0_8px_rgba(249,207,0,0.8)]"
+              className="absolute top-0 bottom-0 w-0.5 bg-primary z-20 pointer-events-none shadow-[0_0_8px_rgba(249,207,0,0.8)]"
             >
-              <div className="w-3.5 h-3.5 -ml-[6px] -mt-1 bg-[#F9CF00] rounded-sm rotate-45 flex items-center justify-center shadow-lg" />
+              <div className="w-3.5 h-3.5 -ml-[6px] -mt-1 bg-primary rounded-sm rotate-45 flex items-center justify-center shadow-lg" />
             </div>
           </div>
         </div>

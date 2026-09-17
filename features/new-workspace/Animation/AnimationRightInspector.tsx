@@ -288,23 +288,23 @@ export const AnimationRightInspector: React.FC = () => {
   const currentBoneRot = (selectedBone && boneRotations[selectedBone]) || [0, 0, 0];
 
   return (
-    <div className="w-[320px] h-full bg-[#121418] border-l border-white/[0.08] flex flex-col flex-shrink-0 select-none overflow-hidden">
+    <div className="w-[320px] h-full bg-[hsl(var(--surface-0))] border-l border-white/[0.08] flex flex-col flex-shrink-0 select-none overflow-hidden">
       {/* SLEEK INSPECTOR HEADER */}
-      <div className="h-10 px-3 bg-[#0F1014] border-b border-white/[0.08] flex items-center justify-between flex-shrink-0">
+      <div className="h-10 px-3 bg-[hsl(var(--surface-0))] border-b border-white/[0.08] flex items-center justify-between flex-shrink-0">
         <span className="text-xs font-bold text-white flex items-center gap-1.5">
-          {inspectorTab === 'rigging' && <Bone className="w-3.5 h-3.5 text-[#F9CF00]" />}
-          {inspectorTab === 'animation' && <Sparkles className="w-3.5 h-3.5 text-[#F9CF00]" />}
-          {inspectorTab === 'properties' && <Sliders className="w-3.5 h-3.5 text-[#F9CF00]" />}
+          {inspectorTab === 'rigging' && <Bone className="w-3.5 h-3.5 text-primary" />}
+          {inspectorTab === 'animation' && <Sparkles className="w-3.5 h-3.5 text-primary" />}
+          {inspectorTab === 'properties' && <Sliders className="w-3.5 h-3.5 text-primary" />}
           <span>{inspectorTab === 'animation' ? 'Motion AI & Pose' : inspectorTab === 'rigging' ? 'Armature & Rig' : 'Model Properties'}</span>
         </span>
-        <div className="flex items-center gap-1 bg-[#17191F] p-0.5 rounded-lg border border-white/[0.06]">
+        <div className="flex items-center gap-1 bg-[hsl(var(--surface-1))] p-0.5 rounded-lg border border-white/[0.06]">
           {(['properties', 'rigging', 'animation'] as InspectorTab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setInspectorTab(tab)}
               className={`px-2 py-0.5 rounded text-[10px] font-bold capitalize transition-colors cursor-pointer ${
                 inspectorTab === tab
-                  ? 'bg-[#F9CF00] text-black shadow-sm'
+                  ? 'bg-primary text-black shadow-sm'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
@@ -328,15 +328,15 @@ export const AnimationRightInspector: React.FC = () => {
                 className="w-full flex items-center justify-between text-xs font-bold text-zinc-300 mb-2 cursor-pointer"
               >
                 <span className="flex items-center gap-1.5">
-                  <Info className="w-3.5 h-3.5 text-[#F9CF00]" /> Model Info
+                  <Info className="w-3.5 h-3.5 text-primary" /> Model Info
                 </span>
                 {openSections.modelInfo ? <ChevronUp className="w-3 h-3 text-zinc-500" /> : <ChevronDown className="w-3 h-3 text-zinc-500" />}
               </button>
 
               {openSections.modelInfo && (
                 <div className="space-y-2.5 pt-1">
-                  <div className="flex items-center gap-2.5 p-2 bg-[#17191F] border border-white/[0.06] rounded-xl">
-                    <div className="w-10 h-10 rounded-lg bg-[#0F1014] border border-white/[0.08] flex items-center justify-center text-[#F9CF00] flex-shrink-0">
+                  <div className="flex items-center gap-2.5 p-2 bg-[hsl(var(--surface-1))] border border-white/[0.06] rounded-xl">
+                    <div className="w-10 h-10 rounded-lg bg-[hsl(var(--surface-0))] border border-white/[0.08] flex items-center justify-center text-primary flex-shrink-0">
                       <Bone className="w-5 h-5" />
                     </div>
                     <div className="truncate">
@@ -350,19 +350,19 @@ export const AnimationRightInspector: React.FC = () => {
                   </div>
 
                   <div className="grid grid-cols-3 gap-1.5 text-center">
-                    <div className="p-2 bg-[#17191F] border border-white/[0.06] rounded-lg">
+                    <div className="p-2 bg-[hsl(var(--surface-1))] border border-white/[0.06] rounded-lg">
                       <div className="text-[10px] text-zinc-500 uppercase font-semibold">Vertices</div>
                       <div className="text-xs font-bold text-zinc-200 mt-0.5 font-mono">
                         {realVerts > 0 ? realVerts.toLocaleString() : '—'}
                       </div>
                     </div>
-                    <div className="p-2 bg-[#17191F] border border-white/[0.06] rounded-lg">
+                    <div className="p-2 bg-[hsl(var(--surface-1))] border border-white/[0.06] rounded-lg">
                       <div className="text-[10px] text-zinc-500 uppercase font-semibold">Faces</div>
                       <div className="text-xs font-bold text-zinc-200 mt-0.5 font-mono">
                         {realFaces > 0 ? realFaces.toLocaleString() : '—'}
                       </div>
                     </div>
-                    <div className="p-2 bg-[#17191F] border border-white/[0.06] rounded-lg">
+                    <div className="p-2 bg-[hsl(var(--surface-1))] border border-white/[0.06] rounded-lg">
                       <div className="text-[10px] text-zinc-500 uppercase font-semibold">Materials</div>
                       <div className="text-xs font-bold text-zinc-200 mt-0.5 font-mono">
                         {realMats}
@@ -380,7 +380,7 @@ export const AnimationRightInspector: React.FC = () => {
                 className="w-full flex items-center justify-between text-xs font-bold text-zinc-300 mb-2 cursor-pointer"
               >
                 <span className="flex items-center gap-1.5">
-                  <Move className="w-3.5 h-3.5 text-[#F9CF00]" /> Transform
+                  <Move className="w-3.5 h-3.5 text-primary" /> Transform
                 </span>
                 {openSections.transform ? <ChevronUp className="w-3 h-3 text-zinc-500" /> : <ChevronDown className="w-3 h-3 text-zinc-500" />}
               </button>
@@ -392,7 +392,7 @@ export const AnimationRightInspector: React.FC = () => {
                     <div className="text-[10px] font-semibold text-zinc-400">Position</div>
                     <div className="grid grid-cols-3 gap-1">
                       {['X', 'Y', 'Z'].map((axis, i) => (
-                        <div key={axis} className="flex items-center bg-[#17191F] border border-white/[0.06] rounded-lg px-2 py-1">
+                        <div key={axis} className="flex items-center bg-[hsl(var(--surface-1))] border border-white/[0.06] rounded-lg px-2 py-1">
                           <span className="text-[10px] font-bold text-zinc-500 mr-1.5">{axis}</span>
                           <input
                             type="number"
@@ -415,7 +415,7 @@ export const AnimationRightInspector: React.FC = () => {
                     <div className="text-[10px] font-semibold text-zinc-400">Rotation (deg)</div>
                     <div className="grid grid-cols-3 gap-1">
                       {['X', 'Y', 'Z'].map((axis, i) => (
-                        <div key={axis} className="flex items-center bg-[#17191F] border border-white/[0.06] rounded-lg px-2 py-1">
+                        <div key={axis} className="flex items-center bg-[hsl(var(--surface-1))] border border-white/[0.06] rounded-lg px-2 py-1">
                           <span className="text-[10px] font-bold text-zinc-500 mr-1.5">{axis}</span>
                           <input
                             type="number"
@@ -438,7 +438,7 @@ export const AnimationRightInspector: React.FC = () => {
                     <div className="text-[10px] font-semibold text-zinc-400">Scale</div>
                     <div className="grid grid-cols-3 gap-1">
                       {['X', 'Y', 'Z'].map((axis, i) => (
-                        <div key={axis} className="flex items-center bg-[#17191F] border border-white/[0.06] rounded-lg px-2 py-1">
+                        <div key={axis} className="flex items-center bg-[hsl(var(--surface-1))] border border-white/[0.06] rounded-lg px-2 py-1">
                           <span className="text-[10px] font-bold text-zinc-500 mr-1.5">{axis}</span>
                           <input
                             type="number"
@@ -466,7 +466,7 @@ export const AnimationRightInspector: React.FC = () => {
                 className="w-full flex items-center justify-between text-xs font-bold text-zinc-300 mb-2 cursor-pointer"
               >
                 <span className="flex items-center gap-1.5">
-                  <Film className="w-3.5 h-3.5 text-[#F9CF00]" /> Animation Settings
+                  <Film className="w-3.5 h-3.5 text-primary" /> Animation Settings
                 </span>
                 {openSections.animSettings ? <ChevronUp className="w-3 h-3 text-zinc-500" /> : <ChevronDown className="w-3 h-3 text-zinc-500" />}
               </button>
@@ -478,7 +478,7 @@ export const AnimationRightInspector: React.FC = () => {
                     <select
                       value={currentAnimationId}
                       onChange={(e) => setCurrentAnimationId(e.target.value)}
-                      className="w-full bg-[#17191F] border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#F9CF00]/40"
+                      className="w-full bg-[hsl(var(--surface-1))] border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-primary/40"
                     >
                       {animations.map((a) => (
                         <option key={a.id} value={a.id}>
@@ -489,11 +489,11 @@ export const AnimationRightInspector: React.FC = () => {
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="p-2 bg-[#17191F] border border-white/[0.06] rounded-lg">
+                    <div className="p-2 bg-[hsl(var(--surface-1))] border border-white/[0.06] rounded-lg">
                       <span className="text-[10px] text-zinc-500 block">Duration</span>
                       <span className="font-mono font-bold text-zinc-200">{duration.toFixed(2)} s</span>
                     </div>
-                    <div className="p-2 bg-[#17191F] border border-white/[0.06] rounded-lg">
+                    <div className="p-2 bg-[hsl(var(--surface-1))] border border-white/[0.06] rounded-lg">
                       <span className="text-[10px] text-zinc-500 block">Frame Rate</span>
                       <span className="font-mono font-bold text-zinc-200">{fps} FPS</span>
                     </div>
@@ -511,8 +511,8 @@ export const AnimationRightInspector: React.FC = () => {
                           onClick={() => setPlaybackSpeed(spd)}
                           className={`flex-1 py-1 rounded-md text-[10px] font-bold transition-colors cursor-pointer ${
                             playbackSpeed === spd
-                              ? 'bg-[#F9CF00] text-black'
-                              : 'bg-[#17191F] text-zinc-400 hover:text-white border border-white/[0.04]'
+                              ? 'bg-primary text-black'
+                              : 'bg-[hsl(var(--surface-1))] text-zinc-400 hover:text-white border border-white/[0.04]'
                           }`}
                         >
                           {spd}x
@@ -529,7 +529,7 @@ export const AnimationRightInspector: React.FC = () => {
                         type="checkbox"
                         checked={isLooping}
                         onChange={(e) => setIsLooping(e.target.checked)}
-                        className="w-4 h-4 rounded bg-[#17191F] border-white/[0.2] accent-[#F9CF00]"
+                        className="w-4 h-4 rounded bg-[hsl(var(--surface-1))] border-white/[0.2] accent-primary"
                       />
                     </label>
                     <label className="flex items-center justify-between text-xs text-zinc-300 cursor-pointer">
@@ -538,7 +538,7 @@ export const AnimationRightInspector: React.FC = () => {
                         type="checkbox"
                         checked={hasRootMotion}
                         onChange={(e) => setHasRootMotion(e.target.checked)}
-                        className="w-4 h-4 rounded bg-[#17191F] border-white/[0.2] accent-[#F9CF00]"
+                        className="w-4 h-4 rounded bg-[hsl(var(--surface-1))] border-white/[0.2] accent-primary"
                       />
                     </label>
                     <label className="flex items-center justify-between text-xs text-zinc-300 cursor-pointer">
@@ -547,7 +547,7 @@ export const AnimationRightInspector: React.FC = () => {
                         type="checkbox"
                         checked={hasFootLock}
                         onChange={(e) => setHasFootLock(e.target.checked)}
-                        className="w-4 h-4 rounded bg-[#17191F] border-white/[0.2] accent-[#F9CF00]"
+                        className="w-4 h-4 rounded bg-[hsl(var(--surface-1))] border-white/[0.2] accent-primary"
                       />
                     </label>
                   </div>
@@ -562,7 +562,7 @@ export const AnimationRightInspector: React.FC = () => {
                 className="w-full flex items-center justify-between text-xs font-bold text-zinc-300 mb-2 cursor-pointer"
               >
                 <span className="flex items-center gap-1.5">
-                  <Eye className="w-3.5 h-3.5 text-[#F9CF00]" /> Display
+                  <Eye className="w-3.5 h-3.5 text-primary" /> Display
                 </span>
                 {openSections.display ? <ChevronUp className="w-3 h-3 text-zinc-500" /> : <ChevronDown className="w-3 h-3 text-zinc-500" />}
               </button>
@@ -575,7 +575,7 @@ export const AnimationRightInspector: React.FC = () => {
                       type="checkbox"
                       checked={displayOptions.showSkeleton}
                       onChange={() => toggleDisplayOption('showSkeleton')}
-                      className="w-4 h-4 rounded bg-[#17191F] border-white/[0.2] accent-[#F9CF00]"
+                      className="w-4 h-4 rounded bg-[hsl(var(--surface-1))] border-white/[0.2] accent-primary"
                     />
                   </label>
                   <label className="flex items-center justify-between text-xs text-zinc-300 cursor-pointer">
@@ -584,7 +584,7 @@ export const AnimationRightInspector: React.FC = () => {
                       type="checkbox"
                       checked={displayOptions.showGrid}
                       onChange={() => toggleDisplayOption('showGrid')}
-                      className="w-4 h-4 rounded bg-[#17191F] border-white/[0.2] accent-[#F9CF00]"
+                      className="w-4 h-4 rounded bg-[hsl(var(--surface-1))] border-white/[0.2] accent-primary"
                     />
                   </label>
                   <label className="flex items-center justify-between text-xs text-zinc-300 cursor-pointer">
@@ -593,7 +593,7 @@ export const AnimationRightInspector: React.FC = () => {
                       type="checkbox"
                       checked={displayOptions.showGround}
                       onChange={() => toggleDisplayOption('showGround')}
-                      className="w-4 h-4 rounded bg-[#17191F] border-white/[0.2] accent-[#F9CF00]"
+                      className="w-4 h-4 rounded bg-[hsl(var(--surface-1))] border-white/[0.2] accent-primary"
                     />
                   </label>
                   <label className="flex items-center justify-between text-xs text-zinc-300 cursor-pointer">
@@ -602,7 +602,7 @@ export const AnimationRightInspector: React.FC = () => {
                       type="checkbox"
                       checked={displayOptions.showIKTargets}
                       onChange={() => toggleDisplayOption('showIKTargets')}
-                      className="w-4 h-4 rounded bg-[#17191F] border-white/[0.2] accent-[#F9CF00]"
+                      className="w-4 h-4 rounded bg-[hsl(var(--surface-1))] border-white/[0.2] accent-primary"
                     />
                   </label>
                 </div>
@@ -623,7 +623,7 @@ export const AnimationRightInspector: React.FC = () => {
                 className="w-full flex items-center justify-between text-xs font-bold text-zinc-300 mb-2 cursor-pointer"
               >
                 <span className="flex items-center gap-1.5">
-                  <Bone className="w-3.5 h-3.5 text-[#F9CF00]" /> Auto Rig (One-Click)
+                  <Bone className="w-3.5 h-3.5 text-primary" /> Auto Rig (One-Click)
                 </span>
                 {openSections.autoRig ? <ChevronUp className="w-3 h-3 text-zinc-500" /> : <ChevronDown className="w-3 h-3 text-zinc-500" />}
               </button>
@@ -642,7 +642,7 @@ export const AnimationRightInspector: React.FC = () => {
                         else loadRigPreset('humanoid');
                         toast.success(`Loaded ${val} armature template`);
                       }}
-                      className="w-full bg-[#17191F] border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#F9CF00]/40"
+                      className="w-full bg-[hsl(var(--surface-1))] border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-primary/40"
                     >
                       <option value="humanoid">Humanoid (Biped — 17 Bones)</option>
                       <option value="facial">Facial Rig (6 Bones: Head, Jaw, Eyes)</option>
@@ -657,7 +657,7 @@ export const AnimationRightInspector: React.FC = () => {
                         type="checkbox"
                         checked={rigOptions.autoBonePlacement}
                         onChange={(e) => setRigOptions({ autoBonePlacement: e.target.checked })}
-                        className="w-4 h-4 rounded bg-[#17191F] border-white/[0.2] accent-[#F9CF00]"
+                        className="w-4 h-4 rounded bg-[hsl(var(--surface-1))] border-white/[0.2] accent-primary"
                       />
                     </label>
                     <label className="flex items-center justify-between text-xs text-zinc-300 cursor-pointer">
@@ -666,7 +666,7 @@ export const AnimationRightInspector: React.FC = () => {
                         type="checkbox"
                         checked={rigOptions.autoWeights}
                         onChange={(e) => setRigOptions({ autoWeights: e.target.checked })}
-                        className="w-4 h-4 rounded bg-[#17191F] border-white/[0.2] accent-[#F9CF00]"
+                        className="w-4 h-4 rounded bg-[hsl(var(--surface-1))] border-white/[0.2] accent-primary"
                       />
                     </label>
                     <label className="flex items-center justify-between text-xs text-zinc-300 cursor-pointer">
@@ -675,7 +675,7 @@ export const AnimationRightInspector: React.FC = () => {
                         type="checkbox"
                         checked={rigOptions.generateIK}
                         onChange={(e) => setRigOptions({ generateIK: e.target.checked })}
-                        className="w-4 h-4 rounded bg-[#17191F] border-white/[0.2] accent-[#F9CF00]"
+                        className="w-4 h-4 rounded bg-[hsl(var(--surface-1))] border-white/[0.2] accent-primary"
                       />
                     </label>
                     <label className="flex items-center justify-between text-xs text-zinc-300 cursor-pointer">
@@ -684,7 +684,7 @@ export const AnimationRightInspector: React.FC = () => {
                         type="checkbox"
                         checked={rigOptions.validateRig}
                         onChange={(e) => setRigOptions({ validateRig: e.target.checked })}
-                        className="w-4 h-4 rounded bg-[#17191F] border-white/[0.2] accent-[#F9CF00]"
+                        className="w-4 h-4 rounded bg-[hsl(var(--surface-1))] border-white/[0.2] accent-primary"
                       />
                     </label>
                   </div>
@@ -692,7 +692,7 @@ export const AnimationRightInspector: React.FC = () => {
                   <button
                     onClick={handleRunAutoRig}
                     disabled={rigStatus === 'rigging'}
-                    className="w-full py-2.5 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-bold text-xs transition-all shadow-[0_2px_12px_rgba(249,207,0,0.25)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    className="w-full py-2.5 rounded-xl bg-primary hover:bg-[hsl(var(--primary)/0.9)] text-black font-bold text-xs transition-all shadow-[0_2px_12px_rgba(249,207,0,0.25)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                   >
                     <Bone className="w-4 h-4" />
                     {rigStatus === 'rigging' ? 'Running Blender Auto-Rig...' : 'Auto Rig Model'}
@@ -708,7 +708,7 @@ export const AnimationRightInspector: React.FC = () => {
                 className="w-full flex items-center justify-between text-xs font-bold text-zinc-300 mb-2 cursor-pointer"
               >
                 <span className="flex items-center gap-1.5">
-                  <GitBranch className="w-3.5 h-3.5 text-[#F9CF00]" /> Manual Bone Tools
+                  <GitBranch className="w-3.5 h-3.5 text-primary" /> Manual Bone Tools
                 </span>
                 {openSections.manualRig ? <ChevronUp className="w-3 h-3 text-zinc-500" /> : <ChevronDown className="w-3 h-3 text-zinc-500" />}
               </button>
@@ -729,11 +729,11 @@ export const AnimationRightInspector: React.FC = () => {
                     }}
                     className={`w-full py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                       isPlacingBone
-                        ? 'bg-[#F9CF00] text-black shadow-[0_0_12px_rgba(249,207,0,0.4)] animate-pulse'
-                        : 'bg-[#1C1F26] hover:bg-[#252933] text-zinc-200 border border-white/[0.08]'
+                        ? 'bg-primary text-black shadow-[0_0_12px_rgba(249,207,0,0.4)] animate-pulse'
+                        : 'bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-3))] text-zinc-200 border border-white/[0.08]'
                     }`}
                   >
-                    <Plus className="w-3.5 h-3.5 text-[#F9CF00]" />
+                    <Plus className="w-3.5 h-3.5 text-primary" />
                     {isPlacingBone ? 'Click on 3D Mesh to Place (Active)' : 'Place Bone on 3D Mesh'}
                   </button>
 
@@ -758,7 +758,7 @@ export const AnimationRightInspector: React.FC = () => {
                         });
                         toast.success(`Extruded child bone from ${selectedBone}`);
                       }}
-                      className="p-1.5 rounded-lg bg-[#17191F] hover:bg-[#20232B] border border-white/[0.06] text-xs text-zinc-300 font-semibold flex items-center justify-center gap-1 cursor-pointer"
+                      className="p-1.5 rounded-lg bg-[hsl(var(--surface-1))] hover:bg-[hsl(var(--surface-2))] border border-white/[0.06] text-xs text-zinc-300 font-semibold flex items-center justify-center gap-1 cursor-pointer"
                     >
                       <GitBranch className="w-3 h-3 text-sky-400" /> Extrude Child
                     </button>
@@ -771,7 +771,7 @@ export const AnimationRightInspector: React.FC = () => {
                         deleteBone(selectedBone);
                         toast.success(`Deleted bone ${selectedBone}`);
                       }}
-                      className="p-1.5 rounded-lg bg-[#17191F] hover:bg-[#20232B] border border-white/[0.06] text-xs text-zinc-300 font-semibold flex items-center justify-center gap-1 cursor-pointer"
+                      className="p-1.5 rounded-lg bg-[hsl(var(--surface-1))] hover:bg-[hsl(var(--surface-2))] border border-white/[0.06] text-xs text-zinc-300 font-semibold flex items-center justify-center gap-1 cursor-pointer"
                     >
                       <Trash2 className="w-3 h-3 text-rose-400" /> Delete Bone
                     </button>
@@ -780,7 +780,7 @@ export const AnimationRightInspector: React.FC = () => {
                         mirrorPose();
                         toast.info('Mirrored arm/leg rotations across X-axis');
                       }}
-                      className="p-1.5 rounded-lg bg-[#17191F] hover:bg-[#20232B] border border-white/[0.06] text-xs text-zinc-300 font-semibold flex items-center justify-center gap-1 cursor-pointer"
+                      className="p-1.5 rounded-lg bg-[hsl(var(--surface-1))] hover:bg-[hsl(var(--surface-2))] border border-white/[0.06] text-xs text-zinc-300 font-semibold flex items-center justify-center gap-1 cursor-pointer"
                     >
                       <Copy className="w-3 h-3 text-sky-400" /> Mirror Bones
                     </button>
@@ -789,14 +789,14 @@ export const AnimationRightInspector: React.FC = () => {
                         resetPose();
                         toast.info('Reset all bone rotations to default');
                       }}
-                      className="p-1.5 rounded-lg bg-[#17191F] hover:bg-[#20232B] border border-white/[0.06] text-xs text-zinc-300 font-semibold flex items-center justify-center gap-1 cursor-pointer"
+                      className="p-1.5 rounded-lg bg-[hsl(var(--surface-1))] hover:bg-[hsl(var(--surface-2))] border border-white/[0.06] text-xs text-zinc-300 font-semibold flex items-center justify-center gap-1 cursor-pointer"
                     >
                       <RotateCcw className="w-3 h-3 text-amber-400" /> Reset Pose
                     </button>
                   </div>
 
                   {/* Bone Hierarchy List */}
-                  <div className="mt-2 border border-white/[0.06] rounded-xl bg-[#15171D] p-2 max-h-36 overflow-y-auto">
+                  <div className="mt-2 border border-white/[0.06] rounded-xl bg-[hsl(var(--surface-1))] p-2 max-h-36 overflow-y-auto">
                     <div className="text-[10px] font-bold text-zinc-500 uppercase mb-1">Armature Hierarchy ({bones.length})</div>
                     {bones.map((b) => (
                       <div
@@ -804,7 +804,7 @@ export const AnimationRightInspector: React.FC = () => {
                         onClick={() => setSelectedBone(b.name)}
                         className={`text-xs px-2 py-1 rounded-md flex items-center justify-between cursor-pointer transition-colors ${
                           selectedBone === b.name
-                            ? 'bg-[#F9CF00] text-black font-bold'
+                            ? 'bg-primary text-black font-bold'
                             : 'text-zinc-300 hover:bg-white/[0.04]'
                         }`}
                       >
@@ -816,9 +816,9 @@ export const AnimationRightInspector: React.FC = () => {
 
                   {/* Selected Bone Properties Panel */}
                   {activeBone && (
-                    <div className="mt-3 p-2.5 bg-[#17191F] border border-[#F9CF00]/30 rounded-xl space-y-2.5">
+                    <div className="mt-3 p-2.5 bg-[hsl(var(--surface-1))] border border-primary/30 rounded-xl space-y-2.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-[#F9CF00] uppercase tracking-wider">
+                        <span className="text-[10px] font-bold text-primary uppercase tracking-wider">
                           Joint: {activeBone.name}
                         </span>
                         <span className="text-[9px] text-zinc-500 font-mono">
@@ -845,7 +845,7 @@ export const AnimationRightInspector: React.FC = () => {
                               (e.target as HTMLInputElement).blur();
                             }
                           }}
-                          className="w-full bg-[#121418] border border-white/[0.1] rounded-lg px-2 py-1 text-xs text-white font-mono focus:outline-none focus:border-[#F9CF00]"
+                          className="w-full bg-[hsl(var(--surface-0))] border border-white/[0.1] rounded-lg px-2 py-1 text-xs text-white font-mono focus:outline-none focus:border-primary"
                         />
                       </div>
 
@@ -858,7 +858,7 @@ export const AnimationRightInspector: React.FC = () => {
                             updateBoneParent(activeBone.name, e.target.value || null);
                             toast.info(`Parent set to ${e.target.value || 'Root'}`);
                           }}
-                          className="w-full bg-[#121418] border border-white/[0.1] rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-[#F9CF00]"
+                          className="w-full bg-[hsl(var(--surface-0))] border border-white/[0.1] rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-primary"
                         >
                           <option value="">None (Root Bone)</option>
                           {bones
@@ -881,7 +881,7 @@ export const AnimationRightInspector: React.FC = () => {
                           {(['X', 'Y', 'Z'] as const).map((axis, axisIdx) => {
                             const val = activeBone.position[axisIdx];
                             return (
-                              <div key={axis} className="bg-[#121418] border border-white/[0.08] rounded-lg p-1 text-center">
+                              <div key={axis} className="bg-[hsl(var(--surface-0))] border border-white/[0.08] rounded-lg p-1 text-center">
                                 <div className="text-[9px] font-bold text-zinc-400 flex items-center justify-between px-1">
                                   <span>{axis}</span>
                                   <div className="flex gap-0.5">
@@ -932,7 +932,7 @@ export const AnimationRightInspector: React.FC = () => {
 
             {/* Rig Status Card */}
             <div className="p-3">
-              <div className="p-3 bg-[#17191F] border border-white/[0.08] rounded-xl space-y-1.5 text-xs">
+              <div className="p-3 bg-[hsl(var(--surface-1))] border border-white/[0.08] rounded-xl space-y-1.5 text-xs">
                 <div className="text-[10px] font-bold text-zinc-500 uppercase">Armature Diagnostics</div>
                 <div className="flex justify-between text-zinc-300">
                   <span>Status:</span>
@@ -944,7 +944,7 @@ export const AnimationRightInspector: React.FC = () => {
                 </div>
                 <div className="flex justify-between text-zinc-300">
                   <span>Bone Count:</span>
-                  <span className="font-mono font-bold text-[#F9CF00]">{bones.length} bones</span>
+                  <span className="font-mono font-bold text-primary">{bones.length} bones</span>
                 </div>
                 <div className="flex justify-between text-zinc-300">
                   <span>Skinning Type:</span>
@@ -971,7 +971,7 @@ export const AnimationRightInspector: React.FC = () => {
                 className="w-full flex items-center justify-between text-xs font-bold text-zinc-300 mb-2 cursor-pointer"
               >
                 <span className="flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-[#F9CF00]" /> AI Motion Generator
+                  <Sparkles className="w-3.5 h-3.5 text-primary" /> AI Motion Generator
                 </span>
                 {openSections.motionAi ? <ChevronUp className="w-3 h-3 text-zinc-500" /> : <ChevronDown className="w-3 h-3 text-zinc-500" />}
               </button>
@@ -979,9 +979,9 @@ export const AnimationRightInspector: React.FC = () => {
               {openSections.motionAi && (
                 <div className="space-y-3 pt-1">
                   {/* ARDY Engine Pill (Mandatory: NO model selector) */}
-                  <div className="flex items-center justify-between px-2.5 py-1.5 bg-[#17191F] border border-white/[0.06] rounded-lg">
+                  <div className="flex items-center justify-between px-2.5 py-1.5 bg-[hsl(var(--surface-1))] border border-white/[0.06] rounded-lg">
                     <span className="text-[11px] text-zinc-400">Engine</span>
-                    <span className="text-xs font-bold text-[#F9CF00] flex items-center gap-1">
+                    <span className="text-xs font-bold text-primary flex items-center gap-1">
                       <Wand2 className="w-3 h-3" /> Motion AI • ARDY
                     </span>
                   </div>
@@ -996,7 +996,7 @@ export const AnimationRightInspector: React.FC = () => {
                       onChange={(e) => setMotionAiPrompt(e.target.value)}
                       rows={3}
                       placeholder="e.g. Character walks forward and waves with the right hand."
-                      className="w-full p-2.5 bg-[#17191F] border border-white/[0.08] rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#F9CF00]/50 resize-none"
+                      className="w-full p-2.5 bg-[hsl(var(--surface-1))] border border-white/[0.08] rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-primary/50 resize-none"
                     />
 
                     {/* Quick Prompt Presets */}
@@ -1031,7 +1031,7 @@ export const AnimationRightInspector: React.FC = () => {
                       step="0.5"
                       value={motionAiDuration}
                       onChange={(e) => setMotionAiDuration(parseFloat(e.target.value))}
-                      className="w-full h-1 bg-[#282B33] rounded-lg appearance-none cursor-pointer accent-[#F9CF00]"
+                      className="w-full h-1 bg-[#282B33] rounded-lg appearance-none cursor-pointer accent-primary"
                     />
                   </div>
 
@@ -1039,7 +1039,7 @@ export const AnimationRightInspector: React.FC = () => {
                   <button
                     onClick={handleGenerateMotion}
                     disabled={motionAiIsGenerating}
-                    className="w-full py-2.5 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-bold text-xs transition-all shadow-[0_2px_12px_rgba(249,207,0,0.25)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    className="w-full py-2.5 rounded-xl bg-primary hover:bg-[hsl(var(--primary)/0.9)] text-black font-bold text-xs transition-all shadow-[0_2px_12px_rgba(249,207,0,0.25)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                   >
                     <Sparkles className="w-4 h-4" />
                     {motionAiIsGenerating ? 'Synthesizing with ARDY...' : 'Generate Motion'}
@@ -1047,15 +1047,15 @@ export const AnimationRightInspector: React.FC = () => {
 
                   {/* Real Status Progression */}
                   {motionAiIsGenerating && (
-                    <div className="p-2.5 bg-[#17191F] border border-white/[0.06] rounded-xl space-y-1.5">
+                    <div className="p-2.5 bg-[hsl(var(--surface-1))] border border-white/[0.06] rounded-xl space-y-1.5">
                       <div className="flex justify-between text-[10px]">
                         <span className="text-zinc-400">{motionAiStage}</span>
-                        <span className="font-mono font-bold text-[#F9CF00]">{motionAiProgress}%</span>
+                        <span className="font-mono font-bold text-primary">{motionAiProgress}%</span>
                       </div>
-                      <div className="h-1 bg-[#0F1014] rounded-full overflow-hidden">
+                      <div className="h-1 bg-[hsl(var(--surface-0))] rounded-full overflow-hidden">
                         <div
                           style={{ width: `${motionAiProgress}%` }}
-                          className="h-full bg-[#F9CF00] transition-all duration-300"
+                          className="h-full bg-primary transition-all duration-300"
                         />
                       </div>
                     </div>
@@ -1071,7 +1071,7 @@ export const AnimationRightInspector: React.FC = () => {
                 className="w-full flex items-center justify-between text-xs font-bold text-zinc-300 mb-2 cursor-pointer"
               >
                 <span className="flex items-center gap-1.5">
-                  <Move className="w-3.5 h-3.5 text-[#F9CF00]" /> Pose Editor
+                  <Move className="w-3.5 h-3.5 text-primary" /> Pose Editor
                 </span>
                 {openSections.poseEditor ? <ChevronUp className="w-3 h-3 text-zinc-500" /> : <ChevronDown className="w-3 h-3 text-zinc-500" />}
               </button>
@@ -1083,7 +1083,7 @@ export const AnimationRightInspector: React.FC = () => {
                     <select
                       value={selectedBone || 'Hips'}
                       onChange={(e) => setSelectedBone(e.target.value)}
-                      className="w-full bg-[#17191F] border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#F9CF00]/40"
+                      className="w-full bg-[hsl(var(--surface-1))] border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-primary/40"
                     >
                       {bones.map((b) => (
                         <option key={b.name} value={b.name}>
@@ -1113,7 +1113,7 @@ export const AnimationRightInspector: React.FC = () => {
                             newRot[idx] = parseInt(e.target.value);
                             setBoneRotation(selectedBone, newRot);
                           }}
-                          className="w-full h-1 bg-[#282B33] rounded-lg appearance-none cursor-pointer accent-[#F9CF00]"
+                          className="w-full h-1 bg-[#282B33] rounded-lg appearance-none cursor-pointer accent-primary"
                         />
                       </div>
                     ))}
@@ -1141,13 +1141,13 @@ export const AnimationRightInspector: React.FC = () => {
                           description: `Recorded ${bName || 'pose'} on ${targetTrack?.name || 'Body'} track at ${currentTime.toFixed(2)}s`,
                         });
                       }}
-                      className="py-2 rounded-lg bg-[#22252C] hover:bg-[#2C3038] text-xs font-bold text-[#F9CF00] border border-[#F9CF00]/30 transition-colors cursor-pointer"
+                      className="py-2 rounded-lg bg-[hsl(var(--surface-2))] hover:bg-[#2C3038] text-xs font-bold text-primary border border-primary/30 transition-colors cursor-pointer"
                     >
                       + Add Keyframe
                     </button>
                     <button
                       onClick={resetPose}
-                      className="py-2 rounded-lg bg-[#17191F] hover:bg-[#20232B] text-xs font-semibold text-zinc-300 border border-white/[0.06] transition-colors cursor-pointer"
+                      className="py-2 rounded-lg bg-[hsl(var(--surface-1))] hover:bg-[hsl(var(--surface-2))] text-xs font-semibold text-zinc-300 border border-white/[0.06] transition-colors cursor-pointer"
                     >
                       Reset Pose
                     </button>
@@ -1163,7 +1163,7 @@ export const AnimationRightInspector: React.FC = () => {
                 className="w-full flex items-center justify-between text-xs font-bold text-zinc-300 mb-2 cursor-pointer"
               >
                 <span className="flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-[#F9CF00]" /> Animation Mixer
+                  <Layers className="w-3.5 h-3.5 text-primary" /> Animation Mixer
                 </span>
                 {openSections.mixer ? <ChevronUp className="w-3 h-3 text-zinc-500" /> : <ChevronDown className="w-3 h-3 text-zinc-500" />}
               </button>
@@ -1175,7 +1175,7 @@ export const AnimationRightInspector: React.FC = () => {
                     <select
                       value={blendState.animA}
                       onChange={(e) => setBlendState({ animA: e.target.value })}
-                      className="w-full bg-[#17191F] border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
+                      className="w-full bg-[hsl(var(--surface-1))] border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
                     >
                       {animations.map((a) => (
                         <option key={a.id} value={a.id}>
@@ -1190,7 +1190,7 @@ export const AnimationRightInspector: React.FC = () => {
                     <select
                       value={blendState.animB}
                       onChange={(e) => setBlendState({ animB: e.target.value })}
-                      className="w-full bg-[#17191F] border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
+                      className="w-full bg-[hsl(var(--surface-1))] border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
                     >
                       {animations.map((a) => (
                         <option key={a.id} value={a.id}>
@@ -1212,7 +1212,7 @@ export const AnimationRightInspector: React.FC = () => {
                       step="0.05"
                       value={blendState.weight}
                       onChange={(e) => setBlendState({ weight: parseFloat(e.target.value) })}
-                      className="w-full h-1 bg-[#282B33] rounded-lg appearance-none cursor-pointer accent-[#F9CF00]"
+                      className="w-full h-1 bg-[#282B33] rounded-lg appearance-none cursor-pointer accent-primary"
                     />
                   </div>
 
@@ -1225,7 +1225,7 @@ export const AnimationRightInspector: React.FC = () => {
                         description: `Blending ${Math.round((1 - blendState.weight) * 100)}% ${clipA?.name || 'Clip A'} + ${Math.round(blendState.weight * 100)}% ${clipB?.name || 'Clip B'}`,
                       });
                     }}
-                    className="w-full py-2 rounded-lg bg-[#22252C] hover:bg-[#2C3038] text-xs font-bold text-white transition-colors cursor-pointer"
+                    className="w-full py-2 rounded-lg bg-[hsl(var(--surface-2))] hover:bg-[#2C3038] text-xs font-bold text-white transition-colors cursor-pointer"
                   >
                     Preview Blend Transition
                   </button>

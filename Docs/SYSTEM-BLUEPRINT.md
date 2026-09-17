@@ -338,3 +338,25 @@ curl http://localhost:8000/api/v1/admin/providers
 # 4. Verify 3D Quality Pipeline & Export Integration
 python3 scripts/test_pipeline_and_export.py
 ```
+
+---
+
+## 9. Frontend Studio Architecture & Acceleration
+
+The Next.js 16 App Router interface is designed for real-time 3D generation, animation, and asset management:
+
+### 1. Dual-Scope Navigation Rail
+- **Studio Views**: Full-page administrative and library hubs (`Overview`, `Assets`, `System`). Docked cleanly at `md:left-[72px]`.
+- **3D Generation Tools**: Contextual interactive overlays (`Model`, `Poly`, `Texture`, `Animate`, `Segment`) with stateful properties inspector.
+- **Top Header Tabs**: Animated layout pill indicator (`motion/react` `layoutId="topNavActiveIndicator"`) providing instant, fluid route transitions between Home, 3D Studio, Animation & Rigging, Assets, and System telemetry.
+
+### 2. Multi-Modal Generation Inputs (`GeneratePanel.tsx`)
+- **Single Image Mode (`subAction === 'image'`)**: Clean drag-and-drop reference image upload with sample loader.
+- **Multi-View 4-Angle Mode (`subAction === 'crop'`)**: 4 orthogonal perspective capture slots (`Front*`, `Right`, `Back`, `Left`) synchronized with `generationSettings.multiviewImages`.
+- **Text-to-3D Workshop (`subAction === 'wand'`)**: Direct prompt engineering with "Inspire Me" / Roll Random Idea generation and collapsible Negative Prompt configuration.
+- **2D Concept Sketchpad Canvas (`subAction === 'edit'`)**: Interactive HTML5 drawing pad with brush/eraser, custom color palette, and direct "Use as 3D Reference" pipeline integration.
+
+### 3. Server-Side Rendering (SSR) Acceleration
+- **Dynamic Bailout Elimination**: Standard panels render with direct imports instead of `next/dynamic` with `ssr: false`, ensuring instantaneous First Contentful Paint (FCP) and seamless hydration.
+- **Strict Client Boundaries**: Root App Router pages maintain clean `'use client'` wrappers to protect client-only Three.js and state contexts while streaming static markup.
+

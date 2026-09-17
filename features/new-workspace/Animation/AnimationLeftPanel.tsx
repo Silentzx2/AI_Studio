@@ -193,7 +193,7 @@ export const AnimationLeftPanel: React.FC = () => {
   };
 
   return (
-    <div className="w-[300px] h-full bg-[#121418] border-r border-white/[0.08] flex flex-col flex-shrink-0 select-none overflow-hidden">
+    <div className="w-[300px] h-full bg-[hsl(var(--surface-0))] border-r border-white/[0.08] flex flex-col flex-shrink-0 select-none overflow-hidden">
       {/* Hidden File Input for Replace / Import */}
       <input
         ref={fileInputRef}
@@ -208,7 +208,7 @@ export const AnimationLeftPanel: React.FC = () => {
         <div className="p-3 space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-zinc-300 tracking-wide flex items-center gap-1.5">
-              <Box className="w-3.5 h-3.5 text-[#F9CF00]" />
+              <Box className="w-3.5 h-3.5 text-primary" />
               Model & Assets
             </span>
             <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
@@ -217,11 +217,11 @@ export const AnimationLeftPanel: React.FC = () => {
           </div>
 
           {/* Active Model Card */}
-          <div className="p-2.5 bg-[#17191F] border border-white/[0.08] rounded-xl hover:border-white/[0.15] transition-all">
+          <div className="p-2.5 bg-[hsl(var(--surface-1))] border border-white/[0.08] rounded-xl hover:border-white/[0.15] transition-all">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-lg bg-[#0F1014] border border-white/[0.06] flex items-center justify-center flex-shrink-0 overflow-hidden relative group">
-                <Box className="w-6 h-6 text-[#F9CF00] transition-transform group-hover:scale-110" />
-                <div className="absolute inset-0 bg-[#F9CF00]/5 pointer-events-none" />
+              <div className="w-12 h-12 rounded-lg bg-[hsl(var(--surface-0))] border border-white/[0.06] flex items-center justify-center flex-shrink-0 overflow-hidden relative group">
+                <Box className="w-6 h-6 text-primary transition-transform group-hover:scale-110" />
+                <div className="absolute inset-0 bg-primary/5 pointer-events-none" />
               </div>
               <div className="flex-1 min-w-0">
                 <h4 className="text-xs font-bold text-white truncate">{currentModelName}</h4>
@@ -231,13 +231,13 @@ export const AnimationLeftPanel: React.FC = () => {
                 <div className="flex items-center gap-1.5 mt-1.5">
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-2 py-0.5 text-[10px] font-semibold bg-[#22252C] hover:bg-[#2B2F38] text-zinc-200 border border-white/[0.08] rounded-md transition-colors cursor-pointer"
+                    className="px-2 py-0.5 text-[10px] font-semibold bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-3))] text-zinc-200 border border-white/[0.08] rounded-md transition-colors cursor-pointer"
                   >
                     Replace
                   </button>
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-2 py-0.5 text-[10px] font-semibold bg-[#22252C] hover:bg-[#2B2F38] text-zinc-200 border border-white/[0.08] rounded-md transition-colors flex items-center gap-0.5 cursor-pointer"
+                    className="px-2 py-0.5 text-[10px] font-semibold bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-3))] text-zinc-200 border border-white/[0.08] rounded-md transition-colors flex items-center gap-0.5 cursor-pointer"
                   >
                     <Plus className="w-2.5 h-2.5" /> Import
                   </button>
@@ -256,7 +256,7 @@ export const AnimationLeftPanel: React.FC = () => {
           </div>
 
           {displayModels.length === 0 ? (
-            <div className="p-4 text-center border border-dashed border-white/[0.08] rounded-xl bg-[#14161D]/50 my-1">
+            <div className="p-4 text-center border border-dashed border-white/[0.08] rounded-xl bg-[hsl(var(--surface-1))]/50 my-1">
               <FolderOpen className="w-6 h-6 text-zinc-500 mx-auto mb-2" />
               <div className="text-xs font-bold text-zinc-300">No Models in Project</div>
               <p className="text-[10px] text-zinc-500 mt-1 mb-2.5">
@@ -264,7 +264,7 @@ export const AnimationLeftPanel: React.FC = () => {
               </p>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="px-3 py-1.5 rounded-lg bg-[#F9CF00] hover:bg-[#ffe033] text-black font-bold text-xs transition-colors cursor-pointer"
+                className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs transition-colors cursor-pointer"
               >
                 Upload 3D Model
               </button>
@@ -282,14 +282,14 @@ export const AnimationLeftPanel: React.FC = () => {
                     onClick={() => handleSelectModel(model)}
                     className={`w-full p-2 rounded-xl text-left transition-all flex items-center justify-between gap-2 border cursor-pointer ${
                       isSelected
-                        ? 'bg-[#1D2028] border-[#F9CF00]/50 text-white shadow-sm'
-                        : 'bg-[#15171D] border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[#1A1C23]'
+                        ? 'bg-[hsl(var(--surface-2))] border-primary/50 text-white shadow-sm'
+                        : 'bg-[hsl(var(--surface-1))] border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[hsl(var(--surface-2))]'
                     }`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <div
                         className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                          isSelected ? 'bg-[#F9CF00]' : 'bg-zinc-600'
+                          isSelected ? 'bg-primary' : 'bg-zinc-600'
                         }`}
                       />
                       <div className="truncate">
@@ -304,7 +304,7 @@ export const AnimationLeftPanel: React.FC = () => {
                         {model.format}
                       </span>
                       {isSelected && (
-                        <Check className="w-3.5 h-3.5 text-[#F9CF00] flex-shrink-0" />
+                        <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" />
                       )}
                     </div>
                   </button>
@@ -322,9 +322,9 @@ export const AnimationLeftPanel: React.FC = () => {
             </span>
             <button
               onClick={handleAddCustomAnimation}
-              className="px-2 py-0.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-[#F9CF00] hover:text-[#ffe033] text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+              className="px-2 py-0.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-primary hover:text-primary/90 text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
             >
-              <Plus className="w-3 h-3" /> Add
+              <Plus className="w-3.5 h-3.5" /> Add
             </button>
           </div>
 
@@ -336,7 +336,7 @@ export const AnimationLeftPanel: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search animations..."
-              className="w-full pl-8 pr-2.5 py-1.5 rounded-lg bg-[#17191F] border border-white/[0.08] text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#F9CF00]/50"
+              className="w-full pl-8 pr-2.5 py-1.5 rounded-lg bg-[hsl(var(--surface-1))] border border-white/[0.08] text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-primary/50"
             />
           </div>
 
@@ -351,8 +351,8 @@ export const AnimationLeftPanel: React.FC = () => {
                   onClick={() => setSelectedCategory(cat)}
                   className={`px-2 py-1 rounded-md text-[10px] font-semibold transition-all cursor-pointer flex items-center gap-1 ${
                     isActive
-                      ? 'bg-[#F9CF00] text-black font-bold'
-                      : 'bg-[#181A20] text-zinc-400 hover:text-white hover:bg-[#20222A] border border-white/[0.04]'
+                      ? 'bg-primary text-primary-foreground font-bold'
+                      : 'bg-[hsl(var(--surface-1))] text-zinc-400 hover:text-white hover:bg-[hsl(var(--surface-2))] border border-white/[0.04]'
                   }`}
                 >
                   <span>{cat}</span>
@@ -374,8 +374,8 @@ export const AnimationLeftPanel: React.FC = () => {
                   onClick={() => setCurrentAnimationId(clip.id)}
                   className={`w-full p-2 rounded-xl text-left transition-all flex items-center justify-between border cursor-pointer ${
                     isActive
-                      ? 'bg-[#1E2129] border-[#F9CF00]/50 text-white shadow-sm'
-                      : 'bg-[#15171D] border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[#191B22]'
+                      ? 'bg-[hsl(var(--surface-2))] border-primary/50 text-white shadow-sm'
+                      : 'bg-[hsl(var(--surface-1))] border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[hsl(var(--surface-2))]'
                   }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
@@ -387,8 +387,8 @@ export const AnimationLeftPanel: React.FC = () => {
                       }}
                       className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
                         isActive && isPlaying
-                          ? 'bg-[#F9CF00] text-black'
-                          : 'bg-[#22252C] text-zinc-300 hover:bg-[#2A2E38]'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-[hsl(var(--surface-2))] text-zinc-300 hover:bg-[hsl(var(--surface-3))]'
                       }`}
                     >
                       {isActive && isPlaying ? (
@@ -409,7 +409,7 @@ export const AnimationLeftPanel: React.FC = () => {
                     </div>
                   </div>
                   {isActive && (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#F9CF00]/10 text-[#F9CF00] border border-[#F9CF00]/20 flex-shrink-0">
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 flex-shrink-0">
                       Active
                     </span>
                   )}

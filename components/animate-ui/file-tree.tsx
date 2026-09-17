@@ -4,6 +4,7 @@ import * as React from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Folder, FolderOpen, FileText, ChevronRight, HardDrive, Cpu } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MOTION_FAST, MOTION_BASE } from '@/lib/motion';
 
 export interface FileTreeNode {
   id: string;
@@ -51,7 +52,7 @@ const TreeItem: React.FC<{
         className={cn(
           'flex items-center justify-between py-1.5 pr-2 rounded-lg cursor-pointer transition-colors group',
           isSelected
-            ? 'bg-[#F9CF00]/15 text-[#F9CF00] font-semibold border border-[#F9CF00]/25'
+            ? 'bg-primary/15 text-primary font-semibold border border-primary/25'
             : 'hover:bg-white/[0.05] text-zinc-300 hover:text-white'
         )}
       >
@@ -60,7 +61,7 @@ const TreeItem: React.FC<{
           {isFolder ? (
             <motion.span
               animate={!prefersReducedMotion ? { rotate: isExpanded ? 90 : 0 } : undefined}
-              transition={{ duration: 0.15 }}
+              transition={MOTION_FAST}
               className="text-zinc-500 group-hover:text-zinc-300 w-3.5 h-3.5 flex items-center justify-center flex-shrink-0"
             >
               <ChevronRight className="w-3.5 h-3.5" />
@@ -72,9 +73,9 @@ const TreeItem: React.FC<{
           {/* Icon */}
           {isFolder ? (
             isExpanded ? (
-              <FolderOpen className="w-3.5 h-3.5 text-[#F9CF00] flex-shrink-0" />
+              <FolderOpen className="w-3.5 h-3.5 text-primary flex-shrink-0" />
             ) : (
-              <Folder className="w-3.5 h-3.5 text-[#F9CF00]/70 flex-shrink-0" />
+              <Folder className="w-3.5 h-3.5 text-primary/70 flex-shrink-0" />
             )
           ) : (
             <FileText className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
@@ -105,7 +106,7 @@ const TreeItem: React.FC<{
               initial={prefersReducedMotion ? { opacity: 1 } : { height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={prefersReducedMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
+              transition={MOTION_BASE}
               className="overflow-hidden border-l border-white/[0.06] ml-3"
             >
               {node.children!.map((child) => (
@@ -136,7 +137,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
   return (
     <div
       className={cn(
-        'rounded-xl border border-white/[0.08] bg-[#121418] p-2 space-y-0.5 overflow-hidden',
+        'rounded-xl border border-white/[0.08] bg-surface-1 p-2 space-y-0.5 overflow-hidden',
         className
       )}
     >

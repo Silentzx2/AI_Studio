@@ -4,6 +4,7 @@ import * as React from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { ZoomIn, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MOTION_BASE, MOTION_SPRING } from '@/lib/motion';
 
 export interface ImageZoomProps {
   src: string;
@@ -57,7 +58,7 @@ export const ImageZoom: React.FC<ImageZoomProps> = ({
         <div
           onClick={() => setIsOpen(true)}
           className={cn(
-            'relative group overflow-hidden rounded-xl cursor-pointer border border-white/[0.08] bg-[#101215]',
+            'relative group overflow-hidden rounded-xl cursor-pointer border border-white/[0.08] bg-surface-0',
             className
           )}
         >
@@ -83,7 +84,7 @@ export const ImageZoom: React.FC<ImageZoomProps> = ({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
+              transition={MOTION_BASE}
               onClick={() => setIsOpen(false)}
               className="absolute inset-0 bg-black/85 backdrop-blur-md cursor-pointer"
             />
@@ -93,8 +94,8 @@ export const ImageZoom: React.FC<ImageZoomProps> = ({
               initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.9 }}
-              transition={{ type: 'spring', stiffness: 350, damping: 28 }}
-              className="relative z-10 max-w-4xl max-h-[85vh] rounded-2xl overflow-hidden border border-white/[0.12] bg-[#14161A] shadow-2xl flex flex-col"
+              transition={MOTION_SPRING}
+              className="relative z-10 max-w-4xl max-h-[85vh] rounded-2xl overflow-hidden border border-white/[0.12] bg-surface-1 shadow-2xl flex flex-col"
             >
               {/* Close button */}
               <button

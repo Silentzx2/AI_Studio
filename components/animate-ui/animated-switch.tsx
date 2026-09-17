@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { MOTION_SPRING } from '@/lib/motion';
 
 export interface AnimatedSwitchProps {
   checked: boolean;
@@ -22,7 +23,7 @@ export const AnimatedSwitch: React.FC<AnimatedSwitchProps> = ({
   disabled = false,
   label,
   description,
-  activeColor = 'bg-[#F9CF00]',
+  activeColor = 'bg-primary',
   size = 'md',
   className = '',
   id,
@@ -89,9 +90,9 @@ export const AnimatedSwitch: React.FC<AnimatedSwitchProps> = ({
         onClick={toggle}
         onKeyDown={handleKeyDown}
         className={cn(
-          'relative inline-flex items-center rounded-full transition-colors duration-200 cursor-pointer border border-white/[0.08] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F9CF00]/50 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0',
+          'relative inline-flex items-center rounded-full transition-colors duration-200 cursor-pointer border border-white/[0.08] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0',
           trackSizes[size],
-          checked ? activeColor : 'bg-[#1C1E23]'
+          checked ? activeColor : 'bg-surface-2'
         )}
       >
         <motion.span
@@ -99,7 +100,7 @@ export const AnimatedSwitch: React.FC<AnimatedSwitchProps> = ({
           transition={
             prefersReducedMotion
               ? { duration: 0 }
-              : { type: 'spring', stiffness: 500, damping: 30 }
+              : MOTION_SPRING
           }
           animate={{ x: checked ? thumbTranslates[size] : 0 }}
           className={cn(

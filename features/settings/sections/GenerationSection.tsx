@@ -290,7 +290,7 @@ export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: 
                 <AnimatedSwitch
                   checked={lowVram}
                   onCheckedChange={(checked) => handleToggleLowVram(checked)}
-                  activeColor="bg-[#F9CF00]"
+                  activeColor="bg-primary"
                 />
               </div>
             </div>
@@ -333,7 +333,7 @@ export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: 
               <AnimatedSwitch
                 checked={batchEnabled}
                 onCheckedChange={(checked) => handleToggleBatch(checked)}
-                activeColor="bg-[#F9CF00]"
+                activeColor="bg-primary"
               />
             </div>
           </div>

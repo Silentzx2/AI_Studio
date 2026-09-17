@@ -50,13 +50,13 @@ export const RightWorkspacePanel: React.FC = () => {
       : 'properties';
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#14161A] text-xs select-none overflow-hidden">
+    <div className="flex flex-col h-full w-full bg-[hsl(var(--surface-1))] text-xs select-none overflow-hidden">
       {/* Top Segmented Header (Clean Technical Inspector Navigation) */}
-      <div className="h-10 px-2.5 flex items-center justify-between border-b border-white/[0.08] bg-[#16181D] flex-shrink-0">
+      <div className="h-10 px-2.5 flex items-center justify-between border-b border-white/[0.08] bg-[hsl(var(--surface-1))] flex-shrink-0">
         <div className="flex-1 min-w-0 mr-2">
           <AnimatedTabs
             size="sm"
-            className="w-full p-0.5 bg-[#101215] border-white/[0.06]"
+            className="w-full p-0.5 bg-[hsl(var(--surface-0))] border-white/[0.06]"
             activeTab={currentActiveTab}
             onChange={(tab) => setRightPanelMode(tab as any)}
             tabs={[
@@ -64,7 +64,7 @@ export const RightWorkspacePanel: React.FC = () => {
               { id: 'properties', label: 'Properties', icon: Sliders },
               { id: 'assets', label: 'Assets', icon: FolderOpen },
             ]}
-            activeIndicatorClassName="bg-[#22252D] border-white/[0.1]"
+            activeIndicatorClassName="bg-[hsl(var(--surface-2))] border-white/[0.1]"
             activeTabClassName="text-white font-bold"
           />
         </div>
@@ -74,7 +74,7 @@ export const RightWorkspacePanel: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsRightPanelOpen(false)}
-            className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-[#202227] transition-colors cursor-pointer flex-shrink-0"
+            className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-[hsl(var(--surface-2))] transition-colors cursor-pointer flex-shrink-0"
           >
             <PanelRightClose className="w-3.5 h-3.5" />
           </button>
@@ -82,7 +82,7 @@ export const RightWorkspacePanel: React.FC = () => {
       </div>
 
       {/* Main Panel Content */}
-      <div className="flex-1 overflow-hidden bg-[#14161A]">
+      <div className="flex-1 overflow-hidden bg-[hsl(var(--surface-1))]">
         {rightPanelMode === 'prompt' ? (
           <LiveExecutionPanel />
         ) : rightPanelMode === 'assets' ? (

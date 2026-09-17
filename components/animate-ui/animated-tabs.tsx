@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { MOTION_SPRING } from '@/lib/motion';
 
 interface TabItem {
   id: string;
@@ -49,7 +50,7 @@ export const AnimatedTabs: React.FC<AnimatedTabsProps> = ({
     <div
       role="tablist"
       className={cn(
-        'inline-flex items-center rounded-xl p-1 bg-[#101216] border border-white/[0.06] select-none',
+        'inline-flex items-center rounded-xl p-1 bg-surface-0 border border-white/[0.06] select-none',
         className
       )}
     >
@@ -68,7 +69,7 @@ export const AnimatedTabs: React.FC<AnimatedTabsProps> = ({
             className={cn(
               'relative rounded-lg font-medium transition-colors duration-150 cursor-pointer flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed',
               sizeClasses[size],
-              isActive ? (activeTabClassName || 'text-[#F9CF00] font-bold') : 'text-zinc-400 hover:text-zinc-200',
+              isActive ? (activeTabClassName || 'text-primary font-bold') : 'text-zinc-400 hover:text-zinc-200',
               tabClassName
             )}
           >
@@ -76,9 +77,9 @@ export const AnimatedTabs: React.FC<AnimatedTabsProps> = ({
             {isActive && (
               <motion.div
                 layoutId={prefersReducedMotion ? undefined : layoutId}
-                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                transition={MOTION_SPRING}
                 className={cn(
-                  'absolute inset-0 rounded-lg bg-[#22252C] border border-white/[0.08] shadow-sm z-0',
+                  'absolute inset-0 rounded-lg bg-surface-2 border border-white/[0.08] shadow-sm z-0',
                   activeIndicatorClassName
                 )}
               />
@@ -92,7 +93,7 @@ export const AnimatedTabs: React.FC<AnimatedTabsProps> = ({
                 <span
                   className={cn(
                     'px-1.5 py-0.2 rounded-full text-[9px] font-bold',
-                    isActive ? 'bg-[#F9CF00] text-black' : 'bg-white/[0.08] text-zinc-400'
+                    isActive ? 'bg-primary text-black' : 'bg-white/[0.08] text-zinc-400'
                   )}
                 >
                   {tab.badge}

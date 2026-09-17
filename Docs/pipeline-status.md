@@ -1819,3 +1819,20 @@ No additional code-level blockers found. Environment-limited items (PostgreSQL i
 - Enforced that models in `/settings` (via `/api/v1/admin/models`, `/api/v1/admin/providers`, and `/api/v1/runtime/options`) are strictly marked `ready` or `installed` **only if model weights exist on disk**.
 - Models with only repository and virtualenv prepared report `weights_missing` instead of falsely advertising `ready`.
 
+## 2026-09-17 Update: UI Polish, Multi-Modal Inputs, Animation Studio & SSR Acceleration
+
+### 1. Multi-Modal Generation Studio
+- **Multi-View 4-Angle Mode (`crop`)**: 4-slot orthogonal perspective grid (`Front*`, `Right`, `Back`, `Left`) with individual file selectors, sample loader, and synchronization with `generationSettings.multiviewImages`.
+- **Text-to-3D Workshop (`wand`)**: Prompt workshop with "Inspire Me" / Roll Random Idea button, negative prompt configuration, and prompt enhancer style tags.
+- **2D Concept Sketchpad (`edit`)**: Interactive HTML5 drawing pad with brush/eraser, palette selection, stroke size controls, and "Use as 3D Reference" pipeline integration.
+
+### 2. Animated Navigation & Layout Hierarchy
+- Added animated sliding pill indicator (`motion/react` `layoutId="topNavActiveIndicator"`) across `Home`, `3D Studio`, `Animation`, `Assets`, and `System`.
+- Restructured Left Navigation Rail into **Studio Views** and **3D Generation Tools** docked at `md:left-[72px]` for permanent visibility.
+
+### 3. SSR Acceleration & App Router Performance
+- Replaced lazy `next/dynamic` wrappers with direct panel imports in `WorkspaceShell.tsx` to eliminate dynamic CSR bailouts and accelerate First Contentful Paint.
+- Standardized all UI motion under `motion/react` with spring presets to prevent bundle duplication.
+- Production build (`npm run build`) passing 100% with 12 prerendered/dynamic routes and 0 errors.
+
+

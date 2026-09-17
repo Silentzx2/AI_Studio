@@ -170,12 +170,12 @@ export const TexturePanel: React.FC = () => {
   };
 
   return (
-    <div id="panel-texture" className="flex flex-col h-full overflow-hidden bg-[#191A1D] text-xs select-none">
+    <div id="panel-texture" className="flex flex-col h-full overflow-hidden bg-[hsl(var(--surface-1))] text-xs select-none">
       {/* Panel Header with Segmented Navigation Bar */}
       <div className="px-2.5 pt-2.5 pb-2 border-b border-white/[0.08] flex-shrink-0 space-y-2 bg-[#17181B]">
         <div className="flex items-center justify-between">
           <span className="font-bold text-xs text-white flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-[#F9CF00]" />
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
             <span>Texture Studio</span>
           </span>
           {textureStatusInfo && (
@@ -187,13 +187,13 @@ export const TexturePanel: React.FC = () => {
         </div>
 
         {/* 3-Tab Segmented Header */}
-        <div className="grid grid-cols-3 p-1 rounded-xl bg-[#141518] border border-white/[0.08]">
+        <div className="grid grid-cols-3 p-1 rounded-xl bg-[hsl(var(--surface-0))] border border-white/[0.08]">
           <button
             type="button"
             onClick={() => setPanelTab('texture')}
             className={`py-1.5 px-1 rounded-lg font-bold text-[10px] flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               panelTab === 'texture'
-                ? 'bg-[#F9CF00] text-black shadow-sm'
+                ? 'bg-primary text-black shadow-sm'
                 : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
             }`}
           >
@@ -205,7 +205,7 @@ export const TexturePanel: React.FC = () => {
             onClick={() => setPanelTab('maps')}
             className={`py-1.5 px-1 rounded-lg font-bold text-[10px] flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               panelTab === 'maps'
-                ? 'bg-[#F9CF00] text-black shadow-sm'
+                ? 'bg-primary text-black shadow-sm'
                 : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
             }`}
           >
@@ -217,7 +217,7 @@ export const TexturePanel: React.FC = () => {
             onClick={() => setPanelTab('settings')}
             className={`py-1.5 px-1 rounded-lg font-bold text-[10px] flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               panelTab === 'settings'
-                ? 'bg-[#F9CF00] text-black shadow-sm'
+                ? 'bg-primary text-black shadow-sm'
                 : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
             }`}
           >
@@ -236,10 +236,10 @@ export const TexturePanel: React.FC = () => {
         {panelTab === 'texture' && (
           <div className="space-y-2.5">
             {/* Target 3D Mesh Compact Selector */}
-            <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2 space-y-1.5">
+            <div className="rounded-xl border border-white/[0.08] bg-[hsl(var(--surface-0))] p-2 space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold text-zinc-300 flex items-center gap-1.5">
-                  <Box className="w-3.5 h-3.5 text-[#F9CF00]" />
+                  <Box className="w-3.5 h-3.5 text-primary" />
                   <span>Target Mesh</span>
                 </span>
                 {currentAsset ? (
@@ -259,11 +259,11 @@ export const TexturePanel: React.FC = () => {
                     id="btn-texture-mesh-select"
                     type="button"
                     onClick={() => setMeshDropdownOpen(!meshDropdownOpen)}
-                    className="w-full flex items-center justify-between p-1.5 rounded-lg bg-[#191A1D] border border-white/[0.08] hover:border-white/[0.16] hover:bg-[#202125] transition-all text-left cursor-pointer"
+                    className="w-full flex items-center justify-between p-1.5 rounded-lg bg-[hsl(var(--surface-1))] border border-white/[0.08] hover:border-white/[0.16] hover:bg-[hsl(var(--surface-2))] transition-all text-left cursor-pointer"
                   >
                     <div className="flex items-center gap-2 min-w-0 pr-1">
-                      <div className="w-6 h-6 rounded bg-[#25262A] border border-white/[0.08] flex items-center justify-center flex-shrink-0">
-                        <Box className="w-3.5 h-3.5 text-[#F9CF00]" />
+                      <div className="w-6 h-6 rounded bg-[hsl(var(--surface-2))] border border-white/[0.08] flex items-center justify-center flex-shrink-0">
+                        <Box className="w-3.5 h-3.5 text-primary" />
                       </div>
                       <div className="min-w-0">
                         <div className="text-[10px] font-bold text-white truncate leading-tight">
@@ -276,11 +276,11 @@ export const TexturePanel: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                    <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${meshDropdownOpen ? 'rotate-180 text-[#F9CF00]' : ''}`} />
+                    <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${meshDropdownOpen ? 'rotate-180 text-primary' : ''}`} />
                   </button>
 
                   {meshDropdownOpen && (
-                    <div className="absolute left-0 right-0 top-full mt-1 bg-[#191A1D] border border-white/[0.12] rounded-xl p-1.5 shadow-2xl z-50 space-y-1 max-h-44 overflow-y-auto">
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-[hsl(var(--surface-1))] border border-white/[0.12] rounded-xl p-1.5 shadow-2xl z-50 space-y-1 max-h-44 overflow-y-auto">
                       <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 px-1.5 py-0.5">
                         Workspace Meshes ({assets.length})
                       </div>
@@ -295,7 +295,7 @@ export const TexturePanel: React.FC = () => {
                               setMeshDropdownOpen(false);
                             }}
                             className={`w-full flex items-center justify-between p-1.5 rounded-lg text-left text-[10px] transition-colors ${
-                              isSel ? 'bg-[#F9CF00] text-black font-bold' : 'text-zinc-300 hover:bg-[#25262A] hover:text-white'
+                              isSel ? 'bg-primary text-black font-bold' : 'text-zinc-300 hover:bg-[hsl(var(--surface-2))] hover:text-white'
                             }`}
                           >
                             <span className="truncate">{asset.name}</span>
@@ -312,7 +312,7 @@ export const TexturePanel: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => router.push('/workspace/generate')}
-                    className="px-2.5 py-1 rounded-md bg-[#F9CF00] text-black font-bold text-[9px] hover:bg-[#ffe033] transition-colors cursor-pointer"
+                    className="px-2.5 py-1 rounded-md bg-primary text-black font-bold text-[9px] hover:bg-[hsl(var(--primary)/0.9)] transition-colors cursor-pointer"
                   >
                     Go to Generate 3D Model
                   </button>
@@ -321,13 +321,13 @@ export const TexturePanel: React.FC = () => {
             </div>
 
             {/* Mode: AI Texture | Manual Paint */}
-            <div className="grid grid-cols-2 p-0.5 rounded-lg bg-[#141518] border border-white/[0.08]">
+            <div className="grid grid-cols-2 p-0.5 rounded-lg bg-[hsl(var(--surface-0))] border border-white/[0.08]">
               <button
                 type="button"
                 onClick={() => setTextureSettings(prev => ({ ...prev, mode: 'ai' }))}
                 className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md font-bold text-[10px] transition-all cursor-pointer ${
                   textureSettings.mode === 'ai'
-                    ? 'bg-[#F9CF00] text-black shadow-sm'
+                    ? 'bg-primary text-black shadow-sm'
                     : 'text-zinc-400 hover:text-white'
                 }`}
               >
@@ -339,7 +339,7 @@ export const TexturePanel: React.FC = () => {
                 onClick={() => setTextureSettings(prev => ({ ...prev, mode: 'manual' }))}
                 className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md font-bold text-[10px] transition-all cursor-pointer ${
                   textureSettings.mode === 'manual'
-                    ? 'bg-[#F9CF00] text-black shadow-sm'
+                    ? 'bg-primary text-black shadow-sm'
                     : 'text-zinc-400 hover:text-white'
                 }`}
               >
@@ -349,13 +349,13 @@ export const TexturePanel: React.FC = () => {
             </div>
 
             {/* AI Texture Model Selector + Dropdown */}
-            <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2 space-y-1 relative">
+            <div className="rounded-xl border border-white/[0.08] bg-[hsl(var(--surface-0))] p-2 space-y-1 relative">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider">AI Texture Model</span>
                 <button
                   type="button"
                   onClick={() => router.push('/admin?tab=models')}
-                  className="text-[9px] text-[#F9CF00] hover:underline flex items-center gap-1 font-medium cursor-pointer"
+                  className="text-[9px] text-primary hover:underline flex items-center gap-1 font-medium cursor-pointer"
                 >
                   <Package className="w-2.5 h-2.5" />
                   <span>Manage</span>
@@ -366,7 +366,7 @@ export const TexturePanel: React.FC = () => {
                 id="btn-select-texture-model"
                 type="button"
                 onClick={() => setTextureModelDropdownOpen(!textureModelDropdownOpen)}
-                className="w-full flex items-center justify-between p-1.5 rounded-lg bg-[#191A1D] border border-white/[0.08] hover:border-white/[0.16] hover:bg-[#202125] transition-all text-left cursor-pointer"
+                className="w-full flex items-center justify-between p-1.5 rounded-lg bg-[hsl(var(--surface-1))] border border-white/[0.08] hover:border-white/[0.16] hover:bg-[hsl(var(--surface-2))] transition-all text-left cursor-pointer"
               >
                 <div className="flex flex-col min-w-0 pr-1">
                   <span className="font-bold text-[10px] text-white flex items-center gap-1.5 truncate">
@@ -385,11 +385,11 @@ export const TexturePanel: React.FC = () => {
                         : 'Not installed'}
                   </span>
                 </div>
-                <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${textureModelDropdownOpen ? 'rotate-180 text-[#F9CF00]' : ''}`} />
+                <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${textureModelDropdownOpen ? 'rotate-180 text-primary' : ''}`} />
               </button>
 
               {textureModelDropdownOpen && (
-                <div className="absolute left-0 right-0 top-full mt-1 bg-[#191A1D] border border-white/[0.12] rounded-xl p-1.5 shadow-2xl z-50 space-y-1 max-h-48 overflow-y-auto">
+                <div className="absolute left-0 right-0 top-full mt-1 bg-[hsl(var(--surface-1))] border border-white/[0.12] rounded-xl p-1.5 shadow-2xl z-50 space-y-1 max-h-48 overflow-y-auto">
                   <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 px-1.5 py-0.5">
                     Texture Models ({textureCapableModels.length})
                   </div>
@@ -416,10 +416,10 @@ export const TexturePanel: React.FC = () => {
                           }}
                           className={`w-full flex items-center justify-between p-1.5 rounded-lg text-left transition-all ${
                             isSelected
-                              ? 'bg-[#F9CF00] text-black font-bold'
+                              ? 'bg-primary text-black font-bold'
                               : isInstalled
-                                ? 'text-white hover:bg-[#25262A]'
-                                : 'text-zinc-400 opacity-80 hover:bg-[#25262A]'
+                                ? 'text-white hover:bg-[hsl(var(--surface-2))]'
+                                : 'text-zinc-400 opacity-80 hover:bg-[hsl(var(--surface-2))]'
                           }`}
                         >
                           <div className="flex flex-col min-w-0 pr-1">
@@ -439,9 +439,9 @@ export const TexturePanel: React.FC = () => {
 
             {/* Essential Quick Toggle: Low VRAM Mode */}
             {supportsLowVram && (
-              <div className="p-2 rounded-xl bg-[#141518] border border-white/[0.08] flex items-center justify-between">
+              <div className="p-2 rounded-xl bg-[hsl(var(--surface-0))] border border-white/[0.08] flex items-center justify-between">
                 <span className="text-zinc-300 flex items-center gap-1.5 text-[10px] font-semibold">
-                  <Gauge className="w-3.5 h-3.5 text-[#F9CF00]" />
+                  <Gauge className="w-3.5 h-3.5 text-primary" />
                   <span>Low VRAM Mode (&lt;8GB)</span>
                 </span>
                 <button
@@ -451,7 +451,7 @@ export const TexturePanel: React.FC = () => {
                   aria-checked={Boolean(textureSettings.lowVram)}
                   onClick={() => setTextureSettings(prev => ({ ...prev, lowVram: !prev.lowVram }))}
                   className={`w-7 h-3.5 rounded-full p-0.5 transition-colors relative cursor-pointer ${
-                    textureSettings.lowVram ? 'bg-[#F9CF00]' : 'bg-[#25262A]'
+                    textureSettings.lowVram ? 'bg-primary' : 'bg-[hsl(var(--surface-2))]'
                   }`}
                 >
                   <div
@@ -467,7 +467,7 @@ export const TexturePanel: React.FC = () => {
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-white text-[10px] uppercase tracking-wider">Style</span>
-                <span className="text-[9px] text-[#F9CF00] capitalize font-bold">{textureSettings.style}</span>
+                <span className="text-[9px] text-primary capitalize font-bold">{textureSettings.style}</span>
               </div>
               <div className="grid grid-cols-4 gap-1">
                 {styles.map((style) => {
@@ -479,8 +479,8 @@ export const TexturePanel: React.FC = () => {
                       onClick={() => setTextureSettings(prev => ({ ...prev, style: style.id }))}
                       className={`py-1.5 rounded-lg font-bold text-[10px] transition-all text-center cursor-pointer ${
                         isSelected
-                          ? 'bg-[#F9CF00] text-black shadow-sm font-black'
-                          : 'bg-[#141518] text-zinc-400 hover:text-white hover:bg-[#202125] border border-white/[0.06]'
+                          ? 'bg-primary text-black shadow-sm font-black'
+                          : 'bg-[hsl(var(--surface-0))] text-zinc-400 hover:text-white hover:bg-[hsl(var(--surface-2))] border border-white/[0.06]'
                       }`}
                     >
                       {style.label}
@@ -507,7 +507,7 @@ export const TexturePanel: React.FC = () => {
                   placeholder="e.g., weathered copper armor, cinematic..."
                   value={textureSettings.prompt}
                   onChange={(e) => setTextureSettings(prev => ({ ...prev, prompt: e.target.value }))}
-                  className="w-full py-1.5 px-2.5 pr-8 rounded-lg bg-[#141518] border border-white/[0.08] focus:border-[#F9CF00] text-[10px] text-white placeholder-zinc-500 focus:outline-none transition-colors"
+                  className="w-full py-1.5 px-2.5 pr-8 rounded-lg bg-[hsl(var(--surface-0))] border border-white/[0.08] focus:border-primary text-[10px] text-white placeholder-zinc-500 focus:outline-none transition-colors"
                 />
                 {textureSettings.prompt && (
                   <button
@@ -523,7 +523,7 @@ export const TexturePanel: React.FC = () => {
 
             {/* Reference Image Quick Status or Upload Row */}
             {textureSettings.referenceImage ? (
-              <div className="p-1.5 rounded-lg bg-[#141518] border border-white/[0.08] flex items-center justify-between">
+              <div className="p-1.5 rounded-lg bg-[hsl(var(--surface-0))] border border-white/[0.08] flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
                   <img
                     src={textureSettings.referenceImage}
@@ -545,9 +545,9 @@ export const TexturePanel: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex-1 py-1 px-2 rounded-lg bg-[#141518] border border-dashed border-white/[0.12] hover:border-[#F9CF00]/50 text-zinc-400 hover:text-zinc-200 text-[9px] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  className="flex-1 py-1 px-2 rounded-lg bg-[hsl(var(--surface-0))] border border-dashed border-white/[0.12] hover:border-primary/50 text-zinc-400 hover:text-zinc-200 text-[9px] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
-                  <Upload className="w-3 h-3 text-[#F9CF00]" />
+                  <Upload className="w-3 h-3 text-primary" />
                   <span>Upload Reference Image (Optional)</span>
                 </button>
               </div>
@@ -558,7 +558,7 @@ export const TexturePanel: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setPanelTab('maps')}
-                className="hover:text-[#F9CF00] transition-colors flex items-center gap-1 cursor-pointer"
+                className="hover:text-primary transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <span>PBR Maps &amp; Res ({textureSettings.resolution})</span>
                 <span>&rarr;</span>
@@ -566,7 +566,7 @@ export const TexturePanel: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setPanelTab('settings')}
-                className="hover:text-[#F9CF00] transition-colors flex items-center gap-1 cursor-pointer"
+                className="hover:text-primary transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <span>Settings</span>
                 <span>&rarr;</span>
@@ -580,7 +580,7 @@ export const TexturePanel: React.FC = () => {
                 type="button"
                 onClick={runTextureGeneration}
                 disabled={isExecuting || (!textureSettings.referenceImage && !currentAsset?.source?.viewUrl && !currentAsset?.source?.localUrl)}
-                className="w-full h-10 rounded-xl bg-gradient-to-b from-[#FFE24C] to-[#F9CF00] hover:from-[#FFE660] hover:to-[#FFD700] text-black font-black tracking-wider text-xs flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(249,207,0,0.25)] hover:shadow-[0_6px_20px_rgba(249,207,0,0.35)] transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="w-full h-10 rounded-xl bg-gradient-to-b from-[hsl(var(--neon-amber))] to-[hsl(var(--primary))] hover:from-[#FFE660] hover:to-[#FFD700] text-black font-black tracking-wider text-xs flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(249,207,0,0.25)] hover:shadow-[0_6px_20px_rgba(249,207,0,0.35)] transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {isExecuting ? (
                   <>
@@ -611,15 +611,15 @@ export const TexturePanel: React.FC = () => {
         {panelTab === 'maps' && (
           <div className="space-y-3">
             {/* Workflow Mode: Texture | PBR */}
-            <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2 space-y-1.5">
+            <div className="rounded-xl border border-white/[0.08] bg-[hsl(var(--surface-0))] p-2 space-y-1.5">
               <span className="font-bold uppercase tracking-wider text-[10px] text-white">Pipeline Workflow</span>
-              <div className="grid grid-cols-2 p-0.5 rounded-lg bg-[#191A1D] border border-white/[0.08]">
+              <div className="grid grid-cols-2 p-0.5 rounded-lg bg-[hsl(var(--surface-1))] border border-white/[0.08]">
                 <button
                   type="button"
                   onClick={() => setTextureSettings(prev => ({ ...prev, workflow: 'texture' }))}
                   className={`py-1 rounded-md font-bold text-[10px] transition-all cursor-pointer ${
                     textureSettings.workflow === 'texture'
-                      ? 'bg-[#F9CF00] text-black shadow-sm'
+                      ? 'bg-primary text-black shadow-sm'
                       : 'text-zinc-400 hover:text-white'
                   }`}
                 >
@@ -633,7 +633,7 @@ export const TexturePanel: React.FC = () => {
                   }}
                   className={`py-1 rounded-md font-bold text-[10px] transition-all cursor-pointer ${
                     textureSettings.workflow === 'pbr'
-                      ? 'bg-[#F9CF00] text-black shadow-sm'
+                      ? 'bg-primary text-black shadow-sm'
                       : 'text-zinc-400 hover:text-white'
                   }`}
                 >
@@ -643,10 +643,10 @@ export const TexturePanel: React.FC = () => {
             </div>
 
             {/* Resolution Chips */}
-            <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2 space-y-1.5">
+            <div className="rounded-xl border border-white/[0.08] bg-[hsl(var(--surface-0))] p-2 space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold text-white uppercase tracking-wider">Texture Resolution</span>
-                <span className="text-[9px] font-mono text-[#F9CF00] font-bold">{textureSettings.resolution}</span>
+                <span className="text-[9px] font-mono text-primary font-bold">{textureSettings.resolution}</span>
               </div>
               <div className="grid grid-cols-4 gap-1">
                 {(['1K', '2K', '4K', '8K'] as const).map((res) => (
@@ -656,8 +656,8 @@ export const TexturePanel: React.FC = () => {
                     onClick={() => setTextureSettings(prev => ({ ...prev, resolution: res }))}
                     className={`py-1.5 rounded-lg font-mono font-bold text-[10px] transition-all cursor-pointer ${
                       textureSettings.resolution === res
-                        ? 'bg-[#F9CF00] text-black shadow-sm font-black'
-                        : 'bg-[#191A1D] text-zinc-400 hover:text-white border border-white/[0.06]'
+                        ? 'bg-primary text-black shadow-sm font-black'
+                        : 'bg-[hsl(var(--surface-1))] text-zinc-400 hover:text-white border border-white/[0.06]'
                     }`}
                   >
                     {res}
@@ -667,7 +667,7 @@ export const TexturePanel: React.FC = () => {
             </div>
 
             {/* PBR Map Channels Toggle List */}
-            <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2 space-y-1.5">
+            <div className="rounded-xl border border-white/[0.08] bg-[hsl(var(--surface-0))] p-2 space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold text-white uppercase tracking-wider">Active Map Channels</span>
                 <span className="text-[9px] text-zinc-400">
@@ -685,12 +685,12 @@ export const TexturePanel: React.FC = () => {
                       onClick={() => toggleMap(key)}
                       className={`flex items-center gap-2 p-2 rounded-lg border text-left transition-colors cursor-pointer ${
                         checked
-                          ? 'bg-[#191A1D] border-[#F9CF00] text-white'
-                          : 'bg-[#191A1D] border-white/[0.06] text-zinc-400 hover:text-white'
+                          ? 'bg-[hsl(var(--surface-1))] border-primary text-white'
+                          : 'bg-[hsl(var(--surface-1))] border-white/[0.06] text-zinc-400 hover:text-white'
                       }`}
                     >
                       <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border transition-colors ${
-                        checked ? 'bg-[#F9CF00] border-[#F9CF00] text-black' : 'border-[#3d4252]'
+                        checked ? 'bg-primary border-primary text-black' : 'border-[#3d4252]'
                       }`}>
                         {checked && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                       </div>
@@ -718,7 +718,7 @@ export const TexturePanel: React.FC = () => {
         {panelTab === 'settings' && (
           <div className="space-y-3">
             {/* Reference Image Dropzone */}
-            <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2 space-y-1.5">
+            <div className="rounded-xl border border-white/[0.08] bg-[hsl(var(--surface-0))] p-2 space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-white text-[10px] uppercase tracking-wider">Reference Image</span>
                 {textureSettings.referenceImage && (
@@ -739,25 +739,25 @@ export const TexturePanel: React.FC = () => {
                 onClick={() => fileInputRef.current?.click()}
                 animate={{
                   scale: isDragOver ? 1.01 : 1,
-                  borderColor: isDragOver ? '#F9CF00' : '#2f333e'
+                  borderColor: isDragOver ? 'hsl(var(--primary))' : '#2f333e'
                 }}
                 transition={springTransition}
-                className={`flex flex-col items-center justify-center h-28 rounded-xl border-2 border-dashed cursor-pointer transition-colors p-2 text-center bg-[#191A1D] ${
+                className={`flex flex-col items-center justify-center h-28 rounded-xl border-2 border-dashed cursor-pointer transition-colors p-2 text-center bg-[hsl(var(--surface-1))] ${
                   isDragOver
-                    ? 'bg-[#F9CF00]/10 border-[#F9CF00]'
+                    ? 'bg-primary/10 border-primary'
                     : textureSettings.referenceImage
-                    ? 'border-[#F9CF00]/40'
+                    ? 'border-primary/40'
                     : 'border-white/[0.12] hover:border-white/[0.24]'
                 }`}
               >
                 {uploadProgress.active ? (
                   <div className="flex flex-col items-center justify-center space-y-2 w-full px-2">
-                    <Loader2 className="w-5 h-5 animate-spin text-[#F9CF00]" />
-                    <div className="w-full bg-[#282b34] rounded-full h-1 overflow-hidden">
+                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                    <div className="w-full bg-[hsl(var(--surface-3))] rounded-full h-1 overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${uploadProgress.percent}%` }}
-                        className="bg-[#F9CF00] h-full rounded-full"
+                        className="bg-primary h-full rounded-full"
                       />
                     </div>
                     <span className="text-[9px] text-zinc-400 font-mono">
@@ -774,7 +774,7 @@ export const TexturePanel: React.FC = () => {
                   </div>
                 ) : (
                   <>
-                    <Upload className={`w-5 h-5 mb-1 ${isDragOver ? 'text-[#F9CF00]' : 'text-zinc-400'}`} />
+                    <Upload className={`w-5 h-5 mb-1 ${isDragOver ? 'text-primary' : 'text-zinc-400'}`} />
                     <span className="text-white font-bold text-[10px]">
                       {isDragOver ? 'Drop image here' : 'Drop or browse reference'}
                     </span>
@@ -792,15 +792,15 @@ export const TexturePanel: React.FC = () => {
             </div>
 
             {/* Model Weights Link */}
-            <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2 flex items-center justify-between">
+            <div className="rounded-xl border border-white/[0.08] bg-[hsl(var(--surface-0))] p-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Package className="w-3.5 h-3.5 text-[#F9CF00]" />
+                <Package className="w-3.5 h-3.5 text-primary" />
                 <span className="text-[10px] text-zinc-300 font-medium">Model Weights &amp; Cache</span>
               </div>
               <button
                 type="button"
                 onClick={() => router.push('/admin?tab=models')}
-                className="px-2 py-1 rounded-lg bg-[#F9CF00]/15 hover:bg-[#F9CF00]/25 text-[#F9CF00] font-bold text-[9px] transition-colors cursor-pointer"
+                className="px-2 py-1 rounded-lg bg-primary/15 hover:bg-primary/25 text-primary font-bold text-[9px] transition-colors cursor-pointer"
               >
                 Manage
               </button>

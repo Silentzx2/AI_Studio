@@ -18,6 +18,7 @@ import { useRouter } from 'next/navigation';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 import { AnimatedStatusBadge } from '@/components/animate-ui';
+import { motion } from 'motion/react';
 
 interface TopHeaderProps {
   onMobileMenuToggle?: () => void;
@@ -61,14 +62,14 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobi
   return (
     <header
       id="persistent-top-header"
-      className="h-[44px] px-2.5 md:px-4 bg-[#0D0E10]/95 backdrop-blur-md flex items-center justify-between border-b border-white/[0.08] select-none z-50 text-xs w-full flex-shrink-0 min-w-0"
+      className="h-[44px] px-2.5 md:px-4 bg-[hsl(var(--surface-0))]/95 backdrop-blur-md flex items-center justify-between border-b border-white/[0.08] select-none z-50 text-xs w-full flex-shrink-0 min-w-0"
     >
       {/* Left Branding & Mode Dropdown */}
       <div className="flex items-center gap-2.5 md:gap-3.5 min-w-0 overflow-hidden">
         {/* Mobile menu button */}
         <button
           onClick={onMobileMenuToggle}
-          className="md:hidden p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#191A1D] transition-colors flex-shrink-0 active:scale-95"
+          className="md:hidden p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[hsl(var(--surface-1))] transition-colors flex-shrink-0 active:scale-95"
           aria-label={isMobileNavOpen ? 'Close menu' : 'Open menu'}
         >
           <Menu className="w-4 h-4" />
@@ -80,12 +81,12 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobi
           className="flex items-center gap-2 cursor-pointer group p-1 flex-shrink-0"
         >
           {/* Stylized Logo Cube */}
-          <div className="w-5 h-5 rounded-[5px] bg-[#F9CF00] flex items-center justify-center text-black font-black text-[10px] shadow-sm tracking-tighter group-hover:shadow-[0_0_12px_rgba(249,207,0,0.4)] transition-all">
-            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-black">
+          <div className="w-5 h-5 rounded-[5px] bg-primary flex items-center justify-center text-primary-foreground font-black text-[10px] shadow-sm tracking-tighter group-hover:shadow-[0_0_12px_hsl(var(--primary)/0.4)] transition-all">
+            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current">
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
             </svg>
           </div>
-          <span className="font-extrabold text-xs tracking-wider text-white uppercase font-sans hidden sm:inline group-hover:text-[#F9CF00] transition-colors">
+          <span className="font-extrabold text-xs tracking-wider text-white uppercase font-sans hidden sm:inline group-hover:text-primary transition-colors">
             AI 3D STUDIO
           </span>
         </div>
@@ -95,16 +96,16 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobi
           <button
             id="btn-workspace-switcher"
             onClick={() => setWorkspaceMenuOpen(!workspaceMenuOpen)}
-            className="group h-7 px-2.5 rounded-lg bg-[#15161A] border border-white/[0.08] flex items-center gap-1.5 hover:bg-[#1E2025] hover:border-white/[0.14] transition-all active:scale-95 cursor-pointer"
+            className="group h-7 px-2.5 rounded-lg bg-[hsl(var(--surface-1))] border border-white/[0.08] flex items-center gap-1.5 hover:bg-[hsl(var(--surface-2))] hover:border-white/[0.14] transition-all active:scale-95 cursor-pointer"
           >
-            <span className="text-[#F9CF00] text-[11px] font-bold flex gap-1.5 items-center">
+            <span className="text-primary text-[11px] font-bold flex gap-1.5 items-center">
               <span>3D Workspace</span>
-              <ChevronDown className={`w-3 h-3 text-zinc-400 group-hover:text-zinc-200 transition-transform duration-200 ${workspaceMenuOpen ? 'rotate-180 text-[#F9CF00]' : ''}`} />
+              <ChevronDown className={`w-3 h-3 text-zinc-400 group-hover:text-zinc-200 transition-transform duration-200 ${workspaceMenuOpen ? 'rotate-180 text-primary' : ''}`} />
             </span>
           </button>
 
           {workspaceMenuOpen && (
-            <div className="absolute top-full left-0 mt-1.5 w-52 py-1.5 rounded-xl bg-[#16181D]/95 backdrop-blur-xl border border-white/[0.12] shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-100">
+            <div className="absolute top-full left-0 mt-1.5 w-52 py-1.5 rounded-xl bg-[hsl(var(--surface-1))]/95 backdrop-blur-xl border border-white/[0.12] shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-100">
               <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
                 Workspace Modes
               </div>
@@ -112,43 +113,57 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobi
                 onClick={() => { navigateToTool('model'); setWorkspaceMenuOpen(false); }}
                 className={`w-full flex items-center justify-between px-3 py-1.5 text-[11px] transition-colors cursor-pointer ${
                   mainNav === 'workspace' && activeTool === 'model'
-                    ? 'bg-[#22242A] text-[#F9CF00] font-bold'
-                    : 'text-zinc-200 hover:bg-[#202126] hover:text-white'
+                    ? 'bg-[hsl(var(--surface-2))] text-primary font-bold'
+                    : 'text-zinc-200 hover:bg-[hsl(var(--surface-2))] hover:text-white'
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <Box className="w-3.5 h-3.5 text-[#F9CF00]" />
+                  <Box className="w-3.5 h-3.5 text-primary" />
                   <span>3D Model Studio</span>
                 </div>
-                {mainNav === 'workspace' && activeTool === 'model' && <Check className="w-3.5 h-3.5 text-[#F9CF00]" />}
+                {mainNav === 'workspace' && activeTool === 'model' && <Check className="w-3.5 h-3.5 text-primary" />}
               </button>
               <button
                 onClick={() => { navigateToTool('remesh'); setWorkspaceMenuOpen(false); }}
                 className={`w-full flex items-center justify-between px-3 py-1.5 text-[11px] transition-colors cursor-pointer ${
                   mainNav === 'workspace' && activeTool === 'remesh'
-                    ? 'bg-[#22242A] text-[#F9CF00] font-bold'
-                    : 'text-zinc-200 hover:bg-[#202126] hover:text-white'
+                    ? 'bg-[hsl(var(--surface-2))] text-primary font-bold'
+                    : 'text-zinc-200 hover:bg-[hsl(var(--surface-2))] hover:text-white'
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <Hexagon className="w-3.5 h-3.5 text-[#F9CF00]" />
+                  <Hexagon className="w-3.5 h-3.5 text-primary" />
                   <span>Quad Remesh (Poly)</span>
                 </div>
-                {mainNav === 'workspace' && activeTool === 'remesh' && <Check className="w-3.5 h-3.5 text-[#F9CF00]" />}
+                {mainNav === 'workspace' && activeTool === 'remesh' && <Check className="w-3.5 h-3.5 text-primary" />}
               </button>
               <button
                 onClick={() => { navigateToTool('texture'); setWorkspaceMenuOpen(false); }}
                 className={`w-full flex items-center justify-between px-3 py-1.5 text-[11px] transition-colors cursor-pointer ${
                   mainNav === 'workspace' && activeTool === 'texture'
-                    ? 'bg-[#22242A] text-[#F9CF00] font-bold'
-                    : 'text-zinc-200 hover:bg-[#202126] hover:text-white'
+                    ? 'bg-[hsl(var(--surface-2))] text-primary font-bold'
+                    : 'text-zinc-200 hover:bg-[hsl(var(--surface-2))] hover:text-white'
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <Layers className="w-3.5 h-3.5 text-[#F9CF00]" />
+                  <Layers className="w-3.5 h-3.5 text-primary" />
                   <span>PBR Texture Studio</span>
                 </div>
-                {mainNav === 'workspace' && activeTool === 'texture' && <Check className="w-3.5 h-3.5 text-[#F9CF00]" />}
+                {mainNav === 'workspace' && activeTool === 'texture' && <Check className="w-3.5 h-3.5 text-primary" />}
+              </button>
+              <button
+                onClick={() => { navigateToTool('animation'); setWorkspaceMenuOpen(false); }}
+                className={`w-full flex items-center justify-between px-3 py-1.5 text-[11px] transition-colors cursor-pointer ${
+                  mainNav === 'workspace' && activeTool === 'animation'
+                    ? 'bg-[hsl(var(--surface-2))] text-primary font-bold'
+                    : 'text-zinc-200 hover:bg-[hsl(var(--surface-2))] hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-3.5 h-3.5 text-primary" />
+                  <span>Animation & Rigging</span>
+                </div>
+                {mainNav === 'workspace' && activeTool === 'animation' && <Check className="w-3.5 h-3.5 text-primary" />}
               </button>
             </div>
           )}
@@ -158,42 +173,62 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobi
         <div className="h-3.5 w-px bg-white/[0.1] mx-0.5 hidden md:block" />
 
         {/* Center/Left Top Navigation Links in Segmented Pill Bar - hidden on mobile */}
-        <nav className="flex items-center gap-0.5 bg-[#141518] p-0.5 rounded-lg border border-white/[0.06] text-[11px] font-medium hidden md:flex">
-          <button
-            id="nav-link-home"
-            onClick={() => navigateToMain('dashboard')}
-            className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-              mainNav === 'dashboard'
-                ? 'bg-[#222429] text-white font-bold shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
-            }`}
-          >
-            Home
-          </button>
-
-          <button
-            id="nav-link-assets"
-            onClick={() => navigateToMain('assets')}
-            className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-              mainNav === 'assets'
-                ? 'bg-[#222429] text-white font-bold shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
-            }`}
-          >
-            Assets
-          </button>
-
-          <button
-            id="nav-link-system"
-            onClick={() => navigateToMain('system')}
-            className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-              mainNav === 'system'
-                ? 'bg-[#222429] text-white font-bold shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
-            }`}
-          >
-            System
-          </button>
+        <nav className="relative flex items-center gap-0.5 bg-[hsl(var(--surface-0))] p-0.5 rounded-lg border border-white/[0.06] text-[11px] font-medium hidden md:flex">
+          {[
+            {
+              id: 'home',
+              domId: 'nav-link-home',
+              label: 'Home',
+              active: mainNav === 'dashboard',
+              onClick: () => navigateToMain('dashboard'),
+            },
+            {
+              id: 'studio',
+              domId: 'nav-link-studio',
+              label: '3D Studio',
+              active: mainNav === 'workspace' && activeTool !== 'animation',
+              onClick: () => navigateToTool('model'),
+            },
+            {
+              id: 'animation',
+              domId: 'nav-link-animation',
+              label: 'Animation',
+              active: mainNav === 'workspace' && activeTool === 'animation',
+              onClick: () => navigateToTool('animation'),
+            },
+            {
+              id: 'assets',
+              domId: 'nav-link-assets',
+              label: 'Assets',
+              active: mainNav === 'assets',
+              onClick: () => navigateToMain('assets'),
+            },
+            {
+              id: 'system',
+              domId: 'nav-link-system',
+              label: 'System',
+              active: mainNav === 'system',
+              onClick: () => navigateToMain('system'),
+            },
+          ].map((item) => (
+            <button
+              key={item.id}
+              id={item.domId}
+              onClick={item.onClick}
+              className={`relative px-2.5 py-1 rounded-md transition-colors cursor-pointer active:scale-95 z-10 ${
+                item.active ? 'text-primary font-bold' : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              {item.active && (
+                <motion.div
+                  layoutId="topNavActiveIndicator"
+                  transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                  className="absolute inset-0 rounded-md bg-[hsl(var(--surface-2))] border border-primary/35 shadow-sm -z-10"
+                />
+              )}
+              <span>{item.label}</span>
+            </button>
+          ))}
         </nav>
       </div>
 
@@ -221,9 +256,9 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobi
           <button
             id="btn-header-models"
             onClick={() => router.push('/admin?tab=models')}
-            className="hidden sm:flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-[#191A1D] border border-white/[0.08] hover:bg-[#25262A] hover:border-white/[0.15] text-[11px] text-zinc-300 transition-all shadow-sm cursor-pointer"
+            className="hidden sm:flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-[hsl(var(--surface-1))] border border-white/[0.08] hover:bg-[hsl(var(--surface-2))] hover:border-white/[0.15] text-[11px] text-zinc-300 transition-all shadow-sm cursor-pointer"
           >
-            <Package className="w-3 h-3 text-[#F9CF00]" />
+            <Package className="w-3 h-3 text-primary" />
             <span className="font-semibold hidden md:inline">AI Models</span>
           </button>
         </SimpleTooltip>
@@ -233,9 +268,9 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobi
           <button
             id="btn-dcc-bridge"
             onClick={() => setIsDccBridgeOpen(true)}
-            className="hidden md:flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-[#191A1D] border border-white/[0.08] hover:bg-[#25262A] hover:border-white/[0.15] text-[11px] text-zinc-300 transition-all shadow-sm cursor-pointer"
+            className="hidden md:flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-[hsl(var(--surface-1))] border border-white/[0.08] hover:bg-[hsl(var(--surface-2))] hover:border-white/[0.15] text-[11px] text-zinc-300 transition-all shadow-sm cursor-pointer"
           >
-            <Cable className="w-3 h-3 text-[#F9CF00]" />
+            <Cable className="w-3 h-3 text-primary" />
             <span className="font-semibold">DCC Bridge</span>
           </button>
         </SimpleTooltip>
@@ -245,7 +280,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobi
           <button
             id="btn-header-settings"
             onClick={() => setIsSettingsOpen(true)}
-            className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-[#191A1D] transition-colors cursor-pointer"
+            className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-[hsl(var(--surface-1))] transition-colors cursor-pointer"
           >
             <Settings className="w-3.5 h-3.5" />
           </button>
@@ -256,7 +291,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobi
           <div
             id="btn-header-profile"
             onClick={() => router.push('/admin?tab=settings')}
-            className="w-6 h-6 rounded-full bg-[#202125] border border-white/[0.12] flex items-center justify-center text-[10px] font-bold text-[#F9CF00] cursor-pointer hover:border-[#F9CF00] transition-colors overflow-hidden"
+            className="w-6 h-6 rounded-full bg-[hsl(var(--surface-2))] border border-white/[0.12] flex items-center justify-center text-[10px] font-bold text-primary cursor-pointer hover:border-primary transition-colors overflow-hidden"
           >
             <User className="w-3.5 h-3.5 text-zinc-300" />
           </div>

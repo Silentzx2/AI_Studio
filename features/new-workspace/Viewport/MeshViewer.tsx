@@ -460,7 +460,7 @@ const ENVIRONMENT_PRESETS: EnvironmentPreset[] = [
       fillLightIntensity: 1.2,
       rimLightIntensity: 1.8,
       exposure: 1.15,
-      backgroundColor: '#22242a',
+      backgroundColor: 'hsl(var(--surface-2))',
       gridVisible: false,
     },
   },
@@ -473,7 +473,7 @@ const ENVIRONMENT_PRESETS: EnvironmentPreset[] = [
       fillLightIntensity: 1.4,
       rimLightIntensity: 2.0,
       exposure: 1.2,
-      backgroundColor: '#1e2026',
+      backgroundColor: 'hsl(var(--surface-2))',
       gridVisible: true,
     },
   },
@@ -486,7 +486,7 @@ const ENVIRONMENT_PRESETS: EnvironmentPreset[] = [
       fillLightIntensity: 1.0,
       rimLightIntensity: 2.5,
       exposure: 1.1,
-      backgroundColor: '#14161b',
+      backgroundColor: 'hsl(var(--surface-1))',
       gridVisible: true,
     },
   },
@@ -499,7 +499,7 @@ const ENVIRONMENT_PRESETS: EnvironmentPreset[] = [
       fillLightIntensity: 0.7,
       rimLightIntensity: 2.5,
       exposure: 1.0,
-      backgroundColor: '#0d0e11',
+      backgroundColor: 'hsl(var(--surface-0))',
       gridVisible: true,
     },
   },
@@ -583,7 +583,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     exposure: 1.15,
     gridVisible: false,
     gridColor: '#3d4252',
-    backgroundColor: '#22242a',
+    backgroundColor: 'hsl(var(--surface-2))',
     autoRotate: false,
     showAxes: false,
     showStats: true,
@@ -2415,8 +2415,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
       {/* Drag & Drop Visual Dropzone Overlay */}
       {isDragOver && (
-        <div className="absolute inset-0 bg-[#1c1e24]/90 border-2 border-dashed border-[#F9CF00] flex flex-col items-center justify-center z-40 transition-all pointer-events-none">
-          <div className="w-16 h-16 rounded-2xl bg-[#F9CF00]/15 border border-[#F9CF00]/40 flex items-center justify-center text-[#F9CF00] shadow-2xl animate-bounce mb-3">
+        <div className="absolute inset-0 bg-[#1c1e24]/90 border-2 border-dashed border-primary flex flex-col items-center justify-center z-40 transition-all pointer-events-none">
+          <div className="w-16 h-16 rounded-2xl bg-primary/15 border border-primary/40 flex items-center justify-center text-primary shadow-2xl animate-bounce mb-3">
             <UploadCloud className="w-8 h-8" />
           </div>
           <span className="text-base font-bold text-white tracking-wide">
@@ -2430,11 +2430,11 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
       {/* Drop Notification Toast */}
       {dropToastMessage && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl bg-[#262932] border border-[#F9CF00]/50 shadow-2xl flex items-center gap-2 text-xs font-semibold text-white animate-in fade-in slide-in-from-top-2 duration-300 max-w-md">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl bg-[#262932] border border-primary/50 shadow-2xl flex items-center gap-2 text-xs font-semibold text-white animate-in fade-in slide-in-from-top-2 duration-300 max-w-md">
           {dropToastIsHtmlError ? (
             <Search className="w-4 h-4 text-rose-400 flex-shrink-0" />
           ) : (
-            <Sparkles className="w-4 h-4 text-[#F9CF00]" />
+            <Sparkles className="w-4 h-4 text-primary" />
           )}
           <span className="truncate">{dropToastMessage}</span>
           {dropToastIsHtmlError && (
@@ -2459,7 +2459,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             <span className="font-semibold text-zinc-200 truncate pr-2">
               {isExecuting ? (executionStep || 'Synthesizing 3D mesh...') : 'Preview mode'}
             </span>
-            <span className="font-mono font-bold text-[#F9CF00] flex-shrink-0">
+            <span className="font-mono font-bold text-primary flex-shrink-0">
               {Math.round(isExecuting ? (executionProgress || 15) : 48)}%
             </span>
           </div>
@@ -2467,7 +2467,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           {/* Minimalist Slim Progress Bar */}
           <div className="w-full h-1.5 rounded-full bg-zinc-900/90 border border-white/[0.08] overflow-hidden mb-2 shadow-sm backdrop-blur-sm">
             <div 
-              className="h-full bg-[#F9CF00] rounded-full transition-all duration-300 ease-out"
+              className="h-full bg-primary rounded-full transition-all duration-300 ease-out"
               style={{ width: `${Math.max(4, Math.min(100, isExecuting ? (executionProgress || 15) : 48))}%` }}
             />
           </div>
@@ -2486,11 +2486,11 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
       {/* Smooth Non-Intrusive Loading Overlay (Asset file parsing) */}
       {isLoading && !isExecuting && (
-        <div className="absolute inset-0 bg-[#14161b]/75 backdrop-blur-sm flex flex-col items-center justify-center z-20 pointer-events-none transition-all duration-200 p-4">
-          <div className="bg-[#181a20]/90 border border-zinc-800/80 rounded-2xl px-6 py-5 flex flex-col items-center shadow-2xl max-w-xs w-full">
+        <div className="absolute inset-0 bg-[hsl(var(--surface-1))]/75 backdrop-blur-sm flex flex-col items-center justify-center z-20 pointer-events-none transition-all duration-200 p-4">
+          <div className="bg-[hsl(var(--surface-1))]/90 border border-zinc-800/80 rounded-2xl px-6 py-5 flex flex-col items-center shadow-2xl max-w-xs w-full">
             <div className="relative flex items-center justify-center mb-3">
-              <div className="w-12 h-12 rounded-full border-2 border-zinc-800 border-t-[#F9CF00] animate-spin" />
-              <Sparkles className="w-4 h-4 text-[#F9CF00] absolute animate-pulse" />
+              <div className="w-12 h-12 rounded-full border-2 border-zinc-800 border-t-[hsl(var(--primary))] animate-spin" />
+              <Sparkles className="w-4 h-4 text-primary absolute animate-pulse" />
             </div>
             <span className="text-xs font-bold text-zinc-100 tracking-wide block mb-1">
               {loadProgress && loadProgress.percent === 100
@@ -2501,7 +2501,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               <div className="w-full mt-2 space-y-1.5">
                 <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-[#ebd024] to-[#F9CF00] transition-all duration-150 rounded-full"
+                    className="h-full bg-gradient-to-r from-[#ebd024] to-[hsl(var(--primary))] transition-all duration-150 rounded-full"
                     style={{ width: `${Math.max(5, loadProgress.percent)}%` }}
                   />
                 </div>
@@ -2522,8 +2522,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
       {/* Empty State Overlay when no asset is active */}
       {!currentAsset && !isLoading && !isExecuting && !debugBlueprint && showOverlayUI && (
         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none p-4">
-          <div className="max-w-xs w-full p-5 rounded-2xl bg-[#14161b]/95 border border-[#272a34] shadow-2xl backdrop-blur-md text-center pointer-events-auto space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#1c1f26] border border-[#272a34] flex items-center justify-center mx-auto text-[#F9CF00]">
+          <div className="max-w-xs w-full p-5 rounded-2xl bg-[hsl(var(--surface-1))]/95 border border-[#272a34] shadow-2xl backdrop-blur-md text-center pointer-events-auto space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-[hsl(var(--surface-2))] border border-[#272a34] flex items-center justify-center mx-auto text-primary">
               <Box className="w-6 h-6 stroke-[2.2]" />
             </div>
             <div className="space-y-1">
@@ -2538,7 +2538,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                   setIsLeftPanelOpen(true);
                   setActiveTool('model');
                 }}
-                className="w-full py-2.5 px-3 rounded-xl bg-[#F9CF00] hover:bg-[#ebd024] text-black font-extrabold text-[11px] flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer"
+                className="w-full py-2.5 px-3 rounded-xl bg-primary hover:bg-[#ebd024] text-black font-extrabold text-[11px] flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer"
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Generate 3D Asset</span>
@@ -2557,7 +2557,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             className="absolute top-3 z-10 flex items-center gap-1.5 sm:gap-2 max-w-[calc(100vw-1.5rem)] transition-all duration-200 pointer-events-auto"
           >
             {/* Unobtrusive Corner Zoom / Orbit Controller Set (Tripo Style) */}
-            <div className="flex items-center gap-0.5 p-1 rounded-xl bg-[#14161b]/90 backdrop-blur-md border border-[#272a34] shadow-2xl text-zinc-300">
+            <div className="flex items-center gap-0.5 p-1 rounded-xl bg-[hsl(var(--surface-1))]/90 backdrop-blur-md border border-[#272a34] shadow-2xl text-zinc-300">
               {/* Orbit/Pan Mode Toggle with Active Visual Indicator */}
               <SimpleTooltip side="bottom" label={`Mode: ${interactionMode === 'pan' ? 'Pan' : 'Orbit'} (Click to toggle)`}>
                 <button
@@ -2565,11 +2565,11 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                   onClick={() => setInteractionMode(interactionMode === 'pan' ? 'orbit' : 'pan')}
                   className={`flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
                     interactionMode === 'orbit'
-                      ? 'bg-[#1f222a] text-[#F9CF00] border border-[#F9CF00]/40 shadow-sm'
+                      ? 'bg-[#1f222a] text-primary border border-primary/40 shadow-sm'
                       : 'bg-[#1f222a] text-zinc-300 hover:text-white'
                   }`}
                 >
-                  <Compass className="w-3 h-3 text-[#F9CF00]" />
+                  <Compass className="w-3 h-3 text-primary" />
                   <span className="capitalize">{interactionMode}</span>
                 </button>
               </SimpleTooltip>
@@ -2603,7 +2603,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                 <button
                   id="btn-corner-fit-view"
                   onClick={resetCamera}
-                  className="p-1 rounded-lg text-zinc-400 hover:text-[#F9CF00] hover:bg-[#1f222a] transition-all cursor-pointer"
+                  className="p-1 rounded-lg text-zinc-400 hover:text-primary hover:bg-[#1f222a] transition-all cursor-pointer"
                 >
                   <Maximize2 className="w-3.5 h-3.5" />
                 </button>
@@ -2611,17 +2611,17 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             </div>
 
             {/* Topology HUD */}
-            <div className="bg-[#14161b]/90 backdrop-blur-md border border-[#272a34] rounded-xl px-2.5 sm:px-3 py-1.5 shadow-2xl flex items-center gap-2 sm:gap-3 text-xs font-mono">
+            <div className="bg-[hsl(var(--surface-1))]/90 backdrop-blur-md border border-[#272a34] rounded-xl px-2.5 sm:px-3 py-1.5 shadow-2xl flex items-center gap-2 sm:gap-3 text-xs font-mono">
               <div className="flex items-center gap-1 sm:gap-1.5">
                 <span className="text-zinc-500 text-[10px] uppercase font-semibold hidden sm:inline">Topology</span>
-                <span className="text-[#F9CF00] font-bold text-[10px]">
+                <span className="text-primary font-bold text-[10px]">
                   {currentAsset?.topology || (meshStats ? 'Triangle' : '—')}
                 </span>
               </div>
               <div className="w-px h-3 bg-[#272a34]" />
               <div className="flex items-center gap-1 sm:gap-1.5">
                 <span className="text-zinc-500 text-[10px] uppercase font-semibold hidden sm:inline">Geometry</span>
-                <span className="text-[#00FF9D] font-bold text-[10px]">
+                <span className="text-[hsl(var(--neon-green))] font-bold text-[10px]">
                   {currentAsset?.statsAvailable 
                     ? `${(currentAsset.faces / 1000).toFixed(1)}k / ${(currentAsset.vertices / 1000).toFixed(1)}k` 
                     : meshStats 
@@ -2646,7 +2646,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           {/* Right Floating Tool Rail - visible on tablet & desktop (hidden on mobile to prevent clutter) */}
           <div 
             style={{ right: `${rightOffset}px` }} 
-            className="hidden md:flex absolute top-1/2 -translate-y-1/2 z-10 flex-col gap-1.5 bg-[#14161b] border border-[#272a34] p-1.5 rounded-2xl shadow-2xl transition-all duration-200"
+            className="hidden md:flex absolute top-1/2 -translate-y-1/2 z-10 flex-col gap-1.5 bg-[hsl(var(--surface-1))] border border-[#272a34] p-1.5 rounded-2xl shadow-2xl transition-all duration-200"
           >
             <SimpleTooltip side="left" label={interactionMode === 'move' ? 'Return to Orbit Mode' : 'Move / Translate 3D Model'}>
               <button
@@ -2654,7 +2654,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                 onClick={() => setInteractionMode(interactionMode === 'move' ? 'orbit' : 'move')}
                 className={`p-2 rounded-xl transition-all ${
                   interactionMode === 'move' 
-                    ? 'bg-[#F9CF00] text-black font-bold ring-2 ring-[#F9CF00]/40' 
+                    ? 'bg-primary text-black font-bold ring-2 ring-[hsl(var(--primary))]/40' 
                     : 'text-zinc-300 hover:text-white hover:bg-[#1f222a]'
                 }`}
               >
@@ -2667,7 +2667,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                 onClick={() => setInteractionMode(interactionMode === 'pan' ? 'orbit' : 'pan')}
                 className={`p-2 rounded-xl transition-all ${
                   interactionMode === 'pan' 
-                    ? 'bg-[#F9CF00] text-black font-bold' 
+                    ? 'bg-primary text-black font-bold' 
                     : 'text-zinc-300 hover:text-white hover:bg-[#1f222a]'
                 }`}
               >
@@ -2678,7 +2678,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             <SimpleTooltip side="left" label="Capture 3D Viewport Screenshot">
               <button
                 onClick={handleScreenshot}
-                className="p-2 rounded-xl text-zinc-300 hover:text-[#F9CF00] hover:bg-[#1f222a] transition-all"
+                className="p-2 rounded-xl text-zinc-300 hover:text-primary hover:bg-[#1f222a] transition-all"
               >
                 <Camera className="w-4 h-4 stroke-[2.2]" />
               </button>
@@ -2689,7 +2689,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                 onClick={() => patchEnv({ gridVisible: !environmentSettings.gridVisible })}
                 className={`p-2 rounded-xl transition-all ${
                   environmentSettings.gridVisible 
-                    ? 'text-[#F9CF00] bg-[#1f222a]' 
+                    ? 'text-primary bg-[#1f222a]' 
                     : 'text-zinc-300 hover:text-white hover:bg-[#1f222a]'
                 }`}
               >
@@ -2712,7 +2712,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                 onClick={() => setShowEnvironmentPanel(!showEnvironmentPanel)}
                 className={`p-2 rounded-xl transition-all cursor-pointer ${
                   showEnvironmentPanel
-                    ? 'bg-[#F9CF00] text-black font-bold' 
+                    ? 'bg-primary text-black font-bold' 
                     : 'text-zinc-300 hover:text-white hover:bg-[#1f222a]'
                 }`}
               >
@@ -2726,9 +2726,9 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
             <div 
               ref={envPanelRef}
               style={{ right: `${isDesktopScreen ? rightOffset + 56 : 16}px` }} 
-              className="absolute top-1/2 -translate-y-1/2 z-20 w-72 max-w-[calc(100vw-2rem)] bg-[#16181D]/95 backdrop-blur-xl border border-white/[0.1] rounded-2xl shadow-2xl p-4 space-y-3 transition-all duration-200 animate-in fade-in zoom-in-95"
+              className="absolute top-1/2 -translate-y-1/2 z-20 w-72 max-w-[calc(100vw-2rem)] bg-[hsl(var(--surface-1))]/95 backdrop-blur-xl border border-white/[0.1] rounded-2xl shadow-2xl p-4 space-y-3 transition-all duration-200 animate-in fade-in zoom-in-95"
             >
-              <h3 className="text-[10px] font-bold tracking-wider text-[#F9CF00] uppercase">Environment Settings</h3>
+              <h3 className="text-[10px] font-bold tracking-wider text-primary uppercase">Environment Settings</h3>
 
               {/* Presets Section */}
               <div className="space-y-1.5">
@@ -2740,8 +2740,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                       onClick={() => applyPreset(preset.id)}
                       className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
                         selectedPreset === preset.id
-                          ? 'bg-[#F9CF00] text-black shadow-md font-bold'
-                          : 'bg-[#1e2129] text-zinc-300 border border-[#2c303d] hover:border-[#F9CF00]/50 hover:text-[#F9CF00]'
+                          ? 'bg-primary text-black shadow-md font-bold'
+                          : 'bg-[hsl(var(--surface-2))] text-zinc-300 border border-[#2c303d] hover:border-primary/50 hover:text-primary'
                       }`}
                     >
                       {preset.label}
@@ -2757,25 +2757,25 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] text-zinc-400">Ambient</span>
-                    <span className="text-[9px] font-mono text-[#F9CF00]">{environmentSettings.ambientIntensity.toFixed(1)}</span>
+                    <span className="text-[9px] font-mono text-primary">{environmentSettings.ambientIntensity.toFixed(1)}</span>
                   </div>
-                  <input type="range" min={0} max={3} step={0.1} value={environmentSettings.ambientIntensity} onChange={(e) => patchEnv({ ambientIntensity: parseFloat(e.target.value) })} className="w-full h-1 rounded-full bg-zinc-700 appearance-none cursor-pointer accent-[#F9CF00]" />
+                  <input type="range" min={0} max={3} step={0.1} value={environmentSettings.ambientIntensity} onChange={(e) => patchEnv({ ambientIntensity: parseFloat(e.target.value) })} className="w-full h-1 rounded-full bg-zinc-700 appearance-none cursor-pointer accent-primary" />
                 </div>
 
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] text-zinc-400">Key Light</span>
-                    <span className="text-[9px] font-mono text-[#F9CF00]">{environmentSettings.keyLightIntensity.toFixed(1)}</span>
+                    <span className="text-[9px] font-mono text-primary">{environmentSettings.keyLightIntensity.toFixed(1)}</span>
                   </div>
-                  <input type="range" min={0} max={5} step={0.1} value={environmentSettings.keyLightIntensity} onChange={(e) => patchEnv({ keyLightIntensity: parseFloat(e.target.value) })} className="w-full h-1 rounded-full bg-zinc-700 appearance-none cursor-pointer accent-[#F9CF00]" />
+                  <input type="range" min={0} max={5} step={0.1} value={environmentSettings.keyLightIntensity} onChange={(e) => patchEnv({ keyLightIntensity: parseFloat(e.target.value) })} className="w-full h-1 rounded-full bg-zinc-700 appearance-none cursor-pointer accent-primary" />
                 </div>
 
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] text-zinc-400">Fill Light</span>
-                    <span className="text-[9px] font-mono text-[#F9CF00]">{environmentSettings.fillLightIntensity.toFixed(1)}</span>
+                    <span className="text-[9px] font-mono text-primary">{environmentSettings.fillLightIntensity.toFixed(1)}</span>
                   </div>
-                  <input type="range" min={0} max={4} step={0.1} value={environmentSettings.fillLightIntensity} onChange={(e) => patchEnv({ fillLightIntensity: parseFloat(e.target.value) })} className="w-full h-1 rounded-full bg-zinc-700 appearance-none cursor-pointer accent-[#F9CF00]" />
+                  <input type="range" min={0} max={4} step={0.1} value={environmentSettings.fillLightIntensity} onChange={(e) => patchEnv({ fillLightIntensity: parseFloat(e.target.value) })} className="w-full h-1 rounded-full bg-zinc-700 appearance-none cursor-pointer accent-primary" />
                 </div>
               </div>
 
@@ -2784,21 +2784,21 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                 <span className="text-[9px] font-semibold text-zinc-400 uppercase tracking-wider">Camera</span>
                 <div className="flex items-center justify-between">
                   <span className="text-[9px] text-zinc-400">Exposure</span>
-                  <span className="text-[9px] font-mono text-[#F9CF00]">{environmentSettings.exposure.toFixed(2)}</span>
+                  <span className="text-[9px] font-mono text-primary">{environmentSettings.exposure.toFixed(2)}</span>
                 </div>
-                <input type="range" min={0.5} max={3} step={0.05} value={environmentSettings.exposure} onChange={(e) => patchEnv({ exposure: parseFloat(e.target.value) })} className="w-full h-1 rounded-full bg-zinc-700 appearance-none cursor-pointer accent-[#F9CF00]" />
+                <input type="range" min={0.5} max={3} step={0.05} value={environmentSettings.exposure} onChange={(e) => patchEnv({ exposure: parseFloat(e.target.value) })} className="w-full h-1 rounded-full bg-zinc-700 appearance-none cursor-pointer accent-primary" />
               </div>
 
               {/* Grid Toggle */}
               <div className="flex items-center justify-between">
                 <span className="text-[9px] text-zinc-400">Show Grid</span>
-                <button onClick={() => patchEnv({ gridVisible: !environmentSettings.gridVisible })} className={`w-7 h-3.5 rounded-full transition-colors relative ${environmentSettings.gridVisible ? 'bg-[#F9CF00]' : 'bg-zinc-700'}`}>
+                <button onClick={() => patchEnv({ gridVisible: !environmentSettings.gridVisible })} className={`w-7 h-3.5 rounded-full transition-colors relative ${environmentSettings.gridVisible ? 'bg-primary' : 'bg-zinc-700'}`}>
                   <div className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-zinc-900 transition-transform ${environmentSettings.gridVisible ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
                 </button>
               </div>
 
               {/* Reset to Defaults */}
-              <button onClick={() => setEnvironmentSettings({ ambientIntensity: 1.2, keyLightIntensity: 3.0, fillLightIntensity: 1.8, rimLightIntensity: 2.5, exposure: 1.5, gridVisible: true, gridColor: '#333333', backgroundColor: '#22242a', autoRotate: false, showAxes: true, showStats: true })} className="w-full py-1.5 rounded-lg text-[9px] font-semibold text-zinc-300 bg-[#1e2129] border border-[#2c303d] hover:border-[#F9CF00]/50 hover:text-[#F9CF00] transition-colors">
+              <button onClick={() => setEnvironmentSettings({ ambientIntensity: 1.2, keyLightIntensity: 3.0, fillLightIntensity: 1.8, rimLightIntensity: 2.5, exposure: 1.5, gridVisible: true, gridColor: '#333333', backgroundColor: 'hsl(var(--surface-2))', autoRotate: false, showAxes: true, showStats: true })} className="w-full py-1.5 rounded-lg text-[9px] font-semibold text-zinc-300 bg-[hsl(var(--surface-2))] border border-[#2c303d] hover:border-primary/50 hover:text-primary transition-colors">
                 Reset to Defaults
               </button>
             </div>
@@ -2811,11 +2811,11 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               <div className="relative" ref={cameraMenuRef}>
                 <button
                   onClick={() => setCameraMenuOpen(!cameraMenuOpen)}
-                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#14161b]/90 backdrop-blur-md border border-[#272a34] text-xs font-semibold text-zinc-200 hover:text-white hover:border-[#F9CF00]/40 shadow-2xl transition-all cursor-pointer active:scale-95"
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[hsl(var(--surface-1))]/90 backdrop-blur-md border border-[#272a34] text-xs font-semibold text-zinc-200 hover:text-white hover:border-primary/40 shadow-2xl transition-all cursor-pointer active:scale-95"
                 >
-                  <RotateCw className="w-3.5 h-3.5 text-[#F9CF00]" />
+                  <RotateCw className="w-3.5 h-3.5 text-primary" />
                   <span className="capitalize">{cameraPreset}</span>
-                  <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform ${cameraMenuOpen ? 'rotate-180 text-[#F9CF00]' : ''}`} />
+                  <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform ${cameraMenuOpen ? 'rotate-180 text-primary' : ''}`} />
                 </button>
 
                 {cameraMenuOpen && (
@@ -2828,11 +2828,11 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                           setCameraMenuOpen(false);
                         }}
                         className={`w-full text-left px-3 py-1.5 capitalize hover:bg-[#222630] transition-colors flex items-center justify-between cursor-pointer ${
-                          cameraPreset === p ? 'text-[#F9CF00] font-bold' : 'text-zinc-300'
+                          cameraPreset === p ? 'text-primary font-bold' : 'text-zinc-300'
                         }`}
                       >
                         <span>{p}</span>
-                        {cameraPreset === p && <Check className="w-3 h-3 text-[#F9CF00]" />}
+                        {cameraPreset === p && <Check className="w-3 h-3 text-primary" />}
                       </button>
                     ))}
                   </div>
@@ -2843,15 +2843,15 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               <div className="relative" ref={shadingMenuRef}>
                 <button
                   onClick={() => setShadingMenuOpen(!shadingMenuOpen)}
-                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#14161b]/90 backdrop-blur-md border border-[#272a34] text-xs font-semibold text-zinc-200 hover:text-white hover:border-[#F9CF00]/40 shadow-2xl transition-all cursor-pointer active:scale-95"
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[hsl(var(--surface-1))]/90 backdrop-blur-md border border-[#272a34] text-xs font-semibold text-zinc-200 hover:text-white hover:border-primary/40 shadow-2xl transition-all cursor-pointer active:scale-95"
                 >
                   <div className={`w-2.5 h-2.5 rounded-full ${
-                    shadingMode === 'textured' ? 'bg-[#F9CF00]' :
+                    shadingMode === 'textured' ? 'bg-primary' :
                     shadingMode === 'clay' ? 'bg-zinc-400' :
-                    shadingMode === 'wireframe' ? 'bg-[#00FF9D]' : 'bg-purple-400'
+                    shadingMode === 'wireframe' ? 'bg-[hsl(var(--neon-green))]' : 'bg-purple-400'
                   }`} />
                   <span className="capitalize">{shadingMode.replace('matcap-', '')}</span>
-                  <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform ${shadingMenuOpen ? 'rotate-180 text-[#F9CF00]' : ''}`} />
+                  <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform ${shadingMenuOpen ? 'rotate-180 text-primary' : ''}`} />
                 </button>
 
                 {shadingMenuOpen && (
@@ -2860,9 +2860,9 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                       Shading Mode
                     </div>
                     {[
-                      { id: 'textured', label: 'PBR Textured', dot: 'bg-[#F9CF00]' },
+                      { id: 'textured', label: 'PBR Textured', dot: 'bg-primary' },
                       { id: 'clay', label: 'Matte Clay', dot: 'bg-zinc-400' },
-                      { id: 'wireframe', label: 'Topology Wireframe', dot: 'bg-[#00FF9D]' },
+                      { id: 'wireframe', label: 'Topology Wireframe', dot: 'bg-[hsl(var(--neon-green))]' },
                       { id: 'matcap-normal', label: 'Tangent Normals', dot: 'bg-purple-400' },
                       { id: 'matcap-ceramic', label: 'Ceramic Gloss', dot: 'bg-white' },
                       { id: 'matcap-chrome', label: 'Chrome Metallic', dot: 'bg-zinc-300' },
@@ -2874,14 +2874,14 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                           setShadingMenuOpen(false);
                         }}
                         className={`w-full text-left px-3 py-1.5 hover:bg-[#222630] transition-colors flex items-center justify-between cursor-pointer ${
-                          shadingMode === s.id ? 'text-[#F9CF00] font-bold' : 'text-zinc-300'
+                          shadingMode === s.id ? 'text-primary font-bold' : 'text-zinc-300'
                         }`}
                       >
                         <div className="flex items-center gap-2">
                           <div className={`w-2 h-2 rounded-full ${s.dot}`} />
                           <span>{s.label}</span>
                         </div>
-                        {shadingMode === s.id && <Check className="w-3 h-3 text-[#F9CF00]" />}
+                        {shadingMode === s.id && <Check className="w-3 h-3 text-primary" />}
                       </button>
                     ))}
                   </div>
@@ -2894,8 +2894,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                   onClick={() => setShowWireframe(!showWireframe)}
                   className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl border text-xs font-mono font-bold transition-all cursor-pointer active:scale-95 ${
                     showWireframe
-                      ? 'bg-[#00FF9D]/15 text-[#00FF9D] border-[#00FF9D]/40 shadow-sm'
-                      : 'bg-[#14161b]/90 backdrop-blur-md border-[#272a34] text-zinc-400 hover:text-white'
+                      ? 'bg-[hsl(var(--neon-green))]/15 text-[hsl(var(--neon-green))] border-[hsl(var(--neon-green))]/40 shadow-sm'
+                      : 'bg-[hsl(var(--surface-1))]/90 backdrop-blur-md border-[#272a34] text-zinc-400 hover:text-white'
                   }`}
                 >
                   <span>#</span>
@@ -2909,8 +2909,8 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
                   onClick={() => setIsTurntable(!isTurntable)}
                   className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer active:scale-95 flex items-center gap-1.5 ${
                     isTurntable
-                      ? 'bg-[#F9CF00] text-black border-[#F9CF00] font-bold shadow-md'
-                      : 'bg-[#14161b]/90 backdrop-blur-md border-[#272a34] text-zinc-300 hover:text-white'
+                      ? 'bg-primary text-black border-primary font-bold shadow-md'
+                      : 'bg-[hsl(var(--surface-1))]/90 backdrop-blur-md border-[#272a34] text-zinc-300 hover:text-white'
                   }`}
                 >
                   <RotateCw className={`w-3.5 h-3.5 ${isTurntable ? 'animate-spin' : ''}`} />
@@ -2922,7 +2922,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
               <button
                 id="btn-viewport-export"
                 onClick={() => setIsExportModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-xl bg-gradient-to-r from-[#FFE24C] to-[#F9CF00] hover:brightness-105 active:scale-95 text-black text-xs font-bold shadow-lg shadow-[#F9CF00]/20 transition-all cursor-pointer border border-white/20"
+                className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-xl bg-gradient-to-r from-[hsl(var(--neon-amber))] to-[hsl(var(--primary))] hover:brightness-105 active:scale-95 text-black text-xs font-bold shadow-lg shadow-[hsl(var(--primary))]/20 transition-all cursor-pointer border border-white/20"
               >
                 <Download className="w-3.5 h-3.5 stroke-[2.5]" />
                 <span>Export</span>

@@ -672,3 +672,12 @@ In-memory caching with TTL reduces redundant computation and improves response t
   - Returns `{ connected, lastEvent }` state
   - Consumers fall back to polling when `connected` is false
 - **`hooks/useBackendData.ts`**: Uses SSE when connected, falls back to 60s polling for status
+
+## Frontend Studio Modernization (v4.8+)
+
+- **Universal Motion System (`lib/motion.ts`)**: Standardized all UI motion under `motion/react` with spring presets (`stiffness: 450, damping: 32`) for tab highlights, modal entries, and interactive switches.
+- **Dual-Scope Navigation Rail**: Decoupled studio-level pages (`Overview`, `Assets`, `System`) from contextual 3D tool overlays (`Model`, `Poly`, `Texture`, `Animate`, `Segment`), keeping the desktop rail permanently docked at `md:left-[72px]`.
+- **Multi-Modal Generation Interfaces**:
+  - `GeneratePanel.tsx` features single-image drag-and-drop, 4-angle orthogonal multi-view capture (`crop`), direct text-to-3d prompt workshop (`wand`) with "Inspire Me" generation, and an HTML5 2D concept sketchpad (`edit`).
+- **SSR Acceleration & Dynamic Bailout Elimination**: Direct panel imports replace lazy dynamic components with `ssr: false` in `WorkspaceShell.tsx`, avoiding client-side hydration stalls and providing instant HTML markup.
+

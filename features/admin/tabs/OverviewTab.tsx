@@ -91,19 +91,19 @@ export function OverviewTab() {
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="relative overflow-hidden rounded-2xl bg-[#1e2026] border border-[#2f333e] p-6"
+        className="relative overflow-hidden rounded-2xl bg-[hsl(var(--surface-1))] border border-border p-6"
       >
         <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#F9CF00]/15 text-[#F9CF00] border border-[#F9CF00]/30">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#F9CF00] animate-pulse" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-primary/15 text-primary border border-primary/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                 System Online
               </span>
               <span className="text-xs text-zinc-400 font-mono">Uptime: {overview?.uptime ?? '—'}</span>
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-white mb-1">
-              Welcome to <span className="text-[#F9CF00]">AI 3D Studio</span>
+              Welcome to <span className="text-primary">AI 3D Studio</span>
             </h1>
             <p className="text-xs text-zinc-400">
               Your AI generation engine is running. {overview?.active_jobs ?? 0} active jobs, {overview?.queued_jobs ?? 0} in queue.
@@ -113,9 +113,9 @@ export function OverviewTab() {
             <div className="text-right">
               <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Today</p>
               <p className="text-2xl font-bold font-mono text-white">{overview?.completed_today ?? 0}</p>
-              <p className="text-[11px] text-[#F9CF00] font-medium">models generated</p>
+              <p className="text-[11px] text-primary font-medium">models generated</p>
             </div>
-            <div className="w-px h-10 bg-[#2f333e]" />
+            <div className="w-px h-10 bg-border" />
             <div className="text-right">
               <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Success Rate</p>
               <p className="text-2xl font-bold font-mono text-emerald-400">{overview?.success_rate != null ? `${overview.success_rate}%` : '—'}</p>
@@ -136,9 +136,9 @@ export function OverviewTab() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.05 + i * 0.03 }}
               whileHover={{ scale: 1.02 }}
-              className="flex items-center gap-3 p-3.5 rounded-xl bg-[#1e2026] border border-[#2f333e] hover:border-[#F9CF00]/50 hover:bg-[#282b34] transition-all"
+              className="flex items-center gap-3 p-3.5 rounded-xl bg-[hsl(var(--surface-1))] border border-border hover:border-primary/50 hover:bg-[hsl(var(--surface-2))] transition-all"
             >
-              <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#181a20] text-[#F9CF00]">
+              <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[hsl(var(--surface-0))] text-primary">
                 <Icon className="w-4 h-4 stroke-[2.2]" />
               </div>
               <span className="text-xs font-bold text-white">{action.label}</span>

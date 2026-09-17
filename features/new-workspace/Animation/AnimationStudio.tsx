@@ -97,9 +97,9 @@ export const AnimationStudio: React.FC = () => {
   const polysText = realPolys > 0 ? `${realPolys.toLocaleString()} Polys` : 'Ready';
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#0D0E11] text-[#E0E2E8] overflow-hidden select-none">
+    <div className="flex flex-col h-full w-full bg-[hsl(var(--surface-0))] text-[#E0E2E8] overflow-hidden select-none">
       {/* SLEEK SINGLE BAR HEADER */}
-      <div className="flex-shrink-0 h-12 bg-[#121418] border-b border-white/[0.08] px-4 flex items-center justify-between z-20">
+      <div className="flex-shrink-0 h-12 bg-[hsl(var(--surface-0))] border-b border-white/[0.08] px-4 flex items-center justify-between z-20">
         {/* Left: Back Arrow + Page Title + Mode Tabs */}
         <div className="flex items-center gap-3">
           <button
@@ -112,7 +112,7 @@ export const AnimationStudio: React.FC = () => {
           <div className="flex items-center gap-2">
             <h1 className="text-xs font-black tracking-wide text-white uppercase flex items-center gap-1.5">
               <span>Animation Studio</span>
-              <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-[#F9CF00]/10 text-[#F9CF00] border border-[#F9CF00]/20">
+              <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-primary/10 text-primary border border-primary/20">
                 PRO
               </span>
             </h1>
@@ -120,7 +120,7 @@ export const AnimationStudio: React.FC = () => {
           <div className="h-4 w-px bg-white/10 mx-1 hidden sm:block" />
 
           {/* Mode Selector Pills */}
-          <div className="flex items-center gap-1 bg-[#0B0C0E] p-0.5 rounded-xl border border-white/[0.06]">
+          <div className="flex items-center gap-1 bg-[hsl(var(--surface-0))] p-0.5 rounded-xl border border-white/[0.06]">
             {[
               { id: 'animate', label: 'Animate', icon: <Film className="w-3.5 h-3.5" /> },
               { id: 'rigging', label: 'Rigging', icon: <Bone className="w-3.5 h-3.5" /> },
@@ -133,7 +133,7 @@ export const AnimationStudio: React.FC = () => {
                   onClick={() => handleModeChange(mode.id as AnimationStudioMode)}
                   className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     isActive
-                      ? 'bg-[#F9CF00] text-black shadow-sm'
+                      ? 'bg-primary text-black shadow-sm'
                       : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
                   }`}
                 >
@@ -148,8 +148,8 @@ export const AnimationStudio: React.FC = () => {
         {/* Right: Real Active Model Pill + Save + Share + Export */}
         <div className="flex items-center gap-2">
           {/* Real Model Pill */}
-          <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-[#17191F] border border-white/[0.08] rounded-xl text-xs">
-            <Box className="w-3.5 h-3.5 text-[#F9CF00]" />
+          <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-[hsl(var(--surface-1))] border border-white/[0.08] rounded-xl text-xs">
+            <Box className="w-3.5 h-3.5 text-primary" />
             <span className="font-semibold text-zinc-200">{modelName}</span>
             <span className="text-zinc-600">•</span>
             <span className="text-zinc-400">{polysText}</span>
@@ -161,14 +161,14 @@ export const AnimationStudio: React.FC = () => {
 
           <button
             onClick={handleSave}
-            className="p-2 rounded-xl bg-[#1D2026] hover:bg-[#252932] border border-white/[0.08] text-zinc-300 hover:text-white transition-all cursor-pointer"
+            className="p-2 rounded-xl bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-3))] border border-white/[0.08] text-zinc-300 hover:text-white transition-all cursor-pointer"
             title="Save Project"
           >
             <Save className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={handleShare}
-            className="p-2 rounded-xl bg-[#1D2026] hover:bg-[#252932] border border-white/[0.08] text-zinc-300 hover:text-white transition-all cursor-pointer"
+            className="p-2 rounded-xl bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-3))] border border-white/[0.08] text-zinc-300 hover:text-white transition-all cursor-pointer"
             title="Copy Workspace URL"
           >
             <Share2 className="w-3.5 h-3.5" />
@@ -176,7 +176,7 @@ export const AnimationStudio: React.FC = () => {
 
           <button
             onClick={() => setIsExportModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-bold text-xs transition-all shadow-[0_2px_12px_rgba(249,207,0,0.25)] active:scale-95 cursor-pointer ml-1"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-primary hover:bg-[hsl(var(--primary)/0.9)] text-black font-bold text-xs transition-all shadow-[0_2px_12px_rgba(249,207,0,0.25)] active:scale-95 cursor-pointer ml-1"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Export</span>

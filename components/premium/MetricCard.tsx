@@ -167,7 +167,7 @@ export function MetricCard({
   const decimalPlaces = hasDecimals ? String(value).split('.')[1]?.length || 0 : 0;
 
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-[#14161A] p-5 shadow-sm transition-all hover:border-white/[0.14]">
+    <div className="rounded-xl border border-white/[0.08] bg-[hsl(var(--surface-1))] p-5 shadow-sm transition-all hover:border-white/[0.14]">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2.5">
           {Icon && (
@@ -176,7 +176,7 @@ export function MetricCard({
               whileHover={{ scale: 1.08 }}
               transition={{ type: 'spring', stiffness: 400, damping: 15 }}
             >
-              <Icon className="w-4 h-4 text-[#F9CF00]" />
+              <Icon className="w-4 h-4 text-primary" />
             </motion.div>
           )}
           <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
@@ -219,7 +219,7 @@ export function MetricCard({
         </div>
 
         {sparkline && sparkline.length >= 2 && (
-          <Sparkline data={sparkline} color="#F9CF00" />
+          <Sparkline data={sparkline} color="hsl(var(--primary))" />
         )}
       </div>
 

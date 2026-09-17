@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Sparkles,
   Upload,
@@ -24,7 +24,11 @@ import {
   Package,
   Layers,
   AlertTriangle,
-  Gauge
+  Gauge,
+  Eraser,
+  Plus,
+  Eye,
+  Undo2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
@@ -34,6 +38,7 @@ import { useUploadProgress } from '@/hooks/useUploadProgress';
 import { apiClient } from '@/services/apiClient';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 import { AnimatedTabs, AnimatedSwitch, RippleButton, SlidingNumber, ImageZoom, BorderBeam } from '@/components/animate-ui';
+import { ShimmerButton } from '@/components/ui/shimmer-button';
 
 export const GeneratePanel: React.FC = () => {
   const router = useRouter();
@@ -73,6 +78,19 @@ export const GeneratePanel: React.FC = () => {
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const modelDropdownRef = useRef<HTMLDivElement>(null);
   const [subAction, setSubAction] = useState<'upload' | 'crop' | 'wand' | 'edit'>('upload');
+  const [activeMvSlot, setActiveMvSlot] = useState<'front' | 'back' | 'left' | 'right'>('front');
+  const multiFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sketchpad state
+  const sketchCanvasRef = useRef<HTMLCanvasElement>(null);
+  const isDrawingRef = useRef(false);
+  const [sketchTool, setSketchTool] = useState<'brush' | 'eraser'>('brush');
+  const [sketchColor, setSketchColor] = useState('#F59E0B');
+  const [sketchSize, setSketchSize] = useState<number>(4);
+
+  // Text / Prompt state
+  const [showNegativePrompt, setShowNegativePrompt] = useState(false);
+
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -230,17 +248,17 @@ export const GeneratePanel: React.FC = () => {
   };
 
   const renderMeshEnhancementCard = () => (
-    <div className="rounded-xl border border-white/[0.12] bg-[#141518] p-2.5 space-y-2 relative overflow-hidden">
+    <div className="rounded-xl border border-white/[0.12] bg-[hsl(var(--surface-0))] p-2.5 space-y-2 relative overflow-hidden">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="p-1 rounded-md bg-[#F9CF00]/10 text-[#F9CF00]">
+          <div className="p-1 rounded-md bg-primary/10 text-primary">
             <Sparkles className="w-3.5 h-3.5" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-bold text-zinc-100">HD Mesh Quality Enhancement</span>
               {isMeshEnhanceEnabled && (
-                <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-[#F9CF00]/20 text-[#F9CF00] border border-[#F9CF00]/30">
+                <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-primary/20 text-primary border border-primary/30">
                   AI ACTIVE
                 </span>
               )}
@@ -255,7 +273,7 @@ export const GeneratePanel: React.FC = () => {
           checked={isMeshEnhanceEnabled}
           onCheckedChange={toggleMeshEnhancement}
           size="sm"
-          activeColor="bg-[#F9CF00]"
+          activeColor="bg-primary"
         />
       </div>
 
@@ -301,16 +319,16 @@ export const GeneratePanel: React.FC = () => {
                       onClick={() => setEnhanceMode(engine.id as any)}
                       className={`p-1.5 rounded-lg text-left transition-all relative cursor-pointer border ${
                         isEngineActive
-                          ? 'bg-[#F9CF00]/15 border-[#F9CF00] text-white shadow-sm'
-                          : 'bg-[#191A1D] border-white/[0.06] text-zinc-400 hover:text-zinc-200 hover:bg-[#202125]'
+                          ? 'bg-primary/15 border-primary text-white shadow-sm'
+                          : 'bg-[hsl(var(--surface-1))] border-white/[0.06] text-zinc-400 hover:text-zinc-200 hover:bg-[hsl(var(--surface-2))]'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-0.5">
-                        <span className={`text-[11px] font-bold ${isEngineActive ? 'text-[#F9CF00]' : 'text-zinc-200'}`}>
+                        <span className={`text-[11px] font-bold ${isEngineActive ? 'text-primary' : 'text-zinc-200'}`}>
                           {engine.label}
                         </span>
                         <span className={`text-[8px] px-1 py-0.2 rounded font-mono ${
-                          isEngineActive ? 'bg-[#F9CF00] text-black font-bold' : 'bg-white/[0.05] text-zinc-500'
+                          isEngineActive ? 'bg-primary text-black font-bold' : 'bg-white/[0.05] text-zinc-500'
                         }`}>
                           {engine.badge}
                         </span>
@@ -325,7 +343,7 @@ export const GeneratePanel: React.FC = () => {
             </div>
 
             {(currentEnhanceMode === 'detailgen3d' || currentEnhanceMode === 'both') && (
-              <div className="p-2 rounded-lg bg-[#191A1D] border border-white/[0.06] space-y-1.5">
+              <div className="p-2 rounded-lg bg-[hsl(var(--surface-1))] border border-white/[0.06] space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-[10px] text-zinc-300 font-semibold flex items-center gap-1">
                     <span>Detail Guidance Scale</span>
@@ -333,7 +351,7 @@ export const GeneratePanel: React.FC = () => {
                       <Info className="w-3 h-3 text-zinc-500" />
                     </SimpleTooltip>
                   </span>
-                  <div className="text-[10px] font-mono font-bold text-[#F9CF00] flex items-center gap-0.5">
+                  <div className="text-[10px] font-mono font-bold text-primary flex items-center gap-0.5">
                     <SlidingNumber value={generationSettings.detailGuidance ?? 7.5} decimalPlaces={1} />
                   </div>
                 </div>
@@ -347,13 +365,13 @@ export const GeneratePanel: React.FC = () => {
                     const val = parseFloat(e.target.value);
                     setGenerationSettings(prev => ({ ...prev, detailGuidance: isNaN(val) ? 7.5 : val }));
                   }}
-                  className="w-full h-1 bg-[#25262A] rounded-lg appearance-none cursor-pointer accent-[#F9CF00]"
+                  className="w-full h-1 bg-[hsl(var(--surface-2))] rounded-lg appearance-none cursor-pointer accent-primary"
                 />
               </div>
             )}
 
             <div className="flex items-center gap-1.5 text-[9px] text-zinc-400 bg-white/[0.02] p-1.5 rounded-lg border border-white/[0.04]">
-              <Info className="w-3 h-3 text-[#F9CF00] flex-shrink-0" />
+              <Info className="w-3 h-3 text-primary flex-shrink-0" />
               <span>Optional &amp; non-destructive: base <code>source.glb</code> and <code>game_ready.glb</code> are always preserved.</span>
             </div>
           </motion.div>
@@ -413,6 +431,177 @@ export const GeneratePanel: React.FC = () => {
     const file = e.target.files?.[0];
     if (file) processImageFile(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const processImageFileForSlot = async (file: File, slot: 'front' | 'back' | 'left' | 'right') => {
+    setUploadError(null);
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      setUploadError('Invalid file type. Use JPG, PNG, or WEBP.');
+      return;
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      setUploadError('File too large. Maximum size is 20MB.');
+      return;
+    }
+    try {
+      startUpload(file.name, file.size);
+      const res = await apiClient.uploadFile<{ url: string }>(
+        '/api/v1/upload/image',
+        file,
+        (loaded) => updateProgress(loaded)
+      );
+      finishUpload();
+      const cleanPrompt = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+      setGenerationSettings(prev => ({
+        ...prev,
+        multiviewImages: {
+          ...(prev.multiviewImages || {}),
+          [slot]: res.url,
+        },
+        image: slot === 'front' || !prev.image ? res.url : prev.image,
+        imageName: slot === 'front' || !prev.imageName ? cleanPrompt : prev.imageName,
+        mode: 'image-to-3d',
+      }));
+    } catch (err) {
+      failUpload();
+      setUploadError('Failed to upload multiview image.');
+    }
+  };
+
+  const handleMultiFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processImageFileForSlot(file, activeMvSlot);
+    if (multiFileInputRef.current) multiFileInputRef.current.value = '';
+  };
+
+  // Sketchpad Canvas Initialization and Pointer Handlers
+  const initSketchCanvas = useCallback(() => {
+    const canvas = sketchCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.fillStyle = '#14151a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Draw subtle grid lines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < canvas.width; x += 20) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, canvas.height);
+      ctx.stroke();
+    }
+    for (let y = 0; y < canvas.height; y += 20) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(canvas.width, y);
+      ctx.stroke();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (subAction === 'edit') {
+      const timer = setTimeout(initSketchCanvas, 40);
+      return () => clearTimeout(timer);
+    }
+  }, [subAction, initSketchCanvas]);
+
+  const getCanvasCoords = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = sketchCanvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) * (canvas.width / rect.width),
+      y: (e.clientY - rect.top) * (canvas.height / rect.height),
+    };
+  };
+
+  const handleSketchPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    isDrawingRef.current = true;
+    const canvas = sketchCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const { x, y } = getCanvasCoords(e);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = sketchTool === 'eraser' ? '#14151a' : sketchColor;
+    ctx.lineWidth = sketchTool === 'eraser' ? sketchSize * 3 : sketchSize;
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const handleSketchPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isDrawingRef.current) return;
+    const canvas = sketchCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const { x, y } = getCanvasCoords(e);
+    ctx.strokeStyle = sketchTool === 'eraser' ? '#14151a' : sketchColor;
+    ctx.lineWidth = sketchTool === 'eraser' ? sketchSize * 3 : sketchSize;
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const handleSketchPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isDrawingRef.current) {
+      isDrawingRef.current = false;
+      try {
+        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch {}
+    }
+  };
+
+  const clearSketchCanvas = () => {
+    initSketchCanvas();
+  };
+
+  const handleApplySketchTo3D = () => {
+    const canvas = sketchCanvasRef.current;
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL('image/png');
+    setGenerationSettings(prev => ({
+      ...prev,
+      image: dataUrl,
+      imageName: 'sketch-reference.png',
+      mode: 'image-to-3d',
+    }));
+    setNoticeMessage('Sketch applied as 3D reference!');
+    setTimeout(() => setNoticeMessage(null), 3500);
+  };
+
+  const RANDOM_PROMPTS = [
+    'Cyberpunk combat drone with matte carbon plating, glowing cyan thrusters, and twin antenna sensors',
+    'Ancient runic battle axe with glowing sapphire veins and weathered obsidian handle',
+    'Futuristic mech pilot helmet with holographic HUD visor and titanium ventilation grilles',
+    'Stylized enchanted potion bottle with swirling glowing purple liquid and star particles',
+    'Steampunk robotic owl with polished brass gears, copper wings, and warm amber ocular lenses',
+    'Weathered stone gargoyle statue perched on Gothic cathedral pedestal with moss detailing',
+    'Low-poly Japanese bonsai tree in a ceramic pot with pink cherry blossom foliage',
+    'Sci-Fi plasma blaster rifle with heat sinks, orange energy coils, and ergonomic matte grip',
+    'Ornate golden treasure chest with ruby inlays and intricate filigree relief carvings',
+    'Hard-surface industrial sci-fi crate with hazard warning stripes and hydraulic latch mechanisms',
+  ];
+
+  const SAMPLE_MULTIVIEW = {
+    front: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="%2318191D"/><polygon points="100,30 150,70 140,160 60,160 50,70" fill="%232e3440" stroke="%23F9CF00" stroke-width="3"/><circle cx="100" cy="85" r="22" fill="%23F9CF00"/><circle cx="100" cy="85" r="10" fill="%23111"/><text x="100" y="185" text-anchor="middle" fill="%23eceff4" font-family="sans-serif" font-size="10" font-weight="bold">FRONT VIEW</text></svg>',
+    back: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="%2318191D"/><polygon points="100,30 150,70 140,160 60,160 50,70" fill="%23232731" stroke="%2364748b" stroke-width="3"/><rect x="80" y="70" width="40" height="40" rx="4" fill="%23334155"/><text x="100" y="185" text-anchor="middle" fill="%23eceff4" font-family="sans-serif" font-size="10" font-weight="bold">BACK VIEW</text></svg>',
+    left: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="%2318191D"/><polygon points="80,30 130,50 120,160 70,160" fill="%232a303c" stroke="%2338bdf8" stroke-width="3"/><circle cx="115" cy="85" r="8" fill="%23F9CF00"/><text x="100" y="185" text-anchor="middle" fill="%23eceff4" font-family="sans-serif" font-size="10" font-weight="bold">LEFT PROFILE</text></svg>',
+    right: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="%2318191D"/><polygon points="120,30 70,50 80,160 130,160" fill="%232a303c" stroke="%2338bdf8" stroke-width="3"/><circle cx="85" cy="85" r="8" fill="%23F9CF00"/><text x="100" y="185" text-anchor="middle" fill="%23eceff4" font-family="sans-serif" font-size="10" font-weight="bold">RIGHT PROFILE</text></svg>',
+  };
+
+  const handleRollRandomPrompt = () => {
+    const random = RANDOM_PROMPTS[Math.floor(Math.random() * RANDOM_PROMPTS.length)];
+    setGenerationSettings(prev => ({
+      ...prev,
+      prompt: random,
+      imageName: random,
+      mode: 'text-to-3d',
+    }));
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -520,11 +709,11 @@ export const GeneratePanel: React.FC = () => {
   };
 
   return (
-    <div id="panel-generate-model" className="flex flex-col h-full bg-[#191A1D] text-xs select-none">
+    <div id="panel-generate-model" className="flex flex-col h-full bg-[hsl(var(--surface-1))] text-xs select-none">
       {/* Panel Header */}
       <div className="px-3 py-2 border-b border-white/[0.08] flex items-center justify-between flex-shrink-0">
         <span className="font-bold text-[11px] text-white flex items-center gap-1.5">
-          <Sparkles className="w-3.5 h-3.5 text-[#F9CF00]" />
+          <Sparkles className="w-3.5 h-3.5 text-primary" />
           <span>Generate Model</span>
         </span>
         {statusInfo && (
@@ -536,9 +725,9 @@ export const GeneratePanel: React.FC = () => {
       </div>
 
       {/* Segmented Mode Navigation Tabs: Create | Mesh | Engine | Advanced */}
-      <div className="px-2 pt-1.5 pb-1 border-b border-white/[0.06] bg-[#141518]/60 flex-shrink-0">
+      <div className="px-2 pt-1.5 pb-1 border-b border-white/[0.06] bg-[hsl(var(--surface-0))]/60 flex-shrink-0">
         <AnimatedTabs
-          className="w-full grid grid-cols-4 p-0.5 bg-[#191A1D] border-white/[0.08]"
+          className="w-full grid grid-cols-4 p-0.5 bg-[hsl(var(--surface-1))] border-white/[0.08]"
           size="sm"
           activeTab={panelTab}
           onChange={(t) => setPanelTab(t as any)}
@@ -548,7 +737,7 @@ export const GeneratePanel: React.FC = () => {
             { id: 'engine', label: 'Engine', icon: Gauge },
             { id: 'advanced', label: 'Settings', icon: Sliders },
           ]}
-          activeIndicatorClassName="bg-[#F9CF00]"
+          activeIndicatorClassName="bg-primary"
           activeTabClassName="text-black font-black"
         />
       </div>
@@ -562,7 +751,7 @@ export const GeneratePanel: React.FC = () => {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="p-2 rounded-xl bg-[#F9CF00]/15 border border-[#F9CF00]/40 text-[#F9CF00] text-[10px] flex items-center justify-between gap-2 overflow-hidden"
+              className="p-2 rounded-xl bg-primary/15 border border-primary/40 text-primary text-[10px] flex items-center justify-between gap-2 overflow-hidden"
             >
               <div className="flex items-center gap-1.5 flex-1 min-w-0">
                 <Info className="w-3.5 h-3.5 flex-shrink-0" />
@@ -582,78 +771,78 @@ export const GeneratePanel: React.FC = () => {
         {panelTab === 'create' && (
           <div className="space-y-3">
             {/* Input Mode Selector Bar */}
-            <div className="rounded-xl border border-white/[0.12] bg-[#141518] p-2 space-y-2">
-              <div className="grid grid-cols-4 gap-1 p-1 rounded-lg bg-[#18191D] border border-white/[0.06]">
-                <SimpleTooltip label="Single Image to 3D">
-                  <button
-                    type="button"
-                    onClick={() => {
+            <div className="rounded-xl border border-white/[0.12] bg-[hsl(var(--surface-0))] p-2 space-y-2">
+              <div className="relative grid grid-cols-4 gap-1 p-1 rounded-lg bg-[hsl(var(--surface-1))] border border-white/[0.06]">
+                {[
+                  {
+                    id: 'upload',
+                    domId: 'subaction-btn-upload',
+                    label: 'Image',
+                    tooltip: 'Single Image to 3D',
+                    icon: ImageIcon,
+                    onClick: () => {
                       setSubAction('upload');
                       setGenerationSettings(prev => ({ ...prev, mode: 'image-to-3d' }));
                       fileInputRef.current?.click();
-                    }}
-                    className={`py-1.5 px-1 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                      subAction === 'upload'
-                        ? 'bg-[#25272D] text-[#F9CF00] shadow-sm border border-[#F9CF00]/30'
-                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.03] border border-transparent'
-                    }`}
-                  >
-                    <ImageIcon className="w-3.5 h-3.5" />
-                    <span className="truncate">Image</span>
-                  </button>
-                </SimpleTooltip>
-
-                <SimpleTooltip label="Multiview Images / Mesh">
-                  <button
-                    type="button"
-                    onClick={() => setSubAction('crop')}
-                    className={`py-1.5 px-1 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                      subAction === 'crop'
-                        ? 'bg-[#25272D] text-[#F9CF00] shadow-sm border border-[#F9CF00]/30'
-                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.03] border border-transparent'
-                    }`}
-                  >
-                    <Box className="w-3.5 h-3.5" />
-                    <span className="truncate">Multi</span>
-                  </button>
-                </SimpleTooltip>
-
-                <SimpleTooltip label="Text Prompt to 3D">
-                  <button
-                    type="button"
-                    onClick={() => {
+                    },
+                  },
+                  {
+                    id: 'crop',
+                    domId: 'subaction-btn-crop',
+                    label: 'Multi',
+                    tooltip: 'Multiview Images / Mesh',
+                    icon: Box,
+                    onClick: () => setSubAction('crop'),
+                  },
+                  {
+                    id: 'wand',
+                    domId: 'subaction-btn-wand',
+                    label: 'Text',
+                    tooltip: 'Text Prompt to 3D',
+                    icon: Wand2,
+                    onClick: () => {
                       setSubAction('wand');
                       setGenerationSettings(prev => ({ ...prev, mode: 'text-to-3d' }));
-                    }}
-                    className={`py-1.5 px-1 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                      subAction === 'wand'
-                        ? 'bg-[#25272D] text-[#F9CF00] shadow-sm border border-[#F9CF00]/30'
-                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.03] border border-transparent'
-                    }`}
-                  >
-                    <Wand2 className="w-3.5 h-3.5" />
-                    <span className="truncate">Text</span>
-                  </button>
-                </SimpleTooltip>
-
-                <SimpleTooltip label="Draw / Sketch to 3D">
-                  <button
-                    type="button"
-                    onClick={() => setSubAction('edit')}
-                    className={`py-1.5 px-1 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                      subAction === 'edit'
-                        ? 'bg-[#25272D] text-[#F9CF00] shadow-sm border border-[#F9CF00]/30'
-                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.03] border border-transparent'
-                    }`}
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                    <span className="truncate">Sketch</span>
-                  </button>
-                </SimpleTooltip>
+                    },
+                  },
+                  {
+                    id: 'edit',
+                    domId: 'subaction-btn-edit',
+                    label: 'Sketch',
+                    tooltip: 'Draw / Sketch to 3D',
+                    icon: Pencil,
+                    onClick: () => setSubAction('edit'),
+                  },
+                ].map((tab) => {
+                  const active = subAction === tab.id;
+                  const Icon = tab.icon;
+                  return (
+                    <SimpleTooltip key={tab.id} label={tab.tooltip}>
+                      <button
+                        id={tab.domId}
+                        type="button"
+                        onClick={tab.onClick}
+                        className={`relative w-full py-1.5 px-1 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer active:scale-95 z-10 ${
+                          active ? 'text-primary font-bold' : 'text-zinc-400 hover:text-zinc-200'
+                        }`}
+                      >
+                        {active && (
+                          <motion.div
+                            layoutId="subActionActiveTab"
+                            transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                            className="absolute inset-0 rounded-md bg-[hsl(var(--surface-2))] border border-primary/35 shadow-sm -z-10"
+                          />
+                        )}
+                        <Icon className="w-3.5 h-3.5" />
+                        <span className="truncate">{tab.label}</span>
+                      </button>
+                    </SimpleTooltip>
+                  );
+                })}
               </div>
 
-              {/* Image Dropzone Area (Visible in image/crop/sketch modes) */}
-              {subAction !== 'wand' && (
+              {/* Mode 1: Single Image Upload */}
+              {subAction === 'upload' && (
                 <>
                   <input 
                     ref={fileInputRef}
@@ -670,20 +859,20 @@ export const GeneratePanel: React.FC = () => {
                     onClick={() => fileInputRef.current?.click()}
                     animate={{ 
                       scale: isDragOver ? 1.02 : 1,
-                      borderColor: isDragOver ? '#F9CF00' : uploadError ? '#ef4444' : 'rgba(255,255,255,0.08)',
+                      borderColor: isDragOver ? 'hsl(var(--primary))' : uploadError ? '#ef4444' : 'rgba(255,255,255,0.08)',
                     }}
                     transition={springTransition}
-                    className="relative w-full h-28 rounded-lg border border-dashed border-white/[0.1] cursor-pointer overflow-hidden flex flex-col items-center justify-center p-2 group/dropzone bg-[#191A1D]/50 hover:bg-[#191A1D]"
+                    className="relative w-full h-28 rounded-lg border border-dashed border-white/[0.1] cursor-pointer overflow-hidden flex flex-col items-center justify-center p-2 group/dropzone bg-[hsl(var(--surface-1))]/50 hover:bg-[hsl(var(--surface-1))]"
                   >
                     {uploadProgress.active ? (
                       <div className="text-center space-y-2 w-full px-2 z-10">
-                        <Loader2 className="w-6 h-6 mx-auto animate-spin text-[#F9CF00]" />
+                        <Loader2 className="w-6 h-6 mx-auto animate-spin text-primary" />
                         <div className="font-bold text-[10px] text-white">Uploading...</div>
-                        <div className="w-full bg-[#25262A] rounded-full h-1 overflow-hidden">
+                        <div className="w-full bg-[hsl(var(--surface-2))] rounded-full h-1 overflow-hidden">
                           <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${uploadProgress.percent}%` }}
-                            className="bg-[#F9CF00] h-full rounded-full"
+                            className="bg-primary h-full rounded-full"
                           />
                         </div>
                       </div>
@@ -700,7 +889,7 @@ export const GeneratePanel: React.FC = () => {
                             e.stopPropagation();
                             fileInputRef.current?.click();
                           }}
-                          className="absolute bottom-1.5 right-1.5 bg-black/80 hover:bg-black border border-white/20 text-[#F9CF00] px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 cursor-pointer z-20 transition-all opacity-0 group-hover:opacity-100 shadow-md"
+                          className="absolute bottom-1.5 right-1.5 bg-black/80 hover:bg-black border border-white/20 text-primary px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 cursor-pointer z-20 transition-all opacity-0 group-hover:opacity-100 shadow-md"
                         >
                           <RefreshCw className="w-3 h-3" />
                           <span>Replace</span>
@@ -708,8 +897,8 @@ export const GeneratePanel: React.FC = () => {
                       </div>
                     ) : (
                       <div className="text-center space-y-1.5 z-10">
-                        <div className={`w-8 h-8 mx-auto rounded-full bg-[#25262A] border border-white/[0.08] flex items-center justify-center transition-all ${
-                          isDragOver ? 'text-[#F9CF00] border-[#F9CF00]' : 'text-zinc-400 group-hover/dropzone:text-[#F9CF00]'
+                        <div className={`w-8 h-8 mx-auto rounded-full bg-[hsl(var(--surface-2))] border border-white/[0.08] flex items-center justify-center transition-all ${
+                          isDragOver ? 'text-primary border-primary' : 'text-zinc-400 group-hover/dropzone:text-primary'
                         }`}>
                           <Upload className="w-4 h-4" />
                         </div>
@@ -754,7 +943,7 @@ export const GeneratePanel: React.FC = () => {
                             }));
                           }
                         }}
-                        className="text-[#F9CF00] hover:underline cursor-pointer"
+                        className="text-primary hover:underline cursor-pointer"
                       >
                         Load Sample &gt;
                       </button>
@@ -762,20 +951,270 @@ export const GeneratePanel: React.FC = () => {
                   </div>
                 </>
               )}
+
+              {/* Mode 2: Multi-View Grid */}
+              {subAction === 'crop' && (
+                <>
+                  <input
+                    ref={multiFileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={handleMultiFileUpload}
+                  />
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="font-semibold text-zinc-300 flex items-center gap-1.5">
+                        <Box className="w-3.5 h-3.5 text-primary" />
+                        <span>Multiview Perspective Angles</span>
+                      </span>
+                      <span className="text-[9px] text-zinc-400">
+                        {Object.values(generationSettings.multiviewImages || {}).filter(Boolean).length}/4 angles loaded
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {([
+                        { key: 'front', label: 'Front', req: true },
+                        { key: 'right', label: 'Right', req: false },
+                        { key: 'back', label: 'Back', req: false },
+                        { key: 'left', label: 'Left', req: false },
+                      ] as const).map(({ key, label, req }) => {
+                        const imgUrl = generationSettings.multiviewImages?.[key];
+                        return (
+                          <div
+                            key={key}
+                            onClick={() => {
+                              setActiveMvSlot(key);
+                              multiFileInputRef.current?.click();
+                            }}
+                            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const f = e.dataTransfer.files?.[0];
+                              if (f) processImageFileForSlot(f, key);
+                            }}
+                            className={`relative h-24 rounded-lg border flex flex-col items-center justify-center p-1 cursor-pointer transition-all overflow-hidden group ${
+                              imgUrl
+                                ? 'border-primary/40 bg-[hsl(var(--surface-2))] shadow-sm'
+                                : 'border-dashed border-white/[0.12] bg-[hsl(var(--surface-1))]/60 hover:bg-[hsl(var(--surface-1))] hover:border-primary/40'
+                            }`}
+                          >
+                            {imgUrl ? (
+                              <>
+                                <img src={imgUrl} alt={`${label} view`} className="w-full h-full object-contain" />
+                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                  <span className="text-[8px] font-bold text-white bg-black/70 px-1.5 py-0.5 rounded">Change</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setGenerationSettings(prev => {
+                                      const nextMv = { ...(prev.multiviewImages || {}) };
+                                      delete nextMv[key];
+                                      return {
+                                        ...prev,
+                                        multiviewImages: nextMv,
+                                        image: key === 'front' ? (nextMv.right || nextMv.back || nextMv.left || null) : prev.image,
+                                      };
+                                    });
+                                  }}
+                                  className="absolute top-1 right-1 p-0.5 rounded bg-black/70 hover:bg-rose-600 text-white transition-colors cursor-pointer"
+                                  title={`Remove ${label} view`}
+                                >
+                                  <X className="w-2.5 h-2.5" />
+                                </button>
+                              </>
+                            ) : (
+                              <div className="text-center space-y-1">
+                                <Plus className="w-4 h-4 mx-auto text-zinc-500 group-hover:text-primary transition-colors" />
+                                <span className="text-[8px] text-zinc-400 font-medium block">{label}</span>
+                              </div>
+                            )}
+                            <div className="absolute bottom-1 left-1 px-1 py-0.2 rounded text-[7px] font-bold bg-black/70 text-zinc-300">
+                              {label}{req ? ' *' : ''}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex items-center justify-between text-[9px] pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGenerationSettings(prev => ({
+                            ...prev,
+                            multiviewImages: SAMPLE_MULTIVIEW,
+                            image: SAMPLE_MULTIVIEW.front,
+                            imageName: 'Sample Multiview Set',
+                            mode: 'image-to-3d',
+                          }));
+                        }}
+                        className="text-primary hover:underline font-medium cursor-pointer"
+                      >
+                        Load 4-View Sample &gt;
+                      </button>
+                      {Boolean(generationSettings.multiviewImages && Object.values(generationSettings.multiviewImages).some(Boolean)) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setGenerationSettings(prev => ({
+                              ...prev,
+                              multiviewImages: undefined,
+                              image: null,
+                              imageName: undefined,
+                            }));
+                          }}
+                          className="text-rose-400 hover:underline cursor-pointer"
+                        >
+                          Clear All Views
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Mode 3: Text to 3D Banner */}
+              {subAction === 'wand' && (
+                <div className="rounded-lg bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20 p-2.5 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-white flex items-center gap-1.5">
+                      <Wand2 className="w-3.5 h-3.5 text-primary" />
+                      <span>Text-to-3D Neural Mode</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleRollRandomPrompt}
+                      className="flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold bg-white/[0.06] hover:bg-white/[0.12] text-primary border border-primary/30 transition-all cursor-pointer active:scale-95"
+                      title="Roll random prompt idea"
+                    >
+                      <Dices className="w-3 h-3" />
+                      <span>Inspire Me</span>
+                    </button>
+                  </div>
+                  <p className="text-[9px] text-zinc-400 leading-relaxed">
+                    Direct neural shape & texture synthesis from descriptive prompt. No reference image required.
+                  </p>
+                </div>
+              )}
+
+              {/* Mode 4: 2D Concept Sketchpad */}
+              {subAction === 'edit' && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="font-semibold text-zinc-300 flex items-center gap-1.5">
+                      <Pencil className="w-3.5 h-3.5 text-primary" />
+                      <span>2D Concept Sketchpad</span>
+                    </span>
+                    <span className="text-[9px] text-zinc-400">Sketch &gt; Use as Reference</span>
+                  </div>
+
+                  <div className="relative rounded-lg overflow-hidden border border-white/[0.12] bg-[#14151a]">
+                    <canvas
+                      ref={sketchCanvasRef}
+                      width={320}
+                      height={160}
+                      onPointerDown={handleSketchPointerDown}
+                      onPointerMove={handleSketchPointerMove}
+                      onPointerUp={handleSketchPointerUp}
+                      onPointerLeave={handleSketchPointerUp}
+                      className="w-full h-36 cursor-crosshair touch-none block"
+                    />
+
+                    {/* Floating Controls Overlay */}
+                    <div className="absolute top-1.5 right-1.5 flex items-center gap-1 bg-black/80 backdrop-blur-sm px-1.5 py-1 rounded-md border border-white/10 shadow-lg">
+                      <button
+                        type="button"
+                        onClick={() => setSketchTool('brush')}
+                        className={`p-1 rounded text-xs transition-colors cursor-pointer ${
+                          sketchTool === 'brush' ? 'bg-primary text-black font-bold' : 'text-zinc-400 hover:text-white'
+                        }`}
+                        title="Brush Tool"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSketchTool('eraser')}
+                        className={`p-1 rounded text-xs transition-colors cursor-pointer ${
+                          sketchTool === 'eraser' ? 'bg-primary text-black font-bold' : 'text-zinc-400 hover:text-white'
+                        }`}
+                        title="Eraser Tool"
+                      >
+                        <Eraser className="w-3 h-3" />
+                      </button>
+                      <div className="w-px h-3.5 bg-white/20 mx-0.5" />
+                      {['#FFFFFF', '#F59E0B', '#06B6D4', '#10B981'].map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => { setSketchColor(c); setSketchTool('brush'); }}
+                          className={`w-3 h-3 rounded-full border transition-transform cursor-pointer ${
+                            sketchColor === c && sketchTool === 'brush' ? 'scale-125 border-white' : 'border-transparent'
+                          }`}
+                          style={{ backgroundColor: c }}
+                          title={c}
+                        />
+                      ))}
+                      <div className="w-px h-3.5 bg-white/20 mx-0.5" />
+                      <button
+                        type="button"
+                        onClick={clearSketchCanvas}
+                        className="p-1 rounded text-zinc-400 hover:text-rose-400 transition-colors cursor-pointer"
+                        title="Clear Canvas"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-0.5">
+                    <div className="flex items-center gap-1.5 text-[9px]">
+                      <span className="text-zinc-400">Size:</span>
+                      {[2, 5, 10].map((sz) => (
+                        <button
+                          key={sz}
+                          type="button"
+                          onClick={() => setSketchSize(sz)}
+                          className={`px-1.5 py-0.2 rounded text-[8px] font-bold border transition-colors cursor-pointer ${
+                            sketchSize === sz
+                              ? 'bg-primary/20 text-primary border-primary/40'
+                              : 'bg-white/[0.04] text-zinc-400 border-white/[0.06]'
+                          }`}
+                        >
+                          {sz === 2 ? 'Fine' : sz === 5 ? 'Med' : 'Bold'}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleApplySketchTo3D}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary hover:bg-primary/90 text-black font-bold text-[10px] shadow-sm transition-all active:scale-95 cursor-pointer"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      <span>Use as 3D Reference</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Text Prompt & AI Enhance Card */}
-            <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2.5 space-y-2">
+            <div className="rounded-xl border border-white/[0.08] bg-[hsl(var(--surface-0))] p-2.5 space-y-2">
               <div className="flex items-center justify-between text-[10px] font-semibold text-zinc-300">
                 <span className="flex items-center gap-1.5">
-                  <Wand2 className="w-3.5 h-3.5 text-[#F9CF00]" />
+                  <Wand2 className="w-3.5 h-3.5 text-primary" />
                   <span>Prompt / Description</span>
                 </span>
                 <button
                   type="button"
                   onClick={handleEnhancePrompt}
                   disabled={isEnhancing || !(generationSettings.prompt || generationSettings.imageName)}
-                  className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#F9CF00]/15 hover:bg-[#F9CF00]/25 text-[#F9CF00] border border-[#F9CF00]/30 transition-all font-bold text-[9px] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/15 hover:bg-primary/25 text-primary border border-primary/30 transition-all font-bold text-[9px] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   title="Enhance prompt with 3D quality descriptors (PBR, topology, lighting)"
                 >
                   {isEnhancing ? (
@@ -796,12 +1235,33 @@ export const GeneratePanel: React.FC = () => {
                     : "Describe or refine model concept (optional for image-to-3d)..."
                 }
                 rows={2}
-                className="w-full bg-[#191A1D] border border-white/[0.08] rounded-lg p-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#F9CF00]/50 resize-none font-sans"
+                className="w-full bg-[hsl(var(--surface-1))] border border-white/[0.08] rounded-lg p-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-primary/50 resize-none font-sans"
               />
+
+              {/* Collapsible Negative Prompt */}
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => setShowNegativePrompt(!showNegativePrompt)}
+                  className="flex items-center gap-1 text-[9px] font-semibold text-zinc-400 hover:text-zinc-200 cursor-pointer"
+                >
+                  {showNegativePrompt ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                  <span>Negative Prompt (Exclude artifacts)</span>
+                </button>
+                {showNegativePrompt && (
+                  <input
+                    type="text"
+                    value={generationSettings.negativePrompt || ''}
+                    onChange={(e) => setGenerationSettings(prev => ({ ...prev, negativePrompt: e.target.value }))}
+                    placeholder="e.g. blurry, low poly, distorted, holes, non-manifold, floating geometry..."
+                    className="w-full bg-[hsl(var(--surface-1))] border border-white/[0.08] rounded-md px-2 py-1 text-[10px] text-white placeholder-zinc-500 focus:outline-none focus:border-primary/50"
+                  />
+                )}
+              </div>
 
               {/* Quick Style Chips */}
               <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                {['PBR Game Asset', 'Clean Quad Topology', 'Sci-Fi', 'Stylized', 'Photorealistic'].map((style) => (
+                {['PBR Game Asset', 'Clean Quad Topology', 'Sci-Fi', 'Stylized', 'Photorealistic', 'Cyberpunk', 'Fantasy'].map((style) => (
                   <button
                     key={style}
                     type="button"
@@ -812,7 +1272,7 @@ export const GeneratePanel: React.FC = () => {
                         return { ...prev, prompt: base ? `${base}, ${style}` : style };
                       });
                     }}
-                    className="px-2 py-0.5 rounded-full bg-[#1C1E23] hover:bg-[#252830] text-zinc-300 hover:text-white border border-white/[0.08] hover:border-[#F9CF00]/40 text-[9px] font-medium transition-all active:scale-95 cursor-pointer"
+                    className="px-2 py-0.5 rounded-full bg-[hsl(var(--surface-2))] hover:bg-white/[0.08] text-zinc-300 hover:text-white border border-white/[0.08] hover:border-primary/40 text-[9px] font-medium transition-all active:scale-95 cursor-pointer"
                   >
                     + {style}
                   </button>
@@ -821,12 +1281,12 @@ export const GeneratePanel: React.FC = () => {
             </div>
 
             {/* AI Model Generator Choice */}
-            <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2 space-y-1 relative">
+            <div className="rounded-xl border border-white/[0.08] bg-[hsl(var(--surface-0))] p-2 space-y-1 relative">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-zinc-400 font-semibold uppercase tracking-wider">AI 3D Model Engine</span>
                 <button
                   onClick={() => router.push('/admin?tab=models')}
-                  className="text-xs text-[#F9CF00] hover:underline flex items-center gap-1 font-medium cursor-pointer"
+                  className="text-xs text-primary hover:underline flex items-center gap-1 font-medium cursor-pointer"
                 >
                   <Package className="w-3 h-3" />
                   <span>Manage Models</span>
@@ -838,7 +1298,7 @@ export const GeneratePanel: React.FC = () => {
                 id="btn-select-ai-model"
                 type="button"
                 onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
-                className="w-full flex items-center justify-between p-2 rounded-lg bg-[#191A1D] border border-white/[0.08] hover:border-white/[0.16] hover:bg-[#202125] transition-all text-left cursor-pointer"
+                className="w-full flex items-center justify-between p-2 rounded-lg bg-[hsl(var(--surface-1))] border border-white/[0.08] hover:border-white/[0.16] hover:bg-[hsl(var(--surface-2))] transition-all text-left cursor-pointer"
               >
                 <div className="flex flex-col min-w-0 pr-2">
                   <span className="font-bold text-xs text-white flex items-center gap-1.5 truncate">
@@ -853,14 +1313,14 @@ export const GeneratePanel: React.FC = () => {
                     {activeModelObj?.available ? 'Ready for generation' : activeModelObj?.installed ? 'Installed · ready' : 'Not installed · click to configure'}
                   </span>
                 </div>
-                <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${modelDropdownOpen ? 'rotate-180 text-[#F9CF00]' : ''}`} />
+                <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${modelDropdownOpen ? 'rotate-180 text-primary' : ''}`} />
               </button>
 
               {/* Dropdown Menu */}
               {modelDropdownOpen && (
                 <div 
                   ref={modelDropdownRef}
-                  className="absolute left-0 right-0 top-full mt-1 bg-[#191A1D] border border-white/[0.12] rounded-xl p-1.5 shadow-2xl z-50 space-y-1 max-h-56 overflow-y-auto"
+                  className="absolute left-0 right-0 top-full mt-1 bg-[hsl(var(--surface-1))] border border-white/[0.12] rounded-xl p-1.5 shadow-2xl z-50 space-y-1 max-h-56 overflow-y-auto"
                 >
                   <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 px-1.5 py-0.5">
                     Mesh-Capable Models ({providersList.length})
@@ -875,12 +1335,12 @@ export const GeneratePanel: React.FC = () => {
                       const isReady = m.available === true;
                       const isInstalled = m.installed === true;
                       const rowBase = isSelected
-                        ? 'bg-[#F9CF00] text-black shadow-sm font-bold'
+                        ? 'bg-primary text-black shadow-sm font-bold'
                         : isReady
-                          ? 'text-white hover:bg-[#25262A]'
+                          ? 'text-white hover:bg-[hsl(var(--surface-2))]'
                           : isInstalled
-                            ? 'text-amber-300/90 hover:bg-[#25262A]'
-                            : 'text-zinc-500 opacity-70 hover:bg-[#25262A] hover:opacity-100';
+                            ? 'text-amber-300/90 hover:bg-[hsl(var(--surface-2))]'
+                            : 'text-zinc-500 opacity-70 hover:bg-[hsl(var(--surface-2))] hover:opacity-100';
                       const badgeText = isReady ? 'Ready' : isInstalled ? 'Installed' : 'Not installed';
                       const badgeClass = isSelected
                         ? 'bg-black/15 text-black'
@@ -899,7 +1359,7 @@ export const GeneratePanel: React.FC = () => {
                           }}
                           className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-all cursor-pointer ${
                             isSelected
-                              ? 'bg-[#F9CF00] text-black shadow-sm font-bold'
+                              ? 'bg-primary text-black shadow-sm font-bold'
                               : rowBase
                           }`}
                         >
@@ -940,7 +1400,7 @@ export const GeneratePanel: React.FC = () => {
                         setModelDropdownOpen(false);
                         router.push('/admin?tab=models');
                       }}
-                      className="w-full py-2 px-2.5 rounded-lg bg-[#141518] hover:bg-[#202125] text-zinc-300 hover:text-[#F9CF00] text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      className="w-full py-2 px-2.5 rounded-lg bg-[hsl(var(--surface-0))] hover:bg-[hsl(var(--surface-2))] text-zinc-300 hover:text-primary text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >
                       <Package className="w-3.5 h-3.5" />
                       <span>Download / Manage Model Weights</span>
@@ -951,10 +1411,10 @@ export const GeneratePanel: React.FC = () => {
             </div>
 
             {/* Texture Synthesis Card */}
-            <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2.5 space-y-2">
+            <div className="rounded-xl border border-white/[0.08] bg-[hsl(var(--surface-0))] p-2.5 space-y-2">
               <div className="flex items-center justify-between text-[10px] font-semibold text-zinc-300">
                 <span className="flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-[#F9CF00]" />
+                  <Sparkles className="w-3 h-3 text-primary" />
                   <span>Texture Synthesis</span>
                 </span>
                 <span className="text-[8px] text-zinc-500 font-normal">
@@ -985,7 +1445,7 @@ export const GeneratePanel: React.FC = () => {
                         generateTexture: prev.generateTexture === false ? true : false,
                       }))}
                       className={`w-7 h-3.5 rounded-full p-0.5 transition-colors relative cursor-pointer ${
-                        generationSettings.generateTexture !== false ? 'bg-emerald-500' : 'bg-[#25262A]'
+                        generationSettings.generateTexture !== false ? 'bg-emerald-500' : 'bg-[hsl(var(--surface-2))]'
                       }`}
                     >
                       <div className={`w-2.5 h-2.5 rounded-full bg-white transition-transform ${
@@ -1024,7 +1484,7 @@ export const GeneratePanel: React.FC = () => {
                 <div className="pt-2 border-t border-white/[0.06] space-y-1">
                   <div className="flex items-center justify-between text-[10px]">
                     <span className="text-zinc-300 flex items-center gap-1 font-medium">
-                      <Gauge className="w-3 h-3 text-[#F9CF00]" />
+                      <Gauge className="w-3 h-3 text-primary" />
                       <span>Low VRAM Mode</span>
                       <SimpleTooltip
                         label={`Enables sequential layer offloading and memory optimization for ${activeModelObj?.label || 'this model'} (<${activeModelObj?.low_vram_required_mb ? Math.round(activeModelObj.low_vram_required_mb / 1024) : 4} GB VRAM).`}
@@ -1039,7 +1499,7 @@ export const GeneratePanel: React.FC = () => {
                       aria-checked={Boolean(generationSettings.lowVram)}
                       onClick={() => setGenerationSettings(prev => ({ ...prev, lowVram: !prev.lowVram }))}
                       className={`w-7 h-3.5 rounded-full p-0.5 transition-colors relative cursor-pointer ${
-                        generationSettings.lowVram ? 'bg-[#F9CF00]' : 'bg-[#25262A]'
+                        generationSettings.lowVram ? 'bg-primary' : 'bg-[hsl(var(--surface-2))]'
                       }`}
                     >
                       <div
@@ -1051,7 +1511,7 @@ export const GeneratePanel: React.FC = () => {
                   </div>
                   <div className="text-[9px] text-zinc-400">
                     {generationSettings.lowVram ? (
-                      <span className="text-[#F9CF00]">Sequential offload active (&lt;8GB GPU mode)</span>
+                      <span className="text-primary">Sequential offload active (&lt;8GB GPU mode)</span>
                     ) : (
                       <span>Full VRAM mode (~{Math.round((activeVramMb || 0) / 1024)} GB required)</span>
                     )}
@@ -1071,7 +1531,7 @@ export const GeneratePanel: React.FC = () => {
                 className="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors cursor-pointer"
                 title="Click to configure polygon budget & topology"
               >
-                <Box className="w-3 h-3 text-[#F9CF00]" />
+                <Box className="w-3 h-3 text-primary" />
                 <span>
                   Mesh:{' '}
                   <strong className="text-zinc-200">
@@ -1110,10 +1570,10 @@ export const GeneratePanel: React.FC = () => {
         {/* TAB 2: MESH (Polycount, Decimation, Quad/Adaptive, UVs) */}
         {panelTab === 'mesh' && (
           <div className="space-y-3">
-            <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-3 space-y-3">
+            <div className="rounded-xl border border-white/[0.08] bg-[hsl(var(--surface-0))] p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-200">
-                  <Box className="w-3.5 h-3.5 text-[#F9CF00]" />
+                  <Box className="w-3.5 h-3.5 text-primary" />
                   <span>Mesh Budget & Topology</span>
                   <SimpleTooltip label="Configures target polygon count, UV unwrapping, and topology decimation for all 3D models.">
                     <Info className="w-3.5 h-3.5 text-zinc-500" />
@@ -1121,7 +1581,7 @@ export const GeneratePanel: React.FC = () => {
                 </div>
                 <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${
                   generationSettings.autoOptimize
-                    ? 'bg-[#F9CF00]/15 text-[#F9CF00] border border-[#F9CF00]/30 font-bold'
+                    ? 'bg-primary/15 text-primary border border-primary/30 font-bold'
                     : 'bg-white/[0.06] text-zinc-400'
                 }`}>
                   {generationSettings.autoOptimize
@@ -1137,7 +1597,7 @@ export const GeneratePanel: React.FC = () => {
                   <div className="p-2.5 rounded-lg bg-white/[0.03] border border-white/[0.06] space-y-1.5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-200">
-                        <Layers className="w-3.5 h-3.5 text-[#F9CF00]" />
+                        <Layers className="w-3.5 h-3.5 text-primary" />
                         <span>{rec.label}</span>
                       </div>
                       <button
@@ -1155,7 +1615,7 @@ export const GeneratePanel: React.FC = () => {
                             },
                           }));
                         }}
-                        className="text-[10px] px-2 py-0.5 rounded-md bg-[#F9CF00]/15 hover:bg-[#F9CF00]/25 text-[#F9CF00] font-bold transition-colors cursor-pointer"
+                        className="text-[10px] px-2 py-0.5 rounded-md bg-primary/15 hover:bg-primary/25 text-primary font-bold transition-colors cursor-pointer"
                       >
                         Apply Recommended
                       </button>
@@ -1195,8 +1655,8 @@ export const GeneratePanel: React.FC = () => {
                         }}
                         className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all text-center cursor-pointer flex flex-col items-center justify-center ${
                           active
-                            ? 'bg-[#F9CF00] text-black shadow-sm'
-                            : 'bg-[#191A1D] text-zinc-300 hover:text-white hover:bg-[#202125] border border-white/[0.08]'
+                            ? 'bg-primary text-black shadow-sm'
+                            : 'bg-[hsl(var(--surface-1))] text-zinc-300 hover:text-white hover:bg-[hsl(var(--surface-2))] border border-white/[0.08]'
                         }`}
                       >
                         <span>{t.label}</span>
@@ -1225,7 +1685,7 @@ export const GeneratePanel: React.FC = () => {
                   aria-checked={Boolean(generationSettings.autoOptimize)}
                   onClick={() => setGenerationSettings(prev => ({ ...prev, autoOptimize: !prev.autoOptimize }))}
                   className={`w-8 h-4 rounded-full p-0.5 transition-colors relative cursor-pointer ${
-                    generationSettings.autoOptimize ? 'bg-[#F9CF00]' : 'bg-[#25262A]'
+                    generationSettings.autoOptimize ? 'bg-primary' : 'bg-[hsl(var(--surface-2))]'
                   }`}
                 >
                   <div className={`w-3 h-3 rounded-full bg-black transition-transform ${
@@ -1274,8 +1734,8 @@ export const GeneratePanel: React.FC = () => {
                             }}
                             className={`py-1.5 px-1 rounded-lg text-xs font-bold transition-all text-center cursor-pointer ${
                               isPresetActive
-                                ? 'bg-[#F9CF00] text-black shadow-sm'
-                                : 'bg-[#191A1D] text-zinc-300 hover:text-white hover:bg-[#202125] border border-white/[0.08]'
+                                ? 'bg-primary text-black shadow-sm'
+                                : 'bg-[hsl(var(--surface-1))] text-zinc-300 hover:text-white hover:bg-[hsl(var(--surface-2))] border border-white/[0.08]'
                             }`}
                           >
                             {preset.label}
@@ -1289,7 +1749,7 @@ export const GeneratePanel: React.FC = () => {
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-zinc-300 font-medium">Target Polycount</span>
-                      <span className="font-mono text-[#F9CF00] font-bold">
+                      <span className="font-mono text-primary font-bold">
                         {(generationSettings.autoOptimizeSettings?.targetPolycount || 30000).toLocaleString()} tris
                       </span>
                     </div>
@@ -1310,7 +1770,7 @@ export const GeneratePanel: React.FC = () => {
                           },
                         }));
                       }}
-                      className="w-full h-1.5 rounded-full appearance-none bg-[#25262A] accent-[#F9CF00] cursor-pointer"
+                      className="w-full h-1.5 rounded-full appearance-none bg-[hsl(var(--surface-2))] accent-primary cursor-pointer"
                     />
                   </div>
 
@@ -1318,7 +1778,7 @@ export const GeneratePanel: React.FC = () => {
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-zinc-300 font-medium">Preserve Details</span>
-                      <span className="font-mono text-[#F9CF00] font-bold">
+                      <span className="font-mono text-primary font-bold">
                         {generationSettings.autoOptimizeSettings?.preserveDetails ?? 75}%
                       </span>
                     </div>
@@ -1338,7 +1798,7 @@ export const GeneratePanel: React.FC = () => {
                           },
                         }));
                       }}
-                      className="w-full h-1.5 rounded-full appearance-none bg-[#25262A] accent-[#F9CF00] cursor-pointer"
+                      className="w-full h-1.5 rounded-full appearance-none bg-[hsl(var(--surface-2))] accent-primary cursor-pointer"
                     />
                   </div>
 
@@ -1361,7 +1821,7 @@ export const GeneratePanel: React.FC = () => {
                         },
                       }))}
                       className={`w-8 h-4 rounded-full p-0.5 transition-colors relative cursor-pointer ${
-                        (generationSettings.autoOptimizeSettings?.fixUVs ?? true) ? 'bg-emerald-500' : 'bg-[#25262A]'
+                        (generationSettings.autoOptimizeSettings?.fixUVs ?? true) ? 'bg-emerald-500' : 'bg-[hsl(var(--surface-2))]'
                       }`}
                     >
                       <div className={`w-3 h-3 rounded-full bg-white transition-transform ${
@@ -1382,10 +1842,10 @@ export const GeneratePanel: React.FC = () => {
         {/* TAB 3: ENGINE (Game-Ready Platforms, LODs, Collisions, Pipeline Summary) */}
         {panelTab === 'engine' && (
           <div className="space-y-3">
-            <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-3 space-y-3">
+            <div className="rounded-xl border border-white/[0.08] bg-[hsl(var(--surface-0))] p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-200">
-                  <Gauge className="w-3.5 h-3.5 text-[#00FF9D]" />
+                  <Gauge className="w-3.5 h-3.5 text-[hsl(var(--neon-green))]" />
                   <span>Game Engine & LOD Pipeline</span>
                   <SimpleTooltip label="Configures target platform budgets, multi-tier LODs (LOD0–LOD3), physics collision hulls, and game engine asset compliance.">
                     <Info className="w-3.5 h-3.5 text-zinc-500" />
@@ -1393,7 +1853,7 @@ export const GeneratePanel: React.FC = () => {
                 </div>
                 <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${
                   generationSettings.gameReady
-                    ? 'bg-emerald-500/15 text-[#00FF9D] border border-emerald-500/30 font-bold'
+                    ? 'bg-emerald-500/15 text-[hsl(var(--neon-green))] border border-emerald-500/30 font-bold'
                     : 'bg-white/[0.06] text-zinc-400'
                 }`}>
                   {generationSettings.gameReady
@@ -1419,7 +1879,7 @@ export const GeneratePanel: React.FC = () => {
                     autoOptimize: !prev.gameReady ? true : prev.autoOptimize,
                   }))}
                   className={`w-8 h-4 rounded-full p-0.5 transition-colors relative cursor-pointer ${
-                    generationSettings.gameReady ? 'bg-emerald-500' : 'bg-[#25262A]'
+                    generationSettings.gameReady ? 'bg-emerald-500' : 'bg-[hsl(var(--surface-2))]'
                   }`}
                 >
                   <div className={`w-3 h-3 rounded-full bg-black transition-transform ${
@@ -1459,7 +1919,7 @@ export const GeneratePanel: React.FC = () => {
                         className={`py-1 px-0.5 rounded-lg text-[10px] font-bold transition-all text-center cursor-pointer ${
                           isSelected
                             ? 'bg-emerald-500 text-black shadow-sm'
-                            : 'bg-[#191A1D] text-zinc-300 hover:text-white hover:bg-[#202125] border border-white/[0.08]'
+                            : 'bg-[hsl(var(--surface-1))] text-zinc-300 hover:text-white hover:bg-[hsl(var(--surface-2))] border border-white/[0.08]'
                         }`}
                       >
                         <span className="block truncate">{p.label}</span>
@@ -1483,7 +1943,7 @@ export const GeneratePanel: React.FC = () => {
                   aria-checked={Boolean(generationSettings.generateLOD)}
                   onClick={() => setGenerationSettings(prev => ({ ...prev, generateLOD: !prev.generateLOD }))}
                   className={`w-8 h-4 rounded-full p-0.5 transition-colors relative cursor-pointer ${
-                    generationSettings.generateLOD ? 'bg-emerald-500' : 'bg-[#25262A]'
+                    generationSettings.generateLOD ? 'bg-emerald-500' : 'bg-[hsl(var(--surface-2))]'
                   }`}
                 >
                   <div className={`w-3 h-3 rounded-full bg-black transition-transform ${
@@ -1503,7 +1963,7 @@ export const GeneratePanel: React.FC = () => {
                         onClick={() => setGenerationSettings(prev => ({ ...prev, lodCount: count }))}
                         className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer ${
                           (generationSettings.lodCount || 3) === count
-                            ? 'bg-[#00FF9D] text-black'
+                            ? 'bg-[hsl(var(--neon-green))] text-black'
                             : 'bg-white/[0.06] text-zinc-300 hover:bg-white/[0.12]'
                         }`}
                       >
@@ -1527,7 +1987,7 @@ export const GeneratePanel: React.FC = () => {
                   aria-checked={Boolean(generationSettings.generateCollision)}
                   onClick={() => setGenerationSettings(prev => ({ ...prev, generateCollision: !prev.generateCollision }))}
                   className={`w-8 h-4 rounded-full p-0.5 transition-colors relative cursor-pointer ${
-                    generationSettings.generateCollision ? 'bg-emerald-500' : 'bg-[#25262A]'
+                    generationSettings.generateCollision ? 'bg-emerald-500' : 'bg-[hsl(var(--surface-2))]'
                   }`}
                 >
                   <div className={`w-3 h-3 rounded-full bg-black transition-transform ${
@@ -1538,9 +1998,9 @@ export const GeneratePanel: React.FC = () => {
             </div>
 
             {/* Real-time Pipeline Execution Summary */}
-            <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-2.5 space-y-1.5 text-[10px]">
+            <div className="rounded-xl border border-white/[0.08] bg-[hsl(var(--surface-0))] p-2.5 space-y-1.5 text-[10px]">
               <div className="flex items-center justify-between font-bold text-zinc-300">
-                <span className="flex items-center gap-1 text-[#F9CF00]">
+                <span className="flex items-center gap-1 text-primary">
                   <Sparkles className="w-3 h-3" />
                   <span>Pipeline Execution Flow</span>
                 </span>
@@ -1553,7 +2013,7 @@ export const GeneratePanel: React.FC = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <span>2. Material:</span>
-                  <span className={generationSettings.generateTexture !== false ? 'text-[#00FF9D]' : 'text-zinc-400'}>
+                  <span className={generationSettings.generateTexture !== false ? 'text-[hsl(var(--neon-green))]' : 'text-zinc-400'}>
                     {generationSettings.generateTexture !== false ? 'Multi-view Texture / PBR' : 'Untextured Geometry'}
                   </span>
                 </div>
@@ -1572,7 +2032,7 @@ export const GeneratePanel: React.FC = () => {
                 {(generationSettings.generateLOD || generationSettings.generateCollision) && (
                   <div className="flex items-center justify-between pt-1 border-t border-white/[0.04]">
                     <span>5. Packages:</span>
-                    <span className="text-[#F9CF00]">
+                    <span className="text-primary">
                       {[
                         generationSettings.generateLOD ? `${generationSettings.lodCount || 3} LODs` : null,
                         generationSettings.generateCollision ? 'Collision Hull' : null,
@@ -1588,10 +2048,10 @@ export const GeneratePanel: React.FC = () => {
         {/* TAB 4: ADVANCED SETTINGS (Seed, CFG, Background, Multi-part, Visibility) */}
         {panelTab === 'advanced' && (
           <div className="space-y-3">
-            <div className="rounded-xl border border-white/[0.08] bg-[#141518] p-3 space-y-3">
+            <div className="rounded-xl border border-white/[0.08] bg-[hsl(var(--surface-0))] p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-200">
-                  <Sliders className="w-3.5 h-3.5 text-[#F9CF00]" />
+                  <Sliders className="w-3.5 h-3.5 text-primary" />
                   <span>Advanced Parameters</span>
                   <SimpleTooltip label="Configure generation seed, guidance scale, foreground extraction, and multi-part hierarchy.">
                     <Info className="w-3.5 h-3.5 text-zinc-500" />
@@ -1612,7 +2072,7 @@ export const GeneratePanel: React.FC = () => {
                       const newSeed = Math.floor(Math.random() * 2147483647);
                       setGenerationSettings(prev => ({ ...prev, seed: newSeed }));
                     }}
-                    className="flex items-center gap-1 text-[10px] text-[#F9CF00] hover:underline cursor-pointer font-semibold"
+                    className="flex items-center gap-1 text-[10px] text-primary hover:underline cursor-pointer font-semibold"
                   >
                     <Dices className="w-3 h-3" />
                     <span>Randomize</span>
@@ -1627,7 +2087,7 @@ export const GeneratePanel: React.FC = () => {
                       const val = parseInt(e.target.value, 10);
                       setGenerationSettings(prev => ({ ...prev, seed: isNaN(val) ? -1 : val }));
                     }}
-                    className="flex-1 bg-[#191A1D] border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-zinc-500 font-mono focus:outline-none focus:border-[#F9CF00]/50"
+                    className="flex-1 bg-[hsl(var(--surface-1))] border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-zinc-500 font-mono focus:outline-none focus:border-primary/50"
                   />
                   {generationSettings.seed > 0 && (
                     <button
@@ -1649,7 +2109,7 @@ export const GeneratePanel: React.FC = () => {
                   <SlidingNumber
                     number={generationSettings.guidanceScale || 7.5}
                     decimalPlaces={1}
-                    className="font-mono text-[#F9CF00] font-bold"
+                    className="font-mono text-primary font-bold"
                   />
                 </div>
                 <input
@@ -1662,7 +2122,7 @@ export const GeneratePanel: React.FC = () => {
                     const val = parseFloat(e.target.value);
                     setGenerationSettings(prev => ({ ...prev, guidanceScale: val }));
                   }}
-                  className="w-full h-1.5 rounded-full appearance-none bg-[#25262A] accent-[#F9CF00] cursor-pointer"
+                  className="w-full h-1.5 rounded-full appearance-none bg-[hsl(var(--surface-2))] accent-primary cursor-pointer"
                 />
               </div>
 
@@ -1686,11 +2146,11 @@ export const GeneratePanel: React.FC = () => {
                   label={(
                     <span className="flex items-center gap-1">
                       <span>Multi-Part Generation</span>
-                      <span className="text-[8px] px-1 py-0.2 rounded bg-[#F9CF00]/20 text-[#F9CF00] font-bold">Pro</span>
+                      <span className="text-[8px] px-1 py-0.2 rounded bg-primary/20 text-primary font-bold">Pro</span>
                     </span>
                   )}
                   description="Deconstructs complex objects into articulated sub-assemblies"
-                  activeColor="bg-[#F9CF00]"
+                  activeColor="bg-primary"
                   size="sm"
                 />
               </div>
@@ -1698,7 +2158,7 @@ export const GeneratePanel: React.FC = () => {
               {/* Asset Visibility / Privacy */}
               <div className="flex items-center justify-between text-xs pt-1.5 border-t border-white/[0.04]">
                 <span className="text-zinc-300 font-medium">Asset Visibility</span>
-                <div className="flex items-center gap-1 bg-[#191A1D] p-0.5 rounded-lg border border-white/[0.06]">
+                <div className="flex items-center gap-1 bg-[hsl(var(--surface-1))] p-0.5 rounded-lg border border-white/[0.06]">
                   {(['public', 'private'] as const).map((mode) => (
                     <button
                       key={mode}
@@ -1706,7 +2166,7 @@ export const GeneratePanel: React.FC = () => {
                       onClick={() => setPrivacy(mode)}
                       className={`px-2.5 py-0.5 rounded text-[10px] font-bold capitalize transition-colors cursor-pointer ${
                         privacy === mode
-                          ? 'bg-[#25272D] text-[#F9CF00] shadow-sm'
+                          ? 'bg-[#25272D] text-primary shadow-sm'
                           : 'text-zinc-400 hover:text-white'
                       }`}
                     >
@@ -1721,21 +2181,29 @@ export const GeneratePanel: React.FC = () => {
       </div>
 
       {/* Bottom Sticky Action Button */}
-      <div className="p-3 border-t border-white/[0.1] bg-[#16181D]/95 backdrop-blur-md relative z-20 flex-shrink-0">
-        <RippleButton
+      <div className="p-3 border-t border-white/[0.1] bg-[hsl(var(--surface-1))]/95 backdrop-blur-md relative z-20 flex-shrink-0">
+        <ShimmerButton
           id="btn-generate-model-action"
           onClick={handleGenerate}
           disabled={isExecuting}
-          shimmer={!isExecuting}
-          className={`w-full h-10 rounded-xl font-black text-xs flex items-center justify-center gap-2 shadow-lg transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+          shimmerColor="hsl(var(--neon-amber))"
+          shimmerSize="0.1em"
+          shimmerDuration="2.5s"
+          borderRadius="12px"
+          background={
+            isExecuting
+              ? "hsl(var(--surface-2))"
+              : "linear-gradient(to bottom, hsl(var(--neon-amber)), hsl(var(--primary)))"
+          }
+          className={`w-full h-10 font-black text-xs flex items-center justify-center gap-2 shadow-lg transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
             isExecuting 
-              ? 'bg-[#25262A] text-[#F9CF00] border border-[#F9CF00]/20' 
-              : 'bg-gradient-to-b from-[#FFE24C] to-[#F9CF00] hover:from-[#FFE660] hover:to-[#FFD700] text-black shadow-[0_4px_16px_rgba(249,207,0,0.25)] hover:shadow-[0_6px_20px_rgba(249,207,0,0.35)]'
+              ? 'text-primary border border-primary/20' 
+              : 'text-black shadow-[0_4px_16px_rgba(249,207,0,0.25)] hover:shadow-[0_6px_20px_rgba(249,207,0,0.35)]'
           }`}
         >
           {isExecuting ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin text-[#F9CF00]" />
+              <Loader2 className="w-4 h-4 animate-spin text-primary" />
               <span className="tracking-wide">{executionStep || 'Generating 3D Model...'}</span>
             </>
           ) : (
@@ -1744,19 +2212,19 @@ export const GeneratePanel: React.FC = () => {
               <span className="tracking-wider">GENERATE 3D MODEL</span>
             </>
           )}
-        </RippleButton>
+        </ShimmerButton>
         {isExecuting && (
-          <div className="relative mt-2 p-2 rounded-xl bg-[#1D2026] border border-white/[0.08] overflow-hidden space-y-1">
-            <BorderBeam colorFrom="#F9CF00" duration={6} />
+          <div className="relative mt-2 p-2 rounded-xl bg-[hsl(var(--surface-2))] border border-white/[0.08] overflow-hidden space-y-1">
+            <BorderBeam colorFrom="hsl(var(--primary))" duration={6} />
             <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400 px-0.5">
               <span>{executionStep || 'Processing'}</span>
-              <SlidingNumber number={executionProgress || 0} suffix="%" className="text-[#F9CF00] font-bold" />
+              <SlidingNumber number={executionProgress || 0} suffix="%" className="text-primary font-bold" />
             </div>
-            <div className="w-full bg-[#25262A] h-1.5 rounded-full overflow-hidden">
+            <div className="w-full bg-[hsl(var(--surface-2))] h-1.5 rounded-full overflow-hidden">
               <motion.div 
                 initial={{ width: 0 }}
                 animate={{ width: `${executionProgress || 0}%` }}
-                className="bg-[#F9CF00] h-full rounded-full"
+                className="bg-primary h-full rounded-full"
               />
             </div>
           </div>

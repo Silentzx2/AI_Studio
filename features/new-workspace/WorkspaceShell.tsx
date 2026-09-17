@@ -14,24 +14,26 @@ const MeshViewer = dynamic(() => import('./Viewport/MeshViewer').then(mod => mod
   loading: () => <div className="w-full h-full bg-[hsl(var(--surface-0))] animate-pulse" />
 });
 
-const GeneratePanel = dynamic(() => import('./Panels/GeneratePanel').then(mod => mod.GeneratePanel), { ssr: false });
-    const TexturePanel = dynamic(() => import('./Panels/TexturePanel').then(mod => mod.TexturePanel), { ssr: false });
-const RemeshPanel = dynamic(() => import('./Panels/RemeshPanel').then(mod => mod.RemeshPanel), { ssr: false });
-const SecondaryPanel = dynamic(() => import('./Panels/SecondaryPanels').then(mod => mod.SecondaryPanel), { ssr: false });
+import { MOTION_FAST, MOTION_SPRING } from '@/lib/motion';
 
-const RightWorkspacePanel = dynamic(() => import('./RightPanel/RightWorkspacePanel').then(mod => mod.RightWorkspacePanel), { ssr: false });
+import { GeneratePanel } from './Panels/GeneratePanel';
+import { TexturePanel } from './Panels/TexturePanel';
+import { RemeshPanel } from './Panels/RemeshPanel';
+import { SecondaryPanel } from './Panels/SecondaryPanels';
+
+import { RightWorkspacePanel } from './RightPanel/RightWorkspacePanel';
 const AnimationStudio = dynamic(() => import('./Animation/AnimationStudio').then(mod => mod.AnimationStudio), {
   ssr: false,
-  loading: () => <div className="w-full h-full bg-[#0D0E10] animate-pulse" />
+  loading: () => <div className="w-full h-full bg-[hsl(var(--surface-0))] animate-pulse" />
 });
 
-const OutputsPage = dynamic(() => import('./Dashboard/OutputsPage').then(mod => mod.OutputsPage), { ssr: false });
-const SystemPage = dynamic(() => import('./Dashboard/SystemPage').then(mod => mod.SystemPage), { ssr: false });
-const StudioDashboard = dynamic(() => import('./Dashboard/StudioDashboard').then(mod => mod.StudioDashboard), { ssr: false });
+import { OutputsPage } from './Dashboard/OutputsPage';
+import { SystemPage } from './Dashboard/SystemPage';
+import { StudioDashboard } from './Dashboard/StudioDashboard';
 
-const ExportModal = dynamic(() => import('./Modals/ExportModal').then(mod => mod.ExportModal), { ssr: false });
-const SettingsModal = dynamic(() => import('./Modals/SettingsModal').then(mod => mod.SettingsModal), { ssr: false });
-const DccBridgeModal = dynamic(() => import('./Modals/DccBridgeModal').then(mod => mod.DccBridgeModal), { ssr: false });
+import { ExportModal } from './Modals/ExportModal';
+import { SettingsModal } from './Modals/SettingsModal';
+import { DccBridgeModal } from './Modals/DccBridgeModal';
 import { FolderOpen, Sliders, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Menu, X } from 'lucide-react';
 import type { ToolType } from './types';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
@@ -160,11 +162,11 @@ export const WorkspaceShell: React.FC = () => {
   };
 
   return (
-    <div id="forge3d-app-root" className="flex flex-col h-screen w-screen overflow-hidden bg-[#0D0E10] text-[#E0E2E8]">
+    <div id="forge3d-app-root" className="flex flex-col h-screen w-screen overflow-hidden bg-[hsl(var(--surface-0))] text-[#E0E2E8]">
       <div className="flex-shrink-0 relative z-50">
         <TopHeader onMobileMenuToggle={() => setIsMobileNavOpen(!isMobileNavOpen)} isMobileNavOpen={isMobileNavOpen} />
       </div>
-      <div className="flex flex-1 overflow-hidden relative bg-[#121418]">
+      <div className="flex flex-1 overflow-hidden relative bg-[hsl(var(--surface-1))]">
         {/* Left tool rail - desktop: docked | mobile: hidden (drawer used instead) */}
         <div className="z-30 h-full flex-shrink-0 relative hidden md:block">
           <LeftNavigation />
@@ -187,20 +189,20 @@ export const WorkspaceShell: React.FC = () => {
                 initial={{ x: '-100%' }}
                 animate={{ x: 0 }}
                 exit={{ x: '-100%' }}
-                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                transition={MOTION_SPRING}
                 className="fixed left-0 top-0 bottom-0 w-[260px] max-w-[85vw] z-50 md:hidden"
               >
                 <div className="h-full flex flex-col">
-                  <div className="flex items-center justify-between px-3 py-3 bg-[#0D0E10] border-b border-white/[0.08]">
+                  <div className="flex items-center justify-between px-3 py-3 bg-[hsl(var(--surface-0))] border-b border-white/[0.08]">
                     <span className="font-extrabold text-xs tracking-wider text-white uppercase">Tools</span>
                     <button
                       onClick={() => setIsMobileNavOpen(false)}
-                      className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#191A1D] transition-colors"
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[hsl(var(--surface-1))] transition-colors"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </div>
-                  <div className="flex-1 overflow-y-auto bg-[#0D0E10]">
+                  <div className="flex-1 overflow-y-auto bg-[hsl(var(--surface-0))]">
                     <LeftNavigation isMobileDrawer onToolSelect={() => setIsMobileNavOpen(false)} />
                   </div>
                 </div>
@@ -212,14 +214,14 @@ export const WorkspaceShell: React.FC = () => {
         {/* Center Workspace & 3D Stage */}
         <div className="flex-1 h-full relative overflow-hidden min-w-0">
           {mainNav === 'workspace' && activeTool === 'animation' ? (
-            <main id="center-viewport-stage" className="absolute inset-0 z-10 overflow-hidden bg-[#0D0E11]">
+            <main id="center-viewport-stage" className="absolute inset-0 z-10 overflow-hidden bg-[hsl(var(--surface-0))]">
               <AnimationStudio />
             </main>
           ) : (
             <>
               {/* Continuous Full-Bleed 3D Viewport in Background */}
               {mainNav === 'workspace' && (
-                <main id="center-viewport-stage" className="absolute inset-0 z-0 overflow-hidden bg-[#16181D]">
+                <main id="center-viewport-stage" className="absolute inset-0 z-0 overflow-hidden bg-[hsl(var(--surface-0))]">
                   <MeshViewer />
                 </main>
               )}
@@ -232,15 +234,15 @@ export const WorkspaceShell: React.FC = () => {
                     initial={{ opacity: 0, x: -15 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -15 }}
-                    transition={{ duration: 0.14, ease: 'easeOut' }}
-                    className="absolute inset-x-2 top-2 bottom-2 md:inset-auto md:left-2 md:top-2 md:bottom-2 md:w-[280px] lg:w-[320px] max-w-[420px] md:max-w-[calc(100vw-5rem)] bg-[#191A1D] border border-white/[0.1] rounded-2xl md:rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.6)] flex flex-col z-20 overflow-hidden"
+                    transition={MOTION_FAST}
+                    className="absolute inset-x-2 top-2 bottom-2 md:inset-auto md:left-2 md:top-2 md:bottom-2 md:w-[280px] lg:w-[320px] max-w-[420px] md:max-w-[calc(100vw-5rem)] bg-[hsl(var(--surface-1))] border border-white/[0.1] rounded-2xl md:rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.6)] flex flex-col z-20 overflow-hidden"
                   >
                 {/* Mobile panel header with close button */}
-                <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-white/[0.08] bg-[#16181D] md:hidden flex-shrink-0">
+                <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-white/[0.08] bg-[hsl(var(--surface-0))] md:hidden flex-shrink-0">
                   <span className="font-bold text-xs text-white">Tool Panel</span>
                   <button
                     onClick={() => toggleLeftPanel(false)}
-                    className="p-1.5 rounded-lg text-zinc-400 hover:text-[#F9CF00] hover:bg-[#202125] transition-all cursor-pointer"
+                    className="p-1.5 rounded-lg text-zinc-400 hover:text-primary hover:bg-[hsl(var(--surface-2))] transition-all cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -252,7 +254,7 @@ export const WorkspaceShell: React.FC = () => {
                     <SimpleTooltip label="Collapse panel" side="left">
                       <button
                         onClick={() => toggleLeftPanel(false)}
-                        className="p-1 rounded-lg bg-[#202125] border border-white/[0.08] text-zinc-400 hover:text-[#F9CF00] hover:bg-[#28292E] transition-all cursor-pointer"
+                        className="p-1 rounded-lg bg-[hsl(var(--surface-2))] border border-white/[0.08] text-zinc-400 hover:text-primary hover:bg-[hsl(var(--surface-3))] transition-all cursor-pointer"
                       >
                         <PanelLeftClose className="w-3.5 h-3.5" />
                       </button>
@@ -265,7 +267,7 @@ export const WorkspaceShell: React.FC = () => {
                       initial={{ opacity: 0, x: -4 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 4 }}
-                      transition={{ duration: 0.1, ease: 'easeOut' }}
+                      transition={MOTION_FAST}
                       className="h-full w-full flex flex-col overflow-hidden"
                     >
                       {renderToolPanel()}
@@ -282,7 +284,7 @@ export const WorkspaceShell: React.FC = () => {
               <SimpleTooltip label="Open Tool Panel">
                 <button
                   onClick={() => toggleLeftPanel(true)}
-                  className="w-5 h-11 rounded-r-lg bg-[#191A1D]/90 backdrop-blur-md border border-l-0 border-white/[0.1] text-zinc-400 hover:text-[#F9CF00] hover:border-[#F9CF00]/40 hover:bg-[#202227] transition-all flex items-center justify-center shadow-xl cursor-pointer active:scale-95"
+                  className="w-5 h-11 rounded-r-lg bg-[hsl(var(--surface-1))]/90 backdrop-blur-md border border-l-0 border-white/[0.1] text-zinc-400 hover:text-primary hover:border-primary/40 hover:bg-[hsl(var(--surface-2))] transition-all flex items-center justify-center shadow-xl cursor-pointer active:scale-95"
                 >
                   <PanelLeftOpen className="w-3.5 h-3.5" />
                 </button>
@@ -294,7 +296,7 @@ export const WorkspaceShell: React.FC = () => {
           {mainNav === 'workspace' && !isLeftPanelOpen && (
             <button
               onClick={() => toggleLeftPanel(true)}
-              className="md:hidden absolute left-3 bottom-3 z-20 w-11 h-11 rounded-full bg-[#F9CF00] text-black shadow-xl flex items-center justify-center hover:bg-[#ffe033] transition-transform active:scale-95 cursor-pointer"
+              className="md:hidden absolute left-3 bottom-3 z-20 w-11 h-11 rounded-full bg-primary text-primary-foreground shadow-xl flex items-center justify-center hover:bg-primary/90 transition-transform active:scale-95 cursor-pointer"
               aria-label="Open tool panel"
             >
               <Sliders className="w-4 h-4 stroke-[2.2]" />
@@ -309,15 +311,15 @@ export const WorkspaceShell: React.FC = () => {
                 initial={{ opacity: 0, x: 15 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 15 }}
-                transition={{ duration: 0.14, ease: 'easeOut' }}
-                className="absolute inset-x-2 top-2 bottom-2 md:inset-auto md:right-2 md:top-2 md:bottom-2 md:w-[280px] lg:w-[320px] max-w-[420px] md:max-w-[calc(100vw-4.5rem)] bg-[#14161A] border border-white/[0.08] rounded-2xl md:rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.6)] flex flex-col z-20 overflow-hidden"
+                transition={MOTION_FAST}
+                className="absolute inset-x-2 top-2 bottom-2 md:inset-auto md:right-2 md:top-2 md:bottom-2 md:w-[280px] lg:w-[320px] max-w-[420px] md:max-w-[calc(100vw-4.5rem)] bg-[hsl(var(--surface-1))] border border-white/[0.08] rounded-2xl md:rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.6)] flex flex-col z-20 overflow-hidden"
               >
                 {/* Mobile close button for right panel */}
-                <div className="flex items-center justify-between px-3.5 py-2 border-b border-white/[0.08] bg-[#16181D] md:hidden flex-shrink-0">
+                <div className="flex items-center justify-between px-3.5 py-2 border-b border-white/[0.08] bg-[hsl(var(--surface-0))] md:hidden flex-shrink-0">
                   <span className="font-bold text-xs text-white">Inspector &amp; Assets</span>
                   <button
                     onClick={() => toggleRightPanel(false)}
-                    className="p-1.5 rounded-lg text-zinc-400 hover:text-[#F9CF00] hover:bg-[#202125] transition-all cursor-pointer"
+                    className="p-1.5 rounded-lg text-zinc-400 hover:text-primary hover:bg-[hsl(var(--surface-2))] transition-all cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -333,7 +335,7 @@ export const WorkspaceShell: React.FC = () => {
               <SimpleTooltip label="Open Asset Store / Inspector">
                 <button
                   onClick={() => toggleRightPanel(true)}
-                  className="w-5 h-11 rounded-l-lg bg-[#191A1D]/90 backdrop-blur-md border border-r-0 border-white/[0.1] text-zinc-400 hover:text-[#F9CF00] hover:border-[#F9CF00]/40 hover:bg-[#202227] transition-all flex items-center justify-center shadow-xl cursor-pointer active:scale-95"
+                  className="w-5 h-11 rounded-l-lg bg-[hsl(var(--surface-1))]/90 backdrop-blur-md border border-r-0 border-white/[0.1] text-zinc-400 hover:text-primary hover:border-primary/40 hover:bg-[hsl(var(--surface-2))] transition-all flex items-center justify-center shadow-xl cursor-pointer active:scale-95"
                 >
                   <PanelRightOpen className="w-3.5 h-3.5" />
                 </button>
@@ -345,7 +347,7 @@ export const WorkspaceShell: React.FC = () => {
           {mainNav === 'workspace' && !isRightPanelOpen && (
             <button
               onClick={() => toggleRightPanel(true)}
-              className="md:hidden absolute right-3 bottom-3 z-20 w-11 h-11 rounded-full bg-[#191A1D] border border-white/[0.12] shadow-xl flex items-center justify-center text-zinc-300 hover:text-[#F9CF00] transition-transform active:scale-95 cursor-pointer"
+              className="md:hidden absolute right-3 bottom-3 z-20 w-11 h-11 rounded-full bg-[hsl(var(--surface-1))] border border-white/[0.12] shadow-xl flex items-center justify-center text-zinc-300 hover:text-primary transition-transform active:scale-95 cursor-pointer"
               aria-label="Open asset panel"
             >
               <FolderOpen className="w-4 h-4 stroke-[2.2]" />
@@ -363,8 +365,8 @@ export const WorkspaceShell: React.FC = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="absolute inset-0 left-0 md:left-[58px] z-[15] bg-[#0D0E10] overflow-auto flex flex-col"
+              transition={MOTION_FAST}
+              className="absolute inset-0 left-0 md:left-[72px] z-[15] bg-[hsl(var(--surface-0))] overflow-auto flex flex-col"
             >
               <StudioDashboard />
             </motion.div>
@@ -375,8 +377,8 @@ export const WorkspaceShell: React.FC = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="absolute inset-0 left-0 md:left-[58px] z-[15] bg-[#0D0E10] overflow-auto flex flex-col"
+              transition={MOTION_FAST}
+              className="absolute inset-0 left-0 md:left-[72px] z-[15] bg-[hsl(var(--surface-0))] overflow-auto flex flex-col"
             >
               <OutputsPage />
             </motion.div>
@@ -387,8 +389,8 @@ export const WorkspaceShell: React.FC = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="absolute inset-0 left-0 md:left-[58px] z-[15] bg-[#0D0E10] overflow-auto flex flex-col"
+              transition={MOTION_FAST}
+              className="absolute inset-0 left-0 md:left-[72px] z-[15] bg-[hsl(var(--surface-0))] overflow-auto flex flex-col"
             >
               <SystemPage />
             </motion.div>

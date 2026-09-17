@@ -259,6 +259,13 @@ export interface GenerationSettings {
   triposfPass?: boolean;
   meshEnhancementMode?: 'none' | 'detailgen3d' | 'triposf' | 'both';
   detailGuidance?: number;
+  negativePrompt?: string;
+  multiviewImages?: {
+    front?: string | null;
+    right?: string | null;
+    back?: string | null;
+    left?: string | null;
+  };
 }
 
 

@@ -29,6 +29,7 @@ interface WorkspaceContextType {
   mainNav: MainNavRoute;
   setMainNav: (nav: MainNavRoute) => void;
   assets: ModelAsset[];
+  isAssetsLoading?: boolean;
   selectedAssetId: string | null;
   currentAsset: ModelAsset | null;
   selectAsset: (id: string) => void;
@@ -170,7 +171,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [localAssets, setLocalAssets] = useState<ModelAsset[]>([]);
 
   // React Query for History
-  const { data: historyAssets } = useQuery({
+  const { data: historyAssets, isLoading: isHistoryLoading } = useQuery({
     queryKey: ['history-assets'],
     queryFn: async () => {
       const history = await apiClient.getHistory();
@@ -215,7 +216,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   // React Query for Uploaded Assets
-  const { data: uploadedAssets } = useQuery({
+  const { data: uploadedAssets, isLoading: isUploadedLoading } = useQuery({
     queryKey: ['uploaded-assets'],
     queryFn: async () => {
       const res = await fetch('/api/v1/upload/assets');
@@ -888,6 +889,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             generationSettings.detailPass ? 'detailgen3d' :
             generationSettings.triposfPass ? 'triposf' : 'none'
           ),
+          negative_prompt: generationSettings.negativePrompt || undefined,
+          multiview_images: generationSettings.multiviewImages || undefined,
         }),
       });
       if (!res.ok) throw await parseApiError(res);
@@ -912,6 +915,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [
     generationSettings.image,
+    generationSettings.negativePrompt,
+    generationSettings.multiviewImages,
     generationSettings.aiModel,
     generationSettings.meshQuality,
     generationSettings.topologyMode,
@@ -989,6 +994,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               generationSettings.detailPass ? 'detailgen3d' :
               generationSettings.triposfPass ? 'triposf' : 'none'
             ),
+            negative_prompt: generationSettings.negativePrompt || undefined,
+            multiview_images: generationSettings.multiviewImages || undefined,
           }),
         });
         if (!res.ok) throw await parseApiError(res);
@@ -1016,6 +1023,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return generateImageTo3D();
   }, [
     generationSettings.prompt,
+    generationSettings.negativePrompt,
+    generationSettings.multiviewImages,
     generationSettings.image,
     generationSettings.aiModel,
     generationSettings.meshQuality,
@@ -1206,12 +1215,14 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     isRightPanelOpen, setIsRightPanelOpen,
     navigateToTool, navigateToMain]);
 
+  const isAssetsLoading = (isHistoryLoading || isUploadedLoading) && assets.length === 0;
+
   const assetValue = useMemo(() => ({
-    assets, selectedAssetId, currentAsset,
+    assets, isAssetsLoading, selectedAssetId, currentAsset,
     selectAsset, updateAssetProperties, updateMaterialConfig,
     deleteAsset, addAsset, setCurrentAsset,
     assetFilter, setAssetFilter, duplicateAsset,
-  }), [assets, selectedAssetId, currentAsset,
+  }), [assets, isAssetsLoading, selectedAssetId, currentAsset,
     selectAsset, updateAssetProperties, updateMaterialConfig,
     deleteAsset, addAsset, setCurrentAsset,
     assetFilter, setAssetFilter, duplicateAsset]);

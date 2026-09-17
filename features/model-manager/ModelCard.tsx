@@ -26,7 +26,7 @@ export function ModelCard({ model, onAction }: { model: any, onAction: (id: stri
   }, [model.status, model.id, status, onAction]);
 
   return (
-    <div className="bg-[#14161A] border border-white/[0.08] hover:border-white/[0.16] rounded-xl p-5 flex flex-col gap-4 transition-all duration-200 shadow-sm">
+    <div className="bg-[hsl(var(--surface-1))] border border-white/[0.08] hover:border-white/[0.16] rounded-xl p-5 flex flex-col gap-4 transition-all duration-200 shadow-sm">
       <div className="flex justify-between items-start">
         <div>
           <h3 className="font-semibold text-lg text-white mb-1">{model.label}</h3>
@@ -67,8 +67,8 @@ export function ModelCard({ model, onAction }: { model: any, onAction: (id: stri
               <span>%</span>
             </div>
           </div>
-          <div className="w-full bg-[#0D0E10] rounded-full h-1.5 overflow-hidden">
-            <div className="bg-[#F9CF00] h-1.5 rounded-full transition-all duration-300"
+          <div className="w-full bg-[hsl(var(--surface-0))] rounded-full h-1.5 overflow-hidden">
+            <div className="bg-primary h-1.5 rounded-full transition-all duration-300"
                  style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}></div>
           </div>
         </div>

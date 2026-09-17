@@ -8,12 +8,14 @@ import {
   Settings,
   Pencil,
   Film,
+  FolderOpen,
+  Activity,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { ToolType } from '../types';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 
 interface LeftNavigationProps {
   /** When true, renders as a wide drawer with full labels instead of icon rail */
@@ -43,6 +45,8 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
 
   const isActive = (tool: ToolType) => mainNav === 'workspace' && activeTool === tool;
   const isOverviewActive = mainNav === 'dashboard';
+  const isAssetsActive = mainNav === 'assets';
+  const isSystemActive = mainNav === 'system';
 
   // Mobile drawer: wide list with full labels
   if (isMobileDrawer) {
@@ -50,9 +54,12 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
       <nav
         id="left-tool-rail-mobile"
         aria-label="3D Studio Toolset"
-        className="h-full bg-[#0D0E10] flex flex-col select-none overflow-y-auto"
+        className="h-full bg-[hsl(var(--surface-0))] flex flex-col select-none overflow-y-auto"
       >
         <div className="flex-1 w-full py-2 px-2 space-y-1">
+          <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+            Studio Views
+          </div>
           <MobileNavItem
             id="tool-btn-overview"
             icon={<LayoutDashboard className="w-4 h-4" />}
@@ -60,7 +67,24 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
             active={isOverviewActive}
             onClick={() => handleMainNavClick('dashboard')}
           />
-          <div className="h-px bg-white/[0.08] my-1" />
+          <MobileNavItem
+            id="tool-btn-assets"
+            icon={<FolderOpen className="w-4 h-4" />}
+            label="Assets & Outputs"
+            active={isAssetsActive}
+            onClick={() => handleMainNavClick('assets')}
+          />
+          <MobileNavItem
+            id="tool-btn-system"
+            icon={<Activity className="w-4 h-4" />}
+            label="System & Telemetry"
+            active={isSystemActive}
+            onClick={() => handleMainNavClick('system')}
+          />
+          <div className="h-px bg-white/[0.08] my-2" />
+          <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+            3D Generation Tools
+          </div>
           <MobileNavItem
             id="tool-btn-model"
             icon={<Box className="w-4 h-4" />}
@@ -96,19 +120,12 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
             active={isActive('segment')}
             onClick={() => handleToolClick('segment')}
           />
-          <MobileNavItem
-            id="tool-btn-edit"
-            icon={<Pencil className="w-4 h-4" />}
-            label="Sculpt / Edit"
-            active={isActive('edit')}
-            onClick={() => handleToolClick('edit')}
-          />
         </div>
         <div className="px-2 py-2 border-t border-white/[0.08]">
           <MobileNavItem
             id="tool-btn-settings"
             icon={<Settings className="w-4 h-4" />}
-            label="Settings"
+            label="Admin & Settings"
             active={false}
             onClick={() => { router.push('/admin?tab=settings'); onToolSelect?.(); }}
           />
@@ -117,60 +134,106 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
     );
   }
 
-  // Desktop: original icon rail (unchanged)
+  // Desktop: unified icon rail with tool groups
   return (
     <nav
       id="left-tool-rail"
       aria-label="3D Studio Toolset"
-      className="w-[72px] h-full bg-[#0D0E10] border-r border-white/[0.08] flex flex-col items-center justify-between z-20 select-none flex-shrink-0"
+      className="w-[72px] h-full bg-[hsl(var(--surface-0))] border-r border-white/[0.08] flex flex-col items-center justify-between z-20 select-none flex-shrink-0"
     >
       {/* Tool Stack (AI 3D Studio Toolset) */}
       <div className="flex-1 w-full flex flex-col items-center gap-1.5 px-1.5 py-2 overflow-y-auto overflow-x-hidden scrollbar-none">
-        {/* 0. Studio Overview */}
+        {/* Studio Overview */}
         <SimpleTooltip side="right" label="Studio Overview (Dashboard & Hardware)">
           <button
             id="tool-btn-overview"
             onClick={() => navigateToMainNav('dashboard')}
-            className={`group relative w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
+            className={`group relative w-full h-[52px] py-1 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
               isOverviewActive
-                ? 'bg-[#1E2025] border border-[#F9CF00]/40 text-white shadow-[0_2px_12px_rgba(249,207,0,0.12)]'
-                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[#15161A]'
+                ? 'bg-[hsl(var(--surface-2))] border border-primary/40 text-white shadow-[0_2px_12px_hsl(var(--primary)/0.12)]'
+                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[hsl(var(--surface-1))]'
             }`}
           >
             {isOverviewActive && (
               <motion.div
                 layoutId="leftNavIndicator"
                 transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]"
+                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.8)]"
               />
             )}
-            <LayoutDashboard className={`w-5 h-5 mb-1 flex-shrink-0 transition-transform ${isOverviewActive ? 'text-[#F9CF00] scale-105' : 'group-hover:scale-105'}`} />
-            <span className={`text-[10px] leading-tight text-center tracking-tight truncate w-full ${isOverviewActive ? 'text-white font-bold' : 'font-medium'}`}>Overview</span>
+            <LayoutDashboard className={`w-4 h-4 mb-1 flex-shrink-0 transition-transform ${isOverviewActive ? 'text-primary scale-110' : 'group-hover:scale-105'}`} />
+            <span className={`text-[9px] leading-tight text-center tracking-tight truncate w-full ${isOverviewActive ? 'text-white font-bold' : 'font-medium'}`}>Overview</span>
           </button>
         </SimpleTooltip>
 
-        <div className="w-8 h-px bg-white/[0.08] my-0.5 flex-shrink-0" />
+        {/* Assets & Outputs */}
+        <SimpleTooltip side="right" label="Outputs & Asset History">
+          <button
+            id="tool-btn-assets"
+            onClick={() => navigateToMainNav('assets')}
+            className={`group relative w-full h-[52px] py-1 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
+              isAssetsActive
+                ? 'bg-[hsl(var(--surface-2))] border border-primary/40 text-white shadow-[0_2px_12px_hsl(var(--primary)/0.12)]'
+                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[hsl(var(--surface-1))]'
+            }`}
+          >
+            {isAssetsActive && (
+              <motion.div
+                layoutId="leftNavIndicator"
+                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.8)]"
+              />
+            )}
+            <FolderOpen className={`w-4 h-4 mb-1 flex-shrink-0 transition-transform ${isAssetsActive ? 'text-primary scale-110' : 'group-hover:scale-105'}`} />
+            <span className={`text-[9px] leading-tight text-center tracking-tight truncate w-full ${isAssetsActive ? 'text-white font-bold' : 'font-medium'}`}>Assets</span>
+          </button>
+        </SimpleTooltip>
+
+        {/* System & Telemetry */}
+        <SimpleTooltip side="right" label="System Telemetry & VRAM">
+          <button
+            id="tool-btn-system"
+            onClick={() => navigateToMainNav('system')}
+            className={`group relative w-full h-[52px] py-1 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
+              isSystemActive
+                ? 'bg-[hsl(var(--surface-2))] border border-primary/40 text-white shadow-[0_2px_12px_hsl(var(--primary)/0.12)]'
+                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[hsl(var(--surface-1))]'
+            }`}
+          >
+            {isSystemActive && (
+              <motion.div
+                layoutId="leftNavIndicator"
+                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.8)]"
+              />
+            )}
+            <Activity className={`w-4 h-4 mb-1 flex-shrink-0 transition-transform ${isSystemActive ? 'text-primary scale-110' : 'group-hover:scale-105'}`} />
+            <span className={`text-[9px] leading-tight text-center tracking-tight truncate w-full ${isSystemActive ? 'text-white font-bold' : 'font-medium'}`}>System</span>
+          </button>
+        </SimpleTooltip>
+
+        <div className="w-8 h-px bg-white/[0.08] my-1 flex-shrink-0" />
 
         {/* 1. 3D Model Generation */}
         <SimpleTooltip side="right" label="3D Model Generation (Image & Text to 3D)">
           <button
             id="tool-btn-model"
             onClick={() => handleToolClick('model')}
-            className={`group relative w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
+            className={`group relative w-full h-[52px] py-1 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
               isActive('model')
-                ? 'bg-[#1E2025] border border-[#F9CF00]/40 text-white shadow-[0_2px_12px_rgba(249,207,0,0.12)]'
-                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[#15161A]'
+                ? 'bg-[hsl(var(--surface-2))] border border-primary/40 text-white shadow-[0_2px_12px_hsl(var(--primary)/0.12)]'
+                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[hsl(var(--surface-1))]'
             }`}
           >
             {isActive('model') && (
               <motion.div
                 layoutId="leftNavIndicator"
                 transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]"
+                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.8)]"
               />
             )}
-            <Box className={`w-5 h-5 mb-1 flex-shrink-0 transition-transform ${isActive('model') ? 'text-[#F9CF00] scale-105' : 'group-hover:scale-105'}`} />
-            <span className={`text-[10px] leading-tight text-center tracking-tight truncate w-full ${isActive('model') ? 'text-white font-bold' : 'font-medium'}`}>Model</span>
+            <Box className={`w-4 h-4 mb-1 flex-shrink-0 transition-transform ${isActive('model') ? 'text-primary scale-110' : 'group-hover:scale-105'}`} />
+            <span className={`text-[9px] leading-tight text-center tracking-tight truncate w-full ${isActive('model') ? 'text-white font-bold' : 'font-medium'}`}>Model</span>
           </button>
         </SimpleTooltip>
 
@@ -179,21 +242,21 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
           <button
             id="tool-btn-remesh"
             onClick={() => handleToolClick('remesh')}
-            className={`group relative w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
+            className={`group relative w-full h-[52px] py-1 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
               isActive('remesh')
-                ? 'bg-[#1E2025] border border-[#F9CF00]/40 text-white shadow-[0_2px_12px_rgba(249,207,0,0.12)]'
-                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[#15161A]'
+                ? 'bg-[hsl(var(--surface-2))] border border-primary/40 text-white shadow-[0_2px_12px_hsl(var(--primary)/0.12)]'
+                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[hsl(var(--surface-1))]'
             }`}
           >
             {isActive('remesh') && (
               <motion.div
                 layoutId="leftNavIndicator"
                 transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]"
+                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.8)]"
               />
             )}
-            <CircleDashed className={`w-5 h-5 mb-1 flex-shrink-0 transition-transform ${isActive('remesh') ? 'text-[#F9CF00] scale-105' : 'group-hover:scale-105'}`} />
-            <span className={`text-[10px] leading-tight text-center tracking-tight truncate w-full ${isActive('remesh') ? 'text-white font-bold' : 'font-medium'}`}>Poly</span>
+            <CircleDashed className={`w-4 h-4 mb-1 flex-shrink-0 transition-transform ${isActive('remesh') ? 'text-primary scale-110' : 'group-hover:scale-105'}`} />
+            <span className={`text-[9px] leading-tight text-center tracking-tight truncate w-full ${isActive('remesh') ? 'text-white font-bold' : 'font-medium'}`}>Poly</span>
           </button>
         </SimpleTooltip>
 
@@ -202,21 +265,21 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
           <button
             id="tool-btn-texture"
             onClick={() => handleToolClick('texture')}
-            className={`group relative w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
+            className={`group relative w-full h-[52px] py-1 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
               isActive('texture')
-                ? 'bg-[#1E2025] border border-[#F9CF00]/40 text-white shadow-[0_2px_12px_rgba(249,207,0,0.12)]'
-                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[#15161A]'
+                ? 'bg-[hsl(var(--surface-2))] border border-primary/40 text-white shadow-[0_2px_12px_hsl(var(--primary)/0.12)]'
+                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[hsl(var(--surface-1))]'
             }`}
           >
             {isActive('texture') && (
               <motion.div
                 layoutId="leftNavIndicator"
                 transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]"
+                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.8)]"
               />
             )}
-            <Layers className={`w-5 h-5 mb-1 flex-shrink-0 transition-transform ${isActive('texture') ? 'text-[#F9CF00] scale-105' : 'group-hover:scale-105'}`} />
-            <span className={`text-[10px] leading-tight text-center tracking-tight truncate w-full ${isActive('texture') ? 'text-white font-bold' : 'font-medium'}`}>Texture</span>
+            <Layers className={`w-4 h-4 mb-1 flex-shrink-0 transition-transform ${isActive('texture') ? 'text-primary scale-110' : 'group-hover:scale-105'}`} />
+            <span className={`text-[9px] leading-tight text-center tracking-tight truncate w-full ${isActive('texture') ? 'text-white font-bold' : 'font-medium'}`}>Texture</span>
           </button>
         </SimpleTooltip>
 
@@ -225,21 +288,21 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
           <button
             id="tool-btn-animation"
             onClick={() => handleToolClick('animation')}
-            className={`group relative w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
+            className={`group relative w-full h-[52px] py-1 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
               isActive('animation')
-                ? 'bg-[#1E2025] border border-[#F9CF00]/40 text-white shadow-[0_2px_12px_rgba(249,207,0,0.12)]'
-                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[#15161A]'
+                ? 'bg-[hsl(var(--surface-2))] border border-primary/40 text-white shadow-[0_2px_12px_hsl(var(--primary)/0.12)]'
+                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[hsl(var(--surface-1))]'
             }`}
           >
             {isActive('animation') && (
               <motion.div
                 layoutId="leftNavIndicator"
                 transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]"
+                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.8)]"
               />
             )}
-            <Film className={`w-5 h-5 mb-1 flex-shrink-0 transition-transform ${isActive('animation') ? 'text-[#F9CF00] scale-105' : 'group-hover:scale-105'}`} />
-            <span className={`text-[10px] leading-tight text-center tracking-tight truncate w-full ${isActive('animation') ? 'text-white font-bold' : 'font-medium'}`}>Animate</span>
+            <Film className={`w-4 h-4 mb-1 flex-shrink-0 transition-transform ${isActive('animation') ? 'text-primary scale-110' : 'group-hover:scale-105'}`} />
+            <span className={`text-[9px] leading-tight text-center tracking-tight truncate w-full ${isActive('animation') ? 'text-white font-bold' : 'font-medium'}`}>Animate</span>
           </button>
         </SimpleTooltip>
 
@@ -248,21 +311,21 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
           <button
             id="tool-btn-segment"
             onClick={() => handleToolClick('segment')}
-            className={`group relative w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
+            className={`group relative w-full h-[52px] py-1 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
               isActive('segment')
-                ? 'bg-[#1E2025] border border-[#F9CF00]/40 text-white shadow-[0_2px_12px_rgba(249,207,0,0.12)]'
-                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[#15161A]'
+                ? 'bg-[hsl(var(--surface-2))] border border-primary/40 text-white shadow-[0_2px_12px_hsl(var(--primary)/0.12)]'
+                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[hsl(var(--surface-1))]'
             }`}
           >
             {isActive('segment') && (
               <motion.div
                 layoutId="leftNavIndicator"
                 transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]"
+                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.8)]"
               />
             )}
-            <Scissors className={`w-5 h-5 mb-1 flex-shrink-0 transition-transform ${isActive('segment') ? 'text-[#F9CF00] scale-105' : 'group-hover:scale-105'}`} />
-            <span className={`text-[10px] leading-tight text-center tracking-tight truncate w-full ${isActive('segment') ? 'text-white font-bold' : 'font-medium'}`}>Segment</span>
+            <Scissors className={`w-4 h-4 mb-1 flex-shrink-0 transition-transform ${isActive('segment') ? 'text-primary scale-110' : 'group-hover:scale-105'}`} />
+            <span className={`text-[9px] leading-tight text-center tracking-tight truncate w-full ${isActive('segment') ? 'text-white font-bold' : 'font-medium'}`}>Segment</span>
           </button>
         </SimpleTooltip>
       </div>
@@ -273,10 +336,10 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
           <button
             id="tool-btn-settings"
             onClick={() => router.push('/admin?tab=settings')}
-            className="group w-full h-[54px] py-1.5 px-1 flex flex-col items-center justify-center rounded-xl text-zinc-400 hover:text-white hover:bg-[#15161A] transition-all duration-150 active:scale-95 cursor-pointer flex-shrink-0"
+            className="group w-full h-[52px] py-1 px-1 flex flex-col items-center justify-center rounded-xl text-zinc-400 hover:text-white hover:bg-[hsl(var(--surface-1))] transition-all duration-150 active:scale-95 cursor-pointer flex-shrink-0"
           >
-            <Settings className="w-5 h-5 mb-1 flex-shrink-0 transition-transform group-hover:rotate-45" />
-            <span className="text-[10px] font-medium leading-tight text-center tracking-tight truncate w-full">Settings</span>
+            <Settings className="w-4 h-4 mb-1 flex-shrink-0 transition-transform group-hover:rotate-45" />
+            <span className="text-[9px] font-medium leading-tight text-center tracking-tight truncate w-full">Settings</span>
           </button>
         </SimpleTooltip>
       </div>
@@ -297,14 +360,14 @@ const MobileNavItem: React.FC<{
     onClick={onClick}
     className={`w-full relative flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition-all active:scale-98 cursor-pointer ${
       active
-        ? 'bg-[#1E2025] border border-[#F9CF00]/40 text-white font-bold shadow-sm'
-        : 'text-zinc-300 hover:text-white hover:bg-[#15161A] border border-transparent'
+        ? 'bg-[hsl(var(--surface-2))] border border-primary/40 text-white font-bold shadow-sm'
+        : 'text-zinc-300 hover:text-white hover:bg-[hsl(var(--surface-1))] border border-transparent'
     }`}
   >
     {active && (
-      <div className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-[#F9CF00] shadow-[0_0_8px_rgba(249,207,0,0.8)]" />
+      <div className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.8)]" />
     )}
-    <span className={`flex-shrink-0 ${active ? 'text-[#F9CF00]' : 'text-zinc-400'}`}>{icon}</span>
+    <span className={`flex-shrink-0 ${active ? 'text-primary' : 'text-zinc-400'}`}>{icon}</span>
     <span className="text-xs font-semibold truncate">{label}</span>
   </button>
 );

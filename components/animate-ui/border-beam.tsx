@@ -17,7 +17,7 @@ export const BorderBeam: React.FC<BorderBeamProps> = ({
   className,
   duration = 8,
   borderWidth = 1.5,
-  colorFrom = '#F9CF00',
+  colorFrom = 'hsl(var(--primary))',
   colorTo = 'transparent',
 }) => {
   const prefersReducedMotion = useReducedMotion();

@@ -19,9 +19,9 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
 
   if (tool === 'segment') {
     return (
-      <div id="panel-segment" className="flex flex-col h-full overflow-y-auto px-2.5 py-2.5 space-y-3 text-xs select-none bg-[#191A1D]">
+      <div id="panel-segment" className="flex flex-col h-full overflow-y-auto px-2.5 py-2.5 space-y-3 text-xs select-none bg-[hsl(var(--surface-1))]">
         <div className="space-y-1.5">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-[#F9CF00]">Mesh Segmentation</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-primary">Mesh Segmentation</span>
           <p className="text-[10px] text-zinc-400 font-medium">Decompose mesh into semantic functional sub-meshes for animation & rigging.</p>
         </div>
 
@@ -34,8 +34,8 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
               title="Segmentation backend is not implemented"
               className={`p-1.5 rounded-lg border text-left font-bold text-[10px] transition-all opacity-60 cursor-not-allowed ${
                 i === 0
-                  ? 'bg-[#F9CF00] border-[#F9CF00] text-black shadow-md'
-                  : 'bg-[#1c1f26] border-[#272a34] text-zinc-300 hover:text-white hover:border-[#3d4252]'
+                  ? 'bg-primary border-primary text-black shadow-md'
+                  : 'bg-[hsl(var(--surface-2))] border-[#272a34] text-zinc-300 hover:text-white hover:border-[#3d4252]'
               }`}
             >
               {mode}
@@ -43,17 +43,17 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
           ))}
         </div>
 
-        <div className="p-2 rounded-lg bg-[#1c1f26] border border-[#272a34] space-y-1.5">
+        <div className="p-2 rounded-lg bg-[hsl(var(--surface-2))] border border-[#272a34] space-y-1.5">
           <div className="flex items-center justify-between text-[10px]">
             <span className="text-zinc-400">Target Mesh:</span>
-            <span className="font-mono text-[#F9CF00] font-bold truncate max-w-[120px]">{currentAsset?.name || 'No asset selected'}</span>
+            <span className="font-mono text-primary font-bold truncate max-w-[120px]">{currentAsset?.name || 'No asset selected'}</span>
           </div>
           <div className="text-[9px] text-zinc-500">Semantic segmentation backend is not installed in this build.</div>
         </div>
 
         <button
           disabled={true}
-          className="w-full h-10 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full h-10 rounded-xl bg-primary hover:bg-[hsl(var(--primary)/0.9)] text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Layers className="w-4 h-4 stroke-[2.2]" />
           <span>SEGMENTATION UNAVAILABLE</span>
@@ -64,9 +64,9 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
 
   if (tool === 'remesh') {
     return (
-      <div id="panel-remesh-secondary" className="flex flex-col h-full overflow-y-auto px-2.5 py-2.5 space-y-3 text-xs select-none bg-[#191A1D]">
+      <div id="panel-remesh-secondary" className="flex flex-col h-full overflow-y-auto px-2.5 py-2.5 space-y-3 text-xs select-none bg-[hsl(var(--surface-1))]">
         <div className="space-y-1.5">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-[#F9CF00]">Target Polycount</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-primary">Target Polycount</span>
           <div className="grid grid-cols-3 gap-1.5">
             {([
               { label: '2.5K Low', faces: 2500 },
@@ -78,8 +78,8 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
                 onClick={() => setRemeshSettings(prev => ({ ...prev, targetFaces: q.faces }))}
                 className={`p-1.5 rounded-lg border font-bold text-[10px] transition-all ${
                   remeshSettings.targetFaces === q.faces
-                    ? 'bg-[#F9CF00] border-[#F9CF00] text-black shadow-md'
-                    : 'bg-[#1c1f26] border-[#272a34] text-zinc-300 hover:text-white hover:border-[#3d4252]'
+                    ? 'bg-primary border-primary text-black shadow-md'
+                    : 'bg-[hsl(var(--surface-2))] border-[#272a34] text-zinc-300 hover:text-white hover:border-[#3d4252]'
                 }`}
               >
                 {q.label}
@@ -88,10 +88,10 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
           </div>
         </div>
 
-        <div className="p-2 rounded-lg bg-[#1c1f26] border border-[#272a34] space-y-1.5">
+        <div className="p-2 rounded-lg bg-[hsl(var(--surface-2))] border border-[#272a34] space-y-1.5">
           <div className="flex items-center justify-between text-[10px]">
             <span className="text-zinc-400">Current Topology:</span>
-            <span className="font-mono text-[#F9CF00] font-bold">{currentAsset ? (currentAsset.statsAvailable ? `${currentAsset.topology} (${currentAsset.faces.toLocaleString()} faces)` : 'Geometry stats unavailable') : 'No asset selected'}</span>
+            <span className="font-mono text-primary font-bold">{currentAsset ? (currentAsset.statsAvailable ? `${currentAsset.topology} (${currentAsset.faces.toLocaleString()} faces)` : 'Geometry stats unavailable') : 'No asset selected'}</span>
           </div>
           <div className="flex items-center justify-between text-[10px]">
             <span className="text-zinc-400">Edge Loop Flow:</span>
@@ -103,7 +103,7 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
           type="button"
           onClick={() => void runRemeshGeneration()}
           disabled={isExecuting || !currentAsset?.source?.viewUrl && !currentAsset?.source?.localUrl}
-          className="w-full h-10 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full h-10 rounded-xl bg-primary hover:bg-[hsl(var(--primary)/0.9)] text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Hexagon className="w-4 h-4 stroke-[2.2]" />
           <span>{isExecuting ? 'Remeshing...' : currentAsset ? 'EXECUTE QUAD RETOPO' : 'SELECT A MODEL'}</span>
@@ -114,11 +114,11 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
 
   if (tool === 'edit') {
     return (
-      <div id="panel-edit" className="flex flex-col h-full overflow-y-auto px-2.5 py-2.5 space-y-3 text-xs select-none bg-[#191A1D]">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-[#F9CF00]">Sculpt Brushes</span>
+      <div id="panel-edit" className="flex flex-col h-full overflow-y-auto px-2.5 py-2.5 space-y-3 text-xs select-none bg-[hsl(var(--surface-1))]">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-primary">Sculpt Brushes</span>
         <div className="grid grid-cols-2 gap-1.5">
           {['Grab / Move', 'Smooth', 'Inflate', 'Pinch', 'Flatten', 'Clay Strips'].map((brush) => (
-            <button key={brush} type="button" disabled title="Sculpt backend is not implemented" className="p-1.5 rounded-lg bg-[#1c1f26] border border-[#272a34] text-zinc-400 font-bold text-[10px] text-left transition-all opacity-60 cursor-not-allowed">
+            <button key={brush} type="button" disabled title="Sculpt backend is not implemented" className="p-1.5 rounded-lg bg-[hsl(var(--surface-2))] border border-[#272a34] text-zinc-400 font-bold text-[10px] text-left transition-all opacity-60 cursor-not-allowed">
               {brush}
             </button>
           ))}
@@ -129,12 +129,12 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
 
   if (tool === 'upscale') {
     return (
-      <div id="panel-upscale" className="flex flex-col h-full overflow-y-auto px-2.5 py-2.5 space-y-3 text-xs select-none bg-[#191A1D]">
+      <div id="panel-upscale" className="flex flex-col h-full overflow-y-auto px-2.5 py-2.5 space-y-3 text-xs select-none bg-[hsl(var(--surface-1))]">
         <div className="space-y-1.5">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-[#F9CF00]">Upscale Factor</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-primary">Upscale Factor</span>
           <div className="grid grid-cols-3 gap-1.5">
             {['2X Super', '4X Ultra', '8K Production'].map((f) => (
-              <button key={f} type="button" disabled title="3D upscale backend is not implemented" className="p-1.5 rounded-lg bg-[#1c1f26] opacity-60 cursor-not-allowed border border-[#272a34] text-zinc-300 font-bold text-[10px] hover:text-[#F9CF00] hover:border-[#F9CF00] transition-all">
+              <button key={f} type="button" disabled title="3D upscale backend is not implemented" className="p-1.5 rounded-lg bg-[hsl(var(--surface-2))] opacity-60 cursor-not-allowed border border-[#272a34] text-zinc-300 font-bold text-[10px] hover:text-primary hover:border-primary transition-all">
                 {f}
               </button>
             ))}
@@ -142,7 +142,7 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
         </div>
         <button
           disabled={true}
-          className="w-full h-10 rounded-xl bg-[#F9CF00] hover:bg-[#ffe033] text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full h-10 rounded-xl bg-primary hover:bg-[hsl(var(--primary)/0.9)] text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Maximize className="w-4 h-4 stroke-[2.2]" />
           <span>UPSCALE UNAVAILABLE</span>
@@ -153,8 +153,8 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
 
   if (tool === 'pbr') {
     return (
-      <div id="panel-pbr" className="flex flex-col h-full overflow-y-auto px-2.5 py-2.5 space-y-3 text-xs select-none bg-[#191A1D]">
-        <div className="p-2.5 rounded-lg bg-[#1c1f26] border border-[#272a34]">
+      <div id="panel-pbr" className="flex flex-col h-full overflow-y-auto px-2.5 py-2.5 space-y-3 text-xs select-none bg-[hsl(var(--surface-1))]">
+        <div className="p-2.5 rounded-lg bg-[hsl(var(--surface-2))] border border-[#272a34]">
           <p className="text-zinc-300 leading-relaxed font-medium text-[10px]">Bake physically based rendering channels (Albedo, Normal, Roughness, Metallic, Height, AO) using 3D Generation Pipeline nodes.</p>
         </div>
         <button
@@ -171,8 +171,8 @@ export const SecondaryPanel: React.FC<{ tool: ToolType }> = ({ tool }) => {
   }
 
   return (
-    <div className="flex flex-col h-full items-center justify-center px-2.5 py-2.5 text-xs select-none bg-[#191A1D]">
-      <div className="w-10 h-10 rounded-lg bg-[#1c1f26] border border-[#272a34] flex items-center justify-center text-zinc-400 mb-2">
+    <div className="flex flex-col h-full items-center justify-center px-2.5 py-2.5 text-xs select-none bg-[hsl(var(--surface-1))]">
+      <div className="w-10 h-10 rounded-lg bg-[hsl(var(--surface-2))] border border-[#272a34] flex items-center justify-center text-zinc-400 mb-2">
         <Layers className="w-5 h-5 stroke-[2.2]" />
       </div>
       <p className="text-zinc-400 text-center font-medium text-[10px]">This tool is not available yet.</p>

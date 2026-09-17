@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Download, X, FileBox, Check, Layers, Archive, Box, ShieldCheck, AlertTriangle, Loader2 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { AnimatedSwitch, RippleButton } from '@/components/animate-ui';
 
 export const ExportModal: React.FC = () => {
@@ -123,11 +123,11 @@ export const ExportModal: React.FC = () => {
       onClick={(e) => { if (e.target === e.currentTarget) setIsExportModalOpen(false); }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-3 sm:p-4 text-xs select-none"
     >
-      <div className="w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[#181a20] shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+      <div className="w-full max-w-lg max-w-[calc(100vw-1.5rem)] max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[hsl(var(--surface-1))] shadow-2xl animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/[0.08] bg-[#1e2026] px-4 sm:px-5 py-3.5 flex-shrink-0">
+        <div className="flex items-center justify-between border-b border-white/[0.08] bg-[hsl(var(--surface-2))] px-4 sm:px-5 py-3.5 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F9CF00]/15 text-[#F9CF00] border border-[#F9CF00]/30">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary border border-primary/30">
               <FileBox className="h-5 w-5 stroke-[2.2]" />
             </div>
             <div>
@@ -154,7 +154,7 @@ export const ExportModal: React.FC = () => {
                 : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
             }`}>
               <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-[#00FF9D]" />
+                <ShieldCheck className="w-4 h-4 text-[hsl(var(--neon-green))]" />
                 <div>
                   <div className="font-bold text-xs flex items-center gap-1.5">
                     <span>Quality Score: {qaScore}/100</span>
@@ -188,11 +188,11 @@ export const ExportModal: React.FC = () => {
                   onClick={() => setVariant(v.id as any)}
                   className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
                     variant === v.id
-                      ? 'border-[#F9CF00] bg-[#2b2f3a] text-white shadow-sm'
-                      : 'border-white/[0.08] bg-[#1e2026] text-zinc-300 hover:border-white/[0.16]'
+                      ? 'border-primary bg-[hsl(var(--surface-3))] text-white shadow-sm'
+                      : 'border-white/[0.08] bg-[hsl(var(--surface-2))] text-zinc-300 hover:border-white/[0.16]'
                   }`}
                 >
-                  <span className={`block text-xs font-bold ${variant === v.id ? 'text-[#F9CF00]' : 'text-zinc-200'}`}>
+                  <span className={`block text-xs font-bold ${variant === v.id ? 'text-primary' : 'text-zinc-200'}`}>
                     {v.label}
                   </span>
                   <span className="block text-[9px] text-zinc-400 mt-0.5">{v.tip}</span>
@@ -201,7 +201,6 @@ export const ExportModal: React.FC = () => {
             </div>
           </div>
 
-          {/* Target Platform Budget (when Game-Ready is active) */}
           {/* Target Platform Budget (when Game-Ready is active) */}
           {variant === 'game_ready' && (
             <div className="space-y-1.5 p-3 rounded-xl bg-black/20 border border-white/[0.06]">
@@ -220,8 +219,8 @@ export const ExportModal: React.FC = () => {
                     onClick={() => setTargetPlatform(p.id as any)}
                     className={`py-1.5 px-1 rounded-lg text-center transition-all cursor-pointer ${
                       targetPlatform === p.id
-                        ? 'bg-[#00FF9D] text-black font-bold'
-                        : 'bg-[#1e2026] text-zinc-300 hover:bg-white/[0.06] border border-white/[0.06]'
+                        ? 'bg-[hsl(var(--neon-green))] text-black font-bold'
+                        : 'bg-[hsl(var(--surface-2))] text-zinc-300 hover:bg-white/[0.06] border border-white/[0.06]'
                     }`}
                   >
                     <span className="block text-[10px]">{p.label}</span>
@@ -250,8 +249,8 @@ export const ExportModal: React.FC = () => {
                   onClick={() => setExportFormat(fmt.id as any)}
                   className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
                     exportFormat === fmt.id
-                      ? 'border-[#F9CF00] bg-[#2b2f3a] text-[#F9CF00] font-bold'
-                      : 'border-white/[0.08] bg-[#1e2026] text-zinc-300 hover:border-white/[0.16]'
+                      ? 'border-primary bg-[hsl(var(--surface-3))] text-primary font-bold'
+                      : 'border-white/[0.08] bg-[hsl(var(--surface-2))] text-zinc-300 hover:border-white/[0.16]'
                   }`}
                 >
                   <span className="block text-xs">{fmt.label}</span>
@@ -262,10 +261,10 @@ export const ExportModal: React.FC = () => {
           </div>
 
           {/* Section 3: Packaging Options */}
-          <div className="space-y-2 p-3.5 rounded-xl border border-white/[0.08] bg-[#1e2026]">
+          <div className="space-y-2 p-3.5 rounded-xl border border-white/[0.08] bg-[hsl(var(--surface-2))]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Archive className="w-4 h-4 text-[#F9CF00]" />
+                <Archive className="w-4 h-4 text-primary" />
                 <div>
                   <span className="text-zinc-200 font-bold block text-xs">Structured ZIP Package</span>
                   <span className="text-[10px] text-zinc-400">Bundles source, variants, LODs, collision, and QA report</span>
@@ -293,7 +292,7 @@ export const ExportModal: React.FC = () => {
                         type="checkbox"
                         checked={includeLODs}
                         onChange={e => setIncludeLODs(e.target.checked)}
-                        className="rounded accent-[#F9CF00]"
+                        className="rounded accent-primary"
                       />
                     </label>
                     <label className="flex items-center justify-between text-zinc-300 cursor-pointer">
@@ -302,7 +301,7 @@ export const ExportModal: React.FC = () => {
                         type="checkbox"
                         checked={includeCollision}
                         onChange={e => setIncludeCollision(e.target.checked)}
-                        className="rounded accent-[#F9CF00]"
+                        className="rounded accent-primary"
                       />
                     </label>
                     <label className="flex items-center justify-between text-zinc-300 cursor-pointer">
@@ -311,7 +310,7 @@ export const ExportModal: React.FC = () => {
                         type="checkbox"
                         checked={includeQAReport}
                         onChange={e => setIncludeQAReport(e.target.checked)}
-                        className="rounded accent-[#F9CF00]"
+                        className="rounded accent-primary"
                       />
                     </label>
                   </div>
@@ -329,7 +328,7 @@ export const ExportModal: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-white/[0.08] bg-[#1e2026] px-4 sm:px-5 py-3.5 flex-shrink-0">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-white/[0.08] bg-[hsl(var(--surface-2))] px-4 sm:px-5 py-3.5 flex-shrink-0">
           <span className="text-[10px] text-zinc-500 font-mono hidden sm:inline">
             {packageZip ? 'ZIP Archive' : `${exportFormat.toUpperCase()} Single Asset`}
           </span>

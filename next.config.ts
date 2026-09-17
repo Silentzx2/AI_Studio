@@ -70,6 +70,12 @@ const nextConfig: NextConfig = {
   ...(process.env.NODE_ENV === "development"
     ? {
         allowedDevOrigins: [
+          'localhost',
+          'localhost:3000',
+          '127.0.0.1',
+          '127.0.0.1:3000',
+          '0.0.0.0',
+          '0.0.0.0:3000',
           '*',
           '*.trycloudflare.com',
           '*.run.app',

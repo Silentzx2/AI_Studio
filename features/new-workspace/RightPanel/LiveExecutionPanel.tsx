@@ -21,7 +21,7 @@ import {
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 import { SlidingNumber } from '@/components/animate-ui';
 import { useWorkspace } from '../store/WorkspaceContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 
 interface PipelineStep {
@@ -85,7 +85,7 @@ export const LiveExecutionPanel: React.FC = () => {
 
   if (!activeTask && !isExecuting) {
     return (
-      <div className="flex flex-col h-full items-center justify-center p-6 text-center text-zinc-400 bg-[#14161A] select-none">
+      <div className="flex flex-col h-full items-center justify-center p-6 text-center text-zinc-400 bg-[hsl(var(--surface-1))] select-none">
         <div className="w-10 h-10 rounded-xl bg-[#1B1E24] border border-white/[0.08] flex items-center justify-center text-zinc-500 mb-2">
           <Clock className="w-5 h-5 stroke-[1.5]" />
         </div>
@@ -185,11 +185,11 @@ export const LiveExecutionPanel: React.FC = () => {
   ];
 
   return (
-    <div className="flex flex-col h-full bg-[#14161A] text-xs select-none overflow-hidden">
+    <div className="flex flex-col h-full bg-[hsl(var(--surface-1))] text-xs select-none overflow-hidden">
       {/* Header Bar */}
-      <div className="px-3 py-2.5 border-b border-white/[0.08] flex items-center justify-between flex-shrink-0 bg-[#16181D]">
+      <div className="px-3 py-2.5 border-b border-white/[0.08] flex items-center justify-between flex-shrink-0 bg-[hsl(var(--surface-1))]">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-3.5 h-3.5 text-[#F9CF00]" />
+          <Sparkles className="w-3.5 h-3.5 text-primary" />
           <span className="font-bold text-xs text-white">Pipeline Execution</span>
         </div>
         <div className="flex items-center gap-2">
@@ -206,7 +206,7 @@ export const LiveExecutionPanel: React.FC = () => {
               ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
               : isFailed
               ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
-              : 'bg-[#F9CF00]/15 text-[#F9CF00] border border-[#F9CF00]/30 animate-pulse'
+              : 'bg-primary/15 text-primary border border-primary/30 animate-pulse'
           }`}>
             {activeTask?.status || (isExecuting ? 'Running' : 'Idle')}
           </span>
@@ -219,7 +219,7 @@ export const LiveExecutionPanel: React.FC = () => {
         <div className="p-2.5 rounded-xl bg-[#1B1E24] border border-white/[0.08] space-y-1">
           <div className="flex items-center justify-between">
             <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400">Current Task</div>
-            <SlidingNumber number={progress} suffix="%" className="text-[10px] font-mono font-bold text-[#F9CF00]" />
+            <SlidingNumber number={progress} suffix="%" className="text-[10px] font-mono font-bold text-primary" />
           </div>
           <div className="text-xs font-bold text-white leading-snug">
             {activeTask?.title || '3D Asset Generation'}
@@ -235,7 +235,7 @@ export const LiveExecutionPanel: React.FC = () => {
                   ? 'bg-emerald-400'
                   : isFailed
                   ? 'bg-rose-500'
-                  : 'bg-[#F9CF00]'
+                  : 'bg-primary'
               }`}
               style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
             />
@@ -288,7 +288,7 @@ export const LiveExecutionPanel: React.FC = () => {
                     hasContent ? 'cursor-pointer' : ''
                   } ${
                     isStageActive
-                      ? 'bg-[#22252D] border-[#F9CF00]/40 shadow-sm'
+                      ? 'bg-[hsl(var(--surface-2))] border-primary/40 shadow-sm'
                       : isStageDone
                       ? 'bg-transparent border-transparent text-zinc-300 hover:bg-white/[0.02]'
                       : isStageFailed
@@ -305,8 +305,8 @@ export const LiveExecutionPanel: React.FC = () => {
                         {isStageDone && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
                         {isStageActive && (
                           <span className="relative flex h-2.5 w-2.5 mx-0.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#F9CF00] opacity-75" />
-                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#F9CF00]" />
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
                           </span>
                         )}
                         {isStageFailed && <XCircle className="w-3.5 h-3.5 text-rose-400" />}
@@ -315,7 +315,7 @@ export const LiveExecutionPanel: React.FC = () => {
                       </span>
 
                       <span className={`text-[11px] font-semibold truncate ${
-                        isStageActive ? 'text-[#F9CF00] font-bold' : isStageDone ? 'text-zinc-200' : isStageFailed ? 'text-rose-300' : 'text-zinc-400'
+                        isStageActive ? 'text-primary font-bold' : isStageDone ? 'text-zinc-200' : isStageFailed ? 'text-rose-300' : 'text-zinc-400'
                       }`}>
                         {stage.name}
                       </span>
@@ -328,7 +328,7 @@ export const LiveExecutionPanel: React.FC = () => {
                       {hasContent && (
                         <ChevronRight className={cn(
                           'w-3 h-3 text-zinc-500 transition-transform duration-200',
-                          isExpanded && 'rotate-90 text-[#F9CF00]'
+                          isExpanded && 'rotate-90 text-primary'
                         )} />
                       )}
                     </div>
@@ -367,7 +367,7 @@ export const LiveExecutionPanel: React.FC = () => {
         <div className="space-y-1.5">
           <div className="flex items-center justify-between px-0.5">
             <div className="flex items-center gap-1.5">
-              <Terminal className="w-3.5 h-3.5 text-[#F9CF00]" />
+              <Terminal className="w-3.5 h-3.5 text-primary" />
               <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
                 Live Execution Logs
               </span>
@@ -473,7 +473,7 @@ export const LiveExecutionPanel: React.FC = () => {
                     setGenerationSettings(prev => ({ ...prev, lowVram: true }));
                     void generate3DModel();
                   }}
-                  className="w-full py-1.5 px-2 rounded-lg bg-[#F9CF00] text-black font-bold text-[10px] hover:bg-[#ffe033] transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                  className="w-full py-1.5 px-2 rounded-lg bg-primary text-black font-bold text-[10px] hover:bg-[hsl(var(--primary)/0.9)] transition-colors flex items-center justify-center gap-1 cursor-pointer"
                 >
                   <RotateCcw className="w-3 h-3" />
                   <span>Enable Low VRAM Mode (&lt;8GB) &amp; Retry</span>
@@ -545,7 +545,7 @@ export const LiveExecutionPanel: React.FC = () => {
 
       {/* Primary Action Bar during Running */}
       {isRunning && (
-        <div className="p-2.5 border-t border-white/[0.08] bg-[#16181D]">
+        <div className="p-2.5 border-t border-white/[0.08] bg-[hsl(var(--surface-1))]">
           <button
             type="button"
             onClick={cancelExecution}

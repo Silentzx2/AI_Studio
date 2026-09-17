@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { MOTION_FAST, MOTION_SPRING } from '@/lib/motion';
 
 export type StatusType = 'idle' | 'running' | 'completed' | 'failed' | 'warning' | 'online' | 'offline';
 
@@ -33,11 +34,11 @@ const statusConfigs: Record<
     defaultLabel: 'Idle',
   },
   running: {
-    color: 'text-[#F9CF00]',
-    bg: 'bg-[#F9CF00]/10',
-    border: 'border-[#F9CF00]/30',
-    dotColor: 'bg-[#F9CF00]',
-    pingColor: 'bg-[#F9CF00]',
+    color: 'text-primary',
+    bg: 'bg-primary/10',
+    border: 'border-primary/30',
+    dotColor: 'bg-primary',
+    pingColor: 'bg-primary',
     defaultLabel: 'Running',
   },
   completed: {
@@ -94,7 +95,7 @@ export const AnimatedStatusBadge: React.FC<AnimatedStatusBadgeProps> = ({
   return (
     <motion.span
       layout
-      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+      transition={MOTION_SPRING}
       className={cn(
         'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border transition-colors select-none',
         cfg.bg,
@@ -123,7 +124,7 @@ export const AnimatedStatusBadge: React.FC<AnimatedStatusBadgeProps> = ({
           initial={{ opacity: 0, y: -2 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 2 }}
-          transition={{ duration: 0.15 }}
+          transition={MOTION_FAST}
           className="truncate"
         >
           {label || cfg.defaultLabel}

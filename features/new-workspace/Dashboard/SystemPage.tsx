@@ -10,7 +10,7 @@ export const SystemPage: React.FC = () => {
   const { systemStats, assets } = useWorkspace();
 
   return (
-    <div id="system-page-view" className="flex-1 w-full h-full overflow-y-auto bg-[#0D0E10] select-none text-xs">
+    <div id="system-page-view" className="flex-1 w-full h-full overflow-y-auto bg-[hsl(var(--surface-0))] select-none text-xs">
       <div className="max-w-6xl mx-auto w-full p-6 lg:p-8 space-y-6">
         <div>
           <h1 className="text-xl lg:text-2xl font-black text-white tracking-tight">System Telemetry & VRAM</h1>
@@ -19,8 +19,8 @@ export const SystemPage: React.FC = () => {
 
         {/* 4 Cards Stat Grid */}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-2xl border border-white/[0.08] bg-[#191A1D] p-4 shadow-lg space-y-1">
-            <Server className="mb-2 h-4 w-4 text-[#F9CF00]" />
+          <div className="rounded-2xl border border-white/[0.08] bg-[hsl(var(--surface-1))] p-4 shadow-lg space-y-1">
+            <Server className="mb-2 h-4 w-4 text-primary" />
             <div className="text-[10px] uppercase font-bold text-zinc-500">Service Status</div>
             <div className={`mt-1 text-sm font-black flex items-center gap-1.5 ${systemStats.status === 'online' ? 'text-emerald-400' : 'text-rose-400'}`}>
               <span className={`w-2 h-2 rounded-full ${systemStats.status === 'online' ? 'bg-emerald-400' : 'bg-rose-400'}`} />
@@ -28,16 +28,16 @@ export const SystemPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.08] bg-[#191A1D] p-4 shadow-lg space-y-1">
-            <Cpu className="mb-2 h-4 w-4 text-[#F9CF00]" />
+          <div className="rounded-2xl border border-white/[0.08] bg-[hsl(var(--surface-1))] p-4 shadow-lg space-y-1">
+            <Cpu className="mb-2 h-4 w-4 text-primary" />
             <div className="text-[10px] uppercase font-bold text-zinc-500">GPU Device</div>
             <div className="mt-1 truncate text-sm font-black text-white">{value(systemStats.gpu)}</div>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.08] bg-[#191A1D] p-4 shadow-lg space-y-1">
-            <Activity className="mb-2 h-4 w-4 text-[#F9CF00]" />
+          <div className="rounded-2xl border border-white/[0.08] bg-[hsl(var(--surface-1))] p-4 shadow-lg space-y-1">
+            <Activity className="mb-2 h-4 w-4 text-primary" />
             <div className="text-[10px] uppercase font-bold text-zinc-500">VRAM Allocation</div>
-            <div className="mt-1 text-sm font-black text-[#F9CF00] font-mono">
+            <div className="mt-1 text-sm font-black text-primary font-mono">
               {systemStats.vramUsedGb != null && systemStats.vramTotalGb != null ? (
                 <div className="flex items-center gap-1">
                   <SlidingNumber value={systemStats.vramUsedGb} decimalPlaces={1} />
@@ -49,8 +49,8 @@ export const SystemPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.08] bg-[#191A1D] p-4 shadow-lg space-y-1">
-            <HardDrive className="mb-2 h-4 w-4 text-[#F9CF00]" />
+          <div className="rounded-2xl border border-white/[0.08] bg-[hsl(var(--surface-1))] p-4 shadow-lg space-y-1">
+            <HardDrive className="mb-2 h-4 w-4 text-primary" />
             <div className="text-[10px] uppercase font-bold text-zinc-500">Outputs Cached</div>
             <div className="mt-1 text-sm font-black text-white font-mono flex items-center gap-1">
               <SlidingNumber value={assets.length} /> <span>Assets</span>
@@ -59,10 +59,10 @@ export const SystemPage: React.FC = () => {
         </div>
 
         {/* Real-time Recharts Line Chart */}
-        <div className="rounded-2xl border border-white/[0.08] bg-[#191A1D] p-5 shadow-xl">
+        <div className="rounded-2xl border border-white/[0.08] bg-[hsl(var(--surface-1))] p-5 shadow-xl">
           <div className="flex items-center justify-between mb-4">
             <div className="font-bold text-xs text-white flex items-center gap-2">
-              <Activity className="w-3.5 h-3.5 text-[#F9CF00]" />
+              <Activity className="w-3.5 h-3.5 text-primary" />
               <span>Real-Time VRAM & GPU Utilization</span>
             </div>
             <span className="text-[10px] font-mono text-zinc-500">Polling every 3000ms</span>
@@ -71,9 +71,9 @@ export const SystemPage: React.FC = () => {
         </div>
 
         {/* System Specs Table */}
-        <div className="rounded-2xl border border-white/[0.08] bg-[#191A1D] p-5 shadow-xl space-y-2.5 text-xs">
+        <div className="rounded-2xl border border-white/[0.08] bg-[hsl(var(--surface-1))] p-5 shadow-xl space-y-2.5 text-xs">
           <div className="font-bold text-xs text-white flex items-center gap-2 pb-2 border-b border-white/[0.08]">
-            <Terminal className="w-3.5 h-3.5 text-[#F9CF00]" />
+            <Terminal className="w-3.5 h-3.5 text-primary" />
             <span>Environment Specs</span>
           </div>
           <div className="flex justify-between py-1 border-b border-white/[0.04]">
@@ -90,7 +90,7 @@ export const SystemPage: React.FC = () => {
           </div>
           <div className="flex justify-between py-1 border-b border-white/[0.04]">
             <span className="text-zinc-400">Queue State</span>
-            <span className="font-mono text-[#F9CF00] font-semibold">{systemStats.queueRunning} running / {systemStats.queuePending} pending</span>
+            <span className="font-mono text-primary font-semibold">{systemStats.queueRunning} running / {systemStats.queuePending} pending</span>
           </div>
           <div className="flex justify-between py-1">
             <span className="text-zinc-400">Host Endpoint</span>
