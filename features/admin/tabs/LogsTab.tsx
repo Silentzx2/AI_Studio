@@ -228,7 +228,7 @@ export function LogsTab() {
   };
 
   return (
-    <div id="page-terminal-logs" className="flex flex-col h-[calc(100vh-130px)] min-h-[550px] bg-[hsl(var(--surface-0))] rounded-xl border border-[hsl(var(--border))] overflow-hidden text-xs select-none">
+    <div id="page-terminal-logs" className="flex flex-col h-[calc(100vh-130px)] min-h-[550px] bg-[hsl(var(--surface-0))] rounded-xl border border-[hsl(var(--border))] overflow-hidden text-xs">
       {/* ── Terminal Title Bar ── */}
       <div className="flex items-center justify-between px-3.5 py-2 bg-[hsl(var(--surface-1))] border-b border-[hsl(var(--border))]">
         {/* Terminal dots & command path */}

@@ -52,7 +52,13 @@ async def list_all_models():
     try:
         installed = await registry.get_installed_models()
         available = await registry.get_available_models()
-        all_models = installed + available
+        seen = set()
+        all_models = []
+        for m in installed + available:
+            name = m.get("name") or m.get("label") or str(m)
+            if name not in seen:
+                seen.add(name)
+                all_models.append(m)
         result = {
             "success": True,
             "data": {
