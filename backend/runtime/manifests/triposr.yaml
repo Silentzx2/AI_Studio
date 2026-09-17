@@ -43,6 +43,10 @@ dependencies:
   - torchmcubes
   extra:
   - huggingface_hub>=0.28.0
+  wheels:
+    torchmcubes:
+      available: false
+      reason: Upstream Git VCS dependency requires source build with CUDA toolkit.
   fallbacks: {}
   optional: []
   build_deps:

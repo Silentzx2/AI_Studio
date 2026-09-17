@@ -2477,7 +2477,8 @@ for i in {1..30}; do
 done
 
 if [[ "$FRONTEND_READY" != "true" ]]; then
-    err "Frontend did not become healthy. See logs/frontend.log"
+    err "Frontend did not become healthy. Last 40 lines of logs/frontend.log:"
+    tail -n 40 "$LOG_DIR/frontend.log" 2>/dev/null || true
     err "STARTUP FAILED"
     exit 1
 fi
