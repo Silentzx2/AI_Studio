@@ -252,8 +252,14 @@ def get_mesh_stats(model_path: str) -> dict:
                     total_components += 1
             else:
                 total_components += 1
+            # Count actual materials, not geometry objects
             if hasattr(m, "visual") and hasattr(m.visual, "material") and m.visual.material:
-                materials.add(id(m.visual.material))
+                mat = m.visual.material
+                mat_name = getattr(mat, "name", None) or id(mat)
+                materials.add(mat_name)
+            elif hasattr(m, "visual") and m.visual is not None:
+                # Has visual but no named material - count as 1
+                materials.add(id(m.visual))
 
         material_count = max(len(materials), 1 if any(hasattr(m, "visual") for m in meshes) else 0)
 
@@ -322,15 +328,18 @@ def validate_glb(model_path: str) -> dict:
 
     # Check GLB magic number directly for clearer error messages
     # GLB files must start with the magic bytes "glTF" (0x46546C67)
-    # If magic bytes don't match, skip validation (may be a different format)
+    # If magic bytes don't match, this is NOT a valid GLB - fail validation
     try:
         with open(path, 'rb') as f:
             magic = f.read(4)
             if magic != b'glTF':
-                # Not a valid GLB header — skip trimesh validation to avoid spurious errors
-                return {"valid": True, "model_path": model_path, "skipped": True, "reason": "not a GLB file (skipped validation)"}
+                return {
+                    "valid": False,
+                    "reason": "Not a valid GLB file (missing 'glTF' magic bytes)",
+                    "model_path": model_path,
+                }
     except Exception as exc:
-        return {"valid": True, "model_path": model_path, "skipped": True, "reason": f"cannot read file: {exc}"}
+        return {"valid": False, "reason": f"cannot read file: {exc}", "model_path": model_path}
 
     # Fast non-blocking geometry verification (avoids O(N^2) full diagnostics on raw meshes)
     if is_open3d_available():
@@ -500,10 +509,10 @@ def run_mesh_diagnostics(model_path: str, target_platform: str = "generic") -> d
     trimesh = _try_import_trimesh()
     if trimesh is None:
         return {
-            "valid": True,
-            "game_ready_score": 75,
-            "status": "warn",
-            "warnings": ["trimesh not installed — limited diagnostic verification"],
+            "valid": False,
+            "game_ready_score": 0,
+            "status": "fail",
+            "warnings": ["trimesh not installed — cannot perform QA diagnostics"],
             "diagnostics": {"file_size": path.stat().st_size},
         }
 
@@ -717,9 +726,9 @@ def run_mesh_diagnostics(model_path: str, target_platform: str = "generic") -> d
     except Exception as exc:
         logger.warning("run_mesh_diagnostics failed on %s: %s", model_path, exc)
         return {
-            "valid": True,
-            "game_ready_score": 60,
-            "status": "warn",
+            "valid": False,
+            "game_ready_score": 0,
+            "status": "fail",
             "warnings": [f"Diagnostics could not complete: {exc}"],
             "diagnostics": {"file_size": path.stat().st_size},
         }

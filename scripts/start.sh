@@ -294,6 +294,11 @@ set -a
 source .env
 set +a
 
+# ── Ensure CUDA_VISIBLE_DEVICES is set for GPU runtime ──────────────
+if [[ -z "${CUDA_VISIBLE_DEVICES:-}" ]]; then
+    export CUDA_VISIBLE_DEVICES=0
+fi
+
 
 # ── PID file directory ─────────────────────────────────────────────────────
 PID_DIR="${PROJECT_ROOT}/.pids"

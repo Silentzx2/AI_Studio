@@ -851,6 +851,7 @@ def generate_lods(
     from app.core.mesh_processor import validate_glb
 
     prev_poly = original_faces
+    derived_lod_count = 0
     for i in range(1, max_levels + 1):
         ratio = cascade_ratios[i - 1]
         target = max(60, min(int(original_faces * ratio), int(prev_poly * 0.75)))
@@ -911,6 +912,7 @@ def generate_lods(
             continue
 
         prev_poly = poly
+        derived_lod_count += 1
         lods_result[f"lod{i}"] = {
             "path": lod_target_path,
             "filename": lod_filename,
@@ -920,10 +922,14 @@ def generate_lods(
             "valid": True,
         }
 
+    # Report success only if at least one derived LOD was actually generated
+    # (LOD0 is always preserved, but derived LODs may all have been rejected)
     return {
-        "success": True,
+        "success": derived_lod_count > 0,
         "count": len(lods_result),
         "levels": lods_result,
+        "derived_lod_count": derived_lod_count,
+        "error": None if derived_lod_count > 0 else "All derived LODs were rejected by quality audit",
     }
 
 
@@ -959,7 +965,12 @@ def generate_collision_mesh(
             mesh = loaded
 
         if mode == "box":
-            hull = mesh.bounding_box
+            # Build an actual box-shaped collision proxy from the mesh's bounding box.
+            # trimesh's mesh.bounding_box returns an AABB (no .export() method),
+            # so we construct a proper trimesh.box from the extents.
+            bbox = mesh.bounding_box
+            box_mesh = trimesh.creation.box(extents=bbox.extents, transform=bbox.primitive.transform)
+            hull = box_mesh
         else:
             # Convex hull is the gold standard for game collision proxy
             hull = mesh.convex_hull
@@ -984,7 +995,7 @@ def generate_collision_mesh(
             "polycount": len(hull.faces),
             "vertex_count": len(hull.vertices),
             "mode": mode,
-            "collider_type": "convex_hull",
+            "collider_type": mode,  # Report the actual mode used, not always "convex_hull"
             "notes": "Watertight single convex hull for real-time rigid body collision",
             "validation": collision_audit,
         }

@@ -571,15 +571,25 @@ def run_preflight_for_provider(
             code_r, output = _run_in_venv(venv_python, smoke_code, timeout_sec=120)
             ok = code_r == 0 and "ok" in output
             is_cuda_err = is_resource_error(output or "")
-            if not ok and is_cuda_err:
-                ok = True
-                output = f"Skipped GPU-only inference on non-GPU environment: {output[:200]}"
-            checks["model_load"] = {
-                "passed": ok,
-                "detail": (output[-1000:] if len(output) > 1000 else output) if output else "No output",
-            }
             if not ok:
-                all_passed = False
+                # CUDA OOM is a HARD failure, not a skip
+                if is_cuda_err:
+                    checks["model_load"] = {
+                        "passed": False,
+                        "detail": f"CUDA OOM during smoke test: {output[:500]}",
+                    }
+                    all_passed = False
+                else:
+                    checks["model_load"] = {
+                        "passed": False,
+                        "detail": (output[-1000:] if len(output) > 1000 else output) if output else "No output",
+                    }
+                    all_passed = False
+            else:
+                checks["model_load"] = {
+                    "passed": True,
+                    "detail": "ok",
+                }
     # --- Capability smoke tests (runs inside model venv) ---
     # ponytail: on Colab/CPU-only, many packages can't be imported. Treat
     # missing modules as SKIP (not FAIL) so models can still be PARTIAL.
@@ -607,17 +617,24 @@ def run_preflight_for_provider(
                 cap_r, cap_output = _run_in_venv(venv_python, cap_code, timeout_sec=120)
                 cap_ok = cap_r == 0 and "ok" in cap_output
                 is_cuda_err = is_resource_error(cap_output or "")
-                if not cap_ok and is_cuda_err:
-                    cap_ok = True
-                    cap_output = f"Skipped GPU-only inference on non-GPU environment: {cap_output[:200]}"
-                checks[f"capability_smoke.{cap_name}"] = {
-                    "passed": cap_ok,
-                    "detail": (cap_output[-1000:] if len(cap_output) > 1000 else cap_output) if cap_output else "No output",
-                }
                 if not cap_ok:
-                    cap_required = cap_cfg.get("required", True)
-                    if cap_required and not is_cuda_err:
-                        all_passed = False
+                    # CUDA OOM is a HARD failure, not a skip
+                    if is_cuda_err:
+                        cap_ok = False
+                        cap_output = f"CUDA OOM during capability smoke test: {cap_output[:200]}"
+                    checks[f"capability_smoke.{cap_name}"] = {
+                        "passed": cap_ok,
+                        "detail": (cap_output[-1000:] if len(cap_output) > 1000 else cap_output) if cap_output else "No output",
+                    }
+                    if not cap_ok:
+                        cap_required = cap_cfg.get("required", True)
+                        if cap_required:
+                            all_passed = False
+                else:
+                    checks[f"capability_smoke.{cap_name}"] = {
+                        "passed": True,
+                        "detail": "ok",
+                    }
     failed_summaries = [
         f"{name}: {info.get('detail', '')}"
         for name, info in checks.items()

@@ -46,7 +46,7 @@ dependencies:
   fallbacks: {}
   optional: []
   build_deps:
-    torchmcubes: ["ninja", "setuptools<70"]
+    torchmcubes: ["ninja", "setuptools<70", "scikit-build-core>=1.0", "pybind11>=2.10"]
   cuda_native:
   - torchmcubes
   build_env:

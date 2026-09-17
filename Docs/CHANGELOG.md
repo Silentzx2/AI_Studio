@@ -6,6 +6,54 @@ All notable changes, architectural updates, and feature implementations for AI 3
 
 ## [5.0.81] — 2026-09-17
 
+### 🐛 GPU Pipeline Root-Cause Repairs (VRAM/OOM/False-Success)
+
+Comprehensive audit and fix of the GPU runtime pipeline, post-processing, and validation layers.
+
+#### P0 — Critical Runtime VRAM/OOM Chain
+- **`backend/runtime/gpu.py:235`**: `select_device("auto", max_vram_mb)` now compares **free VRAM** (`free_vram_mb`) instead of total VRAM. Previously compared total VRAM, causing CUDA OOM when model exceeded free VRAM but fit within total.
+- **`backend/runtime/gpu.py:94-95`**: `_GPU_CACHE_TTL` reduced from 30s to 2s. Stale GPU info cache caused incorrect device selection after GPU state changes.
+- **`backend/runtime/engine.py:288-292`**: `load_provider` now re-evaluates `vram_mode` on every call instead of assuming the previous mode is still valid. Previously stayed in "normal" mode after VRAM was freed, causing later OOM.
+- **`backend/runtime/engine.py:326-331`**: `load_provider` now rejects load when `plan_vram_usage.fits=False`, raising `RuntimeError` with shortfall details. Previously ignored the planner's fit check and attempted load anyway.
+- **`backend/runtime/accelerate_loader.py:44-46`**: Removed `_ACCELERATE_AVAILABLE` global cache; `accelerate_available()` now always attempts fresh import. Stale `False` cache permanently disabled low-VRAM strategies after first import failure.
+- **`backend/runtime/preflight.py:574-576`**: OOM now classified as `FAILED` not `SKIPPED` in both `model_load` and `capacity_smoke` checks. Previously treated any `is_resource_error(output)` as a skip, even on real GPU OOMs.
+- **`backend/runtime/model_env.py:256`**: Added `is_oom_error()` function with strict OOM-only markers, separate from the broad `is_resource_error()`.
+- **`backend/app/workers/tasks.py:215-227`**: `_is_oom_error` now delegates to `is_oom_error()` instead of `is_resource_error()`.
+- **`backend/app/core/providers/base.py:346-349`**: `_add_model_env()` now purges `torch` from `sys.modules` alongside shared packages. Previously only purged shared packages, causing segfault/undefined symbol on model load with ABI mismatch.
+
+#### P1 — Postprocess/Export Defects
+- **`backend/app/workers/tasks.py:1178`**: Blender pipeline `auto_rig` set to `False` when `job.mode == "rigging"` to prevent double-rigging.
+- **`backend/app/core/mesh_optimizer.py:850`**: `collision_mode="box"` now builds a proper `trimesh.creation.box` from bounding box extents instead of returning the original mesh unchanged.
+- **`backend/app/core/mesh_optimizer.py:864`**: LOD generation now tracks `derived_lod_count` and returns `success: False` when all derived LODs are rejected.
+- **`backend/app/core/mesh_processor.py:110`**: `run_mesh_diagnostics` now returns `valid: False, game_ready_score: 0` when trimesh is missing (was `valid: True, score: 75`).
+- **`backend/app/core/mesh_processor.py:717`**: Exception handler now returns `valid: False, game_ready_score: 0` (was `valid: True, score: 60`).
+- **`backend/app/core/mesh_processor.py:329`**: `validate_glb` now returns `valid: False` for non-GLB files (missing `glTF` magic bytes).
+- **`backend/app/core/mesh_processor.py:523`**: `material_count` now counts actual materials via `m.visual.material` instead of geometry objects.
+- **`backend/app/core/open3d_service.py:326`**: Diagnostic probe now records UV presence before clearing `triangle_uvs`/`vertex_colors` to prevent C++ segfault while keeping duplicate/degenerate counts accurate for textured meshes.
+
+#### P2 — Config/Manifest/Deployment Defects
+- **`backend/runtime/manifests/hunyuan3d_21.yaml:36`**: Added `python_pin_rewrites` entry for `^numpy==1\.24\..*$` → `numpy>=1.26.4,<2.0` to resolve numpy pin conflict with `detailgen3d.yaml`'s `numpy==1.22.3` when both manifests are installed together.
+- **`scripts/start.sh`**: Added explicit `export CUDA_VISIBLE_DEVICES=0` fallback when `.env` does not set it, ensuring PyTorch picks the correct GPU device.
+- **`package.json`**: Added `"test"` script to satisfy npm package.json requirements.
+
+#### Verification
+- 10 regression tests in `backend/runtime/test_gpu_runtime_regression.py` covering all P0 defects
+- 80 backend tests pass
+- TypeScript type check: clean
+- Shell script syntax: all valid
+- `backend/runtime/test_dependency_manifest_contract.py`: passes
+
+### 🐛 Runtime Bootstrap Fixes: TripoSR `torchmcubes` Source Build & Colab Supervisor `local` Errors
+
+- **TripoSR `torchmcubes` Build Failure (`backend/runtime/manifests/triposr.yaml`, `backend/runtime/dependency_resolver.py`)**:
+  - **Root cause**: Upstream `torchmcubes` (cloned from `git+https://github.com/tatsy/torchmcubes.git`) now builds with `scikit-build-core` + `pybind11` and its `CMakeLists.txt` calls `find_package(Torch CONFIG REQUIRED)`. The manifest's `dependencies.build_deps` still listed the obsolete `ninja`/`setuptools<70` pins, so the build backend failed at `prepare_metadata_for_build_wheel` with a CMake "Could not find a package configuration file provided by 'Torch'" error. The resolver's source-build path also did not point CMake at the target venv's installed torch, so even with correct build deps the configure step could not locate `TorchConfig.cmake`.
+  - **Fix**: Updated `dependencies.build_deps` for `torchmcubes` to `scikit-build-core>=1.0` and `pybind11>=2.10`, keeping the existing `ninja` and `setuptools<70` toolchain pins. The resolver now derives `Torch_DIR`/`CMAKE_PREFIX_PATH` from the target venv's `torch/share/cmake/Torch` directory (queried via `torch.__file__` inside the per-model venv) for `torchmcubes` source builds.
+  - **Verification**: `python backend/runtime/test_dependency_manifest_contract.py` passes; `test_torchmcubes_git_resolution` passes.
+
+- **Colab Supervisor `local` Errors (`scripts/colab_watch.sh`)**:
+  - **Root cause**: `local apid`, `local wpid`, and `local fpid` were declared inside the top-level `while true` loop of the foreground supervisor, but `local` is only valid inside a function. Under `set -u` this printed `local: can only be used in a function` on every health-check iteration.
+  - **Fix**: Removed the `local` keyword from the three loop-local variable assignments; the variables are still scoped to the loop body and functionally identical.
+
 ### 🚀 1-Click Mesh Quality Toolbar & UI Architecture
 - **Dedicated Generate Quality Toolbar (`GeneratePanel.tsx`)**:
   - Added persistent 1-click **Mesh Quality Toolbar** directly anchored above the sticky `GENERATE 3D MODEL` action button.

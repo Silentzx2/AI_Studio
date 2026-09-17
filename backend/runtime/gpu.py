@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 # ponytail: Simple TTL cache. Upgrade to shared cache if multi-process.
 _gpu_cache_ts = 0.0
 _gpu_cache_info: GPUInfo | None = None
-_GPU_CACHE_TTL = 30.0  # seconds — GPU info changes infrequently
+_GPU_CACHE_TTL = 2.0  # seconds — GPU info changes frequently during provider switches
 
 
 class GPURequiredError(Exception):
@@ -232,9 +232,9 @@ def select_device(cuda_device: str = "auto", max_vram_mb: int = 0) -> str:
         raise GPURequiredError(gpu_info.reason or "GPU not available")
     if cuda_device == "auto":
         best = max(gpu_info.devices, key=lambda d: d["free_vram_mb"])
-        if max_vram_mb and best["vram_mb"] < max_vram_mb:
+        if max_vram_mb and best["free_vram_mb"] < max_vram_mb:
             raise GPURequiredError(
-                f"GPU {best['name']} has {best['vram_mb']}MB VRAM, "
+                f"GPU {best['name']} has {best['free_vram_mb']}MB free VRAM, "
                 f"but {max_vram_mb}MB required."
             )
         return f"cuda:{best['index']}"

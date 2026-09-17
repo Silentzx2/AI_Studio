@@ -537,6 +537,7 @@ AI_PROVIDER=hunyuan3d-2-mini
 
 # ===== HARDWARE & VRAM =====
 CUDA_DEVICE=auto
+CUDA_VISIBLE_DEVICES=0
 MAX_VRAM_MB=0  # 0 = auto-detect
 
 # ===== STORAGE PATHS =====

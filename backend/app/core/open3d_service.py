@@ -95,7 +95,8 @@ def load_o3d_mesh(source: str | Path | Any) -> Any | None:
         logger.warning("Cannot load Open3D mesh: file does not exist or is empty: %s", path_str)
         return None
 
-    # 1. Direct Open3D read
+    # 1. Direct Open3D read — works for OBJ, PLY, STL, but NOT GLB/GLTF
+    # (Open3D's read_triangle_mesh doesn't support GLB format reliably)
     try:
         mesh = o3d.io.read_triangle_mesh(path_str, enable_post_processing=False)
         if mesh is not None and not mesh.is_empty() and len(mesh.triangles) > 0:
@@ -320,9 +321,13 @@ def analyze_mesh_o3d(source: str | Path | Any) -> dict[str, Any]:
         probe_mesh = copy.deepcopy(mesh)
 
         # Open3D C++ segfault protection:
-        # remove_degenerate_triangles and remove_duplicated_triangles do not handle triangle_uvs or vertex_colors,
-        # leading to an out-of-bounds C++ memory dereference / SIGSEGV in pybind.
-        # Clearing them on this diagnostic-only probe avoids the crash entirely.
+        # remove_degenerate_triangles and remove_duplicated_triangles do not handle
+        # triangle_uvs or vertex_colors, leading to an out-of-bounds C++ memory
+        # dereference / SIGSEGV in pybind.
+        # Clear them on this diagnostic-only probe AFTER recording UV presence,
+        # so the duplicate/degenerate counts remain accurate for textured meshes.
+        has_uvs_before = probe_mesh.has_triangle_uvs()
+        has_vc_before = probe_mesh.has_vertex_colors()
         if hasattr(probe_mesh, "triangle_uvs"):
             probe_mesh.triangle_uvs.clear()
         if hasattr(probe_mesh, "vertex_colors"):

@@ -841,6 +841,19 @@ Common native packages and their wheel availability:
 | `torchmcubes` | ❌ No (source only) | - |
 | `diso` | ❌ No (source only) | - |
 
+**TripoSR `torchmcubes` source-build requirements (2026-09-17):**
+Upstream `torchmcubes` (cloned from `git+https://github.com/tatsy/torchmcubes.git`) builds with
+`scikit-build-core` and `pybind11`, and its `CMakeLists.txt` calls
+`find_package(Torch CONFIG REQUIRED)`. The per-model manifest `dependencies.build_deps` must
+declare `scikit-build-core>=1.0`, `pybind11>=2.10`, plus the retained `ninja` and `setuptools<70`
+toolchain pins, and the source-build path must set `Torch_DIR`/`CMAKE_PREFIX_PATH` to the target venv's
+`torch/share/cmake/Torch` directory (derived from `torch.__file__` inside the per-model venv).
+Without both, `prepare_metadata_for_build_wheel` fails with a CMake "Could not find a package
+configuration file provided by 'Torch'" error and TripoSR preparation fails with
+`torchmcubes` in the failed list. If a fresh upstream `torchmcubes` changes its build system again,
+update `backend/runtime/manifests/triposr.yaml` `dependencies.build_deps` rather than editing the
+resolver.
+
 ---
 
 

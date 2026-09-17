@@ -287,9 +287,26 @@ class RuntimeEngine:
             # mode differs from the currently loaded instance.
             if name in self._loaded:
                 loaded_mode = self._loaded_modes.get(name, "normal")
+                # Re-evaluate VRAM mode on every load request - don't assume
+                # the previous mode is still appropriate (VRAM may have been freed)
                 if requested in ("auto", loaded_mode):
-                    self.touch_provider(name)
-                    return self._loaded[name]
+                    # Still need to verify the loaded mode fits current VRAM
+                    if requested == "auto":
+                        try:
+                            from runtime.capability import plan_vram_usage
+                            plan = plan_vram_usage(name, "auto")
+                            if not plan.get("fits", False) and not plan.get("cpu_only", False):
+                                # Current VRAM doesn't fit - need to reload in low mode
+                                pass  # fall through to reload
+                            else:
+                                self.touch_provider(name)
+                                return self._loaded[name]
+                        except Exception:
+                            self.touch_provider(name)
+                            return self._loaded[name]
+                    else:
+                        self.touch_provider(name)
+                        return self._loaded[name]
                 provider = self._loaded.pop(name)
                 self._loaded_modes.pop(name, None)
                 self._last_used.pop(name, None)
@@ -329,6 +346,14 @@ class RuntimeEngine:
                 vram_needed = plan.get("vram_required_mb") or 0
                 if resolved_mode == "unavailable":
                     raise RuntimeError(plan.get("reason", f"Requested VRAM mode '{requested}' is unavailable for {name}"))
+                # CRITICAL: Honor planner's fit assessment — reject if won't fit
+                if not plan.get("fits", False) and not plan.get("cpu_only", False):
+                    raise RuntimeError(
+                        f"Provider '{name}' requires {vram_needed}MB VRAM in {resolved_mode} mode, "
+                        f"but planner reports insufficient VRAM (shortfall: {plan.get('shortfall_mb', 0)}MB). "
+                        f"Free VRAM: {get_gpu_info().free_vram_mb}MB. "
+                        f"Try a different provider or enable low-VRAM mode."
+                    )
             except RuntimeError:
                 raise
             except Exception:

@@ -28,6 +28,15 @@
 4. **SimpleTooltip Layout Support (`components/ui/simple-tooltip.tsx`)**:
    - Added optional `className` support to `SimpleTooltipProps` to allow full width stretching (`w-full flex-1`) within responsive grid toolbars.
 
+### Runtime Bootstrap Fixes (2026-09-17)
+
+1. **TripoSR `torchmcubes` Source-Build Failure (`backend/runtime/manifests/triposr.yaml`, `backend/runtime/dependency_resolver.py`)**:
+   - Upstream `torchmcubes` now builds with `scikit-build-core` + `pybind11` and its `CMakeLists.txt` calls `find_package(Torch CONFIG REQUIRED)`. The manifest's `dependencies.build_deps` still listed obsolete `ninja`/`setuptools<70` pins, so the build backend failed at `prepare_metadata_for_build_wheel` with a CMake "Could not find a package configuration file provided by 'Torch'" error.
+   - **Fix**: Updated `dependencies.build_deps` for `torchmcubes` to `scikit-build-core>=1.0` and `pybind11>=2.10`, keeping the existing `ninja` and `setuptools<70` toolchain pins, and the resolver now derives `Torch_DIR`/`CMAKE_PREFIX_PATH` from the target venv's `torch/share/cmake/Torch` directory for `torchmcubes` source builds.
+2. **Colab Supervisor `local` Errors (`scripts/colab_watch.sh`)**:
+   - `local apid`, `local wpid`, and `local fpid` were declared inside the top-level `while true` loop, but `local` is only valid inside a function, printing `local: can only be used in a function` on every health-check iteration.
+   - **Fix**: Removed the `local` keyword from the three loop-local variable assignments.
+
 ---
 
 ## v5.0.80 — 3D Pipeline & Quality Audit: Derivative Routing & Quality Preset Integrity (2026-09-17)

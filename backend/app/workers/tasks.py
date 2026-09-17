@@ -219,8 +219,8 @@ def _is_oom_error(exc: BaseException) -> bool:
     low mode, so a code bug is not masked by an expensive double run.
     """
     try:
-        from runtime.model_env import is_resource_error
-        return is_resource_error(str(exc))
+        from runtime.model_env import is_oom_error
+        return is_oom_error(str(exc))
     except ImportError:
         # Fallback if model_env not available
         msg = str(exc).lower()
@@ -627,6 +627,8 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                                     await engine.unload_provider(provider_name)
                                 except Exception:
                                     pass
+                                # The engine.load_provider will now honor the planner's fit check
+                                # for low VRAM mode, so it won't retry if low VRAM also doesn't fit
                                 provider = await engine.load_provider(provider_name, vram_mode="low")
                             sync_publish(5, "preparing", "Out of memory detected — retrying with low VRAM mode.", "warn")
                             provider_result = await provider.generate(request, out_dir, progress_callback)
@@ -1172,10 +1174,13 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 try:
                     from app.core.blender.pipeline import process_model
                     topology_mode = meta.get("topology_mode", "adaptive")
+                    # When job mode is "rigging", the asset was already rigged
+                    # by clay.blender.ops.rig_asset above. Don't double-rig.
+                    blender_auto_rig = job.auto_rig if job.mode != "rigging" else False
                     blender_result = await process_model(
                         input_path=glb_path,
                         output_dir=out_dir,
-                        auto_rig=job.auto_rig if job.mode != "render" else False,
+                        auto_rig=blender_auto_rig,
                         asset_category=asset_class.get("category"),
                         generate_texture=job.generate_texture if job.mode != "render" else False,
                         quality=job.quality,

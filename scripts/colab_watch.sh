@@ -396,7 +396,7 @@ while true; do
     worker_ok=false
     frontend_ok=false
 
-    local apid; apid="$(pid_of api)"
+    apid; apid="$(pid_of api)"
     if [[ "$apid" =~ ^[0-9]+$ ]] && ! pid_alive "$apid"; then
         warn "FastAPI process exited unexpectedly (PID ${apid}) — restarting immediately."
         api_fails=0
@@ -416,7 +416,7 @@ while true; do
         fi
     fi
 
-    local wpid; wpid="$(pid_of worker)"
+    wpid; wpid="$(pid_of worker)"
     if [[ "$wpid" =~ ^[0-9]+$ ]] && ! pid_alive "$wpid"; then
         warn "Celery worker process exited unexpectedly (PID ${wpid}) — restarting immediately."
         worker_fails=0
@@ -436,7 +436,7 @@ while true; do
         fi
     fi
 
-    local fpid; fpid="$(pid_of frontend)"
+    fpid; fpid="$(pid_of frontend)"
     if [[ "$fpid" =~ ^[0-9]+$ ]] && ! pid_alive "$fpid"; then
         warn "Frontend process exited unexpectedly (PID ${fpid}) — restarting immediately."
         frontend_fails=0

@@ -261,6 +261,26 @@ def is_resource_error(text: str) -> bool:
     return any(marker.lower() in text_lower for marker in _RESOURCE_OR_ENV_ERRS)
 
 
+def is_oom_error(text: str) -> bool:
+    """Check if output/exception text specifically indicates a GPU OOM / memory-exhaustion failure.
+    
+    This is stricter than is_resource_error - it only matches genuine memory exhaustion,
+    not generic CUDA errors (e.g., device-side assert, kernel launch failure).
+    """
+    if not text:
+        return False
+    text_lower = text.lower()
+    oom_markers = (
+        "out of memory",
+        "cuda out of memory",
+        "cuda oom",
+        "oom",
+        "memory exhausted",
+        "no memory to allocate",
+    )
+    return any(marker in text_lower for marker in oom_markers)
+
+
 # ---------------------------------------------------------------------------
 # ModelEnv — resolved environment for a provider
 # ---------------------------------------------------------------------------

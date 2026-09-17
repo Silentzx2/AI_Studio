@@ -18,8 +18,6 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-_ACCELERATE_AVAILABLE: bool | None = None
-
 
 def accelerate_available() -> bool:
     """Return True if the ``accelerate`` package can be imported.
@@ -38,11 +36,9 @@ def accelerate_available() -> bool:
 
     try:
         import accelerate  # noqa: F401
-        _ACCELERATE_AVAILABLE = True
         logger.debug("Accelerate available: %s", getattr(accelerate, "__version__", "?"))
         return True
     except (ImportError, AttributeError, Exception) as exc:
-        _ACCELERATE_AVAILABLE = False
         logger.debug("Accelerate not available (%s) — using native device management", exc)
         return False
 

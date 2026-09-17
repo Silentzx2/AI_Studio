@@ -1167,6 +1167,25 @@ def install_resolved_deps(
                         if _cuda_home:
                             build_env["CUDA_HOME"] = _cuda_home
                     build_env.update(manifest_build_env)
+                    if dep.name == "torchmcubes":
+                        torch_cmake_dir = None
+                        try:
+                            import subprocess as _sp
+                            _env = dict(os.environ)
+                            _env["VIRTUAL_ENV"] = str(venv_dir.resolve())
+                            _env["PATH"] = f"{venv_python.parent}{os.pathsep}{_env.get('PATH', '')}"
+                            _proc = _sp.run(
+                                [str(venv_python), "-c",
+                                 "import torch, pathlib; print(pathlib.Path(torch.__file__).parent / 'share' / 'cmake' / 'Torch')"],
+                                env=_env, capture_output=True, text=True, timeout=30,
+                            )
+                            if _proc.returncode == 0:
+                                torch_cmake_dir = _proc.stdout.strip()
+                        except Exception:
+                            torch_cmake_dir = None
+                        if torch_cmake_dir and Path(torch_cmake_dir).exists():
+                            build_env["Torch_DIR"] = torch_cmake_dir
+                            build_env["CMAKE_PREFIX_PATH"] = torch_cmake_dir
                     _subdir_match = _re.search(r'#subdirectory=([^&]+)', dep.spec)
                     if _subdir_match:
                         subdir = _subdir_match.group(1).strip()
