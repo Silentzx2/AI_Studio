@@ -228,20 +228,17 @@ start_frontend() {
 
     if [[ "$needs_build" == "true" ]]; then
         info "Frontend build missing or source changed; building..."
-        if ! (
-            cd "${PROJECT_ROOT}" &&
-            bun run build > "${LOG_DIR}/frontend_build.log" 2>&1
-        ); then
+        if ! run_bun_or_npm "bun run build > \${LOG_DIR}/frontend_build.log 2>&1" "npm run build > \${LOG_DIR}/frontend_build.log 2>&1"; then
             err "Frontend build failed. Check logs/frontend_build.log"
             return 1
         fi
     fi
 
-    : > "${LOG_DIR}/frontend.log"
-    info "Starting Next.js production server (bun start)..."
+    : > "\${LOG_DIR}/frontend.log"
+    info "Starting Next.js production server ($(command -v bun &>/dev/null && echo "bun start" || echo "npm start"))..."
     (
-        cd "${PROJECT_ROOT}" || exit 1
-        export HOSTNAME="$FRONTEND_HOST"
+        cd "\${PROJECT_ROOT}" || exit 1
+        export HOSTNAME="\$FRONTEND_HOST"
         export PORT=3000
         # In Colab/native environments, Docker hostname 'api' is not resolvable
         local effective_backend_url="${BACKEND_URL:-http://127.0.0.1:8000}"
@@ -250,7 +247,7 @@ start_frontend() {
         fi
         export BACKEND_URL="$effective_backend_url"
         export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}"
-        exec bun start
+        exec run_bun_or_npm "bun start" "npm start"
     ) >> "${LOG_DIR}/frontend.log" 2>&1 &
     write_pid frontend "$!"
 

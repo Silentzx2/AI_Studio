@@ -267,7 +267,7 @@ auto_bootstrap() {
     # Ensure frontend deps
     if [[ ! -d node_modules ]]; then
         info "Installing frontend dependencies..."
-        bun ci 2>/dev/null || bun install 2>/dev/null || {
+        run_bun_or_npm "bun ci 2>/dev/null" "npm ci 2>/dev/null" || run_bun_or_npm "bun install 2>/dev/null" "npm install 2>/dev/null" || {
             err "Frontend dependency installation failed"
             exit 1
         }
@@ -644,14 +644,14 @@ if [[ ! -d node_modules ]] || [[ ! -d node_modules/next ]]; then
         rm -rf node_modules
     fi
     info "Installing Bun dependencies..."
-    bun ci 2>&1 | grep -E '(added|up to date)' || true
+    run_bun_or_npm "bun ci 2>&1 | grep -E '(added|up to date)'" "npm ci 2>&1 | grep -E '(added|up to date)'" || true
 fi
 
 # Dev mode: skip build (hot-reload). Prod mode: build first.
 info "Building Next.js for production..."
 export NEXT_PUBLIC_API_URL=http://localhost:8000
-bun run build 2>&1 | tail -5
-FRONTEND_RUN_CMD="bun start"
+run_bun_or_npm "bun run build 2>&1 | tail -5" "npm run build 2>&1 | tail -5"
+FRONTEND_RUN_CMD=$(command -v bun &>/dev/null && echo "bun start" || echo "npm start")
 
 # Start frontend
 BACKEND_URL="${BACKEND_URL:-http://localhost:8000}" NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}" setsid $FRONTEND_RUN_CMD \

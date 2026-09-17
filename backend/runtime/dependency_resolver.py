@@ -1166,26 +1166,12 @@ def install_resolved_deps(
                         _cuda_home = _detect_cuda_home()
                         if _cuda_home:
                             build_env["CUDA_HOME"] = _cuda_home
+                            build_env.setdefault("CUDA_TOOLKIT_ROOT_DIR", _cuda_home)
+                            build_env.setdefault("CUDAToolkit_ROOT", _cuda_home)
+                            cuda_bin = str(Path(_cuda_home) / "bin")
+                            if Path(cuda_bin).exists() and cuda_bin not in build_env.get("PATH", ""):
+                                build_env["PATH"] = f"{cuda_bin}{os.pathsep}{build_env.get('PATH', '')}"
                     build_env.update(manifest_build_env)
-                    if dep.name == "torchmcubes":
-                        torch_cmake_dir = None
-                        try:
-                            import subprocess as _sp
-                            _env = dict(os.environ)
-                            _env["VIRTUAL_ENV"] = str(venv_dir.resolve())
-                            _env["PATH"] = f"{venv_python.parent}{os.pathsep}{_env.get('PATH', '')}"
-                            _proc = _sp.run(
-                                [str(venv_python), "-c",
-                                 "import torch, pathlib; print(pathlib.Path(torch.__file__).parent / 'share' / 'cmake' / 'Torch')"],
-                                env=_env, capture_output=True, text=True, timeout=30,
-                            )
-                            if _proc.returncode == 0:
-                                torch_cmake_dir = _proc.stdout.strip()
-                        except Exception:
-                            torch_cmake_dir = None
-                        if torch_cmake_dir and Path(torch_cmake_dir).exists():
-                            build_env["Torch_DIR"] = torch_cmake_dir
-                            build_env["CMAKE_PREFIX_PATH"] = torch_cmake_dir
                     _subdir_match = _re.search(r'#subdirectory=([^&]+)', dep.spec)
                     if _subdir_match:
                         subdir = _subdir_match.group(1).strip()
@@ -1266,6 +1252,39 @@ def install_resolved_deps(
                 if build_deps:
                     _log(f"  Installing build dependencies for {dep.name}: {build_deps}")
                     _run_uv(["pip", "install", "--python", str(venv_python), *build_deps])
+                if dep.name == "torchmcubes":
+                    try:
+                        import subprocess as _sp
+                        _env = dict(os.environ)
+                        _env["VIRTUAL_ENV"] = str(venv_dir.resolve())
+                        _env["PATH"] = f"{venv_python.parent}{os.pathsep}{_env.get('PATH', '')}"
+                        _proc = _sp.run(
+                            [str(venv_python), "-c",
+                             "import torch, pathlib; "
+                             "t_p = pathlib.Path(torch.__file__).parent; "
+                             "site = str(t_p.parent); "
+                             "t_cmake = str(t_p / 'share' / 'cmake'); "
+                             "t_dir = str(t_p / 'share' / 'cmake' / 'Torch'); "
+                             "pb_dir = ''; "
+                             "try:\n"
+                             "    import pybind11\n"
+                             "    pb_dir = str(pybind11.get_cmake_dir())\n"
+                             "except Exception:\n"
+                             "    pass\n"
+                             "print(f'{t_dir}|{pb_dir}|{t_cmake}|{site}')"],
+                            env=_env, capture_output=True, text=True, timeout=30,
+                        )
+                        if _proc.returncode == 0 and "|" in _proc.stdout:
+                            t_dir, pb_dir, t_cmake, site = _proc.stdout.strip().split("|", 3)
+                            if t_dir and Path(t_dir).exists():
+                                build_env["Torch_DIR"] = t_dir
+                            if pb_dir and Path(pb_dir).exists():
+                                build_env["pybind11_DIR"] = pb_dir
+                            existing_pref = build_env.get("CMAKE_PREFIX_PATH", "")
+                            pref_parts = [p for p in [t_cmake, pb_dir, site, existing_pref] if p]
+                            build_env["CMAKE_PREFIX_PATH"] = ":".join(pref_parts)
+                    except Exception as _e:
+                        logger.debug("Failed to set cmake paths for torchmcubes: %s", _e)
                 # For non-subdirectory deps, run the retry loop here (no temp dir involved)
                 if not _subdir_match:
                     max_attempts = 2
@@ -1289,26 +1308,27 @@ def install_resolved_deps(
                     # - Representation-required: skip but record capability
                     #   degradation (native_state will reflect this)
                     # - Required: fail the install
+                    tail_output = output[-2000:] if len(output) > 2000 else output
                     if _normalize_dep_key(dep.name) in _manifest_dependency_list(manifest, "optional"):
                         dep.state = "skipped"
                         skipped.append(dep.name)
                         native_skipped = True
-                        _log(f"Optional dep failed, skipping: {dep.name}: {output[:200]}")
+                        _log(f"Optional dep failed, skipping: {dep.name}: {tail_output}")
                     elif _normalize_dep_key(dep.name) in _manifest_dependency_list(manifest, "representation_required"):
                         dep.state = "capability_degraded"
-                        dep.error = output[:300]
+                        dep.error = tail_output
                         skipped.append(dep.name)
                         native_skipped = True
                         _log(
                             f"Representation-required dep {dep.name} build failed — "
-                            f"corresponding capability will be unavailable: {output[:200]}"
+                            f"corresponding capability will be unavailable: {tail_output}"
                         )
                     else:
                         dep.state = "failed"
-                        dep.error = output[:300]
+                        dep.error = tail_output
                         failed.append(dep.name)
                         native_failed = True
-                        _log(f"Build failed: {dep.name}: {output[:200]}")
+                        _log(f"Build failed: {dep.name}: {tail_output}")
             else:
                 dep.state = "skipped"
                 skipped.append(dep.name)

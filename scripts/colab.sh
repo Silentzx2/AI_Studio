@@ -1510,7 +1510,7 @@ fi
 # Ensure gltf-transform CLI is installed for post-processing optimization
 if ! command -v gltf-transform &>/dev/null; then
     info "Installing gltf-transform CLI for mesh compression..."
-    bun install -g @gltf-transform/cli >/dev/null 2>&1 || npm install -g @gltf-transform/cli >/dev/null 2>&1 || warn "Failed to install @gltf-transform/cli globally"
+    install_global_bun_or_npm "@gltf-transform/cli" || warn "Failed to install @gltf-transform/cli globally"
 fi
 
 # Install frontend deps
@@ -2394,7 +2394,7 @@ fi
 
 if [[ ! -d node_modules ]]; then
     info "Installing Bun dependencies..."
-    bun ci 2>&1 | grep -E '(added|up to date)' || true
+    run_bun_or_npm "bun ci 2>bun ci 2>&1 | grep -E '(added|up to date)' || true1 | grep -E '(added|up to date)'" "npm ci 2>bun ci 2>&1 | grep -E '(added|up to date)' || true1 | grep -E '(added|up to date)'" || true
 fi
 
 if [[ ! -d .next ]]; then
@@ -2416,11 +2416,11 @@ if [[ "$effective_backend_url" == *"api:8000"* ]]; then
     effective_backend_url="http://127.0.0.1:8000"
 fi
 nohup env HOSTNAME=0.0.0.0 PORT=3000 BACKEND_URL="$effective_backend_url" NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}" \
-    bun start \
+    run_bun_or_npm "bun start" "npm start" \
     > "$LOG_DIR/frontend.log" 2>&1 &
 write_pid "$PID_DIR/frontend.pid" $!
 
-log "Frontend started (bun start, PID: $(cat $PID_DIR/frontend.pid))"
+log "Frontend started ($(command -v bun log "Frontend started (bun start, PID: $(cat $PID_DIR/frontend.pid))">/dev/null log "Frontend started (bun start, PID: $(cat $PID_DIR/frontend.pid))"log "Frontend started (bun start, PID: $(cat $PID_DIR/frontend.pid))" echo "bun start" || echo "npm start"), PID: $(cat $PID_DIR/frontend.pid))"
 
 # Wait for Frontend to be ready. Do not report success until the root page
 # actually responds — a PID alone is not readiness (see spec §9).

@@ -19,7 +19,11 @@ if ! command -v gltf-transform &>/dev/null; then
         echo "gltf-transform found at $NVM_BIN (not in PATH but functional)"
     else
         echo 'Installing gltf-transform...'
-        bun install -g @gltf-transform/cli
+        if command -v bun &>/dev/null; then
+            bun install -g @gltf-transform/cli
+        else
+            npm install -g @gltf-transform/cli
+        fi
     fi
 fi
 # Verify it actually runs (via PATH or NVM fallback)
