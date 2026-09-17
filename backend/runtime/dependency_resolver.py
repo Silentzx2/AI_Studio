@@ -1260,22 +1260,33 @@ def install_resolved_deps(
                         _env["PATH"] = f"{venv_python.parent}{os.pathsep}{_env.get('PATH', '')}"
                         _proc = _sp.run(
                             [str(venv_python), "-c",
-                             "import torch, pathlib; "
-                             "t_p = pathlib.Path(torch.__file__).parent; "
-                             "site = str(t_p.parent); "
-                             "t_cmake = str(t_p / 'share' / 'cmake'); "
-                             "t_dir = str(t_p / 'share' / 'cmake' / 'Torch'); "
-                             "pb_dir = ''; "
+                             "import torch, pathlib\n"
+                             "t_p = pathlib.Path(torch.__file__).parent\n"
+                             "site = t_p.parent\n"
+                             "t_cmake = str(t_p / 'share' / 'cmake')\n"
+                             "t_dir = str(t_p / 'share' / 'cmake' / 'Torch')\n"
+                             "pb_dir = ''\n"
                              "try:\n"
                              "    import pybind11\n"
                              "    pb_dir = str(pybind11.get_cmake_dir())\n"
                              "except Exception:\n"
                              "    pass\n"
-                             "print(f'{t_dir}|{pb_dir}|{t_cmake}|{site}')"],
+                             "for f in site.glob('nvidia/*/lib/*.so.*'):\n"
+                             "    if '.so.' in f.name:\n"
+                             "        link = f.parent / (f.name.split('.so.')[0] + '.so')\n"
+                             "        if not link.exists():\n"
+                             "            try: link.symlink_to(f.name)\n"
+                             "            except Exception: pass\n"
+                             "nvrtc_path = ''\n"
+                             "nvrtc_candidates = list(site.glob('nvidia/cuda_nvrtc/lib/libnvrtc.so*')) + list(pathlib.Path('/usr/local/cuda/lib64').glob('libnvrtc.so*'))\n"
+                             "for c in nvrtc_candidates:\n"
+                             "    if c.exists() and not c.name.endswith('.a'):\n"
+                             "        nvrtc_path = str(c); break\n"
+                             "print(f'{t_dir}|{pb_dir}|{t_cmake}|{str(site)}|{nvrtc_path}')"],
                             env=_env, capture_output=True, text=True, timeout=30,
                         )
                         if _proc.returncode == 0 and "|" in _proc.stdout:
-                            t_dir, pb_dir, t_cmake, site = _proc.stdout.strip().split("|", 3)
+                            t_dir, pb_dir, t_cmake, site, nvrtc_path = _proc.stdout.strip().split("|", 4)
                             if t_dir and Path(t_dir).exists():
                                 build_env["Torch_DIR"] = t_dir
                             if pb_dir and Path(pb_dir).exists():
@@ -1283,6 +1294,13 @@ def install_resolved_deps(
                             existing_pref = build_env.get("CMAKE_PREFIX_PATH", "")
                             pref_parts = [p for p in [t_cmake, pb_dir, site, existing_pref] if p]
                             build_env["CMAKE_PREFIX_PATH"] = ":".join(pref_parts)
+                            cmake_args_list = []
+                            if nvrtc_path and Path(nvrtc_path).exists():
+                                build_env["CUDA_nvrtc_LIBRARY"] = nvrtc_path
+                                cmake_args_list.append(f"-DCUDA_nvrtc_LIBRARY={nvrtc_path}")
+                            if cmake_args_list:
+                                existing_cmake_args = build_env.get("CMAKE_ARGS", "")
+                                build_env["CMAKE_ARGS"] = (existing_cmake_args + " " + " ".join(cmake_args_list)).strip()
                     except Exception as _e:
                         logger.debug("Failed to set cmake paths for torchmcubes: %s", _e)
                 # For non-subdirectory deps, run the retry loop here (no temp dir involved)
