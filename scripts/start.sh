@@ -248,14 +248,17 @@ auto_bootstrap() {
     fi
 
     # Ensure Node.js/Bun
-    if ! command -v bun &>/dev/null && ! command -v npm &>/dev/null; then
-        warn "Node.js/Bun not found — installing bun..."
+    if ! command -v bun &>/dev/null; then
+        warn "Bun not found — installing bun..."
         if command -v curl &>/dev/null; then
             curl -fsSL https://bun.sh/install | bash 2>/dev/null || {
                 err "bun install failed; falling back to nodejs..."
                 curl -fsSL https://deb.nodesource.com/setup_20.x 2>/dev/null | sudo bash - 2>/dev/null || true
                 sudo apt-get install -y nodejs 2>/dev/null || true
             }
+        fi
+        if [[ -f "$HOME/.bun/bin/bun" ]] && [[ ! -e /usr/local/bin/bun ]]; then
+            sudo ln -sf "$HOME/.bun/bin/bun" /usr/local/bin/bun 2>/dev/null || ln -sf "$HOME/.bun/bin/bun" /usr/local/bin/bun 2>/dev/null || true
         fi
     fi
     hash -r 2>/dev/null || true
@@ -339,15 +342,15 @@ CELERY_BIN="${PROJECT_ROOT}/backend/.venv/bin/celery"
 # Prefers bun; falls back to npm if bun is not installed.
 # Auto-installs bun if neither bun nor npm is found.
 ensure_bun_or_npm() {
+    export PATH="$HOME/.bun/bin:$PATH"
     if command -v bun &>/dev/null; then
+        if [[ -f "$HOME/.bun/bin/bun" ]] && [[ ! -e /usr/local/bin/bun ]]; then
+            sudo ln -sf "$HOME/.bun/bin/bun" /usr/local/bin/bun 2>/dev/null || ln -sf "$HOME/.bun/bin/bun" /usr/local/bin/bun 2>/dev/null || true
+        fi
         log "Bun found: $(bun --version 2>/dev/null || echo unknown)"
         return 0
     fi
-    if command -v npm &>/dev/null; then
-        log "npm found: $(npm --version 2>/dev/null || echo unknown) (bun not found, using npm)"
-        return 0
-    fi
-    info "Neither bun nor npm found — installing bun..."
+    info "Bun not found — installing bun..."
     if command -v curl &>/dev/null; then
         curl -fsSL https://bun.sh/install | bash 2>/dev/null || {
             err "bun installation failed; attempting npm install..."
@@ -357,12 +360,15 @@ ensure_bun_or_npm() {
     fi
     hash -r 2>/dev/null || true
     export PATH="$HOME/.bun/bin:$PATH"
+    if [[ -f "$HOME/.bun/bin/bun" ]] && [[ ! -e /usr/local/bin/bun ]]; then
+        sudo ln -sf "$HOME/.bun/bin/bun" /usr/local/bin/bun 2>/dev/null || ln -sf "$HOME/.bun/bin/bun" /usr/local/bin/bun 2>/dev/null || true
+    fi
     if command -v bun &>/dev/null; then
         log "Bun installed: $(bun --version 2>/dev/null || echo unknown)"
         return 0
     fi
     if command -v npm &>/dev/null; then
-        log "npm available after nodejs install: $(npm --version 2>/dev/null || echo unknown)"
+        log "npm available as fallback: $(npm --version 2>/dev/null || echo unknown)"
         return 0
     fi
     err "Neither bun nor npm available after install attempt. Run: sudo bash scripts/setup.sh"

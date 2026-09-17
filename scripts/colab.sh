@@ -493,28 +493,28 @@ ensure_node_bun() {
     fi
 
     # Recover common system locations in non-interactive Colab shells.
-    for dir in /usr/local/bin /usr/bin "$HOME/.local/bin"; do
+    for dir in /usr/local/bin /usr/bin "$HOME/.local/bin" "$HOME/.bun/bin"; do
         if [[ -d "$dir" && ":$PATH:" != *":$dir:"* ]]; then
             export PATH="$dir:$PATH"
         fi
     done
 
-    if command -v node &>/dev/null && command -v bun &>/dev/null; then
-        log "Node.js available: $(node --version 2>/dev/null || echo unknown), Bun $(bun --version 2>/dev/null || echo unknown)"
+    if command -v bun &>/dev/null; then
+        if [[ -f "$HOME/.bun/bin/bun" ]] && [[ ! -e /usr/local/bin/bun ]]; then
+            sudo ln -sf "$HOME/.bun/bin/bun" /usr/local/bin/bun 2>/dev/null || ln -sf "$HOME/.bun/bin/bun" /usr/local/bin/bun 2>/dev/null || true
+        fi
+        log "Bun ready: $(bun --version 2>/dev/null || echo unknown)"
         return 0
     fi
 
-    # Fallback to npm if bun is not installed.
-    if command -v node &>/dev/null && command -v npm &>/dev/null; then
-        log "Node.js available: $(node --version 2>/dev/null || echo unknown), npm $(npm --version 2>/dev/null || echo unknown) (bun not found, using npm fallback)"
-        return 0
-    fi
-
-    info "Node.js/Bun not found — installing bun..."
+    info "Bun not found — installing bun..."
     if command -v curl &>/dev/null; then
         curl -fsSL https://bun.sh/install | bash 2>/dev/null && {
             hash -r 2>/dev/null || true
             export PATH="$HOME/.bun/bin:$PATH"
+            if [[ -f "$HOME/.bun/bin/bun" ]] && [[ ! -e /usr/local/bin/bun ]]; then
+                sudo ln -sf "$HOME/.bun/bin/bun" /usr/local/bin/bun 2>/dev/null || ln -sf "$HOME/.bun/bin/bun" /usr/local/bin/bun 2>/dev/null || true
+            fi
             if command -v bun &>/dev/null; then
                 log "Bun installed: $(bun --version 2>/dev/null || echo unknown)"
                 return 0
@@ -536,19 +536,20 @@ ensure_node_bun() {
     fi
 
     hash -r 2>/dev/null || true
-    export PATH="/usr/local/bin:/usr/bin:$PATH"
-
-    if ! command -v node &>/dev/null; then
-        err "Node.js installation completed but binary is still unavailable"
-        err "PATH=$PATH"
-        return 1
-    fi
+    export PATH="/usr/local/bin:/usr/bin:$HOME/.bun/bin:$PATH"
 
     if command -v bun &>/dev/null; then
-        log "Node.js ready: $(node --version 2>/dev/null || echo unknown), Bun $(bun --version 2>/dev/null || echo unknown)"
-    else
-        log "Node.js ready: $(node --version 2>/dev/null || echo unknown), npm $(npm --version 2>/dev/null || echo unknown) (bun not found, using npm fallback)"
+        log "Bun ready: $(bun --version 2>/dev/null || echo unknown)"
+        return 0
     fi
+
+    if command -v node &>/dev/null; then
+        log "Node.js ready: $(node --version 2>/dev/null || echo unknown) (bun unavailable)"
+        return 0
+    fi
+
+    err "Neither Bun nor Node.js could be made available"
+    return 1
 }
 
 # ── Colab Service Management Functions ─────────────────────────────────────
@@ -1200,19 +1201,8 @@ else
     log "uv already available: $(uv --version | head -1)"
 fi
 
-# ── Ensure Bun (preferred) or npm is available ──────────────────────
-if ! command -v bun &>/dev/null && ! command -v npm &>/dev/null; then
-    info "Neither bun nor npm found — installing bun..."
-    if command -v curl &>/dev/null; then
-        curl -fsSL https://bun.sh/install | bash 2>/dev/null || {
-            warn "bun install failed; attempting nodejs install..."
-            curl -fsSL https://deb.nodesource.com/setup_20.x 2>/dev/null | sudo bash - 2>/dev/null || true
-            sudo apt-get install -y nodejs 2>/dev/null || true
-        }
-    fi
-    hash -r 2>/dev/null || true
-    export PATH="$HOME/.bun/bin:$PATH"
-fi
+# ── Ensure Bun is available ──────────────────────────────────────────
+ensure_node_bun
 
 # ponytail: some hosted shells (e.g. Colab) wrap `uv` in an alias/function that
 # injects the deprecated `--system` flag, which only `uv venv` complains about
@@ -1516,7 +1506,7 @@ fi
 # Ensure gltf-transform CLI is installed for post-processing optimization
 if ! command -v gltf-transform &>/dev/null; then
     info "Installing gltf-transform CLI for mesh compression..."
-    bun install -g @gltf-transform/cli >/dev/null 2>&1 || warn "Failed to install @gltf-transform/cli globally"
+    bun install -g @gltf-transform/cli >/dev/null 2>&1 || npm install -g @gltf-transform/cli >/dev/null 2>&1 || warn "Failed to install @gltf-transform/cli globally"
 fi
 
 # Install frontend deps
