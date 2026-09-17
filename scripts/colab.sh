@@ -826,7 +826,7 @@ colab_start_services() {
 
     if [[ "$needs_build" == "true" ]]; then
         info "Building Next.js for production..."
-        if ! bun run build > "$LOG_DIR/frontend_build.log" 2>&1; then
+        if ! run_bun_or_npm "bun run build" "npm run build" > "$LOG_DIR/frontend_build.log" 2>&1; then
             err "Frontend build FAILED — see logs/frontend_build.log"
             return 1
         fi
@@ -840,10 +840,14 @@ colab_start_services() {
             BACKEND_URL="http://127.0.0.1:8000"
         fi
         export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}"
-        nohup bun start > "$LOG_DIR/frontend.log" 2>&1 &
+        local start_cmd="npm start"
+        command -v bun &>/dev/null && start_cmd="bun start"
+        nohup $start_cmd > "$LOG_DIR/frontend.log" 2>&1 &
         write_pid "$FRONTEND_PID_FILE" $!
     )
-    log "Frontend started (bun start, PID: $(cat $FRONTEND_PID_FILE))"
+    local runner="bun"
+    command -v bun &>/dev/null || runner="npm"
+    log "Frontend started ($runner start, PID: $(cat $FRONTEND_PID_FILE))"
 
     # ── Post-Start Verification ────────────────────────────────────────────
     # Verify every service is actually serving before declaring success. Colab
@@ -1512,11 +1516,11 @@ fi
 # Install frontend deps
 if [[ ! -d node_modules ]]; then
     info "Installing Bun dependencies..."
-    bun ci 2>>"$PROJECT_ROOT/logs/bootstrap.log" | while IFS= read -r line; do
+    run_bun_or_npm "bun ci 2>>$PROJECT_ROOT/logs/bootstrap.log" "npm ci 2>>$PROJECT_ROOT/logs/bootstrap.log" | while IFS= read -r line; do
         if [[ "$line" =~ added|up.to.date|packages ]]; then
             echo -e "    ${GREEN}✔${NC} $line"
         fi
-    done || bun install 2>>"$PROJECT_ROOT/logs/bootstrap.log" || {
+    done || run_bun_or_npm "bun install 2>>$PROJECT_ROOT/logs/bootstrap.log" "npm install 2>>$PROJECT_ROOT/logs/bootstrap.log" || {
         warn "Frontend dependency installation had issues"
     }
 fi
@@ -1524,7 +1528,7 @@ fi
 # Build Next.js if needed
 if [[ ! -d .next ]]; then
     echo -e "  ${BOLD}Building Next.js...${NC}"
-    bun run build 2>>"$PROJECT_ROOT/logs/bootstrap.log" | while IFS= read -r line; do
+    run_bun_or_npm "bun run build 2>>$PROJECT_ROOT/logs/bootstrap.log" "npm run build 2>>$PROJECT_ROOT/logs/bootstrap.log" | while IFS= read -r line; do
         if [[ "$line" =~ Compiled|compiled|success|Ready|route ]]; then
             echo -e "    ${CYAN}→${NC} $line"
         fi
@@ -2395,7 +2399,7 @@ fi
 
 if [[ ! -d .next ]]; then
     info "Building Next.js for production..."
-    if ! bun run build > "$LOG_DIR/frontend_build.log" 2>&1; then
+    if ! run_bun_or_npm "bun run build" "npm run build" > "$LOG_DIR/frontend_build.log" 2>&1; then
         err "Frontend build FAILED — see logs/frontend_build.log"
         exit 1
     fi

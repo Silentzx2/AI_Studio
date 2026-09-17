@@ -601,6 +601,16 @@ install_node() {
     return 1
   }
   log "Node.js installed: $(node --version)"
+
+  if ! command -v bun &>/dev/null; then
+    head_ "Installing Bun"
+    curl -fsSL https://bun.sh/install | bash || warn "Failed to install Bun via bun.sh"
+    export PATH="$HOME/.bun/bin:$PATH"
+    if [[ -f "$HOME/.bun/bin/bun" ]] && [[ ! -e /usr/local/bin/bun ]]; then
+      ln -sf "$HOME/.bun/bin/bun" /usr/local/bin/bun 2>/dev/null || true
+    fi
+    log "Bun installed: $(bun --version 2>/dev/null || echo 'OK')"
+  fi
 }
 
 install_gltf_transform() {
