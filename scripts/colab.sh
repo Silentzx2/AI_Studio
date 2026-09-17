@@ -1200,6 +1200,20 @@ else
     log "uv already available: $(uv --version | head -1)"
 fi
 
+# ── Ensure Bun (preferred) or npm is available ──────────────────────
+if ! command -v bun &>/dev/null && ! command -v npm &>/dev/null; then
+    info "Neither bun nor npm found — installing bun..."
+    if command -v curl &>/dev/null; then
+        curl -fsSL https://bun.sh/install | bash 2>/dev/null || {
+            warn "bun install failed; attempting nodejs install..."
+            curl -fsSL https://deb.nodesource.com/setup_20.x 2>/dev/null | sudo bash - 2>/dev/null || true
+            sudo apt-get install -y nodejs 2>/dev/null || true
+        }
+    fi
+    hash -r 2>/dev/null || true
+    export PATH="$HOME/.bun/bin:$PATH"
+fi
+
 # ponytail: some hosted shells (e.g. Colab) wrap `uv` in an alias/function that
 # injects the deprecated `--system` flag, which only `uv venv` complains about
 # ("--system has no effect"). Strip any wrapper so we call the real binary and
@@ -2378,6 +2392,11 @@ log "Celery Worker started (PID: $(cat $PID_DIR/worker.pid))"
 
 # ── Start Frontend ───────────────────────────────────────────────────────
 step "Starting Frontend (http://localhost:3000)..."
+
+if ! ensure_node_bun; then
+    err "Frontend cannot start because Node.js/Bun is unavailable."
+    exit 1
+fi
 
 if [[ ! -d node_modules ]]; then
     info "Installing Bun dependencies..."
