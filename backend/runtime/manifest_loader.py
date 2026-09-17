@@ -387,20 +387,23 @@ def _build_provider_metadata(provider_name: str, manifest: dict) -> dict:
     }
 
 
-def get_all_provider_metadata() -> dict[str, dict]:
+def get_all_provider_metadata(include_aliases: bool = False) -> dict[str, dict]:
     """Build PROVIDER_METADATA-compatible dict for all providers.
 
     Built from the cached manifest dict so a full scan does not re-parse
     every YAML on each call — that was the dominant cost of /runtime/status.
+    If include_aliases is True, also indexes by local_dir so callers querying
+    by repo directory name resolve metadata.
     """
     manifests = load_all_manifests()
     metadata = {pid: _build_provider_metadata(pid, m) for pid, m in manifests.items()}
-    # Index by local_dir so callers querying by repo directory name resolve metadata
-    for pid, m in manifests.items():
-        source = m.get("source", {}) or {}
-        local_dir = source.get("local_dir")
-        if local_dir and local_dir not in metadata:
-            metadata[local_dir] = metadata[pid]
+    if include_aliases:
+        # Index by local_dir so callers querying by repo directory name resolve metadata
+        for pid, m in manifests.items():
+            source = m.get("source", {}) or {}
+            local_dir = source.get("local_dir")
+            if local_dir and local_dir not in metadata:
+                metadata[local_dir] = metadata[pid]
     return metadata
 
 
@@ -408,4 +411,4 @@ def get_all_provider_metadata() -> dict[str, dict]:
 # These replace the old REPOS, HF_MODELS, PROVIDER_METADATA in installer.py
 REPOS = _build_repo_registry()
 HF_MODELS = _build_weight_registry()
-PROVIDER_METADATA = get_all_provider_metadata()
+PROVIDER_METADATA = get_all_provider_metadata(include_aliases=True)

@@ -4,6 +4,19 @@ All notable changes, architectural updates, and feature implementations for AI 3
 
 ---
 
+## [5.0.83] — 2026-09-17
+
+### 🐛 AI Models Duplication & Workspace Mesh Settings Relocation
+
+- **Model Duplication Fix (`backend/runtime/manifest_loader.py`, `backend/app/api/v1/admin.py`, `features/admin/tabs/ModelsTab.tsx`)**:
+  - **Root Cause**: `get_all_provider_metadata()` indexed each provider twice — once by canonical provider ID (e.g. `triposr`, `trellis`) and once by `source.local_dir` repo name alias (e.g. `TripoSR`, `TRELLIS`). Iterating `.items()` in `admin.py`'s `/api/v1/admin/models` and `/api/v1/admin/providers` resulted in duplicate cards (16 entries instead of 8) on the AI Models page.
+  - **Fix**: Updated `get_all_provider_metadata(include_aliases: bool = False)` to only return canonical provider IDs when iterated, while preserving `include_aliases=True` for `PROVIDER_METADATA` lookups by repository name. Added defense-in-depth deduplication in `admin.py` and `ModelsTab.tsx`.
+- **Mesh Settings Toolbar Relocation (`features/new-workspace/Panels/GeneratePanel.tsx`)**:
+  - Removed the sticky `#mesh-quality-toolbar` from the bottom footer of the left tool panel so the footer only hosts the action button and progress tracker.
+  - Relocated the 5-button mesh quality and resolution selector (Low, Medium, High, Ultra, Master/Full) directly to the top of the Mesh settings section (`panelTab === 'mesh'`), so it displays when the user opens the Mesh tab in the workspace tool panel. Removed redundant duplicate preset buttons from the nested auto-optimize subsection.
+
+---
+
 ## [5.0.82] — 2026-09-17
 
 ### 🐛 Colab & Build Pipeline Root-Cause Repairs

@@ -193,8 +193,17 @@ export function ModelsTab() {
     try {
       const data = await adminService.listModels();
       if (data.length > 0) {
-        setModels(data);
-        const cats = Array.from(new Set(data.map((m) => m.type).filter(Boolean)));
+        const seen = new Set<string>();
+        const uniqueModels: AdminModel[] = [];
+        for (const m of data) {
+          const key = (m.id || m.name || '').toLowerCase();
+          if (key && !seen.has(key)) {
+            seen.add(key);
+            uniqueModels.push(m);
+          }
+        }
+        setModels(uniqueModels);
+        const cats = Array.from(new Set(uniqueModels.map((m) => m.type).filter(Boolean)));
         setCategories(['All', ...cats]);
       } else {
         setError('No models found. Install models from the runtime options.');

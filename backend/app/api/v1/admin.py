@@ -1119,7 +1119,12 @@ async def list_models():
         loaded_names = set(engine._loaded.keys()) if hasattr(engine, "_loaded") else set()
         install_status = get_install_status_cached()
         models = []
+        seen_model_ids = set()
         for name, meta in get_all_provider_metadata().items():
+            norm_id = name.lower()
+            if norm_id in seen_model_ids:
+                continue
+            seen_model_ids.add(norm_id)
             inst = install_status.get(name, {})
             repo_name = meta.get("repo")
             weight_key = meta.get("weight_key")
@@ -2204,7 +2209,12 @@ async def list_providers():
     loaded_names = set(engine._loaded.keys()) if hasattr(engine, "_loaded") else set()
     install_status = get_install_status_cached()
     providers = []
+    seen_provider_ids = set()
     for name, meta in get_all_provider_metadata().items():
+        norm_id = name.lower()
+        if norm_id in seen_provider_ids:
+            continue
+        seen_provider_ids.add(norm_id)
         inst = install_status.get(name, {})
         providers.append({
             "id": name,

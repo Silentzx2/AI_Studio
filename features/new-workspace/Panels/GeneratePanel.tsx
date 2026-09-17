@@ -1700,6 +1700,71 @@ export const GeneratePanel: React.FC = () => {
         {/* TAB 2: MESH (Polycount, Decimation, Quad/Adaptive, UVs) */}
         {panelTab === 'mesh' && (
           <div className="space-y-3">
+            {/* Mesh Quality & Resolution (Low, Medium, High, Ultra, Master) */}
+            <div id="mesh-quality-section" className="rounded-xl border border-white/[0.08] bg-[hsl(var(--surface-0))] p-3 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-200">
+                  <Sparkles className="w-3.5 h-3.5 text-primary" />
+                  <span>Mesh Quality & Resolution</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  {currentQualityKey === 'raw' ? (
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 font-mono text-[9px] font-bold shadow-[0_0_8px_rgba(251,191,36,0.2)]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                      Unoptimized Master • Full Poly
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/[0.05] border border-white/[0.08] text-zinc-300 font-mono text-[9px]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                      <strong className="text-primary font-bold">{activeQualityConfig.grid}³</strong> grid • <strong className="text-zinc-200 font-bold">{activeQualityConfig.steps}</strong> steps
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* 5-Button Quality Grid */}
+              <div className="grid grid-cols-5 gap-1 p-1 rounded-xl bg-[hsl(var(--surface-1))] border border-white/[0.06] shadow-inner">
+                {MESH_QUALITY_OPTIONS.map((opt) => {
+                  const isActive = currentQualityKey === opt.id;
+                  return (
+                    <SimpleTooltip
+                      key={opt.id}
+                      side="top"
+                      className="w-full flex-1"
+                      label={opt.tooltip}
+                    >
+                      <button
+                        type="button"
+                        id={`btn-mesh-quality-${opt.id}`}
+                        onClick={() => handleSelectQuality(opt.id)}
+                        className={`relative w-full py-2 px-1 rounded-lg text-center transition-all duration-150 cursor-pointer flex flex-col items-center justify-center select-none ${
+                          isActive
+                            ? opt.id === 'raw'
+                              ? 'bg-amber-400 text-black font-black shadow-[0_0_14px_rgba(251,191,36,0.45)] border border-amber-300 ring-1 ring-amber-400/50'
+                              : 'bg-primary text-black font-black shadow-[0_0_14px_rgba(249,207,0,0.4)] border border-primary ring-1 ring-primary/50'
+                            : 'text-zinc-400 hover:text-white hover:bg-white/[0.05] border border-transparent'
+                        }`}
+                      >
+                        <span className="text-[11px] font-black leading-tight tracking-tight">
+                          {opt.label}
+                        </span>
+                        <span className={`text-[8.5px] leading-none font-mono mt-0.5 ${
+                          isActive ? 'text-black/80 font-bold' : 'text-zinc-500'
+                        }`}>
+                          {opt.id === 'raw' ? 'Master' : `${opt.grid}³`}
+                        </span>
+                        {isActive && (
+                          <span className={`absolute -bottom-0.5 w-2 h-0.5 rounded-full ${
+                            opt.id === 'raw' ? 'bg-amber-950' : 'bg-black'
+                          }`} />
+                        )}
+                      </button>
+                    </SimpleTooltip>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="rounded-xl border border-white/[0.08] bg-[hsl(var(--surface-0))] p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-200">
@@ -1826,38 +1891,6 @@ export const GeneratePanel: React.FC = () => {
 
               {generationSettings.autoOptimize ? (
                 <div className="space-y-2.5 pt-1">
-                  {/* Preset Buttons */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-zinc-400 font-semibold uppercase tracking-wider">Quality & Budget Presets</span>
-                      <span className="text-[10px] text-zinc-500 font-mono">1-click sync</span>
-                    </div>
-                    <div className="grid grid-cols-5 gap-1.5">
-                      {MESH_QUALITY_OPTIONS.map(preset => {
-                        const isPresetActive = currentQualityKey === preset.id;
-                        return (
-                          <button
-                            key={preset.id}
-                            type="button"
-                            onClick={() => handleSelectQuality(preset.id)}
-                            className={`py-1.5 px-1 rounded-lg text-xs font-bold transition-all text-center cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
-                              isPresetActive
-                                ? preset.id === 'raw'
-                                  ? 'bg-amber-400 text-black shadow-sm font-black ring-1 ring-amber-300'
-                                  : 'bg-primary text-black shadow-sm font-black ring-1 ring-primary'
-                                : 'bg-[hsl(var(--surface-1))] text-zinc-300 hover:text-white hover:bg-[hsl(var(--surface-2))] border border-white/[0.08]'
-                            }`}
-                          >
-                            <span>{preset.label}</span>
-                            <span className={`text-[8.5px] font-mono leading-none ${isPresetActive ? 'text-black/75 font-bold' : 'text-zinc-500'}`}>
-                              {preset.id === 'raw' ? 'Full' : `${preset.grid}³`}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
                   {/* Target Polycount Slider */}
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
@@ -2320,73 +2353,8 @@ export const GeneratePanel: React.FC = () => {
         )}
       </div>
 
-      {/* Bottom Sticky Action Footer & Mesh Quality Toolbar */}
+      {/* Bottom Sticky Action Footer */}
       <div className="p-2.5 sm:p-3 border-t border-white/[0.1] bg-[hsl(var(--surface-1))]/95 backdrop-blur-md relative z-20 flex-shrink-0 space-y-2">
-        {/* Dedicated Mesh Quality Toolbar */}
-        <div id="mesh-quality-toolbar" className="space-y-1.5">
-          <div className="flex items-center justify-between px-0.5">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-primary" />
-              <span className="font-bold text-[11px] text-zinc-200 tracking-wide">Mesh Quality</span>
-            </div>
-            <div className="flex items-center gap-1">
-              {currentQualityKey === 'raw' ? (
-                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 font-mono text-[9px] font-bold shadow-[0_0_8px_rgba(251,191,36,0.2)]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                  Unoptimized Master • Full Poly
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/[0.05] border border-white/[0.08] text-zinc-300 font-mono text-[9px]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                  <strong className="text-primary font-bold">{activeQualityConfig.grid}³</strong> grid • <strong className="text-zinc-200 font-bold">{activeQualityConfig.steps}</strong> steps
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* 5-Button Quality Toolbar */}
-          <div className="grid grid-cols-5 gap-1 p-1 rounded-xl bg-[hsl(var(--surface-0))] border border-white/[0.08] shadow-inner">
-            {MESH_QUALITY_OPTIONS.map((opt) => {
-              const isActive = currentQualityKey === opt.id;
-              return (
-                <SimpleTooltip
-                  key={opt.id}
-                  side="top"
-                  className="w-full flex-1"
-                  label={opt.tooltip}
-                >
-                  <button
-                    type="button"
-                    id={`btn-mesh-quality-${opt.id}`}
-                    onClick={() => handleSelectQuality(opt.id)}
-                    className={`relative w-full py-1.5 px-0.5 rounded-lg text-center transition-all duration-150 cursor-pointer flex flex-col items-center justify-center select-none ${
-                      isActive
-                        ? opt.id === 'raw'
-                          ? 'bg-amber-400 text-black font-black shadow-[0_0_14px_rgba(251,191,36,0.45)] border border-amber-300 ring-1 ring-amber-400/50'
-                          : 'bg-primary text-black font-black shadow-[0_0_14px_rgba(249,207,0,0.4)] border border-primary ring-1 ring-primary/50'
-                        : 'text-zinc-400 hover:text-white hover:bg-white/[0.05] border border-transparent'
-                    }`}
-                  >
-                    <span className="text-[11px] font-black leading-tight tracking-tight">
-                      {opt.label}
-                    </span>
-                    <span className={`text-[8.5px] leading-none font-mono mt-0.5 ${
-                      isActive ? 'text-black/80 font-bold' : 'text-zinc-500'
-                    }`}>
-                      {opt.id === 'raw' ? 'Master' : `${opt.grid}³`}
-                    </span>
-                    {isActive && (
-                      <span className={`absolute -bottom-0.5 w-2 h-0.5 rounded-full ${
-                        opt.id === 'raw' ? 'bg-amber-950' : 'bg-black'
-                      }`} />
-                    )}
-                  </button>
-                </SimpleTooltip>
-              );
-            })}
-          </div>
-        </div>
-
         {/* Bottom Sticky Action Button */}
         <ShimmerButton
           id="btn-generate-model-action"
