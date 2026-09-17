@@ -34,7 +34,7 @@ Comprehensive audit and fix of the GPU runtime pipeline, post-processing, and va
 #### P2 — Config/Manifest/Deployment Defects
 - **`backend/runtime/manifests/hunyuan3d_21.yaml:36`**: Added `python_pin_rewrites` entry for `^numpy==1\.24\..*$` → `numpy>=1.26.4,<2.0` to resolve numpy pin conflict with `detailgen3d.yaml`'s `numpy==1.22.3` when both manifests are installed together.
 - **`scripts/start.sh`**: Added explicit `export CUDA_VISIBLE_DEVICES=0` fallback when `.env` does not set it, ensuring PyTorch picks the correct GPU device.
-- **`package.json`**: Added `"test"` script to satisfy npm package.json requirements.
+- **`package.json`**: Added `"test"` script to satisfy bun package.json requirements.
 
 #### Verification
 - 10 regression tests in `backend/runtime/test_gpu_runtime_regression.py` covering all P0 defects
@@ -135,4 +135,4 @@ Comprehensive audit and fix of the GPU runtime pipeline, post-processing, and va
   - Placed `'use client'` explicitly on root route entry points (`app/workspace/page.tsx`, `app/workspace/[...tool]/page.tsx`, `app/page.tsx`, `app/dashboard/page.tsx`, `app/outputs/page.tsx`, `app/system/page.tsx`, `app/animation/page.tsx`).
 - **Dev & Build Performance**:
   - Configured `allowedDevOrigins` in `next.config.ts` for cross-origin HMR support.
-  - Verified `npx tsc --noEmit` with 0 errors and production build (`npm run build`) with all 12 routes statically and dynamically generated.
+  - Verified `npx tsc --noEmit` with 0 errors and production build (`bun run build`) with all 12 routes statically and dynamically generated.

@@ -737,11 +737,11 @@ Previously in `list_models()`, `is_installed` checked `inst_state in ("ready", "
 ## v4.9.9 — Auto-Rebuild on Source Change & Shadow Route Removal (2026-09-05)
 
 ### What changed
-- **Automatic Next.js Production Rebuild**: `scripts/colab.sh` and `scripts/colab_watch.sh` now check whether any source files in `app`, `services`, `features`, `components`, `hooks`, or `lib` are newer than `.next/BUILD_ID`. When source files are modified or updated via `git pull`, Next.js is automatically rebuilt before `npm start` instead of running stale compiled `.next` artifacts.
+- **Automatic Next.js Production Rebuild**: `scripts/colab.sh` and `scripts/colab_watch.sh` now check whether any source files in `app`, `services`, `features`, `components`, `hooks`, or `lib` are newer than `.next/BUILD_ID`. When source files are modified or updated via `git pull`, Next.js is automatically rebuilt before `bun start` instead of running stale compiled `.next` artifacts.
 - **Removed Rogue Shadow Route `app/api/v1/settings/route.ts`**: This deprecated route returned 404 for `/api/v1/settings` and shadowed the dynamic API proxy `app/api/v1/[...path]/route.ts`. Removing it allows all `/api/v1/settings/*` calls to reach FastAPI backend cleanly.
 
 ### Root cause
-`scripts/colab.sh` and `colab_watch.sh` previously checked `if [[ ! -d .next ]]`, which skipped `npm run build` whenever `.next` was already present. After pulling git changes, `npm start` continued running the pre-existing build containing hardcoded CORS origins and outdated endpoints. Additionally, `app/api/v1/settings/route.ts` was an unused stub that intercepted `/api/v1/settings` with a hardcoded 404 response.
+`scripts/colab.sh` and `colab_watch.sh` previously checked `if [[ ! -d .next ]]`, which skipped `bun run build` whenever `.next` was already present. After pulling git changes, `bun start` continued running the pre-existing build containing hardcoded CORS origins and outdated endpoints. Additionally, `app/api/v1/settings/route.ts` was an unused stub that intercepted `/api/v1/settings` with a hardcoded 404 response.
 
 ---
 
@@ -766,13 +766,13 @@ In production mode, the Next.js API proxy hardcoded `Access-Control-Allow-Origin
 
 ### What changed
 - **EADDRINUSE 3000 & 8000 Resolution**: Added `free_port()` helper using `fuser` and `lsof` to force-kill orphaned processes and release TCP ports before starting Next.js and FastAPI across `scripts/colab.sh`, `scripts/colab_watch.sh`, and `scripts/stop.sh`.
-- **Next.js Server Process Group Termination**: Stopping frontend now targets both the parent process (`npm start`) and child node workers (`next start`, `next-server`), preventing UI processes from remaining alive after `stop` or failing on `restart`.
+- **Next.js Server Process Group Termination**: Stopping frontend now targets both the parent process (`bun start`) and child node workers (`next start`, `next-server`), preventing UI processes from remaining alive after `stop` or failing on `restart`.
 - **Service Termination Order in `colab_stop_services`**: Termination order adjusted to stop `supervisor.pid` and `watchdog.pid` before application services, preventing supervisor auto-restart loops during intentional shutdown.
 - **Supervisor Foreground Takeover**: When `colab_watch.sh --foreground` is invoked, it now gracefully replaces any existing background supervisor instead of exiting immediately and causing Colab cell termination.
 - **CLI Action Flags in `colab.sh`**: Added explicit support for `--start`, `--stop`, `--restart`, and `--status` arguments.
 
 ### Root cause
-In Colab, `kill "$pid"` on `npm start` left the underlying `node` server orphaned and bound to port 3000. Subsequent restart attempts failed with `Error: listen EADDRINUSE: address already in use :::3000`. Concurrently, `colab_stop_services` stopped the supervisor after stopping the services, causing the supervisor to detect a failure and immediately re-trigger service launches.
+In Colab, `kill "$pid"` on `bun start` left the underlying `node` server orphaned and bound to port 3000. Subsequent restart attempts failed with `Error: listen EADDRINUSE: address already in use :::3000`. Concurrently, `colab_stop_services` stopped the supervisor after stopping the services, causing the supervisor to detect a failure and immediately re-trigger service launches.
 
 ---
 
@@ -852,7 +852,7 @@ The existing `_patch_numpy_legacy_aliases()` only patched missing *attribute nam
 - **Runtime and Admin API Alignment**: Updated `runtime.py` and `admin.py` to properly report `is_installed` and `is_available` whenever a model is ready or has completed installation on disk.
 
 ### Verification
-- Next.js Build: PASS (`npm run build`)
+- Next.js Build: PASS (`bun run build`)
 - Applet Compilation: PASS (`compile_applet`)
 - Python syntax verification: PASS
 
@@ -869,8 +869,8 @@ The existing `_patch_numpy_legacy_aliases()` only patched missing *attribute nam
 
 ### Verification
 - TypeScript compilation: PASS (`npx tsc --noEmit`)
-- Next.js Build: PASS (`npm run build`)
-- Linter: PASS (`npm run lint`, 0 errors)
+- Next.js Build: PASS (`bun run build`)
+- Linter: PASS (`bun run lint`, 0 errors)
 - Backend: `python -m compileall -q backend` PASS, `test_dependency_manifest_contract.py` PASS
 
 #### Generation accepted for a model still downloading its weights
@@ -888,8 +888,8 @@ The existing `_patch_numpy_legacy_aliases()` only patched missing *attribute nam
 
 ### Verification
 - TypeScript compilation: PASS (`npx tsc --noEmit`)
-- Next.js Build: PASS (`npm run build`)
-- Linter: PASS (`npm run lint`, 0 errors)
+- Next.js Build: PASS (`bun run build`)
+- Linter: PASS (`bun run lint`, 0 errors)
 
 ## v3.9.5 — Solid Colors, Text-to-3D Removal & Performance (2026-08-30)
 
@@ -902,7 +902,7 @@ The existing `_patch_numpy_legacy_aliases()` only patched missing *attribute nam
 
 ### Verification
 - TypeScript compilation: PASS (`npx tsc --noEmit`)
-- Build: PASS (`npm run build`)
+- Build: PASS (`bun run build`)
 - All routes prerendered successfully
 
 ## v4.7.8 — WorldGen Model Removal (2026-09-02)
@@ -1912,7 +1912,7 @@ Uploaded model persistence/list/delete and `/static/models/...` remesh resolutio
 
 **All checks passed:**
 
-- **Frontend**: `npm ci` ✓, `npm run lint` ✓ (0 errors, 73 warnings — downgraded per `eslint.config.mjs`), `npm run build` ✓ (compiled in 15.9s, TypeScript PASS)
+- **Frontend**: `bun ci` ✓, `bun run lint` ✓ (0 errors, 73 warnings — downgraded per `eslint.config.mjs`), `bun run build` ✓ (compiled in 15.9s, TypeScript PASS)
 - **Backend**: `python -m compileall -q backend` ✓, `bash -n manager.sh scripts/*.sh package-production.sh` ✓
 - **Tests**: `python backend/runtime/test_dependency_manifest_contract.py` ✓ PASS
 - **TypeScript**: `npx tsc --noEmit` (via `next build`) ✓ PASS
@@ -1948,6 +1948,6 @@ No additional code-level blockers found. Environment-limited items (PostgreSQL i
 ### 3. SSR Acceleration & App Router Performance
 - Replaced lazy `next/dynamic` wrappers with direct panel imports in `WorkspaceShell.tsx` to eliminate dynamic CSR bailouts and accelerate First Contentful Paint.
 - Standardized all UI motion under `motion/react` with spring presets to prevent bundle duplication.
-- Production build (`npm run build`) passing 100% with 12 prerendered/dynamic routes and 0 errors.
+- Production build (`bun run build`) passing 100% with 12 prerendered/dynamic routes and 0 errors.
 
 

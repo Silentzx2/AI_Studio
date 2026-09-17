@@ -281,7 +281,7 @@ sudo apt install -y \
     python3.12-venv \
     python3-pip \
     nodejs \
-    npm \
+    bun \
     postgresql \
     redis-server \
     nginx
@@ -352,16 +352,16 @@ The standard Next.js production workflow is used everywhere — Colab, local
 cd ..
 
 # Install Node.js dependencies
-npm install
+bun install
 
 # Build for production (build once; the supervisor restarts without rebuilding)
-npm run build
+bun run build
 
 # Start the production server — the ONLY production entrypoint
-npm start
+bun start
 
 # Or start the development server (hot reload)
-npm run dev
+bun run dev
 ```
 
 > The standalone server (`node .next/standalone/server.js`) is **not** the
@@ -383,7 +383,7 @@ source .venv/bin/activate
 celery -A app.workers.celery_app worker --loglevel=info -B -Q generation,images
 
 # Terminal 3: Frontend
-npm run dev
+bun run dev
 ```
 
 ### 7. Download Weights (After Services Start)
@@ -558,7 +558,7 @@ lsof -i :3000
 kill -9 <PID>
 
 # Or use different port
-PORT=3001 npm run dev
+PORT=3001 bun run dev
 ```
 
 #### 2. GPU Not Detected
@@ -1053,7 +1053,7 @@ bash scripts/start.sh        # Starts everything (interactive mode selection)
 
 # Option 2: Manual frontend-only restart (advanced)
 # 1. Find and kill only the frontend process
-pkill -f "next start"        # production mode (npm start)
+pkill -f "next start"        # production mode (bun start)
 pkill -f "next-server"       # process name used by `next start`
 
 # 2. Remove frontend PID file
@@ -1061,7 +1061,7 @@ rm -f .pids/frontend.pid
 
 # 3. Restart frontend manually (standard production command)
 cd /path/to/AI_Studio
-NEXT_PUBLIC_API_URL=http://localhost:8000 npm start > logs/frontend.log 2>&1 &
+NEXT_PUBLIC_API_URL=http://localhost:8000 bun start > logs/frontend.log 2>&1 &
 echo $! > .pids/frontend.pid
 ```
 

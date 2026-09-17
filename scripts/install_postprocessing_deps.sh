@@ -11,7 +11,7 @@ python -c "import open3d; print('open3d OK')"
 
 # Node.js + gltf-transform
 node --version || { echo 'ERROR: Node.js not found'; exit 1; }
-npm --version || { echo 'ERROR: npm not found'; exit 1; }
+bun --version || { echo 'ERROR: Bun not found'; exit 1; }
 if ! command -v gltf-transform &>/dev/null; then
     # Also check NVM path (common on Lightning AI / Kaggle studios)
     NVM_BIN="/system/conda/node/nvm/versions/node/v22.14.0/bin"
@@ -19,7 +19,7 @@ if ! command -v gltf-transform &>/dev/null; then
         echo "gltf-transform found at $NVM_BIN (not in PATH but functional)"
     else
         echo 'Installing gltf-transform...'
-        npm install -g @gltf-transform/cli
+        bun install -g @gltf-transform/cli
     fi
 fi
 # Verify it actually runs (via PATH or NVM fallback)

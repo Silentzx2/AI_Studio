@@ -473,11 +473,11 @@ fix_third_party_permissions() {
     log "third_party permissions set to 766 (files) / 775 (dirs)"
 }
 
-# ── Helper: Ensure Node.js / npm is available ────────────────────────────────
+# ── Helper: Ensure Node.js / Bun is available ────────────────────────────────
 # Colab menu/start mode can call colab_start_services() before the full
 # bootstrap reaches the frontend setup section. Initialize NVM when present,
-# discover system Node/npm locations, and install Node 20 only when necessary.
-ensure_node_npm() {
+# and discover system Node/Bun locations, and install Node 20 only when necessary.
+ensure_node_bun() {
     # Prefer an existing NVM installation.
     export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
     if [[ -s "$NVM_DIR/nvm.sh" ]]; then
@@ -499,12 +499,12 @@ ensure_node_npm() {
         fi
     done
 
-    if command -v node &>/dev/null && command -v npm &>/dev/null; then
-        log "Node.js available: $(node --version 2>/dev/null || echo unknown), npm $(npm --version 2>/dev/null || echo unknown)"
+    if command -v node &>/dev/null && command -v bun &>/dev/null; then
+        log "Node.js available: $(node --version 2>/dev/null || echo unknown), Bun $(bun --version 2>/dev/null || echo unknown)"
         return 0
     fi
 
-    info "Node.js/npm not found — installing Node.js 20..."
+    info "Node.js/Bun not found — installing Node.js 20..."
     if command -v curl &>/dev/null; then
         curl -fsSL https://deb.nodesource.com/setup_20.x 2>/dev/null | sudo -E bash - 2>/dev/null || {
             err "Failed to configure NodeSource repository"
@@ -515,20 +515,20 @@ ensure_node_npm() {
             return 1
         }
     else
-        err "curl is required to install Node.js/npm"
+        err "curl is required to install Node.js/Bun"
         return 1
     fi
 
     hash -r 2>/dev/null || true
     export PATH="/usr/local/bin:/usr/bin:$PATH"
 
-    if ! command -v node &>/dev/null || ! command -v npm &>/dev/null; then
-        err "Node.js/npm installation completed but binaries are still unavailable"
+    if ! command -v node &>/dev/null || ! command -v bun &>/dev/null; then
+        err "Node.js/bun installation completed but binaries are still unavailable"
         err "PATH=$PATH"
         return 1
     fi
 
-    log "Node.js ready: $(node --version 2>/dev/null || echo unknown), npm $(npm --version 2>/dev/null || echo unknown)"
+    log "Node.js ready: $(node --version 2>/dev/null || echo unknown), Bun $(bun --version 2>/dev/null || echo unknown)"
 }
 
 # ── Colab Service Management Functions ─────────────────────────────────────
@@ -728,7 +728,7 @@ colab_start_services() {
 
     # ── Colab Keep-Alive (Browser-Level) ───────────────────────────────────
     # Colab kills background processes (nohup/sleep) during idle cleanup, so
-    # uvicorn/celery/npm die a few minutes after the cell that started them
+    # uvicorn/celery/bun die a few minutes after the cell that started them
     # finishes. The ONLY reliable keep-alive is browser JS that dispatches
     # synthetic events. The script must run in a Colab NOTEBOOK CELL, not
     # from inside !bash (IPython.display only works in the notebook kernel).
@@ -775,15 +775,15 @@ colab_start_services() {
     step "Starting Frontend (http://localhost:3000)..."
 
     cd "$PROJECT_ROOT"
-    if ! ensure_node_npm; then
-        err "Frontend cannot start because Node.js/npm is unavailable."
+    if ! ensure_node_bun; then
+        err "Frontend cannot start because Node.js/Bun is unavailable."
         return 1
     fi
 
     if [[ ! -d node_modules ]]; then
-        info "Installing npm dependencies..."
-        if ! npm ci --prefer-offline --no-audit > "$LOG_DIR/npm_install.log" 2>&1; then
-            err "npm install FAILED — see logs/npm_install.log"
+        info "Installing Bun dependencies..."
+        if ! bun ci > "$LOG_DIR/bun_install.log" 2>&1; then
+            err "bun install FAILED — see logs/bun_install.log"
             return 1
         fi
     fi
@@ -794,7 +794,7 @@ colab_start_services() {
     pkill -TERM -f "next-server" 2>/dev/null || true
     free_port 3000
 
-    # Normal Next.js production workflow: `npm run build` then `npm start`.
+    # Normal Next.js production workflow: `bun run build` then `bun start`.
     # Rebuild if .next is missing or if source files were modified since last build.
     local needs_build=false
     if [[ ! -d .next ]] || [[ ! -f .next/BUILD_ID ]]; then
@@ -805,7 +805,7 @@ colab_start_services() {
 
     if [[ "$needs_build" == "true" ]]; then
         info "Building Next.js for production..."
-        if ! npm run build > "$LOG_DIR/frontend_build.log" 2>&1; then
+        if ! bun run build > "$LOG_DIR/frontend_build.log" 2>&1; then
             err "Frontend build FAILED — see logs/frontend_build.log"
             return 1
         fi
@@ -819,10 +819,10 @@ colab_start_services() {
             BACKEND_URL="http://127.0.0.1:8000"
         fi
         export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}"
-        nohup npm start > "$LOG_DIR/frontend.log" 2>&1 &
+        nohup bun start > "$LOG_DIR/frontend.log" 2>&1 &
         write_pid "$FRONTEND_PID_FILE" $!
     )
-    log "Frontend started (npm start, PID: $(cat $FRONTEND_PID_FILE))"
+    log "Frontend started (bun start, PID: $(cat $FRONTEND_PID_FILE))"
 
     # ── Post-Start Verification ────────────────────────────────────────────
     # Verify every service is actually serving before declaring success. Colab
@@ -1473,26 +1473,26 @@ deactivate 2>/dev/null || true
 
 step "5/6 Setting up frontend"
 
-# Ensure Node.js / npm is available before any frontend npm command.
-if ! ensure_node_npm; then
-    err "Node.js/npm setup failed — cannot continue frontend setup."
+# Ensure Node.js / Bun is available before any frontend Bun command.
+if ! ensure_node_bun; then
+    err "Node.js/Bun setup failed — cannot continue frontend setup."
     exit 1
 fi
 
 # Ensure gltf-transform CLI is installed for post-processing optimization
 if ! command -v gltf-transform &>/dev/null; then
     info "Installing gltf-transform CLI for mesh compression..."
-    npm install -g @gltf-transform/cli >/dev/null 2>&1 || warn "Failed to install @gltf-transform/cli globally"
+    bun install -g @gltf-transform/cli >/dev/null 2>&1 || warn "Failed to install @gltf-transform/cli globally"
 fi
 
 # Install frontend deps
 if [[ ! -d node_modules ]]; then
-    info "Installing npm dependencies..."
-    npm ci --prefer-offline --no-audit 2>>"$PROJECT_ROOT/logs/bootstrap.log" | while IFS= read -r line; do
+    info "Installing Bun dependencies..."
+    bun ci 2>>"$PROJECT_ROOT/logs/bootstrap.log" | while IFS= read -r line; do
         if [[ "$line" =~ added|up.to.date|packages ]]; then
             echo -e "    ${GREEN}✔${NC} $line"
         fi
-    done || npm install --no-audit 2>>"$PROJECT_ROOT/logs/bootstrap.log" || {
+    done || bun install 2>>"$PROJECT_ROOT/logs/bootstrap.log" || {
         warn "Frontend dependency installation had issues"
     }
 fi
@@ -1500,7 +1500,7 @@ fi
 # Build Next.js if needed
 if [[ ! -d .next ]]; then
     echo -e "  ${BOLD}Building Next.js...${NC}"
-    npm run build 2>>"$PROJECT_ROOT/logs/bootstrap.log" | while IFS= read -r line; do
+    bun run build 2>>"$PROJECT_ROOT/logs/bootstrap.log" | while IFS= read -r line; do
         if [[ "$line" =~ Compiled|compiled|success|Ready|route ]]; then
             echo -e "    ${CYAN}→${NC} $line"
         fi
@@ -2360,13 +2360,13 @@ log "Celery Worker started (PID: $(cat $PID_DIR/worker.pid))"
 step "Starting Frontend (http://localhost:3000)..."
 
 if [[ ! -d node_modules ]]; then
-    info "Installing npm dependencies..."
-    npm ci --prefer-offline --no-audit 2>&1 | grep -E '(added|up to date)' || true
+    info "Installing Bun dependencies..."
+    bun ci 2>&1 | grep -E '(added|up to date)' || true
 fi
 
 if [[ ! -d .next ]]; then
     info "Building Next.js for production..."
-    if ! npm run build > "$LOG_DIR/frontend_build.log" 2>&1; then
+    if ! bun run build > "$LOG_DIR/frontend_build.log" 2>&1; then
         err "Frontend build FAILED — see logs/frontend_build.log"
         exit 1
     fi
@@ -2377,17 +2377,17 @@ pkill -TERM -f "next start" 2>/dev/null || true
 pkill -TERM -f "next-server" 2>/dev/null || true
 free_port 3000
 
-# Node/npm was validated before any npm command; keep this start path simple.
+# Node/Bun was validated before any Bun command; keep this start path simple.
 effective_backend_url="${BACKEND_URL:-http://127.0.0.1:8000}"
 if [[ "$effective_backend_url" == *"api:8000"* ]]; then
     effective_backend_url="http://127.0.0.1:8000"
 fi
 nohup env HOSTNAME=0.0.0.0 PORT=3000 BACKEND_URL="$effective_backend_url" NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}" \
-    npm start \
+    bun start \
     > "$LOG_DIR/frontend.log" 2>&1 &
 write_pid "$PID_DIR/frontend.pid" $!
 
-log "Frontend started (npm start, PID: $(cat $PID_DIR/frontend.pid))"
+log "Frontend started (bun start, PID: $(cat $PID_DIR/frontend.pid))"
 
 # Wait for Frontend to be ready. Do not report success until the root page
 # actually responds — a PID alone is not readiness (see spec §9).

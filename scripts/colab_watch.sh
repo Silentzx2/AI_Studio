@@ -218,7 +218,7 @@ start_frontend() {
     stop_pid frontend
     free_port 3000
 
-    # Normal Next.js production workflow: `npm run build` then `npm start`.
+    # Normal Next.js production workflow: `bun run build` then `bun start`.
     local needs_build=false
     if [[ ! -d "${PROJECT_ROOT}/.next" ]] || [[ ! -f "${PROJECT_ROOT}/.next/BUILD_ID" ]]; then
         needs_build=true
@@ -230,7 +230,7 @@ start_frontend() {
         info "Frontend build missing or source changed; building..."
         if ! (
             cd "${PROJECT_ROOT}" &&
-            npm run build > "${LOG_DIR}/frontend_build.log" 2>&1
+            bun run build > "${LOG_DIR}/frontend_build.log" 2>&1
         ); then
             err "Frontend build failed. Check logs/frontend_build.log"
             return 1
@@ -238,7 +238,7 @@ start_frontend() {
     fi
 
     : > "${LOG_DIR}/frontend.log"
-    info "Starting Next.js production server (npm start)..."
+    info "Starting Next.js production server (bun start)..."
     (
         cd "${PROJECT_ROOT}" || exit 1
         export HOSTNAME="$FRONTEND_HOST"
@@ -250,7 +250,7 @@ start_frontend() {
         fi
         export BACKEND_URL="$effective_backend_url"
         export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}"
-        exec npm start
+        exec bun start
     ) >> "${LOG_DIR}/frontend.log" 2>&1 &
     write_pid frontend "$!"
 

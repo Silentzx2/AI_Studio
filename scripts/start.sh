@@ -248,8 +248,8 @@ auto_bootstrap() {
     fi
 
     # Ensure Node.js
-    if ! command -v npm &>/dev/null; then
-        warn "Node.js/npm not found — attempting to install..."
+    if ! command -v bun &>/dev/null; then
+        warn "Node.js/Bun not found — attempting to install..."
         if command -v curl &>/dev/null; then
             curl -fsSL https://deb.nodesource.com/setup_20.x 2>/dev/null | sudo bash - 2>/dev/null || true
             sudo apt-get install -y nodejs 2>/dev/null || true
@@ -259,7 +259,7 @@ auto_bootstrap() {
     # Ensure frontend deps
     if [[ ! -d node_modules ]]; then
         info "Installing frontend dependencies..."
-        npm ci --prefer-offline --no-audit 2>/dev/null || npm install --no-audit 2>/dev/null || {
+        bun ci 2>/dev/null || bun install 2>/dev/null || {
             err "Frontend dependency installation failed"
             exit 1
         }
@@ -331,14 +331,14 @@ UVICORN_BIN="${PROJECT_ROOT}/backend/.venv/bin/uvicorn"
 CELERY_BIN="${PROJECT_ROOT}/backend/.venv/bin/celery"
 
 # ── Ensure Node.js is available ────────────────────────────────────────────
-if ! command -v npm &>/dev/null; then
-    warn "Node.js/npm not found — attempting to install..."
+if ! command -v bun &>/dev/null; then
+    warn "Node.js/Bun not found — attempting to install..."
     if command -v curl &>/dev/null; then
         curl -fsSL https://deb.nodesource.com/setup_20.x 2>/dev/null | sudo bash - 2>/dev/null || true
         sudo apt-get install -y nodejs 2>/dev/null || true
     fi
-    if ! command -v npm &>/dev/null; then
-        err "Node.js/npm not found and auto-install failed. Run: sudo bash scripts/setup.sh"
+    if ! command -v bun &>/dev/null; then
+        err "Node.js/Bun not found and auto-install failed. Run: sudo bash scripts/setup.sh"
         exit 1
     fi
 fi
@@ -606,15 +606,15 @@ if [[ ! -d node_modules ]] || [[ ! -d node_modules/next ]]; then
         warn "node_modules appears corrupted (missing next) — removing and reinstalling"
         rm -rf node_modules
     fi
-    info "Installing npm dependencies..."
-    npm ci --prefer-offline --no-audit 2>&1 | grep -E '(added|up to date)' || true
+    info "Installing Bun dependencies..."
+    bun ci 2>&1 | grep -E '(added|up to date)' || true
 fi
 
 # Dev mode: skip build (hot-reload). Prod mode: build first.
 info "Building Next.js for production..."
 export NEXT_PUBLIC_API_URL=http://localhost:8000
-npm run build 2>&1 | tail -5
-FRONTEND_RUN_CMD="npm start"
+bun run build 2>&1 | tail -5
+FRONTEND_RUN_CMD="bun start"
 
 # Start frontend
 BACKEND_URL="${BACKEND_URL:-http://localhost:8000}" NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}" setsid $FRONTEND_RUN_CMD \

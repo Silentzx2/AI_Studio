@@ -501,7 +501,7 @@ celery -A app.workers.celery_app worker --loglevel=info
 redis-server
 
 # Terminal 4 - Frontend Development Server
-npm run dev
+bun run dev
 ```
 
 ---
@@ -662,7 +662,7 @@ python3 scripts/test_pipeline_and_export.py
 npx tsc --noEmit
 
 # Test production frontend build
-npm run build
+bun run build
 ```
 
 ---

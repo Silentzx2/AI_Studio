@@ -609,8 +609,8 @@ install_gltf_transform() {
     log "Already installed: $(gltf-transform --version 2>/dev/null || echo 'OK')"
     return 0
   fi
-  if command -v npm &>/dev/null; then
-    npm install -g @gltf-transform/cli 2>/dev/null || {
+  if command -v bun &>/dev/null; then
+    bun install -g @gltf-transform/cli 2>/dev/null || {
       warn "Failed to install @gltf-transform/cli globally"
       return 0
     }
@@ -1064,8 +1064,8 @@ PYEOF
 
 install_frontend_deps() {
   head_ "Installing Frontend Dependencies"
-  npm ci --prefer-offline --no-audit 2>/dev/null || npm install --no-audit || {
-    warn "Frontend dependency installation had issues — check npm output"
+  bun ci 2>/dev/null || bun install || {
+    warn "Frontend dependency installation had issues — check Bun output"
     return 0
   }
   log "Frontend dependencies installed"
@@ -1084,7 +1084,7 @@ build_frontend() {
     fi
 
     echo -e "  ${BOLD}Building Next.js (this takes 2-5 minutes)${NC}"
-    npm run build 2>&1 | while IFS= -r read -n1 char; do
+    bun run build 2>&1 | while IFS= -r read -n1 char; do
         case "$char" in
             .) printf "${GREEN}█${NC}" ;;
             $'\n') printf "\n" ;;
@@ -1213,8 +1213,8 @@ QT_ENV
    prepare_model_runtimes || warn "Model runtime preparation had issues — check output above"
 
    # Non-critical project steps
-  install_frontend_deps  || warn "Frontend deps had issues — check npm output above"
-  build_frontend || warn "Frontend build had issues — check npm output above"
+  install_frontend_deps  || warn "Frontend deps had issues — check Bun output above"
+  build_frontend || warn "Frontend build had issues — check Bun output above"
 
   # setup.sh runs as root; hand ownership back to the real user so that the
   # non-root `start.sh` can use the venv, read .env, and write logs.

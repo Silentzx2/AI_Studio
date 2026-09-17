@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// ponytail: standard Next.js production workflow — `npm run build` then
-// `npm start`. The standalone server (.next/standalone/server.js) is only
+// ponytail: standard Next.js production workflow — `bun run build` then
+// `bun start`. The standalone server (.next/standalone/server.js) is only
 // used when AI_STUDIO_STANDALONE=1 is explicitly set (Docker packaging path);
-// it is NOT the normal runtime entrypoint and must not shadow `npm start`.
+// it is NOT the normal runtime entrypoint and must not shadow `bun start`.
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -36,7 +36,7 @@ function runCommand(command, args) {
 async function main() {
   if (!fs.existsSync(buildIdPath)) {
     console.log('No production build found. Building the app first...');
-    await runCommand(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['run', 'build']);
+    await runCommand(process.platform === 'win32' ? 'bun.cmd' : 'bun', ['run', 'build']);
   }
 
   // Normal runtime: standard Next.js production server.

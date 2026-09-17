@@ -358,10 +358,10 @@ All stage endpoints accept `{"models": ["model_id", ...]}` in the request body f
 
 ## Build Commands
 ```bash
-npm run build    # Production build
-npm run dev      # Development with Turbopack
-npm run lint     # Lint check (eslint)
-# Type-check via: npx tsc --noEmit   (no dedicated npm script)
+bun run build    # Production build
+bun run dev      # Development with Turbopack
+bun run lint     # Lint check (eslint)
+# Type-check via: npx tsc --noEmit   (no dedicated bun script)
 ```
 
 ## Adding New Features
@@ -369,7 +369,7 @@ npm run lint     # Lint check (eslint)
 2. Add corresponding hook in `hooks/`
 3. Implement component in `features/`
 4. Update docs in `Docs/`
-5. Run `npx tsc --noEmit` + `npm run lint`
+5. Run `npx tsc --noEmit` + `bun run lint`
 
 ## WorldGen Model
 

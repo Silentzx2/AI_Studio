@@ -445,7 +445,7 @@ cmd_service() {
     case "$svc_choice" in
         1) _service_submenu "api" "Backend API" "uvicorn app.main:app" "cd backend && source .venv/bin/activate && setsid python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level info > ../logs/api.log 2>&1 &" "$PID_DIR/api.pid" ;;
         2) _service_submenu "worker" "Celery Worker" "celery -A app.workers.celery_app worker" "cd backend && source .venv/bin/activate && setsid python -m celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 -B -Q generation,images > ../logs/worker.log 2>&1 &" "$PID_DIR/worker.pid" ;;
-        3) _service_submenu "frontend" "Frontend" "next" "NEXT_PUBLIC_API_URL=http://localhost:8000 npm start > logs/frontend.log 2>&1 &" "$PID_DIR/frontend.pid" ;;
+        3) _service_submenu "frontend" "Frontend" "next" "NEXT_PUBLIC_API_URL=http://localhost:8000 bun start > logs/frontend.log 2>&1 &" "$PID_DIR/frontend.pid" ;;
         4) _systemd_service_submenu "postgresql" "PostgreSQL" ;;
         5) _systemd_service_submenu "redis-server" "Redis" ;;
         b|B) return ;;
