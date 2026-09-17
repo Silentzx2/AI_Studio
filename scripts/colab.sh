@@ -504,8 +504,24 @@ ensure_node_bun() {
         return 0
     fi
 
-    info "Node.js/Bun not found — installing Node.js 20..."
+    # Fallback to npm if bun is not installed.
+    if command -v node &>/dev/null && command -v npm &>/dev/null; then
+        log "Node.js available: $(node --version 2>/dev/null || echo unknown), npm $(npm --version 2>/dev/null || echo unknown) (bun not found, using npm fallback)"
+        return 0
+    fi
+
+    info "Node.js/Bun not found — installing bun..."
     if command -v curl &>/dev/null; then
+        curl -fsSL https://bun.sh/install | bash 2>/dev/null && {
+            hash -r 2>/dev/null || true
+            export PATH="$HOME/.bun/bin:$PATH"
+            if command -v bun &>/dev/null; then
+                log "Bun installed: $(bun --version 2>/dev/null || echo unknown)"
+                return 0
+            fi
+        }
+        # bun install failed, fall back to nodejs
+        err "bun install failed; falling back to Node.js..."
         curl -fsSL https://deb.nodesource.com/setup_20.x 2>/dev/null | sudo -E bash - 2>/dev/null || {
             err "Failed to configure NodeSource repository"
             return 1
@@ -522,13 +538,17 @@ ensure_node_bun() {
     hash -r 2>/dev/null || true
     export PATH="/usr/local/bin:/usr/bin:$PATH"
 
-    if ! command -v node &>/dev/null || ! command -v bun &>/dev/null; then
-        err "Node.js/bun installation completed but binaries are still unavailable"
+    if ! command -v node &>/dev/null; then
+        err "Node.js installation completed but binary is still unavailable"
         err "PATH=$PATH"
         return 1
     fi
 
-    log "Node.js ready: $(node --version 2>/dev/null || echo unknown), Bun $(bun --version 2>/dev/null || echo unknown)"
+    if command -v bun &>/dev/null; then
+        log "Node.js ready: $(node --version 2>/dev/null || echo unknown), Bun $(bun --version 2>/dev/null || echo unknown)"
+    else
+        log "Node.js ready: $(node --version 2>/dev/null || echo unknown), npm $(npm --version 2>/dev/null || echo unknown) (bun not found, using npm fallback)"
+    fi
 }
 
 # ── Colab Service Management Functions ─────────────────────────────────────

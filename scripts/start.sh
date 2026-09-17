@@ -247,14 +247,19 @@ auto_bootstrap() {
         deactivate 2>/dev/null || true
     fi
 
-    # Ensure Node.js
-    if ! command -v bun &>/dev/null; then
-        warn "Node.js/Bun not found — attempting to install..."
+    # Ensure Node.js/Bun
+    if ! command -v bun &>/dev/null && ! command -v npm &>/dev/null; then
+        warn "Node.js/Bun not found — installing bun..."
         if command -v curl &>/dev/null; then
-            curl -fsSL https://deb.nodesource.com/setup_20.x 2>/dev/null | sudo bash - 2>/dev/null || true
-            sudo apt-get install -y nodejs 2>/dev/null || true
+            curl -fsSL https://bun.sh/install | bash 2>/dev/null || {
+                err "bun install failed; falling back to nodejs..."
+                curl -fsSL https://deb.nodesource.com/setup_20.x 2>/dev/null | sudo bash - 2>/dev/null || true
+                sudo apt-get install -y nodejs 2>/dev/null || true
+            }
         fi
     fi
+    hash -r 2>/dev/null || true
+    export PATH="$HOME/.bun/bin:$PATH"
 
     # Ensure frontend deps
     if [[ ! -d node_modules ]]; then
@@ -330,17 +335,43 @@ PYTHON_BIN="${PROJECT_ROOT}/backend/.venv/bin/python"
 UVICORN_BIN="${PROJECT_ROOT}/backend/.venv/bin/uvicorn"
 CELERY_BIN="${PROJECT_ROOT}/backend/.venv/bin/celery"
 
-# ── Ensure Node.js is available ────────────────────────────────────────────
-if ! command -v bun &>/dev/null; then
-    warn "Node.js/Bun not found — attempting to install..."
+# ── Ensure Node.js/Bun is available ──────────────────────────────────
+# Prefers bun; falls back to npm if bun is not installed.
+# Auto-installs bun if neither bun nor npm is found.
+ensure_bun_or_npm() {
+    if command -v bun &>/dev/null; then
+        log "Bun found: $(bun --version 2>/dev/null || echo unknown)"
+        return 0
+    fi
+    if command -v npm &>/dev/null; then
+        log "npm found: $(npm --version 2>/dev/null || echo unknown) (bun not found, using npm)"
+        return 0
+    fi
+    info "Neither bun nor npm found — installing bun..."
     if command -v curl &>/dev/null; then
-        curl -fsSL https://deb.nodesource.com/setup_20.x 2>/dev/null | sudo bash - 2>/dev/null || true
-        sudo apt-get install -y nodejs 2>/dev/null || true
+        curl -fsSL https://bun.sh/install | bash 2>/dev/null || {
+            err "bun installation failed; attempting npm install..."
+            curl -fsSL https://deb.nodesource.com/setup_20.x 2>/dev/null | sudo bash - 2>/dev/null || true
+            sudo apt-get install -y nodejs 2>/dev/null || true
+        }
     fi
-    if ! command -v bun &>/dev/null; then
-        err "Node.js/Bun not found and auto-install failed. Run: sudo bash scripts/setup.sh"
-        exit 1
+    hash -r 2>/dev/null || true
+    export PATH="$HOME/.bun/bin:$PATH"
+    if command -v bun &>/dev/null; then
+        log "Bun installed: $(bun --version 2>/dev/null || echo unknown)"
+        return 0
     fi
+    if command -v npm &>/dev/null; then
+        log "npm available after nodejs install: $(npm --version 2>/dev/null || echo unknown)"
+        return 0
+    fi
+    err "Neither bun nor npm available after install attempt. Run: sudo bash scripts/setup.sh"
+    return 1
+}
+
+if ! ensure_bun_or_npm; then
+    err "Node.js/Bun not found and auto-install failed. Run: sudo bash scripts/setup.sh"
+    exit 1
 fi
 
 

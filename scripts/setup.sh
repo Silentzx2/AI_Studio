@@ -615,6 +615,12 @@ install_gltf_transform() {
       return 0
     }
     log "gltf-transform installed: $(gltf-transform --version 2>/dev/null || echo 'OK')"
+  elif command -v npm &>/dev/null; then
+    npm install -g @gltf-transform/cli 2>/dev/null || {
+      warn "Failed to install @gltf-transform/cli globally"
+      return 0
+    }
+    log "gltf-transform installed: $(gltf-transform --version 2>/dev/null || echo 'OK')"
   fi
 }
 
