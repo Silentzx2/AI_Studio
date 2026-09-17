@@ -4,7 +4,45 @@ All notable changes, architectural updates, and feature implementations for AI 3
 
 ---
 
-## [Unreleased] — 2026-09-17
+## [5.0.81] — 2026-09-17
+
+### 🚀 1-Click Mesh Quality Toolbar & UI Architecture
+- **Dedicated Generate Quality Toolbar (`GeneratePanel.tsx`)**:
+  - Added persistent 1-click **Mesh Quality Toolbar** directly anchored above the sticky `GENERATE 3D MODEL` action button.
+  - 5-tier selection: `Low` (256³ / 20 steps / 15k tris), `Medium` (384³ / 35 steps / 30k tris), `High` (512³ / 50 steps / 60k tris), `Ultra` (640³ / 75 steps / 100k tris), and `Raw` (640³ Master / Full Polycount / `auto_optimize: false`).
+  - Active buttons feature amber/primary glows, live voxel grid resolution badges (`512³ grid • 50 steps`), and rich tooltips.
+  - Fully synchronized across the Mesh tab's preset grid and `WorkspaceContext.tsx` store.
+
+### 🔬 Anatomical Micro-Detail Preservation & Neural Inference Hardening
+- **Dynamic Marching Cubes Octree Scaling**:
+  - Scaled Marching Cubes voxel grids in `hunyuan3d_local.py` from hardcoded 380 up to 512 (High) and 640 (Ultra), mathematically preserving sub-millimeter teeth (<1mm), nostrils (4mm), and eyelid creases.
+  - Mapped diffusion inference steps dynamically up to 75 steps for Ultra quality.
+- **Occlusion-Aware Texture Projection & Tangent Normal Map Baking**:
+  - Replaced Trimesh default vertex color short-circuit in `_project_texture` with `is_real_textured_mesh` validation. Untextured raw marching cubes outputs now automatically receive high-fidelity reference texture projection, tangent-space normal maps, and metallic/roughness PBR baking.
+- **TRELLIS Provider Enhancements**:
+  - Added `"ultra"` quality preset (32 sparse steps, 8.0 CFG; 32 SLAT steps, 3.5 CFG) and scaled textures to 2048x2048.
+  - Integrated transparent alpha preprocessing on opaque reference images to prevent background backdrops from fusing into 3D geometry.
+- **Raw Master Geometry Delivery (`tasks.py`)**:
+  - Gated Clay post-processing decimation behind `should_optimize = bool(meta.get("auto_optimize", False)) or bool(meta.get("game_ready", False))`.
+  - When optimization is disabled (RAW mode), the untouched high-density master mesh is preserved directly and delivered as `active_model_url` without triangle reduction.
+
+### 📦 Texture-Preserving Post-Processing & Viewport Hardening
+- **C++ `meshoptimizer` SIMD Decimation**:
+  - Enabled `decimate_textured=True` in OpenX Clay (`clay/postprocess.py` and `clay/lods.py`), preserving UV maps, vertex normals, and PBR materials across decimated meshes and all LOD tiers (LOD0–LOD3).
+- **Three.js Viewport STLLoader & GLTF Relative Paths**:
+  - Added `sharedSTLLoader` singleton in `MeshViewer.tsx` to preview and drag-and-drop `.stl` files.
+  - Dynamically derived `basePath` from `sourceUrl` in `sharedGLTFLoader.parseAsync` for relative GLTF asset resolution.
+  - Guarded CacheStorage against `blob:` and `data:` schemes in `glbCache.ts`.
+  - Traversed and disposed `userData.originalMaterial` and referenced textures on model unload, eliminating WebGL VRAM memory leaks.
+
+### 📓 Official Google Colab Deployment Notebooks (`colab.ipynb` & `AI_Studio_Colab.ipynb`)
+- Created production-ready Jupyter notebooks strictly validated against `nbformat 4.5`.
+- Automated 8GB swap allocation, environment setup, model runtime isolation, service orchestration, Cloudflare public tunneling, and interactive launcher controls.
+- Hardened `scripts/colab.sh` with `--setup` flag and non-interactive EOF handling.
+
+---
+
+## [5.0.70] — 2026-09-17
 
 ### 🎨 UI Polish, Design Tokens & Animation Architecture
 - **CSS Variable Design Token Harmonization**:

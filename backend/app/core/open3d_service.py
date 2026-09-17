@@ -146,7 +146,14 @@ def save_o3d_mesh(
             tm = trimesh.Trimesh(vertices=verts, faces=faces, process=False)
 
             if source_visual is not None:
-                tm.visual = source_visual.copy()
+                uv = getattr(source_visual, "uv", None)
+                vc = getattr(source_visual, "vertex_colors", None)
+                uv_matches = uv is not None and len(uv) == len(verts)
+                vc_matches = vc is not None and len(vc) == len(verts)
+                if (uv is None or uv_matches) and (vc is None or vc_matches):
+                    tm.visual = source_visual.copy()
+                elif hasattr(source_visual, "material") and source_visual.material is not None:
+                    tm.visual.material = source_visual.material
             elif hasattr(mesh, "has_vertex_colors") and mesh.has_vertex_colors():
                 vc = (np.asarray(mesh.vertex_colors) * 255).astype(np.uint8)
                 if len(vc) == len(verts):

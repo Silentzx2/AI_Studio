@@ -6,11 +6,12 @@ interface SimpleTooltipProps {
   label: string;
   children: React.ReactNode;
   side?: 'top' | 'bottom' | 'left' | 'right';
+  className?: string;
 }
 
-export const SimpleTooltip: React.FC<SimpleTooltipProps> = ({ label, children, side = 'right' }) => {
+export const SimpleTooltip: React.FC<SimpleTooltipProps> = ({ label, children, side = 'right', className = '' }) => {
   return (
-    <div className="relative inline-flex group">
+    <div className={`relative inline-flex group ${className}`}>
       {children}
       <span
         role="tooltip"

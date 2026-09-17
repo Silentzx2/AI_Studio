@@ -5,6 +5,7 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
+import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import {
   Hand,
   Camera,
@@ -40,6 +41,16 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { getCachedGLB, setCachedGLB, loadGLBWithProgress } from '../lib/glbCache';
 
 const disposeMaterial = (material: THREE.Material) => {
+  const m = material as any;
+  const texProps = [
+    'map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap',
+    'emissiveMap', 'bumpMap', 'displacementMap', 'alphaMap', 'envMap'
+  ];
+  for (const prop of texProps) {
+    if (m[prop] instanceof THREE.Texture) {
+      m[prop].dispose();
+    }
+  }
   Object.values(material).forEach((v) => { if (v instanceof THREE.Texture) v.dispose(); });
   material.dispose();
 };
@@ -60,6 +71,7 @@ try {
 
 const sharedOBJLoader = new OBJLoader();
 const sharedPLYLoader = new PLYLoader();
+const sharedSTLLoader = new STLLoader();
 
 // Shared geometries and materials for zero-allocation, 60fps armature rendering
 const sharedJointGeo = new THREE.SphereGeometry(1, 14, 10);
@@ -1667,6 +1679,11 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
       obj.traverse((child) => {
         if (child instanceof THREE.Mesh) {
           child.geometry?.dispose();
+          const orig = child.userData?.originalMaterial;
+          if (orig && orig !== child.material) {
+            if (Array.isArray(orig)) orig.forEach(m => disposeMaterial(m));
+            else disposeMaterial(orig);
+          }
           const material = child.material;
           if (Array.isArray(material)) material.forEach(m => disposeMaterial(m));
           else if (material) disposeMaterial(material);
@@ -1798,7 +1815,10 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           }
 
           const loader = sharedGLTFLoader;
-          const gltf = await loader.parseAsync(arrayBuffer, '');
+          const basePath = (sourceUrl.startsWith('http://') || sourceUrl.startsWith('https://') || sourceUrl.startsWith('/'))
+            ? sourceUrl.substring(0, sourceUrl.lastIndexOf('/') + 1)
+            : '';
+          const gltf = await loader.parseAsync(arrayBuffer, basePath);
           if (!cancelled) {
             group.add(gltf.scene);
             gltf.scene.traverse((child) => {
@@ -1907,6 +1927,25 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
           }
           const buffer = await response.arrayBuffer();
           const loader = sharedPLYLoader;
+          const geometry = loader.parse(buffer);
+          geometry.computeVertexNormals();
+          const material = new THREE.MeshStandardMaterial({
+            color: 0xbcc2cc,
+            roughness: 0.82,
+            metalness: 0.05,
+            wireframe: shadingMode === 'wireframe'
+          });
+          const mesh = new THREE.Mesh(geometry, material);
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          group.add(mesh);
+          frameCamera(mesh);
+          computeMeshStats(mesh);
+        } else if (format === 'stl') {
+          const response = await fetch(sourceUrl);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const buffer = await response.arrayBuffer();
+          const loader = sharedSTLLoader;
           const geometry = loader.parse(buffer);
           geometry.computeVertexNormals();
           const material = new THREE.MeshStandardMaterial({
@@ -2318,7 +2357,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
       const ext = file.name.split('.').pop()?.toUpperCase() || '';
-      const ALLOWED_EXTENSIONS = ['GLB', 'GLTF', 'OBJ', 'PLY'];
+      const ALLOWED_EXTENSIONS = ['GLB', 'GLTF', 'OBJ', 'PLY', 'STL'];
       if (!ALLOWED_EXTENSIONS.includes(ext)) {
         setDropToastMessage(`Unsupported file format "${ext}". Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`);
         setTimeout(() => setDropToastMessage(null), 3500);
@@ -2349,7 +2388,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
         triangles: 0,
         statsAvailable: false,
         topology: 'Quad',
-        format: ext === 'OBJ' ? 'OBJ' : ext === 'PLY' ? 'PLY' : 'GLB',
+        format: ext === 'OBJ' ? 'OBJ' : ext === 'PLY' ? 'PLY' : ext === 'STL' ? 'STL' : 'GLB',
         dateCreated: new Date().toISOString().split('T')[0],
         tags: ['Local Import', '3D Model', ext],
         source: { filename: file.name, subfolder: 'models', type: 'upload', viewUrl: localBlobUrl }

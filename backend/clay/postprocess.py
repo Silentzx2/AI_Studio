@@ -42,7 +42,10 @@ class PostProcessor:
                     break
 
         if self._is_textured(mesh):
-            final = mesh
+            if getattr(self.config, "decimate_textured", False) and len(mesh.faces) > self.config.target_tris:
+                final = self.decimate(mesh, self.config.target_tris)
+            else:
+                final = mesh
         elif len(mesh.faces) > self.config.target_tris:
             final = self.decimate(mesh, self.config.target_tris)
             if self.config.unwrap_uvs and not ref_img:
@@ -109,6 +112,14 @@ class PostProcessor:
         """Reduce triangle count to the budget. Preserves edge boundaries and sharp features."""
         if len(mesh.faces) <= target_tris:
             return mesh
+        try:
+            from app.core.mesh_optimizer import _simplify_with_meshoptimizer
+            simplified = _simplify_with_meshoptimizer(mesh, target_tris)
+            if simplified is not None and hasattr(simplified, "faces") and len(simplified.faces) > 0:
+                self._apply_angle_weighted_normals(simplified)
+                return simplified
+        except Exception:
+            pass
         decimated = mesh.simplify_quadric_decimation(face_count=target_tris)
         self._apply_angle_weighted_normals(decimated)
         return decimated

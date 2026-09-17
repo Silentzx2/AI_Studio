@@ -33,6 +33,7 @@ class PostprocessConfig(BaseModel):
     format: str = "glb"        # glb | obj | fbx
     pbr: bool = True           # keep/pack PBR maps
     reference_image: str | None = None  # reference image for texture projection & normal baking
+    decimate_textured: bool = False  # decimate textured meshes while preserving UVs & PBR maps via meshoptimizer
 
 
 

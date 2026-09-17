@@ -46,7 +46,16 @@ def make_lods(
         if ratio >= 1.0 or target >= base_faces:
             lod = mesh
         else:
-            lod = mesh.simplify_quadric_decimation(face_count=target)
+            lod = None
+            try:
+                from app.core.mesh_optimizer import _simplify_with_meshoptimizer
+                simplified = _simplify_with_meshoptimizer(mesh, target)
+                if simplified is not None and hasattr(simplified, "faces") and len(simplified.faces) > 0:
+                    lod = simplified
+            except Exception:
+                pass
+            if lod is None:
+                lod = mesh.simplify_quadric_decimation(face_count=target)
         path = out / f"{stem}_LOD{i}.{fmt}"
         lod.export(str(path))
         lods.append(

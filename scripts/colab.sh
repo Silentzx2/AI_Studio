@@ -98,6 +98,7 @@ for arg in "$@"; do
         --stop)          ACTION="stop" ;;
         --restart)       ACTION="restart" ;;
         --start)         ACTION="start" ;;
+        --setup)         ACTION="setup" ;;
         --status)        ACTION="status" ;;
         --skip-start)    SKIP_START=true ;;
         --repos-only)    REPOS_ONLY=true ;;
@@ -106,6 +107,7 @@ for arg in "$@"; do
             echo "Usage: bash scripts/colab.sh [OPTIONS]"
             echo ""
             echo "Options:"
+            echo "  --setup          Full bootstrap + start all services (non-interactive friendly)"
             echo "  --start          Start all services and run supervisor"
             echo "  --stop           Stop all running services"
             echo "  --restart        Restart all services"
@@ -1032,7 +1034,11 @@ colab_interactive() {
         echo -e "${CYAN}${BOLD}║${NC}                                                            ${CYAN}${BOLD}║${NC}"
         echo -e "${CYAN}${BOLD}╚════════════════════════════════════════════════════════════╝${NC}"
         echo ""
-        read -rp "  Choice: " choice
+        if ! read -rp "  Choice: " choice; then
+            echo -e "\n  [COLAB] Non-interactive environment detected — proceeding with setup (1)"
+            RUN_FULL_SETUP=true
+            return 0
+        fi
         echo ""
         case "$choice" in
             1)
@@ -1134,6 +1140,9 @@ if [[ -n "${ACTION:-}" ]]; then
             colab_start_services
             exec bash "${PROJECT_ROOT}/scripts/colab_watch.sh" --foreground
             ;;
+        setup)
+            RUN_FULL_SETUP=true
+            ;;
         status)
             _colab_show_status
             exit 0
@@ -1144,7 +1153,7 @@ fi
 # ── Interactive Launcher (default when no flags) ─────────────────────────
 # If no setup flags were passed, show the interactive menu.
 
-if [[ "$SKIP_START" != "true" && "$REPOS_ONLY" != "true" && "$WEIGHTS_ONLY" != "true" ]]; then
+if [[ "${ACTION:-}" != "setup" && "$SKIP_START" != "true" && "$REPOS_ONLY" != "true" && "$WEIGHTS_ONLY" != "true" ]]; then
     colab_interactive
     # If user chose Setup (option 1), continue with full bootstrap
     if [[ "${RUN_FULL_SETUP:-}" != "true" ]]; then
@@ -2072,9 +2081,18 @@ PYEOF
     echo "  [4] Skip (install later via UI)"
     echo ""
 
+    if [[ -n "${COLAB_SELECTED_REPOS:-}" ]]; then
+        info "Using pre-configured COLAB_SELECTED_REPOS: ${COLAB_SELECTED_REPOS}"
+        return 0
+    fi
+
     local choice
     while true; do
-        read -rp "  Enter your choice [1-4]: " choice
+        if ! read -rp "  Enter your choice [1-4]: " choice; then
+            echo -e "\n  [COLAB] Non-interactive environment detected — installing recommended models (2)"
+            choice="2"
+            break
+        fi
         case "$choice" in
             1|2|3|4) break ;;
             *) echo "  Invalid choice. Please enter 1, 2, 3, or 4." ;;

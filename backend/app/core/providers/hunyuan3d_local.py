@@ -368,8 +368,19 @@ class _HunyuanBase(BaseProvider):
         """
         try:
             import trimesh
+            import numpy as np
             m = trimesh.load(mesh_path, force="mesh")
-            if hasattr(m.visual, "vertex_colors") and m.visual.vertex_colors is not None and len(m.visual.vertex_colors) > 0:
+            is_textured = False
+            if getattr(m.visual, "defined", False):
+                from app.core.texture_projection import is_real_textured_mesh
+                if is_real_textured_mesh(m):
+                    is_textured = True
+                elif getattr(m.visual, "kind", None) == "vertex":
+                    vc = getattr(m.visual, "vertex_colors", None)
+                    if vc is not None and len(vc) > 0 and not np.all(vc == [102, 102, 102, 255]):
+                        is_textured = True
+
+            if is_textured:
                 import shutil
                 shutil.copy2(mesh_path, output_glb)
                 return output_glb
@@ -644,8 +655,21 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
         import torch
         out = Path(output_dir)
         out.mkdir(parents=True, exist_ok=True)
-        steps = request.num_inference_steps or {"low-poly": 20, "standard": 35, "high-poly": 50}.get(request.quality, 35)
+        quality_steps = {
+            "low": 20, "low-poly": 20, "draft": 20,
+            "standard": 35, "medium": 35,
+            "high": 50, "high-poly": 50,
+            "ultra": 75,
+        }
+        quality_octree = {
+            "low": 256, "low-poly": 256, "draft": 256,
+            "standard": 384, "medium": 384,
+            "high": 512, "high-poly": 512,
+            "ultra": 640,
+        }
+        steps = request.num_inference_steps or quality_steps.get(request.quality, 35)
         guidance = request.guidance_scale if request.guidance_scale is not None else 5.5
+        octree_res = request.octree_resolution or quality_octree.get(request.quality, 384)
         seed = request.seed if request.seed is not None else 12345
         generator = torch.manual_seed(seed)
 
@@ -654,10 +678,9 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
             "negative_prompt": request.negative_prompt or "",
             "num_inference_steps": steps,
             "guidance_scale": guidance,
+            "octree_resolution": octree_res,
             "generator": generator,
         }
-        if request.octree_resolution is not None:
-            call_kwargs["octree_resolution"] = request.octree_resolution
         if request.num_chunks is not None:
             call_kwargs["num_chunks"] = request.num_chunks
 
@@ -702,9 +725,21 @@ class Hunyuan3D21LocalProvider(_HunyuanBase):
         out.mkdir(parents=True, exist_ok=True)
         img = self._preprocess_image(request.reference_image_url)
 
-        steps = request.num_inference_steps or {"low-poly": 20, "standard": 35, "high-poly": 50}.get(request.quality, 35)
+        quality_steps = {
+            "low": 20, "low-poly": 20, "draft": 20,
+            "standard": 35, "medium": 35,
+            "high": 50, "high-poly": 50,
+            "ultra": 75,
+        }
+        quality_octree = {
+            "low": 256, "low-poly": 256, "draft": 256,
+            "standard": 384, "medium": 384,
+            "high": 512, "high-poly": 512,
+            "ultra": 640,
+        }
+        steps = request.num_inference_steps or quality_steps.get(request.quality, 35)
         guidance = request.guidance_scale if request.guidance_scale is not None else 5.0
-        octree_res = request.octree_resolution or 380
+        octree_res = request.octree_resolution or quality_octree.get(request.quality, 384)
         chunks = request.num_chunks or 20000
         seed = request.seed if request.seed is not None else 12345
         generator = torch.manual_seed(seed)
@@ -891,8 +926,20 @@ class Hunyuan3D2MiniLocalProvider(_HunyuanBase):
         out.mkdir(parents=True, exist_ok=True)
         img = self._preprocess_image(request.reference_image_url)
 
-        steps = request.num_inference_steps or {"low-poly": 20, "standard": 30, "high-poly": 50}.get(request.quality, 30)
-        octree_res = request.octree_resolution or 380
+        quality_steps = {
+            "low": 20, "low-poly": 20, "draft": 20,
+            "standard": 30, "medium": 30,
+            "high": 50, "high-poly": 50,
+            "ultra": 70,
+        }
+        quality_octree = {
+            "low": 256, "low-poly": 256, "draft": 256,
+            "standard": 384, "medium": 384,
+            "high": 512, "high-poly": 512,
+            "ultra": 640,
+        }
+        steps = request.num_inference_steps or quality_steps.get(request.quality, 30)
+        octree_res = request.octree_resolution or quality_octree.get(request.quality, 384)
         chunks = request.num_chunks or 20000
         seed = request.seed if request.seed is not None else 12345
         generator = torch.manual_seed(seed)

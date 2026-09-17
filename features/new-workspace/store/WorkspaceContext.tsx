@@ -372,8 +372,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     quadTopology: false, topologyMode: 'adaptive', seed: 42891, guidanceScale: 7.5, removeBackground: true,
     lowVram: false,
     vramMode: 'auto',
-    autoOptimize: false,
-    autoOptimizeSettings: { targetPolycount: 30000, fixUVs: true, preserveDetails: 75 },
+    autoOptimize: true,
+    autoOptimizeSettings: { targetPolycount: 60000, fixUVs: true, preserveDetails: 75 },
     generateTexture: true,
     detailPass: false,
     triposfPass: false,
@@ -561,6 +561,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           logs?: { stage: string; progress: number; message: string; level: string; timestamp: string }[];
           result?: {
             model_url?: string;
+            active_model_url?: string;
             thumbnail_url?: string;
             polygon_count?: number;
             vertex_count?: number;
@@ -600,10 +601,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           setExecutionProgress(100);
           setExecutionStep('Completed');
           setActiveTask(prev => prev ? { ...prev, status: 'completed', progress: 100, currentStep: 'Completed', logs: data.logs || prev.logs } : null);
-          if (data.result?.model_url) {
+          if (data.result?.model_url || data.result?.active_model_url) {
             const currentLatestTask = activeTaskRef.current || task;
             const result = data.result;
-            const modelUrl = result.model_url as string;
+            const modelUrl = (result.active_model_url || result.model_url) as string;
             const promptTitle = currentLatestTask.title && currentLatestTask.title !== 'Image-to-3D generation' && currentLatestTask.title !== 'generate' ? currentLatestTask.title : null;
             const rawName = promptTitle || currentLatestTask.inputImageName || (currentLatestTask.inputImage ? currentLatestTask.inputImage.split('/').pop()?.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ') : null) || `Model_${jobId.slice(0, 6)}`;
             const cleanName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
@@ -847,6 +848,11 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       || modelPrompt;
     startTask('image-to-3d', modelPrompt, undefined, generationSettings.aiModel, imageToUse, imageFileName);
 
+    const currentQuality = generationSettings.meshQuality || 'high';
+    const octreeRes = { low: 256, medium: 384, high: 512, ultra: 640 }[currentQuality];
+    const infSteps = { low: 20, medium: 35, high: 50, ultra: 75 }[currentQuality];
+    const infGuidance = generationSettings.guidanceScale ?? { low: 4.5, medium: 5.5, high: 7.0, ultra: 8.0 }[currentQuality];
+
     try {
       const res = await fetch('/api/v1/generation', {
         method: 'POST',
@@ -856,7 +862,11 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           provider: generationSettings.aiModel || undefined,
           reference_image_url: imageToUse,
           prompt: modelPrompt,
-          quality: generationSettings.meshQuality || 'high',
+          quality: currentQuality,
+          octree_resolution: octreeRes,
+          num_inference_steps: infSteps,
+          guidance_scale: infGuidance,
+          seed: generationSettings.seed ?? undefined,
           generate_texture: generationSettings.generateTexture !== false,
           low_vram: Boolean(generationSettings.lowVram),
           vram_mode: generationSettings.lowVram ? 'low' : (generationSettings.vramMode || 'auto'),
@@ -953,6 +963,11 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
       startTask('text-to-3d', modelPrompt, undefined, generationSettings.aiModel, undefined, modelPrompt);
 
+      const currentQuality = generationSettings.meshQuality || 'high';
+      const octreeRes = { low: 256, medium: 384, high: 512, ultra: 640 }[currentQuality];
+      const infSteps = { low: 20, medium: 35, high: 50, ultra: 75 }[currentQuality];
+      const infGuidance = generationSettings.guidanceScale ?? { low: 4.5, medium: 5.5, high: 7.0, ultra: 8.0 }[currentQuality];
+
       try {
         const res = await fetch('/api/v1/generation', {
           method: 'POST',
@@ -961,7 +976,11 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             mode: 'text-to-3d',
             provider: generationSettings.aiModel || undefined,
             prompt: modelPrompt,
-            quality: generationSettings.meshQuality || 'high',
+            quality: currentQuality,
+            octree_resolution: octreeRes,
+            num_inference_steps: infSteps,
+            guidance_scale: infGuidance,
+            seed: generationSettings.seed ?? undefined,
             generate_texture: generationSettings.generateTexture !== false,
             low_vram: Boolean(generationSettings.lowVram),
             vram_mode: generationSettings.lowVram ? 'low' : (generationSettings.vramMode || 'auto'),

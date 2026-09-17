@@ -144,6 +144,32 @@ class TRELLISLocalProvider(BaseProvider):
         from PIL import Image
 
         img = Image.open(request.reference_image_url).convert("RGBA")
+        has_transparency = False
+        extrema = img.getextrema()
+        if len(extrema) == 4 and extrema[3][0] < 240:
+            has_transparency = True
+        if not has_transparency:
+            try:
+                import rembg
+                img = rembg.remove(img)
+            except Exception:
+                try:
+                    corners = [
+                        img.getpixel((0, 0)),
+                        img.getpixel((img.width - 1, 0)),
+                        img.getpixel((0, img.height - 1)),
+                        img.getpixel((img.width - 1, img.height - 1)),
+                    ]
+                    c0 = corners[0][:3]
+                    if all(all(abs(c[i] - c0[i]) < 12 for i in range(3)) for c in corners):
+                        data = img.getdata()
+                        img.putdata([
+                            (255, 255, 255, 0) if all(abs(p[i] - c0[i]) < 18 for i in range(3)) else p
+                            for p in data
+                        ])
+                except Exception:
+                    pass
+
         dest = str(Path(output_dir) / "model.glb")
 
         seed = request.seed if request.seed is not None else 42
@@ -153,8 +179,13 @@ class TRELLISLocalProvider(BaseProvider):
         # Steps and CFG strength scale with user quality selection or explicit request parameters
         quality_presets = {
             "low-poly": {"ss_steps": 12, "ss_cfg": 5.0, "slat_steps": 12, "slat_cfg": 2.5},
+            "low": {"ss_steps": 12, "ss_cfg": 5.0, "slat_steps": 12, "slat_cfg": 2.5},
+            "draft": {"ss_steps": 12, "ss_cfg": 5.0, "slat_steps": 12, "slat_cfg": 2.5},
             "standard": {"ss_steps": 16, "ss_cfg": 6.5, "slat_steps": 16, "slat_cfg": 3.0},
+            "medium": {"ss_steps": 16, "ss_cfg": 6.5, "slat_steps": 16, "slat_cfg": 3.0},
             "high-poly": {"ss_steps": 25, "ss_cfg": 7.5, "slat_steps": 25, "slat_cfg": 3.0},
+            "high": {"ss_steps": 25, "ss_cfg": 7.5, "slat_steps": 25, "slat_cfg": 3.0},
+            "ultra": {"ss_steps": 32, "ss_cfg": 8.0, "slat_steps": 32, "slat_cfg": 3.5},
         }
         preset = quality_presets.get(quality, quality_presets["standard"])
 
@@ -190,10 +221,11 @@ class TRELLISLocalProvider(BaseProvider):
             # Export model
             export_sig = inspect.signature(self._pipeline.export_model)
             export_kwargs: dict[str, Any] = {}
+            tex_size = 2048 if quality in ("high-poly", "high", "ultra") else 1024
             if "texture_size" in export_sig.parameters and request.generate_texture:
-                export_kwargs["texture_size"] = 2048 if quality == "high-poly" else 1024
+                export_kwargs["texture_size"] = tex_size
             elif "texture_resolution" in export_sig.parameters and request.generate_texture:
-                export_kwargs["texture_resolution"] = 2048 if quality == "high-poly" else 1024
+                export_kwargs["texture_resolution"] = tex_size
 
             self._pipeline.export_model(outputs, dest, **export_kwargs)
 

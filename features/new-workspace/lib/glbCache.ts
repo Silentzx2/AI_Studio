@@ -10,10 +10,13 @@ const CACHE_NAME = 'ai-studio-models-v1';
 const glbBufferCache = new Map<string, ArrayBuffer>();
 
 export function getCachedGLB(url: string): ArrayBuffer | undefined {
+  if (!url || url.startsWith('blob:') || url.startsWith('data:')) return undefined;
   return glbBufferCache.get(url);
 }
 
 export function setCachedGLB(url: string, buffer: ArrayBuffer): void {
+  if (!url || url.startsWith('blob:') || url.startsWith('data:')) return;
+
   // Evict oldest in-memory item if cache exceeds 40 items to bound RAM usage
   if (glbBufferCache.size > 40) {
     const firstKey = glbBufferCache.keys().next().value;
@@ -21,8 +24,8 @@ export function setCachedGLB(url: string, buffer: ArrayBuffer): void {
   }
   glbBufferCache.set(url, buffer);
 
-  // Asynchronously persist into L2 disk CacheStorage
-  if (typeof window !== 'undefined' && 'caches' in window) {
+  // Asynchronously persist into L2 disk CacheStorage (HTTP/HTTPS/origin paths only)
+  if (typeof window !== 'undefined' && 'caches' in window && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/'))) {
     try {
       caches.open(CACHE_NAME).then((cache) => {
         const headers = new Headers({
@@ -50,15 +53,19 @@ export async function loadGLBWithProgress(
 ): Promise<ArrayBuffer> {
   if (!url) throw new Error('Model URL is required');
 
+  const isCacheableUrl = !url.startsWith('blob:') && !url.startsWith('data:');
+
   // 1. Check L1 in-memory cache (Instant 0ms)
-  const memCached = glbBufferCache.get(url);
-  if (memCached) {
-    onProgress?.(memCached.byteLength, memCached.byteLength, 100);
-    return memCached;
+  if (isCacheableUrl) {
+    const memCached = glbBufferCache.get(url);
+    if (memCached) {
+      onProgress?.(memCached.byteLength, memCached.byteLength, 100);
+      return memCached;
+    }
   }
 
   // 2. Check L2 persistent browser CacheStorage (~5ms, no network)
-  if (typeof window !== 'undefined' && 'caches' in window) {
+  if (isCacheableUrl && typeof window !== 'undefined' && 'caches' in window) {
     try {
       const cache = await caches.open(CACHE_NAME);
       const matched = await cache.match(url);

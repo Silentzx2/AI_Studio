@@ -130,26 +130,29 @@ Post-processing runs after inference via OpenX Clay (`backend/clay/`), integrate
   raw generation (source.glb)
   ↓
   OpenX Clay Post-Processing (backend/clay/)
-  ├── 1. PostProcessor.process() (C++ fast_simplification Quadric Decimation to budget)
-  ├── 2. Auto-Texture Preservation (preserves pre-baked textures without UV corruption)
-  ├── 3. xatlas UV Parameterization (non-overlapping atlas generation)
-  ├── 4. make_lods() (Hierarchical LOD chain: LOD0–LOD3 at descending ratios)
+  ├── 1. PostProcessor.process() (C++ meshoptimizer SIMD attribute decimation to budget)
+  ├── 2. Auto-Texture Preservation (preserves PBR materials and UV maps during decimation)
+  ├── 3. xatlas UV Parameterization (conformal non-overlapping atlas generation when untextured)
+  ├── 4. make_lods() (Hierarchical LOD chain: LOD0–LOD3 with textures preserved via meshoptimizer)
   ├── 5. make_collision() (Convex hull physics proxy collider)
   └── 6. Blender Engine (Headless FBX export, Quadriflow quad retopo, normal bake)
   ✅ game_ready.glb + lods/ + collision.glb + exported formats
 ```
 
 ### OpenX Clay Core Post-Processing
-- **Package**: `backend/clay/` (exact upstream from `https://github.com/OpenX-Inc/clay`)
+- **Package**: `backend/clay/`
 - **Main Processor**: `clay.postprocess.PostProcessor`
-- **Decimation**: Quadric decimation accelerated via C++ `fast_simplification` (<200ms execution)
+- **Decimation**: C++ `meshoptimizer` SIMD decimation with attribute weights, preserving UVs and PBR textures; fallback to `fast_simplification`
 - **UV Unwrapping**: Native `xatlas.parametrize` with boundary preservation
-- **Texture Preservation**: Automatic detection of pre-baked provider textures to prevent UV re-unwrapping from orphaning maps
-- **LOD Chains**: `clay.lods.make_lods` produces `(1.0, 0.5, 0.25, 0.1)` ratio levels
+- **Texture Preservation**: Automatic detection and preservation of pre-baked provider textures without UV corruption or orphan maps
+- **LOD Chains**: `clay.lods.make_lods` produces `(1.0, 0.5, 0.25, 0.1)` ratio levels with full texture map retention
 - **Collision Proxies**: `clay.collision.make_collision` creates convex hull colliders
-- **Multi-Format Export**: Native GLB/OBJ/PLY via trimesh, FBX via headless Blender
+- **Multi-Format Export**: Native GLB/OBJ/PLY/STL via trimesh, FBX via headless Blender
 
 ### Non-Negotiable Invariants
 - `source.glb` is immutable; post-processing writes to `game_ready.glb`
+- When `auto_optimize: false` and `game_ready: false` (RAW preset), decimation is skipped; the high-resolution master mesh is preserved directly and delivered as `active_model_url`
+- Marching Cubes grid resolution scales dynamically with quality selection (`low`: 256, `medium`: 384, `high`: 512, `ultra`: 640), preventing micro-anatomical feature loss (teeth, nostrils, eyelids)
+- Untextured raw meshes trigger high-fidelity texture projection with tangent-space normal map baking; only meshes with verified 2D textures or genuine non-default vertex colors bypass projection
 - Any Clay failure immediately propagates to the Celery job system with `status="failed"` (no silent bypasses)
 - Real execution telemetry emitted over Redis SSE (no fake percentages or simulated stages)

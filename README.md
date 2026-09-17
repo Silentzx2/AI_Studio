@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-5.0.18-8A2BE2?style=for-the-badge" alt="Version 5.0.18">
+  <img src="https://img.shields.io/badge/Version-5.0.81-8A2BE2?style=for-the-badge" alt="Version 5.0.81">
   <img src="https://img.shields.io/badge/Pipeline-Game--Ready_V2-00FF9D?style=for-the-badge" alt="Game-Ready V2">
   <img src="https://img.shields.io/badge/Python-3.12+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.12+">
   <img src="https://img.shields.io/badge/FastAPI-Backend-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI">
@@ -157,50 +157,47 @@ flowchart TD
     classDef stage fill:#1e1e24,stroke:#6366f1,stroke-width:2px,color:#fff;
     classDef file fill:#18181b,stroke:#22c55e,stroke-width:1.5px,color:#fff;
     classDef guard fill:#18181b,stroke:#f59e0b,stroke-width:1.5px,color:#fff;
+    classDef client fill:#1e1e2d,stroke:#a855f7,stroke-width:2px,color:#fff;
 
-    IN[Input Image / Prompt] --> P1[1. Preprocessing & Background Separation<br/>• Transparent alpha detection<br/>• RemBG / BriaRMBG silhouette extraction]:::stage
+    UI[1-Click Mesh Quality Toolbar<br/>• Low: 256³ / 20 steps<br/>• Medium: 384³ / 35 steps<br/>• High: 512³ / 50 steps<br/>• Ultra: 640³ / 75 steps<br/>• Raw: 640³ Master / Full Poly]:::client --> IN[Input Image / Prompt]
     
-    P1 --> P2[2. Neural Provider Inference<br/>• Hunyuan3D / TRELLIS / TripoSG]:::stage
+    IN --> P1[1. Preprocessing & Background Separation<br/>• Transparent alpha detection<br/>• RemBG / BriaRMBG silhouette extraction]:::stage
     
-    P2 --> RAW[(source.glb<br/>Untouched Raw Master)]:::file
+    P1 --> P2[2. Neural Provider Inference<br/>• Hunyuan3D (Dynamic 256³–640³ Octree Grid)<br/>• TRELLIS (FlexiCubes PBR, 2048x2048 Textures)<br/>• TripoSG (Dense Isosurface)]:::stage
+    
+    P2 --> TEX_GUARD{Mesh Has Real Textures?}:::guard
+    TEX_GUARD -->|No: Untextured Raw Mesh| PROJ[Occlusion-Aware PBR Texture Projection<br/>• Tangent-space Normal Map Baking<br/>• Metallic/Roughness/AO Synthesis<br/>• Sharp eyes, nostrils, teeth relief]:::stage
+    TEX_GUARD -->|Yes: Already Textured| RAW[(source.glb / master.glb<br/>Untouched Raw Master Asset)]:::file
+    PROJ --> RAW
 
-    P2 --> P3[3. Non-Destructive Blender Post-Processing]:::stage
+    RAW --> ROUTE{Optimization Mode?}:::guard
     
+    ROUTE -->|RAW Preset: auto_optimize=false| RAW_DELIVER[Direct Master Delivery<br/>• Zero decimation<br/>• Sub-millimeter micro-details intact]:::stage
+    RAW_DELIVER --> RAW_OUT[(source.glb active in Viewport)]:::file
+
+    ROUTE -->|Game-Ready: auto_optimize=true| P3[3. OpenX Clay Post-Processing<br/>• C++ meshoptimizer SIMD Decimation<br/>• Preserves UVs and PBR Textures<br/>• xatlas Conformal Unwrapping when untextured]:::stage
+
     P3 --> G1{Safe Component Guard<br/>Islands ≥ 0.5% vertices or ≥ 15 verts?}:::guard
-    G1 -->|Yes| KEEP[Preserve Ears, Horns, Tails & Accessories]
+    G1 -->|Yes| KEEP[Preserve Ears, Horns, Tails, Claws & Accessories]
     G1 -->|No| PRUNE[Purge Floating Disconnected Noise]
 
-    P3 --> G2{UV Layout Guard<br/>UV layers already exist?}:::guard
-    G2 -->|Yes| UV_OK[Protect Provider UV Map & PBR Textures]
-    G2 -->|No| UV_FIX[Run Smart UV Project]
+    KEEP --> BASE[(game_ready.glb<br/>Optimized Deliverable)]:::file
+    PRUNE --> BASE
 
-    P3 --> G3{Humanoid Armature Guard<br/>Aspect Ratio ≥ 0.7 & Height ≥ 0.2?}:::guard
-    G3 -->|Yes| RIG[Bind Rigify Biped Metarig]
-    G3 -->|No| NORIG[Export Clean Unrigged Mesh]
-
-    KEEP --> BASE[(model.glb<br/>Clean Baseline)]:::file
-    UV_OK --> BASE
-    UV_FIX --> BASE
-    RIG --> BASE
-    NORIG --> BASE
-
-    BASE --> P4[4. Game-Ready Decimation<br/>• Target Platform Budgets]:::stage
-    P4 --> G_OUT[(game_ready.glb<br/>Game-Ready Variant)]:::file
-
-    BASE --> P5[5. Multi-Tier LOD Generation]:::stage
+    BASE --> P5[4. Multi-Tier LOD Cascade<br/>• meshoptimizer with Texture Retention]:::stage
     P5 --> L0[(LOD0: 100% Master)]:::file
     P5 --> L1[(LOD1: 50% Polycount)]:::file
     P5 --> L2[(LOD2: 25% Polycount)]:::file
     P5 --> L3[(LOD3: 12.5% Polycount)]:::file
 
-    BASE --> P6[6. Physics Collision Mesh]:::stage
-    P6 --> C_OUT[(collision.glb<br/>Convex Hull)]:::file
+    BASE --> P6[5. Physics Collision Mesh<br/>• Trimesh Convex Hull]:::stage
+    P6 --> C_OUT[(collision.glb<br/>Physics Collider)]:::file
 
-    G_OUT --> P7[7. Geometry QA Diagnostics]:::stage
-    P7 --> QA_OUT[(quality_report.json<br/>Score: 0–100)]:::file
+    BASE --> P7[6. Geometry QA Diagnostics<br/>• Manifoldness & Normal Inspection<br/>• UV & Texture Verification]:::stage
+    P7 --> QA_OUT[(quality_report.json<br/>Game-Ready Score: 0–100)]:::file
 
-    G_OUT --> P8[8. Production Export Endpoint<br/>• POST /api/v1/project/export]:::stage
-    RAW --> P8
+    BASE --> P8[7. Production Export Endpoint<br/>• POST /api/v1/project/export<br/>• GLB / GLTF / FBX / OBJ / STL / PLY]:::stage
+    RAW_OUT --> P8
     L0 --> P8
     L1 --> P8
     L2 --> P8
@@ -208,7 +205,7 @@ flowchart TD
     C_OUT --> P8
     QA_OUT --> P8
 
-    P8 --> ZIP[(Structured ZIP Package<br/>Source/ + GameReady/ + LODs/ + Collision/ + QA/)]:::file
+    P8 --> ZIP[(Structured Production ZIP Package<br/>Source/ + GameReady/ + LODs/ + Collision/ + QA/)]:::file
 ```
 
 ---
@@ -449,21 +446,30 @@ curl -X POST http://localhost:8000/api/v1/runtime/download-weights \
 
 ### Google Colab 1-Click Launch
 
-Open a Google Colab notebook with a GPU runtime (T4, V100, A100, or L4) and run:
+Launch AI 3D Studio directly in Google Colab with one click:
+
+<p align="left">
+  <a href="https://colab.research.google.com/github/Silentzx2/AI_Studio/blob/main/colab.ipynb">
+    <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab">
+  </a>
+</p>
+
+Or run in a Colab GPU runtime cell (T4, V100, L4, or A100):
 
 ```bash
 !git clone https://github.com/Silentzx2/AI_Studio.git /content/AI_Studio
 %cd /content/AI_Studio
-!bash scripts/colab.sh
+!bash scripts/colab.sh --setup
 ```
 
-**What `colab.sh` does automatically:**
-1. Detects the Colab environment and attaches GPU hardware.
-2. Switches database to zero-config SQLite mode.
-3. Installs backend dependencies via `uv` and links PyTorch CUDA.
-4. Executes **Stage A** runtime environment preparation.
-5. Launches FastAPI backend, Celery task broker, and Next.js frontend.
-6. Starts a Cloudflare tunnel and displays a public URL for instant browser access.
+**What the Colab notebook (`colab.ipynb`) does automatically:**
+1. **Hardware Diagnostic**: Detects GPU (T4/V100/A100/L4), VRAM, and CUDA 12.4 configuration.
+2. **RAM Protection**: Automatically allocates an 8GB `/swapfile` to prevent the Linux OOM-killer from terminating PyTorch model loading on standard 12.7GB CPU RAM.
+3. **Automated Setup**: Installs `uv`, sets up Python 3.12, PostgreSQL, and Redis (with memory fallback).
+4. **Isolated Model Runtimes**: Prepares dedicated virtual environments for TripoSG, TRELLIS, and Hunyuan3D-2mini to guarantee zero dependency conflicts.
+5. **Microservices Stack**: Executes database migrations, starts FastAPI backend (`:8000`), Celery worker (`--pool=solo`), and builds/serves Next.js frontend (`:3000`).
+6. **Cloudflare Tunnels**: Generates public HTTPS URLs and renders clickable links directly in the notebook output cell.
+7. **Service Manager**: Built-in dashboard to monitor status, view live logs, restart/stop services, and refresh tunnels.
 
 ### Access Points
 

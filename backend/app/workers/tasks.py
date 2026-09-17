@@ -807,8 +807,8 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             source_glb_path = str(model_output_dir(job_id) / "source.glb")
             if provider_result.model_path and Path(provider_result.model_path).exists():
                 try:
-                    if not Path(source_glb_path).exists():
-                        shutil.copy(provider_result.model_path, source_glb_path)
+                    if not Path(source_glb_path).exists() and Path(provider_result.model_path).resolve() != Path(source_glb_path).resolve():
+                        shutil.copy2(provider_result.model_path, source_glb_path)
                 except Exception as c_err:
                     logger.warning("Could not preserve source.glb: %s", c_err)
 
@@ -997,7 +997,9 @@ async def _async_generate(task: Task, job_id: str) -> dict:
             target_polycount = int(target_polycount)
             unwrap_uvs = bool(meta.get("unwrap_uvs", meta.get("unwrapUVs", meta.get("repair_uvs", meta.get("fix_uvs", True)))))
 
-            if _CLAY_AVAILABLE and not skip_postprocessing:
+            should_optimize = bool(meta.get("auto_optimize", False)) or bool(meta.get("game_ready", False))
+
+            if _CLAY_AVAILABLE and not skip_postprocessing and should_optimize:
                 sync_publish(75, "clay_postprocess", f"OpenX Clay: Starting post-processing ({target_polycount:,} tris target, unwrap_uvs={unwrap_uvs})...", "info")
                 t_clay = time.perf_counter()
                 try:
@@ -1007,6 +1009,7 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                         unwrap_uvs=unwrap_uvs,
                         format="glb",
                         reference_image=ref_img_local,
+                        decimate_textured=True,
                     )
                     pp = PostProcessor(pp_config)
                     raw_asset = Generated3DAsset(path=master_glb, format="glb")
@@ -1057,6 +1060,22 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                     meta["active_model_url"] = to_url(game_ready_path)
                     _update_job(session, job_id, processing_metadata=meta)
                     sync_publish(90, "clay_postprocess", "Clay post-processing fallback: source mesh retained.", "warn")
+            elif not skip_postprocessing and not should_optimize:
+                import shutil
+                if master_glb != game_ready_path and Path(master_glb).exists():
+                    shutil.copy2(master_glb, game_ready_path)
+                current_glb_path = master_glb
+                pipeline_stages.append({
+                    "stage": "clay_postprocess",
+                    "tool": "openx_clay",
+                    "status": "skipped",
+                    "reason": "Raw mesh preserved without decimation (auto_optimize and game_ready disabled)",
+                })
+                meta["game_ready_url"] = to_url(game_ready_path)
+                meta["processed_model_url"] = to_url(master_glb)
+                meta["active_model_url"] = to_url(master_glb)
+                _update_job(session, job_id, processing_metadata=meta)
+                sync_publish(90, "clay_postprocess", "Clay: Raw master geometry preserved without decimation.", "info")
             elif not skip_postprocessing:
                 logger.warning("OpenX Clay post-processing engine is unavailable; retaining source mesh")
                 import shutil
@@ -1068,12 +1087,17 @@ async def _async_generate(task: Task, job_id: str) -> dict:
                 meta["active_model_url"] = to_url(game_ready_path)
             else:
                 import shutil
-                if current_glb_path != game_ready_path:
-                    shutil.copy2(current_glb_path, game_ready_path)
-                current_glb_path = game_ready_path
+                if master_glb != game_ready_path and Path(master_glb).exists():
+                    try:
+                        shutil.copy2(master_glb, game_ready_path)
+                    except Exception as copy_err:
+                        logger.warning("Could not copy master to game_ready_path: %s", copy_err)
+                current_glb_path = master_glb
                 meta["game_ready_url"] = to_url(game_ready_path)
-                meta["processed_model_url"] = to_url(game_ready_path)
-                meta["active_model_url"] = to_url(game_ready_path)
+                meta["processed_model_url"] = to_url(master_glb)
+                meta["active_model_url"] = to_url(master_glb)
+                _update_job(session, job_id, processing_metadata=meta)
+                sync_publish(90, "clay_postprocess", "Clay: Post-processing skipped by request; raw master mesh retained.", "info")
 
             glb_path = current_glb_path
 

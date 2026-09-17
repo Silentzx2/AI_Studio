@@ -1,8 +1,114 @@
 # AI 3D Studio - Pipeline V2 Implementation Status
 
-> **Version**: 5.0.76 (Colab Stability, Celery Solo Pool & Watchdog Hardening)
-> **Status**: Verified and active; comprehensive backend regression suite passing, frontend production build verified.
-> **Last Updated**: September 16, 2026
+> **Version**: 5.0.81 (UI Generate Toolbar: Dedicated 1-Click Mesh Quality Controls & Resolution Presets)
+> **Status**: Verified and active; 0 TypeScript / JSX build errors, full pipeline synchronization.
+> **Last Updated**: September 17, 2026
+
+---
+
+## v5.0.81 — Dedicated Mesh Quality Toolbar & Resolution Presets (2026-09-17)
+
+### Features & Resolutions
+1. **Dedicated Sticky Mesh Quality Toolbar (`features/new-workspace/Panels/GeneratePanel.tsx`)**:
+   - Added a prominent, sleek 5-button Mesh Quality Toolbar directly accessible in the Generate Panel, permanently pinned above the sticky `GENERATE 3D MODEL` action button.
+   - Replaced previously tucked-away presets with 1-click buttons:
+     - **Low**: Fast preview / 256³ voxel grid / 20 inference steps (~15k tris)
+     - **Medium**: Balanced workflow / 384³ voxel grid / 35 inference steps (~30k tris)
+     - **High**: Detailed production / 512³ voxel grid / 50 inference steps (~60k tris)
+     - **Ultra**: Maximum fidelity / 640³ voxel grid / 75 inference steps (~100k tris)
+     - **Raw**: Unoptimized Master / 640³ voxel grid / 75 inference steps / Full native density (`auto_optimize: false`)
+   - Selected quality is highlighted with an active glowing amber/primary indicator, badge, and border ring.
+   - Comprehensive tooltip and badge support detailing voxel resolution and diffusion steps for every option.
+2. **Mesh Tab Synchronization & Raw Density Master Banner**:
+   - Replaced the 4-button sub-preset list in the Mesh tab with the unified 5-preset grid (`Low`, `Medium`, `High`, `Ultra`, `Raw`), keeping both toolbars in 1-click synchronization.
+   - When decimation is disabled (`autoOptimize: false`), the Mesh tab now displays a dedicated "Raw Density Master Mode" info card with direct 1-click upgrade buttons back to optimized presets rather than hiding controls.
+3. **WorkspaceContext Default & State Alignment (`WorkspaceContext.tsx`)**:
+   - Initial state updated to default to High quality (`meshQuality: 'high'`, `autoOptimize: true`, `targetPolycount: 60000`).
+   - Seamlessly dispatches `auto_optimize: false` with `meshQuality: 'ultra'` for Raw mode and propagates octree resolution and inference steps across both `image-to-3d` and `text-to-3d` API calls.
+4. **SimpleTooltip Layout Support (`components/ui/simple-tooltip.tsx`)**:
+   - Added optional `className` support to `SimpleTooltipProps` to allow full width stretching (`w-full flex-1`) within responsive grid toolbars.
+
+---
+
+## v5.0.80 — 3D Pipeline & Quality Audit: Derivative Routing & Quality Preset Integrity (2026-09-17)
+
+### Root Cause Analysis & Resolutions
+1. **Raw Master Asset Override on Skipped Post-Processing (`backend/app/workers/tasks.py`)**:
+   - In `backend/app/workers/tasks.py`, when `skip_postprocessing=True` or `postprocess=False`, the post-processing `else:` branch previously reassigned `current_glb_path = game_ready_path` and `active_model_url = to_url(game_ready_path)`. As a result, when post-processing was skipped, the job active URL was incorrectly reported as `game_ready.glb` instead of the untouched raw `master_glb` / `source.glb`.
+   - **Fix**: Updated the `else:` branch so that when post-processing is explicitly skipped, `current_glb_path` remains `master_glb`, and `active_model_url` and `processed_model_url` point directly to `to_url(master_glb)`. Also added a `copy2` fallback so that `game_ready.glb` is still safely populated if requested by downstream consumers.
+2. **Same-File Copying Edge Case in Source Preservation (`backend/app/workers/tasks.py`)**:
+   - `shutil.copy` on `provider_result.model_path` to `source_glb_path` lacked a path equality check. If a provider outputted directly into `source.glb`, `shutil.copy` would raise `shutil.SameFileError`.
+   - **Fix**: Added `resolve()` path comparison check and upgraded to `shutil.copy2` to preserve filesystem metadata and timestamps.
+3. **Frontend Model URL Resolution Favoring Explicit Active Deliverable (`WorkspaceContext.tsx`)**:
+   - `WorkspaceContext.tsx` polled `/status` but extracted only `result.model_url`, ignoring the canonical `active_model_url` field provided by backend schemas.
+   - **Fix**: Added `active_model_url?: string` to TypeScript result typing and resolved `modelUrl = (result.active_model_url || result.model_url) as string`. This ensures the exact derivative (either Game-Ready or RAW master) is loaded into the Three.js viewport.
+4. **End-to-End Test Verification (`backend/tests/test_3d_pipeline_selfcheck.py`)**:
+   - Added `test_tasks_active_model_url_and_master_preservation` covering active model URL routing for Game-Ready mode (`game_ready.glb`), RAW mode (`source.glb`), and skipped post-processing (`source.glb`).
+   - All 8 self-checks and 79 full backend pytest suites pass with 100% success rate.
+
+---
+
+## v5.0.79 — Production Google Colab Notebook & One-Click Architecture (2026-09-17)
+
+### Root Cause Analysis & Resolutions
+1. **Interactive Prompt Hangs in Non-Interactive Shells (`scripts/colab.sh`)**:
+   - `colab_interactive` and `select_models_interactively` used `read -rp` in `while true` loops. When invoked via Jupyter/Colab cells without piped standard input (`!bash scripts/colab.sh`), `read` reached EOF on the closed stdin pipe, causing infinite looping and printing `Invalid choice`.
+   - **Fix**: Hardened `colab_interactive` to detect non-interactive EOF and automatically proceed with Setup (Option 1). Added `--setup` CLI flag for non-interactive friendly execution. Hardened `select_models_interactively` to respect pre-existing `COLAB_SELECTED_REPOS` and default to recommended Colab models (`TripoSG,TRELLIS,Hunyuan3D-2mini`) on EOF.
+2. **Production Google Colab Notebook (`colab.ipynb` & `AI_Studio_Colab.ipynb`)**:
+   - Created clean, comprehensive, production-ready notebooks adhering strictly to the `nbformat 4.5` JSON schema with unique cell IDs.
+   - **Cell 0 (Markdown)**: Complete hardware requirements matrix (T4, V100, L4, A100), 8GB swap architecture explanation, and Colab accelerator instructions.
+   - **Cell 1 (Code)**: Hardware & GPU diagnostic inspecting `nvidia-smi`, VRAM capacity, CPU threads, RAM, and disk space.
+   - **Cell 2 (Code)**: Workspace setup cloning `https://github.com/Silentzx2/AI_Studio.git` or running `git pull` if present, validating paths, and setting working directory.
+   - **Cell 3 (Code)**: Complete One-Click Launcher executing `bash scripts/colab.sh --setup` with live streaming output, browser keepalive JS, Cloudflare tunnel URL extraction, and interactive HTML card with clickable links.
+   - **Cell 4 (Code)**: Service Manager & Maintenance Controls featuring `check_status()`, `view_logs()`, `restart_services()`, `stop_services()`, and `refresh_tunnels()`.
+
+---
+
+## v5.0.78 — Micro-Detail Preservation, High-Resolution Octree Scaling & Raw Mesh Pipeline (2026-09-17)
+
+### Root Cause Analysis & Resolutions
+1. **Frontend Dropping Marching Cubes & Inference Parameters (`WorkspaceContext.tsx`)**:
+   - `startGeneration` for both `image-to-3d` and `text-to-3d` omitted `octree_resolution`, `num_inference_steps`, `guidance_scale`, and `seed`.
+   - **Fix**: Mapped `meshQuality` ('low' | 'medium' | 'high' | 'ultra') to high-resolution octree grids (`low`: 256, `medium`: 384, `high`: 512, `ultra`: 640), scaled steps (`low`: 20, `medium`: 35, `high`: 50, `ultra`: 75), and forwarded `guidance_scale` and `seed`.
+2. **Hardcoded Low Marching Cubes Octree Resolution (380) in Providers (`hunyuan3d_local.py`)**:
+   - Providers previously defaulted to `octree_res = request.octree_resolution or 380`. At 380 voxels, fine facial features like nostrils (<4mm), teeth (<1mm), and eyelid creases mathematically merged into smooth blobs.
+   - Presets for `"ultra"` and `"high"` were missing from the quality dictionaries, falling back to 35 steps.
+   - **Fix**: Added dynamic `quality_octree` scaling up to 512 (High) and 640 (Ultra), and `quality_steps` up to 75 steps (Ultra).
+3. **Trimesh Default Vertex Colors False-Positive Short-Circuit (`hunyuan3d_local.py`)**:
+   - `_project_texture` previously used `if hasattr(m.visual, "vertex_colors") and m.visual.vertex_colors is not None and len(m.visual.vertex_colors) > 0: shutil.copy2(...)`.
+   - In Trimesh, accessing `m.visual.vertex_colors` on untextured meshes returns default gray `[102, 102, 102, 255]` and `hasattr` is always `True`. This caused `project_reference_texture` to never execute on raw meshes, leaving models as flat gray blobs lacking facial texture details.
+   - **Fix**: Replaced the check with `is_real_textured_mesh` and a check for non-default vertex colors (`not np.all(vc == [102, 102, 102, 255])`), ensuring untextured raw meshes trigger high-fidelity texture projection and tangent normal map baking.
+4. **TRELLIS Missing Ultra Preset & Transparent Background Preprocessing (`trellis_local.py`)**:
+   - TRELLIS lacked an `"ultra"` preset (defaulting to standard 16 steps) and exported 1024 textures instead of 2048. Opaque reference images were fed directly into flexicubes without background alpha removal, fusing background geometry into silhouettes.
+   - **Fix**: Added `"ultra"` (32 steps, 8.0/3.5 CFG) and `"high"` presets, 2048 texture sizing for high/ultra, and integrated transparent background preprocessing.
+5. **Forced Decimation Crushing Raw Master Models (`backend/app/workers/tasks.py`)**:
+   - Even when users selected "RAW" preset (`auto_optimize: false, game_ready: false`), Clay postprocessing automatically ran and decimated meshes down to 65k triangles, overwriting `active_model_url` with the decimated asset.
+   - **Fix**: Gated decimation behind `should_optimize = bool(meta.get("auto_optimize", False)) or bool(meta.get("game_ready", False))`. When optimization is disabled, the full high-density master mesh is preserved and served directly to the viewport as `active_model_url`.
+
+### Root Cause Analysis & Resolutions
+1. **Missing STL Support in Viewport & Drop Handler (`MeshViewer.tsx`)**:
+   - Backend exports `model.stl` and `fileValidation.ts` allows `.stl`, but dragging an STL file was rejected by `MeshViewer.tsx` (`ALLOWED_EXTENSIONS` omitted STL), and selecting an STL threw `Error: No browser preview is available for stl`.
+   - **Fix**: Added `sharedSTLLoader` (`three/examples/jsm/loaders/STLLoader.js`) singleton, integrated `format === 'stl'` parsing with vertex normal generation, and enabled STL in drag-and-drop validation and asset format mapping.
+2. **GLTF Relative Path Resolution (`MeshViewer.tsx`)**:
+   - GLTF files with external textures or `.bin` buffers failed to resolve because `sharedGLTFLoader.parseAsync(arrayBuffer, '')` passed an empty string, resolving external resources against `window.location.origin + '/' + uri`.
+   - **Fix**: Dynamically derived `basePath` from `sourceUrl` for HTTP/HTTPS/relative paths.
+3. **CacheStorage `blob:` Scheme Rejections & Memory Leak (`glbCache.ts`)**:
+   - Calling `cache.put()` on `blob:` URLs threw `TypeError: Request scheme 'blob' is unsupported` in browser CacheStorage, and transient blob URLs leaked buffers in L1 cache.
+   - **Fix**: Gated CacheStorage and L1 caching behind `!url.startsWith('blob:') && !url.startsWith('data:')`.
+4. **GPU Memory Leak on Shading Mode Switching (`MeshViewer.tsx`)**:
+   - Switching to Wireframe/Clay/MatCap replaced `child.material`, stashing the original in `child.userData.originalMaterial`. During model unload, only `child.material` was disposed, permanently leaking original high-res PBR textures in VRAM.
+   - **Fix**: Added traversal in unload effect to explicitly dispose `child.userData.originalMaterial` and all referenced textures.
+5. **Textured Mesh Decimation Bypass in OpenX Clay (`backend/clay/postprocess.py`)**:
+   - Clay previously skipped decimation completely on textured meshes (`if self._is_textured(mesh): final = mesh`) because legacy `simplify_quadric_decimation` stripped all `TextureVisuals` and UVs. Consequently, high-poly textured models (80k–120k tris) bypassed budget targets.
+   - **Fix**: Upgraded `PostProcessor.decimate()` to use `meshoptimizer` C++ SIMD decimation with attribute/UV preservation. Added `decimate_textured=True` in `PostprocessConfig` and `tasks.py`, safely reducing face counts to budget while keeping PBR textures and UVs 100% intact.
+6. **LOD Texture Stripping (`backend/clay/lods.py`)**:
+   - `make_lods()` used `simplify_quadric_decimation`, leaving LOD1–LOD3 as blank monochrome meshes in game engines.
+   - **Fix**: Wired `make_lods()` to `_simplify_with_meshoptimizer`, preserving texture maps across all LOD tiers.
+7. **Open3D Vertex Reduction GLB Export Crash (`backend/app/core/open3d_service.py`)**:
+   - `save_o3d_mesh()` blindly copied `source_visual` from uncleaned meshes. If Open3D cleanup reduced vertex count, trimesh GLB export threw `TypeError: unsupported operand type(s) for *: 'int' and 'NoneType'`.
+   - **Fix**: Validated visual array lengths against vertex counts before copying per-vertex buffers.
+8. **Trimesh 4.x Deprecations (`backend/app/core/mesh_optimizer.py`)**:
+   - Replaced deprecated `remove_degenerate_faces()` and `remove_duplicate_faces()` with modern `update_faces(nondegenerate_faces())` and `update_faces(unique_faces())`, eliminating all runtime deprecation warnings.
 
 > **Current contract:**
 > 1. The final delivered GLB artifact (`blender_glb` or canonical `game_ready.glb`) is the single source of truth for all geometry metrics, face/vertex counts, bounding dimensions, topological components, and semantic mesh details.

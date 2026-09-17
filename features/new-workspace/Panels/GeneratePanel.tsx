@@ -40,6 +40,76 @@ import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 import { AnimatedTabs, AnimatedSwitch, RippleButton, SlidingNumber, ImageZoom, BorderBeam } from '@/components/animate-ui';
 import { ShimmerButton } from '@/components/ui/shimmer-button';
 
+export interface MeshQualityPreset {
+  id: 'low' | 'medium' | 'high' | 'ultra' | 'raw';
+  label: string;
+  subLabel: string;
+  tagline: string;
+  grid: string;
+  steps: number;
+  polyEstimate: string;
+  badge: string;
+  tooltip: string;
+}
+
+export const MESH_QUALITY_OPTIONS: MeshQualityPreset[] = [
+  {
+    id: 'low',
+    label: 'Low',
+    subLabel: '256³ / 20s',
+    tagline: 'Fast preview',
+    grid: '256',
+    steps: 20,
+    polyEstimate: '~15k tris',
+    badge: '256³ • 20 steps (Fast)',
+    tooltip: 'Low: Fast preview (256³ grid • 20 steps • ~15k tris)',
+  },
+  {
+    id: 'medium',
+    label: 'Medium',
+    subLabel: '384³ / 35s',
+    tagline: 'Balanced workflow',
+    grid: '384',
+    steps: 35,
+    polyEstimate: '~30k tris',
+    badge: '384³ • 35 steps (Balanced)',
+    tooltip: 'Medium: Balanced workflow (384³ grid • 35 steps • ~30k tris)',
+  },
+  {
+    id: 'high',
+    label: 'High',
+    subLabel: '512³ / 50s',
+    tagline: 'Detailed production',
+    grid: '512',
+    steps: 50,
+    polyEstimate: '~60k tris',
+    badge: '512³ • 50 steps (Detailed)',
+    tooltip: 'High: Detailed production (512³ grid • 50 steps • ~60k tris)',
+  },
+  {
+    id: 'ultra',
+    label: 'Ultra',
+    subLabel: '640³ / 75s',
+    tagline: 'Maximum fidelity',
+    grid: '640',
+    steps: 75,
+    polyEstimate: '~100k tris',
+    badge: '640³ • 75 steps (Maximum)',
+    tooltip: 'Ultra: Maximum fidelity (640³ grid • 75 steps • ~100k tris)',
+  },
+  {
+    id: 'raw',
+    label: 'Raw',
+    subLabel: 'Master',
+    tagline: 'Unoptimized Master',
+    grid: '640',
+    steps: 75,
+    polyEstimate: 'Full Polycount',
+    badge: 'Master • Full Polycount',
+    tooltip: 'Raw: Unoptimized Master (640³ grid • 75 steps • Full native density)',
+  },
+];
+
 export const GeneratePanel: React.FC = () => {
   const router = useRouter();
   const {
@@ -50,6 +120,66 @@ export const GeneratePanel: React.FC = () => {
     generationSettings,
     setGenerationSettings
   } = useWorkspace();
+
+  const isRawQualityActive = !generationSettings.autoOptimize && generationSettings.meshQuality === 'ultra';
+  const currentQualityKey: 'low' | 'medium' | 'high' | 'ultra' | 'raw' = 
+    !generationSettings.autoOptimize
+      ? 'raw'
+      : (generationSettings.meshQuality || 'high');
+
+  const activeQualityConfig = MESH_QUALITY_OPTIONS.find(q => q.id === currentQualityKey) || MESH_QUALITY_OPTIONS[2];
+
+  const handleSelectQuality = useCallback((id: 'low' | 'medium' | 'high' | 'ultra' | 'raw') => {
+    if (id === 'raw') {
+      setGenerationSettings(prev => ({
+        ...prev,
+        autoOptimize: false,
+        meshQuality: 'ultra',
+      }));
+    } else if (id === 'ultra') {
+      setGenerationSettings(prev => ({
+        ...prev,
+        autoOptimize: true,
+        meshQuality: 'ultra',
+        autoOptimizeSettings: {
+          ...prev.autoOptimizeSettings,
+          targetPolycount: prev.autoOptimizeSettings?.targetPolycount && prev.autoOptimizeSettings.targetPolycount > 75000
+            ? prev.autoOptimizeSettings.targetPolycount
+            : 100000,
+        },
+      }));
+    } else if (id === 'high') {
+      setGenerationSettings(prev => ({
+        ...prev,
+        autoOptimize: true,
+        meshQuality: 'high',
+        autoOptimizeSettings: {
+          ...prev.autoOptimizeSettings,
+          targetPolycount: 60000,
+        },
+      }));
+    } else if (id === 'medium') {
+      setGenerationSettings(prev => ({
+        ...prev,
+        autoOptimize: true,
+        meshQuality: 'medium',
+        autoOptimizeSettings: {
+          ...prev.autoOptimizeSettings,
+          targetPolycount: 30000,
+        },
+      }));
+    } else if (id === 'low') {
+      setGenerationSettings(prev => ({
+        ...prev,
+        autoOptimize: true,
+        meshQuality: 'low',
+        autoOptimizeSettings: {
+          ...prev.autoOptimizeSettings,
+          targetPolycount: 15000,
+        },
+      }));
+    }
+  }, [setGenerationSettings]);
 
   const [isEnhancing, setIsEnhancing] = useState(false);
 
@@ -1535,9 +1665,9 @@ export const GeneratePanel: React.FC = () => {
                 <span>
                   Mesh:{' '}
                   <strong className="text-zinc-200">
-                    {generationSettings.autoOptimize
-                      ? `${Math.round((generationSettings.autoOptimizeSettings?.targetPolycount || 30000) / 1000)}k tris`
-                      : 'Raw'}
+                    {activeQualityConfig.label} ({generationSettings.autoOptimize
+                      ? `${Math.round((generationSettings.autoOptimizeSettings?.targetPolycount || 60000) / 1000)}k`
+                      : 'Raw Master'})
                     {isMeshEnhanceEnabled ? ' + HD' : ''}
                   </strong>
                 </span>
@@ -1698,47 +1828,30 @@ export const GeneratePanel: React.FC = () => {
                 <div className="space-y-2.5 pt-1">
                   {/* Preset Buttons */}
                   <div className="space-y-1">
-                    <span className="text-xs text-zinc-400 font-semibold uppercase tracking-wider">Polycount Presets</span>
-                    <div className="grid grid-cols-4 gap-1.5">
-                      {[
-                        { id: '10k', label: '10k Low', count: 10000, quality: 'low' as const },
-                        { id: '30k', label: '30k Std', count: 30000, quality: 'medium' as const },
-                        { id: '75k', label: '75k High', count: 75000, quality: 'high' as const },
-                        { id: 'raw', label: 'Raw Max', count: 0, quality: 'ultra' as const },
-                      ].map(preset => {
-                        const isPresetActive = preset.id === 'raw'
-                          ? !generationSettings.autoOptimize
-                          : generationSettings.autoOptimize && (generationSettings.autoOptimizeSettings?.targetPolycount === preset.count);
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-zinc-400 font-semibold uppercase tracking-wider">Quality & Budget Presets</span>
+                      <span className="text-[10px] text-zinc-500 font-mono">1-click sync</span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {MESH_QUALITY_OPTIONS.map(preset => {
+                        const isPresetActive = currentQualityKey === preset.id;
                         return (
                           <button
                             key={preset.id}
                             type="button"
-                            onClick={() => {
-                              if (preset.id === 'raw') {
-                                setGenerationSettings(prev => ({
-                                  ...prev,
-                                  autoOptimize: false,
-                                  meshQuality: 'ultra',
-                                }));
-                              } else {
-                                setGenerationSettings(prev => ({
-                                  ...prev,
-                                  autoOptimize: true,
-                                  meshQuality: preset.quality,
-                                  autoOptimizeSettings: {
-                                    ...prev.autoOptimizeSettings,
-                                    targetPolycount: preset.count,
-                                  },
-                                }));
-                              }
-                            }}
-                            className={`py-1.5 px-1 rounded-lg text-xs font-bold transition-all text-center cursor-pointer ${
+                            onClick={() => handleSelectQuality(preset.id)}
+                            className={`py-1.5 px-1 rounded-lg text-xs font-bold transition-all text-center cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
                               isPresetActive
-                                ? 'bg-primary text-black shadow-sm'
+                                ? preset.id === 'raw'
+                                  ? 'bg-amber-400 text-black shadow-sm font-black ring-1 ring-amber-300'
+                                  : 'bg-primary text-black shadow-sm font-black ring-1 ring-primary'
                                 : 'bg-[hsl(var(--surface-1))] text-zinc-300 hover:text-white hover:bg-[hsl(var(--surface-2))] border border-white/[0.08]'
                             }`}
                           >
-                            {preset.label}
+                            <span>{preset.label}</span>
+                            <span className={`text-[8.5px] font-mono leading-none ${isPresetActive ? 'text-black/75 font-bold' : 'text-zinc-500'}`}>
+                              {preset.id === 'raw' ? 'Full' : `${preset.grid}³`}
+                            </span>
                           </button>
                         );
                       })}
@@ -1831,8 +1944,35 @@ export const GeneratePanel: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="p-2 rounded-lg bg-white/[0.02] border border-white/[0.04] text-[10px] text-zinc-400">
-                  Mesh optimization is off. Models will export with raw full triangle density directly from the AI generator.
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-amber-300 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Raw Density Master Mode</span>
+                    </span>
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-bold">
+                      640³ • Full Poly
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-zinc-300 leading-tight">
+                    Mesh decimation is bypassed. Reconstructing at native 640³ voxel resolution with 75 diffusion steps and maximum polycount.
+                  </p>
+                  <div className="pt-1 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectQuality('high')}
+                      className="text-[10px] px-2 py-1 rounded bg-white/[0.08] hover:bg-white/[0.15] text-zinc-200 font-bold transition-colors cursor-pointer"
+                    >
+                      Switch to High (60k)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectQuality('medium')}
+                      className="text-[10px] px-2 py-1 rounded bg-white/[0.08] hover:bg-white/[0.15] text-zinc-200 font-bold transition-colors cursor-pointer"
+                    >
+                      Switch to Medium (30k)
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -2180,8 +2320,74 @@ export const GeneratePanel: React.FC = () => {
         )}
       </div>
 
-      {/* Bottom Sticky Action Button */}
-      <div className="p-3 border-t border-white/[0.1] bg-[hsl(var(--surface-1))]/95 backdrop-blur-md relative z-20 flex-shrink-0">
+      {/* Bottom Sticky Action Footer & Mesh Quality Toolbar */}
+      <div className="p-2.5 sm:p-3 border-t border-white/[0.1] bg-[hsl(var(--surface-1))]/95 backdrop-blur-md relative z-20 flex-shrink-0 space-y-2">
+        {/* Dedicated Mesh Quality Toolbar */}
+        <div id="mesh-quality-toolbar" className="space-y-1.5">
+          <div className="flex items-center justify-between px-0.5">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-primary" />
+              <span className="font-bold text-[11px] text-zinc-200 tracking-wide">Mesh Quality</span>
+            </div>
+            <div className="flex items-center gap-1">
+              {currentQualityKey === 'raw' ? (
+                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 font-mono text-[9px] font-bold shadow-[0_0_8px_rgba(251,191,36,0.2)]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                  Unoptimized Master • Full Poly
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/[0.05] border border-white/[0.08] text-zinc-300 font-mono text-[9px]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                  <strong className="text-primary font-bold">{activeQualityConfig.grid}³</strong> grid • <strong className="text-zinc-200 font-bold">{activeQualityConfig.steps}</strong> steps
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* 5-Button Quality Toolbar */}
+          <div className="grid grid-cols-5 gap-1 p-1 rounded-xl bg-[hsl(var(--surface-0))] border border-white/[0.08] shadow-inner">
+            {MESH_QUALITY_OPTIONS.map((opt) => {
+              const isActive = currentQualityKey === opt.id;
+              return (
+                <SimpleTooltip
+                  key={opt.id}
+                  side="top"
+                  className="w-full flex-1"
+                  label={opt.tooltip}
+                >
+                  <button
+                    type="button"
+                    id={`btn-mesh-quality-${opt.id}`}
+                    onClick={() => handleSelectQuality(opt.id)}
+                    className={`relative w-full py-1.5 px-0.5 rounded-lg text-center transition-all duration-150 cursor-pointer flex flex-col items-center justify-center select-none ${
+                      isActive
+                        ? opt.id === 'raw'
+                          ? 'bg-amber-400 text-black font-black shadow-[0_0_14px_rgba(251,191,36,0.45)] border border-amber-300 ring-1 ring-amber-400/50'
+                          : 'bg-primary text-black font-black shadow-[0_0_14px_rgba(249,207,0,0.4)] border border-primary ring-1 ring-primary/50'
+                        : 'text-zinc-400 hover:text-white hover:bg-white/[0.05] border border-transparent'
+                    }`}
+                  >
+                    <span className="text-[11px] font-black leading-tight tracking-tight">
+                      {opt.label}
+                    </span>
+                    <span className={`text-[8.5px] leading-none font-mono mt-0.5 ${
+                      isActive ? 'text-black/80 font-bold' : 'text-zinc-500'
+                    }`}>
+                      {opt.id === 'raw' ? 'Master' : `${opt.grid}³`}
+                    </span>
+                    {isActive && (
+                      <span className={`absolute -bottom-0.5 w-2 h-0.5 rounded-full ${
+                        opt.id === 'raw' ? 'bg-amber-950' : 'bg-black'
+                      }`} />
+                    )}
+                  </button>
+                </SimpleTooltip>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Bottom Sticky Action Button */}
         <ShimmerButton
           id="btn-generate-model-action"
           onClick={handleGenerate}

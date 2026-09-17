@@ -1,8 +1,8 @@
 # AI 3D Studio - Setup & Installation Guide
 
-> **Version**: 4.7.2 (Bug Fixes & Hardening)
+> **Version**: 5.0.81 (One-Click Colab Notebook & 3D Detail Pipeline)  
 > **Difficulty**: Intermediate  
-> **Estimated Time**: 15-30 minutes (runtime only; weights are on-demand)
+> **Estimated Time**: 15-30 minutes (runtime only; weights are on-demand; 1-click on Colab)
 
 ---
 
@@ -18,7 +18,7 @@
 8. [Troubleshooting](#troubleshooting)
 9. [Verification](#verification)
 
-**See also:** [Google Colab Setup Guide](./COLAB_SETUP.md) — For running on Google Colab (automatic system dependency installation)
+**See also:** [Google Colab Setup Guide](./COLAB_SETUP.md) — For running on Google Colab with 1-click via [`colab.ipynb`](../colab.ipynb) or [`AI_Studio_Colab.ipynb`](../AI_Studio_Colab.ipynb) (automatic 8GB swap and system dependencies)
 
 ---
 

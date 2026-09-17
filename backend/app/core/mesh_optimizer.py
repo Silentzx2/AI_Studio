@@ -601,15 +601,15 @@ def optimize_mesh(
             skip_res["fallback_reason"] = fallback_reason
         return skip_res
 
-    # Basic cleanup (trimesh API differs across supported releases).
-    if hasattr(mesh, "remove_degenerate_faces"):
-        mesh.remove_degenerate_faces()
-    else:
+    # Basic cleanup (trimesh 4.x idiomatic API).
+    if hasattr(mesh, "nondegenerate_faces"):
         mesh.update_faces(mesh.nondegenerate_faces())
-    if hasattr(mesh, "remove_duplicate_faces"):
-        mesh.remove_duplicate_faces()
-    else:
+    elif hasattr(mesh, "remove_degenerate_faces"):
+        mesh.remove_degenerate_faces()
+    if hasattr(mesh, "unique_faces"):
         mesh.update_faces(mesh.unique_faces())
+    elif hasattr(mesh, "remove_duplicate_faces"):
+        mesh.remove_duplicate_faces()
     mesh.merge_vertices()
 
     # UV fixing: repair missing or corrupted UVs with xatlas if requested

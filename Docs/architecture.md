@@ -681,3 +681,86 @@ In-memory caching with TTL reduces redundant computation and improves response t
   - `GeneratePanel.tsx` features single-image drag-and-drop, 4-angle orthogonal multi-view capture (`crop`), direct text-to-3d prompt workshop (`wand`) with "Inspire Me" generation, and an HTML5 2D concept sketchpad (`edit`).
 - **SSR Acceleration & Dynamic Bailout Elimination**: Direct panel imports replace lazy dynamic components with `ssr: false` in `WorkspaceShell.tsx`, avoiding client-side hydration stalls and providing instant HTML markup.
 
+## 3D Generation & Detail Preservation Pipeline (v5.0.81)
+
+The v5.0.81 pipeline resolves facial/micro-feature geometric loss (eyes, ears, nose, teeth) when generating high-poly or raw meshes, dynamically scales voxel octrees, and introduces dual-delivery (master untouched vs game-ready decimated).
+
+### Generation & Detail Preservation Architecture Flowchart
+
+```mermaid
+flowchart TD
+    subgraph UI["Studio Frontend (Next.js 15 App Router)"]
+        A["GeneratePanel: Preset Selection<br/>Low (256³) | Medium (384³) | High (512³) | Ultra (640³) | Raw"] --> B["1-Click Mesh Quality Toolbar<br/>auto_optimize, target_faces, octree_res, steps"]
+        B --> C["API Client: POST /api/v1/generation/"]
+    end
+
+    subgraph Backend["FastAPI & Task Routing"]
+        C --> D["FastAPI /generation Endpoint<br/>Validation & Job Queueing"]
+        D --> E["Celery Worker (tasks.py: generate_3d_model)"]
+    end
+
+    subgraph Engine["Runtime Engine & Providers"]
+        E --> F{"Provider Select"}
+        F -->|Hunyuan3D 2.1 / 2-Mini| G["Dynamic Octree Grid (256 - 640)<br/>Diffusion Steps (20 - 75)<br/>Marching Cubes Surface Extractor"]
+        F -->|TRELLIS / TripoSG| H["TRELLIS Local Provider<br/>Quality Presets & 2048px Textures"]
+        G --> I["Raw Marching Cubes Mesh<br/>(Up to 1.5M - 2.5M Triangles)"]
+        H --> I
+    end
+
+    subgraph DetailPreserve["Texture & Detail Preservation"]
+        I --> J{"is_real_textured_mesh()?<br/>Check UVs & Non-Gray Vertex Colors"}
+        J -->|Raw / Untextured| K["_project_texture()<br/>Occlusion-Aware PBR Projection<br/>Tangent-Space Normal Map Baking"]
+        J -->|Already Textured| L["Preserve Texture Coordinates & Maps"]
+        K --> M["High-Fidelity Master GLB<br/>Preserves micro-features: nose, teeth, eyes, ears"]
+        L --> M
+    end
+
+    subgraph PostProcess["Dual Export & Decimation Flow"]
+        M --> N{"Generation Mode:<br/>auto_optimize == True?"}
+        N -->|Raw Master Mode (auto_optimize: false)| O["Skip All Decimation<br/>active_model_url = master_glb<br/>Full Geometric Fidelity"]
+        N -->|Game-Ready Mode (auto_optimize: true)| P["Meshoptimizer Quadric Decimation<br/>Boundary-Locked & Attribute-Preserving<br/>Clay PostProcessor (LOD0-LOD2)"]
+        P --> Q["Deliver game_ready.glb<br/>active_model_url = game_ready_url<br/>master_model_url = master_glb"]
+    end
+
+    subgraph ClientLoad["Frontend Mesh Viewport"]
+        O --> R["Viewport / MeshViewer: Load Active Model<br/>Direct PBR Shading & Orbit Controls"]
+        Q --> R
+    end
+```
+
+### Google Colab & Headless Deployment Architecture Flowchart
+
+```mermaid
+flowchart TD
+    subgraph Colab["Google Colab Runtime (T4, V100, L4, A100)"]
+        NB["colab.ipynb / AI_Studio_Colab.ipynb"]
+        NB --> C1["Cell 1: GPU & RAM Diagnostic (nvidia-smi, CUDA)"]
+        NB --> C2["Cell 2: Git Clone / Sync (--depth 1, pull --rebase)"]
+        NB --> C3["Cell 3: 1-Click Bootstrap Launcher"]
+        NB --> C4["Cell 4: Maintenance & Daemon Supervisor Controls"]
+    end
+
+    subgraph Bootstrap["Bootstrap & Optimization Engine (scripts/colab.sh)"]
+        C3 --> SWAP["setup_swap(): Allocate 8GB Swapfile<br/>(Guards against Linux Kernel OOM Killer)"]
+        SWAP --> VENV["uv Virtualenv Provisioning<br/>Targeted Python 3.12+ Backend"]
+        VENV --> PYBUILD["Next.js Turbopack Build & Alembic Migrations"]
+        PYBUILD --> DAEMONS["Service Orchestrator (--pool=solo)"]
+    end
+
+    subgraph Supervisor["Watchdog & Process Guard (scripts/colab_watch.sh)"]
+        DAEMONS --> FASTAPI["FastAPI Daemon (:8000)"]
+        DAEMONS --> CELERY["Celery Solo Worker (Queue: default, installation)"]
+        DAEMONS --> NEXT["Next.js Production Server (:3000)"]
+        DAEMONS --> CF["Cloudflare Named / Quick Tunnels"]
+        FASTAPI --- WATCH["Watchdog Loop (Health Check + Auto Restart)"]
+        CELERY --- WATCH
+        NEXT --- WATCH
+    end
+
+    subgraph Egress["Public Remote Access"]
+        CF --> CARD["Interactive HTML Status Card<br/>Instant Clickable Links: Studio UI & API Docs"]
+        CARD --> CLIENT["Remote Browser Client"]
+    end
+```
+
+
