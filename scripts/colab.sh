@@ -500,8 +500,9 @@ ensure_node_bun() {
     done
 
     if command -v bun &>/dev/null; then
-        if [[ -f "$HOME/.bun/bin/bun" ]] && [[ ! -e /usr/local/bin/bun ]]; then
+        if [[ -f "$HOME/.bun/bin/bun" ]]; then
             sudo ln -sf "$HOME/.bun/bin/bun" /usr/local/bin/bun 2>/dev/null || ln -sf "$HOME/.bun/bin/bun" /usr/local/bin/bun 2>/dev/null || true
+            sudo ln -sf "$HOME/.bun/bin/bun" /usr/bin/bun 2>/dev/null || ln -sf "$HOME/.bun/bin/bun" /usr/bin/bun 2>/dev/null || true
         fi
         log "Bun ready: $(bun --version 2>/dev/null || echo unknown)"
         return 0
@@ -512,8 +513,9 @@ ensure_node_bun() {
         curl -fsSL https://bun.sh/install | bash 2>/dev/null && {
             hash -r 2>/dev/null || true
             export PATH="$HOME/.bun/bin:$PATH"
-            if [[ -f "$HOME/.bun/bin/bun" ]] && [[ ! -e /usr/local/bin/bun ]]; then
+            if [[ -f "$HOME/.bun/bin/bun" ]]; then
                 sudo ln -sf "$HOME/.bun/bin/bun" /usr/local/bin/bun 2>/dev/null || ln -sf "$HOME/.bun/bin/bun" /usr/local/bin/bun 2>/dev/null || true
+                sudo ln -sf "$HOME/.bun/bin/bun" /usr/bin/bun 2>/dev/null || ln -sf "$HOME/.bun/bin/bun" /usr/bin/bun 2>/dev/null || true
             fi
             if command -v bun &>/dev/null; then
                 log "Bun installed: $(bun --version 2>/dev/null || echo unknown)"
