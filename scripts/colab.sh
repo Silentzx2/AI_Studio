@@ -552,6 +552,27 @@ ensure_node_bun() {
     return 1
 }
 
+# Helper: run command with bun if available, else npm fallback
+run_bun_or_npm() {
+    local bun_cmd="$1"
+    local npm_cmd="$2"
+    if command -v bun &>/dev/null; then
+        eval "$bun_cmd"
+    else
+        eval "$npm_cmd"
+    fi
+}
+
+# Helper: install package globally with bun or npm
+install_global_bun_or_npm() {
+    local pkg="$1"
+    if command -v bun &>/dev/null; then
+        bun install -g "$pkg" >/dev/null 2>&1
+    else
+        npm install -g "$pkg" >/dev/null 2>&1
+    fi
+}
+
 # ── Colab Service Management Functions ─────────────────────────────────────
 # These functions manage services independently of the bootstrap flow,
 # allowing start/stop/restart without re-running the full setup.
@@ -2394,7 +2415,7 @@ fi
 
 if [[ ! -d node_modules ]]; then
     info "Installing Bun dependencies..."
-    run_bun_or_npm "bun ci 2>bun ci 2>&1 | grep -E '(added|up to date)' || true1 | grep -E '(added|up to date)'" "npm ci 2>bun ci 2>&1 | grep -E '(added|up to date)' || true1 | grep -E '(added|up to date)'" || true
+    run_bun_or_npm "bun ci" "npm ci" 2>&1 | grep -E '(added|up to date)' || true
 fi
 
 if [[ ! -d .next ]]; then
@@ -2415,12 +2436,14 @@ effective_backend_url="${BACKEND_URL:-http://127.0.0.1:8000}"
 if [[ "$effective_backend_url" == *"api:8000"* ]]; then
     effective_backend_url="http://127.0.0.1:8000"
 fi
+local_frontend_cmd="npm start"
+command -v bun &>/dev/null && local_frontend_cmd="bun start"
 nohup env HOSTNAME=0.0.0.0 PORT=3000 BACKEND_URL="$effective_backend_url" NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}" \
-    run_bun_or_npm "bun start" "npm start" \
+    $local_frontend_cmd \
     > "$LOG_DIR/frontend.log" 2>&1 &
 write_pid "$PID_DIR/frontend.pid" $!
 
-log "Frontend started ($(command -v bun log "Frontend started (bun start, PID: $(cat $PID_DIR/frontend.pid))">/dev/null log "Frontend started (bun start, PID: $(cat $PID_DIR/frontend.pid))"log "Frontend started (bun start, PID: $(cat $PID_DIR/frontend.pid))" echo "bun start" || echo "npm start"), PID: $(cat $PID_DIR/frontend.pid))"
+log "Frontend started ($(command -v bun &>/dev/null && echo "bun start" || echo "npm start"), PID: $(cat $PID_DIR/frontend.pid))"
 
 # Wait for Frontend to be ready. Do not report success until the root page
 # actually responds — a PID alone is not readiness (see spec §9).

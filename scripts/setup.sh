@@ -1080,10 +1080,17 @@ PYEOF
 
 install_frontend_deps() {
   head_ "Installing Frontend Dependencies"
-  bun ci 2>/dev/null || bun install || {
-    warn "Frontend dependency installation had issues — check Bun output"
-    return 0
-  }
+  if command -v bun &>/dev/null; then
+    bun ci 2>/dev/null || bun install || {
+      warn "Frontend dependency installation had issues — check Bun output"
+      return 0
+    }
+  else
+    npm ci 2>/dev/null || npm install || {
+      warn "Frontend dependency installation had issues — check npm output"
+      return 0
+    }
+  fi
   log "Frontend dependencies installed"
 }
 
@@ -1100,11 +1107,21 @@ build_frontend() {
     fi
 
     echo -e "  ${BOLD}Building Next.js (this takes 2-5 minutes)${NC}"
-    bun run build 2>&1 | while IFS= -r read -n1 char; do
-        case "$char" in
-            .) printf "${GREEN}█${NC}" ;;
-            $'\n') printf "\n" ;;
-        esac
+    if command -v bun &>/dev/null; then
+        bun run build 2>&1 | while IFS= -r read -n1 char; do
+            case "$char" in
+                .) printf "${GREEN}█${NC}" ;;
+                $'\n') printf "\n" ;;
+            esac
+        done
+    else
+        npm run build 2>&1 | while IFS= -r read -n1 char; do
+            case "$char" in
+                .) printf "${GREEN}█${NC}" ;;
+                $'\n') printf "\n" ;;
+            esac
+        done
+    fi
     done || {
         err "Frontend build failed"
         return 1
