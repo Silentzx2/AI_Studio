@@ -1406,6 +1406,22 @@ if [[ -n "${COLAB_RELEASE_TAG:-}" ]]; then
         libfreetype6-dev liblcms2-dev libopenjp2-7-dev libtiff-dev libwebp-dev \
         ninja-build pkg-config python3-venv python3-pip python3-yaml xvfb \
         libglu1-mesa libgl1 >/dev/null 2>&1 || true
+    # ponytail: modern CUDA distributions ship libnvrtc.so.12 without libnvrtc.so.
+    # PyTorch's FindCUDA looks for unversioned .so; symlink them if missing.
+    for _cuda_lib_dir in /usr/local/cuda/lib64 /usr/local/cuda/targets/x86_64-linux/lib /usr/lib/x86_64-linux-gnu; do
+        if [[ -d "$_cuda_lib_dir" ]]; then
+            for _lib in nvrtc cudart nvToolsExt; do
+                if [[ ! -e "$_cuda_lib_dir/lib${_lib}.so" ]]; then
+                    for _f in "$_cuda_lib_dir"/lib${_lib}.so.*; do
+                        if [[ -f "$_f" ]]; then
+                            sudo ln -sf "$_f" "$_cuda_lib_dir/lib${_lib}.so" 2>/dev/null || ln -sf "$_f" "$_cuda_lib_dir/lib${_lib}.so" 2>/dev/null || true
+                            break
+                        fi
+                    done
+                fi
+            done
+        fi
+    done
     ok "System build dependencies installed for Colab"
 else
     info "Non-Colab environment — assuming system deps available"

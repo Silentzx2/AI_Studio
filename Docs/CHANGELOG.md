@@ -4,6 +4,15 @@ All notable changes, architectural updates, and feature implementations for AI 3
 
 ---
 
+## [5.0.82] — 2026-09-17
+
+### 🐛 Colab & Build Pipeline Root-Cause Repairs
+
+- **`backend/runtime/dependency_resolver.py`**: Auto-symlink `libnvrtc.so` from versioned `libnvrtc.so.*` in system CUDA directories and torch `site-packages/nvidia/cuda_nvrtc/lib`. Pass `-DCUDA_nvrtc_LIBRARY` to both `CMAKE_ARGS`, `SKBUILD_CMAKE_ARGS`, and pip `--config-setting cmake.args` for `torchmcubes` builds under scikit-build-core.
+- **`scripts/colab.sh`**: Add system CUDA unversioned symlink generation for `libnvrtc.so`, `libcudart.so`, and `libnvToolsExt.so` after installing system build dependencies.
+
+---
+
 ## [5.0.81] — 2026-09-17
 
 ### 🐛 GPU Pipeline Root-Cause Repairs (VRAM/OOM/False-Success)
